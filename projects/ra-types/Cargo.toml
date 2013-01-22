@@ -1,0 +1,11 @@
+[package]
+name = "ra-types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "RA 引擎基类型"
+
+[dependencies]
+thiserror = { workspace = true }
+bitflags = { workspace = true }

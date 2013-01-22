@@ -1,0 +1,21 @@
+# OS
+.DS_Store/
+thumbs.db
+time-travel.*
+
+# IDE
+.vscode/
+.vs/
+.idea/
+*.iml
+
+# Rust
+target/
+Cargo.lock
+
+
+# Node
+node_modules/
+dist/
+*.txt
+*.log

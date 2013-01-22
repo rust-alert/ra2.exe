@@ -1,0 +1,21 @@
+[package]
+name = "ra-desktop"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "原生 GUI 壳；产出 ra2 二进制"
+publish = false
+
+[[bin]]
+name = "ra2"
+path = "src/main.rs"
+
+[dependencies]
+ra-types = { workspace = true }
+ra-assets = { workspace = true }
+ra-rules = { workspace = true }
+ra-map = { workspace = true }
+ra-world = { workspace = true }
+ra-renderer = { workspace = true }
+winit = { workspace = true }

@@ -1,0 +1,10 @@
+[package]
+name = "ra-assets"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Westwood 格式解析"
+
+[dependencies]
+ra-types = { workspace = true }

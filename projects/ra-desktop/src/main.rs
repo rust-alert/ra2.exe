@@ -1,0 +1,164 @@
+//! 原生 GUI 入口：二进制名 `ra2`（Windows 上为 `ra2.exe`）。
+//!
+//! 不是命令行工具——启动配置来自 exe/工作目录旁的 `config.toml`，然后由窗口接管进程。
+
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod config;
+mod fs_source;
+
+use std::sync::Arc;
+
+use ra_assets::MixArchive;
+use ra_map::MapInfo;
+use ra_renderer::Renderer;
+use ra_rules::load_rules;
+use ra_types::{detect_edition, AssetSource, GameEdition, RaError, RaResult};
+use ra_world::World;
+use winit::application::ApplicationHandler;
+use winit::event::WindowEvent;
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::window::{Window, WindowId};
+
+use crate::config::DesktopConfig;
+use crate::fs_source::FsAssetSource;
+
+struct App {
+    window: Option<Arc<Window>>,
+    title_base: String,
+    boot_note: String,
+    world: Option<World>,
+    renderer: Renderer,
+}
+
+impl App {
+    fn new(boot_note: String, world: Option<World>) -> Self {
+        let edition = world
+            .as_ref()
+            .map(|w| w.edition.as_str())
+            .unwrap_or("—");
+        Self {
+            window: None,
+            title_base: format!("ra2 ({edition})"),
+            boot_note,
+            world,
+            renderer: Renderer::new(),
+        }
+    }
+
+    fn refresh_title(&self) {
+        if let Some(window) = &self.window {
+            let tick = self.world.as_ref().map(|w| w.tick).unwrap_or(0);
+            window.set_title(&format!(
+                "{} · {} · t{}",
+                self.title_base, self.boot_note, tick
+            ));
+        }
+    }
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+        let window = Arc::new(
+            event_loop
+                .create_window(
+                    Window::default_attributes()
+                        .with_title(self.title_base.clone())
+                        .with_inner_size(winit::dpi::LogicalSize::new(1024.0, 768.0)),
+                )
+                .expect("创建窗口失败"),
+        );
+        self.window = Some(window);
+        self.refresh_title();
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::RedrawRequested => {
+                if let Some(world) = self.world.as_mut() {
+                    world.advance_tick();
+                    self.renderer.draw_frame(world);
+                }
+                self.refresh_title();
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        if let Some(window) = &self.window {
+            window.request_redraw();
+        }
+    }
+}
+
+fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
+    let root = cfg.game_dir();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => Some(GameEdition::parse(s)?),
+        None => None,
+    };
+    let manifest = detect_edition(&root, explicit)?;
+    let chain = &manifest.chain;
+    let source = FsAssetSource {
+        root: manifest.root.clone(),
+    };
+
+    let mut note = format!(
+        "{} · mix 就绪 {} / 缺失 {}",
+        chain.edition.as_str(),
+        manifest.present_mixes.len(),
+        manifest.missing_mixes.len()
+    );
+
+    if let Some(name) = manifest.present_mixes.first() {
+        match source.read(name).and_then(MixArchive::parse) {
+            Ok(mix) => note = format!("{note} · `{name}`#{}", mix.entry_count()),
+            Err(_) => {}
+        }
+    }
+
+    let world = match load_rules(&source, chain.edition) {
+        Ok(rules) => {
+            let map = MapInfo::empty(chain.edition, "boot");
+            Some(World::new(chain.edition, &rules, map))
+        }
+        Err(e) => {
+            note = format!("{note} · 规则待加载（{e}）");
+            None
+        }
+    };
+
+    Ok((note, world))
+}
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("ra2 错误: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> RaResult<()> {
+    let cfg = DesktopConfig::load_or_default();
+    let (boot_note, world) = match boot_world(&cfg) {
+        Ok(v) => v,
+        Err(e) => (format!("启动失败: {e}"), None),
+    };
+
+    let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    let mut app = App::new(boot_note, world);
+    event_loop
+        .run_app(&mut app)
+        .map_err(|e| RaError::Msg(e.to_string()))?;
+    Ok(())
+}

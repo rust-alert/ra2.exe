@@ -1,0 +1,8 @@
+# config.toml.example
+
+# 游戏安装目录（含 MIX / INI）
+ra2_dir = "../Red_Alert_2"
+
+# 可选：强制版本。不写则自动探测。
+# edition = "ra2"
+# edition = "yr"

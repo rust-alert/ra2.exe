@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = ["projects/*"]
+default-members = ["projects/ra-desktop"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Aster <192607617@qq.com>"]
+license = "MPL-2.0"
+
+[workspace.dependencies]
+ra-types = { path = "projects/ra-types" }
+ra-assets = { path = "projects/ra-assets" }
+ra-rules = { path = "projects/ra-rules" }
+ra-map = { path = "projects/ra-map" }
+ra-world = { path = "projects/ra-world" }
+ra-renderer = { path = "projects/ra-renderer" }
+thiserror = "2"
+bitflags = "2"
+bytemuck = { version = "1", features = ["derive"] }
+wgpu = { version = "24", default-features = true }
+winit = "0.30"
+pollster = "0.4"
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "console"] }
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = true
+strip = "symbols"
+panic = "abort"

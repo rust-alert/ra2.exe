@@ -1,0 +1,12 @@
+[package]
+name = "ra-world"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "确定性世界推进与状态"
+
+[dependencies]
+ra-types = { workspace = true }
+ra-rules = { workspace = true }
+ra-map = { workspace = true }

@@ -1,0 +1,11 @@
+[package]
+name = "ra-map"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "地图与剧院加载"
+
+[dependencies]
+ra-types = { workspace = true }
+ra-assets = { workspace = true }
