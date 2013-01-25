@@ -1,7 +1,8 @@
 //! 按版本对应的 INI 名加载规则。
 
+use ra_adaptor::ResourceChain;
 use ra_assets::IniDocument;
-use ra_types::{AssetSource, GameEdition, RaResult, ResourceChain};
+use ra_types::{AssetSource, GameEdition, RaResult};
 
 #[derive(Debug, Clone)]
 pub struct RulesDb {

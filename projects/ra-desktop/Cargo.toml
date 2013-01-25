@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 ra-types = { workspace = true }
+ra-adaptor = { workspace = true }
 ra-assets = { workspace = true }
 ra-rules = { workspace = true }
 ra-map = { workspace = true }

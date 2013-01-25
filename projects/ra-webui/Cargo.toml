@@ -1,5 +1,5 @@
 [package]
-name = "ra-web"
+name = "ra-webui"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

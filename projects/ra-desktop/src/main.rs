@@ -9,11 +9,12 @@ mod fs_source;
 
 use std::sync::Arc;
 
+use ra_adaptor::detect_edition;
 use ra_assets::MixArchive;
 use ra_map::MapInfo;
 use ra_renderer::Renderer;
 use ra_rules::load_rules;
-use ra_types::{detect_edition, AssetSource, GameEdition, RaError, RaResult};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -120,8 +121,8 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
 
     if let Some(name) = manifest.present_mixes.first() {
         match source.read(name).and_then(MixArchive::parse) {
-            Ok(mix) => note = format!("{note} · `{name}`#{}", mix.entry_count()),
-            Err(_) => {}
+            Ok(mix) => note = format!("{note} · {name}#{}", mix.entry_count()),
+            Err(e) => note = format!("{note} · {name} 解析失败（{e}）"),
         }
     }
 

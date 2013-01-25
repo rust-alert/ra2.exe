@@ -7,7 +7,7 @@ mod fixed;
 mod ids;
 
 pub use asset_source::AssetSource;
-pub use edition::{detect_edition, EditionManifest, GameEdition, ResourceChain};
+pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
 pub use fixed::Fixed16;
 pub use ids::{EntityId, PlayerId, TypeId};

@@ -1,12 +1,10 @@
 [package]
-name = "ra-rules"
+name = "ra-adaptor-ra2"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "INI 规则投影"
+description = "原版红色警戒 2 资源表"
 
 [dependencies]
 ra-types = { workspace = true }
-ra-adaptor = { workspace = true }
-ra-assets = { workspace = true }

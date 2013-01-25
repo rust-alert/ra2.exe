@@ -22,17 +22,21 @@ edition = "ra2"
 cargo run -p ra-desktop
 ```
 
-浏览器目标（WebGL2）：`ra-web`。
+浏览器目标（WebGL2）：`ra-webui`。
 
 ## Crate
 
 | Crate | 作用 |
 |-------|------|
 | `ra-types` | 基类型（`GameEdition`、错误、`AssetSource`） |
+| `ra-adaptor` | 版本探测与资源表装配 |
+| `ra-adaptor-ra2` | 原版资源表 |
+| `ra-adaptor-yr` | 尤里的复仇资源表 |
+| `ra-adaptor-mo3` | MO3 音乐载荷适配 |
 | `ra-assets` | MIX 等格式解析 |
 | `ra-rules` | INI 规则投影 |
 | `ra-map` | 地图 / 剧院 |
 | `ra-world` | 确定性世界推进（`World`） |
 | `ra-renderer` | wgpu 渲染（原生 + WebGL2） |
 | `ra-desktop` | 原生 GUI 壳 → 二进制 `ra2` |
-| `ra-web` | Wasm 壳 |
+| `ra-webui` | Wasm 壳 |

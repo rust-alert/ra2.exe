@@ -1,12 +1,12 @@
 [package]
-name = "ra-rules"
+name = "ra-adaptor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "INI 规则投影"
+description = "版本探测与资源表装配"
 
 [dependencies]
 ra-types = { workspace = true }
-ra-adaptor = { workspace = true }
-ra-assets = { workspace = true }
+ra-adaptor-ra2 = { workspace = true }
+ra-adaptor-yr = { workspace = true }
