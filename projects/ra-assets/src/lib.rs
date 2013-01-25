@@ -2,6 +2,9 @@
 
 mod ini;
 mod mix;
+mod mix_crypto;
+mod mix_hash;
 
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
+pub use mix_hash::mix_hash;

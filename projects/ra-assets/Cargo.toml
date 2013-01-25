@@ -8,3 +8,6 @@ description = "Westwood 格式解析"
 
 [dependencies]
 ra-types = { workspace = true }
+blowfish = { workspace = true }
+byteorder = "1"
+num-bigint = { workspace = true }
