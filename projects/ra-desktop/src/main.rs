@@ -9,12 +9,11 @@ mod fs_source;
 
 use std::sync::Arc;
 
-use ra_adaptor::detect_edition;
-use ra_assets::MixArchive;
+use ra_adaptor::{detect_edition, find_ci_file};
 use ra_map::MapInfo;
 use ra_renderer::Renderer;
 use ra_rules::load_rules;
-use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -22,7 +21,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
 use crate::config::DesktopConfig;
-use crate::fs_source::FsAssetSource;
+use crate::fs_source::GameAssetSource;
 
 struct App {
     window: Option<Arc<Window>>,
@@ -108,26 +107,39 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
     };
     let manifest = detect_edition(&root, explicit)?;
     let chain = &manifest.chain;
-    let source = FsAssetSource {
-        root: manifest.root.clone(),
-    };
 
-    let mut note = format!(
-        "{} · mix 就绪 {} / 缺失 {}",
-        chain.edition.as_str(),
-        manifest.present_mixes.len(),
-        manifest.missing_mixes.len()
-    );
+    let mut source = GameAssetSource::new(manifest.root.clone());
 
-    if let Some(name) = manifest.present_mixes.first() {
-        match source.read(name).and_then(MixArchive::parse) {
-            Ok(mix) => note = format!("{note} · {name}#{}", mix.entry_count()),
-            Err(e) => note = format!("{note} · {name} 解析失败（{e}）"),
+    let mut mounted_root = 0usize;
+    for name in &manifest.present_mixes {
+        let Some(path) = find_ci_file(&manifest.root, name) else {
+            continue;
+        };
+        let data = std::fs::read(&path)
+            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        source.vfs.mount_bytes(name.clone(), data)?;
+        mounted_root += 1;
+    }
+
+    let mut mounted_nested = 0usize;
+    for name in chain.nested_mix_files {
+        if source.vfs.mount_nested(name)? {
+            mounted_nested += 1;
         }
     }
 
+    let mut note = format!(
+        "{} · 根mix {} · 嵌套 {} · 缺盘 {}",
+        chain.edition.as_str(),
+        mounted_root,
+        mounted_nested,
+        manifest.missing_mixes.len()
+    );
+
     let world = match load_rules(&source, chain.edition) {
         Ok(rules) => {
+            let sections = rules.rules.sections.len();
+            note = format!("{note} · rules#{sections}");
             let map = MapInfo::empty(chain.edition, "boot");
             Some(World::new(chain.edition, &rules, map))
         }

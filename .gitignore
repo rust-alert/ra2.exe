@@ -13,6 +13,10 @@ time-travel.*
 target/
 Cargo.lock
 
+# 本地启动配置（保留 config.toml.example）
+config.toml
+ra2.toml
+
 
 # Node
 node_modules/
