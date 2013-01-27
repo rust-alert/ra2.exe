@@ -111,28 +111,34 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
     let mut source = GameAssetSource::new(manifest.root.clone());
 
     let mut mounted_root = 0usize;
+    let mut skipped_root = 0usize;
     for name in &manifest.present_mixes {
         let Some(path) = find_ci_file(&manifest.root, name) else {
             continue;
         };
         let data = std::fs::read(&path)
             .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
-        source.vfs.mount_bytes(name.clone(), data)?;
-        mounted_root += 1;
+        match source.vfs.mount_bytes(name.clone(), data) {
+            Ok(()) => mounted_root += 1,
+            Err(_) => skipped_root += 1,
+        }
     }
 
     let mut mounted_nested = 0usize;
     for name in chain.nested_mix_files {
-        if source.vfs.mount_nested(name)? {
-            mounted_nested += 1;
+        match source.vfs.mount_nested(name) {
+            Ok(true) => mounted_nested += 1,
+            Ok(false) => {}
+            Err(_) => {}
         }
     }
 
     let mut note = format!(
-        "{} · 根mix {} · 嵌套 {} · 缺盘 {}",
+        "{} · 根mix {} · 嵌套 {} · 跳过 {} · 缺盘 {}",
         chain.edition.as_str(),
         mounted_root,
         mounted_nested,
+        skipped_root,
         manifest.missing_mixes.len()
     );
 
@@ -165,6 +171,11 @@ fn run() -> RaResult<()> {
         Ok(v) => v,
         Err(e) => (format!("启动失败: {e}"), None),
     };
+    eprintln!(
+        "ra2 boot: {} · world={}",
+        boot_note,
+        if world.is_some() { "ok" } else { "none" }
+    );
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
