@@ -9,3 +9,6 @@ description = "wgpu 渲染（原生 + WebGL2）"
 [dependencies]
 ra-types = { workspace = true }
 ra-world = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+pollster = { workspace = true }
