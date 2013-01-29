@@ -71,6 +71,11 @@ impl ApplicationHandler for App {
                 )
                 .expect("创建窗口失败"),
         );
+        if let Err(e) = self.renderer.attach_window(window.clone()) {
+            eprintln!("ra2 wgpu: {e}");
+        } else {
+            eprintln!("ra2 gpu: {}", self.renderer.backend_name());
+        }
         self.window = Some(window);
         self.refresh_title();
     }
@@ -78,11 +83,14 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(size) => {
+                self.renderer.resize(size.width, size.height);
+            }
             WindowEvent::RedrawRequested => {
                 if let Some(world) = self.world.as_mut() {
                     world.advance_tick();
-                    self.renderer.draw_frame(world);
                 }
+                self.renderer.draw_frame(self.world.as_ref());
                 self.refresh_title();
                 if let Some(window) = &self.window {
                     window.request_redraw();
