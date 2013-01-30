@@ -5,8 +5,10 @@ mod mix;
 mod mix_crypto;
 mod mix_hash;
 mod mix_vfs;
+mod pal;
 
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
 pub use mix_hash::mix_hash;
 pub use mix_vfs::MixVfs;
+pub use pal::{Palette, Rgba};
