@@ -10,8 +10,9 @@ mod fs_source;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
+use ra_assets::{Palette, ShpFile};
 use ra_map::MapInfo;
-use ra_renderer::Renderer;
+use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
 use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
@@ -32,17 +33,21 @@ struct App {
 }
 
 impl App {
-    fn new(boot_note: String, world: Option<World>) -> Self {
+    fn new(boot_note: String, world: Option<World>, preview: Option<RgbaImage>) -> Self {
         let edition = world
             .as_ref()
             .map(|w| w.edition.as_str())
             .unwrap_or("—");
+        let mut renderer = Renderer::new();
+        if let Some(image) = preview {
+            renderer.set_preview(image);
+        }
         Self {
             window: None,
             title_base: format!("ra2 ({edition})"),
             boot_note,
             world,
-            renderer: Renderer::new(),
+            renderer,
         }
     }
 
@@ -74,7 +79,15 @@ impl ApplicationHandler for App {
         if let Err(e) = self.renderer.attach_window(window.clone()) {
             eprintln!("ra2 wgpu: {e}");
         } else {
-            eprintln!("ra2 gpu: {}", self.renderer.backend_name());
+            eprintln!(
+                "ra2 gpu: {} · preview={}",
+                self.renderer.backend_name(),
+                if self.renderer.has_preview() {
+                    "yes"
+                } else {
+                    "no"
+                }
+            );
         }
         self.window = Some(window);
         self.refresh_title();
@@ -107,7 +120,47 @@ impl ApplicationHandler for App {
     }
 }
 
-fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
+struct BootResult {
+    note: String,
+    world: Option<World>,
+    preview: Option<RgbaImage>,
+}
+
+fn load_preview_sprite(source: &GameAssetSource) -> Option<(String, RgbaImage)> {
+    let pal_bytes = source.vfs.read("unittem.pal")?;
+    let pal = Palette::parse(&pal_bytes).ok()?;
+    let candidates = [
+        "mouse.shp",
+        "e1.shp",
+        "clock.shp",
+        "power.shp",
+        "gaairc.shp",
+    ];
+    for name in candidates {
+        let Some(bytes) = source.vfs.read(name) else {
+            continue;
+        };
+        let Ok(shp) = ShpFile::parse(&bytes) else {
+            continue;
+        };
+        let Some(frame) = shp.frames.first() else {
+            continue;
+        };
+        if frame.frame_width == 0 || frame.frame_height == 0 {
+            continue;
+        }
+        let rgba = frame.to_rgba(&pal);
+        let image = RgbaImage::new(
+            u32::from(frame.frame_width),
+            u32::from(frame.frame_height),
+            rgba,
+        )?;
+        return Some((name.to_string(), image));
+    }
+    None
+}
+
+fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let root = cfg.game_dir();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),
@@ -150,6 +203,17 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
         manifest.missing_mixes.len()
     );
 
+    let preview = match load_preview_sprite(&source) {
+        Some((name, image)) => {
+            note = format!("{note} · shp:{name}");
+            Some(image)
+        }
+        None => {
+            note = format!("{note} · shp:无");
+            None
+        }
+    };
+
     let world = match load_rules(&source, chain.edition) {
         Ok(rules) => {
             let sections = rules.rules.sections.len();
@@ -163,7 +227,11 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<(String, Option<World>)> {
         }
     };
 
-    Ok((note, world))
+    Ok(BootResult {
+        note,
+        world,
+        preview,
+    })
 }
 
 fn main() {
@@ -175,20 +243,24 @@ fn main() {
 
 fn run() -> RaResult<()> {
     let cfg = DesktopConfig::load_or_default();
-    let (boot_note, world) = match boot_world(&cfg) {
+    let boot = match boot_world(&cfg) {
         Ok(v) => v,
-        Err(e) => (format!("启动失败: {e}"), None),
+        Err(e) => BootResult {
+            note: format!("启动失败: {e}"),
+            world: None,
+            preview: None,
+        },
     };
     eprintln!(
         "ra2 boot: {} · world={}",
-        boot_note,
-        if world.is_some() { "ok" } else { "none" }
+        boot.note,
+        if boot.world.is_some() { "ok" } else { "none" }
     );
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(boot_note, world);
+    let mut app = App::new(boot.note, boot.world, boot.preview);
     event_loop
         .run_app(&mut app)
         .map_err(|e| RaError::Msg(e.to_string()))?;
