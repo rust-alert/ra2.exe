@@ -4,6 +4,8 @@
 //! 本 crate **故意不**实现 DirectDraw。
 
 mod gpu;
+mod rgba_image;
+mod sprite;
 
 use std::sync::Arc;
 
@@ -12,6 +14,9 @@ use ra_world::World;
 use winit::window::Window;
 
 use crate::gpu::GpuContext;
+use crate::sprite::SpriteGpu;
+
+pub use crate::rgba_image::RgbaImage;
 
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -24,6 +29,8 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 pub struct Renderer {
     pub frames: u64,
     gpu: Option<GpuContext>,
+    preview: Option<RgbaImage>,
+    sprite: Option<SpriteGpu>,
 }
 
 impl Renderer {
@@ -31,7 +38,27 @@ impl Renderer {
         Self {
             frames: 0,
             gpu: None,
+            preview: None,
+            sprite: None,
         }
+    }
+
+    /// 设置启动预览图（窗口附着后上传）。
+    pub fn set_preview(&mut self, image: RgbaImage) {
+        if let Some(gpu) = self.gpu.as_ref() {
+            match self.sprite.as_mut() {
+                Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
+                None => {
+                    self.sprite = Some(SpriteGpu::create(
+                        &gpu.device,
+                        &gpu.queue,
+                        gpu.config.format,
+                        &image,
+                    ));
+                }
+            }
+        }
+        self.preview = Some(image);
     }
 
     /// 窗口就绪后绑定表面。可重复调用（忽略已绑定）。
@@ -39,7 +66,16 @@ impl Renderer {
         if self.gpu.is_some() {
             return Ok(());
         }
-        self.gpu = Some(GpuContext::new(window)?);
+        let gpu = GpuContext::new(window)?;
+        if let Some(image) = self.preview.as_ref() {
+            self.sprite = Some(SpriteGpu::create(
+                &gpu.device,
+                &gpu.queue,
+                gpu.config.format,
+                image,
+            ));
+        }
+        self.gpu = Some(gpu);
         Ok(())
     }
 
@@ -49,7 +85,7 @@ impl Renderer {
         }
     }
 
-    /// 清屏一帧。世界参数留给后续精灵/地形通道。
+    /// 清屏，并在有预览精灵时居中绘制。
     pub fn draw_frame(&mut self, world: Option<&World>) {
         if let Some(world) = world {
             let _ = world.edition;
@@ -64,14 +100,19 @@ impl Renderer {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        if let Some(sprite) = self.sprite.as_ref() {
+            sprite.write_vertices(&gpu.queue, gpu.config.width, gpu.config.height);
+        }
+
         let mut encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("ra.clear"),
+                label: Some("ra.frame"),
             });
         {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ra.clear_pass"),
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ra.frame_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -84,6 +125,9 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            if let Some(sprite) = self.sprite.as_ref() {
+                sprite.draw(&mut pass, gpu.config.width, gpu.config.height);
+            }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
@@ -94,6 +138,10 @@ impl Renderer {
             .as_ref()
             .map(|g| g.backend_label())
             .unwrap_or("wgpu(pending)")
+    }
+
+    pub fn has_preview(&self) -> bool {
+        self.sprite.is_some()
     }
 
     pub fn backend_hint(edition: GameEdition) -> &'static str {

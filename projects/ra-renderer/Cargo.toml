@@ -12,3 +12,5 @@ ra-world = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
 pollster = { workspace = true }
+bytemuck = { workspace = true }
+
