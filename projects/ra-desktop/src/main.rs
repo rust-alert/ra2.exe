@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{Palette, ShpFile};
-use ra_map::MapInfo;
+use ra_map::{theater_mix_names, MapInfo};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
 use ra_types::{GameEdition, RaError, RaResult};
@@ -160,6 +160,44 @@ fn load_preview_sprite(source: &GameAssetSource) -> Option<(String, RgbaImage)> 
     None
 }
 
+fn load_boot_map(
+    source: &mut GameAssetSource,
+    edition: GameEdition,
+    note: &mut String,
+) -> MapInfo {
+    const CANDIDATES: &[&str] = &["mp01t4.map", "mp01t2.map", "mp02t4.map"];
+    for name in CANDIDATES {
+        let Some(bytes) = source.vfs.read(name) else {
+            continue;
+        };
+        match MapInfo::parse_ini(edition, *name, &bytes) {
+            Ok(map) => {
+                let mut theater_mounted = 0usize;
+                for mix_name in theater_mix_names(map.theater) {
+                    match source.vfs.mount_nested(mix_name) {
+                        Ok(true) => theater_mounted += 1,
+                        Ok(false) => {}
+                        Err(_) => {}
+                    }
+                }
+                *note = format!(
+                    "{note} · map:{name} {}x{} {} · 剧院mix {}",
+                    map.width,
+                    map.height,
+                    map.theater.as_str(),
+                    theater_mounted
+                );
+                return map;
+            }
+            Err(e) => {
+                *note = format!("{note} · map:{name} 解析失败（{e}）");
+            }
+        }
+    }
+    *note = format!("{note} · map:无");
+    MapInfo::empty(edition, "boot")
+}
+
 fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let root = cfg.game_dir();
     let explicit = match cfg.edition.as_deref() {
@@ -203,6 +241,8 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         manifest.missing_mixes.len()
     );
 
+    let map = load_boot_map(&mut source, chain.edition, &mut note);
+
     let preview = match load_preview_sprite(&source) {
         Some((name, image)) => {
             note = format!("{note} · shp:{name}");
@@ -218,7 +258,6 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         Ok(rules) => {
             let sections = rules.rules.sections.len();
             note = format!("{note} · rules#{sections}");
-            let map = MapInfo::empty(chain.edition, "boot");
             Some(World::new(chain.edition, &rules, map))
         }
         Err(e) => {
