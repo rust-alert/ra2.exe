@@ -1,13 +1,17 @@
 //! 地图 / 剧院。
 
+mod base64;
+mod iso_pack;
+mod lzo;
 mod theater;
 
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
+pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use theater::{Theater, theater_mix_names, theater_palette};
 
-/// 地图基本信息（先读 Size / Theater，地形包后续再解）。
+/// 地图基本信息（可附带已解码的 IsoMapPack 单元）。
 #[derive(Debug, Clone)]
 pub struct MapInfo {
     pub edition: GameEdition,
@@ -15,6 +19,7 @@ pub struct MapInfo {
     pub width: u32,
     pub height: u32,
     pub theater: Theater,
+    pub cells: Vec<IsoCell>,
 }
 
 impl MapInfo {
@@ -25,10 +30,11 @@ impl MapInfo {
             width: 0,
             height: 0,
             theater: Theater::Temperate,
+            cells: Vec::new(),
         }
     }
 
-    /// 从场景 INI（`.map` / `.mpr`）解析尺寸与剧院。
+    /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码 IsoMapPack5。
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
         let size = doc
@@ -37,12 +43,17 @@ impl MapInfo {
         let (width, height) = parse_size(size)?;
         let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
         let theater = Theater::parse(theater_raw)?;
+        let cells = match decode_iso_map_pack(&doc) {
+            Ok(c) => c,
+            Err(_) => Vec::new(),
+        };
         Ok(Self {
             edition,
             name: name.into(),
             width,
             height,
             theater,
+            cells,
         })
     }
 }
@@ -73,5 +84,6 @@ mod tests {
         assert_eq!(info.width, 50);
         assert_eq!(info.height, 40);
         assert_eq!(info.theater, Theater::Snow);
+        assert!(info.cells.is_empty());
     }
 }
