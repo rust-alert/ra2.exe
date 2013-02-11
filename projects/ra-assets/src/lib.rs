@@ -7,6 +7,7 @@ mod mix_hash;
 mod mix_vfs;
 mod pal;
 mod shp;
+mod tmp;
 
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
@@ -14,3 +15,4 @@ pub use mix_hash::mix_hash;
 pub use mix_vfs::MixVfs;
 pub use pal::{Palette, Rgba};
 pub use shp::{ShpFile, ShpFrame};
+pub use tmp::{TmpFile, TmpTile};
