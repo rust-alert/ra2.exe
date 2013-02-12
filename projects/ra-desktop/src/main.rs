@@ -10,8 +10,8 @@ mod fs_source;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{Palette, ShpFile};
-use ra_map::{theater_mix_names, MapInfo};
+use ra_assets::{Palette, ShpFile, TmpFile};
+use ra_map::{theater_mix_names, theater_palette, MapInfo, Theater};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
 use ra_types::{GameEdition, RaError, RaResult};
@@ -124,6 +124,44 @@ struct BootResult {
     note: String,
     world: Option<World>,
     preview: Option<RgbaImage>,
+}
+
+fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
+    let pal_bytes = source.vfs.read(theater_palette(theater))?;
+    let pal = Palette::parse(&pal_bytes).ok()?;
+    let mix_name = theater_mix_names(theater).first().copied()?;
+    let mix_bytes = source.vfs.read(mix_name)?;
+    let mix = ra_assets::MixArchive::parse(mix_bytes).ok()?;
+    for entry in mix.entries() {
+        let Some(data) = mix.get_by_id(entry.id) else {
+            continue;
+        };
+        if data.len() < 16 {
+            continue;
+        }
+        let tw = u32::from_le_bytes(data[8..12].try_into().ok()?);
+        let th = u32::from_le_bytes(data[12..16].try_into().ok()?);
+        if tw != 60 || th != 30 {
+            continue;
+        }
+        let Ok(tmp) = TmpFile::parse(data) else {
+            continue;
+        };
+        let Some((index, tile)) = tmp
+            .tiles
+            .iter()
+            .enumerate()
+            .find_map(|(i, t)| t.as_ref().map(|tile| (i, tile)))
+        else {
+            continue;
+        };
+        let Ok(rgba) = tmp.tile_to_rgba(index, &pal) else {
+            continue;
+        };
+        let image = RgbaImage::new(tile.pixel_width, tile.pixel_height, rgba)?;
+        return Some((format!("{mix_name}#{index}"), image));
+    }
+    None
 }
 
 fn load_preview_sprite(source: &GameAssetSource) -> Option<(String, RgbaImage)> {
@@ -243,13 +281,15 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
 
     let map = load_boot_map(&mut source, chain.edition, &mut note);
 
-    let preview = match load_preview_sprite(&source) {
+    let preview = match load_preview_terrain(&source, map.theater)
+        .or_else(|| load_preview_sprite(&source))
+    {
         Some((name, image)) => {
-            note = format!("{note} · shp:{name}");
+            note = format!("{note} · preview:{name}");
             Some(image)
         }
         None => {
-            note = format!("{note} · shp:无");
+            note = format!("{note} · preview:无");
             None
         }
     };
