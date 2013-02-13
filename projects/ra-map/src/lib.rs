@@ -4,12 +4,16 @@ mod base64;
 mod iso_pack;
 mod lzo;
 mod theater;
+mod tileset;
 
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
-pub use theater::{Theater, theater_mix_names, theater_palette};
+pub use theater::{
+    theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
+};
+pub use tileset::{parse_tileset_ini, TilesetLookup};
 
 /// 地图基本信息（可附带已解码的 IsoMapPack 单元）。
 #[derive(Debug, Clone)]

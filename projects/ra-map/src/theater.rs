@@ -37,11 +37,33 @@ impl Theater {
 /// 该剧院应挂载的 MIX 名（磁盘或嵌套）。
 pub fn theater_mix_names(theater: Theater) -> &'static [&'static str] {
     match theater {
-        Theater::Temperate => &["temperat.mix", "tem.mix"],
-        Theater::Snow => &["snow.mix", "sno.mix"],
-        Theater::Urban => &["urban.mix", "urb.mix"],
-        Theater::Lunar => &["lunar.mix", "lun.mix"],
-        Theater::Desert => &["desert.mix", "des.mix"],
+        Theater::Temperate => &["temperat.mix", "tem.mix", "isotemp.mix"],
+        Theater::Snow => &["snow.mix", "sno.mix", "isosnow.mix"],
+        Theater::Urban => &["urban.mix", "urb.mix", "isourb.mix"],
+        Theater::Lunar => &["lunar.mix", "lun.mix", "isolun.mix"],
+        Theater::Desert => &["desert.mix", "des.mix", "isodes.mix"],
+    }
+}
+
+/// 剧院 TMP 文件扩展名（不含点）。
+pub fn theater_tmp_extension(theater: Theater) -> &'static str {
+    match theater {
+        Theater::Temperate => "tem",
+        Theater::Snow => "sno",
+        Theater::Urban => "urb",
+        Theater::Lunar => "lun",
+        Theater::Desert => "des",
+    }
+}
+
+/// 剧院控制 INI 文件名。
+pub fn theater_ini_name(theater: Theater) -> &'static str {
+    match theater {
+        Theater::Temperate => "temperat.ini",
+        Theater::Snow => "snow.ini",
+        Theater::Urban => "urban.ini",
+        Theater::Lunar => "lunar.ini",
+        Theater::Desert => "desert.ini",
     }
 }
 
