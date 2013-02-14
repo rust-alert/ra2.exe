@@ -11,7 +11,10 @@ use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{Palette, ShpFile, TmpFile};
-use ra_map::{theater_mix_names, theater_palette, MapInfo, Theater};
+use ra_map::{
+    parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
+    theater_tmp_extension, MapInfo, Theater,
+};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
 use ra_types::{GameEdition, RaError, RaResult};
@@ -129,22 +132,27 @@ struct BootResult {
 fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
     let pal_bytes = source.vfs.read(theater_palette(theater))?;
     let pal = Palette::parse(&pal_bytes).ok()?;
-    let mix_name = theater_mix_names(theater).first().copied()?;
-    let mix_bytes = source.vfs.read(mix_name)?;
-    let mix = ra_assets::MixArchive::parse(mix_bytes).ok()?;
-    for entry in mix.entries() {
-        let Some(data) = mix.get_by_id(entry.id) else {
+
+    let mut candidates: Vec<String> = Vec::new();
+    if let Some(ini_bytes) = source.vfs.read(theater_ini_name(theater)) {
+        if let Ok(lookup) = parse_tileset_ini(&ini_bytes, theater_tmp_extension(theater)) {
+            if let Some(name) = lookup.filename(0) {
+                candidates.push(name.to_string());
+            }
+            for id in [14i32, 9, 10, 12] {
+                if let Some(name) = lookup.filename(id) {
+                    candidates.push(name.to_string());
+                }
+            }
+        }
+    }
+    candidates.push(format!("clear01.{}", theater_tmp_extension(theater)));
+
+    for name in candidates {
+        let Some(data) = source.vfs.read(&name) else {
             continue;
         };
-        if data.len() < 16 {
-            continue;
-        }
-        let tw = u32::from_le_bytes(data[8..12].try_into().ok()?);
-        let th = u32::from_le_bytes(data[12..16].try_into().ok()?);
-        if tw != 60 || th != 30 {
-            continue;
-        }
-        let Ok(tmp) = TmpFile::parse(data) else {
+        let Ok(tmp) = TmpFile::parse(&data) else {
             continue;
         };
         let Some((index, tile)) = tmp
@@ -159,7 +167,7 @@ fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(S
             continue;
         };
         let image = RgbaImage::new(tile.pixel_width, tile.pixel_height, rgba)?;
-        return Some((format!("{mix_name}#{index}"), image));
+        return Some((format!("{name}#{index}"), image));
     }
     None
 }

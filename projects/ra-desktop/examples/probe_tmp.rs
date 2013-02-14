@@ -1,8 +1,11 @@
-//! 探测剧院 MIX 中的 TMP，并解一砖 RGBA。
+//! 验证剧院瓷砖表与 `isotemp.mix` 中的 TMP。
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{MixArchive, MixVfs, Palette, TmpFile};
-use ra_map::{theater_mix_names, theater_palette, Theater};
+use ra_assets::{MixVfs, Palette, TmpFile};
+use ra_map::{
+    parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
+    theater_tmp_extension, Theater,
+};
 use ra_types::GameEdition;
 use std::path::PathBuf;
 
@@ -29,56 +32,32 @@ fn main() {
         }
     }
 
-    let pal_name = theater_palette(Theater::Temperate);
-    let pal = Palette::parse(&vfs.read(pal_name).expect(pal_name)).expect("pal");
-    eprintln!("{pal_name} ok");
+    let ext = theater_tmp_extension(Theater::Temperate);
+    let ini = vfs
+        .read(theater_ini_name(Theater::Temperate))
+        .expect("temperat.ini");
+    let lookup = parse_tileset_ini(&ini, ext).expect("tileset");
+    eprintln!("tileset slots={}", lookup.len());
+    for id in [0i32, 1, 9, 14] {
+        eprintln!("tile {id} => {:?}", lookup.filename(id));
+    }
 
-    let bytes = vfs.read("temperat.mix").expect("temperat.mix");
-    let mix = MixArchive::parse(bytes).expect("parse temperat");
-    let mut parsed = 0usize;
-    let mut failed = 0usize;
-    let mut previewed = false;
-    for e in mix.entries() {
-        let Some(data) = mix.get_by_id(e.id) else {
-            continue;
-        };
-        if data.len() < 16 {
-            continue;
-        }
-        let tw = u32::from_le_bytes(data[8..12].try_into().unwrap());
-        let th = u32::from_le_bytes(data[12..16].try_into().unwrap());
-        if tw != 60 || th != 30 {
-            continue;
-        }
-        match TmpFile::parse(data) {
-            Ok(tmp) => {
-                parsed += 1;
-                if !previewed {
-                    if let Some(tile) = tmp.tiles.iter().flatten().next() {
-                        let rgba = tmp.tile_to_rgba(0, &pal).expect("rgba");
-                        let opaque = rgba.chunks(4).filter(|c| c[3] > 0).count();
-                        eprintln!(
-                            "sample id={:#010x} cells={} first={}x{} opaque_px={}",
-                            e.id as u32,
-                            tmp.cell_count(),
-                            tile.pixel_width,
-                            tile.pixel_height,
-                            opaque
-                        );
-                        previewed = true;
-                    }
-                }
-            }
-            Err(err) => {
-                failed += 1;
-                if failed <= 3 {
-                    eprintln!("fail id={:#010x}: {err}", e.id as u32);
-                }
-            }
-        }
-    }
-    eprintln!("TMP parse ok={parsed} fail={failed}");
-    if parsed == 0 {
-        std::process::exit(1);
-    }
+    let pal = Palette::parse(
+        &vfs.read(theater_palette(Theater::Temperate))
+            .expect("isotem.pal"),
+    )
+    .expect("pal");
+
+    let name = lookup.filename(0).expect("clear tile");
+    let data = vfs.read(name).expect(name);
+    let tmp = TmpFile::parse(&data).expect("tmp");
+    let rgba = tmp.tile_to_rgba(0, &pal).expect("rgba");
+    let opaque = rgba.chunks(4).filter(|c| c[3] > 0).count();
+    eprintln!(
+        "OK {name} cells={} tile={}x{} opaque_px={}",
+        tmp.cell_count(),
+        tmp.tile_width,
+        tmp.tile_height,
+        opaque
+    );
 }
