@@ -1,6 +1,8 @@
 //! 地图 / 剧院。
 
 mod base64;
+mod compose;
+mod iso_math;
 mod iso_pack;
 mod lzo;
 mod theater;
@@ -9,6 +11,8 @@ mod tileset;
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
+pub use compose::{compose_terrain_rgba, TerrainImage, TileBlit};
+pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use theater::{
     theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
