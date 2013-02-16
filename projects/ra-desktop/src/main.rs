@@ -7,13 +7,14 @@
 mod config;
 mod fs_source;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{Palette, ShpFile, TmpFile};
 use ra_map::{
-    parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
-    theater_tmp_extension, MapInfo, Theater,
+    compose_terrain_rgba, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
+    theater_tmp_extension, MapInfo, Theater, TileBlit,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
@@ -127,6 +128,62 @@ struct BootResult {
     note: String,
     world: Option<World>,
     preview: Option<RgbaImage>,
+}
+
+fn load_map_terrain_preview(
+    source: &GameAssetSource,
+    map: &MapInfo,
+) -> Option<(String, RgbaImage)> {
+    if map.cells.is_empty() {
+        return None;
+    }
+    let pal_bytes = source.vfs.read(theater_palette(map.theater))?;
+    let pal = Palette::parse(&pal_bytes).ok()?;
+    let ini_bytes = source.vfs.read(theater_ini_name(map.theater))?;
+    let lookup =
+        parse_tileset_ini(&ini_bytes, theater_tmp_extension(map.theater)).ok()?;
+
+    let mut file_cache: HashMap<String, TmpFile> = HashMap::new();
+    let mut blit_cache: HashMap<(i32, u8), TileBlit> = HashMap::new();
+
+    let mut resolve = |tile_num: i32, sub_tile: u8| -> Option<TileBlit> {
+        if let Some(blit) = blit_cache.get(&(tile_num, sub_tile)) {
+            return Some(blit.clone());
+        }
+        let name = lookup.filename(tile_num)?.to_string();
+        if !file_cache.contains_key(&name) {
+            let data = source.vfs.read(&name)?;
+            let tmp = TmpFile::parse(&data).ok()?;
+            file_cache.insert(name.clone(), tmp);
+        }
+        let tmp = file_cache.get(&name)?;
+        let index = usize::from(sub_tile);
+        let tile = tmp.tiles.get(index)?.as_ref()?;
+        let rgba = tmp.tile_to_rgba(index, &pal).ok()?;
+        let blit = TileBlit {
+            width: tile.pixel_width,
+            height: tile.pixel_height,
+            offset_x: tile.offset_x,
+            offset_y: tile.offset_y,
+            rgba,
+        };
+        blit_cache.insert((tile_num, sub_tile), blit.clone());
+        Some(blit)
+    };
+
+    let image = compose_terrain_rgba(&map.cells, &mut resolve)?;
+    let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
+    Some((
+        format!(
+            "map:{} cells={} drawn={} {}x{}",
+            map.name,
+            map.cells.len(),
+            image.drawn,
+            rgba.width,
+            rgba.height
+        ),
+        rgba,
+    ))
 }
 
 fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
@@ -288,8 +345,12 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     );
 
     let map = load_boot_map(&mut source, chain.edition, &mut note);
+    if !map.cells.is_empty() {
+        note = format!("{note} · iso#{}", map.cells.len());
+    }
 
-    let preview = match load_preview_terrain(&source, map.theater)
+    let preview = match load_map_terrain_preview(&source, &map)
+        .or_else(|| load_preview_terrain(&source, map.theater))
         .or_else(|| load_preview_sprite(&source))
     {
         Some((name, image)) => {
