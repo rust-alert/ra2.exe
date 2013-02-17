@@ -3,6 +3,7 @@
 //! 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。
 //! 本 crate **故意不**实现 DirectDraw。
 
+mod camera;
 mod gpu;
 mod rgba_image;
 mod sprite;
@@ -13,9 +14,11 @@ use ra_types::{GameEdition, RaResult};
 use ra_world::World;
 use winit::window::Window;
 
+use crate::camera::Camera;
 use crate::gpu::GpuContext;
 use crate::sprite::SpriteGpu;
 
+pub use crate::camera::Camera as ViewCamera;
 pub use crate::rgba_image::RgbaImage;
 
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
@@ -31,6 +34,8 @@ pub struct Renderer {
     gpu: Option<GpuContext>,
     preview: Option<RgbaImage>,
     sprite: Option<SpriteGpu>,
+    camera: Camera,
+    camera_ready: bool,
 }
 
 impl Renderer {
@@ -40,6 +45,12 @@ impl Renderer {
             gpu: None,
             preview: None,
             sprite: None,
+            camera: Camera {
+                center_x: 0.0,
+                center_y: 0.0,
+                zoom: 1.0,
+            },
+            camera_ready: false,
         }
     }
 
@@ -57,6 +68,9 @@ impl Renderer {
                     ));
                 }
             }
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+        } else {
+            self.camera_ready = false;
         }
         self.preview = Some(image);
     }
@@ -74,6 +88,7 @@ impl Renderer {
                 gpu.config.format,
                 image,
             ));
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
         self.gpu = Some(gpu);
         Ok(())
@@ -85,12 +100,41 @@ impl Renderer {
         }
     }
 
-    /// 清屏，并在有预览精灵时居中绘制。
+    pub fn camera(&self) -> &Camera {
+        &self.camera
+    }
+
+    pub fn camera_mut(&mut self) -> &mut Camera {
+        &mut self.camera
+    }
+
+    pub fn pan_screen(&mut self, dx: f32, dy: f32) {
+        self.camera.pan_screen(dx, dy);
+    }
+
+    pub fn zoom_by(&mut self, factor: f32) {
+        self.camera.zoom_by(factor);
+    }
+
+    fn reset_camera_to_fit(&mut self, screen_w: u32, screen_h: u32, image_w: u32, image_h: u32) {
+        self.camera = Camera::fit(image_w, image_h, screen_w, screen_h);
+        self.camera_ready = true;
+    }
+
+    /// 清屏，并在有预览精灵时按相机绘制。
     pub fn draw_frame(&mut self, world: Option<&World>) {
         if let Some(world) = world {
             let _ = world.edition;
         }
         self.frames = self.frames.wrapping_add(1);
+
+        if !self.camera_ready {
+            if let (Some(gpu), Some(sprite)) = (self.gpu.as_ref(), self.sprite.as_ref()) {
+                let (iw, ih) = sprite.size();
+                self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
+            }
+        }
+
         let Some(gpu) = self.gpu.as_ref() else {
             return;
         };
@@ -102,7 +146,12 @@ impl Renderer {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         if let Some(sprite) = self.sprite.as_ref() {
-            sprite.write_vertices(&gpu.queue, gpu.config.width, gpu.config.height);
+            sprite.write_vertices(
+                &gpu.queue,
+                &self.camera,
+                gpu.config.width,
+                gpu.config.height,
+            );
         }
 
         let mut encoder = gpu
@@ -126,7 +175,7 @@ impl Renderer {
                 occlusion_query_set: None,
             });
             if let Some(sprite) = self.sprite.as_ref() {
-                sprite.draw(&mut pass, gpu.config.width, gpu.config.height);
+                sprite.draw(&mut pass);
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));

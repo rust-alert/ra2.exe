@@ -3,6 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
+use crate::camera::Camera;
 use crate::rgba_image::RgbaImage;
 
 #[repr(C)]
@@ -133,24 +134,25 @@ impl SpriteGpu {
         self.height = image.height;
     }
 
-    pub fn draw<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        surface_w: u32,
-        surface_h: u32,
-    ) {
-        let verts = centered_quad(self.width, self.height, surface_w, surface_h);
-        // 顶点缓冲在创建时按占位写入，每帧用 queue 写会更好；这里用动态偏移简化：
-        // 实际在 Renderer 里用 queue.write_buffer。保留接口，由调用方先 update_vertices。
-        let _ = verts;
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.draw(0..6, 0..1);
     }
 
-    pub fn write_vertices(&self, queue: &wgpu::Queue, surface_w: u32, surface_h: u32) {
-        let verts = centered_quad(self.width, self.height, surface_w, surface_h);
+    pub fn write_vertices(
+        &self,
+        queue: &wgpu::Queue,
+        camera: &Camera,
+        surface_w: u32,
+        surface_h: u32,
+    ) {
+        let verts = camera_quad(self.width, self.height, camera, surface_w, surface_h);
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&verts));
     }
 }
@@ -209,7 +211,8 @@ fn upload(
         ],
     });
 
-    let placeholder = centered_quad(image.width, image.height, 1024, 768);
+    let cam = Camera::fit(image.width, image.height, 1024, 768);
+    let placeholder = camera_quad(image.width, image.height, &cam, 1024, 768);
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("ra.sprite.vb"),
         contents: bytemuck::cast_slice(&placeholder),
@@ -219,38 +222,39 @@ fn upload(
     (texture, bind_group, vertex_buffer)
 }
 
-fn centered_quad(img_w: u32, img_h: u32, surf_w: u32, surf_h: u32) -> [Vertex; 6] {
-    let scale = 4.0_f32; // 像素艺术放大，便于看见
-    let w = (img_w as f32 * scale) / surf_w.max(1) as f32;
-    let h = (img_h as f32 * scale) / surf_h.max(1) as f32;
-    let x0 = -w;
-    let y0 = -h;
-    let x1 = w;
-    let y1 = h;
+fn camera_quad(img_w: u32, img_h: u32, camera: &Camera, surf_w: u32, surf_h: u32) -> [Vertex; 6] {
+    let sw = surf_w.max(1) as f32;
+    let sh = surf_h.max(1) as f32;
+    let w = img_w as f32;
+    let h = img_h as f32;
+    let p00 = camera.world_to_ndc(0.0, 0.0, sw, sh);
+    let p10 = camera.world_to_ndc(w, 0.0, sw, sh);
+    let p11 = camera.world_to_ndc(w, h, sw, sh);
+    let p01 = camera.world_to_ndc(0.0, h, sw, sh);
     [
         Vertex {
-            pos: [x0, y0],
-            uv: [0.0, 1.0],
+            pos: p00,
+            uv: [0.0, 0.0],
         },
         Vertex {
-            pos: [x1, y0],
+            pos: p10,
+            uv: [1.0, 0.0],
+        },
+        Vertex {
+            pos: p11,
             uv: [1.0, 1.0],
         },
         Vertex {
-            pos: [x1, y1],
-            uv: [1.0, 0.0],
-        },
-        Vertex {
-            pos: [x0, y0],
-            uv: [0.0, 1.0],
-        },
-        Vertex {
-            pos: [x1, y1],
-            uv: [1.0, 0.0],
-        },
-        Vertex {
-            pos: [x0, y1],
+            pos: p00,
             uv: [0.0, 0.0],
+        },
+        Vertex {
+            pos: p11,
+            uv: [1.0, 1.0],
+        },
+        Vertex {
+            pos: p01,
+            uv: [0.0, 1.0],
         },
     ]
 }
