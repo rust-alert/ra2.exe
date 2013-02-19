@@ -21,8 +21,9 @@ use ra_rules::load_rules;
 use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
 use crate::config::DesktopConfig;
@@ -34,6 +35,10 @@ struct App {
     boot_note: String,
     world: Option<World>,
     renderer: Renderer,
+    /// 左键拖拽中：上一帧光标位置。
+    drag_last: Option<(f64, f64)>,
+    /// 已按下左键，等待第一次 CursorMoved 建立起点。
+    drag_armed: bool,
 }
 
 impl App {
@@ -52,15 +57,18 @@ impl App {
             boot_note,
             world,
             renderer,
+            drag_last: None,
+            drag_armed: false,
         }
     }
 
     fn refresh_title(&self) {
         if let Some(window) = &self.window {
             let tick = self.world.as_ref().map(|w| w.tick).unwrap_or(0);
+            let zoom = self.renderer.camera().zoom;
             window.set_title(&format!(
-                "{} · {} · t{}",
-                self.title_base, self.boot_note, tick
+                "{} · {} · t{} · z{:.2}",
+                self.title_base, self.boot_note, tick, zoom
             ));
         }
     }
@@ -84,13 +92,14 @@ impl ApplicationHandler for App {
             eprintln!("ra2 wgpu: {e}");
         } else {
             eprintln!(
-                "ra2 gpu: {} · preview={}",
+                "ra2 gpu: {} · preview={} · zoom={:.2}",
                 self.renderer.backend_name(),
                 if self.renderer.has_preview() {
                     "yes"
                 } else {
                     "no"
-                }
+                },
+                self.renderer.camera().zoom
             );
         }
         self.window = Some(window);
@@ -102,6 +111,67 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => match state {
+                ElementState::Pressed => {
+                    self.drag_armed = true;
+                    self.drag_last = None;
+                }
+                ElementState::Released => {
+                    self.drag_armed = false;
+                    self.drag_last = None;
+                }
+            },
+            WindowEvent::CursorMoved { position, .. } => {
+                if self.drag_armed {
+                    if let Some((lx, ly)) = self.drag_last {
+                        let dx = (position.x - lx) as f32;
+                        let dy = (position.y - ly) as f32;
+                        self.renderer.pan_screen(dx, dy);
+                    }
+                    self.drag_last = Some((position.x, position.y));
+                }
+            },
+            WindowEvent::MouseWheel { delta, .. } => {
+                let steps = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y,
+                    MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
+                };
+                if steps != 0.0 {
+                    let factor = if steps > 0.0 { 1.1_f32 } else { 1.0 / 1.1 };
+                    self.renderer.zoom_by(factor.powf(steps.abs()));
+                }
+            },
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state != ElementState::Pressed {
+                    return;
+                }
+                let step = 48.0_f32;
+                match event.physical_key {
+                    PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
+                        self.renderer.pan_screen(step, 0.0);
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => {
+                        self.renderer.pan_screen(-step, 0.0);
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => {
+                        self.renderer.pan_screen(0.0, step);
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => {
+                        self.renderer.pan_screen(0.0, -step);
+                    }
+                    PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => {
+                        self.renderer.zoom_by(1.1);
+                    }
+                    PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => {
+                        self.renderer.zoom_by(1.0 / 1.1);
+                    }
+                    _ => {}
+                }
             }
             WindowEvent::RedrawRequested => {
                 if let Some(world) = self.world.as_mut() {
