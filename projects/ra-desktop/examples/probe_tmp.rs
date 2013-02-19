@@ -10,10 +10,10 @@ use ra_types::GameEdition;
 use std::path::PathBuf;
 
 fn main() {
-    let root = std::env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("../Red_Alert_2"));
+    let Some(root) = std::env::args().nth(1).map(PathBuf::from) else {
+        eprintln!("用法: probe_tmp <游戏目录>");
+        std::process::exit(2);
+    };
     let manifest = detect_edition(&root, Some(GameEdition::Ra2)).expect("detect");
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
