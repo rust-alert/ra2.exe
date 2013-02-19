@@ -1,6 +1,6 @@
 # ra2
 
-跨平台 GUI 引擎，用于在玩家自备的《命令与征服：红色警戒 2》与《尤里的复仇》数据上运行自有逻辑。
+跨平台 GUI 引擎，用于在玩家自备的《命令与征服：红色警戒 2》、《尤里的复仇》以及心灵终结 3（Mental Omega 3）数据上运行自有逻辑。
 
 本仓库是 **现代化重写**：原生入口由 `ra-desktop` 产出二进制 **`ra2`**（Windows 上为 `ra2.exe`），渲染走 **wgpu**（桌面常见后端为
 DX12 / Vulkan / Metal；浏览器目标走 WebGL2 方向的 `ra-webui`）。 **不是** DirectDraw 兼容层， **不是**向原版 `game.exe` /
@@ -62,6 +62,7 @@ flowchart TB
     map --> assets
     adaptor --> ra2tbl
     adaptor --> yrtbl
+    adaptor --> mo3
     assets --> types
     adaptor --> types
     ra2tbl --> types
@@ -72,7 +73,7 @@ flowchart TB
 ```
 
 虚线表示 `ra-webui` 已在清单中依赖相关 crate，但当前导出仍是占位（详见 [
-`projects/ra-webui/README.md`](projects/ra-webui/README.md)）。`ra-adaptor-mo3` 提供 MO3 探测接口，尚未接入桌面启动热路径。
+`projects/ra-webui/README.md`](projects/ra-webui/README.md)）。`ra-adaptor-mo3` 是心灵终结 3（Mental Omega 3）资源表，经 `ra-adaptor` 按 `GameEdition::Mo3` 装配。
 
 ### Crate 依赖关系（简化）
 
@@ -236,7 +237,7 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 | `ra-adaptor`     | 版本探测与 `ResourceChain` 装配                                | [README](projects/ra-adaptor/README.md)     |
 | `ra-adaptor-ra2` | 原版资源表                                                     | [README](projects/ra-adaptor-ra2/README.md) |
 | `ra-adaptor-yr`  | 尤里的复仇资源表                                               | [README](projects/ra-adaptor-yr/README.md)  |
-| `ra-adaptor-mo3` | MO3 音乐载荷探测（占位）                                       | [README](projects/ra-adaptor-mo3/README.md) |
+| `ra-adaptor-mo3` | 心灵终结 3（Mental Omega 3）资源表                             | [README](projects/ra-adaptor-mo3/README.md) |
 | `ra-assets`      | Westwood 格式：MIX / INI / PAL / SHP / TMP；`MixVfs`           | [README](projects/ra-assets/README.md)      |
 | `ra-rules`       | 按版本加载 rules/art INI → `RulesDb`                           | [README](projects/ra-rules/README.md)       |
 | `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [README](projects/ra-map/README.md)         |

@@ -46,8 +46,9 @@ root 不是目录？ → Io("游戏目录不存在: …")
 
 - `Ra2` → `from_ra2(ra_adaptor_ra2::profile())`
 - `Yr` → `from_yr(ra_adaptor_yr::profile())`
+- `Mo3` → `from_mo3(ra_adaptor_mo3::profile())`
 
-`from_ra2` / `from_yr` 是私有映射函数，把两边各自的 `ResourceProfile` 抄进同一结构。两边 profile 类型故意重复定义（注释：避免跨
+`from_ra2` / `from_yr` / `from_mo3` 是私有映射函数，把各 edition 的 `ResourceProfile` 抄进同一结构。profile 类型故意重复定义（注释：避免跨
 crate 循环依赖），所以映射不能写成泛型一份。
 
 `ra-rules::load_rules` 只通过 `ResourceChain::for_edition` 取 `rules_ini` / `art_ini`，不自己写 `rulesmd.ini`。
@@ -89,11 +90,12 @@ Windows 默认不敏感，但开发机、网络盘、将来非 Windows 目标可
 |------------------|-------------------------------------------------|
 | `ra-adaptor-ra2` | 原版静态表 + `looks_like`                       |
 | `ra-adaptor-yr`  | YR 静态表 + `looks_like`                        |
+| `ra-adaptor-mo3` | 心灵终结 3 静态表 + `looks_like`                |
 | **本 crate**     | 消歧、装配 `ResourceChain`、扫描根 MIX、CI 查找 |
 
 本层是 adaptor 家族里 **唯一直接 `std::fs`** 的（`is_dir` / `read_dir` / `is_file`）。仍然不解析内容。
 
-`ra-adaptor-mo3` 与本层无关，音乐探测不参与版本选择。
+探测时若命中心灵终结 3 启发式，优先 `Mo3`，不再与原版/YR 报歧义。
 
 ---
 

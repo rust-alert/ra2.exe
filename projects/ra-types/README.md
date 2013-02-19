@@ -21,24 +21,24 @@ src/
 ### `GameEdition`
 
 ```rust
-pub enum GameEdition { Ra2, Yr }
+pub enum GameEdition { Ra2, Yr, Mo3 }
 ```
 
-注释写明：原版对应 `game.exe` / `rules.ini`，尤里的复仇对应 `gamemd.exe` / `rulesmd.ini`。这是「选哪一套零售规则与资源」的枚举，不是模组
-ID。
+注释写明：原版对应 `game.exe` / `rules.ini`，尤里的复仇对应 `gamemd.exe` / `rulesmd.ini`，心灵终结 3 对应 Mental Omega 3 布局（`expandmo*` 等）。这是「选哪一套规则与资源」的枚举。
 
-| 方法     | 行为                           |
-|----------|--------------------------------|
-| `as_str` | `Ra2` → `"ra2"`，`Yr` → `"yr"` |
-| `parse`  | 见下表                         |
+| 方法     | 行为                                          |
+|----------|-----------------------------------------------|
+| `as_str` | `Ra2` → `"ra2"`，`Yr` → `"yr"`，`Mo3` → `"mo3"` |
+| `parse`  | 见下表                                        |
 
 `parse` 接受的别名（先 `trim` 再 ASCII 小写）：
 
-| 输入                           | 结果                       |
-|--------------------------------|----------------------------|
-| `ra2` / `vanilla` / `original` | `Ra2`                      |
-| `yr` / `yuri` / `yuris` / `md` | `Yr`                       |
-| 其它                           | `Err(UnknownEdition(...))` |
+| 输入                                                    | 结果                       |
+|---------------------------------------------------------|----------------------------|
+| `ra2` / `vanilla` / `original`                          | `Ra2`                      |
+| `yr` / `yuri` / `yuris` / `md`                          | `Yr`                       |
+| `mo3` / `mo` / `mentalomega` / `mental-omega` / `mental_omega` | `Mo3`               |
+| 其它                                                    | `Err(UnknownEdition(...))` |
 
 配置文件里的 `edition` 字段最终会走到这里；写错字符串会在启动早期失败，而不是默默当成原版。
 

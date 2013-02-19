@@ -23,8 +23,8 @@ impl AssetSource for ProbeSource {
     }
 }
 
-fn probe(root: &Path) -> RaResult<()> {
-    let manifest = detect_edition(root, Some(GameEdition::Ra2))?;
+fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
+    let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
         let path = find_ci_file(root, name)
@@ -51,21 +51,39 @@ fn probe(root: &Path) -> RaResult<()> {
         root: root.to_path_buf(),
         vfs,
     };
-    let rules = load_rules(&source, GameEdition::Ra2)?;
+    let rules = load_rules(&source, edition)?;
     eprintln!(
-        "OK archives_nested={nested} rules_sections={} art_sections={}",
+        "OK edition={} present={} missing={} archives_nested={} rules_sections={} art_sections={}",
+        edition.as_str(),
+        manifest.present_mixes.len(),
+        manifest.missing_mixes.len(),
+        nested,
         rules.rules.sections.len(),
         rules.art.sections.len()
     );
+    if !manifest.missing_mixes.is_empty() {
+        eprintln!("missing: {}", manifest.missing_mixes.join(", "));
+    }
     Ok(())
 }
 
 fn main() {
-    let Some(root) = std::env::args().nth(1).map(PathBuf::from) else {
-        eprintln!("用法: probe_boot <游戏目录>");
+    let mut args = std::env::args().skip(1);
+    let Some(root) = args.next().map(PathBuf::from) else {
+        eprintln!("用法: probe_boot <游戏目录> [edition]");
         std::process::exit(2);
     };
-    if let Err(e) = probe(&root) {
+    let edition = match args.next() {
+        Some(s) => match GameEdition::parse(&s) {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(2);
+            }
+        },
+        None => GameEdition::Ra2,
+    };
+    if let Err(e) = probe(&root, edition) {
         eprintln!("probe failed: {e}");
         std::process::exit(1);
     }

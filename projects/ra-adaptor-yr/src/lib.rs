@@ -26,6 +26,10 @@ pub fn profile() -> ResourceProfile {
             "thememd.mix",
             "mapsmd01.mix",
             "mapsmd02.mix",
+            "mapsmd03.mix",
+            "expandmd01.mix",
+            "expandmd02.mix",
+            "expandmd03.mix",
         ],
         nested_mix_files: &[
             "localmd.mix",

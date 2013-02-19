@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "MO3 音乐载荷适配"
+description = "心灵终结 3（Mental Omega 3）资源表"
 
 [dependencies]
 ra-types = { workspace = true }

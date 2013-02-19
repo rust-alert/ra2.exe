@@ -33,7 +33,7 @@ cargo run -p ra-desktop --example probe_boot -- path/to/game
 | 键                      | 作用                                                                  |
 |-------------------------|-----------------------------------------------------------------------|
 | `ra2_dir` 或 `game_dir` | 含零售 MIX / INI 的目录                                               |
-| `edition`               | 可选；`ra2` / `yr` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
+| `edition`               | 可选；`ra2` / `yr` / `mo3` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
 
 `#` 之后当注释；以 `[` 开头的行跳过。缺文件时默认 `ra2_dir = "."`、`edition = None`。
 
@@ -108,8 +108,8 @@ cargo run
 
 ## 依赖面
 
-串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-rules`、`ra-map`、`ra-world`、`ra-renderer`，外加 `winit`。不依赖
-`ra-adaptor-mo3`、`ra-webui`。
+串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-rules`、`ra-map`、`ra-world`、`ra-renderer`，外加 `winit`。不直接依赖
+`ra-adaptor-mo3`（经 `ra-adaptor` 间接装配）、`ra-webui`。
 
 ## 许可
 

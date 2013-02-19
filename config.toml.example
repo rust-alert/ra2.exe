@@ -6,3 +6,4 @@ ra2_dir = "C:/path/to/your/ra2"
 # 可选：强制版本。不写则自动探测。
 # edition = "ra2"
 # edition = "yr"
+# edition = "mo3"

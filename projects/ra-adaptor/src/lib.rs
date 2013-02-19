@@ -22,6 +22,7 @@ impl ResourceChain {
         match edition {
             GameEdition::Ra2 => from_ra2(ra_adaptor_ra2::profile()),
             GameEdition::Yr => from_yr(ra_adaptor_yr::profile()),
+            GameEdition::Mo3 => from_mo3(ra_adaptor_mo3::profile()),
         }
     }
 }
@@ -52,6 +53,19 @@ fn from_yr(p: ra_adaptor_yr::ResourceProfile) -> ResourceChain {
     }
 }
 
+fn from_mo3(p: ra_adaptor_mo3::ResourceProfile) -> ResourceChain {
+    ResourceChain {
+        edition: p.edition,
+        root_mix_files: p.root_mix_files,
+        nested_mix_files: p.nested_mix_files,
+        rules_ini: p.rules_ini,
+        art_ini: p.art_ini,
+        ui_ini: p.ui_ini,
+        sound_ini: p.sound_ini,
+        exe_name: p.exe_name,
+    }
+}
+
 /// 探测到的安装布局。
 #[derive(Debug, Clone)]
 pub struct EditionManifest {
@@ -62,6 +76,8 @@ pub struct EditionManifest {
 }
 
 /// 优先用显式版本；否则按目录特征探测。
+///
+/// 探测优先级：心灵终结 3 → 仅 YR / 仅原版；原版与 YR 特征同时命中则报歧义。
 pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<EditionManifest> {
     if !root.is_dir() {
         return Err(RaError::Io(format!("游戏目录不存在: {}", root.display())));
@@ -69,6 +85,8 @@ pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<Ed
 
     let edition = if let Some(e) = explicit {
         e
+    } else if ra_adaptor_mo3::looks_like(root) {
+        GameEdition::Mo3
     } else {
         let has_yr = ra_adaptor_yr::looks_like(root);
         let has_ra2 = ra_adaptor_ra2::looks_like(root);
