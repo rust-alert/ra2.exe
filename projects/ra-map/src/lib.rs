@@ -6,6 +6,7 @@ mod iso_math;
 mod iso_pack;
 mod lcw;
 mod lzo;
+mod overlay;
 mod theater;
 mod tileset;
 
@@ -15,12 +16,13 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use compose::{compose_terrain_rgba, TerrainImage, TileBlit};
 pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
+pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
 pub use theater::{
     theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
 };
 pub use tileset::{parse_tileset_ini, TilesetLookup};
 
-/// 地图基本信息（可附带已解码的 IsoMapPack 单元）。
+/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay 单元）。
 #[derive(Debug, Clone)]
 pub struct MapInfo {
     pub edition: GameEdition,
@@ -29,6 +31,7 @@ pub struct MapInfo {
     pub height: u32,
     pub theater: Theater,
     pub cells: Vec<IsoCell>,
+    pub overlays: Vec<OverlayCell>,
 }
 
 impl MapInfo {
@@ -40,10 +43,11 @@ impl MapInfo {
             height: 0,
             theater: Theater::Temperate,
             cells: Vec::new(),
+            overlays: Vec::new(),
         }
     }
 
-    /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码 IsoMapPack5。
+    /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码地形与覆盖层。
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
         let size = doc
@@ -56,6 +60,10 @@ impl MapInfo {
             Ok(c) => c,
             Err(_) => Vec::new(),
         };
+        let overlays = match decode_overlay_packs(&doc) {
+            Ok(o) => o,
+            Err(_) => Vec::new(),
+        };
         Ok(Self {
             edition,
             name: name.into(),
@@ -63,6 +71,7 @@ impl MapInfo {
             height,
             theater,
             cells,
+            overlays,
         })
     }
 }
