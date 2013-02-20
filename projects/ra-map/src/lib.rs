@@ -4,6 +4,7 @@ mod base64;
 mod compose;
 mod iso_math;
 mod iso_pack;
+mod lcw;
 mod lzo;
 mod theater;
 mod tileset;
