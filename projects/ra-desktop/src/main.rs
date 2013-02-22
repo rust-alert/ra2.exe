@@ -13,8 +13,8 @@ use std::sync::Arc;
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{Palette, ShpFile, TmpFile};
 use ra_map::{
-    compose_terrain_rgba, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
-    theater_tmp_extension, MapInfo, Theater, TileBlit,
+    compose_terrain_rgba, paint_overlay_markers, parse_tileset_ini, theater_ini_name,
+    theater_mix_names, theater_palette, theater_tmp_extension, MapInfo, Theater, TileBlit,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
@@ -241,14 +241,27 @@ fn load_map_terrain_preview(
         Some(blit)
     };
 
-    let image = compose_terrain_rgba(&map.cells, &mut resolve)?;
+    let mut image = compose_terrain_rgba(&map.cells, &mut resolve)?;
+    let mut z_lookup: HashMap<(u16, u16), u8> = HashMap::new();
+    for cell in &map.cells {
+        z_lookup.insert((cell.x as u16, cell.y as u16), cell.z);
+    }
+    let overlay_painted = if map.overlays.is_empty() {
+        0
+    } else {
+        paint_overlay_markers(&mut image, &map.overlays, |x, y| {
+            z_lookup.get(&(x, y)).copied().unwrap_or(0)
+        })
+    };
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
-            "map:{} cells={} drawn={} {}x{}",
+            "map:{} cells={} drawn={} overlay#{} painted={} {}x{}",
             map.name,
             map.cells.len(),
             image.drawn,
+            map.overlays.len(),
+            overlay_painted,
             rgba.width,
             rgba.height
         ),
@@ -417,6 +430,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let map = load_boot_map(&mut source, chain.edition, &mut note);
     if !map.cells.is_empty() {
         note = format!("{note} · iso#{}", map.cells.len());
+    }
+    if !map.overlays.is_empty() {
+        note = format!("{note} · overlay#{}", map.overlays.len());
     }
 
     let preview = match load_map_terrain_preview(&source, &map)
