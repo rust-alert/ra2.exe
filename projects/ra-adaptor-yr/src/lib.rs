@@ -30,6 +30,10 @@ pub fn profile() -> ResourceProfile {
             "expandmd01.mix",
             "expandmd02.mix",
             "expandmd03.mix",
+            // 合集盘常见：原版地图包仍在旁，供多人图名复用。
+            "multi.mix",
+            "maps01.mix",
+            "maps02.mix",
         ],
         nested_mix_files: &[
             "localmd.mix",
