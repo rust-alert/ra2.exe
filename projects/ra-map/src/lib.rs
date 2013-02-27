@@ -7,6 +7,7 @@ mod iso_pack;
 mod lcw;
 mod lzo;
 mod overlay;
+mod placements;
 mod theater;
 mod terrain_objects;
 mod tileset;
@@ -20,13 +21,14 @@ pub use compose::{
 pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
+pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
 pub use theater::{
     theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
 };
 pub use terrain_objects::{parse_terrain_objects, TerrainObject};
 pub use tileset::{parse_tileset_ini, TilesetLookup};
 
-/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain 单元）。
+/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置单元）。
 #[derive(Debug, Clone)]
 pub struct MapInfo {
     pub edition: GameEdition,
@@ -37,6 +39,7 @@ pub struct MapInfo {
     pub cells: Vec<IsoCell>,
     pub overlays: Vec<OverlayCell>,
     pub terrain_objects: Vec<TerrainObject>,
+    pub entities: Vec<MapEntity>,
 }
 
 impl MapInfo {
@@ -50,6 +53,7 @@ impl MapInfo {
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
+            entities: Vec::new(),
         }
     }
 
@@ -71,6 +75,7 @@ impl MapInfo {
             Err(_) => Vec::new(),
         };
         let terrain_objects = parse_terrain_objects(&doc);
+        let entities = parse_map_entities(&doc);
         Ok(Self {
             edition,
             name: name.into(),
@@ -80,6 +85,7 @@ impl MapInfo {
             cells,
             overlays,
             terrain_objects,
+            entities,
         })
     }
 }
