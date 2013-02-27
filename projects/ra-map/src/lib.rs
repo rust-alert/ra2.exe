@@ -8,6 +8,7 @@ mod lcw;
 mod lzo;
 mod overlay;
 mod theater;
+mod terrain_objects;
 mod tileset;
 
 use ra_assets::IniDocument;
@@ -22,9 +23,10 @@ pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, 
 pub use theater::{
     theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
 };
+pub use terrain_objects::{parse_terrain_objects, TerrainObject};
 pub use tileset::{parse_tileset_ini, TilesetLookup};
 
-/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay 单元）。
+/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain 单元）。
 #[derive(Debug, Clone)]
 pub struct MapInfo {
     pub edition: GameEdition,
@@ -34,6 +36,7 @@ pub struct MapInfo {
     pub theater: Theater,
     pub cells: Vec<IsoCell>,
     pub overlays: Vec<OverlayCell>,
+    pub terrain_objects: Vec<TerrainObject>,
 }
 
 impl MapInfo {
@@ -46,6 +49,7 @@ impl MapInfo {
             theater: Theater::Temperate,
             cells: Vec::new(),
             overlays: Vec::new(),
+            terrain_objects: Vec::new(),
         }
     }
 
@@ -66,6 +70,7 @@ impl MapInfo {
             Ok(o) => o,
             Err(_) => Vec::new(),
         };
+        let terrain_objects = parse_terrain_objects(&doc);
         Ok(Self {
             edition,
             name: name.into(),
@@ -74,6 +79,7 @@ impl MapInfo {
             theater,
             cells,
             overlays,
+            terrain_objects,
         })
     }
 }
