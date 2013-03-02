@@ -437,6 +437,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     if !map.terrain_objects.is_empty() {
         note = format!("{note} · terrain#{}", map.terrain_objects.len());
     }
+    if !map.entities.is_empty() {
+        note = format!("{note} · entities#{}", map.entities.len());
+    }
 
     let preview = match load_map_terrain_preview(&source, &map)
         .or_else(|| load_preview_terrain(&source, map.theater))

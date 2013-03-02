@@ -42,13 +42,14 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
         };
         let map = MapInfo::parse_ini(edition, *name, &bytes)?;
         eprintln!(
-            "OK {name} {}x{} {} iso#{} overlay#{} terrain#{} nested_mix={}",
+            "OK {name} {}x{} {} iso#{} overlay#{} terrain#{} entities#{} nested_mix={}",
             map.width,
             map.height,
             map.theater.as_str(),
             map.cells.len(),
             map.overlays.len(),
             map.terrain_objects.len(),
+            map.entities.len(),
             nested
         );
         return Ok(());
