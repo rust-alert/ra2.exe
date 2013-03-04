@@ -130,6 +130,46 @@ pub fn paint_overlay_markers(
     painted
 }
 
+/// 在已合成地形上按格子绘制精灵（树 / 建筑等）。
+///
+/// `items` 为 `(cell_x, cell_y, blit)`；返回实际画上的数量。
+pub fn paint_cell_sprites(
+    image: &mut TerrainImage,
+    items: &[(u16, u16, TileBlit)],
+    mut cell_z: impl FnMut(u16, u16) -> u8,
+) -> usize {
+    if items.is_empty() {
+        return 0;
+    }
+    let mut prepared: Vec<(i32, i32, &TileBlit)> = Vec::with_capacity(items.len());
+    for (x, y, blit) in items {
+        let z = cell_z(*x, *y);
+        let (sx, sy) = iso_to_screen(i32::from(*x), i32::from(*y), z);
+        prepared.push((
+            sx + blit.offset_x - image.origin_x,
+            sy + blit.offset_y - image.origin_y,
+            blit,
+        ));
+    }
+    prepared.sort_by_key(|(x, y, _)| (*y, *x));
+    let mut painted = 0usize;
+    for (dx, dy, blit) in prepared {
+        if blit_over(
+            &mut image.pixels,
+            image.width,
+            image.height,
+            dx,
+            dy,
+            blit.width,
+            blit.height,
+            &blit.rgba,
+        ) {
+            painted += 1;
+        }
+    }
+    painted
+}
+
 fn overlay_marker_rgba(id: u8) -> [u8; 4] {
     // 公开资源类型号段的软着色：宝石 / 矿石偏金，其余偏青绿。
     match id {
@@ -274,5 +314,49 @@ mod tests {
             .pixels
             .chunks(4)
             .any(|c| c[0] == 230 && c[1] == 190 && c[2] == 40));
+    }
+
+    #[test]
+    fn paint_cell_sprite_marks_pixel() {
+        let mut rgba = vec![0u8; 60 * 30 * 4];
+        for px in rgba.chunks_exact_mut(4) {
+            px.copy_from_slice(&[10, 20, 30, 255]);
+        }
+        let cells = [IsoCell {
+            x: 2,
+            y: 3,
+            tile_num: 0,
+            sub_tile: 0,
+            z: 0,
+            flags: 0,
+        }];
+        let mut img = compose_terrain_rgba(&cells, |_, _| {
+            Some(TileBlit {
+                width: 60,
+                height: 30,
+                offset_x: 0,
+                offset_y: 0,
+                rgba: rgba.clone(),
+            })
+        })
+        .unwrap();
+        let mut sprite = vec![0u8; 4 * 4 * 4];
+        for px in sprite.chunks_exact_mut(4) {
+            px.copy_from_slice(&[255, 0, 0, 255]);
+        }
+        let items = [(
+            2u16,
+            3u16,
+            TileBlit {
+                width: 4,
+                height: 4,
+                offset_x: 28,
+                offset_y: 13,
+                rgba: sprite,
+            },
+        )];
+        let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
+        assert_eq!(n, 1);
+        assert!(img.pixels.chunks(4).any(|c| c[0] == 255 && c[1] == 0));
     }
 }

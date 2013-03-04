@@ -17,7 +17,7 @@ use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
 pub use compose::{
-    compose_terrain_rgba, paint_overlay_markers, TerrainImage, TileBlit,
+    compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, TerrainImage, TileBlit,
 };
 pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
