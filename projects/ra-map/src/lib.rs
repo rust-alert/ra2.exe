@@ -11,6 +11,7 @@ mod placements;
 mod theater;
 mod terrain_objects;
 mod tileset;
+mod waypoints;
 
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
@@ -27,8 +28,9 @@ pub use theater::{
 };
 pub use terrain_objects::{parse_terrain_objects, TerrainObject};
 pub use tileset::{parse_tileset_ini, TilesetLookup};
+pub use waypoints::{parse_waypoints, Waypoint};
 
-/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置单元）。
+/// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置 / 航点）。
 #[derive(Debug, Clone)]
 pub struct MapInfo {
     pub edition: GameEdition,
@@ -40,6 +42,7 @@ pub struct MapInfo {
     pub overlays: Vec<OverlayCell>,
     pub terrain_objects: Vec<TerrainObject>,
     pub entities: Vec<MapEntity>,
+    pub waypoints: Vec<Waypoint>,
 }
 
 impl MapInfo {
@@ -54,6 +57,7 @@ impl MapInfo {
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
             entities: Vec::new(),
+            waypoints: Vec::new(),
         }
     }
 
@@ -76,6 +80,7 @@ impl MapInfo {
         };
         let terrain_objects = parse_terrain_objects(&doc);
         let entities = parse_map_entities(&doc);
+        let waypoints = parse_waypoints(&doc);
         Ok(Self {
             edition,
             name: name.into(),
@@ -86,6 +91,7 @@ impl MapInfo {
             overlays,
             terrain_objects,
             entities,
+            waypoints,
         })
     }
 }
