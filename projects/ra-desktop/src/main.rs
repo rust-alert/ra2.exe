@@ -440,6 +440,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     if !map.entities.is_empty() {
         note = format!("{note} · entities#{}", map.entities.len());
     }
+    if !map.waypoints.is_empty() {
+        note = format!("{note} · wp#{}", map.waypoints.len());
+    }
 
     let preview = match load_map_terrain_preview(&source, &map)
         .or_else(|| load_preview_terrain(&source, map.theater))
