@@ -11,10 +11,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{Palette, ShpFile, TmpFile};
+use ra_assets::{IniDocument, Palette, ShpFile, TmpFile};
 use ra_map::{
-    compose_terrain_rgba, paint_overlay_markers, parse_tileset_ini, theater_ini_name,
-    theater_mix_names, theater_palette, theater_tmp_extension, MapInfo, Theater, TileBlit,
+    compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, parse_tileset_ini,
+    theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, MapInfo, Theater,
+    TileBlit,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::load_rules;
@@ -253,20 +254,99 @@ fn load_map_terrain_preview(
             z_lookup.get(&(x, y)).copied().unwrap_or(0)
         })
     };
+    let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
-            "map:{} cells={} drawn={} overlay#{} painted={} {}x{}",
+            "map:{} cells={} drawn={} overlay#{} painted={} terrain_shp#{} {}x{}",
             map.name,
             map.cells.len(),
             image.drawn,
             map.overlays.len(),
             overlay_painted,
+            terrain_painted,
             rgba.width,
             rgba.height
         ),
         rgba,
     ))
+}
+
+/// 按 art / 剧院扩展名加载地形物件 SHP，叠到合成图上。
+fn paint_terrain_objects(
+    source: &GameAssetSource,
+    map: &MapInfo,
+    image: &mut ra_map::TerrainImage,
+    z_lookup: &HashMap<(u16, u16), u8>,
+) -> usize {
+    if map.terrain_objects.is_empty() {
+        return 0;
+    }
+    let art = source
+        .vfs
+        .read("art.ini")
+        .and_then(|b| IniDocument::parse(&b).ok());
+    let obj_pal = source
+        .vfs
+        .read("unittem.pal")
+        .and_then(|b| Palette::parse(&b).ok())
+        .or_else(|| {
+            source
+                .vfs
+                .read(theater_palette(map.theater))
+                .and_then(|b| Palette::parse(&b).ok())
+        });
+    let Some(obj_pal) = obj_pal else {
+        return 0;
+    };
+    let ext = theater_tmp_extension(map.theater);
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut blit_cache: HashMap<String, TileBlit> = HashMap::new();
+    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+
+    for obj in &map.terrain_objects {
+        let image_key = art
+            .as_ref()
+            .and_then(|a| a.get(&obj.name, "Image"))
+            .unwrap_or(obj.name.as_str())
+            .to_ascii_uppercase();
+        if let Some(blit) = blit_cache.get(&image_key) {
+            items.push((obj.x, obj.y, blit.clone()));
+            continue;
+        }
+        let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
+        if !shp_cache.contains_key(&file) {
+            let Some(bytes) = source.vfs.read(&file) else {
+                continue;
+            };
+            let Ok(shp) = ShpFile::parse(&bytes) else {
+                continue;
+            };
+            shp_cache.insert(file.clone(), shp);
+        }
+        let Some(shp) = shp_cache.get(&file) else {
+            continue;
+        };
+        let Some(frame) = shp.frames.first() else {
+            continue;
+        };
+        if frame.frame_width == 0 || frame.frame_height == 0 {
+            continue;
+        }
+        let blit = TileBlit {
+            width: u32::from(frame.frame_width),
+            height: u32::from(frame.frame_height),
+            offset_x: i32::from(frame.frame_x),
+            offset_y: i32::from(frame.frame_y),
+            rgba: frame.to_rgba(&obj_pal),
+        };
+        blit_cache.insert(image_key, blit.clone());
+        items.push((obj.x, obj.y, blit));
+    }
+
+    paint_cell_sprites(image, &items, |x, y| {
+        z_lookup.get(&(x, y)).copied().unwrap_or(0)
+    })
 }
 
 fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
