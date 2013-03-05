@@ -24,7 +24,8 @@ pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
 pub use theater::{
-    theater_ini_name, theater_mix_names, theater_palette, theater_tmp_extension, Theater,
+    new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter,
+    theater_palette, theater_tmp_extension, Theater,
 };
 pub use terrain_objects::{parse_terrain_objects, TerrainObject};
 pub use tileset::{parse_tileset_ini, TilesetLookup};

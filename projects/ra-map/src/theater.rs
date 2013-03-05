@@ -77,3 +77,38 @@ pub fn theater_palette(theater: Theater) -> &'static str {
         Theater::Desert => "isodes.pal",
     }
 }
+
+/// `NewTheater=yes` 时替换文件名第二字母所用的剧院字符。
+pub fn theater_new_letter(theater: Theater) -> char {
+    match theater {
+        Theater::Temperate => 't',
+        Theater::Snow => 'a',
+        Theater::Urban => 'u',
+        Theater::Lunar => 'l',
+        Theater::Desert => 'd',
+    }
+}
+
+/// 生成 `NewTheater` 规则下的 SHP 主文件名（小写，含 `.shp`）。
+pub fn new_theater_shp_name(stem: &str, theater: Theater) -> String {
+    let letter = theater_new_letter(theater);
+    let mut chars: Vec<char> = stem.chars().collect();
+    if chars.len() >= 2 {
+        chars[1] = letter;
+    }
+    let mut name: String = chars.into_iter().collect();
+    name.make_ascii_lowercase();
+    name.push_str(".shp");
+    name
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn temperate_new_theater_name() {
+        assert_eq!(new_theater_shp_name("CAMSC01", Theater::Temperate), "ctmsc01.shp");
+        assert_eq!(new_theater_shp_name("CAAIRP", Theater::Temperate), "ctairp.shp");
+    }
+}
