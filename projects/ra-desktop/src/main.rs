@@ -650,7 +650,8 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let world = match load_rules(&source, chain.edition) {
         Ok(rules) => {
             let sections = rules.rules.sections.len();
-            note = format!("{note} · rules#{sections}");
+            let overlays = rules.overlay_types.len();
+            note = format!("{note} · rules#{sections} · overlay_types#{overlays}");
             Some(World::new(chain.edition, &rules, map))
         }
         Err(e) => {
