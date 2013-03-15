@@ -18,7 +18,7 @@ use ra_map::{
     theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_rules::load_rules;
+use ra_rules::{load_rules, OverlayTypeRegistry};
 use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
@@ -247,24 +247,19 @@ fn load_map_terrain_preview(
     for cell in &map.cells {
         z_lookup.insert((cell.x as u16, cell.y as u16), cell.z);
     }
-    let overlay_painted = if map.overlays.is_empty() {
-        0
-    } else {
-        paint_overlay_markers(&mut image, &map.overlays, |x, y| {
-            z_lookup.get(&(x, y)).copied().unwrap_or(0)
-        })
-    };
+    let (overlay_shp, overlay_mark) = paint_overlays(source, map, &mut image, &z_lookup);
     let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
     let structure_painted = paint_structure_entities(source, map, &mut image, &z_lookup);
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
-            "map:{} cells={} drawn={} overlay#{} painted={} terrain_shp#{} struct_shp#{} {}x{}",
+            "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} {}x{}",
             map.name,
             map.cells.len(),
             image.drawn,
             map.overlays.len(),
-            overlay_painted,
+            overlay_shp,
+            overlay_mark,
             terrain_painted,
             structure_painted,
             rgba.width,
@@ -272,6 +267,146 @@ fn load_map_terrain_preview(
         ),
         rgba,
     ))
+}
+
+/// 优先叠 Overlay SHP；解析失败的格子回退色块标记。
+fn paint_overlays(
+    source: &GameAssetSource,
+    map: &MapInfo,
+    image: &mut ra_map::TerrainImage,
+    z_lookup: &HashMap<(u16, u16), u8>,
+) -> (usize, usize) {
+    if map.overlays.is_empty() {
+        return (0, 0);
+    }
+    let registry = source
+        .vfs
+        .read("rules.ini")
+        .and_then(|b| IniDocument::parse(&b).ok())
+        .map(|doc| OverlayTypeRegistry::from_rules(&doc))
+        .unwrap_or_default();
+    let art = source
+        .vfs
+        .read("art.ini")
+        .and_then(|b| IniDocument::parse(&b).ok());
+    let obj_pal = source
+        .vfs
+        .read("unittem.pal")
+        .and_then(|b| Palette::parse(&b).ok())
+        .or_else(|| {
+            source
+                .vfs
+                .read(theater_palette(map.theater))
+                .and_then(|b| Palette::parse(&b).ok())
+        });
+    let Some(obj_pal) = obj_pal else {
+        let mark = paint_overlay_markers(image, &map.overlays, |x, y| {
+            z_lookup.get(&(x, y)).copied().unwrap_or(0)
+        });
+        return (0, mark);
+    };
+
+    let ext = theater_tmp_extension(map.theater);
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    // (type_name, frame) → blit
+    let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
+    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut unresolved = Vec::new();
+
+    for cell in &map.overlays {
+        let Some(type_name) = registry.name(cell.overlay_id).map(str::to_owned) else {
+            unresolved.push(*cell);
+            continue;
+        };
+        let image_key = art
+            .as_ref()
+            .and_then(|a| a.get(&type_name, "Image"))
+            .unwrap_or(type_name.as_str())
+            .to_ascii_uppercase();
+        let frame_idx = cell.data;
+        let cache_key = (image_key.clone(), frame_idx);
+        if let Some(blit) = blit_cache.get(&cache_key) {
+            items.push((cell.x, cell.y, blit.clone()));
+            continue;
+        }
+
+        let new_theater = art
+            .as_ref()
+            .and_then(|a| a.get(&type_name, "NewTheater"))
+            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let theater_yes = art
+            .as_ref()
+            .and_then(|a| a.get(&type_name, "Theater"))
+            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let mut candidates = Vec::new();
+        if theater_yes {
+            candidates.push(format!("{}.{ext}", image_key.to_ascii_lowercase()));
+        }
+        if new_theater {
+            candidates.push(new_theater_shp_name(&image_key, map.theater));
+        }
+        candidates.push(format!("{}.shp", image_key.to_ascii_lowercase()));
+        candidates.push(new_theater_shp_name(&image_key, map.theater));
+        candidates.push(format!("{}.{ext}", image_key.to_ascii_lowercase()));
+
+        let mut loaded: Option<String> = None;
+        for file in &candidates {
+            if shp_cache.contains_key(file) {
+                loaded = Some(file.clone());
+                break;
+            }
+            let Some(bytes) = source.vfs.read(file) else {
+                continue;
+            };
+            let Ok(shp) = ShpFile::parse(&bytes) else {
+                continue;
+            };
+            shp_cache.insert(file.clone(), shp);
+            loaded = Some(file.clone());
+            break;
+        }
+        let Some(file) = loaded else {
+            unresolved.push(*cell);
+            continue;
+        };
+        let Some(shp) = shp_cache.get(&file) else {
+            unresolved.push(*cell);
+            continue;
+        };
+        let frame = shp
+            .frames
+            .get(usize::from(frame_idx))
+            .or_else(|| shp.frames.first());
+        let Some(frame) = frame else {
+            unresolved.push(*cell);
+            continue;
+        };
+        if frame.frame_width == 0 || frame.frame_height == 0 {
+            unresolved.push(*cell);
+            continue;
+        }
+        let blit = TileBlit {
+            width: u32::from(frame.frame_width),
+            height: u32::from(frame.frame_height),
+            offset_x: i32::from(frame.frame_x),
+            offset_y: i32::from(frame.frame_y),
+            rgba: frame.to_rgba(&obj_pal),
+        };
+        blit_cache.insert(cache_key, blit.clone());
+        items.push((cell.x, cell.y, blit));
+    }
+
+    let shp_n = paint_cell_sprites(image, &items, |x, y| {
+        z_lookup.get(&(x, y)).copied().unwrap_or(0)
+    });
+    let mark_n = if unresolved.is_empty() {
+        0
+    } else {
+        paint_overlay_markers(image, &unresolved, |x, y| {
+            z_lookup.get(&(x, y)).copied().unwrap_or(0)
+        })
+    };
+    (shp_n, mark_n)
 }
 
 /// 按 art / 剧院扩展名加载地形物件 SHP，叠到合成图上。
