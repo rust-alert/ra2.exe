@@ -675,7 +675,7 @@ fn load_boot_map(
     edition: GameEdition,
     note: &mut String,
 ) -> MapInfo {
-    const CANDIDATES: &[&str] = &["mp01t4.map", "mp01t2.map", "mp02t4.map"];
+    const CANDIDATES: &[&str] = &["mp01t4.map", "mp03t4.map", "mp01t2.map", "mp02t4.map"];
     for name in CANDIDATES {
         let Some(bytes) = source.vfs.read(name) else {
             continue;
