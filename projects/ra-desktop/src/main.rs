@@ -250,10 +250,11 @@ fn load_map_terrain_preview(
     let (overlay_shp, overlay_mark) = paint_overlays(source, map, &mut image, &z_lookup);
     let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
     let structure_painted = paint_structure_entities(source, map, &mut image, &z_lookup);
+    let mobile_painted = paint_mobile_entities(source, map, &mut image, &z_lookup);
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
-            "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} {}x{}",
+            "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
             map.name,
             map.cells.len(),
             image.drawn,
@@ -262,6 +263,7 @@ fn load_map_terrain_preview(
             overlay_mark,
             terrain_painted,
             structure_painted,
+            mobile_painted,
             rgba.width,
             rgba.height
         ),
@@ -585,6 +587,126 @@ fn paint_structure_entities(
             rgba: frame.to_rgba(&obj_pal),
         };
         blit_cache.insert(image_key, blit.clone());
+        items.push((ent.x, ent.y, blit));
+    }
+
+    paint_cell_sprites(image, &items, |x, y| {
+        z_lookup.get(&(x, y)).copied().unwrap_or(0)
+    })
+}
+
+/// 叠画单位 / 步兵 / 飞行器中能解出的 SHP（多数载具为 VXL，此处跳过）。
+fn paint_mobile_entities(
+    source: &GameAssetSource,
+    map: &MapInfo,
+    image: &mut ra_map::TerrainImage,
+    z_lookup: &HashMap<(u16, u16), u8>,
+) -> usize {
+    let mobiles: Vec<_> = map
+        .entities
+        .iter()
+        .filter(|e| {
+            matches!(
+                e.kind,
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+            )
+        })
+        .collect();
+    if mobiles.is_empty() {
+        return 0;
+    }
+    let art = source
+        .vfs
+        .read("art.ini")
+        .and_then(|b| IniDocument::parse(&b).ok());
+    let obj_pal = source
+        .vfs
+        .read("unittem.pal")
+        .and_then(|b| Palette::parse(&b).ok())
+        .or_else(|| {
+            source
+                .vfs
+                .read(theater_palette(map.theater))
+                .and_then(|b| Palette::parse(&b).ok())
+        });
+    let Some(obj_pal) = obj_pal else {
+        return 0;
+    };
+
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
+    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+
+    for ent in mobiles {
+        let image_key = art
+            .as_ref()
+            .and_then(|a| a.get(&ent.type_id, "Image"))
+            .unwrap_or(ent.type_id.as_str())
+            .to_ascii_uppercase();
+        // 粗略朝向：facing/32 → 帧号，缺帧则回落 0。
+        let frame_hint = ent.facing / 32;
+        let cache_key = (image_key.clone(), frame_hint);
+        if let Some(blit) = blit_cache.get(&cache_key) {
+            items.push((ent.x, ent.y, blit.clone()));
+            continue;
+        }
+
+        let new_theater = art
+            .as_ref()
+            .and_then(|a| a.get(&ent.type_id, "NewTheater"))
+            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let candidates = if new_theater {
+            vec![
+                new_theater_shp_name(&image_key, map.theater),
+                format!("{}.shp", image_key.to_ascii_lowercase()),
+            ]
+        } else {
+            vec![
+                format!("{}.shp", image_key.to_ascii_lowercase()),
+                new_theater_shp_name(&image_key, map.theater),
+            ]
+        };
+
+        let mut loaded: Option<String> = None;
+        for file in &candidates {
+            if shp_cache.contains_key(file) {
+                loaded = Some(file.clone());
+                break;
+            }
+            let Some(bytes) = source.vfs.read(file) else {
+                continue;
+            };
+            let Ok(shp) = ShpFile::parse(&bytes) else {
+                continue;
+            };
+            shp_cache.insert(file.clone(), shp);
+            loaded = Some(file.clone());
+            break;
+        }
+        let Some(file) = loaded else {
+            continue;
+        };
+        let Some(shp) = shp_cache.get(&file) else {
+            continue;
+        };
+        let frame = shp
+            .frames
+            .get(usize::from(frame_hint))
+            .or_else(|| shp.frames.first());
+        let Some(frame) = frame else {
+            continue;
+        };
+        if frame.frame_width == 0 || frame.frame_height == 0 {
+            continue;
+        }
+        let blit = TileBlit {
+            width: u32::from(frame.frame_width),
+            height: u32::from(frame.frame_height),
+            offset_x: i32::from(frame.frame_x),
+            offset_y: i32::from(frame.frame_y),
+            rgba: frame.to_rgba(&obj_pal),
+        };
+        blit_cache.insert(cache_key, blit.clone());
         items.push((ent.x, ent.y, blit));
     }
 
