@@ -31,6 +31,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let (_root, vfs, nested) = mount_edition(root, edition)?;
     const CANDIDATES: &[&str] = &[
         "mp01t4.map",
+        "mp03t4.map",
         "mp01t2.map",
         "mp02t4.map",
         "dustbowl.map",
