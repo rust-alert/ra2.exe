@@ -1,0 +1,73 @@
+//! 无窗口探测：零售 VXL 肢节与体素数。
+
+use ra_adaptor::{detect_edition, find_ci_file};
+use ra_assets::{MixVfs, VxlFile};
+use ra_types::{GameEdition, RaError, RaResult};
+use std::path::{Path, PathBuf};
+
+fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
+    let manifest = detect_edition(root, Some(edition))?;
+    let mut vfs = MixVfs::new();
+    for name in &manifest.present_mixes {
+        let path = find_ci_file(root, name)
+            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path)
+            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let _ = vfs.mount_bytes(name.clone(), data);
+    }
+    for name in manifest.chain.nested_mix_files {
+        let _ = vfs.mount_nested(name);
+    }
+
+    let mut ok = 0usize;
+    let mut fail = 0usize;
+    for stem in ["taxi", "car", "bus", "mtnk", "htk", "sref", "orca"] {
+        let file = format!("{stem}.vxl");
+        let Some(bytes) = vfs.read(&file) else {
+            eprintln!("MISS {file}");
+            fail += 1;
+            continue;
+        };
+        match VxlFile::parse(&bytes) {
+            Ok(vxl) => {
+                let limbs: Vec<String> = vxl
+                    .limbs
+                    .iter()
+                    .map(|l| format!("{}:{}x{}x{}/v{}", l.name, l.size_x, l.size_y, l.size_z, l.voxels.len()))
+                    .collect();
+                eprintln!(
+                    "OK {file} limbs={} voxels={} [{}]",
+                    vxl.limb_count,
+                    vxl.total_voxels(),
+                    limbs.join(", ")
+                );
+                ok += 1;
+            }
+            Err(e) => {
+                eprintln!("FAIL {file}: {e}");
+                fail += 1;
+            }
+        }
+    }
+    eprintln!("summary ok={ok} fail={fail}");
+    if ok == 0 {
+        return Err(RaError::Msg("没有成功解析任何 VXL".into()));
+    }
+    Ok(())
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let Some(root) = args.next().map(PathBuf::from) else {
+        eprintln!("用法: probe_vxl <游戏目录> [edition]");
+        std::process::exit(2);
+    };
+    let edition = match args.next() {
+        Some(s) => GameEdition::parse(&s).unwrap_or(GameEdition::Ra2),
+        None => GameEdition::Ra2,
+    };
+    if let Err(e) = probe(&root, edition) {
+        eprintln!("probe failed: {e}");
+        std::process::exit(1);
+    }
+}
