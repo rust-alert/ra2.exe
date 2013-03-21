@@ -11,11 +11,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{IniDocument, Palette, ShpFile, TmpFile};
+use ra_assets::{rasterize_vxl, IniDocument, Palette, ShpFile, TmpFile, VxlFile};
 use ra_map::{
     compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
     parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
-    theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit,
+    theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules, OverlayTypeRegistry};
@@ -595,7 +595,7 @@ fn paint_structure_entities(
     })
 }
 
-/// 叠画单位 / 步兵 / 飞行器中能解出的 SHP（多数载具为 VXL，此处跳过）。
+/// 叠画单位 / 步兵 / 飞行器：优先 SHP，否则 VXL 正交投影。
 fn paint_mobile_entities(
     source: &GameAssetSource,
     map: &MapInfo,
@@ -634,6 +634,7 @@ fn paint_mobile_entities(
     };
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut vxl_cache: HashMap<String, TileBlit> = HashMap::new();
     let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
@@ -643,7 +644,6 @@ fn paint_mobile_entities(
             .and_then(|a| a.get(&ent.type_id, "Image"))
             .unwrap_or(ent.type_id.as_str())
             .to_ascii_uppercase();
-        // 粗略朝向：facing/32 → 帧号，缺帧则回落 0。
         let frame_hint = ent.facing / 32;
         let cache_key = (image_key.clone(), frame_hint);
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -651,67 +651,105 @@ fn paint_mobile_entities(
             continue;
         }
 
-        let new_theater = art
-            .as_ref()
-            .and_then(|a| a.get(&ent.type_id, "NewTheater"))
-            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let candidates = if new_theater {
-            vec![
-                new_theater_shp_name(&image_key, map.theater),
-                format!("{}.shp", image_key.to_ascii_lowercase()),
-            ]
-        } else {
-            vec![
-                format!("{}.shp", image_key.to_ascii_lowercase()),
-                new_theater_shp_name(&image_key, map.theater),
-            ]
-        };
+        if let Some(blit) = load_mobile_shp(
+            source,
+            &art,
+            &image_key,
+            map,
+            &obj_pal,
+            frame_hint,
+            &mut shp_cache,
+        ) {
+            blit_cache.insert(cache_key, blit.clone());
+            items.push((ent.x, ent.y, blit));
+            continue;
+        }
 
-        let mut loaded: Option<String> = None;
-        for file in &candidates {
-            if shp_cache.contains_key(file) {
-                loaded = Some(file.clone());
-                break;
+        let vxl_file = format!("{}.vxl", image_key.to_ascii_lowercase());
+        if let Some(blit) = vxl_cache.get(&vxl_file) {
+            blit_cache.insert(cache_key, blit.clone());
+            items.push((ent.x, ent.y, blit.clone()));
+            continue;
+        }
+        if let Some(bytes) = source.vfs.read(&vxl_file) {
+            if let Ok(vxl) = VxlFile::parse(&bytes) {
+                if let Some(sprite) = rasterize_vxl(&vxl, &obj_pal) {
+                    let blit = TileBlit {
+                        width: sprite.width,
+                        height: sprite.height,
+                        offset_x: sprite.offset_x + TILE_WIDTH / 2,
+                        offset_y: sprite.offset_y + TILE_HEIGHT / 2,
+                        rgba: sprite.rgba,
+                    };
+                    vxl_cache.insert(vxl_file, blit.clone());
+                    blit_cache.insert(cache_key, blit.clone());
+                    items.push((ent.x, ent.y, blit));
+                }
             }
-            let Some(bytes) = source.vfs.read(file) else {
-                continue;
-            };
-            let Ok(shp) = ShpFile::parse(&bytes) else {
-                continue;
-            };
-            shp_cache.insert(file.clone(), shp);
-            loaded = Some(file.clone());
-            break;
         }
-        let Some(file) = loaded else {
-            continue;
-        };
-        let Some(shp) = shp_cache.get(&file) else {
-            continue;
-        };
-        let frame = shp
-            .frames
-            .get(usize::from(frame_hint))
-            .or_else(|| shp.frames.first());
-        let Some(frame) = frame else {
-            continue;
-        };
-        if frame.frame_width == 0 || frame.frame_height == 0 {
-            continue;
-        }
-        let blit = TileBlit {
-            width: u32::from(frame.frame_width),
-            height: u32::from(frame.frame_height),
-            offset_x: i32::from(frame.frame_x),
-            offset_y: i32::from(frame.frame_y),
-            rgba: frame.to_rgba(&obj_pal),
-        };
-        blit_cache.insert(cache_key, blit.clone());
-        items.push((ent.x, ent.y, blit));
     }
 
     paint_cell_sprites(image, &items, |x, y| {
         z_lookup.get(&(x, y)).copied().unwrap_or(0)
+    })
+}
+
+fn load_mobile_shp(
+    source: &GameAssetSource,
+    art: &Option<IniDocument>,
+    image_key: &str,
+    map: &MapInfo,
+    obj_pal: &Palette,
+    frame_hint: u8,
+    shp_cache: &mut HashMap<String, ShpFile>,
+) -> Option<TileBlit> {
+    let new_theater = art
+        .as_ref()
+        .and_then(|a| a.get(image_key, "NewTheater"))
+        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let candidates = if new_theater {
+        vec![
+            new_theater_shp_name(image_key, map.theater),
+            format!("{}.shp", image_key.to_ascii_lowercase()),
+        ]
+    } else {
+        vec![
+            format!("{}.shp", image_key.to_ascii_lowercase()),
+            new_theater_shp_name(image_key, map.theater),
+        ]
+    };
+
+    let mut loaded: Option<String> = None;
+    for file in &candidates {
+        if shp_cache.contains_key(file) {
+            loaded = Some(file.clone());
+            break;
+        }
+        let Some(bytes) = source.vfs.read(file) else {
+            continue;
+        };
+        let Ok(shp) = ShpFile::parse(&bytes) else {
+            continue;
+        };
+        shp_cache.insert(file.clone(), shp);
+        loaded = Some(file.clone());
+        break;
+    }
+    let file = loaded?;
+    let shp = shp_cache.get(&file)?;
+    let frame = shp
+        .frames
+        .get(usize::from(frame_hint))
+        .or_else(|| shp.frames.first())?;
+    if frame.frame_width == 0 || frame.frame_height == 0 {
+        return None;
+    }
+    Some(TileBlit {
+        width: u32::from(frame.frame_width),
+        height: u32::from(frame.frame_height),
+        offset_x: i32::from(frame.frame_x),
+        offset_y: i32::from(frame.frame_y),
+        rgba: frame.to_rgba(obj_pal),
     })
 }
 
@@ -797,7 +835,7 @@ fn load_boot_map(
     edition: GameEdition,
     note: &mut String,
 ) -> MapInfo {
-    const CANDIDATES: &[&str] = &["mp01t4.map", "mp03t4.map", "mp01t2.map", "mp02t4.map"];
+    const CANDIDATES: &[&str] = &["mp03t4.map", "mp01t4.map", "mp01t2.map", "mp02t4.map"];
     for name in CANDIDATES {
         let Some(bytes) = source.vfs.read(name) else {
             continue;
