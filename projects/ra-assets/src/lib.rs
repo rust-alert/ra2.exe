@@ -9,6 +9,7 @@ mod pal;
 mod shp;
 mod tmp;
 mod vxl;
+mod vxl_raster;
 
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
@@ -18,3 +19,4 @@ pub use pal::{Palette, Rgba};
 pub use shp::{ShpFile, ShpFrame};
 pub use tmp::{TmpFile, TmpTile};
 pub use vxl::{VxlFile, VxlLimb, VxlVoxel};
+pub use vxl_raster::{rasterize_vxl, VxlSprite};
