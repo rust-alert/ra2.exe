@@ -1,7 +1,7 @@
 //! 无窗口探测：零售 VXL 肢节与体素数。
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{MixVfs, VxlFile};
+use ra_assets::{rasterize_vxl, MixVfs, Palette, VxlFile};
 use ra_types::{GameEdition, RaError, RaResult};
 use std::path::{Path, PathBuf};
 
@@ -19,6 +19,10 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
         let _ = vfs.mount_nested(name);
     }
 
+    let pal = vfs
+        .read("unittem.pal")
+        .and_then(|b| Palette::parse(&b).ok());
+
     let mut ok = 0usize;
     let mut fail = 0usize;
     for stem in ["taxi", "car", "bus", "mtnk", "htk", "sref", "orca"] {
@@ -33,10 +37,24 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
                 let limbs: Vec<String> = vxl
                     .limbs
                     .iter()
-                    .map(|l| format!("{}:{}x{}x{}/v{}", l.name, l.size_x, l.size_y, l.size_z, l.voxels.len()))
+                    .map(|l| {
+                        format!(
+                            "{}:{}x{}x{}/v{}",
+                            l.name, l.size_x, l.size_y, l.size_z, l.voxels.len()
+                        )
+                    })
                     .collect();
+                let raster = match &pal {
+                    Some(p) => rasterize_vxl(&vxl, p)
+                        .map(|s| {
+                            let opaque = s.rgba.chunks(4).filter(|c| c[3] > 0).count();
+                            format!("{}x{} opaque={opaque}", s.width, s.height)
+                        })
+                        .unwrap_or_else(|| "raster=none".into()),
+                    None => "raster=no-pal".into(),
+                };
                 eprintln!(
-                    "OK {file} limbs={} voxels={} [{}]",
+                    "OK {file} limbs={} voxels={} raster={raster} [{}]",
                     vxl.limb_count,
                     vxl.total_voxels(),
                     limbs.join(", ")
