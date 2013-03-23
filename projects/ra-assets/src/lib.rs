@@ -1,5 +1,6 @@
 //! 格式解析：字节进、结构出。不碰 `std::fs`。
 
+mod hva;
 mod ini;
 mod mix;
 mod mix_crypto;
@@ -11,6 +12,7 @@ mod tmp;
 mod vxl;
 mod vxl_raster;
 
+pub use hva::HvaFile;
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
 pub use mix_hash::mix_hash;
