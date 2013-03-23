@@ -21,4 +21,4 @@ pub use pal::{Palette, Rgba};
 pub use shp::{ShpFile, ShpFrame};
 pub use tmp::{TmpFile, TmpTile};
 pub use vxl::{VxlFile, VxlLimb, VxlVoxel};
-pub use vxl_raster::{rasterize_vxl, VxlSprite};
+pub use vxl_raster::{rasterize_vxl, rasterize_vxl_posed, VxlSprite};
