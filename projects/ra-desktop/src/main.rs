@@ -11,7 +11,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{rasterize_vxl, IniDocument, Palette, ShpFile, TmpFile, VxlFile};
+use ra_assets::{
+    rasterize_vxl_posed, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
+};
 use ra_map::{
     compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
     parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
@@ -634,7 +636,6 @@ fn paint_mobile_entities(
     };
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut vxl_cache: HashMap<String, TileBlit> = HashMap::new();
     let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
@@ -665,15 +666,18 @@ fn paint_mobile_entities(
             continue;
         }
 
-        let vxl_file = format!("{}.vxl", image_key.to_ascii_lowercase());
-        if let Some(blit) = vxl_cache.get(&vxl_file) {
-            blit_cache.insert(cache_key, blit.clone());
-            items.push((ent.x, ent.y, blit.clone()));
-            continue;
-        }
+        let stem = image_key.to_ascii_lowercase();
+        let vxl_file = format!("{stem}.vxl");
+        let hva_file = format!("{stem}.hva");
         if let Some(bytes) = source.vfs.read(&vxl_file) {
             if let Ok(vxl) = VxlFile::parse(&bytes) {
-                if let Some(sprite) = rasterize_vxl(&vxl, &obj_pal) {
+                let hva = source
+                    .vfs
+                    .read(&hva_file)
+                    .and_then(|b| HvaFile::parse(&b).ok());
+                if let Some(sprite) =
+                    rasterize_vxl_posed(&vxl, &obj_pal, hva.as_ref(), ent.facing)
+                {
                     let blit = TileBlit {
                         width: sprite.width,
                         height: sprite.height,
@@ -681,7 +685,6 @@ fn paint_mobile_entities(
                         offset_y: sprite.offset_y + TILE_HEIGHT / 2,
                         rgba: sprite.rgba,
                     };
-                    vxl_cache.insert(vxl_file, blit.clone());
                     blit_cache.insert(cache_key, blit.clone());
                     items.push((ent.x, ent.y, blit));
                 }
