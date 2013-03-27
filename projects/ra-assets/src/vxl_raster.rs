@@ -18,7 +18,10 @@ pub fn rasterize_vxl(vxl: &VxlFile, palette: &Palette) -> Option<VxlSprite> {
     rasterize_vxl_posed(vxl, palette, None, 0)
 }
 
-/// 按朝向投影；若提供 HVA，则用 `facing/32` 选取帧并应用肢节矩阵。
+/// 按朝向投影。
+///
+/// 零售多数载具 HVA 仅 1 帧（肢节相对位姿）；地图 `Facing` 由引擎偏航。
+/// 此处先取 HVA 第 0 帧矩阵组装肢节，再绕原点做 8 向偏航。
 pub fn rasterize_vxl_posed(
     vxl: &VxlFile,
     palette: &Palette,
@@ -29,31 +32,15 @@ pub fn rasterize_vxl_posed(
         return None;
     }
 
-    let frame = match hva {
-        Some(h) if h.frame_count > 0 => {
-            u32::from(facing / 32) % h.frame_count
-        }
-        _ => 0,
-    };
-
     let mut points: Vec<(i32, i32, i32, u8)> = Vec::new();
     for (section, limb) in vxl.limbs.iter().enumerate() {
-        let matrix = hva.and_then(|h| h.get_transform(frame, section as u32));
+        let matrix = hva.and_then(|h| h.get_transform(0, section as u32));
         for v in &limb.voxels {
-            let (x, y, z) = match matrix {
+            let (mx, my, mz) = match matrix {
                 Some(m) => apply_matrix(m, f32::from(v.x), f32::from(v.y), f32::from(v.z)),
-                None => {
-                    // 无 HVA：绕肢节中心做 8 向偏航近似。
-                    yaw_point(
-                        f32::from(v.x),
-                        f32::from(v.y),
-                        f32::from(v.z),
-                        f32::from(limb.size_x) * 0.5,
-                        f32::from(limb.size_y) * 0.5,
-                        facing,
-                    )
-                }
+                None => (f32::from(v.x), f32::from(v.y), f32::from(v.z)),
             };
+            let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, facing);
             let xi = x.round() as i32;
             let yi = y.round() as i32;
             let zi = z.round() as i32;
@@ -195,5 +182,26 @@ mod tests {
         assert_eq!(a.width, b.width);
         assert_eq!(a.height, b.height);
         assert_eq!(a.rgba, b.rgba);
+    }
+
+    #[test]
+    fn yaw_facing_changes_bounds() {
+        let voxels: Vec<_> = (0..8)
+            .map(|i| VxlVoxel {
+                x: i,
+                y: 0,
+                z: 0,
+                color_index: 10,
+                normal_index: 0,
+            })
+            .collect();
+        let vxl = limb_with(voxels);
+        let mut colors = [Rgba::transparent(); 256];
+        colors[10] = Rgba::rgb(1, 1, 1);
+        let pal = Palette { colors };
+        let a = rasterize_vxl_posed(&vxl, &pal, None, 0).unwrap();
+        // facing=32 → 45°：沿 X 的点列在投影上近似塌缩。
+        let b = rasterize_vxl_posed(&vxl, &pal, None, 32).unwrap();
+        assert!(a.width > b.width);
     }
 }
