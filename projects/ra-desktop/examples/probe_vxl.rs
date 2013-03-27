@@ -1,7 +1,7 @@
-//! 无窗口探测：零售 VXL 肢节与体素数。
+//! 无窗口探测：零售 VXL / HVA 与朝向光栅。
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{rasterize_vxl, MixVfs, Palette, VxlFile};
+use ra_assets::{rasterize_vxl, rasterize_vxl_posed, HvaFile, MixVfs, Palette, VxlFile};
 use ra_types::{GameEdition, RaError, RaResult};
 use std::path::{Path, PathBuf};
 
@@ -27,11 +27,15 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let mut fail = 0usize;
     for stem in ["taxi", "car", "bus", "mtnk", "htk", "sref", "orca"] {
         let file = format!("{stem}.vxl");
+        let hva_name = format!("{stem}.hva");
         let Some(bytes) = vfs.read(&file) else {
             eprintln!("MISS {file}");
             fail += 1;
             continue;
         };
+        let hva = vfs
+            .read(&hva_name)
+            .and_then(|b| HvaFile::parse(&b).ok());
         match VxlFile::parse(&bytes) {
             Ok(vxl) => {
                 let limbs: Vec<String> = vxl
@@ -44,17 +48,32 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
                         )
                     })
                     .collect();
+                let hva_info = match &hva {
+                    Some(h) => format!(
+                        "hva frames={} sections={}",
+                        h.frame_count, h.section_count
+                    ),
+                    None => "hva=miss".into(),
+                };
                 let raster = match &pal {
-                    Some(p) => rasterize_vxl(&vxl, p)
-                        .map(|s| {
+                    Some(p) => {
+                        let base = rasterize_vxl(&vxl, p).map(|s| {
                             let opaque = s.rgba.chunks(4).filter(|c| c[3] > 0).count();
                             format!("{}x{} opaque={opaque}", s.width, s.height)
-                        })
-                        .unwrap_or_else(|| "raster=none".into()),
+                        });
+                        let facing96 = rasterize_vxl_posed(&vxl, p, hva.as_ref(), 96).map(|s| {
+                            format!("{}x{}", s.width, s.height)
+                        });
+                        match (base, facing96) {
+                            (Some(b), Some(f)) => format!("{b} face96={f}"),
+                            (Some(b), None) => b,
+                            _ => "raster=none".into(),
+                        }
+                    }
                     None => "raster=no-pal".into(),
                 };
                 eprintln!(
-                    "OK {file} limbs={} voxels={} raster={raster} [{}]",
+                    "OK {file} limbs={} voxels={} {hva_info} raster={raster} [{}]",
                     vxl.limb_count,
                     vxl.total_voxels(),
                     limbs.join(", ")
