@@ -524,7 +524,7 @@ fn paint_structure_entities(
     };
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<String, TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, String), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in structures {
@@ -533,7 +533,8 @@ fn paint_structure_entities(
             .and_then(|a| a.get(&ent.type_id, "Image"))
             .unwrap_or(ent.type_id.as_str())
             .to_ascii_uppercase();
-        if let Some(blit) = blit_cache.get(&image_key) {
+        let cache_key = (image_key.clone(), ent.owner.clone());
+        if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((ent.x, ent.y, blit.clone()));
             continue;
         }
@@ -581,14 +582,15 @@ fn paint_structure_entities(
         if frame.frame_width == 0 || frame.frame_height == 0 {
             continue;
         }
+        let pal = obj_pal.for_owner(&ent.owner);
         let blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
             offset_x: i32::from(frame.frame_x),
             offset_y: i32::from(frame.frame_y),
-            rgba: frame.to_rgba(&obj_pal),
+            rgba: frame.to_rgba(&pal),
         };
-        blit_cache.insert(image_key, blit.clone());
+        blit_cache.insert(cache_key, blit.clone());
         items.push((ent.x, ent.y, blit));
     }
 
@@ -636,7 +638,7 @@ fn paint_mobile_entities(
     };
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u8, String), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
@@ -646,18 +648,20 @@ fn paint_mobile_entities(
             .unwrap_or(ent.type_id.as_str())
             .to_ascii_uppercase();
         let frame_hint = ent.facing / 32;
-        let cache_key = (image_key.clone(), frame_hint);
+        let cache_key = (image_key.clone(), frame_hint, ent.owner.clone());
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((ent.x, ent.y, blit.clone()));
             continue;
         }
+
+        let pal = obj_pal.for_owner(&ent.owner);
 
         if let Some(blit) = load_mobile_shp(
             source,
             &art,
             &image_key,
             map,
-            &obj_pal,
+            &pal,
             frame_hint,
             &mut shp_cache,
         ) {
@@ -676,7 +680,7 @@ fn paint_mobile_entities(
                     .read(&hva_file)
                     .and_then(|b| HvaFile::parse(&b).ok());
                 if let Some(sprite) =
-                    rasterize_vxl_posed(&vxl, &obj_pal, hva.as_ref(), ent.facing)
+                    rasterize_vxl_posed(&vxl, &pal, hva.as_ref(), ent.facing)
                 {
                     let blit = TileBlit {
                         width: sprite.width,
