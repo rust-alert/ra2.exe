@@ -1,5 +1,6 @@
 //! 格式解析：字节进、结构出。不碰 `std::fs`。
 
+mod house_remap;
 mod hva;
 mod ini;
 mod mix;
@@ -12,6 +13,9 @@ mod tmp;
 mod vxl;
 mod vxl_raster;
 
+pub use house_remap::{
+    build_remap_ramp, owner_primary_color, HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST,
+};
 pub use hva::HvaFile;
 pub use ini::{IniDocument, IniSection};
 pub use mix::{MixArchive, MixEntry};
