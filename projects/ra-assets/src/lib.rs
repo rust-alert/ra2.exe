@@ -14,7 +14,8 @@ mod vxl;
 mod vxl_raster;
 
 pub use house_remap::{
-    build_remap_ramp, owner_primary_color, HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST,
+    build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color, Hsv,
+    HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST,
 };
 pub use hva::HvaFile;
 pub use ini::{IniDocument, IniSection};
