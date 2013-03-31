@@ -1,11 +1,13 @@
 //! 按版本对应的 INI 名加载规则。
 
+mod color_schemes;
 mod overlay_types;
 
 use ra_adaptor::ResourceChain;
 use ra_assets::IniDocument;
 use ra_types::{AssetSource, GameEdition, RaResult};
 
+pub use color_schemes::ColorSchemes;
 pub use overlay_types::OverlayTypeRegistry;
 
 #[derive(Debug, Clone)]
@@ -14,6 +16,7 @@ pub struct RulesDb {
     pub rules: IniDocument,
     pub art: IniDocument,
     pub overlay_types: OverlayTypeRegistry,
+    pub color_schemes: ColorSchemes,
 }
 
 pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<RulesDb> {
@@ -21,10 +24,12 @@ pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<Ru
     let rules = IniDocument::parse(&source.read(chain.rules_ini)?)?;
     let art = IniDocument::parse(&source.read(chain.art_ini)?)?;
     let overlay_types = OverlayTypeRegistry::from_rules(&rules);
+    let color_schemes = ColorSchemes::from_rules(&rules);
     Ok(RulesDb {
         edition,
         rules,
         art,
         overlay_types,
+        color_schemes,
     })
 }
