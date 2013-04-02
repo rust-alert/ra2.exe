@@ -10,7 +10,7 @@ mod fs_source;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ra_adaptor::{detect_edition, find_ci_file};
+use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
 use ra_assets::{
     rasterize_vxl_posed, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
 };
@@ -20,7 +20,7 @@ use ra_map::{
     theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_rules::{load_rules, OverlayTypeRegistry};
+use ra_rules::{load_rules, ColorSchemes, OverlayTypeRegistry};
 use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
@@ -251,8 +251,11 @@ fn load_map_terrain_preview(
     }
     let (overlay_shp, overlay_mark) = paint_overlays(source, map, &mut image, &z_lookup);
     let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
-    let structure_painted = paint_structure_entities(source, map, &mut image, &z_lookup);
-    let mobile_painted = paint_mobile_entities(source, map, &mut image, &z_lookup);
+    let color_rules = load_color_rules(source, map.edition);
+    let structure_painted =
+        paint_structure_entities(source, map, &mut image, &z_lookup, color_rules.as_ref());
+    let mobile_painted =
+        paint_mobile_entities(source, map, &mut image, &z_lookup, color_rules.as_ref());
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
@@ -491,11 +494,36 @@ fn paint_terrain_objects(
 }
 
 /// 叠画 `[Structures]`：优先 `NewTheater` 文件名，否则普通 `.shp`。
+fn load_color_rules(
+    source: &GameAssetSource,
+    edition: GameEdition,
+) -> Option<(IniDocument, ColorSchemes)> {
+    let chain = ResourceChain::for_edition(edition);
+    let bytes = source.vfs.read(chain.rules_ini)?;
+    let doc = IniDocument::parse(&bytes).ok()?;
+    let schemes = ColorSchemes::from_rules(&doc);
+    Some((doc, schemes))
+}
+
+fn palette_for_owner(
+    base: &Palette,
+    owner: &str,
+    color_rules: Option<&(IniDocument, ColorSchemes)>,
+) -> Palette {
+    if let Some((doc, schemes)) = color_rules {
+        if let Some(hsv) = schemes.hsv_for_house(doc, owner) {
+            return base.with_hsv_remap(hsv);
+        }
+    }
+    base.for_owner(owner)
+}
+
 fn paint_structure_entities(
     source: &GameAssetSource,
     map: &MapInfo,
     image: &mut ra_map::TerrainImage,
     z_lookup: &HashMap<(u16, u16), u8>,
+    color_rules: Option<&(IniDocument, ColorSchemes)>,
 ) -> usize {
     let structures: Vec<_> = map
         .entities
@@ -582,7 +610,7 @@ fn paint_structure_entities(
         if frame.frame_width == 0 || frame.frame_height == 0 {
             continue;
         }
-        let pal = obj_pal.for_owner(&ent.owner);
+        let pal = palette_for_owner(&obj_pal, &ent.owner, color_rules);
         let blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
@@ -605,6 +633,7 @@ fn paint_mobile_entities(
     map: &MapInfo,
     image: &mut ra_map::TerrainImage,
     z_lookup: &HashMap<(u16, u16), u8>,
+    color_rules: Option<&(IniDocument, ColorSchemes)>,
 ) -> usize {
     let mobiles: Vec<_> = map
         .entities
@@ -654,7 +683,7 @@ fn paint_mobile_entities(
             continue;
         }
 
-        let pal = obj_pal.for_owner(&ent.owner);
+        let pal = palette_for_owner(&obj_pal, &ent.owner, color_rules);
 
         if let Some(blit) = load_mobile_shp(
             source,

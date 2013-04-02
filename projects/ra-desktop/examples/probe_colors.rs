@@ -41,6 +41,11 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
         vfs,
     };
     let db = load_rules(&source, edition)?;
+    eprintln!(
+        "OK color_schemes#{} overlay_types#{}",
+        db.color_schemes.len(),
+        db.overlay_types.len()
+    );
     if let Some(sec) = db.rules.sections.get("Colors") {
         eprintln!("[Colors] entries={}", sec.order.len());
         for (i, (k, v)) in sec.order.iter().take(12).enumerate() {
