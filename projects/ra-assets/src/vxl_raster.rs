@@ -21,7 +21,7 @@ pub fn rasterize_vxl(vxl: &VxlFile, palette: &Palette) -> Option<VxlSprite> {
 /// 按朝向投影。
 ///
 /// 零售多数载具 HVA 仅 1 帧（肢节相对位姿）；地图 `Facing` 由引擎偏航。
-/// 此处先取 HVA 第 0 帧矩阵组装肢节，再绕原点做 8 向偏航。
+/// 此处先取 HVA 第 0 帧矩阵组装肢节，再绕组装质心做 8 向偏航。
 pub fn rasterize_vxl_posed(
     vxl: &VxlFile,
     palette: &Palette,
@@ -32,7 +32,7 @@ pub fn rasterize_vxl_posed(
         return None;
     }
 
-    let mut points: Vec<(i32, i32, i32, u8)> = Vec::new();
+    let mut assembled: Vec<(f32, f32, f32, u8)> = Vec::new();
     for (section, limb) in vxl.limbs.iter().enumerate() {
         let matrix = hva.and_then(|h| h.get_transform(0, section as u32));
         for v in &limb.voxels {
@@ -40,18 +40,30 @@ pub fn rasterize_vxl_posed(
                 Some(m) => apply_matrix(m, f32::from(v.x), f32::from(v.y), f32::from(v.z)),
                 None => (f32::from(v.x), f32::from(v.y), f32::from(v.z)),
             };
-            let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, facing);
-            let xi = x.round() as i32;
-            let yi = y.round() as i32;
-            let zi = z.round() as i32;
-            let sx = xi - yi;
-            let sy = (xi + yi) / 2 - zi;
-            let depth = xi + yi + zi;
-            points.push((sx, sy, depth, v.color_index));
+            assembled.push((mx, my, mz, v.color_index));
         }
     }
-    if points.is_empty() {
+    if assembled.is_empty() {
         return None;
+    }
+
+    let (cx, cy) = {
+        let n = assembled.len() as f32;
+        let sx: f32 = assembled.iter().map(|p| p.0).sum();
+        let sy: f32 = assembled.iter().map(|p| p.1).sum();
+        (sx / n, sy / n)
+    };
+
+    let mut points: Vec<(i32, i32, i32, u8)> = Vec::with_capacity(assembled.len());
+    for (mx, my, mz, color_index) in assembled {
+        let (x, y, z) = yaw_point(mx, my, mz, cx, cy, facing);
+        let xi = x.round() as i32;
+        let yi = y.round() as i32;
+        let zi = z.round() as i32;
+        let sx = xi - yi;
+        let sy = (xi + yi) / 2 - zi;
+        let depth = xi + yi + zi;
+        points.push((sx, sy, depth, color_index));
     }
 
     let mut min_sx = i32::MAX;
@@ -97,11 +109,22 @@ pub fn rasterize_vxl_posed(
 }
 
 fn apply_matrix(m: &[f32; 12], x: f32, y: f32, z: f32) -> (f32, f32, f32) {
+    // 部分零售节（如 `shad` 螺旋桨）平移达数百单位；预览忽略过大平移以免炸包围盒。
+    let (tx, ty, tz) = sanitize_translation(m[3], m[7], m[11]);
     (
-        m[0] * x + m[1] * y + m[2] * z + m[3],
-        m[4] * x + m[5] * y + m[6] * z + m[7],
-        m[8] * x + m[9] * y + m[10] * z + m[11],
+        m[0] * x + m[1] * y + m[2] * z + tx,
+        m[4] * x + m[5] * y + m[6] * z + ty,
+        m[8] * x + m[9] * y + m[10] * z + tz,
     )
+}
+
+fn sanitize_translation(tx: f32, ty: f32, tz: f32) -> (f32, f32, f32) {
+    const MAX: f32 = 128.0;
+    if tx.abs() > MAX || ty.abs() > MAX || tz.abs() > MAX {
+        (0.0, 0.0, 0.0)
+    } else {
+        (tx, ty, tz)
+    }
 }
 
 fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32, f32) {
