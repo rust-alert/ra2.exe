@@ -25,12 +25,16 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
     let mut ok = 0usize;
     let mut fail = 0usize;
-    for stem in ["taxi", "car", "bus", "mtnk", "htk", "sref", "orca"] {
+    let mut multi = 0usize;
+    let stems = [
+        "taxi", "car", "bus", "mtnk", "htk", "sref", "orca", "1tnk", "2tnk", "3tnk", "4tnk",
+        "htnk", "ltnk", "apoc", "harv", "dred", "carrier", "beag", "zep", "bfrt", "flak",
+        "ttnk", "v3", "dtrk", "schp", "shad", "cmn2", "cmn3",
+    ];
+    for stem in stems {
         let file = format!("{stem}.vxl");
         let hva_name = format!("{stem}.hva");
         let Some(bytes) = vfs.read(&file) else {
-            eprintln!("MISS {file}");
-            fail += 1;
             continue;
         };
         let hva = vfs
@@ -38,6 +42,9 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
             .and_then(|b| HvaFile::parse(&b).ok());
         match VxlFile::parse(&bytes) {
             Ok(vxl) => {
+                if vxl.limb_count > 1 {
+                    multi += 1;
+                }
                 let limbs: Vec<String> = vxl
                     .limbs
                     .iter()
@@ -61,9 +68,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
                             let opaque = s.rgba.chunks(4).filter(|c| c[3] > 0).count();
                             format!("{}x{} opaque={opaque}", s.width, s.height)
                         });
-                        let facing96 = rasterize_vxl_posed(&vxl, p, hva.as_ref(), 96).map(|s| {
-                            format!("{}x{}", s.width, s.height)
-                        });
+                        let facing96 = rasterize_vxl_posed(&vxl, p, hva.as_ref(), 96)
+                            .map(|s| format!("{}x{}", s.width, s.height));
                         match (base, facing96) {
                             (Some(b), Some(f)) => format!("{b} face96={f}"),
                             (Some(b), None) => b,
@@ -86,7 +92,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
             }
         }
     }
-    eprintln!("summary ok={ok} fail={fail}");
+    eprintln!("summary ok={ok} fail={fail} multi_limb={multi}");
     if ok == 0 {
         return Err(RaError::Msg("没有成功解析任何 VXL".into()));
     }
