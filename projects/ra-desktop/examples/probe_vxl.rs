@@ -1,7 +1,9 @@
-//! 无窗口探测：零售 VXL / HVA 与朝向光栅。
+//! 无窗口探测：零售 VXL / HVA / 炮塔层与朝向光栅。
 
 use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::{rasterize_vxl, rasterize_vxl_posed, HvaFile, MixVfs, Palette, VxlFile};
+use ra_assets::{
+    rasterize_vxl, rasterize_vxl_layers, rasterize_vxl_posed, HvaFile, MixVfs, Palette, VxlFile,
+};
 use ra_types::{GameEdition, RaError, RaResult};
 use std::path::{Path, PathBuf};
 
@@ -26,6 +28,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let mut ok = 0usize;
     let mut fail = 0usize;
     let mut multi = 0usize;
+    let mut turret = 0usize;
     let stems = [
         "taxi", "car", "bus", "mtnk", "htk", "sref", "orca", "1tnk", "2tnk", "3tnk", "4tnk",
         "htnk", "ltnk", "apoc", "harv", "dred", "carrier", "beag", "zep", "bfrt", "flak",
@@ -37,6 +40,12 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
         let Some(bytes) = vfs.read(&file) else {
             continue;
         };
+        let has_tur = vfs.read(&format!("{stem}tur.vxl")).is_some();
+        let has_barl = vfs.read(&format!("{stem}barl.vxl")).is_some()
+            || vfs.read(&format!("{stem}barrel.vxl")).is_some();
+        if has_tur || has_barl {
+            turret += 1;
+        }
         let hva = vfs
             .read(&hva_name)
             .and_then(|b| HvaFile::parse(&b).ok());
@@ -50,8 +59,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
                     .iter()
                     .map(|l| {
                         format!(
-                            "{}:{}x{}x{}/v{}",
-                            l.name, l.size_x, l.size_y, l.size_z, l.voxels.len()
+                            "{}:{}x{}x{}/v{}/s{:.4}",
+                            l.name, l.size_x, l.size_y, l.size_z, l.voxels.len(), l.scale
                         )
                     })
                     .collect();
@@ -70,9 +79,35 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
                         });
                         let facing96 = rasterize_vxl_posed(&vxl, p, hva.as_ref(), 96)
                             .map(|s| format!("{}x{}", s.width, s.height));
+                        let layered = if has_tur || has_barl {
+                            let mut owned: Vec<(VxlFile, Option<HvaFile>)> =
+                                vec![(vxl.clone(), hva.clone())];
+                            for suffix in ["tur", "barl", "barrel"] {
+                                let Some(b) = vfs.read(&format!("{stem}{suffix}.vxl")) else {
+                                    continue;
+                                };
+                                let Ok(lv) = VxlFile::parse(&b) else {
+                                    continue;
+                                };
+                                let lh = vfs
+                                    .read(&format!("{stem}{suffix}.hva"))
+                                    .and_then(|x| HvaFile::parse(&x).ok());
+                                owned.push((lv, lh));
+                                if suffix.starts_with("bar") {
+                                    break;
+                                }
+                            }
+                            let refs: Vec<_> =
+                                owned.iter().map(|(v, h)| (v, h.as_ref())).collect();
+                            rasterize_vxl_layers(&refs, p, 0, 0)
+                                .map(|s| format!(" layers={}x{}", s.width, s.height))
+                                .unwrap_or_default()
+                        } else {
+                            String::new()
+                        };
                         match (base, facing96) {
-                            (Some(b), Some(f)) => format!("{b} face96={f}"),
-                            (Some(b), None) => b,
+                            (Some(b), Some(f)) => format!("{b} face96={f}{layered}"),
+                            (Some(b), None) => format!("{b}{layered}"),
                             _ => "raster=none".into(),
                         }
                     }
@@ -92,7 +127,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
             }
         }
     }
-    eprintln!("summary ok={ok} fail={fail} multi_limb={multi}");
+    eprintln!("summary ok={ok} fail={fail} multi_limb={multi} with_turret_layer={turret}");
     if ok == 0 {
         return Err(RaError::Msg("没有成功解析任何 VXL".into()));
     }
