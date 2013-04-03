@@ -13,34 +13,63 @@ pub struct VxlSprite {
     pub rgba: Vec<u8>,
 }
 
-/// 无姿态投影（等价于 facing=0、无 HVA）。
+/// 无姿态投影（等价于 facing=0、frame=0、无 HVA）。
 pub fn rasterize_vxl(vxl: &VxlFile, palette: &Palette) -> Option<VxlSprite> {
-    rasterize_vxl_posed(vxl, palette, None, 0)
+    rasterize_vxl_frame(vxl, palette, None, 0, 0)
 }
 
-/// 按朝向投影。
-///
-/// 零售多数载具 HVA 仅 1 帧（肢节相对位姿）；地图 `Facing` 由引擎偏航。
-/// 此处先取 HVA 第 0 帧矩阵组装肢节，再绕组装质心做 8 向偏航。
+/// 按朝向投影（HVA 第 0 帧）。
 pub fn rasterize_vxl_posed(
     vxl: &VxlFile,
     palette: &Palette,
     hva: Option<&HvaFile>,
     facing: u8,
 ) -> Option<VxlSprite> {
-    if vxl.total_voxels() == 0 {
-        return None;
-    }
+    rasterize_vxl_frame(vxl, palette, hva, facing, 0)
+}
 
+/// 按朝向与 HVA 动画帧投影。
+///
+/// 零售多数载具 HVA 仅 1 帧；地图 `Facing` 由引擎偏航。
+/// HVA 平移乘以肢节 `scale`（常见约 1/12）后再组装，最后绕质心偏航。
+pub fn rasterize_vxl_frame(
+    vxl: &VxlFile,
+    palette: &Palette,
+    hva: Option<&HvaFile>,
+    facing: u8,
+    frame: u32,
+) -> Option<VxlSprite> {
+    rasterize_vxl_layers(&[(vxl, hva)], palette, facing, frame)
+}
+
+/// 多层 VXL（车身 / 炮塔 / 炮管）合成一张精灵。
+pub fn rasterize_vxl_layers(
+    layers: &[(&VxlFile, Option<&HvaFile>)],
+    palette: &Palette,
+    facing: u8,
+    frame: u32,
+) -> Option<VxlSprite> {
     let mut assembled: Vec<(f32, f32, f32, u8)> = Vec::new();
-    for (section, limb) in vxl.limbs.iter().enumerate() {
-        let matrix = hva.and_then(|h| h.get_transform(0, section as u32));
-        for v in &limb.voxels {
-            let (mx, my, mz) = match matrix {
-                Some(m) => apply_matrix(m, f32::from(v.x), f32::from(v.y), f32::from(v.z)),
-                None => (f32::from(v.x), f32::from(v.y), f32::from(v.z)),
-            };
-            assembled.push((mx, my, mz, v.color_index));
+    for &(vxl, hva) in layers {
+        let frame_idx = match hva {
+            Some(h) if h.frame_count > 0 => frame % h.frame_count,
+            _ => 0,
+        };
+        for (section, limb) in vxl.limbs.iter().enumerate() {
+            let matrix = hva.and_then(|h| h.get_transform(frame_idx, section as u32));
+            for v in &limb.voxels {
+                let (mx, my, mz) = match matrix {
+                    Some(m) => apply_matrix_scaled(
+                        m,
+                        f32::from(v.x),
+                        f32::from(v.y),
+                        f32::from(v.z),
+                        limb.scale,
+                    ),
+                    None => (f32::from(v.x), f32::from(v.y), f32::from(v.z)),
+                };
+                assembled.push((mx, my, mz, v.color_index));
+            }
         }
     }
     if assembled.is_empty() {
@@ -108,23 +137,18 @@ pub fn rasterize_vxl_posed(
     })
 }
 
-fn apply_matrix(m: &[f32; 12], x: f32, y: f32, z: f32) -> (f32, f32, f32) {
-    // 部分零售节（如 `shad` 螺旋桨）平移达数百单位；预览忽略过大平移以免炸包围盒。
-    let (tx, ty, tz) = sanitize_translation(m[3], m[7], m[11]);
-    (
-        m[0] * x + m[1] * y + m[2] * z + tx,
-        m[4] * x + m[5] * y + m[6] * z + ty,
-        m[8] * x + m[9] * y + m[10] * z + tz,
-    )
-}
-
-fn sanitize_translation(tx: f32, ty: f32, tz: f32) -> (f32, f32, f32) {
-    const MAX: f32 = 128.0;
-    if tx.abs() > MAX || ty.abs() > MAX || tz.abs() > MAX {
-        (0.0, 0.0, 0.0)
+/// HVA 3×4：旋转作用在坐标上，平移乘肢节 `scale`。
+fn apply_matrix_scaled(m: &[f32; 12], x: f32, y: f32, z: f32, limb_scale: f32) -> (f32, f32, f32) {
+    let s = if limb_scale.is_finite() && limb_scale > 0.0 {
+        limb_scale
     } else {
-        (tx, ty, tz)
-    }
+        1.0
+    };
+    (
+        m[0] * x + m[1] * y + m[2] * z + m[3] * s,
+        m[4] * x + m[5] * y + m[6] * z + m[7] * s,
+        m[8] * x + m[9] * y + m[10] * z + m[11] * s,
+    )
 }
 
 fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32, f32) {
@@ -223,8 +247,36 @@ mod tests {
         colors[10] = Rgba::rgb(1, 1, 1);
         let pal = Palette { colors };
         let a = rasterize_vxl_posed(&vxl, &pal, None, 0).unwrap();
-        // facing=32 → 45°：沿 X 的点列在投影上近似塌缩。
         let b = rasterize_vxl_posed(&vxl, &pal, None, 32).unwrap();
         assert!(a.width > b.width);
+    }
+
+    #[test]
+    fn hva_translation_scaled_by_limb_scale() {
+        let mut vxl = limb_with(vec![VxlVoxel {
+            x: 0,
+            y: 0,
+            z: 0,
+            color_index: 10,
+            normal_index: 0,
+        }]);
+        vxl.limbs[0].scale = 0.5;
+        let mut colors = [Rgba::transparent(); 256];
+        colors[10] = Rgba::rgb(1, 1, 1);
+        let pal = Palette { colors };
+        let hva = HvaFile {
+            frame_count: 1,
+            section_count: 1,
+            section_names: vec!["body".into()],
+            transforms: vec![[
+                1.0, 0.0, 0.0, 10.0, //
+                0.0, 1.0, 0.0, 0.0, //
+                0.0, 0.0, 1.0, 0.0,
+            ]],
+        };
+        // 平移 10 * scale0.5 = 5，应仍得到有限小精灵。
+        let s = rasterize_vxl_posed(&vxl, &pal, Some(&hva), 0).unwrap();
+        assert_eq!(s.width, 1);
+        assert_eq!(s.height, 1);
     }
 }
