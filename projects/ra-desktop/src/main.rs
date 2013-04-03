@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
 use ra_assets::{
-    rasterize_vxl_posed, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
+    rasterize_vxl_layers, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
 };
 use ra_map::{
     compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
@@ -700,33 +700,62 @@ fn paint_mobile_entities(
         }
 
         let stem = image_key.to_ascii_lowercase();
-        let vxl_file = format!("{stem}.vxl");
-        let hva_file = format!("{stem}.hva");
-        if let Some(bytes) = source.vfs.read(&vxl_file) {
-            if let Ok(vxl) = VxlFile::parse(&bytes) {
-                let hva = source
-                    .vfs
-                    .read(&hva_file)
-                    .and_then(|b| HvaFile::parse(&b).ok());
-                if let Some(sprite) =
-                    rasterize_vxl_posed(&vxl, &pal, hva.as_ref(), ent.facing)
-                {
-                    let blit = TileBlit {
-                        width: sprite.width,
-                        height: sprite.height,
-                        offset_x: sprite.offset_x + TILE_WIDTH / 2,
-                        offset_y: sprite.offset_y + TILE_HEIGHT / 2,
-                        rgba: sprite.rgba,
-                    };
-                    blit_cache.insert(cache_key, blit.clone());
-                    items.push((ent.x, ent.y, blit));
-                }
-            }
+        if let Some(blit) = load_mobile_vxl_layers(source, &stem, &pal, ent.facing) {
+            blit_cache.insert(cache_key, blit.clone());
+            items.push((ent.x, ent.y, blit));
         }
     }
 
     paint_cell_sprites(image, &items, |x, y| {
         z_lookup.get(&(x, y)).copied().unwrap_or(0)
+    })
+}
+
+fn load_mobile_vxl_layers(
+    source: &GameAssetSource,
+    stem: &str,
+    pal: &Palette,
+    facing: u8,
+) -> Option<TileBlit> {
+    let body_name = format!("{stem}.vxl");
+    let body_bytes = source.vfs.read(&body_name)?;
+    let body = VxlFile::parse(&body_bytes).ok()?;
+    let body_hva = source
+        .vfs
+        .read(&format!("{stem}.hva"))
+        .and_then(|b| HvaFile::parse(&b).ok());
+
+    let mut owned: Vec<(VxlFile, Option<HvaFile>)> = vec![(body, body_hva)];
+    for suffix in ["tur", "barl", "barrel"] {
+        let vxl_name = format!("{stem}{suffix}.vxl");
+        let Some(bytes) = source.vfs.read(&vxl_name) else {
+            continue;
+        };
+        let Ok(vxl) = VxlFile::parse(&bytes) else {
+            continue;
+        };
+        let hva = source
+            .vfs
+            .read(&format!("{stem}{suffix}.hva"))
+            .and_then(|b| HvaFile::parse(&b).ok());
+        owned.push((vxl, hva));
+        // `barl` 与 `barrel` 只取先命中的一个。
+        if suffix.starts_with("bar") {
+            break;
+        }
+    }
+
+    let layers: Vec<(&VxlFile, Option<&HvaFile>)> = owned
+        .iter()
+        .map(|(v, h)| (v, h.as_ref()))
+        .collect();
+    let sprite = rasterize_vxl_layers(&layers, pal, facing, 0)?;
+    Some(TileBlit {
+        width: sprite.width,
+        height: sprite.height,
+        offset_x: sprite.offset_x + TILE_WIDTH / 2,
+        offset_y: sprite.offset_y + TILE_HEIGHT / 2,
+        rgba: sprite.rgba,
     })
 }
 
