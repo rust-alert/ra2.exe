@@ -24,7 +24,12 @@ pub struct VxlVoxel {
 #[derive(Debug, Clone)]
 pub struct VxlLimb {
     pub name: String,
+    /// 乘到 HVA 平移上的尺度（零售常见约 `1/12`）。
     pub scale: f32,
+    /// 模型空间包围盒：`[min_x,min_y,min_z, max_x,max_y,max_z]`。
+    pub bounds: [f32; 6],
+    /// 尾节默认 3×4 变换（无 HVA 时可用）。
+    pub transform: [f32; 12],
     pub size_x: u8,
     pub size_y: u8,
     pub size_z: u8,
@@ -115,6 +120,14 @@ fn parse_limb(
     let span_end = read_u32(data, tail + 4);
     let data_span = read_u32(data, tail + 8);
     let scale = read_f32(data, tail + 12);
+    let mut transform = [0.0f32; 12];
+    for (k, slot) in transform.iter_mut().enumerate() {
+        *slot = read_f32(data, tail + 16 + k * 4);
+    }
+    let mut bounds = [0.0f32; 6];
+    for (k, slot) in bounds.iter_mut().enumerate() {
+        *slot = read_f32(data, tail + 64 + k * 4);
+    }
     let size_x = data[tail + 88];
     let size_y = data[tail + 89];
     let size_z = data[tail + 90];
@@ -127,6 +140,8 @@ fn parse_limb(
     Ok(VxlLimb {
         name,
         scale,
+        bounds,
+        transform,
         size_x,
         size_y,
         size_z,
@@ -283,7 +298,14 @@ mod tests {
         tail[4..8].copy_from_slice(&span_end_rel.to_le_bytes());
         tail[8..12].copy_from_slice(&data_span_rel.to_le_bytes());
         tail[12..16].copy_from_slice(&1.0f32.to_le_bytes());
-        // identity-ish transform left zero
+        // identity transform
+        for (i, diag) in [(0, 1.0f32), (5, 1.0), (10, 1.0)] {
+            tail[16 + i * 4..20 + i * 4].copy_from_slice(&diag.to_le_bytes());
+        }
+        // bounds [0,0,0, 2,2,4]
+        for (i, v) in [0.0f32, 0.0, 0.0, 2.0, 2.0, 4.0].into_iter().enumerate() {
+            tail[64 + i * 4..68 + i * 4].copy_from_slice(&v.to_le_bytes());
+        }
         tail[88] = 2; // size_x
         tail[89] = 2; // size_y
         tail[90] = 4; // size_z
@@ -298,6 +320,8 @@ mod tests {
         assert_eq!(vxl.limb_count, 1);
         assert_eq!(vxl.limbs[0].name, "body");
         assert_eq!(vxl.limbs[0].size_x, 2);
+        assert_eq!(vxl.limbs[0].transform[0], 1.0);
+        assert_eq!(vxl.limbs[0].bounds[3], 2.0);
         assert_eq!(vxl.total_voxels(), 1);
         assert_eq!(vxl.limbs[0].voxels[0].color_index, 5);
     }

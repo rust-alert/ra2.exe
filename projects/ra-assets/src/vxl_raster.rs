@@ -175,6 +175,12 @@ mod tests {
             limbs: vec![VxlLimb {
                 name: "body".into(),
                 scale: 1.0,
+                bounds: [0.0, 0.0, 0.0, 4.0, 4.0, 4.0],
+                transform: [
+                    1.0, 0.0, 0.0, 0.0, //
+                    0.0, 1.0, 0.0, 0.0, //
+                    0.0, 0.0, 1.0, 0.0,
+                ],
                 size_x: 4,
                 size_y: 4,
                 size_z: 4,
