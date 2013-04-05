@@ -30,8 +30,8 @@ pub fn rasterize_vxl_posed(
 
 /// 按朝向与 HVA 动画帧投影。
 ///
-/// 零售多数载具 HVA 仅 1 帧；地图 `Facing` 由引擎偏航。
-/// HVA 平移乘以肢节 `scale`（常见约 1/12）后再组装，最后绕质心偏航。
+/// 节变换：`bounds_min + bone(scale(grid))`，其中 bone 平移乘 `limb.scale`。
+/// 组装后绕模型原点做 8 向偏航。
 pub fn rasterize_vxl_frame(
     vxl: &VxlFile,
     palette: &Palette,
@@ -42,33 +42,54 @@ pub fn rasterize_vxl_frame(
     rasterize_vxl_layers(&[(vxl, hva)], palette, facing, frame)
 }
 
-/// 多层 VXL（车身 / 炮塔 / 炮管）合成一张精灵。
+/// 一层 VXL 的姿态（炮塔可与车身不同 facing）。
+#[derive(Debug, Clone, Copy)]
+pub struct VxlLayerPose<'a> {
+    pub vxl: &'a VxlFile,
+    pub hva: Option<&'a HvaFile>,
+    pub facing: u8,
+    pub frame: u32,
+}
+
+/// 多层 VXL（车身 / 炮塔 / 炮管）合成一张精灵；各层共用 facing/frame。
 pub fn rasterize_vxl_layers(
     layers: &[(&VxlFile, Option<&HvaFile>)],
     palette: &Palette,
     facing: u8,
     frame: u32,
 ) -> Option<VxlSprite> {
+    let poses: Vec<VxlLayerPose<'_>> = layers
+        .iter()
+        .map(|&(vxl, hva)| VxlLayerPose {
+            vxl,
+            hva,
+            facing,
+            frame,
+        })
+        .collect();
+    rasterize_vxl_layer_poses(&poses, palette)
+}
+
+/// 多层合成；每层可有独立 facing / HVA 帧。
+pub fn rasterize_vxl_layer_poses(
+    layers: &[VxlLayerPose<'_>],
+    palette: &Palette,
+) -> Option<VxlSprite> {
     let mut assembled: Vec<(f32, f32, f32, u8)> = Vec::new();
-    for &(vxl, hva) in layers {
-        let frame_idx = match hva {
-            Some(h) if h.frame_count > 0 => frame % h.frame_count,
+    for layer in layers {
+        let frame_idx = match layer.hva {
+            Some(h) if h.frame_count > 0 => layer.frame % h.frame_count,
             _ => 0,
         };
-        for (section, limb) in vxl.limbs.iter().enumerate() {
-            let matrix = hva.and_then(|h| h.get_transform(frame_idx, section as u32));
+        for (section, limb) in layer.vxl.limbs.iter().enumerate() {
+            let bone = layer
+                .hva
+                .and_then(|h| h.get_transform(frame_idx, section as u32))
+                .unwrap_or(&limb.transform);
             for v in &limb.voxels {
-                let (mx, my, mz) = match matrix {
-                    Some(m) => apply_matrix_scaled(
-                        m,
-                        f32::from(v.x),
-                        f32::from(v.y),
-                        f32::from(v.z),
-                        limb.scale,
-                    ),
-                    None => (f32::from(v.x), f32::from(v.y), f32::from(v.z)),
-                };
-                assembled.push((mx, my, mz, v.color_index));
+                let (mx, my, mz) = section_point(limb, v, bone);
+                let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
+                assembled.push((x, y, z, v.color_index));
             }
         }
     }
@@ -76,16 +97,8 @@ pub fn rasterize_vxl_layers(
         return None;
     }
 
-    let (cx, cy) = {
-        let n = assembled.len() as f32;
-        let sx: f32 = assembled.iter().map(|p| p.0).sum();
-        let sy: f32 = assembled.iter().map(|p| p.1).sum();
-        (sx / n, sy / n)
-    };
-
     let mut points: Vec<(i32, i32, i32, u8)> = Vec::with_capacity(assembled.len());
-    for (mx, my, mz, color_index) in assembled {
-        let (x, y, z) = yaw_point(mx, my, mz, cx, cy, facing);
+    for (x, y, z, color_index) in assembled {
         let xi = x.round() as i32;
         let yi = y.round() as i32;
         let zi = z.round() as i32;
@@ -135,6 +148,30 @@ pub fn rasterize_vxl_layers(
         offset_y: -(height as i32) / 2,
         rgba,
     })
+}
+
+/// 节局部点：`bounds_min + bone(section_scale * grid)`。
+fn section_point(limb: &crate::VxlLimb, v: &crate::VxlVoxel, bone: &[f32; 12]) -> (f32, f32, f32) {
+    let sx = section_axis_scale(limb.bounds[3] - limb.bounds[0], limb.size_x);
+    let sy = section_axis_scale(limb.bounds[4] - limb.bounds[1], limb.size_y);
+    let sz = section_axis_scale(limb.bounds[5] - limb.bounds[2], limb.size_z);
+    let px = f32::from(v.x) * sx;
+    let py = f32::from(v.y) * sy;
+    let pz = f32::from(v.z) * sz;
+    let (bx, by, bz) = apply_matrix_scaled(bone, px, py, pz, limb.scale);
+    (
+        bx + limb.bounds[0],
+        by + limb.bounds[1],
+        bz + limb.bounds[2],
+    )
+}
+
+fn section_axis_scale(extent: f32, size: u8) -> f32 {
+    if size == 0 {
+        1.0
+    } else {
+        extent / f32::from(size)
+    }
 }
 
 /// HVA 3×4：旋转作用在坐标上，平移乘肢节 `scale`。

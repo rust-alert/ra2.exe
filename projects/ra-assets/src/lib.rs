@@ -27,5 +27,6 @@ pub use shp::{ShpFile, ShpFrame};
 pub use tmp::{TmpFile, TmpTile};
 pub use vxl::{VxlFile, VxlLimb, VxlVoxel};
 pub use vxl_raster::{
-    rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layers, rasterize_vxl_posed, VxlSprite,
+    rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layer_poses, rasterize_vxl_layers,
+    rasterize_vxl_posed, VxlLayerPose, VxlSprite,
 };
