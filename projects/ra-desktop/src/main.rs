@@ -12,7 +12,8 @@ use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
 use ra_assets::{
-    rasterize_vxl_layers, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
+    rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
+    VxlLayerPose,
 };
 use ra_map::{
     compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
@@ -745,11 +746,17 @@ fn load_mobile_vxl_layers(
         }
     }
 
-    let layers: Vec<(&VxlFile, Option<&HvaFile>)> = owned
+    let layers: Vec<VxlLayerPose<'_>> = owned
         .iter()
-        .map(|(v, h)| (v, h.as_ref()))
+        .map(|(v, h)| VxlLayerPose {
+            vxl: v,
+            hva: h.as_ref(),
+            // 地图放置段只有一体 facing；炮塔独立朝向待运行时状态。
+            facing,
+            frame: 0,
+        })
         .collect();
-    let sprite = rasterize_vxl_layers(&layers, pal, facing, 0)?;
+    let sprite = rasterize_vxl_layer_poses(&layers, pal)?;
     Some(TileBlit {
         width: sprite.width,
         height: sprite.height,
