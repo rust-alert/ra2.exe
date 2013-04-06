@@ -10,6 +10,7 @@ mod mix_vfs;
 mod pal;
 mod shp;
 mod tmp;
+mod vpl;
 mod vxl;
 mod vxl_raster;
 
@@ -25,6 +26,7 @@ pub use mix_vfs::MixVfs;
 pub use pal::{Palette, Rgba};
 pub use shp::{ShpFile, ShpFrame};
 pub use tmp::{TmpFile, TmpTile};
+pub use vpl::VplFile;
 pub use vxl::{VxlFile, VxlLimb, VxlVoxel};
 pub use vxl_raster::{
     rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layer_poses, rasterize_vxl_layers,
