@@ -1,6 +1,6 @@
 //! VXL 简易等距正交投影（预览用，无光照）。
 
-use crate::{HvaFile, Palette, VxlFile};
+use crate::{HvaFile, Palette, VplFile, VxlFile};
 
 /// 投影后的精灵。
 #[derive(Debug, Clone)]
@@ -67,15 +67,16 @@ pub fn rasterize_vxl_layers(
             frame,
         })
         .collect();
-    rasterize_vxl_layer_poses(&poses, palette)
+    rasterize_vxl_layer_poses(&poses, palette, None)
 }
 
-/// 多层合成；每层可有独立 facing / HVA 帧。
+/// 多层合成；每层可有独立 facing / HVA 帧。可选 VPL 按法线粗映射亮度页。
 pub fn rasterize_vxl_layer_poses(
     layers: &[VxlLayerPose<'_>],
     palette: &Palette,
+    vpl: Option<&VplFile>,
 ) -> Option<VxlSprite> {
-    let mut assembled: Vec<(f32, f32, f32, u8)> = Vec::new();
+    let mut assembled: Vec<(f32, f32, f32, u8, u8)> = Vec::new();
     for layer in layers {
         let frame_idx = match layer.hva {
             Some(h) if h.frame_count > 0 => layer.frame % h.frame_count,
@@ -89,7 +90,7 @@ pub fn rasterize_vxl_layer_poses(
             for v in &limb.voxels {
                 let (mx, my, mz) = section_point(limb, v, bone);
                 let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
-                assembled.push((x, y, z, v.color_index));
+                assembled.push((x, y, z, v.color_index, v.normal_index));
             }
         }
     }
@@ -98,14 +99,21 @@ pub fn rasterize_vxl_layer_poses(
     }
 
     let mut points: Vec<(i32, i32, i32, u8)> = Vec::with_capacity(assembled.len());
-    for (x, y, z, color_index) in assembled {
+    for (x, y, z, color_index, normal_index) in assembled {
+        let shaded = match vpl {
+            Some(table) => {
+                let page = table.page_from_normal(normal_index);
+                table.remap_color(page, color_index)
+            }
+            None => color_index,
+        };
         let xi = x.round() as i32;
         let yi = y.round() as i32;
         let zi = z.round() as i32;
         let sx = xi - yi;
         let sy = (xi + yi) / 2 - zi;
         let depth = xi + yi + zi;
-        points.push((sx, sy, depth, color_index));
+        points.push((sx, sy, depth, shaded));
     }
 
     let mut min_sx = i32::MAX;
@@ -317,9 +325,44 @@ mod tests {
                 0.0, 0.0, 1.0, 0.0,
             ]],
         };
-        // 平移 10 * scale0.5 = 5，应仍得到有限小精灵。
         let s = rasterize_vxl_posed(&vxl, &pal, Some(&hva), 0).unwrap();
         assert_eq!(s.width, 1);
         assert_eq!(s.height, 1);
+    }
+
+    #[test]
+    fn vpl_shades_by_normal_page() {
+        let vxl = limb_with(vec![VxlVoxel {
+            x: 1,
+            y: 1,
+            z: 0,
+            color_index: 10,
+            normal_index: 255,
+        }]);
+        let mut colors = [Rgba::transparent(); 256];
+        colors[10] = Rgba::rgb(10, 10, 10);
+        colors[42] = Rgba::rgb(42, 0, 0);
+        let pal = Palette { colors };
+        let mut data = Vec::new();
+        data.extend_from_slice(&16u32.to_le_bytes());
+        data.extend_from_slice(&31u32.to_le_bytes());
+        data.extend_from_slice(&2u32.to_le_bytes());
+        data.extend_from_slice(&0u32.to_le_bytes());
+        data.extend_from_slice(&[0u8; 768]);
+        let mut page0 = [0u8; 256];
+        page0[10] = 10;
+        let mut page1 = [0u8; 256];
+        page1[10] = 42;
+        data.extend_from_slice(&page0);
+        data.extend_from_slice(&page1);
+        let vpl = VplFile::parse(&data).unwrap();
+        let pose = VxlLayerPose {
+            vxl: &vxl,
+            hva: None,
+            facing: 0,
+            frame: 0,
+        };
+        let sprite = rasterize_vxl_layer_poses(&[pose], &pal, Some(&vpl)).unwrap();
+        assert_eq!(&sprite.rgba[..4], &[42, 0, 0, 255]);
     }
 }
