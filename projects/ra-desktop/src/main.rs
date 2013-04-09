@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
 use ra_assets::{
-    rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VxlFile,
+    rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VplFile, VxlFile,
     VxlLayerPose,
 };
 use ra_map::{
@@ -666,6 +666,10 @@ fn paint_mobile_entities(
     let Some(obj_pal) = obj_pal else {
         return 0;
     };
+    let vpl = source
+        .vfs
+        .read("voxels.vpl")
+        .and_then(|b| VplFile::parse(&b).ok());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, u8, String), TileBlit> = HashMap::new();
@@ -701,7 +705,9 @@ fn paint_mobile_entities(
         }
 
         let stem = image_key.to_ascii_lowercase();
-        if let Some(blit) = load_mobile_vxl_layers(source, &stem, &pal, ent.facing) {
+        if let Some(blit) =
+            load_mobile_vxl_layers(source, &stem, &pal, vpl.as_ref(), ent.facing)
+        {
             blit_cache.insert(cache_key, blit.clone());
             items.push((ent.x, ent.y, blit));
         }
@@ -716,6 +722,7 @@ fn load_mobile_vxl_layers(
     source: &GameAssetSource,
     stem: &str,
     pal: &Palette,
+    vpl: Option<&VplFile>,
     facing: u8,
 ) -> Option<TileBlit> {
     let body_name = format!("{stem}.vxl");
@@ -756,7 +763,7 @@ fn load_mobile_vxl_layers(
             frame: 0,
         })
         .collect();
-    let sprite = rasterize_vxl_layer_poses(&layers, pal)?;
+    let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl)?;
     Some(TileBlit {
         width: sprite.width,
         height: sprite.height,
