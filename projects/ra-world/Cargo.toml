@@ -10,3 +10,6 @@ description = "确定性世界推进与状态"
 ra-types = { workspace = true }
 ra-rules = { workspace = true }
 ra-map = { workspace = true }
+
+[dev-dependencies]
+ra-assets = { workspace = true }
