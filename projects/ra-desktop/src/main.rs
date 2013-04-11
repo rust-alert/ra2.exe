@@ -1026,7 +1026,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             let sections = rules.rules.sections.len();
             let overlays = rules.overlay_types.len();
             note = format!("{note} · rules#{sections} · overlay_types#{overlays}");
-            Some(World::new(chain.edition, &rules, map))
+            let world = World::new(chain.edition, &rules, map);
+            note = format!("{note} · world_entities#{}", world.entities.len());
+            Some(world)
         }
         Err(e) => {
             note = format!("{note} · 规则待加载（{e}）");
