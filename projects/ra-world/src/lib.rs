@@ -67,7 +67,7 @@ mod tests {
     use super::*;
     use ra_assets::IniDocument;
     use ra_map::MapEntityKind;
-    use ra_rules::{ColorSchemes, OverlayTypeRegistry, RulesDb};
+    use ra_rules::{ColorSchemes, OverlayTypeRegistry, RulesDb, TechnoTypeRegistry};
     use ra_types::GameEdition;
 
     fn empty_rules() -> RulesDb {
@@ -77,6 +77,7 @@ mod tests {
             art: IniDocument::default(),
             overlay_types: OverlayTypeRegistry::default(),
             color_schemes: ColorSchemes::default(),
+            techno_types: TechnoTypeRegistry::default(),
         }
     }
 
