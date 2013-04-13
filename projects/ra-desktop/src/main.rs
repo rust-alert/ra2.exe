@@ -1026,8 +1026,14 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             let sections = rules.rules.sections.len();
             let overlays = rules.overlay_types.len();
             note = format!("{note} · rules#{sections} · overlay_types#{overlays}");
+            let techno_n = rules.techno_types.len();
+            note = format!("{note} · techno_types#{techno_n}");
             let world = World::new(chain.edition, &rules, map);
-            note = format!("{note} · world_entities#{}", world.entities.len());
+            note = format!(
+                "{note} · world_entities#{} bound#{}",
+                world.entities.len(),
+                world.bound_techno_count()
+            );
             Some(world)
         }
         Err(e) => {
