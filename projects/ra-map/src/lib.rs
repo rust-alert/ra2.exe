@@ -7,6 +7,7 @@ mod iso_pack;
 mod lcw;
 mod lzo;
 mod overlay;
+mod pass_grid;
 mod placements;
 mod theater;
 mod terrain_objects;
@@ -22,6 +23,7 @@ pub use compose::{
 pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
+pub use pass_grid::PassGrid;
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
 pub use theater::{
     new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter,
