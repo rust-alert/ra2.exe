@@ -1,6 +1,6 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
-use ra_map::{MapEntityKind, MapInfo};
+use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_rules::{RulesDb, TechnoKind};
 use ra_types::{GameEdition, PlayerId};
 
@@ -25,6 +25,8 @@ pub struct WorldEntity {
     /// 简易移动目标格；无航点时为 `None`。
     pub target_x: Option<u16>,
     pub target_y: Option<u16>,
+    /// 剩余路径（下一格在 `[0]`）。
+    pub path: Vec<(u16, u16)>,
     /// 累积移动点（每 tick += Speed）。
     pub move_accum: u32,
 }
@@ -34,6 +36,7 @@ pub struct World {
     pub edition: GameEdition,
     pub tick: u64,
     pub map: MapInfo,
+    pub pass_grid: PassGrid,
     pub entities: Vec<WorldEntity>,
     pub local_player: PlayerId,
     state_hash: u64,
@@ -41,7 +44,8 @@ pub struct World {
 
 impl World {
     pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
-        let entities = map
+        let pass_grid = PassGrid::from_map(&map);
+        let mut entities: Vec<WorldEntity> = map
             .entities
             .iter()
             .map(|e| {
@@ -68,14 +72,19 @@ impl World {
                     techno_kind: tt.map(|t| t.kind),
                     target_x,
                     target_y,
+                    path: Vec::new(),
                     move_accum: 0,
                 }
             })
             .collect();
+        for e in &mut entities {
+            repath(e, &pass_grid);
+        }
         let mut world = Self {
             edition,
             tick: 0,
             map,
+            pass_grid,
             entities,
             local_player: PlayerId(0),
             state_hash: 0,
@@ -94,12 +103,19 @@ impl World {
                 continue;
             };
             if e.x == tx && e.y == ty {
+                e.path.clear();
                 continue;
             }
             e.move_accum = e.move_accum.saturating_add(e.speed);
             while e.move_accum >= CELL_MOVE_COST {
                 e.move_accum -= CELL_MOVE_COST;
-                if !step_toward(e, tx, ty) {
+                if e.path.is_empty() {
+                    repath(e, &self.pass_grid);
+                    if e.path.is_empty() {
+                        break;
+                    }
+                }
+                if !step_along_path(e) {
                     break;
                 }
             }
@@ -159,28 +175,40 @@ fn nearest_waypoint(map: &MapInfo, x: u16, y: u16) -> (Option<u16>, Option<u16>)
     (Some(best.x), Some(best.y))
 }
 
-/// 向目标迈一格；已到达则返回 `false`。
-fn step_toward(e: &mut WorldEntity, tx: u16, ty: u16) -> bool {
-    if e.x == tx && e.y == ty {
+fn repath(e: &mut WorldEntity, grid: &PassGrid) {
+    e.path.clear();
+    let (Some(tx), Some(ty)) = (e.target_x, e.target_y) else {
+        return;
+    };
+    let mut g = grid.clone();
+    // 允许离开当前格（可能与建筑重叠的边界情况）。
+    g.set_passable(e.x, e.y, true);
+    let Some(mut path) = g.find_path(e.x, e.y, tx, ty) else {
+        return;
+    };
+    if path.first() == Some(&(e.x, e.y)) {
+        path.remove(0);
+    }
+    e.path = path;
+}
+
+/// 沿 `path` 迈一格；无路则返回 `false`。
+fn step_along_path(e: &mut WorldEntity) -> bool {
+    let Some((nx, ny)) = e.path.first().copied() else {
         return false;
-    }
-    let dx = i32::from(tx) - i32::from(e.x);
-    let dy = i32::from(ty) - i32::from(e.y);
-    if dx.abs() >= dy.abs() {
-        if dx > 0 {
-            e.x = e.x.saturating_add(1);
-            e.facing = 0;
-        } else {
-            e.x = e.x.saturating_sub(1);
-            e.facing = 128;
-        }
-    } else if dy > 0 {
-        e.y = e.y.saturating_add(1);
-        e.facing = 64;
-    } else {
-        e.y = e.y.saturating_sub(1);
-        e.facing = 192;
-    }
+    };
+    e.path.remove(0);
+    let dx = i32::from(nx) - i32::from(e.x);
+    let dy = i32::from(ny) - i32::from(e.y);
+    e.facing = match (dx.signum(), dy.signum()) {
+        (1, _) => 0,
+        (-1, _) => 128,
+        (0, 1) => 64,
+        (0, -1) => 192,
+        _ => e.facing,
+    };
+    e.x = nx;
+    e.y = ny;
     true
 }
 
@@ -210,10 +238,17 @@ mod tests {
         }
     }
 
+    fn map_with_size() -> MapInfo {
+        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        map.width = 20;
+        map.height = 30;
+        map
+    }
+
     #[test]
     fn binds_strength_and_speed() {
         let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        let mut map = map_with_size();
         map.entities.push(MapEntity {
             kind: MapEntityKind::Unit,
             owner: "Americans".into(),
@@ -237,7 +272,7 @@ mod tests {
     #[test]
     fn advances_toward_waypoint() {
         let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        let mut map = map_with_size();
         map.waypoints.push(Waypoint {
             index: 0,
             x: 12,
@@ -255,12 +290,54 @@ mod tests {
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
         assert_eq!(world.entities[0].target_x, Some(12));
-        // Speed=64 → 每 tick 正好走一格。
+        assert_eq!(world.entities[0].path.len(), 2);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 11);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 12);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 12);
+    }
+
+    #[test]
+    fn bfs_detours_around_structure() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.waypoints.push(Waypoint {
+            index: 0,
+            x: 14,
+            y: 10,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "Neutral".into(),
+            type_id: "GAWALL".into(),
+            health: 256,
+            x: 12,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        assert!(!world.pass_grid.is_passable(12, 10));
+        assert!(!world.entities[1].path.is_empty());
+        assert!(!world.entities[1].path.iter().any(|&(x, y)| x == 12 && y == 10));
+        // 绕行路径长于直线 4 格。
+        assert!(world.entities[1].path.len() > 4);
+        for _ in 0..20 {
+            world.advance_tick();
+        }
+        assert_eq!(world.entities[1].x, 14);
+        assert_eq!(world.entities[1].y, 10);
     }
 }
