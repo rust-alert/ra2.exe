@@ -1030,9 +1030,10 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             note = format!("{note} · techno_types#{techno_n}");
             let world = World::new(chain.edition, &rules, map);
             note = format!(
-                "{note} · world_entities#{} bound#{}",
+                "{note} · world_entities#{} bound#{} blocked#{}",
                 world.entities.len(),
-                world.bound_techno_count()
+                world.bound_techno_count(),
+                world.pass_grid.blocked_count()
             );
             Some(world)
         }
