@@ -63,6 +63,28 @@ impl PassGrid {
 
     /// 四邻 BFS；不可达则 `None`。路径含起点，末元为目标。
     pub fn find_path(&self, sx: u16, sy: u16, tx: u16, ty: u16) -> Option<Vec<(u16, u16)>> {
+        self.find_path_ex(sx, sy, tx, ty, false)
+    }
+
+    /// 八邻 BFS（对角线需两侧正交格可走，避免穿角）。
+    pub fn find_path_diag(
+        &self,
+        sx: u16,
+        sy: u16,
+        tx: u16,
+        ty: u16,
+    ) -> Option<Vec<(u16, u16)>> {
+        self.find_path_ex(sx, sy, tx, ty, true)
+    }
+
+    fn find_path_ex(
+        &self,
+        sx: u16,
+        sy: u16,
+        tx: u16,
+        ty: u16,
+        diagonal: bool,
+    ) -> Option<Vec<(u16, u16)>> {
         if !self.is_passable(sx, sy) || !self.is_passable(tx, ty) {
             return None;
         }
@@ -70,16 +92,26 @@ impl PassGrid {
             return Some(vec![(sx, sy)]);
         }
         let w = self.width as usize;
-        let h = self.height as usize;
         let idx = |x: u16, y: u16| -> usize { y as usize * w + x as usize };
-        let mut prev: Vec<Option<(u16, u16)>> = vec![None; w * h];
-        let mut visited = vec![false; w * h];
+        let mut prev: Vec<Option<(u16, u16)>> = vec![None; w * self.height as usize];
+        let mut visited = vec![false; w * self.height as usize];
         let mut queue = std::collections::VecDeque::new();
         queue.push_back((sx, sy));
         visited[idx(sx, sy)] = true;
-        let dirs: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        let dirs_4: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        let dirs_8: [(i32, i32); 8] = [
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ];
         while let Some((x, y)) = queue.pop_front() {
-            for (dx, dy) in dirs {
+            let dirs: &[(i32, i32)] = if diagonal { &dirs_8 } else { &dirs_4 };
+            for &(dx, dy) in dirs {
                 let nx = i32::from(x) + dx;
                 let ny = i32::from(y) + dy;
                 if nx < 0 || ny < 0 || nx as u32 >= self.width || ny as u32 >= self.height {
@@ -90,6 +122,14 @@ impl PassGrid {
                 let i = idx(nx, ny);
                 if visited[i] || !self.is_passable(nx, ny) {
                     continue;
+                }
+                // 对角线：两侧正交格也须可走。
+                if dx != 0 && dy != 0 {
+                    if !self.is_passable((i32::from(x) + dx) as u16, y)
+                        || !self.is_passable(x, (i32::from(y) + dy) as u16)
+                    {
+                        continue;
+                    }
                 }
                 visited[i] = true;
                 prev[i] = Some((x, y));
@@ -138,5 +178,14 @@ mod tests {
         assert_eq!(path.first(), Some(&(0, 1)));
         assert_eq!(path.last(), Some(&(4, 1)));
         assert!(!path.iter().any(|&(x, y)| x == 2 && y == 1));
+    }
+
+    #[test]
+    fn diagonal_path_is_shorter() {
+        let grid = PassGrid::open(5, 5);
+        let ortho = grid.find_path(0, 0, 2, 2).unwrap();
+        let diag = grid.find_path_diag(0, 0, 2, 2).unwrap();
+        assert_eq!(ortho.len(), 5); // (0,0)(1,0)(2,0)(2,1)(2,2) or similar
+        assert_eq!(diag.len(), 3); // (0,0)(1,1)(2,2)
     }
 }
