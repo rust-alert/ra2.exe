@@ -215,7 +215,7 @@ fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
     // 允许离开当前格；目标格临时放开以便朝共享航点规划（迈入仍受占格检查）。
     g.set_passable(sx, sy, true);
     g.set_passable(tx, ty, true);
-    let Some(mut path) = g.find_path(sx, sy, tx, ty) else {
+    let Some(mut path) = g.find_path_diag(sx, sy, tx, ty) else {
         return;
     };
     if path.first() == Some(&(sx, sy)) {
@@ -233,10 +233,14 @@ fn step_along_path(e: &mut WorldEntity) -> bool {
     let dx = i32::from(nx) - i32::from(e.x);
     let dy = i32::from(ny) - i32::from(e.y);
     e.facing = match (dx.signum(), dy.signum()) {
-        (1, _) => 0,
-        (-1, _) => 128,
+        (1, 0) => 0,
+        (1, 1) => 32,
         (0, 1) => 64,
+        (-1, 1) => 96,
+        (-1, 0) => 128,
+        (-1, -1) => 160,
         (0, -1) => 192,
+        (1, -1) => 224,
         _ => e.facing,
     };
     e.x = nx;
@@ -364,8 +368,9 @@ mod tests {
         assert!(!world.pass_grid.is_passable(12, 10));
         assert!(!world.entities[1].path.is_empty());
         assert!(!world.entities[1].path.iter().any(|&(x, y)| x == 12 && y == 10));
-        // 绕行路径长于直线 4 格。
-        assert!(world.entities[1].path.len() > 4);
+        // 八邻绕行仍短于直线穿墙，且不踩封死格。
+        assert!(!world.entities[1].path.is_empty());
+        assert!(world.entities[1].path.len() >= 3);
         for _ in 0..20 {
             world.advance_tick();
         }
