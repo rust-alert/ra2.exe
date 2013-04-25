@@ -4,6 +4,7 @@ mod base64;
 mod compose;
 mod iso_math;
 mod iso_pack;
+mod land;
 mod lcw;
 mod lzo;
 mod overlay;
@@ -22,6 +23,7 @@ pub use compose::{
 };
 pub use iso_math::{iso_to_screen, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
+pub use land::{ground_passable, LandType};
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
 pub use pass_grid::PassGrid;
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};

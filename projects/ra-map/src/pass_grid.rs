@@ -61,6 +61,28 @@ impl PassGrid {
         self.passable.iter().filter(|p| !**p).count()
     }
 
+    /// 按 TMP `terrain_type` 封死不可走陆地（水/岩/墙）。
+    pub fn seal_land_type(&mut self, x: u16, y: u16, terrain_type: u8) {
+        if !crate::ground_passable(terrain_type) {
+            self.set_passable(x, y, false);
+        }
+    }
+
+    /// 对一批 `(x,y,terrain_type)` 封格；返回新封死数量（原本已不可走的不计）。
+    pub fn seal_land_types(&mut self, cells: &[(u16, u16, u8)]) -> usize {
+        let mut n = 0;
+        for &(x, y, tt) in cells {
+            if !self.in_bounds(x, y) || crate::ground_passable(tt) {
+                continue;
+            }
+            if self.is_passable(x, y) {
+                self.set_passable(x, y, false);
+                n += 1;
+            }
+        }
+        n
+    }
+
     /// 四邻 BFS；不可达则 `None`。路径含起点，末元为目标。
     pub fn find_path(&self, sx: u16, sy: u16, tx: u16, ty: u16) -> Option<Vec<(u16, u16)>> {
         self.find_path_ex(sx, sy, tx, ty, false)
@@ -187,5 +209,14 @@ mod tests {
         let diag = grid.find_path_diag(0, 0, 2, 2).unwrap();
         assert_eq!(ortho.len(), 5); // (0,0)(1,0)(2,0)(2,1)(2,2) or similar
         assert_eq!(diag.len(), 3); // (0,0)(1,1)(2,2)
+    }
+
+    #[test]
+    fn seal_water_land_types() {
+        let mut grid = PassGrid::open(3, 3);
+        let sealed = grid.seal_land_types(&[(1, 1, 3), (0, 0, 0)]);
+        assert_eq!(sealed, 1);
+        assert!(!grid.is_passable(1, 1));
+        assert!(grid.is_passable(0, 0));
     }
 }
