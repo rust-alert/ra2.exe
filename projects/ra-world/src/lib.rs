@@ -152,6 +152,16 @@ impl World {
             .count()
     }
 
+    /// 通行表变更后，为全部移动单位重算路径。
+    pub fn repath_mobiles(&mut self) {
+        for i in 0..self.entities.len() {
+            if is_mobile(self.entities[i].kind) {
+                repath_at(&mut self.entities, i, &self.pass_grid);
+            }
+        }
+        self.rehash();
+    }
+
     fn rehash(&mut self) {
         let mut h = self.tick;
         h = h
