@@ -2,28 +2,39 @@
 
 use crate::{MapEntityKind, MapInfo};
 
-/// 矩形通行表：`true` = 可走。
+/// 地面单位相邻格允许的最大高度差（`IsoCell.z` / TMP height 粗对齐）。
+pub const MAX_GROUND_CLIMB: u8 = 1;
+
+/// 矩形通行表：`true` = 可走；附带每格高度供爬升判定。
 #[derive(Debug, Clone)]
 pub struct PassGrid {
     pub width: u32,
     pub height: u32,
     passable: Vec<bool>,
+    cell_height: Vec<u8>,
 }
 
 impl PassGrid {
-    /// 全可走空表。
+    /// 全可走空表（高度均为 0）。
     pub fn open(width: u32, height: u32) -> Self {
         let n = (width as usize).saturating_mul(height as usize);
         Self {
             width,
             height,
             passable: vec![true; n],
+            cell_height: vec![0; n],
         }
     }
 
-    /// 由地图尺寸建表，并用建筑 / 地形物件占用格封死。
+    /// 由地图尺寸建表：灌入 `IsoCell.z`，并用建筑 / 地形物件占用格封死。
     pub fn from_map(map: &MapInfo) -> Self {
         let mut grid = Self::open(map.width.max(1), map.height.max(1));
+        for cell in &map.cells {
+            if cell.x < 0 || cell.y < 0 {
+                continue;
+            }
+            grid.set_height(cell.x as u16, cell.y as u16, cell.z);
+        }
         for e in &map.entities {
             if e.kind == MapEntityKind::Structure {
                 grid.set_passable(e.x, e.y, false);
@@ -39,22 +50,46 @@ impl PassGrid {
         u32::from(x) < self.width && u32::from(y) < self.height
     }
 
-    pub fn is_passable(&self, x: u16, y: u16) -> bool {
+    fn index(&self, x: u16, y: u16) -> Option<usize> {
         if !self.in_bounds(x, y) {
-            return false;
+            return None;
         }
-        let i = (u32::from(y) * self.width + u32::from(x)) as usize;
-        self.passable.get(i).copied().unwrap_or(false)
+        Some((u32::from(y) * self.width + u32::from(x)) as usize)
+    }
+
+    pub fn is_passable(&self, x: u16, y: u16) -> bool {
+        self.index(x, y)
+            .and_then(|i| self.passable.get(i).copied())
+            .unwrap_or(false)
     }
 
     pub fn set_passable(&mut self, x: u16, y: u16, passable: bool) {
-        if !self.in_bounds(x, y) {
-            return;
+        if let Some(i) = self.index(x, y) {
+            if let Some(slot) = self.passable.get_mut(i) {
+                *slot = passable;
+            }
         }
-        let i = (u32::from(y) * self.width + u32::from(x)) as usize;
-        if let Some(slot) = self.passable.get_mut(i) {
-            *slot = passable;
+    }
+
+    pub fn cell_height(&self, x: u16, y: u16) -> u8 {
+        self.index(x, y)
+            .and_then(|i| self.cell_height.get(i).copied())
+            .unwrap_or(0)
+    }
+
+    pub fn set_height(&mut self, x: u16, y: u16, z: u8) {
+        if let Some(i) = self.index(x, y) {
+            if let Some(slot) = self.cell_height.get_mut(i) {
+                *slot = z;
+            }
         }
+    }
+
+    /// 相邻迈格高度差是否在地面爬升上限内。
+    pub fn climb_ok(&self, from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> bool {
+        self.cell_height(from_x, from_y)
+            .abs_diff(self.cell_height(to_x, to_y))
+            <= MAX_GROUND_CLIMB
     }
 
     pub fn blocked_count(&self) -> usize {
@@ -142,13 +177,17 @@ impl PassGrid {
                 let nx = nx as u16;
                 let ny = ny as u16;
                 let i = idx(nx, ny);
-                if visited[i] || !self.is_passable(nx, ny) {
+                if visited[i] || !self.is_passable(nx, ny) || !self.climb_ok(x, y, nx, ny) {
                     continue;
                 }
-                // 对角线：两侧正交格也须可走。
+                // 对角线：两侧正交格也须可走，且爬升可达。
                 if dx != 0 && dy != 0 {
-                    if !self.is_passable((i32::from(x) + dx) as u16, y)
-                        || !self.is_passable(x, (i32::from(y) + dy) as u16)
+                    let ox = (i32::from(x) + dx) as u16;
+                    let oy = (i32::from(y) + dy) as u16;
+                    if !self.is_passable(ox, y)
+                        || !self.is_passable(x, oy)
+                        || !self.climb_ok(x, y, ox, y)
+                        || !self.climb_ok(x, y, x, oy)
                     {
                         continue;
                     }
@@ -175,7 +214,7 @@ impl PassGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MapEntity, MapEntityKind};
+    use crate::{IsoCell, MapEntity, MapEntityKind};
     use ra_types::GameEdition;
 
     #[test]
@@ -218,5 +257,47 @@ mod tests {
         assert_eq!(sealed, 1);
         assert!(!grid.is_passable(1, 1));
         assert!(grid.is_passable(0, 0));
+    }
+
+    #[test]
+    fn cliff_blocks_path_ramp_allows() {
+        let mut cliff = PassGrid::open(3, 1);
+        cliff.set_height(0, 0, 0);
+        cliff.set_height(1, 0, 2);
+        cliff.set_height(2, 0, 2);
+        assert!(cliff.find_path(0, 0, 2, 0).is_none());
+
+        let mut ramp = PassGrid::open(3, 1);
+        ramp.set_height(0, 0, 0);
+        ramp.set_height(1, 0, 1);
+        ramp.set_height(2, 0, 2);
+        assert!(ramp.find_path(0, 0, 2, 0).is_some());
+    }
+
+    #[test]
+    fn from_map_loads_iso_heights() {
+        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        map.width = 2;
+        map.height = 1;
+        map.cells.push(IsoCell {
+            x: 0,
+            y: 0,
+            tile_num: 0,
+            sub_tile: 0,
+            z: 3,
+            flags: 0,
+        });
+        map.cells.push(IsoCell {
+            x: 1,
+            y: 0,
+            tile_num: 0,
+            sub_tile: 0,
+            z: 4,
+            flags: 0,
+        });
+        let grid = PassGrid::from_map(&map);
+        assert_eq!(grid.cell_height(0, 0), 3);
+        assert_eq!(grid.cell_height(1, 0), 4);
+        assert!(grid.find_path(0, 0, 1, 0).is_some());
     }
 }
