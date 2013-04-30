@@ -7,6 +7,9 @@ use ra_types::{GameEdition, PlayerId};
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
 
+/// 炮塔每 tick 最多转过的朝向单位（0..=255 环）。
+pub const TURRET_TURN_STEP: u8 = 16;
+
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
@@ -16,6 +19,8 @@ pub struct WorldEntity {
     pub x: u16,
     pub y: u16,
     pub facing: u8,
+    /// 炮塔朝向（无炮塔时与 `facing` 同步）。
+    pub turret_facing: u8,
     pub sub_cell: u8,
     /// 当前生命（由放置段比例 × Strength）。
     pub health: u32,
@@ -65,6 +70,7 @@ impl World {
                     x: e.x,
                     y: e.y,
                     facing: e.facing,
+                    turret_facing: e.facing,
                     sub_cell: e.sub_cell,
                     health,
                     max_health,
@@ -97,45 +103,54 @@ impl World {
         self.tick = self.tick.wrapping_add(1);
         let n = self.entities.len();
         for i in 0..n {
-            if self.entities[i].speed == 0 || !is_mobile(self.entities[i].kind) {
-                continue;
-            }
-            let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
-            else {
-                continue;
-            };
-            if self.entities[i].x == tx && self.entities[i].y == ty {
-                self.entities[i].path.clear();
-                continue;
-            }
-            self.entities[i].move_accum = self.entities[i]
-                .move_accum
-                .saturating_add(self.entities[i].speed);
-            while self.entities[i].move_accum >= CELL_MOVE_COST {
-                self.entities[i].move_accum -= CELL_MOVE_COST;
-                if self.entities[i].path.is_empty() {
-                    repath_at(&mut self.entities, i, &self.pass_grid);
-                    if self.entities[i].path.is_empty() {
-                        break;
+            if is_mobile(self.entities[i].kind) && self.entities[i].speed > 0 {
+                if let (Some(tx), Some(ty)) =
+                    (self.entities[i].target_x, self.entities[i].target_y)
+                {
+                    if self.entities[i].x == tx && self.entities[i].y == ty {
+                        self.entities[i].path.clear();
+                    } else {
+                        self.entities[i].move_accum = self.entities[i]
+                            .move_accum
+                            .saturating_add(self.entities[i].speed);
+                        while self.entities[i].move_accum >= CELL_MOVE_COST {
+                            self.entities[i].move_accum -= CELL_MOVE_COST;
+                            if self.entities[i].path.is_empty() {
+                                repath_at(&mut self.entities, i, &self.pass_grid);
+                                if self.entities[i].path.is_empty() {
+                                    break;
+                                }
+                            }
+                            let Some((nx, ny)) = self.entities[i].path.first().copied() else {
+                                break;
+                            };
+                            if cell_occupied_by_other(&self.entities, i, nx, ny) {
+                                // 下一格被占：清路再寻，仍堵则本 tick 停步。
+                                self.entities[i].path.clear();
+                                repath_at(&mut self.entities, i, &self.pass_grid);
+                                let Some((nx2, ny2)) = self.entities[i].path.first().copied()
+                                else {
+                                    break;
+                                };
+                                if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
+                                    break;
+                                }
+                            }
+                            if !step_along_path(&mut self.entities[i]) {
+                                break;
+                            }
+                        }
                     }
                 }
-                let Some((nx, ny)) = self.entities[i].path.first().copied() else {
-                    break;
-                };
-                if cell_occupied_by_other(&self.entities, i, nx, ny) {
-                    // 下一格被占：清路再寻，仍堵则本 tick 停步。
-                    self.entities[i].path.clear();
-                    repath_at(&mut self.entities, i, &self.pass_grid);
-                    let Some((nx2, ny2)) = self.entities[i].path.first().copied() else {
-                        break;
-                    };
-                    if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
-                        break;
-                    }
-                }
-                if !step_along_path(&mut self.entities[i]) {
-                    break;
-                }
+            }
+            if is_mobile(self.entities[i].kind) {
+                // 炮塔追车身朝向（攻击目标朝向另议）。
+                let body = self.entities[i].facing;
+                turn_facing_toward(
+                    &mut self.entities[i].turret_facing,
+                    body,
+                    TURRET_TURN_STEP,
+                );
             }
         }
         self.rehash();
@@ -176,6 +191,7 @@ impl World {
                 .wrapping_add(e.x as u64)
                 .wrapping_add((e.y as u64) << 16)
                 .wrapping_add((e.facing as u64) << 32)
+                .wrapping_add((e.turret_facing as u64) << 40)
                 .wrapping_add(u64::from(e.health));
             for b in e.type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
@@ -201,6 +217,25 @@ fn nearest_waypoint(map: &MapInfo, x: u16, y: u16) -> (Option<u16>, Option<u16>)
         return (None, None);
     };
     (Some(best.x), Some(best.y))
+}
+
+fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
+    if *current == desired || step == 0 {
+        return;
+    }
+    let cur = i16::from(*current);
+    let want = i16::from(desired);
+    let mut delta = (want - cur).rem_euclid(256);
+    if delta > 128 {
+        delta -= 256;
+    }
+    let step = i16::from(step);
+    let moved = if delta > 0 {
+        delta.min(step)
+    } else {
+        delta.max(-step)
+    };
+    *current = (cur + moved).rem_euclid(256) as u8;
 }
 
 fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u16) -> bool {
@@ -433,5 +468,36 @@ mod tests {
         let b = (world.entities[1].x, world.entities[1].y);
         assert_ne!(a, b);
         assert!(a == (14, 10) || b == (14, 10) || a.0.max(b.0) >= 13);
+    }
+
+    #[test]
+    fn turret_chases_body_facing() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.waypoints.push(Waypoint {
+            index: 0,
+            x: 12,
+            y: 20,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 20,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        world.entities[0].turret_facing = 128;
+        world.advance_tick();
+        // 车身迈步后 facing 变；炮塔每 tick 最多转 TURRET_TURN_STEP。
+        let body = world.entities[0].facing;
+        let tur = world.entities[0].turret_facing;
+        assert_ne!(tur, 128);
+        let delta = (i16::from(body) - i16::from(tur)).rem_euclid(256);
+        let shortest = if delta > 128 { 256 - delta } else { delta };
+        assert!(shortest < 128);
     }
 }
