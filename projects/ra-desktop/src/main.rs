@@ -707,7 +707,7 @@ fn paint_mobile_entities(
 
         let stem = image_key.to_ascii_lowercase();
         if let Some(blit) =
-            load_mobile_vxl_layers(source, &stem, &pal, vpl.as_ref(), ent.facing)
+            load_mobile_vxl_layers(source, &stem, &pal, vpl.as_ref(), ent.facing, ent.facing)
         {
             blit_cache.insert(cache_key, blit.clone());
             items.push((ent.x, ent.y, blit));
@@ -724,7 +724,8 @@ fn load_mobile_vxl_layers(
     stem: &str,
     pal: &Palette,
     vpl: Option<&VplFile>,
-    facing: u8,
+    body_facing: u8,
+    turret_facing: u8,
 ) -> Option<TileBlit> {
     let body_name = format!("{stem}.vxl");
     let body_bytes = source.vfs.read(&body_name)?;
@@ -734,7 +735,7 @@ fn load_mobile_vxl_layers(
         .read(&format!("{stem}.hva"))
         .and_then(|b| HvaFile::parse(&b).ok());
 
-    let mut owned: Vec<(VxlFile, Option<HvaFile>)> = vec![(body, body_hva)];
+    let mut owned: Vec<(VxlFile, Option<HvaFile>, bool)> = vec![(body, body_hva, false)];
     for suffix in ["tur", "barl", "barrel"] {
         let vxl_name = format!("{stem}{suffix}.vxl");
         let Some(bytes) = source.vfs.read(&vxl_name) else {
@@ -747,7 +748,7 @@ fn load_mobile_vxl_layers(
             .vfs
             .read(&format!("{stem}{suffix}.hva"))
             .and_then(|b| HvaFile::parse(&b).ok());
-        owned.push((vxl, hva));
+        owned.push((vxl, hva, true));
         // `barl` 与 `barrel` 只取先命中的一个。
         if suffix.starts_with("bar") {
             break;
@@ -756,11 +757,14 @@ fn load_mobile_vxl_layers(
 
     let layers: Vec<VxlLayerPose<'_>> = owned
         .iter()
-        .map(|(v, h)| VxlLayerPose {
+        .map(|(v, h, is_turret)| VxlLayerPose {
             vxl: v,
             hva: h.as_ref(),
-            // 地图放置段只有一体 facing；炮塔独立朝向待运行时状态。
-            facing,
+            facing: if *is_turret {
+                turret_facing
+            } else {
+                body_facing
+            },
             frame: 0,
         })
         .collect();
