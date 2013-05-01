@@ -244,7 +244,7 @@ fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u1
     })
 }
 
-/// 寻路时把其它移动单位占格封死；起点与目标临时放开。
+/// 寻路时把其它移动单位占格封死；目标被占则改停邻格。
 fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
     entities[i].path.clear();
     let (Some(tx), Some(ty)) = (entities[i].target_x, entities[i].target_y) else {
@@ -257,16 +257,55 @@ fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
             g.set_passable(o.x, o.y, false);
         }
     }
-    // 允许离开当前格；目标格临时放开以便朝共享航点规划（迈入仍受占格检查）。
+    // 允许离开当前格。
     g.set_passable(sx, sy, true);
-    g.set_passable(tx, ty, true);
-    let Some(mut path) = g.find_path_diag(sx, sy, tx, ty) else {
+    let (gx, gy) = nearest_free_goal(&g, sx, sy, tx, ty);
+    g.set_passable(gx, gy, true);
+    let Some(mut path) = g.find_path_diag(sx, sy, gx, gy) else {
         return;
     };
     if path.first() == Some(&(sx, sy)) {
         path.remove(0);
     }
     entities[i].path = path;
+}
+
+/// 目标可走则用之；否则在半径内找最近可走格（含自身起点）。
+fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
+    if grid.is_passable(tx, ty) {
+        return (tx, ty);
+    }
+    let mut best: Option<(u32, u16, u16)> = None;
+    for r in 1i32..=8 {
+        for dy in -r..=r {
+            for dx in -r..=r {
+                if dx.abs() != r && dy.abs() != r {
+                    continue;
+                }
+                let nx = i32::from(tx) + dx;
+                let ny = i32::from(ty) + dy;
+                if nx < 0 || ny < 0 {
+                    continue;
+                }
+                let nx = nx as u16;
+                let ny = ny as u16;
+                if !grid.is_passable(nx, ny) {
+                    continue;
+                }
+                // 允许停在自己脚下（已到邻格排队）。
+                let dist = (i32::from(nx) - i32::from(sx)).pow(2)
+                    + (i32::from(ny) - i32::from(sy)).pow(2);
+                let key = (dist as u32, nx, ny);
+                if best.map(|b| key < b).unwrap_or(true) {
+                    best = Some(key);
+                }
+            }
+        }
+        if best.is_some() {
+            break;
+        }
+    }
+    best.map(|(_, x, y)| (x, y)).unwrap_or((tx, ty))
 }
 
 /// 沿 `path` 迈一格；无路则返回 `false`。
@@ -468,6 +507,50 @@ mod tests {
         let b = (world.entities[1].x, world.entities[1].y);
         assert_ne!(a, b);
         assert!(a == (14, 10) || b == (14, 10) || a.0.max(b.0) >= 13);
+    }
+
+    #[test]
+    fn shared_waypoint_queues_on_neighbor() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.waypoints.push(Waypoint {
+            index: 0,
+            x: 12,
+            y: 10,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 11,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        for _ in 0..30 {
+            world.advance_tick();
+        }
+        let a = (world.entities[0].x, world.entities[0].y);
+        let b = (world.entities[1].x, world.entities[1].y);
+        assert_ne!(a, b);
+        // 一车占航点，另一车停在曼哈顿距离 ≤2 的邻域。
+        let on_wp = |p: (u16, u16)| p == (12, 10);
+        assert!(on_wp(a) || on_wp(b));
+        let other = if on_wp(a) { b } else { a };
+        let dist = (i32::from(other.0) - 12).unsigned_abs() + (i32::from(other.1) - 10).unsigned_abs();
+        assert!(dist <= 2);
     }
 
     #[test]
