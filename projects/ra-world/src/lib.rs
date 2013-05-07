@@ -34,6 +34,8 @@ pub struct WorldEntity {
     pub path: Vec<(u16, u16)>,
     /// 累积移动点（每 tick += Speed）。
     pub move_accum: u32,
+    /// HVA 动画帧（移动时递增；光栅化时对 `hva.frames` 取模）。
+    pub hva_frame: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -80,6 +82,7 @@ impl World {
                     target_y,
                     path: Vec::new(),
                     move_accum: 0,
+                    hva_frame: 0,
                 }
             })
             .collect();
@@ -139,6 +142,8 @@ impl World {
                             if !step_along_path(&mut self.entities[i]) {
                                 break;
                             }
+                            self.entities[i].hva_frame =
+                                self.entities[i].hva_frame.wrapping_add(1);
                         }
                     }
                 }
@@ -413,8 +418,10 @@ mod tests {
         assert_eq!(world.entities[0].path.len(), 2);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 11);
+        assert_eq!(world.entities[0].hva_frame, 1);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 12);
+        assert_eq!(world.entities[0].hva_frame, 2);
         world.advance_tick();
         assert_eq!(world.entities[0].x, 12);
     }
