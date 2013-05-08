@@ -23,6 +23,7 @@ use ra_map::{
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules, ColorSchemes, OverlayTypeRegistry};
+use ra_session::Session;
 use ra_types::{GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
@@ -38,7 +39,7 @@ struct App {
     window: Option<Arc<Window>>,
     title_base: String,
     boot_note: String,
-    world: Option<World>,
+    session: Option<Session>,
     renderer: Renderer,
     /// 左键拖拽中：上一帧光标位置。
     drag_last: Option<(f64, f64)>,
@@ -47,10 +48,10 @@ struct App {
 }
 
 impl App {
-    fn new(boot_note: String, world: Option<World>, preview: Option<RgbaImage>) -> Self {
-        let edition = world
+    fn new(boot_note: String, session: Option<Session>, preview: Option<RgbaImage>) -> Self {
+        let edition = session
             .as_ref()
-            .map(|w| w.edition.as_str())
+            .map(|s| s.world.edition.as_str())
             .unwrap_or("—");
         let mut renderer = Renderer::new();
         if let Some(image) = preview {
@@ -60,7 +61,7 @@ impl App {
             window: None,
             title_base: format!("ra2 ({edition})"),
             boot_note,
-            world,
+            session,
             renderer,
             drag_last: None,
             drag_armed: false,
@@ -69,7 +70,7 @@ impl App {
 
     fn refresh_title(&self) {
         if let Some(window) = &self.window {
-            let tick = self.world.as_ref().map(|w| w.tick).unwrap_or(0);
+            let tick = self.session.as_ref().map(|s| s.world.tick).unwrap_or(0);
             let zoom = self.renderer.camera().zoom;
             window.set_title(&format!(
                 "{} · {} · t{} · z{:.2}",
@@ -179,10 +180,12 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(world) = self.world.as_mut() {
-                    world.advance_tick();
+                if let Some(session) = self.session.as_mut() {
+                    session.tick();
                 }
-                self.renderer.draw_frame(self.world.as_ref());
+                self.renderer.draw_frame(
+                    self.session.as_ref().map(|s| &s.world),
+                );
                 self.refresh_title();
                 if let Some(window) = &self.window {
                     window.request_redraw();
@@ -201,7 +204,7 @@ impl ApplicationHandler for App {
 
 struct BootResult {
     note: String,
-    world: Option<World>,
+    session: Option<Session>,
     preview: Option<RgbaImage>,
 }
 
@@ -1074,7 +1077,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         }
     };
 
-    let world = match load_rules(&source, chain.edition) {
+    let session = match load_rules(&source, chain.edition) {
         Ok(rules) => {
             let sections = rules.rules.sections.len();
             let overlays = rules.overlay_types.len();
@@ -1093,7 +1096,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                 world.pass_grid.blocked_count(),
                 land_sealed
             );
-            Some(world)
+            Some(Session::new(world, note.clone()))
         }
         Err(e) => {
             note = format!("{note} · 规则待加载（{e}）");
@@ -1103,7 +1106,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
 
     Ok(BootResult {
         note,
-        world,
+        session,
         preview,
     })
 }
@@ -1121,20 +1124,20 @@ fn run() -> RaResult<()> {
         Ok(v) => v,
         Err(e) => BootResult {
             note: format!("启动失败: {e}"),
-            world: None,
+            session: None,
             preview: None,
         },
     };
     eprintln!(
         "ra2 boot: {} · world={}",
         boot.note,
-        if boot.world.is_some() { "ok" } else { "none" }
+        if boot.session.is_some() { "ok" } else { "none" }
     );
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(boot.note, boot.world, boot.preview);
+    let mut app = App::new(boot.note, boot.session, boot.preview);
     event_loop
         .run_app(&mut app)
         .map_err(|e| RaError::Msg(e.to_string()))?;
