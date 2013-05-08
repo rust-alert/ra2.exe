@@ -1,8 +1,12 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
+mod command;
+
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_rules::{RulesDb, TechnoKind};
 use ra_types::{GameEdition, PlayerId};
+
+pub use command::GameCommand;
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -46,6 +50,8 @@ pub struct World {
     pub pass_grid: PassGrid,
     pub entities: Vec<WorldEntity>,
     pub local_player: PlayerId,
+    /// 待本 tick 消费的命令（先进先出）。
+    pending_commands: Vec<GameCommand>,
     state_hash: u64,
 }
 
@@ -93,6 +99,7 @@ impl World {
             pass_grid,
             entities,
             local_player: PlayerId(0),
+            pending_commands: Vec::new(),
             state_hash: 0,
         };
         for i in 0..world.entities.len() {
@@ -102,8 +109,14 @@ impl World {
         world
     }
 
+    /// 入队命令；在下一次 `advance_tick` 开头按序应用。
+    pub fn push_command(&mut self, cmd: GameCommand) {
+        self.pending_commands.push(cmd);
+    }
+
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
+        self.apply_pending_commands();
         let n = self.entities.len();
         for i in 0..n {
             if is_mobile(self.entities[i].kind) && self.entities[i].speed > 0 {
@@ -159,6 +172,31 @@ impl World {
             }
         }
         self.rehash();
+    }
+
+    fn apply_pending_commands(&mut self) {
+        let cmds = std::mem::take(&mut self.pending_commands);
+        for cmd in cmds {
+            match cmd {
+                GameCommand::MoveTo {
+                    entity_index,
+                    x,
+                    y,
+                } => {
+                    if entity_index >= self.entities.len() {
+                        continue;
+                    }
+                    if !is_mobile(self.entities[entity_index].kind) {
+                        continue;
+                    }
+                    self.entities[entity_index].target_x = Some(x);
+                    self.entities[entity_index].target_y = Some(y);
+                    self.entities[entity_index].path.clear();
+                    self.entities[entity_index].move_accum = 0;
+                    repath_at(&mut self.entities, entity_index, &self.pass_grid);
+                }
+            }
+        }
     }
 
     pub fn state_hash(&self) -> u64 {
@@ -589,5 +627,36 @@ mod tests {
         let delta = (i16::from(body) - i16::from(tur)).rem_euclid(256);
         let shortest = if delta > 128 { 256 - delta } else { delta };
         assert!(shortest < 128);
+    }
+
+    #[test]
+    fn move_to_command_overrides_waypoint() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.waypoints.push(Waypoint {
+            index: 0,
+            x: 18,
+            y: 20,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 20,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        assert_eq!(world.entities[0].target_x, Some(18));
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 12,
+            y: 20,
+        });
+        world.advance_tick();
+        assert_eq!(world.entities[0].target_x, Some(12));
+        assert_eq!(world.entities[0].x, 11);
     }
 }
