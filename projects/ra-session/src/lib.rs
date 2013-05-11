@@ -29,6 +29,7 @@ pub struct SnapshotUnit {
     pub hva_frame: u16,
     pub health: u32,
     pub max_health: u32,
+    pub dead: bool,
 }
 
 /// 运行中会话。
@@ -78,6 +79,7 @@ impl Session {
                 hva_frame: e.hva_frame,
                 health: e.health,
                 max_health: e.max_health,
+                dead: e.dead,
             })
             .collect();
         RenderSnapshot {

@@ -14,6 +14,15 @@ pub const CELL_MOVE_COST: u32 = 64;
 /// 炮塔每 tick 最多转过的朝向单位（0..=255 环）。
 pub const TURRET_TURN_STEP: u8 = 16;
 
+/// 预览用默认攻击射程（曼哈顿格）。
+pub const DEFAULT_ATTACK_RANGE: u32 = 4;
+
+/// 预览用默认单次伤害。
+pub const DEFAULT_ATTACK_DAMAGE: u32 = 50;
+
+/// 两次开火之间的 tick 数。
+pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
+
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
@@ -40,6 +49,12 @@ pub struct WorldEntity {
     pub move_accum: u32,
     /// HVA 动画帧（移动时递增；光栅化时对 `hva.frames` 取模）。
     pub hva_frame: u16,
+    /// 攻击目标实体下标。
+    pub attack_target: Option<usize>,
+    /// 开火冷却剩余 tick。
+    pub attack_cooldown: u32,
+    /// 生命归零后为真；不再移动/占格。
+    pub dead: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +104,9 @@ impl World {
                     path: Vec::new(),
                     move_accum: 0,
                     hva_frame: 0,
+                    attack_target: None,
+                    attack_cooldown: 0,
+                    dead: false,
                 }
             })
             .collect();
@@ -117,61 +135,140 @@ impl World {
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
         self.apply_pending_commands();
+        self.advance_movement();
+        self.resolve_combat();
+        self.advance_turrets();
+        self.rehash();
+    }
+
+    fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {
-            if is_mobile(self.entities[i].kind) && self.entities[i].speed > 0 {
-                if let (Some(tx), Some(ty)) =
-                    (self.entities[i].target_x, self.entities[i].target_y)
+            if self.entities[i].dead
+                || !is_mobile(self.entities[i].kind)
+                || self.entities[i].speed == 0
+            {
+                continue;
+            }
+            // 攻击中且已在射程内：停步开火，不继续挤占目标格。
+            if let Some(ti) = self.entities[i].attack_target {
+                if ti < n
+                    && !self.entities[ti].dead
+                    && manhattan(
+                        self.entities[i].x,
+                        self.entities[i].y,
+                        self.entities[ti].x,
+                        self.entities[ti].y,
+                    ) <= DEFAULT_ATTACK_RANGE
                 {
-                    if self.entities[i].x == tx && self.entities[i].y == ty {
-                        self.entities[i].path.clear();
-                    } else {
-                        self.entities[i].move_accum = self.entities[i]
-                            .move_accum
-                            .saturating_add(self.entities[i].speed);
-                        while self.entities[i].move_accum >= CELL_MOVE_COST {
-                            self.entities[i].move_accum -= CELL_MOVE_COST;
-                            if self.entities[i].path.is_empty() {
-                                repath_at(&mut self.entities, i, &self.pass_grid);
-                                if self.entities[i].path.is_empty() {
-                                    break;
-                                }
-                            }
-                            let Some((nx, ny)) = self.entities[i].path.first().copied() else {
-                                break;
-                            };
-                            if cell_occupied_by_other(&self.entities, i, nx, ny) {
-                                // 下一格被占：清路再寻，仍堵则本 tick 停步。
-                                self.entities[i].path.clear();
-                                repath_at(&mut self.entities, i, &self.pass_grid);
-                                let Some((nx2, ny2)) = self.entities[i].path.first().copied()
-                                else {
-                                    break;
-                                };
-                                if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
-                                    break;
-                                }
-                            }
-                            if !step_along_path(&mut self.entities[i]) {
-                                break;
-                            }
-                            self.entities[i].hva_frame =
-                                self.entities[i].hva_frame.wrapping_add(1);
-                        }
-                    }
+                    self.entities[i].path.clear();
+                    continue;
                 }
             }
-            if is_mobile(self.entities[i].kind) {
-                // 炮塔追车身朝向（攻击目标朝向另议）。
-                let body = self.entities[i].facing;
-                turn_facing_toward(
-                    &mut self.entities[i].turret_facing,
-                    body,
-                    TURRET_TURN_STEP,
-                );
+            let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
+            else {
+                continue;
+            };
+            if self.entities[i].x == tx && self.entities[i].y == ty {
+                self.entities[i].path.clear();
+                continue;
+            }
+            self.entities[i].move_accum = self.entities[i]
+                .move_accum
+                .saturating_add(self.entities[i].speed);
+            while self.entities[i].move_accum >= CELL_MOVE_COST {
+                self.entities[i].move_accum -= CELL_MOVE_COST;
+                if self.entities[i].path.is_empty() {
+                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    if self.entities[i].path.is_empty() {
+                        break;
+                    }
+                }
+                let Some((nx, ny)) = self.entities[i].path.first().copied() else {
+                    break;
+                };
+                if cell_occupied_by_other(&self.entities, i, nx, ny) {
+                    self.entities[i].path.clear();
+                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    let Some((nx2, ny2)) = self.entities[i].path.first().copied() else {
+                        break;
+                    };
+                    if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
+                        break;
+                    }
+                }
+                if !step_along_path(&mut self.entities[i]) {
+                    break;
+                }
+                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
             }
         }
-        self.rehash();
+    }
+
+    fn resolve_combat(&mut self) {
+        let n = self.entities.len();
+        let mut damage_events: Vec<(usize, u32)> = Vec::new();
+        for i in 0..n {
+            if self.entities[i].dead || !is_mobile(self.entities[i].kind) {
+                continue;
+            }
+            let Some(ti) = self.entities[i].attack_target else {
+                continue;
+            };
+            if ti >= n || self.entities[ti].dead || ti == i {
+                self.entities[i].attack_target = None;
+                continue;
+            }
+            // 追击：把移动目标钉在敌人当前格。
+            self.entities[i].target_x = Some(self.entities[ti].x);
+            self.entities[i].target_y = Some(self.entities[ti].y);
+
+            if self.entities[i].attack_cooldown > 0 {
+                self.entities[i].attack_cooldown -= 1;
+                continue;
+            }
+            let dist = manhattan(
+                self.entities[i].x,
+                self.entities[i].y,
+                self.entities[ti].x,
+                self.entities[ti].y,
+            );
+            if dist <= DEFAULT_ATTACK_RANGE {
+                damage_events.push((ti, DEFAULT_ATTACK_DAMAGE));
+                self.entities[i].attack_cooldown = ATTACK_COOLDOWN_TICKS;
+            }
+        }
+        for (ti, dmg) in damage_events {
+            apply_damage(&mut self.entities, ti, dmg);
+        }
+    }
+
+    fn advance_turrets(&mut self) {
+        let n = self.entities.len();
+        for i in 0..n {
+            if self.entities[i].dead || !is_mobile(self.entities[i].kind) {
+                continue;
+            }
+            let desired = if let Some(ti) = self.entities[i].attack_target {
+                if ti < n && !self.entities[ti].dead {
+                    facing_toward(
+                        self.entities[i].x,
+                        self.entities[i].y,
+                        self.entities[ti].x,
+                        self.entities[ti].y,
+                    )
+                } else {
+                    self.entities[i].facing
+                }
+            } else {
+                self.entities[i].facing
+            };
+            turn_facing_toward(
+                &mut self.entities[i].turret_facing,
+                desired,
+                TURRET_TURN_STEP,
+            );
+        }
     }
 
     fn apply_pending_commands(&mut self) {
@@ -186,14 +283,44 @@ impl World {
                     if entity_index >= self.entities.len() {
                         continue;
                     }
-                    if !is_mobile(self.entities[entity_index].kind) {
+                    let e = &mut self.entities[entity_index];
+                    if e.dead || !is_mobile(e.kind) {
                         continue;
                     }
-                    self.entities[entity_index].target_x = Some(x);
-                    self.entities[entity_index].target_y = Some(y);
-                    self.entities[entity_index].path.clear();
-                    self.entities[entity_index].move_accum = 0;
+                    e.attack_target = None;
+                    e.target_x = Some(x);
+                    e.target_y = Some(y);
+                    e.path.clear();
+                    e.move_accum = 0;
                     repath_at(&mut self.entities, entity_index, &self.pass_grid);
+                }
+                GameCommand::Attack {
+                    attacker_index,
+                    target_index,
+                } => {
+                    if attacker_index >= self.entities.len()
+                        || target_index >= self.entities.len()
+                        || attacker_index == target_index
+                    {
+                        continue;
+                    }
+                    if self.entities[attacker_index].dead
+                        || self.entities[target_index].dead
+                        || !is_mobile(self.entities[attacker_index].kind)
+                    {
+                        continue;
+                    }
+                    let (tx, ty) = (
+                        self.entities[target_index].x,
+                        self.entities[target_index].y,
+                    );
+                    let a = &mut self.entities[attacker_index];
+                    a.attack_target = Some(target_index);
+                    a.target_x = Some(tx);
+                    a.target_y = Some(ty);
+                    a.path.clear();
+                    a.move_accum = 0;
+                    repath_at(&mut self.entities, attacker_index, &self.pass_grid);
                 }
             }
         }
@@ -235,7 +362,8 @@ impl World {
                 .wrapping_add((e.y as u64) << 16)
                 .wrapping_add((e.facing as u64) << 32)
                 .wrapping_add((e.turret_facing as u64) << 40)
-                .wrapping_add(u64::from(e.health));
+                .wrapping_add(u64::from(e.health))
+                .wrapping_add(u64::from(e.dead));
             for b in e.type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
@@ -281,9 +409,54 @@ fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
     *current = (cur + moved).rem_euclid(256) as u8;
 }
 
+fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
+    (i32::from(ax) - i32::from(bx)).unsigned_abs() + (i32::from(ay) - i32::from(by)).unsigned_abs()
+}
+
+/// 粗 8 向朝向（与迈格 facing 桶对齐）。
+fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
+    let dx = (i32::from(to_x) - i32::from(from_x)).signum();
+    let dy = (i32::from(to_y) - i32::from(from_y)).signum();
+    match (dx, dy) {
+        (1, 0) => 0,
+        (1, 1) => 32,
+        (0, 1) => 64,
+        (-1, 1) => 96,
+        (-1, 0) => 128,
+        (-1, -1) => 160,
+        (0, -1) => 192,
+        (1, -1) => 224,
+        _ => 0,
+    }
+}
+
+fn apply_damage(entities: &mut [WorldEntity], index: usize, amount: u32) {
+    if index >= entities.len() || entities[index].dead {
+        return;
+    }
+    let e = &mut entities[index];
+    e.health = e.health.saturating_sub(amount);
+    if e.health == 0 {
+        e.dead = true;
+        e.speed = 0;
+        e.path.clear();
+        e.target_x = None;
+        e.target_y = None;
+        e.attack_target = None;
+        e.move_accum = 0;
+        // 清除指向死者的攻击锁定。
+        let dead_i = index;
+        for o in entities.iter_mut() {
+            if o.attack_target == Some(dead_i) {
+                o.attack_target = None;
+            }
+        }
+    }
+}
+
 fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u16) -> bool {
     entities.iter().enumerate().any(|(j, o)| {
-        j != self_i && is_mobile(o.kind) && o.x == x && o.y == y
+        j != self_i && !o.dead && is_mobile(o.kind) && o.x == x && o.y == y
     })
 }
 
@@ -296,7 +469,7 @@ fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
     let (sx, sy) = (entities[i].x, entities[i].y);
     let mut g = grid.clone();
     for (j, o) in entities.iter().enumerate() {
-        if j != i && is_mobile(o.kind) {
+        if j != i && !o.dead && is_mobile(o.kind) {
             g.set_passable(o.x, o.y, false);
         }
     }
@@ -658,5 +831,55 @@ mod tests {
         world.advance_tick();
         assert_eq!(world.entities[0].target_x, Some(12));
         assert_eq!(world.entities[0].x, 11);
+    }
+
+    #[test]
+    fn attack_command_damages_and_kills() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Russians".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 12,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        // 取消航点游荡，专注开火。
+        world.entities[0].target_x = None;
+        world.entities[0].target_y = None;
+        world.entities[1].target_x = None;
+        world.entities[1].target_y = None;
+        world.entities[1].speed = 0;
+        world.push_command(GameCommand::Attack {
+            attacker_index: 0,
+            target_index: 1,
+        });
+        let start_hp = world.entities[1].health;
+        world.advance_tick();
+        assert_eq!(world.entities[0].attack_target, Some(1));
+        assert!(world.entities[1].health < start_hp);
+        for _ in 0..64 {
+            world.advance_tick();
+            if world.entities[1].dead {
+                break;
+            }
+        }
+        assert!(world.entities[1].dead);
+        assert_eq!(world.entities[1].health, 0);
+        assert_eq!(world.entities[0].attack_target, None);
     }
 }
