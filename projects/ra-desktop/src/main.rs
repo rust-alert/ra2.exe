@@ -183,9 +183,8 @@ impl ApplicationHandler for App {
                 if let Some(session) = self.session.as_mut() {
                     session.tick();
                 }
-                self.renderer.draw_frame(
-                    self.session.as_ref().map(|s| &s.world),
-                );
+                let snap = self.session.as_ref().map(|s| s.snapshot());
+                self.renderer.draw_frame(snap.as_ref());
                 self.refresh_title();
                 if let Some(window) = &self.window {
                     window.request_redraw();

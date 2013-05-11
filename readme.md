@@ -114,7 +114,7 @@ flowchart LR
     se --> wo
     se --> mp
     re --> types
-    re --> wo
+    re --> se
     de --> ad
     de --> as
     de --> ru
@@ -125,8 +125,7 @@ flowchart LR
     we --> types
     we --> wo
     we --> re
-```
----
+```---
 
 ## 原生启动数据流
 

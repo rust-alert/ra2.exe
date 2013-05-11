@@ -2,11 +2,11 @@
 
 crate 头注释写得很硬：
 
-> 读取世界状态，经现代 GPU（wgpu）绘制。  
+> 读取呈现快照，经现代 GPU（wgpu）绘制。  
 > 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。  
 > 本 crate **故意不**实现 DirectDraw。
 
-产品定位是现代化重写，不是 ddraw 兼容层。依赖：`ra-types`、`ra-world`、`wgpu`（工作区锁定 24）、`winit`、`pollster`、`bytemuck`。
+产品定位是现代化重写，不是 ddraw 兼容层。依赖：`ra-types`、`ra-session`、`wgpu`（工作区锁定 24）、`winit`、`pollster`、`bytemuck`。
 
 ## 三个模块，不是「场景图」
 
@@ -44,7 +44,7 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 | `set_preview(RgbaImage)`     | 若已有 GPU，立即建/换 `SpriteGpu`；否则只存 CPU 图，等附着        |
 | `attach_window(Arc<Window>)` | 已绑定则 Ok 忽略；否则 `GpuContext::new`，若有 preview 则上传精灵 |
 | `resize(w,h)`                | 转给 GPU 表面配置，宽高至少 1                                     |
-| `draw_frame(Option<&World>)` | 无 GPU 直接 return；清屏；有 sprite 则画；`frames` wrapping_add   |
+| `draw_frame(Option<&RenderSnapshot>)` | 无 GPU 直接 return；清屏；有 sprite 则画；`frames` wrapping_add |
 | `backend_name()`             | 来自 `GpuContext` 标签                                            |
 | `has_preview()`              | 是否持有 preview 图                                               |
 | `backend_hint(_) -> "wgpu"`  | 固定字符串，给诊断用                                              |
@@ -80,10 +80,9 @@ sprite。
 
 ---
 
-## 和 `World` 的真实耦合度
+## 和快照的耦合
 
-`draw_frame` 签名吃世界引用，方便以后按 tick/edition 换内容。现状绘制路径几乎不读世界字段。标题栏上的 tick 是桌面自己读
-`world.tick` 写的，不是渲染器画的文字。
+`draw_frame` 接收 `ra-session::RenderSnapshot`，**不再依赖** `ra-world::World`。当前绘制路径仍主要是预览纹理；快照的 tick / 单位列表供后续批次与诊断使用。标题栏上的 tick 由桌面从会话读取。
 
 ## 构建
 

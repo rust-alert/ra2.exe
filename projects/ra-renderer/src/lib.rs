@@ -1,4 +1,4 @@
-//! 读取世界状态，经现代 GPU（wgpu）绘制。
+//! 读取呈现快照，经现代 GPU（wgpu）绘制。
 //!
 //! 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。
 //! 本 crate **故意不**实现 DirectDraw。
@@ -10,8 +10,8 @@ mod sprite;
 
 use std::sync::Arc;
 
+use ra_session::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
-use ra_world::World;
 use winit::window::Window;
 
 use crate::camera::Camera;
@@ -121,10 +121,10 @@ impl Renderer {
         self.camera_ready = true;
     }
 
-    /// 清屏，并在有预览精灵时按相机绘制。
-    pub fn draw_frame(&mut self, world: Option<&World>) {
-        if let Some(world) = world {
-            let _ = world.edition;
+    /// 清屏，并在有预览精灵时按相机绘制。快照供后续批次/诊断使用。
+    pub fn draw_frame(&mut self, snap: Option<&RenderSnapshot>) {
+        if let Some(snap) = snap {
+            let _ = (snap.edition, snap.tick, snap.units.len());
         }
         self.frames = self.frames.wrapping_add(1);
 
