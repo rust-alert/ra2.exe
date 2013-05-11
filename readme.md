@@ -27,6 +27,7 @@ flowchart TB
 
     subgraph sim["仿真"]
         world["ra-world<br/>World / tick"]
+        session["ra-session<br/>命令 / 快照"]
     end
 
     subgraph content["内容投影"]
@@ -47,6 +48,7 @@ flowchart TB
 
     types["ra-types<br/>GameEdition / RaError / AssetSource"]
     desktop --> renderer
+    desktop --> session
     desktop --> world
     desktop --> rules
     desktop --> map
@@ -54,6 +56,7 @@ flowchart TB
     desktop --> adaptor
     webui -.-> renderer
     webui -.-> world
+    session --> world
     renderer --> world
     world --> rules
     world --> map
@@ -69,9 +72,9 @@ flowchart TB
     yrtbl --> types
     mo3 --> types
     world --> types
+    session --> types
     renderer --> types
 ```
-
 虚线表示 `ra-webui` 已在清单中依赖相关 crate，但当前导出仍是占位（详见 [
 `projects/ra-webui/README.md`](projects/ra-webui/README.md)）。`ra-adaptor-mo3` 是心灵终结 3（Mental Omega 3）资源表，经 `ra-adaptor` 按 `GameEdition::Mo3` 装配。
 
@@ -88,6 +91,7 @@ flowchart LR
     ru[ra-rules]
     mp[ra-map]
     wo[ra-world]
+    se[ra-session]
     re[ra-renderer]
     de[ra-desktop]
     we[ra-webui]
@@ -106,19 +110,22 @@ flowchart LR
     wo --> types
     wo --> ru
     wo --> mp
+    se --> types
+    se --> wo
+    se --> mp
     re --> types
     re --> wo
     de --> ad
     de --> as
     de --> ru
     de --> mp
+    de --> se
     de --> wo
     de --> re
     we --> types
     we --> wo
     we --> re
 ```
-
 ---
 
 ## 原生启动数据流
@@ -152,13 +159,13 @@ sequenceDiagram
     Desk ->> Rules: load_rules
     Rules -->> Desk: RulesDb
     Desk ->> World: World::new
+    Desk ->> Desk: Session::new
     Desk ->> Gpu: attach_window / set_preview
     loop 每帧
-        Desk ->> World: advance_tick
+        Desk ->> Desk: Session::tick
         Desk ->> Gpu: draw_frame
     end
 ```
-
 原版与尤里的复仇共用同一套内核类型与流水线；差异集中在 adaptor 资源表（文件名）以及玩家目录里的数据内容。
 
 ---
@@ -177,6 +184,7 @@ ra2.exe/                 工作区根（本 README）
     ├── ra-rules/
     ├── ra-map/
     ├── ra-world/
+    ├── ra-session/
     ├── ra-renderer/
     ├── ra-desktop/      → 二进制 ra2
     └── ra-webui/        → cdylib Wasm 壳
@@ -241,7 +249,9 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 | `ra-assets`      | Westwood 格式：MIX / INI / PAL / SHP / TMP；`MixVfs`           | [README](projects/ra-assets/README.md)      |
 | `ra-rules`       | 按版本加载 rules/art INI → `RulesDb`                           | [README](projects/ra-rules/README.md)       |
 | `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [README](projects/ra-map/README.md)         |
-| `ra-world`       | 确定性世界句柄：`World`、tick、`state_hash`                    | [README](projects/ra-world/README.md)       |
+| `ra-world`       | 确定性世界句柄：`World`、tick、`GameCommand`、`state_hash` | [README](projects/ra-world/README.md)       |
+| `ra-session`     | 共享会话：命令转发与 `RenderSnapshot`                       | —                                          |
+| `ra-renderer`    | wgpu 呈现                                                     | [README](projects/ra-renderer/README.md)    |
 | `ra-renderer`    | wgpu 渲染（不实现 DirectDraw）                                 | [README](projects/ra-renderer/README.md)    |
 | `ra-desktop`     | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                            | [README](projects/ra-desktop/README.md)     |
 | `ra-webui`       | Wasm 壳                                                        | [README](projects/ra-webui/README.md)       |
