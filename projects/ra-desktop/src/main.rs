@@ -71,10 +71,26 @@ impl App {
     fn refresh_title(&self) {
         if let Some(window) = &self.window {
             let tick = self.session.as_ref().map(|s| s.world.tick).unwrap_or(0);
+            let sel = self
+                .session
+                .as_ref()
+                .map(|s| {
+                    if s.selected.is_empty() {
+                        "sel—".into()
+                    } else {
+                        format!("sel{}", s.selected[0])
+                    }
+                })
+                .unwrap_or_else(|| "sel—".into());
+            let win = self
+                .session
+                .as_ref()
+                .and_then(|s| s.sole_victor())
+                .unwrap_or("—");
             let zoom = self.renderer.camera().zoom;
             window.set_title(&format!(
-                "{} · {} · t{} · z{:.2}",
-                self.title_base, self.boot_note, tick, zoom
+                "{} · {} · t{} · {} · win:{} · z{:.2}",
+                self.title_base, self.boot_note, tick, sel, win, zoom
             ));
         }
     }
@@ -175,6 +191,20 @@ impl ApplicationHandler for App {
                     }
                     PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => {
                         self.renderer.zoom_by(1.0 / 1.1);
+                    }
+                    PhysicalKey::Code(KeyCode::Tab) => {
+                        if let Some(session) = self.session.as_mut() {
+                            session.cycle_selection();
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyF) => {
+                        if let Some(session) = self.session.as_mut() {
+                            if let Some(&atk) = session.selected.first() {
+                                if let Some(tgt) = session.nearest_hostile(atk) {
+                                    session.order_selected_attack(tgt);
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 }
