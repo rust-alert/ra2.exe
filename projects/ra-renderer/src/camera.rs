@@ -40,6 +40,14 @@ impl Camera {
         self.zoom = (self.zoom * factor).clamp(Self::ZOOM_MIN, Self::ZOOM_MAX);
     }
 
+    /// 屏幕像素 → 世界（预览图像素）。
+    pub fn screen_to_world(&self, sx: f32, sy: f32, screen_w: f32, screen_h: f32) -> (f32, f32) {
+        let z = self.zoom.max(0.0001);
+        let wx = (sx - screen_w * 0.5) / z + self.center_x;
+        let wy = (sy - screen_h * 0.5) / z + self.center_y;
+        (wx, wy)
+    }
+
     /// 世界像素 → 裁剪空间（NDC，Y 向上）。
     pub fn world_to_ndc(&self, wx: f32, wy: f32, screen_w: f32, screen_h: f32) -> [f32; 2] {
         let sw = screen_w.max(1.0);
@@ -74,5 +82,17 @@ mod tests {
         cam.pan_screen(10.0, -4.0);
         assert!((cam.center_x - (-5.0)).abs() < 0.01);
         assert!((cam.center_y - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn screen_to_world_inverts_center() {
+        let cam = Camera {
+            center_x: 100.0,
+            center_y: 50.0,
+            zoom: 2.0,
+        };
+        let (wx, wy) = cam.screen_to_world(400.0, 300.0, 800.0, 600.0);
+        assert!((wx - 100.0).abs() < 0.01);
+        assert!((wy - 50.0).abs() < 0.01);
     }
 }
