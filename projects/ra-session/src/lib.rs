@@ -2,7 +2,7 @@
 //!
 //! 不碰文件系统与 GPU；桌面 / Web 只负责 I/O 与绘制。
 
-use ra_map::MapEntityKind;
+use ra_map::{screen_to_iso, MapEntityKind};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
@@ -39,6 +39,9 @@ pub struct Session {
     pub boot_note: String,
     /// 当前选中的实体下标（本地玩家操作）。
     pub selected: Vec<usize>,
+    /// 预览图画布原点（等距屏幕坐标），用于点选逆变换。
+    pub preview_origin_x: i32,
+    pub preview_origin_y: i32,
 }
 
 impl Session {
@@ -47,7 +50,64 @@ impl Session {
             world,
             boot_note: boot_note.into(),
             selected: Vec::new(),
+            preview_origin_x: 0,
+            preview_origin_y: 0,
         }
+    }
+
+    pub fn set_preview_origin(&mut self, x: i32, y: i32) {
+        self.preview_origin_x = x;
+        self.preview_origin_y = y;
+    }
+
+    /// 预览图像素 → 地图格（粗逆变换，再用格高修正一次）。
+    pub fn image_to_cell(&self, image_x: f32, image_y: f32) -> Option<(u16, u16)> {
+        let px = image_x.round() as i32 + self.preview_origin_x;
+        let py = image_y.round() as i32 + self.preview_origin_y;
+        let (rx0, ry0) = screen_to_iso(px, py, 0);
+        if rx0 < 0 || ry0 < 0 {
+            return None;
+        }
+        let x0 = rx0 as u16;
+        let y0 = ry0 as u16;
+        if !self.world.pass_grid.in_bounds(x0, y0) {
+            return None;
+        }
+        let z = self.world.pass_grid.cell_height(x0, y0);
+        let (rx, ry) = screen_to_iso(px, py, z);
+        if rx < 0 || ry < 0 {
+            return None;
+        }
+        let x = rx as u16;
+        let y = ry as u16;
+        if !self.world.pass_grid.in_bounds(x, y) {
+            return None;
+        }
+        Some((x, y))
+    }
+
+    /// 点选格上或其四邻的存活移动单位。
+    pub fn pick_mobile_at(&self, x: u16, y: u16) -> Option<usize> {
+        let mut best: Option<(u32, usize)> = None;
+        for (i, e) in self.world.entities.iter().enumerate() {
+            if e.dead
+                || !matches!(
+                    e.kind,
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+                )
+            {
+                continue;
+            }
+            let dist = (i32::from(e.x) - i32::from(x)).unsigned_abs()
+                + (i32::from(e.y) - i32::from(y)).unsigned_abs();
+            if dist > 1 {
+                continue;
+            }
+            if best.map(|(d, _)| dist < d).unwrap_or(true) {
+                best = Some((dist, i));
+            }
+        }
+        best.map(|(_, i)| i)
     }
 
     pub fn push_command(&mut self, cmd: GameCommand) {
@@ -322,5 +382,22 @@ mod tests {
         }
         assert_eq!(session.sole_victor(), Some("Americans"));
         assert!(session.world.entities[1].dead);
+    }
+
+    #[test]
+    fn image_to_cell_uses_preview_origin() {
+        let rules = rules_with_mtnk();
+        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        map.width = 20;
+        map.height = 30;
+        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+        session.set_preview_origin(-100, -50);
+        // 钻石中心在等距空间；减去 origin 得到图像坐标。
+        let (sx, sy) = ra_map::iso_to_screen(5, 4, 0);
+        let cx = (sx + ra_map::TILE_WIDTH / 2) as f32;
+        let cy = (sy + ra_map::TILE_HEIGHT / 2) as f32;
+        let ix = cx - (-100.0);
+        let iy = cy - (-50.0);
+        assert_eq!(session.image_to_cell(ix, iy), Some((5, 4)));
     }
 }
