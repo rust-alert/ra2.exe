@@ -1244,7 +1244,6 @@ fn run() -> RaResult<()> {
             note: format!("启动失败: {e}"),
             session: None,
             preview: None,
-            preview_origin: (0, 0),
         },
     };
     eprintln!(
