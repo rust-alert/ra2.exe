@@ -45,6 +45,10 @@ struct App {
     drag_last: Option<(f64, f64)>,
     /// 已按下左键，等待第一次 CursorMoved 建立起点。
     drag_armed: bool,
+    /// 本次左键按下后累计拖拽距离（像素）；用于区分点击与平移。
+    drag_distance: f32,
+    /// 最近光标位置（窗口像素）。
+    cursor: (f64, f64),
 }
 
 impl App {
@@ -65,7 +69,67 @@ impl App {
             renderer,
             drag_last: None,
             drag_armed: false,
+            drag_distance: 0.0,
+            cursor: (0.0, 0.0),
         }
+    }
+
+    fn cursor_cell(&self) -> Option<(u16, u16)> {
+        let session = self.session.as_ref()?;
+        let window = self.window.as_ref()?;
+        let size = window.inner_size();
+        let (wx, wy) = self.renderer.camera().screen_to_world(
+            self.cursor.0 as f32,
+            self.cursor.1 as f32,
+            size.width as f32,
+            size.height as f32,
+        );
+        session.image_to_cell(wx, wy)
+    }
+
+    fn handle_left_click(&mut self) {
+        let Some(cell) = self.cursor_cell() else {
+            if let Some(session) = self.session.as_mut() {
+                session.selected.clear();
+            }
+            return;
+        };
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        if let Some(i) = session.pick_mobile_at(cell.0, cell.1) {
+            session.select_only(i);
+        } else {
+            session.selected.clear();
+        }
+    }
+
+    fn handle_right_click(&mut self) {
+        let Some(cell) = self.cursor_cell() else {
+            return;
+        };
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        if session.selected.is_empty() {
+            return;
+        }
+        if let Some(target) = session.pick_mobile_at(cell.0, cell.1) {
+            let hostile = session
+                .selected
+                .first()
+                .and_then(|&atk| {
+                    let a = session.world.entities.get(atk)?;
+                    let t = session.world.entities.get(target)?;
+                    Some(a.owner != t.owner)
+                })
+                .unwrap_or(false);
+            if hostile {
+                session.order_selected_attack(target);
+                return;
+            }
+        }
+        session.order_selected_move(cell.0, cell.1);
     }
 
     fn refresh_title(&self) {
@@ -142,17 +206,31 @@ impl ApplicationHandler for App {
                 ElementState::Pressed => {
                     self.drag_armed = true;
                     self.drag_last = None;
+                    self.drag_distance = 0.0;
                 }
                 ElementState::Released => {
+                    let was_click = self.drag_armed && self.drag_distance < 6.0;
                     self.drag_armed = false;
                     self.drag_last = None;
+                    if was_click {
+                        self.handle_left_click();
+                    }
                 }
             },
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                ..
+            } => {
+                self.handle_right_click();
+            },
             WindowEvent::CursorMoved { position, .. } => {
+                self.cursor = (position.x, position.y);
                 if self.drag_armed {
                     if let Some((lx, ly)) = self.drag_last {
                         let dx = (position.x - lx) as f32;
                         let dy = (position.y - ly) as f32;
+                        self.drag_distance += (dx * dx + dy * dy).sqrt();
                         self.renderer.pan_screen(dx, dy);
                     }
                     self.drag_last = Some((position.x, position.y));
@@ -240,7 +318,7 @@ struct BootResult {
 fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
-) -> Option<(String, RgbaImage)> {
+) -> Option<(String, RgbaImage, i32, i32)> {
     if map.cells.is_empty() {
         return None;
     }
@@ -307,6 +385,8 @@ fn load_map_terrain_preview(
             rgba.height
         ),
         rgba,
+        image.origin_x,
+        image.origin_y,
     ))
 }
 
@@ -1092,18 +1172,25 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         note = format!("{note} · wp#{}", map.waypoints.len());
     }
 
-    let preview = match load_map_terrain_preview(&source, &map)
-        .or_else(|| load_preview_terrain(&source, map.theater))
-        .or_else(|| load_preview_sprite(&source))
-    {
-        Some((name, image)) => {
+    let mut preview_origin = (0i32, 0i32);
+    let preview = match load_map_terrain_preview(&source, &map) {
+        Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
+            preview_origin = (ox, oy);
             Some(image)
         }
-        None => {
-            note = format!("{note} · preview:无");
-            None
-        }
+        None => match load_preview_terrain(&source, map.theater)
+            .or_else(|| load_preview_sprite(&source))
+        {
+            Some((name, image)) => {
+                note = format!("{note} · preview:{name}");
+                Some(image)
+            }
+            None => {
+                note = format!("{note} · preview:无");
+                None
+            }
+        },
     };
 
     let session = match load_rules(&source, chain.edition) {
@@ -1125,7 +1212,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                 world.pass_grid.blocked_count(),
                 land_sealed
             );
-            Some(Session::new(world, note.clone()))
+            let mut session = Session::new(world, note.clone());
+            session.set_preview_origin(preview_origin.0, preview_origin.1);
+            Some(session)
         }
         Err(e) => {
             note = format!("{note} · 规则待加载（{e}）");
@@ -1155,6 +1244,7 @@ fn run() -> RaResult<()> {
             note: format!("启动失败: {e}"),
             session: None,
             preview: None,
+            preview_origin: (0, 0),
         },
     };
     eprintln!(
