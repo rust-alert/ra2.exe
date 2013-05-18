@@ -16,6 +16,7 @@ ra-rules = { path = "projects/ra-rules" }
 ra-map = { path = "projects/ra-map" }
 ra-world = { path = "projects/ra-world" }
 ra-session = { path = "projects/ra-session" }
+ra-logger = { path = "projects/ra-logger" }
 ra-net = { path = "projects/ra-net" }
 ra-renderer = { path = "projects/ra-renderer" }
 ra-adaptor = { path = "projects/ra-adaptor" }

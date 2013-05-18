@@ -1,0 +1,10 @@
+[package]
+name = "ra-logger"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "文件日志器（写入 logs/）"
+
+[dependencies]
+ra-types = { workspace = true }

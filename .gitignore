@@ -16,10 +16,11 @@ Cargo.lock
 # 本地启动配置（保留 config.toml.example）
 config.toml
 ra2.toml
-
+*.txt
+*.log
 
 # Node
 node_modules/
 dist/
-*.txt
-*.log
+# 运行时日志目录（`ra-logger` 写入 logs/ra2.log）
+logs/
