@@ -15,6 +15,7 @@ use ra_assets::{
     rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VplFile, VxlFile,
     VxlLayerPose,
 };
+use ra_logger;
 use ra_map::{
     compose_terrain_rgba, ground_passable, new_theater_shp_name, paint_cell_sprites,
     paint_overlay_markers, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
@@ -38,7 +39,6 @@ use crate::fs_source::GameAssetSource;
 struct App {
     window: Option<Arc<Window>>,
     title_base: String,
-    boot_note: String,
     session: Option<Session>,
     renderer: Renderer,
     /// 左键拖拽中：上一帧光标位置。
@@ -52,7 +52,7 @@ struct App {
 }
 
 impl App {
-    fn new(boot_note: String, session: Option<Session>, preview: Option<RgbaImage>) -> Self {
+    fn new(_boot_note: String, session: Option<Session>, preview: Option<RgbaImage>) -> Self {
         let edition = session
             .as_ref()
             .map(|s| s.world.edition.as_str())
@@ -64,7 +64,6 @@ impl App {
         Self {
             window: None,
             title_base: format!("ra2 ({edition})"),
-            boot_note,
             session,
             renderer,
             drag_last: None,
@@ -99,8 +98,10 @@ impl App {
         };
         if let Some(i) = session.pick_mobile_at(cell.0, cell.1) {
             session.select_only(i);
+            ra_logger::info(format!("选中实体 #{i} @({},{})", cell.0, cell.1));
         } else {
             session.selected.clear();
+            ra_logger::debug(format!("点空地 ({},{})，清空选中", cell.0, cell.1));
         }
     }
 
@@ -125,10 +126,18 @@ impl App {
                 })
                 .unwrap_or(false);
             if hostile {
+                ra_logger::info(format!(
+                    "命令攻击 → #{target}（选中 {:?}）",
+                    session.selected
+                ));
                 session.order_selected_attack(target);
                 return;
             }
         }
+        ra_logger::info(format!(
+            "命令移动 → ({},{})（选中 {:?}）",
+            cell.0, cell.1, session.selected
+        ));
         session.order_selected_move(cell.0, cell.1);
     }
 
@@ -138,24 +147,13 @@ impl App {
             let sel = self
                 .session
                 .as_ref()
-                .map(|s| {
-                    if s.selected.is_empty() {
-                        "sel—".into()
-                    } else {
-                        format!("sel{}", s.selected[0])
-                    }
-                })
-                .unwrap_or_else(|| "sel—".into());
-            let win = self
-                .session
-                .as_ref()
-                .and_then(|s| s.sole_victor())
-                .unwrap_or("—");
+                .and_then(|s| s.selected.first().copied());
             let zoom = self.renderer.camera().zoom;
-            window.set_title(&format!(
-                "{} · {} · t{} · {} · win:{} · z{:.2}",
-                self.title_base, self.boot_note, tick, sel, win, zoom
-            ));
+            let title = match sel {
+                Some(i) => format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom),
+                None => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
+            };
+            window.set_title(&title);
         }
     }
 }
@@ -175,10 +173,10 @@ impl ApplicationHandler for App {
                 .expect("创建窗口失败"),
         );
         if let Err(e) = self.renderer.attach_window(window.clone()) {
-            eprintln!("ra2 wgpu: {e}");
+            ra_logger::error(format!("wgpu 附着失败: {e}"));
         } else {
-            eprintln!(
-                "ra2 gpu: {} · preview={} · zoom={:.2}",
+            ra_logger::info(format!(
+                "gpu={} preview={} zoom={:.2}",
                 self.renderer.backend_name(),
                 if self.renderer.has_preview() {
                     "yes"
@@ -186,7 +184,7 @@ impl ApplicationHandler for App {
                     "no"
                 },
                 self.renderer.camera().zoom
-            );
+            ));
         }
         self.window = Some(window);
         self.refresh_title();
@@ -1231,26 +1229,42 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
 
 fn main() {
     if let Err(e) = run() {
+        // init 可能失败，仍尽量打 stderr。
         eprintln!("ra2 错误: {e}");
+        ra_logger::error(format!("致命错误: {e}"));
         std::process::exit(1);
     }
 }
 
 fn run() -> RaResult<()> {
+    let log_path = ra_logger::init_default(true)?;
+    ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
+
     let cfg = DesktopConfig::load_or_default();
     let boot = match boot_world(&cfg) {
         Ok(v) => v,
-        Err(e) => BootResult {
-            note: format!("启动失败: {e}"),
-            session: None,
-            preview: None,
-        },
+        Err(e) => {
+            ra_logger::error(format!("启动失败: {e}"));
+            BootResult {
+                note: format!("启动失败: {e}"),
+                session: None,
+                preview: None,
+            }
+        }
     };
-    eprintln!(
-        "ra2 boot: {} · world={}",
+    ra_logger::info(format!(
+        "boot: {} · session={}",
         boot.note,
         if boot.session.is_some() { "ok" } else { "none" }
-    );
+    ));
+    if let Some(session) = boot.session.as_ref() {
+        ra_logger::info(format!(
+            "preview_origin=({}, {}) entities={}",
+            session.preview_origin_x,
+            session.preview_origin_y,
+            session.world.entities.len()
+        ));
+    }
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -1259,5 +1273,6 @@ fn run() -> RaResult<()> {
     event_loop
         .run_app(&mut app)
         .map_err(|e| RaError::Msg(e.to_string()))?;
+    ra_logger::info("事件循环结束");
     Ok(())
 }
