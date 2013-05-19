@@ -1,0 +1,9 @@
+[package]
+name = "ra-net"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ra-types = { workspace = true }
