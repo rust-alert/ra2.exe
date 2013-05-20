@@ -6,7 +6,7 @@ use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_rules::{RulesDb, TechnoKind};
 use ra_types::{GameEdition, PlayerId};
 
-pub use command::GameCommand;
+pub use command::{GameCommand, InputFrame};
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -67,6 +67,8 @@ pub struct World {
     pub local_player: PlayerId,
     /// 待本 tick 消费的命令（先进先出）。
     pending_commands: Vec<GameCommand>,
+    /// 上一 tick 实际消费的输入帧（含空帧）。
+    last_input_frame: InputFrame,
     state_hash: u64,
 }
 
@@ -118,6 +120,7 @@ impl World {
             entities,
             local_player: PlayerId(0),
             pending_commands: Vec::new(),
+            last_input_frame: InputFrame::empty(0),
             state_hash: 0,
         };
         for i in 0..world.entities.len() {
@@ -132,9 +135,19 @@ impl World {
         self.pending_commands.push(cmd);
     }
 
+    /// 上一 tick 的输入帧（无操作时也为空命令列表）。
+    pub fn last_input_frame(&self) -> &InputFrame {
+        &self.last_input_frame
+    }
+
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
-        self.apply_pending_commands();
+        let commands = std::mem::take(&mut self.pending_commands);
+        self.last_input_frame = InputFrame {
+            tick: self.tick,
+            commands: commands.clone(),
+        };
+        self.apply_commands(&commands);
         self.advance_movement();
         self.resolve_combat();
         self.advance_turrets();
@@ -271,10 +284,9 @@ impl World {
         }
     }
 
-    fn apply_pending_commands(&mut self) {
-        let cmds = std::mem::take(&mut self.pending_commands);
+    fn apply_commands(&mut self, cmds: &[GameCommand]) {
         for cmd in cmds {
-            match cmd {
+            match *cmd {
                 GameCommand::MoveTo {
                     entity_index,
                     x,
@@ -881,5 +893,24 @@ mod tests {
         assert!(world.entities[1].dead);
         assert_eq!(world.entities[1].health, 0);
         assert_eq!(world.entities[0].attack_target, None);
+    }
+
+    #[test]
+    fn every_tick_records_input_frame_including_empty() {
+        let rules = rules_with_mtnk();
+        let map = map_with_size();
+        let mut world = World::new(GameEdition::Ra2, &rules, map);
+        world.advance_tick();
+        assert_eq!(world.last_input_frame().tick, 1);
+        assert!(world.last_input_frame().is_empty());
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 1,
+            y: 1,
+        });
+        // 无实体时命令被应用但帧仍记录。
+        world.advance_tick();
+        assert_eq!(world.last_input_frame().tick, 2);
+        assert_eq!(world.last_input_frame().commands.len(), 1);
     }
 }
