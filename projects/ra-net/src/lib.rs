@@ -5,6 +5,12 @@
 
 use ra_types::PlayerId;
 
+/// 线协议主版本（握手 Hello 使用）。不兼容变更时递增。
+pub const PROTOCOL_VERSION: u16 = 1;
+
+/// 单条消息载荷上限（字节，不含外层成帧）。
+pub const MAX_PAYLOAD_BYTES: usize = 64 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MatchId(pub u128);
 
@@ -31,9 +37,24 @@ pub struct StateDigest {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionMessage {
-    Hello { protocol: u16, fingerprint: MatchFingerprint },
+    Hello {
+        protocol: u16,
+        fingerprint: MatchFingerprint,
+    },
     Command(InputCommand),
     Digest(StateDigest),
     ResyncRequest { tick: u64 },
     ResyncSnapshot { tick: u64, bytes: Vec<u8> },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protocol_version_is_nonzero() {
+        assert!(PROTOCOL_VERSION >= 1);
+        assert!(MAX_PAYLOAD_BYTES >= 1024);
+    }
+}
+
