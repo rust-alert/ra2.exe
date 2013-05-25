@@ -6,6 +6,12 @@ use ra_map::{screen_to_iso, MapEntityKind};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
+/// 默认仿真频率（与渲染帧率无关）。
+pub const DEFAULT_TICK_HZ: u32 = 15;
+
+/// 单次 `pump` 最多追赶的 tick 数，防止卡顿后螺旋追帧。
+pub const MAX_TICKS_PER_PUMP: u32 = 8;
+
 /// 一帧呈现用的不可变快照（渲染器应逐步只消费此类数据）。
 #[derive(Debug, Clone)]
 pub struct RenderSnapshot {
@@ -42,6 +48,12 @@ pub struct Session {
     /// 预览图画布原点（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_x: i32,
     pub preview_origin_y: i32,
+    /// 仿真频率（Hz）。
+    pub tick_hz: u32,
+    /// 已累计、尚未消耗的毫秒（固定步长积分）。
+    tick_accum_ms: f64,
+    /// 暂停时 `pump` 不推进。
+    pub paused: bool,
 }
 
 impl Session {
@@ -52,6 +64,9 @@ impl Session {
             selected: Vec::new(),
             preview_origin_x: 0,
             preview_origin_y: 0,
+            tick_hz: DEFAULT_TICK_HZ,
+            tick_accum_ms: 0.0,
+            paused: false,
         }
     }
 
@@ -114,7 +129,31 @@ impl Session {
         self.world.push_command(cmd);
     }
 
+    /// 强制推进恰好一个仿真 tick（测试 / 单步）。
     pub fn tick(&mut self) {
+        self.advance_one_tick();
+    }
+
+    /// 按真实时间推进 0..=`MAX_TICKS_PER_PUMP` 个仿真 tick。
+    pub fn pump(&mut self, dt_secs: f64) -> u32 {
+        if self.paused || self.tick_hz == 0 {
+            return 0;
+        }
+        let step_ms = 1000.0 / f64::from(self.tick_hz);
+        self.tick_accum_ms += dt_secs.max(0.0) * 1000.0;
+        let mut n = 0u32;
+        while self.tick_accum_ms >= step_ms && n < MAX_TICKS_PER_PUMP {
+            self.tick_accum_ms -= step_ms;
+            self.advance_one_tick();
+            n += 1;
+        }
+        if self.tick_accum_ms > step_ms * f64::from(MAX_TICKS_PER_PUMP) {
+            self.tick_accum_ms = 0.0;
+        }
+        n
+    }
+
+    fn advance_one_tick(&mut self) {
         self.world.advance_tick();
         self.selected
             .retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
@@ -399,5 +438,18 @@ mod tests {
         let ix = cx - (-100.0);
         let iy = cy - (-50.0);
         assert_eq!(session.image_to_cell(ix, iy), Some((5, 4)));
+    }
+
+    #[test]
+    fn pump_advances_fixed_hz_ticks() {
+        let rules = rules_with_mtnk();
+        let map = MapInfo::empty(GameEdition::Ra2, "t");
+        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+        session.tick_hz = 10;
+        assert_eq!(session.pump(0.05), 0); // 50ms < 100ms
+        assert_eq!(session.world.tick, 0);
+        assert_eq!(session.pump(0.05), 1); // 累计 100ms
+        assert_eq!(session.world.tick, 1);
+        assert_eq!(session.pump(1.0), MAX_TICKS_PER_PUMP); // 追赶有上限
     }
 }

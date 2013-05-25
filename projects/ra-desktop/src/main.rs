@@ -9,6 +9,7 @@ mod fs_source;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
 use ra_assets::{
@@ -49,6 +50,8 @@ struct App {
     drag_distance: f32,
     /// 最近光标位置（窗口像素）。
     cursor: (f64, f64),
+    /// 上一帧时间，用于固定仿真时钟。
+    last_pump: Instant,
 }
 
 impl App {
@@ -70,6 +73,7 @@ impl App {
             drag_armed: false,
             drag_distance: 0.0,
             cursor: (0.0, 0.0),
+            last_pump: Instant::now(),
         }
     }
 
@@ -286,8 +290,11 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
+                let now = Instant::now();
+                let dt = now.duration_since(self.last_pump).as_secs_f64();
+                self.last_pump = now;
                 if let Some(session) = self.session.as_mut() {
-                    session.tick();
+                    let _advanced = session.pump(dt);
                 }
                 let snap = self.session.as_ref().map(|s| s.snapshot());
                 self.renderer.draw_frame(snap.as_ref());
