@@ -21,6 +21,36 @@ pub struct MatchFingerprint {
     pub rules_hash: u64,
 }
 
+impl MatchFingerprint {
+    /// 由版本、地图名与规则字节构建握手指纹。
+    pub fn build(edition: &str, map: &str, rules_bytes: &[u8]) -> Self {
+        Self {
+            edition: edition.to_string(),
+            map: map.to_string(),
+            rules_hash: fnv1a64(rules_bytes),
+        }
+    }
+
+    /// 把额外材料混入 `rules_hash`（地图尺寸、实体数等）。
+    pub fn mix_bytes(mut self, extra: &[u8]) -> Self {
+        self.rules_hash = fnv1a64_continue(self.rules_hash, extra);
+        self
+    }
+}
+
+/// FNV-1a 64 位。
+pub fn fnv1a64(data: &[u8]) -> u64 {
+    fnv1a64_continue(0xcbf29ce484222325, data)
+}
+
+fn fnv1a64_continue(mut hash: u64, data: &[u8]) -> u64 {
+    for &b in data {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputCommand {
     pub player: PlayerId,
@@ -55,6 +85,15 @@ mod tests {
     fn protocol_version_is_nonzero() {
         assert!(PROTOCOL_VERSION >= 1);
         assert!(MAX_PAYLOAD_BYTES >= 1024);
+    }
+
+    #[test]
+    fn fingerprint_stable_for_same_bytes() {
+        let a = MatchFingerprint::build("ra2", "mp01t4.map", b"[General]\n");
+        let b = MatchFingerprint::build("ra2", "mp01t4.map", b"[General]\n");
+        assert_eq!(a, b);
+        let c = MatchFingerprint::build("ra2", "mp01t4.map", b"[General]\nX=1\n");
+        assert_ne!(a.rules_hash, c.rules_hash);
     }
 }
 
