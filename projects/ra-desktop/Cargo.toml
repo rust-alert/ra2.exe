@@ -20,5 +20,6 @@ ra-map = { workspace = true }
 ra-world = { workspace = true }
 ra-session = { workspace = true }
 ra-logger = { workspace = true }
+ra-net = { workspace = true }
 ra-renderer = { workspace = true }
 winit = { workspace = true }

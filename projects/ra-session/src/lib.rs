@@ -3,6 +3,7 @@
 //! 不碰文件系统与 GPU；桌面 / Web 只负责 I/O 与绘制。
 
 use ra_map::{screen_to_iso, MapEntityKind};
+use ra_net::MatchFingerprint;
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
@@ -54,6 +55,8 @@ pub struct Session {
     tick_accum_ms: f64,
     /// 暂停时 `pump` 不推进。
     pub paused: bool,
+    /// 对局内容指纹（握手用；未设置时为空默认）。
+    pub fingerprint: MatchFingerprint,
 }
 
 impl Session {
@@ -67,7 +70,16 @@ impl Session {
             tick_hz: DEFAULT_TICK_HZ,
             tick_accum_ms: 0.0,
             paused: false,
+            fingerprint: MatchFingerprint {
+                edition: String::new(),
+                map: String::new(),
+                rules_hash: 0,
+            },
         }
+    }
+
+    pub fn set_fingerprint(&mut self, fingerprint: MatchFingerprint) {
+        self.fingerprint = fingerprint;
     }
 
     pub fn set_preview_origin(&mut self, x: i32, y: i32) {

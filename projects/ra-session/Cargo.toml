@@ -10,6 +10,7 @@ description = "共享应用会话：世界、命令与呈现快照"
 ra-types = { workspace = true }
 ra-world = { workspace = true }
 ra-map = { workspace = true }
+ra-net = { workspace = true }
 
 [dev-dependencies]
 ra-assets = { workspace = true }

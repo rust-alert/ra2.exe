@@ -17,6 +17,7 @@ use ra_assets::{
     VxlLayerPose,
 };
 use ra_logger;
+use ra_net::MatchFingerprint;
 use ra_map::{
     compose_terrain_rgba, ground_passable, new_theater_shp_name, paint_cell_sprites,
     paint_overlay_markers, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
@@ -26,7 +27,7 @@ use ra_map::{
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules, ColorSchemes, OverlayTypeRegistry};
 use ra_session::Session;
-use ra_types::{GameEdition, RaError, RaResult};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use ra_world::World;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
@@ -1219,6 +1220,22 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             );
             let mut session = Session::new(world, note.clone());
             session.set_preview_origin(preview_origin.0, preview_origin.1);
+            let map_name = session.world.map.name.clone();
+            let edition = chain.edition.as_str();
+            let rules_bytes = AssetSource::read(&source, chain.rules_ini).unwrap_or_default();
+            let mut fp = MatchFingerprint::build(edition, &map_name, &rules_bytes);
+            let mix = format!(
+                "{}x{}#{}",
+                session.world.map.width,
+                session.world.map.height,
+                session.world.entities.len()
+            );
+            fp = fp.mix_bytes(mix.as_bytes());
+            session.set_fingerprint(fp.clone());
+            ra_logger::info(format!(
+                "fingerprint edition={} map={} rules_hash={:#x}",
+                fp.edition, fp.map, fp.rules_hash
+            ));
             Some(session)
         }
         Err(e) => {
