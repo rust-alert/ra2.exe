@@ -6,6 +6,13 @@
 cargo check -p ra-net
 ```
 
-当前类型只是内存中的接口骨架，尚未定义完整线协议编码或兼容性规则。已声明 `PROTOCOL_VERSION` 与 `MAX_PAYLOAD_BYTES` 作为握手与限流常量。`payload` 与快照字节没有解析器，内容指纹尚不覆盖所有仿真输入。没有实现传输、房间、锁步调度、重连或观战。平台壳负责传输与编排，世界负责验证和执行游戏命令；本 crate 不依赖窗口、文件系统或 GPU。
+当前提供：
+
+- 消息类型与 `PROTOCOL_VERSION` / `MAX_PAYLOAD_BYTES`
+- 长度前缀成帧：`encode_frame` / `decode_frame`
+- 严格顺序序号窗：`SequenceWindow`
+- 内容指纹：`MatchFingerprint::build`
+
+尚未实现传输、房间、锁步调度、重连或观战。平台壳负责传输与编排，世界负责验证和执行游戏命令；本 crate 不依赖窗口、文件系统或 GPU。
 
 许可证：MPL-2.0。

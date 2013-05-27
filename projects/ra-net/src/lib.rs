@@ -3,7 +3,15 @@
 //! 本 crate 不打开 socket，也不依赖具体 Web 或桌面传输层。平台壳负责传输，
 //! `ra-world` 负责消费命令并产生状态哈希。
 
+mod frame;
+mod seq;
+
 use ra_types::PlayerId;
+
+pub use frame::{
+    decode_frame, encode_frame, fingerprint_matches_rules, NetCodecError,
+};
+pub use seq::SequenceWindow;
 
 /// 线协议主版本（握手 Hello 使用）。不兼容变更时递增。
 pub const PROTOCOL_VERSION: u16 = 1;
