@@ -367,6 +367,13 @@ impl World {
         h = h
             .wrapping_mul(1099511628211)
             .wrapping_add(self.entities.len() as u64);
+        h = h
+            .wrapping_mul(1099511628211)
+            .wrapping_add(self.last_input_frame.tick)
+            .wrapping_add(self.last_input_frame.commands.len() as u64);
+        for cmd in &self.last_input_frame.commands {
+            h = hash_command(h, cmd);
+        }
         for e in &self.entities {
             h = h
                 .wrapping_mul(1099511628211)
@@ -375,13 +382,49 @@ impl World {
                 .wrapping_add((e.facing as u64) << 32)
                 .wrapping_add((e.turret_facing as u64) << 40)
                 .wrapping_add(u64::from(e.health))
-                .wrapping_add(u64::from(e.dead));
+                .wrapping_add(u64::from(e.max_health).wrapping_shl(1))
+                .wrapping_add(u64::from(e.speed).wrapping_shl(2))
+                .wrapping_add(u64::from(e.dead))
+                .wrapping_add(u64::from(e.hva_frame) << 8)
+                .wrapping_add(u64::from(e.attack_cooldown) << 24)
+                .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
             for b in e.type_id.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+            for b in e.owner.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
         self.state_hash = h;
     }
+}
+
+fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
+    match *cmd {
+        GameCommand::MoveTo {
+            entity_index,
+            x,
+            y,
+        } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(1);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(entity_index as u64)
+                .wrapping_add((x as u64) << 16)
+                .wrapping_add((y as u64) << 32);
+        }
+        GameCommand::Attack {
+            attacker_index,
+            target_index,
+        } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(2);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(attacker_index as u64)
+                .wrapping_add((target_index as u64) << 16);
+        }
+    }
+    h
 }
 
 fn is_mobile(kind: MapEntityKind) -> bool {
@@ -912,5 +955,67 @@ mod tests {
         world.advance_tick();
         assert_eq!(world.last_input_frame().tick, 2);
         assert_eq!(world.last_input_frame().commands.len(), 1);
+    }
+
+    #[test]
+    fn twin_worlds_same_command_stream_match_hash() {
+        let rules = rules_with_mtnk();
+        let mut map = map_with_size();
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 10,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Russians".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 14,
+            y: 10,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mk = || {
+            let mut w = World::new(GameEdition::Ra2, &rules, map.clone());
+            w.entities[0].target_x = None;
+            w.entities[0].target_y = None;
+            w.entities[1].target_x = None;
+            w.entities[1].target_y = None;
+            w.entities[1].speed = 0;
+            w
+        };
+        let mut a = mk();
+        let mut b = mk();
+        assert_eq!(a.state_hash(), b.state_hash());
+        let cmds = [
+            GameCommand::MoveTo {
+                entity_index: 0,
+                x: 12,
+                y: 10,
+            },
+            GameCommand::Attack {
+                attacker_index: 0,
+                target_index: 1,
+            },
+        ];
+        for cmd in &cmds {
+            a.push_command(cmd.clone());
+            b.push_command(cmd.clone());
+            a.advance_tick();
+            b.advance_tick();
+            assert_eq!(a.state_hash(), b.state_hash());
+            assert_eq!(a.last_input_frame(), b.last_input_frame());
+        }
+        for _ in 0..20 {
+            a.advance_tick();
+            b.advance_tick();
+            assert_eq!(a.state_hash(), b.state_hash());
+        }
     }
 }
