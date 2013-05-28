@@ -6,7 +6,9 @@ use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_rules::{RulesDb, TechnoKind};
 use ra_types::{GameEdition, PlayerId};
 
-pub use command::{GameCommand, InputFrame};
+pub use command::{
+    decode_command, decode_commands, encode_command, encode_commands, GameCommand, InputFrame,
+};
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
