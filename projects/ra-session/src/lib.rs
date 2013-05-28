@@ -3,7 +3,7 @@
 //! 不碰文件系统与 GPU；桌面 / Web 只负责 I/O 与绘制。
 
 use ra_map::{screen_to_iso, MapEntityKind};
-use ra_net::MatchFingerprint;
+use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
@@ -55,6 +55,8 @@ pub struct Session {
     tick_accum_ms: f64,
     /// 暂停时 `pump` 不推进。
     pub paused: bool,
+    /// 暂停原因（如摘要不一致）。
+    pub pause_reason: Option<String>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
 }
@@ -70,6 +72,7 @@ impl Session {
             tick_hz: DEFAULT_TICK_HZ,
             tick_accum_ms: 0.0,
             paused: false,
+            pause_reason: None,
             fingerprint: MatchFingerprint {
                 edition: String::new(),
                 map: String::new(),
@@ -80,6 +83,36 @@ impl Session {
 
     pub fn set_fingerprint(&mut self, fingerprint: MatchFingerprint) {
         self.fingerprint = fingerprint;
+    }
+
+    pub fn resume(&mut self) {
+        self.paused = false;
+        self.pause_reason = None;
+    }
+
+    /// 本地状态摘要（联机上报用）。
+    pub fn local_digest(&self) -> StateDigest {
+        StateDigest {
+            tick: self.world.tick,
+            hash: self.world.state_hash(),
+        }
+    }
+
+    /// 与远端摘要比对；同 tick 且哈希不同则暂停。返回是否一致（或暂不可比）。
+    pub fn apply_remote_digest(&mut self, remote: &StateDigest) -> bool {
+        let local = self.local_digest();
+        if remote.tick != local.tick {
+            return true;
+        }
+        if remote.hash == local.hash {
+            return true;
+        }
+        self.paused = true;
+        self.pause_reason = Some(format!(
+            "摘要不一致 tick={} local={:#x} remote={:#x}",
+            local.tick, local.hash, remote.hash
+        ));
+        false
     }
 
     pub fn set_preview_origin(&mut self, x: i32, y: i32) {
@@ -463,5 +496,22 @@ mod tests {
         assert_eq!(session.pump(0.05), 1); // 累计 100ms
         assert_eq!(session.world.tick, 1);
         assert_eq!(session.pump(1.0), MAX_TICKS_PER_PUMP); // 追赶有上限
+    }
+
+    #[test]
+    fn remote_digest_mismatch_pauses() {
+        let rules = rules_with_mtnk();
+        let map = MapInfo::empty(GameEdition::Ra2, "t");
+        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+        session.tick();
+        let mut bad = session.local_digest();
+        bad.hash ^= 0xff;
+        assert!(!session.apply_remote_digest(&bad));
+        assert!(session.paused);
+        assert!(session.pause_reason.is_some());
+        assert_eq!(session.pump(1.0), 0);
+        session.resume();
+        assert!(!session.paused);
+        assert!(session.pump(0.2) >= 1);
     }
 }
