@@ -8,6 +8,10 @@ pub struct DesktopConfig {
     pub ra2_dir: PathBuf,
     /// 可选 `ra2` / `yr`；`None` 表示自动探测。
     pub edition: Option<String>,
+    /// 战网中继地址（如 `ws://127.0.0.1:7788`）；空表示离线。
+    pub net_url: Option<String>,
+    /// 可选房间名（Alpha：创建/加入用同一字符串）。
+    pub net_room: Option<String>,
 }
 
 impl Default for DesktopConfig {
@@ -15,6 +19,8 @@ impl Default for DesktopConfig {
         Self {
             ra2_dir: PathBuf::from("."),
             edition: None,
+            net_url: None,
+            net_room: None,
         }
     }
 }
@@ -49,6 +55,10 @@ impl DesktopConfig {
             match key {
                 "ra2_dir" | "game_dir" => cfg.ra2_dir = PathBuf::from(val),
                 "edition" if !val.is_empty() => cfg.edition = Some(val.to_string()),
+                "net_url" | "battlenet_url" if !val.is_empty() => {
+                    cfg.net_url = Some(val.to_string())
+                }
+                "net_room" | "room" if !val.is_empty() => cfg.net_room = Some(val.to_string()),
                 _ => {}
             }
         }

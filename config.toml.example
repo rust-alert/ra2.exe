@@ -7,3 +7,7 @@ ra2_dir = "C:/path/to/your/ra2"
 # edition = "ra2"
 # edition = "yr"
 # edition = "mo3"
+
+# 战网 Alpha（可选）。未接线时仅记录日志，不打开 socket。
+# net_url = "ws://127.0.0.1:7788"
+# net_room = "alpha-skirmish"

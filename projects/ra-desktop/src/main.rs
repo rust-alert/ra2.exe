@@ -1265,6 +1265,14 @@ fn run() -> RaResult<()> {
     ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
 
     let cfg = DesktopConfig::load_or_default();
+    match (&cfg.net_url, &cfg.net_room) {
+        (Some(url), room) => ra_logger::info(format!(
+            "战网配置 url={} room={}（传输未接线，仅配置）",
+            url,
+            room.as_deref().unwrap_or("—")
+        )),
+        (None, _) => ra_logger::info("战网配置：离线（未设 net_url）"),
+    }
     let boot = match boot_world(&cfg) {
         Ok(v) => v,
         Err(e) => {
