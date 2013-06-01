@@ -35,7 +35,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
-use crate::config::DesktopConfig;
+use crate::config::{load_desktop_config_with_diagnostics, DesktopConfig};
 use crate::fs_source::GameAssetSource;
 
 struct App {
@@ -1119,7 +1119,7 @@ fn apply_tmp_land_passability(
 }
 
 fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
-    let root = cfg.game_dir();
+    let root = cfg.ra2_dir.clone();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),
         None => None,
@@ -1264,14 +1264,17 @@ fn run() -> RaResult<()> {
     let log_path = ra_logger::init_default(true)?;
     ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
 
-    let cfg = DesktopConfig::load_or_default();
+    let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
+    for d in &cfg_diags {
+        ra_logger::warn(format!("配置诊断 {} · {}", d.source, d.message));
+    }
     match (&cfg.net_url, &cfg.net_room) {
         (Some(url), room) => ra_logger::info(format!(
-            "战网配置 url={} room={}（传输未接线，仅配置）",
+            "联机配置预留 url={} room={}（协议未定点，不接 socket）",
             url,
             room.as_deref().unwrap_or("—")
         )),
-        (None, _) => ra_logger::info("战网配置：离线（未设 net_url）"),
+        (None, _) => ra_logger::info("联机配置：未设 net_url"),
     }
     let boot = match boot_world(&cfg) {
         Ok(v) => v,

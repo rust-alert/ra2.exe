@@ -35,8 +35,9 @@ flowchart TB
         map["ra-map"]
     end
 
-    subgraph formats["格式"]
+    subgraph formats["格式与配置"]
         assets["ra-assets<br/>MIX / INI / PAL / SHP / TMP"]
+        config["ra-config<br/>来源合并与诊断"]
     end
 
     subgraph adapt["版本与布局"]
@@ -47,6 +48,7 @@ flowchart TB
     end
 
     types["ra-types<br/>GameEdition / RaError / AssetSource"]
+    desktop --> config
     desktop --> renderer
     desktop --> session
     desktop --> world
@@ -88,6 +90,7 @@ flowchart LR
     mo3[ra-adaptor-mo3]
     ad[ra-adaptor]
     as[ra-assets]
+    cf[ra-config]
     ru[ra-rules]
     mp[ra-map]
     wo[ra-world]
@@ -102,6 +105,7 @@ flowchart LR
     ad --> ra2a
     ad --> yra
     as --> types
+    cf --> types
     ru --> types
     ru --> ad
     ru --> as
@@ -116,6 +120,7 @@ flowchart LR
     re --> types
     re --> se
     de --> ad
+    de --> cf
     de --> as
     de --> ru
     de --> mp
@@ -134,7 +139,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant Cfg as config.toml
+    participant Cfg as ra-config
     participant Desk as ra-desktop
     participant Ad as ra-adaptor
     participant Vfs as MixVfs
@@ -143,7 +148,8 @@ sequenceDiagram
     participant World as ra-world
     participant Gpu as ra-renderer
     User ->> Desk: 启动 ra2
-    Desk ->> Cfg: 读取 ra2_dir / edition
+    Desk ->> Cfg: 合并桌面设置
+    Cfg -->> Desk: ra2_dir / edition
     Desk ->> Ad: detect_edition
     Ad -->> Desk: EditionManifest + ResourceChain
     loop 根 MIX

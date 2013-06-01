@@ -9,7 +9,7 @@
 
 ```
 src/main.rs       入口、boot、App 事件循环、预览选取
-src/config.rs     DesktopConfig：极简 toml 键值
+src/config.rs     委托 `ra-config` 加载桌面设置
 src/fs_source.rs  GameAssetSource：松散文件优先，再查 MixVfs
 examples/
   probe_boot.rs     无窗口：挂载 + load_rules

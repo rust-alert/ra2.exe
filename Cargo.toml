@@ -12,6 +12,7 @@ license = "MPL-2.0"
 [workspace.dependencies]
 ra-types = { path = "projects/ra-types" }
 ra-assets = { path = "projects/ra-assets" }
+ra-config = { path = "projects/ra-config" }
 ra-rules = { path = "projects/ra-rules" }
 ra-map = { path = "projects/ra-map" }
 ra-world = { path = "projects/ra-world" }
