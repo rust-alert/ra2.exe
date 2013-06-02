@@ -22,8 +22,8 @@ ra-net = { path = "projects/ra-net" }
 ra-renderer = { path = "projects/ra-renderer" }
 ra-adaptor = { path = "projects/ra-adaptor" }
 ra-adaptor-ra2 = { path = "projects/ra-adaptor-ra2" }
-ra-adaptor-yr = { path = "projects/ra-adaptor-yr" }
-ra-adaptor-mo3 = { path = "projects/ra-adaptor-mo3" }
+ra-adaptor-yuri = { path = "projects/ra-adaptor-yuri" }
+ra-adaptor-phobos = { path = "projects/ra-adaptor-phobos" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }

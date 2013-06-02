@@ -1,10 +1,10 @@
 [package]
-name = "ra-adaptor-mo3"
+name = "ra-adaptor-phobos"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "心灵终结 3（Mental Omega 3）资源表"
+description = "Phobos 扩展适配（含心灵终结 3 等内容布局）"
 
 [dependencies]
 ra-types = { workspace = true }

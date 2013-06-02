@@ -1,8 +1,12 @@
-//! 按 `GameEdition` 装配资源表，并探测安装布局。
+//! 按安装布局识别并装配资源表；适配能力可组合（见 `compose`）。
+
+mod compose;
 
 use std::path::{Path, PathBuf};
 
 use ra_types::{GameEdition, RaError, RaResult};
+
+pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。
 #[derive(Debug, Clone)]
@@ -21,8 +25,9 @@ impl ResourceChain {
     pub fn for_edition(edition: GameEdition) -> Self {
         match edition {
             GameEdition::Ra2 => from_ra2(ra_adaptor_ra2::profile()),
-            GameEdition::Yr => from_yr(ra_adaptor_yr::profile()),
-            GameEdition::Mo3 => from_mo3(ra_adaptor_mo3::profile()),
+            GameEdition::Yr => from_yr(ra_adaptor_yuri::profile()),
+            // `Mo3` 快捷方式：资源表由 Phobos adaptor 内的 MO 布局提供。
+            GameEdition::Mo3 => from_phobos(ra_adaptor_phobos::mo_layout_profile()),
         }
     }
 }
@@ -40,7 +45,7 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
     }
 }
 
-fn from_yr(p: ra_adaptor_yr::ResourceProfile) -> ResourceChain {
+fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
     ResourceChain {
         edition: p.edition,
         root_mix_files: p.root_mix_files,
@@ -53,7 +58,7 @@ fn from_yr(p: ra_adaptor_yr::ResourceProfile) -> ResourceChain {
     }
 }
 
-fn from_mo3(p: ra_adaptor_mo3::ResourceProfile) -> ResourceChain {
+fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
     ResourceChain {
         edition: p.edition,
         root_mix_files: p.root_mix_files,
@@ -73,11 +78,14 @@ pub struct EditionManifest {
     pub chain: ResourceChain,
     pub present_mixes: Vec<String>,
     pub missing_mixes: Vec<String>,
+    /// 可组合适配栈（含扩展探测与能力缺口报告）。
+    pub stack: AdaptorStack,
 }
 
 /// 优先用显式版本；否则按目录特征探测。
 ///
-/// 探测优先级：心灵终结 3 → 仅 YR / 仅原版；原版与 YR 特征同时命中则报歧义。
+/// 探测优先级：MO 布局（归 Phobos）→ 仅 YR / 仅原版；原版与 YR 同时命中则报歧义。
+/// 仅有 Phobos DLL、无 MO 布局时仍按 RA2/YR 基座探测，扩展记入 `stack`。
 pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<EditionManifest> {
     if !root.is_dir() {
         return Err(RaError::Io(format!("游戏目录不存在: {}", root.display())));
@@ -85,10 +93,10 @@ pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<Ed
 
     let edition = if let Some(e) = explicit {
         e
-    } else if ra_adaptor_mo3::looks_like(root) {
+    } else if ra_adaptor_phobos::looks_like_mo_layout(root) {
         GameEdition::Mo3
     } else {
-        let has_yr = ra_adaptor_yr::looks_like(root);
+        let has_yr = ra_adaptor_yuri::looks_like(root);
         let has_ra2 = ra_adaptor_ra2::looks_like(root);
         match (has_ra2, has_yr) {
             (true, false) => GameEdition::Ra2,
@@ -104,12 +112,14 @@ pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<Ed
 
     let chain = ResourceChain::for_edition(edition);
     let present_missing = scan_root_mixes(root, chain.root_mix_files);
+    let stack = AdaptorStack::from_edition(edition).scan_extensions(root);
 
     Ok(EditionManifest {
         root: root.to_path_buf(),
         chain,
         present_mixes: present_missing.0,
         missing_mixes: present_missing.1,
+        stack,
     })
 }
 

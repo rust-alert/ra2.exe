@@ -23,7 +23,7 @@ pub struct ResourceProfile {
 
 注释：「某一版本期望的文件清单（差异优先当数据）。」根 MIX 用大小写不敏感匹配；嵌套 MIX「位于主 MIX 内，启动后按需挂载」。
 
-结构与 `ra-adaptor-yr::ResourceProfile` **同形但各自定义**，避免 adaptor 编排层与两边形成循环依赖。
+结构与 `ra-adaptor-yuri::ResourceProfile` **同形但各自定义**，避免 adaptor 编排层与两边形成循环依赖。
 
 ---
 
@@ -96,7 +96,7 @@ root.join("game.exe").is_file()
 
 ## 和 YR 表怎么对照
 
-不要在本文件复制 YR 列表。对照时打开 `ra-adaptor-yr`：那边是 `*md*` 命名，嵌套多了 `expandmd01`–`03`，INI 带 `md`，exe 是
+不要在本文件复制 YR 列表。对照时打开 `ra-adaptor-yuri`：那边是 `*md*` 命名，嵌套多了 `expandmd01`–`03`，INI 带 `md`，exe 是
 `gamemd.exe`。改原版表时问自己：YR 是否也有对称项？两边 `looks_like` 是否仍能分开？
 
 ---

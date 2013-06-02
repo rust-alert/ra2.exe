@@ -1,4 +1,6 @@
-//! 心灵终结 3（Mental Omega 3）：磁盘旁与启动期资源表。
+//! Phobos 扩展适配：扩展语义与其承载的内容布局（含心灵终结 3）。
+//!
+//! 心灵终结 3 不再作为独立 adaptor 维度；其资源表与探测归本 crate。
 
 use ra_types::GameEdition;
 
@@ -15,19 +17,19 @@ pub struct ResourceProfile {
     pub exe_name: &'static str,
 }
 
-/// 心灵终结 3 资源表（YR 基座文件名 + MO 扩展包）。
-pub fn profile() -> ResourceProfile {
+/// 心灵终结 3 安装布局的资源表（YR 基座文件名 + MO 扩展包）。
+///
+/// 配置里仍可用 `edition = "mo3"` 作为快捷方式，语义是 YR 基座 + Phobos 系内容布局。
+pub fn mo_layout_profile() -> ResourceProfile {
     ResourceProfile {
         edition: GameEdition::Mo3,
         root_mix_files: &[
-            // YR / RA2 基座（MO 官方安装说明要求存在）
             "language.mix",
             "langmd.mix",
             "ra2.mix",
             "ra2md.mix",
             "multimd.mix",
             "thememd.mix",
-            // MO 3.3 扩展与地图包
             "expandmo95.mix",
             "expandmo96.mix",
             "expandmo97.mix",
@@ -35,7 +37,6 @@ pub fn profile() -> ResourceProfile {
             "mapsmo03.mix",
             "multimo.mix",
             "movmo03.mix",
-            // 可选：语言包 / 原声
             "expandmo98.mix",
             "expandmo94.mix",
             "thememo.mix",
@@ -52,7 +53,6 @@ pub fn profile() -> ResourceProfile {
             "expandmd02.mix",
             "expandmd03.mix",
         ],
-        // Ares 仍走 md 系 INI 名；覆写内容在 expandmo* 内。
         rules_ini: "rulesmd.ini",
         art_ini: "artmd.ini",
         ui_ini: "uimd.ini",
@@ -61,11 +61,28 @@ pub fn profile() -> ResourceProfile {
     }
 }
 
-/// 目录是否呈现心灵终结 3 特征。
-pub fn looks_like(root: &std::path::Path) -> bool {
+/// 兼容旧名：同 [`mo_layout_profile`]。
+pub fn profile() -> ResourceProfile {
+    mo_layout_profile()
+}
+
+/// 是否呈现 Phobos 引擎扩展痕迹（DLL 等）。
+pub fn looks_like_phobos(root: &std::path::Path) -> bool {
+    root.join("Phobos.dll").is_file()
+        || root.join("Phobos.dll.inject").is_file()
+        || root.join("Phobos.CRT.dll").is_file()
+}
+
+/// 目录是否呈现心灵终结 3 内容布局（归 Phobos 适配承载）。
+pub fn looks_like_mo_layout(root: &std::path::Path) -> bool {
     root.join("MentalOmegaClient.exe").is_file()
         || root.join("RA2MO.ini").is_file()
         || root.join("expandmo99.mix").is_file()
         || root.join("expandmo97.mix").is_file()
         || root.join("mapsmo03.mix").is_file()
+}
+
+/// 是否应启用本 adaptor（Phobos DLL 或 MO 布局）。
+pub fn looks_like(root: &std::path::Path) -> bool {
+    looks_like_phobos(root) || looks_like_mo_layout(root)
 }

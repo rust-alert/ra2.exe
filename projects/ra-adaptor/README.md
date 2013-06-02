@@ -2,7 +2,7 @@
 
 按 `GameEdition` 装配资源表，并探测安装布局。整个 crate 只有一个 `src/lib.rs`，没有子模块。
 
-依赖：`ra-types`、`ra-adaptor-ra2`、`ra-adaptor-yr`。原版 / YR 的文件名清单不写在这里，而在两个 profile crate；本层做编排与磁盘探测。
+依赖：`ra-types`、`ra-adaptor-ra2`、`ra-adaptor-yuri`。原版 / YR 的文件名清单不写在这里，而在两个 profile crate；本层做编排与磁盘探测。
 
 ---
 
@@ -45,10 +45,10 @@ root 不是目录？ → Io("游戏目录不存在: …")
 `ResourceChain::for_edition` 内部 `match`：
 
 - `Ra2` → `from_ra2(ra_adaptor_ra2::profile())`
-- `Yr` → `from_yr(ra_adaptor_yr::profile())`
-- `Mo3` → `from_mo3(ra_adaptor_mo3::profile())`
+- `Yr` → `from_yr(ra_adaptor_yuri::profile())`
+- `Mo3` → `from_phobos(ra_adaptor_phobos::profile())`
 
-`from_ra2` / `from_yr` / `from_mo3` 是私有映射函数，把各 edition 的 `ResourceProfile` 抄进同一结构。profile 类型故意重复定义（注释：避免跨
+`from_ra2` / `from_yr` / `from_phobos` 是私有映射函数，把各 edition 的 `ResourceProfile` 抄进同一结构。profile 类型故意重复定义（注释：避免跨
 crate 循环依赖），所以映射不能写成泛型一份。
 
 `ra-rules::load_rules` 只通过 `ResourceChain::for_edition` 取 `rules_ini` / `art_ini`，不自己写 `rulesmd.ini`。
@@ -89,8 +89,8 @@ Windows 默认不敏感，但开发机、网络盘、将来非 Windows 目标可
 | Crate            | 职责                                            |
 |------------------|-------------------------------------------------|
 | `ra-adaptor-ra2` | 原版静态表 + `looks_like`                       |
-| `ra-adaptor-yr`  | YR 静态表 + `looks_like`                        |
-| `ra-adaptor-mo3` | 心灵终结 3 静态表 + `looks_like`                |
+| `ra-adaptor-yuri`  | YR 静态表 + `looks_like`                        |
+| `ra-adaptor-phobos` | Phobos / MO 布局静态表 + `looks_like`                |
 | **本 crate**     | 消歧、装配 `ResourceChain`、扫描根 MIX、CI 查找 |
 
 本层是 adaptor 家族里 **唯一直接 `std::fs`** 的（`is_dir` / `read_dir` / `is_file`）。仍然不解析内容。

@@ -43,8 +43,8 @@ flowchart TB
     subgraph adapt["版本与布局"]
         adaptor["ra-adaptor"]
         ra2tbl["ra-adaptor-ra2"]
-        yrtbl["ra-adaptor-yr"]
-        mo3["ra-adaptor-mo3"]
+        yrtbl["ra-adaptor-yuri"]
+        mo3["ra-adaptor-phobos"]
     end
 
     types["ra-types<br/>GameEdition / RaError / AssetSource"]
@@ -78,7 +78,7 @@ flowchart TB
     renderer --> types
 ```
 虚线表示 `ra-webui` 已在清单中依赖相关 crate，但当前导出仍是占位（详见 [
-`projects/ra-webui/README.md`](projects/ra-webui/README.md)）。`ra-adaptor-mo3` 是心灵终结 3（Mental Omega 3）资源表，经 `ra-adaptor` 按 `GameEdition::Mo3` 装配。
+`projects/ra-webui/README.md`](projects/ra-webui/README.md)）。`ra-adaptor-phobos` 是心灵终结 3（Mental Omega 3）资源表，经 `ra-adaptor` 按 `GameEdition::Mo3` 装配。
 
 ### Crate 依赖关系（简化）
 
@@ -86,8 +86,8 @@ flowchart TB
 flowchart LR
     types[ra-types]
     ra2a[ra-adaptor-ra2]
-    yra[ra-adaptor-yr]
-    mo3[ra-adaptor-mo3]
+    yra[ra-adaptor-yuri]
+    mo3[ra-adaptor-phobos]
     ad[ra-adaptor]
     as[ra-assets]
     cf[ra-config]
@@ -184,7 +184,7 @@ ra2.exe/                 工作区根（本 README）
 ├── License.md           MPL-2.0
 └── projects/
     ├── ra-types/
-    ├── ra-adaptor/ · ra-adaptor-ra2/ · ra-adaptor-yr/ · ra-adaptor-mo3/
+    ├── ra-adaptor/ · ra-adaptor-ra2/ · ra-adaptor-yuri/ · ra-adaptor-phobos/
     ├── ra-assets/
     ├── ra-rules/
     ├── ra-map/
@@ -249,8 +249,8 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 | `ra-types`       | 基类型：`GameEdition`、`RaError`、`AssetSource`、`Fixed16`、ID | [README](projects/ra-types/README.md)       |
 | `ra-adaptor`     | 版本探测与 `ResourceChain` 装配                                | [README](projects/ra-adaptor/README.md)     |
 | `ra-adaptor-ra2` | 原版资源表                                                     | [README](projects/ra-adaptor-ra2/README.md) |
-| `ra-adaptor-yr`  | 尤里的复仇资源表                                               | [README](projects/ra-adaptor-yr/README.md)  |
-| `ra-adaptor-mo3` | 心灵终结 3（Mental Omega 3）资源表                             | [README](projects/ra-adaptor-mo3/README.md) |
+| `ra-adaptor-yuri`  | 尤里的复仇资源表                                               | [README](projects/ra-adaptor-yuri/README.md)  |
+| `ra-adaptor-phobos` | 心灵终结 3（Mental Omega 3）资源表                             | [README](projects/ra-adaptor-phobos/README.md) |
 | `ra-assets`      | Westwood 格式：MIX / INI / PAL / SHP / TMP；`MixVfs`           | [README](projects/ra-assets/README.md)      |
 | `ra-rules`       | 按版本加载 rules/art INI → `RulesDb`                           | [README](projects/ra-rules/README.md)       |
 | `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [README](projects/ra-map/README.md)         |

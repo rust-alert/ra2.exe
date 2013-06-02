@@ -1125,6 +1125,18 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         None => None,
     };
     let manifest = detect_edition(&root, explicit)?;
+    for report in &manifest.stack.unsupported {
+        ra_logger::warn(format!("适配能力缺口 [{}] {}", report.code, report.message));
+    }
+    if !manifest.stack.extensions.is_empty() {
+        let ids: Vec<_> = manifest
+            .stack
+            .extensions
+            .iter()
+            .map(|e| e.as_str())
+            .collect();
+        ra_logger::info(format!("适配扩展探测: {}", ids.join("+")));
+    }
     let chain = &manifest.chain;
 
     let mut source = GameAssetSource::new(manifest.root.clone());
