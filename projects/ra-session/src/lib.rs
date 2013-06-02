@@ -39,6 +39,12 @@ pub struct SnapshotUnit {
     pub dead: bool,
 }
 
+/// 对局结束结果（Alpha：唯一存活阵营胜）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MatchOutcome {
+    Victory { owner: String },
+}
+
 /// 运行中会话。
 #[derive(Debug)]
 pub struct Session {
@@ -55,8 +61,10 @@ pub struct Session {
     tick_accum_ms: f64,
     /// 暂停时 `pump` 不推进。
     pub paused: bool,
-    /// 暂停原因（如摘要不一致）。
+    /// 暂停原因（如摘要不一致或胜负已定）。
     pub pause_reason: Option<String>,
+    /// 对局结果；一旦设定则停止推进并拒绝新命令。
+    pub outcome: Option<MatchOutcome>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
 }
@@ -73,6 +81,7 @@ impl Session {
             tick_accum_ms: 0.0,
             paused: false,
             pause_reason: None,
+            outcome: None,
             fingerprint: MatchFingerprint {
                 edition: String::new(),
                 map: String::new(),
@@ -86,6 +95,9 @@ impl Session {
     }
 
     pub fn resume(&mut self) {
+        if self.outcome.is_some() {
+            return;
+        }
         self.paused = false;
         self.pause_reason = None;
     }
@@ -171,17 +183,23 @@ impl Session {
     }
 
     pub fn push_command(&mut self, cmd: GameCommand) {
+        if self.outcome.is_some() {
+            return;
+        }
         self.world.push_command(cmd);
     }
 
     /// 强制推进恰好一个仿真 tick（测试 / 单步）。
     pub fn tick(&mut self) {
+        if self.outcome.is_some() {
+            return;
+        }
         self.advance_one_tick();
     }
 
     /// 按真实时间推进 0..=`MAX_TICKS_PER_PUMP` 个仿真 tick。
     pub fn pump(&mut self, dt_secs: f64) -> u32 {
-        if self.paused || self.tick_hz == 0 {
+        if self.paused || self.outcome.is_some() || self.tick_hz == 0 {
             return 0;
         }
         let step_ms = 1000.0 / f64::from(self.tick_hz);
@@ -191,6 +209,9 @@ impl Session {
             self.tick_accum_ms -= step_ms;
             self.advance_one_tick();
             n += 1;
+            if self.outcome.is_some() {
+                break;
+            }
         }
         if self.tick_accum_ms > step_ms * f64::from(MAX_TICKS_PER_PUMP) {
             self.tick_accum_ms = 0.0;
@@ -202,6 +223,22 @@ impl Session {
         self.world.advance_tick();
         self.selected
             .retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
+        self.refresh_outcome();
+    }
+
+    /// 若仅剩一个阵营存活移动单位，锁定胜负并暂停。
+    fn refresh_outcome(&mut self) {
+        if self.outcome.is_some() {
+            return;
+        }
+        let Some(owner) = self.sole_victor().map(str::to_string) else {
+            return;
+        };
+        self.outcome = Some(MatchOutcome::Victory {
+            owner: owner.clone(),
+        });
+        self.paused = true;
+        self.pause_reason = Some(format!("胜负已定 · {owner}"));
     }
 
     /// 单选一个存活移动单位。
@@ -251,8 +288,11 @@ impl Session {
 
     /// 选中单位移动到目标格。
     pub fn order_selected_move(&mut self, x: u16, y: u16) {
+        if self.outcome.is_some() {
+            return;
+        }
         for &i in &self.selected.clone() {
-            self.world.push_command(GameCommand::MoveTo {
+            self.push_command(GameCommand::MoveTo {
                 entity_index: i,
                 x,
                 y,
@@ -262,9 +302,12 @@ impl Session {
 
     /// 选中单位攻击目标。
     pub fn order_selected_attack(&mut self, target_index: usize) {
+        if self.outcome.is_some() {
+            return;
+        }
         for &i in &self.selected.clone() {
             if i != target_index {
-                self.world.push_command(GameCommand::Attack {
+                self.push_command(GameCommand::Attack {
                     attacker_index: i,
                     target_index,
                 });
@@ -466,6 +509,14 @@ mod tests {
         }
         assert_eq!(session.sole_victor(), Some("Americans"));
         assert!(session.world.entities[1].dead);
+        assert_eq!(
+            session.outcome,
+            Some(MatchOutcome::Victory {
+                owner: "Americans".into()
+            })
+        );
+        assert!(session.paused);
+        assert_eq!(session.pump(1.0), 0);
     }
 
     #[test]
