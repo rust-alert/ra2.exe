@@ -53,6 +53,8 @@ struct App {
     cursor: (f64, f64),
     /// 上一帧时间，用于固定仿真时钟。
     last_pump: Instant,
+    /// 已记录过的胜负文案，避免每帧刷日志。
+    logged_outcome: Option<String>,
 }
 
 impl App {
@@ -75,6 +77,7 @@ impl App {
             drag_distance: 0.0,
             cursor: (0.0, 0.0),
             last_pump: Instant::now(),
+            logged_outcome: None,
         }
     }
 
@@ -154,12 +157,31 @@ impl App {
                 .as_ref()
                 .and_then(|s| s.selected.first().copied());
             let zoom = self.renderer.camera().zoom;
-            let title = match sel {
-                Some(i) => format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom),
-                None => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
+            let outcome = self.session.as_ref().and_then(|s| s.outcome.as_ref());
+            let title = if let Some(ra_session::MatchOutcome::Victory { owner }) = outcome {
+                format!("{} · t{} · 胜 {}", self.title_base, tick, owner)
+            } else {
+                match sel {
+                    Some(i) => format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom),
+                    None => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
+                }
             };
             window.set_title(&title);
         }
+    }
+
+    fn note_outcome_once(&mut self) {
+        let Some(session) = self.session.as_ref() else {
+            return;
+        };
+        let Some(ra_session::MatchOutcome::Victory { owner }) = session.outcome.as_ref() else {
+            return;
+        };
+        if self.logged_outcome.as_deref() == Some(owner.as_str()) {
+            return;
+        }
+        self.logged_outcome = Some(owner.clone());
+        ra_logger::info(format!("对局结束 · 胜方 {owner} · tick={}", session.world.tick));
     }
 }
 
@@ -297,6 +319,7 @@ impl ApplicationHandler for App {
                 if let Some(session) = self.session.as_mut() {
                     let _advanced = session.pump(dt);
                 }
+                self.note_outcome_once();
                 let snap = self.session.as_ref().map(|s| s.snapshot());
                 self.renderer.draw_frame(snap.as_ref());
                 self.refresh_title();
