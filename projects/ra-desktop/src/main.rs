@@ -18,9 +18,9 @@ use ra_assets::{
 };
 use ra_logger;
 use ra_map::{
-    compose_terrain_rgba, ground_passable, new_theater_shp_name, paint_cell_sprites,
-    paint_overlay_markers, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
-    theater_tmp_extension, MapEntityKind, MapInfo, PassGrid, Theater, TileBlit, TILE_HEIGHT,
+    compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
+    parse_tileset_ini, seal_pass_grid_from_tmp, theater_ini_name, theater_mix_names,
+    theater_palette, theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit, TILE_HEIGHT,
     TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
@@ -1092,54 +1092,6 @@ fn load_boot_map(
     MapInfo::empty(edition, "boot")
 }
 
-/// 用剧院 TMP 的 `terrain_type` 封死水/岩/墙等不可走陆地。
-fn apply_tmp_land_passability(
-    source: &GameAssetSource,
-    map: &MapInfo,
-    grid: &mut PassGrid,
-) -> usize {
-    if map.cells.is_empty() {
-        return 0;
-    }
-    let Some(ini_bytes) = source.vfs.read(theater_ini_name(map.theater)) else {
-        return 0;
-    };
-    let Ok(lookup) = parse_tileset_ini(&ini_bytes, theater_tmp_extension(map.theater)) else {
-        return 0;
-    };
-    let mut file_cache: HashMap<String, TmpFile> = HashMap::new();
-    let mut sealed: Vec<(u16, u16, u8)> = Vec::new();
-    for cell in &map.cells {
-        if cell.x < 0 || cell.y < 0 {
-            continue;
-        }
-        let x = cell.x as u16;
-        let y = cell.y as u16;
-        let Some(name) = lookup.filename(cell.tile_num).map(str::to_string) else {
-            continue;
-        };
-        if !file_cache.contains_key(&name) {
-            let Some(data) = source.vfs.read(&name) else {
-                continue;
-            };
-            let Ok(tmp) = TmpFile::parse(&data) else {
-                continue;
-            };
-            file_cache.insert(name.clone(), tmp);
-        }
-        let Some(tmp) = file_cache.get(&name) else {
-            continue;
-        };
-        let Some(tile) = tmp.tiles.get(usize::from(cell.sub_tile)).and_then(|t| t.as_ref()) else {
-            continue;
-        };
-        if !ground_passable(tile.terrain_type) {
-            sealed.push((x, y, tile.terrain_type));
-        }
-    }
-    grid.seal_land_types(&sealed)
-}
-
 fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let root = cfg.ra2_dir.clone();
     let explicit = match cfg.edition.as_deref() {
@@ -1241,7 +1193,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             let techno_n = rules.techno_types.len();
             note = format!("{note} · techno_types#{techno_n}");
             let mut world = World::new(chain.edition, &rules, map);
-            let land_sealed = apply_tmp_land_passability(&source, &world.map, &mut world.pass_grid);
+            let land_sealed = seal_pass_grid_from_tmp(&source, &world.map, &mut world.pass_grid);
             if land_sealed > 0 {
                 world.repath_mobiles();
             }
