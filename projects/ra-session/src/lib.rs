@@ -20,6 +20,7 @@ pub struct RenderSnapshot {
     pub tick: u64,
     pub state_hash: u64,
     pub units: Vec<SnapshotUnit>,
+    pub outcome: Option<MatchOutcome>,
 }
 
 /// 快照中的一个可绘实体。
@@ -425,6 +426,7 @@ impl Session {
             tick: self.world.tick,
             state_hash: self.world.state_hash(),
             units,
+            outcome: self.outcome.clone(),
         }
     }
 }
