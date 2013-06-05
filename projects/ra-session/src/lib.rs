@@ -94,6 +94,33 @@ impl Session {
         self.fingerprint = fingerprint;
     }
 
+    /// 由世界与装载备注打开一局（设置预览原点与指纹）。
+    pub fn open_skirmish(
+        world: World,
+        boot_note: impl Into<String>,
+        preview_origin: (i32, i32),
+        fingerprint: MatchFingerprint,
+    ) -> Self {
+        let mut session = Self::new(world, boot_note);
+        session.set_preview_origin(preview_origin.0, preview_origin.1);
+        session.set_fingerprint(fingerprint);
+        session
+    }
+
+    /// 构建对局指纹：规则字节 + 地图尺寸与实体数混入。
+    pub fn build_skirmish_fingerprint(
+        edition: &str,
+        map_name: &str,
+        rules_bytes: &[u8],
+        map_width: u32,
+        map_height: u32,
+        entity_count: usize,
+    ) -> MatchFingerprint {
+        let fp = MatchFingerprint::build(edition, map_name, rules_bytes);
+        let mix = format!("{map_width}x{map_height}#{entity_count}");
+        fp.mix_bytes(mix.as_bytes())
+    }
+
     pub fn resume(&mut self) {
         if self.outcome.is_some() {
             return;

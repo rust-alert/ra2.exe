@@ -17,7 +17,6 @@ use ra_assets::{
     VxlLayerPose,
 };
 use ra_logger;
-use ra_net::MatchFingerprint;
 use ra_map::{
     compose_terrain_rgba, ground_passable, new_theater_shp_name, paint_cell_sprites,
     paint_overlay_markers, parse_tileset_ini, theater_ini_name, theater_mix_names, theater_palette,
@@ -1253,25 +1252,25 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                 world.pass_grid.blocked_count(),
                 land_sealed
             );
-            let mut session = Session::new(world, note.clone());
-            session.set_preview_origin(preview_origin.0, preview_origin.1);
-            let map_name = session.world.map.name.clone();
-            let edition = chain.edition.as_str();
             let rules_bytes = AssetSource::read(&source, chain.rules_ini).unwrap_or_default();
-            let mut fp = MatchFingerprint::build(edition, &map_name, &rules_bytes);
-            let mix = format!(
-                "{}x{}#{}",
-                session.world.map.width,
-                session.world.map.height,
-                session.world.entities.len()
+            let fp = Session::build_skirmish_fingerprint(
+                chain.edition.as_str(),
+                &world.map.name,
+                &rules_bytes,
+                world.map.width,
+                world.map.height,
+                world.entities.len(),
             );
-            fp = fp.mix_bytes(mix.as_bytes());
-            session.set_fingerprint(fp.clone());
             ra_logger::info(format!(
                 "fingerprint edition={} map={} rules_hash={:#x}",
                 fp.edition, fp.map, fp.rules_hash
             ));
-            Some(session)
+            Some(Session::open_skirmish(
+                world,
+                note.clone(),
+                preview_origin,
+                fp,
+            ))
         }
         Err(e) => {
             note = format!("{note} · 规则待加载（{e}）");
