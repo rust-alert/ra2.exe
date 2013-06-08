@@ -18,6 +18,38 @@ impl GameAssetSource {
             vfs: MixVfs::new(),
         }
     }
+
+    /// 挂载清单中已存在的根 MIX。返回 `(成功数, 解析跳过数)`。
+    pub fn mount_present_roots(&mut self, present_mixes: &[String]) -> (usize, usize) {
+        let mut mounted = 0usize;
+        let mut skipped = 0usize;
+        for name in present_mixes {
+            let Some(path) = find_ci_file(&self.root, name) else {
+                continue;
+            };
+            let Ok(data) = std::fs::read(&path) else {
+                skipped += 1;
+                continue;
+            };
+            match self.vfs.mount_bytes(name.clone(), data) {
+                Ok(()) => mounted += 1,
+                Err(_) => skipped += 1,
+            }
+        }
+        (mounted, skipped)
+    }
+
+    /// 尝试挂载嵌套 MIX 名列表。返回成功挂载数。
+    pub fn mount_nested_names(&mut self, names: &[&str]) -> usize {
+        let mut mounted = 0usize;
+        for name in names {
+            match self.vfs.mount_nested(name) {
+                Ok(true) => mounted += 1,
+                Ok(false) | Err(_) => {}
+            }
+        }
+        mounted
+    }
 }
 
 impl AssetSource for GameAssetSource {

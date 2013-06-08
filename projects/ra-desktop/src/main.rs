@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use ra_adaptor::{detect_edition, find_ci_file, ResourceChain};
+use ra_adaptor::{detect_edition, ResourceChain};
 use ra_assets::{
     rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VplFile, VxlFile,
     VxlLayerPose,
@@ -1114,29 +1114,8 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     let chain = &manifest.chain;
 
     let mut source = GameAssetSource::new(manifest.root.clone());
-
-    let mut mounted_root = 0usize;
-    let mut skipped_root = 0usize;
-    for name in &manifest.present_mixes {
-        let Some(path) = find_ci_file(&manifest.root, name) else {
-            continue;
-        };
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
-        match source.vfs.mount_bytes(name.clone(), data) {
-            Ok(()) => mounted_root += 1,
-            Err(_) => skipped_root += 1,
-        }
-    }
-
-    let mut mounted_nested = 0usize;
-    for name in chain.nested_mix_files {
-        match source.vfs.mount_nested(name) {
-            Ok(true) => mounted_nested += 1,
-            Ok(false) => {}
-            Err(_) => {}
-        }
-    }
+    let (mounted_root, skipped_root) = source.mount_present_roots(&manifest.present_mixes);
+    let mounted_nested = source.mount_nested_names(chain.nested_mix_files);
 
     let mut note = format!(
         "{} · 根mix {} · 嵌套 {} · 跳过 {} · 缺盘 {}",
