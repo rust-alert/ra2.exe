@@ -54,6 +54,8 @@ struct App {
     last_pump: Instant,
     /// 已记录过的胜负文案，避免每帧刷日志。
     logged_outcome: Option<String>,
+    /// Shift 是否按下（多选）。
+    shift_down: bool,
 }
 
 impl App {
@@ -77,6 +79,7 @@ impl App {
             cursor: (0.0, 0.0),
             last_pump: Instant::now(),
             logged_outcome: None,
+            shift_down: false,
         }
     }
 
@@ -94,9 +97,12 @@ impl App {
     }
 
     fn handle_left_click(&mut self) {
+        let add = self.shift_down;
         let Some(cell) = self.cursor_cell() else {
-            if let Some(session) = self.session.as_mut() {
-                session.selected.clear();
+            if !add {
+                if let Some(session) = self.session.as_mut() {
+                    session.selected.clear();
+                }
             }
             return;
         };
@@ -104,9 +110,17 @@ impl App {
             return;
         };
         if let Some(i) = session.pick_mobile_at(cell.0, cell.1) {
-            session.select_only(i);
-            ra_logger::info(format!("选中实体 #{i} @({},{})", cell.0, cell.1));
-        } else {
+            if add {
+                session.select_add(i);
+                ra_logger::info(format!(
+                    "加选实体 #{i} @({},{}) · 选中 {:?}",
+                    cell.0, cell.1, session.selected
+                ));
+            } else {
+                session.select_only(i);
+                ra_logger::info(format!("选中实体 #{i} @({},{})", cell.0, cell.1));
+            }
+        } else if !add {
             session.selected.clear();
             ra_logger::debug(format!("点空地 ({},{})，清空选中", cell.0, cell.1));
         }
@@ -160,9 +174,15 @@ impl App {
             let title = if let Some(ra_session::MatchOutcome::Victory { owner }) = outcome {
                 format!("{} · t{} · 胜 {}", self.title_base, tick, owner)
             } else {
-                match sel {
-                    Some(i) => format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom),
-                    None => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
+                let nsel = self.session.as_ref().map(|s| s.selected.len()).unwrap_or(0);
+                match (sel, nsel) {
+                    (Some(i), n) if n > 1 => {
+                        format!("{} · t{} · #{i}+{} · z{:.2}", self.title_base, tick, n - 1, zoom)
+                    }
+                    (Some(i), _) => {
+                        format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom)
+                    }
+                    (None, _) => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
                 }
             };
             window.set_title(&title);
@@ -219,6 +239,9 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::ModifiersChanged(mods) => {
+                self.shift_down = mods.state().shift_key();
+            }
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
             }
