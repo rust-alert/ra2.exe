@@ -24,7 +24,7 @@ use ra_map::{
     MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_rules::{load_rules, ColorSchemes, OverlayTypeRegistry};
+use ra_rules::{load_rules_chain, ColorSchemes, OverlayTypeRegistry};
 use ra_session::Session;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use ra_world::World;
@@ -1144,7 +1144,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         },
     };
 
-    let session = match load_rules(&source, chain.edition) {
+    let session = match load_rules_chain(&source, chain) {
         Ok(rules) => {
             let sections = rules.rules.sections.len();
             let overlays = rules.overlay_types.len();
