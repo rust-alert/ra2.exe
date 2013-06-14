@@ -15,6 +15,7 @@ mod theater;
 mod terrain_objects;
 mod tileset;
 mod tmp_pass;
+mod terrain_preview;
 mod waypoints;
 
 use ra_assets::IniDocument;
@@ -37,6 +38,7 @@ pub use theater::{
 pub use terrain_objects::{parse_terrain_objects, TerrainObject};
 pub use tileset::{parse_tileset_ini, TilesetLookup};
 pub use tmp_pass::seal_pass_grid_from_tmp;
+pub use terrain_preview::compose_terrain_preview;
 pub use waypoints::{parse_waypoints, Waypoint};
 
 /// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置 / 航点）。

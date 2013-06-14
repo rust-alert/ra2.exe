@@ -18,7 +18,7 @@ use ra_assets::{
 };
 use ra_logger;
 use ra_map::{
-    compose_terrain_rgba, mount_theater_mixes, new_theater_shp_name, paint_cell_sprites,
+    compose_terrain_preview, mount_theater_mixes, new_theater_shp_name, paint_cell_sprites,
     paint_overlay_markers, parse_tileset_ini, seal_pass_grid_from_tmp, theater_ini_name,
     theater_palette, theater_tmp_extension, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind,
     MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
@@ -370,44 +370,7 @@ fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    if map.cells.is_empty() {
-        return None;
-    }
-    let pal_bytes = source.vfs.read(theater_palette(map.theater))?;
-    let pal = Palette::parse(&pal_bytes).ok()?;
-    let ini_bytes = source.vfs.read(theater_ini_name(map.theater))?;
-    let lookup =
-        parse_tileset_ini(&ini_bytes, theater_tmp_extension(map.theater)).ok()?;
-
-    let mut file_cache: HashMap<String, TmpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(i32, u8), TileBlit> = HashMap::new();
-
-    let mut resolve = |tile_num: i32, sub_tile: u8| -> Option<TileBlit> {
-        if let Some(blit) = blit_cache.get(&(tile_num, sub_tile)) {
-            return Some(blit.clone());
-        }
-        let name = lookup.filename(tile_num)?.to_string();
-        if !file_cache.contains_key(&name) {
-            let data = source.vfs.read(&name)?;
-            let tmp = TmpFile::parse(&data).ok()?;
-            file_cache.insert(name.clone(), tmp);
-        }
-        let tmp = file_cache.get(&name)?;
-        let index = usize::from(sub_tile);
-        let tile = tmp.tiles.get(index)?.as_ref()?;
-        let rgba = tmp.tile_to_rgba(index, &pal).ok()?;
-        let blit = TileBlit {
-            width: tile.pixel_width,
-            height: tile.pixel_height,
-            offset_x: tile.offset_x,
-            offset_y: tile.offset_y,
-            rgba,
-        };
-        blit_cache.insert((tile_num, sub_tile), blit.clone());
-        Some(blit)
-    };
-
-    let mut image = compose_terrain_rgba(&map.cells, &mut resolve)?;
+    let mut image = compose_terrain_preview(source, map)?;
     let mut z_lookup: HashMap<(u16, u16), u8> = HashMap::new();
     for cell in &map.cells {
         z_lookup.insert((cell.x as u16, cell.y as u16), cell.z);
