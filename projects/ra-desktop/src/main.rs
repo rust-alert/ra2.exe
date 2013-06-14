@@ -18,10 +18,10 @@ use ra_assets::{
 };
 use ra_logger;
 use ra_map::{
-    compose_terrain_rgba, new_theater_shp_name, paint_cell_sprites, paint_overlay_markers,
-    parse_tileset_ini, seal_pass_grid_from_tmp, theater_ini_name, theater_mix_names,
-    theater_palette, theater_tmp_extension, MapEntityKind, MapInfo, Theater, TileBlit, TILE_HEIGHT,
-    TILE_WIDTH,
+    compose_terrain_rgba, mount_theater_mixes, new_theater_shp_name, paint_cell_sprites,
+    paint_overlay_markers, parse_tileset_ini, seal_pass_grid_from_tmp, theater_ini_name,
+    theater_palette, theater_tmp_extension, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind,
+    MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules, ColorSchemes, OverlayTypeRegistry};
@@ -1082,21 +1082,15 @@ fn load_boot_map(
     edition: GameEdition,
     note: &mut String,
 ) -> MapInfo {
-    const CANDIDATES: &[&str] = &["mp03t4.map", "mp01t4.map", "mp01t2.map", "mp02t4.map"];
-    for name in CANDIDATES {
+    for name in BOOT_MAP_CANDIDATES {
         let Some(bytes) = source.vfs.read(name) else {
             continue;
         };
-        match MapInfo::parse_ini(edition, *name, &bytes) {
+        match try_parse_boot_map(edition, name, &bytes) {
             Ok(map) => {
-                let mut theater_mounted = 0usize;
-                for mix_name in theater_mix_names(map.theater) {
-                    match source.vfs.mount_nested(mix_name) {
-                        Ok(true) => theater_mounted += 1,
-                        Ok(false) => {}
-                        Err(_) => {}
-                    }
-                }
+                let theater_mounted = mount_theater_mixes(map.theater, &mut |mix| {
+                    matches!(source.vfs.mount_nested(mix), Ok(true))
+                });
                 *note = format!(
                     "{note} · map:{name} {}x{} {} · 剧院mix {}",
                     map.width,

@@ -1,6 +1,7 @@
 //! 地图 / 剧院。
 
 mod base64;
+mod boot_map;
 mod compose;
 mod iso_math;
 mod iso_pack;
@@ -19,6 +20,7 @@ mod waypoints;
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
+pub use boot_map::{mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES};
 pub use compose::{
     compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, TerrainImage, TileBlit,
 };
