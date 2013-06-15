@@ -9,6 +9,7 @@ mod land;
 mod lcw;
 mod lzo;
 mod overlay;
+mod overlay_paint;
 mod pass_grid;
 mod placements;
 mod theater;
@@ -29,6 +30,7 @@ pub use iso_math::{iso_to_screen, screen_to_iso, HEIGHT_STEP, TILE_HEIGHT, TILE_
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use land::{ground_passable, LandType};
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
+pub use overlay_paint::paint_map_overlays;
 pub use pass_grid::{PassGrid, MAX_GROUND_CLIMB};
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
 pub use theater::{
