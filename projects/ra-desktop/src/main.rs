@@ -56,6 +56,8 @@ struct App {
     logged_outcome: Option<String>,
     /// Shift 是否按下（多选）。
     shift_down: bool,
+    /// Ctrl 是否按下（全选同阵营等）。
+    ctrl_down: bool,
 }
 
 impl App {
@@ -80,6 +82,7 @@ impl App {
             last_pump: Instant::now(),
             logged_outcome: None,
             shift_down: false,
+            ctrl_down: false,
         }
     }
 
@@ -369,6 +372,7 @@ struct BootResult {
 fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
+    chain: &ResourceChain,
 ) -> Option<(String, RgbaImage, i32, i32)> {
     let mut image = compose_terrain_preview(source, map)?;
     let mut z_lookup: HashMap<(u16, u16), u8> = HashMap::new();
@@ -377,7 +381,7 @@ fn load_map_terrain_preview(
     }
     let (overlay_shp, overlay_mark) = paint_overlays(source, map, &mut image, &z_lookup);
     let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
-    let color_rules = load_color_rules(source, map.edition);
+    let color_rules = load_color_rules(source, chain);
     let structure_painted =
         paint_structure_entities(source, map, &mut image, &z_lookup, color_rules.as_ref());
     let mobile_painted =
@@ -624,9 +628,8 @@ fn paint_terrain_objects(
 /// 叠画 `[Structures]`：优先 `NewTheater` 文件名，否则普通 `.shp`。
 fn load_color_rules(
     source: &GameAssetSource,
-    edition: GameEdition,
+    chain: &ResourceChain,
 ) -> Option<(IniDocument, ColorSchemes)> {
-    let chain = ResourceChain::for_edition(edition);
     let bytes = source.vfs.read(chain.rules_ini)?;
     let doc = IniDocument::parse(&bytes).ok()?;
     let schemes = ColorSchemes::from_rules(&doc);
@@ -1124,7 +1127,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     }
 
     let mut preview_origin = (0i32, 0i32);
-    let preview = match load_map_terrain_preview(&source, &map) {
+    let preview = match load_map_terrain_preview(&source, &map, chain) {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
