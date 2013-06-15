@@ -244,6 +244,7 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
+                self.ctrl_down = mods.state().control_key();
             }
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
@@ -302,6 +303,32 @@ impl ApplicationHandler for App {
                 }
                 let step = 48.0_f32;
                 match event.physical_key {
+                    PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
+                        if let Some(session) = self.session.as_mut() {
+                            let seed = session
+                                .selected
+                                .first()
+                                .copied()
+                                .or_else(|| {
+                                    session.world.entities.iter().position(|e| {
+                                        !e.dead
+                                            && matches!(
+                                                e.kind,
+                                                MapEntityKind::Unit
+                                                    | MapEntityKind::Infantry
+                                                    | MapEntityKind::Aircraft
+                                            )
+                                    })
+                                });
+                            if let Some(i) = seed {
+                                session.select_all_of_owner(i);
+                                ra_logger::info(format!(
+                                    "全选同阵营 · {} 个",
+                                    session.selected.len()
+                                ));
+                            }
+                        }
+                    }
                     PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
                         self.renderer.pan_screen(step, 0.0);
                     }

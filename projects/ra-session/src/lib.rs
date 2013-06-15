@@ -307,6 +307,26 @@ impl Session {
         }
     }
 
+    /// 选中与 `index` 同阵营的全部存活移动单位。
+    pub fn select_all_of_owner(&mut self, index: usize) {
+        if index >= self.world.entities.len() {
+            return;
+        }
+        let owner = self.world.entities[index].owner.clone();
+        self.selected.clear();
+        for (i, e) in self.world.entities.iter().enumerate() {
+            if e.dead || e.owner != owner {
+                continue;
+            }
+            if matches!(
+                e.kind,
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+            ) {
+                self.selected.push(i);
+            }
+        }
+    }
+
     /// 在存活移动单位间循环选中。
     pub fn cycle_selection(&mut self) {
         let mobiles: Vec<usize> = self
@@ -553,6 +573,8 @@ mod tests {
         assert_eq!(session.selected, vec![0]);
         session.select_add(1);
         assert_eq!(session.selected, vec![0]); // 异阵营拒绝
+        session.select_all_of_owner(0);
+        assert_eq!(session.selected, vec![0]);
         let foe = session.nearest_hostile(0).unwrap();
         assert_eq!(foe, 1);
         session.order_selected_attack(foe);
