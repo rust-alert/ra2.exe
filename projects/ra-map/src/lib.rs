@@ -8,6 +8,7 @@ mod iso_pack;
 mod land;
 mod lcw;
 mod lzo;
+mod mobile_paint;
 mod overlay;
 mod overlay_paint;
 mod pass_grid;
@@ -31,6 +32,7 @@ pub use compose::{
 pub use iso_math::{iso_to_screen, screen_to_iso, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};
 pub use land::{ground_passable, LandType};
+pub use mobile_paint::paint_map_mobiles;
 pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID};
 pub use overlay_paint::paint_map_overlays;
 pub use pass_grid::{PassGrid, MAX_GROUND_CLIMB};

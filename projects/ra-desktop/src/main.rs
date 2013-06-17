@@ -7,22 +7,17 @@
 mod config;
 mod fs_source;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
 use ra_adaptor::{detect_edition, ResourceChain};
-use ra_assets::{
-    rasterize_vxl_layer_poses, HvaFile, IniDocument, Palette, ShpFile, TmpFile, VplFile, VxlFile,
-    VxlLayerPose,
-};
+use ra_assets::{IniDocument, Palette, ShpFile, TmpFile};
 use ra_logger;
 use ra_map::{
-    compose_terrain_preview, mount_theater_mixes, new_theater_shp_name, paint_cell_sprites,
-    paint_map_overlays, paint_map_structures, paint_map_terrain_objects, parse_tileset_ini,
-    seal_pass_grid_from_tmp, theater_ini_name, theater_palette, theater_tmp_extension,
-    try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo, Theater, TileBlit,
-    TILE_HEIGHT, TILE_WIDTH,
+    compose_terrain_preview, mount_theater_mixes, paint_map_mobiles, paint_map_overlays,
+    paint_map_structures, paint_map_terrain_objects, parse_tileset_ini, seal_pass_grid_from_tmp,
+    theater_ini_name, theater_palette, theater_tmp_extension, try_parse_boot_map,
+    BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo, Theater,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules_chain, ColorSchemes, OverlayTypeRegistry};
@@ -425,12 +420,13 @@ fn load_map_terrain_preview(
         chain.art_ini,
         &|base, owner| palette_for_owner(base, owner, color_rules.as_ref()),
     );
-    let mut z_lookup: HashMap<(u16, u16), u8> = HashMap::new();
-    for cell in &map.cells {
-        z_lookup.insert((cell.x as u16, cell.y as u16), cell.z);
-    }
-    let mobile_painted =
-        paint_mobile_entities(source, map, &mut image, &z_lookup, color_rules.as_ref());
+    let mobile_painted = paint_map_mobiles(
+        source,
+        map,
+        &mut image,
+        chain.art_ini,
+        &|base, owner| palette_for_owner(base, owner, color_rules.as_ref()),
+    );
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
@@ -474,214 +470,6 @@ fn palette_for_owner(
         }
     }
     base.for_owner(owner)
-}
-
-/// 叠画单位 / 步兵 / 飞行器：优先 SHP，否则 VXL 正交投影。
-fn paint_mobile_entities(
-    source: &GameAssetSource,
-    map: &MapInfo,
-    image: &mut ra_map::TerrainImage,
-    z_lookup: &HashMap<(u16, u16), u8>,
-    color_rules: Option<&(IniDocument, ColorSchemes)>,
-) -> usize {
-    let mobiles: Vec<_> = map
-        .entities
-        .iter()
-        .filter(|e| {
-            matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-            )
-        })
-        .collect();
-    if mobiles.is_empty() {
-        return 0;
-    }
-    let art = source
-        .vfs
-        .read("art.ini")
-        .and_then(|b| IniDocument::parse(&b).ok());
-    let obj_pal = source
-        .vfs
-        .read("unittem.pal")
-        .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| {
-            source
-                .vfs
-                .read(theater_palette(map.theater))
-                .and_then(|b| Palette::parse(&b).ok())
-        });
-    let Some(obj_pal) = obj_pal else {
-        return 0;
-    };
-    let vpl = source
-        .vfs
-        .read("voxels.vpl")
-        .and_then(|b| VplFile::parse(&b).ok());
-
-    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u8, String), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
-
-    for ent in mobiles {
-        let image_key = art
-            .as_ref()
-            .and_then(|a| a.get(&ent.type_id, "Image"))
-            .unwrap_or(ent.type_id.as_str())
-            .to_ascii_uppercase();
-        let frame_hint = ent.facing / 32;
-        let cache_key = (image_key.clone(), frame_hint, ent.owner.clone());
-        if let Some(blit) = blit_cache.get(&cache_key) {
-            items.push((ent.x, ent.y, blit.clone()));
-            continue;
-        }
-
-        let pal = palette_for_owner(&obj_pal, &ent.owner, color_rules);
-
-        if let Some(blit) = load_mobile_shp(
-            source,
-            &art,
-            &image_key,
-            map,
-            &pal,
-            frame_hint,
-            &mut shp_cache,
-        ) {
-            blit_cache.insert(cache_key, blit.clone());
-            items.push((ent.x, ent.y, blit));
-            continue;
-        }
-
-        let stem = image_key.to_ascii_lowercase();
-        if let Some(blit) =
-            load_mobile_vxl_layers(source, &stem, &pal, vpl.as_ref(), ent.facing, ent.facing)
-        {
-            blit_cache.insert(cache_key, blit.clone());
-            items.push((ent.x, ent.y, blit));
-        }
-    }
-
-    paint_cell_sprites(image, &items, |x, y| {
-        z_lookup.get(&(x, y)).copied().unwrap_or(0)
-    })
-}
-
-fn load_mobile_vxl_layers(
-    source: &GameAssetSource,
-    stem: &str,
-    pal: &Palette,
-    vpl: Option<&VplFile>,
-    body_facing: u8,
-    turret_facing: u8,
-) -> Option<TileBlit> {
-    let body_name = format!("{stem}.vxl");
-    let body_bytes = source.vfs.read(&body_name)?;
-    let body = VxlFile::parse(&body_bytes).ok()?;
-    let body_hva = source
-        .vfs
-        .read(&format!("{stem}.hva"))
-        .and_then(|b| HvaFile::parse(&b).ok());
-
-    let mut owned: Vec<(VxlFile, Option<HvaFile>, bool)> = vec![(body, body_hva, false)];
-    for suffix in ["tur", "barl", "barrel"] {
-        let vxl_name = format!("{stem}{suffix}.vxl");
-        let Some(bytes) = source.vfs.read(&vxl_name) else {
-            continue;
-        };
-        let Ok(vxl) = VxlFile::parse(&bytes) else {
-            continue;
-        };
-        let hva = source
-            .vfs
-            .read(&format!("{stem}{suffix}.hva"))
-            .and_then(|b| HvaFile::parse(&b).ok());
-        owned.push((vxl, hva, true));
-        // `barl` 与 `barrel` 只取先命中的一个。
-        if suffix.starts_with("bar") {
-            break;
-        }
-    }
-
-    let layers: Vec<VxlLayerPose<'_>> = owned
-        .iter()
-        .map(|(v, h, is_turret)| VxlLayerPose {
-            vxl: v,
-            hva: h.as_ref(),
-            facing: if *is_turret {
-                turret_facing
-            } else {
-                body_facing
-            },
-            frame: 0,
-        })
-        .collect();
-    let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl)?;
-    Some(TileBlit {
-        width: sprite.width,
-        height: sprite.height,
-        offset_x: sprite.offset_x + TILE_WIDTH / 2,
-        offset_y: sprite.offset_y + TILE_HEIGHT / 2,
-        rgba: sprite.rgba,
-    })
-}
-
-fn load_mobile_shp(
-    source: &GameAssetSource,
-    art: &Option<IniDocument>,
-    image_key: &str,
-    map: &MapInfo,
-    obj_pal: &Palette,
-    frame_hint: u8,
-    shp_cache: &mut HashMap<String, ShpFile>,
-) -> Option<TileBlit> {
-    let new_theater = art
-        .as_ref()
-        .and_then(|a| a.get(image_key, "NewTheater"))
-        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let candidates = if new_theater {
-        vec![
-            new_theater_shp_name(image_key, map.theater),
-            format!("{}.shp", image_key.to_ascii_lowercase()),
-        ]
-    } else {
-        vec![
-            format!("{}.shp", image_key.to_ascii_lowercase()),
-            new_theater_shp_name(image_key, map.theater),
-        ]
-    };
-
-    let mut loaded: Option<String> = None;
-    for file in &candidates {
-        if shp_cache.contains_key(file) {
-            loaded = Some(file.clone());
-            break;
-        }
-        let Some(bytes) = source.vfs.read(file) else {
-            continue;
-        };
-        let Ok(shp) = ShpFile::parse(&bytes) else {
-            continue;
-        };
-        shp_cache.insert(file.clone(), shp);
-        loaded = Some(file.clone());
-        break;
-    }
-    let file = loaded?;
-    let shp = shp_cache.get(&file)?;
-    let frame = shp
-        .frames
-        .get(usize::from(frame_hint))
-        .or_else(|| shp.frames.first())?;
-    if frame.frame_width == 0 || frame.frame_height == 0 {
-        return None;
-    }
-    Some(TileBlit {
-        width: u32::from(frame.frame_width),
-        height: u32::from(frame.frame_height),
-        offset_x: i32::from(frame.frame_x),
-        offset_y: i32::from(frame.frame_y),
-        rgba: frame.to_rgba(obj_pal),
-    })
 }
 
 fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
