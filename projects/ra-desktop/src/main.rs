@@ -19,9 +19,9 @@ use ra_assets::{
 use ra_logger;
 use ra_map::{
     compose_terrain_preview, mount_theater_mixes, new_theater_shp_name, paint_cell_sprites,
-    paint_map_overlays, parse_tileset_ini, seal_pass_grid_from_tmp, theater_ini_name,
-    theater_palette, theater_tmp_extension, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind,
-    MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
+    paint_map_overlays, paint_map_terrain_objects, parse_tileset_ini, seal_pass_grid_from_tmp,
+    theater_ini_name, theater_palette, theater_tmp_extension, try_parse_boot_map,
+    BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo, Theater, TileBlit, TILE_HEIGHT, TILE_WIDTH,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules_chain, ColorSchemes, OverlayTypeRegistry};
@@ -419,7 +419,7 @@ fn load_map_terrain_preview(
         chain.art_ini,
         &|id| overlay_registry.name(id).map(str::to_owned),
     );
-    let terrain_painted = paint_terrain_objects(source, map, &mut image, &z_lookup);
+    let terrain_painted = paint_map_terrain_objects(source, map, &mut image, chain.art_ini);
     let color_rules = load_color_rules(source, chain);
     let structure_painted =
         paint_structure_entities(source, map, &mut image, &z_lookup, color_rules.as_ref());
@@ -445,83 +445,6 @@ fn load_map_terrain_preview(
         image.origin_x,
         image.origin_y,
     ))
-}
-
-/// 按 art / 剧院扩展名加载地形物件 SHP，叠到合成图上。
-fn paint_terrain_objects(
-    source: &GameAssetSource,
-    map: &MapInfo,
-    image: &mut ra_map::TerrainImage,
-    z_lookup: &HashMap<(u16, u16), u8>,
-) -> usize {
-    if map.terrain_objects.is_empty() {
-        return 0;
-    }
-    let art = source
-        .vfs
-        .read("art.ini")
-        .and_then(|b| IniDocument::parse(&b).ok());
-    let obj_pal = source
-        .vfs
-        .read("unittem.pal")
-        .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| {
-            source
-                .vfs
-                .read(theater_palette(map.theater))
-                .and_then(|b| Palette::parse(&b).ok())
-        });
-    let Some(obj_pal) = obj_pal else {
-        return 0;
-    };
-    let ext = theater_tmp_extension(map.theater);
-    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<String, TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
-
-    for obj in &map.terrain_objects {
-        let image_key = art
-            .as_ref()
-            .and_then(|a| a.get(&obj.name, "Image"))
-            .unwrap_or(obj.name.as_str())
-            .to_ascii_uppercase();
-        if let Some(blit) = blit_cache.get(&image_key) {
-            items.push((obj.x, obj.y, blit.clone()));
-            continue;
-        }
-        let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
-        if !shp_cache.contains_key(&file) {
-            let Some(bytes) = source.vfs.read(&file) else {
-                continue;
-            };
-            let Ok(shp) = ShpFile::parse(&bytes) else {
-                continue;
-            };
-            shp_cache.insert(file.clone(), shp);
-        }
-        let Some(shp) = shp_cache.get(&file) else {
-            continue;
-        };
-        let Some(frame) = shp.frames.first() else {
-            continue;
-        };
-        if frame.frame_width == 0 || frame.frame_height == 0 {
-            continue;
-        }
-        let blit = TileBlit {
-            width: u32::from(frame.frame_width),
-            height: u32::from(frame.frame_height),
-            offset_x: i32::from(frame.frame_x),
-            offset_y: i32::from(frame.frame_y),
-            rgba: frame.to_rgba(&obj_pal),
-        };
-        blit_cache.insert(image_key, blit.clone());
-        items.push((obj.x, obj.y, blit));
-    }
-
-    paint_cell_sprites(image, &items, |x, y| {
-        z_lookup.get(&(x, y)).copied().unwrap_or(0)
-    })
 }
 
 /// 叠画 `[Structures]`：优先 `NewTheater` 文件名，否则普通 `.shp`。
