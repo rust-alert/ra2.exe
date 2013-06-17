@@ -12,6 +12,7 @@ mod overlay;
 mod overlay_paint;
 mod pass_grid;
 mod placements;
+mod structure_paint;
 mod theater;
 mod terrain_objects;
 mod terrain_paint;
@@ -34,6 +35,7 @@ pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, 
 pub use overlay_paint::paint_map_overlays;
 pub use pass_grid::{PassGrid, MAX_GROUND_CLIMB};
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
+pub use structure_paint::paint_map_structures;
 pub use theater::{
     new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter,
     theater_palette, theater_tmp_extension, Theater,
