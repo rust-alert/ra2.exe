@@ -14,8 +14,7 @@ use ra_adaptor::{detect_edition, ResourceChain};
 use ra_assets::{IniDocument, Palette, ShpFile, TmpFile};
 use ra_logger;
 use ra_map::{
-    compose_terrain_preview, mount_theater_mixes, paint_map_mobiles, paint_map_overlays,
-    paint_map_structures, paint_map_terrain_objects, parse_tileset_ini, seal_pass_grid_from_tmp,
+    compose_skirmish_preview, mount_theater_mixes, parse_tileset_ini, seal_pass_grid_from_tmp,
     theater_ini_name, theater_palette, theater_tmp_extension, try_parse_boot_map,
     BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo, Theater,
 };
@@ -397,36 +396,20 @@ fn load_map_terrain_preview(
     map: &MapInfo,
     chain: &ResourceChain,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    let mut image = compose_terrain_preview(source, map)?;
     let overlay_registry = source
         .read(chain.rules_ini)
         .ok()
         .and_then(|b| IniDocument::parse(&b).ok())
         .map(|doc| OverlayTypeRegistry::from_rules(&doc))
         .unwrap_or_default();
-    let (overlay_shp, overlay_mark) = paint_map_overlays(
+    let color_rules = load_color_rules(source, chain);
+    let (image, stats) = compose_skirmish_preview(
         source,
         map,
-        &mut image,
         chain.art_ini,
         &|id| overlay_registry.name(id).map(str::to_owned),
-    );
-    let terrain_painted = paint_map_terrain_objects(source, map, &mut image, chain.art_ini);
-    let color_rules = load_color_rules(source, chain);
-    let structure_painted = paint_map_structures(
-        source,
-        map,
-        &mut image,
-        chain.art_ini,
         &|base, owner| palette_for_owner(base, owner, color_rules.as_ref()),
-    );
-    let mobile_painted = paint_map_mobiles(
-        source,
-        map,
-        &mut image,
-        chain.art_ini,
-        &|base, owner| palette_for_owner(base, owner, color_rules.as_ref()),
-    );
+    )?;
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
         format!(
@@ -435,11 +418,11 @@ fn load_map_terrain_preview(
             map.cells.len(),
             image.drawn,
             map.overlays.len(),
-            overlay_shp,
-            overlay_mark,
-            terrain_painted,
-            structure_painted,
-            mobile_painted,
+            stats.overlay_shp,
+            stats.overlay_mark,
+            stats.terrain_objects,
+            stats.structures,
+            stats.mobiles,
             rgba.width,
             rgba.height
         ),
