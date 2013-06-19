@@ -3,6 +3,7 @@
 mod base64;
 mod boot_map;
 mod compose;
+mod fallback_preview;
 mod iso_math;
 mod iso_pack;
 mod land;
@@ -29,6 +30,9 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use boot_map::{mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES};
 pub use compose::{
     compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, TerrainImage, TileBlit,
+};
+pub use fallback_preview::{
+    load_fallback_theater_tile, load_fallback_unit_sprite, RawRgbaImage,
 };
 pub use iso_math::{iso_to_screen, screen_to_iso, HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH};
 pub use iso_pack::{decode_iso_map_pack, IsoCell};

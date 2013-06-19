@@ -11,12 +11,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ra_adaptor::{detect_edition, ResourceChain};
-use ra_assets::{IniDocument, Palette, ShpFile, TmpFile};
+use ra_assets::{IniDocument, Palette};
 use ra_logger;
 use ra_map::{
-    compose_skirmish_preview, mount_theater_mixes, parse_tileset_ini, seal_pass_grid_from_tmp,
-    theater_ini_name, theater_palette, theater_tmp_extension, try_parse_boot_map,
-    BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo, Theater,
+    compose_skirmish_preview, load_fallback_theater_tile, load_fallback_unit_sprite,
+    mount_theater_mixes, seal_pass_grid_from_tmp, try_parse_boot_map, BOOT_MAP_CANDIDATES,
+    MapEntityKind, MapInfo,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_rules::{load_rules_chain, ColorSchemes, OverlayTypeRegistry};
@@ -455,83 +455,6 @@ fn palette_for_owner(
     base.for_owner(owner)
 }
 
-fn load_preview_terrain(source: &GameAssetSource, theater: Theater) -> Option<(String, RgbaImage)> {
-    let pal_bytes = source.vfs.read(theater_palette(theater))?;
-    let pal = Palette::parse(&pal_bytes).ok()?;
-
-    let mut candidates: Vec<String> = Vec::new();
-    if let Some(ini_bytes) = source.vfs.read(theater_ini_name(theater)) {
-        if let Ok(lookup) = parse_tileset_ini(&ini_bytes, theater_tmp_extension(theater)) {
-            if let Some(name) = lookup.filename(0) {
-                candidates.push(name.to_string());
-            }
-            for id in [14i32, 9, 10, 12] {
-                if let Some(name) = lookup.filename(id) {
-                    candidates.push(name.to_string());
-                }
-            }
-        }
-    }
-    candidates.push(format!("clear01.{}", theater_tmp_extension(theater)));
-
-    for name in candidates {
-        let Some(data) = source.vfs.read(&name) else {
-            continue;
-        };
-        let Ok(tmp) = TmpFile::parse(&data) else {
-            continue;
-        };
-        let Some((index, tile)) = tmp
-            .tiles
-            .iter()
-            .enumerate()
-            .find_map(|(i, t)| t.as_ref().map(|tile| (i, tile)))
-        else {
-            continue;
-        };
-        let Ok(rgba) = tmp.tile_to_rgba(index, &pal) else {
-            continue;
-        };
-        let image = RgbaImage::new(tile.pixel_width, tile.pixel_height, rgba)?;
-        return Some((format!("{name}#{index}"), image));
-    }
-    None
-}
-
-fn load_preview_sprite(source: &GameAssetSource) -> Option<(String, RgbaImage)> {
-    let pal_bytes = source.vfs.read("unittem.pal")?;
-    let pal = Palette::parse(&pal_bytes).ok()?;
-    let candidates = [
-        "mouse.shp",
-        "e1.shp",
-        "clock.shp",
-        "power.shp",
-        "gaairc.shp",
-    ];
-    for name in candidates {
-        let Some(bytes) = source.vfs.read(name) else {
-            continue;
-        };
-        let Ok(shp) = ShpFile::parse(&bytes) else {
-            continue;
-        };
-        let Some(frame) = shp.frames.first() else {
-            continue;
-        };
-        if frame.frame_width == 0 || frame.frame_height == 0 {
-            continue;
-        }
-        let rgba = frame.to_rgba(&pal);
-        let image = RgbaImage::new(
-            u32::from(frame.frame_width),
-            u32::from(frame.frame_height),
-            rgba,
-        )?;
-        return Some((name.to_string(), image));
-    }
-    None
-}
-
 fn load_boot_map(
     source: &mut GameAssetSource,
     edition: GameEdition,
@@ -622,16 +545,18 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             preview_origin = (ox, oy);
             Some(image)
         }
-        None => match load_preview_terrain(&source, map.theater)
-            .or_else(|| load_preview_sprite(&source))
-        {
-            Some((name, image)) => {
-                note = format!("{note} · preview:{name}");
-                Some(image)
-            }
-            None => {
-                note = format!("{note} · preview:无");
-                None
+        None => {
+            let fallback = load_fallback_theater_tile(&source, map.theater)
+                .or_else(|| load_fallback_unit_sprite(&source));
+            match fallback {
+                Some(raw) => {
+                    note = format!("{note} · preview:{}", raw.label);
+                    RgbaImage::new(raw.width, raw.height, raw.pixels)
+                }
+                None => {
+                    note = format!("{note} · preview:无");
+                    None
+                }
             }
         },
     };
