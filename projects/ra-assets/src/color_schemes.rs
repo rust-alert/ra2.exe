@@ -1,8 +1,9 @@
-//! rules `[Colors]`：名称 → HSV 方案。
+//! rules `[Colors]`：名称 → HSV 方案（INI 字段解释，供呈现 / 适配使用）。
 
 use std::collections::HashMap;
 
-use ra_assets::{Hsv, IniDocument};
+use crate::house_remap::Hsv;
+use crate::ini::IniDocument;
 
 /// 零售 `[Colors]` 表。
 #[derive(Debug, Clone, Default)]
@@ -35,7 +36,6 @@ impl ColorSchemes {
         if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
             return None;
         }
-        // 节名大小写与零售一致时直接取；否则扫一遍。
         let scheme = rules
             .get(house, "Color")
             .or_else(|| {

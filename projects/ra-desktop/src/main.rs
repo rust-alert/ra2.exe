@@ -11,14 +11,14 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ra_adaptor::{detect_edition, ResourceChain};
-use ra_assets::{IniDocument, Palette};
+use ra_assets::{ColorSchemes, IniDocument, Palette};
 use ra_logger;
 use ra_map::{
     compose_skirmish_preview, load_fallback_theater_tile, load_fallback_unit_sprite,
     mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_rules::{ColorSchemes, OverlayTypeRegistry};
+use ra_rules::OverlayTypeRegistry;
 use ra_session::{open_skirmish_session, Session};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use winit::application::ApplicationHandler;
