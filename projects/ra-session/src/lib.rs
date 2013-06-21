@@ -1,11 +1,15 @@
 //! 壳层共享的会话：持有世界、转发命令、产出呈现快照。
 //!
-//! 不碰文件系统与 GPU；桌面 / Web 只负责 I/O 与绘制。
+//! 不碰窗口与 GPU；可通过 `AssetSource` 装载遭遇战（见 `boot`）。
+
+mod boot;
 
 use ra_map::{screen_to_iso, MapEntityKind};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
+
+pub use boot::{open_skirmish_session, SkirmishOpenResult};
 
 /// 默认仿真频率（与渲染帧率无关）。
 pub const DEFAULT_TICK_HZ: u32 = 15;

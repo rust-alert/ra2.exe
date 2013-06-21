@@ -11,7 +11,8 @@ ra-types = { workspace = true }
 ra-world = { workspace = true }
 ra-map = { workspace = true }
 ra-net = { workspace = true }
+ra-adaptor = { workspace = true }
+ra-rules = { workspace = true }
 
 [dev-dependencies]
 ra-assets = { workspace = true }
-ra-rules = { workspace = true }

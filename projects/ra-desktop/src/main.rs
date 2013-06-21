@@ -15,14 +15,12 @@ use ra_assets::{IniDocument, Palette};
 use ra_logger;
 use ra_map::{
     compose_skirmish_preview, load_fallback_theater_tile, load_fallback_unit_sprite,
-    mount_theater_mixes, seal_pass_grid_from_tmp, try_parse_boot_map, BOOT_MAP_CANDIDATES,
-    MapEntityKind, MapInfo,
+    mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_rules::{load_rules_chain, ColorSchemes, OverlayTypeRegistry};
-use ra_session::Session;
+use ra_rules::{ColorSchemes, OverlayTypeRegistry};
+use ra_session::{open_skirmish_session, Session};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
-use ra_world::World;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -561,44 +559,22 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         },
     };
 
-    let session = match load_rules_chain(&source, chain) {
-        Ok(rules) => {
-            let sections = rules.rules.sections.len();
-            let overlays = rules.overlay_types.len();
-            note = format!("{note} · rules#{sections} · overlay_types#{overlays}");
-            let techno_n = rules.techno_types.len();
-            note = format!("{note} · techno_types#{techno_n}");
-            let mut world = World::new(chain.edition, &rules, map);
-            let land_sealed = seal_pass_grid_from_tmp(&source, &world.map, &mut world.pass_grid);
-            if land_sealed > 0 {
-                world.repath_mobiles();
-            }
-            note = format!(
-                "{note} · world_entities#{} bound#{} blocked#{} land#{}",
-                world.entities.len(),
-                world.bound_techno_count(),
-                world.pass_grid.blocked_count(),
-                land_sealed
-            );
-            let rules_bytes = AssetSource::read(&source, chain.rules_ini).unwrap_or_default();
-            let fp = Session::build_skirmish_fingerprint(
-                chain.edition.as_str(),
-                &world.map.name,
-                &rules_bytes,
-                world.map.width,
-                world.map.height,
-                world.entities.len(),
-            );
+    let session = match open_skirmish_session(
+        &source,
+        chain,
+        map,
+        note.clone(),
+        preview_origin,
+    ) {
+        Ok(opened) => {
+            note = opened.note;
             ra_logger::info(format!(
                 "fingerprint edition={} map={} rules_hash={:#x}",
-                fp.edition, fp.map, fp.rules_hash
+                opened.session.fingerprint.edition,
+                opened.session.fingerprint.map,
+                opened.session.fingerprint.rules_hash
             ));
-            Some(Session::open_skirmish(
-                world,
-                note.clone(),
-                preview_origin,
-                fp,
-            ))
+            Some(opened.session)
         }
         Err(e) => {
             note = format!("{note} · 规则待加载（{e}）");
