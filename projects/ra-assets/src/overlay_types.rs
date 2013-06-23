@@ -1,6 +1,6 @@
 //! 从 `rules.ini` 的 `[OverlayTypes]` 建立 id → 名称表。
 
-use ra_assets::IniDocument;
+use crate::ini::IniDocument;
 
 /// Overlay 类型注册表（按规则编号键）。
 #[derive(Debug, Clone, Default)]

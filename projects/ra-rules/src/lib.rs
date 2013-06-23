@@ -1,14 +1,12 @@
 //! 按资源链对应的 INI 名加载规则。
 
-mod overlay_types;
 mod techno_types;
 
 use ra_adaptor::ResourceChain;
 use ra_assets::IniDocument;
 use ra_types::{AssetSource, GameEdition, RaResult};
 
-pub use ra_assets::ColorSchemes;
-pub use overlay_types::OverlayTypeRegistry;
+pub use ra_assets::{ColorSchemes, OverlayTypeRegistry};
 pub use techno_types::{TechnoKind, TechnoType, TechnoTypeRegistry};
 
 #[derive(Debug, Clone)]
