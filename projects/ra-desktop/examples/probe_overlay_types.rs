@@ -1,9 +1,8 @@
 //! 无窗口探测：地图 OverlayPack id ↔ rules OverlayTypes 名。
 
-use ra_adaptor::{detect_edition, find_ci_file};
+use ra_adaptor::{detect_edition, find_ci_file, load_rules};
 use ra_assets::MixVfs;
 use ra_map::MapInfo;
-use ra_rules::load_rules;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

@@ -482,11 +482,11 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ra_assets::IniDocument;
-    use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
-    use ra_rules::{
-        ColorSchemes, OverlayTypeRegistry, RulesDb, TechnoTypeRegistry,
+    use ra_assets::{
+        ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry,
     };
+    use ra_adaptor::RulesDb;
+    use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
     use ra_types::GameEdition;
     use ra_world::GameCommand;
 

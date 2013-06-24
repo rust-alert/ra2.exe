@@ -1,12 +1,14 @@
 //! 按安装布局识别并装配资源表；适配能力可组合（见 `compose`）。
 
 mod compose;
+mod rules;
 
 use std::path::{Path, PathBuf};
 
 use ra_types::{GameEdition, RaError, RaResult};
 
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
+pub use rules::{load_rules, load_rules_chain, RulesDb};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。
 #[derive(Debug, Clone)]

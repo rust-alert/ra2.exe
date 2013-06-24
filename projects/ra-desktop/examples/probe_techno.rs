@@ -1,8 +1,7 @@
 //! 无窗口探测：rules TechnoType 数量与抽样。
 
-use ra_adaptor::{detect_edition, find_ci_file};
-use ra_assets::MixVfs;
-use ra_rules::{load_rules, TechnoKind};
+use ra_adaptor::{detect_edition, find_ci_file, load_rules};
+use ra_assets::{MixVfs, TechnoKind};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use std::path::{Path, PathBuf};
 

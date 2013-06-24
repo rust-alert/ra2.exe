@@ -1,8 +1,7 @@
 //! 遭遇战装载：规则 → 世界 → 指纹 → 会话。
 
-use ra_adaptor::ResourceChain;
+use ra_adaptor::{load_rules_chain, ResourceChain};
 use ra_map::{seal_pass_grid_from_tmp, MapInfo};
-use ra_rules::load_rules_chain;
 use ra_types::{AssetSource, RaResult};
 use ra_world::World;
 

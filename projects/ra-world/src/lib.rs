@@ -3,7 +3,8 @@
 mod command;
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_rules::{RulesDb, TechnoKind};
+use ra_assets::TechnoKind;
+use ra_adaptor::RulesDb;
 use ra_types::{GameEdition, PlayerId};
 
 pub use command::{
@@ -608,11 +609,11 @@ fn step_along_path(e: &mut WorldEntity) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ra_assets::IniDocument;
-    use ra_map::{MapEntity, Waypoint};
-    use ra_rules::{
-        ColorSchemes, OverlayTypeRegistry, RulesDb, TechnoKind, TechnoTypeRegistry,
+    use ra_assets::{
+        ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry,
     };
+    use ra_adaptor::RulesDb;
+    use ra_map::{MapEntity, Waypoint};
     use ra_types::GameEdition;
 
     fn rules_with_mtnk() -> RulesDb {

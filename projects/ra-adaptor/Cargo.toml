@@ -8,6 +8,7 @@ description = "版本探测与资源表装配"
 
 [dependencies]
 ra-types = { workspace = true }
+ra-assets = { workspace = true }
 ra-adaptor-ra2 = { workspace = true }
 ra-adaptor-yuri = { workspace = true }
 ra-adaptor-phobos = { workspace = true }

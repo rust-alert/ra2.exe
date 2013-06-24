@@ -1,13 +1,13 @@
-//! 按资源链对应的 INI 名加载规则。
+//! 按资源链装载 rules/art 与派生注册表。
 
-use ra_adaptor::ResourceChain;
-use ra_assets::IniDocument;
+use ra_assets::{
+    ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry,
+};
 use ra_types::{AssetSource, GameEdition, RaResult};
 
-pub use ra_assets::{
-    ColorSchemes, OverlayTypeRegistry, TechnoKind, TechnoType, TechnoTypeRegistry,
-};
+use crate::ResourceChain;
 
+/// 一局装载用的规则快照。
 #[derive(Debug, Clone)]
 pub struct RulesDb {
     pub edition: GameEdition,

@@ -8,8 +8,6 @@ description = "确定性世界推进与状态"
 
 [dependencies]
 ra-types = { workspace = true }
-ra-rules = { workspace = true }
-ra-map = { workspace = true }
-
-[dev-dependencies]
 ra-assets = { workspace = true }
+ra-map = { workspace = true }
+ra-adaptor = { workspace = true }
