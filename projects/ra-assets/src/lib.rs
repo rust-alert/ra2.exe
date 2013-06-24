@@ -3,6 +3,7 @@
 mod color_schemes;
 mod house_remap;
 mod overlay_types;
+mod techno_types;
 mod hva;
 mod ini;
 mod mix;
@@ -18,6 +19,7 @@ mod vxl_raster;
 
 pub use color_schemes::ColorSchemes;
 pub use overlay_types::OverlayTypeRegistry;
+pub use techno_types::{TechnoKind, TechnoType, TechnoTypeRegistry};
 pub use house_remap::{
     build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color, Hsv,
     HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST,

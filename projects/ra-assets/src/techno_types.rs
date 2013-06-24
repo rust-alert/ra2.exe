@@ -1,10 +1,10 @@
-//! 从 rules 列表节加载基础 TechnoType 字段。
+//! ? rules ??????? TechnoType ???
 
 use std::collections::HashMap;
 
-use ra_assets::IniDocument;
+use crate::ini::IniDocument;
 
-/// 一份可战斗物类型的常用数值（预览 / 仿真起步用）。
+/// ???????????????? / ???????
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TechnoType {
     pub id: String,
@@ -19,7 +19,7 @@ pub struct TechnoType {
     pub image: String,
 }
 
-/// Techno 大类（对应 rules 列表节）。
+/// Techno ????? rules ?????
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TechnoKind {
     Infantry,
@@ -28,14 +28,14 @@ pub enum TechnoKind {
     Building,
 }
 
-/// `type_id`（大写）→ TechnoType。
+/// `type_id`????? TechnoType?
 #[derive(Debug, Clone, Default)]
 pub struct TechnoTypeRegistry {
     by_id: HashMap<String, TechnoType>,
 }
 
 impl TechnoTypeRegistry {
-    /// 解析 `[InfantryTypes]` / `[VehicleTypes]` / `[AircraftTypes]` / `[BuildingTypes]`。
+    /// ?? `[InfantryTypes]` / `[VehicleTypes]` / `[AircraftTypes]` / `[BuildingTypes]`?
     pub fn from_rules(rules: &IniDocument) -> Self {
         let mut by_id = HashMap::new();
         for (section, kind) in [
@@ -82,7 +82,7 @@ impl TechnoTypeRegistry {
 }
 
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    // 节名大小写与零售一致时直接取；否则扫一遍。
+    // ?????????????????????
     let section_key = if rules.sections.contains_key(id) {
         id.to_string()
     } else {

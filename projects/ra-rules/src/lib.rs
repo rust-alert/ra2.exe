@@ -1,13 +1,12 @@
 //! 按资源链对应的 INI 名加载规则。
 
-mod techno_types;
-
 use ra_adaptor::ResourceChain;
 use ra_assets::IniDocument;
 use ra_types::{AssetSource, GameEdition, RaResult};
 
-pub use ra_assets::{ColorSchemes, OverlayTypeRegistry};
-pub use techno_types::{TechnoKind, TechnoType, TechnoTypeRegistry};
+pub use ra_assets::{
+    ColorSchemes, OverlayTypeRegistry, TechnoKind, TechnoType, TechnoTypeRegistry,
+};
 
 #[derive(Debug, Clone)]
 pub struct RulesDb {
