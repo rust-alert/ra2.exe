@@ -31,7 +31,6 @@ flowchart TB
     end
 
     subgraph content["内容投影"]
-        rules["ra-rules"]
         map["ra-map"]
     end
 
@@ -41,7 +40,7 @@ flowchart TB
     end
 
     subgraph adapt["版本与布局"]
-        adaptor["ra-adaptor"]
+        adaptor["ra-adaptor<br/>探测 / 组合 / RulesDb"]
         ra2tbl["ra-adaptor-ra2"]
         yrtbl["ra-adaptor-yuri"]
         mo3["ra-adaptor-phobos"]
@@ -52,23 +51,23 @@ flowchart TB
     desktop --> renderer
     desktop --> session
     desktop --> world
-    desktop --> rules
     desktop --> map
     desktop --> assets
     desktop --> adaptor
     webui -.-> renderer
     webui -.-> world
     session --> world
+    session --> adaptor
     renderer --> world
-    world --> rules
+    world --> adaptor
     world --> map
-    rules --> adaptor
-    rules --> assets
     map --> assets
+    adaptor --> assets
     adaptor --> ra2tbl
     adaptor --> yrtbl
     adaptor --> mo3
     assets --> types
+    config --> types
     adaptor --> types
     ra2tbl --> types
     yrtbl --> types
@@ -91,7 +90,6 @@ flowchart LR
     ad[ra-adaptor]
     as[ra-assets]
     cf[ra-config]
-    ru[ra-rules]
     mp[ra-map]
     wo[ra-world]
     se[ra-session]
@@ -102,27 +100,26 @@ flowchart LR
     yra --> types
     mo3 --> types
     ad --> types
+    ad --> as
     ad --> ra2a
     ad --> yra
+    ad --> mo3
     as --> types
     cf --> types
-    ru --> types
-    ru --> ad
-    ru --> as
     mp --> types
     mp --> as
     wo --> types
-    wo --> ru
+    wo --> ad
     wo --> mp
     se --> types
     se --> wo
     se --> mp
+    se --> ad
     re --> types
     re --> se
     de --> ad
     de --> cf
     de --> as
-    de --> ru
     de --> mp
     de --> se
     de --> wo
@@ -144,7 +141,6 @@ sequenceDiagram
     participant Ad as ra-adaptor
     participant Vfs as MixVfs
     participant Map as ra-map
-    participant Rules as ra-rules
     participant World as ra-world
     participant Gpu as ra-renderer
     User ->> Desk: 启动 ra2
@@ -161,10 +157,9 @@ sequenceDiagram
     Desk ->> Map: 解析启动地图 / 剧院
     Desk ->> Vfs: 挂载剧院 MIX
     Desk ->> Desk: 生成预览 RGBA
-    Desk ->> Rules: load_rules
-    Rules -->> Desk: RulesDb
-    Desk ->> World: World::new
-    Desk ->> Desk: Session::new
+    Desk ->> Ad: load_rules_chain
+    Ad -->> Desk: RulesDb
+    Desk ->> World: World::new via Session boot
     Desk ->> Gpu: attach_window / set_preview
     loop 每帧
         Desk ->> Desk: Session::tick
@@ -186,7 +181,7 @@ ra2.exe/                 工作区根（本 README）
     ├── ra-types/
     ├── ra-adaptor/ · ra-adaptor-ra2/ · ra-adaptor-yuri/ · ra-adaptor-phobos/
     ├── ra-assets/
-    ├── ra-rules/
+    ├── ra-config/
     ├── ra-map/
     ├── ra-world/
     ├── ra-session/
@@ -247,12 +242,12 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 | Crate            | 作用                                                           | 文档                                        |
 |------------------|----------------------------------------------------------------|---------------------------------------------|
 | `ra-types`       | 基类型：`GameEdition`、`RaError`、`AssetSource`、`Fixed16`、ID | [README](projects/ra-types/README.md)       |
-| `ra-adaptor`     | 版本探测与 `ResourceChain` 装配                                | [README](projects/ra-adaptor/README.md)     |
+| `ra-adaptor`     | 版本探测、组合适配、`ResourceChain`、`RulesDb` 装载            | [README](projects/ra-adaptor/README.md)     |
 | `ra-adaptor-ra2` | 原版资源表                                                     | [README](projects/ra-adaptor-ra2/README.md) |
 | `ra-adaptor-yuri`  | 尤里的复仇资源表                                               | [README](projects/ra-adaptor-yuri/README.md)  |
-| `ra-adaptor-phobos` | 心灵终结 3（Mental Omega 3）资源表                             | [README](projects/ra-adaptor-phobos/README.md) |
-| `ra-assets`      | Westwood 格式：MIX / INI / PAL / SHP / TMP；`MixVfs`           | [README](projects/ra-assets/README.md)      |
-| `ra-rules`       | 按版本加载 rules/art INI → `RulesDb`                           | [README](projects/ra-rules/README.md)       |
+| `ra-adaptor-phobos` | Phobos / MO 布局资源表                                     | [README](projects/ra-adaptor-phobos/README.md) |
+| `ra-assets`      | Westwood 格式与 INI 派生表：MIX / INI / 调色 / Techno 等       | [README](projects/ra-assets/README.md)      |
+| `ra-config`      | 配置来源合并与诊断                                             | [README](projects/ra-config/README.md)      |
 | `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [README](projects/ra-map/README.md)         |
 | `ra-world`       | 确定性世界句柄：`World`、tick、`GameCommand`、`state_hash` | [README](projects/ra-world/README.md)       |
 | `ra-session`     | 共享会话：命令转发与 `RenderSnapshot`                       | —                                          |

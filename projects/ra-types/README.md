@@ -86,7 +86,7 @@ pub trait AssetSource {
 }
 ```
 
-模块注释：「平台 I/O 边界：由壳实现；解析器只看见字节。」`ra-assets` 刻意不碰文件系统；`ra-rules::load_rules` 只收
+模块注释：「平台 I/O 边界：由壳实现；解析器只看见字节。」`ra-assets` 刻意不碰文件系统；`ra-adaptor::load_rules` 只收
 `&dyn AssetSource`。桌面侧的实现是 `ra-desktop` 里的 `GameAssetSource`（松散文件优先，再查 `MixVfs`）。
 
 默认 `exists` 会整文件 `read` 一次再丢结果——简单，但对大文件不经济。需要 `stat` 优化时，由具体实现覆盖该方法即可。
@@ -97,7 +97,7 @@ pub trait AssetSource {
 
 - MIX / SHP / TMP / INI 解析 → `ra-assets`
 - 安装目录探测 → `ra-adaptor`
-- 规则语义 → `ra-rules`（当前也只是 INI 投影）
+- 规则装载 → `ra-adaptor::RulesDb`（派生表在 `ra-assets`）
 - 地图 IsoMapPack → `ra-map`
 - GPU → `ra-renderer`
 

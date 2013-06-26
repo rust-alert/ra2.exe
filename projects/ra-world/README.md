@@ -18,7 +18,7 @@ pub struct World {
 }
 ```
 
-依赖：`ra-types`、`ra-rules`、`ra-map`。`RulesDb` 出现在构造函数参数里，是 API 占位；函数体第一行是 `let _ = rules;`
+依赖：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-map`。`World::new` 消费 `RulesDb`（来自 `ra-adaptor`）绑定 Techno 数值与地图实体。
 ——规则内容此刻不进入状态。
 
 ## 三个方法的真实语义

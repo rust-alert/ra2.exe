@@ -82,7 +82,7 @@ src/tmp.rs          TMP 等距地形砖（钻石像素展开）
 `;` 行注释，`[section]`，`key=value`。内部保留插入顺序，供地图 IsoMapPack 拼接。`numbered_section_concat`：把节里数字键按
 **数值**排序后拼接值（测试：`1=A,2=B,10=C` → `"ABC"`，不会被字典序弄成 `1,10,2`）。
 
-`ra-rules` 与 `ra-map` 都吃这个解析器。
+`ra-adaptor`（装载 `RulesDb`）与 `ra-map` 都吃这个解析器。另导出 `ColorSchemes` / `OverlayTypeRegistry` / `TechnoTypeRegistry` 等 INI 派生表。
 
 ---
 

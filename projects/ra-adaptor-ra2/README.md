@@ -69,7 +69,7 @@ overlay（见 `ra-assets::MixVfs`）。
 | `sound_ini` | `sound.ini` |
 | `exe_name`  | `game.exe`  |
 
-当前 `ra-rules::load_rules` 只读 rules + art。`ui.ini` / `sound.ini` 已在表里，加载器尚未用。`exe_name` 是安装布局特征名；引擎是自有
+当前 `ra-adaptor::load_rules` 只读 rules + art。`ui.ini` / `sound.ini` 已在表里，加载器尚未用。`exe_name` 是安装布局特征名；引擎是自有
 GUI（`ra2` / `ra2.exe`）， **不注入、不启动**原版 `game.exe`。
 
 ---

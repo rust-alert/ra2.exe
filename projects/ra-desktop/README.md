@@ -108,7 +108,7 @@ cargo run
 
 ## 依赖面
 
-串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-rules`、`ra-map`、`ra-world`、`ra-renderer`，外加 `winit`。不直接依赖
+串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-config`、`ra-map`、`ra-world`、`ra-session`、`ra-renderer`，外加 `winit`。不直接依赖
 `ra-adaptor-phobos`（经 `ra-adaptor` 间接装配）、`ra-webui`。
 
 ## 许可

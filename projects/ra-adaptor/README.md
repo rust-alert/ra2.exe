@@ -1,8 +1,8 @@
 # ra-adaptor
 
-按 `GameEdition` 装配资源表，并探测安装布局。整个 crate 只有一个 `src/lib.rs`，没有子模块。
+按安装布局识别并装配资源表，组合扩展能力，并按 `ResourceChain` 装载 `RulesDb`。
 
-依赖：`ra-types`、`ra-adaptor-ra2`、`ra-adaptor-yuri`。原版 / YR 的文件名清单不写在这里，而在两个 profile crate；本层做编排与磁盘探测。
+依赖：`ra-types`、`ra-assets`、`ra-adaptor-ra2`、`ra-adaptor-yuri`、`ra-adaptor-phobos`。各 edition 的文件名清单在 profile crate；本层做编排、探测与规则装载。
 
 ---
 
@@ -51,7 +51,13 @@ root 不是目录？ → Io("游戏目录不存在: …")
 `from_ra2` / `from_yr` / `from_phobos` 是私有映射函数，把各 edition 的 `ResourceProfile` 抄进同一结构。profile 类型故意重复定义（注释：避免跨
 crate 循环依赖），所以映射不能写成泛型一份。
 
-`ra-rules::load_rules` 只通过 `ResourceChain::for_edition` 取 `rules_ini` / `art_ini`，不自己写 `rulesmd.ini`。
+---
+
+## `RulesDb` / `load_rules_chain`
+
+从 `AssetSource` 按链读取 rules/art INI，并派生 `OverlayTypeRegistry`、`ColorSchemes`、`TechnoTypeRegistry`（解析实现在 `ra-assets`）。
+
+`load_rules(edition)` 仍可用：内部先 `ResourceChain::for_edition` 再调用 `load_rules_chain`。遭遇战装载走 `ra-session::open_skirmish_session`。
 
 ---
 

@@ -85,7 +85,7 @@ MPL-2.0。浏览器部署同样要求使用者自行提供合法游戏数据来�
 布尔值做生产判断。`start` 里的 panic hook 只影响 Rust panic 的可读性，不替代页面自己的错误 UI。
 
 资源方面，桌面用本地目录 + MIX；浏览器需要另一套字节来源（例如用户选择的文件包、或站点托管的经授权资源）。设计 `AssetSource`
-实现时保持与 `ra-types` 契约一致：`read(relative) -> RaResult<Vec<u8>>`，这样 `ra-rules` / `ra-map` 等解析路径可以复用，而不必为
+实现时保持与 `ra-types` 契约一致：`read(relative) -> RaResult<Vec<u8>>`，这样 `ra-adaptor` / `ra-map` 等解析路径可以复用，而不必为
 Web 再写一套 INI/MIX 解析。
 
 当前仓库也没有把 `ra-webui` 设成 `cargo run` 默认成员；日常原生开发走 `ra-desktop`。本包存在的意义是占住 Wasm
