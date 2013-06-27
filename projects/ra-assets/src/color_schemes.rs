@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::house_remap::Hsv;
 use crate::ini::IniDocument;
+use crate::pal::Palette;
 
 /// 零售 `[Colors]` 表。
 #[derive(Debug, Clone, Default)]
@@ -50,6 +51,14 @@ impl ColorSchemes {
         self.get(scheme)
     }
 
+    /// 阵营 HSV remap；无方案时回退 `Palette::for_owner`。
+    pub fn palette_for_house(&self, rules: &IniDocument, base: &Palette, owner: &str) -> Palette {
+        if let Some(hsv) = self.hsv_for_house(rules, owner) {
+            return base.with_hsv_remap(hsv);
+        }
+        base.for_owner(owner)
+    }
+
     pub fn len(&self) -> usize {
         self.by_name.len()
     }
@@ -70,6 +79,7 @@ fn parse_hsv(value: &str) -> Option<Hsv> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pal::{Palette, Rgba};
 
     #[test]
     fn parse_colors_and_house() {
@@ -91,5 +101,15 @@ mod tests {
             })
         );
         assert!(schemes.hsv_for_house(&doc, "Neutral").is_none());
+    }
+
+    #[test]
+    fn palette_falls_back_without_hsv() {
+        let doc = IniDocument::parse(b"[Neutral]\nColor=Grey\n").unwrap();
+        let schemes = ColorSchemes::from_rules(&doc);
+        let base = Palette {
+            colors: [Rgba::transparent(); 256],
+        };
+        let _ = schemes.palette_for_house(&doc, &base, "Neutral");
     }
 }
