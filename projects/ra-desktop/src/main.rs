@@ -10,8 +10,7 @@ mod fs_source;
 use std::sync::Arc;
 use std::time::Instant;
 
-use ra_adaptor::{detect_edition, ResourceChain};
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, Palette};
+use ra_adaptor::{detect_edition, load_rules_chain, ResourceChain, RulesDb};
 use ra_logger;
 use ra_map::{
     compose_skirmish_preview, load_fallback_theater_tile, load_fallback_unit_sprite,
@@ -19,7 +18,7 @@ use ra_map::{
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_session::{open_skirmish_session, Session};
-use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+use ra_types::{GameEdition, RaError, RaResult};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -392,20 +391,14 @@ fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
     chain: &ResourceChain,
+    rules: &RulesDb,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    let overlay_registry = source
-        .read(chain.rules_ini)
-        .ok()
-        .and_then(|b| IniDocument::parse(&b).ok())
-        .map(|doc| OverlayTypeRegistry::from_rules(&doc))
-        .unwrap_or_default();
-    let color_rules = load_color_rules(source, chain);
     let (image, stats) = compose_skirmish_preview(
         source,
         map,
         chain.art_ini,
-        &|id| overlay_registry.name(id).map(str::to_owned),
-        &|base, owner| palette_for_owner(base, owner, color_rules.as_ref()),
+        &|id| rules.overlay_types.name(id).map(str::to_owned),
+        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
     )?;
     let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
     Some((
@@ -427,29 +420,6 @@ fn load_map_terrain_preview(
         image.origin_x,
         image.origin_y,
     ))
-}
-
-fn load_color_rules(
-    source: &GameAssetSource,
-    chain: &ResourceChain,
-) -> Option<(IniDocument, ColorSchemes)> {
-    let bytes = source.vfs.read(chain.rules_ini)?;
-    let doc = IniDocument::parse(&bytes).ok()?;
-    let schemes = ColorSchemes::from_rules(&doc);
-    Some((doc, schemes))
-}
-
-fn palette_for_owner(
-    base: &Palette,
-    owner: &str,
-    color_rules: Option<&(IniDocument, ColorSchemes)>,
-) -> Palette {
-    if let Some((doc, schemes)) = color_rules {
-        if let Some(hsv) = schemes.hsv_for_house(doc, owner) {
-            return base.with_hsv_remap(hsv);
-        }
-    }
-    base.for_owner(owner)
 }
 
 fn load_boot_map(
@@ -536,7 +506,18 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     }
 
     let mut preview_origin = (0i32, 0i32);
-    let preview = match load_map_terrain_preview(&source, &map, chain) {
+    let rules = match load_rules_chain(&source, chain) {
+        Ok(db) => Some(db),
+        Err(e) => {
+            note = format!("{note} · 规则待加载（{e}）");
+            None
+        }
+    };
+
+    let preview = match rules
+        .as_ref()
+        .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules))
+    {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -555,17 +536,13 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                     None
                 }
             }
-        },
+        }
     };
 
-    let session = match open_skirmish_session(
-        &source,
-        chain,
-        map,
-        note.clone(),
-        preview_origin,
-    ) {
-        Ok(opened) => {
+    let session = match rules.as_ref().map(|rules| {
+        open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)
+    }) {
+        Some(Ok(opened)) => {
             note = opened.note;
             ra_logger::info(format!(
                 "fingerprint edition={} map={} rules_hash={:#x}",
@@ -575,10 +552,11 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             ));
             Some(opened.session)
         }
-        Err(e) => {
-            note = format!("{note} · 规则待加载（{e}）");
+        Some(Err(e)) => {
+            note = format!("{note} · 会话未打开（{e}）");
             None
         }
+        None => None,
     };
 
     Ok(BootResult {

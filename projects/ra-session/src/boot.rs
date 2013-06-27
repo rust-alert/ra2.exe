@@ -1,6 +1,6 @@
 //! 遭遇战装载：规则 → 世界 → 指纹 → 会话。
 
-use ra_adaptor::{load_rules_chain, ResourceChain};
+use ra_adaptor::{ResourceChain, RulesDb};
 use ra_map::{seal_pass_grid_from_tmp, MapInfo};
 use ra_types::{AssetSource, RaResult};
 use ra_world::World;
@@ -15,15 +15,15 @@ pub struct SkirmishOpenResult {
     pub note: String,
 }
 
-/// 从已挂载资源与地图打开一局遭遇战会话。
+/// 从已装载的 `RulesDb` 与地图打开一局遭遇战会话。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
+    rules: &RulesDb,
     map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
 ) -> RaResult<SkirmishOpenResult> {
-    let rules = load_rules_chain(source, chain)?;
     note = format!(
         "{note} · rules#{} · overlay_types#{} · techno_types#{}",
         rules.rules.sections.len(),
@@ -31,7 +31,7 @@ pub fn open_skirmish_session(
         rules.techno_types.len()
     );
 
-    let mut world = World::new(chain.edition, &rules, map);
+    let mut world = World::new(chain.edition, rules, map);
     let land_sealed = seal_pass_grid_from_tmp(source, &world.map, &mut world.pass_grid);
     if land_sealed > 0 {
         world.repath_mobiles();
