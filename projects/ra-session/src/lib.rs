@@ -4,7 +4,7 @@
 
 mod boot;
 
-use ra_map::{screen_to_iso, MapEntityKind};
+use ra_map::{iso_to_screen, screen_to_iso, MapEntityKind};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
@@ -24,6 +24,8 @@ pub struct RenderSnapshot {
     pub tick: u64,
     pub state_hash: u64,
     pub units: Vec<SnapshotUnit>,
+    /// 当前选中实体下标（与 `units[].index` 对齐）。
+    pub selected: Vec<usize>,
     pub outcome: Option<MatchOutcome>,
 }
 
@@ -36,6 +38,10 @@ pub struct SnapshotUnit {
     pub owner: String,
     pub x: u16,
     pub y: u16,
+    /// 相对预览图画布的像素 X（已减 `preview_origin`）。
+    pub screen_x: i32,
+    /// 相对预览图画布的像素 Y（已减 `preview_origin`）。
+    pub screen_y: i32,
     pub facing: u8,
     pub turret_facing: u8,
     pub hva_frame: u16,
@@ -454,19 +460,25 @@ impl Session {
                     MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
                 )
             })
-            .map(|(index, e)| SnapshotUnit {
-                index,
-                kind: e.kind,
-                type_id: e.type_id.clone(),
-                owner: e.owner.clone(),
-                x: e.x,
-                y: e.y,
-                facing: e.facing,
-                turret_facing: e.turret_facing,
-                hva_frame: e.hva_frame,
-                health: e.health,
-                max_health: e.max_health,
-                dead: e.dead,
+            .map(|(index, e)| {
+                let z = self.world.pass_grid.cell_height(e.x, e.y);
+                let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
+                SnapshotUnit {
+                    index,
+                    kind: e.kind,
+                    type_id: e.type_id.clone(),
+                    owner: e.owner.clone(),
+                    x: e.x,
+                    y: e.y,
+                    screen_x: sx - self.preview_origin_x,
+                    screen_y: sy - self.preview_origin_y,
+                    facing: e.facing,
+                    turret_facing: e.turret_facing,
+                    hva_frame: e.hva_frame,
+                    health: e.health,
+                    max_health: e.max_health,
+                    dead: e.dead,
+                }
             })
             .collect();
         RenderSnapshot {
@@ -474,6 +486,7 @@ impl Session {
             tick: self.world.tick,
             state_hash: self.world.state_hash(),
             units,
+            selected: self.selected.clone(),
             outcome: self.outcome.clone(),
         }
     }
@@ -615,6 +628,35 @@ mod tests {
         let ix = cx - (-100.0);
         let iy = cy - (-50.0);
         assert_eq!(session.image_to_cell(ix, iy), Some((5, 4)));
+    }
+
+    #[test]
+    fn snapshot_includes_screen_coords_and_selection() {
+        let rules = rules_with_mtnk();
+        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+        map.width = 20;
+        map.height = 30;
+        map.entities.push(MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 5,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+        });
+        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+        session.set_preview_origin(-100, -50);
+        session.select_only(0);
+        let snap = session.snapshot();
+        assert_eq!(snap.selected, vec![0]);
+        assert_eq!(snap.units.len(), 1);
+        let u = &snap.units[0];
+        let z = session.world.pass_grid.cell_height(5, 4);
+        let (sx, sy) = ra_map::iso_to_screen(5, 4, z);
+        assert_eq!(u.screen_x, sx - (-100));
+        assert_eq!(u.screen_y, sy - (-50));
     }
 
     #[test]
