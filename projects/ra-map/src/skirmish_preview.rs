@@ -1,10 +1,9 @@
-//! 遭遇战启动预览：地形 + overlay + 物件 + 建筑 + 移动单位。
+//! 遭遇战启动预览：地形 + overlay + 物件 + 建筑（移动单位走动态标记）。
 
 use ra_assets::Palette;
 use ra_types::AssetSource;
 
 use crate::compose::TerrainImage;
-use crate::mobile_paint::paint_map_mobiles;
 use crate::overlay_paint::paint_map_overlays;
 use crate::structure_paint::paint_map_structures;
 use crate::terrain_paint::paint_map_terrain_objects;
@@ -21,7 +20,7 @@ pub struct SkirmishPreviewStats {
     pub mobiles: usize,
 }
 
-/// 合成完整启动预览图（不含 fallback 单砖/精灵）。
+/// 合成启动预览图（地形 / overlay / 物件 / 建筑；移动单位由渲染层动态标记）。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -34,7 +33,6 @@ pub fn compose_skirmish_preview(
         paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner);
-    let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, remap_owner);
     Some((
         image,
         SkirmishPreviewStats {
@@ -42,7 +40,7 @@ pub fn compose_skirmish_preview(
             overlay_mark,
             terrain_objects,
             structures,
-            mobiles,
+            mobiles: 0,
         },
     ))
 }
