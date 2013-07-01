@@ -5,6 +5,7 @@
 
 mod camera;
 mod gpu;
+mod markers;
 mod rgba_image;
 mod sprite;
 
@@ -16,6 +17,7 @@ use winit::window::Window;
 
 use crate::camera::Camera;
 use crate::gpu::GpuContext;
+use crate::markers::MarkerGpu;
 use crate::sprite::SpriteGpu;
 
 pub use crate::camera::Camera as ViewCamera;
@@ -34,6 +36,7 @@ pub struct Renderer {
     gpu: Option<GpuContext>,
     preview: Option<RgbaImage>,
     sprite: Option<SpriteGpu>,
+    markers: Option<MarkerGpu>,
     camera: Camera,
     camera_ready: bool,
 }
@@ -45,6 +48,7 @@ impl Renderer {
             gpu: None,
             preview: None,
             sprite: None,
+            markers: None,
             camera: Camera {
                 center_x: 0.0,
                 center_y: 0.0,
@@ -68,6 +72,9 @@ impl Renderer {
                     ));
                 }
             }
+            if self.markers.is_none() {
+                self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
+            }
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         } else {
             self.camera_ready = false;
@@ -90,6 +97,7 @@ impl Renderer {
             ));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
+        self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
         self.gpu = Some(gpu);
         Ok(())
     }
@@ -121,11 +129,8 @@ impl Renderer {
         self.camera_ready = true;
     }
 
-    /// 清屏，并在有预览精灵时按相机绘制。快照供后续批次/诊断使用。
+    /// 清屏：预览底图 + 快照单位标记。
     pub fn draw_frame(&mut self, snap: Option<&RenderSnapshot>) {
-        if let Some(snap) = snap {
-            let _ = (snap.edition, snap.tick, snap.units.len());
-        }
         self.frames = self.frames.wrapping_add(1);
 
         if !self.camera_ready {
@@ -153,6 +158,17 @@ impl Renderer {
                 gpu.config.height,
             );
         }
+        if let (Some(markers), Some(snap)) = (self.markers.as_mut(), snap) {
+            markers.write_from_snapshot(
+                &gpu.queue,
+                snap,
+                &self.camera,
+                gpu.config.width,
+                gpu.config.height,
+            );
+        } else if let Some(markers) = self.markers.as_mut() {
+            markers.clear();
+        }
 
         let mut encoder = gpu
             .device
@@ -176,6 +192,9 @@ impl Renderer {
             });
             if let Some(sprite) = self.sprite.as_ref() {
                 sprite.draw(&mut pass);
+            }
+            if let Some(markers) = self.markers.as_ref() {
+                markers.draw(&mut pass);
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
