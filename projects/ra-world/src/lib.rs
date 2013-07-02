@@ -86,11 +86,6 @@ impl World {
                 let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
                 let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
                 let speed = tt.map(|t| t.speed).unwrap_or(0);
-                let (target_x, target_y) = if is_mobile(e.kind) && speed > 0 {
-                    nearest_waypoint(&map, e.x, e.y)
-                } else {
-                    (None, None)
-                };
                 WorldEntity {
                     kind: e.kind,
                     owner: e.owner.clone(),
@@ -104,8 +99,8 @@ impl World {
                     max_health,
                     speed,
                     techno_kind: tt.map(|t| t.kind),
-                    target_x,
-                    target_y,
+                    target_x: None,
+                    target_y: None,
                     path: Vec::new(),
                     move_accum: 0,
                     hva_frame: 0,
@@ -437,17 +432,6 @@ fn is_mobile(kind: MapEntityKind) -> bool {
     )
 }
 
-fn nearest_waypoint(map: &MapInfo, x: u16, y: u16) -> (Option<u16>, Option<u16>) {
-    let Some(best) = map.waypoints.iter().min_by_key(|w| {
-        let dx = i32::from(w.x) - i32::from(x);
-        let dy = i32::from(w.y) - i32::from(y);
-        dx * dx + dy * dy
-    }) else {
-        return (None, None);
-    };
-    (Some(best.x), Some(best.y))
-}
-
 fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
     if *current == desired || step == 0 {
         return;
@@ -664,14 +648,9 @@ mod tests {
     }
 
     #[test]
-    fn advances_toward_waypoint() {
+    fn advances_when_ordered_to_move() {
         let rules = rules_with_mtnk();
         let mut map = map_with_size();
-        map.waypoints.push(Waypoint {
-            index: 0,
-            x: 12,
-            y: 20,
-        });
         map.entities.push(MapEntity {
             kind: MapEntityKind::Unit,
             owner: "Americans".into(),
@@ -683,9 +662,15 @@ mod tests {
             sub_cell: 0,
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
-        assert_eq!(world.entities[0].target_x, Some(12));
-        assert_eq!(world.entities[0].path.len(), 2);
+        assert_eq!(world.entities[0].target_x, None);
+        assert!(world.entities[0].path.is_empty());
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 12,
+            y: 20,
+        });
         world.advance_tick();
+        assert_eq!(world.entities[0].target_x, Some(12));
         assert_eq!(world.entities[0].x, 11);
         assert_eq!(world.entities[0].hva_frame, 1);
         world.advance_tick();
@@ -726,6 +711,12 @@ mod tests {
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
         assert!(!world.pass_grid.is_passable(12, 10));
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 1,
+            x: 14,
+            y: 10,
+        });
+        world.advance_tick();
         assert!(!world.entities[1].path.is_empty());
         assert!(!world.entities[1].path.iter().any(|&(x, y)| x == 12 && y == 10));
         // 八邻绕行仍短于直线穿墙，且不踩封死格。
@@ -769,7 +760,18 @@ mod tests {
             sub_cell: 0,
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
-        // 两车都朝同一航点；后者路径不得踩前者当前格。
+        // 两车都朝同一目标；后者路径不得踩前者当前格。
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 14,
+            y: 10,
+        });
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 1,
+            x: 14,
+            y: 10,
+        });
+        world.advance_tick();
         assert!(!world.entities[1].path.is_empty());
         assert!(!world.entities[1]
             .path
@@ -778,7 +780,7 @@ mod tests {
         for _ in 0..40 {
             world.advance_tick();
         }
-        // 至少一车抵达或贴近航点；且不同时占同一格。
+        // 至少一车抵达或贴近目标；且不同时占同一格。
         let a = (world.entities[0].x, world.entities[0].y);
         let b = (world.entities[1].x, world.entities[1].y);
         assert_ne!(a, b);
@@ -815,13 +817,23 @@ mod tests {
             sub_cell: 0,
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 12,
+            y: 10,
+        });
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 1,
+            x: 12,
+            y: 10,
+        });
         for _ in 0..30 {
             world.advance_tick();
         }
         let a = (world.entities[0].x, world.entities[0].y);
         let b = (world.entities[1].x, world.entities[1].y);
         assert_ne!(a, b);
-        // 一车占航点，另一车停在曼哈顿距离 ≤2 的邻域。
+        // 一车占目标，另一车停在曼哈顿距离 ≤2 的邻域。
         let on_wp = |p: (u16, u16)| p == (12, 10);
         assert!(on_wp(a) || on_wp(b));
         let other = if on_wp(a) { b } else { a };
@@ -850,6 +862,11 @@ mod tests {
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
         world.entities[0].turret_facing = 128;
+        world.push_command(GameCommand::MoveTo {
+            entity_index: 0,
+            x: 12,
+            y: 20,
+        });
         world.advance_tick();
         // 车身迈步后 facing 变；炮塔每 tick 最多转 TURRET_TURN_STEP。
         let body = world.entities[0].facing;
@@ -861,14 +878,9 @@ mod tests {
     }
 
     #[test]
-    fn move_to_command_overrides_waypoint() {
+    fn move_to_command_sets_target() {
         let rules = rules_with_mtnk();
         let mut map = map_with_size();
-        map.waypoints.push(Waypoint {
-            index: 0,
-            x: 18,
-            y: 20,
-        });
         map.entities.push(MapEntity {
             kind: MapEntityKind::Unit,
             owner: "Americans".into(),
@@ -880,7 +892,7 @@ mod tests {
             sub_cell: 0,
         });
         let mut world = World::new(GameEdition::Ra2, &rules, map);
-        assert_eq!(world.entities[0].target_x, Some(18));
+        assert_eq!(world.entities[0].target_x, None);
         world.push_command(GameCommand::MoveTo {
             entity_index: 0,
             x: 12,
