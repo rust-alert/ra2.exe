@@ -1,0 +1,16 @@
+[package]
+name = "ra-testing"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "无窗口遭遇战与桌面 GUI 自动化测试支撑"
+publish = false
+
+[dependencies]
+ra-types = { workspace = true }
+ra-assets = { workspace = true }
+ra-adaptor = { workspace = true }
+ra-map = { workspace = true }
+ra-world = { workspace = true }
+ra-session = { workspace = true }

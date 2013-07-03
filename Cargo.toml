@@ -16,6 +16,7 @@ ra-config = { path = "projects/ra-config" }
 ra-map = { path = "projects/ra-map" }
 ra-world = { path = "projects/ra-world" }
 ra-session = { path = "projects/ra-session" }
+ra-testing = { path = "projects/ra-testing" }
 ra-logger = { path = "projects/ra-logger" }
 ra-net = { path = "projects/ra-net" }
 ra-renderer = { path = "projects/ra-renderer" }
