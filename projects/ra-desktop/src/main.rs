@@ -13,8 +13,8 @@ use std::time::Instant;
 use ra_adaptor::{detect_edition, load_rules_chain, ResourceChain, RulesDb};
 use ra_logger;
 use ra_map::{
-    compose_skirmish_preview, load_fallback_theater_tile, load_fallback_unit_sprite,
-    mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES, MapEntityKind, MapInfo,
+    compose_skirmish_preview, find_first_boot_map, load_fallback_theater_tile,
+    load_fallback_unit_sprite, mount_theater_mixes, MapEntityKind, MapInfo,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_session::{open_skirmish_session, Session};
@@ -427,31 +427,12 @@ fn load_boot_map(
     edition: GameEdition,
     note: &mut String,
 ) -> MapInfo {
-    for name in BOOT_MAP_CANDIDATES {
-        let Some(bytes) = source.vfs.read(name) else {
-            continue;
-        };
-        match try_parse_boot_map(edition, name, &bytes) {
-            Ok(map) => {
-                let theater_mounted = mount_theater_mixes(map.theater, &mut |mix| {
-                    matches!(source.vfs.mount_nested(mix), Ok(true))
-                });
-                *note = format!(
-                    "{note} · map:{name} {}x{} {} · 剧院mix {}",
-                    map.width,
-                    map.height,
-                    map.theater.as_str(),
-                    theater_mounted
-                );
-                return map;
-            }
-            Err(e) => {
-                *note = format!("{note} · map:{name} 解析失败（{e}）");
-            }
-        }
-    }
-    *note = format!("{note} · map:无");
-    MapInfo::empty(edition, "boot")
+    let loaded = find_first_boot_map(edition, source);
+    let theater_mounted = mount_theater_mixes(loaded.map.theater, &mut |mix| {
+        matches!(source.vfs.mount_nested(mix), Ok(true))
+    });
+    *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
+    loaded.map
 }
 
 fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
@@ -489,21 +470,6 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
     );
 
     let map = load_boot_map(&mut source, chain.edition, &mut note);
-    if !map.cells.is_empty() {
-        note = format!("{note} · iso#{}", map.cells.len());
-    }
-    if !map.overlays.is_empty() {
-        note = format!("{note} · overlay#{}", map.overlays.len());
-    }
-    if !map.terrain_objects.is_empty() {
-        note = format!("{note} · terrain#{}", map.terrain_objects.len());
-    }
-    if !map.entities.is_empty() {
-        note = format!("{note} · entities#{}", map.entities.len());
-    }
-    if !map.waypoints.is_empty() {
-        note = format!("{note} · wp#{}", map.waypoints.len());
-    }
 
     let mut preview_origin = (0i32, 0i32);
     let rules = match load_rules_chain(&source, chain) {

@@ -1,6 +1,6 @@
 //! Alpha 遭遇战启动用地图探测。
 
-use ra_types::GameEdition;
+use ra_types::{AssetSource, GameEdition};
 
 use crate::theater::theater_mix_names;
 use crate::{MapInfo, Theater};
@@ -13,7 +13,15 @@ pub const BOOT_MAP_CANDIDATES: &[&str] = &[
     "mp02t4.map",
 ];
 
-/// 尝试解析一张启动地图；失败返回 `None`。
+/// `find_first_boot_map` 的结果（尚未挂载剧院 MIX）。
+#[derive(Debug)]
+pub struct BootMapResult {
+    pub map: MapInfo,
+    /// 相对本步的注记片段（不含前缀分隔符）。
+    pub note: String,
+}
+
+/// 尝试解析一张启动地图；失败返回错误文案。
 pub fn try_parse_boot_map(
     edition: GameEdition,
     name: &str,
@@ -34,4 +42,82 @@ pub fn mount_theater_mixes(
         }
     }
     n
+}
+
+/// 按候选顺序解析第一张可加载遭遇图（不挂载 MIX）。
+pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> BootMapResult {
+    let mut fail_note = String::new();
+    for name in BOOT_MAP_CANDIDATES {
+        let Ok(bytes) = source.read(name) else {
+            continue;
+        };
+        match try_parse_boot_map(edition, name, &bytes) {
+            Ok(map) => {
+                let mut note = format!(
+                    "map:{name} {}x{} {}",
+                    map.width,
+                    map.height,
+                    map.theater.as_str()
+                );
+                note.push_str(&map_content_note(&map));
+                return BootMapResult { map, note };
+            }
+            Err(e) => {
+                if fail_note.is_empty() {
+                    fail_note = format!("map:{name} 解析失败（{e}）");
+                } else {
+                    fail_note = format!("{fail_note} · map:{name} 解析失败（{e}）");
+                }
+            }
+        }
+    }
+    let note = if fail_note.is_empty() {
+        "map:无".to_string()
+    } else {
+        format!("{fail_note} · map:无")
+    };
+    BootMapResult {
+        map: MapInfo::empty(edition, "boot"),
+        note,
+    }
+}
+
+fn map_content_note(map: &MapInfo) -> String {
+    let mut parts = String::new();
+    if !map.cells.is_empty() {
+        parts = format!("{parts} · iso#{}", map.cells.len());
+    }
+    if !map.overlays.is_empty() {
+        parts = format!("{parts} · overlay#{}", map.overlays.len());
+    }
+    if !map.terrain_objects.is_empty() {
+        parts = format!("{parts} · terrain#{}", map.terrain_objects.len());
+    }
+    if !map.entities.is_empty() {
+        parts = format!("{parts} · entities#{}", map.entities.len());
+    }
+    if !map.waypoints.is_empty() {
+        parts = format!("{parts} · wp#{}", map.waypoints.len());
+    }
+    parts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ra_types::{RaError, RaResult};
+
+    struct EmptySource;
+    impl AssetSource for EmptySource {
+        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
+            Err(RaError::MissingFile(relative.to_string()))
+        }
+    }
+
+    #[test]
+    fn empty_source_yields_placeholder_map() {
+        let loaded = find_first_boot_map(GameEdition::Ra2, &EmptySource);
+        assert_eq!(loaded.map.name, "boot");
+        assert!(loaded.note.contains("map:无"));
+    }
 }

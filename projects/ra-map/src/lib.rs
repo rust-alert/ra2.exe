@@ -27,7 +27,9 @@ mod waypoints;
 use ra_assets::IniDocument;
 use ra_types::{GameEdition, RaError, RaResult};
 
-pub use boot_map::{mount_theater_mixes, try_parse_boot_map, BOOT_MAP_CANDIDATES};
+pub use boot_map::{
+    find_first_boot_map, mount_theater_mixes, try_parse_boot_map, BootMapResult, BOOT_MAP_CANDIDATES,
+};
 pub use compose::{
     compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, TerrainImage, TileBlit,
 };
