@@ -13,8 +13,7 @@ use std::time::Instant;
 use ra_adaptor::{detect_edition, load_rules_chain, ResourceChain, RulesDb};
 use ra_logger;
 use ra_map::{
-    compose_skirmish_preview, find_first_boot_map, load_fallback_theater_tile,
-    load_fallback_unit_sprite, mount_theater_mixes, MapEntityKind, MapInfo,
+    compose_boot_preview, find_first_boot_map, mount_theater_mixes, MapEntityKind, MapInfo,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_session::{open_skirmish_session, Session};
@@ -393,33 +392,19 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesDb,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    let (image, stats) = compose_skirmish_preview(
+    let preview = compose_boot_preview(
         source,
         map,
         chain.art_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
     )?;
-    let rgba = RgbaImage::new(image.width, image.height, image.pixels)?;
-    Some((
-        format!(
-            "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
-            map.name,
-            map.cells.len(),
-            image.drawn,
-            map.overlays.len(),
-            stats.overlay_shp,
-            stats.overlay_mark,
-            stats.terrain_objects,
-            stats.structures,
-            stats.mobiles,
-            rgba.width,
-            rgba.height
-        ),
-        rgba,
-        image.origin_x,
-        image.origin_y,
-    ))
+    let rgba = RgbaImage::new(
+        preview.image.width,
+        preview.image.height,
+        preview.image.pixels,
+    )?;
+    Some((preview.note, rgba, preview.origin_x, preview.origin_y))
 }
 
 fn load_boot_map(
@@ -490,18 +475,8 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
             Some(image)
         }
         None => {
-            let fallback = load_fallback_theater_tile(&source, map.theater)
-                .or_else(|| load_fallback_unit_sprite(&source));
-            match fallback {
-                Some(raw) => {
-                    note = format!("{note} · preview:{}", raw.label);
-                    RgbaImage::new(raw.width, raw.height, raw.pixels)
-                }
-                None => {
-                    note = format!("{note} · preview:无");
-                    None
-                }
-            }
+            note = format!("{note} · preview:无");
+            None
         }
     };
 

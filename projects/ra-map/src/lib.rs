@@ -44,7 +44,7 @@ pub use overlay::{decode_overlay_packs, OverlayCell, NO_OVERLAY, OVERLAY_CELLS, 
 pub use overlay_paint::paint_map_overlays;
 pub use pass_grid::{PassGrid, MAX_GROUND_CLIMB};
 pub use placements::{parse_map_entities, MapEntity, MapEntityKind};
-pub use skirmish_preview::{compose_skirmish_preview, SkirmishPreviewStats};
+pub use skirmish_preview::{compose_boot_preview, compose_skirmish_preview, BootPreviewResult, SkirmishPreviewStats};
 pub use structure_paint::paint_map_structures;
 pub use theater::{
     new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter,
