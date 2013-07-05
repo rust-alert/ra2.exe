@@ -100,11 +100,11 @@ cargo run
 `App` 实现 winit `ApplicationHandler`：
 
 - `resumed`：创建约 1024×768 窗口，`renderer.attach_window`
-- `RedrawRequested`：`world.advance_tick()`（若有）→ `draw_frame` → 刷新标题 → 再 `request_redraw`
+- `RedrawRequested`：计算经过时间 → `Session::pump` 固定 tick → 生成 `RenderSnapshot` → `draw_frame` → 刷新标题 → 再 `request_redraw`
 - `about_to_wait`：再次 `request_redraw`
 - `ControlFlow::Poll`
 
-当前逻辑帧与绘制帧绑在一起，不是独立赫兹的仿真时钟。
+逻辑帧由 `ra-session` 以固定频率推进，与绘制帧率解耦。
 
 ## 依赖面
 

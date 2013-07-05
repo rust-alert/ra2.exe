@@ -185,6 +185,7 @@ ra2.exe/                 工作区根（本 README）
     ├── ra-map/
     ├── ra-world/
     ├── ra-session/
+    ├── ra-testing/      → headless / GUI 计划（非运行时）
     ├── ra-renderer/
     ├── ra-desktop/      → 二进制 ra2
     └── ra-webui/        → cdylib Wasm 壳
@@ -251,7 +252,7 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 | `ra-map`         | 地图 / 剧院 / IsoMapPack / TMP 索引                            | [README](projects/ra-map/README.md)         |
 | `ra-world`       | 确定性世界句柄：`World`、tick、`GameCommand`、`state_hash` | [README](projects/ra-world/README.md)       |
 | `ra-session`     | 共享会话：命令转发与 `RenderSnapshot`                       | —                                          |
-| `ra-renderer`    | wgpu 呈现                                                     | [README](projects/ra-renderer/README.md)    |
+| `ra-testing`     | 测试支撑：headless 夹具与 GUI 自动化计划（非运行时）         | [README](projects/ra-testing/README.md)     |
 | `ra-renderer`    | wgpu 渲染（不实现 DirectDraw）                                 | [README](projects/ra-renderer/README.md)    |
 | `ra-desktop`     | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                            | [README](projects/ra-desktop/README.md)     |
 | `ra-webui`       | Wasm 壳                                                        | [README](projects/ra-webui/README.md)       |
@@ -263,7 +264,7 @@ Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥�
 - **共内核**：`GameEdition` 区分原版与尤里的复仇；仿真与渲染尽量版本无关，差异落在资源表与数据文件。
 - **I/O 边界**：解析器只吃字节（`AssetSource` / `MixVfs`）；文件系统与窗口留在壳层。
 - **现代 GPU**：呈现路径基于 wgpu；不把 DirectDraw / 原版 exe 注入作为主路径。
-- **可测格式层**：`ra-assets`、`ra-map` 带合成数据单元测试；完整启动验证需自备游戏目录。
+- **可测格式层**：`ra-assets`、`ra-map` 带合成数据单元测试；`ra-testing` 提供无窗口遭遇战回归。完整启动验证需自备游戏目录。
 
 ---
 

@@ -4,7 +4,7 @@
 
 > 确定性世界推进。不依赖渲染器与文件系统。
 
-没有子系统目录，没有实体表，没有寻路。当前「世界」四个公开字段加一个私有哈希，外加三个方法。
+当前包含实体、命令帧、寻路和最小战斗系统。它不创建窗口、不初始化 GPU、不读取安装目录。外层 `ra-session` 负责固定 tick 调度，adaptor 负责提供已加载的 `RulesDb`。
 
 ## 结构体长什么样
 
@@ -40,33 +40,24 @@ state_hash = state_hash
     .wrapping_add(edition.as_str().len() as u64)
 ```
 
-注意哈希 **还没**混入地图尺寸、单元格、实体或规则。它现在的作用是：证明「有一条可复现的状态摘要管道」，并给桌面窗口标题提供变化的
-`t{N}`。多机锁步若直接拿今天的 `state_hash` 当校验，信息量不够——那是未来要把更多字段折进哈希时的事。
+哈希当前混入地图尺寸、实体状态、目标、冷却、路径和最近输入帧，可用于本地确定性回归。它仍不代表完整零售玩法状态，不能单独作为既有战网兼容证明。
 
 ### `state_hash(&self) -> u64`
 
 只读访问器。
 
-## 谁每帧调用它
+## 谁调用它
 
-`ra-desktop` 在 `WindowEvent::RedrawRequested` 里：
-
-1. `world.advance_tick()`（若 world 存在）
-2. `renderer.draw_frame(world.as_ref())`
-3. 刷新标题 `… · t{tick}`
-4. `request_redraw()`，事件循环 `ControlFlow::Poll`
-
-也就是说：tick 目前跟绘制帧绑在一起，不是独立的固定赫兹仿真时钟。若以后要 15/30 Hz 逻辑帧，应把 `advance_tick` 从 redraw
-里拆出去——那是桌面壳的调度问题，本结构体仍然只负责「推进一次」。
+`ra-session` 通过 `pump` 按 15Hz 固定步长调用 `advance_tick`。桌面重绘只生成快照并呈现，不决定逻辑 tick 数量。测试可直接调用 `Session::tick` 精确单步。
 
 ## 和渲染器的边界
 
-`ra-renderer::draw_frame` 接收 `Option<&World>`，但实现里对世界的使用极其克制（edition 相关逻辑基本可忽略）。渲染器有 GPU
-副作用；世界刻意保持纯状态，方便以后在无窗口环境跑确定性测试。不要把 `wgpu` 类型引进本 crate。
+`ra-renderer::draw_frame` 接收 `Option<&RenderSnapshot>`。渲染器有 GPU
+副作用；世界刻意保持纯状态，方便在无窗口环境跑确定性测试。不要把 `wgpu` 类型引进本 crate。
 
-## 还没接上的基类型
+## 当前边界
 
-`ra-types` 里的 `Fixed16`、`EntityId`、`TypeId` 本应首先在世界层落地。现状：只有 `PlayerId` 出现。README 不假装已经有单位列表。
+`GameCommand` 目前只有 `MoveTo` 与 `Attack`，实体仍使用 `usize` 下标，攻击参数和部分行为是最小遭遇战常量。生产、经济、建筑、战役和完整扩展语义尚未实现。
 
 ## 构建
 
@@ -74,7 +65,7 @@ state_hash = state_hash
 cargo build -p ra-world
 ```
 
-无测试、无 feature。许可 MPL-2.0。
+跨 crate 的无窗口遭遇战回归在 `ra-testing`，许可 MPL-2.0。
 
 ## `state_hash` 手算示例
 
