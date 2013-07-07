@@ -44,6 +44,8 @@ pub struct WorldEntity {
     pub speed: u32,
     /// 攻击射程（曼哈顿格）；由 rules `Sight` 播种，缺省用预览常量。
     pub attack_range: u32,
+    /// 单次伤害；由 `Strength` 派生，缺省用预览常量。
+    pub attack_damage: u32,
     pub techno_kind: Option<TechnoKind>,
     /// 简易移动目标格；无航点时为 `None`。
     pub target_x: Option<u16>,
@@ -91,6 +93,9 @@ impl World {
                 let attack_range = tt
                     .map(|t| t.sight.max(1))
                     .unwrap_or(DEFAULT_ATTACK_RANGE);
+                let attack_damage = tt
+                    .map(|t| (t.strength / 4).max(1))
+                    .unwrap_or(DEFAULT_ATTACK_DAMAGE);
                 WorldEntity {
                     kind: e.kind,
                     owner: e.owner.clone(),
@@ -104,6 +109,7 @@ impl World {
                     max_health,
                     speed,
                     attack_range,
+                    attack_damage,
                     techno_kind: tt.map(|t| t.kind),
                     target_x: None,
                     target_y: None,
@@ -251,7 +257,8 @@ impl World {
                 self.entities[ti].y,
             );
             if dist <= self.entities[i].attack_range {
-                damage_events.push((ti, DEFAULT_ATTACK_DAMAGE));
+                let dmg = self.entities[i].attack_damage;
+                damage_events.push((ti, dmg));
                 self.entities[i].attack_cooldown = ATTACK_COOLDOWN_TICKS;
             }
         }
@@ -389,6 +396,7 @@ impl World {
                 .wrapping_add(u64::from(e.max_health).wrapping_shl(1))
                 .wrapping_add(u64::from(e.speed).wrapping_shl(2))
                 .wrapping_add(u64::from(e.attack_range).wrapping_shl(3))
+                .wrapping_add(u64::from(e.attack_damage).wrapping_shl(4))
                 .wrapping_add(u64::from(e.dead))
                 .wrapping_add(u64::from(e.hva_frame) << 8)
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
@@ -651,6 +659,7 @@ mod tests {
         assert_eq!(e.health, 400);
         assert_eq!(e.speed, 64);
         assert_eq!(e.attack_range, 6);
+        assert_eq!(e.attack_damage, 100);
         assert_eq!(e.techno_kind, Some(TechnoKind::Vehicle));
         assert_eq!(world.bound_techno_count(), 1);
     }
