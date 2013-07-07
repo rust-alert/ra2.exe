@@ -23,3 +23,13 @@ ra-logger = { workspace = true }
 ra-net = { workspace = true }
 ra-renderer = { workspace = true }
 winit = { workspace = true }
+
+[features]
+default = []
+# 仅测试构建：合成场景启动 + 状态旁路文件（依赖 `ra-testing`）。
+test-harness = ["dep:ra-testing"]
+
+[dependencies.ra-testing]
+workspace = true
+optional = true
+

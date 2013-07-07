@@ -21,7 +21,7 @@ Windows 第一版执行器应独立放在测试工具或专属 crate 中，使�
 ## 下一步
 
 1. 为 Alpha 冻结地图、单位和胜负剧本后，用真实场景替换合成夹具。
-2. 在 `ra-desktop` 增加仅测试构建可用的启动场景和可读状态接口。
+2. 在 `ra-desktop` 增加仅测试构建可用的启动场景和可读状态接口：`--features test-harness`，`--test-scene=duel` / `RA2_TEST_SCENE`，以及 `RA2_TEST_STATUS_PATH` 旁路文件。
 3. 实现 Windows GUI 执行器，先覆盖启动、选中、移动、攻击、胜负、截图和退出。
 4. 把 headless 回归放入所有平台 CI，把 GUI 自动化放入 Windows 带桌面会话的独立作业。
 

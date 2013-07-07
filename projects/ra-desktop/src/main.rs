@@ -6,7 +6,10 @@
 
 mod config;
 mod fs_source;
+#[cfg(feature = "test-harness")]
+mod test_boot;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -48,10 +51,22 @@ struct App {
     shift_down: bool,
     /// Ctrl 是否按下（全选同阵营等）。
     ctrl_down: bool,
+    /// 窗口逻辑尺寸（测试构建可固定）。
+    window_width: f64,
+    window_height: f64,
+    /// 测试状态旁路文件（可选）。
+    status_path: Option<PathBuf>,
 }
 
 impl App {
-    fn new(_boot_note: String, session: Option<Session>, preview: Option<RgbaImage>) -> Self {
+    fn new(
+        _boot_note: String,
+        session: Option<Session>,
+        preview: Option<RgbaImage>,
+        window_width: f64,
+        window_height: f64,
+        status_path: Option<PathBuf>,
+    ) -> Self {
         let edition = session
             .as_ref()
             .map(|s| s.world.edition.as_str())
@@ -73,6 +88,9 @@ impl App {
             logged_outcome: None,
             shift_down: false,
             ctrl_down: false,
+            window_width,
+            window_height,
+            status_path,
         }
     }
 
@@ -180,6 +198,12 @@ impl App {
             };
             window.set_title(&title);
         }
+        if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
+            #[cfg(feature = "test-harness")]
+            crate::test_boot::write_status(path, session);
+            #[cfg(not(feature = "test-harness"))]
+            let _ = (path, session);
+        }
     }
 
     fn note_outcome_once(&mut self) {
@@ -207,7 +231,10 @@ impl ApplicationHandler for App {
                 .create_window(
                     Window::default_attributes()
                         .with_title(self.title_base.clone())
-                        .with_inner_size(winit::dpi::LogicalSize::new(1024.0, 768.0)),
+                        .with_inner_size(winit::dpi::LogicalSize::new(
+                            self.window_width,
+                            self.window_height,
+                        )),
                 )
                 .expect("创建窗口失败"),
         );
@@ -520,6 +547,70 @@ fn run() -> RaResult<()> {
     let log_path = ra_logger::init_default(true)?;
     ra_logger::info(format!("ra2 启动 · log={}", log_path.display()));
 
+    let (boot, window_width, window_height, status_path) = resolve_boot()?;
+
+    if let Some(session) = boot.session.as_ref() {
+        ra_logger::info(format!(
+            "preview_origin=({}, {}) entities={}",
+            session.preview_origin_x,
+            session.preview_origin_y,
+            session.world.entities.len()
+        ));
+    }
+
+    let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    let mut app = App::new(
+        boot.note,
+        boot.session,
+        boot.preview,
+        window_width,
+        window_height,
+        status_path,
+    );
+    event_loop
+        .run_app(&mut app)
+        .map_err(|e| RaError::Msg(e.to_string()))?;
+    ra_logger::info("事件循环结束");
+    Ok(())
+}
+
+fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>)> {
+    #[cfg(feature = "test-harness")]
+    {
+        if let Some(scene) = crate::test_boot::requested_scene() {
+            let status_path = crate::test_boot::status_path();
+            let window_width = crate::test_boot::TEST_WINDOW_WIDTH;
+            let window_height = crate::test_boot::TEST_WINDOW_HEIGHT;
+            ra_logger::info(format!(
+                "test-harness scene={scene} window={}x{} status={}",
+                window_width,
+                window_height,
+                status_path
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "—".into())
+            ));
+            let t = crate::test_boot::boot_scene(&scene)?;
+            ra_logger::info(format!("boot: {} · session=ok", t.note));
+            return Ok((
+                BootResult {
+                    note: t.note,
+                    session: Some(t.session),
+                    preview: t.preview,
+                },
+                window_width,
+                window_height,
+                status_path,
+            ));
+        }
+    }
+
+    Ok((boot_from_install(), 1024.0, 768.0, None))
+}
+
+fn boot_from_install() -> BootResult {
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
         ra_logger::warn(format!("配置诊断 {} · {}", d.source, d.message));
@@ -548,22 +639,5 @@ fn run() -> RaResult<()> {
         boot.note,
         if boot.session.is_some() { "ok" } else { "none" }
     ));
-    if let Some(session) = boot.session.as_ref() {
-        ra_logger::info(format!(
-            "preview_origin=({}, {}) entities={}",
-            session.preview_origin_x,
-            session.preview_origin_y,
-            session.world.entities.len()
-        ));
-    }
-
-    let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
-    event_loop.set_control_flow(ControlFlow::Poll);
-
-    let mut app = App::new(boot.note, boot.session, boot.preview);
-    event_loop
-        .run_app(&mut app)
-        .map_err(|e| RaError::Msg(e.to_string()))?;
-    ra_logger::info("事件循环结束");
-    Ok(())
+    boot
 }

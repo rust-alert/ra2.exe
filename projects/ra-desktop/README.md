@@ -106,6 +106,20 @@ cargo run
 
 逻辑帧由 `ra-session` 以固定频率推进，与绘制帧率解耦。
 
+## 测试启动（可选 feature）
+
+默认发布构建不含测试依赖。需要固定合成场景时：
+
+```shell
+cargo run -p ra-desktop --features test-harness -- --test-scene=duel
+# 或
+set RA2_TEST_SCENE=duel
+set RA2_TEST_STATUS_PATH=ra2-test-status.txt
+cargo run -p ra-desktop --features test-harness
+```
+
+此时窗口固定 1280×720，会话来自 `ra-testing::standard_duel`（不读安装目录）。若设置 `RA2_TEST_STATUS_PATH`，每帧刷新标题时写出 `tick` / `hash` / `outcome` / `selected` 旁路，供后续 GUI 自动化轮询。
+
 ## 依赖面
 
 串联工作区几乎全部库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-config`、`ra-map`、`ra-world`、`ra-session`、`ra-renderer`，外加 `winit`。不直接依赖
