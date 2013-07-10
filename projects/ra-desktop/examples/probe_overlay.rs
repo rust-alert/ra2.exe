@@ -10,10 +10,8 @@ fn mount_edition(root: &Path, edition: GameEdition) -> RaResult<(PathBuf, MixVfs
     let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
-        let path = find_ci_file(root, name)
-            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let path = find_ci_file(root, name).ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         if let Err(e) = vfs.mount_bytes(name.clone(), data) {
             eprintln!("skip {name}: {e}");
         }
@@ -29,16 +27,10 @@ fn mount_edition(root: &Path, edition: GameEdition) -> RaResult<(PathBuf, MixVfs
 
 fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let (_root, vfs, nested) = mount_edition(root, edition)?;
-    const CANDIDATES: &[&str] = &[
-        "mp01t4.map",
-        "mp03t4.map",
-        "mp01t2.map",
-        "mp02t4.map",
-        "dustbowl.map",
-        "goldst.map",
-    ];
+    const CANDIDATES: &[&str] = &["mp01t4.map", "mp03t4.map", "mp01t2.map", "mp02t4.map", "dustbowl.map", "goldst.map"];
     for name in CANDIDATES {
-        let Some(bytes) = vfs.read(name) else {
+        let Some(bytes) = vfs.read(name)
+        else {
             continue;
         };
         let map = MapInfo::parse_ini(edition, *name, &bytes)?;
@@ -61,7 +53,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(root) = args.next().map(PathBuf::from) else {
+    let Some(root) = args.next().map(PathBuf::from)
+    else {
         eprintln!("用法: probe_overlay <游戏目录> [edition]");
         std::process::exit(2);
     };

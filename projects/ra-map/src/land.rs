@@ -4,19 +4,30 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum LandType {
+    /// 平地。
     Clear = 0,
+    /// 崎岖。
     Rough = 1,
+    /// 道路。
     Road = 2,
+    /// 水域。
     Water = 3,
+    /// 岩石。
     Rock = 4,
+    /// 墙。
     Wall = 5,
+    /// 矿脉 / 晶体类。
     Tiberium = 6,
+    /// 沙滩。
     Beach = 7,
+    /// 冰面。
     Ice = 8,
+    /// 铁路。
     Railroad = 9,
 }
 
 impl LandType {
+    /// 由 TMP `terrain_type` 字节解析；未知值返回 `None`。
     pub fn from_u8(v: u8) -> Option<Self> {
         match v {
             0 => Some(Self::Clear),
@@ -41,20 +52,5 @@ pub fn ground_passable(terrain_type: u8) -> bool {
         Some(_) => true,
         // 未知值保守可走，避免整图封死。
         None => true,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn water_and_rock_block_ground() {
-        assert!(!ground_passable(3));
-        assert!(!ground_passable(4));
-        assert!(!ground_passable(5));
-        assert!(ground_passable(0));
-        assert!(ground_passable(2));
-        assert!(ground_passable(255));
     }
 }

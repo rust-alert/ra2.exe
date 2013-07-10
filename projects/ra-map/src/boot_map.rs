@@ -2,39 +2,27 @@
 
 use ra_types::{AssetSource, GameEdition};
 
-use crate::theater::theater_mix_names;
-use crate::{MapInfo, Theater};
+use crate::{MapInfo, Theater, theater::theater_mix_names};
 
 /// Alpha 单机优先尝试的遭遇图文件名（按序）。
-pub const BOOT_MAP_CANDIDATES: &[&str] = &[
-    "mp03t4.map",
-    "mp01t4.map",
-    "mp01t2.map",
-    "mp02t4.map",
-];
+pub const BOOT_MAP_CANDIDATES: &[&str] = &["mp03t4.map", "mp01t4.map", "mp01t2.map", "mp02t4.map"];
 
 /// `find_first_boot_map` 的结果（尚未挂载剧院 MIX）。
 #[derive(Debug)]
 pub struct BootMapResult {
+    /// 解析得到的地图（失败时为空占位图）。
     pub map: MapInfo,
     /// 相对本步的注记片段（不含前缀分隔符）。
     pub note: String,
 }
 
 /// 尝试解析一张启动地图；失败返回错误文案。
-pub fn try_parse_boot_map(
-    edition: GameEdition,
-    name: &str,
-    bytes: &[u8],
-) -> Result<MapInfo, String> {
+pub fn try_parse_boot_map(edition: GameEdition, name: &str, bytes: &[u8]) -> Result<MapInfo, String> {
     MapInfo::parse_ini(edition, name, bytes).map_err(|e| e.to_string())
 }
 
 /// 为剧院挂载标准剧院 MIX 名；`mount_nested` 返回是否新挂载。
-pub fn mount_theater_mixes(
-    theater: Theater,
-    mount_nested: &mut dyn FnMut(&str) -> bool,
-) -> usize {
+pub fn mount_theater_mixes(theater: Theater, mount_nested: &mut dyn FnMut(&str) -> bool) -> usize {
     let mut n = 0usize;
     for mix_name in theater_mix_names(theater) {
         if mount_nested(mix_name) {
@@ -48,38 +36,28 @@ pub fn mount_theater_mixes(
 pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> BootMapResult {
     let mut fail_note = String::new();
     for name in BOOT_MAP_CANDIDATES {
-        let Ok(bytes) = source.read(name) else {
+        let Ok(bytes) = source.read(name)
+        else {
             continue;
         };
         match try_parse_boot_map(edition, name, &bytes) {
             Ok(map) => {
-                let mut note = format!(
-                    "map:{name} {}x{} {}",
-                    map.width,
-                    map.height,
-                    map.theater.as_str()
-                );
+                let mut note = format!("map:{name} {}x{} {}", map.width, map.height, map.theater.as_str());
                 note.push_str(&map_content_note(&map));
                 return BootMapResult { map, note };
             }
             Err(e) => {
                 if fail_note.is_empty() {
                     fail_note = format!("map:{name} 解析失败（{e}）");
-                } else {
+                }
+                else {
                     fail_note = format!("{fail_note} · map:{name} 解析失败（{e}）");
                 }
             }
         }
     }
-    let note = if fail_note.is_empty() {
-        "map:无".to_string()
-    } else {
-        format!("{fail_note} · map:无")
-    };
-    BootMapResult {
-        map: MapInfo::empty(edition, "boot"),
-        note,
-    }
+    let note = if fail_note.is_empty() { "map:无".to_string() } else { format!("{fail_note} · map:无") };
+    BootMapResult { map: MapInfo::empty(edition, "boot"), note }
 }
 
 fn map_content_note(map: &MapInfo) -> String {
@@ -100,24 +78,4 @@ fn map_content_note(map: &MapInfo) -> String {
         parts = format!("{parts} · wp#{}", map.waypoints.len());
     }
     parts
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_types::{RaError, RaResult};
-
-    struct EmptySource;
-    impl AssetSource for EmptySource {
-        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
-    }
-
-    #[test]
-    fn empty_source_yields_placeholder_map() {
-        let loaded = find_first_boot_map(GameEdition::Ra2, &EmptySource);
-        assert_eq!(loaded.map.name, "boot");
-        assert!(loaded.note.contains("map:无"));
-    }
 }

@@ -3,33 +3,43 @@
 use ra_assets::Palette;
 use ra_types::AssetSource;
 
-use crate::compose::TerrainImage;
-use crate::fallback_preview::{
-    load_fallback_theater_tile, load_fallback_unit_sprite, RawRgbaImage,
+use crate::{
+    MapInfo,
+    compose::TerrainImage,
+    fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite},
+    overlay_paint::paint_map_overlays,
+    structure_paint::paint_map_structures,
+    terrain_paint::paint_map_terrain_objects,
+    terrain_preview::compose_terrain_preview,
 };
-use crate::overlay_paint::paint_map_overlays;
-use crate::structure_paint::paint_map_structures;
-use crate::terrain_paint::paint_map_terrain_objects;
-use crate::terrain_preview::compose_terrain_preview;
-use crate::MapInfo;
 
 /// 各叠画层统计（供 boot 注记）。
 #[derive(Debug, Clone, Default)]
 pub struct SkirmishPreviewStats {
+    /// Overlay SHP 画上的格数。
     pub overlay_shp: usize,
+    /// Overlay 色块回退格数。
     pub overlay_mark: usize,
+    /// 地形物件叠画数。
     pub terrain_objects: usize,
+    /// 建筑叠画数。
     pub structures: usize,
+    /// 移动单位叠画数（启动预览常为 0）。
     pub mobiles: usize,
 }
 
 /// 启动预览合成结果（含注记与原点）。
 #[derive(Debug, Clone)]
 pub struct BootPreviewResult {
+    /// 预览图像。
     pub image: RawRgbaImage,
+    /// 画布原点世界 X。
     pub origin_x: i32,
+    /// 画布原点世界 Y。
     pub origin_y: i32,
+    /// 人类可读注记。
     pub note: String,
+    /// 各层统计。
     pub stats: SkirmishPreviewStats,
 }
 
@@ -42,20 +52,10 @@ pub fn compose_skirmish_preview(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<(TerrainImage, SkirmishPreviewStats)> {
     let mut image = compose_terrain_preview(source, map)?;
-    let (overlay_shp, overlay_mark) =
-        paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name);
+    let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner);
-    Some((
-        image,
-        SkirmishPreviewStats {
-            overlay_shp,
-            overlay_mark,
-            terrain_objects,
-            structures,
-            mobiles: 0,
-        },
-    ))
+    Some((image, SkirmishPreviewStats { overlay_shp, overlay_mark, terrain_objects, structures, mobiles: 0 }))
 }
 
 /// 合成启动预览；失败时回退剧院砖或单位精灵。
@@ -66,9 +66,7 @@ pub fn compose_boot_preview(
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    if let Some((image, stats)) =
-        compose_skirmish_preview(source, map, art_ini, overlay_type_name, remap_owner)
-    {
+    if let Some((image, stats)) = compose_skirmish_preview(source, map, art_ini, overlay_type_name, remap_owner) {
         let note = format!(
             "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
             map.name,
@@ -86,19 +84,13 @@ pub fn compose_boot_preview(
         return Some(BootPreviewResult {
             origin_x: image.origin_x,
             origin_y: image.origin_y,
-            image: RawRgbaImage {
-                label: note.clone(),
-                width: image.width,
-                height: image.height,
-                pixels: image.pixels,
-            },
+            image: RawRgbaImage { label: note.clone(), width: image.width, height: image.height, pixels: image.pixels },
             note,
             stats,
         });
     }
 
-    let fallback = load_fallback_theater_tile(source, map.theater)
-        .or_else(|| load_fallback_unit_sprite(source))?;
+    let fallback = load_fallback_theater_tile(source, map.theater).or_else(|| load_fallback_unit_sprite(source))?;
     Some(BootPreviewResult {
         note: fallback.label.clone(),
         origin_x: 0,

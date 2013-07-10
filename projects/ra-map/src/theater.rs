@@ -2,16 +2,23 @@
 
 use ra_types::{RaError, RaResult};
 
+/// 地图剧院（决定 MIX / 调色板 / TMP 扩展名）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Theater {
+    /// 温带。
     Temperate,
+    /// 雪地。
     Snow,
+    /// 城市。
     Urban,
+    /// 月球。
     Lunar,
+    /// 沙漠。
     Desert,
 }
 
 impl Theater {
+    /// 小写剧院名（资源路径用）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Temperate => "temperate",
@@ -22,6 +29,7 @@ impl Theater {
         }
     }
 
+    /// 解析地图 INI 中的 `Theater=` 值。
     pub fn parse(s: &str) -> RaResult<Self> {
         match s.trim().to_ascii_uppercase().as_str() {
             "TEMPERATE" | "TEM" => Ok(Self::Temperate),
@@ -100,15 +108,4 @@ pub fn new_theater_shp_name(stem: &str, theater: Theater) -> String {
     name.make_ascii_lowercase();
     name.push_str(".shp");
     name
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn temperate_new_theater_name() {
-        assert_eq!(new_theater_shp_name("CAMSC01", Theater::Temperate), "ctmsc01.shp");
-        assert_eq!(new_theater_shp_name("CAAIRP", Theater::Temperate), "ctairp.shp");
-    }
 }

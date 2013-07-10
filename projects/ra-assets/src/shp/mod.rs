@@ -5,39 +5,48 @@ mod decode;
 use ra_types::{RaError, RaResult};
 
 use crate::Palette;
-use crate::shp::decode::decode_rle_frame;
+
+pub use decode::decode_rle_frame;
 
 const FORMAT_RLE_ZERO_BIT: u8 = 0x02;
 
 /// 解析后的 SHP 文件。
 #[derive(Debug, Clone)]
 pub struct ShpFile {
+    /// 画布宽。
     pub width: u16,
+    /// 画布高。
     pub height: u16,
+    /// 各帧。
     pub frames: Vec<ShpFrame>,
 }
 
 /// 单帧：调色板索引像素。
 #[derive(Debug, Clone)]
 pub struct ShpFrame {
+    /// 相对画布原点的 X。
     pub frame_x: u16,
+    /// 相对画布原点的 Y。
     pub frame_y: u16,
+    /// 帧宽。
     pub frame_width: u16,
+    /// 帧高。
     pub frame_height: u16,
+    /// 格式标志（bit1 = RLE-Zero）。
     pub format: u8,
+    /// 行优先调色板索引。
     pub pixels: Vec<u8>,
 }
 
 impl ShpFile {
+    /// 解析 SHP(TS) 字节。
     pub fn parse(data: &[u8]) -> RaResult<Self> {
         if data.len() < 8 {
             return Err(RaError::Parse("shp 头过小".into()));
         }
         let zero = read_u16(data, 0);
         if zero != 0 {
-            return Err(RaError::Parse(format!(
-                "非 SHP(TS) 标记: 首字 {zero}"
-            )));
+            return Err(RaError::Parse(format!("非 SHP(TS) 标记: 首字 {zero}")));
         }
         let width = read_u16(data, 2);
         let height = read_u16(data, 4);
@@ -58,14 +67,7 @@ impl ShpFile {
             let data_offset = read_u32(data, o + 20) as usize;
 
             if frame_width == 0 || frame_height == 0 {
-                frames.push(ShpFrame {
-                    frame_x,
-                    frame_y,
-                    frame_width,
-                    frame_height,
-                    format,
-                    pixels: Vec::new(),
-                });
+                frames.push(ShpFrame { frame_x, frame_y, frame_width, frame_height, format, pixels: Vec::new() });
                 continue;
             }
 
@@ -76,30 +78,21 @@ impl ShpFile {
             let slice = &data[data_offset..];
             let pixels = if (format & FORMAT_RLE_ZERO_BIT) != 0 {
                 decode_rle_frame(slice, frame_width as usize, frame_height as usize)?
-            } else {
+            }
+            else {
                 if slice.len() < pixel_count {
                     return Err(RaError::Parse(format!("shp 帧 {i} 原始像素截断")));
                 }
                 slice[..pixel_count].to_vec()
             };
 
-            frames.push(ShpFrame {
-                frame_x,
-                frame_y,
-                frame_width,
-                frame_height,
-                format,
-                pixels,
-            });
+            frames.push(ShpFrame { frame_x, frame_y, frame_width, frame_height, format, pixels });
         }
 
-        Ok(Self {
-            width,
-            height,
-            frames,
-        })
+        Ok(Self { width, height, frames })
     }
 
+    /// 帧数量。
     pub fn frame_count(&self) -> usize {
         self.frames.len()
     }
@@ -123,36 +116,4 @@ fn read_u16(data: &[u8], offset: usize) -> u16 {
 
 fn read_u32(data: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn raw_frame_shp() -> Vec<u8> {
-        let mut data = Vec::new();
-        data.extend_from_slice(&0u16.to_le_bytes());
-        data.extend_from_slice(&1u16.to_le_bytes());
-        data.extend_from_slice(&1u16.to_le_bytes());
-        data.extend_from_slice(&1u16.to_le_bytes());
-        data.extend_from_slice(&0u16.to_le_bytes());
-        data.extend_from_slice(&0u16.to_le_bytes());
-        data.extend_from_slice(&1u16.to_le_bytes());
-        data.extend_from_slice(&1u16.to_le_bytes());
-        data.push(0);
-        data.extend_from_slice(&[0, 0, 0]);
-        data.extend_from_slice(&[0, 0, 0, 0]);
-        data.extend_from_slice(&0u32.to_le_bytes());
-        let offset = (8 + 24) as u32;
-        data.extend_from_slice(&offset.to_le_bytes());
-        data.push(5);
-        data
-    }
-
-    #[test]
-    fn parse_raw_one_pixel() {
-        let shp = ShpFile::parse(&raw_frame_shp()).unwrap();
-        assert_eq!(shp.frame_count(), 1);
-        assert_eq!(shp.frames[0].pixels, vec![5]);
-    }
 }

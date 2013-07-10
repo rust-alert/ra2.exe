@@ -1,19 +1,30 @@
 //! 长度前缀成帧与消息编解码。
 
-use crate::{
-    fnv1a64, InputCommand, MatchFingerprint, SessionMessage, StateDigest, MAX_PAYLOAD_BYTES,
-    PROTOCOL_VERSION,
-};
+use crate::{InputCommand, MAX_PAYLOAD_BYTES, MatchFingerprint, PROTOCOL_VERSION, SessionMessage, StateDigest, fnv1a64};
 use ra_types::PlayerId;
 
 /// 成帧 / 编解码错误。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NetCodecError {
+    /// 缓冲区不足以完成读取。
     Truncated,
-    PayloadTooLarge { len: usize },
-    UnknownTag(u8),
+    /// 载荷长度超过 [`MAX_PAYLOAD_BYTES`]。
+    PayloadTooLarge {
+        /// 实际长度（字节）。
+        len: usize,
+    },
+    /// 消息体首字节为未知标签。
+    UnknownTag(
+        /// 未知标签值。
+        u8,
+    ),
+    /// 内嵌字符串非合法 UTF-8。
     BadUtf8,
-    ProtocolMismatch { got: u16 },
+    /// Hello 中的协议版本与 [`PROTOCOL_VERSION`] 不一致。
+    ProtocolMismatch {
+        /// 对端声明的版本。
+        got: u16,
+    },
 }
 
 impl std::fmt::Display for NetCodecError {
@@ -38,7 +49,7 @@ const TAG_DIGEST: u8 = 3;
 const TAG_RESYNC_REQ: u8 = 4;
 const TAG_RESYNC_SNAP: u8 = 5;
 
-/// 编码为 `[u32 BE 长度][body]`。
+/// 将 [`SessionMessage`] 编码为 `[u32 BE 长度][body]` 帧。
 pub fn encode_frame(msg: &SessionMessage) -> Result<Vec<u8>, NetCodecError> {
     let body = encode_body(msg)?;
     if body.len() > MAX_PAYLOAD_BYTES {
@@ -50,7 +61,7 @@ pub fn encode_frame(msg: &SessionMessage) -> Result<Vec<u8>, NetCodecError> {
     Ok(out)
 }
 
-/// 解码一帧；返回消息与消耗字节数（含长度头）。
+/// 从缓冲区解码一帧；返回消息与消耗字节数（含 4 字节长度头）。
 pub fn decode_frame(buf: &[u8]) -> Result<(SessionMessage, usize), NetCodecError> {
     if buf.len() < 4 {
         return Err(NetCodecError::Truncated);
@@ -69,10 +80,7 @@ pub fn decode_frame(buf: &[u8]) -> Result<(SessionMessage, usize), NetCodecError
 fn encode_body(msg: &SessionMessage) -> Result<Vec<u8>, NetCodecError> {
     let mut b = Vec::new();
     match msg {
-        SessionMessage::Hello {
-            protocol,
-            fingerprint,
-        } => {
+        SessionMessage::Hello { protocol, fingerprint } => {
             b.push(TAG_HELLO);
             b.extend_from_slice(&protocol.to_be_bytes());
             write_str(&mut b, &fingerprint.edition)?;
@@ -85,9 +93,7 @@ fn encode_body(msg: &SessionMessage) -> Result<Vec<u8>, NetCodecError> {
             b.extend_from_slice(&cmd.sequence.to_be_bytes());
             b.extend_from_slice(&cmd.tick.to_be_bytes());
             if cmd.payload.len() > MAX_PAYLOAD_BYTES {
-                return Err(NetCodecError::PayloadTooLarge {
-                    len: cmd.payload.len(),
-                });
+                return Err(NetCodecError::PayloadTooLarge { len: cmd.payload.len() });
             }
             b.extend_from_slice(&(cmd.payload.len() as u32).to_be_bytes());
             b.extend_from_slice(&cmd.payload);
@@ -129,14 +135,7 @@ fn decode_body(body: &[u8]) -> Result<SessionMessage, NetCodecError> {
             let edition = read_str(body, &mut i)?;
             let map = read_str(body, &mut i)?;
             let rules_hash = read_u64(body, &mut i)?;
-            Ok(SessionMessage::Hello {
-                protocol,
-                fingerprint: MatchFingerprint {
-                    edition,
-                    map,
-                    rules_hash,
-                },
-            })
+            Ok(SessionMessage::Hello { protocol, fingerprint: MatchFingerprint { edition, map, rules_hash } })
         }
         TAG_COMMAND => {
             if i >= body.len() {
@@ -151,12 +150,7 @@ fn decode_body(body: &[u8]) -> Result<SessionMessage, NetCodecError> {
                 return Err(NetCodecError::PayloadTooLarge { len: plen });
             }
             let payload = read_bytes(body, &mut i, plen)?;
-            Ok(SessionMessage::Command(InputCommand {
-                player,
-                sequence,
-                tick,
-                payload,
-            }))
+            Ok(SessionMessage::Command(InputCommand { player, sequence, tick, payload }))
         }
         TAG_DIGEST => {
             let tick = read_u64(body, &mut i)?;
@@ -233,38 +227,7 @@ fn read_u64(buf: &[u8], i: &mut usize) -> Result<u64, NetCodecError> {
     Ok(u64::from_be_bytes(a))
 }
 
-/// 快速校验：指纹 rules_hash 是否等于给定规则字节。
+/// 快速校验：指纹 `rules_hash` 是否等于给定规则字节的 FNV-1a 哈希。
 pub fn fingerprint_matches_rules(fp: &MatchFingerprint, rules_bytes: &[u8]) -> bool {
     fp.rules_hash == fnv1a64(rules_bytes)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::PROTOCOL_VERSION;
-
-    #[test]
-    fn roundtrip_hello_and_digest() {
-        let msg = SessionMessage::Hello {
-            protocol: PROTOCOL_VERSION,
-            fingerprint: MatchFingerprint::build("ra2", "m.map", b"rules"),
-        };
-        let frame = encode_frame(&msg).unwrap();
-        let (decoded, n) = decode_frame(&frame).unwrap();
-        assert_eq!(n, frame.len());
-        assert_eq!(decoded, msg);
-
-        let d = SessionMessage::Digest(StateDigest {
-            tick: 9,
-            hash: 0xabc,
-        });
-        let frame = encode_frame(&d).unwrap();
-        let (decoded, _) = decode_frame(&frame).unwrap();
-        assert_eq!(decoded, d);
-    }
-
-    #[test]
-    fn rejects_truncated() {
-        assert!(decode_frame(&[0, 0, 0, 8, 1]).is_err());
-    }
 }

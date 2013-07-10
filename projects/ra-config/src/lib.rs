@@ -2,13 +2,19 @@
 //!
 //! 本 crate 不解释游戏语义；adaptor 决定读哪些文件及含义。
 
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+#![deny(missing_docs)]
+
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 /// 一条配置诊断。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigDiagnostic {
+    /// 来源标签（如文件路径或 `defaults`）。
     pub source: String,
+    /// 人类可读说明。
     pub message: String,
 }
 
@@ -19,18 +25,22 @@ pub struct ConfigTable {
 }
 
 impl ConfigTable {
+    /// 空表。
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// 按键取值。
     pub fn get(&self, key: &str) -> Option<&str> {
         self.values.get(key).map(|s| s.as_str())
     }
 
+    /// 插入或覆盖。
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.values.insert(key.into(), value.into());
     }
 
+    /// 遍历键值（按键排序）。
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         self.values.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
@@ -39,18 +49,23 @@ impl ConfigTable {
 /// 带来源标签的一层配置。
 #[derive(Debug, Clone)]
 pub struct ConfigLayer {
+    /// 层标签。
     pub label: String,
+    /// 该层键值。
     pub table: ConfigTable,
 }
 
 /// 合并结果：后者覆盖前者同名键。
 #[derive(Debug, Clone, Default)]
 pub struct MergedConfig {
+    /// 合并后的表。
     pub table: ConfigTable,
+    /// 合并过程中的诊断。
     pub diagnostics: Vec<ConfigDiagnostic>,
 }
 
 impl MergedConfig {
+    /// 按顺序合并多层；后层覆盖前层。
     pub fn merge_layers(layers: &[ConfigLayer]) -> Self {
         let mut out = Self::default();
         for layer in layers {
@@ -61,6 +76,7 @@ impl MergedConfig {
         out
     }
 
+    /// 读取合并后的键。
     pub fn get(&self, key: &str) -> Option<&str> {
         self.table.get(key)
     }
@@ -75,19 +91,17 @@ pub fn parse_kv_toml_lite(text: &str, source_label: &str) -> (ConfigTable, Vec<C
         if line.is_empty() || line.starts_with('[') {
             continue;
         }
-        let Some((k, v)) = line.split_once('=') else {
-            diagnostics.push(ConfigDiagnostic {
-                source: format!("{source_label}:{lineno}"),
-                message: format!("无法解析行: {raw}"),
-            });
+        let Some((k, v)) = line.split_once('=')
+        else {
+            diagnostics
+                .push(ConfigDiagnostic {
+                    source: format!("{source_label}:{lineno}"), message: format!("无法解析行: {raw}")
+                });
             continue;
         };
         let key = k.trim();
         if key.is_empty() {
-            diagnostics.push(ConfigDiagnostic {
-                source: format!("{source_label}:{lineno}"),
-                message: "空键".into(),
-            });
+            diagnostics.push(ConfigDiagnostic { source: format!("{source_label}:{lineno}"), message: "空键".into() });
             continue;
         }
         let val = v.trim().trim_matches('"').trim_matches('\'');
@@ -109,25 +123,24 @@ pub fn read_first_existing(candidates: &[&Path]) -> Option<(PathBuf, String)> {
 /// 桌面启动设置（由合并后的键值填充）。
 #[derive(Debug, Clone)]
 pub struct DesktopSettings {
+    /// 游戏安装目录。
     pub ra2_dir: PathBuf,
+    /// 显式版本字符串（可选）。
     pub edition: Option<String>,
     /// 预留：目标战网接入地址（协议未定点前仅配置，不接 socket）。
     pub net_url: Option<String>,
+    /// 预留：房间名。
     pub net_room: Option<String>,
 }
 
 impl Default for DesktopSettings {
     fn default() -> Self {
-        Self {
-            ra2_dir: PathBuf::from("."),
-            edition: None,
-            net_url: None,
-            net_room: None,
-        }
+        Self { ra2_dir: PathBuf::from("."), edition: None, net_url: None, net_room: None }
     }
 }
 
 impl DesktopSettings {
+    /// 从合并配置填充字段。
     pub fn from_merged(merged: &MergedConfig) -> Self {
         let mut s = Self::default();
         if let Some(v) = merged.get("ra2_dir").or_else(|| merged.get("game_dir")) {
@@ -136,18 +149,10 @@ impl DesktopSettings {
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
         }
-        if let Some(v) = merged
-            .get("net_url")
-            .or_else(|| merged.get("battlenet_url"))
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
         }
-        if let Some(v) = merged
-            .get("net_room")
-            .or_else(|| merged.get("room"))
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(v) = merged.get("net_room").or_else(|| merged.get("room")).filter(|v| !v.is_empty()) {
             s.net_room = Some(v.to_string());
         }
         s
@@ -165,9 +170,7 @@ impl DesktopSettings {
         };
         let mut layers = vec![defaults];
         let mut diagnostics = Vec::new();
-        if let Some((path, text)) =
-            read_first_existing(&[Path::new("config.toml"), Path::new("ra2.toml")])
-        {
+        if let Some((path, text)) = read_first_existing(&[Path::new("config.toml"), Path::new("ra2.toml")]) {
             let label = path.display().to_string();
             let (table, mut diags) = parse_kv_toml_lite(&text, &label);
             diagnostics.append(&mut diags);
@@ -177,43 +180,5 @@ impl DesktopSettings {
         merged.diagnostics.append(&mut diagnostics);
         let settings = Self::from_merged(&merged);
         (settings, merged.diagnostics)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn later_layer_overrides() {
-        let mut a = ConfigTable::new();
-        a.insert("ra2_dir", ".");
-        let mut b = ConfigTable::new();
-        b.insert("ra2_dir", "C:/games/ra2");
-        b.insert("edition", "yr");
-        let merged = MergedConfig::merge_layers(&[
-            ConfigLayer {
-                label: "a".into(),
-                table: a,
-            },
-            ConfigLayer {
-                label: "b".into(),
-                table: b,
-            },
-        ]);
-        let s = DesktopSettings::from_merged(&merged);
-        assert_eq!(s.ra2_dir, PathBuf::from("C:/games/ra2"));
-        assert_eq!(s.edition.as_deref(), Some("yr"));
-    }
-
-    #[test]
-    fn parse_kv_skips_comments() {
-        let (t, d) = parse_kv_toml_lite(
-            "# hi\nra2_dir = \"D:/RA2\"\nedition = 'yr'\n",
-            "t",
-        );
-        assert!(d.is_empty());
-        assert_eq!(t.get("ra2_dir"), Some("D:/RA2"));
-        assert_eq!(t.get("edition"), Some("yr"));
     }
 }

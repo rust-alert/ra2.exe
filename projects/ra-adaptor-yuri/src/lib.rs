@@ -1,17 +1,27 @@
 //! 尤里的复仇：磁盘旁与启动期资源表。
 
+#![deny(missing_docs)]
+
 use ra_types::GameEdition;
 
 /// 与 `ra-adaptor-ra2::ResourceProfile` 同形，避免跨 crate 循环依赖。
 #[derive(Debug, Clone)]
 pub struct ResourceProfile {
+    /// 对应的 `GameEdition`。
     pub edition: GameEdition,
+    /// 安装根目录旁应存在的主 MIX。
     pub root_mix_files: &'static [&'static str],
+    /// 常见嵌套 MIX 名。
     pub nested_mix_files: &'static [&'static str],
+    /// rules INI 文件名。
     pub rules_ini: &'static str,
+    /// art INI 文件名。
     pub art_ini: &'static str,
+    /// UI INI 文件名。
     pub ui_ini: &'static str,
+    /// 音效 INI 文件名。
     pub sound_ini: &'static str,
+    /// 布局特征用的主程序名。
     pub exe_name: &'static str,
 }
 

@@ -4,28 +4,29 @@
 
 use std::fmt;
 
-/// Errors during LZO decompression.
+/// LZO 解压错误。
 #[derive(Debug)]
 pub enum LzoError {
+    /// 输入字节不足。
     InputTruncated,
+    /// 输出缓冲不够。
     OutputOverflow,
-    InvalidBackRef { distance: usize, output_pos: usize },
+    /// 非法回溯引用。
+    InvalidBackRef {
+        /// 回溯距离。
+        distance: usize,
+        /// 当前写出位置。
+        output_pos: usize,
+    },
 }
 
 impl fmt::Display for LzoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LzoError::InputTruncated => write!(f, "LZO: input truncated"),
-            LzoError::OutputOverflow => write!(f, "LZO: output buffer overflow"),
-            LzoError::InvalidBackRef {
-                distance,
-                output_pos,
-            } => {
-                write!(
-                    f,
-                    "LZO: back-reference distance {} at output pos {}",
-                    distance, output_pos
-                )
+            LzoError::InputTruncated => write!(f, "LZO: 输入截断"),
+            LzoError::OutputOverflow => write!(f, "LZO: 输出溢出"),
+            LzoError::InvalidBackRef { distance, output_pos } => {
+                write!(f, "LZO: 非法回溯 distance={distance} output_pos={output_pos}")
             }
         }
     }
@@ -33,8 +34,7 @@ impl fmt::Display for LzoError {
 
 impl std::error::Error for LzoError {}
 
-/// Decompress LZO1X-compressed data into `dst`.
-/// Returns the number of bytes written to `dst`.
+/// 将 LZO1X 压缩数据解压到 `dst`，返回写入字节数。
 pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
     let mut ip: usize = 0; // input position
     let mut op: usize = 0; // output position
@@ -55,14 +55,14 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             state = count;
             cmd = read_byte(src, &mut ip)?;
             // Fall into match handling below.
-        } else {
+        }
+        else {
             // >= 4 literals copied, read next cmd for first_literal_run path.
             state = 4;
             cmd = read_byte(src, &mut ip)?;
             if cmd < 16 {
                 // M1' match: distance with +2048 offset.
-                let dist: usize =
-                    ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 2049;
+                let dist: usize = ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 2049;
                 copy_match(dst, op, dist, 3)?;
                 op += 3;
                 state = (cmd & 3) as usize;
@@ -74,7 +74,8 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             }
             // If cmd >= 16, fall through to match handling.
         }
-    } else {
+    }
+    else {
         state = 0;
         // cmd is the first instruction, fall into main loop.
     }
@@ -94,8 +95,7 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
                 // First-literal-run path: next cmd may be M1' match.
                 cmd = read_byte(src, &mut ip)?;
                 if cmd < 16 {
-                    let dist: usize =
-                        ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 2049;
+                    let dist: usize = ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 2049;
                     copy_match(dst, op, dist, 3)?;
                     op += 3;
                     state = (cmd & 3) as usize;
@@ -106,10 +106,10 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
                     continue;
                 }
                 // cmd >= 16, fall through to match handling.
-            } else {
+            }
+            else {
                 // M1 short match (state >= 1): copy 2 bytes.
-                let dist: usize =
-                    ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 1;
+                let dist: usize = ((cmd >> 2) as usize) + ((read_byte(src, &mut ip)? as usize) << 2) + 1;
                 copy_match(dst, op, dist, 2)?;
                 op += 2;
                 state = (cmd & 3) as usize;
@@ -131,7 +131,8 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             let dist_hi: usize = read_byte(src, &mut ip)? as usize;
             dist = (dist_hi << 3) + dist_lo + 1;
             match_len = len_part + 1; // 3..8
-        } else if cmd >= 32 {
+        }
+        else if cmd >= 32 {
             // M3: medium match, 1..16384 distance.
             let mut length: usize = (cmd & 31) as usize;
             if length == 0 {
@@ -149,7 +150,8 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             }
             cmd = read_byte(src, &mut ip)?;
             continue;
-        } else {
+        }
+        else {
             // M4: long match (16..31), or end-of-stream.
             let mut length: usize = (cmd & 7) as usize;
             if length == 0 {
@@ -189,10 +191,9 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
     }
 }
 
-/// Decompress IsoMapPack5 chunk-framed LZO data.
+/// 解压 IsoMapPack5 分块帧 LZO 数据。
 ///
-/// Chunk format: repeating `[u16 src_len][u16 dst_len][compressed_bytes]`.
-/// Stops when all input bytes are consumed.
+/// 块格式：重复的 `[u16 src_len][u16 dst_len][compressed_bytes]`，读完输入为止。
 pub fn decompress_chunks(data: &[u8]) -> Result<Vec<u8>, LzoError> {
     let mut output: Vec<u8> = Vec::new();
     let mut pos: usize = 0;
@@ -255,13 +256,7 @@ fn read_vle(src: &[u8], pos: &mut usize) -> Result<usize, LzoError> {
 }
 
 /// Copy `count` literal bytes from input to output.
-fn copy_literals(
-    src: &[u8],
-    ip: &mut usize,
-    dst: &mut [u8],
-    op: &mut usize,
-    count: usize,
-) -> Result<(), LzoError> {
+fn copy_literals(src: &[u8], ip: &mut usize, dst: &mut [u8], op: &mut usize, count: usize) -> Result<(), LzoError> {
     if *ip + count > src.len() {
         return Err(LzoError::InputTruncated);
     }
@@ -278,10 +273,7 @@ fn copy_literals(
 /// Must copy byte-by-byte because source and destination may overlap.
 fn copy_match(dst: &mut [u8], op: usize, distance: usize, count: usize) -> Result<(), LzoError> {
     if distance > op {
-        return Err(LzoError::InvalidBackRef {
-            distance,
-            output_pos: op,
-        });
+        return Err(LzoError::InvalidBackRef { distance, output_pos: op });
     }
     if op + count > dst.len() {
         return Err(LzoError::OutputOverflow);
@@ -294,52 +286,4 @@ fn copy_match(dst: &mut [u8], op: usize, distance: usize, count: usize) -> Resul
         dst_pos += 1;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_literal_only_stream() {
-        // A stream with just literals: first byte = 17 + count, then literal bytes,
-        // then end-of-stream marker (0x11, 0x00, 0x00).
-        let input: Vec<u8> = vec![
-            17 + 5, // 5 literal bytes follow
-            b'H',
-            b'e',
-            b'l',
-            b'l',
-            b'o',
-            0x11,
-            0x00,
-            0x00, // end of stream
-        ];
-        let mut output: [u8; 64] = [0u8; 64];
-        let written: usize = lzo1x_decompress(&input, &mut output).expect("Should decompress");
-        assert_eq!(written, 5);
-        assert_eq!(&output[..5], b"Hello");
-    }
-
-    #[test]
-    fn test_chunk_wrapper() {
-        // Single chunk containing a literal-only LZO stream.
-        let lzo_data: Vec<u8> = vec![17 + 3, b'A', b'B', b'C', 0x11, 0x00, 0x00];
-        let mut chunks: Vec<u8> = Vec::new();
-        let src_len: u16 = lzo_data.len() as u16;
-        let dst_len: u16 = 3;
-        chunks.extend_from_slice(&src_len.to_le_bytes());
-        chunks.extend_from_slice(&dst_len.to_le_bytes());
-        chunks.extend_from_slice(&lzo_data);
-
-        let result: Vec<u8> = decompress_chunks(&chunks).expect("Should decompress chunks");
-        assert_eq!(result, b"ABC");
-    }
-
-    #[test]
-    fn test_empty_input() {
-        let mut output: [u8; 16] = [0u8; 16];
-        let written: usize = lzo1x_decompress(&[], &mut output).expect("Empty OK");
-        assert_eq!(written, 0);
-    }
 }

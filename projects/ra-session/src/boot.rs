@@ -1,7 +1,7 @@
 //! 遭遇战装载：规则 → 世界 → 指纹 → 会话。
 
 use ra_adaptor::{ResourceChain, RulesDb};
-use ra_map::{seal_pass_grid_from_tmp, MapInfo};
+use ra_map::{MapInfo, seal_pass_grid_from_tmp};
 use ra_types::{AssetSource, RaResult};
 use ra_world::World;
 
@@ -10,6 +10,7 @@ use crate::Session;
 /// `open_skirmish_session` 的成功结果。
 #[derive(Debug)]
 pub struct SkirmishOpenResult {
+    /// 已装载规则、地图与指纹的遭遇战会话。
     pub session: Session,
     /// 追加了规则 / 世界统计后的 boot 注记。
     pub note: String,

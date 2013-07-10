@@ -13,10 +13,7 @@ pub struct GameAssetSource {
 
 impl GameAssetSource {
     pub fn new(root: PathBuf) -> Self {
-        Self {
-            root,
-            vfs: MixVfs::new(),
-        }
+        Self { root, vfs: MixVfs::new() }
     }
 
     /// 挂载清单中已存在的根 MIX。返回 `(成功数, 解析跳过数)`。
@@ -24,10 +21,12 @@ impl GameAssetSource {
         let mut mounted = 0usize;
         let mut skipped = 0usize;
         for name in present_mixes {
-            let Some(path) = find_ci_file(&self.root, name) else {
+            let Some(path) = find_ci_file(&self.root, name)
+            else {
                 continue;
             };
-            let Ok(data) = std::fs::read(&path) else {
+            let Ok(data) = std::fs::read(&path)
+            else {
                 skipped += 1;
                 continue;
             };
@@ -55,11 +54,8 @@ impl GameAssetSource {
 impl AssetSource for GameAssetSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
         if let Some(path) = find_ci_file(&self.root, relative) {
-            return std::fs::read(&path)
-                .map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
+            return std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
         }
-        self.vfs
-            .read(relative)
-            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.vfs.read(relative).ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }

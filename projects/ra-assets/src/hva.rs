@@ -11,14 +11,18 @@ const MATRIX_FLOATS: usize = 12;
 /// 解析后的 HVA。
 #[derive(Debug, Clone)]
 pub struct HvaFile {
+    /// 动画帧数。
     pub frame_count: u32,
+    /// 肢节（section）数。
     pub section_count: u32,
+    /// 各肢节名。
     pub section_names: Vec<String>,
     /// `[frame * section_count + section]` → 3×4 行主序矩阵。
     pub transforms: Vec<[f32; 12]>,
 }
 
 impl HvaFile {
+    /// 解析 HVA 字节。
     pub fn parse(data: &[u8]) -> RaResult<Self> {
         if data.len() < MIN_SIZE {
             return Err(RaError::Parse("hva 过小".into()));
@@ -58,14 +62,10 @@ impl HvaFile {
             pos += MATRIX_FLOATS * 4;
         }
 
-        Ok(Self {
-            frame_count,
-            section_count,
-            section_names,
-            transforms,
-        })
+        Ok(Self { frame_count, section_count, section_names, transforms })
     }
 
+    /// 取指定帧与肢节的 3×4 变换；越界返回 `None`。
     pub fn get_transform(&self, frame: u32, section: u32) -> Option<&[f32; 12]> {
         if frame >= self.frame_count || section >= self.section_count {
             return None;
@@ -86,56 +86,4 @@ fn read_f32(data: &[u8], off: usize) -> f32 {
 fn read_c_string(bytes: &[u8]) -> String {
     let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
     String::from_utf8_lossy(&bytes[..end]).into_owned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn identity_row_major() -> [f32; 12] {
-        [
-            1.0, 0.0, 0.0, 0.0, //
-            0.0, 1.0, 0.0, 0.0, //
-            0.0, 0.0, 1.0, 0.0,
-        ]
-    }
-
-    fn sample_hva() -> Vec<u8> {
-        let mut data = Vec::new();
-        data.extend_from_slice(b"test.hva\0\0\0\0\0\0\0\0");
-        data.extend_from_slice(&2u32.to_le_bytes());
-        data.extend_from_slice(&1u32.to_le_bytes());
-        data.extend_from_slice(b"body\0\0\0\0\0\0\0\0\0\0\0\0");
-        for f in identity_row_major() {
-            data.extend_from_slice(&f.to_le_bytes());
-        }
-        // frame 1: translate (1,2,3)
-        let mut m = identity_row_major();
-        m[3] = 1.0;
-        m[7] = 2.0;
-        m[11] = 3.0;
-        for f in m {
-            data.extend_from_slice(&f.to_le_bytes());
-        }
-        data
-    }
-
-    #[test]
-    fn parse_two_frames() {
-        let hva = HvaFile::parse(&sample_hva()).unwrap();
-        assert_eq!(hva.frame_count, 2);
-        assert_eq!(hva.section_count, 1);
-        assert_eq!(hva.section_names[0], "body");
-        let t0 = hva.get_transform(0, 0).unwrap();
-        assert_eq!(t0[0], 1.0);
-        let t1 = hva.get_transform(1, 0).unwrap();
-        assert_eq!(t1[3], 1.0);
-        assert_eq!(t1[7], 2.0);
-        assert_eq!(t1[11], 3.0);
-    }
-
-    #[test]
-    fn reject_too_small() {
-        assert!(HvaFile::parse(&[0u8; 8]).is_err());
-    }
 }

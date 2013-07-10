@@ -1,14 +1,20 @@
 //! 将 IsoCell + 砖块 RGBA 合成到一张图。
 
-use crate::iso_math::{iso_to_screen, TILE_HEIGHT, TILE_WIDTH};
-use crate::IsoCell;
+use crate::{
+    IsoCell,
+    iso_math::{TILE_HEIGHT, TILE_WIDTH, iso_to_screen},
+};
 
 /// 一块已解码的地形砖（相对钻石原点的像素缓冲）。
 #[derive(Debug, Clone)]
 pub struct TileBlit {
+    /// 像素宽。
     pub width: u32,
+    /// 像素高。
     pub height: u32,
+    /// 相对格子钻石原点的 X 偏移。
     pub offset_x: i32,
+    /// 相对格子钻石原点的 Y 偏移。
     pub offset_y: i32,
     /// RGBA，长度 = width * height * 4。
     pub rgba: Vec<u8>,
@@ -17,29 +23,32 @@ pub struct TileBlit {
 /// 合成结果。
 #[derive(Debug, Clone)]
 pub struct TerrainImage {
+    /// 画布宽（像素）。
     pub width: u32,
+    /// 画布高（像素）。
     pub height: u32,
+    /// RGBA 像素缓冲。
     pub pixels: Vec<u8>,
+    /// 实际画上的砖块数。
     pub drawn: usize,
     /// 画布左上角对应的世界屏幕坐标。
     pub origin_x: i32,
+    /// 画布左上角对应的世界屏幕 Y。
     pub origin_y: i32,
 }
 
 /// 按等距顺序把单元画到画布上。
 ///
 /// `resolve` 返回 `(tile_num, sub_tile)` 对应砖块；缺砖则跳过该单元。
-pub fn compose_terrain_rgba(
-    cells: &[IsoCell],
-    mut resolve: impl FnMut(i32, u8) -> Option<TileBlit>,
-) -> Option<TerrainImage> {
+pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) -> Option<TileBlit>) -> Option<TerrainImage> {
     if cells.is_empty() {
         return None;
     }
 
     let mut prepared: Vec<(i32, i32, TileBlit)> = Vec::new();
     for cell in cells {
-        let Some(blit) = resolve(cell.tile_num, cell.sub_tile) else {
+        let Some(blit) = resolve(cell.tile_num, cell.sub_tile)
+        else {
             continue;
         };
         let (sx, sy) = iso_to_screen(i32::from(cell.x), i32::from(cell.y), cell.z);
@@ -74,28 +83,12 @@ pub fn compose_terrain_rgba(
     for (x, y, blit) in &prepared {
         let dx = *x - min_x;
         let dy = *y - min_y;
-        if blit_over(
-            &mut pixels,
-            width,
-            height,
-            dx,
-            dy,
-            blit.width,
-            blit.height,
-            &blit.rgba,
-        ) {
+        if blit_over(&mut pixels, width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
             drawn += 1;
         }
     }
 
-    Some(TerrainImage {
-        width,
-        height,
-        pixels,
-        drawn,
-        origin_x: min_x,
-        origin_y: min_y,
-    })
+    Some(TerrainImage { width, height, pixels, drawn, origin_x: min_x, origin_y: min_y })
 }
 
 /// 在已合成地形上绘制覆盖层标记（占位色块，尚未接 SHP）。
@@ -114,16 +107,7 @@ pub fn paint_overlay_markers(
         let cx = sx + TILE_WIDTH / 2 - image.origin_x - 3;
         let cy = sy + TILE_HEIGHT / 2 - image.origin_y - 3;
         let rgba = overlay_marker_rgba(cell.overlay_id);
-        if fill_rect(
-            &mut image.pixels,
-            image.width,
-            image.height,
-            cx,
-            cy,
-            6,
-            6,
-            rgba,
-        ) {
+        if fill_rect(&mut image.pixels, image.width, image.height, cx, cy, 6, 6, rgba) {
             painted += 1;
         }
     }
@@ -145,25 +129,12 @@ pub fn paint_cell_sprites(
     for (x, y, blit) in items {
         let z = cell_z(*x, *y);
         let (sx, sy) = iso_to_screen(i32::from(*x), i32::from(*y), z);
-        prepared.push((
-            sx + blit.offset_x - image.origin_x,
-            sy + blit.offset_y - image.origin_y,
-            blit,
-        ));
+        prepared.push((sx + blit.offset_x - image.origin_x, sy + blit.offset_y - image.origin_y, blit));
     }
     prepared.sort_by_key(|(x, y, _)| (*y, *x));
     let mut painted = 0usize;
     for (dx, dy, blit) in prepared {
-        if blit_over(
-            &mut image.pixels,
-            image.width,
-            image.height,
-            dx,
-            dy,
-            blit.width,
-            blit.height,
-            &blit.rgba,
-        ) {
+        if blit_over(&mut image.pixels, image.width, image.height, dx, dy, blit.width, blit.height, &blit.rgba) {
             painted += 1;
         }
     }
@@ -178,16 +149,7 @@ fn overlay_marker_rgba(id: u8) -> [u8; 4] {
     }
 }
 
-fn fill_rect(
-    dst: &mut [u8],
-    dst_w: u32,
-    dst_h: u32,
-    dx: i32,
-    dy: i32,
-    w: i32,
-    h: i32,
-    rgba: [u8; 4],
-) -> bool {
+fn fill_rect(dst: &mut [u8], dst_w: u32, dst_h: u32, dx: i32, dy: i32, w: i32, h: i32, rgba: [u8; 4]) -> bool {
     let mut any = false;
     for row in 0..h {
         let y = dy + row;
@@ -207,16 +169,7 @@ fn fill_rect(
     any
 }
 
-fn blit_over(
-    dst: &mut [u8],
-    dst_w: u32,
-    dst_h: u32,
-    dx: i32,
-    dy: i32,
-    src_w: u32,
-    src_h: u32,
-    src: &[u8],
-) -> bool {
+fn blit_over(dst: &mut [u8], dst_w: u32, dst_h: u32, dx: i32, dy: i32, src_w: u32, src_h: u32, src: &[u8]) -> bool {
     let mut any = false;
     for row in 0..src_h as i32 {
         let y = dy + row;
@@ -242,121 +195,4 @@ fn blit_over(
         }
     }
     any
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn compose_one_opaque_tile() {
-        let mut rgba = vec![0u8; 60 * 30 * 4];
-        for px in rgba.chunks_exact_mut(4) {
-            px.copy_from_slice(&[10, 20, 30, 255]);
-        }
-        let cells = [IsoCell {
-            x: 2,
-            y: 3,
-            tile_num: 0,
-            sub_tile: 0,
-            z: 0,
-            flags: 0,
-        }];
-        let img = compose_terrain_rgba(&cells, |_, _| {
-            Some(TileBlit {
-                width: 60,
-                height: 30,
-                offset_x: 0,
-                offset_y: 0,
-                rgba: rgba.clone(),
-            })
-        })
-        .unwrap();
-        assert_eq!(img.drawn, 1);
-        assert!(img.width >= 60);
-        assert!(img.height >= 30);
-        assert!(img.pixels.chunks(4).any(|c| c[3] == 255));
-    }
-
-    #[test]
-    fn paint_overlay_marks_pixel() {
-        let mut rgba = vec![0u8; 60 * 30 * 4];
-        for px in rgba.chunks_exact_mut(4) {
-            px.copy_from_slice(&[10, 20, 30, 255]);
-        }
-        let cells = [IsoCell {
-            x: 2,
-            y: 3,
-            tile_num: 0,
-            sub_tile: 0,
-            z: 0,
-            flags: 0,
-        }];
-        let mut img = compose_terrain_rgba(&cells, |_, _| {
-            Some(TileBlit {
-                width: 60,
-                height: 30,
-                offset_x: 0,
-                offset_y: 0,
-                rgba: rgba.clone(),
-            })
-        })
-        .unwrap();
-        let overlays = [crate::OverlayCell {
-            x: 2,
-            y: 3,
-            overlay_id: 110,
-            data: 0,
-        }];
-        let n = paint_overlay_markers(&mut img, &overlays, |_, _| 0);
-        assert_eq!(n, 1);
-        assert!(img
-            .pixels
-            .chunks(4)
-            .any(|c| c[0] == 230 && c[1] == 190 && c[2] == 40));
-    }
-
-    #[test]
-    fn paint_cell_sprite_marks_pixel() {
-        let mut rgba = vec![0u8; 60 * 30 * 4];
-        for px in rgba.chunks_exact_mut(4) {
-            px.copy_from_slice(&[10, 20, 30, 255]);
-        }
-        let cells = [IsoCell {
-            x: 2,
-            y: 3,
-            tile_num: 0,
-            sub_tile: 0,
-            z: 0,
-            flags: 0,
-        }];
-        let mut img = compose_terrain_rgba(&cells, |_, _| {
-            Some(TileBlit {
-                width: 60,
-                height: 30,
-                offset_x: 0,
-                offset_y: 0,
-                rgba: rgba.clone(),
-            })
-        })
-        .unwrap();
-        let mut sprite = vec![0u8; 4 * 4 * 4];
-        for px in sprite.chunks_exact_mut(4) {
-            px.copy_from_slice(&[255, 0, 0, 255]);
-        }
-        let items = [(
-            2u16,
-            3u16,
-            TileBlit {
-                width: 4,
-                height: 4,
-                offset_x: 28,
-                offset_y: 13,
-                rgba: sprite,
-            },
-        )];
-        let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
-        assert_eq!(n, 1);
-        assert!(img.pixels.chunks(4).any(|c| c[0] == 255 && c[1] == 0));
-    }
 }

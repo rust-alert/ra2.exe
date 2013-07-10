@@ -11,10 +11,12 @@ pub struct TilesetLookup {
 }
 
 impl TilesetLookup {
+    /// 槽位总数（含 blank）。
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    /// 是否无任何槽位。
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -24,9 +26,7 @@ impl TilesetLookup {
         if tile_num < 0 {
             return None;
         }
-        self.entries
-            .get(tile_num as usize)
-            .and_then(|e| e.as_deref())
+        self.entries.get(tile_num as usize).and_then(|e| e.as_deref())
     }
 }
 
@@ -40,7 +40,8 @@ pub fn parse_tileset_ini(ini_data: &[u8], extension: &str) -> RaResult<TilesetLo
     let mut idx = 0u32;
     loop {
         let section = format!("TileSet{idx:04}");
-        let Some(tiles_raw) = doc.get(&section, "TilesInSet") else {
+        let Some(tiles_raw) = doc.get(&section, "TilesInSet")
+        else {
             break;
         };
         let tiles_in_set: i32 = tiles_raw.parse().unwrap_or(-1);
@@ -53,36 +54,16 @@ pub fn parse_tileset_ini(ini_data: &[u8], extension: &str) -> RaResult<TilesetLo
             for _ in 0..count {
                 entries.push(None);
             }
-        } else {
+        }
+        else {
             for i in 1..=count {
                 entries.push(Some(format!("{filename}{i:02}.{extension}")));
             }
         }
-        idx = idx
-            .checked_add(1)
-            .ok_or_else(|| RaError::Parse("TileSet 序号溢出".into()))?;
+        idx = idx.checked_add(1).ok_or_else(|| RaError::Parse("TileSet 序号溢出".into()))?;
         if idx > 10_000 {
             return Err(RaError::Parse("TileSet 过多".into()));
         }
     }
     Ok(TilesetLookup { entries })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn maps_clear_and_cliff() {
-        let text = b"\
-[TileSet0000]\nFileName=clear\nTilesInSet=1\n\n\
-[TileSet0001]\nFileName=\nTilesInSet=1\n\n\
-[TileSet0002]\nFileName=cliff\nTilesInSet=3\n";
-        let lookup = parse_tileset_ini(text, "tem").unwrap();
-        assert_eq!(lookup.filename(0), Some("clear01.tem"));
-        assert_eq!(lookup.filename(1), None);
-        assert_eq!(lookup.filename(2), Some("cliff01.tem"));
-        assert_eq!(lookup.filename(4), Some("cliff03.tem"));
-        assert_eq!(lookup.filename(5), None);
-    }
 }

@@ -14,6 +14,7 @@ pub enum GameEdition {
 }
 
 impl GameEdition {
+    /// 稳定短名（配置 / 日志用）。
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ra2 => "ra2",
@@ -22,6 +23,7 @@ impl GameEdition {
         }
     }
 
+    /// 解析配置字符串；未知取值返回 `UnknownEdition`。
     pub fn parse(s: &str) -> RaResult<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
             "ra2" | "vanilla" | "original" => Ok(Self::Ra2),

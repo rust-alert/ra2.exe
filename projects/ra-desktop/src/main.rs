@@ -9,26 +9,26 @@ mod fs_source;
 #[cfg(feature = "test-harness")]
 mod test_boot;
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_adaptor::{detect_edition, load_rules_chain, ResourceChain, RulesDb};
+use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_logger;
-use ra_map::{
-    compose_boot_preview, find_first_boot_map, mount_theater_mixes, MapEntityKind, MapInfo,
-};
+use ra_map::{MapEntityKind, MapInfo, compose_boot_preview, find_first_boot_map, mount_theater_mixes};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_session::{open_skirmish_session, Session};
+use ra_session::{Session, open_skirmish_session};
 use ra_types::{GameEdition, RaError, RaResult};
-use winit::application::ApplicationHandler;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::{KeyCode, PhysicalKey};
-use winit::window::{Window, WindowId};
+use winit::{
+    application::ApplicationHandler,
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::{KeyCode, PhysicalKey},
+    window::{Window, WindowId},
+};
 
-use crate::config::{load_desktop_config_with_diagnostics, DesktopConfig};
-use crate::fs_source::GameAssetSource;
+use crate::{
+    config::{DesktopConfig, load_desktop_config_with_diagnostics},
+    fs_source::GameAssetSource,
+};
 
 struct App {
     window: Option<Arc<Window>>,
@@ -67,10 +67,7 @@ impl App {
         window_height: f64,
         status_path: Option<PathBuf>,
     ) -> Self {
-        let edition = session
-            .as_ref()
-            .map(|s| s.world.edition.as_str())
-            .unwrap_or("—");
+        let edition = session.as_ref().map(|s| s.world.edition.as_str()).unwrap_or("—");
         let mut renderer = Renderer::new();
         if let Some(image) = preview {
             renderer.set_preview(image);
@@ -109,7 +106,8 @@ impl App {
 
     fn handle_left_click(&mut self) {
         let add = self.shift_down;
-        let Some(cell) = self.cursor_cell() else {
+        let Some(cell) = self.cursor_cell()
+        else {
             if !add {
                 if let Some(session) = self.session.as_mut() {
                     session.selected.clear();
@@ -117,31 +115,33 @@ impl App {
             }
             return;
         };
-        let Some(session) = self.session.as_mut() else {
+        let Some(session) = self.session.as_mut()
+        else {
             return;
         };
         if let Some(i) = session.pick_mobile_at(cell.0, cell.1) {
             if add {
                 session.select_add(i);
-                ra_logger::info(format!(
-                    "加选实体 #{i} @({},{}) · 选中 {:?}",
-                    cell.0, cell.1, session.selected
-                ));
-            } else {
+                ra_logger::info(format!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, session.selected));
+            }
+            else {
                 session.select_only(i);
                 ra_logger::info(format!("选中实体 #{i} @({},{})", cell.0, cell.1));
             }
-        } else if !add {
+        }
+        else if !add {
             session.selected.clear();
             ra_logger::debug(format!("点空地 ({},{})，清空选中", cell.0, cell.1));
         }
     }
 
     fn handle_right_click(&mut self) {
-        let Some(cell) = self.cursor_cell() else {
+        let Some(cell) = self.cursor_cell()
+        else {
             return;
         };
-        let Some(session) = self.session.as_mut() else {
+        let Some(session) = self.session.as_mut()
+        else {
             return;
         };
         if session.selected.is_empty() {
@@ -158,33 +158,25 @@ impl App {
                 })
                 .unwrap_or(false);
             if hostile {
-                ra_logger::info(format!(
-                    "命令攻击 → #{target}（选中 {:?}）",
-                    session.selected
-                ));
+                ra_logger::info(format!("命令攻击 → #{target}（选中 {:?}）", session.selected));
                 session.order_selected_attack(target);
                 return;
             }
         }
-        ra_logger::info(format!(
-            "命令移动 → ({},{})（选中 {:?}）",
-            cell.0, cell.1, session.selected
-        ));
+        ra_logger::info(format!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected));
         session.order_selected_move(cell.0, cell.1);
     }
 
     fn refresh_title(&self) {
         if let Some(window) = &self.window {
             let tick = self.session.as_ref().map(|s| s.world.tick).unwrap_or(0);
-            let sel = self
-                .session
-                .as_ref()
-                .and_then(|s| s.selected.first().copied());
+            let sel = self.session.as_ref().and_then(|s| s.selected.first().copied());
             let zoom = self.renderer.camera().zoom;
             let outcome = self.session.as_ref().and_then(|s| s.outcome.as_ref());
             let title = if let Some(ra_session::MatchOutcome::Victory { owner }) = outcome {
                 format!("{} · t{} · 胜 {}", self.title_base, tick, owner)
-            } else {
+            }
+            else {
                 let nsel = self.session.as_ref().map(|s| s.selected.len()).unwrap_or(0);
                 match (sel, nsel) {
                     (Some(i), n) if n > 1 => {
@@ -207,10 +199,12 @@ impl App {
     }
 
     fn note_outcome_once(&mut self) {
-        let Some(session) = self.session.as_ref() else {
+        let Some(session) = self.session.as_ref()
+        else {
             return;
         };
-        let Some(ra_session::MatchOutcome::Victory { owner }) = session.outcome.as_ref() else {
+        let Some(ra_session::MatchOutcome::Victory { owner }) = session.outcome.as_ref()
+        else {
             return;
         };
         if self.logged_outcome.as_deref() == Some(owner.as_str()) {
@@ -231,24 +225,18 @@ impl ApplicationHandler for App {
                 .create_window(
                     Window::default_attributes()
                         .with_title(self.title_base.clone())
-                        .with_inner_size(winit::dpi::LogicalSize::new(
-                            self.window_width,
-                            self.window_height,
-                        )),
+                        .with_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height)),
                 )
                 .expect("创建窗口失败"),
         );
         if let Err(e) = self.renderer.attach_window(window.clone()) {
             ra_logger::error(format!("wgpu 附着失败: {e}"));
-        } else {
+        }
+        else {
             ra_logger::info(format!(
                 "gpu={} preview={} zoom={:.2}",
                 self.renderer.backend_name(),
-                if self.renderer.has_preview() {
-                    "yes"
-                } else {
-                    "no"
-                },
+                if self.renderer.has_preview() { "yes" } else { "no" },
                 self.renderer.camera().zoom
             ));
         }
@@ -266,11 +254,7 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
             }
-            WindowEvent::MouseInput {
-                state,
-                button: MouseButton::Left,
-                ..
-            } => match state {
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
                 ElementState::Pressed => {
                     self.drag_armed = true;
                     self.drag_last = None;
@@ -285,13 +269,9 @@ impl ApplicationHandler for App {
                     }
                 }
             },
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                button: MouseButton::Right,
-                ..
-            } => {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
                 self.handle_right_click();
-            },
+            }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x, position.y);
                 if self.drag_armed {
@@ -303,7 +283,7 @@ impl ApplicationHandler for App {
                     }
                     self.drag_last = Some((position.x, position.y));
                 }
-            },
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
@@ -313,7 +293,7 @@ impl ApplicationHandler for App {
                     let factor = if steps > 0.0 { 1.1_f32 } else { 1.0 / 1.1 };
                     self.renderer.zoom_by(factor.powf(steps.abs()));
                 }
-            },
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state != ElementState::Pressed {
                     return;
@@ -322,27 +302,18 @@ impl ApplicationHandler for App {
                 match event.physical_key {
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
                         if let Some(session) = self.session.as_mut() {
-                            let seed = session
-                                .selected
-                                .first()
-                                .copied()
-                                .or_else(|| {
-                                    session.world.entities.iter().position(|e| {
-                                        !e.dead
-                                            && matches!(
-                                                e.kind,
-                                                MapEntityKind::Unit
-                                                    | MapEntityKind::Infantry
-                                                    | MapEntityKind::Aircraft
-                                            )
-                                    })
-                                });
+                            let seed = session.selected.first().copied().or_else(|| {
+                                session.world.entities.iter().position(|e| {
+                                    !e.dead
+                                        && matches!(
+                                            e.kind,
+                                            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+                                        )
+                                })
+                            });
                             if let Some(i) = seed {
                                 session.select_all_of_owner(i);
-                                ra_logger::info(format!(
-                                    "全选同阵营 · {} 个",
-                                    session.selected.len()
-                                ));
+                                ra_logger::info(format!("全选同阵营 · {} 个", session.selected.len()));
                             }
                         }
                     }
@@ -426,23 +397,13 @@ fn load_map_terrain_preview(
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
     )?;
-    let rgba = RgbaImage::new(
-        preview.image.width,
-        preview.image.height,
-        preview.image.pixels,
-    )?;
+    let rgba = RgbaImage::new(preview.image.width, preview.image.height, preview.image.pixels)?;
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
 }
 
-fn load_boot_map(
-    source: &mut GameAssetSource,
-    edition: GameEdition,
-    note: &mut String,
-) -> MapInfo {
+fn load_boot_map(source: &mut GameAssetSource, edition: GameEdition, note: &mut String) -> MapInfo {
     let loaded = find_first_boot_map(edition, source);
-    let theater_mounted = mount_theater_mixes(loaded.map.theater, &mut |mix| {
-        matches!(source.vfs.mount_nested(mix), Ok(true))
-    });
+    let theater_mounted = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
     loaded.map
 }
@@ -458,12 +419,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         ra_logger::warn(format!("适配能力缺口 [{}] {}", report.code, report.message));
     }
     if !manifest.stack.extensions.is_empty() {
-        let ids: Vec<_> = manifest
-            .stack
-            .extensions
-            .iter()
-            .map(|e| e.as_str())
-            .collect();
+        let ids: Vec<_> = manifest.stack.extensions.iter().map(|e| e.as_str()).collect();
         ra_logger::info(format!("适配扩展探测: {}", ids.join("+")));
     }
     let chain = &manifest.chain;
@@ -492,10 +448,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         }
     };
 
-    let preview = match rules
-        .as_ref()
-        .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules))
-    {
+    let preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules)) {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -507,31 +460,24 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         }
     };
 
-    let session = match rules.as_ref().map(|rules| {
-        open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)
-    }) {
-        Some(Ok(opened)) => {
-            note = opened.note;
-            ra_logger::info(format!(
-                "fingerprint edition={} map={} rules_hash={:#x}",
-                opened.session.fingerprint.edition,
-                opened.session.fingerprint.map,
-                opened.session.fingerprint.rules_hash
-            ));
-            Some(opened.session)
-        }
-        Some(Err(e)) => {
-            note = format!("{note} · 会话未打开（{e}）");
-            None
-        }
-        None => None,
-    };
+    let session =
+        match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)) {
+            Some(Ok(opened)) => {
+                note = opened.note;
+                ra_logger::info(format!(
+                    "fingerprint edition={} map={} rules_hash={:#x}",
+                    opened.session.fingerprint.edition, opened.session.fingerprint.map, opened.session.fingerprint.rules_hash
+                ));
+                Some(opened.session)
+            }
+            Some(Err(e)) => {
+                note = format!("{note} · 会话未打开（{e}）");
+                None
+            }
+            None => None,
+        };
 
-    Ok(BootResult {
-        note,
-        session,
-        preview,
-    })
+    Ok(BootResult { note, session, preview })
 }
 
 fn main() {
@@ -561,17 +507,8 @@ fn run() -> RaResult<()> {
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(
-        boot.note,
-        boot.session,
-        boot.preview,
-        window_width,
-        window_height,
-        status_path,
-    );
-    event_loop
-        .run_app(&mut app)
-        .map_err(|e| RaError::Msg(e.to_string()))?;
+    let mut app = App::new(boot.note, boot.session, boot.preview, window_width, window_height, status_path);
+    event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     ra_logger::info("事件循环结束");
     Ok(())
 }
@@ -587,19 +524,12 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>)> {
                 "test-harness scene={scene} window={}x{} status={}",
                 window_width,
                 window_height,
-                status_path
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "—".into())
+                status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
             ));
             let t = crate::test_boot::boot_scene(&scene)?;
             ra_logger::info(format!("boot: {} · session=ok", t.note));
             return Ok((
-                BootResult {
-                    note: t.note,
-                    session: Some(t.session),
-                    preview: t.preview,
-                },
+                BootResult { note: t.note, session: Some(t.session), preview: t.preview },
                 window_width,
                 window_height,
                 status_path,
@@ -627,17 +557,9 @@ fn boot_from_install() -> BootResult {
         Ok(v) => v,
         Err(e) => {
             ra_logger::error(format!("启动失败: {e}"));
-            BootResult {
-                note: format!("启动失败: {e}"),
-                session: None,
-                preview: None,
-            }
+            BootResult { note: format!("启动失败: {e}"), session: None, preview: None }
         }
     };
-    ra_logger::info(format!(
-        "boot: {} · session={}",
-        boot.note,
-        if boot.session.is_some() { "ok" } else { "none" }
-    ));
+    ra_logger::info(format!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" }));
     boot
 }

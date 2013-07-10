@@ -3,23 +3,26 @@
 use ra_assets::{Palette, ShpFile, TmpFile};
 use ra_types::AssetSource;
 
-use crate::theater::{theater_ini_name, theater_palette, theater_tmp_extension, Theater};
-use crate::tileset::parse_tileset_ini;
+use crate::{
+    theater::{Theater, theater_ini_name, theater_palette, theater_tmp_extension},
+    tileset::parse_tileset_ini,
+};
 
 /// 原始 RGBA 缓冲（壳层再包成 GPU 图像）。
 #[derive(Debug, Clone)]
 pub struct RawRgbaImage {
+    /// 来源注记（文件名等）。
     pub label: String,
+    /// 像素宽。
     pub width: u32,
+    /// 像素高。
     pub height: u32,
+    /// RGBA 像素。
     pub pixels: Vec<u8>,
 }
 
 /// 从剧院 TMP 抽一块砖作为回退预览。
-pub fn load_fallback_theater_tile(
-    source: &dyn AssetSource,
-    theater: Theater,
-) -> Option<RawRgbaImage> {
+pub fn load_fallback_theater_tile(source: &dyn AssetSource, theater: Theater) -> Option<RawRgbaImage> {
     let pal_bytes = source.read(theater_palette(theater)).ok()?;
     let pal = Palette::parse(&pal_bytes).ok()?;
 
@@ -39,21 +42,20 @@ pub fn load_fallback_theater_tile(
     candidates.push(format!("clear01.{}", theater_tmp_extension(theater)));
 
     for name in candidates {
-        let Ok(data) = source.read(&name) else {
-            continue;
-        };
-        let Ok(tmp) = TmpFile::parse(&data) else {
-            continue;
-        };
-        let Some((index, tile)) = tmp
-            .tiles
-            .iter()
-            .enumerate()
-            .find_map(|(i, t)| t.as_ref().map(|tile| (i, tile)))
+        let Ok(data) = source.read(&name)
         else {
             continue;
         };
-        let Ok(rgba) = tmp.tile_to_rgba(index, &pal) else {
+        let Ok(tmp) = TmpFile::parse(&data)
+        else {
+            continue;
+        };
+        let Some((index, tile)) = tmp.tiles.iter().enumerate().find_map(|(i, t)| t.as_ref().map(|tile| (i, tile)))
+        else {
+            continue;
+        };
+        let Ok(rgba) = tmp.tile_to_rgba(index, &pal)
+        else {
             continue;
         };
         return Some(RawRgbaImage {
@@ -70,21 +72,18 @@ pub fn load_fallback_theater_tile(
 pub fn load_fallback_unit_sprite(source: &dyn AssetSource) -> Option<RawRgbaImage> {
     let pal_bytes = source.read("unittem.pal").ok()?;
     let pal = Palette::parse(&pal_bytes).ok()?;
-    let candidates = [
-        "mouse.shp",
-        "e1.shp",
-        "clock.shp",
-        "power.shp",
-        "gaairc.shp",
-    ];
+    let candidates = ["mouse.shp", "e1.shp", "clock.shp", "power.shp", "gaairc.shp"];
     for name in candidates {
-        let Ok(bytes) = source.read(name) else {
+        let Ok(bytes) = source.read(name)
+        else {
             continue;
         };
-        let Ok(shp) = ShpFile::parse(&bytes) else {
+        let Ok(shp) = ShpFile::parse(&bytes)
+        else {
             continue;
         };
-        let Some(frame) = shp.frames.first() else {
+        let Some(frame) = shp.frames.first()
+        else {
             continue;
         };
         if frame.frame_width == 0 || frame.frame_height == 0 {
@@ -98,23 +97,4 @@ pub fn load_fallback_unit_sprite(source: &dyn AssetSource) -> Option<RawRgbaImag
         });
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_types::{RaError, RaResult};
-
-    struct EmptySource;
-    impl AssetSource for EmptySource {
-        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
-    }
-
-    #[test]
-    fn empty_source_yields_none() {
-        assert!(load_fallback_theater_tile(&EmptySource, Theater::Temperate).is_none());
-        assert!(load_fallback_unit_sprite(&EmptySource).is_none());
-    }
 }

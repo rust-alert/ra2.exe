@@ -4,19 +4,24 @@ use std::collections::BTreeMap;
 
 use ra_types::{RaError, RaResult};
 
+/// 单个 INI 节：键值表与写入顺序。
 #[derive(Debug, Default, Clone)]
 pub struct IniSection {
+    /// 键 → 值（后写覆盖先写）。
     pub values: BTreeMap<String, String>,
     /// 写入顺序，供 IsoMapPack 等按行拼接使用。
     pub order: Vec<(String, String)>,
 }
 
+/// 完整 INI 文档（节名 → 节内容）。
 #[derive(Debug, Default, Clone)]
 pub struct IniDocument {
+    /// 所有节（含无标题前导节，键为空串）。
     pub sections: BTreeMap<String, IniSection>,
 }
 
 impl IniDocument {
+    /// 解析 UTF-8 INI 文本字节；`;` 起为行注释。
     pub fn parse(bytes: &[u8]) -> RaResult<Self> {
         let text = std::str::from_utf8(bytes).map_err(|e| RaError::Parse(e.to_string()))?;
         let mut doc = IniDocument::default();
@@ -44,11 +49,9 @@ impl IniDocument {
         Ok(doc)
     }
 
+    /// 读取 `section` 下 `key` 的值。
     pub fn get(&self, section: &str, key: &str) -> Option<&str> {
-        self.sections
-            .get(section)
-            .and_then(|s| s.values.get(key))
-            .map(|s| s.as_str())
+        self.sections.get(section).and_then(|s| s.values.get(key)).map(|s| s.as_str())
     }
 
     /// 将编号键（`1=` / `2=` …）按数值序拼接，用于 IsoMapPack5 / OverlayPack。
@@ -69,22 +72,5 @@ impl IniDocument {
             out.push_str(v);
         }
         Some(out)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn numbered_concat_sorts_numerically() {
-        let doc = IniDocument::parse(
-            b"[IsoMapPack5]\n10=C\n2=B\n1=A\n",
-        )
-        .unwrap();
-        assert_eq!(
-            doc.numbered_section_concat("IsoMapPack5").as_deref(),
-            Some("ABC")
-        );
     }
 }

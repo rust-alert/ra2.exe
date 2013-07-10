@@ -5,13 +5,18 @@
 pub enum GameCommand {
     /// 将实体移动到目标格（会重算路径）。
     MoveTo {
+        /// 实体在世界实体列表中的下标。
         entity_index: usize,
+        /// 目标格 X。
         x: u16,
+        /// 目标格 Y。
         y: u16,
     },
     /// 指定攻击目标（进入射程后造成伤害）。
     Attack {
+        /// 攻击方实体下标。
         attacker_index: usize,
+        /// 被攻击方实体下标。
         target_index: usize,
     },
 }
@@ -21,18 +26,19 @@ pub enum GameCommand {
 /// 联机锁步要求：**每个 tick 都必须有一帧**；本 tick 无操作时 `commands` 为空。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputFrame {
+    /// 本帧对应的逻辑 tick。
     pub tick: u64,
+    /// 本 tick 消费的命令列表（可为空）。
     pub commands: Vec<GameCommand>,
 }
 
 impl InputFrame {
+    /// 构造仅含 tick、无命令的空输入帧。
     pub fn empty(tick: u64) -> Self {
-        Self {
-            tick,
-            commands: Vec::new(),
-        }
+        Self { tick, commands: Vec::new() }
     }
 
+    /// 本帧是否没有任何命令。
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
     }
@@ -42,20 +48,13 @@ impl InputFrame {
 pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
     let mut b = Vec::new();
     match *cmd {
-        GameCommand::MoveTo {
-            entity_index,
-            x,
-            y,
-        } => {
+        GameCommand::MoveTo { entity_index, x, y } => {
             b.push(1);
             b.extend_from_slice(&(entity_index as u32).to_be_bytes());
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
-        GameCommand::Attack {
-            attacker_index,
-            target_index,
-        } => {
+        GameCommand::Attack { attacker_index, target_index } => {
             b.push(2);
             b.extend_from_slice(&(attacker_index as u32).to_be_bytes());
             b.extend_from_slice(&(target_index as u32).to_be_bytes());
@@ -77,11 +76,7 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let entity_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
             let x = u16::from_be_bytes(bytes[5..7].try_into().ok()?);
             let y = u16::from_be_bytes(bytes[7..9].try_into().ok()?);
-            Some(GameCommand::MoveTo {
-                entity_index,
-                x,
-                y,
-            })
+            Some(GameCommand::MoveTo { entity_index, x, y })
         }
         2 => {
             if bytes.len() < 1 + 4 + 4 {
@@ -89,10 +84,7 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             }
             let attacker_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
             let target_index = u32::from_be_bytes(bytes[5..9].try_into().ok()?) as usize;
-            Some(GameCommand::Attack {
-                attacker_index,
-                target_index,
-            })
+            Some(GameCommand::Attack { attacker_index, target_index })
         }
         _ => None,
     }
@@ -132,26 +124,4 @@ pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
         i += n;
     }
     Some(out)
-}
-
-#[cfg(test)]
-mod codec_tests {
-    use super::*;
-
-    #[test]
-    fn command_codec_roundtrip() {
-        let cmds = vec![
-            GameCommand::MoveTo {
-                entity_index: 3,
-                x: 10,
-                y: 20,
-            },
-            GameCommand::Attack {
-                attacker_index: 3,
-                target_index: 7,
-            },
-        ];
-        let bytes = encode_commands(&cmds);
-        assert_eq!(decode_commands(&bytes), Some(cmds));
-    }
 }

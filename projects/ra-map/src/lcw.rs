@@ -15,9 +15,17 @@ use std::fmt;
 /// LCW 解压错误。
 #[derive(Debug)]
 pub enum LcwError {
+    /// 输入字节不足。
     InputTruncated,
+    /// 输出缓冲不够。
     OutputOverflow,
-    InvalidBackRef { src: usize, dest: usize },
+    /// 非法回溯引用。
+    InvalidBackRef {
+        /// 回溯源下标。
+        src: usize,
+        /// 当前写出位置。
+        dest: usize,
+    },
 }
 
 impl fmt::Display for LcwError {
@@ -56,33 +64,28 @@ pub fn lcw_decompress(src: &[u8], dest: &mut [u8]) -> Result<usize, LcwError> {
             let count = usize::from((cmd & 0x70) >> 4) + 3;
             let distance = (usize::from(cmd & 0x0F) << 8) | usize::from(second);
             if distance > di {
-                return Err(LcwError::InvalidBackRef {
-                    src: di.wrapping_sub(distance),
-                    dest: di,
-                });
+                return Err(LcwError::InvalidBackRef { src: di.wrapping_sub(distance), dest: di });
             }
             if di + count > dest.len() {
                 return Err(LcwError::OutputOverflow);
             }
             copy_overlap(dest, di, di - distance, count);
             di += count;
-        } else if cmd & 0x40 == 0 {
+        }
+        else if cmd & 0x40 == 0 {
             // 字面量；count=0 为结束标记。
             let count = usize::from(cmd & 0x3F);
             if count == 0 {
                 return Ok(di);
             }
             if si + count > src.len() || di + count > dest.len() {
-                return Err(if si + count > src.len() {
-                    LcwError::InputTruncated
-                } else {
-                    LcwError::OutputOverflow
-                });
+                return Err(if si + count > src.len() { LcwError::InputTruncated } else { LcwError::OutputOverflow });
             }
             dest[di..di + count].copy_from_slice(&src[si..si + count]);
             si += count;
             di += count;
-        } else {
+        }
+        else {
             let lower6 = cmd & 0x3F;
             if lower6 == 0x3E {
                 // RLE：u16 次数 + 填充字节。
@@ -97,7 +100,8 @@ pub fn lcw_decompress(src: &[u8], dest: &mut [u8]) -> Result<usize, LcwError> {
                 }
                 dest[di..di + count].fill(value);
                 di += count;
-            } else if lower6 == 0x3F {
+            }
+            else if lower6 == 0x3F {
                 // 长绝对拷贝：u16 次数 + u16 源偏移。
                 if si + 4 > src.len() {
                     return Err(LcwError::InputTruncated);
@@ -106,17 +110,15 @@ pub fn lcw_decompress(src: &[u8], dest: &mut [u8]) -> Result<usize, LcwError> {
                 let abs_pos = usize::from(u16::from_le_bytes([src[si + 2], src[si + 3]]));
                 si += 4;
                 if abs_pos >= di {
-                    return Err(LcwError::InvalidBackRef {
-                        src: abs_pos,
-                        dest: di,
-                    });
+                    return Err(LcwError::InvalidBackRef { src: abs_pos, dest: di });
                 }
                 if di + count > dest.len() {
                     return Err(LcwError::OutputOverflow);
                 }
                 copy_overlap(dest, di, abs_pos, count);
                 di += count;
-            } else {
+            }
+            else {
                 // 短绝对拷贝：count = lower6 + 3，后跟 u16 源偏移。
                 let count = usize::from(lower6) + 3;
                 if si + 2 > src.len() {
@@ -125,10 +127,7 @@ pub fn lcw_decompress(src: &[u8], dest: &mut [u8]) -> Result<usize, LcwError> {
                 let abs_pos = usize::from(u16::from_le_bytes([src[si], src[si + 1]]));
                 si += 2;
                 if abs_pos >= di {
-                    return Err(LcwError::InvalidBackRef {
-                        src: abs_pos,
-                        dest: di,
-                    });
+                    return Err(LcwError::InvalidBackRef { src: abs_pos, dest: di });
                 }
                 if di + count > dest.len() {
                     return Err(LcwError::OutputOverflow);
@@ -171,66 +170,10 @@ fn copy_overlap(dest: &mut [u8], di: usize, src: usize, count: usize) {
     if di > src && di - src == 1 {
         let val = dest[di - 1];
         dest[di..di + count].fill(val);
-    } else {
+    }
+    else {
         for i in 0..count {
             dest[di + i] = dest[src + i];
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn literal_copy() {
-        let src = [0x83, 0xAA, 0xBB, 0xCC, 0x80];
-        let mut dest = [0u8; 16];
-        let n = lcw_decompress(&src, &mut dest).unwrap();
-        assert_eq!(n, 3);
-        assert_eq!(&dest[..3], &[0xAA, 0xBB, 0xCC]);
-    }
-
-    #[test]
-    fn rle_fill() {
-        let src = [0xFE, 0x05, 0x00, 0x42, 0x80];
-        let mut dest = [0u8; 16];
-        let n = lcw_decompress(&src, &mut dest).unwrap();
-        assert_eq!(n, 5);
-        assert_eq!(&dest[..5], &[0x42; 5]);
-    }
-
-    #[test]
-    fn relative_backref() {
-        let src = [0x84, 10, 20, 30, 40, 0x00, 0x04, 0x80];
-        let mut dest = [0u8; 16];
-        let n = lcw_decompress(&src, &mut dest).unwrap();
-        assert_eq!(n, 7);
-        assert_eq!(&dest[..7], &[10, 20, 30, 40, 10, 20, 30]);
-    }
-
-    #[test]
-    fn distance_one_rle() {
-        let src = [0x81, 0xFF, 0x20, 0x01, 0x80];
-        let mut dest = [0u8; 16];
-        let n = lcw_decompress(&src, &mut dest).unwrap();
-        assert_eq!(n, 6);
-        assert_eq!(&dest[..6], &[0xFF; 6]);
-    }
-
-    #[test]
-    fn end_marker() {
-        let mut dest = [0u8; 4];
-        assert_eq!(lcw_decompress(&[0x80], &mut dest).unwrap(), 0);
-    }
-
-    #[test]
-    fn chunk_frame() {
-        let payload = [0x83, 0xAA, 0xBB, 0xCC, 0x80];
-        let mut chunk = Vec::new();
-        chunk.extend_from_slice(&5u16.to_le_bytes());
-        chunk.extend_from_slice(&3u16.to_le_bytes());
-        chunk.extend_from_slice(&payload);
-        assert_eq!(decompress_chunks(&chunk).unwrap(), vec![0xAA, 0xBB, 0xCC]);
     }
 }

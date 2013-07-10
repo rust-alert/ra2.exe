@@ -2,48 +2,41 @@
 
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{IniDocument, MixVfs, Palette, ShpFile};
-use ra_map::{theater_mix_names, theater_tmp_extension, MapInfo};
+use ra_map::{MapInfo, theater_mix_names, theater_tmp_extension};
 use ra_types::{GameEdition, RaError, RaResult};
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
-        let path = find_ci_file(root, name)
-            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let path = find_ci_file(root, name).ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         let _ = vfs.mount_bytes(name.clone(), data);
     }
     for name in manifest.chain.nested_mix_files {
         let _ = vfs.mount_nested(name);
     }
 
-    let bytes = vfs
-        .read("mp01t4.map")
-        .ok_or_else(|| RaError::MissingFile("mp01t4.map".into()))?;
+    let bytes = vfs.read("mp01t4.map").ok_or_else(|| RaError::MissingFile("mp01t4.map".into()))?;
     let map = MapInfo::parse_ini(edition, "mp01t4.map", &bytes)?;
     for mix in theater_mix_names(map.theater) {
         match vfs.mount_nested(mix) {
             Ok(true) => {}
             _ => {
                 if let Some(path) = find_ci_file(root, mix) {
-                    let data = std::fs::read(&path)
-                        .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+                    let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
                     let _ = vfs.mount_bytes(mix.to_string(), data);
                 }
             }
         }
     }
 
-    let art = vfs
-        .read("art.ini")
-        .and_then(|b| IniDocument::parse(&b).ok());
-    let pal = vfs
-        .read("unittem.pal")
-        .ok_or_else(|| RaError::MissingFile("unittem.pal".into()))?;
+    let art = vfs.read("art.ini").and_then(|b| IniDocument::parse(&b).ok());
+    let pal = vfs.read("unittem.pal").ok_or_else(|| RaError::MissingFile("unittem.pal".into()))?;
     let pal = Palette::parse(&pal)?;
     let ext = theater_tmp_extension(map.theater);
 
@@ -54,15 +47,14 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let mut resolved = 0usize;
     let mut frames = 0usize;
     for name in &unique {
-        let image = art
-            .as_ref()
-            .and_then(|a| a.get(name, "Image"))
-            .unwrap_or(name.as_str());
+        let image = art.as_ref().and_then(|a| a.get(name, "Image")).unwrap_or(name.as_str());
         let file = format!("{}.{ext}", image.to_ascii_lowercase());
-        let Some(data) = vfs.read(&file) else {
+        let Some(data) = vfs.read(&file)
+        else {
             continue;
         };
-        let Ok(shp) = ShpFile::parse(&data) else {
+        let Ok(shp) = ShpFile::parse(&data)
+        else {
             continue;
         };
         resolved += 1;
@@ -87,7 +79,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(root) = args.next().map(PathBuf::from) else {
+    let Some(root) = args.next().map(PathBuf::from)
+    else {
         eprintln!("用法: probe_terrain_shp <游戏目录> [edition]");
         std::process::exit(2);
     };

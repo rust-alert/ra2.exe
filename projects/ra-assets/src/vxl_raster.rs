@@ -5,11 +5,15 @@ use crate::{HvaFile, Palette, VplFile, VxlFile};
 /// 投影后的精灵。
 #[derive(Debug, Clone)]
 pub struct VxlSprite {
+    /// 像素宽。
     pub width: u32,
+    /// 像素高。
     pub height: u32,
-    /// 相对投影原点：包围盒中心对齐 (0,0)。
+    /// 相对投影原点：包围盒中心对齐 (0,0) 的 X。
     pub offset_x: i32,
+    /// 相对投影原点的 Y。
     pub offset_y: i32,
+    /// 行优先 RGBA。
     pub rgba: Vec<u8>,
 }
 
@@ -19,12 +23,7 @@ pub fn rasterize_vxl(vxl: &VxlFile, palette: &Palette) -> Option<VxlSprite> {
 }
 
 /// 按朝向投影（HVA 第 0 帧）。
-pub fn rasterize_vxl_posed(
-    vxl: &VxlFile,
-    palette: &Palette,
-    hva: Option<&HvaFile>,
-    facing: u8,
-) -> Option<VxlSprite> {
+pub fn rasterize_vxl_posed(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFile>, facing: u8) -> Option<VxlSprite> {
     rasterize_vxl_frame(vxl, palette, hva, facing, 0)
 }
 
@@ -45,9 +44,13 @@ pub fn rasterize_vxl_frame(
 /// 一层 VXL 的姿态（炮塔可与车身不同 facing）。
 #[derive(Debug, Clone, Copy)]
 pub struct VxlLayerPose<'a> {
+    /// 本层体素模型。
     pub vxl: &'a VxlFile,
+    /// 可选 HVA 动画。
     pub hva: Option<&'a HvaFile>,
+    /// 8 向朝向（0..=255，每 32 一步）。
     pub facing: u8,
+    /// HVA 帧下标。
     pub frame: u32,
 }
 
@@ -58,24 +61,12 @@ pub fn rasterize_vxl_layers(
     facing: u8,
     frame: u32,
 ) -> Option<VxlSprite> {
-    let poses: Vec<VxlLayerPose<'_>> = layers
-        .iter()
-        .map(|&(vxl, hva)| VxlLayerPose {
-            vxl,
-            hva,
-            facing,
-            frame,
-        })
-        .collect();
+    let poses: Vec<VxlLayerPose<'_>> = layers.iter().map(|&(vxl, hva)| VxlLayerPose { vxl, hva, facing, frame }).collect();
     rasterize_vxl_layer_poses(&poses, palette, None)
 }
 
 /// 多层合成；每层可有独立 facing / HVA 帧。可选 VPL 按法线粗映射亮度页。
-pub fn rasterize_vxl_layer_poses(
-    layers: &[VxlLayerPose<'_>],
-    palette: &Palette,
-    vpl: Option<&VplFile>,
-) -> Option<VxlSprite> {
+pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette, vpl: Option<&VplFile>) -> Option<VxlSprite> {
     let mut assembled: Vec<(f32, f32, f32, u8, u8)> = Vec::new();
     for layer in layers {
         let frame_idx = match layer.hva {
@@ -83,10 +74,7 @@ pub fn rasterize_vxl_layer_poses(
             _ => 0,
         };
         for (section, limb) in layer.vxl.limbs.iter().enumerate() {
-            let bone = layer
-                .hva
-                .and_then(|h| h.get_transform(frame_idx, section as u32))
-                .unwrap_or(&limb.transform);
+            let bone = layer.hva.and_then(|h| h.get_transform(frame_idx, section as u32)).unwrap_or(&limb.transform);
             for v in &limb.voxels {
                 let (mx, my, mz) = section_point(limb, v, bone);
                 let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
@@ -149,13 +137,7 @@ pub fn rasterize_vxl_layer_poses(
         rgba[di + 3] = c.a;
     }
 
-    Some(VxlSprite {
-        width,
-        height,
-        offset_x: -(width as i32) / 2,
-        offset_y: -(height as i32) / 2,
-        rgba,
-    })
+    Some(VxlSprite { width, height, offset_x: -(width as i32) / 2, offset_y: -(height as i32) / 2, rgba })
 }
 
 /// 节局部点：`bounds_min + bone(section_scale * grid)`。
@@ -167,28 +149,16 @@ fn section_point(limb: &crate::VxlLimb, v: &crate::VxlVoxel, bone: &[f32; 12]) -
     let py = f32::from(v.y) * sy;
     let pz = f32::from(v.z) * sz;
     let (bx, by, bz) = apply_matrix_scaled(bone, px, py, pz, limb.scale);
-    (
-        bx + limb.bounds[0],
-        by + limb.bounds[1],
-        bz + limb.bounds[2],
-    )
+    (bx + limb.bounds[0], by + limb.bounds[1], bz + limb.bounds[2])
 }
 
 fn section_axis_scale(extent: f32, size: u8) -> f32 {
-    if size == 0 {
-        1.0
-    } else {
-        extent / f32::from(size)
-    }
+    if size == 0 { 1.0 } else { extent / f32::from(size) }
 }
 
 /// HVA 3×4：旋转作用在坐标上，平移乘肢节 `scale`。
 fn apply_matrix_scaled(m: &[f32; 12], x: f32, y: f32, z: f32, limb_scale: f32) -> (f32, f32, f32) {
-    let s = if limb_scale.is_finite() && limb_scale > 0.0 {
-        limb_scale
-    } else {
-        1.0
-    };
+    let s = if limb_scale.is_finite() && limb_scale > 0.0 { limb_scale } else { 1.0 };
     (
         m[0] * x + m[1] * y + m[2] * z + m[3] * s,
         m[4] * x + m[5] * y + m[6] * z + m[7] * s,
@@ -206,163 +176,4 @@ fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32,
     let dx = x - cx;
     let dy = y - cy;
     (c * dx - s * dy + cx, s * dx + c * dy + cy, z)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{Rgba, VxlLimb, VxlVoxel};
-
-    fn limb_with(voxels: Vec<VxlVoxel>) -> VxlFile {
-        VxlFile {
-            limb_count: 1,
-            body_size: 0,
-            limbs: vec![VxlLimb {
-                name: "body".into(),
-                scale: 1.0,
-                bounds: [0.0, 0.0, 0.0, 4.0, 4.0, 4.0],
-                transform: [
-                    1.0, 0.0, 0.0, 0.0, //
-                    0.0, 1.0, 0.0, 0.0, //
-                    0.0, 0.0, 1.0, 0.0,
-                ],
-                size_x: 4,
-                size_y: 4,
-                size_z: 4,
-                normals_mode: 4,
-                voxels,
-            }],
-        }
-    }
-
-    #[test]
-    fn raster_one_voxel_opaque() {
-        let vxl = limb_with(vec![VxlVoxel {
-            x: 1,
-            y: 1,
-            z: 0,
-            color_index: 10,
-            normal_index: 0,
-        }]);
-        let mut colors = [Rgba::transparent(); 256];
-        colors[10] = Rgba::rgb(1, 2, 3);
-        let pal = Palette { colors };
-        let sprite = rasterize_vxl(&vxl, &pal).unwrap();
-        assert_eq!(sprite.width, 1);
-        assert_eq!(sprite.height, 1);
-        assert_eq!(&sprite.rgba[..4], &[1, 2, 3, 255]);
-    }
-
-    #[test]
-    fn posed_with_identity_hva_matches() {
-        let vxl = limb_with(vec![VxlVoxel {
-            x: 2,
-            y: 0,
-            z: 0,
-            color_index: 10,
-            normal_index: 0,
-        }]);
-        let mut colors = [Rgba::transparent(); 256];
-        colors[10] = Rgba::rgb(9, 9, 9);
-        let pal = Palette { colors };
-        let hva = HvaFile {
-            frame_count: 1,
-            section_count: 1,
-            section_names: vec!["body".into()],
-            transforms: vec![[
-                1.0, 0.0, 0.0, 0.0, //
-                0.0, 1.0, 0.0, 0.0, //
-                0.0, 0.0, 1.0, 0.0,
-            ]],
-        };
-        let a = rasterize_vxl(&vxl, &pal).unwrap();
-        let b = rasterize_vxl_posed(&vxl, &pal, Some(&hva), 0).unwrap();
-        assert_eq!(a.width, b.width);
-        assert_eq!(a.height, b.height);
-        assert_eq!(a.rgba, b.rgba);
-    }
-
-    #[test]
-    fn yaw_facing_changes_bounds() {
-        let voxels: Vec<_> = (0..8)
-            .map(|i| VxlVoxel {
-                x: i,
-                y: 0,
-                z: 0,
-                color_index: 10,
-                normal_index: 0,
-            })
-            .collect();
-        let vxl = limb_with(voxels);
-        let mut colors = [Rgba::transparent(); 256];
-        colors[10] = Rgba::rgb(1, 1, 1);
-        let pal = Palette { colors };
-        let a = rasterize_vxl_posed(&vxl, &pal, None, 0).unwrap();
-        let b = rasterize_vxl_posed(&vxl, &pal, None, 32).unwrap();
-        assert!(a.width > b.width);
-    }
-
-    #[test]
-    fn hva_translation_scaled_by_limb_scale() {
-        let mut vxl = limb_with(vec![VxlVoxel {
-            x: 0,
-            y: 0,
-            z: 0,
-            color_index: 10,
-            normal_index: 0,
-        }]);
-        vxl.limbs[0].scale = 0.5;
-        let mut colors = [Rgba::transparent(); 256];
-        colors[10] = Rgba::rgb(1, 1, 1);
-        let pal = Palette { colors };
-        let hva = HvaFile {
-            frame_count: 1,
-            section_count: 1,
-            section_names: vec!["body".into()],
-            transforms: vec![[
-                1.0, 0.0, 0.0, 10.0, //
-                0.0, 1.0, 0.0, 0.0, //
-                0.0, 0.0, 1.0, 0.0,
-            ]],
-        };
-        let s = rasterize_vxl_posed(&vxl, &pal, Some(&hva), 0).unwrap();
-        assert_eq!(s.width, 1);
-        assert_eq!(s.height, 1);
-    }
-
-    #[test]
-    fn vpl_shades_by_normal_page() {
-        let vxl = limb_with(vec![VxlVoxel {
-            x: 1,
-            y: 1,
-            z: 0,
-            color_index: 10,
-            normal_index: 255,
-        }]);
-        let mut colors = [Rgba::transparent(); 256];
-        colors[10] = Rgba::rgb(10, 10, 10);
-        colors[42] = Rgba::rgb(42, 0, 0);
-        let pal = Palette { colors };
-        let mut data = Vec::new();
-        data.extend_from_slice(&16u32.to_le_bytes());
-        data.extend_from_slice(&31u32.to_le_bytes());
-        data.extend_from_slice(&2u32.to_le_bytes());
-        data.extend_from_slice(&0u32.to_le_bytes());
-        data.extend_from_slice(&[0u8; 768]);
-        let mut page0 = [0u8; 256];
-        page0[10] = 10;
-        let mut page1 = [0u8; 256];
-        page1[10] = 42;
-        data.extend_from_slice(&page0);
-        data.extend_from_slice(&page1);
-        let vpl = VplFile::parse(&data).unwrap();
-        let pose = VxlLayerPose {
-            vxl: &vxl,
-            hva: None,
-            facing: 0,
-            frame: 0,
-        };
-        let sprite = rasterize_vxl_layer_poses(&[pose], &pal, Some(&vpl)).unwrap();
-        assert_eq!(&sprite.rgba[..4], &[42, 0, 0, 255]);
-    }
 }

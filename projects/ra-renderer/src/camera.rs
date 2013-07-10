@@ -1,5 +1,6 @@
 //! 2D 相机：平移 + 缩放，把世界像素投到 NDC。
 
+/// 2D 视口相机：以世界像素为坐标，经缩放映射到屏幕与 NDC。
 #[derive(Debug, Clone, Copy)]
 pub struct Camera {
     /// 视口中心对应的世界 X（图像像素）。
@@ -11,7 +12,9 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// 允许的最小缩放比（屏幕像素 / 世界像素）。
     pub const ZOOM_MIN: f32 = 0.05;
+    /// 允许的最大缩放比（屏幕像素 / 世界像素）。
     pub const ZOOM_MAX: f32 = 8.0;
 
     /// 以图像中心为焦点，缩放到刚好塞进窗口。
@@ -21,11 +24,7 @@ impl Camera {
         let sw = screen_w.max(1) as f32;
         let sh = screen_h.max(1) as f32;
         let zoom = (sw / iw).min(sh / ih).clamp(Self::ZOOM_MIN, Self::ZOOM_MAX);
-        Self {
-            center_x: iw * 0.5,
-            center_y: ih * 0.5,
-            zoom,
-        }
+        Self { center_x: iw * 0.5, center_y: ih * 0.5, zoom }
     }
 
     /// 屏幕位移（像素）转世界平移；拖拽向右时地图跟随。
@@ -57,42 +56,5 @@ impl Camera {
         let ndc_x = sx / sw * 2.0 - 1.0;
         let ndc_y = 1.0 - sy / sh * 2.0;
         [ndc_x, ndc_y]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fit_centers_image() {
-        let cam = Camera::fit(200, 100, 100, 100);
-        assert!((cam.center_x - 100.0).abs() < 0.01);
-        assert!((cam.center_y - 50.0).abs() < 0.01);
-        assert!((cam.zoom - 0.5).abs() < 0.01);
-    }
-
-    #[test]
-    fn pan_moves_center() {
-        let mut cam = Camera {
-            center_x: 0.0,
-            center_y: 0.0,
-            zoom: 2.0,
-        };
-        cam.pan_screen(10.0, -4.0);
-        assert!((cam.center_x - (-5.0)).abs() < 0.01);
-        assert!((cam.center_y - 2.0).abs() < 0.01);
-    }
-
-    #[test]
-    fn screen_to_world_inverts_center() {
-        let cam = Camera {
-            center_x: 100.0,
-            center_y: 50.0,
-            zoom: 2.0,
-        };
-        let (wx, wy) = cam.screen_to_world(400.0, 300.0, 800.0, 600.0);
-        assert!((wx - 100.0).abs() < 0.01);
-        assert!((wy - 50.0).abs() < 0.01);
     }
 }

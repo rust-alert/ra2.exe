@@ -9,17 +9,16 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
-        let path = find_ci_file(root, name)
-            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let path = find_ci_file(root, name).ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         let _ = vfs.mount_bytes(name.clone(), data);
     }
     for name in manifest.chain.nested_mix_files {
         let _ = vfs.mount_nested(name);
     }
 
-    let Some(bytes) = vfs.read("voxels.vpl") else {
+    let Some(bytes) = vfs.read("voxels.vpl")
+    else {
         return Err(RaError::MissingFile("voxels.vpl".into()));
     };
     let vpl = VplFile::parse(&bytes)?;
@@ -39,7 +38,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(root) = args.next().map(PathBuf::from) else {
+    let Some(root) = args.next().map(PathBuf::from)
+    else {
         eprintln!("用法: probe_vpl <游戏目录> [edition]");
         std::process::exit(2);
     };

@@ -3,8 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-use crate::camera::Camera;
-use crate::rgba_image::RgbaImage;
+use crate::{camera::Camera, rgba_image::RgbaImage};
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -25,12 +24,7 @@ pub struct SpriteGpu {
 }
 
 impl SpriteGpu {
-    pub fn create(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        surface_format: wgpu::TextureFormat,
-        image: &RgbaImage,
-    ) -> Self {
+    pub fn create(device: &wgpu::Device, queue: &wgpu::Queue, surface_format: wgpu::TextureFormat, image: &RgbaImage) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ra.sprite.bgl"),
             entries: &[
@@ -87,10 +81,7 @@ impl SpriteGpu {
                 })],
                 compilation_options: Default::default(),
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                ..Default::default()
-            },
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
@@ -104,8 +95,7 @@ impl SpriteGpu {
             ..Default::default()
         });
 
-        let (texture, bind_group, vertex_buffer) =
-            upload(device, queue, &bind_group_layout, &sampler, image);
+        let (texture, bind_group, vertex_buffer) = upload(device, queue, &bind_group_layout, &sampler, image);
 
         Self {
             pipeline,
@@ -119,14 +109,8 @@ impl SpriteGpu {
         }
     }
 
-    pub fn replace_image(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        image: &RgbaImage,
-    ) {
-        let (texture, bind_group, vertex_buffer) =
-            upload(device, queue, &self.bind_group_layout, &self.sampler, image);
+    pub fn replace_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &RgbaImage) {
+        let (texture, bind_group, vertex_buffer) = upload(device, queue, &self.bind_group_layout, &self.sampler, image);
         self.texture = texture;
         self.bind_group = bind_group;
         self.vertex_buffer = vertex_buffer;
@@ -145,13 +129,7 @@ impl SpriteGpu {
         pass.draw(0..6, 0..1);
     }
 
-    pub fn write_vertices(
-        &self,
-        queue: &wgpu::Queue,
-        camera: &Camera,
-        surface_w: u32,
-        surface_h: u32,
-    ) {
+    pub fn write_vertices(&self, queue: &wgpu::Queue, camera: &Camera, surface_w: u32, surface_h: u32) {
         let verts = camera_quad(self.width, self.height, camera, surface_w, surface_h);
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&verts));
     }
@@ -164,11 +142,7 @@ fn upload(
     sampler: &wgpu::Sampler,
     image: &RgbaImage,
 ) -> (wgpu::Texture, wgpu::BindGroup, wgpu::Buffer) {
-    let size = wgpu::Extent3d {
-        width: image.width,
-        height: image.height,
-        depth_or_array_layers: 1,
-    };
+    let size = wgpu::Extent3d { width: image.width, height: image.height, depth_or_array_layers: 1 };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("ra.sprite.tex"),
         size,
@@ -187,11 +161,7 @@ fn upload(
             aspect: wgpu::TextureAspect::All,
         },
         &image.pixels,
-        wgpu::TexelCopyBufferLayout {
-            offset: 0,
-            bytes_per_row: Some(4 * image.width),
-            rows_per_image: Some(image.height),
-        },
+        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * image.width), rows_per_image: Some(image.height) },
         size,
     );
 
@@ -200,14 +170,8 @@ fn upload(
         label: Some("ra.sprite.bg"),
         layout: bind_group_layout,
         entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(sampler),
-            },
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(sampler) },
         ],
     });
 
@@ -232,30 +196,12 @@ fn camera_quad(img_w: u32, img_h: u32, camera: &Camera, surf_w: u32, surf_h: u32
     let p11 = camera.world_to_ndc(w, h, sw, sh);
     let p01 = camera.world_to_ndc(0.0, h, sw, sh);
     [
-        Vertex {
-            pos: p00,
-            uv: [0.0, 0.0],
-        },
-        Vertex {
-            pos: p10,
-            uv: [1.0, 0.0],
-        },
-        Vertex {
-            pos: p11,
-            uv: [1.0, 1.0],
-        },
-        Vertex {
-            pos: p00,
-            uv: [0.0, 0.0],
-        },
-        Vertex {
-            pos: p11,
-            uv: [1.0, 1.0],
-        },
-        Vertex {
-            pos: p01,
-            uv: [0.0, 1.0],
-        },
+        Vertex { pos: p00, uv: [0.0, 0.0] },
+        Vertex { pos: p10, uv: [1.0, 0.0] },
+        Vertex { pos: p11, uv: [1.0, 1.0] },
+        Vertex { pos: p00, uv: [0.0, 0.0] },
+        Vertex { pos: p11, uv: [1.0, 1.0] },
+        Vertex { pos: p01, uv: [0.0, 1.0] },
     ]
 }
 

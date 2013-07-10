@@ -5,9 +5,11 @@ use std::collections::HashMap;
 use ra_assets::{IniDocument, Palette, ShpFile};
 use ra_types::AssetSource;
 
-use crate::compose::{paint_cell_sprites, paint_overlay_markers, TerrainImage, TileBlit};
-use crate::theater::{new_theater_shp_name, theater_palette, theater_tmp_extension};
-use crate::MapInfo;
+use crate::{
+    MapInfo,
+    compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
+    theater::{new_theater_shp_name, theater_palette, theater_tmp_extension},
+};
 
 /// 将 overlay 叠到地形图上：优先 SHP，失败格回退色块。
 ///
@@ -26,29 +28,18 @@ pub fn paint_map_overlays(
         return (0, 0);
     }
 
-    let z_lookup: HashMap<(u16, u16), u8> = map
-        .cells
-        .iter()
-        .filter(|c| c.x >= 0 && c.y >= 0)
-        .map(|c| ((c.x as u16, c.y as u16), c.z))
-        .collect();
+    let z_lookup: HashMap<(u16, u16), u8> =
+        map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = source
-        .read(art_ini)
-        .ok()
-        .and_then(|b| IniDocument::parse(&b).ok());
+    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
     let obj_pal = source
         .read("unittem.pal")
         .ok()
         .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| {
-            source
-                .read(theater_palette(map.theater))
-                .ok()
-                .and_then(|b| Palette::parse(&b).ok())
-        });
-    let Some(obj_pal) = obj_pal else {
+        .or_else(|| source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok()));
+    let Some(obj_pal) = obj_pal
+    else {
         let mark = paint_overlay_markers(image, &map.overlays, z_at);
         return (0, mark);
     };
@@ -60,15 +51,13 @@ pub fn paint_map_overlays(
     let mut unresolved = Vec::new();
 
     for cell in &map.overlays {
-        let Some(type_name) = overlay_type_name(cell.overlay_id) else {
+        let Some(type_name) = overlay_type_name(cell.overlay_id)
+        else {
             unresolved.push(*cell);
             continue;
         };
-        let image_key = art
-            .as_ref()
-            .and_then(|a| a.get(&type_name, "Image"))
-            .unwrap_or(type_name.as_str())
-            .to_ascii_uppercase();
+        let image_key =
+            art.as_ref().and_then(|a| a.get(&type_name, "Image")).unwrap_or(type_name.as_str()).to_ascii_uppercase();
         let frame_idx = cell.data;
         let cache_key = (image_key.clone(), frame_idx);
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -76,14 +65,10 @@ pub fn paint_map_overlays(
             continue;
         }
 
-        let new_theater = art
-            .as_ref()
-            .and_then(|a| a.get(&type_name, "NewTheater"))
-            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let theater_yes = art
-            .as_ref()
-            .and_then(|a| a.get(&type_name, "Theater"))
-            .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let new_theater =
+            art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let theater_yes =
+            art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let mut candidates = Vec::new();
         if theater_yes {
             candidates.push(format!("{}.{ext}", image_key.to_ascii_lowercase()));
@@ -101,29 +86,31 @@ pub fn paint_map_overlays(
                 loaded = Some(file.clone());
                 break;
             }
-            let Ok(bytes) = source.read(file) else {
+            let Ok(bytes) = source.read(file)
+            else {
                 continue;
             };
-            let Ok(shp) = ShpFile::parse(&bytes) else {
+            let Ok(shp) = ShpFile::parse(&bytes)
+            else {
                 continue;
             };
             shp_cache.insert(file.clone(), shp);
             loaded = Some(file.clone());
             break;
         }
-        let Some(file) = loaded else {
+        let Some(file) = loaded
+        else {
             unresolved.push(*cell);
             continue;
         };
-        let Some(shp) = shp_cache.get(&file) else {
+        let Some(shp) = shp_cache.get(&file)
+        else {
             unresolved.push(*cell);
             continue;
         };
-        let frame = shp
-            .frames
-            .get(usize::from(frame_idx))
-            .or_else(|| shp.frames.first());
-        let Some(frame) = frame else {
+        let frame = shp.frames.get(usize::from(frame_idx)).or_else(|| shp.frames.first());
+        let Some(frame) = frame
+        else {
             unresolved.push(*cell);
             continue;
         };
@@ -143,40 +130,6 @@ pub fn paint_map_overlays(
     }
 
     let shp_n = paint_cell_sprites(image, &items, z_at);
-    let mark_n = if unresolved.is_empty() {
-        0
-    } else {
-        paint_overlay_markers(image, &unresolved, z_at)
-    };
+    let mark_n = if unresolved.is_empty() { 0 } else { paint_overlay_markers(image, &unresolved, z_at) };
     (shp_n, mark_n)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_types::{GameEdition, RaError, RaResult};
-
-    struct EmptySource;
-    impl AssetSource for EmptySource {
-        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
-    }
-
-    #[test]
-    fn empty_overlays_noop() {
-        let map = MapInfo::empty(GameEdition::Ra2, "t");
-        let mut image = TerrainImage {
-            width: 1,
-            height: 1,
-            pixels: vec![0; 4],
-            drawn: 0,
-            origin_x: 0,
-            origin_y: 0,
-        };
-        assert_eq!(
-            paint_map_overlays(&EmptySource, &map, &mut image, "art.ini", &|_| None),
-            (0, 0)
-        );
-    }
 }

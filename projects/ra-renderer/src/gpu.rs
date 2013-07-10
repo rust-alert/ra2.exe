@@ -20,14 +20,10 @@ impl GpuContext {
     }
 
     async fn new_async(window: Arc<Window>) -> RaResult<Self> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
+        let instance =
+            wgpu::Instance::new(&wgpu::InstanceDescriptor { backends: wgpu::Backends::PRIMARY, ..Default::default() });
 
-        let surface = instance
-            .create_surface(window.clone())
-            .map_err(|e| RaError::Msg(format!("创建 wgpu 表面失败: {e}")))?;
+        let surface = instance.create_surface(window.clone()).map_err(|e| RaError::Msg(format!("创建 wgpu 表面失败: {e}")))?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -53,12 +49,7 @@ impl GpuContext {
             .map_err(|e| RaError::Msg(format!("创建 wgpu 设备失败: {e}")))?;
 
         let caps = surface.get_capabilities(&adapter);
-        let format = caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(caps.formats[0]);
+        let format = caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(caps.formats[0]);
         let size = window.inner_size();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -72,13 +63,7 @@ impl GpuContext {
         };
         surface.configure(&device, &config);
 
-        Ok(Self {
-            surface,
-            device,
-            queue,
-            config,
-            backend: info.backend,
-        })
+        Ok(Self { surface, device, queue, config, backend: info.backend })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

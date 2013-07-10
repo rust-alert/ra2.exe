@@ -5,16 +5,15 @@ use std::collections::HashMap;
 use ra_assets::{Palette, TmpFile};
 use ra_types::AssetSource;
 
-use crate::compose::{compose_terrain_rgba, TerrainImage, TileBlit};
-use crate::theater::{theater_ini_name, theater_palette, theater_tmp_extension};
-use crate::tileset::parse_tileset_ini;
-use crate::MapInfo;
+use crate::{
+    MapInfo,
+    compose::{TerrainImage, TileBlit, compose_terrain_rgba},
+    theater::{theater_ini_name, theater_palette, theater_tmp_extension},
+    tileset::parse_tileset_ini,
+};
 
 /// 用剧院调色板与 TMP 合成等距地形图。
-pub fn compose_terrain_preview(
-    source: &dyn AssetSource,
-    map: &MapInfo,
-) -> Option<TerrainImage> {
+pub fn compose_terrain_preview(source: &dyn AssetSource, map: &MapInfo) -> Option<TerrainImage> {
     if map.cells.is_empty() {
         return None;
     }
@@ -52,23 +51,4 @@ pub fn compose_terrain_preview(
     };
 
     compose_terrain_rgba(&map.cells, &mut resolve)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_types::{GameEdition, RaError, RaResult};
-
-    struct EmptySource;
-    impl AssetSource for EmptySource {
-        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
-    }
-
-    #[test]
-    fn empty_cells_yield_none() {
-        let map = MapInfo::empty(GameEdition::Ra2, "t");
-        assert!(compose_terrain_preview(&EmptySource, &map).is_none());
-    }
 }

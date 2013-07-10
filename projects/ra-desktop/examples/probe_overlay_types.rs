@@ -4,8 +4,10 @@ use ra_adaptor::{detect_edition, find_ci_file, load_rules};
 use ra_assets::MixVfs;
 use ra_map::MapInfo;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 struct ProbeSource {
     root: PathBuf,
@@ -15,12 +17,9 @@ struct ProbeSource {
 impl AssetSource for ProbeSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
         if let Some(path) = find_ci_file(&self.root, relative) {
-            return std::fs::read(&path)
-                .map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
+            return std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
         }
-        self.vfs
-            .read(relative)
-            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.vfs.read(relative).ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }
 
@@ -28,19 +27,14 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
-        let path = find_ci_file(root, name)
-            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let path = find_ci_file(root, name).ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         let _ = vfs.mount_bytes(name.clone(), data);
     }
     for name in manifest.chain.nested_mix_files {
         let _ = vfs.mount_nested(name);
     }
-    let source = ProbeSource {
-        root: root.to_path_buf(),
-        vfs,
-    };
+    let source = ProbeSource { root: root.to_path_buf(), vfs };
     let rules = load_rules(&source, edition)?;
     let bytes = source.read("mp01t4.map")?;
     let map = MapInfo::parse_ini(edition, "mp01t4.map", &bytes)?;
@@ -86,7 +80,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(root) = args.next().map(PathBuf::from) else {
+    let Some(root) = args.next().map(PathBuf::from)
+    else {
         eprintln!("用法: probe_overlay_types <游戏目录> [edition]");
         std::process::exit(2);
     };

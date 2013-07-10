@@ -2,14 +2,16 @@
 //!
 //! 不碰窗口与 GPU；可通过 `AssetSource` 装载遭遇战（见 `boot`）。
 
+#![deny(missing_docs)]
+
 mod boot;
 
-use ra_map::{iso_to_screen, screen_to_iso, MapEntityKind};
+use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
 use ra_world::{GameCommand, World};
 
-pub use boot::{open_skirmish_session, SkirmishOpenResult};
+pub use boot::{SkirmishOpenResult, open_skirmish_session};
 
 /// 默认仿真频率（与渲染帧率无关）。
 pub const DEFAULT_TICK_HZ: u32 = 15;
@@ -20,51 +22,75 @@ pub const MAX_TICKS_PER_PUMP: u32 = 8;
 /// 一帧呈现用的不可变快照（渲染器应逐步只消费此类数据）。
 #[derive(Debug, Clone)]
 pub struct RenderSnapshot {
+    /// 当前游戏版本。
     pub edition: GameEdition,
+    /// 世界已推进的仿真 tick 数。
     pub tick: u64,
+    /// 世界状态哈希（联机摘要用）。
     pub state_hash: u64,
+    /// 可绘移动单位列表。
     pub units: Vec<SnapshotUnit>,
     /// 当前选中实体下标（与 `units[].index` 对齐）。
     pub selected: Vec<usize>,
+    /// 对局结束结果；未结束时为 `None`。
     pub outcome: Option<MatchOutcome>,
 }
 
 /// 快照中的一个可绘实体。
 #[derive(Debug, Clone)]
 pub struct SnapshotUnit {
+    /// 在 `World::entities` 中的下标。
     pub index: usize,
+    /// 实体种类（单位 / 步兵 / 飞行器）。
     pub kind: MapEntityKind,
+    /// 规则中的类型 ID。
     pub type_id: String,
+    /// 所属阵营 owner 字符串。
     pub owner: String,
+    /// 地图格 X。
     pub x: u16,
+    /// 地图格 Y。
     pub y: u16,
     /// 相对预览图画布的像素 X（已减 `preview_origin`）。
     pub screen_x: i32,
     /// 相对预览图画布的像素 Y（已减 `preview_origin`）。
     pub screen_y: i32,
+    /// 车体朝向（0–255）。
     pub facing: u8,
+    /// 炮塔朝向（0–255）。
     pub turret_facing: u8,
+    /// 当前 HVA 动画帧。
     pub hva_frame: u16,
+    /// 当前生命值。
     pub health: u32,
+    /// 最大生命值。
     pub max_health: u32,
+    /// 是否已死亡。
     pub dead: bool,
 }
 
 /// 对局结束结果（Alpha：唯一存活阵营胜）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MatchOutcome {
-    Victory { owner: String },
+    /// 指定阵营获胜。
+    Victory {
+        /// 获胜阵营 owner 字符串。
+        owner: String,
+    },
 }
 
 /// 运行中会话。
 #[derive(Debug)]
 pub struct Session {
+    /// 仿真世界（规则、地图、实体、通行格）。
     pub world: World,
+    /// 装载或启动时的备注（规则统计、实体数等）。
     pub boot_note: String,
     /// 当前选中的实体下标（本地玩家操作）。
     pub selected: Vec<usize>,
-    /// 预览图画布原点（等距屏幕坐标），用于点选逆变换。
+    /// 预览图画布原点 X（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_x: i32,
+    /// 预览图画布原点 Y（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_y: i32,
     /// 仿真频率（Hz）。
     pub tick_hz: u32,
@@ -81,6 +107,7 @@ pub struct Session {
 }
 
 impl Session {
+    /// 用已有世界与装载备注创建会话（默认 tick 频率与空指纹）。
     pub fn new(world: World, boot_note: impl Into<String>) -> Self {
         Self {
             world,
@@ -93,14 +120,11 @@ impl Session {
             paused: false,
             pause_reason: None,
             outcome: None,
-            fingerprint: MatchFingerprint {
-                edition: String::new(),
-                map: String::new(),
-                rules_hash: 0,
-            },
+            fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
         }
     }
 
+    /// 设置对局内容指纹（联机握手）。
     pub fn set_fingerprint(&mut self, fingerprint: MatchFingerprint) {
         self.fingerprint = fingerprint;
     }
@@ -132,6 +156,7 @@ impl Session {
         fp.mix_bytes(mix.as_bytes())
     }
 
+    /// 清除暂停状态（胜负已定时无效）。
     pub fn resume(&mut self) {
         if self.outcome.is_some() {
             return;
@@ -142,10 +167,7 @@ impl Session {
 
     /// 本地状态摘要（联机上报用）。
     pub fn local_digest(&self) -> StateDigest {
-        StateDigest {
-            tick: self.world.tick,
-            hash: self.world.state_hash(),
-        }
+        StateDigest { tick: self.world.tick, hash: self.world.state_hash() }
     }
 
     /// 与远端摘要比对；同 tick 且哈希不同则暂停。返回是否一致（或暂不可比）。
@@ -158,13 +180,11 @@ impl Session {
             return true;
         }
         self.paused = true;
-        self.pause_reason = Some(format!(
-            "摘要不一致 tick={} local={:#x} remote={:#x}",
-            local.tick, local.hash, remote.hash
-        ));
+        self.pause_reason = Some(format!("摘要不一致 tick={} local={:#x} remote={:#x}", local.tick, local.hash, remote.hash));
         false
     }
 
+    /// 设置预览图画布原点在等距屏幕空间中的偏移。
     pub fn set_preview_origin(&mut self, x: i32, y: i32) {
         self.preview_origin_x = x;
         self.preview_origin_y = y;
@@ -200,16 +220,10 @@ impl Session {
     pub fn pick_mobile_at(&self, x: u16, y: u16) -> Option<usize> {
         let mut best: Option<(u32, usize)> = None;
         for (i, e) in self.world.entities.iter().enumerate() {
-            if e.dead
-                || !matches!(
-                    e.kind,
-                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                )
-            {
+            if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
                 continue;
             }
-            let dist = (i32::from(e.x) - i32::from(x)).unsigned_abs()
-                + (i32::from(e.y) - i32::from(y)).unsigned_abs();
+            let dist = (i32::from(e.x) - i32::from(x)).unsigned_abs() + (i32::from(e.y) - i32::from(y)).unsigned_abs();
             if dist > 1 {
                 continue;
             }
@@ -220,6 +234,7 @@ impl Session {
         best.map(|(_, i)| i)
     }
 
+    /// 向世界命令队列追加一条命令（对局已结束则忽略）。
     pub fn push_command(&mut self, cmd: GameCommand) {
         if self.outcome.is_some() {
             return;
@@ -259,8 +274,7 @@ impl Session {
 
     fn advance_one_tick(&mut self) {
         self.world.advance_tick();
-        self.selected
-            .retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
+        self.selected.retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
         self.refresh_outcome();
     }
 
@@ -269,12 +283,11 @@ impl Session {
         if self.outcome.is_some() {
             return;
         }
-        let Some(owner) = self.sole_victor().map(str::to_string) else {
+        let Some(owner) = self.sole_victor().map(str::to_string)
+        else {
             return;
         };
-        self.outcome = Some(MatchOutcome::Victory {
-            owner: owner.clone(),
-        });
+        self.outcome = Some(MatchOutcome::Victory { owner: owner.clone() });
         self.paused = true;
         self.pause_reason = Some(format!("胜负已定 · {owner}"));
     }
@@ -299,12 +312,7 @@ impl Session {
             return;
         }
         let e = &self.world.entities[index];
-        if e.dead
-            || !matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-            )
-        {
+        if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
             return;
         }
         if let Some(&first) = self.selected.first() {
@@ -328,10 +336,7 @@ impl Session {
             if e.dead || e.owner != owner {
                 continue;
             }
-            if matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-            ) {
+            if matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
                 self.selected.push(i);
             }
         }
@@ -345,11 +350,7 @@ impl Session {
             .iter()
             .enumerate()
             .filter(|(_, e)| {
-                !e.dead
-                    && matches!(
-                        e.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                    )
+                !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
             })
             .map(|(i, _)| i)
             .collect();
@@ -358,11 +359,9 @@ impl Session {
             return;
         }
         let next = match self.selected.first() {
-            Some(&cur) => mobiles
-                .iter()
-                .position(|&i| i == cur)
-                .map(|p| mobiles[(p + 1) % mobiles.len()])
-                .unwrap_or(mobiles[0]),
+            Some(&cur) => {
+                mobiles.iter().position(|&i| i == cur).map(|p| mobiles[(p + 1) % mobiles.len()]).unwrap_or(mobiles[0])
+            }
             None => mobiles[0],
         };
         self.select_only(next);
@@ -374,11 +373,7 @@ impl Session {
             return;
         }
         for &i in &self.selected.clone() {
-            self.push_command(GameCommand::MoveTo {
-                entity_index: i,
-                x,
-                y,
-            });
+            self.push_command(GameCommand::MoveTo { entity_index: i, x, y });
         }
     }
 
@@ -389,10 +384,7 @@ impl Session {
         }
         for &i in &self.selected.clone() {
             if i != target_index {
-                self.push_command(GameCommand::Attack {
-                    attacker_index: i,
-                    target_index,
-                });
+                self.push_command(GameCommand::Attack { attacker_index: i, target_index });
             }
         }
     }
@@ -411,10 +403,7 @@ impl Session {
                 *j != from_index
                     && !e.dead
                     && e.owner != from.owner
-                    && matches!(
-                        e.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                    )
+                    && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
             })
             .min_by_key(|(_, e)| {
                 let dx = i32::from(e.x) - i32::from(from.x);
@@ -430,36 +419,22 @@ impl Session {
             .world
             .entities
             .iter()
-            .filter(|e| {
-                !e.dead
-                    && matches!(
-                        e.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                    )
-            })
+            .filter(|e| !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
             .map(|e| e.owner.as_str())
             .collect();
         owners.sort_unstable();
         owners.dedup();
-        if owners.len() == 1 {
-            Some(owners[0])
-        } else {
-            None
-        }
+        if owners.len() == 1 { Some(owners[0]) } else { None }
     }
 
+    /// 从当前世界与选中状态构建一帧呈现快照。
     pub fn snapshot(&self) -> RenderSnapshot {
         let units = self
             .world
             .entities
             .iter()
             .enumerate()
-            .filter(|(_, e)| {
-                matches!(
-                    e.kind,
-                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                )
-            })
+            .filter(|(_, e)| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
             .map(|(index, e)| {
                 let z = self.world.pass_grid.cell_height(e.x, e.y);
                 let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
@@ -489,203 +464,5 @@ impl Session {
             selected: self.selected.clone(),
             outcome: self.outcome.clone(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_assets::{
-        ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry,
-    };
-    use ra_adaptor::RulesDb;
-    use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
-    use ra_types::GameEdition;
-    use ra_world::GameCommand;
-
-    fn rules_with_mtnk() -> RulesDb {
-        let doc = IniDocument::parse(
-            b"[VehicleTypes]\n0=MTNK\n\
-[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n",
-        )
-        .unwrap();
-        RulesDb {
-            edition: GameEdition::Ra2,
-            rules: doc.clone(),
-            art: IniDocument::default(),
-            overlay_types: OverlayTypeRegistry::default(),
-            color_schemes: ColorSchemes::default(),
-            techno_types: TechnoTypeRegistry::from_rules(&doc),
-        }
-    }
-
-    #[test]
-    fn session_tick_and_snapshot() {
-        let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
-        map.width = 20;
-        map.height = 30;
-        map.waypoints.push(Waypoint {
-            index: 0,
-            x: 12,
-            y: 10,
-        });
-        map.entities.push(MapEntity {
-            kind: MapEntityKind::Unit,
-            owner: "Americans".into(),
-            type_id: "MTNK".into(),
-            health: 256,
-            x: 10,
-            y: 10,
-            facing: 0,
-            sub_cell: 0,
-        });
-        let world = World::new(GameEdition::Ra2, &rules, map);
-        let mut session = Session::new(world, "test");
-        session.push_command(GameCommand::MoveTo {
-            entity_index: 0,
-            x: 12,
-            y: 10,
-        });
-        session.tick();
-        let snap = session.snapshot();
-        assert_eq!(snap.tick, 1);
-        assert_eq!(snap.units.len(), 1);
-        assert_eq!(snap.units[0].x, 11);
-    }
-
-    #[test]
-    fn selection_orders_attack_and_detects_victor() {
-        let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
-        map.width = 20;
-        map.height = 30;
-        map.entities.push(MapEntity {
-            kind: MapEntityKind::Unit,
-            owner: "Americans".into(),
-            type_id: "MTNK".into(),
-            health: 256,
-            x: 10,
-            y: 10,
-            facing: 0,
-            sub_cell: 0,
-        });
-        map.entities.push(MapEntity {
-            kind: MapEntityKind::Unit,
-            owner: "Russians".into(),
-            type_id: "MTNK".into(),
-            health: 256,
-            x: 12,
-            y: 10,
-            facing: 0,
-            sub_cell: 0,
-        });
-        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
-        session.world.entities[0].target_x = None;
-        session.world.entities[0].target_y = None;
-        session.world.entities[1].target_x = None;
-        session.world.entities[1].target_y = None;
-        session.world.entities[1].speed = 0;
-        session.cycle_selection();
-        assert_eq!(session.selected, vec![0]);
-        session.select_add(1);
-        assert_eq!(session.selected, vec![0]); // 异阵营拒绝
-        session.select_all_of_owner(0);
-        assert_eq!(session.selected, vec![0]);
-        let foe = session.nearest_hostile(0).unwrap();
-        assert_eq!(foe, 1);
-        session.order_selected_attack(foe);
-        for _ in 0..80 {
-            session.tick();
-            if session.sole_victor().is_some() {
-                break;
-            }
-        }
-        assert_eq!(session.sole_victor(), Some("Americans"));
-        assert!(session.world.entities[1].dead);
-        assert_eq!(
-            session.outcome,
-            Some(MatchOutcome::Victory {
-                owner: "Americans".into()
-            })
-        );
-        assert!(session.paused);
-        assert_eq!(session.pump(1.0), 0);
-    }
-
-    #[test]
-    fn image_to_cell_uses_preview_origin() {
-        let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
-        map.width = 20;
-        map.height = 30;
-        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
-        session.set_preview_origin(-100, -50);
-        // 钻石中心在等距空间；减去 origin 得到图像坐标。
-        let (sx, sy) = ra_map::iso_to_screen(5, 4, 0);
-        let cx = (sx + ra_map::TILE_WIDTH / 2) as f32;
-        let cy = (sy + ra_map::TILE_HEIGHT / 2) as f32;
-        let ix = cx - (-100.0);
-        let iy = cy - (-50.0);
-        assert_eq!(session.image_to_cell(ix, iy), Some((5, 4)));
-    }
-
-    #[test]
-    fn snapshot_includes_screen_coords_and_selection() {
-        let rules = rules_with_mtnk();
-        let mut map = MapInfo::empty(GameEdition::Ra2, "t");
-        map.width = 20;
-        map.height = 30;
-        map.entities.push(MapEntity {
-            kind: MapEntityKind::Unit,
-            owner: "Americans".into(),
-            type_id: "MTNK".into(),
-            health: 256,
-            x: 5,
-            y: 4,
-            facing: 0,
-            sub_cell: 0,
-        });
-        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
-        session.set_preview_origin(-100, -50);
-        session.select_only(0);
-        let snap = session.snapshot();
-        assert_eq!(snap.selected, vec![0]);
-        assert_eq!(snap.units.len(), 1);
-        let u = &snap.units[0];
-        let z = session.world.pass_grid.cell_height(5, 4);
-        let (sx, sy) = ra_map::iso_to_screen(5, 4, z);
-        assert_eq!(u.screen_x, sx - (-100));
-        assert_eq!(u.screen_y, sy - (-50));
-    }
-
-    #[test]
-    fn pump_advances_fixed_hz_ticks() {
-        let rules = rules_with_mtnk();
-        let map = MapInfo::empty(GameEdition::Ra2, "t");
-        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
-        session.tick_hz = 10;
-        assert_eq!(session.pump(0.05), 0); // 50ms < 100ms
-        assert_eq!(session.world.tick, 0);
-        assert_eq!(session.pump(0.05), 1); // 累计 100ms
-        assert_eq!(session.world.tick, 1);
-        assert_eq!(session.pump(1.0), MAX_TICKS_PER_PUMP); // 追赶有上限
-    }
-
-    #[test]
-    fn remote_digest_mismatch_pauses() {
-        let rules = rules_with_mtnk();
-        let map = MapInfo::empty(GameEdition::Ra2, "t");
-        let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
-        session.tick();
-        let mut bad = session.local_digest();
-        bad.hash ^= 0xff;
-        assert!(!session.apply_remote_digest(&bad));
-        assert!(session.paused);
-        assert!(session.pause_reason.is_some());
-        assert_eq!(session.pump(1.0), 0);
-        session.resume();
-        assert!(!session.paused);
-        assert!(session.pump(0.2) >= 1);
     }
 }

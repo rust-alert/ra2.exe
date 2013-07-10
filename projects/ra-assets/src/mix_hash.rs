@@ -11,7 +11,8 @@ const CRC32_TABLE: [u32; 256] = {
         while j < 8 {
             if crc & 1 != 0 {
                 crc = (crc >> 1) ^ CRC32_POLYNOMIAL;
-            } else {
+            }
+            else {
                 crc >>= 1;
             }
             j += 1;
@@ -29,7 +30,8 @@ pub fn mix_hash(name: &str) -> i32 {
     crc32(&padded) as i32
 }
 
-fn westwood_pad(data: &[u8]) -> Vec<u8> {
+/// Westwood MIX 文件名填充（供哈希与测试校验）。
+pub fn westwood_pad(data: &[u8]) -> Vec<u8> {
     let len = data.len();
     let residue = len % 4;
     if residue == 0 {
@@ -47,35 +49,12 @@ fn westwood_pad(data: &[u8]) -> Vec<u8> {
     padded
 }
 
-fn crc32(data: &[u8]) -> u32 {
+/// 标准 CRC-32（IEEE，初值/终值按 Westwood MIX 约定）。
+pub fn crc32(data: &[u8]) -> u32 {
     let mut crc = 0xFFFFFFFFu32;
     for &byte in data {
         let index = ((crc ^ u32::from(byte)) & 0xFF) as usize;
         crc = (crc >> 8) ^ CRC32_TABLE[index];
     }
     crc ^ 0xFFFFFFFF
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn crc32_known_vector() {
-        assert_eq!(crc32(b"123456789"), 0xCBF43926);
-    }
-
-    #[test]
-    fn mix_hash_case_insensitive() {
-        assert_eq!(mix_hash("rules.ini"), mix_hash("RULES.INI"));
-    }
-
-    #[test]
-    fn padding_for_rules_ini() {
-        let padded = westwood_pad(b"RULES.INI");
-        assert_eq!(padded.len(), 12);
-        assert_eq!(padded[9], 0x01);
-        assert_eq!(padded[10], b'I');
-        assert_eq!(padded[11], b'I');
-    }
 }

@@ -10,8 +10,11 @@ pub const HOUSE_REMAP_FIRST: usize = 16;
 /// rules `[Colors]` 用的 HSV（三分量均为 0..=255）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hsv {
+    /// 色相。
     pub h: u8,
+    /// 饱和度。
     pub s: u8,
+    /// 明度。
     pub v: u8,
 }
 
@@ -42,12 +45,7 @@ pub fn build_remap_ramp(primary: Rgba) -> [Rgba; HOUSE_REMAP_COUNT] {
     for (i, slot) in ramp.iter_mut().enumerate() {
         let t = 1.0 - (i as f32) / ((HOUSE_REMAP_COUNT - 1) as f32);
         let f = 0.20 + 0.75 * t;
-        *slot = Rgba {
-            r: scale_channel(primary.r, f),
-            g: scale_channel(primary.g, f),
-            b: scale_channel(primary.b, f),
-            a: 255,
-        };
+        *slot = Rgba { r: scale_channel(primary.r, f), g: scale_channel(primary.g, f), b: scale_channel(primary.b, f), a: 255 };
     }
     ramp
 }
@@ -57,14 +55,8 @@ pub fn build_hsv_remap_ramp(hsv: Hsv) -> [Rgba; HOUSE_REMAP_COUNT] {
     let mut ramp = [Rgba::rgb(0, 0, 0); HOUSE_REMAP_COUNT];
     for (i, slot) in ramp.iter_mut().enumerate() {
         let t = (i as f32) / ((HOUSE_REMAP_COUNT - 1) as f32);
-        let value = (f32::from(hsv.v) * (1.0 - 0.82 * t))
-            .round()
-            .clamp(0.0, 255.0) as u8;
-        *slot = hsv_to_rgb(Hsv {
-            h: hsv.h,
-            s: hsv.s,
-            v: value,
-        });
+        let value = (f32::from(hsv.v) * (1.0 - 0.82 * t)).round().clamp(0.0, 255.0) as u8;
+        *slot = hsv_to_rgb(Hsv { h: hsv.h, s: hsv.s, v: value });
     }
     ramp
 }
@@ -115,51 +107,5 @@ impl Palette {
             Some(c) => self.with_house_remap(c),
             None => self.clone(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn neutral_skips_remap() {
-        assert!(owner_primary_color("Neutral").is_none());
-        assert!(owner_primary_color("Americans").is_some());
-    }
-
-    #[test]
-    fn ramp_replaces_band_only() {
-        let mut colors = [Rgba::rgb(1, 2, 3); 256];
-        colors[0] = Rgba::transparent();
-        colors[40] = Rgba::rgb(9, 9, 9);
-        let pal = Palette { colors };
-        let remapped = pal.with_house_remap(Rgba::rgb(255, 0, 0));
-        assert_eq!(remapped.colors[40], Rgba::rgb(9, 9, 9));
-        assert_eq!(remapped.colors[16].a, 255);
-        assert!(remapped.colors[16].r > remapped.colors[31].r);
-        assert_eq!(remapped.colors[16].g, 0);
-    }
-
-    #[test]
-    fn hsv_gold_is_warm() {
-        let c = hsv_to_rgb(Hsv {
-            h: 25,
-            s: 255,
-            v: 255,
-        });
-        assert!(c.r > c.b);
-        assert!(c.g > 100);
-    }
-
-    #[test]
-    fn hsv_ramp_darkens() {
-        let ramp = build_hsv_remap_ramp(Hsv {
-            h: 0,
-            s: 255,
-            v: 255,
-        });
-        let lum = |c: Rgba| u16::from(c.r) + u16::from(c.g) + u16::from(c.b);
-        assert!(lum(ramp[0]) > lum(ramp[15]));
     }
 }

@@ -1,43 +1,57 @@
-//! ? rules ??????? TechnoType ???
+//! 从 rules 列表节解析 TechnoType 注册表。
 
 use std::collections::HashMap;
 
 use crate::ini::IniDocument;
 
-/// ???????????????? / ???????
+/// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TechnoType {
+    /// 类型 id（大写）。
     pub id: String,
+    /// 所属大类。
     pub kind: TechnoKind,
+    /// `Strength` 生命值。
     pub strength: u32,
+    /// `Armor` 护甲名。
     pub armor: String,
+    /// `Speed` 移动速度。
     pub speed: u32,
+    /// `Sight` 视野。
     pub sight: u32,
+    /// `Cost` 造价。
     pub cost: u32,
+    /// `TechLevel`；缺省为 -1。
     pub tech_level: i32,
+    /// `Owner` 所属阵营串。
     pub owner: String,
+    /// `Image` 资源名（缺省等于 id）。
     pub image: String,
-    /// ?????tick????? `ROF` ?? 0????????????
+    /// 射速间隔（tick）；来自 `ROF`，缺省 0 表示未配置。
     pub rof: u32,
 }
 
-/// Techno ????? rules ?????
+/// Techno 大类，对应 rules 列表节。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TechnoKind {
+    /// `[InfantryTypes]`
     Infantry,
+    /// `[VehicleTypes]`
     Vehicle,
+    /// `[AircraftTypes]`
     Aircraft,
+    /// `[BuildingTypes]`
     Building,
 }
 
-/// `type_id`????? TechnoType?
+/// `type_id` → 解析后的 TechnoType。
 #[derive(Debug, Clone, Default)]
 pub struct TechnoTypeRegistry {
     by_id: HashMap<String, TechnoType>,
 }
 
 impl TechnoTypeRegistry {
-    /// ?? `[InfantryTypes]` / `[VehicleTypes]` / `[AircraftTypes]` / `[BuildingTypes]`?
+    /// 扫描 `[InfantryTypes]` / `[VehicleTypes]` / `[AircraftTypes]` / `[BuildingTypes]`。
     pub fn from_rules(rules: &IniDocument) -> Self {
         let mut by_id = HashMap::new();
         for (section, kind) in [
@@ -46,7 +60,8 @@ impl TechnoTypeRegistry {
             ("AircraftTypes", TechnoKind::Aircraft),
             ("BuildingTypes", TechnoKind::Building),
         ] {
-            let Some(list) = rules.sections.get(section) else {
+            let Some(list) = rules.sections.get(section)
+            else {
                 continue;
             };
             for (_key, name) in &list.order {
@@ -66,95 +81,47 @@ impl TechnoTypeRegistry {
         Self { by_id }
     }
 
+    /// 按 id 查找（大小写不敏感）。
     pub fn get(&self, id: &str) -> Option<&TechnoType> {
         self.by_id.get(&id.to_ascii_uppercase())
     }
 
+    /// 已解析类型总数。
     pub fn len(&self) -> usize {
         self.by_id.len()
     }
 
+    /// 是否为空表。
     pub fn is_empty(&self) -> bool {
         self.by_id.is_empty()
     }
 
+    /// 统计某一大类的数量。
     pub fn count_kind(&self, kind: TechnoKind) -> usize {
         self.by_id.values().filter(|t| t.kind == kind).count()
     }
 }
 
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    // ?????????????????????
+    // 节名可能与列表项大小写不一致，先精确再忽略大小写匹配。
     let section_key = if rules.sections.contains_key(id) {
         id.to_string()
-    } else {
-        rules
-            .sections
-            .keys()
-            .find(|k| k.eq_ignore_ascii_case(id))?
-            .clone()
+    }
+    else {
+        rules.sections.keys().find(|k| k.eq_ignore_ascii_case(id))?.clone()
     };
     let strength = parse_u32(rules.get(&section_key, "Strength")).unwrap_or(1);
-    let armor = rules
-        .get(&section_key, "Armor")
-        .unwrap_or("none")
-        .to_string();
+    let armor = rules.get(&section_key, "Armor").unwrap_or("none").to_string();
     let speed = parse_u32(rules.get(&section_key, "Speed")).unwrap_or(0);
     let sight = parse_u32(rules.get(&section_key, "Sight")).unwrap_or(0);
     let cost = parse_u32(rules.get(&section_key, "Cost")).unwrap_or(0);
     let rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
-    let tech_level = rules
-        .get(&section_key, "TechLevel")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(-1);
-    let owner = rules
-        .get(&section_key, "Owner")
-        .unwrap_or("")
-        .to_string();
-    let image = rules
-        .get(&section_key, "Image")
-        .unwrap_or(id)
-        .to_ascii_uppercase();
-    Some(TechnoType {
-        id: id.to_string(),
-        kind,
-        strength,
-        armor,
-        speed,
-        sight,
-        cost,
-        tech_level,
-        owner,
-        image,
-        rof,
-    })
+    let tech_level = rules.get(&section_key, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
+    let owner = rules.get(&section_key, "Owner").unwrap_or("").to_string();
+    let image = rules.get(&section_key, "Image").unwrap_or(id).to_ascii_uppercase();
+    Some(TechnoType { id: id.to_string(), kind, strength, armor, speed, sight, cost, tech_level, owner, image, rof })
 }
 
 fn parse_u32(raw: Option<&str>) -> Option<u32> {
     raw?.trim().parse().ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_vehicle_list() {
-        let doc = IniDocument::parse(
-            b"[VehicleTypes]\n0=MTNK\n1=HTNK\n\
-[MTNK]\nStrength=300\nArmor=heavy\nSpeed=6\nSight=6\nCost=800\nTechLevel=2\nOwner=Americans\nImage=MTNK\nROF=12\n\
-[HTNK]\nStrength=600\nArmor=heavy\nSpeed=4\nSight=6\nCost=1400\nTechLevel=6\nOwner=Americans\n",
-        )
-        .unwrap();
-        let reg = TechnoTypeRegistry::from_rules(&doc);
-        assert_eq!(reg.len(), 2);
-        assert_eq!(reg.count_kind(TechnoKind::Vehicle), 2);
-        let m = reg.get("mtnk").unwrap();
-        assert_eq!(m.strength, 300);
-        assert_eq!(m.speed, 6);
-        assert_eq!(m.cost, 800);
-        assert_eq!(m.image, "MTNK");
-        assert_eq!(m.rof, 12);
-        assert_eq!(reg.get("htnk").unwrap().rof, 0);
-    }
 }

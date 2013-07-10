@@ -21,10 +21,7 @@ pub fn requested_scene() -> Option<String> {
             }
         }
     }
-    std::env::var("RA2_TEST_SCENE")
-        .ok()
-        .map(|s| s.trim().to_ascii_lowercase())
-        .filter(|s| !s.is_empty())
+    std::env::var("RA2_TEST_SCENE").ok().map(|s| s.trim().to_ascii_lowercase()).filter(|s| !s.is_empty())
 }
 
 /// 可选状态旁路文件路径（`RA2_TEST_STATUS_PATH`）。
@@ -42,9 +39,7 @@ pub struct TestBoot {
 pub fn boot_scene(scene: &str) -> RaResult<TestBoot> {
     match scene {
         "duel" => boot_duel(),
-        other => Err(RaError::Msg(format!(
-            "未知测试场景 `{other}`（当前支持: duel）"
-        ))),
+        other => Err(RaError::Msg(format!("未知测试场景 `{other}`（当前支持: duel）"))),
     }
 }
 
@@ -52,13 +47,8 @@ fn boot_duel() -> RaResult<TestBoot> {
     let mut case = standard_duel();
     // 预览原点使等距坐标落入正半幅画布，便于点选与标记对齐。
     case.session.set_preview_origin(-240, -40);
-    let preview = solid_preview(960, 720, [24, 32, 48, 255])
-        .ok_or_else(|| RaError::Msg("测试预览图分配失败".into()))?;
-    Ok(TestBoot {
-        note: "test-harness · scene=duel · synthetic".into(),
-        session: case.session,
-        preview: Some(preview),
-    })
+    let preview = solid_preview(960, 720, [24, 32, 48, 255]).ok_or_else(|| RaError::Msg("测试预览图分配失败".into()))?;
+    Ok(TestBoot { note: "test-harness · scene=duel · synthetic".into(), session: case.session, preview: Some(preview) })
 }
 
 fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
@@ -76,12 +66,7 @@ pub fn write_status(path: &std::path::Path, session: &Session) {
         Some(ra_session::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
-    let selected = session
-        .selected
-        .iter()
-        .map(|i| i.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
+    let selected = session.selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
     let body = format!(
         "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\n",
         session.world.tick,

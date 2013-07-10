@@ -56,10 +56,7 @@ impl MarkerGpu {
                 })],
                 compilation_options: Default::default(),
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                ..Default::default()
-            },
+            primitive: wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, ..Default::default() },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
@@ -71,11 +68,7 @@ impl MarkerGpu {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        Self {
-            pipeline,
-            vertex_buffer,
-            vertex_count: 0,
-        }
+        Self { pipeline, vertex_buffer, vertex_count: 0 }
     }
 
     pub fn write_from_snapshot(
@@ -106,28 +99,8 @@ impl MarkerGpu {
                 let bar_h = 3.0;
                 let bx = cx - bar_w * 0.5;
                 let by = cy - half - 6.0;
-                push_rect(
-                    &mut verts,
-                    camera,
-                    sw,
-                    sh,
-                    bx,
-                    by,
-                    bar_w,
-                    bar_h,
-                    [0.1, 0.1, 0.1, 0.85],
-                );
-                push_rect(
-                    &mut verts,
-                    camera,
-                    sw,
-                    sh,
-                    bx,
-                    by,
-                    bar_w * ratio,
-                    bar_h,
-                    [0.2, 0.9, 0.25, 0.95],
-                );
+                push_rect(&mut verts, camera, sw, sh, bx, by, bar_w, bar_h, [0.1, 0.1, 0.1, 0.85]);
+                push_rect(&mut verts, camera, sw, sh, bx, by, bar_w * ratio, bar_h, [0.2, 0.9, 0.25, 0.95]);
             }
             if verts.len() as u64 >= MAX_VERTICES {
                 break;
@@ -153,88 +126,33 @@ impl MarkerGpu {
     }
 }
 
-fn push_diamond(
-    out: &mut Vec<Vertex>,
-    camera: &Camera,
-    sw: f32,
-    sh: f32,
-    cx: f32,
-    cy: f32,
-    half: f32,
-    color: [f32; 4],
-) {
+fn push_diamond(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, cy: f32, half: f32, color: [f32; 4]) {
     let top = camera.world_to_ndc(cx, cy - half, sw, sh);
     let right = camera.world_to_ndc(cx + half, cy, sw, sh);
     let bottom = camera.world_to_ndc(cx, cy + half, sw, sh);
     let left = camera.world_to_ndc(cx - half, cy, sw, sh);
     out.extend_from_slice(&[
-        Vertex {
-            pos: top,
-            color,
-        },
-        Vertex {
-            pos: right,
-            color,
-        },
-        Vertex {
-            pos: bottom,
-            color,
-        },
-        Vertex {
-            pos: top,
-            color,
-        },
-        Vertex {
-            pos: bottom,
-            color,
-        },
-        Vertex {
-            pos: left,
-            color,
-        },
+        Vertex { pos: top, color },
+        Vertex { pos: right, color },
+        Vertex { pos: bottom, color },
+        Vertex { pos: top, color },
+        Vertex { pos: bottom, color },
+        Vertex { pos: left, color },
     ]);
 }
 
-fn push_rect(
-    out: &mut Vec<Vertex>,
-    camera: &Camera,
-    sw: f32,
-    sh: f32,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    color: [f32; 4],
-) {
+fn push_rect(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
     let p00 = camera.world_to_ndc(x, y, sw, sh);
     let p10 = camera.world_to_ndc(x + w, y, sw, sh);
     let p11 = camera.world_to_ndc(x + w, y + h, sw, sh);
     let p01 = camera.world_to_ndc(x, y + h, sw, sh);
     out.extend_from_slice(&[
-        Vertex {
-            pos: p00,
-            color,
-        },
-        Vertex {
-            pos: p10,
-            color,
-        },
-        Vertex {
-            pos: p11,
-            color,
-        },
-        Vertex {
-            pos: p00,
-            color,
-        },
-        Vertex {
-            pos: p11,
-            color,
-        },
-        Vertex {
-            pos: p01,
-            color,
-        },
+        Vertex { pos: p00, color },
+        Vertex { pos: p10, color },
+        Vertex { pos: p11, color },
+        Vertex { pos: p00, color },
+        Vertex { pos: p11, color },
+        Vertex { pos: p01, color },
     ]);
 }
 
@@ -251,50 +169,10 @@ fn push_ring(
 ) {
     // 简化：四个边框矩形近似环。
     let inner = outer - thickness;
-    push_rect(
-        out,
-        camera,
-        sw,
-        sh,
-        cx - outer,
-        cy - outer,
-        outer * 2.0,
-        thickness,
-        color,
-    );
-    push_rect(
-        out,
-        camera,
-        sw,
-        sh,
-        cx - outer,
-        cy + inner,
-        outer * 2.0,
-        thickness,
-        color,
-    );
-    push_rect(
-        out,
-        camera,
-        sw,
-        sh,
-        cx - outer,
-        cy - inner,
-        thickness,
-        inner * 2.0,
-        color,
-    );
-    push_rect(
-        out,
-        camera,
-        sw,
-        sh,
-        cx + inner,
-        cy - inner,
-        thickness,
-        inner * 2.0,
-        color,
-    );
+    push_rect(out, camera, sw, sh, cx - outer, cy - outer, outer * 2.0, thickness, color);
+    push_rect(out, camera, sw, sh, cx - outer, cy + inner, outer * 2.0, thickness, color);
+    push_rect(out, camera, sw, sh, cx - outer, cy - inner, thickness, inner * 2.0, color);
+    push_rect(out, camera, sw, sh, cx + inner, cy - inner, thickness, inner * 2.0, color);
 }
 
 fn owner_color(owner: &str) -> [f32; 4] {
@@ -306,12 +184,7 @@ fn owner_color(owner: &str) -> [f32; 4] {
     let r = ((h >> 16) & 0xff) as f32 / 255.0;
     let g = ((h >> 8) & 0xff) as f32 / 255.0;
     let b = (h & 0xff) as f32 / 255.0;
-    [
-        0.35 + r * 0.55,
-        0.35 + g * 0.55,
-        0.35 + b * 0.55,
-        0.92,
-    ]
+    [0.35 + r * 0.55, 0.35 + g * 0.55, 0.35 + b * 0.55, 0.92]
 }
 
 const MARKER_WGSL: &str = r#"

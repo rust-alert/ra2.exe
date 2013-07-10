@@ -9,8 +9,11 @@ const PAGE_SIZE: usize = 256;
 /// 解析后的 VPL。
 #[derive(Debug, Clone)]
 pub struct VplFile {
+    /// 房屋 remap 色带起始索引。
     pub first_remap: u32,
+    /// 房屋 remap 色带结束索引。
     pub last_remap: u32,
+    /// 亮度页数量。
     pub num_sections: u32,
     pages: Vec<[u8; PAGE_SIZE]>,
 }
@@ -19,10 +22,7 @@ impl VplFile {
     /// 解析 `.vpl` 字节。
     pub fn parse(data: &[u8]) -> RaResult<Self> {
         if data.len() < HEADER + PALETTE_BYTES {
-            return Err(RaError::Parse(format!(
-                "vpl 过小：{} 字节",
-                data.len()
-            )));
+            return Err(RaError::Parse(format!("vpl 过小：{} 字节", data.len())));
         }
         let first_remap = read_u32(data, 0);
         let last_remap = read_u32(data, 4);
@@ -33,10 +33,7 @@ impl VplFile {
         let pages_start = HEADER + PALETTE_BYTES;
         let needed = pages_start + num_sections as usize * PAGE_SIZE;
         if data.len() < needed {
-            return Err(RaError::Parse(format!(
-                "vpl 截断：需 {needed} 字节，实有 {}",
-                data.len()
-            )));
+            return Err(RaError::Parse(format!("vpl 截断：需 {needed} 字节，实有 {}", data.len())));
         }
 
         let mut pages = Vec::with_capacity(num_sections as usize);
@@ -47,14 +44,11 @@ impl VplFile {
             pages.push(page);
         }
 
-        Ok(Self {
-            first_remap,
-            last_remap,
-            num_sections,
-            pages,
-        })
+        Ok(Self { first_remap, last_remap, num_sections, pages })
     }
 
+    /// 亮度页数量。
+    /// 亮度页数量。
     pub fn page_count(&self) -> usize {
         self.pages.len()
     }
@@ -80,37 +74,4 @@ impl VplFile {
 
 fn read_u32(data: &[u8], off: usize) -> u32 {
     u32::from_le_bytes(data[off..off + 4].try_into().unwrap())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_vpl() -> Vec<u8> {
-        let mut data = Vec::new();
-        data.extend_from_slice(&16u32.to_le_bytes());
-        data.extend_from_slice(&31u32.to_le_bytes());
-        data.extend_from_slice(&2u32.to_le_bytes());
-        data.extend_from_slice(&0u32.to_le_bytes());
-        data.extend_from_slice(&[0u8; PALETTE_BYTES]);
-        data.extend_from_slice(&(0..=255u8).collect::<Vec<_>>());
-        data.extend_from_slice(&[42u8; PAGE_SIZE]);
-        data
-    }
-
-    #[test]
-    fn parse_two_pages() {
-        let vpl = VplFile::parse(&sample_vpl()).unwrap();
-        assert_eq!(vpl.first_remap, 16);
-        assert_eq!(vpl.last_remap, 31);
-        assert_eq!(vpl.page_count(), 2);
-        assert_eq!(vpl.remap_color(0, 100), 100);
-        assert_eq!(vpl.remap_color(1, 200), 42);
-        assert_eq!(vpl.remap_color(9, 7), 42);
-    }
-
-    #[test]
-    fn reject_tiny() {
-        assert!(VplFile::parse(&[0u8; 8]).is_err());
-    }
 }

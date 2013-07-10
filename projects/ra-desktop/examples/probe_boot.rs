@@ -13,12 +13,9 @@ struct ProbeSource {
 impl AssetSource for ProbeSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
         if let Some(path) = find_ci_file(&self.root, relative) {
-            return std::fs::read(&path)
-                .map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
+            return std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
         }
-        self.vfs
-            .read(relative)
-            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.vfs.read(relative).ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }
 
@@ -26,10 +23,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     let manifest = detect_edition(root, Some(edition))?;
     let mut vfs = MixVfs::new();
     for name in &manifest.present_mixes {
-        let path = find_ci_file(root, name)
-            .ok_or_else(|| RaError::MissingFile(name.clone()))?;
-        let data = std::fs::read(&path)
-            .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
+        let path = find_ci_file(root, name).ok_or_else(|| RaError::MissingFile(name.clone()))?;
+        let data = std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         eprintln!("mount {} ({} MiB)", name, data.len() / (1024 * 1024));
         if let Err(e) = vfs.mount_bytes(name.clone(), data) {
             eprintln!("skip {name}: {e}");
@@ -46,10 +41,7 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
             Err(e) => eprintln!("skip nested {name}: {e}"),
         }
     }
-    let source = ProbeSource {
-        root: root.to_path_buf(),
-        vfs,
-    };
+    let source = ProbeSource { root: root.to_path_buf(), vfs };
     let rules = load_rules(&source, edition)?;
     eprintln!(
         "OK edition={} present={} missing={} archives_nested={} rules_sections={} art_sections={}",
@@ -68,7 +60,8 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let Some(root) = args.next().map(PathBuf::from) else {
+    let Some(root) = args.next().map(PathBuf::from)
+    else {
         eprintln!("用法: probe_boot <游戏目录> [edition]");
         std::process::exit(2);
     };

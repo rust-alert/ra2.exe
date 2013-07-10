@@ -27,13 +27,16 @@ ra-adaptor-phobos = { path = "projects/ra-adaptor-phobos" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }
-wgpu = { version = "24", default-features = true }
+# wgpu-hal DX12 与 gpu-allocator 须共用同一条 `windows` 线（0.62）。
+# `gpu-allocator` 允许 0.53..=0.62，解析器可能落到 0.58；`Cargo.lock` 已钉到 0.62.2。
+wgpu = { version = "30.0.1", default-features = true }
 winit = "0.30"
-pollster = "0.4"
+pollster = "1.0.1"
 wasm-bindgen = "0.2"
 console_error_panic_hook = "0.1"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "console"] }
-blowfish = "0.9"
+blowfish = "0.10.0"
+byteorder = "1"
 num-bigint = "0.4"
 
 [profile.release]

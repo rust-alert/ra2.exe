@@ -2,11 +2,15 @@
 //!
 //! 桌面主路径用；Wasm 目标可后续接 `console`，本 crate 不强制 `std::fs` 以外的平台。
 
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+#![deny(missing_docs)]
+
+use std::{
+    fs::{self, File, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use ra_types::{RaError, RaResult};
 
@@ -15,9 +19,13 @@ static LOGGER: OnceLock<Mutex<FileLogger>> = OnceLock::new();
 /// 日志级别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
+    /// 错误。
     Error = 1,
+    /// 警告。
     Warn = 2,
+    /// 信息。
     Info = 3,
+    /// 调试。
     Debug = 4,
 }
 
@@ -70,12 +78,7 @@ pub fn init(logs_dir: impl AsRef<Path>, echo_stderr: bool) -> RaResult<PathBuf> 
         .append(true)
         .open(&path)
         .map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
-    let logger = FileLogger {
-        file,
-        path: path.clone(),
-        echo_stderr,
-        max_level: Level::Debug,
-    };
+    let logger = FileLogger { file, path: path.clone(), echo_stderr, max_level: Level::Debug };
     match LOGGER.set(Mutex::new(logger)) {
         Ok(()) => {
             info(&format!("日志已打开 {}", path.display()));
@@ -95,7 +98,8 @@ pub fn init_default(echo_stderr: bool) -> RaResult<PathBuf> {
 }
 
 fn with_logger(f: impl FnOnce(&mut FileLogger)) {
-    let Some(lock) = LOGGER.get() else {
+    let Some(lock) = LOGGER.get()
+    else {
         return;
     };
     if let Ok(mut g) = lock.lock() {
@@ -103,56 +107,37 @@ fn with_logger(f: impl FnOnce(&mut FileLogger)) {
     }
 }
 
+/// 按级别写一条日志。
 pub fn log(level: Level, msg: impl AsRef<str>) {
     let msg = msg.as_ref();
     with_logger(|l| l.write_line(level, msg));
 }
 
+/// 错误级别。
 pub fn error(msg: impl AsRef<str>) {
     log(Level::Error, msg);
 }
 
+/// 警告级别。
 pub fn warn(msg: impl AsRef<str>) {
     log(Level::Warn, msg);
 }
 
+/// 信息级别。
 pub fn info(msg: impl AsRef<str>) {
     log(Level::Info, msg);
 }
 
+/// 调试级别。
 pub fn debug(msg: impl AsRef<str>) {
     log(Level::Debug, msg);
 }
 
 /// 当前日志文件路径（若已 init）。
 pub fn path() -> Option<PathBuf> {
-    LOGGER
-        .get()
-        .and_then(|l| l.lock().ok().map(|g| g.path.clone()))
+    LOGGER.get().and_then(|l| l.lock().ok().map(|g| g.path.clone()))
 }
 
 fn unix_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn writes_append_file() {
-        let dir = std::env::temp_dir().join(format!("ra-logger-test-{}", unix_millis()));
-        let _ = fs::remove_dir_all(&dir);
-        let path = init(&dir, false).unwrap();
-        info("hello");
-        warn("careful");
-        let text = fs::read_to_string(&path).unwrap();
-        assert!(text.contains("INFO hello"));
-        assert!(text.contains("WARN careful"));
-        let _ = fs::remove_dir_all(&dir);
-    }
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0)
 }

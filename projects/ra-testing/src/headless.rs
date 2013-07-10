@@ -1,3 +1,5 @@
+//! 无窗口遭遇战夹具。
+
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -8,19 +10,25 @@ use ra_world::{GameCommand, World};
 /// 无窗口测试用例。所有推进都经过 `Session::tick`，避免测试与产品运行路径分叉。
 #[derive(Debug)]
 pub struct HeadlessCase {
+    /// 被测会话。
     pub session: Session,
 }
 
 /// 用例运行后的稳定观测值，供集成测试记录和断言。
 #[derive(Debug, Clone)]
 pub struct HeadlessObservation {
+    /// 世界 tick。
     pub tick: u64,
+    /// 状态摘要。
     pub state_hash: u64,
+    /// 对局结果（若已结束）。
     pub outcome: Option<MatchOutcome>,
+    /// 呈现快照。
     pub snapshot: RenderSnapshot,
 }
 
 impl HeadlessCase {
+    /// 包装已有会话。
     pub fn new(session: Session) -> Self {
         Self { session }
     }
@@ -40,6 +48,7 @@ impl HeadlessCase {
         }
     }
 
+    /// 采集当前观测。
     pub fn observe(&self) -> HeadlessObservation {
         HeadlessObservation {
             tick: self.session.world.tick,
@@ -91,89 +100,4 @@ pub fn standard_duel() -> HeadlessCase {
     ];
     let world = World::new(GameEdition::Ra2, &rules_db, map);
     HeadlessCase::new(Session::new(world, "ra-testing standard duel"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn standard_duel_reaches_a_repeatable_victory() {
-        let mut case = standard_duel();
-        case.command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
-        case.advance(64);
-        let result = case.observe();
-        assert_eq!(result.outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
-        assert!(result.tick > 0);
-        assert!(result.snapshot.units.iter().any(|unit| unit.dead));
-    }
-
-    #[test]
-    fn equal_scripts_produce_equal_observations() {
-        let mut first = standard_duel();
-        let mut second = standard_duel();
-        for case in [&mut first, &mut second] {
-            case.command(GameCommand::MoveTo {
-                entity_index: 0,
-                x: 5,
-                y: 8,
-            });
-            case.advance(3);
-        }
-        let a = first.observe();
-        let b = second.observe();
-        assert_eq!(a.tick, b.tick);
-        assert_eq!(a.state_hash, b.state_hash);
-        assert_eq!(a.snapshot.units[0].x, b.snapshot.units[0].x);
-    }
-
-    #[test]
-    fn move_script_advances_unit_cell() {
-        let mut case = standard_duel();
-        case.command(GameCommand::MoveTo {
-            entity_index: 0,
-            x: 6,
-            y: 8,
-        });
-        case.advance(4);
-        let result = case.observe();
-        assert_eq!(result.snapshot.units[0].x, 6);
-        assert_eq!(result.snapshot.units[0].y, 8);
-        assert!(result.outcome.is_none());
-    }
-
-    #[test]
-    fn out_of_bounds_commands_are_ignored_without_panic() {
-        let mut case = standard_duel();
-        case.command(GameCommand::MoveTo {
-            entity_index: 99,
-            x: 1,
-            y: 1,
-        });
-        case.command(GameCommand::Attack {
-            attacker_index: 0,
-            target_index: 99,
-        });
-        case.advance(2);
-        let result = case.observe();
-        assert_eq!(result.snapshot.units[0].x, 4);
-        assert!(!result.snapshot.units[1].dead);
-        assert!(result.outcome.is_none());
-    }
-
-    #[test]
-    fn victory_pauses_further_ticks() {
-        let mut case = standard_duel();
-        case.command(GameCommand::Attack {
-            attacker_index: 0,
-            target_index: 1,
-        });
-        case.advance(64);
-        let after_win = case.observe();
-        assert!(after_win.outcome.is_some());
-        let tick_at_win = after_win.tick;
-        case.advance(8);
-        assert_eq!(case.observe().tick, tick_at_win);
-        assert!(case.session.paused);
-    }
 }

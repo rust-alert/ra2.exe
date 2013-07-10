@@ -5,22 +5,32 @@ use ra_assets::IniDocument;
 /// 放置类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MapEntityKind {
+    /// 建筑。
     Structure,
+    /// 载具。
     Unit,
+    /// 步兵。
     Infantry,
+    /// 飞行器。
     Aircraft,
 }
 
 /// 场景里预放的一个实体。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEntity {
+    /// 放置类别。
     pub kind: MapEntityKind,
+    /// 所属方名称。
     pub owner: String,
+    /// 类型 id（通常已大写）。
     pub type_id: String,
     /// 0..=256，零售常用 256 表示满血。
     pub health: u16,
+    /// 格子 X。
     pub x: u16,
+    /// 格子 Y。
     pub y: u16,
+    /// 朝向。
     pub facing: u8,
     /// 仅步兵：子格 0..=4；其它为 0。
     pub sub_cell: u8,
@@ -36,13 +46,9 @@ pub fn parse_map_entities(doc: &IniDocument) -> Vec<MapEntity> {
     out
 }
 
-fn parse_section(
-    doc: &IniDocument,
-    section: &str,
-    kind: MapEntityKind,
-    out: &mut Vec<MapEntity>,
-) {
-    let Some(sec) = doc.sections.get(section) else {
+fn parse_section(doc: &IniDocument, section: &str, kind: MapEntityKind, out: &mut Vec<MapEntity>) {
+    let Some(sec) = doc.sections.get(section)
+    else {
         return;
     };
     for (_key, value) in &sec.order {
@@ -85,35 +91,5 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
                 sub_cell: 0,
             })
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_structure_and_infantry() {
-        let text = b"\
-[Structures]\n\
-1=Neutral,GACNST,256,10,20,0,None\n\
-[Infantry]\n\
-2=Americans,E1,256,11,21,2,Guard,32\n\
-";
-        let doc = IniDocument::parse(text).unwrap();
-        let ents = parse_map_entities(&doc);
-        assert_eq!(ents.len(), 2);
-        let structure = ents
-            .iter()
-            .find(|e| e.kind == MapEntityKind::Structure)
-            .unwrap();
-        let infantry = ents
-            .iter()
-            .find(|e| e.kind == MapEntityKind::Infantry)
-            .unwrap();
-        assert_eq!(structure.type_id, "GACNST");
-        assert_eq!(structure.x, 10);
-        assert_eq!(infantry.sub_cell, 2);
-        assert_eq!(infantry.facing, 32);
     }
 }

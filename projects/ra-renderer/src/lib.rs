@@ -3,6 +3,8 @@
 //! 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。
 //! 本 crate **故意不**实现 DirectDraw。
 
+#![deny(missing_docs)]
+
 mod camera;
 mod gpu;
 mod markers;
@@ -15,23 +17,19 @@ use ra_session::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
 use winit::window::Window;
 
-use crate::camera::Camera;
-use crate::gpu::GpuContext;
-use crate::markers::MarkerGpu;
-use crate::sprite::SpriteGpu;
+use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteGpu};
 
+/// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
+/// CPU 侧 RGBA 像素缓冲，可上传到 GPU 作为预览纹理。
 pub use crate::rgba_image::RgbaImage;
 
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
-const CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: 0.04,
-    g: 0.06,
-    b: 0.09,
-    a: 1.0,
-};
+const CLEAR_COLOR: wgpu::Color = wgpu::Color { r: 0.04, g: 0.06, b: 0.09, a: 1.0 };
 
+/// wgpu 渲染器：管理 GPU 上下文、预览底图与快照单位标记。
 pub struct Renderer {
+    /// 累计已提交帧数（含无 GPU 时的空转计数）。
     pub frames: u64,
     gpu: Option<GpuContext>,
     preview: Option<RgbaImage>,
@@ -42,6 +40,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    /// 创建尚未绑定窗口的渲染器实例。
     pub fn new() -> Self {
         Self {
             frames: 0,
@@ -49,11 +48,7 @@ impl Renderer {
             preview: None,
             sprite: None,
             markers: None,
-            camera: Camera {
-                center_x: 0.0,
-                center_y: 0.0,
-                zoom: 1.0,
-            },
+            camera: Camera { center_x: 0.0, center_y: 0.0, zoom: 1.0 },
             camera_ready: false,
         }
     }
@@ -64,19 +59,15 @@ impl Renderer {
             match self.sprite.as_mut() {
                 Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
                 None => {
-                    self.sprite = Some(SpriteGpu::create(
-                        &gpu.device,
-                        &gpu.queue,
-                        gpu.config.format,
-                        &image,
-                    ));
+                    self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &image));
                 }
             }
             if self.markers.is_none() {
                 self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
             }
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
-        } else {
+        }
+        else {
             self.camera_ready = false;
         }
         self.preview = Some(image);
@@ -89,12 +80,7 @@ impl Renderer {
         }
         let gpu = GpuContext::new(window)?;
         if let Some(image) = self.preview.as_ref() {
-            self.sprite = Some(SpriteGpu::create(
-                &gpu.device,
-                &gpu.queue,
-                gpu.config.format,
-                image,
-            ));
+            self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
         self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
@@ -102,24 +88,29 @@ impl Renderer {
         Ok(())
     }
 
+    /// 通知交换链表面尺寸变化（像素宽高）。
     pub fn resize(&mut self, width: u32, height: u32) {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.resize(width, height);
         }
     }
 
+    /// 只读访问当前视口相机。
     pub fn camera(&self) -> &Camera {
         &self.camera
     }
 
+    /// 可变访问当前视口相机。
     pub fn camera_mut(&mut self) -> &mut Camera {
         &mut self.camera
     }
 
+    /// 按屏幕像素位移平移视口（拖拽地图）。
     pub fn pan_screen(&mut self, dx: f32, dy: f32) {
         self.camera.pan_screen(dx, dy);
     }
 
+    /// 相对缩放视口，`factor` 大于 1 为放大。
     pub fn zoom_by(&mut self, factor: f32) {
         self.camera.zoom_by(factor);
     }
@@ -140,51 +131,34 @@ impl Renderer {
             }
         }
 
-        let Some(gpu) = self.gpu.as_ref() else {
+        let Some(gpu) = self.gpu.as_ref()
+        else {
             return;
         };
-        let Ok(frame) = gpu.surface.get_current_texture() else {
+        let Ok(frame) = gpu.surface.get_current_texture()
+        else {
             return;
         };
-        let view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         if let Some(sprite) = self.sprite.as_ref() {
-            sprite.write_vertices(
-                &gpu.queue,
-                &self.camera,
-                gpu.config.width,
-                gpu.config.height,
-            );
+            sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
         }
         if let (Some(markers), Some(snap)) = (self.markers.as_mut(), snap) {
-            markers.write_from_snapshot(
-                &gpu.queue,
-                snap,
-                &self.camera,
-                gpu.config.width,
-                gpu.config.height,
-            );
-        } else if let Some(markers) = self.markers.as_mut() {
+            markers.write_from_snapshot(&gpu.queue, snap, &self.camera, gpu.config.width, gpu.config.height);
+        }
+        else if let Some(markers) = self.markers.as_mut() {
             markers.clear();
         }
 
-        let mut encoder = gpu
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("ra.frame"),
-            });
+        let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ra.frame_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
-                        store: wgpu::StoreOp::Store,
-                    },
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(CLEAR_COLOR), store: wgpu::StoreOp::Store },
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -201,17 +175,17 @@ impl Renderer {
         frame.present();
     }
 
+    /// 当前 wgpu 后端标签；未绑定时返回 `"wgpu(pending)"`。
     pub fn backend_name(&self) -> &'static str {
-        self.gpu
-            .as_ref()
-            .map(|g| g.backend_label())
-            .unwrap_or("wgpu(pending)")
+        self.gpu.as_ref().map(|g| g.backend_label()).unwrap_or("wgpu(pending)")
     }
 
+    /// 是否已加载预览纹理（GPU 或待上传缓存均算有预览）。
     pub fn has_preview(&self) -> bool {
         self.sprite.is_some()
     }
 
+    /// 按游戏版本返回渲染后端提示字符串（当前恒为 `"wgpu"`）。
     pub fn backend_hint(edition: GameEdition) -> &'static str {
         let _ = edition;
         "wgpu"

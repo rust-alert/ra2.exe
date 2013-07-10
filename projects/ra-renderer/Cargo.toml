@@ -14,3 +14,10 @@ winit = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }
 
+# 拉齐 `gpu-allocator` 与 `wgpu-hal` 的 `windows` 版本（DX12 子分配类型必须一致）。
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", default-features = false, features = [
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_Dxgi_Common",
+] }
+

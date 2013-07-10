@@ -3,12 +3,12 @@
 //! 这里不创建窗口、不初始化 GPU，也不访问用户游戏目录。headless 用例必须通过
 //! 与产品相同的 `Session`、`World` 和 `GameCommand` 路径推进。
 
+#![deny(missing_docs)]
+
 mod gui;
 mod headless;
 mod status;
 
-pub use gui::{
-    standard_duel_gui_plan, GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint,
-};
-pub use headless::{standard_duel, HeadlessCase, HeadlessObservation};
+pub use gui::{GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, standard_duel_gui_plan};
+pub use headless::{HeadlessCase, HeadlessObservation, standard_duel};
 pub use status::TestStatus;

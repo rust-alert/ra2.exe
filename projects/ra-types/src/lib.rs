@@ -1,5 +1,7 @@
 //! 全体 ra-* crate 共享的基类型。
 
+#![deny(missing_docs)]
+
 mod asset_source;
 mod edition;
 mod error;

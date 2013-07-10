@@ -13,16 +13,22 @@ const SECTION_TAILER: usize = 92;
 /// 单个体素。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VxlVoxel {
+    /// 网格 X。
     pub x: u8,
+    /// 网格 Y。
     pub y: u8,
+    /// 网格 Z。
     pub z: u8,
+    /// 调色板索引。
     pub color_index: u8,
+    /// 法线表索引。
     pub normal_index: u8,
 }
 
 /// 一个肢节（车身 / 炮塔等）。
 #[derive(Debug, Clone)]
 pub struct VxlLimb {
+    /// 肢节名。
     pub name: String,
     /// 乘到 HVA 平移上的尺度（零售常见约 `1/12`）。
     pub scale: f32,
@@ -30,22 +36,31 @@ pub struct VxlLimb {
     pub bounds: [f32; 6],
     /// 尾节默认 3×4 变换（无 HVA 时可用）。
     pub transform: [f32; 12],
+    /// X 向格子数。
     pub size_x: u8,
+    /// Y 向格子数。
     pub size_y: u8,
+    /// Z 向格子数。
     pub size_z: u8,
+    /// 法线模式字节。
     pub normals_mode: u8,
+    /// 解码后的非空体素。
     pub voxels: Vec<VxlVoxel>,
 }
 
 /// 解析后的 VXL。
 #[derive(Debug, Clone)]
 pub struct VxlFile {
+    /// 肢节数量。
     pub limb_count: u32,
+    /// 正文区字节数。
     pub body_size: u32,
+    /// 各肢节。
     pub limbs: Vec<VxlLimb>,
 }
 
 impl VxlFile {
+    /// 解析 VXL 字节。
     pub fn parse(data: &[u8]) -> RaResult<Self> {
         if data.len() < FILE_HEADER {
             return Err(RaError::Parse("vxl 头过小".into()));
@@ -67,32 +82,20 @@ impl VxlFile {
         let tailers_start = headers_end + body_size as usize;
         let tailers_end = tailers_start + SECTION_TAILER * tailer_count as usize;
         if data.len() < tailers_end {
-            return Err(RaError::Parse(format!(
-                "vxl 截断：需 {tailers_end} 字节，实有 {}",
-                data.len()
-            )));
+            return Err(RaError::Parse(format!("vxl 截断：需 {tailers_end} 字节，实有 {}", data.len())));
         }
 
         let body_start = headers_end;
         let mut limbs = Vec::with_capacity(limb_count as usize);
         for i in 0..limb_count as usize {
-            limbs.push(parse_limb(
-                data,
-                i,
-                tailer_count,
-                sections_start,
-                body_start,
-                tailers_start,
-            )?);
+            limbs.push(parse_limb(data, i, tailer_count, sections_start, body_start, tailers_start)?);
         }
 
-        Ok(Self {
-            limb_count,
-            body_size,
-            limbs,
-        })
+        Ok(Self { limb_count, body_size, limbs })
     }
 
+    /// 全部肢节体素总数。
+    /// 所有肢节体素总数。
     pub fn total_voxels(&self) -> usize {
         self.limbs.iter().map(|l| l.voxels.len()).sum()
     }
@@ -110,9 +113,7 @@ fn parse_limb(
     let name = read_c_string(&data[hdr..hdr + 16]);
     let limb_number = read_u32(data, hdr + 16);
     if limb_number >= tailer_count {
-        return Err(RaError::Parse(format!(
-            "vxl 肢节 {index} 尾索引 {limb_number} 越界（tailer_count={tailer_count}）"
-        )));
+        return Err(RaError::Parse(format!("vxl 肢节 {index} 尾索引 {limb_number} 越界（tailer_count={tailer_count}）")));
     }
 
     let tail = tailers_start + limb_number as usize * SECTION_TAILER;
@@ -133,21 +134,9 @@ fn parse_limb(
     let size_z = data[tail + 90];
     let normals_mode = data[tail + 91];
 
-    let voxels = decode_limb_voxels(
-        data, body_start, span_start, span_end, data_span, size_x, size_y, size_z,
-    )?;
+    let voxels = decode_limb_voxels(data, body_start, span_start, span_end, data_span, size_x, size_y, size_z)?;
 
-    Ok(VxlLimb {
-        name,
-        scale,
-        bounds,
-        transform,
-        size_x,
-        size_y,
-        size_z,
-        normals_mode,
-        voxels,
-    })
+    Ok(VxlLimb { name, scale, bounds, transform, size_x, size_y, size_z, normals_mode, voxels })
 }
 
 fn decode_limb_voxels(
@@ -182,15 +171,7 @@ fn decode_limb_voxels(
         if col_start < 0 {
             continue;
         }
-        decode_column(
-            data,
-            data_base,
-            col_start as usize,
-            x,
-            y,
-            size_z,
-            &mut voxels,
-        )?;
+        decode_column(data, data_base, col_start as usize, x, y, size_z, &mut voxels)?;
     }
     Ok(voxels)
 }
@@ -222,13 +203,7 @@ fn decode_column(
             let normal_index = data[pos + 1];
             pos += 2;
             if color_index != 0 {
-                voxels.push(VxlVoxel {
-                    x,
-                    y,
-                    z,
-                    color_index,
-                    normal_index,
-                });
+                voxels.push(VxlVoxel { x, y, z, color_index, normal_index });
             }
             z = z.saturating_add(1);
         }
@@ -251,83 +226,4 @@ fn read_f32(data: &[u8], off: usize) -> f32 {
 fn read_c_string(bytes: &[u8]) -> String {
     let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
     String::from_utf8_lossy(&bytes[..end]).into_owned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn minimal_vxl() -> Vec<u8> {
-        let mut data = Vec::new();
-        data.extend_from_slice(MAGIC);
-        data.extend_from_slice(&1u32.to_le_bytes()); // palette_count
-        data.extend_from_slice(&1u32.to_le_bytes()); // limb_count
-        data.extend_from_slice(&1u32.to_le_bytes()); // tailer_count
-        let body_size_at = data.len();
-        data.extend_from_slice(&0u32.to_le_bytes()); // body_size patch later
-        data.push(0);
-        data.extend_from_slice(&[128u8; 768]);
-        data.push(0);
-        // section header
-        data.extend_from_slice(b"body\0\0\0\0\0\0\0\0\0\0\0\0");
-        data.extend_from_slice(&0u32.to_le_bytes());
-        data.extend_from_slice(&0u32.to_le_bytes());
-        data.extend_from_slice(&0u32.to_le_bytes());
-        let body_start = data.len();
-        // 2x2 columns: one voxel in col0
-        // span_start table
-        let span_start_rel = 0u32;
-        data.extend_from_slice(&0i32.to_le_bytes());
-        data.extend_from_slice(&(-1i32).to_le_bytes());
-        data.extend_from_slice(&(-1i32).to_le_bytes());
-        data.extend_from_slice(&(-1i32).to_le_bytes());
-        // span_end table (unused by our decoder beyond size check)
-        let span_end_rel = (data.len() - body_start) as u32;
-        data.extend_from_slice(&[0u8; 16]);
-        // data spans
-        let data_span_rel = (data.len() - body_start) as u32;
-        // column 0: z_skip=0, count=1, color=5, normal=1, dup=0
-        data.extend_from_slice(&[0, 1, 5, 1, 0]);
-
-        let body_size = (data.len() - body_start) as u32;
-        data[body_size_at..body_size_at + 4].copy_from_slice(&body_size.to_le_bytes());
-
-        // tailer 92 bytes
-        let mut tail = vec![0u8; SECTION_TAILER];
-        tail[0..4].copy_from_slice(&span_start_rel.to_le_bytes());
-        tail[4..8].copy_from_slice(&span_end_rel.to_le_bytes());
-        tail[8..12].copy_from_slice(&data_span_rel.to_le_bytes());
-        tail[12..16].copy_from_slice(&1.0f32.to_le_bytes());
-        // identity transform
-        for (i, diag) in [(0, 1.0f32), (5, 1.0), (10, 1.0)] {
-            tail[16 + i * 4..20 + i * 4].copy_from_slice(&diag.to_le_bytes());
-        }
-        // bounds [0,0,0, 2,2,4]
-        for (i, v) in [0.0f32, 0.0, 0.0, 2.0, 2.0, 4.0].into_iter().enumerate() {
-            tail[64 + i * 4..68 + i * 4].copy_from_slice(&v.to_le_bytes());
-        }
-        tail[88] = 2; // size_x
-        tail[89] = 2; // size_y
-        tail[90] = 4; // size_z
-        tail[91] = 4; // normals RA2
-        data.extend_from_slice(&tail);
-        data
-    }
-
-    #[test]
-    fn parse_minimal_one_voxel() {
-        let vxl = VxlFile::parse(&minimal_vxl()).unwrap();
-        assert_eq!(vxl.limb_count, 1);
-        assert_eq!(vxl.limbs[0].name, "body");
-        assert_eq!(vxl.limbs[0].size_x, 2);
-        assert_eq!(vxl.limbs[0].transform[0], 1.0);
-        assert_eq!(vxl.limbs[0].bounds[3], 2.0);
-        assert_eq!(vxl.total_voxels(), 1);
-        assert_eq!(vxl.limbs[0].voxels[0].color_index, 5);
-    }
-
-    #[test]
-    fn reject_bad_magic() {
-        assert!(VxlFile::parse(b"not a vxl file!!!!!!!!!!!").is_err());
-    }
 }
