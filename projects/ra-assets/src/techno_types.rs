@@ -17,6 +17,8 @@ pub struct TechnoType {
     pub tech_level: i32,
     pub owner: String,
     pub image: String,
+    /// ?????tick????? `ROF` ?? 0????????????
+    pub rof: u32,
 }
 
 /// Techno ????? rules ?????
@@ -100,6 +102,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let speed = parse_u32(rules.get(&section_key, "Speed")).unwrap_or(0);
     let sight = parse_u32(rules.get(&section_key, "Sight")).unwrap_or(0);
     let cost = parse_u32(rules.get(&section_key, "Cost")).unwrap_or(0);
+    let rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
     let tech_level = rules
         .get(&section_key, "TechLevel")
         .and_then(|s| s.parse().ok())
@@ -123,6 +126,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         tech_level,
         owner,
         image,
+        rof,
     })
 }
 
@@ -138,7 +142,7 @@ mod tests {
     fn parse_vehicle_list() {
         let doc = IniDocument::parse(
             b"[VehicleTypes]\n0=MTNK\n1=HTNK\n\
-[MTNK]\nStrength=300\nArmor=heavy\nSpeed=6\nSight=6\nCost=800\nTechLevel=2\nOwner=Americans\nImage=MTNK\n\
+[MTNK]\nStrength=300\nArmor=heavy\nSpeed=6\nSight=6\nCost=800\nTechLevel=2\nOwner=Americans\nImage=MTNK\nROF=12\n\
 [HTNK]\nStrength=600\nArmor=heavy\nSpeed=4\nSight=6\nCost=1400\nTechLevel=6\nOwner=Americans\n",
         )
         .unwrap();
@@ -150,5 +154,7 @@ mod tests {
         assert_eq!(m.speed, 6);
         assert_eq!(m.cost, 800);
         assert_eq!(m.image, "MTNK");
+        assert_eq!(m.rof, 12);
+        assert_eq!(reg.get("htnk").unwrap().rof, 0);
     }
 }

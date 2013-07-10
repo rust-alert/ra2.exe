@@ -23,7 +23,7 @@ pub const DEFAULT_ATTACK_RANGE: u32 = 4;
 /// 预览用默认单次伤害。
 pub const DEFAULT_ATTACK_DAMAGE: u32 = 50;
 
-/// 两次开火之间的 tick 数。
+/// 两次开火之间的 tick 数；rules 无 `ROF` 时回退。
 pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 
 /// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
@@ -46,6 +46,8 @@ pub struct WorldEntity {
     pub attack_range: u32,
     /// 单次伤害；由 `Strength` 派生，缺省用预览常量。
     pub attack_damage: u32,
+    /// 开火冷却上限（tick）；由 rules `ROF` 播种。
+    pub attack_cooldown_max: u32,
     pub techno_kind: Option<TechnoKind>,
     /// 简易移动目标格；无航点时为 `None`。
     pub target_x: Option<u16>,
@@ -96,6 +98,15 @@ impl World {
                 let attack_damage = tt
                     .map(|t| (t.strength / 4).max(1))
                     .unwrap_or(DEFAULT_ATTACK_DAMAGE);
+                let attack_cooldown_max = tt
+                    .map(|t| {
+                        if t.rof > 0 {
+                            t.rof
+                        } else {
+                            ATTACK_COOLDOWN_TICKS
+                        }
+                    })
+                    .unwrap_or(ATTACK_COOLDOWN_TICKS);
                 WorldEntity {
                     kind: e.kind,
                     owner: e.owner.clone(),
@@ -110,6 +121,7 @@ impl World {
                     speed,
                     attack_range,
                     attack_damage,
+                    attack_cooldown_max,
                     techno_kind: tt.map(|t| t.kind),
                     target_x: None,
                     target_y: None,
@@ -259,7 +271,7 @@ impl World {
             if dist <= self.entities[i].attack_range {
                 let dmg = self.entities[i].attack_damage;
                 damage_events.push((ti, dmg));
-                self.entities[i].attack_cooldown = ATTACK_COOLDOWN_TICKS;
+                self.entities[i].attack_cooldown = self.entities[i].attack_cooldown_max;
             }
         }
         for (ti, dmg) in damage_events {
@@ -397,6 +409,7 @@ impl World {
                 .wrapping_add(u64::from(e.speed).wrapping_shl(2))
                 .wrapping_add(u64::from(e.attack_range).wrapping_shl(3))
                 .wrapping_add(u64::from(e.attack_damage).wrapping_shl(4))
+                .wrapping_add(u64::from(e.attack_cooldown_max).wrapping_shl(5))
                 .wrapping_add(u64::from(e.dead))
                 .wrapping_add(u64::from(e.hva_frame) << 8)
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
@@ -660,6 +673,7 @@ mod tests {
         assert_eq!(e.speed, 64);
         assert_eq!(e.attack_range, 6);
         assert_eq!(e.attack_damage, 100);
+        assert_eq!(e.attack_cooldown_max, ATTACK_COOLDOWN_TICKS);
         assert_eq!(e.techno_kind, Some(TechnoKind::Vehicle));
         assert_eq!(world.bound_techno_count(), 1);
     }
