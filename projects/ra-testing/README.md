@@ -14,9 +14,11 @@ cargo test -p ra-testing
 
 ## GUI 自动化
 
-`GuiAutomationPlan` 是平台无关的测试意图：启动目标程序、等待窗口、输入、截图、检查标题并退出。当前只定义计划模型，尚无执行器。
+`GuiAutomationPlan` 是平台无关的测试意图：启动目标程序、等待窗口、输入、截图、检查标题并退出。当前只定义计划模型，尚无完整 OS 执行器。
 
-Windows 第一版执行器应独立放在测试工具或专属 crate 中，使用 UI Automation 驱动窗口和输入，并在 CI 的带桌面会话环境运行。它不能进入 `ra-desktop` 的正常依赖图。截图基线只覆盖冻结的测试场景，须固定窗口尺寸、GPU 后端、字体缩放、内容目录和测试时钟；世界正确性仍以 headless 的状态摘要与快照断言为准。
+`standard_duel_gui_plan` 固化首个 Alpha 合成场景步骤，并配合 `TestStatus` 解析 `RA2_TEST_STATUS_PATH` 旁路（`tick` / `hash` / `outcome` / `selected`）。
+
+Windows 第一版执行器应独立放在测试工具或专属路径中，使用 UI Automation 驱动窗口和输入，并在 CI 的带桌面会话环境运行。它不能进入 `ra-desktop` 的正常依赖图。截图基线只覆盖冻结的测试场景，须固定窗口尺寸、GPU 后端、字体缩放、内容目录和测试时钟；世界正确性仍以 headless 的状态摘要与快照断言为准。
 
 ## 下一步
 

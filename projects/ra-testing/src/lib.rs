@@ -5,6 +5,10 @@
 
 mod gui;
 mod headless;
+mod status;
 
-pub use gui::{GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint};
-pub use headless::{HeadlessCase, HeadlessObservation, standard_duel};
+pub use gui::{
+    standard_duel_gui_plan, GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint,
+};
+pub use headless::{standard_duel, HeadlessCase, HeadlessObservation};
+pub use status::TestStatus;
