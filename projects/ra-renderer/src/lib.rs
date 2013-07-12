@@ -135,9 +135,9 @@ impl Renderer {
         else {
             return;
         };
-        let Ok(frame) = gpu.surface.get_current_texture()
-        else {
-            return;
+        let frame = match gpu.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+            _ => return,
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -157,12 +157,14 @@ impl Renderer {
                 label: Some("ra.frame_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations { load: wgpu::LoadOp::Clear(CLEAR_COLOR), store: wgpu::StoreOp::Store },
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             if let Some(sprite) = self.sprite.as_ref() {
                 sprite.draw(&mut pass);
@@ -172,7 +174,7 @@ impl Renderer {
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
-        frame.present();
+        gpu.queue.present(frame);
     }
 
     /// 当前 wgpu 后端标签；未绑定时返回 `"wgpu(pending)"`。
