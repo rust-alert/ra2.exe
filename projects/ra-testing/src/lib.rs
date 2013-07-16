@@ -5,10 +5,15 @@
 
 #![deny(missing_docs)]
 
+mod alpha_slice;
 mod gui;
 mod headless;
 mod status;
 
+pub use alpha_slice::{
+    ALPHA_SKIRMISH_SLICE_ID, AlphaSkirmishSlice, SliceBuilding, SliceBuildingRole, SliceUnit, SliceUnitRole,
+    alpha_skirmish_v1,
+};
 pub use gui::{GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, standard_duel_gui_plan};
 pub use headless::{HeadlessCase, HeadlessObservation, standard_duel};
 pub use status::TestStatus;

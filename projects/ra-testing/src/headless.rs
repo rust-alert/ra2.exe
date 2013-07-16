@@ -59,7 +59,10 @@ impl HeadlessCase {
     }
 }
 
-/// 标准二人坦克遭遇战。它是测试数据，不代表 Alpha 最终平衡或内容范围。
+/// 标准二人坦克遭遇战。
+///
+/// 这是 `alpha-skirmish-v1` 冻结竖切的最小战斗前身：固定规则、两名玩家、可重复命令脚本。
+/// 完整竖切的建筑、经济与开局 MCV 见 `alpha_skirmish_v1`。
 pub fn standard_duel() -> HeadlessCase {
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
