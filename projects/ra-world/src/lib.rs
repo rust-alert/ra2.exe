@@ -215,6 +215,22 @@ impl World {
         id
     }
 
+    /// 按 house 名称设置资金（启动与测试播种用）。
+    pub fn set_house_funds(&mut self, house: &str, funds: i32) -> bool {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house == house) {
+            player.funds = funds;
+            self.rehash();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// 按 house 名称读取资金。
+    pub fn house_funds(&self, house: &str) -> Option<i32> {
+        self.players.iter().find(|p| p.house == house).map(|p| p.funds)
+    }
+
     /// 推进一个逻辑 tick：消费命令、移动、战斗与炮塔转向。
     pub fn advance_tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
@@ -395,6 +411,34 @@ impl World {
                     a.move_accum = 0;
                     repath_at(&mut self.entities, attacker_index, &self.pass_grid);
                 }
+                GameCommand::Deploy { entity_index } => {
+                    if entity_index >= self.entities.len() {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    }
+                    if self.entities[entity_index].dead {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    let Some(building_type) = deploy_into_type(&self.entities[entity_index].type_id)
+                    else {
+                        self.reject(command_index, CommandRejectReason::CannotDeploy);
+                        continue;
+                    };
+                    let e = &mut self.entities[entity_index];
+                    e.kind = MapEntityKind::Structure;
+                    e.type_id = building_type.to_string();
+                    e.speed = 0;
+                    e.target_x = None;
+                    e.target_y = None;
+                    e.path.clear();
+                    e.move_accum = 0;
+                    e.attack_target = None;
+                    e.attack_range = 0;
+                    e.attack_damage = 0;
+                    e.attack_cooldown = 0;
+                    e.hva_frame = 0;
+                }
             }
         }
     }
@@ -488,8 +532,21 @@ fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(2);
             h = h.wrapping_mul(1099511628211).wrapping_add(attacker_index as u64).wrapping_add((target_index as u64) << 16);
         }
+        GameCommand::Deploy { entity_index } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(3);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity_index as u64);
+        }
     }
     h
+}
+
+/// 冻结竖切内 MCV → 建造场映射（后续可由 adaptor 定义表替换）。
+fn deploy_into_type(type_id: &str) -> Option<&'static str> {
+    match type_id {
+        "AMCV" => Some("GACNST"),
+        "SMCV" => Some("NACNST"),
+        _ => None,
+    }
 }
 
 fn is_mobile(kind: MapEntityKind) -> bool {
