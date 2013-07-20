@@ -1,6 +1,8 @@
 //! 玩家/AI 注入的确定性命令（按 tick 排序消费）。
 
-/// 单条命令。后续扩展生产、放置等。
+use ra_types::PlayerId;
+
+/// 单条命令。后续扩展生产等。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameCommand {
     /// 将实体移动到目标格（会重算路径）。
@@ -23,6 +25,17 @@ pub enum GameCommand {
     Deploy {
         /// 实体在世界实体列表中的下标。
         entity_index: usize,
+    },
+    /// 在目标格放置建筑（扣费、校验前置与占地）。
+    PlaceBuilding {
+        /// 出资并拥有该建筑的玩家。
+        player: PlayerId,
+        /// 规则类型 ID（如 `GAPOWR`）。
+        type_id: String,
+        /// 目标格 X。
+        x: u16,
+        /// 目标格 Y。
+        y: u16,
     },
 }
 
@@ -68,6 +81,15 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(3);
             b.extend_from_slice(&(entity_index as u32).to_be_bytes());
         }
+        GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
+            b.push(4);
+            b.push(player.0);
+            let id_bytes = type_id.as_bytes();
+            b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
+            b.extend_from_slice(id_bytes);
+            b.extend_from_slice(&x.to_be_bytes());
+            b.extend_from_slice(&y.to_be_bytes());
+        }
     }
     b
 }
@@ -101,6 +123,21 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             }
             let entity_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
             Some(GameCommand::Deploy { entity_index })
+        }
+        4 => {
+            if bytes.len() < 1 + 1 + 2 {
+                return None;
+            }
+            let player = PlayerId(bytes[1]);
+            let id_len = u16::from_be_bytes(bytes[2..4].try_into().ok()?) as usize;
+            if bytes.len() < 1 + 1 + 2 + id_len + 2 + 2 {
+                return None;
+            }
+            let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
+            let xy = 4 + id_len;
+            let x = u16::from_be_bytes(bytes[xy..xy + 2].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[xy + 2..xy + 4].try_into().ok()?);
+            Some(GameCommand::PlaceBuilding { player, type_id, x, y })
         }
         _ => None,
     }
