@@ -9,6 +9,7 @@ fn alpha_skirmish_v1_lists_minimum_base_chain() {
     assert_eq!(slice.edition, "ra2");
     assert_eq!(slice.map_id, "mp03t4");
     assert_eq!(slice.starting_funds, 10_000);
+    assert_eq!(slice.ore_income_per_trip, 700);
     assert_eq!(slice.allied_mcv, "AMCV");
     assert_eq!(slice.soviet_mcv, "SMCV");
 
