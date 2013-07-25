@@ -15,6 +15,10 @@ fn command_codec_roundtrip() {
             x: 6,
             y: 4,
         },
+        GameCommand::Produce {
+            player: PlayerId(1),
+            type_id: "E1".into(),
+        },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));
