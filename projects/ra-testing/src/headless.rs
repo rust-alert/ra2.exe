@@ -145,10 +145,13 @@ pub fn mcv_deploy_open() -> HeadlessCase {
 /// 已展开建造场的开局夹具，供放置建筑 / 经济 headless 使用。
 pub fn yard_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
-    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n\
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n3=GAPILE\n\
+[InfantryTypes]\n0=E1\n\
 [GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
 [GAPOWR]\nStrength=600\nSight=4\nCost=600\n\
-[GAREFN]\nStrength=900\nSight=4\nCost=2000\n";
+[GAREFN]\nStrength=900\nSight=4\nCost=2000\n\
+[GAPILE]\nStrength=500\nSight=5\nCost=500\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,
