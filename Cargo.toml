@@ -38,6 +38,7 @@ web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElemen
 blowfish = "0.10.0"
 byteorder = "1"
 num-bigint = "0.4"
+base64 = "0.22"
 
 [profile.release]
 opt-level = 3

@@ -42,3 +42,10 @@ fn test_binary_roundtrip() {
     let result: Vec<u8> = base64_decode("AP+A").unwrap();
     assert_eq!(result, vec![0x00, 0xFF, 0x80]);
 }
+
+#[test]
+fn test_encode_roundtrip() {
+    let raw = b"Hello, ra-map";
+    let encoded = base64_encode(raw);
+    assert_eq!(base64_decode(&encoded).unwrap(), raw);
+}
