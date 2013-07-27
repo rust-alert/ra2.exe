@@ -19,6 +19,11 @@ fn command_codec_roundtrip() {
             player: PlayerId(1),
             type_id: "E1".into(),
         },
+        GameCommand::SetRallyPoint {
+            factory_index: 2,
+            x: 9,
+            y: 3,
+        },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));

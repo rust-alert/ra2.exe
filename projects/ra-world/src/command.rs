@@ -44,6 +44,15 @@ pub enum GameCommand {
         /// 规则类型 ID（如 `E1` / `MTNK`）。
         type_id: String,
     },
+    /// 为工厂设置生产集结点。
+    SetRallyPoint {
+        /// 工厂实体下标。
+        factory_index: usize,
+        /// 集结格 X。
+        x: u16,
+        /// 集结格 Y。
+        y: u16,
+    },
 }
 
 /// 一个仿真 tick 的完整输入帧。
@@ -103,6 +112,12 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             let id_bytes = type_id.as_bytes();
             b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
             b.extend_from_slice(id_bytes);
+        }
+        GameCommand::SetRallyPoint { factory_index, x, y } => {
+            b.push(6);
+            b.extend_from_slice(&(factory_index as u32).to_be_bytes());
+            b.extend_from_slice(&x.to_be_bytes());
+            b.extend_from_slice(&y.to_be_bytes());
         }
     }
     b
@@ -164,6 +179,15 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             }
             let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
             Some(GameCommand::Produce { player, type_id })
+        }
+        6 => {
+            if bytes.len() < 1 + 4 + 2 + 2 {
+                return None;
+            }
+            let factory_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
+            let x = u16::from_be_bytes(bytes[5..7].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[7..9].try_into().ok()?);
+            Some(GameCommand::SetRallyPoint { factory_index, x, y })
         }
         _ => None,
     }
