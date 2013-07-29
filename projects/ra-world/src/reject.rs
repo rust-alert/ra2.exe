@@ -29,6 +29,26 @@ pub enum CommandRejectReason {
     MatchEnded,
 }
 
+impl CommandRejectReason {
+    /// 给 HUD / 标题栏用的简短中文文案。
+    pub fn as_hud_label(self) -> &'static str {
+        match self {
+            Self::EntityNotFound => "目标不存在",
+            Self::EntityDead => "目标已阵亡",
+            Self::NotMobile => "无法移动",
+            Self::InvalidTarget => "无效目标",
+            Self::CannotDeploy => "无法部署",
+            Self::InsufficientFunds => "资金不足",
+            Self::InsufficientPower => "电力不足",
+            Self::MissingPrerequisite => "前置不足",
+            Self::InvalidPlacement => "无法放置",
+            Self::WrongOwner => "非己方单位",
+            Self::QueueFull => "队列已满",
+            Self::MatchEnded => "对局已结束",
+        }
+    }
+}
+
 /// 一条被拒绝的命令记录（按 tick 内命令序）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandReject {
