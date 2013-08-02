@@ -47,6 +47,8 @@ struct App {
     last_pump: Instant,
     /// 已记录过的胜负文案，避免每帧刷日志。
     logged_outcome: Option<String>,
+    /// 上一回记入标题/日志的拒绝摘要，避免每帧刷日志。
+    logged_reject: Option<String>,
     /// Shift 是否按下（多选）。
     shift_down: bool,
     /// Ctrl 是否按下（全选同阵营等）。
@@ -83,6 +85,7 @@ impl App {
             cursor: (0.0, 0.0),
             last_pump: Instant::now(),
             logged_outcome: None,
+            logged_reject: None,
             shift_down: false,
             ctrl_down: false,
             window_width,
@@ -167,28 +170,63 @@ impl App {
         session.order_selected_move(cell.0, cell.1);
     }
 
-    fn refresh_title(&self) {
+    fn refresh_title(&mut self) {
         if let Some(window) = &self.window {
-            let tick = self.session.as_ref().map(|s| s.world.tick).unwrap_or(0);
-            let sel = self.session.as_ref().and_then(|s| s.selected.first().copied());
             let zoom = self.renderer.camera().zoom;
-            let outcome = self.session.as_ref().and_then(|s| s.outcome.as_ref());
-            let title = if let Some(ra_session::MatchOutcome::Victory { owner }) = outcome {
-                format!("{} · t{} · 胜 {}", self.title_base, tick, owner)
+            let title = if let Some(session) = self.session.as_ref() {
+                let snap = session.snapshot();
+                let local = session
+                    .world
+                    .players
+                    .iter()
+                    .find(|p| p.id == session.world.local_player)
+                    .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
+                let econ = local
+                    .map(|p| {
+                        let low = if p.low_power { "!" } else { "" };
+                        format!("${} 电{}/{}{low}", p.funds, p.power_output, p.power_drain)
+                    })
+                    .unwrap_or_else(|| "$-".into());
+                let queue = snap
+                    .produce_queues
+                    .first()
+                    .map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks))
+                    .unwrap_or_else(|| "q:-".into());
+                let reject = snap
+                    .last_rejects
+                    .first()
+                    .map(|r| r.reason.as_hud_label())
+                    .unwrap_or("-");
+                if let Some(ra_session::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
+                    format!("{} · t{} · 胜 {owner}", self.title_base, snap.tick)
+                }
+                else {
+                    let nsel = session.selected.len();
+                    let sel = session.selected.first().copied();
+                    let sel_part = match (sel, nsel) {
+                        (Some(i), n) if n > 1 => format!("#{i}+{}", n - 1),
+                        (Some(i), _) => format!("#{i}"),
+                        (None, _) => "#-".into(),
+                    };
+                    format!(
+                        "{} · t{} · {econ} · {queue} · {reject} · {sel_part} · z{:.2}",
+                        self.title_base, snap.tick, zoom
+                    )
+                }
             }
             else {
-                let nsel = self.session.as_ref().map(|s| s.selected.len()).unwrap_or(0);
-                match (sel, nsel) {
-                    (Some(i), n) if n > 1 => {
-                        format!("{} · t{} · #{i}+{} · z{:.2}", self.title_base, tick, n - 1, zoom)
-                    }
-                    (Some(i), _) => {
-                        format!("{} · t{} · #{i} · z{:.2}", self.title_base, tick, zoom)
-                    }
-                    (None, _) => format!("{} · t{} · z{:.2}", self.title_base, tick, zoom),
-                }
+                format!("{} · z{:.2}", self.title_base, zoom)
             };
             window.set_title(&title);
+        }
+        if let Some(session) = self.session.as_ref() {
+            if let Some(reject) = session.world.last_rejects().first() {
+                let label = reject.reason.as_hud_label().to_string();
+                if self.logged_reject.as_deref() != Some(label.as_str()) {
+                    self.logged_reject = Some(label.clone());
+                    ra_logger::info(format!("命令拒绝 · {label}"));
+                }
+            }
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
