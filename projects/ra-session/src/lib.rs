@@ -107,6 +107,13 @@ pub struct SnapshotUnit {
     pub dead: bool,
 }
 
+impl SnapshotUnit {
+    /// 是否为建筑标记（相对菱形单位用方块绘制）。
+    pub fn is_structure(&self) -> bool {
+        matches!(self.kind, MapEntityKind::Structure)
+    }
+}
+
 /// 单位/建筑呈现动画状态（A0 契约首批子集）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AnimState {
@@ -487,7 +494,12 @@ impl Session {
             .entities
             .iter()
             .enumerate()
-            .filter(|(_, e)| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            .filter(|(_, e)| {
+                matches!(
+                    e.kind,
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                )
+            })
             .map(|(index, e)| {
                 let z = self.world.pass_grid.cell_height(e.x, e.y);
                 let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
