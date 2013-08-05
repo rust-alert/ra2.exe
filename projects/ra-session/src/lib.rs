@@ -97,12 +97,29 @@ pub struct SnapshotUnit {
     pub turret_facing: u8,
     /// 当前 HVA 动画帧。
     pub hva_frame: u16,
+    /// 呈现用动画状态（由仿真快照派生，不推进 World tick）。
+    pub anim_state: AnimState,
     /// 当前生命值。
     pub health: u32,
     /// 最大生命值。
     pub max_health: u32,
     /// 是否已死亡。
     pub dead: bool,
+}
+
+/// 单位/建筑呈现动画状态（A0 契约首批子集）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimState {
+    /// 待机。
+    Idle,
+    /// 移动。
+    Move,
+    /// 攻击。
+    Attack,
+    /// 死亡。
+    Die,
+    /// 工厂生产中。
+    Produce,
 }
 
 /// 对局结束结果（Alpha：唯一存活阵营胜）。
@@ -486,6 +503,7 @@ impl Session {
                     facing: e.facing,
                     turret_facing: e.turret_facing,
                     hva_frame: e.hva_frame,
+                    anim_state: derive_anim_state(e),
                     health: e.health,
                     max_health: e.max_health,
                     dead: e.dead,
@@ -532,4 +550,20 @@ impl Session {
             outcome: self.outcome.clone(),
         }
     }
+}
+
+fn derive_anim_state(e: &ra_world::WorldEntity) -> AnimState {
+    if e.dead {
+        return AnimState::Die;
+    }
+    if e.produce_queue.is_some() {
+        return AnimState::Produce;
+    }
+    if e.attack_target.is_some() {
+        return AnimState::Attack;
+    }
+    if e.target_x.is_some() || !e.path.is_empty() {
+        return AnimState::Move;
+    }
+    AnimState::Idle
 }
