@@ -449,6 +449,52 @@ impl Session {
         }
     }
 
+    /// 部署当前选中的可展开单位（如 MCV）。
+    pub fn order_selected_deploy(&mut self) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &entity_index in &self.selected.clone() {
+            self.push_command(GameCommand::Deploy { entity_index });
+        }
+    }
+
+    /// 本地玩家在目标格放置建筑。
+    pub fn order_place_building(&mut self, type_id: impl Into<String>, x: u16, y: u16) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::PlaceBuilding {
+            player: self.world.local_player,
+            type_id: type_id.into(),
+            x,
+            y,
+        });
+    }
+
+    /// 本地玩家排队生产单位。
+    pub fn order_produce(&mut self, type_id: impl Into<String>) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::Produce {
+            player: self.world.local_player,
+            type_id: type_id.into(),
+        });
+    }
+
+    /// 点选格上或其四邻的存活实体（单位优先，其次建筑）。
+    pub fn pick_entity_at(&self, x: u16, y: u16) -> Option<usize> {
+        self.pick_mobile_at(x, y).or_else(|| self.pick_structure_at(x, y))
+    }
+
+    /// 点选格上精确匹配的存活建筑。
+    pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<usize> {
+        self.world.entities.iter().position(|e| {
+            !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y
+        })
+    }
+
     /// 相对 `from` 最近的异阵营存活移动单位。
     pub fn nearest_hostile(&self, from_index: usize) -> Option<usize> {
         let from = self.world.entities.get(from_index)?;
