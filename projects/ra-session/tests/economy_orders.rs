@@ -9,11 +9,12 @@ use ra_world::World;
 
 fn economy_session() -> Session {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
-[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAPILE\n\
 [InfantryTypes]\n0=E1\n\
 [AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
 [GAPOWR]\nStrength=600\nSight=4\nCost=600\n\
+[GAPILE]\nStrength=500\nSight=5\nCost=500\n\
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
@@ -65,4 +66,24 @@ fn pick_entity_at_finds_structure() {
     session.tick();
     assert_eq!(session.pick_entity_at(4, 4), Some(0));
     assert_eq!(session.pick_structure_at(4, 4), Some(0));
+}
+
+#[test]
+fn order_selected_rally_on_barracks() {
+    let mut session = economy_session();
+    session.select_only(0);
+    session.order_selected_deploy();
+    session.tick();
+    session.order_place_building("GAPOWR", 6, 4);
+    session.tick();
+    session.order_place_building("GAPILE", 8, 4);
+    session.tick();
+    let barracks = session.world.entities.iter().position(|e| e.type_id == "GAPILE").expect("应有兵营");
+    session.select_only(barracks);
+    assert!(session.selection_has_structure());
+    session.order_selected_rally(12, 8);
+    session.tick();
+    assert!(session.world.last_rejects().is_empty());
+    assert_eq!(session.world.entities[barracks].rally_x, Some(12));
+    assert_eq!(session.world.entities[barracks].rally_y, Some(8));
 }
