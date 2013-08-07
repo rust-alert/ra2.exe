@@ -58,6 +58,8 @@ struct App {
     window_height: f64,
     /// 测试状态旁路文件（可选）。
     status_path: Option<PathBuf>,
+    /// 建造放置模式：待放置的建筑类型 ID；`None` 表示普通点选。
+    place_mode: Option<&'static str>,
 }
 
 impl App {
@@ -91,6 +93,7 @@ impl App {
             window_width,
             window_height,
             status_path,
+            place_mode: None,
         }
     }
 
@@ -118,11 +121,18 @@ impl App {
             }
             return;
         };
+        if let Some(type_id) = self.place_mode {
+            if let Some(session) = self.session.as_mut() {
+                ra_logger::info(format!("放置建筑 {type_id} @({},{})", cell.0, cell.1));
+                session.order_place_building(type_id, cell.0, cell.1);
+            }
+            return;
+        }
         let Some(session) = self.session.as_mut()
         else {
             return;
         };
-        if let Some(i) = session.pick_mobile_at(cell.0, cell.1) {
+        if let Some(i) = session.pick_entity_at(cell.0, cell.1) {
             if add {
                 session.select_add(i);
                 ra_logger::info(format!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, session.selected));
@@ -135,6 +145,17 @@ impl App {
         else if !add {
             session.selected.clear();
             ra_logger::debug(format!("点空地 ({},{})，清空选中", cell.0, cell.1));
+        }
+    }
+
+    fn cycle_place_mode(&mut self) {
+        const CYCLE: &[Option<&'static str>] =
+            &[None, Some("GAPOWR"), Some("GAPILE"), Some("GAREFN"), Some("GAWEAP")];
+        let idx = CYCLE.iter().position(|m| *m == self.place_mode).unwrap_or(0);
+        self.place_mode = CYCLE[(idx + 1) % CYCLE.len()];
+        match self.place_mode {
+            Some(id) => ra_logger::info(format!("建造模式 · 放置 {id}（再按 B 切换，Esc 取消）")),
+            None => ra_logger::info("建造模式 · 已关闭"),
         }
     }
 
@@ -192,11 +213,12 @@ impl App {
                     .first()
                     .map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks))
                     .unwrap_or_else(|| "q:-".into());
-                let reject = snap
+                    let reject = snap
                     .last_rejects
                     .first()
                     .map(|r| r.reason.as_hud_label())
                     .unwrap_or("-");
+                let place = self.place_mode.unwrap_or("-");
                 if let Some(ra_session::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
                     format!("{} · t{} · 胜 {owner}", self.title_base, snap.tick)
                 }
@@ -209,7 +231,7 @@ impl App {
                         (None, _) => "#-".into(),
                     };
                     format!(
-                        "{} · t{} · {econ} · {queue} · {reject} · {sel_part} · z{:.2}",
+                        "{} · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · z{:.2}",
                         self.title_base, snap.tick, zoom
                     )
                 }
@@ -385,6 +407,33 @@ impl ApplicationHandler for App {
                                     session.order_selected_attack(tgt);
                                 }
                             }
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyX) => {
+                        if let Some(session) = self.session.as_mut() {
+                            ra_logger::info(format!("部署选中 · {:?}", session.selected));
+                            session.order_selected_deploy();
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyB) => {
+                        self.cycle_place_mode();
+                    }
+                    PhysicalKey::Code(KeyCode::Escape) => {
+                        if self.place_mode.is_some() {
+                            self.place_mode = None;
+                            ra_logger::info("建造模式 · 已关闭");
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyP) => {
+                        if let Some(session) = self.session.as_mut() {
+                            ra_logger::info("生产 · E1");
+                            session.order_produce("E1");
+                        }
+                    }
+                    PhysicalKey::Code(KeyCode::KeyO) => {
+                        if let Some(session) = self.session.as_mut() {
+                            ra_logger::info("生产 · MTNK");
+                            session.order_produce("MTNK");
                         }
                     }
                     _ => {}
