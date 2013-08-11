@@ -1,7 +1,7 @@
 //! 快照中的经济与生产队列。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_session::Session;
 use ra_types::{GameEdition, PlayerId};
@@ -21,6 +21,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "hud-snap");
     map.width = 12;

@@ -1,7 +1,7 @@
 //! 兵营 / 战车工厂生产。
 
 use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 use ra_world::{CommandRejectReason, GameCommand, PRODUCE_TICKS, World};
@@ -22,6 +22,7 @@ fn factory_world() -> World {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
     };
     let mut map = MapInfo::empty(GameEdition::Ra2, "produce");
     map.width = 16;

@@ -35,6 +35,8 @@ pub struct TechnoType {
     pub range: u32,
     /// 射速间隔（tick）；优先武器节 `ROF`，否则类型节；0 表示未配置。
     pub rof: u32,
+    /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
+    pub warhead: String,
 }
 
 /// Techno 大类，对应 rules 列表节。
@@ -106,6 +108,11 @@ impl TechnoTypeRegistry {
     pub fn count_kind(&self, kind: TechnoKind) -> usize {
         self.by_id.values().filter(|t| t.kind == kind).count()
     }
+
+    /// 遍历已解析类型。
+    pub fn iter(&self) -> impl Iterator<Item = &TechnoType> {
+        self.by_id.values()
+    }
 }
 
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
@@ -130,7 +137,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         .trim()
         .to_ascii_uppercase();
     let techno_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
-    let (damage, range, rof) = resolve_primary_weapon(rules, &primary, techno_rof);
+    let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
     Some(TechnoType {
         id: id.to_string(),
         kind,
@@ -146,13 +153,14 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         damage,
         range,
         rof,
+        warhead,
     })
 }
 
-/// 从 `Primary` 武器节读取 `Damage` / `Range` / `ROF`；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32) {
+/// 从 `Primary` 武器节读取 `Damage` / `Range` / `ROF` / `Warhead`；缺省时保留类型节 ROF。
+fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
     if primary.is_empty() {
-        return (0, 0, techno_rof);
+        return (0, 0, techno_rof, String::new());
     }
     let section_key = if rules.sections.contains_key(primary) {
         primary.to_string()
@@ -161,13 +169,18 @@ fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -
         k.clone()
     }
     else {
-        return (0, 0, techno_rof);
+        return (0, 0, techno_rof, String::new());
     };
     let damage = parse_u32(rules.get(&section_key, "Damage")).unwrap_or(0);
     let range = parse_u32(rules.get(&section_key, "Range")).unwrap_or(0);
     let weapon_rof = parse_u32(rules.get(&section_key, "ROF")).unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    (damage, range, rof)
+    let warhead = rules
+        .get(&section_key, "Warhead")
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
+    (damage, range, rof, warhead)
 }
 
 fn parse_u32(raw: Option<&str>) -> Option<u32> {
