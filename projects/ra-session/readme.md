@@ -8,4 +8,4 @@
 cargo test -p ra-session
 ```
 
-跨 crate 无窗口回归在 `ra-testing`。许可证：MPL-2.0。
+跨 crate 无窗口回归在 `ra-testing`。遭遇战 `open_skirmish` 默认开启 AI：非本地阵营经同一 `GameCommand` 路径自动攻击最近敌军。`Session::new` 默认关闭 AI，便于单测。许可证：MPL-2.0。
