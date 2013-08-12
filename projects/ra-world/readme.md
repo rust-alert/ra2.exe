@@ -57,7 +57,7 @@ state_hash = state_hash
 
 ## 当前边界
 
-`GameCommand` 现含 `MoveTo`、`Attack`、`Deploy`、`PlaceBuilding`、`Produce` 与 `SetRallyPoint`。实体已带稳定 `EntityId`。建造链支持建造场/供电前置、资金扣除与矿场周期入账。工厂单槽生产队列在 `PRODUCE_TICKS` 后出厂，并可按集结点自动寻路。攻击射程/伤害/冷却优先取自 rules 主武器节（`Primary` → `Range`/`Damage`/`ROF`），否则回退到 `Sight`、`Strength/4` 与预览常量。
+`GameCommand` 现含 `MoveTo`、`Attack`、`Deploy`、`PlaceBuilding`、`Produce` 与 `SetRallyPoint`。实体已带稳定 `EntityId`。建造链支持建造场/供电前置、资金扣除与矿场周期入账。工厂单槽生产队列在 `PRODUCE_TICKS` 后出厂，并可按集结点自动寻路。攻击射程/伤害/冷却优先取自 rules 主武器节（`Primary` → `Range`/`Damage`/`ROF`），否则回退到 `Sight`、`Strength/4` 与预览常量。命中伤害再乘弹头 `Verses` 对目标 `Armor` 的百分比。
 
 ## 构建
 
