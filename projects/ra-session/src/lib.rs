@@ -363,6 +363,7 @@ impl Session {
             .collect();
         let mut cmds = Vec::new();
         for house in &houses {
+            cmds.extend(ai::deploy_mcv_commands(&self.world, house));
             cmds.extend(ai::auto_attack_commands(&self.world, house));
         }
         for cmd in cmds {
