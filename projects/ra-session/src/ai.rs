@@ -34,7 +34,49 @@ pub fn place_power_commands(world: &World, house: &str, player: PlayerId) -> Vec
         AiSide::Allied => "GAPOWR",
         AiSide::Soviet => "NAPOWR",
     };
-    let Some(cost) = world.techno_cost(power_id)
+    place_near_yard(world, house, player, power_id)
+}
+
+/// 有供电且无兵营时，在建造场邻格放置一座兵营。
+pub fn place_barracks_commands(world: &World, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !house_has_power(world, house) || house_has_barracks(world, house) {
+        return Vec::new();
+    }
+    let barracks_id = match side_for(world, house) {
+        AiSide::Allied => "GAPILE",
+        AiSide::Soviet => "NAHAND",
+    };
+    place_near_yard(world, house, player, barracks_id)
+}
+
+/// 空闲兵营存在且资金足够时，排队生产冻结步兵。
+pub fn produce_infantry_commands(world: &World, house: &str, player: PlayerId) -> Vec<GameCommand> {
+    if !house_has_idle_barracks(world, house) {
+        return Vec::new();
+    }
+    let unit_id = match side_for(world, house) {
+        AiSide::Allied => "E1",
+        AiSide::Soviet => "E2",
+    };
+    let Some(cost) = world.techno_cost(unit_id)
+    else {
+        return Vec::new();
+    };
+    let Some(funds) = world.house_funds(house)
+    else {
+        return Vec::new();
+    };
+    if funds < cost as i32 {
+        return Vec::new();
+    }
+    vec![GameCommand::Produce {
+        player,
+        type_id: unit_id.to_string(),
+    }]
+}
+
+fn place_near_yard(world: &World, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
+    let Some(cost) = world.techno_cost(type_id)
     else {
         return Vec::new();
     };
@@ -55,7 +97,7 @@ pub fn place_power_commands(world: &World, house: &str, player: PlayerId) -> Vec
     };
     vec![GameCommand::PlaceBuilding {
         player,
-        type_id: power_id.to_string(),
+        type_id: type_id.to_string(),
         x,
         y,
     }]
@@ -119,6 +161,22 @@ fn house_has_power(world: &World, house: &str) -> bool {
     })
 }
 
+fn house_has_barracks(world: &World, house: &str) -> bool {
+    world.entities.iter().any(|e| {
+        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_barracks(&e.type_id)
+    })
+}
+
+fn house_has_idle_barracks(world: &World, house: &str) -> bool {
+    world.entities.iter().any(|e| {
+        !e.dead
+            && e.owner == house
+            && e.kind == MapEntityKind::Structure
+            && is_barracks(&e.type_id)
+            && e.produce_queue.is_none()
+    })
+}
+
 fn yard_cell(world: &World, house: &str) -> Option<(u16, u16)> {
     world.entities.iter().find_map(|e| {
         if !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_yard(&e.type_id) {
@@ -173,6 +231,10 @@ fn is_yard(type_id: &str) -> bool {
 
 fn is_power(type_id: &str) -> bool {
     matches!(type_id, "GAPOWR" | "NAPOWR")
+}
+
+fn is_barracks(type_id: &str) -> bool {
+    matches!(type_id, "GAPILE" | "NAHAND")
 }
 
 fn nearest_enemy(world: &World, from: usize, house: &str) -> Option<usize> {
