@@ -30,6 +30,9 @@ pub const DEFAULT_ATTACK_DAMAGE: u32 = 50;
 /// 两次开火之间的 tick 数；rules 无 `ROF` 时回退。
 pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 
+/// 受击闪白剩余 tick（呈现 `TakeDamage`）。
+pub const HIT_FLASH_TICKS: u32 = 4;
+
 /// 矿场完成一趟采矿所需的 tick 数（Alpha 简化，无独立采矿车）。
 pub const ORE_TRIP_TICKS: u32 = 30;
 
@@ -100,6 +103,8 @@ pub struct WorldEntity {
     pub rally_x: Option<u16>,
     /// 生产集结格 Y。
     pub rally_y: Option<u16>,
+    /// 受击闪白剩余 tick；大于 0 时呈现层可显示 `TakeDamage`。
+    pub hit_flash: u32,
     /// 生命归零后为真；不再移动/占格。
     pub dead: bool,
 }
@@ -203,6 +208,7 @@ impl World {
                     produce_queue: None,
                     rally_x: None,
                     rally_y: None,
+                    hit_flash: 0,
                     dead: false,
                 }
             })
@@ -291,6 +297,7 @@ impl World {
         self.last_rejects.clear();
         self.apply_commands(&commands);
         self.advance_movement();
+        self.tick_hit_flash();
         self.resolve_combat();
         self.advance_turrets();
         self.advance_refinery_income();
@@ -390,6 +397,14 @@ impl World {
         }
         for (ti, dmg) in damage_events {
             apply_damage(&mut self.entities, ti, dmg);
+        }
+    }
+
+    fn tick_hit_flash(&mut self) {
+        for e in &mut self.entities {
+            if e.hit_flash > 0 {
+                e.hit_flash -= 1;
+            }
         }
     }
 
@@ -583,6 +598,7 @@ impl World {
                         produce_queue: None,
                         rally_x: None,
                         rally_y: None,
+                        hit_flash: 0,
                         dead: false,
                     });
                 }
@@ -748,6 +764,7 @@ impl World {
             produce_queue: None,
             rally_x: None,
             rally_y: None,
+            hit_flash: 0,
             dead: false,
         });
         if let Some((rx, ry)) = rally {
@@ -868,6 +885,7 @@ impl World {
                 .wrapping_add(u64::from(e.hva_frame) << 8)
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
                 .wrapping_add(u64::from(e.ore_trip_accum) << 8)
+                .wrapping_add(u64::from(e.hit_flash) << 16)
                 .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
             for b in e.armor.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
@@ -1044,11 +1062,12 @@ fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
 }
 
 fn apply_damage(entities: &mut [WorldEntity], index: usize, amount: u32) {
-    if index >= entities.len() || entities[index].dead {
+    if index >= entities.len() || entities[index].dead || amount == 0 {
         return;
     }
     let e = &mut entities[index];
     e.health = e.health.saturating_sub(amount);
+    e.hit_flash = HIT_FLASH_TICKS;
     if e.health == 0 {
         e.dead = true;
         e.speed = 0;
