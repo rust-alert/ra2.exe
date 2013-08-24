@@ -38,6 +38,7 @@ fn living_structure_prevents_sole_victor() {
     let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "victory");
     session.world.entities[1].kind = MapEntityKind::Structure;
     session.world.entities[1].type_id = "NACNST".into();
+    assert_eq!(session.world.players.len(), 2);
     assert!(session.sole_victor().is_none());
     session.world.entities[1].dead = true;
     assert_eq!(session.sole_victor(), Some("Americans"));
