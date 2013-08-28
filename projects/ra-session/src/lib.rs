@@ -590,7 +590,7 @@ impl Session {
         })
     }
 
-    /// 相对 `from` 最近的异阵营存活移动单位。
+    /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。
     pub fn nearest_hostile(&self, from_index: usize) -> Option<usize> {
         let from = self.world.entities.get(from_index)?;
         if from.dead {
@@ -604,7 +604,13 @@ impl Session {
                 *j != from_index
                     && !e.dead
                     && e.owner != from.owner
-                    && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+                    && matches!(
+                        e.kind,
+                        MapEntityKind::Unit
+                            | MapEntityKind::Infantry
+                            | MapEntityKind::Aircraft
+                            | MapEntityKind::Structure
+                    )
             })
             .min_by_key(|(_, e)| {
                 let dx = i32::from(e.x) - i32::from(from.x);
