@@ -15,6 +15,8 @@ pub struct PlayerState {
     pub power_output: i32,
     /// 耗电量。
     pub power_drain: i32,
+    /// 累计花费（建造与生产扣款之和，不含采矿收入）。
+    pub funds_spent: i32,
 }
 
 impl PlayerState {
@@ -26,6 +28,7 @@ impl PlayerState {
             funds: 0,
             power_output: 0,
             power_drain: 0,
+            funds_spent: 0,
         }
     }
 

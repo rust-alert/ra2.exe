@@ -609,6 +609,8 @@ impl World {
                     let armor = tt.armor.clone();
                     let id = self.alloc_entity_id();
                     self.players[player_index].funds -= cost;
+                    self.players[player_index].funds_spent =
+                        self.players[player_index].funds_spent.saturating_add(cost);
                     if power >= 0 {
                         self.players[player_index].power_output =
                             self.players[player_index].power_output.saturating_add(power);
@@ -683,6 +685,8 @@ impl World {
                         continue;
                     }
                     self.players[player_index].funds -= cost;
+                    self.players[player_index].funds_spent =
+                        self.players[player_index].funds_spent.saturating_add(cost);
                     self.entities[factory_index].produce_queue =
                         Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
                 }
@@ -964,6 +968,7 @@ impl World {
                 .wrapping_mul(1099511628211)
                 .wrapping_add(u64::from(p.id.0))
                 .wrapping_add(p.funds as u64)
+                .wrapping_add(p.funds_spent as u64)
                 .wrapping_add((p.power_output as u64) << 16)
                 .wrapping_add((p.power_drain as u64) << 32);
             for b in p.house.as_bytes() {
