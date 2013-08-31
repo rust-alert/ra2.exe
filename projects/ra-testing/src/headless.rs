@@ -182,3 +182,66 @@ pub fn yard_open() -> HeadlessCase {
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     HeadlessCase::new(Session::new(world, "ra-testing yard open"))
 }
+
+/// 双人 AI 遭遇战开局：本地盟军建造场 + 苏军 MCV，AI 经 `GameCommand` 展开基地。
+pub fn ai_skirmish_open() -> HeadlessCase {
+    let slice = alpha_skirmish_v1();
+    let rules_text = b"[VehicleTypes]\n0=SMCV\n1=MTNK\n\
+[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n4=NAWEAP\n5=NAREFN\n\
+[InfantryTypes]\n0=E2\n\
+[SMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nArmor=heavy\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
+[NAHAND]\nStrength=500\nSight=5\nCost=500\nArmor=wood\n\
+[NAWEAP]\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n\
+[NAREFN]\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n\
+[E2]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\n\
+[90mm]\nDamage=75\nROF=8\nRange=5\nWarhead=AP\n\
+[AP]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
+    let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
+    let techno_types = TechnoTypeRegistry::from_rules(&rules);
+    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
+    let rules_db = RulesDb {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        techno_types,
+        warheads,
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "testing-ai-skirmish");
+    map.width = 24;
+    map.height = 24;
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: slice.human_house.into(),
+            type_id: "GACNST".into(),
+            health: 256,
+            x: 4,
+            y: 4,
+            facing: 0,
+            sub_cell: 0,
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: slice.ai_house.into(),
+            type_id: slice.soviet_mcv.into(),
+            health: 256,
+            x: 16,
+            y: 16,
+            facing: 0,
+            sub_cell: 0,
+        },
+    ];
+    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
+    assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
+    let mut session = Session::new(world, "ra-testing ai skirmish open");
+    session.ai_enabled = true;
+    HeadlessCase::new(session)
+}
