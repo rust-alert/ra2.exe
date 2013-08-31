@@ -237,6 +237,16 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             facing: 0,
             sub_cell: 0,
         },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: slice.human_house.into(),
+            type_id: "MTNK".into(),
+            health: 256,
+            x: 14,
+            y: 16,
+            facing: 0,
+            sub_cell: 0,
+        },
     ];
     let mut world = World::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
