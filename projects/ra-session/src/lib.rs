@@ -47,6 +47,17 @@ pub struct RenderSnapshot {
     pub pause_reason: Option<String>,
     /// 结算统计；未结束时为 `None`。
     pub match_stats: Option<MatchStats>,
+    /// 当前会话画面（设置 / 对局中 / 结算）。
+    pub screen: SessionScreen,
+}
+
+/// 会话画面（供桌面流程切换，不进入 World tick）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionScreen {
+    /// 对局进行中（含暂停）。
+    InMatch,
+    /// 结算画面。
+    Results,
 }
 
 /// 快照中的玩家经济状态。
@@ -756,6 +767,11 @@ impl Session {
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),
             match_stats: self.match_stats.clone(),
+            screen: if self.outcome.is_some() {
+                SessionScreen::Results
+            } else {
+                SessionScreen::InMatch
+            },
         }
     }
 }
