@@ -57,10 +57,7 @@ fn factory_world() -> World {
 #[test]
 fn produce_infantry_spawns_after_queue_ticks() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("Americans"), Some(10_000 - 200));
@@ -81,10 +78,7 @@ fn produce_infantry_spawns_after_queue_ticks() {
 fn produce_rejects_insufficient_funds() {
     let mut world = factory_world();
     assert!(world.set_house_funds("Americans", 50));
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
     assert_eq!(world.entities.len(), 2);
@@ -93,15 +87,9 @@ fn produce_rejects_insufficient_funds() {
 #[test]
 fn produce_rejects_when_queue_busy() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::QueueFull);
 }
@@ -110,10 +98,7 @@ fn produce_rejects_when_queue_busy() {
 fn produce_rejects_without_matching_factory() {
     let mut world = factory_world();
     world.entities[0].dead = true;
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 }

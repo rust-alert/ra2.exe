@@ -3,6 +3,8 @@
 #![deny(missing_docs)]
 
 mod command;
+mod entity;
+mod navigation;
 mod player;
 mod reject;
 
@@ -12,6 +14,8 @@ use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
 pub use command::{GameCommand, InputFrame, decode_command, decode_commands, encode_command, encode_commands};
+pub use entity::WorldEntity;
+use navigation::{cell_occupied_by_other, facing_toward, is_mobile, manhattan, repath_at, step_along_path, turn_facing_toward};
 pub use player::PlayerState;
 pub use reject::{CommandReject, CommandRejectReason};
 
@@ -41,73 +45,6 @@ pub const ORE_INCOME_PER_TRIP: u32 = 700;
 
 /// 工厂完成一件生产所需的 tick 数（Alpha 简化）。
 pub const PRODUCE_TICKS: u32 = 20;
-
-/// 世界中的一个已放置实体（由地图播种，后续仿真就地改）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorldEntity {
-    /// 稳定实体 ID（不随列表紧凑化改变）。
-    pub id: EntityId,
-    /// 地图实体种类（单位、建筑、步兵等）。
-    pub kind: MapEntityKind,
-    /// 所属方名称（地图放置段字符串）。
-    pub owner: String,
-    /// 规则类型 ID（如 `MTNK`）。
-    pub type_id: String,
-    /// 当前格 X。
-    pub x: u16,
-    /// 当前格 Y。
-    pub y: u16,
-    /// 车身朝向（0..=255 环）。
-    pub facing: u8,
-    /// 炮塔朝向（无炮塔时与 `facing` 同步）。
-    pub turret_facing: u8,
-    /// 子格偏移（步兵等）。
-    pub sub_cell: u8,
-    /// 当前生命（由放置段比例 × Strength）。
-    pub health: u32,
-    /// 最大生命（rules `Strength`）。
-    pub max_health: u32,
-    /// 移动速度（每 tick 累加到 `move_accum`）。
-    pub speed: u32,
-    /// 护甲名（rules `Armor`）；未知按 `none`。
-    pub armor: String,
-    /// 攻击射程（曼哈顿格）；优先武器 `Range`，否则 `Sight` / 预览常量。
-    pub attack_range: u32,
-    /// 单次基础伤害；优先武器 `Damage`，否则 `Strength/4` / 预览常量。
-    pub attack_damage: u32,
-    /// 开火冷却上限（tick）；优先武器 `ROF`，否则类型节 / 预览常量。
-    pub attack_cooldown_max: u32,
-    /// 弹头对各护甲的伤害百分比（来自 `Warhead`/`Verses`）；缺省全 100。
-    pub attack_verses: [u32; 11],
-    /// 对应 techno 种类；无规则绑定时为 `None`。
-    pub techno_kind: Option<TechnoKind>,
-    /// 简易移动目标格 X；无航点时为 `None`。
-    pub target_x: Option<u16>,
-    /// 简易移动目标格 Y；无航点时为 `None`。
-    pub target_y: Option<u16>,
-    /// 剩余路径（下一格在 `[0]`）。
-    pub path: Vec<(u16, u16)>,
-    /// 累积移动点（每 tick += Speed）。
-    pub move_accum: u32,
-    /// HVA 动画帧（移动时递增；光栅化时对 `hva.frames` 取模）。
-    pub hva_frame: u16,
-    /// 攻击目标实体下标。
-    pub attack_target: Option<usize>,
-    /// 开火冷却剩余 tick。
-    pub attack_cooldown: u32,
-    /// 矿场采矿行程累计 tick；非矿场保持 0。
-    pub ore_trip_accum: u32,
-    /// 生产队列：（类型 ID，剩余 tick）；空闲为 `None`。
-    pub produce_queue: Option<(String, u32)>,
-    /// 生产集结格 X。
-    pub rally_x: Option<u16>,
-    /// 生产集结格 Y。
-    pub rally_y: Option<u16>,
-    /// 受击闪白剩余 tick；大于 0 时呈现层可显示 `TakeDamage`。
-    pub hit_flash: u32,
-    /// 生命归零后为真；不再移动/占格。
-    pub dead: bool,
-}
 
 /// 确定性仿真世界：实体、通行格与按 tick 消费的命令。
 #[derive(Debug, Clone)]
@@ -158,24 +95,14 @@ impl World {
                 let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
                 let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
                 let speed = tt.map(|t| t.speed).unwrap_or(0);
-                let attack_range = tt
-                    .map(|t| if t.range > 0 { t.range } else { t.sight.max(1) })
-                    .unwrap_or(DEFAULT_ATTACK_RANGE);
-                let attack_damage = tt
-                    .map(|t| {
-                        if t.damage > 0 {
-                            t.damage
-                        } else {
-                            (t.strength / 4).max(1)
-                        }
-                    })
-                    .unwrap_or(DEFAULT_ATTACK_DAMAGE);
+                let attack_range =
+                    tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }).unwrap_or(DEFAULT_ATTACK_RANGE);
+                let attack_damage =
+                    tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(DEFAULT_ATTACK_DAMAGE);
                 let attack_cooldown_max =
                     tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(ATTACK_COOLDOWN_TICKS);
                 let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-                let attack_verses = tt
-                    .map(|t| verses_for(&rules.warheads, &t.warhead))
-                    .unwrap_or_else(full_verses);
+                let attack_verses = tt.map(|t| verses_for(&rules.warheads, &t.warhead)).unwrap_or_else(full_verses);
                 let id = EntityId(next_entity_id);
                 next_entity_id = next_entity_id.saturating_add(1);
                 WorldEntity {
@@ -213,11 +140,8 @@ impl World {
                 }
             })
             .collect();
-        let players: Vec<PlayerState> = house_order
-            .into_iter()
-            .enumerate()
-            .map(|(i, house)| PlayerState::new(PlayerId(i as u8), house))
-            .collect();
+        let players: Vec<PlayerState> =
+            house_order.into_iter().enumerate().map(|(i, house)| PlayerState::new(PlayerId(i as u8), house)).collect();
         let mut world = Self {
             edition,
             tick: 0,
@@ -274,7 +198,8 @@ impl World {
             player.funds = funds;
             self.rehash();
             true
-        } else {
+        }
+        else {
             false
         }
     }
@@ -546,11 +471,7 @@ impl World {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self
-                        .techno_types
-                        .get(building_type)
-                        .map(|t| t.armor.clone())
-                        .unwrap_or_else(|| "none".into());
+                    let armor = self.techno_types.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
                     let e = &mut self.entities[entity_index];
                     e.kind = MapEntityKind::Structure;
                     e.type_id = building_type.to_string();
@@ -609,14 +530,12 @@ impl World {
                     let armor = tt.armor.clone();
                     let id = self.alloc_entity_id();
                     self.players[player_index].funds -= cost;
-                    self.players[player_index].funds_spent =
-                        self.players[player_index].funds_spent.saturating_add(cost);
+                    self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     if power >= 0 {
-                        self.players[player_index].power_output =
-                            self.players[player_index].power_output.saturating_add(power);
-                    } else {
-                        self.players[player_index].power_drain =
-                            self.players[player_index].power_drain.saturating_add(-power);
+                        self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power);
+                    }
+                    else {
+                        self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(-power);
                     }
                     self.pass_grid.set_passable(x, y, false);
                     self.entities.push(WorldEntity {
@@ -674,7 +593,8 @@ impl World {
                         let has_busy = self.find_factory(&house, tt.kind).is_some();
                         if has_busy {
                             self.reject(command_index, CommandRejectReason::QueueFull);
-                        } else {
+                        }
+                        else {
                             self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         }
                         continue;
@@ -685,10 +605,8 @@ impl World {
                         continue;
                     }
                     self.players[player_index].funds -= cost;
-                    self.players[player_index].funds_spent =
-                        self.players[player_index].funds_spent.saturating_add(cost);
-                    self.entities[factory_index].produce_queue =
-                        Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
+                    self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
+                    self.entities[factory_index].produce_queue = Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
                 }
                 GameCommand::SetRallyPoint { factory_index, x, y } => {
                     if factory_index >= self.entities.len() {
@@ -831,8 +749,7 @@ impl World {
     }
 
     fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
-        const DELTAS: [(i32, i32); 8] =
-            [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
+        const DELTAS: [(i32, i32); 8] = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
         for (dx, dy) in DELTAS {
             let x = i32::from(fx) + dx;
             let y = i32::from(fy) + dy;
@@ -849,10 +766,7 @@ impl World {
 
     fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
         self.entities.iter().position(|e| {
-            !e.dead
-                && e.owner == house
-                && e.kind == MapEntityKind::Structure
-                && factory_matches_unit(&e.type_id, kind)
+            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && factory_matches_unit(&e.type_id, kind)
         })
     }
 
@@ -867,15 +781,15 @@ impl World {
     }
 
     fn house_has_living_yard(&self, house: &str) -> bool {
-        self.entities.iter().any(|e| {
-            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&e.type_id)
-        })
+        self.entities
+            .iter()
+            .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&e.type_id))
     }
 
     fn house_has_living_power(&self, house: &str) -> bool {
-        self.entities.iter().any(|e| {
-            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power_plant(&e.type_id)
-        })
+        self.entities
+            .iter()
+            .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power_plant(&e.type_id))
     }
 
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
@@ -1075,46 +989,6 @@ fn building_power_delta(type_id: &str) -> i32 {
     }
 }
 
-fn is_mobile(kind: MapEntityKind) -> bool {
-    matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-}
-
-fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
-    if *current == desired || step == 0 {
-        return;
-    }
-    let cur = i16::from(*current);
-    let want = i16::from(desired);
-    let mut delta = (want - cur).rem_euclid(256);
-    if delta > 128 {
-        delta -= 256;
-    }
-    let step = i16::from(step);
-    let moved = if delta > 0 { delta.min(step) } else { delta.max(-step) };
-    *current = (cur + moved).rem_euclid(256) as u8;
-}
-
-fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
-    (i32::from(ax) - i32::from(bx)).unsigned_abs() + (i32::from(ay) - i32::from(by)).unsigned_abs()
-}
-
-/// 粗 8 向朝向（与迈格 facing 桶对齐）。
-fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
-    let dx = (i32::from(to_x) - i32::from(from_x)).signum();
-    let dy = (i32::from(to_y) - i32::from(from_y)).signum();
-    match (dx, dy) {
-        (1, 0) => 0,
-        (1, 1) => 32,
-        (0, 1) => 64,
-        (-1, 1) => 96,
-        (-1, 0) => 128,
-        (-1, -1) => 160,
-        (0, -1) => 192,
-        (1, -1) => 224,
-        _ => 0,
-    }
-}
-
 fn full_verses() -> [u32; 11] {
     [100; 11]
 }
@@ -1126,98 +1000,4 @@ fn verses_for(warheads: &WarheadRegistry, warhead: &str) -> [u32; 11] {
 fn scale_damage(base: u32, verses: &[u32; 11], armor: &str) -> u32 {
     let pct = verses[armor_index(armor)];
     ((u64::from(base) * u64::from(pct)) / 100) as u32
-}
-
-fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u16) -> bool {
-    entities.iter().enumerate().any(|(j, o)| j != self_i && !o.dead && is_mobile(o.kind) && o.x == x && o.y == y)
-}
-
-/// 寻路时把其它移动单位占格封死；目标被占则改停邻格。
-fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
-    entities[i].path.clear();
-    let (Some(tx), Some(ty)) = (entities[i].target_x, entities[i].target_y)
-    else {
-        return;
-    };
-    let (sx, sy) = (entities[i].x, entities[i].y);
-    let mut g = grid.clone();
-    for (j, o) in entities.iter().enumerate() {
-        if j != i && !o.dead && is_mobile(o.kind) {
-            g.set_passable(o.x, o.y, false);
-        }
-    }
-    // 允许离开当前格。
-    g.set_passable(sx, sy, true);
-    let (gx, gy) = nearest_free_goal(&g, sx, sy, tx, ty);
-    g.set_passable(gx, gy, true);
-    let Some(mut path) = g.find_path_diag(sx, sy, gx, gy)
-    else {
-        return;
-    };
-    if path.first() == Some(&(sx, sy)) {
-        path.remove(0);
-    }
-    entities[i].path = path;
-}
-
-/// 目标可走则用之；否则在半径内找最近可走格（含自身起点）。
-fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
-    if grid.is_passable(tx, ty) {
-        return (tx, ty);
-    }
-    let mut best: Option<(u32, u16, u16)> = None;
-    for r in 1i32..=8 {
-        for dy in -r..=r {
-            for dx in -r..=r {
-                if dx.abs() != r && dy.abs() != r {
-                    continue;
-                }
-                let nx = i32::from(tx) + dx;
-                let ny = i32::from(ty) + dy;
-                if nx < 0 || ny < 0 {
-                    continue;
-                }
-                let nx = nx as u16;
-                let ny = ny as u16;
-                if !grid.is_passable(nx, ny) {
-                    continue;
-                }
-                // 允许停在自己脚下（已到邻格排队）。
-                let dist = (i32::from(nx) - i32::from(sx)).pow(2) + (i32::from(ny) - i32::from(sy)).pow(2);
-                let key = (dist as u32, nx, ny);
-                if best.map(|b| key < b).unwrap_or(true) {
-                    best = Some(key);
-                }
-            }
-        }
-        if best.is_some() {
-            break;
-        }
-    }
-    best.map(|(_, x, y)| (x, y)).unwrap_or((tx, ty))
-}
-
-/// 沿 `path` 迈一格；无路则返回 `false`。
-fn step_along_path(e: &mut WorldEntity) -> bool {
-    let Some((nx, ny)) = e.path.first().copied()
-    else {
-        return false;
-    };
-    e.path.remove(0);
-    let dx = i32::from(nx) - i32::from(e.x);
-    let dy = i32::from(ny) - i32::from(e.y);
-    e.facing = match (dx.signum(), dy.signum()) {
-        (1, 0) => 0,
-        (1, 1) => 32,
-        (0, 1) => 64,
-        (-1, 1) => 96,
-        (-1, 0) => 128,
-        (-1, -1) => 160,
-        (0, -1) => 192,
-        (1, -1) => 224,
-        _ => e.facing,
-    };
-    e.x = nx;
-    e.y = ny;
-    true
 }
