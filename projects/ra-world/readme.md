@@ -3,9 +3,10 @@
 主要模块如下：
 
 ```text
-src/lib.rs         世界构造、固定 tick 调度、命令、战斗、经济与生产编排
+src/lib.rs         世界构造、固定 tick 调度、命令与经济/生产编排
 src/entity.rs      `WorldEntity` 运行时实体状态
 src/navigation.rs  移动、朝向、占格与寻路辅助函数
+src/combat.rs      攻击、伤害、受击闪白与炮塔转向
 src/command.rs     命令与输入帧编解码
 src/player.rs      玩家资金与电力状态
 src/reject.rs      命令拒绝结果
