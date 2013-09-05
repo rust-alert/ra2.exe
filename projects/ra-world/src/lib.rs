@@ -4,10 +4,14 @@
 
 mod combat;
 mod command;
+mod economy;
 mod entity;
 mod navigation;
 mod player;
+mod production;
 mod reject;
+mod rules;
+mod state_hash;
 
 use ra_adaptor::RulesDb;
 use ra_assets::{TechnoKind, TechnoTypeRegistry, WarheadRegistry};
@@ -16,9 +20,13 @@ use ra_types::{EntityId, GameEdition, PlayerId};
 
 pub use command::{GameCommand, InputFrame, decode_command, decode_commands, encode_command, encode_commands};
 pub use entity::WorldEntity;
-use navigation::{cell_occupied_by_other, is_mobile, manhattan, repath_at, step_along_path};
+use navigation::{is_mobile, repath_at};
 pub use player::PlayerState;
 pub use reject::{CommandReject, CommandRejectReason};
+use rules::{
+    building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
+    requires_power_plant, verses_for,
+};
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -229,63 +237,6 @@ impl World {
         self.advance_refinery_income();
         self.advance_production();
         self.rehash();
-    }
-
-    fn advance_movement(&mut self) {
-        let n = self.entities.len();
-        for i in 0..n {
-            if self.entities[i].dead || !is_mobile(self.entities[i].kind) || self.entities[i].speed == 0 {
-                continue;
-            }
-            // 攻击中且已在射程内：停步开火，不继续挤占目标格。
-            if let Some(ti) = self.entities[i].attack_target {
-                if ti < n
-                    && !self.entities[ti].dead
-                    && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
-                        <= self.entities[i].attack_range
-                {
-                    self.entities[i].path.clear();
-                    continue;
-                }
-            }
-            let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
-            else {
-                continue;
-            };
-            if self.entities[i].x == tx && self.entities[i].y == ty {
-                self.entities[i].path.clear();
-                continue;
-            }
-            self.entities[i].move_accum = self.entities[i].move_accum.saturating_add(self.entities[i].speed);
-            while self.entities[i].move_accum >= CELL_MOVE_COST {
-                self.entities[i].move_accum -= CELL_MOVE_COST;
-                if self.entities[i].path.is_empty() {
-                    repath_at(&mut self.entities, i, &self.pass_grid);
-                    if self.entities[i].path.is_empty() {
-                        break;
-                    }
-                }
-                let Some((nx, ny)) = self.entities[i].path.first().copied()
-                else {
-                    break;
-                };
-                if cell_occupied_by_other(&self.entities, i, nx, ny) {
-                    self.entities[i].path.clear();
-                    repath_at(&mut self.entities, i, &self.pass_grid);
-                    let Some((nx2, ny2)) = self.entities[i].path.first().copied()
-                    else {
-                        break;
-                    };
-                    if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
-                        break;
-                    }
-                }
-                if !step_along_path(&mut self.entities[i]) {
-                    break;
-                }
-                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
-            }
-        }
     }
 
     fn apply_commands(&mut self, cmds: &[GameCommand]) {
@@ -522,161 +473,6 @@ impl World {
         self.last_rejects.push(CommandReject { command_index, reason });
     }
 
-    fn advance_refinery_income(&mut self) {
-        let mut credits: Vec<(String, i32)> = Vec::new();
-        for e in &mut self.entities {
-            if e.dead || !is_refinery(&e.type_id) {
-                continue;
-            }
-            e.ore_trip_accum = e.ore_trip_accum.saturating_add(1);
-            if e.ore_trip_accum >= ORE_TRIP_TICKS {
-                e.ore_trip_accum = 0;
-                credits.push((e.owner.clone(), ORE_INCOME_PER_TRIP as i32));
-            }
-        }
-        for (house, amount) in credits {
-            if let Some(player) = self.players.iter_mut().find(|p| p.house == house) {
-                player.funds = player.funds.saturating_add(amount);
-            }
-        }
-    }
-
-    fn advance_production(&mut self) {
-        let mut spawns: Vec<(usize, String)> = Vec::new();
-        for (index, e) in self.entities.iter_mut().enumerate() {
-            if e.dead {
-                continue;
-            }
-            let Some((type_id, remaining)) = e.produce_queue.as_mut()
-            else {
-                continue;
-            };
-            if *remaining > 1 {
-                *remaining -= 1;
-                continue;
-            }
-            let type_id = type_id.clone();
-            e.produce_queue = None;
-            spawns.push((index, type_id));
-        }
-        for (factory_index, type_id) in spawns {
-            self.spawn_produced_unit(factory_index, &type_id);
-        }
-    }
-
-    fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
-        let Some(tt) = self.techno_types.get(type_id).cloned()
-        else {
-            return;
-        };
-        let factory = &self.entities[factory_index];
-        let owner = factory.owner.clone();
-        let fx = factory.x;
-        let fy = factory.y;
-        let rally = match (factory.rally_x, factory.rally_y) {
-            (Some(rx), Some(ry)) => Some((rx, ry)),
-            _ => None,
-        };
-        let Some((x, y)) = self.find_spawn_cell(fx, fy)
-        else {
-            return;
-        };
-        let kind = match tt.kind {
-            TechnoKind::Infantry => MapEntityKind::Infantry,
-            TechnoKind::Vehicle => MapEntityKind::Unit,
-            TechnoKind::Aircraft => MapEntityKind::Aircraft,
-            TechnoKind::Building => return,
-        };
-        let max_health = tt.strength.max(1);
-        let id = self.alloc_entity_id();
-        let unit_index = self.entities.len();
-        self.entities.push(WorldEntity {
-            id,
-            kind,
-            owner,
-            type_id: type_id.to_ascii_uppercase(),
-            x,
-            y,
-            facing: 0,
-            turret_facing: 0,
-            sub_cell: 0,
-            health: max_health,
-            max_health,
-            speed: tt.speed,
-            armor: tt.armor.clone(),
-            attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
-            attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
-            attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
-            attack_verses: verses_for(&self.warheads, &tt.warhead),
-            techno_kind: Some(tt.kind),
-            target_x: None,
-            target_y: None,
-            path: Vec::new(),
-            move_accum: 0,
-            hva_frame: 0,
-            attack_target: None,
-            attack_cooldown: 0,
-            ore_trip_accum: 0,
-            produce_queue: None,
-            rally_x: None,
-            rally_y: None,
-            hit_flash: 0,
-            dead: false,
-        });
-        if let Some((rx, ry)) = rally {
-            let e = &mut self.entities[unit_index];
-            e.target_x = Some(rx);
-            e.target_y = Some(ry);
-            e.path.clear();
-            e.move_accum = 0;
-            repath_at(&mut self.entities, unit_index, &self.pass_grid);
-        }
-    }
-
-    fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
-        const DELTAS: [(i32, i32); 8] = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
-        for (dx, dy) in DELTAS {
-            let x = i32::from(fx) + dx;
-            let y = i32::from(fy) + dy;
-            if x < 0 || y < 0 {
-                continue;
-            }
-            let (x, y) = (x as u16, y as u16);
-            if self.can_place_structure(x, y) {
-                return Some((x, y));
-            }
-        }
-        None
-    }
-
-    fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
-        self.entities.iter().position(|e| {
-            !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && factory_matches_unit(&e.type_id, kind)
-        })
-    }
-
-    fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
-        self.entities.iter().position(|e| {
-            !e.dead
-                && e.owner == house
-                && e.kind == MapEntityKind::Structure
-                && e.produce_queue.is_none()
-                && factory_matches_unit(&e.type_id, kind)
-        })
-    }
-
-    fn house_has_living_yard(&self, house: &str) -> bool {
-        self.entities
-            .iter()
-            .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&e.type_id))
-    }
-
-    fn house_has_living_power(&self, house: &str) -> bool {
-        self.entities
-            .iter()
-            .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power_plant(&e.type_id))
-    }
-
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
     pub fn can_place_structure(&self, x: u16, y: u16) -> bool {
         if !self.pass_grid.in_bounds(x, y) {
@@ -707,177 +503,4 @@ impl World {
         }
         self.rehash();
     }
-
-    fn rehash(&mut self) {
-        let mut h = self.tick;
-        h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);
-        h = h.wrapping_mul(1099511628211).wrapping_add(self.entities.len() as u64);
-        h = h
-            .wrapping_mul(1099511628211)
-            .wrapping_add(self.last_input_frame.tick)
-            .wrapping_add(self.last_input_frame.commands.len() as u64);
-        for cmd in &self.last_input_frame.commands {
-            h = hash_command(h, cmd);
-        }
-        for e in &self.entities {
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(e.id.0)
-                .wrapping_add(e.x as u64)
-                .wrapping_add((e.y as u64) << 16)
-                .wrapping_add((e.facing as u64) << 32)
-                .wrapping_add((e.turret_facing as u64) << 40)
-                .wrapping_add(u64::from(e.health))
-                .wrapping_add(u64::from(e.max_health).wrapping_shl(1))
-                .wrapping_add(u64::from(e.speed).wrapping_shl(2))
-                .wrapping_add(u64::from(e.attack_range).wrapping_shl(3))
-                .wrapping_add(u64::from(e.attack_damage).wrapping_shl(4))
-                .wrapping_add(u64::from(e.attack_cooldown_max).wrapping_shl(5))
-                .wrapping_add(u64::from(e.dead))
-                .wrapping_add(u64::from(e.hva_frame) << 8)
-                .wrapping_add(u64::from(e.attack_cooldown) << 24)
-                .wrapping_add(u64::from(e.ore_trip_accum) << 8)
-                .wrapping_add(u64::from(e.hit_flash) << 16)
-                .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
-            for b in e.armor.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-            for v in e.attack_verses {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(v));
-            }
-            if let Some((ref qid, rem)) = e.produce_queue {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(rem));
-                for b in qid.as_bytes() {
-                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-                }
-            }
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(e.rally_x.map(u64::from).unwrap_or(0))
-                .wrapping_add(e.rally_y.map(|v| u64::from(v) << 16).unwrap_or(0));
-            for b in e.type_id.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-            for b in e.owner.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-        }
-        for p in &self.players {
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(p.id.0))
-                .wrapping_add(p.funds as u64)
-                .wrapping_add(p.funds_spent as u64)
-                .wrapping_add((p.power_output as u64) << 16)
-                .wrapping_add((p.power_drain as u64) << 32);
-            for b in p.house.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-        }
-        self.state_hash = h;
-    }
-}
-
-fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
-    match *cmd {
-        GameCommand::MoveTo { entity_index, x, y } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(1);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(entity_index as u64)
-                .wrapping_add((x as u64) << 16)
-                .wrapping_add((y as u64) << 32);
-        }
-        GameCommand::Attack { attacker_index, target_index } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(2);
-            h = h.wrapping_mul(1099511628211).wrapping_add(attacker_index as u64).wrapping_add((target_index as u64) << 16);
-        }
-        GameCommand::Deploy { entity_index } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(3);
-            h = h.wrapping_mul(1099511628211).wrapping_add(entity_index as u64);
-        }
-        GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(4);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(player.0))
-                .wrapping_add((x as u64) << 8)
-                .wrapping_add((y as u64) << 24);
-            for b in type_id.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-        }
-        GameCommand::Produce { player, ref type_id } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(5);
-            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0));
-            for b in type_id.as_bytes() {
-                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
-            }
-        }
-        GameCommand::SetRallyPoint { factory_index, x, y } => {
-            h = h.wrapping_mul(1099511628211).wrapping_add(6);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(factory_index as u64)
-                .wrapping_add((x as u64) << 16)
-                .wrapping_add((y as u64) << 32);
-        }
-    }
-    h
-}
-
-/// 冻结竖切内 MCV → 建造场映射（后续可由 adaptor 定义表替换）。
-fn deploy_into_type(type_id: &str) -> Option<&'static str> {
-    match type_id {
-        "AMCV" => Some("GACNST"),
-        "SMCV" => Some("NACNST"),
-        _ => None,
-    }
-}
-
-fn is_construction_yard(type_id: &str) -> bool {
-    matches!(type_id, "GACNST" | "NACNST")
-}
-
-fn is_power_plant(type_id: &str) -> bool {
-    matches!(type_id, "GAPOWR" | "NAPOWR")
-}
-
-fn requires_power_plant(type_id: &str) -> bool {
-    matches!(type_id, "GAPILE" | "NAHAND" | "GAWEAP" | "NAWEAP" | "GAREFN" | "NAREFN")
-}
-
-fn is_refinery(type_id: &str) -> bool {
-    matches!(type_id, "GAREFN" | "NAREFN")
-}
-
-fn factory_matches_unit(factory_type: &str, kind: TechnoKind) -> bool {
-    match kind {
-        TechnoKind::Infantry => matches!(factory_type, "GAPILE" | "NAHAND"),
-        TechnoKind::Vehicle => matches!(factory_type, "GAWEAP" | "NAWEAP"),
-        TechnoKind::Aircraft | TechnoKind::Building => false,
-    }
-}
-
-fn is_production_factory(type_id: &str) -> bool {
-    matches!(type_id, "GAPILE" | "NAHAND" | "GAWEAP" | "NAWEAP")
-}
-
-/// 冻结竖切建筑的电力增量（正=供电，负=耗电）。后续由 adaptor 定义替换。
-pub(crate) fn building_power_delta(type_id: &str) -> i32 {
-    match type_id {
-        "GAPOWR" | "NAPOWR" => 200,
-        "GAPILE" | "NAHAND" => -20,
-        "GAWEAP" | "NAWEAP" => -30,
-        "GAREFN" | "NAREFN" => -50,
-        _ => 0,
-    }
-}
-
-fn full_verses() -> [u32; 11] {
-    [100; 11]
-}
-
-fn verses_for(warheads: &WarheadRegistry, warhead: &str) -> [u32; 11] {
-    warheads.get(warhead).map(|w| w.verses).unwrap_or_else(full_verses)
 }

@@ -109,3 +109,62 @@ pub(crate) fn step_along_path(entity: &mut WorldEntity) -> bool {
     entity.y = y;
     true
 }
+
+impl crate::World {
+    pub(crate) fn advance_movement(&mut self) {
+        let n = self.entities.len();
+        for i in 0..n {
+            if self.entities[i].dead || !is_mobile(self.entities[i].kind) || self.entities[i].speed == 0 {
+                continue;
+            }
+            // 攻击中且已在射程内：停步开火，不继续挤占目标格。
+            if let Some(ti) = self.entities[i].attack_target {
+                if ti < n
+                    && !self.entities[ti].dead
+                    && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
+                        <= self.entities[i].attack_range
+                {
+                    self.entities[i].path.clear();
+                    continue;
+                }
+            }
+            let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
+            else {
+                continue;
+            };
+            if self.entities[i].x == tx && self.entities[i].y == ty {
+                self.entities[i].path.clear();
+                continue;
+            }
+            self.entities[i].move_accum = self.entities[i].move_accum.saturating_add(self.entities[i].speed);
+            while self.entities[i].move_accum >= crate::CELL_MOVE_COST {
+                self.entities[i].move_accum -= crate::CELL_MOVE_COST;
+                if self.entities[i].path.is_empty() {
+                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    if self.entities[i].path.is_empty() {
+                        break;
+                    }
+                }
+                let Some((nx, ny)) = self.entities[i].path.first().copied()
+                else {
+                    break;
+                };
+                if cell_occupied_by_other(&self.entities, i, nx, ny) {
+                    self.entities[i].path.clear();
+                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    let Some((nx2, ny2)) = self.entities[i].path.first().copied()
+                    else {
+                        break;
+                    };
+                    if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
+                        break;
+                    }
+                }
+                if !step_along_path(&mut self.entities[i]) {
+                    break;
+                }
+                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
+            }
+        }
+    }
+}
