@@ -2,7 +2,7 @@
 
 use ra_map::MapEntityKind;
 use ra_testing::{alpha_skirmish_v1, mcv_deploy_open};
-use ra_world::GameCommand;
+use ra_engine::GameCommand;
 
 #[test]
 fn mcv_deploy_open_seeds_slice_funds() {

@@ -1,8 +1,8 @@
 //! AI 遭遇战后脚本攻击至胜负，并校验确定性。
 
-use ra_session::MatchOutcome;
+use ra_engine::MatchOutcome;
 use ra_testing::{ai_skirmish_open, alpha_skirmish_v1};
-use ra_world::GameCommand;
+use ra_engine::GameCommand;
 
 #[test]
 fn scripted_attack_after_ai_deploy_reaches_victory() {
