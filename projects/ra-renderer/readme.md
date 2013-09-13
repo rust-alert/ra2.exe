@@ -6,7 +6,7 @@ crate 头注释写得很硬：
 > 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。  
 > 本 crate **故意不**实现 DirectDraw。
 
-产品定位是现代化重写，不是 ddraw 兼容层。依赖：`ra-types`、`ra-session`、`wgpu`（工作区锁定 24）、`winit`、`pollster`、`bytemuck`。
+产品定位是现代化重写，不是 ddraw 兼容层。依赖：`ra-types`、`ra-engine`、`wgpu`（工作区锁定）、`winit`、`pollster`、`bytemuck`。
 
 ## 三个模块，不是「场景图」
 
@@ -82,7 +82,7 @@ sprite。
 
 ## 和快照的耦合
 
-`draw_frame` 接收 `ra-session::RenderSnapshot`，**不再依赖** `ra-world::World`。当前绘制路径仍主要是预览纹理；快照的 tick / 单位列表供后续批次与诊断使用。标题栏上的 tick 由桌面从会话读取。
+`draw_frame` 接收 `ra-engine::RenderSnapshot`，不直接依赖世界可变状态。当前绘制路径仍主要是预览纹理；快照的 tick / 单位列表供后续批次与诊断使用。标题栏上的 tick 由桌面从对局运行时读取。
 
 ## 构建
 

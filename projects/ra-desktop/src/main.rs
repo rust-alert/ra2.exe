@@ -15,7 +15,7 @@ use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_logger;
 use ra_map::{MapEntityKind, MapInfo, compose_boot_preview, find_first_boot_map, mount_theater_mixes};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_session::{Session, open_skirmish_session};
+use ra_engine::{Session, open_skirmish_session};
 use ra_types::{GameEdition, RaError, RaResult};
 use winit::{
     application::ApplicationHandler,
@@ -228,7 +228,7 @@ impl App {
                     .map(|r| r.reason.as_hud_label())
                     .unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
-                if let Some(ra_session::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
+                if let Some(ra_engine::MatchOutcome::Victory { owner }) = snap.outcome.as_ref() {
                     let stats = snap
                         .match_stats
                         .as_ref()
@@ -286,7 +286,7 @@ impl App {
         else {
             return;
         };
-        let Some(ra_session::MatchOutcome::Victory { owner }) = session.outcome.as_ref()
+        let Some(ra_engine::MatchOutcome::Victory { owner }) = session.outcome.as_ref()
         else {
             return;
         };

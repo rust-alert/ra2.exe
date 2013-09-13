@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use ra_renderer::RgbaImage;
-use ra_session::Session;
+use ra_engine::Session;
 use ra_testing::standard_duel;
 use ra_types::{RaError, RaResult};
 
@@ -64,7 +64,7 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 pub fn write_status(path: &std::path::Path, session: &Session) {
     let snap = session.snapshot();
     let outcome = match &snap.outcome {
-        Some(ra_session::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
+        Some(ra_engine::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
     let selected = session.selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
