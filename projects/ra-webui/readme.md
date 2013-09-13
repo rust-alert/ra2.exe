@@ -32,8 +32,8 @@ pub fn supports_webgl2() -> bool {
 | `engine_name`     | 恒返回字符串 `"ra2"`，给页面侧识别引擎用                                                                      |
 | `supports_webgl2` | 恒返回 `true`，**不探测**浏览器实际能力                                                                       |
 
-没有创建 `<canvas>`，没有调用 `ra-renderer::Renderer`，也没有构造 `ra-world::World`。`Cargo.toml` 虽声明了 `ra-types` /
-`ra-world` / `ra-renderer`，当前 `lib.rs` 未使用它们（为以后接线预留依赖）。工作区里的 `web-sys` 同样尚未列入本包依赖。
+没有创建 `<canvas>`，没有调用 `ra-renderer::Renderer`，也没有构造对局运行时。`Cargo.toml` 虽声明了 `ra-types` /
+`ra-engine` / `ra-renderer`，当前 `lib.rs` 未使用它们（为以后接线预留依赖）。工作区里的 `web-sys` 同样尚未列入本包依赖。
 
 ## 和 `ra-desktop` 差在哪
 
@@ -63,7 +63,7 @@ cargo build -p ra-webui
 
 ## 依赖清单（manifest）
 
-- `ra-types`、`ra-world`、`ra-renderer`（预留）
+- `ra-types`、`ra-engine`、`ra-renderer`（预留）
 - `wasm-bindgen`
 - `console_error_panic_hook`
 

@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 ra-types = { workspace = true }
-ra-world = { workspace = true }
+ra-engine = { workspace = true }
 ra-renderer = { workspace = true }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
