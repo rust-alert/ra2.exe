@@ -7,5 +7,9 @@ license.workspace = true
 description = "一局游戏运行时：命令、固定 tick、权威状态与呈现投影"
 
 [dependencies]
-ra-session = { workspace = true }
+ra-types = { workspace = true }
 ra-world = { workspace = true }
+ra-map = { workspace = true }
+ra-net = { workspace = true }
+ra-adaptor = { workspace = true }
+ra-assets = { workspace = true }

@@ -1,10 +1,12 @@
 //! 一局游戏运行时入口。
 //!
-//! 过渡期转发既有会话与世界类型，对外逐步收敛为统一接口。不创建窗口、不初始化 GPU。
+//! 会话调度已内收于 `runtime`；世界状态仍过渡依赖 `ra-world`。不创建窗口、不初始化 GPU。
 
 #![deny(missing_docs)]
 
-pub use ra_session::{
+mod runtime;
+
+pub use runtime::{
     AnimState, DEFAULT_TICK_HZ, MAX_TICKS_PER_PUMP, MatchOutcome, MatchStats, RenderSnapshot, Session,
     SessionScreen, SkirmishOpenResult, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
     open_skirmish_session,
@@ -18,5 +20,5 @@ pub use ra_world::{
 
 /// 对局运行时句柄。
 ///
-/// 当前为 [`Session`] 的类型别名。后续实现将内收到本 crate，消费方应依赖本类型而非直接依赖会话/世界包。
+/// 当前为 [`Session`] 的类型别名。
 pub type Engine = Session;
