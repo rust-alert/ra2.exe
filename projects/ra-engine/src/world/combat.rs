@@ -2,9 +2,9 @@
 
 use ra_map::MapEntityKind;
 
-use crate::navigation::{facing_toward, is_mobile, manhattan, turn_facing_toward};
-use crate::rules::building_power_delta;
-use crate::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
+use super::navigation::{facing_toward, is_mobile, manhattan, turn_facing_toward};
+use super::rules::building_power_delta;
+use super::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
 use ra_assets::armor_index;
 
 impl World {

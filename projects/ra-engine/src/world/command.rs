@@ -229,18 +229,18 @@ pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
     Some(out)
 }
 
-impl crate::World {
+impl super::World {
     pub(crate) fn apply_commands(&mut self, cmds: &[GameCommand]) {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;
 
-        use crate::navigation::{is_mobile, repath_at};
-        use crate::reject::CommandRejectReason;
-        use crate::rules::{
+        use super::navigation::{is_mobile, repath_at};
+        use super::reject::CommandRejectReason;
+        use super::rules::{
             building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
             requires_power_plant,
         };
-        use crate::{PRODUCE_TICKS, WorldEntity};
+        use super::{PRODUCE_TICKS, WorldEntity};
 
         for (command_index, cmd) in cmds.iter().enumerate() {
             match *cmd {
@@ -471,7 +471,7 @@ impl crate::World {
         }
     }
 
-    pub(crate) fn reject(&mut self, command_index: usize, reason: crate::CommandRejectReason) {
-        self.last_rejects.push(crate::CommandReject { command_index, reason });
+    pub(crate) fn reject(&mut self, command_index: usize, reason: super::CommandRejectReason) {
+        self.last_rejects.push(super::CommandReject { command_index, reason });
     }
 }

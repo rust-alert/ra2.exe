@@ -2,7 +2,7 @@
 
 use ra_map::{MapEntityKind, PassGrid};
 
-use crate::WorldEntity;
+use super::WorldEntity;
 
 pub(crate) fn is_mobile(kind: MapEntityKind) -> bool {
     matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
@@ -110,7 +110,7 @@ pub(crate) fn step_along_path(entity: &mut WorldEntity) -> bool {
     true
 }
 
-impl crate::World {
+impl super::World {
     pub(crate) fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {
@@ -137,8 +137,8 @@ impl crate::World {
                 continue;
             }
             self.entities[i].move_accum = self.entities[i].move_accum.saturating_add(self.entities[i].speed);
-            while self.entities[i].move_accum >= crate::CELL_MOVE_COST {
-                self.entities[i].move_accum -= crate::CELL_MOVE_COST;
+            while self.entities[i].move_accum >= super::CELL_MOVE_COST {
+                self.entities[i].move_accum -= super::CELL_MOVE_COST;
                 if self.entities[i].path.is_empty() {
                     repath_at(&mut self.entities, i, &self.pass_grid);
                     if self.entities[i].path.is_empty() {

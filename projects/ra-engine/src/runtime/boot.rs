@@ -3,7 +3,7 @@
 use ra_adaptor::{ResourceChain, RulesDb};
 use ra_map::{MapInfo, seal_pass_grid_from_tmp};
 use ra_types::{AssetSource, RaResult};
-use ra_world::World;
+use crate::World;
 
 use crate::Session;
 

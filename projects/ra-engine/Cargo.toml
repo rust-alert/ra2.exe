@@ -8,7 +8,6 @@ description = "一局游戏运行时：命令、固定 tick、权威状态与呈
 
 [dependencies]
 ra-types = { workspace = true }
-ra-world = { workspace = true }
 ra-map = { workspace = true }
 ra-net = { workspace = true }
 ra-adaptor = { workspace = true }

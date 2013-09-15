@@ -8,7 +8,7 @@ mod boot;
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
-use ra_world::{CommandReject, GameCommand, World};
+use crate::{CommandReject, GameCommand, World};
 
 pub use boot::{SkirmishOpenResult, open_skirmish_session};
 
@@ -774,7 +774,7 @@ impl Session {
     }
 }
 
-fn derive_anim_state(e: &ra_world::WorldEntity) -> AnimState {
+fn derive_anim_state(e: &crate::WorldEntity) -> AnimState {
     if e.dead {
         return AnimState::Die;
     }
@@ -794,7 +794,7 @@ fn derive_anim_state(e: &ra_world::WorldEntity) -> AnimState {
 }
 
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
-fn is_combat_force(e: &ra_world::WorldEntity) -> bool {
+fn is_combat_force(e: &crate::WorldEntity) -> bool {
     !e.dead
         && matches!(
             e.kind,
