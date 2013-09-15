@@ -26,8 +26,7 @@ flowchart TB
     end
 
     subgraph sim["仿真"]
-        world["ra-world<br/>World / tick"]
-        session["ra-session<br/>命令 / 快照"]
+        engine["ra-engine<br/>对局运行时"]
     end
 
     subgraph content["内容投影"]
@@ -49,18 +48,15 @@ flowchart TB
     types["ra-types<br/>GameEdition / RaError / AssetSource"]
     desktop --> config
     desktop --> renderer
-    desktop --> session
-    desktop --> world
+    desktop --> engine
     desktop --> map
     desktop --> assets
     desktop --> adaptor
     webui -.-> renderer
-    webui -.-> world
-    session --> world
-    session --> adaptor
-    renderer --> world
-    world --> adaptor
-    world --> map
+    webui -.-> engine
+    renderer --> engine
+    engine --> adaptor
+    engine --> map
     map --> assets
     adaptor --> assets
     adaptor --> ra2tbl

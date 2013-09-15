@@ -4,7 +4,7 @@ use ra_map::MapEntityKind;
 
 use crate::spatial::{facing_toward, is_mobile, manhattan, turn_facing_toward};
 use crate::gameplay::building_power_delta;
-use crate::state::{HIT_FLASH_TICKS, TURRET_TURN_STEP, World};
+use crate::state::{HIT_FLASH_TICKS, TURRET_TURN_STEP};
 use ra_assets::armor_index;
 
 impl crate::state::World {

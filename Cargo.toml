@@ -14,8 +14,6 @@ ra-types = { path = "projects/ra-types" }
 ra-assets = { path = "projects/ra-assets" }
 ra-config = { path = "projects/ra-config" }
 ra-map = { path = "projects/ra-map" }
-ra-world = { path = "projects/ra-world" }
-ra-session = { path = "projects/ra-session" }
 ra-engine = { path = "projects/ra-engine" }
 ra-ecs = { path = "projects/ra-ecs" }
 ra-definition = { path = "projects/ra-definition" }

@@ -3,5 +3,3 @@
 mod digest;
 mod restore;
 mod save;
-
-pub(crate) use digest::hash_command;
