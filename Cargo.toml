@@ -17,6 +17,8 @@ ra-map = { path = "projects/ra-map" }
 ra-world = { path = "projects/ra-world" }
 ra-session = { path = "projects/ra-session" }
 ra-engine = { path = "projects/ra-engine" }
+ra-ecs = { path = "projects/ra-ecs" }
+ra-definition = { path = "projects/ra-definition" }
 ra-testing = { path = "projects/ra-testing" }
 ra-logger = { path = "projects/ra-logger" }
 ra-net = { path = "projects/ra-net" }

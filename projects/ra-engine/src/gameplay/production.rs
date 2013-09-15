@@ -3,11 +3,11 @@
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 
-use super::navigation::repath_at;
-use super::rules::{factory_matches_unit, verses_for};
-use super::{ATTACK_COOLDOWN_TICKS, World, WorldEntity};
+use crate::spatial::repath_at;
+use crate::gameplay::{factory_matches_unit, verses_for};
+use crate::state::{ATTACK_COOLDOWN_TICKS, World, WorldEntity};
 
-impl World {
+impl crate::state::World {
     pub(crate) fn advance_production(&mut self) {
         let mut spawns: Vec<(usize, String)> = Vec::new();
         for (index, e) in self.entities.iter_mut().enumerate() {

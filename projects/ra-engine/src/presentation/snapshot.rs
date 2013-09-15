@@ -1,0 +1,1 @@
+//! MatchSnapshot 聚合。

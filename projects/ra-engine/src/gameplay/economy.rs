@@ -2,10 +2,10 @@
 
 use ra_map::MapEntityKind;
 
-use super::rules::{is_construction_yard, is_power_plant, is_refinery};
-use super::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, World};
+use crate::gameplay::{is_construction_yard, is_power_plant, is_refinery};
+use crate::state::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, World};
 
-impl World {
+impl crate::state::World {
     pub(crate) fn advance_refinery_income(&mut self) {
         let mut credits: Vec<(String, i32)> = Vec::new();
         for e in &mut self.entities {

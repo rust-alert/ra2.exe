@@ -1,8 +1,9 @@
 //! 确定性状态摘要（锁步校验用）。
 
-use super::{GameCommand, World};
+use crate::runtime::GameCommand;
+use crate::state::World;
 
-impl World {
+impl crate::state::World {
     pub(crate) fn rehash(&mut self) {
         let mut h = self.tick;
         h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);
@@ -73,7 +74,7 @@ impl World {
     }
 }
 
-fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
+pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
     match *cmd {
         GameCommand::MoveTo { entity_index, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(1);

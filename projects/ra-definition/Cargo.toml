@@ -1,0 +1,11 @@
+[package]
+name = "ra-definition"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "adaptor 输出与 engine 消费的冻结运行时定义契约"
+
+[dependencies]
+ra-types = { workspace = true }
+
