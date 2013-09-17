@@ -1,6 +1,5 @@
-use ra_engine::MatchOutcome;
+use ra_engine::{GameCommand, MatchOutcome};
 use ra_testing::standard_duel;
-use ra_engine::GameCommand;
 
 #[test]
 fn standard_duel_reaches_a_repeatable_victory() {

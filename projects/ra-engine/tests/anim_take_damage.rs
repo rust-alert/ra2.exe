@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::{AnimState, Session};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, HIT_FLASH_TICKS, World};
 
 #[test]
 fn snapshot_anim_state_take_damage_then_die() {
@@ -41,16 +40,14 @@ fn snapshot_anim_state_take_damage_then_die() {
     session.world.entities[0].attack_range = 4;
     session.world.entities[0].attack_cooldown = 0;
     session.world.entities[0].attack_cooldown_max = 8;
-    session.push_command(GameCommand::Attack {
-        attacker_index: 0,
-        target_index: 1,
-    });
+    session.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
     session.tick();
     let snap = session.snapshot();
     let tgt = snap.units.iter().find(|u| u.index == 1).unwrap();
     if tgt.dead {
         assert_eq!(tgt.anim_state, AnimState::Die);
-    } else {
+    }
+    else {
         assert_eq!(tgt.anim_state, AnimState::TakeDamage);
         assert!(session.world.entities[1].hit_flash <= HIT_FLASH_TICKS);
         assert!(session.world.entities[1].hit_flash > 0);

@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use ra_renderer::RgbaImage;
 use ra_engine::Session;
+use ra_renderer::RgbaImage;
 use ra_testing::standard_duel;
 use ra_types::{RaError, RaResult};
 
@@ -74,19 +74,11 @@ pub fn write_status(path: &std::path::Path, session: &Session) {
         .iter()
         .find(|p| p.id == session.world.local_player)
         .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
-    let (funds, power_output, power_drain, low_power) = local
-        .map(|p| (p.funds, p.power_output, p.power_drain, p.low_power))
-        .unwrap_or((0, 0, 0, false));
-    let queue = snap
-        .produce_queues
-        .first()
-        .map(|q| format!("{}:{}", q.type_id, q.remaining_ticks))
-        .unwrap_or_else(|| "none".into());
-    let last_reject = snap
-        .last_rejects
-        .first()
-        .map(|r| format!("{:?}", r.reason))
-        .unwrap_or_else(|| "none".into());
+    let (funds, power_output, power_drain, low_power) =
+        local.map(|p| (p.funds, p.power_output, p.power_drain, p.low_power)).unwrap_or((0, 0, 0, false));
+    let queue =
+        snap.produce_queues.first().map(|q| format!("{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "none".into());
+    let last_reject = snap.last_rejects.first().map(|r| format!("{:?}", r.reason)).unwrap_or_else(|| "none".into());
     let body = format!(
         "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\n",
         snap.tick,

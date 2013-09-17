@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{Session, World};
 use ra_map::MapInfo;
-use ra_engine::Session;
 use ra_types::GameEdition;
-use ra_engine::World;
 
 #[test]
 fn toggle_pause_stops_pump_and_exposes_snapshot() {

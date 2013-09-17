@@ -1,7 +1,7 @@
 //! 动态占用、邻域、寻路与视野。
 
-mod neighborhood;
 mod navigation;
+mod neighborhood;
 mod occupancy;
 mod visibility;
 

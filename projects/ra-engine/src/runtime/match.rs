@@ -2,11 +2,10 @@
 //!
 //! 不碰窗口与 GPU；可通过 `AssetSource` 装载遭遇战（见 `boot`）。
 
+use crate::{CommandReject, GameCommand, World};
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::GameEdition;
-use crate::{CommandReject, GameCommand, World};
-use crate::runtime::boot;
 
 /// 默认仿真频率（与渲染帧率无关）。
 pub const DEFAULT_TICK_HZ: u32 = 15;
@@ -399,12 +398,7 @@ impl Session {
 
     /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
     fn push_ai_commands(&mut self) {
-        let local_house = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player)
-            .map(|p| p.house.clone());
+        let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone());
         let opponents: Vec<(ra_types::PlayerId, String)> = self
             .world
             .players
@@ -458,12 +452,7 @@ impl Session {
             }
         }
         let funds_spent = self.world.players.iter().map(|p| p.funds_spent).sum();
-        MatchStats {
-            duration_ticks: self.world.tick,
-            units_lost,
-            buildings_lost,
-            funds_spent,
-        }
+        MatchStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent }
     }
 
     /// 单选一个存活实体（单位或建筑）。
@@ -473,10 +462,7 @@ impl Session {
             && !self.world.entities[index].dead
             && matches!(
                 self.world.entities[index].kind,
-                MapEntityKind::Unit
-                    | MapEntityKind::Infantry
-                    | MapEntityKind::Aircraft
-                    | MapEntityKind::Structure
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
             )
         {
             self.selected.push(index);
@@ -492,10 +478,7 @@ impl Session {
         if e.dead
             || !matches!(
                 e.kind,
-                MapEntityKind::Unit
-                    | MapEntityKind::Infantry
-                    | MapEntityKind::Aircraft
-                    | MapEntityKind::Structure
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
             )
         {
             return;
@@ -589,12 +572,7 @@ impl Session {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::PlaceBuilding {
-            player: self.world.local_player,
-            type_id: type_id.into(),
-            x,
-            y,
-        });
+        self.push_command(GameCommand::PlaceBuilding { player: self.world.local_player, type_id: type_id.into(), x, y });
     }
 
     /// 本地玩家排队生产单位。
@@ -602,10 +580,7 @@ impl Session {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::Produce {
-            player: self.world.local_player,
-            type_id: type_id.into(),
-        });
+        self.push_command(GameCommand::Produce { player: self.world.local_player, type_id: type_id.into() });
     }
 
     /// 为当前选中的工厂设置集结点（非工厂由世界拒绝）。
@@ -620,9 +595,7 @@ impl Session {
 
     /// 选中集合中是否包含建筑。
     pub fn selection_has_structure(&self) -> bool {
-        self.selected.iter().any(|&i| {
-            self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
-        })
+        self.selected.iter().any(|&i| self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure))
     }
 
     /// 点选格上或其四邻的存活实体（单位优先，其次建筑）。
@@ -632,9 +605,7 @@ impl Session {
 
     /// 点选格上精确匹配的存活建筑。
     pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<usize> {
-        self.world.entities.iter().position(|e| {
-            !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y
-        })
+        self.world.entities.iter().position(|e| !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y)
     }
 
     /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。
@@ -653,10 +624,7 @@ impl Session {
                     && e.owner != from.owner
                     && matches!(
                         e.kind,
-                        MapEntityKind::Unit
-                            | MapEntityKind::Infantry
-                            | MapEntityKind::Aircraft
-                            | MapEntityKind::Structure
+                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
                     )
             })
             .min_by_key(|(_, e)| {
@@ -673,13 +641,8 @@ impl Session {
         if self.world.players.len() < 2 {
             return None;
         }
-        let mut owners: Vec<&str> = self
-            .world
-            .entities
-            .iter()
-            .filter(|e| is_combat_force(e))
-            .map(|e| e.owner.as_str())
-            .collect();
+        let mut owners: Vec<&str> =
+            self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_str()).collect();
         owners.sort_unstable();
         owners.dedup();
         if owners.len() == 1 { Some(owners[0]) } else { None }
@@ -761,11 +724,7 @@ impl Session {
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),
             match_stats: self.match_stats.clone(),
-            screen: if self.outcome.is_some() {
-                SessionScreen::Results
-            } else {
-                SessionScreen::InMatch
-            },
+            screen: if self.outcome.is_some() { SessionScreen::Results } else { SessionScreen::InMatch },
         }
     }
 }
@@ -792,8 +751,5 @@ fn derive_anim_state(e: &crate::WorldEntity) -> AnimState {
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
 fn is_combat_force(e: &crate::WorldEntity) -> bool {
     !e.dead
-        && matches!(
-            e.kind,
-            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-        )
+        && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
 }

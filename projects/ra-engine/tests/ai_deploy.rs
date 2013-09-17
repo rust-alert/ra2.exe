@@ -2,10 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::Session;
 use ra_types::GameEdition;
-use ra_engine::World;
 
 #[test]
 fn ai_deploys_mcv_via_command() {

@@ -2,10 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{GameCommand, MatchOutcome, RenderSnapshot, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::{MatchOutcome, RenderSnapshot, Session};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 use crate::alpha_skirmish_v1;
 

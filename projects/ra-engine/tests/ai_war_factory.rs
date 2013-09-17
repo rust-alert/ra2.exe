@@ -2,10 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::Session;
 use ra_types::GameEdition;
-use ra_engine::World;
 
 #[test]
 fn ai_places_war_factory_and_produces_tank() {
@@ -66,17 +65,8 @@ fn ai_places_war_factory_and_produces_tank() {
     let mut session = Session::new(world, "ai-weap");
     session.ai_enabled = true;
     session.tick();
-    assert!(session
-        .world
-        .entities
-        .iter()
-        .any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));
+    assert!(session.world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));
     session.tick();
-    let weap = session
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner == "Soviets" && e.type_id == "NAWEAP")
-        .expect("war factory");
+    let weap = session.world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAWEAP").expect("war factory");
     assert_eq!(weap.produce_queue.as_ref().map(|(id, _)| id.as_str()), Some("HTNK"));
 }

@@ -2,8 +2,10 @@
 
 use ra_map::MapEntityKind;
 
-use crate::gameplay::{is_construction_yard, is_power_plant, is_refinery};
-use crate::state::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
+use crate::{
+    gameplay::{is_construction_yard, is_power_plant, is_refinery},
+    state::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS},
+};
 
 impl crate::state::World {
     pub(crate) fn advance_refinery_income(&mut self) {

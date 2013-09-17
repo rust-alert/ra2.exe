@@ -1,9 +1,9 @@
 //! 遭遇战装载：规则 → 世界 → 指纹 → 会话。
 
+use crate::World;
 use ra_adaptor::{ResourceChain, RulesDb};
 use ra_map::{MapInfo, seal_pass_grid_from_tmp};
 use ra_types::{AssetSource, RaResult};
-use crate::World;
 
 use crate::Session;
 

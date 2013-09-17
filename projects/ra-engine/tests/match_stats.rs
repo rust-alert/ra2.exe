@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{GameCommand, MatchOutcome, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::{MatchOutcome, Session};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 #[test]
 fn victory_locks_match_stats() {
@@ -40,22 +39,14 @@ fn victory_locks_match_stats() {
     session.world.entities[0].attack_cooldown_max = 1;
     session.world.entities[1].health = 50;
     session.world.players[0].funds_spent = 1200;
-    session.push_command(GameCommand::Attack {
-        attacker_index: 0,
-        target_index: 1,
-    });
+    session.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
     for _ in 0..20 {
         session.tick();
         if session.outcome.is_some() {
             break;
         }
     }
-    assert_eq!(
-        session.outcome,
-        Some(MatchOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
     let stats = session.match_stats.as_ref().expect("stats");
     assert!(stats.duration_ticks > 0);
     assert_eq!(stats.units_lost, 1);

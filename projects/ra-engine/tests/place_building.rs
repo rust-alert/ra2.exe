@@ -2,9 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{CommandRejectReason, GameCommand, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
-use ra_engine::{CommandRejectReason, GameCommand, World};
 
 fn yard_world() -> World {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\

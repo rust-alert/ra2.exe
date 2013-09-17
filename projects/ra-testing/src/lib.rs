@@ -11,8 +11,7 @@ mod headless;
 mod status;
 
 pub use alpha_slice::{
-    ALPHA_SKIRMISH_SLICE_ID, AlphaSkirmishSlice, SliceBuilding, SliceBuildingRole, SliceUnit, SliceUnitRole,
-    alpha_skirmish_v1,
+    ALPHA_SKIRMISH_SLICE_ID, AlphaSkirmishSlice, SliceBuilding, SliceBuildingRole, SliceUnit, SliceUnitRole, alpha_skirmish_v1,
 };
 pub use gui::{GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, standard_duel_gui_plan};
 pub use headless::{HeadlessCase, HeadlessObservation, ai_skirmish_open, mcv_deploy_open, standard_duel, yard_open};

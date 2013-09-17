@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::Session;
 use ra_types::GameEdition;
-use ra_engine::World;
 
 #[test]
 fn snapshot_includes_structures() {

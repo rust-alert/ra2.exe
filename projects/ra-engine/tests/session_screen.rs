@@ -3,10 +3,9 @@
 mod common;
 
 use common::rules_with_mtnk;
+use ra_engine::{GameCommand, MatchOutcome, Session, SessionScreen, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_engine::{MatchOutcome, Session, SessionScreen};
 use ra_types::GameEdition;
-use ra_engine::{GameCommand, World};
 
 #[test]
 fn snapshot_screen_moves_to_results_on_victory() {
@@ -40,10 +39,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
     session.world.entities[0].attack_range = 4;
     session.world.entities[0].attack_cooldown_max = 1;
     session.world.entities[1].health = 40;
-    session.push_command(GameCommand::Attack {
-        attacker_index: 0,
-        target_index: 1,
-    });
+    session.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
     for _ in 0..20 {
         session.tick();
         if session.outcome.is_some() {

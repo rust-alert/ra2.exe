@@ -18,7 +18,6 @@ ra-engine = { path = "projects/ra-engine" }
 ra-ecs = { path = "projects/ra-ecs" }
 ra-definition = { path = "projects/ra-definition" }
 ra-testing = { path = "projects/ra-testing" }
-ra-logger = { path = "projects/ra-logger" }
 ra-net = { path = "projects/ra-net" }
 ra-renderer = { path = "projects/ra-renderer" }
 ra-adaptor = { path = "projects/ra-adaptor" }
@@ -28,6 +27,9 @@ ra-adaptor-phobos = { path = "projects/ra-adaptor-phobos" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 # wgpu-hal DX12 与 gpu-allocator 须共用同一条 `windows` 线（0.62）。
 # `gpu-allocator` 允许 0.53..=0.62，解析器可能落到 0.58；`Cargo.lock` 已钉到 0.62.2。
 wgpu = { version = "30.0.1", default-features = true }
@@ -39,7 +41,7 @@ web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElemen
 blowfish = "0.10.0"
 byteorder = "1"
 num-bigint = "0.4"
-base64 = "0.22"
+base64 = "0.23.1"
 
 [profile.release]
 opt-level = 3

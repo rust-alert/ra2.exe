@@ -2,9 +2,9 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{ATTACK_COOLDOWN_TICKS, GameCommand, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::GameEdition;
-use ra_engine::{ATTACK_COOLDOWN_TICKS, GameCommand, World};
 
 fn rules_with_mtnk() -> RulesDb {
     let doc = IniDocument::parse(
