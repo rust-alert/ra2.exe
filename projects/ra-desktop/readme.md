@@ -1,41 +1,41 @@
 # ra-desktop
 
-工作区默认成员。产出原生 GUI 二进制 **`ra2`**（Windows 上为 `ra2.exe`）。`publish = false`。
+工作区默认成员。本 crate 产出原生 GUI 二进制 **`ra2`**（Windows 上为 **`ra2.exe`**）。它是玩家与 **`ra-engine`**
+对局运行时之间的桥梁：读配置、发现安装、挂载 MIX、装载规则与地图，再打开遭遇战会话，最后在 winit 事件循环里按固定 tick
+推进仿真并用现代 GPU 绘制呈现快照。
 
-这不是命令行工具：没有子命令解析栈。进程读工作目录旁的配置，跑完启动流水线后把控制权交给 winit 窗口。Release 构建在 Windows
-上使用 `windows_subsystem = "windows"`（无控制台窗口）；Debug 仍可看到 `eprintln!` 诊断。
+本包 **不是**命令行工具，也 **不是** DirectDraw 兼容层或向原版 `game.exe` 注入的壳。窗口与 wgpu 呈现由 `ra-renderer`
+负责；权威对局状态与逻辑时间只在 `ra-engine` 内推进。
 
-## 目录里有什么
+## 读者动线
 
+1. 准备配置与合法游戏目录（「配置」）。
+2. 启动二进制，完成版本探测与资源挂载（「安装发现与 MIX 挂载」）。
+3. 解析启动地图、合成预览、装载规则（「内容引导」）。
+4. 调用 `ra-engine` 打开遭遇战并进入帧循环（「对局会话与主循环」）。
+5. 需要无窗口诊断时使用 examples（「探针与测试构建」）。
+
+```mermaid
+flowchart LR
+    A[config.toml] --> B[detect_edition]
+    B --> C[MixVfs 挂载]
+    C --> D[地图与 RulesDb]
+    D --> E[open_skirmish_session]
+    E --> F[pump + RenderSnapshot]
+    F --> G[ra-renderer 绘制]
 ```
-src/main.rs       入口、boot、App 事件循环、预览选取
-src/config.rs     委托 `ra-config` 加载桌面设置
-src/fs_source.rs  GameAssetSource：松散文件优先，再查 MixVfs
-examples/
-  probe_boot.rs     无窗口：挂载 + load_rules
-  probe_tmp.rs      无窗口：剧院 TMP → 不透明像素统计
-  probe_shp.rs      无窗口：SHP 首帧 + unittem.pal
-  probe_theater.rs  无窗口：剧院 MIX / pal / 地图体积
-```
-
-`Cargo.toml` 未声明 `[[example]]`；用 Cargo 跑示例时仍可：
-
-```shell
-cargo run -p ra-desktop --example probe_boot -- path/to/game
-```
-
-（若本地 Cargo 认不到 example，把文件路径显式配进清单即可。）
 
 ## 配置
 
-按顺序尝试读取当前工作目录下的 `config.toml`、`ra2.toml`。解析器是手写「一行一个 `key = value`」，不是完整 TOML 库：
+进程从 **当前工作目录**依次尝试读取 `config.toml`、`ra2.toml`。解析器是极简键值读取（一行一个 `key = value`），不是完整 TOML
+实现：
 
-| 键                      | 作用                                                                          |
-|-------------------------|-------------------------------------------------------------------------------|
-| `ra2_dir` 或 `game_dir` | 含零售 MIX / INI 的目录                                                       |
-| `edition`               | 可选；`ra2` / `yr` / `mo3` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
+| 键                     | 作用                                                                        |
+|------------------------|-----------------------------------------------------------------------------|
+| `ra2_dir` / `game_dir` | 含零售 MIX、INI 的游戏安装根目录                                            |
+| `edition`              | 可选：`ra2`、`yr`、`mo3` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
 
-`#` 之后当注释；以 `[` 开头的行跳过。缺文件时默认 `ra2_dir = "."`、`edition = None`。
+`#` 之后视为注释；以 `[` 开头的节标题行跳过。缺文件时默认 `ra2_dir = "."`、`edition = None`。
 
 示例：
 
@@ -44,89 +44,156 @@ ra2_dir = "C:/Games/RA2"
 edition = "ra2"
 ```
 
-运行：
+若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时必须显式写明 `edition`。仓库不包含原版资源，运行前请自行准备合法取得的游戏数据。
+
+启动命令：
 
 ```shell
 cargo run -p ra-desktop
-# 或在工作区根（default-members 已是本包）
+# 工作区根等价于
 cargo run
 ```
 
-需要自行准备合法游戏数据目录；仓库不附带原版资源。
+Release 构建在 Windows 上使用 `windows_subsystem = "windows"`（无控制台）；Debug 仍可通过标准错误输出看到启动诊断。
 
-## 启动流水线（`boot_world`）
+## 安装发现与 MIX 挂载
 
-顺序与 `main.rs` 一致：
+启动流水线（`boot_world`）按固定顺序执行，与 `main.rs` 一致：
 
-1. `detect_edition(root, explicit)` → `EditionManifest`
-2. 对 `present_mixes`：`find_ci_file` → `fs::read` → `MixVfs::mount_bytes`
-3. 对 `chain.nested_mix_files`：`mount_nested`（失败/缺失静默跳过）
-4. `load_boot_map`：候选 `mp01t4.map` / `mp01t2.map` / `mp02t4.map`；成功则按剧院 `theater_mix_names` 再 `mount_nested`
-5. 预览图优先级：
-    - `load_map_terrain_preview`：若 `map.cells` 非空，用剧院调色板 + tileset + TMP，经 `compose_terrain_rgba` 拼整图
-    - 否则 `load_preview_terrain`：单砖候选（tileset 槽 0/14/9/10/12，再 `clear01.{ext}`）
-    - 再否则 `load_preview_sprite`：`unittem.pal` + `mouse.shp` / `e1.shp` / `clock.shp` / `power.shp` / `gaairc.shp`
-6. `load_rules` → 成功则 `World::new`；失败则 `world = None`，`note` 里写「规则待加载」
-7. 组装 `BootResult { note, world, preview }`
+```mermaid
+sequenceDiagram
+    participant Cfg as 桌面配置
+    participant Ad as ra-adaptor
+    participant Vfs as MixVfs
+    participant Map as ra-map
+    participant Eng as ra-engine
 
-探测整段失败时，`run` 仍会开窗，只是 `note` 变成 `启动失败: …`，`world`/`preview` 为空——便于看见 GPU 与窗口路径是否正常。
+    Cfg ->> Ad: detect_edition(root, explicit)
+    Ad -->> Cfg: EditionManifest + ResourceChain
+    loop 根 MIX
+        Cfg ->> Vfs: mount_bytes
+    end
+    loop 嵌套 MIX
+        Cfg ->> Vfs: mount_nested
+    end
+    Cfg ->> Map: find_first_boot_map / mount_theater_mixes
+    Cfg ->> Ad: load_rules_chain
+    Ad -->> Cfg: RulesDb
+    Cfg ->> Eng: open_skirmish_session
+```
 
-## 窗口标题里的 `boot_note`
+1. **`detect_edition`**：由 `ra-adaptor` 识别 `GameEdition`，扫描 `ResourceChain` 中的根 MIX 是否在磁盘存在，得到
+   `EditionManifest`（含 `present_mixes` / `missing_mixes`）。
+2. **根包挂载**：对每个 `present_mixes` 条目，`find_ci_file` → 读字节 → `MixVfs::mount_bytes`。
+3. **嵌套包挂载**：对 `chain.nested_mix_files` 逐个 `mount_nested`；缺失或损坏时静默跳过，不阻断开窗。
+4. **剧院 MIX**：启动地图解析成功后，按 `ra-map` 的 `theater_mix_names` 再挂载对应地形包。
 
-标题格式：`ra2 ({edition}) · {boot_note} · t{tick}`。
+`GameAssetSource` 实现 `AssetSource::read`：安装根上大小写不敏感查找松散文件优先，否则查 `MixVfs`。开发时可将单个 `.shp` /
+`.ini` 放在游戏目录旁覆盖包内同名条目，无需改 MIX。
 
-`boot_note` 典型片段（按出现拼接）：
+## 内容引导：地图、预览与规则
 
-- `{edition} · 根mix N · 嵌套 N · 跳过 N · 缺盘 N`
-- `map:{name} WxH theater · 剧院mix N` 或 `map:无`
-- 若 Iso 单元非空：`iso#N`
-- `preview:…` 或 `preview:无`
-- `rules#节数` 或规则错误摘要
+地图候选由 `ra-map::BOOT_MAP_CANDIDATES` 决定（如 `mp01t4.map` 等）。首个能在 VFS 中解析成功的地图定剧院并触发剧院 MIX 挂载。
 
-标准错误输出还会打一行 `ra2 boot: … · world=ok|none`，以及 GPU 附着后的 `ra2 gpu: {backend} · preview=yes|no`。
+预览合成优先级：
 
-## `GameAssetSource`
+1. **`compose_boot_preview`**：若地图含有效 `IsoMapPack` 单元格，用剧院调色板、tileset 与 TMP 拼整幅 RGBA。
+2. 否则 **`load_fallback_theater_tile`**：单砖候选（tileset 槽位与 `clear01` 等）。
+3. 再否则 **`load_fallback_unit_sprite`**：`unittem.pal` + `mouse.shp` / `e1.shp` 等 SHP 首帧。
 
-实现 `AssetSource::read`：
+规则由 `load_rules_chain` 读取 `rules.ini` / `art.ini` 并派生 `RulesDb`。成功则进入 `open_skirmish_session`；失败时仍可开窗，窗口标题与
+`boot_note` 会标明规则未就绪。
 
-1. 安装根上 `find_ci_file`（大小写不敏感）→ 直接读磁盘
-2. 否则 `vfs.read`
-3. 都没有 → `MissingFile`
+窗口标题格式：`ra2 ({edition}) · {boot_note} · t{tick}`。`boot_note` 汇总 MIX 挂载计数、地图名与尺寸、预览来源、规则节数或错误摘要。标准错误还会输出
+`ra2 boot: …` 与 `ra2 gpu: {backend} · preview=yes|no`。
 
-因此开发时可把某个 `.shp` / `.ini` 放在游戏目录旁覆盖包内同名条目，而无需改 MIX。
+## 对局会话与主循环
 
-## 事件循环
+对局权威在 **`ra-engine`**。桌面壳只做 I/O、输入翻译与呈现调度：
+
+```mermaid
+flowchart TB
+    subgraph desktop["ra-desktop"]
+        input[输入与窗口事件]
+        pump[Session::pump]
+        snap[取 RenderSnapshot]
+    end
+    subgraph engine["ra-engine · 重心"]
+        world[World / Session]
+    end
+    subgraph gpu["ra-renderer"]
+        draw[draw_frame]
+    end
+    input --> pump
+    pump --> world
+    world --> snap
+    snap --> draw
+```
 
 `App` 实现 winit `ApplicationHandler`：
 
-- `resumed`：创建约 1024×768 窗口，`renderer.attach_window`
-- `RedrawRequested`：计算经过时间 → `Session::pump` 固定 tick → 生成 `RenderSnapshot` → `draw_frame` → 刷新标题 → 再
-  `request_redraw`
-- `about_to_wait`：再次 `request_redraw`
-- `ControlFlow::Poll`
+- **`resumed`**：创建约 1024×768 窗口，`renderer.attach_window` 绑定 wgpu 表面（DX12 / Vulkan / Metal， **非 DirectDraw**）。
+- **`RedrawRequested`**：根据经过时间调用 `Session::pump` 推进固定逻辑 tick → 生成 `RenderSnapshot` → `draw_frame` →
+  刷新标题 → 再次 `request_redraw`。
+- **`about_to_wait`**：持续请求重绘；`ControlFlow::Poll`。
 
-逻辑帧由 `ra-engine` 以固定频率推进，与绘制帧率解耦。
+逻辑帧率与显示器刷新率解耦：仿真 tick 由引擎时钟控制，GPU 只消费快照。选中、拖拽平移、建造放置等输入在壳层转为 `GameCommand`
+提交给会话。
 
-## 测试启动（可选 feature）
+## 源码布局
 
-默认发布构建不含测试依赖。需要固定合成场景时：
+```
+src/main.rs       入口、boot、App 事件循环、输入
+src/config.rs     委托 ra-config 加载桌面设置
+src/fs_source.rs  GameAssetSource
+examples/
+  probe_boot.rs     无窗口：挂载 + load_rules
+  probe_tmp.rs      无窗口：剧院 TMP 统计
+  probe_shp.rs      无窗口：SHP 首帧
+  probe_theater.rs    无窗口：剧院 MIX / 地图体积
+```
+
+## 探针与测试构建
+
+无窗口验证（需自备游戏目录）：
+
+```shell
+cargo run -p ra-desktop --example probe_boot -- "C:/path/to/your/ra2"
+```
+
+固定合成场景（可选 feature `test-harness`）：
 
 ```shell
 cargo run -p ra-desktop --features test-harness -- --test-scene=duel
-# 或
-set RA2_TEST_SCENE=duel
-set RA2_TEST_STATUS_PATH=ra2-test-status.txt
-cargo run -p ra-desktop --features test-harness
 ```
 
-此时窗口固定 1280×720，会话来自 `ra-testing::standard_duel`（不读安装目录）。若设置 `RA2_TEST_STATUS_PATH`，每帧刷新标题时写出
-`tick` / `hash` / `outcome` / `selected` 旁路，供后续 GUI 自动化轮询。
+此时窗口固定 1280×720，对局来自 `ra-testing::standard_duel`，不读安装目录。设置 `RA2_TEST_STATUS_PATH` 可每帧写出 tick /
+hash / outcome 供自动化轮询。
 
-## 依赖面
+## 依赖关系
 
-串联工作区主要库：`ra-types`、`ra-adaptor`、`ra-assets`、`ra-config`、`ra-map`、`ra-engine`、`ra-renderer`，外加 `winit`。不直接依赖
-`ra-adaptor-phobos`（经 `ra-adaptor` 间接装配）、`ra-webui`。
+串联：`ra-types`、`ra-config`、`ra-adaptor`、`ra-assets`、`ra-map`、 **`ra-engine`**、`ra-renderer`。不直接依赖各 edition
+profile crate（经 `ra-adaptor` 装配），也不依赖 `ra-webui`。
+
+```mermaid
+flowchart LR
+    de[ra-desktop]
+    eng[ra-engine]
+    re[ra-renderer]
+    de --> eng
+    de --> re
+    re --> eng
+```
+
+## 构建
+
+工具链见仓库根 `rust-toolchain.toml`（nightly）。`publish = false`。
+
+```shell
+cargo build -p ra-desktop
+cargo test -p ra-engine -p ra-map -p ra-assets
+```
 
 ## 许可
 
-MPL-2.0（与工作区一致）。二进制只是引擎壳；玩法数据来自用户指定的目录。
+MPL-2.0（与工作区一致）。二进制只是引擎壳；玩法与美术数据来自用户指定的目录。
