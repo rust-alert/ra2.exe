@@ -1,8 +1,6 @@
 //! nearest_hostile 可指向敌方建筑。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;

@@ -1,8 +1,6 @@
 //! 受击闪白派生 TakeDamage 动画状态。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;

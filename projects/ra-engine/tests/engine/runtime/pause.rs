@@ -1,8 +1,6 @@
 //! 手动暂停与快照字段。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{Session, World};
 use ra_map::MapInfo;
 use ra_types::GameEdition;

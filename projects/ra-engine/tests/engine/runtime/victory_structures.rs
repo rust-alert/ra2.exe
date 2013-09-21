@@ -1,8 +1,6 @@
 //! 胜负计入建筑作战力量。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;

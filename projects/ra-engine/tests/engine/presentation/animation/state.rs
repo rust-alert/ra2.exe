@@ -1,8 +1,6 @@
 //! 快照动画状态派生。
 
-mod common;
-
-use common::rules_with_mtnk;
+use crate::common::rules_with_mtnk;
 use ra_engine::{AnimState, GameCommand, Session, World};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
