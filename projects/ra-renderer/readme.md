@@ -6,14 +6,6 @@
 产品定位是现代化重写：原生后端常见 DX12 / Vulkan / Metal；浏览器目标走 WebGL2 / WebGPU 方向（由 `ra-webui` 接线）。
 **故意不**做 ddraw 兼容层，也 **不**向原版 `game.exe` 注入。
 
-## 读者动线
-
-1. 弄清渲染器与 **`ra-engine`** 的边界（快照进、像素出）。
-2. 按调用顺序阅读 `Renderer` 生命周期。
-3. 了解 `GpuContext` 与 wgpu 配置。
-4. 理解当前预览精灵路径与未来批次扩展方向。
-5. 构建与集成注意事项。
-
 ```mermaid
 flowchart LR
     eng[ra-engine]

@@ -6,14 +6,6 @@ HVA 动画段等，均在此解码为 Rust 类型。上层 crate（`ra-adaptor`�
 
 设计原则：I/O 边界留在壳层；解析器只看见 `Vec<u8>`。这样原生桌面与未来的 Wasm 壳可共用同一套解码逻辑。
 
-## 读者动线
-
-1. 理解解析层在架构中的位置（相对 `ra-types::AssetSource`）。
-2. 按使用频率阅读 MIX 虚拟文件系统与 INI。
-3. 了解图形相关格式：PAL、SHP、TMP、VXL、HVA。
-4. 弄清规则派生表如何供 adaptor 装载。
-5. 运行本 crate 集中的单元测试。
-
 ```mermaid
 flowchart TB
     shell[壳层 GameAssetSource]
@@ -97,7 +89,7 @@ flowchart LR
 | `ColorSchemes`        | 阵营配色方案               |
 | `WarheadRegistry`     | 弹头与装甲交互             |
 
-解析实现在本 crate； **装载编排**在 `ra-adaptor`。引擎通过 `ra-definition` 消费冻结投影，不直接依赖 adaptor。
+解析实现在本 crate； **装载编排**在 `ra-adaptor`。引擎通过 `ra-types::RuntimeDefinitions` 消费冻结投影，不直接依赖 adaptor。
 
 ## 调色板与 2D 精灵
 
@@ -145,11 +137,6 @@ flowchart LR
 - **`lcw` / 地图侧重叠**：部分地图二进制段在 `ra-map` 内解压；MIX 内资源仍经本 crate 的 VFS 读出。
 
 ## 使用纪律
-
-1. **禁止**在本 crate 添加 `std::fs`「图省事」—— Wasm 目标会被绑死。
-2. 大包整包进内存在浏览器可能内存紧张；VFS 调用方应控制挂载数量与缓存策略。
-3. 名称查找必须用本库 `mix_hash`，勿在调用方另写不兼容哈希。
-4. 解析错误统一向上抛 `RaError::Parse`，由壳层决定是阻断还是降级（如地图 IsoMapPack 失败时空 cells 继续）。
 
 ## 测试与构建
 

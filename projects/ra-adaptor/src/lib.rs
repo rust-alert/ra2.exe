@@ -1,6 +1,9 @@
 //! 按安装布局识别并装配资源表；适配能力可组合（见 `compose`）。
+//!
+//! 冻结定义契约在 [`ra_types::RuntimeDefinitions`]：本 crate 填充，引擎只消费。
 #![deny(missing_docs)]
 
+mod adaptor_api;
 mod compose;
 mod rules;
 
@@ -8,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use ra_types::{GameEdition, RaError, RaResult};
 
+pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use rules::{RulesDb, load_rules, load_rules_chain};
 

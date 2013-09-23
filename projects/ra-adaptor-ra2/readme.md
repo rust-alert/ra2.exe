@@ -6,14 +6,6 @@
 差异优先当数据：文件名清单与 `looks_like` 启发式在此维护；编排、歧义消歧、规则装载在 `ra-adaptor`；对局仿真在 **
 `ra-engine`**。
 
-## 读者动线
-
-1. 理解 profile crate 在 adaptor 家族中的位置。
-2. 阅读 `ResourceProfile` 字段含义。
-3. 对照 `profile()` 字面量清单（根 MIX / 嵌套 MIX / INI）。
-4. 弄清 `looks_like` 与配置显式 `edition` 的关系。
-5. 修改表后的验证方式。
-
 ```mermaid
 flowchart LR
     ra2[ra-adaptor-ra2 profile]

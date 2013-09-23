@@ -7,14 +7,6 @@ crate 管理，不再使用独立的 `ra-adaptor-mo3` 维度 crate。
 `ra-adaptor` 在 `GameEdition::Mo3` 路径下装配 `ResourceChain`。它 **不**注入 DLL、不执行 Phobos 脚本、不解析扩展 INI
 语义——仅描述磁盘上应出现哪些文件名。
 
-## 读者动线
-
-1. 理解 Phobos / MO 在 edition 模型中的位置（「它是什么」）。
-2. 看清与 YR 基座、`ra-adaptor` 编排的关系（「在仓库中的位置」）。
-3. 引用 profile 与探测函数（「如何使用」）。
-4. 资源表构成与启发式细节（「内部设计」）。
-5. 构建测试与许可证。
-
 ## 它是什么
 
 社区扩展（Phobos、心灵终结等）在 **尤里的复仇基座**上叠加大量 `expandmo*.mix`、`MentalOmegaClient.exe` 等特征文件。现代化重写需要与

@@ -1,0 +1,30 @@
+//! 冻结运行时定义契约：全体层共同语言。
+//!
+//! adaptor 填充；engine / renderer / desktop / testing / net 只消费。
+//! 对局创建后不可变；不含 ECS、实体、资金、tick、路径或 GPU 句柄。
+
+mod animation;
+mod capability;
+mod fingerprint;
+mod locomotor;
+mod production;
+mod runtime;
+mod sound;
+mod structure;
+mod techno;
+mod type_definition;
+mod warhead;
+mod weapon;
+
+pub use animation::AnimationDefinitions;
+pub use capability::CapabilitySet;
+pub use fingerprint::ContentFingerprint;
+pub use locomotor::LocomotorDefinitions;
+pub use production::ProductionDefinitions;
+pub use runtime::RuntimeDefinitions;
+pub use sound::SoundDefinitions;
+pub use structure::{HouseDefinitions, StructureDefinitions};
+pub use techno::TechnoDefinitions;
+pub use type_definition::TypeDefinitionId;
+pub use warhead::WarheadDefinitions;
+pub use weapon::WeaponDefinitions;

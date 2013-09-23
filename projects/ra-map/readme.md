@@ -5,14 +5,6 @@
 
 依赖 `ra-types` 与 `ra-assets`（INI、PAL、SHP、TMP 等）。字节一律经 `AssetSource` 传入。
 
-## 读者动线
-
-1. 理解地图管道在 boot 与引擎之间的位置。
-2. 阅读 `MapInfo` 字段与 INI 解析规则。
-3. 跟进 IsoMapPack、覆盖层、放置物与航点解码。
-4. 学习 `PassGrid` 如何为仿真起步封格。
-5. 了解预览合成如何喂给 `ra-renderer`。
-
 ```mermaid
 flowchart TB
     ini[.map INI]

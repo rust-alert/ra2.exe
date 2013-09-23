@@ -6,14 +6,6 @@
 
 `publish = false`。日常原生开发走 `ra-desktop`；本包保证工作区拓扑在浏览器目标上不必从零接线。
 
-## 读者动线
-
-1. 弄清 Web 壳与桌面壳的能力对照。
-2. 阅读当前 Wasm 导出与占位语义。
-3. 理解目标架构：canvas → wgpu WebGL2 → 引擎 pump。
-4. 资源字节来源与 `AssetSource` 契约。
-5. 构建与页面集成说明。
-
 ```mermaid
 flowchart TB
     subgraph today["当前"]

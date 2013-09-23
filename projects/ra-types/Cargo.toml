@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "RA 引擎基类型"
+description = "RA 引擎基类型与冻结 RuntimeDefinitions 契约"
 
 [dependencies]
 thiserror = { workspace = true }

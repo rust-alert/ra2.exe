@@ -1,18 +1,9 @@
 # ra-types
 
-全体 `ra-*` crate 共享的 **基类型与 I/O 契约**。本 crate 无解析器、无窗口、无 `std::fs`——只有标识符、定点数、版本枚举、统一错误与
-`AssetSource` trait。它是原生壳、Wasm 壳、 **`ra-engine`**、adaptor 与格式库之间的 **最小公共语言**。
+全体 `ra-*` crate 共享的 **基类型、命令载荷形状与冻结运行时定义契约**。本 crate 无解析器、无窗口、无 `std::fs`——只有标识符、定点数、版本枚举、统一错误、`AssetSource` 与 `RuntimeDefinitions`。它是原生壳、Wasm 壳、 **`ra-engine`**、adaptor 与格式库之间的 **最小公共语言**。
 
 一旦基类型开始读盘或创建窗口，桌面与浏览器目标就无法共用同一套边界；因此 MIX/SHP/地图/GPU 均** deliberately 不在此
-crate**。
-
-## 读者动线
-
-1. 浏览类型目录与各自职责。
-2. 理解 `GameEdition` 如何贯穿配置 → adaptor → 引擎。
-3. 学习 `RaError` 在边界上的传播约定。
-4. 掌握 `AssetSource` 作为唯一字节入口抽象。
-5. 确认下游依赖关系与 ABI 变更纪律。
+crate**。定义归本 crate，适配归 `ra-adaptor`，执行归 `ra-engine`——不存在独立的 `ra-definition` / `ra-rules`。
 
 ```mermaid
 flowchart TB
@@ -35,15 +26,28 @@ flowchart TB
 ## 模块结构
 
 ```
-src/lib.rs          重导出
-src/edition.rs      GameEdition
-src/error.rs        RaError / RaResult
-src/ids.rs          EntityId / PlayerId / TypeId
-src/fixed.rs        Fixed16
-src/asset_source.rs AssetSource
+src/lib.rs                 重导出
+src/id.rs                  EntityId / PlayerId / TypeId / WeaponId / …
+src/time.rs                Tick / TickRate / DurationTicks
+src/math.rs                Fixed（Fixed16 别名）/ Cell / Facing / …
+src/command.rs             命令基础载荷形状
+src/definition/            冻结 RuntimeDefinitions 契约
+src/edition.rs             GameEdition
+src/error.rs               RaError / RaResult
+src/asset_source.rs        AssetSource
 ```
 
 依赖：`thiserror`（`RaError` 派生）、`bitflags`（清单已声明，预留标志位类型）。
+
+## `RuntimeDefinitions`
+
+对局创建后不可变的内容定义集，是 adaptor / engine / renderer / desktop / testing / net 的共同语言。由 `ra-adaptor` 填充，**不**单独拆 `ra-definition` crate。集合不含 ECS、实体、资金、tick、文件路径或 GPU 句柄。
+
+```rust
+use ra_types::RuntimeDefinitions;
+let defs = RuntimeDefinitions::default();
+assert_eq!(defs.content_fingerprint.hash, 0);
+```
 
 ## `GameEdition`
 
