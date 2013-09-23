@@ -1,6 +1,6 @@
 //! 房屋色 remapping：调色板索引 16..=31（Westwood 惯例）。
 
-use crate::pal::{Palette, Rgba};
+use crate::image::pal::{Palette, Rgba};
 
 /// 可替换色带长度。
 pub const HOUSE_REMAP_COUNT: usize = 16;

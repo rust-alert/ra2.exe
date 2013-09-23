@@ -2,9 +2,9 @@
 
 use ra_types::{RaError, RaResult};
 
-use crate::{
-    mix_crypto::{self, BLOWFISH_BLOCK_SIZE, RSA_KEY_BLOCK_SIZE},
-    mix_hash::mix_hash,
+use super::{
+    crypto::{BLOWFISH_BLOCK_SIZE, RSA_KEY_BLOCK_SIZE},
+    hash::mix_hash,
 };
 
 /// 新格式：索引经 Blowfish 加密。
@@ -93,7 +93,7 @@ fn parse_encrypted_new_format(data: &[u8]) -> RaResult<(Vec<MixEntry>, usize)> {
         return Err(RaError::Parse("mix 缺少 RSA 密钥块".into()));
     }
 
-    let blowfish_key = mix_crypto::extract_blowfish_key(&data[rsa_start..rsa_end])?;
+    let blowfish_key = super::crypto::extract_blowfish_key(&data[rsa_start..rsa_end])?;
     let encrypted_start = rsa_end;
     if data.len() < encrypted_start + BLOWFISH_BLOCK_SIZE {
         return Err(RaError::Parse("mix 加密索引过小".into()));
@@ -101,7 +101,7 @@ fn parse_encrypted_new_format(data: &[u8]) -> RaResult<(Vec<MixEntry>, usize)> {
 
     let mut first_block = [0u8; BLOWFISH_BLOCK_SIZE];
     first_block.copy_from_slice(&data[encrypted_start..encrypted_start + BLOWFISH_BLOCK_SIZE]);
-    mix_crypto::blowfish_decrypt_ecb(&blowfish_key, &mut first_block)?;
+    super::crypto::blowfish_decrypt_ecb(&blowfish_key, &mut first_block)?;
 
     let file_count = read_u16(&first_block, 0) as usize;
     let total_index_bytes = INDEX_HEADER_SIZE + file_count * INDEX_ENTRY_SIZE;
@@ -112,7 +112,7 @@ fn parse_encrypted_new_format(data: &[u8]) -> RaResult<(Vec<MixEntry>, usize)> {
     }
 
     let mut decrypted = data[encrypted_start..encrypted_start + encrypted_size].to_vec();
-    mix_crypto::blowfish_decrypt_ecb(&blowfish_key, &mut decrypted)?;
+    super::crypto::blowfish_decrypt_ecb(&blowfish_key, &mut decrypted)?;
     let entries = parse_entries(&decrypted, INDEX_HEADER_SIZE, file_count)?;
     Ok((entries, encrypted_start + encrypted_size))
 }

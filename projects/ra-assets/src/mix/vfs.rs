@@ -2,7 +2,7 @@
 
 use ra_types::{RaError, RaResult};
 
-use crate::MixArchive;
+use super::archive::MixArchive;
 
 /// 已挂载 MIX 档案的虚拟文件系统。
 #[derive(Debug, Default)]

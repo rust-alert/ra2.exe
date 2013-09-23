@@ -1,6 +1,7 @@
 //! VXL 简易等距正交投影（预览用，无光照）。
 
-use crate::{HvaFile, Palette, VplFile, VxlFile};
+use super::{hva::HvaFile, vpl::VplFile, vxl::VxlFile};
+use crate::image::pal::Palette;
 
 /// 投影后的精灵。
 #[derive(Debug, Clone)]

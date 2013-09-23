@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::{house_remap::Hsv, ini::IniDocument, pal::Palette};
+use super::house_remap::Hsv;
+use crate::{image::pal::Palette, ini::IniDocument};
 
 /// 零售 `[Colors]` 表。
 #[derive(Debug, Clone, Default)]
