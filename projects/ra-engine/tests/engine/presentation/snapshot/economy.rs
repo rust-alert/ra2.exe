@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, Session, World};
+use ra_engine::{CommandRejectReason, GameCommand, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -35,11 +35,11 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 5_000));
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;
-    let mut session = Session::new(world, "hud");
+    let mut session = Session::from_state(world, "hud");
     session.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     session.tick();
     let snap = session.snapshot();

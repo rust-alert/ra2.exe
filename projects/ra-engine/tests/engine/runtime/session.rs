@@ -1,7 +1,7 @@
 //! 会话 tick、选中、快照与联机摘要集成测试。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, Session, World};
+use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::GameEdition;
 
@@ -22,8 +22,8 @@ fn session_tick_and_snapshot() {
         facing: 0,
         sub_cell: 0,
     });
-    let world = World::new(GameEdition::Ra2, &rules, map);
-    let mut session = Session::new(world, "test");
+    let world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let mut session = Session::from_state(world, "test");
     session.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 10 });
     session.tick();
     let snap = session.snapshot();
@@ -58,7 +58,7 @@ fn selection_orders_attack_and_detects_victor() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.world.entities[0].target_x = None;
     session.world.entities[0].target_y = None;
     session.world.entities[1].target_x = None;
@@ -92,7 +92,7 @@ fn image_to_cell_uses_preview_origin() {
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.set_preview_origin(-100, -50);
     // 钻石中心在等距空间；减去 origin 得到图像坐标。
     let (sx, sy) = ra_map::iso_to_screen(5, 4, 0);
@@ -119,7 +119,7 @@ fn snapshot_includes_screen_coords_and_selection() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.set_preview_origin(-100, -50);
     session.select_only(0);
     let snap = session.snapshot();
@@ -136,7 +136,7 @@ fn snapshot_includes_screen_coords_and_selection() {
 fn pump_advances_fixed_hz_ticks() {
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.tick_hz = 10;
     assert_eq!(session.pump(0.05), 0); // 50ms < 100ms
     assert_eq!(session.world.tick, 0);
@@ -149,7 +149,7 @@ fn pump_advances_fixed_hz_ticks() {
 fn remote_digest_mismatch_pauses() {
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.tick();
     let mut bad = session.local_digest();
     bad.hash ^= 0xff;

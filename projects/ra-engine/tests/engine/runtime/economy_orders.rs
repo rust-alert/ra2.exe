@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{Session, World};
+use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -38,9 +38,9 @@ fn economy_session() -> Session {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = World::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
-    Session::new(world, "orders")
+    Session::from_state(world, "orders")
 }
 
 #[test]

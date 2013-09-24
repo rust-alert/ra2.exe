@@ -1,7 +1,7 @@
 //! 快照画面：对局中 / 结算。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{GameCommand, MatchOutcome, Session, SessionScreen, World};
+use ra_engine::{GameCommand, MatchOutcome, Session, SessionScreen, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -31,7 +31,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "screen");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "screen");
     assert_eq!(session.snapshot().screen, SessionScreen::InMatch);
     session.world.entities[0].attack_damage = 80;
     session.world.entities[0].attack_range = 4;

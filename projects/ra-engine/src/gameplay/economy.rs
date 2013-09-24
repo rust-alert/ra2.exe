@@ -7,7 +7,7 @@ use crate::{
     state::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS},
 };
 
-impl crate::state::World {
+impl crate::state::MatchState {
     pub(crate) fn advance_refinery_income(&mut self) {
         let mut credits: Vec<(String, i32)> = Vec::new();
         for e in &mut self.entities {

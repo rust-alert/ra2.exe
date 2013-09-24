@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{GameCommand, World};
+use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -50,7 +50,7 @@ fn verses_scales_damage_against_armor() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities[0].attack_damage, 100);
     assert_eq!(world.entities[0].attack_verses[5], 50);
     assert_eq!(world.entities[1].armor, "heavy");

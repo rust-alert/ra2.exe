@@ -1,8 +1,8 @@
 //! 确定性状态摘要（锁步校验用）。
 
-use crate::{runtime::GameCommand, state::World};
+use crate::{game::GameCommand, state::MatchState};
 
-impl World {
+impl MatchState {
     pub(crate) fn rehash(&mut self) {
         let mut h = self.tick;
         h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);

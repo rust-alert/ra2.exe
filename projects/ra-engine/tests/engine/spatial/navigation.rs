@@ -1,7 +1,7 @@
 //! 绕静态障碍寻路。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, World};
+use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::GameEdition;
 
@@ -30,7 +30,7 @@ fn bfs_detours_around_structure() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert!(!world.pass_grid.is_passable(12, 10));
     world.push_command(GameCommand::MoveTo { entity_index: 1, x: 14, y: 10 });
     world.advance_tick();

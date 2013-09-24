@@ -12,7 +12,7 @@ mod test_boot;
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
-use ra_engine::{Session, open_skirmish_session};
+use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{MapEntityKind, MapInfo, compose_boot_preview, find_first_boot_map, mount_theater_mixes};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{GameEdition, RaError, RaResult};
@@ -34,6 +34,8 @@ use crate::{
 struct App {
     window: Option<Arc<Window>>,
     title_base: String,
+    /// 长期引擎（与当前会话共享定义生命周期）。
+    engine: Option<Engine>,
     session: Option<Session>,
     renderer: Renderer,
     /// 左键拖拽中：上一帧光标位置。
@@ -68,6 +70,7 @@ struct App {
 impl App {
     fn new(
         _boot_note: String,
+        engine: Option<Engine>,
         session: Option<Session>,
         preview: Option<RgbaImage>,
         window_width: f64,
@@ -83,6 +86,7 @@ impl App {
         Self {
             window: None,
             title_base: format!("ra2 ({edition})"),
+            engine,
             session,
             renderer,
             drag_last: None,
@@ -310,6 +314,7 @@ impl App {
         if let Some(preview) = boot.preview {
             self.renderer.set_preview(preview);
         }
+        self.engine = boot.engine;
         self.session = boot.session;
         self.logged_outcome = None;
         self.logged_reject = None;
@@ -332,8 +337,18 @@ impl App {
         {
             if let Some(scene) = self.test_scene.as_ref() {
                 return match crate::test_boot::boot_scene(scene) {
-                    Ok(t) => BootResult { note: t.note, session: Some(t.session), preview: t.preview },
-                    Err(e) => BootResult { note: format!("重开失败: {e}"), session: None, preview: None },
+                    Ok(t) => BootResult {
+                        note: t.note,
+                        engine: None,
+                        session: Some(t.session),
+                        preview: t.preview,
+                    },
+                    Err(e) => BootResult {
+                        note: format!("重开失败: {e}"),
+                        engine: None,
+                        session: None,
+                        preview: None,
+                    },
                 };
             }
         }
@@ -555,6 +570,7 @@ impl ApplicationHandler for App {
 
 struct BootResult {
     note: String,
+    engine: Option<Engine>,
     session: Option<Session>,
     preview: Option<RgbaImage>,
 }
@@ -635,7 +651,7 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         }
     };
 
-    let session =
+    let (engine, session) =
         match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)) {
             Some(Ok(opened)) => {
                 note = opened.note;
@@ -645,16 +661,16 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                     opened.session.fingerprint.map,
                     opened.session.fingerprint.rules_hash
                 );
-                Some(opened.session)
+                (Some(opened.engine), Some(opened.session))
             }
             Some(Err(e)) => {
                 note = format!("{note} · 会话未打开（{e}）");
-                None
+                (None, None)
             }
-            None => None,
+            None => (None, None),
         };
 
-    Ok(BootResult { note, session, preview })
+    Ok(BootResult { note, engine, session, preview })
 }
 
 /// 初始化终端 + `logs/ra2.log` 双输出。返回的 guard 必须持有到进程结束。
@@ -696,7 +712,16 @@ fn run() -> RaResult<()> {
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(boot.note, boot.session, boot.preview, window_width, window_height, status_path, test_scene);
+    let mut app = App::new(
+        boot.note,
+        boot.engine,
+        boot.session,
+        boot.preview,
+        window_width,
+        window_height,
+        status_path,
+        test_scene,
+    );
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     tracing::info!("事件循环结束");
     Ok(())
@@ -718,7 +743,12 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>, Option<Str
             let t = crate::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
-                BootResult { note: t.note, session: Some(t.session), preview: t.preview },
+                BootResult {
+                    note: t.note,
+                    engine: None,
+                    session: Some(t.session),
+                    preview: t.preview,
+                },
                 window_width,
                 window_height,
                 status_path,
@@ -745,7 +775,12 @@ fn boot_from_install() -> BootResult {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
-            BootResult { note: format!("启动失败: {e}"), session: None, preview: None }
+            BootResult {
+                note: format!("启动失败: {e}"),
+                engine: None,
+                session: None,
+                preview: None,
+            }
         }
     };
     tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });

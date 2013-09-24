@@ -1,7 +1,7 @@
 //! 移动命令推进。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, World};
+use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::GameEdition;
 
@@ -19,7 +19,7 @@ fn advances_when_ordered_to_move() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities[0].target_x, None);
     assert!(world.entities[0].path.is_empty());
     world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
@@ -48,7 +48,7 @@ fn move_to_command_sets_target() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entities[0].target_x, None);
     world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
     world.advance_tick();
@@ -71,7 +71,7 @@ fn turret_chases_body_facing() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     world.entities[0].turret_facing = 128;
     world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 20 });
     world.advance_tick();

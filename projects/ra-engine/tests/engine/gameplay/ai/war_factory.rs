@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{Session, World};
+use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -60,9 +60,9 @@ fn ai_places_war_factory_and_produces_tank() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = World::new(GameEdition::Ra2, &rules, map);
+    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
-    let mut session = Session::new(world, "ai-weap");
+    let mut session = Session::from_state(world, "ai-weap");
     session.ai_enabled = true;
     session.tick();
     assert!(session.world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAWEAP"));

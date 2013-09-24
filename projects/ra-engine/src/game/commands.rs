@@ -229,7 +229,7 @@ pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
     Some(out)
 }
 
-impl crate::state::World {
+impl crate::state::MatchState {
     pub(crate) fn apply_commands(&mut self, cmds: &[GameCommand]) {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;
@@ -239,7 +239,7 @@ impl crate::state::World {
                 building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
                 requires_power_plant,
             },
-            runtime::CommandRejectReason,
+            game::CommandRejectReason,
             spatial::{is_mobile, repath_at},
             state::{PRODUCE_TICKS, WorldEntity},
         };
@@ -473,7 +473,7 @@ impl crate::state::World {
         }
     }
 
-    pub(crate) fn reject(&mut self, command_index: usize, reason: crate::runtime::CommandRejectReason) {
-        self.last_rejects.push(crate::runtime::CommandReject { command_index, reason });
+    pub(crate) fn reject(&mut self, command_index: usize, reason: crate::game::CommandRejectReason) {
+        self.last_rejects.push(crate::game::CommandReject { command_index, reason });
     }
 }

@@ -8,7 +8,7 @@ use ra_types::{EntityId, GameEdition, PlayerId};
 use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
     gameplay::{full_verses, verses_for},
-    runtime::{CommandReject, GameCommand, InputFrame},
+    game::{CommandReject, GameCommand, InputFrame},
     spatial::{is_mobile, repath_at},
 };
 
@@ -41,7 +41,7 @@ pub const PRODUCE_TICKS: u32 = 20;
 
 /// 确定性仿真世界：实体、通行格与按 tick 消费的命令。
 #[derive(Debug, Clone)]
-pub struct World {
+pub struct MatchState {
     /// 当前游戏版本。
     pub edition: GameEdition,
     /// 已推进的逻辑 tick 计数。
@@ -71,7 +71,7 @@ pub struct World {
     pub(crate) state_hash: u64,
 }
 
-impl World {
+impl MatchState {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
     pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);

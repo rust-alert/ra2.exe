@@ -1,7 +1,7 @@
 //! nearest_hostile 可指向敌方建筑。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{Session, World};
+use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -31,7 +31,7 @@ fn nearest_hostile_includes_structures() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::new(World::new(GameEdition::Ra2, &rules, map), "hostile-bldg");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hostile-bldg");
     session.world.entities[1].kind = MapEntityKind::Structure;
     session.world.entities[1].type_id = "NACNST".into();
     assert_eq!(session.nearest_hostile(0), Some(1));
