@@ -2,6 +2,7 @@
 //!
 //! 不碰窗口与 GPU；不持有 UI 选中（选中属桌面 LocalPlayerController）。
 
+use crate::engine::EngineRuntime;
 use crate::game::commands::GameCommand;
 use crate::game::reject::CommandReject;
 use crate::state::MatchState;
@@ -167,24 +168,18 @@ pub struct MatchStats {
     pub funds_spent: i32,
 }
 
-/// 运行中会话。
+/// 一局 RTS 权威游戏。
 #[derive(Debug)]
 pub struct Game {
     /// 仿真世界（规则、地图、实体、通行格）。
     pub world: MatchState,
     /// 装载或启动时的备注（规则统计、实体数等）。
     pub boot_note: String,
-    /// 本地选中下标（过渡：应迁出至桌面 LocalPlayerController；非权威状态）。
-    pub selected: Vec<usize>,
     /// 预览图画布原点 X（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_x: i32,
     /// 预览图画布原点 Y（等距屏幕坐标），用于点选逆变换。
     pub preview_origin_y: i32,
-    /// 仿真频率（Hz）。
-    pub tick_hz: u32,
-    /// 已累计、尚未消耗的毫秒（固定步长积分）。
-    tick_accum_ms: f64,
-    /// 暂停时 `pump` 不推进。
+    /// 暂停时会话 `pump` 不推进。
     pub paused: bool,
     /// 暂停原因（如摘要不一致或胜负已定）。
     pub pause_reason: Option<String>,
@@ -204,11 +199,8 @@ impl Game {
         Self {
             world,
             boot_note: boot_note.into(),
-            selected: Vec::new(),
             preview_origin_x: 0,
             preview_origin_y: 0,
-            tick_hz: DEFAULT_TICK_HZ,
-            tick_accum_ms: 0.0,
             paused: false,
             pause_reason: None,
             outcome: None,
@@ -359,42 +351,13 @@ impl Game {
         self.world.push_command(cmd);
     }
 
-    /// 强制推进恰好一个仿真 tick（测试 / 单步）。
-    pub fn tick(&mut self) {
-        if self.outcome.is_some() {
-            return;
-        }
-        self.advance_one_tick();
-    }
-
-    /// 按真实时间推进 0..=`MAX_TICKS_PER_PUMP` 个仿真 tick。
-    pub fn pump(&mut self, dt_secs: f64) -> u32 {
-        if self.paused || self.outcome.is_some() || self.tick_hz == 0 {
-            return 0;
-        }
-        let step_ms = 1000.0 / f64::from(self.tick_hz);
-        self.tick_accum_ms += dt_secs.max(0.0) * 1000.0;
-        let mut n = 0u32;
-        while self.tick_accum_ms >= step_ms && n < MAX_TICKS_PER_PUMP {
-            self.tick_accum_ms -= step_ms;
-            self.advance_one_tick();
-            n += 1;
-            if self.outcome.is_some() {
-                break;
-            }
-        }
-        if self.tick_accum_ms > step_ms * f64::from(MAX_TICKS_PER_PUMP) {
-            self.tick_accum_ms = 0.0;
-        }
-        n
-    }
-
-    fn advance_one_tick(&mut self) {
+    /// 推进恰好一个仿真 tick（由 `Session` 时钟驱动；`runtime` 供后续系统调度使用）。
+    pub fn advance_one_tick(&mut self, runtime: &EngineRuntime<'_>) {
+        let _ = runtime;
         if self.ai_enabled {
             self.push_ai_commands();
         }
         self.world.advance_tick();
-        self.selected.retain(|&i| i < self.world.entities.len() && !self.world.entities[i].dead);
         self.refresh_outcome();
     }
 
@@ -457,114 +420,34 @@ impl Game {
         MatchStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent }
     }
 
-    /// 单选一个存活实体（单位或建筑）。
-    pub fn select_only(&mut self, index: usize) {
-        self.selected.clear();
-        if index < self.world.entities.len()
-            && !self.world.entities[index].dead
-            && matches!(
-                self.world.entities[index].kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            )
-        {
-            self.selected.push(index);
-        }
-    }
-
-    /// 若可多选则加入选中（已在选中则忽略）；与已选不同阵营则拒绝。
-    pub fn select_add(&mut self, index: usize) {
-        if index >= self.world.entities.len() {
-            return;
-        }
-        let e = &self.world.entities[index];
-        if e.dead
-            || !matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            )
-        {
-            return;
-        }
-        if let Some(&first) = self.selected.first() {
-            if self.world.entities[first].owner != e.owner {
-                return;
-            }
-        }
-        if !self.selected.contains(&index) {
-            self.selected.push(index);
-        }
-    }
-
-    /// 选中与 `index` 同阵营的全部存活移动单位。
-    pub fn select_all_of_owner(&mut self, index: usize) {
-        if index >= self.world.entities.len() {
-            return;
-        }
-        let owner = self.world.entities[index].owner.clone();
-        self.selected.clear();
-        for (i, e) in self.world.entities.iter().enumerate() {
-            if e.dead || e.owner != owner {
-                continue;
-            }
-            if matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
-                self.selected.push(i);
-            }
-        }
-    }
-
-    /// 在存活移动单位间循环选中。
-    pub fn cycle_selection(&mut self) {
-        let mobiles: Vec<usize> = self
-            .world
-            .entities
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| {
-                !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-            })
-            .map(|(i, _)| i)
-            .collect();
-        if mobiles.is_empty() {
-            self.selected.clear();
-            return;
-        }
-        let next = match self.selected.first() {
-            Some(&cur) => {
-                mobiles.iter().position(|&i| i == cur).map(|p| mobiles[(p + 1) % mobiles.len()]).unwrap_or(mobiles[0])
-            }
-            None => mobiles[0],
-        };
-        self.select_only(next);
-    }
-
-    /// 选中单位移动到目标格。
-    pub fn order_selected_move(&mut self, x: u16, y: u16) {
+    /// 指定实体移动到目标格。
+    pub fn order_move(&mut self, selected: &[usize], x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        for &i in &self.selected.clone() {
+        for &i in selected {
             self.push_command(GameCommand::MoveTo { entity_index: i, x, y });
         }
     }
 
-    /// 选中单位攻击目标。
-    pub fn order_selected_attack(&mut self, target_index: usize) {
+    /// 指定实体攻击目标。
+    pub fn order_attack(&mut self, selected: &[usize], target_index: usize) {
         if self.outcome.is_some() {
             return;
         }
-        for &i in &self.selected.clone() {
+        for &i in selected {
             if i != target_index {
                 self.push_command(GameCommand::Attack { attacker_index: i, target_index });
             }
         }
     }
 
-    /// 部署当前选中的可展开单位（如 MCV）。
-    pub fn order_selected_deploy(&mut self) {
+    /// 部署指定可展开单位（如 MCV）。
+    pub fn order_deploy(&mut self, selected: &[usize]) {
         if self.outcome.is_some() {
             return;
         }
-        for &entity_index in &self.selected.clone() {
+        for &entity_index in selected {
             self.push_command(GameCommand::Deploy { entity_index });
         }
     }
@@ -585,19 +468,19 @@ impl Game {
         self.push_command(GameCommand::Produce { player: self.world.local_player, type_id: type_id.into() });
     }
 
-    /// 为当前选中的工厂设置集结点（非工厂由世界拒绝）。
-    pub fn order_selected_rally(&mut self, x: u16, y: u16) {
+    /// 为指定工厂设置集结点（非工厂由世界拒绝）。
+    pub fn order_rally(&mut self, selected: &[usize], x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        for &factory_index in &self.selected.clone() {
+        for &factory_index in selected {
             self.push_command(GameCommand::SetRallyPoint { factory_index, x, y });
         }
     }
 
     /// 选中集合中是否包含建筑。
-    pub fn selection_has_structure(&self) -> bool {
-        self.selected.iter().any(|&i| self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure))
+    pub fn selection_has_structure(&self, selected: &[usize]) -> bool {
+        selected.iter().any(|&i| self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure))
     }
 
     /// 点选格上或其四邻的存活实体（单位优先，其次建筑）。
@@ -650,8 +533,8 @@ impl Game {
         if owners.len() == 1 { Some(owners[0]) } else { None }
     }
 
-    /// 从当前世界与选中状态构建一帧呈现快照。
-    pub fn snapshot(&self) -> RenderSnapshot {
+    /// 从当前世界与本地选中构建一帧呈现快照。
+    pub fn snapshot(&self, selected: &[usize]) -> RenderSnapshot {
         let units = self
             .world
             .entities
@@ -721,7 +604,7 @@ impl Game {
             players,
             produce_queues,
             last_rejects: self.world.last_rejects().to_vec(),
-            selected: self.selected.clone(),
+            selected: selected.to_vec(),
             outcome: self.outcome.clone(),
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),

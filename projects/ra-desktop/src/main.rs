@@ -6,6 +6,7 @@
 
 mod config;
 mod fs_source;
+mod local_player;
 #[cfg(feature = "test-harness")]
 mod test_boot;
 
@@ -29,6 +30,7 @@ use winit::{
 use crate::{
     config::{DesktopConfig, load_desktop_config_with_diagnostics},
     fs_source::GameAssetSource,
+    local_player::LocalPlayerController,
 };
 
 struct App {
@@ -37,6 +39,8 @@ struct App {
     /// 长期引擎（与当前会话共享定义生命周期）。
     engine: Option<Engine>,
     session: Option<Session>,
+    /// 本地选中与点选指令（非权威）。
+    local: LocalPlayerController,
     renderer: Renderer,
     /// 左键拖拽中：上一帧光标位置。
     drag_last: Option<(f64, f64)>,
@@ -78,7 +82,7 @@ impl App {
         status_path: Option<PathBuf>,
         test_scene: Option<String>,
     ) -> Self {
-        let edition = session.as_ref().map(|s| s.world.edition.as_str()).unwrap_or("—");
+        let edition = session.as_ref().and_then(|s| s.game()).map(|g| g.world.edition.as_str()).unwrap_or("—");
         let mut renderer = Renderer::new();
         if let Some(image) = preview {
             renderer.set_preview(image);
@@ -88,6 +92,7 @@ impl App {
             title_base: format!("ra2 ({edition})"),
             engine,
             session,
+            local: LocalPlayerController::new(),
             renderer,
             drag_last: None,
             drag_armed: false,
@@ -107,7 +112,7 @@ impl App {
     }
 
     fn cursor_cell(&self) -> Option<(u16, u16)> {
-        let session = self.session.as_ref()?;
+        let game = self.session.as_ref()?.game()?;
         let window = self.window.as_ref()?;
         let size = window.inner_size();
         let (wx, wy) = self.renderer.camera().screen_to_world(
@@ -116,7 +121,7 @@ impl App {
             size.width as f32,
             size.height as f32,
         );
-        session.image_to_cell(wx, wy)
+        game.image_to_cell(wx, wy)
     }
 
     fn handle_left_click(&mut self) {
@@ -124,35 +129,33 @@ impl App {
         let Some(cell) = self.cursor_cell()
         else {
             if !add {
-                if let Some(session) = self.session.as_mut() {
-                    session.selected.clear();
-                }
+                self.local.clear();
             }
             return;
         };
         if let Some(type_id) = self.place_mode {
-            if let Some(session) = self.session.as_mut() {
+            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
-                session.order_place_building(type_id, cell.0, cell.1);
+                game.order_place_building(type_id, cell.0, cell.1);
             }
             return;
         }
-        let Some(session) = self.session.as_mut()
+        let Some(game) = self.session.as_ref().and_then(|s| s.game())
         else {
             return;
         };
-        if let Some(i) = session.pick_entity_at(cell.0, cell.1) {
+        if let Some(i) = game.pick_entity_at(cell.0, cell.1) {
             if add {
-                session.select_add(i);
-                tracing::info!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, session.selected);
+                self.local.select_add(game, i);
+                tracing::info!("加选实体 #{i} @({},{}) · 选中 {:?}", cell.0, cell.1, self.local.selected);
             }
             else {
-                session.select_only(i);
+                self.local.select_only(game, i);
                 tracing::info!("选中实体 #{i} @({},{})", cell.0, cell.1);
             }
         }
         else if !add {
-            session.selected.clear();
+            self.local.clear();
             tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
         }
     }
@@ -172,48 +175,48 @@ impl App {
         else {
             return;
         };
-        let Some(session) = self.session.as_mut()
+        if self.local.selected.is_empty() {
+            return;
+        }
+        let selected = self.local.selected.clone();
+        let Some(game) = self.session.as_mut().and_then(|s| s.game_mut())
         else {
             return;
         };
-        if session.selected.is_empty() {
+        if game.selection_has_structure(&selected) {
+            tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+            game.order_rally(&selected, cell.0, cell.1);
             return;
         }
-        if session.selection_has_structure() {
-            tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
-            session.order_selected_rally(cell.0, cell.1);
-            return;
-        }
-        if let Some(target) = session.pick_entity_at(cell.0, cell.1) {
-            let hostile = session
-                .selected
+        if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
+            let hostile = selected
                 .first()
                 .and_then(|&atk| {
-                    let a = session.world.entities.get(atk)?;
-                    let t = session.world.entities.get(target)?;
+                    let a = game.world.entities.get(atk)?;
+                    let t = game.world.entities.get(target)?;
                     Some(a.owner != t.owner)
                 })
                 .unwrap_or(false);
             if hostile {
-                tracing::info!("命令攻击 → #{target}（选中 {:?}）", session.selected);
-                session.order_selected_attack(target);
+                tracing::info!("命令攻击 → #{target}（选中 {:?}）", selected);
+                game.order_attack(&selected, target);
                 return;
             }
         }
-        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
-        session.order_selected_move(cell.0, cell.1);
+        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+        game.order_move(&selected, cell.0, cell.1);
     }
 
     fn refresh_title(&mut self) {
         if let Some(window) = &self.window {
             let zoom = self.renderer.camera().zoom;
-            let title = if let Some(session) = self.session.as_ref() {
-                let snap = session.snapshot();
-                let local = session
+            let title = if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+                let snap = game.snapshot(&self.local.selected);
+                let local = game
                     .world
                     .players
                     .iter()
-                    .find(|p| p.id == session.world.local_player)
+                    .find(|p| p.id == game.world.local_player)
                     .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
                 let econ = local
                     .map(|p| {
@@ -246,8 +249,8 @@ impl App {
                     format!("{} · t{} · 暂停 · {reason}", self.title_base, snap.tick)
                 }
                 else {
-                    let nsel = session.selected.len();
-                    let sel = session.selected.first().copied();
+                    let nsel = self.local.selected.len();
+                    let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
                         (Some(i), n) if n > 1 => format!("#{i}+{}", n - 1),
                         (Some(i), _) => format!("#{i}"),
@@ -264,8 +267,8 @@ impl App {
             };
             window.set_title(&title);
         }
-        if let Some(session) = self.session.as_ref() {
-            if let Some(reject) = session.world.last_rejects().first() {
+        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+            if let Some(reject) = game.world.last_rejects().first() {
                 let label = reject.reason.as_hud_label().to_string();
                 if self.logged_reject.as_deref() != Some(label.as_str()) {
                     self.logged_reject = Some(label.clone());
@@ -275,18 +278,18 @@ impl App {
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
-            crate::test_boot::write_status(path, session);
+            crate::test_boot::write_status(path, session, &self.local.selected);
             #[cfg(not(feature = "test-harness"))]
             let _ = (path, session);
         }
     }
 
     fn note_outcome_once(&mut self) {
-        let Some(session) = self.session.as_ref()
+        let Some(game) = self.session.as_ref().and_then(|s| s.game())
         else {
             return;
         };
-        let Some(ra_engine::MatchOutcome::Victory { owner }) = session.outcome.as_ref()
+        let Some(ra_engine::MatchOutcome::Victory { owner }) = game.outcome.as_ref()
         else {
             return;
         };
@@ -294,7 +297,7 @@ impl App {
             return;
         }
         self.logged_outcome = Some(owner.clone());
-        let stats = session
+        let stats = game
             .match_stats
             .as_ref()
             .map(|s| {
@@ -304,7 +307,7 @@ impl App {
                 )
             })
             .unwrap_or_default();
-        tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", session.world.tick);
+        tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", game.world.tick);
     }
 
     /// 按当前启动路径重新装载一局（结算后或任意时刻）。
@@ -316,12 +319,13 @@ impl App {
         }
         self.engine = boot.engine;
         self.session = boot.session;
+        self.local.clear();
         self.logged_outcome = None;
         self.logged_reject = None;
         self.place_mode = None;
         self.last_pump = Instant::now();
-        if let Some(session) = self.session.as_ref() {
-            let edition = session.world.edition.as_str();
+        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+            let edition = game.world.edition.as_str();
             self.title_base = format!("ra2 ({edition})");
             tracing::info!("重开完成 · {}", boot.note);
         }
@@ -339,7 +343,7 @@ impl App {
                 return match crate::test_boot::boot_scene(scene) {
                     Ok(t) => BootResult {
                         note: t.note,
-                        engine: None,
+                        engine: Some(t.engine),
                         session: Some(t.session),
                         preview: t.preview,
                     },
@@ -442,9 +446,9 @@ impl ApplicationHandler for App {
                 let step = 48.0_f32;
                 match event.physical_key {
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
-                        if let Some(session) = self.session.as_mut() {
-                            let seed = session.selected.first().copied().or_else(|| {
-                                session.world.entities.iter().position(|e| {
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+                            let seed = self.local.selected.first().copied().or_else(|| {
+                                game.world.entities.iter().position(|e| {
                                     !e.dead
                                         && matches!(
                                             e.kind,
@@ -453,8 +457,8 @@ impl ApplicationHandler for App {
                                 })
                             });
                             if let Some(i) = seed {
-                                session.select_all_of_owner(i);
-                                tracing::info!("全选同阵营 · {} 个", session.selected.len());
+                                self.local.select_all_of_owner(game, i);
+                                tracing::info!("全选同阵营 · {} 个", self.local.selected.len());
                             }
                         }
                     }
@@ -477,23 +481,25 @@ impl ApplicationHandler for App {
                         self.renderer.zoom_by(1.0 / 1.1);
                     }
                     PhysicalKey::Code(KeyCode::Tab) => {
-                        if let Some(session) = self.session.as_mut() {
-                            session.cycle_selection();
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+                            self.local.cycle_selection(game);
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyF) => {
-                        if let Some(session) = self.session.as_mut() {
-                            if let Some(&atk) = session.selected.first() {
-                                if let Some(tgt) = session.nearest_hostile(atk) {
-                                    session.order_selected_attack(tgt);
+                        let selected = self.local.selected.clone();
+                        if let Some(&atk) = selected.first() {
+                            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                                if let Some(tgt) = game.nearest_hostile(atk) {
+                                    game.order_attack(&selected, tgt);
                                 }
                             }
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
-                        if let Some(session) = self.session.as_mut() {
-                            tracing::info!("部署选中 · {:?}", session.selected);
-                            session.order_selected_deploy();
+                        let selected = self.local.selected.clone();
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                            tracing::info!("部署选中 · {:?}", selected);
+                            game.order_deploy(&selected);
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyB) => {
@@ -506,10 +512,10 @@ impl ApplicationHandler for App {
                         }
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
-                        if let Some(session) = self.session.as_mut() {
-                            session.toggle_pause();
-                            if session.paused {
-                                tracing::info!("暂停 · {}", session.pause_reason.as_deref().unwrap_or("已暂停"));
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                            game.toggle_pause();
+                            if game.paused {
+                                tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
                             }
                             else {
                                 tracing::info!("继续");
@@ -520,22 +526,23 @@ impl ApplicationHandler for App {
                         self.rematch();
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
-                        if let Some(session) = self.session.as_mut() {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             tracing::info!("生产 · E1");
-                            session.order_produce("E1");
+                            game.order_produce("E1");
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyO) => {
-                        if let Some(session) = self.session.as_mut() {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             tracing::info!("生产 · MTNK");
-                            session.order_produce("MTNK");
+                            game.order_produce("MTNK");
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyY) => {
                         if let Some(cell) = self.cursor_cell() {
-                            if let Some(session) = self.session.as_mut() {
-                                tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, session.selected);
-                                session.order_selected_rally(cell.0, cell.1);
+                            let selected = self.local.selected.clone();
+                            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                                tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                                game.order_rally(&selected, cell.0, cell.1);
                             }
                         }
                     }
@@ -546,11 +553,14 @@ impl ApplicationHandler for App {
                 let now = Instant::now();
                 let dt = now.duration_since(self.last_pump).as_secs_f64();
                 self.last_pump = now;
-                if let Some(session) = self.session.as_mut() {
-                    let _advanced = session.pump(dt);
+                if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
+                    let _advanced = session.pump(&engine.runtime(), dt);
+                    if let Some(game) = session.game() {
+                        self.local.prune_dead(game);
+                    }
                 }
                 self.note_outcome_once();
-                let snap = self.session.as_ref().map(|s| s.snapshot());
+                let snap = self.session.as_ref().and_then(|s| s.game()).map(|g| g.snapshot(&self.local.selected));
                 self.renderer.draw_frame(snap.as_ref());
                 self.refresh_title();
                 if let Some(window) = &self.window {
@@ -657,9 +667,9 @@ fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
                 note = opened.note;
                 tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
-                    opened.session.fingerprint.edition,
-                    opened.session.fingerprint.map,
-                    opened.session.fingerprint.rules_hash
+                    opened.session.expect_game().fingerprint.edition,
+                    opened.session.expect_game().fingerprint.map,
+                    opened.session.expect_game().fingerprint.rules_hash
                 );
                 (Some(opened.engine), Some(opened.session))
             }
@@ -700,12 +710,12 @@ fn run() -> RaResult<()> {
 
     let (boot, window_width, window_height, status_path, test_scene) = resolve_boot()?;
 
-    if let Some(session) = boot.session.as_ref() {
+    if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
         tracing::info!(
             "preview_origin=({}, {}) entities={}",
-            session.preview_origin_x,
-            session.preview_origin_y,
-            session.world.entities.len()
+            game.preview_origin_x,
+            game.preview_origin_y,
+            game.world.entities.len()
         );
     }
 
@@ -738,14 +748,14 @@ fn resolve_boot() -> RaResult<(BootResult, f64, f64, Option<PathBuf>, Option<Str
                 "test-harness scene={scene} window={}x{} status={}",
                 window_width,
                 window_height,
-                status_path.as_ref().map(|p| p.display().to_string().unwrap_or_else(|| "—".into()))
+                status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
             );
             let t = crate::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
                 BootResult {
                     note: t.note,
-                    engine: None,
+                    engine: Some(t.engine),
                     session: Some(t.session),
                     preview: t.preview,
                 },

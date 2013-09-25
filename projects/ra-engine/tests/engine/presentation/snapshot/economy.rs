@@ -2,12 +2,14 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::test_engine;
 use ra_engine::{CommandRejectReason, GameCommand, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
 #[test]
 fn snapshot_exposes_funds_power_queue_and_rejects() {
+    let engine = test_engine();
     let rules_text = b"[InfantryTypes]\n0=E1\n\
 [BuildingTypes]\n0=GAPILE\n\
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
@@ -40,9 +42,9 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;
     let mut session = Session::from_state(world, "hud");
-    session.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
-    session.tick();
-    let snap = session.snapshot();
+    session.expect_game_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    session.tick(&engine.runtime());
+    let snap = session.expect_game().snapshot(&[]);
     assert_eq!(snap.players.len(), 1);
     assert_eq!(snap.players[0].funds, 4_800);
     assert_eq!(snap.players[0].power_output, 200);
@@ -53,8 +55,8 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     assert!(snap.produce_queues[0].remaining_ticks > 0);
     assert!(snap.last_rejects.is_empty());
 
-    session.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
-    session.tick();
-    let snap = session.snapshot();
+    session.expect_game_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    session.tick(&engine.runtime());
+    let snap = session.expect_game().snapshot(&[]);
     assert_eq!(snap.last_rejects[0].reason, CommandRejectReason::QueueFull);
 }

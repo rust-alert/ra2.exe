@@ -32,7 +32,7 @@ fn nearest_hostile_includes_structures() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hostile-bldg");
-    session.world.entities[1].kind = MapEntityKind::Structure;
-    session.world.entities[1].type_id = "NACNST".into();
-    assert_eq!(session.nearest_hostile(0), Some(1));
+    session.expect_game_mut().world.entities[1].kind = MapEntityKind::Structure;
+    session.expect_game_mut().world.entities[1].type_id = "NACNST".into();
+    assert_eq!(session.expect_game().nearest_hostile(0), Some(1));
 }

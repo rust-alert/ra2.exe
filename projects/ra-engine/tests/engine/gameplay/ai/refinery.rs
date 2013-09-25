@@ -2,12 +2,14 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::test_engine;
 use ra_engine::{Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn ai_places_refinery_near_yard() {
+    let engine = test_engine();
     let doc = IniDocument::parse(
         b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAREFN\n\
 [GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
@@ -61,9 +63,9 @@ fn ai_places_refinery_near_yard() {
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-refn");
-    session.ai_enabled = true;
-    session.tick();
-    let refn = session.world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAREFN");
+    session.expect_game_mut().ai_enabled = true;
+    session.tick(&engine.runtime());
+    let refn = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAREFN");
     assert!(refn.is_some(), "AI should place NAREFN");
-    assert_eq!(session.world.house_funds("Soviets"), Some(10_000 - 2000));
+    assert_eq!(session.expect_game_mut().world.house_funds("Soviets"), Some(10_000 - 2000));
 }

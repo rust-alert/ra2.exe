@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use ra_engine::Session;
+use ra_engine::{Engine, Session};
 use ra_renderer::RgbaImage;
 use ra_testing::standard_duel;
 use ra_types::{RaError, RaResult};
@@ -31,6 +31,7 @@ pub fn status_path() -> Option<PathBuf> {
 
 pub struct TestBoot {
     pub note: String,
+    pub engine: Engine,
     pub session: Session,
     pub preview: Option<RgbaImage>,
 }
@@ -46,9 +47,14 @@ pub fn boot_scene(scene: &str) -> RaResult<TestBoot> {
 fn boot_duel() -> RaResult<TestBoot> {
     let mut case = standard_duel();
     // 预览原点使等距坐标落入正半幅画布，便于点选与标记对齐。
-    case.session.set_preview_origin(-240, -40);
+    case.session.expect_game_mut().set_preview_origin(-240, -40);
     let preview = solid_preview(960, 720, [24, 32, 48, 255]).ok_or_else(|| RaError::Msg("测试预览图分配失败".into()))?;
-    Ok(TestBoot { note: "test-harness · scene=duel · synthetic".into(), session: case.session, preview: Some(preview) })
+    Ok(TestBoot {
+        note: "test-harness · scene=duel · synthetic".into(),
+        engine: case.engine,
+        session: case.session,
+        preview: Some(preview),
+    })
 }
 
 fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
@@ -61,18 +67,19 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 }
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。
-pub fn write_status(path: &std::path::Path, session: &Session) {
-    let snap = session.snapshot();
+pub fn write_status(path: &std::path::Path, session: &Session, selected: &[usize]) {
+    let game = session.expect_game();
+    let snap = game.snapshot(selected);
     let outcome = match &snap.outcome {
         Some(ra_engine::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
-    let selected = session.selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
-    let local = session
+    let selected_s = selected.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let local = game
         .world
         .players
         .iter()
-        .find(|p| p.id == session.world.local_player)
+        .find(|p| p.id == game.world.local_player)
         .and_then(|lp| snap.players.iter().find(|p| p.house == lp.house));
     let (funds, power_output, power_drain, low_power) =
         local.map(|p| (p.funds, p.power_output, p.power_drain, p.low_power)).unwrap_or((0, 0, 0, false));
@@ -84,9 +91,9 @@ pub fn write_status(path: &std::path::Path, session: &Session) {
         snap.tick,
         snap.state_hash,
         outcome,
-        session.paused,
-        selected,
-        session.world.entities.len(),
+        game.paused,
+        selected_s,
+        game.world.entities.len(),
         funds,
         power_output,
         power_drain,
