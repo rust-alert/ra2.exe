@@ -75,21 +75,21 @@ impl MatchState {
 
 pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
     match *cmd {
-        GameCommand::MoveTo { entity_index, x, y } => {
+        GameCommand::MoveTo { entity, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(1);
             h = h
                 .wrapping_mul(1099511628211)
-                .wrapping_add(entity_index as u64)
+                .wrapping_add(entity.0)
                 .wrapping_add((x as u64) << 16)
                 .wrapping_add((y as u64) << 32);
         }
-        GameCommand::Attack { attacker_index, target_index } => {
+        GameCommand::Attack { attacker, target } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(2);
-            h = h.wrapping_mul(1099511628211).wrapping_add(attacker_index as u64).wrapping_add((target_index as u64) << 16);
+            h = h.wrapping_mul(1099511628211).wrapping_add(attacker.0).wrapping_add(target.0 << 16);
         }
-        GameCommand::Deploy { entity_index } => {
+        GameCommand::Deploy { entity } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(3);
-            h = h.wrapping_mul(1099511628211).wrapping_add(entity_index as u64);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
         }
         GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(4);
@@ -109,11 +109,11 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
-        GameCommand::SetRallyPoint { factory_index, x, y } => {
+        GameCommand::SetRallyPoint { factory, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(6);
             h = h
                 .wrapping_mul(1099511628211)
-                .wrapping_add(factory_index as u64)
+                .wrapping_add(factory.0)
                 .wrapping_add((x as u64) << 16)
                 .wrapping_add((y as u64) << 32);
         }

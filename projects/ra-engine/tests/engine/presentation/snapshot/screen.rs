@@ -3,7 +3,7 @@
 use crate::common::{test_engine, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchOutcome, Session, SessionScreen, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn snapshot_screen_moves_to_results_on_victory() {
@@ -38,7 +38,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
     session.expect_game_mut().world.entities[0].attack_range = 4;
     session.expect_game_mut().world.entities[0].attack_cooldown_max = 1;
     session.expect_game_mut().world.entities[1].health = 40;
-    session.expect_game_mut().push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..20 {
         session.tick(&engine.runtime());
         if session.expect_game().outcome.is_some() {

@@ -4,7 +4,7 @@ use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, PlayerId};
+use ra_types::{EntityId, GameEdition, PlayerId};
 
 fn barracks_world() -> MatchState {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
@@ -42,7 +42,7 @@ fn barracks_world() -> MatchState {
 #[test]
 fn set_rally_point_on_factory() {
     let mut world = barracks_world();
-    world.push_command(GameCommand::SetRallyPoint { factory_index: 0, x: 10, y: 8 });
+    world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 10, y: 8 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.entities[0].rally_x, Some(10));
@@ -52,7 +52,7 @@ fn set_rally_point_on_factory() {
 #[test]
 fn produced_unit_paths_toward_rally_point() {
     let mut world = barracks_world();
-    world.push_command(GameCommand::SetRallyPoint { factory_index: 0, x: 10, y: 2 });
+    world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 10, y: 2 });
     world.advance_tick();
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
@@ -71,7 +71,7 @@ fn produced_unit_paths_toward_rally_point() {
 fn set_rally_rejects_non_factory() {
     let mut world = barracks_world();
     world.entities[0].type_id = "GACNST".into();
-    world.push_command(GameCommand::SetRallyPoint { factory_index: 0, x: 5, y: 5 });
+    world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 5, y: 5 });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
 }

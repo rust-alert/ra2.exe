@@ -21,8 +21,10 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
         .expect("human tank");
     let yard =
         case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.ai_house && e.type_id == "NACNST").expect("ai yard");
+    let tank_id = case.session.expect_game().world.entities[tank].id;
+    let yard_id = case.session.expect_game().world.entities[yard].id;
     case.session.expect_game_mut().world.entities[yard].health = 120;
-    case.command(GameCommand::Attack { attacker_index: tank, target_index: yard });
+    case.command(GameCommand::Attack { attacker: tank_id, target: yard_id });
     case.advance(64);
     let result = case.observe();
     assert_eq!(result.outcome, Some(MatchOutcome::Victory { owner: slice.human_house.into() }));
@@ -43,8 +45,10 @@ fn equal_ai_skirmish_scripts_match_hash() {
         let tank =
             case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.human_house && e.type_id == "MTNK").unwrap();
         let yard = case.session.expect_game_mut().world.entities.iter().position(|e| e.owner == slice.ai_house && e.type_id == "NACNST").unwrap();
+        let tank_id = case.session.expect_game().world.entities[tank].id;
+        let yard_id = case.session.expect_game().world.entities[yard].id;
         case.session.expect_game_mut().world.entities[yard].health = 120;
-        case.command(GameCommand::Attack { attacker_index: tank, target_index: yard });
+        case.command(GameCommand::Attack { attacker: tank_id, target: yard_id });
         case.advance(32);
     }
     let a = first.observe();

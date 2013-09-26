@@ -426,7 +426,7 @@ impl Game {
             return;
         }
         for &i in selected {
-            self.push_command(GameCommand::MoveTo { entity_index: i, x, y });
+            self.push_command(GameCommand::MoveTo { entity: self.world.entities[i].id, x, y });
         }
     }
 
@@ -437,7 +437,10 @@ impl Game {
         }
         for &i in selected {
             if i != target_index {
-                self.push_command(GameCommand::Attack { attacker_index: i, target_index });
+                self.push_command(GameCommand::Attack {
+                    attacker: self.world.entities[i].id,
+                    target: self.world.entities[target_index].id,
+                });
             }
         }
     }
@@ -448,7 +451,7 @@ impl Game {
             return;
         }
         for &entity_index in selected {
-            self.push_command(GameCommand::Deploy { entity_index });
+            self.push_command(GameCommand::Deploy { entity: self.world.entities[entity_index].id });
         }
     }
 
@@ -474,7 +477,7 @@ impl Game {
             return;
         }
         for &factory_index in selected {
-            self.push_command(GameCommand::SetRallyPoint { factory_index, x, y });
+            self.push_command(GameCommand::SetRallyPoint { factory: self.world.entities[factory_index].id, x, y });
         }
     }
 

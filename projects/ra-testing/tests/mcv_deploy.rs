@@ -16,7 +16,7 @@ fn mcv_deploy_open_seeds_slice_funds() {
 fn mcv_deploy_through_session_becomes_yard() {
     let mut case = mcv_deploy_open();
     let id = case.session.expect_game_mut().world.entities[0].id;
-    case.command(GameCommand::Deploy { entity_index: 0 });
+    case.command(GameCommand::Deploy { entity: id });
     case.advance(1);
     assert!(case.session.expect_game_mut().world.last_rejects().is_empty());
     assert_eq!(case.session.expect_game_mut().world.entities[0].id, id);

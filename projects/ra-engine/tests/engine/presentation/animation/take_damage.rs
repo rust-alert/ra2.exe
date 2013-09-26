@@ -3,7 +3,7 @@
 use crate::common::{test_engine, rules_with_mtnk};
 use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn snapshot_anim_state_take_damage_then_die() {
@@ -39,7 +39,7 @@ fn snapshot_anim_state_take_damage_then_die() {
     session.expect_game_mut().world.entities[0].attack_range = 4;
     session.expect_game_mut().world.entities[0].attack_cooldown = 0;
     session.expect_game_mut().world.entities[0].attack_cooldown_max = 8;
-    session.expect_game_mut().push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     session.tick(&engine.runtime());
     let snap = session.expect_game().snapshot(&[]);
     let tgt = snap.units.iter().find(|u| u.index == 1).unwrap();

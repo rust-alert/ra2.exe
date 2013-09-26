@@ -3,7 +3,7 @@
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn shared_waypoint_queues_on_neighbor() {
@@ -31,8 +31,8 @@ fn shared_waypoint_queues_on_neighbor() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    world.push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 10 });
-    world.push_command(GameCommand::MoveTo { entity_index: 1, x: 12, y: 10 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 12, y: 10 });
     for _ in 0..30 {
         world.advance_tick();
     }

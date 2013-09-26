@@ -4,7 +4,7 @@ use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn attack_structure_kills_and_frees_cell() {
@@ -55,7 +55,7 @@ fn attack_structure_kills_and_frees_cell() {
     world.pass_grid.set_passable(6, 4, false);
     world.players[1].power_output = 200;
     assert!(!world.pass_grid.is_passable(6, 4));
-    world.push_command(GameCommand::Attack { attacker_index: 0, target_index: 1 });
+    world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..10 {
         world.advance_tick();
         if world.entities[1].dead {

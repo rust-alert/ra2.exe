@@ -3,7 +3,7 @@
 use crate::common::{rules_with_mtnk, test_engine};
 use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn session_tick_and_snapshot() {
@@ -25,7 +25,7 @@ fn session_tick_and_snapshot() {
     });
     let world = MatchState::new(GameEdition::Ra2, &rules, map);
     let mut session = Session::from_state(world, "test");
-    session.expect_game_mut().push_command(GameCommand::MoveTo { entity_index: 0, x: 12, y: 10 });
+    session.expect_game_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });
     session.tick(&engine.runtime());
     let snap = session.expect_game().snapshot(&[]);
     assert_eq!(snap.tick, 1);

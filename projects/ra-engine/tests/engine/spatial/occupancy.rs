@@ -3,7 +3,7 @@
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_engine::{GameCommand, MatchState};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn mobiles_detour_around_each_other() {
@@ -33,8 +33,8 @@ fn mobiles_detour_around_each_other() {
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
     // 两车都朝同一目标；后者路径不得踩前者当前格。
-    world.push_command(GameCommand::MoveTo { entity_index: 0, x: 14, y: 10 });
-    world.push_command(GameCommand::MoveTo { entity_index: 1, x: 14, y: 10 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 14, y: 10 });
+    world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });
     world.advance_tick();
     assert!(!world.entities[1].path.is_empty());
     assert!(!world.entities[1].path.iter().any(|&(x, y)| x == world.entities[0].x && y == world.entities[0].y));

@@ -15,7 +15,7 @@ pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> 
         return Vec::new();
     }
     let mut out = Vec::new();
-    for (entity_index, e) in world.entities.iter().enumerate() {
+    for e in world.entities.iter() {
         if e.dead || e.owner != house {
             continue;
         }
@@ -25,7 +25,7 @@ pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> 
         if e.kind != MapEntityKind::Unit {
             continue;
         }
-        out.push(GameCommand::Deploy { entity_index });
+        out.push(GameCommand::Deploy { entity: e.id });
     }
     out
 }
@@ -160,7 +160,7 @@ pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand>
         else {
             continue;
         };
-        out.push(GameCommand::Attack { attacker_index, target_index });
+        out.push(GameCommand::Attack { attacker: attacker.id, target: world.entities[target_index].id });
     }
     out
 }

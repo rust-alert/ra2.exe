@@ -1,14 +1,14 @@
 //! 玩家/AI 注入的确定性命令（按 tick 排序消费）。
 
-use ra_types::PlayerId;
+use ra_types::{EntityId, PlayerId};
 
 /// 单条命令。后续扩展生产等。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameCommand {
     /// 将实体移动到目标格（会重算路径）。
     MoveTo {
-        /// 实体在世界实体列表中的下标。
-        entity_index: usize,
+        /// 实体的稳定标识（非向量下标）。
+        entity: EntityId,
         /// 目标格 X。
         x: u16,
         /// 目标格 Y。
@@ -16,15 +16,15 @@ pub enum GameCommand {
     },
     /// 指定攻击目标（进入射程后造成伤害）。
     Attack {
-        /// 攻击方实体下标。
-        attacker_index: usize,
-        /// 被攻击方实体下标。
-        target_index: usize,
+        /// 攻击方实体的稳定标识。
+        attacker: EntityId,
+        /// 被攻击方实体的稳定标识。
+        target: EntityId,
     },
     /// 部署可展开实体（如 MCV → 建造场）。
     Deploy {
-        /// 实体在世界实体列表中的下标。
-        entity_index: usize,
+        /// 实体的稳定标识（非向量下标）。
+        entity: EntityId,
     },
     /// 在目标格放置建筑（扣费、校验前置与占地）。
     PlaceBuilding {
@@ -46,8 +46,8 @@ pub enum GameCommand {
     },
     /// 为工厂设置生产集结点。
     SetRallyPoint {
-        /// 工厂实体下标。
-        factory_index: usize,
+        /// 工厂实体的稳定标识。
+        factory: EntityId,
         /// 集结格 X。
         x: u16,
         /// 集结格 Y。
@@ -82,20 +82,20 @@ impl InputFrame {
 pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
     let mut b = Vec::new();
     match *cmd {
-        GameCommand::MoveTo { entity_index, x, y } => {
+        GameCommand::MoveTo { entity, x, y } => {
             b.push(1);
-            b.extend_from_slice(&(entity_index as u32).to_be_bytes());
+            b.extend_from_slice(&entity.0.to_be_bytes());
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
-        GameCommand::Attack { attacker_index, target_index } => {
+        GameCommand::Attack { attacker, target } => {
             b.push(2);
-            b.extend_from_slice(&(attacker_index as u32).to_be_bytes());
-            b.extend_from_slice(&(target_index as u32).to_be_bytes());
+            b.extend_from_slice(&attacker.0.to_be_bytes());
+            b.extend_from_slice(&target.0.to_be_bytes());
         }
-        GameCommand::Deploy { entity_index } => {
+        GameCommand::Deploy { entity } => {
             b.push(3);
-            b.extend_from_slice(&(entity_index as u32).to_be_bytes());
+            b.extend_from_slice(&entity.0.to_be_bytes());
         }
         GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
             b.push(4);
@@ -113,9 +113,9 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
             b.extend_from_slice(id_bytes);
         }
-        GameCommand::SetRallyPoint { factory_index, x, y } => {
+        GameCommand::SetRallyPoint { factory, x, y } => {
             b.push(6);
-            b.extend_from_slice(&(factory_index as u32).to_be_bytes());
+            b.extend_from_slice(&factory.0.to_be_bytes());
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
@@ -130,28 +130,28 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
     }
     match bytes[0] {
         1 => {
-            if bytes.len() < 1 + 4 + 2 + 2 {
+            if bytes.len() < 1 + 8 + 2 + 2 {
                 return None;
             }
-            let entity_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
-            let x = u16::from_be_bytes(bytes[5..7].try_into().ok()?);
-            let y = u16::from_be_bytes(bytes[7..9].try_into().ok()?);
-            Some(GameCommand::MoveTo { entity_index, x, y })
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let x = u16::from_be_bytes(bytes[9..11].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[11..13].try_into().ok()?);
+            Some(GameCommand::MoveTo { entity, x, y })
         }
         2 => {
-            if bytes.len() < 1 + 4 + 4 {
+            if bytes.len() < 1 + 8 + 8 {
                 return None;
             }
-            let attacker_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
-            let target_index = u32::from_be_bytes(bytes[5..9].try_into().ok()?) as usize;
-            Some(GameCommand::Attack { attacker_index, target_index })
+            let attacker = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let target = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
+            Some(GameCommand::Attack { attacker, target })
         }
         3 => {
-            if bytes.len() < 1 + 4 {
+            if bytes.len() < 1 + 8 {
                 return None;
             }
-            let entity_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
-            Some(GameCommand::Deploy { entity_index })
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            Some(GameCommand::Deploy { entity })
         }
         4 => {
             if bytes.len() < 1 + 1 + 2 {
@@ -181,13 +181,13 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             Some(GameCommand::Produce { player, type_id })
         }
         6 => {
-            if bytes.len() < 1 + 4 + 2 + 2 {
+            if bytes.len() < 1 + 8 + 2 + 2 {
                 return None;
             }
-            let factory_index = u32::from_be_bytes(bytes[1..5].try_into().ok()?) as usize;
-            let x = u16::from_be_bytes(bytes[5..7].try_into().ok()?);
-            let y = u16::from_be_bytes(bytes[7..9].try_into().ok()?);
-            Some(GameCommand::SetRallyPoint { factory_index, x, y })
+            let factory = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let x = u16::from_be_bytes(bytes[9..11].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[11..13].try_into().ok()?);
+            Some(GameCommand::SetRallyPoint { factory, x, y })
         }
         _ => None,
     }
@@ -245,11 +245,11 @@ impl crate::state::MatchState {
 
         for (command_index, cmd) in cmds.iter().enumerate() {
             match *cmd {
-                GameCommand::MoveTo { entity_index, x, y } => {
-                    if entity_index >= self.entities.len() {
+                GameCommand::MoveTo { entity, x, y } => {
+                    let Some(entity_index) = self.entity_index(entity) else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
-                    }
+                    };
                     if self.entities[entity_index].dead {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
@@ -266,12 +266,16 @@ impl crate::state::MatchState {
                     e.move_accum = 0;
                     repath_at(&mut self.entities, entity_index, &self.pass_grid);
                 }
-                GameCommand::Attack { attacker_index, target_index } => {
-                    if attacker_index >= self.entities.len() || target_index >= self.entities.len() {
+                GameCommand::Attack { attacker, target } => {
+                    let Some(attacker_index) = self.entity_index(attacker) else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
-                    }
-                    if attacker_index == target_index {
+                    };
+                    let Some(target_index) = self.entity_index(target) else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    if attacker == target {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -296,11 +300,11 @@ impl crate::state::MatchState {
                     a.move_accum = 0;
                     repath_at(&mut self.entities, attacker_index, &self.pass_grid);
                 }
-                GameCommand::Deploy { entity_index } => {
-                    if entity_index >= self.entities.len() {
+                GameCommand::Deploy { entity } => {
+                    let Some(entity_index) = self.entity_index(entity) else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
-                    }
+                    };
                     if self.entities[entity_index].dead {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
@@ -444,11 +448,11 @@ impl crate::state::MatchState {
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     self.entities[factory_index].produce_queue = Some((type_id.to_ascii_uppercase(), PRODUCE_TICKS));
                 }
-                GameCommand::SetRallyPoint { factory_index, x, y } => {
-                    if factory_index >= self.entities.len() {
+                GameCommand::SetRallyPoint { factory, x, y } => {
+                    let Some(factory_index) = self.entity_index(factory) else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
-                    }
+                    };
                     if self.entities[factory_index].dead {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
