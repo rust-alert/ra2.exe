@@ -12,7 +12,7 @@ fn attack_structure_kills_and_frees_cell() {
         b"[VehicleTypes]\n0=MTNK\n\
 [BuildingTypes]\n0=GAPOWR\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=none\nPrimary=Gun\n\
-[GAPOWR]\nStrength=80\nSight=4\nCost=600\nArmor=wood\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=80\nSight=4\nCost=600\nArmor=wood\n\
 [Gun]\nDamage=40\nROF=1\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     )

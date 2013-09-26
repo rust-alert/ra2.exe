@@ -11,11 +11,11 @@ fn economy_session() -> Session {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAPILE\n\
 [InfantryTypes]\n0=E1\n\
-[AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
-[GAPOWR]\nStrength=600\nSight=4\nCost=600\n\
-[GAPILE]\nStrength=500\nSight=5\nCost=500\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
+[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,

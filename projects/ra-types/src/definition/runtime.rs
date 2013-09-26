@@ -1,15 +1,16 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AnimationDefinitions, CapabilitySet, ContentFingerprint, HouseDefinitions, LocomotorDefinitions, ProductionDefinitions,
-    SoundDefinitions, StructureDefinitions, TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
+    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, LocomotorDefinitions,
+    ProductionDefinitions, SoundDefinitions, StructureDefinitions, TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
 ///
 /// - 对局创建后不可变、可共享、可稳定指纹化；
 /// - 不含 ECS、当前实体、资金、tick、文件路径、MIX/GPU/窗口句柄；
-/// - 消费者不必知道原始 INI 文本。
+/// - 消费者不必知道原始 INI 文本；
+/// - 引擎按 `type_key` / `TypeId` 查询，不得硬编码外部内容名。
 #[derive(Debug, Clone, Default)]
 pub struct RuntimeDefinitions {
     /// 内容指纹。
@@ -28,6 +29,8 @@ pub struct RuntimeDefinitions {
     pub locomotors: LocomotorDefinitions,
     /// 建筑。
     pub structures: StructureDefinitions,
+    /// 部署关系。
+    pub deployables: DeployableDefinitions,
     /// 生产。
     pub production: ProductionDefinitions,
     /// 动画。

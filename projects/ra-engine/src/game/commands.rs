@@ -30,7 +30,7 @@ pub enum GameCommand {
     PlaceBuilding {
         /// 出资并拥有该建筑的玩家。
         player: PlayerId,
-        /// 规则类型 ID（如 `GAPOWR`）。
+        /// 外部类型键（须存在于冻结 `RuntimeDefinitions`）。
         type_id: String,
         /// 目标格 X。
         x: u16,
@@ -41,7 +41,7 @@ pub enum GameCommand {
     Produce {
         /// 出资并拥有产出单位的玩家。
         player: PlayerId,
-        /// 规则类型 ID（如 `E1` / `MTNK`）。
+        /// 外部类型键（须存在于冻结 `RuntimeDefinitions`）。
         type_id: String,
     },
     /// 为工厂设置生产集结点。
@@ -236,8 +236,7 @@ impl crate::state::MatchState {
 
         use crate::{
             gameplay::{
-                building_power_delta, deploy_into_type, full_verses, is_construction_yard, is_production_factory,
-                requires_power_plant,
+                building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant,
             },
             game::CommandRejectReason,
             spatial::{is_mobile, repath_at},
@@ -306,7 +305,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
-                    let Some(building_type) = deploy_into_type(&self.entities[entity_index].type_id)
+                    let Some(building_type) = deploy_into_type(&self.definitions, &self.entities[entity_index].type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
@@ -344,7 +343,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    if is_construction_yard(type_id) {
+                    if is_construction_yard(&self.definitions, type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -352,7 +351,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
-                    if requires_power_plant(type_id) && !self.house_has_living_power(&house) {
+                    if requires_power_plant(&self.definitions, type_id) && !self.house_has_living_power(&house) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
@@ -365,18 +364,15 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InsufficientFunds);
                         continue;
                     }
-                    let power = building_power_delta(type_id);
+                    let power = building_power(&self.definitions, type_id);
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor.clone();
                     let id = self.alloc_entity_id();
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
-                    if power >= 0 {
-                        self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power);
-                    }
-                    else {
-                        self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(-power);
-                    }
+                    self.players[player_index].power_output =
+                        self.players[player_index].power_output.saturating_add(power.output);
+                    self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
                     self.pass_grid.set_passable(x, y, false);
                     self.entities.push(WorldEntity {
                         id,
@@ -457,7 +453,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
-                    if !is_production_factory(&self.entities[factory_index].type_id) {
+                    if !is_production_factory(&self.definitions, &self.entities[factory_index].type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }

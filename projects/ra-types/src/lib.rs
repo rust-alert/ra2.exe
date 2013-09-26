@@ -17,9 +17,10 @@ mod time;
 pub use asset_source::AssetSource;
 pub use command::{CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
-    AnimationDefinitions, CapabilitySet, ContentFingerprint, HouseDefinitions, LocomotorDefinitions, ProductionDefinitions,
-    RuntimeDefinitions, SoundDefinitions, StructureDefinitions, TechnoDefinitions, TypeDefinitionId, WarheadDefinitions,
-    WeaponDefinitions,
+    AnimationDefinitions, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition, DeployableDefinitions,
+    DeploymentPlacement, HouseDefinitions, LocomotorDefinitions, PowerProfile, ProductionCategory, ProductionDefinitions,
+    ProductionProfile, RuntimeDefinitions, SoundDefinitions, StructureDefinition, StructureDefinitions, TechnoClass,
+    TechnoDefinition, TechnoDefinitions, TypeDefinitionId, WarheadDefinitions, WeaponDefinitions,
 };
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};

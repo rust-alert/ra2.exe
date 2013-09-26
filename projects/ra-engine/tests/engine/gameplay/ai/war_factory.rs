@@ -14,10 +14,10 @@ fn ai_places_war_factory_and_produces_tank() {
         b"[VehicleTypes]\n0=HTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAWEAP\n\
 [HTNK]\nStrength=400\nSpeed=4\nSight=6\nCost=900\nArmor=heavy\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
-[NAWEAP]\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n",
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
+[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Soviets\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n",
     )
     .unwrap();
     let rules = RulesDb {

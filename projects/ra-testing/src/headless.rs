@@ -126,8 +126,8 @@ pub fn mcv_deploy_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n\
-[AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\n";
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,
@@ -162,11 +162,11 @@ pub fn yard_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
     let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n3=GAPILE\n\
 [InfantryTypes]\n0=E1\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\n\
-[GAPOWR]\nStrength=600\nSight=4\nCost=600\n\
-[GAREFN]\nStrength=900\nSight=4\nCost=2000\n\
-[GAPILE]\nStrength=500\nSight=5\nCost=500\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\n\
+[GAREFN]\nRefinery=yes\nStrength=900\nSight=4\nCost=2000\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
+[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,
@@ -202,15 +202,15 @@ pub fn ai_skirmish_open() -> HeadlessCase {
     let rules_text = b"[VehicleTypes]\n0=SMCV\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n4=NAWEAP\n5=NAREFN\n\
 [InfantryTypes]\n0=E2\n\
-[SMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nArmor=heavy\n\
+[SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nArmor=heavy\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
-[NAHAND]\nStrength=500\nSight=5\nCost=500\nArmor=wood\n\
-[NAWEAP]\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n\
-[NAREFN]\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n\
-[E2]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nPower=200\nOwner=Russians\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nArmor=wood\n\
+[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Russians\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n\
+[NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n\
+[E2]\nOwner=Russians\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\n\
 [90mm]\nDamage=75\nROF=8\nRange=5\nWarhead=AP\n\
 [AP]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");

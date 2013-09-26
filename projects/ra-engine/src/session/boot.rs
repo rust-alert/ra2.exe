@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesDb};
 use ra_map::{MapInfo, seal_pass_grid_from_tmp};
-use ra_types::{AssetSource, RaResult, RuntimeDefinitions};
+use ra_types::{AssetSource, RaResult};
 
 use crate::engine::{Engine, EngineConfig};
 use crate::game::Game;
@@ -44,11 +44,13 @@ pub fn open_skirmish_session(
         state.repath_mobiles();
     }
     note = format!(
-        "{note} · world_entities#{} bound#{} blocked#{} land#{}",
+        "{note} · world_entities#{} bound#{} blocked#{} land#{} defs_struct#{} deploy#{}",
         state.entities.len(),
         state.bound_techno_count(),
         state.pass_grid.blocked_count(),
-        land_sealed
+        land_sealed,
+        state.definitions.structures.len(),
+        state.definitions.deployables.len()
     );
 
     let rules_bytes = source.read(chain.rules_ini).unwrap_or_default();
@@ -61,8 +63,9 @@ pub fn open_skirmish_session(
         state.entities.len(),
     );
 
+    let defs_for_engine = Arc::clone(&state.definitions);
     let game = Game::open_skirmish(state, note.clone(), preview_origin, fingerprint);
-    let engine = Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default())
+    let engine = Engine::new(defs_for_engine, EngineConfig::default())
         .map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     let mut session = engine
         .create_session(crate::session::SessionSpec::default())

@@ -14,10 +14,10 @@ fn ai_places_barracks_and_produces_infantry() {
         b"[InfantryTypes]\n0=E2\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n3=NAHAND\n\
 [E2]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
-[NAHAND]\nStrength=500\nSight=5\nCost=500\nArmor=wood\n",
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\n",
     )
     .unwrap();
     let rules = RulesDb {

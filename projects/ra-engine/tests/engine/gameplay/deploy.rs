@@ -9,9 +9,9 @@ use ra_types::{EntityId, GameEdition};
 fn mcv_world() -> MatchState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n\
-[AMCV]\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\n\
-[GACNST]\nStrength=1000\nSight=8\nCost=2500\n";
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,

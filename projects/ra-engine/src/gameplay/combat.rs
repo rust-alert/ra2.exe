@@ -3,7 +3,7 @@
 use ra_map::MapEntityKind;
 
 use crate::{
-    gameplay::building_power_delta,
+    gameplay::building_power,
     spatial::{facing_toward, is_mobile, manhattan, turn_facing_toward},
     state::{HIT_FLASH_TICKS, TURRET_TURN_STEP},
 };
@@ -92,17 +92,13 @@ impl crate::state::MatchState {
     }
 
     fn revoke_structure_power(&mut self, house: &str, type_id: &str) {
+        let power = building_power(&self.definitions, type_id);
         let Some(player) = self.players.iter_mut().find(|p| p.house == house)
         else {
             return;
         };
-        let power = building_power_delta(type_id);
-        if power >= 0 {
-            player.power_output = player.power_output.saturating_sub(power);
-        }
-        else {
-            player.power_drain = player.power_drain.saturating_sub(-power);
-        }
+        player.power_output = player.power_output.saturating_sub(power.output);
+        player.power_drain = player.power_drain.saturating_sub(power.drain);
     }
 
     pub(crate) fn advance_turrets(&mut self) {

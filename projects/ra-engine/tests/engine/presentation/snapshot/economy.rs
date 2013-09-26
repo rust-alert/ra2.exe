@@ -13,7 +13,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
 [BuildingTypes]\n0=GAPILE\n\
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
-[GAPILE]\nStrength=500\nSight=5\nCost=500\n";
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesDb {
         edition: GameEdition::Ra2,
