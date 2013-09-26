@@ -53,8 +53,8 @@ pub struct WorldEntity {
     pub move_accum: u32,
     /// HVA 动画帧。
     pub hva_frame: u16,
-    /// 攻击目标实体下标。
-    pub attack_target: Option<usize>,
+    /// 攻击目标实体的稳定标识。
+    pub attack_target: Option<EntityId>,
     /// 开火冷却剩余 tick。
     pub attack_cooldown: u32,
     /// 矿场采矿行程累计 tick。

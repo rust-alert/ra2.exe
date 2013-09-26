@@ -293,7 +293,7 @@ impl crate::state::MatchState {
                     }
                     let (tx, ty) = (self.entities[target_index].x, self.entities[target_index].y);
                     let a = &mut self.entities[attacker_index];
-                    a.attack_target = Some(target_index);
+                    a.attack_target = Some(target);
                     a.target_x = Some(tx);
                     a.target_y = Some(ty);
                     a.path.clear();

@@ -33,7 +33,7 @@ impl MatchState {
                 .wrapping_add(u64::from(e.attack_cooldown) << 24)
                 .wrapping_add(u64::from(e.ore_trip_accum) << 8)
                 .wrapping_add(u64::from(e.hit_flash) << 16)
-                .wrapping_add(e.attack_target.map(|i| i as u64 + 1).unwrap_or(0) << 32);
+                .wrapping_add(e.attack_target.map(|id| id.0).unwrap_or(0) << 32);
             for b in e.armor.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }

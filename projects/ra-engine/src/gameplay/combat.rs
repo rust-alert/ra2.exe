@@ -17,11 +17,16 @@ impl crate::state::MatchState {
             if self.entities[i].dead || !is_mobile(self.entities[i].kind) {
                 continue;
             }
-            let Some(ti) = self.entities[i].attack_target
+            let Some(target_id) = self.entities[i].attack_target
             else {
                 continue;
             };
-            if ti >= n || self.entities[ti].dead || ti == i {
+            let Some(ti) = self.entity_index(target_id)
+            else {
+                self.entities[i].attack_target = None;
+                continue;
+            };
+            if self.entities[ti].dead || ti == i {
                 self.entities[i].attack_target = None;
                 continue;
             }
@@ -79,9 +84,9 @@ impl crate::state::MatchState {
             e.attack_target = None;
             e.move_accum = 0;
         }
-        let dead_i = index;
+        let dead_id = self.entities[index].id;
         for o in self.entities.iter_mut() {
-            if o.attack_target == Some(dead_i) {
+            if o.attack_target == Some(dead_id) {
                 o.attack_target = None;
             }
         }
@@ -107,9 +112,14 @@ impl crate::state::MatchState {
             if self.entities[i].dead || !is_mobile(self.entities[i].kind) {
                 continue;
             }
-            let desired = if let Some(ti) = self.entities[i].attack_target {
-                if ti < n && !self.entities[ti].dead {
-                    facing_toward(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
+            let desired = if let Some(target_id) = self.entities[i].attack_target {
+                if let Some(ti) = self.entity_index(target_id) {
+                    if !self.entities[ti].dead {
+                        facing_toward(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
+                    }
+                    else {
+                        self.entities[i].facing
+                    }
                 }
                 else {
                     self.entities[i].facing

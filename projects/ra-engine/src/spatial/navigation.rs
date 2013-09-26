@@ -118,14 +118,15 @@ impl crate::state::MatchState {
                 continue;
             }
             // 攻击中且已在射程内：停步开火，不继续挤占目标格。
-            if let Some(ti) = self.entities[i].attack_target {
-                if ti < n
-                    && !self.entities[ti].dead
-                    && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
-                        <= self.entities[i].attack_range
-                {
-                    self.entities[i].path.clear();
-                    continue;
+            if let Some(target_id) = self.entities[i].attack_target {
+                if let Some(ti) = self.entity_index(target_id) {
+                    if !self.entities[ti].dead
+                        && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
+                            <= self.entities[i].attack_range
+                    {
+                        self.entities[i].path.clear();
+                        continue;
+                    }
                 }
             }
             let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
