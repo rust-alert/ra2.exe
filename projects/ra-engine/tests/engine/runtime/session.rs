@@ -69,9 +69,9 @@ fn order_attack_and_detects_victor() {
         world.entities[1].target_y = None;
         world.entities[1].speed = 0;
     }
-    let foe = session.expect_game().nearest_hostile(0).unwrap();
-    assert_eq!(foe, 1);
-    session.expect_game_mut().order_attack(&[0], foe);
+    let foe = session.expect_game().nearest_hostile(EntityId(1)).unwrap();
+    assert_eq!(foe, EntityId(2));
+    session.expect_game_mut().order_attack(&[EntityId(1)], foe);
     for _ in 0..80 {
         session.tick(&engine.runtime());
         if session.expect_game().sole_victor().is_some() {
@@ -119,10 +119,11 @@ fn snapshot_includes_screen_coords_and_selection() {
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     session.expect_game_mut().set_preview_origin(-100, -50);
-    let snap = session.expect_game().snapshot(&[0]);
-    assert_eq!(snap.selected, vec![0]);
+    let snap = session.expect_game().snapshot(&[EntityId(1)]);
+    assert_eq!(snap.selected, vec![EntityId(1)]);
     assert_eq!(snap.units.len(), 1);
     let u = &snap.units[0];
+    assert_eq!(u.id, EntityId(1));
     let z = session.expect_game().world.pass_grid.cell_height(5, 4);
     let (sx, sy) = ra_map::iso_to_screen(5, 4, z);
     assert_eq!(u.screen_x, sx - (-100));

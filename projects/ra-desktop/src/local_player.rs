@@ -2,12 +2,13 @@
 
 use ra_engine::Game;
 use ra_map::MapEntityKind;
+use ra_types::EntityId;
 
 /// 桌面本地玩家的 UI 选中与命令入口。
 #[derive(Debug, Default, Clone)]
 pub struct LocalPlayerController {
-    /// 当前选中实体下标（对齐 `MatchState::entities`）。
-    pub selected: Vec<usize>,
+    /// 当前选中实体的稳定 ID。
+    pub selected: Vec<EntityId>,
 }
 
 impl LocalPlayerController {
@@ -18,28 +19,38 @@ impl LocalPlayerController {
 
     /// 去掉已死亡或不存在的选中项。
     pub fn prune_dead(&mut self, game: &Game) {
-        self.selected.retain(|&i| i < game.world.entities.len() && !game.world.entities[i].dead);
+        self.selected.retain(|&id| {
+            game.world
+                .entity_index(id)
+                .and_then(|i| game.world.entities.get(i))
+                .is_some_and(|e| !e.dead)
+        });
     }
 
     /// 单选一个存活实体（单位或建筑）。
-    pub fn select_only(&mut self, game: &Game, index: usize) {
+    pub fn select_only(&mut self, game: &Game, id: EntityId) {
         self.selected.clear();
-        if index < game.world.entities.len()
-            && !game.world.entities[index].dead
+        let Some(index) = game.world.entity_index(id)
+        else {
+            return;
+        };
+        let e = &game.world.entities[index];
+        if !e.dead
             && matches!(
-                game.world.entities[index].kind,
+                e.kind,
                 MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
             )
         {
-            self.selected.push(index);
+            self.selected.push(id);
         }
     }
 
     /// 若可多选则加入选中（已在选中则忽略）；与已选不同阵营则拒绝。
-    pub fn select_add(&mut self, game: &Game, index: usize) {
-        if index >= game.world.entities.len() {
+    pub fn select_add(&mut self, game: &Game, id: EntityId) {
+        let Some(index) = game.world.entity_index(id)
+        else {
             return;
-        }
+        };
         let e = &game.world.entities[index];
         if e.dead
             || !matches!(
@@ -50,43 +61,45 @@ impl LocalPlayerController {
             return;
         }
         if let Some(&first) = self.selected.first() {
-            if game.world.entities[first].owner != e.owner {
+            let Some(first_i) = game.world.entity_index(first)
+            else {
+                return;
+            };
+            if game.world.entities[first_i].owner != e.owner {
                 return;
             }
         }
-        if !self.selected.contains(&index) {
-            self.selected.push(index);
+        if !self.selected.contains(&id) {
+            self.selected.push(id);
         }
     }
 
-    /// 选中与 `index` 同阵营的全部存活移动单位。
-    pub fn select_all_of_owner(&mut self, game: &Game, index: usize) {
-        if index >= game.world.entities.len() {
+    /// 选中与 `id` 同阵营的全部存活移动单位。
+    pub fn select_all_of_owner(&mut self, game: &Game, id: EntityId) {
+        let Some(index) = game.world.entity_index(id)
+        else {
             return;
-        }
+        };
         let owner = game.world.entities[index].owner.clone();
         self.selected.clear();
-        for (i, e) in game.world.entities.iter().enumerate() {
+        for e in &game.world.entities {
             if e.dead || e.owner != owner {
                 continue;
             }
             if matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
-                self.selected.push(i);
+                self.selected.push(e.id);
             }
         }
     }
 
     /// 在存活移动单位间循环选中。
     pub fn cycle_selection(&mut self, game: &Game) {
-        let mobiles: Vec<usize> = game
+        let mobiles: Vec<EntityId> = game
             .world
             .entities
             .iter()
-            .enumerate()
-            .filter(|(_, e)| {
-                !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-            })
-            .map(|(i, _)| i)
+            .filter(|e| !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            .map(|e| e.id)
             .collect();
         if mobiles.is_empty() {
             self.selected.clear();

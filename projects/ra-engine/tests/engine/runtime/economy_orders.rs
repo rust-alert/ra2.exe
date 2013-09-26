@@ -5,7 +5,7 @@ use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 fn economy_session() -> Session {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -48,7 +48,8 @@ fn economy_session() -> Session {
 fn order_deploy_and_place_power() {
     let engine = test_engine();
     let mut session = economy_session();
-    session.expect_game_mut().order_deploy(&[0]);
+    let mcv = session.expect_game().world.entities[0].id;
+    session.expect_game_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
     assert_eq!(session.expect_game().world.entities[0].type_id, "GACNST");
     assert_eq!(session.expect_game().world.entities[0].kind, MapEntityKind::Structure);
@@ -63,27 +64,37 @@ fn order_deploy_and_place_power() {
 fn pick_entity_at_finds_structure() {
     let engine = test_engine();
     let mut session = economy_session();
-    session.expect_game_mut().order_deploy(&[0]);
+    let mcv = session.expect_game().world.entities[0].id;
+    session.expect_game_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game().pick_entity_at(4, 4), Some(0));
-    assert_eq!(session.expect_game().pick_structure_at(4, 4), Some(0));
+    assert_eq!(session.expect_game().pick_entity_at(4, 4), Some(EntityId(1)));
+    assert_eq!(session.expect_game().pick_structure_at(4, 4), Some(EntityId(1)));
 }
 
 #[test]
 fn order_rally_on_barracks() {
     let engine = test_engine();
     let mut session = economy_session();
-    session.expect_game_mut().order_deploy(&[0]);
+    let mcv = session.expect_game().world.entities[0].id;
+    session.expect_game_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
     session.expect_game_mut().order_place_building("GAPOWR", 6, 4);
     session.tick(&engine.runtime());
     session.expect_game_mut().order_place_building("GAPILE", 8, 4);
     session.tick(&engine.runtime());
-    let barracks = session.expect_game().world.entities.iter().position(|e| e.type_id == "GAPILE").expect("应有兵营");
+    let barracks = session
+        .expect_game()
+        .world
+        .entities
+        .iter()
+        .find(|e| e.type_id == "GAPILE")
+        .map(|e| e.id)
+        .expect("应有兵营");
     assert!(session.expect_game().selection_has_structure(&[barracks]));
     session.expect_game_mut().order_rally(&[barracks], 12, 8);
     session.tick(&engine.runtime());
     assert!(session.expect_game().world.last_rejects().is_empty());
-    assert_eq!(session.expect_game().world.entities[barracks].rally_x, Some(12));
-    assert_eq!(session.expect_game().world.entities[barracks].rally_y, Some(8));
+    let barracks_i = session.expect_game().world.entity_index(barracks).unwrap();
+    assert_eq!(session.expect_game().world.entities[barracks_i].rally_x, Some(12));
+    assert_eq!(session.expect_game().world.entities[barracks_i].rally_y, Some(8));
 }

@@ -42,7 +42,7 @@ fn snapshot_anim_state_take_damage_then_die() {
     session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     session.tick(&engine.runtime());
     let snap = session.expect_game().snapshot(&[]);
-    let tgt = snap.units.iter().find(|u| u.index == 1).unwrap();
+    let tgt = snap.units.iter().find(|u| u.id == EntityId(2)).unwrap();
     if tgt.dead {
         assert_eq!(tgt.anim_state, AnimState::Die);
     }

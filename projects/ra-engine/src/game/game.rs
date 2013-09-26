@@ -8,7 +8,7 @@ use crate::game::reject::CommandReject;
 use crate::state::MatchState;
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
-use ra_types::GameEdition;
+use ra_types::{EntityId, GameEdition};
 
 /// 默认仿真频率（与渲染帧率无关）。
 pub const DEFAULT_TICK_HZ: u32 = 15;
@@ -33,8 +33,8 @@ pub struct RenderSnapshot {
     pub produce_queues: Vec<SnapshotProduceQueue>,
     /// 上一 tick 的命令拒绝（供错误反馈）。
     pub last_rejects: Vec<CommandReject>,
-    /// 当前选中实体下标（与 `units[].index` 对齐）。
-    pub selected: Vec<usize>,
+    /// 当前选中实体的稳定 ID（与 `units[].id` 对齐）。
+    pub selected: Vec<EntityId>,
     /// 对局结束结果；未结束时为 `None`。
     pub outcome: Option<MatchOutcome>,
     /// 是否暂停（`pump` 不推进）。
@@ -74,8 +74,8 @@ pub struct SnapshotPlayer {
 /// 快照中的一条工厂生产队列。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotProduceQueue {
-    /// 工厂在 `MatchState::entities` 中的下标。
-    pub factory_index: usize,
+    /// 工厂实体的稳定 ID。
+    pub factory: EntityId,
     /// 正在生产的类型 ID。
     pub type_id: String,
     /// 剩余 tick。
@@ -89,8 +89,8 @@ pub struct SnapshotProduceQueue {
 /// 快照中的一个可绘实体。
 #[derive(Debug, Clone)]
 pub struct SnapshotUnit {
-    /// 在 `MatchState::entities` 中的下标。
-    pub index: usize,
+    /// 实体稳定 ID。
+    pub id: EntityId,
     /// 实体种类（单位 / 步兵 / 飞行器）。
     pub kind: MapEntityKind,
     /// 规则中的类型 ID。
@@ -326,9 +326,9 @@ impl Game {
     }
 
     /// 点选格上或其四邻的存活移动单位。
-    pub fn pick_mobile_at(&self, x: u16, y: u16) -> Option<usize> {
-        let mut best: Option<(u32, usize)> = None;
-        for (i, e) in self.world.entities.iter().enumerate() {
+    pub fn pick_mobile_at(&self, x: u16, y: u16) -> Option<EntityId> {
+        let mut best: Option<(u32, EntityId)> = None;
+        for e in &self.world.entities {
             if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
                 continue;
             }
@@ -337,10 +337,10 @@ impl Game {
                 continue;
             }
             if best.map(|(d, _)| dist < d).unwrap_or(true) {
-                best = Some((dist, i));
+                best = Some((dist, e.id));
             }
         }
-        best.map(|(_, i)| i)
+        best.map(|(_, id)| id)
     }
 
     /// 向世界命令队列追加一条命令（对局已结束则忽略）。
@@ -421,37 +421,41 @@ impl Game {
     }
 
     /// 指定实体移动到目标格。
-    pub fn order_move(&mut self, selected: &[usize], x: u16, y: u16) {
+    pub fn order_move(&mut self, selected: &[EntityId], x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        for &i in selected {
-            self.push_command(GameCommand::MoveTo { entity: self.world.entities[i].id, x, y });
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::MoveTo { entity: id, x, y });
+            }
         }
     }
 
     /// 指定实体攻击目标。
-    pub fn order_attack(&mut self, selected: &[usize], target_index: usize) {
+    pub fn order_attack(&mut self, selected: &[EntityId], target: EntityId) {
         if self.outcome.is_some() {
             return;
         }
-        for &i in selected {
-            if i != target_index {
-                self.push_command(GameCommand::Attack {
-                    attacker: self.world.entities[i].id,
-                    target: self.world.entities[target_index].id,
-                });
+        if self.world.entity_index(target).is_none() {
+            return;
+        }
+        for &id in selected {
+            if id != target && self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Attack { attacker: id, target });
             }
         }
     }
 
     /// 部署指定可展开单位（如 MCV）。
-    pub fn order_deploy(&mut self, selected: &[usize]) {
+    pub fn order_deploy(&mut self, selected: &[EntityId]) {
         if self.outcome.is_some() {
             return;
         }
-        for &entity_index in selected {
-            self.push_command(GameCommand::Deploy { entity: self.world.entities[entity_index].id });
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Deploy { entity: id });
+            }
         }
     }
 
@@ -472,55 +476,64 @@ impl Game {
     }
 
     /// 为指定工厂设置集结点（非工厂由世界拒绝）。
-    pub fn order_rally(&mut self, selected: &[usize], x: u16, y: u16) {
+    pub fn order_rally(&mut self, selected: &[EntityId], x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        for &factory_index in selected {
-            self.push_command(GameCommand::SetRallyPoint { factory: self.world.entities[factory_index].id, x, y });
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::SetRallyPoint { factory: id, x, y });
+            }
         }
     }
 
     /// 选中集合中是否包含建筑。
-    pub fn selection_has_structure(&self, selected: &[usize]) -> bool {
-        selected.iter().any(|&i| self.world.entities.get(i).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure))
+    pub fn selection_has_structure(&self, selected: &[EntityId]) -> bool {
+        selected.iter().any(|&id| {
+            self.world
+                .entity_index(id)
+                .and_then(|i| self.world.entities.get(i))
+                .is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
+        })
     }
 
     /// 点选格上或其四邻的存活实体（单位优先，其次建筑）。
-    pub fn pick_entity_at(&self, x: u16, y: u16) -> Option<usize> {
+    pub fn pick_entity_at(&self, x: u16, y: u16) -> Option<EntityId> {
         self.pick_mobile_at(x, y).or_else(|| self.pick_structure_at(x, y))
     }
 
     /// 点选格上精确匹配的存活建筑。
-    pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<usize> {
-        self.world.entities.iter().position(|e| !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y)
+    pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<EntityId> {
+        self.world.entities.iter().find(|e| !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y).map(|e| e.id)
     }
 
     /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。
-    pub fn nearest_hostile(&self, from_index: usize) -> Option<usize> {
-        let from = self.world.entities.get(from_index)?;
-        if from.dead {
+    pub fn nearest_hostile(&self, from: EntityId) -> Option<EntityId> {
+        let from_index = self.world.entity_index(from)?;
+        let from_e = &self.world.entities[from_index];
+        if from_e.dead {
             return None;
         }
+        let owner = from_e.owner.clone();
+        let (fx, fy) = (from_e.x, from_e.y);
         self.world
             .entities
             .iter()
-            .enumerate()
-            .filter(|(j, e)| {
-                *j != from_index
+            .filter(|e| {
+                e.id != from
                     && !e.dead
-                    && e.owner != from.owner
+                    && e.owner != owner
                     && matches!(
                         e.kind,
                         MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
                     )
             })
-            .min_by_key(|(_, e)| {
-                let dx = i32::from(e.x) - i32::from(from.x);
-                let dy = i32::from(e.y) - i32::from(from.y);
+            .min_by_key(|e| {
+                let dx = i32::from(e.x) - i32::from(fx);
+                let dy = i32::from(e.y) - i32::from(fy);
                 dx * dx + dy * dy
             })
-            .map(|(j, _)| j)
+            .map(|e| e.id)
     }
 
     /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
@@ -537,23 +550,22 @@ impl Game {
     }
 
     /// 从当前世界与本地选中构建一帧呈现快照。
-    pub fn snapshot(&self, selected: &[usize]) -> RenderSnapshot {
+    pub fn snapshot(&self, selected: &[EntityId]) -> RenderSnapshot {
         let units = self
             .world
             .entities
             .iter()
-            .enumerate()
-            .filter(|(_, e)| {
+            .filter(|e| {
                 matches!(
                     e.kind,
                     MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
                 )
             })
-            .map(|(index, e)| {
+            .map(|e| {
                 let z = self.world.pass_grid.cell_height(e.x, e.y);
                 let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
                 SnapshotUnit {
-                    index,
+                    id: e.id,
                     kind: e.kind,
                     type_id: e.type_id.clone(),
                     owner: e.owner.clone(),
@@ -587,11 +599,10 @@ impl Game {
             .world
             .entities
             .iter()
-            .enumerate()
-            .filter_map(|(factory_index, e)| {
+            .filter_map(|e| {
                 let (type_id, remaining_ticks) = e.produce_queue.as_ref()?;
                 Some(SnapshotProduceQueue {
-                    factory_index,
+                    factory: e.id,
                     type_id: type_id.clone(),
                     remaining_ticks: *remaining_ticks,
                     rally_x: e.rally_x,
