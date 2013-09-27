@@ -1,7 +1,7 @@
-//! `GameCommand` 编解码集成测试。
+//! `GameCommand` / `ScheduledCommand` 编解码集成测试。
 
-use ra_engine::{GameCommand, decode_commands, encode_commands};
-use ra_types::{EntityId, PlayerId};
+use ra_engine::{GameCommand, decode_commands, decode_scheduled, encode_commands, encode_scheduled};
+use ra_types::{CommandId, EntityId, PlayerId, ScheduledCommand, Tick};
 
 #[test]
 fn command_codec_roundtrip() {
@@ -15,4 +15,16 @@ fn command_codec_roundtrip() {
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));
+}
+
+#[test]
+fn scheduled_codec_roundtrip() {
+    let cmd = ScheduledCommand::new(
+        CommandId(9),
+        PlayerId(2),
+        Tick(15),
+        GameCommand::MoveTo { entity: EntityId(4), x: 1, y: 2 },
+    );
+    let bytes = encode_scheduled(&cmd);
+    assert_eq!(decode_scheduled(&bytes), Some(cmd));
 }

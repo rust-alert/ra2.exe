@@ -1,6 +1,7 @@
 //! 确定性状态摘要（锁步校验用）。
 
 use crate::{game::GameCommand, state::MatchState};
+use ra_types::ScheduledCommand;
 
 impl MatchState {
     pub(crate) fn rehash(&mut self) {
@@ -12,7 +13,7 @@ impl MatchState {
             .wrapping_add(self.last_input_frame.tick)
             .wrapping_add(self.last_input_frame.commands.len() as u64);
         for cmd in &self.last_input_frame.commands {
-            h = hash_command(h, cmd);
+            h = hash_scheduled(h, cmd);
         }
         for e in &self.entities {
             h = h
@@ -71,6 +72,13 @@ impl MatchState {
         }
         self.state_hash = h;
     }
+}
+
+pub(crate) fn hash_scheduled(mut h: u64, cmd: &ScheduledCommand) -> u64 {
+    h = h.wrapping_mul(1099511628211).wrapping_add(cmd.id.0);
+    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(cmd.player.0));
+    h = h.wrapping_mul(1099511628211).wrapping_add(cmd.tick.0);
+    hash_command(h, &cmd.body)
 }
 
 pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {

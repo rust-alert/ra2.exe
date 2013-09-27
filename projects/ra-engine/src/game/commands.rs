@@ -1,59 +1,11 @@
 //! 玩家/AI 注入的确定性命令（按 tick 排序消费）。
+//!
+//! 对外调度形状为 [`ScheduledCommand`]；[`GameCommand`] 是其中的可执行载荷（与 `ra_types::CommandBody` 同一类型）。
 
-use ra_types::{EntityId, PlayerId};
+use ra_types::{CommandBody, CommandId, EntityId, PlayerId, ScheduledCommand, Tick};
 
-/// 单条命令。后续扩展生产等。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GameCommand {
-    /// 将实体移动到目标格（会重算路径）。
-    MoveTo {
-        /// 实体的稳定标识（非向量下标）。
-        entity: EntityId,
-        /// 目标格 X。
-        x: u16,
-        /// 目标格 Y。
-        y: u16,
-    },
-    /// 指定攻击目标（进入射程后造成伤害）。
-    Attack {
-        /// 攻击方实体的稳定标识。
-        attacker: EntityId,
-        /// 被攻击方实体的稳定标识。
-        target: EntityId,
-    },
-    /// 部署可展开实体（如 MCV → 建造场）。
-    Deploy {
-        /// 实体的稳定标识（非向量下标）。
-        entity: EntityId,
-    },
-    /// 在目标格放置建筑（扣费、校验前置与占地）。
-    PlaceBuilding {
-        /// 出资并拥有该建筑的玩家。
-        player: PlayerId,
-        /// 外部类型键（须存在于冻结 `RuntimeDefinitions`）。
-        type_id: String,
-        /// 目标格 X。
-        x: u16,
-        /// 目标格 Y。
-        y: u16,
-    },
-    /// 在空闲工厂排队生产单位（立即扣费）。
-    Produce {
-        /// 出资并拥有产出单位的玩家。
-        player: PlayerId,
-        /// 外部类型键（须存在于冻结 `RuntimeDefinitions`）。
-        type_id: String,
-    },
-    /// 为工厂设置生产集结点。
-    SetRallyPoint {
-        /// 工厂实体的稳定标识。
-        factory: EntityId,
-        /// 集结格 X。
-        x: u16,
-        /// 集结格 Y。
-        y: u16,
-    },
-}
+/// 可执行命令载荷（跨层与 `ra_types::CommandBody` 共用）。
+pub type GameCommand = CommandBody;
 
 /// 一个仿真 tick 的完整输入帧。
 ///
@@ -62,8 +14,8 @@ pub enum GameCommand {
 pub struct InputFrame {
     /// 本帧对应的逻辑 tick。
     pub tick: u64,
-    /// 本 tick 消费的命令列表（可为空）。
-    pub commands: Vec<GameCommand>,
+    /// 本 tick 消费的已调度命令（可为空）。
+    pub commands: Vec<ScheduledCommand>,
 }
 
 impl InputFrame {
@@ -78,7 +30,7 @@ impl InputFrame {
     }
 }
 
-/// 编码单条命令为网络 `payload` 字节。
+/// 编码单条命令载荷为网络 `payload` 字节（不含调度信封）。
 pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
     let mut b = Vec::new();
     match *cmd {
@@ -205,7 +157,7 @@ pub fn encode_commands(cmds: &[GameCommand]) -> Vec<u8> {
     b
 }
 
-/// 解码命令列表。
+/// 解码命令载荷列表。
 pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
     if bytes.len() < 2 {
         return None;
@@ -229,8 +181,38 @@ pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
     Some(out)
 }
 
+
+/// 编码已调度命令：信封 + 载荷。
+pub fn encode_scheduled(cmd: &ScheduledCommand) -> Vec<u8> {
+    let mut b = Vec::new();
+    b.extend_from_slice(&cmd.id.0.to_be_bytes());
+    b.push(cmd.player.0);
+    b.extend_from_slice(&cmd.tick.0.to_be_bytes());
+    let body = encode_command(&cmd.body);
+    b.extend_from_slice(&(body.len() as u16).to_be_bytes());
+    b.extend_from_slice(&body);
+    b
+}
+
+/// 解码已调度命令。
+pub fn decode_scheduled(bytes: &[u8]) -> Option<ScheduledCommand> {
+    if bytes.len() < 8 + 1 + 8 + 2 {
+        return None;
+    }
+    let id = CommandId(u64::from_be_bytes(bytes[0..8].try_into().ok()?));
+    let player = PlayerId(bytes[8]);
+    let tick = Tick(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
+    let n = u16::from_be_bytes(bytes[17..19].try_into().ok()?) as usize;
+    if bytes.len() < 19 + n {
+        return None;
+    }
+    let body = decode_command(&bytes[19..19 + n])?;
+    Some(ScheduledCommand::new(id, player, tick, body))
+}
+
+
 impl crate::state::MatchState {
-    pub(crate) fn apply_commands(&mut self, cmds: &[GameCommand]) {
+    pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;
 
@@ -243,8 +225,8 @@ impl crate::state::MatchState {
             state::{PRODUCE_TICKS, WorldEntity},
         };
 
-        for (command_index, cmd) in cmds.iter().enumerate() {
-            match *cmd {
+        for (command_index, scheduled) in cmds.iter().enumerate() {
+            match scheduled.body.clone() {
                 GameCommand::MoveTo { entity, x, y } => {
                     let Some(entity_index) = self.entity_index(entity) else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);

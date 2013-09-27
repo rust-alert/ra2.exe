@@ -371,8 +371,8 @@ impl Game {
             .filter(|p| local_house.as_ref().map(|h| &p.house != h).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();
-        let mut cmds = Vec::new();
         for (player, house) in &opponents {
+            let mut cmds = Vec::new();
             cmds.extend(crate::gameplay::ai::deploy_mcv_commands(&self.world, house));
             cmds.extend(crate::gameplay::ai::place_power_commands(&self.world, house, *player));
             cmds.extend(crate::gameplay::ai::place_barracks_commands(&self.world, house, *player));
@@ -381,9 +381,9 @@ impl Game {
             cmds.extend(crate::gameplay::ai::produce_infantry_commands(&self.world, house, *player));
             cmds.extend(crate::gameplay::ai::produce_vehicle_commands(&self.world, house, *player));
             cmds.extend(crate::gameplay::ai::auto_attack_commands(&self.world, house));
-        }
-        for cmd in cmds {
-            self.push_command(cmd);
+            for cmd in cmds {
+                self.world.push_player_command(*player, cmd);
+            }
         }
     }
 
