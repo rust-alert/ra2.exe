@@ -17,7 +17,7 @@ mod state;
 
 pub use engine::{
     CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError,
-    SystemSchedule,
+    SystemPhase, SystemSchedule,
 };
 pub use game::{
     AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, Game, GameCommand, InputFrame, MAX_TICKS_PER_PUMP,
