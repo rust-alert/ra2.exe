@@ -233,20 +233,31 @@ impl MatchState {
         self.techno_types.get(type_id).map(|t| t.cost)
     }
 
-    /// 推进一个逻辑 tick：消费命令、移动、战斗与炮塔转向。
+    /// 推进一个逻辑 tick（使用默认 [`SystemSchedule`]）。
     pub fn advance_tick(&mut self) {
+        self.advance_scheduled_tick(&crate::engine::SystemSchedule::standard());
+    }
+
+    /// 按调度表推进一个逻辑 tick（阶段顺序的唯一来源）。
+    pub fn advance_scheduled_tick(&mut self, schedule: &crate::engine::SystemSchedule) {
+        use crate::engine::SystemPhase;
+
         self.tick = self.tick.wrapping_add(1);
         let commands = std::mem::take(&mut self.pending_commands);
         self.last_input_frame = InputFrame { tick: self.tick, commands: commands.clone() };
         self.last_rejects.clear();
-        self.apply_commands(&commands);
-        self.advance_movement();
-        self.tick_hit_flash();
-        self.resolve_combat();
-        self.advance_turrets();
-        self.advance_refinery_income();
-        self.advance_production();
-        self.rehash();
+        for phase in &schedule.phases {
+            match *phase {
+                SystemPhase::ApplyCommands => self.apply_commands(&commands),
+                SystemPhase::Movement => self.advance_movement(),
+                SystemPhase::HitFlash => self.tick_hit_flash(),
+                SystemPhase::Combat => self.resolve_combat(),
+                SystemPhase::Turrets => self.advance_turrets(),
+                SystemPhase::RefineryIncome => self.advance_refinery_income(),
+                SystemPhase::Production => self.advance_production(),
+                SystemPhase::Rehash => self.rehash(),
+            }
+        }
     }
 
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。

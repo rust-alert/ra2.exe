@@ -65,4 +65,10 @@ impl SystemSchedule {
     pub fn contains(&self, phase: SystemPhase) -> bool {
         self.phases.contains(&phase)
     }
+
+    /// 去掉指定阶段（用于启停系统；其余顺序保持不变）。
+    pub fn without(mut self, phase: SystemPhase) -> Self {
+        self.phases.retain(|p| *p != phase);
+        self
+    }
 }

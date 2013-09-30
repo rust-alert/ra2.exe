@@ -6,5 +6,6 @@ mod input_frame;
 mod match_stats;
 mod pause;
 mod reject;
+mod schedule;
 mod session;
 mod victory_structures;

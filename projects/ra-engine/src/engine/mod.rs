@@ -91,6 +91,11 @@ impl Engine {
         &self.schedule
     }
 
+    /// 替换 tick 阶段计划（可省略阶段以关闭对应系统）。
+    pub fn set_schedule(&mut self, schedule: SystemSchedule) {
+        self.schedule = schedule;
+    }
+
     /// 引擎版本信息。
     pub fn version(&self) -> &EngineVersion {
         &self.version
