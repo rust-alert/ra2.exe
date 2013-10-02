@@ -50,6 +50,16 @@ pub struct TechnoDefinition {
     pub speed: u32,
     /// Owner 串。
     pub owner: String,
+    /// 视野（格）；缺省攻击射程回退用。
+    pub sight: u32,
+    /// 主武器伤害；0 表示未配置。
+    pub damage: u32,
+    /// 主武器射程（格）；0 表示未配置。
+    pub range: u32,
+    /// 射速间隔（tick）；0 表示未配置。
+    pub rof: u32,
+    /// 主武器弹头键；空表示未配置。
+    pub warhead: String,
 }
 
 /// Techno 定义表。
