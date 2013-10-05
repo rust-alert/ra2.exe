@@ -34,7 +34,7 @@ impl crate::state::MatchState {
     }
 
     pub(crate) fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
-        let Some(tt) = self.techno_types.get(type_id).cloned()
+        let Some(tt) = self.definitions.techno.get(type_id).cloned()
         else {
             return;
         };
@@ -50,11 +50,17 @@ impl crate::state::MatchState {
         else {
             return;
         };
-        let kind = match tt.kind {
-            TechnoKind::Infantry => MapEntityKind::Infantry,
-            TechnoKind::Vehicle => MapEntityKind::Unit,
-            TechnoKind::Aircraft => MapEntityKind::Aircraft,
-            TechnoKind::Building => return,
+        let kind = match tt.class {
+            ra_types::TechnoClass::Infantry => MapEntityKind::Infantry,
+            ra_types::TechnoClass::Vehicle => MapEntityKind::Unit,
+            ra_types::TechnoClass::Aircraft => MapEntityKind::Aircraft,
+            ra_types::TechnoClass::Building => return,
+        };
+        let techno_kind = match tt.class {
+            ra_types::TechnoClass::Infantry => TechnoKind::Infantry,
+            ra_types::TechnoClass::Vehicle => TechnoKind::Vehicle,
+            ra_types::TechnoClass::Aircraft => TechnoKind::Aircraft,
+            ra_types::TechnoClass::Building => return,
         };
         let max_health = tt.strength.max(1);
         let id = self.alloc_entity_id();
@@ -76,8 +82,8 @@ impl crate::state::MatchState {
             attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
             attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
             attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
-            attack_verses: verses_for(&self.warheads, &tt.warhead),
-            techno_kind: Some(tt.kind),
+            attack_verses: verses_for(&self.definitions, &tt.warhead),
+            techno_kind: Some(techno_kind),
             target_x: None,
             target_y: None,
             path: Vec::new(),

@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use ra_adaptor::{RulesDb, build_runtime_definitions};
-use ra_assets::{TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::TechnoKind;
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, Tick};
+use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass, Tick};
 
 use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -60,10 +60,6 @@ pub struct MatchState {
     pub local_player: PlayerId,
     /// 冻结运行时定义（adaptor 生成；玩法查询只走此表）。
     pub definitions: Arc<RuntimeDefinitions>,
-    /// 规则 techno 表（造价、生命等查询；逐步迁入 definitions.techno）。
-    pub(crate) techno_types: TechnoTypeRegistry,
-    /// 弹头 `Verses` 表（攻击结算）。
-    pub(crate) warheads: WarheadRegistry,
     /// 下一枚可分配的稳定实体 ID（从 1 起）。
     pub(crate) next_entity_id: u64,
     /// 下一枚可分配的命令 ID（从 1 起）。
@@ -81,6 +77,7 @@ impl MatchState {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
     pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);
+        let definitions = Arc::new(build_runtime_definitions(rules));
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let entities: Vec<WorldEntity> = map
@@ -90,7 +87,7 @@ impl MatchState {
                 if !house_order.iter().any(|h| h == &e.owner) {
                     house_order.push(e.owner.clone());
                 }
-                let tt = rules.techno_types.get(&e.type_id);
+                let tt = definitions.techno.get(&e.type_id);
                 let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
                 let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
                 let speed = tt.map(|t| t.speed).unwrap_or(0);
@@ -101,7 +98,8 @@ impl MatchState {
                 let attack_cooldown_max =
                     tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(ATTACK_COOLDOWN_TICKS);
                 let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-                let attack_verses = tt.map(|t| verses_for(&rules.warheads, &t.warhead)).unwrap_or_else(full_verses);
+                let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or_else(full_verses);
+                let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
                 let id = EntityId(next_entity_id);
                 next_entity_id = next_entity_id.saturating_add(1);
                 WorldEntity {
@@ -122,7 +120,7 @@ impl MatchState {
                     attack_damage,
                     attack_cooldown_max,
                     attack_verses,
-                    techno_kind: tt.map(|t| t.kind),
+                    techno_kind,
                     target_x: None,
                     target_y: None,
                     path: Vec::new(),
@@ -141,7 +139,6 @@ impl MatchState {
             .collect();
         let players: Vec<PlayerState> =
             house_order.into_iter().enumerate().map(|(i, house)| PlayerState::new(PlayerId(i as u8), house)).collect();
-        let definitions = Arc::new(build_runtime_definitions(rules));
         let mut world = Self {
             edition,
             tick: 0,
@@ -151,8 +148,6 @@ impl MatchState {
             players,
             local_player: PlayerId(0),
             definitions,
-            techno_types: rules.techno_types.clone(),
-            warheads: rules.warheads.clone(),
             next_entity_id,
             next_command_id: 1,
             pending_commands: Vec::new(),
@@ -230,7 +225,7 @@ impl MatchState {
 
     /// 查询规则造价；未知类型为 `None`。
     pub fn techno_cost(&self, type_id: &str) -> Option<u32> {
-        self.techno_types.get(type_id).map(|t| t.cost)
+        self.definitions.techno.get(type_id).map(|t| t.cost.max(0) as u32)
     }
 
     /// 推进一个逻辑 tick（使用默认 [`SystemSchedule`]）。
@@ -289,5 +284,14 @@ impl MatchState {
             }
         }
         self.rehash();
+    }
+}
+
+fn techno_class_to_kind(class: TechnoClass) -> TechnoKind {
+    match class {
+        TechnoClass::Infantry => TechnoKind::Infantry,
+        TechnoClass::Vehicle => TechnoKind::Vehicle,
+        TechnoClass::Aircraft => TechnoKind::Aircraft,
+        TechnoClass::Building => TechnoKind::Building,
     }
 }
