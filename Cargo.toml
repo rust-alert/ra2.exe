@@ -41,6 +41,7 @@ blowfish = "0.10.0"
 byteorder = "1"
 num-bigint = "0.4"
 base64 = "0.23.1"
+oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 
 [profile.release]
 opt-level = 3
