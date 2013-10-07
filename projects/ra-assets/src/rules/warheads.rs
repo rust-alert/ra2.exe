@@ -62,14 +62,11 @@ pub fn armor_index(armor: &str) -> usize {
 }
 
 fn parse_warhead(rules: &IniDocument, id: &str) -> Option<Warhead> {
-    let section_key = if rules.sections.contains_key(id) {
-        id.to_string()
+    if !rules.has_section(id) {
+        return None;
     }
-    else {
-        rules.sections.keys().find(|k| k.eq_ignore_ascii_case(id))?.clone()
-    };
     let mut verses = [100u32; 11];
-    if let Some(raw) = rules.get(&section_key, "Verses") {
+    if let Some(raw) = rules.get(id, "Verses") {
         for (i, part) in raw.split(',').enumerate().take(11) {
             let s = part.trim().trim_end_matches('%').trim();
             if let Ok(v) = s.parse::<u32>() {

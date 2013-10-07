@@ -15,12 +15,12 @@ pub struct TerrainObject {
 
 /// 解析 `[Terrain]`：键为 `y * 1000 + x`，值为物件类型名。
 pub fn parse_terrain_objects(doc: &IniDocument) -> Vec<TerrainObject> {
-    let Some(section) = doc.sections.get("Terrain")
+    let Some(section) = doc.section("Terrain")
     else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (key, value) in &section.order {
+    for (key, value) in section.pairs() {
         let Ok(pos) = key.parse::<u32>()
         else {
             continue;

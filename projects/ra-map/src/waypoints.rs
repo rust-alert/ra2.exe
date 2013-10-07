@@ -15,12 +15,12 @@ pub struct Waypoint {
 
 /// 解析 `[Waypoints]`：值为 `y * 1000 + x`（十进制）。
 pub fn parse_waypoints(doc: &IniDocument) -> Vec<Waypoint> {
-    let Some(section) = doc.sections.get("Waypoints")
+    let Some(section) = doc.section("Waypoints")
     else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (key, value) in &section.order {
+    for (key, value) in section.pairs() {
         let Ok(index) = key.parse::<u32>()
         else {
             continue;

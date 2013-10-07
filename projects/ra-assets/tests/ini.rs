@@ -1,9 +1,28 @@
-//! 集成测试：原 `src/ini.rs` 内联测试迁出。
+//! `IniDocument`（oak Westwood AST）行为。
 
-use ra_assets::*;
+use ra_assets::IniDocument;
 
 #[test]
 fn numbered_concat_sorts_numerically() {
     let doc = IniDocument::parse(b"[IsoMapPack5]\n10=C\n2=B\n1=A\n").unwrap();
     assert_eq!(doc.numbered_section_concat("IsoMapPack5").as_deref(), Some("ABC"));
+}
+
+#[test]
+fn lookup_is_case_insensitive_and_last_wins() {
+    let doc = IniDocument::parse(
+        b"[mtnk]\nStrength=1\n[Duplicate]\nKey=first\nKey=second\n",
+    )
+    .unwrap();
+    assert_eq!(doc.get("MTNK", "strength"), Some("1"));
+    assert_eq!(doc.get("Duplicate", "Key"), Some("second"));
+    let sec = doc.section("Duplicate").unwrap();
+    let values: Vec<_> = sec.pairs().map(|(_, v)| v).collect();
+    assert_eq!(values, ["first", "second"]);
+}
+
+#[test]
+fn preserves_list_values_with_commas() {
+    let doc = IniDocument::parse(b"[MTNK]\nOwner=Britishs,Americans\n").unwrap();
+    assert_eq!(doc.get("MTNK", "Owner"), Some("Britishs,Americans"));
 }

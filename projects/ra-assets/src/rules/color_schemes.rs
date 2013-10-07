@@ -15,11 +15,11 @@ impl ColorSchemes {
     /// 从 rules 文档解析；缺节则空表。
     pub fn from_rules(doc: &IniDocument) -> Self {
         let mut by_name = HashMap::new();
-        let Some(sec) = doc.sections.get("Colors")
+        let Some(sec) = doc.section("Colors")
         else {
             return Self { by_name };
         };
-        for (name, value) in &sec.order {
+        for (name, value) in sec.pairs() {
             if let Some(hsv) = parse_hsv(value) {
                 by_name.insert(name.to_ascii_uppercase(), hsv);
             }
@@ -38,9 +38,7 @@ impl ColorSchemes {
         if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
             return None;
         }
-        let scheme = rules.get(house, "Color").or_else(|| {
-            rules.sections.keys().find_map(|k| if k.eq_ignore_ascii_case(house) { rules.get(k, "Color") } else { None })
-        })?;
+        let scheme = rules.get(house, "Color")?;
         self.get(scheme)
     }
 

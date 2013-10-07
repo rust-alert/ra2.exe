@@ -47,11 +47,11 @@ pub fn parse_map_entities(doc: &IniDocument) -> Vec<MapEntity> {
 }
 
 fn parse_section(doc: &IniDocument, section: &str, kind: MapEntityKind, out: &mut Vec<MapEntity>) {
-    let Some(sec) = doc.sections.get(section)
+    let Some(sec) = doc.section(section)
     else {
         return;
     };
-    for (_key, value) in &sec.order {
+    for (_key, value) in sec.pairs() {
         if let Some(entity) = parse_line(kind, value) {
             out.push(entity);
         }

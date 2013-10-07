@@ -1,9 +1,6 @@
-//! INI：旧兼容解析 + 新通用文档 / oak 桥接。
+//! INI：`oak-ini` AST → 通用文档。
 
 mod document;
 mod from_oak;
-mod legacy;
 
-pub use document::{IniEntry, IniSectionNode, ParsedIniDocument, SourceId, SourceSpan};
-pub use from_oak::parse_with_oak;
-pub use legacy::{IniDocument, IniSection};
+pub use document::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};

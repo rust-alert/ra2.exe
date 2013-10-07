@@ -163,8 +163,7 @@ fn parse_factory_category(raw: &str) -> ProductionCategory {
 }
 
 fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
-    let section_key = resolve_section(doc, section)?;
-    doc.get(&section_key, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
 fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32> {
@@ -178,11 +177,4 @@ fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bo
         "no" | "false" | "0" => Some(false),
         _ => None,
     }
-}
-
-fn resolve_section(doc: &ra_assets::IniDocument, id: &str) -> Option<String> {
-    if doc.sections.contains_key(id) {
-        return Some(id.to_string());
-    }
-    doc.sections.keys().find(|k| k.eq_ignore_ascii_case(id)).cloned()
 }
