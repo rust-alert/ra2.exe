@@ -40,15 +40,10 @@ pub fn mo_layout_profile() -> ResourceProfile {
             "ra2md.mix",
             "multimd.mix",
             "thememd.mix",
-            "expandmo95.mix",
-            "expandmo96.mix",
-            "expandmo97.mix",
-            "expandmo99.mix",
+            // `expandmo*.mix` 由 adaptor 磁盘发现纳入 Expansion 层。
             "mapsmo03.mix",
             "multimo.mix",
             "movmo03.mix",
-            "expandmo98.mix",
-            "expandmo94.mix",
             "thememo.mix",
         ],
         nested_mix_files: &[
