@@ -1,0 +1,60 @@
+//! 原版产品页面（对玩家可见的 UI 页），与 `ra_engine::SessionPhase` 正交。
+//!
+//! 枚举值对齐 RA2/YR 主流程，不是自研「现代菜单」抽象。外观复刻原版；
+//! 实现仍用 wgpu / 现代输入。
+
+/// 当前顶层窗口内显示的**原版产品页**。
+///
+/// 不要与 [`ra_engine::SessionPhase`] 混用：页面可以没有会话，
+/// 结算页仍可持有已 `Finished` 的会话快照。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OriginalScreen {
+    /// 主菜单。
+    #[default]
+    MainMenu,
+    /// 单人游戏入口（战役 / 遭遇战 / 训练等）。
+    SinglePlayerMenu,
+    /// 遭遇战大厅（地图、槽位、规则）。
+    SkirmishLobby,
+    /// 网络游戏入口（Alpha 可见禁用）。
+    Network,
+    /// 加载过渡。
+    LoadScreen,
+    /// 对局中（含 HUD；输入 → 命令 → tick → 渲染）。
+    Match,
+    /// 结果 / 战报（不再推进 tick）。
+    Results,
+    /// 选项。
+    Options,
+}
+
+impl OriginalScreen {
+    /// 稳定短名（日志 / 标题 / 与 `ui-states.json` id 对齐）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MainMenu => "main_menu",
+            Self::SinglePlayerMenu => "single_player_menu",
+            Self::SkirmishLobby => "skirmish_lobby",
+            Self::Network => "network",
+            Self::LoadScreen => "load_screen",
+            Self::Match => "match",
+            Self::Results => "results",
+            Self::Options => "options",
+        }
+    }
+
+    /// 是否应对局输入生成 `GameCommand`。
+    pub fn accepts_match_commands(self) -> bool {
+        matches!(self, Self::Match)
+    }
+
+    /// 是否推进会话仿真时钟。
+    pub fn pumps_session(self) -> bool {
+        matches!(self, Self::Match)
+    }
+
+    /// 绘制是否依赖已创建的 `Session`。
+    pub fn requires_session(self) -> bool {
+        matches!(self, Self::Match | Self::Results)
+    }
+}
