@@ -1,4 +1,7 @@
 //! 单张 RGBA 精灵的纹理四边形绘制。
+//!
+//! **过渡用途**：预览底图等单图显示。完整内容运行应迁到 atlas / array + instance buffer，
+//! 禁止把「每对象一张纹理 + `replace_image`」扩展为长期单位/UI 模型。
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;

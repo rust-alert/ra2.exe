@@ -1,15 +1,27 @@
-//! 读取呈现快照，经现代 GPU（wgpu）绘制。
+//! 读取呈现投影，经现代 GPU（wgpu）绘制。
 //!
 //! 原生后端：DX12 / Vulkan / Metal。Wasm：WebGL2。
 //! 本 crate **故意不**实现 DirectDraw。
+//!
+//! # 架构阶段
+//!
+//! 当前仍是**快照驱动的 GPU 原型**（预览底图 + marker）。目标分层见模块
+//! [`world`] / [`frame`] / [`resources`] / [`pass`] / [`timings`]：
+//! `RenderWorld` → `FrameBuilder` → `PassGraph` → GPU batches。
+//! 「使用 wgpu」不等于已解决原版 CPU 软件合成卡顿；禁止在本 `Renderer` 上无限堆临时绘制函数当作完成。
 
 #![deny(missing_docs)]
 
 mod camera;
+mod frame;
 mod gpu;
 mod markers;
+mod pass;
+mod resources;
 mod rgba_image;
 mod sprite;
+mod timings;
+mod world;
 
 use std::sync::Arc;
 
@@ -17,26 +29,48 @@ use ra_engine::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
 use winit::window::Window;
 
-use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteGpu};
+use crate::camera::Camera;
+use crate::gpu::GpuContext;
+use crate::markers::MarkerGpu;
+use crate::sprite::SpriteGpu;
 
 /// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
+/// 帧构建器（投影 → `RenderWorld`）。
+pub use crate::frame::FrameBuilder;
+/// 渲染阶段图。
+pub use crate::pass::{PassGraph, RenderPassKind};
+/// GPU 资源缓存骨架。
+pub use crate::resources::RenderResourceCache;
 /// CPU 侧 RGBA 像素缓冲，可上传到 GPU 作为预览纹理。
 pub use crate::rgba_image::RgbaImage;
+/// 帧分段计时。
+pub use crate::timings::FrameTimings;
+/// 可复用渲染世界。
+pub use crate::world::RenderWorld;
 
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
 const CLEAR_COLOR: wgpu::Color = wgpu::Color { r: 0.04, g: 0.06, b: 0.09, a: 1.0 };
 
-/// wgpu 渲染器：管理 GPU 上下文、预览底图与快照单位标记。
+/// wgpu 渲染器：管理 surface 提交；长期应委托 `FrameBuilder` / `PassGraph`，而非堆砌临时 draw。
 pub struct Renderer {
     /// 累计已提交帧数（含无 GPU 时的空转计数）。
     pub frames: u64,
+    /// 最近一帧分段计时（由壳层可写入 simulation 段）。
+    pub timings: FrameTimings,
     gpu: Option<GpuContext>,
     preview: Option<RgbaImage>,
     sprite: Option<SpriteGpu>,
     markers: Option<MarkerGpu>,
     camera: Camera,
     camera_ready: bool,
+    /// 跨帧复用的渲染世界（R1）。
+    render_world: RenderWorld,
+    /// GPU 资源缓存（R1 骨架）。
+    resources: RenderResourceCache,
+    /// 阶段图（R1）。
+    passes: PassGraph,
+    frame_builder: FrameBuilder,
 }
 
 impl Renderer {
@@ -44,12 +78,17 @@ impl Renderer {
     pub fn new() -> Self {
         Self {
             frames: 0,
+            timings: FrameTimings::default(),
             gpu: None,
             preview: None,
             sprite: None,
             markers: None,
             camera: Camera { center_x: 0.0, center_y: 0.0, zoom: 1.0 },
             camera_ready: false,
+            render_world: RenderWorld::default(),
+            resources: RenderResourceCache::default(),
+            passes: PassGraph::prototype_default(),
+            frame_builder: FrameBuilder,
         }
     }
 
@@ -120,9 +159,20 @@ impl Renderer {
         self.camera_ready = true;
     }
 
-    /// 清屏：预览底图 + 快照单位标记。
+    /// 清屏：预览底图 + 快照单位标记（原型路径）。
+    ///
+    /// 先经 [`FrameBuilder`] 更新 [`RenderWorld`]，再走过渡期 sprite/marker 绘制。
+    /// 完整场景应扩展 [`PassGraph`] 与 instance batch，而不是在此继续堆临时绘制分支。
     pub fn draw_frame(&mut self, snap: Option<&RenderSnapshot>) {
         self.frames = self.frames.wrapping_add(1);
+        self.timings.clear();
+
+        if let Some(snap) = snap {
+            let build_start = std::time::Instant::now();
+            FrameBuilder::apply_full_snapshot(&mut self.render_world, snap);
+            self.timings.frame_build = Some(build_start.elapsed());
+            let _ = (&self.frame_builder, &self.resources, &self.passes);
+        }
 
         if !self.camera_ready {
             if let (Some(gpu), Some(sprite)) = (self.gpu.as_ref(), self.sprite.as_ref()) {
@@ -151,6 +201,7 @@ impl Renderer {
             markers.clear();
         }
 
+        let submit_start = std::time::Instant::now();
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -174,7 +225,18 @@ impl Renderer {
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
+        self.timings.gpu_submit = Some(submit_start.elapsed());
         gpu.queue.present(frame);
+    }
+
+    /// 只读访问可复用渲染世界。
+    pub fn render_world(&self) -> &RenderWorld {
+        &self.render_world
+    }
+
+    /// 只读访问阶段图。
+    pub fn pass_graph(&self) -> &PassGraph {
+        &self.passes
     }
 
     /// 当前 wgpu 后端标签；未绑定时返回 `"wgpu(pending)"`。
