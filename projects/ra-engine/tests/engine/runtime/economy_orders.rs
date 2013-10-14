@@ -51,12 +51,12 @@ fn order_deploy_and_place_power() {
     let mcv = session.expect_game().world.entities[0].id;
     session.expect_game_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game().world.entities[0].type_id, "GACNST");
+    assert_eq!(session.expect_game().world.entities[0].type_id.as_ref(), "GACNST");
     assert_eq!(session.expect_game().world.entities[0].kind, MapEntityKind::Structure);
     session.expect_game_mut().order_place_building("GAPOWR", 6, 4);
     session.tick(&engine.runtime());
     assert!(session.expect_game().world.last_rejects().is_empty());
-    assert_eq!(session.expect_game().world.entities[1].type_id, "GAPOWR");
+    assert_eq!(session.expect_game().world.entities[1].type_id.as_ref(), "GAPOWR");
     assert_eq!(session.expect_game().world.house_funds("Americans"), Some(10_000 - 600));
 }
 
@@ -87,7 +87,7 @@ fn order_rally_on_barracks() {
         .world
         .entities
         .iter()
-        .find(|e| e.type_id == "GAPILE")
+        .find(|e| e.type_id.as_ref() == "GAPILE")
         .map(|e| e.id)
         .expect("应有兵营");
     assert!(session.expect_game().selection_has_structure(&[barracks]));

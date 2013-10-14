@@ -52,8 +52,8 @@ fn place_power_deducts_funds_and_spawns_structure() {
     let power = &world.entities[1];
     assert_eq!(power.id, EntityId(2));
     assert_eq!(power.kind, MapEntityKind::Structure);
-    assert_eq!(power.type_id, "GAPOWR");
-    assert_eq!(power.owner, "Americans");
+    assert_eq!(power.type_id.as_ref(), "GAPOWR");
+    assert_eq!(power.owner.as_ref(), "Americans");
     assert_eq!((power.x, power.y), (6, 4));
     assert!(!world.pass_grid.is_passable(6, 4));
     assert_eq!(world.players[0].power_output, 200);
@@ -109,7 +109,7 @@ fn place_refinery_after_power_deducts_and_drains() {
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 - 2000));
-    assert_eq!(world.entities[2].type_id, "GAREFN");
+    assert_eq!(world.entities[2].type_id.as_ref(), "GAREFN");
     assert_eq!(world.players[0].power_output, 200);
     assert_eq!(world.players[0].power_drain, 50);
 }

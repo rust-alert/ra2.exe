@@ -105,8 +105,8 @@ impl MatchState {
                 WorldEntity {
                     id,
                     kind: e.kind,
-                    owner: e.owner.clone(),
-                    type_id: e.type_id.clone(),
+                    owner: Arc::<str>::from(e.owner.as_ref()),
+                    type_id: Arc::<str>::from(e.type_id.as_ref()),
                     x: e.x,
                     y: e.y,
                     facing: e.facing,
@@ -208,7 +208,7 @@ impl MatchState {
 
     /// 按 house 名称设置资金（启动与测试播种用）。
     pub fn set_house_funds(&mut self, house: &str, funds: i32) -> bool {
-        if let Some(player) = self.players.iter_mut().find(|p| p.house == house) {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
             player.funds = funds;
             self.rehash();
             true
@@ -220,7 +220,7 @@ impl MatchState {
 
     /// 按 house 名称读取资金。
     pub fn house_funds(&self, house: &str) -> Option<i32> {
-        self.players.iter().find(|p| p.house == house).map(|p| p.funds)
+        self.players.iter().find(|p| p.house.as_ref() == house).map(|p| p.funds)
     }
 
     /// 查询规则造价；未知类型为 `None`。

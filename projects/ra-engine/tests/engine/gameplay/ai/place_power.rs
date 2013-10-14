@@ -54,7 +54,7 @@ fn ai_places_power_near_yard() {
     let mut session = Session::from_state(world, "ai-power");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    let power = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAPOWR");
+    let power = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAPOWR");
     assert!(power.is_some(), "AI should place NAPOWR");
     let p = power.unwrap();
     let dist = (i32::from(p.x) - 8).unsigned_abs() + (i32::from(p.y) - 8).unsigned_abs();

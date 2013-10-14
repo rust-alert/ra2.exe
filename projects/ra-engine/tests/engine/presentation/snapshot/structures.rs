@@ -25,5 +25,5 @@ fn snapshot_includes_structures() {
     let snap = session.expect_game().snapshot(&[]);
     assert_eq!(snap.units.len(), 1);
     assert_eq!(snap.units[0].kind, MapEntityKind::Structure);
-    assert_eq!(snap.units[0].type_id, "GACNST");
+    assert_eq!(snap.units[0].type_id.as_ref(), "GACNST");
 }

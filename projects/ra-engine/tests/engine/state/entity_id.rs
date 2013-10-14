@@ -11,7 +11,7 @@ fn seeds_stable_entity_ids_and_players() {
     assert_eq!(world.entity_index(EntityId(2)), Some(1));
     assert_eq!(world.entity_index(EntityId(99)), None);
     assert_eq!(world.players.len(), 2);
-    assert_eq!(world.players[0].house, "Americans");
-    assert_eq!(world.players[1].house, "Russians");
+    assert_eq!(world.players[0].house.as_ref(), "Americans");
+    assert_eq!(world.players[1].house.as_ref(), "Russians");
     assert_eq!(world.players[0].funds, 0);
 }

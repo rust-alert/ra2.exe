@@ -70,8 +70,8 @@ fn produce_infantry_spawns_after_queue_ticks() {
     let unit = &world.entities[2];
     assert_eq!(unit.id, EntityId(3));
     assert_eq!(unit.kind, MapEntityKind::Infantry);
-    assert_eq!(unit.type_id, "E1");
-    assert_eq!(unit.owner, "Americans");
+    assert_eq!(unit.type_id.as_ref(), "E1");
+    assert_eq!(unit.owner.as_ref(), "Americans");
 }
 
 #[test]

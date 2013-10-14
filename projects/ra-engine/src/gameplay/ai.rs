@@ -16,7 +16,7 @@ pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> 
     }
     let mut out = Vec::new();
     for e in world.entities.iter() {
-        if e.dead || e.owner != house {
+        if e.dead || e.owner.as_ref() != house {
             continue;
         }
         if deploy_into_type(&world.definitions, &e.type_id).is_none() {
@@ -149,7 +149,7 @@ pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand>
     let mut out = Vec::new();
     for (attacker_index, attacker) in world.entities.iter().enumerate() {
         if attacker.dead
-            || attacker.owner != house
+            || attacker.owner.as_ref() != house
             || attacker.attack_damage == 0
             || attacker.attack_target.is_some()
             || !matches!(attacker.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
@@ -192,7 +192,7 @@ fn pick_techno<'a>(world: &'a MatchState, house: &str, category: ProductionCateg
 
 fn house_has_yard(world: &MatchState, house: &str) -> bool {
     world.entities.iter().any(|e| {
-        !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id)
+        !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id)
     })
 }
 
@@ -200,13 +200,13 @@ fn house_has_power(world: &MatchState, house: &str) -> bool {
     world
         .entities
         .iter()
-        .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_power_plant(&world.definitions, &e.type_id))
+        .any(|e| !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_power_plant(&world.definitions, &e.type_id))
 }
 
 fn house_has_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
     world.entities.iter().any(|e| {
         !e.dead
-            && e.owner == house
+            && e.owner.as_ref() == house
             && e.kind == MapEntityKind::Structure
             && factory_matches_category(&world.definitions, &e.type_id, category)
     })
@@ -215,7 +215,7 @@ fn house_has_factory(world: &MatchState, house: &str, category: ProductionCatego
 fn house_has_idle_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
     world.entities.iter().any(|e| {
         !e.dead
-            && e.owner == house
+            && e.owner.as_ref() == house
             && e.kind == MapEntityKind::Structure
             && e.produce_queue.is_none()
             && factory_matches_category(&world.definitions, &e.type_id, category)
@@ -226,12 +226,12 @@ fn house_has_refinery(world: &MatchState, house: &str) -> bool {
     world
         .entities
         .iter()
-        .any(|e| !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_refinery(&world.definitions, &e.type_id))
+        .any(|e| !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_refinery(&world.definitions, &e.type_id))
 }
 
 fn yard_cell(world: &MatchState, house: &str) -> Option<(u16, u16)> {
     world.entities.iter().find_map(|e| {
-        if !e.dead && e.owner == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id) {
+        if !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id) {
             Some((e.x, e.y))
         }
         else {
@@ -277,7 +277,7 @@ fn nearest_enemy(world: &MatchState, from: usize, house: &str) -> Option<usize> 
     let a = &world.entities[from];
     let mut best: Option<(u32, usize)> = None;
     for (i, e) in world.entities.iter().enumerate() {
-        if i == from || e.dead || e.owner == house {
+        if i == from || e.dead || e.owner.as_ref() == house {
             continue;
         }
         let dist = manhattan(a.x, a.y, e.x, e.y);

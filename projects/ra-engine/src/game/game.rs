@@ -60,7 +60,7 @@ pub enum SessionScreen {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotPlayer {
     /// 阵营 / 房主名称。
-    pub house: String,
+    pub house: std::sync::Arc<str>,
     /// 当前资金。
     pub funds: i32,
     /// 供电量。
@@ -77,7 +77,7 @@ pub struct SnapshotProduceQueue {
     /// 工厂实体的稳定 ID。
     pub factory: EntityId,
     /// 正在生产的类型 ID。
-    pub type_id: String,
+    pub type_id: std::sync::Arc<str>,
     /// 剩余 tick。
     pub remaining_ticks: u32,
     /// 集结格 X。
@@ -93,10 +93,10 @@ pub struct SnapshotUnit {
     pub id: EntityId,
     /// 实体种类（单位 / 步兵 / 飞行器）。
     pub kind: MapEntityKind,
-    /// 规则中的类型 ID。
-    pub type_id: String,
-    /// 所属阵营 owner 字符串。
-    pub owner: String,
+    /// 规则中的类型 ID（与权威实体共享 `Arc`）。
+    pub type_id: std::sync::Arc<str>,
+    /// 所属阵营 owner（与权威实体共享 `Arc`）。
+    pub owner: std::sync::Arc<str>,
     /// 地图格 X。
     pub x: u16,
     /// 地图格 Y。
@@ -363,14 +363,15 @@ impl Game {
     /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
     fn push_ai_commands(&mut self) {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone());
-        let opponents: Vec<(ra_types::PlayerId, String)> = self
+        let opponents: Vec<(ra_types::PlayerId, std::sync::Arc<str>)> = self
             .world
             .players
             .iter()
-            .filter(|p| local_house.as_ref().map(|h| &p.house != h).unwrap_or(true))
+            .filter(|p| local_house.as_ref().map(|h| p.house.as_ref() != h.as_ref()).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();
         for (player, house) in &opponents {
+            let house = house.as_ref();
             let mut cmds = Vec::new();
             cmds.extend(crate::gameplay::ai::deploy_mcv_commands(&self.world, house));
             cmds.extend(crate::gameplay::ai::place_power_commands(&self.world, house, *player));
@@ -542,7 +543,7 @@ impl Game {
             return None;
         }
         let mut owners: Vec<&str> =
-            self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_str()).collect();
+            self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_ref()).collect();
         owners.sort_unstable();
         owners.dedup();
         if owners.len() == 1 { Some(owners[0]) } else { None }

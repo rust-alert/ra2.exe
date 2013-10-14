@@ -67,9 +67,9 @@ fn ai_places_barracks_and_produces_infantry() {
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner == "Soviets" && e.type_id == "NAHAND"), "AI should place barracks");
+    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND"), "AI should place barracks");
     // 下一 tick 兵营空闲后排队生产。
     session.tick(&engine.runtime());
-    let hand = session.expect_game_mut().world.entities.iter().find(|e| e.owner == "Soviets" && e.type_id == "NAHAND").expect("barracks");
-    assert_eq!(hand.produce_queue.as_ref().map(|(id, _)| id.as_str()), Some("E2"));
+    let hand = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND").expect("barracks");
+    assert_eq!(hand.produce_queue.as_ref().map(|(id, _)| id.as_ref()), Some("E2"));
 }

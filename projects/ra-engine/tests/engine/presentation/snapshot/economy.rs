@@ -51,7 +51,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     assert_eq!(snap.players[0].power_drain, 20);
     assert!(!snap.players[0].low_power);
     assert_eq!(snap.produce_queues.len(), 1);
-    assert_eq!(snap.produce_queues[0].type_id, "E1");
+    assert_eq!(snap.produce_queues[0].type_id.as_ref(), "E1");
     assert!(snap.produce_queues[0].remaining_ticks > 0);
     assert!(snap.last_rejects.is_empty());
 

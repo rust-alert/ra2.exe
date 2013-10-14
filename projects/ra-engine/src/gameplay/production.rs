@@ -1,5 +1,6 @@
 //! 工厂生产队列、出厂与集结。
 
+use std::sync::Arc;
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 
@@ -11,7 +12,7 @@ use crate::{
 
 impl crate::state::MatchState {
     pub(crate) fn advance_production(&mut self) {
-        let mut spawns: Vec<(usize, String)> = Vec::new();
+        let mut spawns: Vec<(usize, Arc<str>)> = Vec::new();
         for (index, e) in self.entities.iter_mut().enumerate() {
             if e.dead {
                 continue;
@@ -29,7 +30,7 @@ impl crate::state::MatchState {
             spawns.push((index, type_id));
         }
         for (factory_index, type_id) in spawns {
-            self.spawn_produced_unit(factory_index, &type_id);
+            self.spawn_produced_unit(factory_index, type_id.as_ref());
         }
     }
 
@@ -69,7 +70,7 @@ impl crate::state::MatchState {
             id,
             kind,
             owner,
-            type_id: type_id.to_ascii_uppercase(),
+            type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
             x,
             y,
             facing: 0,
@@ -128,7 +129,7 @@ impl crate::state::MatchState {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
             !e.dead
-                && e.owner == house
+                && e.owner.as_ref() == house
                 && e.kind == MapEntityKind::Structure
                 && factory_matches_unit(&self.definitions, &e.type_id, class)
         })
@@ -138,7 +139,7 @@ impl crate::state::MatchState {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
             !e.dead
-                && e.owner == house
+                && e.owner.as_ref() == house
                 && e.kind == MapEntityKind::Structure
                 && e.produce_queue.is_none()
                 && factory_matches_unit(&self.definitions, &e.type_id, class)
