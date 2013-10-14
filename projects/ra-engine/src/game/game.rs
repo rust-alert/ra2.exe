@@ -549,6 +549,10 @@ impl Game {
     }
 
     /// 从当前世界与本地选中构建一帧呈现快照。
+    ///
+    /// **原型路径**：每次全表扫描并克隆 `type_id` / `owner` 等字符串，供桌面每显示帧调用。
+    /// 这不是长期方案。后续应改为脏实体 / 事件流 + 稳定资源句柄，见呈现层 `FrameBuilder` /
+    /// `RenderWorld` 方向；勿在热路径继续增加字符串字段。
     pub fn snapshot(&self, selected: &[EntityId]) -> RenderSnapshot {
         let units = self
             .world
