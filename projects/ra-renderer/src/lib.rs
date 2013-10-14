@@ -163,9 +163,15 @@ impl Renderer {
     ///
     /// 先经 [`FrameBuilder`] 更新 [`RenderWorld`]，再走过渡期 sprite/marker 绘制。
     /// 完整场景应扩展 [`PassGraph`] 与 instance batch，而不是在此继续堆临时绘制分支。
+    ///
+    /// 保留调用方已写入的 `timings.simulation` / `presentation_build`。
     pub fn draw_frame(&mut self, snap: Option<&RenderSnapshot>) {
         self.frames = self.frames.wrapping_add(1);
+        let keep_sim = self.timings.simulation;
+        let keep_pres = self.timings.presentation_build;
         self.timings.clear();
+        self.timings.simulation = keep_sim;
+        self.timings.presentation_build = keep_pres;
 
         if let Some(snap) = snap {
             let build_start = std::time::Instant::now();
