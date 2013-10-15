@@ -24,6 +24,7 @@ pub use game::{
     MatchOutcome, MatchStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
     decode_command, decode_commands, decode_scheduled, encode_command, encode_commands, encode_scheduled,
 };
+pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_skirmish_session};
 pub use state::{
     ATTACK_COOLDOWN_TICKS, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, HIT_FLASH_TICKS, MatchState,

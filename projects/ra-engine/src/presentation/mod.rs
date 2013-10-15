@@ -2,6 +2,9 @@
 
 mod animation;
 mod audio;
+mod dirty;
 mod hud;
 mod render;
 mod snapshot;
+
+pub use dirty::DirtyEntitySet;
