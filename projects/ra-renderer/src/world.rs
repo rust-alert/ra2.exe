@@ -22,6 +22,12 @@ pub struct RenderUnit {
     pub dead: bool,
     /// 是否本地选中。
     pub selected: bool,
+    /// 已烘焙的标记颜色（含阵营哈希与动画着色），避免绘制时再读字符串。
+    pub color: [f32; 4],
+    /// 当前生命。
+    pub health: u32,
+    /// 最大生命。
+    pub max_health: u32,
 }
 
 /// 当前可视对象的渲染侧状态（跨帧复用）。

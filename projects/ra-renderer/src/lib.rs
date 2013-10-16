@@ -179,6 +179,9 @@ impl Renderer {
             self.timings.frame_build = Some(build_start.elapsed());
             let _ = (&self.frame_builder, &self.resources, &self.passes);
         }
+        else {
+            self.render_world.clear_units();
+        }
 
         if !self.camera_ready {
             if let (Some(gpu), Some(sprite)) = (self.gpu.as_ref(), self.sprite.as_ref()) {
@@ -200,11 +203,19 @@ impl Renderer {
         if let Some(sprite) = self.sprite.as_ref() {
             sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
         }
-        if let (Some(markers), Some(snap)) = (self.markers.as_mut(), snap) {
-            markers.write_from_snapshot(&gpu.queue, snap, &self.camera, gpu.config.width, gpu.config.height);
-        }
-        else if let Some(markers) = self.markers.as_mut() {
-            markers.clear();
+        if let Some(markers) = self.markers.as_mut() {
+            if self.render_world.unit_count() > 0 {
+                markers.write_from_world(
+                    &gpu.queue,
+                    &self.render_world,
+                    &self.camera,
+                    gpu.config.width,
+                    gpu.config.height,
+                );
+            }
+            else {
+                markers.clear();
+            }
         }
 
         let submit_start = std::time::Instant::now();
