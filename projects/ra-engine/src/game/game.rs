@@ -549,11 +549,54 @@ impl Game {
         if owners.len() == 1 { Some(owners[0]) } else { None }
     }
 
+    /// 将指定实体投影为呈现用 `SnapshotUnit`（跳过非战斗可视种类）。
+    ///
+    /// 供脏集增量路径使用。不存在的 ID 被跳过。
+    pub fn project_units(&self, ids: &[EntityId]) -> Vec<SnapshotUnit> {
+        let mut out = Vec::with_capacity(ids.len());
+        for &id in ids {
+            let Some(index) = self.world.entity_index(id)
+            else {
+                continue;
+            };
+            let e = &self.world.entities[index];
+            if !matches!(
+                e.kind,
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+            ) {
+                continue;
+            }
+            out.push(self.project_entity(e));
+        }
+        out
+    }
+
+    fn project_entity(&self, e: &crate::WorldEntity) -> SnapshotUnit {
+        let z = self.world.pass_grid.cell_height(e.x, e.y);
+        let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
+        SnapshotUnit {
+            id: e.id,
+            kind: e.kind,
+            type_id: e.type_id.clone(),
+            owner: e.owner.clone(),
+            x: e.x,
+            y: e.y,
+            screen_x: sx - self.preview_origin_x,
+            screen_y: sy - self.preview_origin_y,
+            facing: e.facing,
+            turret_facing: e.turret_facing,
+            hva_frame: e.hva_frame,
+            anim_state: derive_anim_state(e),
+            health: e.health,
+            max_health: e.max_health,
+            dead: e.dead,
+        }
+    }
+
     /// 从当前世界与本地选中构建一帧呈现快照。
     ///
-    /// **原型路径**：每次全表扫描并克隆 `type_id` / `owner` 等字符串，供桌面每显示帧调用。
-    /// 这不是长期方案。后续应改为脏实体 / 事件流 + 稳定资源句柄，见呈现层 `FrameBuilder` /
-    /// `RenderWorld` 方向；勿在热路径继续增加字符串字段。
+    /// **原型路径**：每次全表扫描。单位投影经 [`Self::project_entity`]；
+    /// 增量路径请优先使用脏集 + [`Self::project_units`]。
     pub fn snapshot(&self, selected: &[EntityId]) -> RenderSnapshot {
         let units = self
             .world
@@ -565,27 +608,7 @@ impl Game {
                     MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
                 )
             })
-            .map(|e| {
-                let z = self.world.pass_grid.cell_height(e.x, e.y);
-                let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
-                SnapshotUnit {
-                    id: e.id,
-                    kind: e.kind,
-                    type_id: e.type_id.clone(),
-                    owner: e.owner.clone(),
-                    x: e.x,
-                    y: e.y,
-                    screen_x: sx - self.preview_origin_x,
-                    screen_y: sy - self.preview_origin_y,
-                    facing: e.facing,
-                    turret_facing: e.turret_facing,
-                    hva_frame: e.hva_frame,
-                    anim_state: derive_anim_state(e),
-                    health: e.health,
-                    max_health: e.max_health,
-                    dead: e.dead,
-                }
-            })
+            .map(|e| self.project_entity(e))
             .collect();
         let players = self
             .world
