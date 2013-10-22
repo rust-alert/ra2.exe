@@ -15,6 +15,7 @@ use winit::{
 use crate::{
     boot::{BootResult, boot_from_install},
     match_ctrl::{MatchController, MatchNav},
+    menu_view::{MenuAction, MenuLayout, layout_for},
     screen::OriginalScreen,
 };
 
@@ -35,6 +36,10 @@ pub struct AppShell {
     auto_start_skirmish: bool,
     /// 装载完成后待切到的目标页。
     pending_after_load: Option<OriginalScreen>,
+    /// 当前前置页占位菜单（对局页为 `None`）。
+    menu: Option<MenuLayout>,
+    /// 光标位置（菜单命中用）。
+    cursor: (f64, f64),
 }
 
 impl AppShell {
@@ -70,6 +75,8 @@ impl AppShell {
             test_scene,
             auto_start_skirmish: false,
             pending_after_load: None,
+            menu: None,
+            cursor: (0.0, 0.0),
         }
     }
 
@@ -80,13 +87,15 @@ impl AppShell {
             screen: OriginalScreen::MainMenu,
             match_ctrl: None,
             renderer: Renderer::new(),
-            banner: "单人 Enter · 网络 N（禁用）· 选项 O · Esc 退出".into(),
+            banner: "点击色块或键盘 · 占位非原版资产".into(),
             window_width,
             window_height,
             status_path: None,
             test_scene: None,
             auto_start_skirmish,
             pending_after_load: None,
+            menu: None,
+            cursor: (0.0, 0.0),
         }
     }
 
@@ -94,7 +103,41 @@ impl AppShell {
         if self.screen != next {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
+            self.refresh_menu_backdrop();
             self.refresh_shell_title();
+        }
+    }
+
+    fn refresh_menu_backdrop(&mut self) {
+        let w = self.window_width.max(1.0) as u32;
+        let h = self.window_height.max(1.0) as u32;
+        if let Some(layout) = layout_for(self.screen, w, h) {
+            self.renderer.set_preview(layout.image.clone());
+            self.menu = Some(layout);
+        }
+        else {
+            self.menu = None;
+        }
+    }
+
+    fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
+        match action {
+            MenuAction::OpenSinglePlayer => self.set_screen(OriginalScreen::SinglePlayerMenu),
+            MenuAction::OpenNetwork => {
+                tracing::info!("网络入口未开放（Beta）");
+                self.set_screen(OriginalScreen::Network);
+            }
+            MenuAction::OpenOptions => self.set_screen(OriginalScreen::Options),
+            MenuAction::Exit => event_loop.exit(),
+            MenuAction::OpenSkirmish => self.set_screen(OriginalScreen::SkirmishLobby),
+            MenuAction::Back => match self.screen {
+                OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options => {
+                    self.set_screen(OriginalScreen::MainMenu);
+                }
+                OriginalScreen::SkirmishLobby => self.set_screen(OriginalScreen::SinglePlayerMenu),
+                _ => self.set_screen(OriginalScreen::MainMenu),
+            },
+            MenuAction::StartSkirmish => self.begin_skirmish_load(),
         }
     }
 
@@ -195,7 +238,7 @@ impl AppShell {
             }
             MatchNav::ToResults => self.set_screen(OriginalScreen::Results),
             MatchNav::ToMainMenu => {
-                self.banner = "单人 Enter · 网络 N（禁用）· 选项 O · Esc 退出".into();
+                self.banner = "点击色块或键盘 · 占位非原版资产".into();
                 self.set_screen(OriginalScreen::MainMenu);
             }
         }
@@ -258,9 +301,12 @@ impl AppShell {
             }
         }
         else {
-            // 主菜单等前置页：不依赖 Session；原版资产接线前仅清帧 + 标题导航。
+            // 主菜单等前置页：占位色块底图 + 标题。原版 SHP 资产未接前不冒充交付完成。
             self.renderer.timings.simulation = None;
             self.renderer.timings.presentation_build = None;
+            if self.menu.is_none() {
+                self.refresh_menu_backdrop();
+            }
             self.renderer.draw_frame(None);
             self.refresh_shell_title();
         }
@@ -297,6 +343,7 @@ impl ApplicationHandler for AppShell {
             );
         }
         self.window = Some(window);
+        self.refresh_menu_backdrop();
         self.refresh_shell_title();
         if self.auto_start_skirmish {
             self.auto_start_skirmish = false;
@@ -338,10 +385,28 @@ impl ApplicationHandler for AppShell {
             | OriginalScreen::Network
             | OriginalScreen::Options
             | OriginalScreen::LoadScreen => {
-                if let WindowEvent::KeyboardInput { event: key_ev, .. } = &event {
-                    if key_ev.state == ElementState::Pressed {
-                        self.handle_pre_game_key(event_loop, key_ev.physical_key);
+                match &event {
+                    WindowEvent::CursorMoved { position, .. } => {
+                        self.cursor = (position.x, position.y);
                     }
+                    WindowEvent::MouseInput {
+                        state: ElementState::Released,
+                        button: winit::event::MouseButton::Left,
+                        ..
+                    } => {
+                        if let Some(menu) = &self.menu {
+                            if let Some(action) = menu.hit(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+                            {
+                                self.apply_menu_action(event_loop, action);
+                            }
+                        }
+                    }
+                    WindowEvent::KeyboardInput { event: key_ev, .. } => {
+                        if key_ev.state == ElementState::Pressed {
+                            self.handle_pre_game_key(event_loop, key_ev.physical_key);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }

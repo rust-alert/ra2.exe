@@ -12,6 +12,7 @@ mod config;
 mod fs_source;
 mod local_player;
 mod match_ctrl;
+mod menu_view;
 mod screen;
 mod shell;
 #[cfg(feature = "test-harness")]
