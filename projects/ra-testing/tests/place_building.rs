@@ -16,6 +16,6 @@ fn place_power_through_session_deducts_funds() {
     assert_eq!(case.session.expect_game_mut().world.house_funds(slice.human_house), Some(before - 600));
     assert_eq!(case.session.expect_game_mut().world.entities.len(), 2);
     assert_eq!(case.session.expect_game_mut().world.entities[1].kind, MapEntityKind::Structure);
-    assert_eq!(case.session.expect_game_mut().world.entities[1].type_id, "GAPOWR");
+    assert_eq!(case.session.expect_game_mut().world.entities[1].type_id.as_ref(), "GAPOWR");
     assert_eq!(case.session.expect_game_mut().world.players[0].power_output, 200);
 }
