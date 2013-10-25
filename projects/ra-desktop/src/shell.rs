@@ -87,7 +87,7 @@ impl AppShell {
             screen: OriginalScreen::MainMenu,
             match_ctrl: None,
             renderer: Renderer::new(),
-            banner: "点击色块或键盘 · 占位非原版资产".into(),
+            banner: "占位色块菜单 · 非 Pre-Alpha 原版 UI".into(),
             window_width,
             window_height,
             status_path: None,
@@ -238,7 +238,7 @@ impl AppShell {
             }
             MatchNav::ToResults => self.set_screen(OriginalScreen::Results),
             MatchNav::ToMainMenu => {
-                self.banner = "点击色块或键盘 · 占位非原版资产".into();
+                self.banner = "占位色块菜单 · 非 Pre-Alpha 原版 UI".into();
                 self.set_screen(OriginalScreen::MainMenu);
             }
         }
