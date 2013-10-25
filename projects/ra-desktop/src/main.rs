@@ -10,6 +10,7 @@
 mod boot;
 mod config;
 mod fs_source;
+mod load_job;
 mod local_player;
 mod match_ctrl;
 mod menu_view;

@@ -13,7 +13,8 @@ use winit::{
 };
 
 use crate::{
-    boot::{BootResult, boot_from_install},
+    boot::BootResult,
+    load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
     menu_view::{MenuAction, MenuLayout, layout_for},
     screen::OriginalScreen,
@@ -40,6 +41,8 @@ pub struct AppShell {
     menu: Option<MenuLayout>,
     /// 光标位置（菜单命中用）。
     cursor: (f64, f64),
+    /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
+    load_job: Option<LoadJob>,
 }
 
 impl AppShell {
@@ -77,6 +80,7 @@ impl AppShell {
             pending_after_load: None,
             menu: None,
             cursor: (0.0, 0.0),
+            load_job: None,
         }
     }
 
@@ -96,6 +100,7 @@ impl AppShell {
             pending_after_load: None,
             menu: None,
             cursor: (0.0, 0.0),
+            load_job: None,
         }
     }
 
@@ -162,38 +167,42 @@ impl AppShell {
     }
 
     fn begin_skirmish_load(&mut self) {
+        if self.load_job.is_some() {
+            tracing::warn!("装载已在进行，忽略重复开始");
+            return;
+        }
         self.banner = "正在探测安装并装载…".into();
         self.pending_after_load = Some(OriginalScreen::Match);
         self.set_screen(OriginalScreen::LoadScreen);
-        // 同步装载（第一阶段）；后续可迁到后台任务。
-        let boot = if let Some(scene) = self.test_scene.clone() {
-            #[cfg(feature = "test-harness")]
-            {
-                match crate::test_boot::boot_scene(&scene) {
-                    Ok(t) => BootResult {
-                        note: t.note,
-                        engine: Some(t.engine),
-                        session: Some(t.session),
-                        preview: t.preview,
-                    },
-                    Err(e) => BootResult {
-                        note: format!("装载失败: {e}"),
-                        engine: None,
-                        session: None,
-                        preview: None,
-                    },
-                }
-            }
-            #[cfg(not(feature = "test-harness"))]
-            {
-                let _ = scene;
-                boot_from_install()
+        #[cfg(feature = "test-harness")]
+        {
+            if let Some(scene) = self.test_scene.clone() {
+                self.load_job = Some(LoadJob::start_test_scene(scene));
+                return;
             }
         }
+        self.load_job = Some(LoadJob::start_install_boot());
+    }
+
+    fn poll_load_job(&mut self) {
+        let Some(job) = self.load_job.as_ref()
         else {
-            boot_from_install()
+            return;
         };
-        self.finish_load(boot);
+        match job.try_take() {
+            Ok(Some(boot)) => {
+                self.load_job = None;
+                self.finish_load(boot);
+            }
+            Ok(None) => {
+                // 仍在装载：保持 LoadScreen，事件循环可继续 redraw。
+            }
+            Err(()) => {
+                self.load_job = None;
+                self.banner = "装载线程异常断开 · Enter 重试".into();
+                self.set_screen(OriginalScreen::SkirmishLobby);
+            }
+        }
     }
 
     fn finish_load(&mut self, boot: BootResult) {
@@ -227,14 +236,7 @@ impl AppShell {
             MatchNav::None => {}
             MatchNav::Rematch => {
                 self.banner = "重开…".into();
-                self.pending_after_load = Some(OriginalScreen::Match);
-                self.set_screen(OriginalScreen::LoadScreen);
-                let boot = self
-                    .match_ctrl
-                    .as_ref()
-                    .map(|c| c.boot_again())
-                    .unwrap_or_else(boot_from_install);
-                self.finish_load(boot);
+                self.begin_skirmish_load();
             }
             MatchNav::ToResults => self.set_screen(OriginalScreen::Results),
             MatchNav::ToMainMenu => {
@@ -304,6 +306,9 @@ impl AppShell {
             // 主菜单等前置页：占位色块底图 + 标题。原版 SHP 资产未接前不冒充交付完成。
             self.renderer.timings.simulation = None;
             self.renderer.timings.presentation_build = None;
+            if self.screen == OriginalScreen::LoadScreen {
+                self.poll_load_job();
+            }
             if self.menu.is_none() {
                 self.refresh_menu_backdrop();
             }

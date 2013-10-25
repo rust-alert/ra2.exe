@@ -58,7 +58,8 @@ pub struct MatchController {
     title_base: String,
     /// 测试状态旁路文件。
     status_path: Option<PathBuf>,
-    /// 测试场景名（重开用）。
+    /// 测试场景名（重开用；当前由外壳 `LoadJob` 持有同名副本）。
+    #[allow(dead_code)]
     test_scene: Option<String>,
 }
 
@@ -118,7 +119,8 @@ impl MatchController {
         }
     }
 
-    /// 按当前路径再装载一局。
+    /// 按当前路径再装载一局（同步；事件循环内请改走 `LoadJob`）。
+    #[allow(dead_code)]
     pub fn boot_again(&self) -> BootResult {
         #[cfg(feature = "test-harness")]
         {
