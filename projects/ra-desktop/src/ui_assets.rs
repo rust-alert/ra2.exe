@@ -1,6 +1,6 @@
 //! 主菜单阶段的原版资源探测：证明进入对局前即可 MixVfs → SHP → RGBA。
 //!
-//! **不是 Pre-Alpha 原版 UI。** 只验证安装挂载与常见 UI SHP 可读；
+//! **不是 Pre-Alpha 原版 UI。** 只验证安装挂载与常见 UI SHP / `ui.ini` 可读；
 //! 页面布局、字体、命中框仍由占位菜单负责。
 
 use ra_adaptor::detect_edition;
@@ -10,15 +10,32 @@ use ra_types::{AssetSource, GameEdition};
 
 use crate::{config::load_desktop_config_with_diagnostics, fs_source::GameAssetSource};
 
-/// 一次主菜单资源探测结果。
+/// 一次主菜单资源探测结果（保留挂载源供后续 UI 帧复用）。
 pub struct MenuUiProbe {
     /// 人类可读备注（标题栏 / 日志）。
     pub note: String,
     /// `mouse.shp` 第一帧（若成功）。
     pub mouse_frame: Option<RgbaImage>,
+    /// `clock.shp` 第一帧（若成功；证明挂载源可续读）。
+    pub clock_frame: Option<RgbaImage>,
+    /// 已挂载的安装资源（探测失败时为 `None`）。
+    pub source: Option<GameAssetSource>,
+    /// 版本链上的 UI 配置文件名（如 `ui.ini` / `uimd.ini`）。
+    pub ui_ini_name: Option<&'static str>,
+    /// 上述文件是否可读（仅存在性，尚未解析语义）。
+    pub ui_ini_readable: bool,
 }
 
-/// 按桌面配置探测安装并尝试解码 `mouse.shp`。
+impl MenuUiProbe {
+    /// 用已挂载源再解一帧 SHP（调色板默认 `unittem.pal`）。
+    #[allow(dead_code)]
+    pub fn decode_shp_frame(&self, shp_name: &str) -> Option<RgbaImage> {
+        let source = self.source.as_ref()?;
+        decode_named_shp_frame(source, "unittem.pal", shp_name)
+    }
+}
+
+/// 按桌面配置探测安装并尝试解码 `mouse.shp`、探测 `ui.ini`。
 pub fn probe_menu_ui_assets() -> MenuUiProbe {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
@@ -28,26 +45,49 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     let manifest = match detect_edition(&cfg.ra2_dir, explicit) {
         Ok(m) => m,
         Err(e) => {
-            return MenuUiProbe { note: format!("UI 资源探测失败: {e}"), mouse_frame: None };
+            return MenuUiProbe {
+                note: format!("UI 资源探测失败: {e}"),
+                mouse_frame: None,
+                clock_frame: None,
+                source: None,
+                ui_ini_name: None,
+                ui_ini_readable: false,
+            };
         }
     };
 
+    let ui_ini_name = Some(manifest.chain.ui_ini);
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let mounted_nested = source.mount_nested_names(manifest.chain.nested_mix_files);
 
+    let ui_ini_readable = source.read(manifest.chain.ui_ini).is_ok();
     let mouse_frame = decode_named_shp_frame(&source, "unittem.pal", "mouse.shp");
+    let clock_frame = decode_named_shp_frame(&source, "unittem.pal", "clock.shp");
+    let ui_bit = if ui_ini_readable {
+        format!("{} ok", manifest.chain.ui_ini)
+    }
+    else {
+        format!("{} missing", manifest.chain.ui_ini)
+    };
     let note = match &mouse_frame {
         Some(img) => format!(
-            "UI 探测 ok · mouse.shp {}×{} · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
-            img.width, img.height, mounted_root, mounted_nested
+            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
+            img.width, img.height, ui_bit, mounted_root, mounted_nested
         ),
         None => format!(
-            "UI 探测：未读到 mouse.shp · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
-            mounted_root, mounted_nested
+            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {} · 占位菜单仍非 Pre-Alpha",
+            ui_bit, mounted_root, mounted_nested
         ),
     };
-    MenuUiProbe { note, mouse_frame }
+    MenuUiProbe {
+        note,
+        mouse_frame,
+        clock_frame,
+        source: Some(source),
+        ui_ini_name,
+        ui_ini_readable,
+    }
 }
 
 fn decode_named_shp_frame(source: &GameAssetSource, pal_name: &str, shp_name: &str) -> Option<RgbaImage> {
@@ -68,6 +108,18 @@ pub fn stamp_top_right(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
     }
     let ox = dst.width.saturating_sub(src.width.saturating_add(margin));
     let oy = margin.min(dst.height.saturating_sub(1));
+    stamp_at(dst, src, ox, oy);
+}
+
+/// 将 `src` 贴到 `dst` 左上角。
+pub fn stamp_top_left(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
+    if src.width == 0 || src.height == 0 || dst.width == 0 || dst.height == 0 {
+        return;
+    }
+    stamp_at(dst, src, margin, margin);
+}
+
+fn stamp_at(dst: &mut RgbaImage, src: &RgbaImage, ox: u32, oy: u32) {
     for sy in 0..src.height {
         let dy = oy.saturating_add(sy);
         if dy >= dst.height {
