@@ -4,7 +4,7 @@
 //! 页面布局、字体、命中框仍由占位菜单负责。
 
 use ra_adaptor::detect_edition;
-use ra_assets::{Palette, ShpFile};
+use ra_assets::{IniDocument, Palette, ShpFile};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition};
 
@@ -22,8 +22,10 @@ pub struct MenuUiProbe {
     pub source: Option<GameAssetSource>,
     /// 版本链上的 UI 配置文件名（如 `ui.ini` / `uimd.ini`）。
     pub ui_ini_name: Option<&'static str>,
-    /// 上述文件是否可读（仅存在性，尚未解析语义）。
+    /// 上述文件是否可读（仅存在性）。
     pub ui_ini_readable: bool,
+    /// 已解析的 UI INI 文档（有字节且解析成功时）。
+    pub ui_ini: Option<IniDocument>,
 }
 
 impl MenuUiProbe {
@@ -52,6 +54,7 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
                 source: None,
                 ui_ini_name: None,
                 ui_ini_readable: false,
+                ui_ini: None,
             };
         }
     };
@@ -61,14 +64,21 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let mounted_nested = source.mount_nested_names(manifest.chain.nested_mix_files);
 
-    let ui_ini_readable = source.read(manifest.chain.ui_ini).is_ok();
+    let ui_ini_bytes = source.read(manifest.chain.ui_ini).ok();
+    let ui_ini_readable = ui_ini_bytes.is_some();
+    let ui_ini = ui_ini_bytes.as_ref().and_then(|b| match IniDocument::parse(b) {
+        Ok(doc) => Some(doc),
+        Err(e) => {
+            tracing::warn!("UI INI 解析失败 {}: {e}", manifest.chain.ui_ini);
+            None
+        }
+    });
     let mouse_frame = decode_named_shp_frame(&source, "unittem.pal", "mouse.shp");
     let clock_frame = decode_named_shp_frame(&source, "unittem.pal", "clock.shp");
-    let ui_bit = if ui_ini_readable {
-        format!("{} ok", manifest.chain.ui_ini)
-    }
-    else {
-        format!("{} missing", manifest.chain.ui_ini)
+    let ui_bit = match (&ui_ini, ui_ini_readable) {
+        (Some(doc), _) => format!("{} sections={}", manifest.chain.ui_ini, doc.sections.len()),
+        (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
+        (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
     let note = match &mouse_frame {
         Some(img) => format!(
@@ -87,6 +97,7 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
         source: Some(source),
         ui_ini_name,
         ui_ini_readable,
+        ui_ini,
     }
 }
 

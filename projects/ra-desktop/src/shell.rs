@@ -117,6 +117,7 @@ impl AppShell {
         tracing::info!(
             ui_ini = ?probe.ui_ini_name,
             ui_ini_ok = probe.ui_ini_readable,
+            ui_sections = probe.ui_ini.as_ref().map(|d| d.sections.len()),
             has_source = probe.source.is_some(),
             "{}",
             probe.note
