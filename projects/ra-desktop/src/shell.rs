@@ -118,6 +118,7 @@ impl AppShell {
             ui_ini = ?probe.ui_ini_name,
             ui_ini_ok = probe.ui_ini_readable,
             ui_sections = probe.ui_ini.as_ref().map(|d| d.sections.len()),
+            ui_shp_refs = probe.ui_ini_shp_refs.len(),
             has_source = probe.source.is_some(),
             "{}",
             probe.note

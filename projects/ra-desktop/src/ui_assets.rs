@@ -26,6 +26,8 @@ pub struct MenuUiProbe {
     pub ui_ini_readable: bool,
     /// 已解析的 UI INI 文档（有字节且解析成功时）。
     pub ui_ini: Option<IniDocument>,
+    /// 从 UI INI 抽出的 `.shp` 名（通常为空；零售菜单不在此文件）。
+    pub ui_ini_shp_refs: Vec<String>,
 }
 
 impl MenuUiProbe {
@@ -55,6 +57,7 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
                 ui_ini_name: None,
                 ui_ini_readable: false,
                 ui_ini: None,
+                ui_ini_shp_refs: Vec::new(),
             };
         }
     };
@@ -73,10 +76,16 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
             None
         }
     });
+    let ui_ini_shp_refs = ui_ini.as_ref().map(|d| d.collect_shp_refs()).unwrap_or_default();
     let mouse_frame = decode_named_shp_frame(&source, "unittem.pal", "mouse.shp");
     let clock_frame = decode_named_shp_frame(&source, "unittem.pal", "clock.shp");
     let ui_bit = match (&ui_ini, ui_ini_readable) {
-        (Some(doc), _) => format!("{} sections={}", manifest.chain.ui_ini, doc.sections.len()),
+        (Some(doc), _) => format!(
+            "{} sections={} shp_refs={}",
+            manifest.chain.ui_ini,
+            doc.sections.len(),
+            ui_ini_shp_refs.len()
+        ),
         (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
@@ -90,6 +99,9 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
             ui_bit, mounted_root, mounted_nested
         ),
     };
+    if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
+        tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
+    }
     MenuUiProbe {
         note,
         mouse_frame,
@@ -98,6 +110,7 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
         ui_ini_name,
         ui_ini_readable,
         ui_ini,
+        ui_ini_shp_refs,
     }
 }
 
