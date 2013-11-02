@@ -17,6 +17,7 @@ mod menu_view;
 mod screen;
 mod shell;
 mod ui_assets;
+mod ui_slots;
 #[cfg(feature = "test-harness")]
 mod test_boot;
 
