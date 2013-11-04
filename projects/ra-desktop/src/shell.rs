@@ -44,6 +44,8 @@ pub struct AppShell {
     cursor: (f64, f64),
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
+    /// 当前装载开始时刻（脉搏标题用）。
+    load_started: Option<Instant>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
 }
@@ -84,6 +86,7 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            load_started: None,
             ui_probe: None,
         }
     }
@@ -105,6 +108,7 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            load_started: None,
             ui_probe: None,
         }
     }
@@ -206,6 +210,7 @@ impl AppShell {
         self.banner = "正在探测安装并装载…".into();
         self.pending_after_load = Some(OriginalScreen::Match);
         self.set_screen(OriginalScreen::LoadScreen);
+        self.load_started = Some(Instant::now());
         #[cfg(feature = "test-harness")]
         {
             if let Some(scene) = self.test_scene.clone() {
@@ -224,13 +229,23 @@ impl AppShell {
         match job.try_take() {
             Ok(Some(boot)) => {
                 self.load_job = None;
+                self.load_started = None;
                 self.finish_load(boot);
             }
             Ok(None) => {
-                // 仍在装载：保持 LoadScreen，事件循环可继续 redraw。
+                if let Some(t0) = self.load_started {
+                    let secs = t0.elapsed().as_secs();
+                    let pulse = match secs % 3 {
+                        0 => ".",
+                        1 => "..",
+                        _ => "...",
+                    };
+                    self.banner = format!("装载中{pulse} · {secs}s（页面可响应，非阻塞）");
+                }
             }
             Err(()) => {
                 self.load_job = None;
+                self.load_started = None;
                 self.banner = "装载线程异常断开 · Enter 重试".into();
                 self.set_screen(OriginalScreen::SkirmishLobby);
             }
