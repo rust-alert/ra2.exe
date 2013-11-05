@@ -2,7 +2,7 @@
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_engine::{Engine, Session, open_skirmish_session};
-use ra_map::{MapInfo, compose_boot_preview, find_first_boot_map, mount_theater_mixes};
+use ra_map::{MapInfo, compose_boot_preview, find_boot_map, list_parseable_boot_maps, mount_theater_mixes};
 use ra_renderer::RgbaImage;
 use ra_types::{GameEdition, RaResult};
 
@@ -10,6 +10,8 @@ use crate::{
     config::{DesktopConfig, load_desktop_config_with_diagnostics},
     fs_source::GameAssetSource,
 };
+
+pub use ra_map::BootMapCandidate;
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
 #[derive(Debug)]
@@ -41,16 +43,38 @@ fn load_map_terrain_preview(
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
 }
 
-fn load_boot_map(source: &mut GameAssetSource, edition: GameEdition, note: &mut String) -> MapInfo {
-    let loaded = find_first_boot_map(edition, source);
+fn load_boot_map(
+    source: &mut GameAssetSource,
+    edition: GameEdition,
+    note: &mut String,
+    preferred_map: Option<&str>,
+) -> MapInfo {
+    let loaded = find_boot_map(edition, source, preferred_map);
     let theater_mounted =
         mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
     loaded.map
 }
 
+/// 列出安装目录中可解析的冻结启动候选图（供遭遇战大厅）。
+pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
+    else {
+        return Vec::new();
+    };
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
+    list_parseable_boot_maps(manifest.chain.edition, &source)
+}
+
 /// 按桌面配置探测安装并打开一局遭遇战会话。
-pub fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
+pub fn boot_world(cfg: &DesktopConfig, preferred_map: Option<&str>) -> RaResult<BootResult> {
     let root = cfg.ra2_dir.clone();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),
@@ -95,7 +119,7 @@ pub fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
         expand_n
     );
 
-    let map = load_boot_map(&mut source, chain.edition, &mut note);
+    let map = load_boot_map(&mut source, chain.edition, &mut note, preferred_map);
 
     let mut preview_origin = (0i32, 0i32);
     let rules = match load_rules_chain(&source, chain) {
@@ -142,6 +166,11 @@ pub fn boot_world(cfg: &DesktopConfig) -> RaResult<BootResult> {
 
 /// 读取 `config.toml` 并尝试装载（失败时仍返回带 note 的 `BootResult`）。
 pub fn boot_from_install() -> BootResult {
+    boot_from_install_with_map(None)
+}
+
+/// 指定优选地图文件名后装载（找不到则回退候选首图）。
+pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
         tracing::warn!("配置诊断 {} · {}", d.source, d.message);
@@ -152,7 +181,7 @@ pub fn boot_from_install() -> BootResult {
         }
         (None, _) => tracing::info!("联机配置：未设 net_url"),
     }
-    let boot = match boot_world(&cfg) {
+    let boot = match boot_world(&cfg, preferred_map.as_deref()) {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
