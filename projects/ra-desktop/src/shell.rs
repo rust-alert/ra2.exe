@@ -16,7 +16,7 @@ use crate::{
     boot::BootResult,
     load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
-    menu_view::{MenuAction, MenuLayout, layout_for},
+    menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
     screen::OriginalScreen,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_top_left, stamp_top_right},
 };
@@ -150,6 +150,7 @@ impl AppShell {
         let n = self.lobby_maps.len() as isize;
         let next = ((cur as isize + delta).rem_euclid(n)) as usize;
         self.selected_map = Some(self.lobby_maps[next].file_name.clone());
+        self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
 
@@ -183,6 +184,22 @@ impl AppShell {
     fn refresh_menu_backdrop(&mut self) {
         let w = self.window_width.max(1.0) as u32;
         let h = self.window_height.max(1.0) as u32;
+        if self.screen == OriginalScreen::SkirmishLobby {
+            self.ensure_lobby_maps();
+            let mut layout = layout_skirmish_lobby(w, h, &self.lobby_maps, self.selected_map.as_deref());
+            self.ensure_ui_probe();
+            if let Some(probe) = self.ui_probe.as_ref() {
+                if let Some(frame) = probe.mouse_frame.as_ref() {
+                    stamp_top_right(&mut layout.image, frame, 16);
+                }
+                if let Some(clock) = probe.clock_frame.as_ref() {
+                    stamp_top_left(&mut layout.image, clock, 16);
+                }
+            }
+            self.renderer.set_preview(layout.image.clone());
+            self.menu = Some(layout);
+            return;
+        }
         if let Some(mut layout) = layout_for(self.screen, w, h) {
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
@@ -222,6 +239,13 @@ impl AppShell {
                 _ => self.set_screen(OriginalScreen::MainMenu),
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
+            MenuAction::SelectMap(i) => {
+                if let Some(map) = self.lobby_maps.get(i) {
+                    self.selected_map = Some(map.file_name.clone());
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                }
+            }
         }
     }
 
