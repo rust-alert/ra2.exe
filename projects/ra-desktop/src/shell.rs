@@ -297,6 +297,19 @@ impl AppShell {
         self.load_job = Some(LoadJob::start_install_boot(self.selected_map.clone()));
     }
 
+    /// 放弃进行中的装载并回到遭遇战大厅（工作线程结果会被丢弃）。
+    fn cancel_skirmish_load(&mut self) {
+        if self.load_job.is_none() && self.screen != OriginalScreen::LoadScreen {
+            return;
+        }
+        self.load_job = None;
+        self.load_started = None;
+        self.pending_after_load = None;
+        self.banner = "已取消装载".into();
+        tracing::info!("用户取消遭遇战装载");
+        self.set_screen(OriginalScreen::SkirmishLobby);
+    }
+
     fn poll_load_job(&mut self) {
         let Some(job) = self.load_job.as_ref()
         else {
@@ -316,7 +329,7 @@ impl AppShell {
                         1 => "..",
                         _ => "...",
                     };
-                    self.banner = format!("装载中{pulse} · {secs}s（页面可响应，非阻塞）");
+                    self.banner = format!("装载中{pulse} · {secs}s · Esc 取消");
                 }
             }
             Err(()) => {
@@ -404,7 +417,11 @@ impl AppShell {
                     self.set_screen(OriginalScreen::MainMenu);
                 }
             }
-            OriginalScreen::LoadScreen => {}
+            OriginalScreen::LoadScreen => {
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.cancel_skirmish_load();
+                }
+            }
             OriginalScreen::Match | OriginalScreen::Results => {}
         }
     }
