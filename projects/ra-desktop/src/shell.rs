@@ -392,8 +392,13 @@ impl AppShell {
             }
             MatchNav::ToResults => self.set_screen(OriginalScreen::Results),
             MatchNav::ToMainMenu => {
-                self.banner = "占位色块菜单 · 非 Pre-Alpha 原版 UI".into();
-                self.set_screen(OriginalScreen::MainMenu);
+                // Pre-Alpha：从对局/结算回到遭遇战大厅，保留已选地图。
+                self.ensure_lobby_maps();
+                self.banner = format!(
+                    "已返回大厅 · 地图 {}",
+                    self.selected_map.as_deref().unwrap_or("（未选）")
+                );
+                self.set_screen(OriginalScreen::SkirmishLobby);
             }
         }
     }
