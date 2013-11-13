@@ -64,17 +64,26 @@ pub struct MenuLayout {
 impl MenuLayout {
     /// 窗口像素点击 → 动作。
     pub fn hit(&self, cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<MenuAction> {
+        self.hit_at(cursor_x, cursor_y, win_w, win_h).map(|(_, action)| action)
+    }
+
+    /// 命中命中区下标（仅 `enabled`）。
+    pub fn hover_index(&self, cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+        self.hit_at(cursor_x, cursor_y, win_w, win_h).map(|(i, _)| i)
+    }
+
+    fn hit_at(&self, cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
         if win_w <= 0.0 || win_h <= 0.0 {
             return None;
         }
         let nx = (cursor_x / win_w) as f32;
         let ny = (cursor_y / win_h) as f32;
-        for h in &self.hits {
+        for (i, h) in self.hits.iter().enumerate() {
             if !h.enabled {
                 continue;
             }
             if nx >= h.x0 && nx <= h.x1 && ny >= h.y0 && ny <= h.y1 {
-                return Some(h.action);
+                return Some((i, h.action));
             }
         }
         None
@@ -82,10 +91,10 @@ impl MenuLayout {
 }
 
 /// 为当前原版产品页生成占位布局；对局/结算页返回 `None`。
-pub fn layout_for(screen: OriginalScreen, width: u32, height: u32) -> Option<MenuLayout> {
+pub fn layout_for(screen: OriginalScreen, width: u32, height: u32, hover: Option<usize>) -> Option<MenuLayout> {
     let (w, h) = (width.max(320), height.max(240));
     let page = slots_for(screen)?;
-    Some(paint_from_slots(w, h, &page))
+    Some(paint_from_slots(w, h, &page, hover))
 }
 
 /// 遭遇战大厅：地图列表 + Start/Back 槽位。
@@ -94,6 +103,7 @@ pub fn layout_skirmish_lobby(
     height: u32,
     maps: &[BootMapCandidate],
     selected: Option<&str>,
+    hover: Option<usize>,
 ) -> MenuLayout {
     let (w, h) = (width.max(320), height.max(240));
     let mut pixels = vec![0u8; (w as usize) * (h as usize) * 4];
@@ -109,8 +119,12 @@ pub fn layout_skirmish_lobby(
         let x0 = 0.18_f32;
         let x1 = 0.82_f32;
         let selected_row = selected == Some(map.file_name.as_str());
+        let hovered = hover == Some(i);
         let color = if selected_row {
             [64, 120, 72, 255]
+        }
+        else if hovered {
+            [72, 110, 180, 255]
         }
         else {
             [40, 70, 120, 255]
@@ -129,7 +143,7 @@ pub fn layout_skirmish_lobby(
             py1.saturating_sub(py0),
             color,
         );
-        if selected_row {
+        if selected_row || hovered {
             fill_rect(
                 &mut pixels,
                 w,
@@ -152,21 +166,14 @@ pub fn layout_skirmish_lobby(
         });
     }
 
+    let map_hit_count = hits.len();
     // Start / Back 沿用槽位矩形，叠在列表下方。
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
         for (i, btn) in page.buttons.iter().enumerate() {
+            let hit_i = map_hit_count + i;
             let (x0, y0, x1, y1) = btn.hit;
-            let color = if btn.enabled {
-                if i % 2 == 0 {
-                    [48, 92, 160, 255]
-                }
-                else {
-                    [40, 78, 140, 255]
-                }
-            }
-            else {
-                [40, 40, 48, 255]
-            };
+            let hovered = hover == Some(hit_i);
+            let color = button_color(btn.enabled, i, hovered);
             let px0 = (x0 * w as f32) as u32;
             let py0 = (y0 * h as f32) as u32;
             let px1 = (x1 * w as f32) as u32;
@@ -209,7 +216,22 @@ pub fn layout_skirmish_lobby(
     MenuLayout { image, hits }
 }
 
-fn paint_from_slots(width: u32, height: u32, page: &UiPageSlots) -> MenuLayout {
+fn button_color(enabled: bool, index: usize, hovered: bool) -> [u8; 4] {
+    if !enabled {
+        return [40, 40, 48, 255];
+    }
+    if hovered {
+        return [88, 140, 220, 255];
+    }
+    if index % 2 == 0 {
+        [48, 92, 160, 255]
+    }
+    else {
+        [40, 78, 140, 255]
+    }
+}
+
+fn paint_from_slots(width: u32, height: u32, page: &UiPageSlots, hover: Option<usize>) -> MenuLayout {
     let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];
     let bg = match page.screen {
         OriginalScreen::LoadScreen => [18, 22, 40, 255],
@@ -221,17 +243,7 @@ fn paint_from_slots(width: u32, height: u32, page: &UiPageSlots) -> MenuLayout {
     let mut hits = Vec::with_capacity(page.buttons.len());
     for (i, btn) in page.buttons.iter().enumerate() {
         let (x0, y0, x1, y1) = btn.hit;
-        let color = if btn.enabled {
-            if i % 2 == 0 {
-                [48, 92, 160, 255]
-            }
-            else {
-                [40, 78, 140, 255]
-            }
-        }
-        else {
-            [40, 40, 48, 255]
-        };
+        let color = button_color(btn.enabled, i, hover == Some(i));
         let px0 = (x0 * width as f32) as u32;
         let py0 = (y0 * height as f32) as u32;
         let px1 = (x1 * width as f32) as u32;
@@ -291,7 +303,7 @@ mod tests {
 
     #[test]
     fn main_menu_hit_single_player() {
-        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768).unwrap();
+        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768, None).unwrap();
         assert_eq!(layout.hits[0].entry_id, "single_player");
         let action = layout.hit(400.0, 280.0, 1024.0, 768.0);
         assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
@@ -299,7 +311,7 @@ mod tests {
 
     #[test]
     fn disabled_network_not_hit() {
-        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768).unwrap();
+        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768, None).unwrap();
         // NETWORK 行约 y=0.44 → 338px，禁用。
         let action = layout.hit(400.0, 340.0, 1024.0, 768.0);
         assert_eq!(action, None);
@@ -313,9 +325,16 @@ mod tests {
             height: 50,
             theater: ra_map::Theater::Temperate,
         }];
-        let layout = layout_skirmish_lobby(1024, 768, &maps, Some("mp03t4.map"));
+        let layout = layout_skirmish_lobby(1024, 768, &maps, Some("mp03t4.map"), None);
         // 首行约 y=0.18 → 138px
         let action = layout.hit(400.0, 150.0, 1024.0, 768.0);
         assert_eq!(action, Some(MenuAction::SelectMap(0)));
+    }
+
+    #[test]
+    fn hover_index_tracks_enabled_button() {
+        let layout = layout_for(OriginalScreen::MainMenu, 1024, 768, None).unwrap();
+        assert_eq!(layout.hover_index(400.0, 280.0, 1024.0, 768.0), Some(0));
+        assert_eq!(layout.hover_index(400.0, 340.0, 1024.0, 768.0), None);
     }
 }
