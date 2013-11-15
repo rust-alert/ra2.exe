@@ -2,7 +2,9 @@
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_engine::{Engine, Session, open_skirmish_session};
-use ra_map::{MapInfo, compose_boot_preview, find_boot_map, list_parseable_boot_maps, mount_theater_mixes};
+use ra_map::{
+    MapInfo, compose_boot_preview, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes,
+};
 use ra_renderer::RgbaImage;
 use ra_types::{GameEdition, RaResult};
 
@@ -71,6 +73,27 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
     list_parseable_boot_maps(manifest.chain.edition, &source)
+}
+
+/// 为遭遇战大厅生成指定地图的地形预览（未缩小）。
+///
+/// 失败时返回 `None`（缺图、缺剧院资源或规则不可读）。
+#[allow(dead_code)] // 下一提交接到遭遇战大厅绘制。
+pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let manifest = detect_edition(&cfg.ra2_dir, explicit).ok()?;
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
+    let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
+    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
+    let rules = load_rules_chain(&source, &manifest.chain).ok()?;
+    let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules)?;
+    Some((format!("{} · {}", loaded.note, note), image))
 }
 
 /// 按桌面配置探测安装并打开一局遭遇战会话。
