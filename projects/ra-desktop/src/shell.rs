@@ -44,6 +44,8 @@ pub struct AppShell {
     cursor: (f64, f64),
     /// 当前悬停的可点命中区下标。
     menu_hover: Option<usize>,
+    /// 左键按下时命中的下标（按下态）。
+    menu_pressed: Option<usize>,
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
     /// 当前装载开始时刻（脉搏标题用）。
@@ -92,6 +94,7 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             menu_hover: None,
+            menu_pressed: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -117,6 +120,7 @@ impl AppShell {
             menu: None,
             cursor: (0.0, 0.0),
             menu_hover: None,
+            menu_pressed: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -181,6 +185,7 @@ impl AppShell {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.menu_hover = None;
+            self.menu_pressed = None;
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
         }
@@ -191,8 +196,14 @@ impl AppShell {
         let h = self.window_height.max(1.0) as u32;
         if self.screen == OriginalScreen::SkirmishLobby {
             self.ensure_lobby_maps();
-            let mut layout =
-                layout_skirmish_lobby(w, h, &self.lobby_maps, self.selected_map.as_deref(), self.menu_hover);
+            let mut layout = layout_skirmish_lobby(
+                w,
+                h,
+                &self.lobby_maps,
+                self.selected_map.as_deref(),
+                self.menu_hover,
+                self.menu_pressed,
+            );
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {
@@ -206,7 +217,7 @@ impl AppShell {
             self.menu = Some(layout);
             return;
         }
-        if let Some(mut layout) = layout_for(self.screen, w, h, self.menu_hover) {
+        if let Some(mut layout) = layout_for(self.screen, w, h, self.menu_hover, self.menu_pressed) {
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {
@@ -559,15 +570,38 @@ impl ApplicationHandler for AppShell {
                         self.update_menu_hover();
                     }
                     WindowEvent::MouseInput {
+                        state: ElementState::Pressed,
+                        button: winit::event::MouseButton::Left,
+                        ..
+                    } => {
+                        let idx = self.menu.as_ref().and_then(|m| {
+                            m.hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+                        });
+                        if idx != self.menu_pressed {
+                            self.menu_pressed = idx;
+                            self.refresh_menu_backdrop();
+                        }
+                    }
+                    WindowEvent::MouseInput {
                         state: ElementState::Released,
                         button: winit::event::MouseButton::Left,
                         ..
                     } => {
-                        if let Some(menu) = &self.menu {
-                            if let Some(action) = menu.hit(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
-                            {
-                                self.apply_menu_action(event_loop, action);
-                            }
+                        if self.menu_pressed.is_some() {
+                            self.menu_pressed = None;
+                            self.refresh_menu_backdrop();
+                        }
+                        let clicked = self.menu.as_ref().and_then(|menu| {
+                            let action =
+                                menu.hit(self.cursor.0, self.cursor.1, self.window_width, self.window_height)?;
+                            let entry = menu
+                                .hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+                                .and_then(|i| menu.hits.get(i).map(|h| h.entry_id));
+                            Some((action, entry))
+                        });
+                        if let Some((action, entry)) = clicked {
+                            tracing::debug!(?entry, ?action, "菜单点击");
+                            self.apply_menu_action(event_loop, action);
                         }
                     }
                     WindowEvent::KeyboardInput { event: key_ev, .. } => {
