@@ -143,6 +143,54 @@ pub fn stamp_top_left(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
     stamp_at(dst, src, margin, margin);
 }
 
+/// 将 `src` 贴到 `dst` 右下角（不跳过近黑，适合地形预览）。
+pub fn stamp_bottom_right_opaque(dst: &mut RgbaImage, src: &RgbaImage, margin: u32) {
+    if src.width == 0 || src.height == 0 || dst.width == 0 || dst.height == 0 {
+        return;
+    }
+    let ox = dst.width.saturating_sub(src.width.saturating_add(margin));
+    let oy = dst.height.saturating_sub(src.height.saturating_add(margin));
+    for sy in 0..src.height {
+        let dy = oy.saturating_add(sy);
+        if dy >= dst.height {
+            break;
+        }
+        for sx in 0..src.width {
+            let dx = ox.saturating_add(sx);
+            if dx >= dst.width {
+                break;
+            }
+            let si = ((sy * src.width + sx) * 4) as usize;
+            let di = ((dy * dst.width + dx) * 4) as usize;
+            dst.pixels[di..di + 4].copy_from_slice(&src.pixels[si..si + 4]);
+        }
+    }
+}
+
+/// 最近邻缩小到不超过 `max_w`×`max_h`（已更小则克隆）。
+pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaImage> {
+    if img.width == 0 || img.height == 0 || max_w == 0 || max_h == 0 {
+        return None;
+    }
+    let scale = (max_w as f32 / img.width as f32).min(max_h as f32 / img.height as f32).min(1.0);
+    let nw = ((img.width as f32) * scale).round().max(1.0) as u32;
+    let nh = ((img.height as f32) * scale).round().max(1.0) as u32;
+    if nw == img.width && nh == img.height {
+        return Some(img.clone());
+    }
+    let mut pixels = vec![0u8; (nw as usize) * (nh as usize) * 4];
+    for dy in 0..nh {
+        let sy = (dy as f32 * img.height as f32 / nh as f32) as u32;
+        for dx in 0..nw {
+            let sx = (dx as f32 * img.width as f32 / nw as f32) as u32;
+            let si = ((sy * img.width + sx) * 4) as usize;
+            let di = ((dy * nw + dx) * 4) as usize;
+            pixels[di..di + 4].copy_from_slice(&img.pixels[si..si + 4]);
+        }
+    }
+    RgbaImage::new(nw, nh, pixels)
+}
+
 fn stamp_at(dst: &mut RgbaImage, src: &RgbaImage, ox: u32, oy: u32) {
     for sy in 0..src.height {
         let dy = oy.saturating_add(sy);
@@ -183,5 +231,12 @@ mod tests {
         // 右上角 (2,0) 应对上 src (0,0)
         let di = ((0u32 * 4 + 2) * 4) as usize;
         assert_eq!(&dst.pixels[di..di + 3], &[200, 100, 50]);
+    }
+
+    #[test]
+    fn downscale_halves_dimensions() {
+        let src = RgbaImage::new(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
+        let out = downscale_to_fit(&src, 2, 2).unwrap();
+        assert_eq!((out.width, out.height), (2, 1));
     }
 }
