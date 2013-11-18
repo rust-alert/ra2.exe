@@ -14,6 +14,7 @@ mod load_job;
 mod local_player;
 mod match_ctrl;
 mod menu_view;
+mod preview_job;
 mod screen;
 mod shell;
 mod ui_assets;
