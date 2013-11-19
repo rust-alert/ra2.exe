@@ -19,7 +19,10 @@ use crate::{
     menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
     preview_job::PreviewJob,
     screen::OriginalScreen,
-    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_top_left, stamp_top_right},
+    ui_assets::{
+        MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending, stamp_top_left,
+        stamp_top_right,
+    },
 };
 
 /// 外壳持有的可导航应用状态。
@@ -275,7 +278,19 @@ impl AppShell {
                 self.menu_pressed,
             );
             self.ensure_lobby_preview();
-            if let Some(preview) = self.lobby_preview.as_ref() {
+            let selected = self.selected_map.as_deref();
+            let preview_ready =
+                self.lobby_preview.is_some() && self.lobby_preview_for.as_deref() == selected;
+            if preview_ready {
+                if let Some(preview) = self.lobby_preview.as_ref() {
+                    stamp_bottom_right_opaque(&mut layout.image, preview, 12);
+                }
+            }
+            else if self.lobby_preview_job.is_some() {
+                let pulse = (Instant::now().elapsed().as_millis() / 250) as u8;
+                stamp_bottom_right_pending(&mut layout.image, 320, 200, 12, pulse);
+            }
+            else if let Some(preview) = self.lobby_preview.as_ref() {
                 stamp_bottom_right_opaque(&mut layout.image, preview, 12);
             }
             self.ensure_ui_probe();
@@ -557,8 +572,20 @@ impl AppShell {
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
             }
-            if self.screen == OriginalScreen::SkirmishLobby && self.poll_lobby_preview() {
-                self.refresh_menu_backdrop();
+            if self.screen == OriginalScreen::SkirmishLobby {
+                let ready = self.poll_lobby_preview();
+                let pending = self.lobby_preview_job.is_some();
+                if ready || pending {
+                    self.refresh_menu_backdrop();
+                }
+                if ready {
+                    let map = self.selected_map.as_deref().unwrap_or("?");
+                    self.banner = format!("预览就绪 · {map}");
+                }
+                else if pending {
+                    let map = self.selected_map.as_deref().unwrap_or("?");
+                    self.banner = format!("预览生成中… {map}");
+                }
             }
             if self.menu.is_none() {
                 self.refresh_menu_backdrop();
