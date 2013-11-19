@@ -17,10 +17,9 @@ use crate::{
     load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
     menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
+    preview_job::PreviewJob,
     screen::OriginalScreen,
-    ui_assets::{
-        MenuUiProbe, downscale_to_fit, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_top_left, stamp_top_right,
-    },
+    ui_assets::{MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_top_left, stamp_top_right},
 };
 
 /// 外壳持有的可导航应用状态。
@@ -60,6 +59,8 @@ pub struct AppShell {
     lobby_preview_for: Option<String>,
     /// 已缩小的选中地图预览。
     lobby_preview: Option<RgbaImage>,
+    /// 后台地图预览任务。
+    lobby_preview_job: Option<PreviewJob>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
 }
@@ -107,6 +108,7 @@ impl AppShell {
             selected_map: None,
             lobby_preview_for: None,
             lobby_preview: None,
+            lobby_preview_job: None,
             ui_probe: None,
         }
     }
@@ -135,6 +137,7 @@ impl AppShell {
             selected_map: None,
             lobby_preview_for: None,
             lobby_preview: None,
+            lobby_preview_job: None,
             ui_probe: None,
         }
     }
@@ -159,22 +162,54 @@ impl AppShell {
         else {
             self.lobby_preview = None;
             self.lobby_preview_for = None;
+            self.lobby_preview_job = None;
             return;
         };
         if self.lobby_preview_for.as_deref() == Some(name.as_str()) {
             return;
         }
-        match crate::boot::preview_install_boot_map(&name) {
-            Some((note, image)) => {
-                let thumb = downscale_to_fit(&image, 320, 200).unwrap_or(image);
-                tracing::info!(map = %name, w = thumb.width, h = thumb.height, "{note}");
-                self.lobby_preview = Some(thumb);
-                self.lobby_preview_for = Some(name);
+        if self.lobby_preview_job.as_ref().is_some_and(|j| j.map_name() == name) {
+            return;
+        }
+        self.lobby_preview_job = Some(PreviewJob::start(name));
+    }
+
+    fn poll_lobby_preview(&mut self) -> bool {
+        let Some(job) = self.lobby_preview_job.as_ref()
+        else {
+            return false;
+        };
+        match job.try_take() {
+            Ok(Some(result)) => {
+                self.lobby_preview_job = None;
+                let still_selected = self.selected_map.as_deref() == Some(result.map_name.as_str());
+                if !still_selected {
+                    return false;
+                }
+                match result.image {
+                    Some(thumb) => {
+                        tracing::info!(
+                            map = %result.map_name,
+                            w = thumb.width,
+                            h = thumb.height,
+                            "{}",
+                            result.note
+                        );
+                        self.lobby_preview = Some(thumb);
+                        self.lobby_preview_for = Some(result.map_name);
+                    }
+                    None => {
+                        tracing::warn!(map = %result.map_name, "遭遇战大厅地图预览失败");
+                        self.lobby_preview = None;
+                        self.lobby_preview_for = Some(result.map_name);
+                    }
+                }
+                true
             }
-            None => {
-                tracing::warn!(map = %name, "遭遇战大厅地图预览失败");
-                self.lobby_preview = None;
-                self.lobby_preview_for = Some(name);
+            Ok(None) => false,
+            Err(()) => {
+                self.lobby_preview_job = None;
+                false
             }
         }
     }
@@ -521,6 +556,9 @@ impl AppShell {
             self.renderer.timings.presentation_build = None;
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
+            }
+            if self.screen == OriginalScreen::SkirmishLobby && self.poll_lobby_preview() {
+                self.refresh_menu_backdrop();
             }
             if self.menu.is_none() {
                 self.refresh_menu_backdrop();
