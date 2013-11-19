@@ -167,6 +167,36 @@ pub fn stamp_bottom_right_opaque(dst: &mut RgbaImage, src: &RgbaImage, margin: u
     }
 }
 
+/// 右下角预览占位框（生成中）。`pulse` 0..=2 控制边框亮度。
+pub fn stamp_bottom_right_pending(dst: &mut RgbaImage, slot_w: u32, slot_h: u32, margin: u32, pulse: u8) {
+    if dst.width == 0 || dst.height == 0 || slot_w == 0 || slot_h == 0 {
+        return;
+    }
+    let w = slot_w.min(dst.width.saturating_sub(margin.saturating_mul(2)).max(1));
+    let h = slot_h.min(dst.height.saturating_sub(margin.saturating_mul(2)).max(1));
+    let ox = dst.width.saturating_sub(w.saturating_add(margin));
+    let oy = dst.height.saturating_sub(h.saturating_add(margin));
+    let fill = [28, 36, 52, 255];
+    let edge = match pulse % 3 {
+        0 => [90, 110, 150, 255],
+        1 => [120, 150, 200, 255],
+        _ => [160, 190, 230, 255],
+    };
+    for dy in 0..h {
+        for dx in 0..w {
+            let x = ox + dx;
+            let y = oy + dy;
+            if x >= dst.width || y >= dst.height {
+                continue;
+            }
+            let border = dx < 2 || dy < 2 || dx + 2 >= w || dy + 2 >= h;
+            let di = ((y * dst.width + x) * 4) as usize;
+            let c = if border { edge } else { fill };
+            dst.pixels[di..di + 4].copy_from_slice(&c);
+        }
+    }
+}
+
 /// 最近邻缩小到不超过 `max_w`×`max_h`（已更小则克隆）。
 pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaImage> {
     if img.width == 0 || img.height == 0 || max_w == 0 || max_h == 0 {
@@ -238,5 +268,13 @@ mod tests {
         let src = RgbaImage::new(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
         let out = downscale_to_fit(&src, 2, 2).unwrap();
         assert_eq!((out.width, out.height), (2, 1));
+    }
+
+    #[test]
+    fn pending_slot_paints_corner() {
+        let mut dst = RgbaImage::new(64, 48, vec![0u8; 64 * 48 * 4]).unwrap();
+        stamp_bottom_right_pending(&mut dst, 20, 16, 0, 1);
+        let di = ((32u32 * 64 + 44) * 4) as usize; // inside bottom-right slot
+        assert_ne!(dst.pixels[di..di + 3], [0, 0, 0]);
     }
 }
