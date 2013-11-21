@@ -10,6 +10,7 @@
 mod boot;
 mod config;
 mod fs_source;
+mod hud_chrome;
 mod load_job;
 mod local_player;
 mod match_ctrl;
