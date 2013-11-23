@@ -11,7 +11,7 @@ use winit::{
     window::Window,
 };
 
-use crate::{boot::BootResult, local_player::LocalPlayerController};
+use crate::{boot::BootResult, hud_chrome, local_player::LocalPlayerController};
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -493,27 +493,37 @@ impl MatchController {
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。标题走 `HudSnapshot`。
+    /// 屏上色块为占位 HUD，不是原版侧栏交付。
     pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
         let Some(session) = self.session.as_mut()
         else {
+            renderer.set_screen_chrome(&[]);
             renderer.draw_frame(None);
             self.refresh_title(renderer, window, screen_label, None);
             return;
         };
         let Some(game) = session.game_mut()
         else {
+            renderer.set_screen_chrome(&[]);
             renderer.draw_frame(None);
             self.refresh_title(renderer, window, screen_label, None);
             return;
         };
 
         let selected = self.local.selected.clone();
+        let local_house = game
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == game.world.local_player)
+            .map(|p| p.house.clone());
         let force_full = renderer.render_world().unit_count() == 0;
         let pres_started = Instant::now();
         let hud = if force_full {
             let snap = game.snapshot(&selected);
             renderer.timings.presentation_build = Some(pres_started.elapsed());
             let hud = game.snapshot_hud();
+            Self::apply_screen_chrome(renderer, &hud, local_house.as_deref(), screen_label);
             renderer.draw_frame(Some(&snap));
             // 全量同步已消费脏集语义：清空以免下一帧重复投影。
             let _ = game.world.take_presentation_dirty();
@@ -524,10 +534,25 @@ impl MatchController {
             let units = game.project_units(&dirty);
             let tick = game.world.tick;
             renderer.timings.presentation_build = Some(pres_started.elapsed());
+            let hud = game.snapshot_hud();
+            Self::apply_screen_chrome(renderer, &hud, local_house.as_deref(), screen_label);
             renderer.draw_incremental(tick, &dirty, &units, &selected);
-            game.snapshot_hud()
+            hud
         };
         self.refresh_title(renderer, window, screen_label, Some(&hud));
+    }
+
+    fn apply_screen_chrome(
+        renderer: &mut Renderer,
+        hud: &HudSnapshot,
+        local_house: Option<&str>,
+        screen_label: &str,
+    ) {
+        let mut quads = hud_chrome::match_hud_chrome(hud, local_house);
+        if screen_label == "results" {
+            quads.extend(hud_chrome::results_chrome());
+        }
+        renderer.set_screen_chrome(&quads);
     }
 
     fn refresh_title(
