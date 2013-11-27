@@ -265,6 +265,8 @@ impl AppShell {
     }
 
     fn refresh_menu_backdrop(&mut self) {
+        // 离开对局后清掉屏上 HUD 色块，避免叠在菜单底图上。
+        self.renderer.set_screen_chrome(&[]);
         let w = self.window_width.max(1.0) as u32;
         let h = self.window_height.max(1.0) as u32;
         if self.screen == OriginalScreen::SkirmishLobby {
