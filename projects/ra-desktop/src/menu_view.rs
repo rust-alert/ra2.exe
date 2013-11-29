@@ -49,6 +49,8 @@ pub enum MenuAction {
     Back,
     /// 开始装载遭遇战。
     StartSkirmish,
+    /// 取消进行中的遭遇战装载。
+    CancelLoad,
     /// 选中大厅地图列表中的一项。
     SelectMap(usize),
 }
