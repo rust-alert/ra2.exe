@@ -357,6 +357,7 @@ impl AppShell {
                 _ => self.set_screen(OriginalScreen::MainMenu),
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
+            MenuAction::CancelLoad => self.cancel_skirmish_load(),
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
