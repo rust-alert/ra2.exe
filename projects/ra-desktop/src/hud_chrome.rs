@@ -8,6 +8,8 @@ use ra_renderer::ScreenChromeQuad;
 
 /// 本地玩家资金条满幅参考（仅占位比例，非规则真值）。
 const FUNDS_BAR_REF: f32 = 10_000.0;
+/// 生产队列满幅参考 tick（占位；对齐引擎 `PRODUCE_TICKS`）。
+const QUEUE_TICKS_REF: f32 = 20.0;
 
 /// 由 HUD 快照生成屏上色块（右缘侧栏 + 资金/电力条）。
 ///
@@ -89,14 +91,34 @@ pub fn match_hud_chrome(hud: &HudSnapshot, local_house: Option<&str>) -> Vec<Scr
         color: power_color,
     });
 
-    // 生产队列占位块。
-    if !hud.produce_queues.is_empty() {
+    // 生产队列占位块 + 剩余 tick 进度（仅占位比例）。
+    if let Some(q) = hud.produce_queues.first() {
         quads.push(ScreenChromeQuad {
             x0: 0.86,
             y0: 0.30,
             x1: 0.98,
             y1: 0.42,
             color: [0.18, 0.28, 0.42, 0.92],
+        });
+        let progress = 1.0 - (q.remaining_ticks as f32 / QUEUE_TICKS_REF).clamp(0.0, 1.0);
+        let fill = progress.max(0.05);
+        quads.push(ScreenChromeQuad {
+            x0: 0.86,
+            y0: 0.38,
+            x1: 0.86 + 0.12 * fill,
+            y1: 0.41,
+            color: [0.35, 0.70, 0.95, 0.95],
+        });
+    }
+
+    // 命令拒绝闪示条（底缘，非原版提示）。
+    if !hud.last_rejects.is_empty() {
+        quads.push(ScreenChromeQuad {
+            x0: 0.20,
+            y0: 0.90,
+            x1: 0.80,
+            y1: 0.96,
+            color: [0.75, 0.18, 0.16, 0.88],
         });
     }
 
@@ -195,6 +217,34 @@ mod tests {
         let quads = match_hud_chrome(&sample_hud(true), Some("Americans"));
         let power_fill = quads.iter().find(|q| (q.y0 - 0.20).abs() < 0.001 && q.color[0] > 0.5).unwrap();
         assert!(power_fill.color[0] > power_fill.color[1]);
+    }
+
+    #[test]
+    fn produce_queue_adds_progress_fill() {
+        use ra_engine::SnapshotProduceQueue;
+        use ra_types::EntityId;
+        let mut hud = sample_hud(false);
+        hud.produce_queues.push(SnapshotProduceQueue {
+            factory: EntityId(1),
+            type_id: Arc::from("E1"),
+            remaining_ticks: 10,
+            rally_x: None,
+            rally_y: None,
+        });
+        let quads = match_hud_chrome(&hud, Some("Americans"));
+        assert!(quads.iter().any(|q| (q.y0 - 0.38).abs() < 0.001 && q.color[2] > 0.8));
+    }
+
+    #[test]
+    fn reject_flash_appears_at_bottom() {
+        use ra_engine::{CommandReject, CommandRejectReason};
+        let mut hud = sample_hud(false);
+        hud.last_rejects.push(CommandReject {
+            command_index: 0,
+            reason: CommandRejectReason::InsufficientFunds,
+        });
+        let quads = match_hud_chrome(&hud, Some("Americans"));
+        assert!(quads.iter().any(|q| (q.y0 - 0.90).abs() < 0.001 && q.color[0] > 0.6));
     }
 
     #[test]
