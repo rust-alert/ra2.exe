@@ -459,7 +459,7 @@ impl AppShell {
                         1 => "..",
                         _ => "...",
                     };
-                    self.banner = format!("装载中{pulse} · {secs}s · Esc 取消");
+                    self.banner = format!("装载中{pulse} · {secs}s · Esc/点取消");
                 }
             }
             Err(()) => {
