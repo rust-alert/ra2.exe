@@ -20,8 +20,8 @@ use crate::{
     preview_job::PreviewJob,
     screen::OriginalScreen,
     ui_assets::{
-        MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending, stamp_top_left,
-        stamp_top_right,
+        MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending,
+        stamp_norm_progress_bar, stamp_top_left, stamp_top_right,
     },
 };
 
@@ -317,6 +317,23 @@ impl AppShell {
                 if let Some(clock) = probe.clock_frame.as_ref() {
                     stamp_top_left(&mut layout.image, clock, 16);
                 }
+            }
+            if self.screen == OriginalScreen::LoadScreen {
+                // 不确定时长：30s 内线性爬升后停在满幅，仅占位可见进度。
+                let ratio = self
+                    .load_started
+                    .map(|t0| (t0.elapsed().as_secs_f32() / 30.0).clamp(0.05, 1.0))
+                    .unwrap_or(0.05);
+                stamp_norm_progress_bar(
+                    &mut layout.image,
+                    0.30,
+                    0.50,
+                    0.74,
+                    0.54,
+                    ratio,
+                    [28, 32, 48, 255],
+                    [220, 180, 64, 255],
+                );
             }
             self.renderer.set_preview(layout.image.clone());
             self.menu = Some(layout);
