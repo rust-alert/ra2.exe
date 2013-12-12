@@ -35,6 +35,14 @@ pub fn match_hud_chrome(hud: &HudSnapshot, local_house: Option<&str>) -> Vec<Scr
         });
     }
     else if hud.paused {
+        // 暂停时略压暗战场（侧栏顶条另有灰条）。
+        quads.push(ScreenChromeQuad {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.84,
+            y1: 1.0,
+            color: [0.04, 0.05, 0.08, 0.35],
+        });
         quads.push(ScreenChromeQuad {
             x0: 0.84,
             y0: 0.0,
@@ -270,8 +278,9 @@ mod tests {
     }
 
     #[test]
-    fn results_chrome_has_two_buttons() {
+    fn results_chrome_has_dim_and_two_buttons() {
         assert_eq!(results_chrome(None).len(), 3);
+        assert!((results_chrome(None)[0].x0 - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
