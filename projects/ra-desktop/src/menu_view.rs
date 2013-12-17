@@ -53,6 +53,8 @@ pub enum MenuAction {
     StartSkirmish,
     /// 取消进行中的遭遇战装载。
     CancelLoad,
+    /// 占位禁用项（不可点，无导航）。
+    Noop,
     /// 选中大厅地图列表中的一项。
     SelectMap(usize),
 }
