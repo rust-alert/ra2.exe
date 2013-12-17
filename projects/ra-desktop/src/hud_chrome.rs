@@ -250,6 +250,14 @@ mod tests {
     }
 
     #[test]
+    fn paused_hud_dims_playfield() {
+        let mut hud = sample_hud(false);
+        hud.paused = true;
+        let quads = match_hud_chrome(&hud, Some("Americans"));
+        assert!(quads.iter().any(|q| (q.x1 - 0.84).abs() < 0.001 && q.color[3] < 0.5));
+    }
+
+    #[test]
     fn produce_queue_adds_progress_fill() {
         use ra_engine::SnapshotProduceQueue;
         use ra_types::EntityId;
