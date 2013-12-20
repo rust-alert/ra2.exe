@@ -375,6 +375,7 @@ impl AppShell {
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
             MenuAction::CancelLoad => self.cancel_skirmish_load(),
+            MenuAction::Noop => {}
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
@@ -413,9 +414,9 @@ impl AppShell {
                     .unwrap_or_else(|| "（无可用图）".into());
                 format!("ra2 · 遭遇战大厅 · {detail} · ←/→ 切换 · Enter 开始 · Esc 返回")
             }
-            OriginalScreen::Network => "ra2 · 网络（未开放）· Esc 返回".into(),
+            OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回".into(),
             OriginalScreen::LoadScreen => format!("ra2 · 加载 · {}", self.banner),
-            OriginalScreen::Options => "ra2 · 选项（占位）· Esc 返回".into(),
+            OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回".into(),
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
         window.set_title(&title);
