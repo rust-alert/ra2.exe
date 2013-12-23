@@ -19,6 +19,7 @@ use crate::{
     menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
     preview_job::PreviewJob,
     screen::OriginalScreen,
+    screenshot::AutoScreenshotTracker,
     ui_assets::{
         MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending,
         stamp_norm_progress_bar, stamp_top_left, stamp_top_right,
@@ -66,6 +67,10 @@ pub struct AppShell {
     lobby_preview_job: Option<PreviewJob>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
+    /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
+    pending_screenshot: Option<&'static str>,
+    /// 自动关键页截图去重。
+    auto_screenshots: AutoScreenshotTracker,
 }
 
 impl AppShell {
@@ -113,6 +118,8 @@ impl AppShell {
             lobby_preview: None,
             lobby_preview_job: None,
             ui_probe: None,
+            pending_screenshot: None,
+            auto_screenshots: AutoScreenshotTracker::default(),
         }
     }
 
@@ -142,6 +149,8 @@ impl AppShell {
             lobby_preview: None,
             lobby_preview_job: None,
             ui_probe: None,
+            pending_screenshot: None,
+            auto_screenshots: AutoScreenshotTracker::default(),
         }
     }
 
@@ -261,6 +270,34 @@ impl AppShell {
             self.menu_pressed = None;
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
+            if self.auto_screenshots.should_capture(next) {
+                self.queue_screenshot(next.as_str());
+            }
+        }
+    }
+
+    /// 请求下一帧 GPU 回读并落盘为 `{name}_*.png`。
+    fn queue_screenshot(&mut self, name: &'static str) {
+        self.renderer.request_capture();
+        self.pending_screenshot = Some(name);
+    }
+
+    fn flush_pending_screenshot(&mut self) {
+        let Some(name) = self.pending_screenshot.take()
+        else {
+            return;
+        };
+        let Some(image) = self.renderer.take_capture()
+        else {
+            tracing::warn!("截图回读为空 · screen={name}");
+            return;
+        };
+        match crate::screenshot::save_screenshot(name, &image) {
+            Ok(path) => {
+                tracing::info!(%name, path = %path.display(), "关键页截图已保存");
+                self.banner = format!("截图已保存 · {}", path.display());
+            }
+            Err(e) => tracing::error!("截图保存失败 · {e}"),
         }
     }
 
@@ -395,8 +432,8 @@ impl AppShell {
             return;
         }
         let title = match self.screen {
-            OriginalScreen::MainMenu => format!("ra2 · 主菜单 · {}", self.banner),
-            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回".into(),
+            OriginalScreen::MainMenu => format!("ra2 · 主菜单 · {} · F12 截图", self.banner),
+            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回 · F12 截图".into(),
             OriginalScreen::SkirmishLobby => {
                 let detail = self
                     .selected_map
@@ -412,11 +449,11 @@ impl AppShell {
                         )
                     })
                     .unwrap_or_else(|| "（无可用图）".into());
-                format!("ra2 · 遭遇战大厅 · {detail} · ←/→ 切换 · Enter 开始 · Esc 返回")
+                format!("ra2 · 遭遇战大厅 · {detail} · ←/→ 切换 · Enter 开始 · Esc 返回 · F12 截图")
             }
-            OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回".into(),
-            OriginalScreen::LoadScreen => format!("ra2 · 加载 · {}", self.banner),
-            OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回".into(),
+            OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
+            OriginalScreen::LoadScreen => format!("ra2 · 加载 · {} · F12 截图", self.banner),
+            OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回 · F12 截图".into(),
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
         window.set_title(&title);
@@ -536,6 +573,10 @@ impl AppShell {
     }
 
     fn handle_pre_game_key(&mut self, event_loop: &ActiveEventLoop, key: PhysicalKey) {
+        if matches!(key, PhysicalKey::Code(KeyCode::F12)) {
+            self.queue_screenshot(self.screen.as_str());
+            return;
+        }
         match self.screen {
             OriginalScreen::MainMenu => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
@@ -629,6 +670,7 @@ impl AppShell {
             self.renderer.draw_frame(None);
             self.refresh_shell_title();
         }
+        self.flush_pending_screenshot();
         if let Some(window) = &self.window {
             window.request_redraw();
         }
@@ -664,6 +706,9 @@ impl ApplicationHandler for AppShell {
         self.window = Some(window);
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
+        if self.auto_screenshots.should_capture(self.screen) {
+            self.queue_screenshot(self.screen.as_str());
+        }
         if self.auto_start_skirmish {
             self.auto_start_skirmish = false;
             self.begin_skirmish_load();
@@ -681,6 +726,14 @@ impl ApplicationHandler for AppShell {
             }
             WindowEvent::RedrawRequested => {
                 self.redraw();
+                return;
+            }
+            WindowEvent::KeyboardInput { event: key_ev, .. }
+                if key_ev.state == ElementState::Pressed
+                    && matches!(key_ev.physical_key, PhysicalKey::Code(KeyCode::F12)) =>
+            {
+                // 对局页也走同一截图路径（不交给 MatchController）。
+                self.queue_screenshot(self.screen.as_str());
                 return;
             }
             _ => {}
