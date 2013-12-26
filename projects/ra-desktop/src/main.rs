@@ -19,6 +19,7 @@ mod preview_job;
 mod screen;
 mod screenshot;
 mod shell;
+mod skirmish_setup;
 mod ui_assets;
 mod ui_slots;
 #[cfg(feature = "test-harness")]
