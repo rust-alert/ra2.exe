@@ -23,6 +23,8 @@ pub struct SkirmishOpenResult {
 }
 
 /// 从已装载的 `RulesDb` 与地图打开一局遭遇战会话。
+///
+/// `preferred_house` 若能在世界玩家表中匹配，则设为本地玩家。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
@@ -30,6 +32,7 @@ pub fn open_skirmish_session(
     map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
+    preferred_house: Option<&str>,
 ) -> RaResult<SkirmishOpenResult> {
     note = format!(
         "{note} · rules#{} · overlay_types#{} · techno_types#{}",
@@ -39,6 +42,14 @@ pub fn open_skirmish_session(
     );
 
     let mut state = MatchState::new(chain.edition, rules, map);
+    if let Some(house) = preferred_house {
+        if state.prefer_local_house(house) {
+            note = format!("{note} · local_house={house}");
+        }
+        else {
+            note = format!("{note} · local_house=(fallback) want={house}");
+        }
+    }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
     if land_sealed > 0 {
         state.repath_mobiles();
