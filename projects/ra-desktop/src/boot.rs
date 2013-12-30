@@ -96,7 +96,7 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
 }
 
 /// 按桌面配置探测安装并打开一局遭遇战会话。
-pub fn boot_world(cfg: &DesktopConfig, preferred_map: Option<&str>) -> RaResult<BootResult> {
+pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::SkirmishBootRequest) -> RaResult<BootResult> {
     let root = cfg.ra2_dir.clone();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),
@@ -132,16 +132,17 @@ pub fn boot_world(cfg: &DesktopConfig, preferred_map: Option<&str>) -> RaResult<
 
     let expand_n = manifest.composition.diagnostics.detected_expansions.len();
     let mut note = format!(
-        "{} · 根mix {} · 嵌套 {} · 跳过 {} · 缺盘 {} · expand#{}",
+        "{} · 根mix {} · 嵌套 {} · 跳过 {} · 缺盘 {} · expand#{} · {}",
         chain.edition.as_str(),
         mounted_root,
         mounted_nested,
         skipped_root,
         manifest.missing_mixes.len(),
-        expand_n
+        expand_n,
+        request.note_fragment()
     );
 
-    let map = load_boot_map(&mut source, chain.edition, &mut note, preferred_map);
+    let map = load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref());
 
     let mut preview_origin = (0i32, 0i32);
     let rules = match load_rules_chain(&source, chain) {
@@ -164,10 +165,22 @@ pub fn boot_world(cfg: &DesktopConfig, preferred_map: Option<&str>) -> RaResult<
         }
     };
 
+    let preferred_house = Some(request.side.as_str());
     let (engine, session) =
-        match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin)) {
+        match rules.as_ref().map(|rules| {
+            open_skirmish_session(
+                &source,
+                chain,
+                rules,
+                map,
+                note.clone(),
+                preview_origin,
+                preferred_house,
+            )
+        }) {
             Some(Ok(opened)) => {
                 note = opened.note;
+                note = format!("{note} · difficulty={}", request.difficulty);
                 tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
                     opened.session.expect_game().fingerprint.edition,
@@ -188,11 +201,19 @@ pub fn boot_world(cfg: &DesktopConfig, preferred_map: Option<&str>) -> RaResult<
 
 /// 读取 `config.toml` 并尝试装载（失败时仍返回带 note 的 `BootResult`）。
 pub fn boot_from_install() -> BootResult {
-    boot_from_install_with_map(None)
+    boot_from_install_with_request(crate::skirmish_setup::SkirmishBootRequest::default_lobby())
 }
 
 /// 指定优选地图文件名后装载（找不到则回退候选首图）。
+#[allow(dead_code)]
 pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
+    let mut req = crate::skirmish_setup::SkirmishBootRequest::default_lobby();
+    req.preferred_map = preferred_map;
+    boot_from_install_with_request(req)
+}
+
+/// 按大厅遭遇战请求装载。
+pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBootRequest) -> BootResult {
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
         tracing::warn!("配置诊断 {} · {}", d.source, d.message);
@@ -203,7 +224,7 @@ pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
         }
         (None, _) => tracing::info!("联机配置：未设 net_url"),
     }
-    let boot = match boot_world(&cfg, preferred_map.as_deref()) {
+    let boot = match boot_world(&cfg, &request) {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
