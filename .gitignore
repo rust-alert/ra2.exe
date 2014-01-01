@@ -25,5 +25,6 @@ dist/
 # 运行时日志目录（`ra-logger` 写入 logs/ra2.log）
 logs/
 
-# 关键页验收截图（F12 / RA2_AUTO_SCREENSHOT，勿提交）
+# 关键页验收截图（F12 / 自动测试 dump，勿提交）
 screenshots/
+**/screenshots/
