@@ -22,6 +22,7 @@ use crate::{
     hud_chrome::{self, ResultsHit},
     menu_view::{layout_for, layout_skirmish_lobby},
     screen::OriginalScreen,
+    ui_assets::stamp_norm_progress_bar,
 };
 
 /// 截图输出根目录。
@@ -226,9 +227,26 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
         OriginalScreen::Network,
     ];
     for screen in menu_pages {
-        let layout = layout_for(screen, w, h, None, None).expect("menu layout");
+        let mut layout = layout_for(screen, w, h, None, None).expect("menu layout");
+        if screen == OriginalScreen::LoadScreen {
+            // 与壳层装载中进度条几何对齐（占位，非原版）。
+            stamp_norm_progress_bar(
+                &mut layout.image,
+                0.30,
+                0.50,
+                0.74,
+                0.54,
+                0.45,
+                [28, 32, 48, 255],
+                [220, 180, 64, 255],
+            );
+        }
         out.push(save_acceptance_png(dir, screen.as_str(), &layout.image)?);
     }
+
+    // 主菜单悬停态：第一个可点入口（single_player）。
+    let main_hover = layout_for(OriginalScreen::MainMenu, w, h, Some(0), None).expect("menu hover");
+    out.push(save_acceptance_png(dir, "main_menu_hover", &main_hover.image)?);
 
     let maps = [
         BootMapCandidate {
@@ -311,6 +329,7 @@ mod tests {
             assert!(len > 200, "{} too small ({len})", path.display());
         }
         assert!(dir.join("main_menu.png").exists());
+        assert!(dir.join("main_menu_hover.png").exists());
         assert!(dir.join("skirmish_lobby.png").exists());
         assert!(dir.join("match.png").exists());
         assert!(dir.join("results.png").exists());
