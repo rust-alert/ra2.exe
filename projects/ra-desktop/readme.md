@@ -172,7 +172,7 @@ cargo test -p ra-desktop dump_key_ui_screenshots_for_acceptance -- --nocapture
 
 会在包目录下 `projects/ra-desktop/screenshots/acceptance/`（或 `RA2_SCREENSHOT_DIR/acceptance/`）写出稳定文件名（覆盖）：
 
-- `main_menu.png` / `main_menu_hover.png` / `single_player_menu.png` / `skirmish_lobby.png`
+- `main_menu.png` / `main_menu_hover.png` / `single_player_menu.png` / `skirmish_lobby.png` / `skirmish_lobby_alt.png`
 - `load_screen.png`（含占位进度条） / `options.png` / `network.png`
 - `match.png` / `results.png`（合成底图 + 占位 HUD chrome）
 
