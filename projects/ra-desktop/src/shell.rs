@@ -248,6 +248,7 @@ impl AppShell {
         let n = self.lobby_maps.len() as isize;
         let next = ((cur as isize + delta).rem_euclid(n)) as usize;
         self.selected_map = Some(self.lobby_maps[next].file_name.clone());
+        self.skirmish.preferred_map = self.selected_map.clone();
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
