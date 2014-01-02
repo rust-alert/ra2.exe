@@ -291,6 +291,28 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
     paint_screen_chrome(&mut match_img, &hud_chrome::match_hud_chrome(&hud, Some("Americans")));
     out.push(save_acceptance_png(dir, OriginalScreen::Match.as_str(), &match_img)?);
 
+    let mut match_paused = solid_bg(w, h, [24, 48, 28, 255]);
+    let mut paused_hud = sample_hud();
+    paused_hud.paused = true;
+    paused_hud.pause_reason = Some("验收暂停".into());
+    paint_screen_chrome(
+        &mut match_paused,
+        &hud_chrome::match_hud_chrome(&paused_hud, Some("Americans")),
+    );
+    out.push(save_acceptance_png(dir, "match_paused", &match_paused)?);
+
+    let mut match_reject = solid_bg(w, h, [24, 48, 28, 255]);
+    let mut reject_hud = sample_hud();
+    reject_hud.last_rejects.push(ra_engine::CommandReject {
+        command_index: 0,
+        reason: ra_engine::CommandRejectReason::InsufficientFunds,
+    });
+    paint_screen_chrome(
+        &mut match_reject,
+        &hud_chrome::match_hud_chrome(&reject_hud, Some("Americans")),
+    );
+    out.push(save_acceptance_png(dir, "match_reject", &match_reject)?);
+
     let mut results_img = solid_bg(w, h, [20, 28, 40, 255]);
     let mut results_hud = sample_hud();
     results_hud.outcome = Some(MatchOutcome::Victory {
@@ -345,6 +367,8 @@ mod tests {
         assert!(dir.join("skirmish_lobby.png").exists());
         assert!(dir.join("skirmish_lobby_alt.png").exists());
         assert!(dir.join("match.png").exists());
+        assert!(dir.join("match_paused.png").exists());
+        assert!(dir.join("match_reject.png").exists());
         assert!(dir.join("results.png").exists());
     }
 
