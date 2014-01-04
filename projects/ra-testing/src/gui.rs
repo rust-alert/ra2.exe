@@ -136,3 +136,38 @@ pub fn standard_duel_gui_plan(executable: PathBuf, working_directory: PathBuf, s
         ],
     }
 }
+
+/// 与 `ra-desktop` 自动测试 `dump_key_ui_screenshots_for_acceptance` 对齐的稳定截图名（无扩展名）。
+///
+/// 执行器接入后可用 `GuiAction::Capture { name }` 对照这些基线；当前无 GPU 窗口时由桌面测试直接写 PNG。
+pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
+    &[
+        "main_menu",
+        "main_menu_hover",
+        "single_player_menu",
+        "skirmish_lobby",
+        "skirmish_lobby_alt",
+        "load_screen",
+        "options",
+        "network",
+        "match",
+        "match_paused",
+        "match_reject",
+        "results",
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pre_alpha_capture_names_cover_entry_flow() {
+        let names = pre_alpha_acceptance_capture_names();
+        assert!(names.contains(&"main_menu"));
+        assert!(names.contains(&"skirmish_lobby"));
+        assert!(names.contains(&"match"));
+        assert!(names.contains(&"results"));
+        assert!(names.len() >= 8);
+    }
+}
