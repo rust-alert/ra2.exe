@@ -238,6 +238,7 @@ impl AppShell {
         self.ensure_lobby_maps();
         if self.lobby_maps.is_empty() {
             self.selected_map = None;
+            self.skirmish.preferred_map = None;
             return;
         }
         let cur = self
@@ -474,7 +475,7 @@ impl AppShell {
                     })
                     .unwrap_or_else(|| "（无可用图）".into());
                 format!(
-                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Enter 开始 · Esc 返回 · F12 截图",
+                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
                     self.skirmish.side, self.skirmish.difficulty
                 )
             }
@@ -493,8 +494,10 @@ impl AppShell {
         }
         self.ensure_lobby_maps();
         self.banner = format!(
-            "正在装载 {}…",
-            self.selected_map.as_deref().unwrap_or("默认候选图")
+            "正在装载 {} · {}/{}…",
+            self.selected_map.as_deref().unwrap_or("默认候选图"),
+            self.skirmish.side,
+            self.skirmish.difficulty
         );
         self.pending_after_load = Some(OriginalScreen::Match);
         self.set_screen(OriginalScreen::LoadScreen);
@@ -634,6 +637,18 @@ impl AppShell {
                 }
                 PhysicalKey::Code(KeyCode::ArrowLeft) => self.cycle_lobby_map(-1),
                 PhysicalKey::Code(KeyCode::ArrowRight) => self.cycle_lobby_map(1),
+                PhysicalKey::Code(KeyCode::KeyQ) => {
+                    self.skirmish.cycle_side();
+                    self.banner = format!("阵营 · {}", self.skirmish.side);
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                }
+                PhysicalKey::Code(KeyCode::KeyE) => {
+                    self.skirmish.cycle_difficulty();
+                    self.banner = format!("难度 · {}", self.skirmish.difficulty);
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                }
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::SinglePlayerMenu),
                 _ => {}
             },
