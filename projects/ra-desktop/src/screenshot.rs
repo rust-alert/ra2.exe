@@ -325,6 +325,17 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
     paint_screen_chrome(&mut results_img, &hud_chrome::results_chrome(Some(ResultsHit::Rematch)));
     out.push(save_acceptance_png(dir, OriginalScreen::Results.as_str(), &results_img)?);
 
+    let mut results_lobby = solid_bg(w, h, [20, 28, 40, 255]);
+    paint_screen_chrome(
+        &mut results_lobby,
+        &hud_chrome::match_hud_chrome(&results_hud, Some("Americans")),
+    );
+    paint_screen_chrome(
+        &mut results_lobby,
+        &hud_chrome::results_chrome(Some(ResultsHit::ToLobby)),
+    );
+    out.push(save_acceptance_png(dir, "results_lobby_hover", &results_lobby)?);
+
     Ok(out)
 }
 
@@ -370,6 +381,7 @@ mod tests {
         assert!(dir.join("match_paused.png").exists());
         assert!(dir.join("match_reject.png").exists());
         assert!(dir.join("results.png").exists());
+        assert!(dir.join("results_lobby_hover.png").exists());
     }
 
     #[test]
