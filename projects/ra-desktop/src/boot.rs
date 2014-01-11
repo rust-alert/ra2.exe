@@ -97,14 +97,24 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
 
 /// 按桌面配置探测安装并打开一局遭遇战会话。
 pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::SkirmishBootRequest) -> RaResult<BootResult> {
+    boot_world_with_progress(cfg, request, |_, _| {})
+}
+
+/// 与 [`boot_world`] 相同，并按装载阶段回调进度（`ratio` 为 0..1）。
+pub fn boot_world_with_progress(
+    cfg: &DesktopConfig,
+    request: &crate::skirmish_setup::SkirmishBootRequest,
+    mut report: impl FnMut(f32, &str),
+) -> RaResult<BootResult> {
+    report(0.08, "探测安装");
     let root = cfg.ra2_dir.clone();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => Some(GameEdition::parse(s)?),
         None => None,
     };
     let manifest = detect_edition(&root, explicit)?;
-    for report in &manifest.stack.unsupported {
-        tracing::warn!("适配能力缺口 [{}] {}", report.code, report.message);
+    for item in &manifest.stack.unsupported {
+        tracing::warn!("适配能力缺口 [{}] {}", item.code, item.message);
     }
     if !manifest.stack.extensions.is_empty() {
         let ids: Vec<_> = manifest.stack.extensions.iter().map(|e| e.as_str()).collect();
@@ -116,6 +126,7 @@ pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::Skirmish
         tracing::info!("资源组合 {line}");
     }
 
+    report(0.22, "挂载资源");
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, skipped_root) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     for line in manifest.composition.mount_plan_lines() {
@@ -142,8 +153,10 @@ pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::Skirmish
         request.note_fragment()
     );
 
+    report(0.40, "装载地图");
     let map = load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref());
 
+    report(0.55, "解析规则");
     let mut preview_origin = (0i32, 0i32);
     let rules = match load_rules_chain(&source, chain) {
         Ok(db) => Some(db),
@@ -153,6 +166,7 @@ pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::Skirmish
         }
     };
 
+    report(0.70, "地形预览");
     let preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules)) {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
@@ -165,6 +179,7 @@ pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::Skirmish
         }
     };
 
+    report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());
     let (engine, session) =
         match rules.as_ref().map(|rules| {
@@ -196,6 +211,7 @@ pub fn boot_world(cfg: &DesktopConfig, request: &crate::skirmish_setup::Skirmish
             None => (None, None),
         };
 
+    report(1.0, "完成");
     Ok(BootResult { note, engine, session, preview })
 }
 
@@ -214,6 +230,15 @@ pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
 
 /// 按大厅遭遇战请求装载。
 pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBootRequest) -> BootResult {
+    boot_from_install_with_progress(request, |_, _| {})
+}
+
+/// 按大厅遭遇战请求装载，并向回调报告阶段进度。
+pub fn boot_from_install_with_progress(
+    request: crate::skirmish_setup::SkirmishBootRequest,
+    mut report: impl FnMut(f32, &str),
+) -> BootResult {
+    report(0.04, "读取配置");
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
         tracing::warn!("配置诊断 {} · {}", d.source, d.message);
@@ -224,7 +249,7 @@ pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBo
         }
         (None, _) => tracing::info!("联机配置：未设 net_url"),
     }
-    let boot = match boot_world(&cfg, &request) {
+    let boot = match boot_world_with_progress(&cfg, &request, &mut report) {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
