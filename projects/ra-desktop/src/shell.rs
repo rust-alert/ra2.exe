@@ -368,10 +368,11 @@ impl AppShell {
                 }
             }
             if self.screen == OriginalScreen::LoadScreen {
-                // 不确定时长：30s 内线性爬升后停在满幅，仅占位可见进度。
+                // 进度来自装载阶段回调；无任务时保留最低可见宽度。
                 let ratio = self
-                    .load_started
-                    .map(|t0| (t0.elapsed().as_secs_f32() / 30.0).clamp(0.05, 1.0))
+                    .load_job
+                    .as_ref()
+                    .map(|job| job.progress().ratio.clamp(0.05, 1.0))
                     .unwrap_or(0.05);
                 stamp_norm_progress_bar(
                     &mut layout.image,
@@ -548,7 +549,12 @@ impl AppShell {
                         1 => "..",
                         _ => "...",
                     };
-                    self.banner = format!("装载中{pulse} · {secs}s · Esc/点取消");
+                    let stage = self
+                        .load_job
+                        .as_ref()
+                        .map(|job| job.progress().stage)
+                        .unwrap_or_else(|| "装载中".into());
+                    self.banner = format!("{stage}{pulse} · {secs}s · Esc/点取消");
                 }
             }
             Err(()) => {
