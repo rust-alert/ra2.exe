@@ -14,7 +14,8 @@ pub use alpha_slice::{
     ALPHA_SKIRMISH_SLICE_ID, AlphaSkirmishSlice, SliceBuilding, SliceBuildingRole, SliceUnit, SliceUnitRole, alpha_skirmish_v1,
 };
 pub use gui::{
-    GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, pre_alpha_acceptance_capture_names, standard_duel_gui_plan,
+    GuiAction, GuiAutomationPlan, GuiExpectation, GuiPoint, pre_alpha_acceptance_capture_names,
+    pre_alpha_acceptance_capture_plan, standard_duel_gui_plan,
 };
 pub use headless::{HeadlessCase, HeadlessObservation, ai_skirmish_open, mcv_deploy_open, standard_duel, yard_open};
 pub use status::TestStatus;
