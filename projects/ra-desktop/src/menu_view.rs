@@ -53,6 +53,8 @@ pub enum MenuAction {
     StartSkirmish,
     /// 取消进行中的遭遇战装载。
     CancelLoad,
+    /// 装载失败后在加载页重试。
+    RetryLoad,
     /// 占位禁用项（不可点，无导航）。
     Noop,
     /// 循环遭遇战本地阵营。
