@@ -196,9 +196,19 @@ const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     UiButtonSlot {
         entry_id: "loading",
-        action: MenuAction::CancelLoad,
+        action: MenuAction::Noop,
         enabled: false,
         hit: (0.30, 0.40, 0.74, 0.48),
+        normal_shp: None,
+        hover_shp: None,
+        pressed_shp: None,
+        disabled_shp: None,
+    },
+    UiButtonSlot {
+        entry_id: "retry",
+        action: MenuAction::RetryLoad,
+        enabled: true,
+        hit: (0.30, 0.52, 0.50, 0.60),
         normal_shp: None,
         hover_shp: None,
         pressed_shp: None,
@@ -208,7 +218,7 @@ const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
         entry_id: "cancel",
         action: MenuAction::CancelLoad,
         enabled: true,
-        hit: (0.30, 0.56, 0.74, 0.64),
+        hit: (0.54, 0.52, 0.74, 0.60),
         normal_shp: None,
         hover_shp: None,
         pressed_shp: None,
@@ -313,8 +323,13 @@ mod tests {
     }
 
     #[test]
-    fn load_screen_exposes_cancel_slot() {
+    fn load_screen_exposes_retry_and_cancel_slots() {
         let page = slots_for(OriginalScreen::LoadScreen).unwrap();
+        let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
+        assert_eq!(ids, ["loading", "retry", "cancel"]);
+        let retry = page.buttons.iter().find(|b| b.entry_id == "retry").unwrap();
+        assert!(retry.enabled);
+        assert!(matches!(retry.action, MenuAction::RetryLoad));
         let cancel = page.buttons.iter().find(|b| b.entry_id == "cancel").unwrap();
         assert!(cancel.enabled);
         assert!(matches!(cancel.action, MenuAction::CancelLoad));
