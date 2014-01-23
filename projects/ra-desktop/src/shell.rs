@@ -368,7 +368,7 @@ impl AppShell {
                 }
             }
             if self.screen == OriginalScreen::LoadScreen {
-                // 进度来自装载阶段回调；无任务时保留最低可见宽度。
+                // 进度条落在 loading 槽位内，与 ui_slots 命中框对齐。
                 let ratio = self
                     .load_job
                     .as_ref()
@@ -376,10 +376,10 @@ impl AppShell {
                     .unwrap_or(0.05);
                 stamp_norm_progress_bar(
                     &mut layout.image,
-                    0.30,
-                    0.50,
-                    0.74,
-                    0.54,
+                    0.32,
+                    0.42,
+                    0.72,
+                    0.46,
                     ratio,
                     [28, 32, 48, 255],
                     [220, 180, 64, 255],
@@ -425,6 +425,14 @@ impl AppShell {
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
             MenuAction::CancelLoad => self.cancel_skirmish_load(),
+            MenuAction::RetryLoad => {
+                if self.load_job.is_some() {
+                    tracing::info!("装载进行中，忽略重试点击");
+                }
+                else {
+                    self.begin_skirmish_load();
+                }
+            }
             MenuAction::Noop => {}
             MenuAction::CycleSide => {
                 self.skirmish.cycle_side();
@@ -481,7 +489,10 @@ impl AppShell {
                 )
             }
             OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
-            OriginalScreen::LoadScreen => format!("ra2 · 加载 · {} · F12 截图", self.banner),
+            OriginalScreen::LoadScreen => format!(
+                "ra2 · 加载 · {} · Enter 重试 · Esc 取消 · F12 截图",
+                self.banner
+            ),
             OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回 · F12 截图".into(),
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
@@ -560,8 +571,12 @@ impl AppShell {
             Err(()) => {
                 self.load_job = None;
                 self.load_started = None;
-                self.banner = "装载线程异常断开 · Enter 重试".into();
-                self.set_screen(OriginalScreen::SkirmishLobby);
+                self.pending_after_load = None;
+                self.banner = "装载线程异常断开 · Enter/点重试 · Esc 回大厅".into();
+                tracing::error!("遭遇战装载线程异常断开");
+                self.set_screen(OriginalScreen::LoadScreen);
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
             }
         }
     }
@@ -587,8 +602,11 @@ impl AppShell {
             self.set_screen(target);
         }
         else {
-            self.banner = format!("装载失败 · {} · Enter 重试", self.banner);
-            self.set_screen(OriginalScreen::SkirmishLobby);
+            self.banner = format!("装载失败 · {} · Enter/点重试 · Esc 回大厅", self.banner);
+            tracing::warn!("遭遇战装载失败，停留加载页待重试");
+            self.set_screen(OriginalScreen::LoadScreen);
+            self.refresh_menu_backdrop();
+            self.refresh_shell_title();
         }
     }
 
@@ -663,11 +681,18 @@ impl AppShell {
                     self.set_screen(OriginalScreen::MainMenu);
                 }
             }
-            OriginalScreen::LoadScreen => {
-                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
-                    self.cancel_skirmish_load();
+            OriginalScreen::LoadScreen => match key {
+                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+                    if self.load_job.is_some() {
+                        tracing::info!("装载进行中，忽略 Enter 重试");
+                    }
+                    else {
+                        self.begin_skirmish_load();
+                    }
                 }
-            }
+                PhysicalKey::Code(KeyCode::Escape) => self.cancel_skirmish_load(),
+                _ => {}
+            },
             OriginalScreen::Match | OriginalScreen::Results => {}
         }
     }
