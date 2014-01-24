@@ -229,13 +229,13 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
     for screen in menu_pages {
         let mut layout = layout_for(screen, w, h, None, None).expect("menu layout");
         if screen == OriginalScreen::LoadScreen {
-            // 与壳层装载中进度条几何对齐（占位，非原版）。
+            // 与壳层装载进度条一致：落在 loading 槽位内。
             stamp_norm_progress_bar(
                 &mut layout.image,
-                0.30,
-                0.50,
-                0.74,
-                0.54,
+                0.32,
+                0.42,
+                0.72,
+                0.46,
                 0.45,
                 [28, 32, 48, 255],
                 [220, 180, 64, 255],
