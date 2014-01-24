@@ -193,9 +193,10 @@ pub fn boot_world_with_progress(
                 preferred_house,
             )
         }) {
-            Some(Ok(opened)) => {
+            Some(Ok(mut opened)) => {
                 note = opened.note;
                 note = format!("{note} · difficulty={}", request.difficulty);
+                opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
                 tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
                     opened.session.expect_game().fingerprint.edition,
