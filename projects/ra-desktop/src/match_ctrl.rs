@@ -697,8 +697,14 @@ impl MatchController {
                         (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
+                    let diff = self
+                        .session
+                        .as_ref()
+                        .and_then(|s| s.game())
+                        .map(|g| g.difficulty.as_str())
+                        .unwrap_or("Normal");
                     format!(
-                        "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · Esc暂停 · z{:.2}",
+                        "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc暂停 · z{:.2}",
                         self.title_base, hud.tick, zoom
                     )
                 }
