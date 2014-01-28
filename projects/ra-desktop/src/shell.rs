@@ -16,7 +16,7 @@ use crate::{
     boot::BootResult,
     load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
-    menu_view::{MenuAction, MenuLayout, layout_for, layout_skirmish_lobby},
+    menu_view::{MenuAction, MenuLayout, layout_for, layout_load_screen, layout_skirmish_lobby},
     preview_job::PreviewJob,
     screen::OriginalScreen,
     screenshot::AutoScreenshotTracker,
@@ -357,7 +357,18 @@ impl AppShell {
             self.menu = Some(layout);
             return;
         }
-        if let Some(mut layout) = layout_for(self.screen, w, h, self.menu_hover, self.menu_pressed) {
+        if let Some(mut layout) = if self.screen == OriginalScreen::LoadScreen {
+            Some(layout_load_screen(
+                w,
+                h,
+                self.menu_hover,
+                self.menu_pressed,
+                self.load_job.is_none(),
+            ))
+        }
+        else {
+            layout_for(self.screen, w, h, self.menu_hover, self.menu_pressed)
+        } {
             self.ensure_ui_probe();
             if let Some(probe) = self.ui_probe.as_ref() {
                 if let Some(frame) = probe.mouse_frame.as_ref() {
@@ -489,10 +500,17 @@ impl AppShell {
                 )
             }
             OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
-            OriginalScreen::LoadScreen => format!(
-                "ra2 · 加载 · {} · Enter 重试 · Esc 取消 · F12 截图",
-                self.banner
-            ),
+            OriginalScreen::LoadScreen => {
+                if self.load_job.is_some() {
+                    format!("ra2 · 加载 · {} · Esc/点取消 · F12 截图", self.banner)
+                }
+                else {
+                    format!(
+                        "ra2 · 加载 · {} · Enter/点重试 · Esc 回大厅 · F12 截图",
+                        self.banner
+                    )
+                }
+            }
             OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回 · F12 截图".into(),
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
@@ -518,6 +536,8 @@ impl AppShell {
         {
             if let Some(scene) = self.test_scene.clone() {
                 self.load_job = Some(LoadJob::start_test_scene(scene));
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
                 return;
             }
         }
@@ -526,6 +546,9 @@ impl AppShell {
             req.preferred_map = self.selected_map.clone();
             req
         }));
+        // load_job 赋值后刷新：禁用重试并改标题提示。
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
     }
 
     /// 放弃进行中的装载并回到遭遇战大厅（工作线程结果会被丢弃）。
