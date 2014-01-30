@@ -1,6 +1,8 @@
 //! 测试状态旁路：与 `ra-desktop` test-harness 写出的键值文件对齐。
 
 use std::path::Path;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use ra_types::EntityId;
 
@@ -142,5 +144,34 @@ impl TestStatus {
             return self.queue != "none" && !self.queue.is_empty();
         }
         false
+    }
+
+    /// 轮询旁路文件直至 `matches_expect` 成立或超时。
+    ///
+    /// 供 `GuiAction::WaitStatus` 执行器使用；文件暂不可读时继续等到超时。
+    pub fn wait_until(path: &Path, expect: &str, timeout: Duration) -> Result<Self, String> {
+        let deadline = Instant::now() + timeout;
+        let mut last_err = format!("状态旁路尚未可读: {}", path.display());
+        loop {
+            match Self::read_file(path) {
+                Ok(status) if status.matches_expect(expect) => return Ok(status),
+                Ok(status) => {
+                    last_err = format!(
+                        "状态未满足 expect={expect}（tick={} outcome={}）",
+                        status.tick, status.outcome
+                    );
+                }
+                Err(e) => last_err = e,
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "等待状态超时（{}ms）· {} · {}",
+                    timeout.as_millis(),
+                    path.display(),
+                    last_err
+                ));
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
     }
 }
