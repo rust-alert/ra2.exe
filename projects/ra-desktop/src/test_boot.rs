@@ -67,7 +67,12 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 }
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。
-pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_types::EntityId]) {
+pub fn write_status(
+    path: &std::path::Path,
+    session: &Session,
+    selected: &[ra_types::EntityId],
+    screen: &str,
+) {
     let game = session.expect_game();
     let snap = game.snapshot(selected);
     let outcome = match &snap.outcome {
@@ -87,7 +92,7 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         snap.produce_queues.first().map(|q| format!("{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "none".into());
     let last_reject = snap.last_rejects.first().map(|r| format!("{:?}", r.reason)).unwrap_or_else(|| "none".into());
     let body = format!(
-        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\ndifficulty={}\n",
+        "tick={}\nhash={:#x}\noutcome={}\npaused={}\nselected={}\nentities={}\nfunds={}\npower_output={}\npower_drain={}\nlow_power={}\nqueue={}\nlast_reject={}\ndifficulty={}\nscreen={}\n",
         snap.tick,
         snap.state_hash,
         outcome,
@@ -100,7 +105,8 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         low_power,
         queue,
         last_reject,
-        game.difficulty
+        game.difficulty,
+        screen
     );
     let _ = std::fs::write(path, body);
 }
