@@ -19,6 +19,7 @@ low_power=false
 queue=E1:12
 last_reject=QueueFull
 difficulty=Hard
+screen=results
 ";
     let s = TestStatus::parse(text).unwrap();
     assert_eq!(s.tick, 12);
@@ -34,6 +35,7 @@ difficulty=Hard
     assert_eq!(s.queue, "E1:12");
     assert_eq!(s.last_reject, "QueueFull");
     assert_eq!(s.difficulty, "Hard");
+    assert_eq!(s.screen, "results");
     assert!(s.matches_expect("tick>=1"));
     assert!(s.matches_expect("funds>=1000"));
     assert!(s.matches_expect("queue!=none"));
@@ -41,6 +43,8 @@ difficulty=Hard
     assert!(s.matches_expect("paused=true"));
     assert!(s.matches_expect("difficulty=Hard"));
     assert!(!s.matches_expect("difficulty=Easy"));
+    assert!(s.matches_expect("screen=results"));
+    assert!(!s.matches_expect("screen=match"));
 }
 
 #[test]
