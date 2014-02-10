@@ -256,6 +256,12 @@ pub fn dump_all_key_screens_to(dir: impl AsRef<Path>) -> RaResult<Vec<PathBuf>> 
     let failed_retry_hover = layout_load_screen(w, h, Some(1), None, true);
     out.push(save_acceptance_png(dir, "load_screen_failed_retry_hover", &failed_retry_hover.image)?);
 
+    // 选项 / 网络：悬停返回槽。
+    let options_back = layout_for(OriginalScreen::Options, w, h, Some(2), None).expect("options back");
+    out.push(save_acceptance_png(dir, "options_back_hover", &options_back.image)?);
+    let network_back = layout_for(OriginalScreen::Network, w, h, Some(1), None).expect("network back");
+    out.push(save_acceptance_png(dir, "network_back_hover", &network_back.image)?);
+
     // 主菜单悬停态：第一个可点入口（single_player）。
     let main_hover = layout_for(OriginalScreen::MainMenu, w, h, Some(0), None).expect("menu hover");
     out.push(save_acceptance_png(dir, "main_menu_hover", &main_hover.image)?);
@@ -396,6 +402,8 @@ mod tests {
         assert!(dir.join("load_screen.png").exists());
         assert!(dir.join("load_screen_failed.png").exists());
         assert!(dir.join("load_screen_failed_retry_hover.png").exists());
+        assert!(dir.join("options_back_hover.png").exists());
+        assert!(dir.join("network_back_hover.png").exists());
         assert!(dir.join("results_lobby_hover.png").exists());
     }
 
