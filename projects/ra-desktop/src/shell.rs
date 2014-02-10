@@ -248,7 +248,27 @@ impl AppShell {
             .unwrap_or(0);
         let n = self.lobby_maps.len() as isize;
         let next = ((cur as isize + delta).rem_euclid(n)) as usize;
-        self.selected_map = Some(self.lobby_maps[next].file_name.clone());
+        self.select_lobby_map_index(next);
+    }
+
+    /// 跳到大厅地图列表首项或末项（空列表时清空选中）。
+    fn jump_lobby_map_edge(&mut self, to_end: bool) {
+        self.ensure_lobby_maps();
+        if self.lobby_maps.is_empty() {
+            self.selected_map = None;
+            self.skirmish.preferred_map = None;
+            return;
+        }
+        let idx = if to_end { self.lobby_maps.len() - 1 } else { 0 };
+        self.select_lobby_map_index(idx);
+    }
+
+    fn select_lobby_map_index(&mut self, index: usize) {
+        let Some(map) = self.lobby_maps.get(index)
+        else {
+            return;
+        };
+        self.selected_map = Some(map.file_name.clone());
         self.skirmish.preferred_map = self.selected_map.clone();
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
@@ -500,7 +520,7 @@ impl AppShell {
                     })
                     .unwrap_or_else(|| "（无可用图）".into());
                 format!(
-                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
+                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Home/End · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
                     self.skirmish.side, self.skirmish.difficulty
                 )
             }
@@ -689,6 +709,8 @@ impl AppShell {
                 }
                 PhysicalKey::Code(KeyCode::ArrowLeft) => self.cycle_lobby_map(-1),
                 PhysicalKey::Code(KeyCode::ArrowRight) => self.cycle_lobby_map(1),
+                PhysicalKey::Code(KeyCode::Home) => self.jump_lobby_map_edge(false),
+                PhysicalKey::Code(KeyCode::End) => self.jump_lobby_map_edge(true),
                 PhysicalKey::Code(KeyCode::KeyQ) => {
                     self.skirmish.cycle_side();
                     self.banner = format!("阵营 · {}", self.skirmish.side);
