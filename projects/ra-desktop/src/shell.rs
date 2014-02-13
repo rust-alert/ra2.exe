@@ -503,7 +503,9 @@ impl AppShell {
                     self.banner
                 )
             }
-            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 遭遇战 Enter · Esc 返回 · F12 截图".into(),
+            OriginalScreen::SinglePlayerMenu => {
+                "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into()
+            }
             OriginalScreen::SkirmishLobby => {
                 let detail = self
                     .selected_map
@@ -697,7 +699,9 @@ impl AppShell {
                 _ => {}
             },
             OriginalScreen::SinglePlayerMenu => match key {
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+                PhysicalKey::Code(KeyCode::Enter)
+                | PhysicalKey::Code(KeyCode::NumpadEnter)
+                | PhysicalKey::Code(KeyCode::KeyS) => {
                     self.set_screen(OriginalScreen::SkirmishLobby);
                 }
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
