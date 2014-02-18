@@ -150,6 +150,8 @@ pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
         "main_menu",
         "main_menu_hover",
         "single_player_menu",
+        "single_player_skirmish_hover",
+        "single_player_back_hover",
         "skirmish_lobby",
         "skirmish_lobby_alt",
         "load_screen",

@@ -133,7 +133,7 @@ let plan: GuiAutomationPlan = standard_duel_gui_plan();
 `ra-desktop` 主 binary。
 
 `TestStatus` 解析 `RA2_TEST_STATUS_PATH` 旁路文件（`tick` / `hash` / `outcome` / `selected` / `difficulty` / `screen` 等键），供 GUI 测试轮询引擎状态而无需
-OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可直接承接 `GuiAction::WaitStatus`（例如 `screen=results`）。
+OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可直接承接 `GuiAction::WaitStatus`（例如 `screen=results` / `leave_armed=true`）。
 
 ```mermaid
 sequenceDiagram
