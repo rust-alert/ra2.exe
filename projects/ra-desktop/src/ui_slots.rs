@@ -1,7 +1,8 @@
 //! 原版产品页的逻辑 UI 资源槽（按页面组织，不依赖 `ui.ini` 当素材目录）。
 //!
 //! 槽位先对齐入口页面的入口 id 与占位命中框；具体 SHP/PAL 文件名可后填。
-//! **空文件名 ≠ 已交付原版 UI。**
+//! **空文件名 ≠ 已交付原版 UI。** 页面级资源索引见 [`crate::ui_page`]；
+//! 色块绘制见 [`crate::menu_view`]。
 
 use crate::{
     menu_view::MenuAction,
