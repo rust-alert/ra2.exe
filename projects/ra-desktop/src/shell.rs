@@ -88,7 +88,7 @@ impl AppShell {
     ) -> Self {
         let mut renderer = Renderer::new();
         if let Some(image) = boot.preview.as_ref() {
-            renderer.set_preview(image.clone());
+            renderer.set_map_preview(image.clone());
         }
         let ctrl = MatchController::from_boot(boot, status_path.clone(), test_scene.clone());
         let screen = if ctrl.has_session() {
@@ -373,6 +373,7 @@ impl AppShell {
                     stamp_top_left(&mut layout.image, clock, 16);
                 }
             }
+            // 占位色块整页烘焙：过渡路径，不是原版 UI pass。真实页面资源见 `ui_page`。
             self.renderer.set_preview(layout.image.clone());
             self.menu = Some(layout);
             return;
@@ -416,6 +417,7 @@ impl AppShell {
                     [220, 180, 64, 255],
                 );
             }
+            // 占位色块整页烘焙：过渡路径，不是原版 UI pass。
             self.renderer.set_preview(layout.image.clone());
             self.menu = Some(layout);
         }
@@ -634,7 +636,7 @@ impl AppShell {
     fn finish_load(&mut self, boot: BootResult) {
         self.banner = boot.note.clone();
         if let Some(preview) = &boot.preview {
-            self.renderer.set_preview(preview.clone());
+            self.renderer.set_map_preview(preview.clone());
         }
         match self.match_ctrl.as_mut() {
             Some(ctrl) => ctrl.apply_boot(boot, &mut self.renderer),
