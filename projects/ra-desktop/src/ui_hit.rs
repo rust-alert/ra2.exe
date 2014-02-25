@@ -1,0 +1,292 @@
+//! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
+//!
+//! 命中几何来自 [`crate::ui_slots`]；遭遇战大厅地图列表行几何与既有大厅列表约定一致。
+
+use crate::{
+    boot::BootMapCandidate,
+    menu_action::MenuAction,
+    screen::OriginalScreen,
+    ui_slots::slots_for,
+};
+
+/// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
+#[derive(Debug, Clone, Copy)]
+pub struct MenuHit {
+    /// 逻辑入口 id。
+    pub entry_id: &'static str,
+    /// 动作标识。
+    pub action: MenuAction,
+    /// 左。
+    pub x0: f32,
+    /// 上。
+    pub y0: f32,
+    /// 右。
+    pub x1: f32,
+    /// 下。
+    pub y1: f32,
+    /// 是否可点。
+    pub enabled: bool,
+}
+
+/// 大厅地图列表：顶部、行高、最多行数、水平范围（与既有大厅列表一致）。
+const LOBBY_LIST_TOP: f32 = 0.18;
+const LOBBY_ROW_H: f32 = 0.07;
+const LOBBY_ROW_GAP: f32 = 0.015;
+const LOBBY_MAP_MAX: usize = 6;
+const LOBBY_X0: f32 = 0.18;
+const LOBBY_X1: f32 = 0.82;
+
+/// 为当前页构建命中列表；对局/结算返回空。
+///
+/// `load_allow_retry`：加载页「重试」是否可点（装载进行中为 `false`）。
+pub fn hits_for(
+    screen: OriginalScreen,
+    maps: &[BootMapCandidate],
+    load_allow_retry: bool,
+) -> Vec<MenuHit> {
+    match screen {
+        OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
+        OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
+        OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
+        other => hits_from_slots(other),
+    }
+}
+
+/// 窗口像素点击 → 动作。
+pub fn hit_action(
+    screen: OriginalScreen,
+    maps: &[BootMapCandidate],
+    _selected: Option<&str>,
+    cursor: (f64, f64),
+    win_w: f64,
+    win_h: f64,
+    load_allow_retry: bool,
+) -> Option<MenuAction> {
+    hit_at(
+        &hits_for(screen, maps, load_allow_retry),
+        cursor.0,
+        cursor.1,
+        win_w,
+        win_h,
+    )
+    .map(|(_, action)| action)
+}
+
+/// 命中命中区下标（仅 `enabled`）。
+pub fn hover_index(
+    screen: OriginalScreen,
+    maps: &[BootMapCandidate],
+    _selected: Option<&str>,
+    cursor: (f64, f64),
+    win_w: f64,
+    win_h: f64,
+    load_allow_retry: bool,
+) -> Option<usize> {
+    hit_at(
+        &hits_for(screen, maps, load_allow_retry),
+        cursor.0,
+        cursor.1,
+        win_w,
+        win_h,
+    )
+    .map(|(i, _)| i)
+}
+
+fn hit_at(
+    hits: &[MenuHit],
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let nx = (cursor_x / win_w) as f32;
+    let ny = (cursor_y / win_h) as f32;
+    for (i, h) in hits.iter().enumerate() {
+        if !h.enabled {
+            continue;
+        }
+        if nx >= h.x0 && nx <= h.x1 && ny >= h.y0 && ny <= h.y1 {
+            return Some((i, h.action));
+        }
+    }
+    None
+}
+
+fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
+    let Some(page) = slots_for(screen)
+    else {
+        return Vec::new();
+    };
+    page.buttons
+        .iter()
+        .map(|btn| {
+            let (x0, y0, x1, y1) = btn.hit;
+            MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0,
+                y0,
+                x1,
+                y1,
+                enabled: btn.enabled,
+            }
+        })
+        .collect()
+}
+
+fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::LoadScreen)
+    else {
+        return Vec::new();
+    };
+    page.buttons
+        .iter()
+        .map(|btn| {
+            let (x0, y0, x1, y1) = btn.hit;
+            let enabled = if btn.entry_id == "retry" {
+                allow_retry
+            }
+            else {
+                btn.enabled
+            };
+            MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0,
+                y0,
+                x1,
+                y1,
+                enabled,
+            }
+        })
+        .collect()
+}
+
+fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
+    let mut hits = Vec::new();
+    for (i, _) in maps.iter().enumerate().take(LOBBY_MAP_MAX) {
+        let y0 = LOBBY_LIST_TOP + (i as f32) * (LOBBY_ROW_H + LOBBY_ROW_GAP);
+        let y1 = y0 + LOBBY_ROW_H;
+        hits.push(MenuHit {
+            entry_id: "map",
+            action: MenuAction::SelectMap(i),
+            x0: LOBBY_X0,
+            y0,
+            x1: LOBBY_X1,
+            y1,
+            enabled: true,
+        });
+    }
+    if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
+        for btn in page.buttons {
+            let (x0, y0, x1, y1) = btn.hit;
+            hits.push(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0,
+                y0,
+                x1,
+                y1,
+                enabled: btn.enabled,
+            });
+        }
+    }
+    hits
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ra_map::Theater;
+
+    #[test]
+    fn main_menu_hit_single_player() {
+        let action = hit_action(
+            OriginalScreen::MainMenu,
+            &[],
+            None,
+            (400.0, 280.0),
+            1024.0,
+            768.0,
+            false,
+        );
+        assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
+    }
+
+    #[test]
+    fn load_screen_disables_retry_while_loading() {
+        let loading = hits_for(OriginalScreen::LoadScreen, &[], false);
+        let retry = loading.iter().find(|h| h.entry_id == "retry").expect("retry");
+        assert!(!retry.enabled);
+        let failed = hits_for(OriginalScreen::LoadScreen, &[], true);
+        let retry = failed.iter().find(|h| h.entry_id == "retry").expect("retry");
+        assert!(retry.enabled);
+    }
+
+    #[test]
+    fn disabled_network_not_hit() {
+        // NETWORK 行约 y=0.44 → 338px，禁用。
+        let action = hit_action(
+            OriginalScreen::MainMenu,
+            &[],
+            None,
+            (400.0, 340.0),
+            1024.0,
+            768.0,
+            false,
+        );
+        assert_eq!(action, None);
+    }
+
+    #[test]
+    fn lobby_map_row_is_selectable() {
+        let maps = vec![BootMapCandidate {
+            file_name: "mp03t4.map".into(),
+            width: 50,
+            height: 50,
+            theater: Theater::Temperate,
+        }];
+        // 首行约 y=0.18 → 138px
+        let action = hit_action(
+            OriginalScreen::SkirmishLobby,
+            &maps,
+            Some("mp03t4.map"),
+            (400.0, 150.0),
+            1024.0,
+            768.0,
+            false,
+        );
+        assert_eq!(action, Some(MenuAction::SelectMap(0)));
+    }
+
+    #[test]
+    fn hover_index_tracks_enabled_button() {
+        assert_eq!(
+            hover_index(
+                OriginalScreen::MainMenu,
+                &[],
+                None,
+                (400.0, 280.0),
+                1024.0,
+                768.0,
+                false,
+            ),
+            Some(0)
+        );
+        assert_eq!(
+            hover_index(
+                OriginalScreen::MainMenu,
+                &[],
+                None,
+                (400.0, 340.0),
+                1024.0,
+                768.0,
+                false,
+            ),
+            None
+        );
+    }
+}
