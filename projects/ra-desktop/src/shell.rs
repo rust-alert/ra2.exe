@@ -16,15 +16,13 @@ use crate::{
     boot::BootResult,
     load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
-    menu_view::{MenuAction, MenuLayout, layout_for, layout_load_screen, layout_skirmish_lobby},
+    menu_action::MenuAction,
     preview_job::PreviewJob,
     screen::OriginalScreen,
     screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
-    ui_assets::{
-        MenuUiProbe, probe_menu_ui_assets, stamp_bottom_right_opaque, stamp_bottom_right_pending,
-        stamp_norm_progress_bar, stamp_top_left, stamp_top_right,
-    },
+    ui_assets::{MenuUiProbe, probe_menu_ui_assets},
+    ui_hit,
 };
 
 /// 外壳持有的可导航应用状态。
@@ -44,17 +42,11 @@ pub struct AppShell {
     auto_start_skirmish: bool,
     /// 装载完成后待切到的目标页。
     pending_after_load: Option<OriginalScreen>,
-    /// 当前前置页占位菜单（对局页为 `None`）。
-    menu: Option<MenuLayout>,
-    /// 光标位置（菜单命中用）。
+    /// 光标位置（菜单逻辑命中用）。
     cursor: (f64, f64),
-    /// 当前悬停的可点命中区下标。
-    menu_hover: Option<usize>,
-    /// 左键按下时命中的下标（按下态）。
-    menu_pressed: Option<usize>,
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
     load_job: Option<LoadJob>,
-    /// 当前装载开始时刻（脉搏标题用）。
+    /// 当前装载开始时刻。
     load_started: Option<Instant>,
     /// 遭遇战大厅可选地图。
     lobby_maps: Vec<crate::boot::BootMapCandidate>,
@@ -109,10 +101,7 @@ impl AppShell {
             test_scene,
             auto_start_skirmish: false,
             pending_after_load: None,
-            menu: None,
             cursor: (0.0, 0.0),
-            menu_hover: None,
-            menu_pressed: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -134,17 +123,14 @@ impl AppShell {
             screen: OriginalScreen::MainMenu,
             match_ctrl: None,
             renderer: Renderer::new(),
-            banner: "占位色块菜单 · 非 Pre-Alpha 原版 UI".into(),
+            banner: "原版 UI 未接线 · 仅键盘/逻辑命中".into(),
             window_width,
             window_height,
             status_path: None,
             test_scene: None,
             auto_start_skirmish,
             pending_after_load: None,
-            menu: None,
             cursor: (0.0, 0.0),
-            menu_hover: None,
-            menu_pressed: None,
             load_job: None,
             load_started: None,
             lobby_maps: Vec::new(),
@@ -296,8 +282,6 @@ impl AppShell {
         if self.screen != next {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
-            self.menu_hover = None;
-            self.menu_pressed = None;
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
             if self.auto_screenshots.should_capture(next) {
@@ -331,109 +315,30 @@ impl AppShell {
         }
     }
 
+    /// 前置页：不烘焙假菜单。仅在遭遇战大厅且地图预览就绪时显示真实缩略图。
     fn refresh_menu_backdrop(&mut self) {
-        // 离开对局后清掉屏上 HUD 色块，避免叠在菜单底图上。
-        self.renderer.set_screen_chrome(&[]);
-        let w = self.window_width.max(1.0) as u32;
-        let h = self.window_height.max(1.0) as u32;
+        if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+            return;
+        }
+        self.ensure_ui_probe();
         if self.screen == OriginalScreen::SkirmishLobby {
             self.ensure_lobby_maps();
-            let mut layout = layout_skirmish_lobby(
-                w,
-                h,
-                &self.lobby_maps,
-                self.selected_map.as_deref(),
-                self.skirmish.side.as_str(),
-                self.skirmish.difficulty.as_str(),
-                self.menu_hover,
-                self.menu_pressed,
-            );
             self.ensure_lobby_preview();
             let selected = self.selected_map.as_deref();
             let preview_ready =
                 self.lobby_preview.is_some() && self.lobby_preview_for.as_deref() == selected;
             if preview_ready {
-                if let Some(preview) = self.lobby_preview.as_ref() {
-                    stamp_bottom_right_opaque(&mut layout.image, preview, 12);
+                if let Some(preview) = self.lobby_preview.clone() {
+                    self.renderer.set_map_preview(preview);
+                    return;
                 }
             }
-            else if self.lobby_preview_job.is_some() {
-                let pulse = (Instant::now().elapsed().as_millis() / 250) as u8;
-                stamp_bottom_right_pending(&mut layout.image, 320, 200, 12, pulse);
-            }
-            else if let Some(preview) = self.lobby_preview.as_ref() {
-                stamp_bottom_right_opaque(&mut layout.image, preview, 12);
-            }
-            self.ensure_ui_probe();
-            if let Some(probe) = self.ui_probe.as_ref() {
-                if let Some(frame) = probe.mouse_frame.as_ref() {
-                    stamp_top_right(&mut layout.image, frame, 16);
-                }
-                if let Some(clock) = probe.clock_frame.as_ref() {
-                    stamp_top_left(&mut layout.image, clock, 16);
-                }
-            }
-            // 占位色块整页烘焙：过渡路径，不是原版 UI pass。真实页面资源见 `ui_page`。
-            self.renderer.set_preview(layout.image.clone());
-            self.menu = Some(layout);
-            return;
         }
-        if let Some(mut layout) = if self.screen == OriginalScreen::LoadScreen {
-            Some(layout_load_screen(
-                w,
-                h,
-                self.menu_hover,
-                self.menu_pressed,
-                self.load_job.is_none(),
-            ))
-        }
-        else {
-            layout_for(self.screen, w, h, self.menu_hover, self.menu_pressed)
-        } {
-            self.ensure_ui_probe();
-            if let Some(probe) = self.ui_probe.as_ref() {
-                if let Some(frame) = probe.mouse_frame.as_ref() {
-                    stamp_top_right(&mut layout.image, frame, 16);
-                }
-                if let Some(clock) = probe.clock_frame.as_ref() {
-                    stamp_top_left(&mut layout.image, clock, 16);
-                }
-            }
-            if self.screen == OriginalScreen::LoadScreen {
-                // 进度条落在 loading 槽位内，与 ui_slots 命中框对齐。
-                let ratio = self
-                    .load_job
-                    .as_ref()
-                    .map(|job| job.progress().ratio.clamp(0.05, 1.0))
-                    .unwrap_or(0.05);
-                stamp_norm_progress_bar(
-                    &mut layout.image,
-                    0.32,
-                    0.42,
-                    0.72,
-                    0.46,
-                    ratio,
-                    [28, 32, 48, 255],
-                    [220, 180, 64, 255],
-                );
-            }
-            // 占位色块整页烘焙：过渡路径，不是原版 UI pass。
-            self.renderer.set_preview(layout.image.clone());
-            self.menu = Some(layout);
-        }
-        else {
-            self.menu = None;
-        }
+        self.renderer.clear_preview();
     }
 
-    fn update_menu_hover(&mut self) {
-        let next = self.menu.as_ref().and_then(|m| {
-            m.hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
-        });
-        if next != self.menu_hover {
-            self.menu_hover = next;
-            self.refresh_menu_backdrop();
-        }
+    fn load_allow_retry(&self) -> bool {
+        self.load_job.is_none()
     }
 
     fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
@@ -772,33 +677,23 @@ impl AppShell {
             }
         }
         else {
-            // 主菜单等前置页：占位色块底图 + 标题。原版 SHP 资产未接前不冒充交付完成。
+            // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。
             self.renderer.timings.simulation = None;
             self.renderer.timings.presentation_build = None;
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
-                // 装载中刷新占位底图，让 loading 条有可见脉动（非原版进度条）。
-                if self.load_job.is_some() {
-                    self.refresh_menu_backdrop();
-                }
             }
             if self.screen == OriginalScreen::SkirmishLobby {
                 let ready = self.poll_lobby_preview();
-                let pending = self.lobby_preview_job.is_some();
-                if ready || pending {
-                    self.refresh_menu_backdrop();
-                }
                 if ready {
+                    self.refresh_menu_backdrop();
                     let map = self.selected_map.as_deref().unwrap_or("?");
                     self.banner = format!("预览就绪 · {map}");
                 }
-                else if pending {
+                else if self.lobby_preview_job.is_some() {
                     let map = self.selected_map.as_deref().unwrap_or("?");
                     self.banner = format!("预览生成中… {map}");
                 }
-            }
-            if self.menu.is_none() {
-                self.refresh_menu_backdrop();
             }
             self.renderer.draw_frame(None);
             self.refresh_shell_title();
@@ -856,7 +751,7 @@ impl ApplicationHandler for AppShell {
             }
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
-                // 命中框与菜单底图按逻辑窗口尺寸算；物理缓冲变化后必须同步，否则缩放后点击错位。
+                // 命中框按逻辑窗口尺寸算；物理缓冲变化后必须同步，否则缩放后点击错位。
                 let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
                 let logical = size.to_logical::<f64>(scale);
                 self.window_width = logical.width.max(1.0);
@@ -901,40 +796,23 @@ impl ApplicationHandler for AppShell {
                 match &event {
                     WindowEvent::CursorMoved { position, .. } => {
                         self.cursor = (position.x, position.y);
-                        self.update_menu_hover();
-                    }
-                    WindowEvent::MouseInput {
-                        state: ElementState::Pressed,
-                        button: winit::event::MouseButton::Left,
-                        ..
-                    } => {
-                        let idx = self.menu.as_ref().and_then(|m| {
-                            m.hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
-                        });
-                        if idx != self.menu_pressed {
-                            self.menu_pressed = idx;
-                            self.refresh_menu_backdrop();
-                        }
                     }
                     WindowEvent::MouseInput {
                         state: ElementState::Released,
                         button: winit::event::MouseButton::Left,
                         ..
                     } => {
-                        if self.menu_pressed.is_some() {
-                            self.menu_pressed = None;
-                            self.refresh_menu_backdrop();
-                        }
-                        let clicked = self.menu.as_ref().and_then(|menu| {
-                            let action =
-                                menu.hit(self.cursor.0, self.cursor.1, self.window_width, self.window_height)?;
-                            let entry = menu
-                                .hover_index(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
-                                .and_then(|i| menu.hits.get(i).map(|h| h.entry_id));
-                            Some((action, entry))
-                        });
-                        if let Some((action, entry)) = clicked {
-                            tracing::debug!(?entry, ?action, "菜单点击");
+                        let action = ui_hit::hit_action(
+                            self.screen,
+                            &self.lobby_maps,
+                            self.selected_map.as_deref(),
+                            self.cursor,
+                            self.window_width,
+                            self.window_height,
+                            self.load_allow_retry(),
+                        );
+                        if let Some(action) = action {
+                            tracing::debug!(?action, "菜单逻辑命中");
                             self.apply_menu_action(event_loop, action);
                         }
                     }
