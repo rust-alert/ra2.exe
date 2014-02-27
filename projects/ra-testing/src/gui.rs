@@ -142,30 +142,19 @@ pub fn standard_duel_gui_plan(executable: PathBuf, working_directory: PathBuf, s
     }
 }
 
-/// 与 `ra-desktop` 自动测试 `dump_key_ui_screenshots_for_acceptance` 对齐的稳定截图名（无扩展名）。
+/// Pre-Alpha 关键页截图基线名（无扩展名）：仅真实 `OriginalScreen`，不含 hover / 色块假图变体。
 ///
-/// 执行器接入后可用 `GuiAction::Capture { name }` 对照这些基线；当前无 GPU 窗口时由桌面测试直接写 PNG。
+/// 执行器接入且原版 UI 接线后，用 `GuiAction::Capture { name }` 对照 GPU 画面。
 pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
     &[
         "main_menu",
-        "main_menu_hover",
         "single_player_menu",
-        "single_player_skirmish_hover",
-        "single_player_back_hover",
         "skirmish_lobby",
-        "skirmish_lobby_alt",
         "load_screen",
-        "load_screen_failed",
-        "load_screen_failed_retry_hover",
         "options",
-        "options_back_hover",
         "network",
-        "network_back_hover",
         "match",
-        "match_paused",
-        "match_reject",
         "results",
-        "results_lobby_hover",
     ]
 }
 
