@@ -1,7 +1,8 @@
 //! 原版产品页的逻辑资源索引（背景 / 按钮多状态 / 字体句柄）。
 //!
 //! 本模块只描述「页面需要哪些资源」，不负责解码或 GPU 上传。
-//! **在 `visuals_ready` 为真之前，不得宣称 Pre-Alpha 原版 UI 已交付。**
+//! **在 `declared_refs_complete` 为真之前，不得宣称资源名已齐。**
+//! 资源名齐 ≠ 可读 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。
 //! 当前仅键盘与 [`crate::ui_hit`] 逻辑命中，不绘制按钮图。
 
 use crate::{
@@ -112,8 +113,10 @@ pub struct UiPageResources {
 }
 
 impl UiPageResources {
-    /// 背景与所有**可点**按钮是否都已填常态资源名（仍不表示已 GPU 绘制）。
-    pub fn visuals_ready(&self) -> bool {
+    /// 背景与所有**可点**按钮是否都已填常态资源名。
+    ///
+    /// 只检查「引用是否写上」，不检查可读、解码或屏上绘制。
+    pub fn declared_refs_complete(&self) -> bool {
         if self.background.is_none() {
             return false;
         }
@@ -171,13 +174,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn placeholder_slots_are_not_visuals_ready() {
+    fn placeholder_slots_are_not_declared_complete() {
         let pages = catalog_pre_game_pages();
         assert!(!pages.is_empty());
         for page in &pages {
             assert!(
-                !page.visuals_ready(),
-                "{} 仍无背景/按钮资源名，不得视为原版 UI 就绪",
+                !page.declared_refs_complete(),
+                "{} 仍无背景/按钮资源名，不得视为引用齐备",
                 page.screen.as_str()
             );
         }
