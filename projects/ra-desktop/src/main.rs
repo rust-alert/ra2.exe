@@ -22,6 +22,7 @@ mod skirmish_setup;
 mod ui_assets;
 mod ui_hit;
 mod ui_page;
+mod ui_resolve;
 mod ui_slots;
 #[cfg(feature = "test-harness")]
 mod test_boot;
