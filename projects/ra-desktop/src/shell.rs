@@ -23,6 +23,8 @@ use crate::{
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
     ui_hit,
+    ui_page::page_resources_from_slots,
+    ui_resolve,
 };
 
 /// 外壳持有的可导航应用状态。
@@ -276,6 +278,37 @@ impl AppShell {
         );
         self.banner = probe.note.clone();
         self.ui_probe = Some(probe);
+        self.refresh_ui_resolve_note();
+    }
+
+    /// 对当前页已声明资源名做可读性探测（不绘制）。
+    fn refresh_ui_resolve_note(&mut self) {
+        let Some(probe) = self.ui_probe.as_ref() else {
+            return;
+        };
+        let Some(source) = probe.source.as_ref() else {
+            return;
+        };
+        let Some(page) = page_resources_from_slots(self.screen) else {
+            return;
+        };
+        let report = ui_resolve::resolve_page(source, &page);
+        tracing::info!(
+            screen = self.screen.as_str(),
+            named = report.named,
+            readable = report.readable,
+            missing = report.missing.len(),
+            "{}",
+            report.banner_note()
+        );
+        if report.named == 0 {
+            // 保留安装探测 note；仅追加零引用提醒
+            if !self.banner.contains("槽位未填") {
+                self.banner = format!("{} · {}", self.banner, report.banner_note());
+            }
+        } else {
+            self.banner = format!("{} · {}", probe.note, report.banner_note());
+        }
     }
 
     fn set_screen(&mut self, next: OriginalScreen) {
@@ -283,6 +316,7 @@ impl AppShell {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.refresh_menu_backdrop();
+            self.refresh_ui_resolve_note();
             self.refresh_shell_title();
             if self.auto_screenshots.should_capture(next) {
                 self.queue_screenshot(next.as_str());
