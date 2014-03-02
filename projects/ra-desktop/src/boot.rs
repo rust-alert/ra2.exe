@@ -50,12 +50,12 @@ fn load_boot_map(
     edition: GameEdition,
     note: &mut String,
     preferred_map: Option<&str>,
-) -> MapInfo {
-    let loaded = find_boot_map(edition, source, preferred_map);
+) -> Result<MapInfo, String> {
+    let loaded = find_boot_map(edition, source, preferred_map)?;
     let theater_mounted =
         mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested(mix), Ok(true)));
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
-    loaded.map
+    Ok(loaded.map)
 }
 
 /// 列出安装目录中可解析的冻结启动候选图（供遭遇战大厅）。
@@ -154,7 +154,19 @@ pub fn boot_world_with_progress(
     );
 
     report(0.40, "装载地图");
-    let map = load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref());
+    let map = match load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref()) {
+        Ok(map) => map,
+        Err(e) => {
+            note = format!("{note} · {e}");
+            report(1.0, "地图失败");
+            return Ok(BootResult {
+                note,
+                engine: None,
+                session: None,
+                preview: None,
+            });
+        }
+    };
 
     report(0.55, "解析规则");
     let mut preview_origin = (0i32, 0i32);
@@ -221,7 +233,7 @@ pub fn boot_from_install() -> BootResult {
     boot_from_install_with_request(crate::skirmish_setup::SkirmishBootRequest::default_lobby())
 }
 
-/// 指定优选地图文件名后装载（找不到则回退候选首图）。
+/// 指定地图文件名后装载（找不到则失败，不换图）。
 #[allow(dead_code)]
 pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
     let mut req = crate::skirmish_setup::SkirmishBootRequest::default_lobby();
