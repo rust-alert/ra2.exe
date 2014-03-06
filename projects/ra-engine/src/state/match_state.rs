@@ -265,16 +265,28 @@ impl MatchState {
     }
 
     /// 按调度表推进一个逻辑 tick（阶段顺序的唯一来源）。
+    ///
+    /// 只消费 `tick <= 当前 tick` 的待执行命令。更晚的调度命令留在队列中，禁止提前执行。
     pub fn advance_scheduled_tick(&mut self, schedule: &crate::engine::SystemSchedule) {
         use crate::engine::SystemPhase;
 
         self.tick = self.tick.wrapping_add(1);
-        let commands = std::mem::take(&mut self.pending_commands);
-        self.last_input_frame = InputFrame { tick: self.tick, commands: commands.clone() };
+        let mut due = Vec::new();
+        let mut deferred = Vec::new();
+        for cmd in std::mem::take(&mut self.pending_commands) {
+            if cmd.tick.0 <= self.tick {
+                due.push(cmd);
+            }
+            else {
+                deferred.push(cmd);
+            }
+        }
+        self.pending_commands = deferred;
+        self.last_input_frame = InputFrame { tick: self.tick, commands: due.clone() };
         self.last_rejects.clear();
         for phase in &schedule.phases {
             match *phase {
-                SystemPhase::ApplyCommands => self.apply_commands(&commands),
+                SystemPhase::ApplyCommands => self.apply_commands(&due),
                 SystemPhase::Movement => self.advance_movement(),
                 SystemPhase::HitFlash => self.tick_hit_flash(),
                 SystemPhase::Combat => self.resolve_combat(),

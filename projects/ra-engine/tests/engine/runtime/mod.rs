@@ -2,6 +2,7 @@
 
 mod command_codec;
 mod economy_orders;
+mod future_tick;
 mod input_frame;
 mod match_stats;
 mod pause;
