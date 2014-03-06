@@ -238,6 +238,10 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
                     if !is_mobile(self.entities[entity_index].kind) {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
@@ -267,6 +271,10 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
+                    if !self.player_owns_entity(scheduled.player, attacker_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
                     if self.entities[target_index].dead {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
@@ -291,6 +299,10 @@ impl crate::state::MatchState {
                     };
                     if self.entities[entity_index].dead {
                         self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
                     let Some(building_type) = deploy_into_type(&self.definitions, &self.entities[entity_index].type_id)
@@ -324,6 +336,10 @@ impl crate::state::MatchState {
                     self.mark_entity_dirty(dirty_id);
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
+                    if player != scheduled.player {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
                     let Some(player_index) = self.players.iter().position(|p| p.id == player)
                     else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
@@ -406,6 +422,10 @@ impl crate::state::MatchState {
                     self.mark_entity_dirty(id);
                 }
                 GameCommand::Produce { player, ref type_id } => {
+                    if player != scheduled.player {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
                     let Some(player_index) = self.players.iter().position(|p| p.id == player)
                     else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
@@ -457,6 +477,10 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
+                    if !self.player_owns_entity(scheduled.player, factory_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
                     if !is_production_factory(&self.definitions, &self.entities[factory_index].type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
@@ -473,6 +497,15 @@ impl crate::state::MatchState {
                 }
             }
         }
+    }
+
+    /// 信封玩家是否拥有该实体（按 house 名对齐）。
+    fn player_owns_entity(&self, player: ra_types::PlayerId, entity_index: usize) -> bool {
+        let Some(p) = self.players.iter().find(|p| p.id == player)
+        else {
+            return false;
+        };
+        self.entities[entity_index].owner.as_ref() == p.house.as_ref()
     }
 
     pub(crate) fn reject(&mut self, command_index: usize, reason: crate::game::CommandRejectReason) {
