@@ -1,5 +1,6 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use ra_adaptor::{RulesDb, build_runtime_definitions};
@@ -71,6 +72,8 @@ pub struct MatchState {
     pub(crate) last_input_frame: InputFrame,
     /// 上一 tick 产生的命令拒绝记录。
     pub(crate) last_rejects: Vec<CommandReject>,
+    /// 本局已消费过的 `CommandId`（用于拒绝重复调度）。
+    pub(crate) seen_command_ids: HashSet<u64>,
     pub(crate) state_hash: u64,
     /// 呈现脏实体集（增量 `RenderWorld` 用；与全量 snapshot 并存）。
     pub(crate) presentation_dirty: DirtyEntitySet,
@@ -156,6 +159,7 @@ impl MatchState {
             pending_commands: Vec::new(),
             last_input_frame: InputFrame::empty(0),
             last_rejects: Vec::new(),
+            seen_command_ids: HashSet::new(),
             state_hash: 0,
             presentation_dirty: DirtyEntitySet::new(),
         };

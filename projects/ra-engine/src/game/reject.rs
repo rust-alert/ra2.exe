@@ -27,6 +27,8 @@ pub enum CommandRejectReason {
     QueueFull,
     /// 对局已结束。
     MatchEnded,
+    /// 同一 `CommandId` 已处理过（重复调度）。
+    DuplicateCommand,
 }
 
 impl CommandRejectReason {
@@ -45,6 +47,7 @@ impl CommandRejectReason {
             Self::WrongOwner => "非己方单位",
             Self::QueueFull => "队列已满",
             Self::MatchEnded => "对局已结束",
+            Self::DuplicateCommand => "重复命令",
         }
     }
 }
