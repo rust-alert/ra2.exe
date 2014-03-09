@@ -113,3 +113,23 @@ fn place_refinery_after_power_deducts_and_drains() {
     assert_eq!(world.players[0].power_output, 200);
     assert_eq!(world.players[0].power_drain, 50);
 }
+
+#[test]
+fn place_building_rejects_envelope_player_mismatch() {
+    use ra_types::{CommandId, ScheduledCommand, Tick};
+
+    let mut world = yard_world();
+    let before = world.entities.len();
+    world.push_scheduled(ScheduledCommand::new(
+        CommandId(77),
+        PlayerId(0),
+        Tick(1),
+        GameCommand::PlaceBuilding { player: PlayerId(1), type_id: "GAPOWR".into(), x: 6, y: 4 },
+    ));
+    world.advance_tick();
+    assert_eq!(world.last_rejects().len(), 1);
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
+    assert_eq!(world.entities.len(), before);
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
+}
+
