@@ -1,14 +1,20 @@
 //! 一次运行会话：生命周期与时钟边界；内含可选的一局 Game。
 
+use ra_types::BuiltinCapability;
+
 use crate::engine::EngineRuntime;
 use crate::game::{DEFAULT_TICK_HZ, Game, MAX_TICKS_PER_PUMP};
 use crate::state::MatchState;
 
-/// 创建会话时的规格（骨架）。
+/// 创建会话时的规格。
+///
+/// `required_capabilities` 须全部出现在引擎能力表中，否则 `validate_session_spec` 失败。
 #[derive(Debug, Clone, Default)]
 pub struct SessionSpec {
-    /// 可选备注。
+    /// 可选备注（长度有上限，防止无界标签）。
     pub label: String,
+    /// 创建会话前必须已在引擎定义中声明的内置能力。空表示不额外要求。
+    pub required_capabilities: Vec<BuiltinCapability>,
 }
 
 /// 会话阶段。
@@ -55,6 +61,7 @@ impl Session {
         let note = boot_note.into();
         let mut session = Self::new(SessionSpec {
             label: note.clone(),
+            required_capabilities: Vec::new(),
         });
         session.attach_game(Game::new(state, note));
         session
