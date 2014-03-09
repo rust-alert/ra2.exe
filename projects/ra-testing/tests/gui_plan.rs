@@ -1,3 +1,7 @@
+//! GUI 计划模型单测：只断言「计划写出来了什么」，不启动窗口、不点击、不比像素。
+//!
+//! 通过本文件测试 **不能** 计作 Pre-Alpha GUI 执行验收或原版视觉通过。
+
 use std::path::PathBuf;
 
 use ra_testing::{
