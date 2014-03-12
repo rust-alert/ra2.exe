@@ -203,11 +203,10 @@ impl MatchState {
     }
 
     /// 以指定发出者入队命令载荷并包装调度信封。
+    ///
+    /// 信封 `player` 始终以本参数为准，**不得**被 `PlaceBuilding` / `Produce` 载荷内的 `player` 改写。
+    /// 载荷与信封不一致时由 `apply_commands` 拒绝（`WrongOwner`）。
     pub fn push_player_command(&mut self, player: PlayerId, cmd: GameCommand) {
-        let player = match &cmd {
-            GameCommand::PlaceBuilding { player: p, .. } | GameCommand::Produce { player: p, .. } => *p,
-            _ => player,
-        };
         let id = CommandId(self.next_command_id);
         self.next_command_id = self.next_command_id.saturating_add(1);
         let tick = Tick(self.tick.wrapping_add(1));

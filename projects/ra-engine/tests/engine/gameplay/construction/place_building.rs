@@ -133,3 +133,20 @@ fn place_building_rejects_envelope_player_mismatch() {
     assert_eq!(world.house_funds("Americans"), Some(10_000));
 }
 
+#[test]
+fn push_command_cannot_spoof_place_building_player_via_body() {
+    let mut world = yard_world();
+    assert_eq!(world.local_player, PlayerId(0));
+    let before = world.entities.len();
+    // 载荷声称 PlayerId(1)，但 push_command 信封必须仍是本地玩家 0 → 应用时拒绝。
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(1), type_id: "GAPOWR".into(), x: 6, y: 4 });
+    world.advance_tick();
+    assert_eq!(world.last_rejects().len(), 1);
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
+    assert_eq!(world.entities.len(), before);
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    let frame = world.last_input_frame();
+    assert_eq!(frame.commands.len(), 1);
+    assert_eq!(frame.commands[0].player, PlayerId(0));
+}
+
