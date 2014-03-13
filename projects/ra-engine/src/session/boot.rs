@@ -66,7 +66,15 @@ pub fn open_skirmish_session(
         state.definitions.deployables.len()
     );
 
-    let rules_bytes = source.read(chain.rules_ini).unwrap_or_default();
+    let rules_bytes = source.read(chain.rules_ini).map_err(|e| {
+        ra_types::RaError::Msg(format!("无法读取规则文件 {} 以生成对局指纹: {e}", chain.rules_ini))
+    })?;
+    if rules_bytes.is_empty() {
+        return Err(ra_types::RaError::Msg(format!(
+            "规则文件 {} 为空，拒绝用空字节生成对局指纹",
+            chain.rules_ini
+        )));
+    }
     let fingerprint = Game::build_skirmish_fingerprint(
         chain.edition.as_str(),
         &state.map.name,
