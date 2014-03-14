@@ -30,7 +30,22 @@ pub fn profile() -> ResourceProfile {
     ResourceProfile {
         edition: GameEdition::Ra2,
         root_mix_files: &["language.mix", "ra2.mix", "multi.mix", "theme.mix", "maps01.mix", "maps02.mix"],
-        nested_mix_files: &["local.mix", "cache.mix", "conquer.mix", "generic.mix", "isogen.mix", "cameo.mix", "audio.mix"],
+        // 壳层 / 侧栏素材在 `neutral.mix`、`load.mix`、`sidec*.mix`；缺挂则主菜单 SHP 不可读。
+        nested_mix_files: &[
+            "local.mix",
+            "cache.mix",
+            "conquer.mix",
+            "generic.mix",
+            "isogen.mix",
+            "cameo.mix",
+            "audio.mix",
+            "neutral.mix",
+            "load.mix",
+            "sidec01.mix",
+            "sidec02.mix",
+            "sidenc01.mix",
+            "sidenc02.mix",
+        ],
         rules_ini: "rules.ini",
         art_ini: "art.ini",
         ui_ini: "ui.ini",
