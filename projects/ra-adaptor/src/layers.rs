@@ -8,7 +8,9 @@ use crate::{ResourceChain, find_ci_file};
 
 /// 基础层优先级（最低）。
 pub const PRIORITY_BASE_GAME: i32 = 0;
-/// 嵌套 MIX（相对根基础包略高，仍低于扩展层）。
+/// 历史占位：嵌套包应**继承父档**内容层优先级，勿再把所有嵌套压到本常量。
+///
+/// 保留供旧调用与诊断对照；新路径请用 `MixVfs::mount_nested_all_from_parents`。
 pub const PRIORITY_NESTED: i32 = 10;
 /// 扩展层基数；实际优先级为 `PRIORITY_EXPANSION_BASE + index`。
 pub const PRIORITY_EXPANSION_BASE: i32 = 100;
