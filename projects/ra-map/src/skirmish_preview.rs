@@ -6,7 +6,7 @@ use ra_types::AssetSource;
 use crate::{
     MapInfo,
     compose::TerrainImage,
-    fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite},
+    fallback_preview::RawRgbaImage,
     overlay_paint::paint_map_overlays,
     structure_paint::paint_map_structures,
     terrain_paint::paint_map_terrain_objects,
@@ -58,7 +58,10 @@ pub fn compose_skirmish_preview(
     Some((image, SkirmishPreviewStats { overlay_shp, overlay_mark, terrain_objects, structures, mobiles: 0 }))
 }
 
-/// 合成启动预览；失败时回退剧院砖或单位精灵。
+/// 合成启动预览。
+///
+/// 仅在真实地形合成成功时返回 `Some`。**禁止**在失败后用剧院单砖或单位 SHP 冒充地图预览；
+/// 显式探测请直接调用 `load_fallback_theater_tile` / `load_fallback_unit_sprite`。
 pub fn compose_boot_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -66,36 +69,31 @@ pub fn compose_boot_preview(
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    if let Some((image, stats)) = compose_skirmish_preview(source, map, art_ini, overlay_type_name, remap_owner) {
-        let note = format!(
-            "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
-            map.name,
-            map.cells.len(),
-            image.drawn,
-            map.overlays.len(),
-            stats.overlay_shp,
-            stats.overlay_mark,
-            stats.terrain_objects,
-            stats.structures,
-            stats.mobiles,
-            image.width,
-            image.height
-        );
-        return Some(BootPreviewResult {
-            origin_x: image.origin_x,
-            origin_y: image.origin_y,
-            image: RawRgbaImage { label: note.clone(), width: image.width, height: image.height, pixels: image.pixels },
-            note,
-            stats,
-        });
-    }
-
-    let fallback = load_fallback_theater_tile(source, map.theater).or_else(|| load_fallback_unit_sprite(source))?;
+    let (image, stats) = compose_skirmish_preview(source, map, art_ini, overlay_type_name, remap_owner)?;
+    let note = format!(
+        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
+        map.name,
+        map.cells.len(),
+        image.drawn,
+        map.overlays.len(),
+        stats.overlay_shp,
+        stats.overlay_mark,
+        stats.terrain_objects,
+        stats.structures,
+        stats.mobiles,
+        image.width,
+        image.height
+    );
     Some(BootPreviewResult {
-        note: fallback.label.clone(),
-        origin_x: 0,
-        origin_y: 0,
-        image: fallback,
-        stats: SkirmishPreviewStats::default(),
+        origin_x: image.origin_x,
+        origin_y: image.origin_y,
+        image: RawRgbaImage {
+            label: note.clone(),
+            width: image.width,
+            height: image.height,
+            pixels: image.pixels,
+        },
+        note,
+        stats,
     })
 }
