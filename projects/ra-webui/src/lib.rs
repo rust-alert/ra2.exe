@@ -16,8 +16,10 @@ pub fn engine_name() -> String {
     "ra2".into()
 }
 
-/// 是否声明支持 WebGL2 目标（占位，尚未接线画布）。
+/// 运行时是否已具备可用的 WebGL2 呈现路径。
+///
+/// 画布与 adapter 未接线前恒为 `false`，禁止把本函数当成「目标平台声明」或 JS 侧探测的替代。
 #[wasm_bindgen]
 pub fn supports_webgl2() -> bool {
-    true
+    false
 }
