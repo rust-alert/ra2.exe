@@ -1,10 +1,64 @@
 //! 磁盘松散文件 + 已挂载 MIX 的组合 `AssetSource`。
+//!
+//! 松散目录与 MIX 走**同一套**优先级比较：松散层为
+//! [`ra_adaptor::PRIORITY_USER_OVERRIDE`]，与 `MixVfs` 胜出结果比较后再读字节，
+//! 避免「日志说来自 MIX、实际读了磁盘」的分裂。
 
 use std::path::PathBuf;
 
-use ra_adaptor::{MountSpec, PRIORITY_NESTED, find_ci_file};
-use ra_assets::MixVfs;
+use ra_adaptor::{MountSpec, PRIORITY_USER_OVERRIDE, find_ci_file};
+use ra_assets::{MixResolveHit, MixVfs};
 use ra_types::{AssetSource, RaError, RaResult};
+
+/// 统一解析胜出来源。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssetOrigin {
+    /// 安装根旁松散文件。
+    Loose {
+        /// 实际磁盘路径（显示用）。
+        path: PathBuf,
+    },
+    /// 已挂载 MIX（含嵌套展开）。
+    Mix {
+        /// 档案挂载名。
+        archive: String,
+        /// 父档案（根为 `None`）。
+        parent: Option<String>,
+        /// 内容层 id。
+        layer_id: Option<String>,
+        /// 胜出优先级。
+        priority: i32,
+    },
+}
+
+/// 一次逻辑名解析结果（读与诊断共用）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetHit {
+    /// 来源说明。
+    pub origin: AssetOrigin,
+    /// 完整字节。
+    pub bytes: Vec<u8>,
+}
+
+impl AssetHit {
+    /// 简短诊断串。
+    pub fn explain(&self) -> String {
+        match &self.origin {
+            AssetOrigin::Loose { path } => format!("loose:{}", path.display()),
+            AssetOrigin::Mix {
+                archive,
+                parent,
+                layer_id,
+                priority,
+            } => match (parent, layer_id) {
+                (Some(p), Some(l)) => format!("mix:{archive} parent={p} layer={l} prio={priority}"),
+                (Some(p), None) => format!("mix:{archive} parent={p} prio={priority}"),
+                (None, Some(l)) => format!("mix:{archive} layer={l} prio={priority}"),
+                (None, None) => format!("mix:{archive} prio={priority}"),
+            },
+        }
+    }
+}
 
 pub struct GameAssetSource {
     pub root: PathBuf,
@@ -16,7 +70,7 @@ impl GameAssetSource {
         Self { root, vfs: MixVfs::new() }
     }
 
-    /// 按挂载计划挂载根 MIX（显式 priority）。返回 `(成功数, 解析跳过数)`。
+    /// 按挂载计划挂载根 MIX（显式 priority / layer）。返回 `(成功数, 解析跳过数)`。
     pub fn mount_root_plan(&mut self, plan: &[MountSpec]) -> (usize, usize) {
         let mut mounted = 0usize;
         let mut skipped = 0usize;
@@ -30,7 +84,13 @@ impl GameAssetSource {
                 skipped += 1;
                 continue;
             };
-            match self.vfs.mount_bytes_with_priority(spec.name.clone(), data, spec.priority) {
+            match self.vfs.mount_bytes_with_meta(
+                spec.name.clone(),
+                data,
+                spec.priority,
+                None,
+                Some(spec.layer_id.clone()),
+            ) {
                 Ok(()) => mounted += 1,
                 Err(_) => skipped += 1,
             }
@@ -52,24 +112,66 @@ impl GameAssetSource {
         self.mount_root_plan(&plan)
     }
 
-    /// 尝试挂载嵌套 MIX 名列表（优先级 [`PRIORITY_NESTED`]）。返回成功挂载数。
+    /// 按名单从**所有**已挂载父档展开同名嵌套包，继承各父档内容层优先级。
+    ///
+    /// 返回新挂载份数（同一逻辑名可能对应多份来源）。
     pub fn mount_nested_names(&mut self, names: &[&str]) -> usize {
         let mut mounted = 0usize;
         for name in names {
-            match self.vfs.mount_nested_with_priority(name, PRIORITY_NESTED) {
-                Ok(true) => mounted += 1,
-                Ok(false) | Err(_) => {}
+            match self.vfs.mount_nested_all_from_parents(name) {
+                Ok(n) => mounted += n,
+                Err(_) => {}
             }
         }
         mounted
+    }
+
+    /// 统一解析：松散层与 MIX 比较优先级后得出唯一胜出。
+    pub fn resolve(&self, relative: &str) -> Option<AssetHit> {
+        let loose = find_ci_file(&self.root, relative).and_then(|path| {
+            let bytes = std::fs::read(&path).ok()?;
+            Some((
+                PRIORITY_USER_OVERRIDE,
+                AssetHit {
+                    origin: AssetOrigin::Loose { path },
+                    bytes,
+                },
+            ))
+        });
+
+        let mix = self.vfs.resolve_hit(relative).map(|h: MixResolveHit<'_>| {
+            (
+                h.priority,
+                AssetHit {
+                    origin: AssetOrigin::Mix {
+                        archive: h.archive_name.to_string(),
+                        parent: h.parent.map(str::to_string),
+                        layer_id: h.layer_id.map(str::to_string),
+                        priority: h.priority,
+                    },
+                    bytes: h.bytes.to_vec(),
+                },
+            )
+        });
+
+        match (loose, mix) {
+            (Some((lp, lh)), Some((mp, mh))) => {
+                if lp >= mp {
+                    Some(lh)
+                } else {
+                    Some(mh)
+                }
+            }
+            (Some((_, h)), None) | (None, Some((_, h))) => Some(h),
+            (None, None) => None,
+        }
     }
 }
 
 impl AssetSource for GameAssetSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        if let Some(path) = find_ci_file(&self.root, relative) {
-            return std::fs::read(&path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())));
-        }
-        self.vfs.read(relative).ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.resolve(relative)
+            .map(|h| h.bytes)
+            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }

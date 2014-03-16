@@ -134,8 +134,8 @@ pub fn boot_world_with_progress(
     }
     let mounted_nested = source.mount_nested_names(chain.nested_mix_files);
 
-    if let Some((archive, _)) = source.vfs.resolve(chain.rules_ini) {
-        tracing::info!("资源组合 resolved: rules={archive}:{}", chain.rules_ini);
+    if let Some(hit) = source.resolve(chain.rules_ini) {
+        tracing::info!("资源组合 resolved: rules={} · {}", chain.rules_ini, hit.explain());
     }
     else {
         tracing::warn!("资源组合 resolved: rules=(missing) {}", chain.rules_ini);
