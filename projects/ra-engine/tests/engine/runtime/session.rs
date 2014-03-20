@@ -161,3 +161,14 @@ fn remote_digest_mismatch_pauses() {
     assert!(!session.expect_game().paused);
     assert!(session.pump(&engine.runtime(), 0.2) >= 1);
 }
+
+#[test]
+fn remote_digest_tick_mismatch_is_not_success() {
+    let rules = rules_with_mtnk();
+    let map = MapInfo::empty(GameEdition::Ra2, "t");
+    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let local = session.expect_game().local_digest();
+    let remote = ra_net::StateDigest { tick: local.tick.wrapping_add(1), hash: local.hash };
+    assert!(!session.expect_game_mut().apply_remote_digest(&remote));
+    assert!(!session.expect_game().paused, "tick 不一致不应当成哈希冲突暂停");
+}
