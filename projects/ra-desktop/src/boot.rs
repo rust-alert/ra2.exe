@@ -81,7 +81,7 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     };
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
-    let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     list_parseable_boot_maps(manifest.chain.edition, &source)
 }
 
@@ -97,7 +97,7 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let manifest = detect_edition(&cfg.ra2_dir, explicit).ok()?;
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
-    let _ = source.mount_nested_names(manifest.chain.nested_mix_files);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
     let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| {
         matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0)
@@ -144,7 +144,7 @@ pub fn boot_world_with_progress(
     for line in manifest.composition.mount_plan_lines() {
         tracing::info!("资源组合 {line}");
     }
-    let mounted_nested = source.mount_nested_names(chain.nested_mix_files);
+    let mounted_nested = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
 
     if let Some(hit) = source.resolve(chain.rules_ini) {
         tracing::info!("资源组合 resolved: rules={} · {}", chain.rules_ini, hit.explain());

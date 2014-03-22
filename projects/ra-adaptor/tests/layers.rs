@@ -39,6 +39,11 @@ fn base_only_yields_base_portrait() {
     assert_eq!(c.layers.len(), 1);
     assert_eq!(c.layers[0].kind, ResourceLayerKind::BaseGame);
     assert!(c.root_mount_plan.iter().all(|s| s.priority == PRIORITY_BASE_GAME));
+    assert!(
+        c.nested_mount_plan
+            .iter()
+            .any(|n| n.name.eq_ignore_ascii_case("neutral.mix"))
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 

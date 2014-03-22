@@ -17,10 +17,11 @@ pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport}
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use definitions::build_runtime_definitions;
 pub use layers::{
-    DetectedExpansion, ExpansionFamily, MountSpec, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
-    PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics,
-    ResourceFile, ResourceLayer, ResourceLayerKind, compose_resource_layers, discover_expansions,
-    is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
+    DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy,
+    PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE, PRIORITY_MOD, PRIORITY_NESTED,
+    PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
+    ResourceLayerKind, compose_resource_layers, discover_expansions, is_expansion_mix_name,
+    missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesDb, load_rules, load_rules_chain};
 

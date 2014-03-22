@@ -65,7 +65,7 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     let ui_ini_name = Some(manifest.chain.ui_ini);
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
-    let mounted_nested = source.mount_nested_names(manifest.chain.nested_mix_files);
+    let mounted_nested = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
 
     let ui_ini_bytes = source.read(manifest.chain.ui_ini).ok();
     let ui_ini_readable = ui_ini_bytes.is_some();

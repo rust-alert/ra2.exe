@@ -86,6 +86,22 @@ pub struct MountSpec {
     pub layer_id: String,
 }
 
+/// 同名嵌套包打开策略。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NestedMountStrategy {
+    /// 从每个含该名的父档各打开一份，叶文件按父层 priority 覆盖。
+    AllParents,
+}
+
+/// 嵌套 MIX 挂载规格（由画像/配置写入计划；壳层只执行）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NestedMountSpec {
+    /// 嵌套包逻辑名（如 `neutral.mix`）。
+    pub name: String,
+    /// 打开策略。
+    pub strategy: NestedMountStrategy,
+}
+
 /// 已识别的扩展包。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetectedExpansion {
@@ -135,6 +151,8 @@ pub struct ResourceComposition {
     pub layers: Vec<ResourceLayer>,
     /// 根 MIX 挂载计划（priority 升序）。
     pub root_mount_plan: Vec<MountSpec>,
+    /// 嵌套 MIX 挂载计划（壳层按序执行，勿再散读 `ResourceChain.nested_mix_files`）。
+    pub nested_mount_plan: Vec<NestedMountSpec>,
     /// 发现期诊断。
     pub diagnostics: ResourceDiagnostics,
 }
@@ -145,12 +163,20 @@ impl ResourceComposition {
         self.root_mount_plan.iter().map(|s| s.name.clone()).collect()
     }
 
-    /// 挂载计划摘要行。
+    /// 挂载计划摘要行（根包 + 嵌套包）。
     pub fn mount_plan_lines(&self) -> Vec<String> {
-        self.root_mount_plan
+        let mut lines: Vec<String> = self
+            .root_mount_plan
             .iter()
             .map(|s| format!("mounted: {} priority={} layer={}", s.name, s.priority, s.layer_id))
-            .collect()
+            .collect();
+        for n in &self.nested_mount_plan {
+            let strat = match n.strategy {
+                NestedMountStrategy::AllParents => "all_parents",
+            };
+            lines.push(format!("nested: {} strategy={strat}", n.name));
+        }
+        lines
     }
 }
 
@@ -330,10 +356,21 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
             .push("未发现 expand*.mix，沿用基座资源画像".to_string());
     }
 
+    let nested_mount_plan: Vec<NestedMountSpec> = chain
+        .nested_mix_files
+        .iter()
+        .copied()
+        .map(|name| NestedMountSpec {
+            name: name.to_string(),
+            strategy: NestedMountStrategy::AllParents,
+        })
+        .collect();
+
     let _ = present_base; // 已并入 layers
     ResourceComposition {
         layers,
         root_mount_plan,
+        nested_mount_plan,
         diagnostics,
     }
 }
