@@ -1,14 +1,27 @@
 //! 原版产品页的逻辑 UI 资源槽（按页面组织，不依赖 `ui.ini` 当素材目录）。
 //!
 //! 第一阶段对照锁定 **RA2 原版**（非默认 YR）。槽位先对齐入口 id 与命中框；
-//! 具体 SHP/PAL 文件名须有安装内证据后再填，禁止臆造。
-//! **空文件名 ≠ 已交付原版 UI。** 页面级资源索引见 [`crate::ui_page`]；
-//! 可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
+//! 具体 SHP/PAL/帧须有安装内证据后再填，禁止臆造。
+//! **填了文件名 ≠ 已解码 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。**
+//! 页面级资源索引见 [`crate::ui_page`]；可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
 
 use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
 };
+
+/// 侧板 / 装饰层槽。
+#[derive(Debug, Clone, Copy)]
+pub struct UiPanelSlot {
+    /// 逻辑 id（诊断用）。
+    pub id: &'static str,
+    /// SHP 名。
+    pub shp: &'static str,
+    /// 调色板名。
+    pub pal: &'static str,
+    /// 帧号（通常为 0）。
+    pub frame: u16,
+}
 
 /// 单个按钮/入口的资源与命中约定。
 #[derive(Debug, Clone)]
@@ -19,20 +32,20 @@ pub struct UiButtonSlot {
     pub action: MenuAction,
     /// 是否可点（未实现模式保留位置但禁用）。
     pub enabled: bool,
-    /// 归一化命中框（左、上、右、下，0..1）。
+    /// 归一化命中框（左、上、右、下，0..1）。几何仍待与原版布局对齐。
     pub hit: (f32, f32, f32, f32),
-    /// 常态 SHP（可空；接线前保持 `None`）。
-    #[allow(dead_code)]
-    pub normal_shp: Option<&'static str>,
-    /// 悬停 SHP（可空）。
-    #[allow(dead_code)]
-    pub hover_shp: Option<&'static str>,
-    /// 按下 SHP（可空）。
-    #[allow(dead_code)]
-    pub pressed_shp: Option<&'static str>,
-    /// 禁用 SHP（可空）。
-    #[allow(dead_code)]
-    pub disabled_shp: Option<&'static str>,
+    /// 按钮动画 SHP（多状态常为同文件不同帧）。
+    pub anim_shp: Option<&'static str>,
+    /// 按钮调色板。
+    pub anim_pal: Option<&'static str>,
+    /// 常态帧。
+    pub normal_frame: Option<u16>,
+    /// 悬停帧（主菜单策略可为 `None`，表示不换悬停帧）。
+    pub hover_frame: Option<u16>,
+    /// 按下帧。
+    pub pressed_frame: Option<u16>,
+    /// 禁用帧。
+    pub disabled_frame: Option<u16>,
 }
 
 /// 一页的逻辑资源描述。
@@ -41,266 +54,231 @@ pub struct UiPageSlots {
     /// 原版产品页。
     pub screen: OriginalScreen,
     /// 背景 SHP（可空）。
-    #[allow(dead_code)]
     pub background_shp: Option<&'static str>,
-    /// 背景调色板（可空；常见为独立 PAL）。
-    #[allow(dead_code)]
+    /// 背景调色板（可空）。
     pub background_pal: Option<&'static str>,
+    /// 背景帧（缺省 0）。
+    pub background_frame: u16,
+    /// 侧板 / 装饰。
+    pub panels: &'static [UiPanelSlot],
+    /// 本页字体逻辑名。
+    pub fonts: &'static [&'static str],
     /// 页面入口。
     pub buttons: &'static [UiButtonSlot],
 }
 
 impl UiPageSlots {
     /// 是否已为任一槽填了具体文件名（用于区分「模型」与「已接线资产」）。
-    #[allow(dead_code)]
     pub fn has_any_asset_name(&self) -> bool {
-        if self.background_shp.is_some() || self.background_pal.is_some() {
+        if self.background_shp.is_some() || self.background_pal.is_some() || !self.panels.is_empty() {
             return true;
         }
-        self.buttons.iter().any(|b| {
-            b.normal_shp.is_some()
-                || b.hover_shp.is_some()
-                || b.pressed_shp.is_some()
-                || b.disabled_shp.is_some()
-        })
+        if !self.fonts.is_empty() {
+            return true;
+        }
+        self.buttons.iter().any(|b| b.anim_shp.is_some())
+    }
+}
+
+/// 零售主菜单按钮动画（安装内 `neutral.mix` 证据）。
+const SDBTNANM_SHP: &str = "sdbtnanm.shp";
+const SDBTNANM_PAL: &str = "sdbtnanm.pal";
+/// 常态 / 按下帧；主菜单不启用悬停换帧。
+const SDBTNANM_FRAME_NORMAL: u16 = 2;
+const SDBTNANM_FRAME_PRESSED: u16 = 4;
+
+const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
+    UiPanelSlot {
+        id: "right_top",
+        shp: "sdtp.shp",
+        pal: "shell.pal",
+        frame: 0,
+    },
+    UiPanelSlot {
+        id: "right_tile",
+        shp: "sdbtnbkgd.shp",
+        pal: "shell2.pal",
+        frame: 0,
+    },
+    UiPanelSlot {
+        id: "right_bottom",
+        shp: "sdbtm.shp",
+        pal: "shell.pal",
+        frame: 0,
+    },
+    UiPanelSlot {
+        id: "lower_side",
+        shp: "lwscrnl.shp",
+        pal: "shell.pal",
+        frame: 0,
+    },
+];
+
+const MAIN_MENU_FONTS: &[&str] = &["game.fnt"];
+
+const fn main_menu_button(
+    entry_id: &'static str,
+    action: MenuAction,
+    enabled: bool,
+    hit: (f32, f32, f32, f32),
+) -> UiButtonSlot {
+    UiButtonSlot {
+        entry_id,
+        action,
+        enabled,
+        hit,
+        anim_shp: Some(SDBTNANM_SHP),
+        anim_pal: Some(SDBTNANM_PAL),
+        normal_frame: Some(SDBTNANM_FRAME_NORMAL),
+        // 主菜单不闪悬停帧；图集可另有 hover 帧，页面策略关闭。
+        hover_frame: None,
+        pressed_frame: Some(SDBTNANM_FRAME_PRESSED),
+        disabled_frame: if enabled {
+            None
+        } else {
+            Some(SDBTNANM_FRAME_NORMAL)
+        },
+    }
+}
+
+const fn empty_button(
+    entry_id: &'static str,
+    action: MenuAction,
+    enabled: bool,
+    hit: (f32, f32, f32, f32),
+) -> UiButtonSlot {
+    UiButtonSlot {
+        entry_id,
+        action,
+        enabled,
+        hit,
+        anim_shp: None,
+        anim_pal: None,
+        normal_frame: None,
+        hover_frame: None,
+        pressed_frame: None,
+        disabled_frame: None,
     }
 }
 
 const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "single_player",
-        action: MenuAction::OpenSinglePlayer,
-        enabled: true,
-        hit: (0.28, 0.32, 0.72, 0.40),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "network",
-        action: MenuAction::OpenNetwork,
-        enabled: false,
-        hit: (0.28, 0.44, 0.72, 0.52),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "options",
-        action: MenuAction::OpenOptions,
-        enabled: true,
-        hit: (0.28, 0.56, 0.72, 0.64),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "exit",
-        action: MenuAction::Exit,
-        enabled: true,
-        hit: (0.28, 0.68, 0.72, 0.76),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    main_menu_button(
+        "single_player",
+        MenuAction::OpenSinglePlayer,
+        true,
+        (0.28, 0.32, 0.72, 0.40),
+    ),
+    main_menu_button(
+        "network",
+        MenuAction::OpenNetwork,
+        false,
+        (0.28, 0.44, 0.72, 0.52),
+    ),
+    main_menu_button(
+        "options",
+        MenuAction::OpenOptions,
+        true,
+        (0.28, 0.56, 0.72, 0.64),
+    ),
+    main_menu_button("exit", MenuAction::Exit, true, (0.28, 0.68, 0.72, 0.76)),
 ];
 
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "campaign",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.28, 0.30, 0.72, 0.38),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "skirmish",
-        action: MenuAction::OpenSkirmish,
-        enabled: true,
-        hit: (0.28, 0.42, 0.72, 0.50),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "training",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.28, 0.54, 0.72, 0.62),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "back",
-        action: MenuAction::Back,
-        enabled: true,
-        hit: (0.28, 0.68, 0.72, 0.76),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    empty_button("campaign", MenuAction::Noop, false, (0.28, 0.30, 0.72, 0.38)),
+    empty_button("skirmish", MenuAction::OpenSkirmish, true, (0.28, 0.42, 0.72, 0.50)),
+    empty_button("training", MenuAction::Noop, false, (0.28, 0.54, 0.72, 0.62)),
+    empty_button("back", MenuAction::Back, true, (0.28, 0.68, 0.72, 0.76)),
 ];
 
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "side",
-        action: MenuAction::CycleSide,
-        enabled: true,
-        hit: (0.18, 0.68, 0.48, 0.75),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "difficulty",
-        action: MenuAction::CycleDifficulty,
-        enabled: true,
-        hit: (0.52, 0.68, 0.82, 0.75),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "start",
-        action: MenuAction::StartSkirmish,
-        enabled: true,
-        hit: (0.28, 0.80, 0.72, 0.87),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "back",
-        action: MenuAction::Back,
-        enabled: true,
-        hit: (0.28, 0.90, 0.72, 0.97),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    empty_button("side", MenuAction::CycleSide, true, (0.18, 0.68, 0.48, 0.75)),
+    empty_button(
+        "difficulty",
+        MenuAction::CycleDifficulty,
+        true,
+        (0.52, 0.68, 0.82, 0.75),
+    ),
+    empty_button("start", MenuAction::StartSkirmish, true, (0.28, 0.80, 0.72, 0.87)),
+    empty_button("back", MenuAction::Back, true, (0.28, 0.90, 0.72, 0.97)),
 ];
 
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "loading",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.30, 0.40, 0.74, 0.48),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "retry",
-        action: MenuAction::RetryLoad,
-        enabled: true,
-        hit: (0.30, 0.52, 0.50, 0.60),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "cancel",
-        action: MenuAction::CancelLoad,
-        enabled: true,
-        hit: (0.54, 0.52, 0.74, 0.60),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    empty_button("loading", MenuAction::Noop, false, (0.30, 0.40, 0.74, 0.48)),
+    empty_button("retry", MenuAction::RetryLoad, true, (0.30, 0.52, 0.50, 0.60)),
+    empty_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
 ];
 
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "audio",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.28, 0.28, 0.72, 0.36),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "video",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.28, 0.40, 0.72, 0.48),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "back",
-        action: MenuAction::Back,
-        enabled: true,
-        hit: (0.28, 0.60, 0.72, 0.68),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    empty_button("audio", MenuAction::Noop, false, (0.28, 0.28, 0.72, 0.36)),
+    empty_button("video", MenuAction::Noop, false, (0.28, 0.40, 0.72, 0.48)),
+    empty_button("back", MenuAction::Back, true, (0.28, 0.60, 0.72, 0.68)),
 ];
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[
-    UiButtonSlot {
-        entry_id: "online",
-        action: MenuAction::Noop,
-        enabled: false,
-        hit: (0.22, 0.36, 0.78, 0.44),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
-    UiButtonSlot {
-        entry_id: "back",
-        action: MenuAction::Back,
-        enabled: true,
-        hit: (0.22, 0.56, 0.78, 0.64),
-        normal_shp: None,
-        hover_shp: None,
-        pressed_shp: None,
-        disabled_shp: None,
-    },
+    empty_button("online", MenuAction::Noop, false, (0.22, 0.36, 0.78, 0.44)),
+    empty_button("back", MenuAction::Back, true, (0.22, 0.56, 0.78, 0.64)),
 ];
 
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
 pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
-    let (buttons, bg, pal) = match screen {
-        OriginalScreen::MainMenu => (MAIN_MENU_BUTTONS, None, None),
-        OriginalScreen::SinglePlayerMenu => (SINGLE_PLAYER_BUTTONS, None, None),
-        OriginalScreen::SkirmishLobby => (SKIRMISH_LOBBY_BUTTONS, None, None),
-        OriginalScreen::LoadScreen => (LOAD_SCREEN_BUTTONS, None, None),
-        OriginalScreen::Options => (OPTIONS_BUTTONS, None, None),
-        OriginalScreen::Network => (NETWORK_BUTTONS, None, None),
-        OriginalScreen::Match | OriginalScreen::Results => return None,
-    };
-    Some(UiPageSlots {
-        screen,
-        background_shp: bg,
-        background_pal: pal,
-        buttons,
-    })
+    match screen {
+        OriginalScreen::MainMenu => Some(UiPageSlots {
+            screen,
+            // 非 640 宽窗口默认大背景；640 分支后续按视口另选 `mnscrns.shp`。
+            background_shp: Some("mnscrnl.shp"),
+            background_pal: Some("shell.pal"),
+            background_frame: 0,
+            panels: MAIN_MENU_PANELS,
+            fonts: MAIN_MENU_FONTS,
+            buttons: MAIN_MENU_BUTTONS,
+        }),
+        OriginalScreen::SinglePlayerMenu => Some(UiPageSlots {
+            screen,
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            panels: &[],
+            fonts: &[],
+            buttons: SINGLE_PLAYER_BUTTONS,
+        }),
+        OriginalScreen::SkirmishLobby => Some(UiPageSlots {
+            screen,
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            panels: &[],
+            fonts: &[],
+            buttons: SKIRMISH_LOBBY_BUTTONS,
+        }),
+        OriginalScreen::LoadScreen => Some(UiPageSlots {
+            screen,
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            panels: &[],
+            fonts: &[],
+            buttons: LOAD_SCREEN_BUTTONS,
+        }),
+        OriginalScreen::Options => Some(UiPageSlots {
+            screen,
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            panels: &[],
+            fonts: &[],
+            buttons: OPTIONS_BUTTONS,
+        }),
+        OriginalScreen::Network => Some(UiPageSlots {
+            screen,
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            panels: &[],
+            fonts: &[],
+            buttons: NETWORK_BUTTONS,
+        }),
+        OriginalScreen::Match | OriginalScreen::Results => None,
+    }
 }
 
 #[cfg(test)]
@@ -313,7 +291,14 @@ mod tests {
         let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
         assert_eq!(ids, ["single_player", "network", "options", "exit"]);
         assert!(!page.buttons[1].enabled);
-        assert!(!page.has_any_asset_name());
+        assert!(page.has_any_asset_name());
+        assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+        assert_eq!(page.background_pal, Some("shell.pal"));
+        assert!(page.buttons[0].hover_frame.is_none());
+        assert_eq!(page.buttons[0].normal_frame, Some(2));
+        assert_eq!(page.buttons[0].pressed_frame, Some(4));
+        assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
+        assert_eq!(page.fonts, &["game.fnt"]);
     }
 
     #[test]
@@ -324,6 +309,7 @@ mod tests {
         assert!(matches!(page.buttons[0].action, MenuAction::Noop));
         assert!(matches!(page.buttons[2].action, MenuAction::Noop));
         assert!(page.buttons.iter().any(|b| b.entry_id == "skirmish" && b.enabled));
+        assert!(!page.has_any_asset_name());
     }
 
     #[test]

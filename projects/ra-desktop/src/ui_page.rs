@@ -14,10 +14,12 @@ use crate::{
 /// 逻辑资源引用（文件名或装载键；尚未解析为像素）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiAssetRef {
-    /// 资源逻辑名（通常为 MIX 内文件名，如 `mnbutton.shp`）。
+    /// 资源逻辑名（通常为 MIX 内文件名，如 `sdbtnanm.shp`）。
     pub name: String,
     /// 可选调色板名（缺省由装载策略选择）。
     pub palette: Option<String>,
+    /// 可选帧号（动画 SHP 多状态时使用）。
+    pub frame: Option<u16>,
 }
 
 impl UiAssetRef {
@@ -26,6 +28,7 @@ impl UiAssetRef {
         Self {
             name: name.into(),
             palette: None,
+            frame: None,
         }
     }
 
@@ -34,6 +37,20 @@ impl UiAssetRef {
         Self {
             name: name.into(),
             palette: Some(palette.into()),
+            frame: None,
+        }
+    }
+
+    /// 文件名 + 调色板 + 帧。
+    pub fn with_palette_frame(
+        name: impl Into<String>,
+        palette: impl Into<String>,
+        frame: u16,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            palette: Some(palette.into()),
+            frame: Some(frame),
         }
     }
 }
@@ -104,11 +121,11 @@ pub struct UiPageResources {
     pub background: Option<UiAssetRef>,
     /// 背景调色板（可与背景引用内 palette 并存；显式页级优先策略由装载层定）。
     pub background_palette: Option<String>,
-    /// 面板/装饰层（预留）。
+    /// 面板/装饰层。
     pub panels: Vec<UiAssetRef>,
     /// 页面按钮。
     pub buttons: Vec<UiButtonResources>,
-    /// 本页需要的字体逻辑名（预留）。
+    /// 本页需要的字体逻辑名。
     pub fonts: Vec<String>,
 }
 
@@ -127,16 +144,33 @@ impl UiPageResources {
     }
 }
 
+fn slot_frame_asset(
+    shp: Option<&'static str>,
+    pal: Option<&'static str>,
+    frame: Option<u16>,
+) -> Option<UiAssetRef> {
+    let frame = frame?;
+    let shp = shp?;
+    match pal {
+        Some(pal) => Some(UiAssetRef::with_palette_frame(shp, pal, frame)),
+        None => Some(UiAssetRef {
+            name: shp.to_string(),
+            palette: None,
+            frame: Some(frame),
+        }),
+    }
+}
+
 fn slot_to_button(slot: &UiButtonSlot) -> UiButtonResources {
     UiButtonResources {
         entry_id: slot.entry_id,
         action: slot.action,
         enabled: slot.enabled,
         hit: slot.hit,
-        normal: slot.normal_shp.map(UiAssetRef::named),
-        hover: slot.hover_shp.map(UiAssetRef::named),
-        pressed: slot.pressed_shp.map(UiAssetRef::named),
-        disabled: slot.disabled_shp.map(UiAssetRef::named),
+        normal: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.normal_frame),
+        hover: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.hover_frame),
+        pressed: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.pressed_frame),
+        disabled: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.disabled_frame),
         focused: None,
     }
 }
@@ -144,13 +178,30 @@ fn slot_to_button(slot: &UiButtonSlot) -> UiButtonResources {
 /// 从现有槽位表构造页面资源索引（资产名仍可为空）。
 pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResources> {
     let page = slots_for(screen)?;
+    let background = match (page.background_shp, page.background_pal) {
+        (Some(shp), Some(pal)) => Some(UiAssetRef::with_palette_frame(
+            shp,
+            pal,
+            page.background_frame,
+        )),
+        (Some(shp), None) => Some(UiAssetRef {
+            name: shp.to_string(),
+            palette: None,
+            frame: Some(page.background_frame),
+        }),
+        (None, _) => None,
+    };
     Some(UiPageResources {
         screen,
-        background: page.background_shp.map(UiAssetRef::named),
+        background,
         background_palette: page.background_pal.map(str::to_string),
-        panels: Vec::new(),
+        panels: page
+            .panels
+            .iter()
+            .map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame))
+            .collect(),
         buttons: page.buttons.iter().map(slot_to_button).collect(),
-        fonts: Vec::new(),
+        fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
     })
 }
 
@@ -174,15 +225,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn placeholder_slots_are_not_declared_complete() {
+    fn only_main_menu_is_declared_complete_for_now() {
         let pages = catalog_pre_game_pages();
         assert!(!pages.is_empty());
         for page in &pages {
-            assert!(
-                !page.declared_refs_complete(),
-                "{} 仍无背景/按钮资源名，不得视为引用齐备",
-                page.screen.as_str()
-            );
+            if page.screen == OriginalScreen::MainMenu {
+                assert!(
+                    page.declared_refs_complete(),
+                    "主菜单应已声明背景与可点按钮资源名"
+                );
+                assert!(page.buttons[0].hover.is_none());
+                assert_eq!(page.buttons[0].normal.as_ref().unwrap().frame, Some(2));
+                assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
+                assert!(!page.panels.is_empty());
+            } else {
+                assert!(
+                    !page.declared_refs_complete(),
+                    "{} 仍无完整背景/按钮资源名",
+                    page.screen.as_str()
+                );
+            }
         }
     }
 
