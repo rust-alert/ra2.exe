@@ -335,9 +335,14 @@ impl AppShell {
         else {
             return;
         };
+        if let Some(err) = self.renderer.take_capture_error() {
+            tracing::error!("截图回读失败 · screen={name} · {err}");
+            self.banner = format!("截图失败 · {err}");
+            return;
+        }
         let Some(image) = self.renderer.take_capture()
         else {
-            tracing::warn!("截图回读为空 · screen={name}");
+            tracing::warn!("截图尚未就绪 · screen={name}");
             return;
         };
         match crate::screenshot::save_screenshot(name, &image) {
