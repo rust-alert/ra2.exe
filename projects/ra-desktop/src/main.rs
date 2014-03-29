@@ -20,6 +20,7 @@ mod screenshot;
 mod shell;
 mod skirmish_setup;
 mod ui_assets;
+mod ui_decode;
 mod ui_hit;
 mod ui_page;
 mod ui_resolve;
