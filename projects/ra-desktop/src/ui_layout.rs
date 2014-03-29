@@ -1,0 +1,102 @@
+//! 主菜单壳层像素布局（800×600 基准，大窗居中）。
+//!
+//! 几何来自零售壳层对照；与 [`crate::ui_hit`] 的归一化占位框尚未统一。
+//! 本模块只服务绘制合成；命中对齐是后续提交。
+
+/// 壳层设计宽。
+pub const SHELL_BASE_W: i32 = 800;
+/// 壳层设计高。
+pub const SHELL_BASE_H: i32 = 600;
+/// 右侧面板宽。
+pub const RIGHT_PANEL_W: i32 = 168;
+/// 右侧顶盖高（`sdtp`）。
+pub const RIGHT_PANEL_TOP_H: i32 = 199;
+/// 右侧平铺条高（`sdbtnbkgd`）。
+pub const RIGHT_PANEL_TILE_H: i32 = 42;
+/// 按钮格宽（窄列）。
+pub const BUTTON_CELL_W: i32 = 156;
+/// 按钮格高。
+pub const BUTTON_CELL_H: i32 = 42;
+
+/// 轴对齐矩形（像素）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RectPx {
+    /// 左。
+    pub x: i32,
+    /// 上。
+    pub y: i32,
+    /// 宽。
+    pub w: i32,
+    /// 高。
+    pub h: i32,
+}
+
+impl RectPx {
+    /// 构造。
+    pub const fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self { x, y, w, h }
+    }
+}
+
+/// 主菜单一帧布局。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MainMenuLayout {
+    /// 合成画布（通常为 800×600；大窗时仍以此为内容基准）。
+    pub canvas: RectPx,
+    /// 背景放置原点（相对画布）。
+    pub background: RectPx,
+    /// 右侧顶盖。
+    pub panel_top: RectPx,
+    /// 右侧平铺起点与单条尺寸（纵向重复）。
+    pub panel_tile: RectPx,
+    /// 平铺条数。
+    pub panel_tile_count: i32,
+    /// 右侧底盖。
+    pub panel_bottom: RectPx,
+    /// 底部装饰条。
+    pub lower_strip: RectPx,
+    /// 第一个可点按钮格（单人）。
+    pub first_button: RectPx,
+}
+
+/// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
+pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
+    let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
+    let panel_top = RectPx::new(panel_x, 0, RIGHT_PANEL_W, RIGHT_PANEL_TOP_H);
+    let tile = RectPx::new(panel_x, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, RIGHT_PANEL_TILE_H);
+    // 剩余高度够放底盖时，中间用平铺填满。
+    let bottom_h = 55;
+    let remaining = (SHELL_BASE_H - RIGHT_PANEL_TOP_H - bottom_h).max(0);
+    let tile_count = (remaining / RIGHT_PANEL_TILE_H).clamp(0, 9);
+    let bottom_y = tile.y + tile_count * RIGHT_PANEL_TILE_H;
+    let panel_bottom = RectPx::new(panel_x, bottom_y, RIGHT_PANEL_W, SHELL_BASE_H - bottom_y);
+    let lower_strip = RectPx::new(0, SHELL_BASE_H - 46, panel_x, 46);
+    let btn_x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
+    // 约等于零售首钮纵位（DLU 换算后的像素邻域）。
+    let first_button = RectPx::new(btn_x, 210, BUTTON_CELL_W, BUTTON_CELL_H);
+    MainMenuLayout {
+        canvas,
+        background: canvas,
+        panel_top,
+        panel_tile: tile,
+        panel_tile_count: tile_count,
+        panel_bottom,
+        lower_strip,
+        first_button,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn main_menu_panel_sits_on_right_edge() {
+        let layout = main_menu_layout(1024, 768);
+        assert_eq!(layout.canvas.w, 800);
+        assert_eq!(layout.panel_top.x + layout.panel_top.w, 800);
+        assert!(layout.panel_tile_count > 0);
+        assert_eq!(layout.first_button.w, BUTTON_CELL_W);
+    }
+}

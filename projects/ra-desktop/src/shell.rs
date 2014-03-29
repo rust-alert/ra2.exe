@@ -22,6 +22,7 @@ use crate::{
     screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
+    ui_compose,
     ui_decode,
     ui_hit,
     ui_page::page_resources_from_slots,
@@ -63,6 +64,8 @@ pub struct AppShell {
     lobby_preview_job: Option<PreviewJob>,
     /// 主菜单阶段 UI 资源探测（惰性一次）。
     ui_probe: Option<MenuUiProbe>,
+    /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
+    ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重。
@@ -113,6 +116,7 @@ impl AppShell {
             lobby_preview: None,
             lobby_preview_job: None,
             ui_probe: None,
+            ui_decode_cache: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -142,6 +146,7 @@ impl AppShell {
             lobby_preview: None,
             lobby_preview_job: None,
             ui_probe: None,
+            ui_decode_cache: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -325,6 +330,10 @@ impl AppShell {
                 tracing::warn!(screen = self.screen.as_str(), "UI 解码失败 · {err}");
             }
             banner = format!("{banner} · {}", decoded.banner_note());
+            self.ui_decode_cache = Some(decoded);
+        }
+        else {
+            self.ui_decode_cache = None;
         }
 
         self.banner = banner;
@@ -334,8 +343,8 @@ impl AppShell {
         if self.screen != next {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
-            self.refresh_menu_backdrop();
             self.refresh_ui_resolve_note();
+            self.refresh_menu_backdrop();
             self.refresh_shell_title();
             if self.auto_screenshots.should_capture(next) {
                 self.queue_screenshot(next.as_str());
@@ -373,12 +382,35 @@ impl AppShell {
         }
     }
 
-    /// 前置页：不烘焙假菜单。仅在遭遇战大厅且地图预览就绪时显示真实缩略图。
+    /// 前置页：主菜单上传合成 chrome；大厅可显示地图预览；其余清空 UI/预览。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+            self.renderer.clear_ui_page();
             return;
         }
         self.ensure_ui_probe();
+        if self.screen == OriginalScreen::MainMenu {
+            self.renderer.clear_preview();
+            if let Some(decoded) = self.ui_decode_cache.as_ref() {
+                if let Some(page) = ui_compose::compose_main_menu_page(
+                    decoded,
+                    self.window_width as u32,
+                    self.window_height as u32,
+                ) {
+                    tracing::info!(
+                        w = page.width,
+                        h = page.height,
+                        "主菜单 chrome 已合成并上传 UI 页通道"
+                    );
+                    self.renderer.set_ui_page(page);
+                    return;
+                }
+            }
+            self.renderer.clear_ui_page();
+            return;
+        }
+
+        self.renderer.clear_ui_page();
         if self.screen == OriginalScreen::SkirmishLobby {
             self.ensure_lobby_maps();
             self.ensure_lobby_preview();
