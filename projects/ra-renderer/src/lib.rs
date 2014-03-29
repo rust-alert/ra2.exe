@@ -67,6 +67,9 @@ pub struct Renderer {
     gpu: Option<GpuContext>,
     preview: Option<RgbaImage>,
     sprite: Option<SpriteGpu>,
+    /// 原版壳层 UI 页（与地图预览分通道；CPU 合成图的过渡上传）。
+    ui_page: Option<RgbaImage>,
+    ui_sprite: Option<SpriteGpu>,
     markers: Option<MarkerGpu>,
     /// 下一帧 `submit_frame` 结束后做表面回读。
     capture_pending: bool,
@@ -94,6 +97,8 @@ impl Renderer {
             gpu: None,
             preview: None,
             sprite: None,
+            ui_page: None,
+            ui_sprite: None,
             markers: None,
             capture_pending: false,
             last_capture: None,
@@ -157,7 +162,43 @@ impl Renderer {
     pub fn clear_preview(&mut self) {
         self.preview = None;
         self.sprite = None;
-        self.camera_ready = false;
+        if self.ui_page.is_none() {
+            self.camera_ready = false;
+        }
+    }
+
+    /// 设置原版壳层 UI 页纹理（与 [`Self::set_map_preview`] 分通道）。
+    ///
+    /// 当前接受已合成的整页 RGBA，作为 atlas/instance UI pass 之前的过渡上传路径。
+    pub fn set_ui_page(&mut self, image: RgbaImage) {
+        if let Some(gpu) = self.gpu.as_ref() {
+            match self.ui_sprite.as_mut() {
+                Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
+                None => {
+                    self.ui_sprite =
+                        Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &image));
+                }
+            }
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+        }
+        else {
+            self.camera_ready = false;
+        }
+        self.ui_page = Some(image);
+    }
+
+    /// 清空壳层 UI 页。
+    pub fn clear_ui_page(&mut self) {
+        self.ui_page = None;
+        self.ui_sprite = None;
+        if self.preview.is_none() {
+            self.camera_ready = false;
+        }
+    }
+
+    /// 是否已有壳层 UI 页。
+    pub fn has_ui_page(&self) -> bool {
+        self.ui_page.is_some()
     }
 
     /// 窗口就绪后绑定表面。可重复调用（忽略已绑定）。
@@ -166,7 +207,11 @@ impl Renderer {
             return Ok(());
         }
         let gpu = GpuContext::new(window)?;
-        if let Some(image) = self.preview.as_ref() {
+        if let Some(image) = self.ui_page.as_ref() {
+            self.ui_sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+        }
+        else if let Some(image) = self.preview.as_ref() {
             self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
         }
@@ -257,9 +302,15 @@ impl Renderer {
 
     fn submit_frame(&mut self) {
         if !self.camera_ready {
-            if let (Some(gpu), Some(sprite)) = (self.gpu.as_ref(), self.sprite.as_ref()) {
-                let (iw, ih) = sprite.size();
-                self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
+            if let Some(gpu) = self.gpu.as_ref() {
+                if let Some(ui) = self.ui_sprite.as_ref() {
+                    let (iw, ih) = ui.size();
+                    self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
+                }
+                else if let Some(sprite) = self.sprite.as_ref() {
+                    let (iw, ih) = sprite.size();
+                    self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
+                }
             }
         }
 
@@ -273,11 +324,13 @@ impl Renderer {
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        if let Some(sprite) = self.sprite.as_ref() {
+        // UI 页优先于地图预览：菜单不应误用 preview 通道。
+        let active_sprite = self.ui_sprite.as_ref().or(self.sprite.as_ref());
+        if let Some(sprite) = active_sprite {
             sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
         }
         if let Some(markers) = self.markers.as_mut() {
-            if self.render_world.unit_count() > 0 {
+            if self.render_world.unit_count() > 0 && self.ui_sprite.is_none() {
                 markers.write_from_world(
                     &gpu.queue,
                     &self.render_world,
@@ -307,11 +360,13 @@ impl Renderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            if let Some(sprite) = self.sprite.as_ref() {
+            if let Some(sprite) = active_sprite {
                 sprite.draw(&mut pass);
             }
             if let Some(markers) = self.markers.as_ref() {
-                markers.draw(&mut pass);
+                if self.ui_sprite.is_none() {
+                    markers.draw(&mut pass);
+                }
             }
         }
         gpu.queue.submit(std::iter::once(encoder.finish()));
