@@ -6,7 +6,7 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
-    ui_layout::{RectPx, main_menu_layout},
+    ui_layout::{MAIN_MENU_BUTTON_IDS, RectPx, main_menu_layout},
 };
 
 /// Alpha over 将 `src` 画到 `dst` 的 `(x,y)`（可裁剪）。
@@ -76,9 +76,17 @@ fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str) -> Option<&'a Dec
         .find(|p| p.label.to_ascii_lowercase().starts_with(&needle.to_ascii_lowercase()))
 }
 
-/// 合成主菜单静态 chrome：背景 + 右侧板 + 首个可点按钮常态。
+fn find_button<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
+    decoded
+        .button_normals
+        .iter()
+        .find(|(id, _)| *id == entry_id)
+        .map(|(_, sprite)| sprite)
+}
+
+/// 合成主菜单静态 chrome：背景 + 右侧板 + 全部按钮格。
 ///
-/// 缺背景或首钮时返回 `None`（该页视觉验收不得通过）。
+/// 缺背景或任一已声明按钮常态时返回 `None`（该页视觉验收不得通过）。
 pub fn compose_main_menu_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -92,18 +100,8 @@ pub fn compose_main_menu_page(
         vec![0u8; (layout.canvas.w as usize) * (layout.canvas.h as usize) * 4],
     )?;
 
-    // 背景：原尺寸左上对齐；若大于画布则左上裁剪，若小于则居中。
-    let bg_x = if bg.image.width as i32 >= layout.canvas.w {
-        0
-    } else {
-        (layout.canvas.w - bg.image.width as i32) / 2
-    };
-    let bg_y = if bg.image.height as i32 >= layout.canvas.h {
-        0
-    } else {
-        (layout.canvas.h - bg.image.height as i32) / 2
-    };
-    blit_rgba(&mut page, &bg.image, bg_x, bg_y);
+    // 父背景：原尺寸贴在影片区左上（约 632×568），不拉伸铺满。
+    blit_rgba(&mut page, &bg.image, layout.background.x, layout.background.y);
 
     if let Some(top) = find_panel(decoded, "sdtp.shp") {
         blit_stretched(&mut page, &top.image, layout.panel_top);
@@ -126,16 +124,13 @@ pub fn compose_main_menu_page(
         blit_stretched(&mut page, &lower.image, layout.lower_strip);
     }
 
-    // 只画第一个可点按钮（单人），验证颜色与尺寸。
-    let btn = decoded
-        .button_normals
-        .iter()
-        .find(|(id, _)| *id == "single_player")
-        .map(|(_, s)| s)?;
-    // 按钮保持原尺寸，锚定在格左上（不拉伸）。
-    blit_rgba(&mut page, &btn.image, layout.first_button.x, layout.first_button.y);
+    for (i, entry_id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
+        let btn = find_button(decoded, entry_id)?;
+        let cell = layout.buttons[i];
+        // 按钮保持原尺寸（156×42），锚定在格左上，不拉伸。
+        blit_rgba(&mut page, &btn.image, cell.x, cell.y);
+    }
 
-    let _ = layout;
     Some(page)
 }
 
