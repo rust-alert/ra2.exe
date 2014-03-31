@@ -1,7 +1,8 @@
 //! 主菜单壳层像素布局（800×600 基准，大窗居中）。
 //!
-//! 几何来自零售壳层对照；与 [`crate::ui_hit`] 的归一化占位框尚未统一。
-//! 本模块只服务绘制合成；命中对齐是后续提交。
+//! 几何服务合成与命中；大窗时用与渲染相同的 [`ra_renderer::ViewCamera::fit`] 映射。
+
+use ra_renderer::ViewCamera;
 
 /// 壳层设计宽。
 pub const SHELL_BASE_W: i32 = 800;
@@ -73,6 +74,23 @@ fn button_cell(panel_x: i32, tile_y: i32, row: i32) -> RectPx {
     RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
 }
 
+/// 与 UI 页上传后相同的 fit 相机（内容 800×600 → 窗口）。
+pub fn shell_fit_camera(win_w: u32, win_h: u32) -> ViewCamera {
+    ViewCamera::fit(SHELL_BASE_W as u32, SHELL_BASE_H as u32, win_w.max(1), win_h.max(1))
+}
+
+/// 窗口像素 → 壳层内容像素（与 [`shell_fit_camera`] 一致）。
+pub fn window_to_shell_px(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> (i32, i32) {
+    let cam = shell_fit_camera(win_w.max(1.0) as u32, win_h.max(1.0) as u32);
+    let (wx, wy) = cam.screen_to_world(
+        cursor_x as f32,
+        cursor_y as f32,
+        win_w.max(1.0) as f32,
+        win_h.max(1.0) as f32,
+    );
+    (wx.floor() as i32, wy.floor() as i32)
+}
+
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
@@ -121,5 +139,12 @@ mod tests {
         assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
         assert_eq!(layout.buttons[3].y, RIGHT_PANEL_TOP_H + 3 * BUTTON_CELL_H);
         assert_eq!(MAIN_MENU_BUTTON_IDS.len(), layout.buttons.len());
+    }
+
+    #[test]
+    fn window_center_maps_near_shell_center_when_fitted() {
+        let (x, y) = window_to_shell_px(512.0, 384.0, 1024.0, 768.0);
+        assert!((x - 400).abs() <= 2);
+        assert!((y - 300).abs() <= 2);
     }
 }

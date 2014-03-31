@@ -1,11 +1,13 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
-//! 命中几何来自 [`crate::ui_slots`]；遭遇战大厅地图列表行几何与既有大厅列表约定一致。
+//! 主菜单命中对齐 [`crate::ui_layout`] 像素格（经 fit 相机）；其余页仍用 [`crate::ui_slots`] 归一化框。
+//! 遭遇战大厅地图列表行几何与既有大厅列表约定一致。
 
 use crate::{
     boot::BootMapCandidate,
     menu_action::MenuAction,
     screen::OriginalScreen,
+    ui_layout::{MAIN_MENU_BUTTON_IDS, main_menu_layout, window_to_shell_px},
     ui_slots::slots_for,
 };
 
@@ -38,6 +40,7 @@ const LOBBY_X1: f32 = 0.82;
 
 /// 为当前页构建命中列表；对局/结算返回空。
 ///
+/// 主菜单列表的归一化框是 **800×600 内容坐标**（非窗口坐标）；点击请走 [`hit_action`]。
 /// `load_allow_retry`：加载页「重试」是否可点（装载进行中为 `false`）。
 pub fn hits_for(
     screen: OriginalScreen,
@@ -45,6 +48,7 @@ pub fn hits_for(
     load_allow_retry: bool,
 ) -> Vec<MenuHit> {
     match screen {
+        OriginalScreen::MainMenu => hits_main_menu(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
         OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
@@ -62,6 +66,9 @@ pub fn hit_action(
     win_h: f64,
     load_allow_retry: bool,
 ) -> Option<MenuAction> {
+    if screen == OriginalScreen::MainMenu {
+        return hit_main_menu_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
     hit_at(
         &hits_for(screen, maps, load_allow_retry),
         cursor.0,
@@ -82,6 +89,9 @@ pub fn hover_index(
     win_h: f64,
     load_allow_retry: bool,
 ) -> Option<usize> {
+    if screen == OriginalScreen::MainMenu {
+        return hit_main_menu_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
     hit_at(
         &hits_for(screen, maps, load_allow_retry),
         cursor.0,
@@ -110,6 +120,63 @@ fn hit_at(
         }
         if nx >= h.x0 && nx <= h.x1 && ny >= h.y0 && ny <= h.y1 {
             return Some((i, h.action));
+        }
+    }
+    None
+}
+
+fn hits_main_menu() -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::MainMenu)
+    else {
+        return Vec::new();
+    };
+    let layout = main_menu_layout(0, 0);
+    let bw = layout.canvas.w as f32;
+    let bh = layout.canvas.h as f32;
+    MAIN_MENU_BUTTON_IDS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, id)| {
+            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
+            let cell = layout.buttons[i];
+            Some(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            })
+        })
+        .collect()
+}
+
+fn hit_main_menu_at(
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = main_menu_layout(0, 0);
+    let Some(page) = slots_for(OriginalScreen::MainMenu)
+    else {
+        return None;
+    };
+    for (i, id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if layout.buttons[i].contains(sx, sy) {
+            return Some((i, btn.action));
         }
     }
     None
@@ -204,11 +271,12 @@ mod tests {
 
     #[test]
     fn main_menu_hit_single_player() {
+        // 右侧首钮格中心：壳层约 (722, 220) → 1024×768 fit 后约 (924, 282)
         let action = hit_action(
             OriginalScreen::MainMenu,
             &[],
             None,
-            (400.0, 280.0),
+            (924.0, 282.0),
             1024.0,
             768.0,
             false,
@@ -228,12 +296,12 @@ mod tests {
 
     #[test]
     fn disabled_network_not_hit() {
-        // NETWORK 行约 y=0.44 → 338px，禁用。
+        // 网络钮格中心约壳层 (722, 262) → 窗口约 (924, 335)，禁用。
         let action = hit_action(
             OriginalScreen::MainMenu,
             &[],
             None,
-            (400.0, 340.0),
+            (924.0, 335.0),
             1024.0,
             768.0,
             false,
@@ -269,7 +337,7 @@ mod tests {
                 OriginalScreen::MainMenu,
                 &[],
                 None,
-                (400.0, 280.0),
+                (924.0, 282.0),
                 1024.0,
                 768.0,
                 false,
@@ -281,7 +349,7 @@ mod tests {
                 OriginalScreen::MainMenu,
                 &[],
                 None,
-                (400.0, 340.0),
+                (924.0, 335.0),
                 1024.0,
                 768.0,
                 false,
