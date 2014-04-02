@@ -130,7 +130,7 @@ impl AppShell {
             screen: OriginalScreen::MainMenu,
             match_ctrl: None,
             renderer: Renderer::new(),
-            banner: "原版 UI 未接线 · 仅键盘/逻辑命中".into(),
+            banner: "主菜单 · 壳层资源探测中".into(),
             window_width,
             window_height,
             status_path: None,
@@ -403,6 +403,10 @@ impl AppShell {
                         "主菜单 chrome 已合成并上传 UI 页通道"
                     );
                     self.renderer.set_ui_page(page);
+                    if !self.banner.contains("chrome 已上传") {
+                        self.banner = format!("{} · chrome 已上传", self.banner);
+                        self.refresh_shell_title();
+                    }
                     return;
                 }
             }

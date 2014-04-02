@@ -1,7 +1,6 @@
 //! 主菜单阶段的原版资源探测：证明进入对局前即可 MixVfs → SHP → RGBA。
 //!
-//! **不是 Pre-Alpha 原版 UI。** 只验证安装挂载与常见 UI SHP / `ui.ini` 可读；
-//! 页面绘制与字体仍待 UI pass；逻辑命中见 `ui_hit`。
+//! 本模块只做挂载与可读性探测；页面合成见 `ui_compose`，命中见 `ui_hit`。
 
 use ra_adaptor::detect_edition;
 use ra_assets::{IniDocument, Palette, ShpFile};
@@ -91,11 +90,11 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     };
     let note = match &mouse_frame {
         Some(img) => format!(
-            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {} · 原版 UI 未接线",
+            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {}",
             img.width, img.height, ui_bit, mounted_root, mounted_nested
         ),
         None => format!(
-            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {} · 原版 UI 未接线",
+            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {}",
             ui_bit, mounted_root, mounted_nested
         ),
     };
