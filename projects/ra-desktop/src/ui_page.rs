@@ -121,6 +121,8 @@ pub struct UiPageResources {
     pub background: Option<UiAssetRef>,
     /// 背景调色板（可与背景引用内 palette 并存；显式页级优先策略由装载层定）。
     pub background_palette: Option<String>,
+    /// 循环影片（BIK），可空。
+    pub movie: Option<UiAssetRef>,
     /// 面板/装饰层。
     pub panels: Vec<UiAssetRef>,
     /// 页面按钮。
@@ -195,6 +197,7 @@ pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResourc
         screen,
         background,
         background_palette: page.background_pal.map(str::to_string),
+        movie: page.movie_bik.map(UiAssetRef::named),
         panels: page
             .panels
             .iter()
@@ -238,6 +241,10 @@ mod tests {
                 assert_eq!(page.buttons[0].normal.as_ref().unwrap().frame, Some(2));
                 assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
                 assert!(!page.panels.is_empty());
+                assert_eq!(
+                    page.movie.as_ref().map(|m| m.name.as_str()),
+                    Some("ra2ts_l.bik")
+                );
             } else {
                 assert!(
                     !page.declared_refs_complete(),

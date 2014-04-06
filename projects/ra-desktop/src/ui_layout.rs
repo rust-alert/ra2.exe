@@ -54,6 +54,8 @@ pub struct MainMenuLayout {
     pub canvas: RectPx,
     /// 背景放置原点（相对画布）。
     pub background: RectPx,
+    /// 循环影片矩形（与父背景同区；解码后叠在背景上）。
+    pub movie: RectPx,
     /// 右侧顶盖。
     pub panel_top: RectPx,
     /// 右侧平铺起点与单条尺寸（纵向重复）。
@@ -116,6 +118,7 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
         canvas,
         // 父背景与影片区同左上；`mnscrnl` 约 632×568，不铺满 800 宽。
         background: RectPx::new(0, 0, 632, 568),
+        movie: RectPx::new(0, 0, 632, 568),
         panel_top,
         panel_tile: tile,
         panel_tile_count: tile_count,
