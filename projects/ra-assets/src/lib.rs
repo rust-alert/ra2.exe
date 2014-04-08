@@ -13,7 +13,10 @@ pub mod rules;
 pub mod voxel;
 
 pub use image::{
-    bink::{BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkHeader, BinkVersion, parse_bink_header},
+    bink::{
+        BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkFile, BinkFrameIndexEntry, BinkHeader,
+        BinkVersion, parse_bink_file, parse_bink_header,
+    },
     pal::{Palette, Rgba},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
