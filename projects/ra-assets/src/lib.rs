@@ -2,7 +2,7 @@
 //!
 //! 按格式族分目录：`mix` / `ini` / `image` / `voxel` / `rules`。
 //! 对外仍扁平再导出，保持既有 `ra_assets::*` 路径。
-//! `image` 含 PAL / SHP / TMP / Bink 固定头。
+//! `image` 含 PAL / SHP / TMP / Bink 容器与视频解码骨架。
 
 #![deny(missing_docs)]
 
@@ -16,6 +16,9 @@ pub use image::{
     bink::{
         BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkFile, BinkFrameIndexEntry,
         BinkFramePacket, BinkHeader, BinkVersion, parse_bink_file, parse_bink_header,
+    },
+    bink_video::{
+        BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8,
     },
     pal::{Palette, Rgba},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
