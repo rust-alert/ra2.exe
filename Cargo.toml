@@ -39,7 +39,7 @@ console_error_panic_hook = "0.1"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "console"] }
 blowfish = "0.10.0"
 byteorder = "1"
-num-bigint = "0.4"
+num-bigint = "0.5"
 base64 = "0.23.1"
 oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 png = "0.17"

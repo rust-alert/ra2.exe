@@ -184,6 +184,75 @@ pub struct BinkFile {
     pub frame_index_offset: usize,
 }
 
+/// 一帧从容器中切出的音/视频载荷（借用源字节）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BinkFramePacket<'a> {
+    /// 帧下标。
+    pub index: usize,
+    /// 是否关键帧。
+    pub is_keyframe: bool,
+    /// 音频载荷（已去掉长度前缀）；无音轨时为 `None`。
+    pub audio: Option<&'a [u8]>,
+    /// 视频码流字节。
+    pub video: &'a [u8],
+}
+
+impl BinkFile {
+    /// 单帧显示时长（微秒）。
+    pub fn frame_duration_us(&self) -> u32 {
+        let num = self.header.fps_num.max(1);
+        let den = self.header.fps_den.max(1);
+        ((u64::from(den) * 1_000_000) / u64::from(num)) as u32
+    }
+
+    /// 按索引切出一帧包（音轨前缀拆开，视频码流单独给出）。
+    pub fn frame_packet<'a>(
+        &self,
+        data: &'a [u8],
+        index: usize,
+    ) -> Result<BinkFramePacket<'a>, String> {
+        let entry = self
+            .frames
+            .get(index)
+            .ok_or_else(|| format!("帧下标越界：{index} / {}", self.frames.len()))?;
+        let start = entry.offset as usize;
+        let end = start
+            .checked_add(entry.size as usize)
+            .ok_or_else(|| format!("帧 #{index} 长度溢出"))?;
+        let packet = data
+            .get(start..end)
+            .ok_or_else(|| format!("帧 #{index} 数据越界：[{start},{end}) / {}", data.len()))?;
+
+        if self.audio_tracks.is_empty() {
+            return Ok(BinkFramePacket {
+                index,
+                is_keyframe: entry.is_keyframe,
+                audio: None,
+                video: packet,
+            });
+        }
+        if packet.len() < 4 {
+            return Err(format!("帧 #{index} 音轨前缀截断"));
+        }
+        let aud_len = u32::from_le_bytes([packet[0], packet[1], packet[2], packet[3]]) as usize;
+        let audio_end = 4usize
+            .checked_add(aud_len)
+            .ok_or_else(|| format!("帧 #{index} 音频长度溢出"))?;
+        if audio_end > packet.len() {
+            return Err(format!(
+                "帧 #{index} 音频越界：声明 {aud_len} · 包长 {}",
+                packet.len()
+            ));
+        }
+        Ok(BinkFramePacket {
+            index,
+            is_keyframe: entry.is_keyframe,
+            audio: Some(&packet[4..audio_end]),
+            video: &packet[audio_end..],
+        })
+    }
+}
+
 fn read_u16_le(data: &[u8], off: usize) -> Result<u16, String> {
     let end = off.checked_add(2).ok_or_else(|| "偏移溢出".to_string())?;
     let slice = data
@@ -343,5 +412,51 @@ mod tests {
         assert_eq!(file.frames[0].size, 16);
         assert_eq!(file.frames[1].size, 32);
         assert!(file.audio_tracks.is_empty());
+    }
+
+    #[test]
+    fn frame_packet_splits_whole_body_when_no_audio() {
+        let data = synth_biki_with_two_frames();
+        let file = parse_bink_file(&data).unwrap();
+        let p0 = file.frame_packet(&data, 0).unwrap();
+        assert!(p0.audio.is_none());
+        assert_eq!(p0.video.len(), 16);
+        assert_eq!(file.frame_duration_us(), 100_000);
+        let p1 = file.frame_packet(&data, 1).unwrap();
+        assert_eq!(p1.video.len(), 32);
+    }
+
+    #[test]
+    fn frame_packet_splits_audio_prefix() {
+        // 布局：固定头 + 1 轨描述 + 1 帧索引 + 包(aud_len + audio + video)
+        let packet_size = 4 + 4 + 8;
+        let tracks_start = 0x2C;
+        let index_at = tracks_start + 12;
+        let frame0 = index_at + 4;
+        let file_end = frame0 + packet_size;
+        let mut data = vec![0u8; file_end];
+        data[0..4].copy_from_slice(&0x694B_4942u32.to_le_bytes());
+        data[4..8].copy_from_slice(&((file_end as u32) - 8).to_le_bytes());
+        data[8..12].copy_from_slice(&1u32.to_le_bytes());
+        data[12..16].copy_from_slice(&(packet_size as u32).to_le_bytes());
+        data[0x14..0x18].copy_from_slice(&8u32.to_le_bytes());
+        data[0x18..0x1C].copy_from_slice(&8u32.to_le_bytes());
+        data[0x1C..0x20].copy_from_slice(&10u32.to_le_bytes());
+        data[0x20..0x24].copy_from_slice(&1u32.to_le_bytes());
+        data[0x28..0x2C].copy_from_slice(&1u32.to_le_bytes());
+        data[tracks_start..tracks_start + 4].copy_from_slice(&64u32.to_le_bytes());
+        data[tracks_start + 4..tracks_start + 6].copy_from_slice(&22_050u16.to_le_bytes());
+        data[tracks_start + 6..tracks_start + 8].copy_from_slice(&0x6000u16.to_le_bytes());
+        data[tracks_start + 8..tracks_start + 12].copy_from_slice(&1u32.to_le_bytes());
+        data[index_at..index_at + 4].copy_from_slice(&(frame0 as u32).to_le_bytes());
+        data[frame0..frame0 + 4].copy_from_slice(&4u32.to_le_bytes());
+        data[frame0 + 4..frame0 + 8].copy_from_slice(&[9, 9, 9, 9]);
+        data[frame0 + 8..frame0 + 16].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+
+        let file = parse_bink_file(&data).unwrap();
+        assert_eq!(file.audio_tracks.len(), 1);
+        let pkt = file.frame_packet(&data, 0).unwrap();
+        assert_eq!(pkt.audio, Some(&[9, 9, 9, 9][..]));
+        assert_eq!(pkt.video, &[1, 2, 3, 4, 5, 6, 7, 8]);
     }
 }
