@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::parse_bink_header;
+use ra_assets::{parse_bink_file, BinkVideoDecoder};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, RaError, RaResult};
 use winit::{
@@ -344,24 +344,39 @@ impl AppShell {
 
         if let Some(movie) = page.movie.as_ref() {
             match source.read(&movie.name) {
-                Ok(bytes) => match parse_bink_header(&bytes) {
-                    Ok(hdr) => {
-                        tracing::info!(
-                            name = %movie.name,
-                            w = hdr.width,
-                            h = hdr.height,
-                            frames = hdr.num_frames,
-                            fps = hdr.fps(),
-                            "主菜单影片头已解析（尚未解码帧）"
-                        );
+                Ok(bytes) => match parse_bink_file(&bytes) {
+                    Ok(file) => {
+                        let hdr = &file.header;
+                        let pkt0 = file.frame_packet(&bytes, 0).ok();
+                        let video0 = pkt0.map(|p| p.video.len()).unwrap_or(0);
+                        match BinkVideoDecoder::new(hdr) {
+                            Ok(_) => tracing::info!(
+                                name = %movie.name,
+                                w = hdr.width,
+                                h = hdr.height,
+                                frames = hdr.num_frames,
+                                fps = hdr.fps(),
+                                video0,
+                                "主菜单影片容器已解析 · 解码器已构造（码流未解）"
+                            ),
+                            Err(e) => tracing::warn!(
+                                name = %movie.name,
+                                "影片解码器构造失败 · {e}"
+                            ),
+                        }
                         banner = format!(
-                            "{banner} · {} {}×{} {}帧 @{:.0}fps",
-                            movie.name, hdr.width, hdr.height, hdr.num_frames, hdr.fps()
+                            "{banner} · {} {}×{} {}帧 @{:.0}fps · 包0视频{}B",
+                            movie.name,
+                            hdr.width,
+                            hdr.height,
+                            hdr.num_frames,
+                            hdr.fps(),
+                            video0
                         );
                     }
                     Err(e) => {
-                        tracing::warn!(name = %movie.name, "影片头解析失败 · {e}");
-                        banner = format!("{banner} · {} 头失败", movie.name);
+                        tracing::warn!(name = %movie.name, "影片容器解析失败 · {e}");
+                        banner = format!("{banner} · {} 容器失败", movie.name);
                     }
                 },
                 Err(_) => {
