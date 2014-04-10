@@ -1,0 +1,163 @@
+//! Bink 码流按位读取（字节内 LSB 优先，跨字节低位先出）。
+
+use super::bink_video::BinkVideoError;
+
+/// 码流阅读器。
+#[derive(Debug, Clone)]
+pub struct BitReader<'a> {
+    data: &'a [u8],
+    bit_pos: usize,
+    bits_total: usize,
+}
+
+impl<'a> BitReader<'a> {
+    /// 在 `data` 上限制可读位数（不得超过 `data.len() * 8`）。
+    pub fn new(data: &'a [u8], bits_total: usize) -> Self {
+        let max = data.len().saturating_mul(8);
+        Self {
+            data,
+            bit_pos: 0,
+            bits_total: bits_total.min(max),
+        }
+    }
+
+    /// 覆盖整段字节。
+    pub fn from_bytes(data: &'a [u8]) -> Self {
+        Self::new(data, data.len().saturating_mul(8))
+    }
+
+    /// 已读位数。
+    pub fn pos(&self) -> usize {
+        self.bit_pos
+    }
+
+    /// 剩余位数（可为负，表示已越过声明长度）。
+    pub fn bits_left(&self) -> isize {
+        self.bits_total as isize - self.bit_pos as isize
+    }
+
+    /// 跳过 `n` 位。
+    pub fn skip(&mut self, n: usize) {
+        self.bit_pos = self.bit_pos.saturating_add(n);
+    }
+
+    /// 回退 `n` 位（仅内部窥视用）。
+    pub fn rewind(&mut self, n: usize) {
+        self.bit_pos = self.bit_pos.saturating_sub(n);
+    }
+
+    /// 读 1 位。
+    pub fn read_bit(&mut self) -> Result<bool, BinkVideoError> {
+        Ok(self.read_bits(1)? != 0)
+    }
+
+    /// 读 `n` 位（1..=32），LSB 优先拼成 `u32`。
+    pub fn read_bits(&mut self, n: u32) -> Result<u32, BinkVideoError> {
+        if n == 0 {
+            return Ok(0);
+        }
+        if n > 32 {
+            return Err(BinkVideoError::Msg(format!("一次最多读 32 位，请求 {n}")));
+        }
+        if self.bits_left() < n as isize {
+            return Err(BinkVideoError::Msg(format!(
+                "码流耗尽：需 {n} 位 · 剩 {}",
+                self.bits_left()
+            )));
+        }
+
+        let mut result: u64 = 0;
+        let mut shift: u32 = 0;
+        let mut remaining = n;
+        while remaining > 0 {
+            let byte_idx = self.bit_pos >> 3;
+            let bit_in_byte = (self.bit_pos & 7) as u32;
+            let take = (8 - bit_in_byte).min(remaining);
+            let byte = self.data[byte_idx] as u64;
+            let chunk = (byte >> bit_in_byte) & ((1u64 << take) - 1);
+            result |= chunk << shift;
+            shift += take;
+            self.bit_pos += take as usize;
+            remaining -= take;
+        }
+        Ok(result as u32)
+    }
+
+    /// 窥视最多 `n` 位（不足时高位补 0），不推进游标。
+    pub fn peek_bits(&mut self, n: u32) -> Result<u32, BinkVideoError> {
+        let have = self.bits_left();
+        if have >= n as isize {
+            let saved = self.bit_pos;
+            let v = self.read_bits(n)?;
+            self.bit_pos = saved;
+            Ok(v)
+        } else if have <= 0 {
+            Ok(0)
+        } else {
+            let saved = self.bit_pos;
+            let real = have as u32;
+            let v = self.read_bits(real)?;
+            self.bit_pos = saved;
+            Ok(v)
+        }
+    }
+
+    /// 对齐到下一个 32 位边界（平面段之间常用）。
+    pub fn align_to_dword(&mut self) {
+        let rem = self.bit_pos & 31;
+        if rem != 0 {
+            self.bit_pos += 32 - rem;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_single_bits_lsb_first() {
+        let data = [0xA3u8];
+        let mut r = BitReader::from_bytes(&data);
+        assert_eq!(r.read_bit().unwrap(), true);
+        assert_eq!(r.read_bit().unwrap(), true);
+        assert_eq!(r.read_bit().unwrap(), false);
+        assert_eq!(r.read_bit().unwrap(), false);
+        assert_eq!(r.read_bit().unwrap(), false);
+        assert_eq!(r.read_bit().unwrap(), true);
+        assert_eq!(r.read_bit().unwrap(), false);
+        assert_eq!(r.read_bit().unwrap(), true);
+    }
+
+    #[test]
+    fn read_bits_nibbles() {
+        let data = [0xA3u8];
+        let mut r = BitReader::from_bytes(&data);
+        assert_eq!(r.read_bits(4).unwrap(), 0x3);
+        assert_eq!(r.read_bits(4).unwrap(), 0xA);
+    }
+
+    #[test]
+    fn read_bits_across_bytes() {
+        let data = [0x78u8, 0x56];
+        let mut r = BitReader::from_bytes(&data);
+        assert_eq!(r.read_bits(16).unwrap(), 0x5678);
+    }
+
+    #[test]
+    fn align_to_dword() {
+        let data = [0xFFu8; 8];
+        let mut r = BitReader::from_bytes(&data);
+        r.skip(5);
+        r.align_to_dword();
+        assert_eq!(r.pos(), 32);
+    }
+
+    #[test]
+    fn eof_errors() {
+        let data = [0u8; 1];
+        let mut r = BitReader::from_bytes(&data);
+        r.skip(8);
+        assert!(r.read_bit().is_err());
+    }
+}
