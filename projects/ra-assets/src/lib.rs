@@ -17,7 +17,7 @@ pub use image::{
         BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkFile, BinkFrameIndexEntry,
         BinkFramePacket, BinkHeader, BinkVersion, parse_bink_file, parse_bink_header,
     },
-    bink_bits::BitReader,
+    bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
     bink_video::{
         BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8,
     },

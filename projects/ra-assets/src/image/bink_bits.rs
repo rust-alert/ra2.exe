@@ -111,6 +111,70 @@ impl<'a> BitReader<'a> {
     }
 }
 
+/// 平坦 Huffman 查表（最多 13 位前缀）。
+#[derive(Debug, Clone)]
+pub struct VlcTable {
+    /// 每项：`(码长 << 16) | 符号`。
+    entries: Vec<u32>,
+    /// 前缀窥视宽度。
+    bits: u32,
+}
+
+impl VlcTable {
+    /// 由 16 组码字与码长构建；码字已按 LSB 优先布局。
+    pub fn build(codes: &[u8; 16], lengths: &[u8; 16]) -> Result<Self, BinkVideoError> {
+        let max_len = u32::from(*lengths.iter().max().unwrap_or(&0));
+        if max_len == 0 || max_len > 13 {
+            return Err(BinkVideoError::Msg(format!("VLC 码长越界：{max_len}")));
+        }
+        let bits = max_len;
+        let size = 1usize << bits;
+        let mut entries = vec![u32::MAX; size];
+        for sym in 0..16u32 {
+            let len = u32::from(lengths[sym as usize]);
+            if len == 0 {
+                continue;
+            }
+            let code = u32::from(codes[sym as usize]);
+            let high_bits = bits - len;
+            let entry = (len << 16) | sym;
+            for high in 0..(1u32 << high_bits) {
+                let idx = (code | (high << len)) as usize;
+                entries[idx] = entry;
+            }
+        }
+        if entries.iter().any(|&e| e == u32::MAX) {
+            return Err(BinkVideoError::Msg("VLC 表存在空洞".into()));
+        }
+        Ok(Self { entries, bits })
+    }
+
+    /// 解码一个符号并按真实码长推进。
+    pub fn decode(&self, reader: &mut BitReader<'_>) -> Result<u32, BinkVideoError> {
+        let peek = reader.peek_bits(self.bits)?;
+        let entry = self.entries[peek as usize];
+        let len = entry >> 16;
+        let sym = entry & 0xFFFF;
+        reader.skip(len as usize);
+        Ok(sym)
+    }
+
+    /// 前缀宽度。
+    pub fn bits(&self) -> u32 {
+        self.bits
+    }
+}
+
+/// 预构建全部 16 棵固定树的 VLC 表。
+pub fn build_fixed_vlc_tables() -> Result<[VlcTable; 16], BinkVideoError> {
+    use super::bink_tables::{BINK_TREE_BITS, BINK_TREE_LENS};
+    let mut out: [Option<VlcTable>; 16] = std::array::from_fn(|_| None);
+    for t in 0..16 {
+        out[t] = Some(VlcTable::build(&BINK_TREE_BITS[t], &BINK_TREE_LENS[t])?);
+    }
+    Ok(std::array::from_fn(|i| out[i].take().expect("filled")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,5 +223,15 @@ mod tests {
         let mut r = BitReader::from_bytes(&data);
         r.skip(8);
         assert!(r.read_bit().is_err());
+    }
+
+    #[test]
+    fn fixed_vlc_tables_build() {
+        let tables = build_fixed_vlc_tables().unwrap();
+        assert_eq!(tables[0].bits(), 4);
+        // 全 4 位等长树：读 0b0000 → 符号 0
+        let data = [0x00u8];
+        let mut r = BitReader::from_bytes(&data);
+        assert_eq!(tables[0].decode(&mut r).unwrap(), 0);
     }
 }
