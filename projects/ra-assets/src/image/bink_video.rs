@@ -1,9 +1,9 @@
-//! Bink 视频码流解码骨架与平面 → RGBA 转换。
+//! Bink 视频码流解码与平面 → RGBA 转换。
 //!
 //! 容器抽包见 [`super::bink`]；本模块产出可上传 GPU / `set_ui_page` 的像素。
-//! 码流块解码仍在实现中，调用方应处理 [`BinkVideoError::NotImplemented`]。
 
 use super::bink::{BinkHeader, BinkVersion};
+use super::bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables};
 
 /// 视频解码错误。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,14 +122,18 @@ pub fn yuv420_planes_to_rgba8(
     out
 }
 
-/// 自有 Bink 视频解码器（状态机；码流块解码逐步填入）。
+/// 自有 Bink 视频解码器（双缓冲 + 固定 VLC；平面块逐步填入）。
 #[derive(Debug)]
 pub struct BinkVideoDecoder {
     width: u32,
     height: u32,
     has_alpha: bool,
     version: BinkVersion,
-    frame: BinkYuvFrame,
+    /// 固定 Huffman VLC 表。
+    vlc: [VlcTable; 16],
+    cur: BinkYuvFrame,
+    prev: BinkYuvFrame,
+    has_prev: bool,
 }
 
 impl BinkVideoDecoder {
@@ -138,13 +142,20 @@ impl BinkVideoDecoder {
         match header.version {
             BinkVersion::BikI | BinkVersion::BikK => {}
         }
-        let frame = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
+        if header.is_gray() {
+            return Err(BinkVideoError::Msg("不支持灰度 Bink".into()));
+        }
+        let cur = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
+        let prev = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
         Ok(Self {
             width: header.width,
             height: header.height,
             has_alpha: header.has_alpha(),
             version: header.version,
-            frame,
+            vlc: build_fixed_vlc_tables()?,
+            cur,
+            prev,
+            has_prev: false,
         })
     }
 
@@ -168,16 +179,38 @@ impl BinkVideoDecoder {
         self.version
     }
 
+    /// 固定 VLC 表（供 bundle 解码使用）。
+    pub fn vlc_tables(&self) -> &[VlcTable; 16] {
+        &self.vlc
+    }
+
+    /// 是否已有上一帧（运动补偿参考）。
+    pub fn has_prev(&self) -> bool {
+        self.has_prev
+    }
+
     /// 解码一帧视频码流（`BinkFramePacket::video`）。
-    ///
-    /// 当前返回 [`BinkVideoError::NotImplemented`]；接口形状已固定为「包进 → 平面出」。
     pub fn decode_packet(
         &mut self,
-        _video: &[u8],
+        video: &[u8],
         _is_keyframe: bool,
     ) -> Result<&BinkYuvFrame, BinkVideoError> {
-        let _ = &self.frame;
-        Err(BinkVideoError::NotImplemented("Bink 视频块解码"))
+        if self.has_alpha {
+            return Err(BinkVideoError::Msg("暂不支持带 alpha 的 Bink".into()));
+        }
+        let mut r = BitReader::from_bytes(video);
+        if r.bits_left() < 32 {
+            return Err(BinkVideoError::Msg(format!(
+                "视频包过短：{} 位",
+                r.bits_left()
+            )));
+        }
+        // BIKi/BIKk：视频包开头跳过 32 位对齐槽。
+        r.skip(32);
+
+        // 平面 bundle / 块类型解码下一步提交；先确保前置与表就绪。
+        let _ = (&mut self.cur, &mut self.prev, &self.vlc, self.version, r.pos());
+        Err(BinkVideoError::NotImplemented("平面 bundle / 块类型"))
     }
 }
 
@@ -200,12 +233,18 @@ mod tests {
     }
 
     #[test]
-    fn decoder_new_accepts_biki() {
+    fn decoder_new_builds_vlc_and_rejects_short_packet() {
         let mut d = BinkVideoDecoder::new(&tiny_header()).unwrap();
         assert_eq!((d.width(), d.height()), (8, 8));
         assert_eq!(d.version(), BinkVersion::BikI);
+        assert_eq!(d.vlc_tables().len(), 16);
         assert!(matches!(
             d.decode_packet(&[], true).unwrap_err(),
+            BinkVideoError::Msg(_)
+        ));
+        // 4 字节 = 32 位，刚好跳过对齐槽后进入未实现平面路径。
+        assert!(matches!(
+            d.decode_packet(&[0, 0, 0, 0], true).unwrap_err(),
             BinkVideoError::NotImplemented(_)
         ));
     }
