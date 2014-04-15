@@ -2,6 +2,7 @@
 
 pub mod bink;
 pub mod bink_bits;
+pub mod bink_bundle;
 pub mod bink_huff;
 pub mod bink_tables;
 pub mod bink_video;
