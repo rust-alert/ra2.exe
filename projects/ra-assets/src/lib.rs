@@ -18,7 +18,10 @@ pub use image::{
         BinkFramePacket, BinkHeader, BinkVersion, parse_bink_file, parse_bink_header,
     },
     bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
-    bink_bundle::{BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_bundle},
+    bink_bundle::{
+        BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_block_types,
+        read_bundle, take_value,
+    },
     bink_huff::HuffmanTree,
     bink_video::{
         BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8,

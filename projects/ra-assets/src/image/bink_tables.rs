@@ -88,6 +88,9 @@ pub const BINK_TREE_LENS: [[u8; 16]; 16] = [
     [2, 2, 3, 3, 3, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7],
 ];
 
+/// 块类型 RLE 扩展长度（符号 12..=15）。
+pub const BINK_RLELENS: [u8; 4] = [4, 8, 12, 32];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +105,6 @@ mod tests {
             let max = *BINK_TREE_LENS[t].iter().max().unwrap();
             assert!(max > 0 && max <= 13);
         }
+        assert_eq!(BINK_RLELENS, [4, 8, 12, 32]);
     }
 }

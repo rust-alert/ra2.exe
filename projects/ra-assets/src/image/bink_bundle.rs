@@ -1,7 +1,9 @@
 //! Bink 平面解码用的 9 路数据捆（bundle）：树描述 + 值缓冲。
 
-use super::bink_bits::BitReader;
+use super::bink::{BinkVersion};
+use super::bink_bits::{BitReader, VlcTable};
 use super::bink_huff::HuffmanTree;
+use super::bink_tables::BINK_RLELENS;
 use super::bink_video::BinkVideoError;
 
 /// Bundle 种类数。
@@ -120,8 +122,77 @@ pub fn read_bundle(
     Ok(())
 }
 
+/// 读出下一个已解码的 bundle 值。
+pub fn take_value(bundles: &mut [BinkBundle; NB_SRC], data: &[u8], bundle_num: usize) -> u8 {
+    let b = &mut bundles[bundle_num];
+    let v = data.get(b.cur_ptr).copied().unwrap_or(0);
+    b.cur_ptr = b.cur_ptr.saturating_add(1);
+    v
+}
+
+/// 填充块类型（或子块类型）bundle 一行的值。
+pub fn read_block_types(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    vlc: &[VlcTable; 16],
+    version: BinkVersion,
+    bundle_num: usize,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, tree, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.tree.clone(), b.cur_dec)
+    };
+    let t_raw = r.read_bits(len_bits)?;
+    if t_raw == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let t = if version == BinkVersion::BikK {
+        let xored = t_raw ^ 0xBB;
+        if xored == 0 {
+            bundles[bundle_num].skip_fills = true;
+            return Ok(());
+        }
+        xored
+    } else {
+        t_raw
+    } as usize;
+    let dec_end = cur_dec_start.saturating_add(t);
+    if dec_end > buf_end {
+        return Err(BinkVideoError::Msg("块类型值过多".into()));
+    }
+    if r.read_bit()? {
+        let v = r.read_bits(4)? as u8;
+        data[cur_dec_start..dec_end].fill(v);
+    } else {
+        let mut last: u8 = 0;
+        let mut dec = cur_dec_start;
+        while dec < dec_end {
+            let v = tree.decode_sym(vlc, r)?;
+            if v < 12 {
+                last = v;
+                data[dec] = v;
+                dec += 1;
+            } else {
+                let run = BINK_RLELENS[(v - 12) as usize] as usize;
+                if dec_end.saturating_sub(dec) < run {
+                    return Err(BinkVideoError::Msg("块类型 RLE 越界".into()));
+                }
+                data[dec..dec + run].fill(last);
+                dec += run;
+            }
+        }
+    }
+    bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
 /// 分配 9 路 bundle 与共享缓冲。
-pub fn alloc_bundles(width: u32, height: u32) -> ( [BinkBundle; NB_SRC], Vec<u8> ) {
+pub fn alloc_bundles(width: u32, height: u32) -> ([BinkBundle; NB_SRC], Vec<u8>) {
     let bw = ((width + 7) >> 3) as usize;
     let bh = ((height + 7) >> 3) as usize;
     let blocks = bw.saturating_mul(bh);
