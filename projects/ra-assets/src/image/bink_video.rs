@@ -4,6 +4,10 @@
 
 use super::bink::{BinkHeader, BinkVersion};
 use super::bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables};
+use super::bink_bundle::{
+    BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_bundle,
+};
+use super::bink_huff::HuffmanTree;
 
 /// 视频解码错误。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,6 +135,10 @@ pub struct BinkVideoDecoder {
     version: BinkVersion,
     /// 固定 Huffman VLC 表。
     vlc: [VlcTable; 16],
+    bundles: [BinkBundle; NB_SRC],
+    bundle_data: Vec<u8>,
+    col_high: [HuffmanTree; 16],
+    col_lastval: u8,
     cur: BinkYuvFrame,
     prev: BinkYuvFrame,
     has_prev: bool,
@@ -147,12 +155,17 @@ impl BinkVideoDecoder {
         }
         let cur = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
         let prev = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
+        let (bundles, bundle_data) = alloc_bundles(header.width, header.height);
         Ok(Self {
             width: header.width,
             height: header.height,
             has_alpha: header.has_alpha(),
             version: header.version,
             vlc: build_fixed_vlc_tables()?,
+            bundles,
+            bundle_data,
+            col_high: std::array::from_fn(|_| HuffmanTree::default()),
+            col_lastval: 0,
             cur,
             prev,
             has_prev: false,
@@ -208,9 +221,56 @@ impl BinkVideoDecoder {
         // BIKi/BIKk：视频包开头跳过 32 位对齐槽。
         r.skip(32);
 
-        // 平面 bundle / 块类型解码下一步提交；先确保前置与表就绪。
-        let _ = (&mut self.cur, &mut self.prev, &self.vlc, self.version, r.pos());
-        Err(BinkVideoError::NotImplemented("平面 bundle / 块类型"))
+        std::mem::swap(&mut self.cur, &mut self.prev);
+
+        for plane in 0..3usize {
+            self.decode_plane_preamble(&mut r, plane)?;
+        }
+
+        self.has_prev = true;
+        // 块类型循环（SKIP/FILL/DCT…）下一步提交。
+        let _ = (&self.bundle_data, &self.vlc, BinkSrc::BlockTypes);
+        Err(BinkVideoError::NotImplemented("平面块类型循环"))
+    }
+
+    /// 读满一平面的 9 路树（BIKk 整平面填充捷径单独处理）。
+    fn decode_plane_preamble(
+        &mut self,
+        r: &mut BitReader<'_>,
+        plane_idx: usize,
+    ) -> Result<(), BinkVideoError> {
+        let is_chroma = plane_idx != 0;
+        let shift = if is_chroma { 1u32 } else { 0 };
+        let width = self.width >> shift;
+        let bw = if is_chroma {
+            (self.width + 15) >> 4
+        } else {
+            (self.width + 7) >> 3
+        };
+
+        if self.version == BinkVersion::BikK && r.read_bit()? {
+            let fill = r.read_bits(8)? as u8;
+            match plane_idx {
+                0 => self.cur.y.fill(fill),
+                1 => self.cur.u.fill(fill),
+                _ => self.cur.v.fill(fill),
+            }
+            r.align_to_dword();
+            return Ok(());
+        }
+
+        init_bundle_lengths(&mut self.bundles, width.max(8), bw);
+        for i in 0..NB_SRC {
+            read_bundle(
+                r,
+                &mut self.bundles,
+                &mut self.col_high,
+                &mut self.col_lastval,
+                i,
+            )?;
+        }
+        // 块循环结束后再 `align_to_dword`；树读完后码流紧接块类型。
+        Ok(())
     }
 }
 
@@ -242,10 +302,10 @@ mod tests {
             d.decode_packet(&[], true).unwrap_err(),
             BinkVideoError::Msg(_)
         ));
-        // 4 字节 = 32 位，刚好跳过对齐槽后进入未实现平面路径。
+        // 4 字节 = 32 位，跳过对齐槽后读树时码流耗尽。
         assert!(matches!(
             d.decode_packet(&[0, 0, 0, 0], true).unwrap_err(),
-            BinkVideoError::NotImplemented(_)
+            BinkVideoError::Msg(_)
         ));
     }
 
