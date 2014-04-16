@@ -191,6 +191,52 @@ pub fn read_block_types(
     Ok(())
 }
 
+/// 填充颜色 bundle：高半字节走 `col_high[col_lastval]`，低半字节走本树。
+pub fn read_colors(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    vlc: &[VlcTable; 16],
+    col_high: &[HuffmanTree; 16],
+    col_lastval: &mut u8,
+    bundle_num: usize,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, tree, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.tree.clone(), b.cur_dec)
+    };
+    let t = r.read_bits(len_bits)? as usize;
+    if t == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let dec_end = cur_dec_start.saturating_add(t);
+    if dec_end > buf_end {
+        return Err(BinkVideoError::Msg("颜色值过多".into()));
+    }
+    if r.read_bit()? {
+        let hi = col_high[(*col_lastval & 0xF) as usize].decode_sym(vlc, r)?;
+        *col_lastval = hi;
+        let lo = tree.decode_sym(vlc, r)?;
+        let v = (hi << 4) | lo;
+        data[cur_dec_start..dec_end].fill(v);
+    } else {
+        let mut dec = cur_dec_start;
+        while dec < dec_end {
+            let hi = col_high[(*col_lastval & 0xF) as usize].decode_sym(vlc, r)?;
+            *col_lastval = hi;
+            let lo = tree.decode_sym(vlc, r)?;
+            data[dec] = (hi << 4) | lo;
+            dec += 1;
+        }
+    }
+    bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
 /// 分配 9 路 bundle 与共享缓冲。
 pub fn alloc_bundles(width: u32, height: u32) -> ([BinkBundle; NB_SRC], Vec<u8>) {
     let bw = ((width + 7) >> 3) as usize;
