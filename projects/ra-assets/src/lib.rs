@@ -20,7 +20,7 @@ pub use image::{
     bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
     bink_bundle::{
         BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_block_types,
-        read_bundle, read_colors, take_value,
+        read_bundle, read_colors, read_motion_values, read_patterns, read_runs, take_value,
     },
     bink_huff::HuffmanTree,
     bink_video::{

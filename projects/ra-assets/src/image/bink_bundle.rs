@@ -237,6 +237,126 @@ pub fn read_colors(
     Ok(())
 }
 
+/// 填充图案 bundle：每字节由两个 4 位 Huffman 符号拼成。
+pub fn read_patterns(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    vlc: &[VlcTable; 16],
+    bundle_num: usize,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, tree, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.tree.clone(), b.cur_dec)
+    };
+    let t = r.read_bits(len_bits)? as usize;
+    if t == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let dec_end = cur_dec_start.saturating_add(t);
+    if dec_end > buf_end {
+        return Err(BinkVideoError::Msg("图案值过多".into()));
+    }
+    let mut dec = cur_dec_start;
+    while dec < dec_end {
+        let lo = tree.decode_sym(vlc, r)?;
+        let hi = tree.decode_sym(vlc, r)?;
+        data[dec] = lo | (hi << 4);
+        dec += 1;
+    }
+    bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
+/// 填充运动偏移 bundle（有符号 i8 存成 `u8` 位型）。
+pub fn read_motion_values(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    vlc: &[VlcTable; 16],
+    bundle_num: usize,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, tree, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.tree.clone(), b.cur_dec)
+    };
+    let t = r.read_bits(len_bits)? as usize;
+    if t == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let dec_end = cur_dec_start.saturating_add(t);
+    if dec_end > buf_end {
+        return Err(BinkVideoError::Msg("运动偏移过多".into()));
+    }
+    if r.read_bit()? {
+        let mut v = r.read_bits(4)? as i32;
+        if v != 0 {
+            let sign = if r.read_bit()? { -1 } else { 0 };
+            v = (v ^ sign) - sign;
+        }
+        data[cur_dec_start..dec_end].fill(v as i8 as u8);
+    } else {
+        let mut dec = cur_dec_start;
+        while dec < dec_end {
+            let mut v = tree.decode_sym(vlc, r)? as i32;
+            if v != 0 {
+                let sign = if r.read_bit()? { -1 } else { 0 };
+                v = (v ^ sign) - sign;
+            }
+            data[dec] = v as i8 as u8;
+            dec += 1;
+        }
+    }
+    bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
+/// 填充 RLE 游程 bundle（无符号）。
+pub fn read_runs(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    vlc: &[VlcTable; 16],
+    bundle_num: usize,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, tree, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.tree.clone(), b.cur_dec)
+    };
+    let t = r.read_bits(len_bits)? as usize;
+    if t == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let dec_end = cur_dec_start.saturating_add(t);
+    if dec_end > buf_end {
+        return Err(BinkVideoError::Msg("游程值过多".into()));
+    }
+    if r.read_bit()? {
+        let v = r.read_bits(4)? as u8;
+        data[cur_dec_start..dec_end].fill(v);
+    } else {
+        let mut dec = cur_dec_start;
+        while dec < dec_end {
+            data[dec] = tree.decode_sym(vlc, r)?;
+            dec += 1;
+        }
+    }
+    bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
 /// 分配 9 路 bundle 与共享缓冲。
 pub fn alloc_bundles(width: u32, height: u32) -> ([BinkBundle; NB_SRC], Vec<u8>) {
     let bw = ((width + 7) >> 3) as usize;
