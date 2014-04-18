@@ -1,6 +1,6 @@
 //! Bink 平面解码用的 9 路数据捆（bundle）：树描述 + 值缓冲。
 
-use super::bink::{BinkVersion};
+use super::bink::BinkVersion;
 use super::bink_bits::{BitReader, VlcTable};
 use super::bink_huff::HuffmanTree;
 use super::bink_tables::BINK_RLELENS;
@@ -354,6 +354,98 @@ pub fn read_runs(
         }
     }
     bundles[bundle_num].cur_dec = dec_end;
+    Ok(())
+}
+
+fn write_i16(data: &mut [u8], offset: usize, v: i16) {
+    let bytes = v.to_le_bytes();
+    if offset + 1 < data.len() {
+        data[offset] = bytes[0];
+        data[offset + 1] = bytes[1];
+    }
+}
+
+fn read_i16(data: &[u8], offset: usize) -> i16 {
+    let lo = data.get(offset).copied().unwrap_or(0);
+    let hi = data.get(offset + 1).copied().unwrap_or(0);
+    i16::from_le_bytes([lo, hi])
+}
+
+/// 读出下一个已解码的 16 位 DC 值（小端）。
+pub fn take_value16(bundles: &mut [BinkBundle; NB_SRC], data: &[u8], bundle_num: usize) -> i16 {
+    let b = &mut bundles[bundle_num];
+    let v = read_i16(data, b.cur_ptr);
+    b.cur_ptr = b.cur_ptr.saturating_add(2);
+    v
+}
+
+/// 填充帧内 / 帧间 DC bundle（小端 i16，增量编码）。
+pub fn read_dcs(
+    r: &mut BitReader<'_>,
+    bundles: &mut [BinkBundle; NB_SRC],
+    data: &mut [u8],
+    bundle_num: usize,
+    start_bits: u32,
+    has_sign: bool,
+) -> Result<(), BinkVideoError> {
+    let (len_bits, buf_end, cur_dec_start) = {
+        let b = &bundles[bundle_num];
+        if b.skip_fills || b.cur_dec > b.cur_ptr {
+            return Ok(());
+        }
+        (b.len_bits, b.buf_end, b.cur_dec)
+    };
+    let mut len = r.read_bits(len_bits)? as i32;
+    if len == 0 {
+        bundles[bundle_num].skip_fills = true;
+        return Ok(());
+    }
+    let first_bits = start_bits - if has_sign { 1 } else { 0 };
+    let mut v = r.read_bits(first_bits)? as i32;
+    if v != 0 && has_sign {
+        let sign = if r.read_bit()? { -1 } else { 0 };
+        v = (v ^ sign) - sign;
+    }
+    let remaining_i16s = (buf_end - cur_dec_start) / 2;
+    if remaining_i16s < 1 {
+        return Err(BinkVideoError::Msg("DC 缓冲已满".into()));
+    }
+    let mut dec = cur_dec_start;
+    write_i16(data, dec, v as i16);
+    dec += 2;
+    len -= 1;
+
+    let mut i = 0i32;
+    while i < len {
+        let len2 = (len - i).min(8);
+        let remaining = ((buf_end - dec) / 2) as i32;
+        if remaining < len2 {
+            return Err(BinkVideoError::Msg("DC 游程越界".into()));
+        }
+        let bsize = r.read_bits(4)?;
+        if bsize != 0 {
+            for _ in 0..len2 {
+                let mut v2 = r.read_bits(bsize)? as i32;
+                if v2 != 0 {
+                    let sign = if r.read_bit()? { -1 } else { 0 };
+                    v2 = (v2 ^ sign) - sign;
+                }
+                v += v2;
+                if !(-32768..=32767).contains(&v) {
+                    return Err(BinkVideoError::Msg(format!("DC 越界：{v}")));
+                }
+                write_i16(data, dec, v as i16);
+                dec += 2;
+            }
+        } else {
+            for _ in 0..len2 {
+                write_i16(data, dec, v as i16);
+                dec += 2;
+            }
+        }
+        i += 8;
+    }
+    bundles[bundle_num].cur_dec = dec;
     Ok(())
 }
 

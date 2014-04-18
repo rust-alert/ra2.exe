@@ -20,9 +20,11 @@ pub use image::{
     bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
     bink_bundle::{
         BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_block_types,
-        read_bundle, read_colors, read_motion_values, read_patterns, read_runs, take_value,
+        read_bundle, read_colors, read_dcs, read_motion_values, read_patterns, read_runs,
+        take_value, take_value16,
     },
     bink_huff::HuffmanTree,
+    bink_tables::DC_START_BITS,
     bink_video::{
         BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8,
     },

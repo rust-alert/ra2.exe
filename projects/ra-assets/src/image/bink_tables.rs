@@ -91,6 +91,9 @@ pub const BINK_TREE_LENS: [[u8; 16]; 16] = [
 /// 块类型 RLE 扩展长度（符号 12..=15）。
 pub const BINK_RLELENS: [u8; 4] = [4, 8, 12, 32];
 
+/// 帧内 / 帧间 DC 首值位数。
+pub const DC_START_BITS: u32 = 11;
+
 #[cfg(test)]
 mod tests {
     use super::*;
