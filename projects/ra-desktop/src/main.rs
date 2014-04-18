@@ -1,6 +1,7 @@
 //! 原生 GUI 入口：二进制名 `ra2`（Windows 上为 `ra2.exe`）。
 //!
-//! 不是命令行工具——启动配置来自 exe/工作目录旁的 `config.toml`，然后由窗口接管进程。
+//! 不是命令行工具——启动配置来自可执行文件同目录的 `RustAlert.toml`（可选），然后由窗口接管进程。
+//! 默认 `ra2_dir` 为 exe 所在目录，便于把二进制直接放进游戏安装目录启动。
 //!
 //! 页面状态机见 [`shell::AppShell`] / [`screen::OriginalScreen`]；对局输入见 [`match_ctrl::MatchController`]。
 //! 产品路径对齐原版主 UI 流程，禁止启动后自动开局。

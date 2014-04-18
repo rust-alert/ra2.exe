@@ -99,7 +99,7 @@ if looks_like(root) {
 | `looks_like_mo_layout` | MO 客户端与 MO 扩展 MIX |
 | `looks_like`           | 逻辑或，启用本 adaptor  |
 
-与 YR 同时命中时，用户应通过 `config.toml` 显式指定 `edition`，避免 `ra-adaptor` 返回模糊错误。
+与 YR 同时命中时，用户应通过 `RustAlert.toml` 显式指定 `edition`，避免 `ra-adaptor` 返回模糊错误。
 
 ### 配置快捷方式
 

@@ -246,7 +246,7 @@ pub fn boot_world_with_progress(
     Ok(BootResult { note, engine, session, preview })
 }
 
-/// 读取 `config.toml` 并尝试装载（失败时仍返回带 note 的 `BootResult`）。
+/// 读取 `RustAlert.toml`（可选）并尝试装载（失败时仍返回带 note 的 `BootResult`）。
 pub fn boot_from_install() -> BootResult {
     boot_from_install_with_request(crate::skirmish_setup::SkirmishBootRequest::default_lobby())
 }

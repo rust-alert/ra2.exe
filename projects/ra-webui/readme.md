@@ -30,7 +30,7 @@ flowchart TB
 
 | 能力                   | `ra-desktop` | 本 crate（现状 → 目标）      |
 |------------------------|--------------|------------------------------|
-| 读 `config.toml`       | 有           | 无 → 页面配置 / URL 参数     |
+| 读 `RustAlert.toml`    | 有           | 无 → 页面配置 / URL 参数     |
 | 探测安装 / 挂载 MIX    | 有           | 无 → 用户选目录或 CDN 字节包 |
 | winit + wgpu 表面      | 有           | 无 → canvas + wgpu Web       |
 | `Session::pump` / 快照 | 有           | 无 → **接入 ra-engine**      |

@@ -9,7 +9,7 @@
 
 ```mermaid
 flowchart LR
-    A[config.toml] --> B[detect_edition]
+    A[RustAlert.toml] --> B[detect_edition]
     B --> C[MixVfs 挂载]
     C --> D[地图与 RulesDb]
     D --> E[open_skirmish_session]
@@ -19,15 +19,12 @@ flowchart LR
 
 ## 配置
 
-进程从 **当前工作目录**依次尝试读取 `config.toml`、`ra2.toml`。解析器是极简键值读取（一行一个 `key = value`），不是完整 TOML
-实现：
+进程读取 **可执行文件同目录**的 `RustAlert.toml`（由 `toml_edit` 解析）。缺文件时默认 `ra2_dir` 为 exe 所在目录、`edition = None`，因此把 `ra2.exe` 直接放进游戏安装目录即可启动。
 
 | 键                     | 作用                                                                        |
 |------------------------|-----------------------------------------------------------------------------|
-| `ra2_dir` / `game_dir` | 含零售 MIX、INI 的游戏安装根目录                                            |
+| `ra2_dir` / `game_dir` | 含零售 MIX、INI 的游戏安装根目录；省略则为 exe 同目录                       |
 | `edition`              | 可选：`ra2`、`yr`、`mo3` 及 `GameEdition::parse` 接受的别名；省略则自动探测 |
-
-`#` 之后视为注释；以 `[` 开头的节标题行跳过。缺文件时默认 `ra2_dir = "."`、`edition = None`。
 
 示例：
 
@@ -36,7 +33,7 @@ ra2_dir = "C:/Games/RA2"
 edition = "ra2"
 ```
 
-若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时必须显式写明 `edition`。仓库不包含原版资源，运行前请自行准备合法取得的游戏数据。
+模板见仓库根目录 `RustAlert.toml.example`。若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时必须显式写明 `edition`。仓库不包含原版资源，运行前请自行准备合法取得的游戏数据。
 
 启动命令：
 

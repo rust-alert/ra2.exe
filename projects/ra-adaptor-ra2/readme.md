@@ -111,7 +111,7 @@ pub fn looks_like(root: &Path) -> bool {
 - 与 YR 目录混装时两边都可能真 → `ra-adaptor` 报 `AmbiguousEdition`。
 - 大小写敏感文件系统上磁盘可能是 `RA2.MIX`；此处直拼可能判假，挂载阶段会用 `find_ci_file` 纠正。
 
-自动探测不可靠时，在 `config.toml` 写 `edition = "ra2"`。
+自动探测不可靠时，在 `RustAlert.toml` 写 `edition = "ra2"`。
 
 ```mermaid
 flowchart TD

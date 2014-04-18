@@ -1,0 +1,9 @@
+# RustAlert 桌面启动配置
+#
+# 将本文件复制为可执行文件同目录下的 `RustAlert.toml` 后按需修改。
+# 若 `ra2` / `ra2.exe` 直接放在游戏安装目录，可不提供本文件：默认 `ra2_dir` 即为 exe 所在目录。
+
+# ra2_dir = "C:/path/to/your/ra2"
+# edition = "ra2"   # 或 "yr"；省略则按目录特征自动探测
+# net_url = ""      # 预留战网地址
+# net_room = ""     # 预留房间名
