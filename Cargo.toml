@@ -43,6 +43,7 @@ num-bigint = "0.5"
 base64 = "0.23.1"
 oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 png = "0.17"
+toml_edit = "0.25"
 
 [profile.release]
 opt-level = 3

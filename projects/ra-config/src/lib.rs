@@ -1,6 +1,7 @@
 //! 配置来源、合并与诊断。
 //!
-//! 本 crate 不解释游戏语义；adaptor 决定读哪些文件及含义。
+//! 桌面规范文件为可执行文件同目录下的 `RustAlert.toml`，由 `toml_edit` 读写以保留注释。
+//! 本 crate 不解释游戏语义；adaptor 决定读哪些资源及含义。
 
 #![deny(missing_docs)]
 
@@ -8,6 +9,11 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
+
+use toml_edit::{DocumentMut, Item, Value};
+
+/// 规范桌面配置文件名（位于可执行文件同目录）。
+pub const RUST_ALERT_TOML: &str = "RustAlert.toml";
 
 /// 一条配置诊断。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,48 +88,132 @@ impl MergedConfig {
     }
 }
 
-/// 解析极简 TOML 风格键值（`key = "value"`，`#` 注释）。不支持表/数组。
-pub fn parse_kv_toml_lite(text: &str, source_label: &str) -> (ConfigTable, Vec<ConfigDiagnostic>) {
+/// 当前可执行文件所在目录；失败时回退为 `"."`。
+pub fn exe_dir() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// `RustAlert.toml` 的规范路径（可执行文件同目录）。
+pub fn rust_alert_toml_path() -> PathBuf {
+    exe_dir().join(RUST_ALERT_TOML)
+}
+
+fn value_as_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.value().clone()),
+        Value::Integer(i) => Some(i.to_string()),
+        Value::Float(f) => Some(f.to_string()),
+        Value::Boolean(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
+
+/// 用 `toml_edit` 解析文档根级键值为扁平表。
+pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<ConfigDiagnostic>) {
     let mut table = ConfigTable::new();
     let mut diagnostics = Vec::new();
-    for (lineno, raw) in text.lines().enumerate() {
-        let line = raw.split('#').next().unwrap_or("").trim();
-        if line.is_empty() || line.starts_with('[') {
-            continue;
+    let doc: DocumentMut = match text.parse() {
+        Ok(d) => d,
+        Err(e) => {
+            diagnostics.push(ConfigDiagnostic {
+                source: source_label.into(),
+                message: format!("TOML 解析失败: {e}"),
+            });
+            return (table, diagnostics);
         }
-        let Some((k, v)) = line.split_once('=')
-        else {
-            diagnostics
-                .push(ConfigDiagnostic {
-                    source: format!("{source_label}:{lineno}"), message: format!("无法解析行: {raw}")
-                });
-            continue;
-        };
-        let key = k.trim();
-        if key.is_empty() {
-            diagnostics.push(ConfigDiagnostic { source: format!("{source_label}:{lineno}"), message: "空键".into() });
-            continue;
+    };
+    for (key, item) in doc.iter() {
+        match item {
+            Item::Value(v) => match value_as_string(v) {
+                Some(s) => table.insert(key, s),
+                None => diagnostics.push(ConfigDiagnostic {
+                    source: format!("{source_label}:{key}"),
+                    message: format!("不支持的值类型，已跳过键 `{key}`"),
+                }),
+            },
+            Item::None => {}
+            _ => diagnostics.push(ConfigDiagnostic {
+                source: format!("{source_label}:{key}"),
+                message: format!("仅支持根级键值，已跳过 `{key}`"),
+            }),
         }
-        let val = v.trim().trim_matches('"').trim_matches('\'');
-        table.insert(key, val);
     }
     (table, diagnostics)
 }
 
-/// 从候选路径加载第一份存在的文本文件。
-pub fn read_first_existing(candidates: &[&Path]) -> Option<(PathBuf, String)> {
-    for path in candidates {
-        if let Ok(text) = std::fs::read_to_string(path) {
-            return Some((path.to_path_buf(), text));
+/// 可编辑的 `RustAlert.toml`（保留注释与格式）。
+#[derive(Debug, Clone)]
+pub struct RustAlertDocument {
+    path: PathBuf,
+    doc: DocumentMut,
+}
+
+impl RustAlertDocument {
+    /// 打开已有文件。
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
+        let path = path.as_ref().to_path_buf();
+        let text = std::fs::read_to_string(&path).map_err(|e| format!("读取 {} 失败: {e}", path.display()))?;
+        let doc: DocumentMut = text
+            .parse()
+            .map_err(|e| format!("解析 {} 失败: {e}", path.display()))?;
+        Ok(Self { path, doc })
+    }
+
+    /// 打开规范路径；不存在则空文档（尚未落盘）。
+    pub fn open_or_empty() -> Result<Self, String> {
+        let path = rust_alert_toml_path();
+        if path.is_file() {
+            Self::open(path)
+        } else {
+            Ok(Self {
+                path,
+                doc: DocumentMut::new(),
+            })
         }
     }
-    None
+
+    /// 文件路径。
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// 读取根级字符串键。
+    pub fn get_str(&self, key: &str) -> Option<String> {
+        self.doc.get(key).and_then(Item::as_value).and_then(value_as_string)
+    }
+
+    /// 设置根级字符串键（覆盖或插入）。
+    pub fn set_str(&mut self, key: &str, value: impl AsRef<str>) {
+        self.doc[key] = Item::Value(value.as_ref().into());
+    }
+
+    /// 移除根级键。
+    pub fn remove(&mut self, key: &str) {
+        let _ = self.doc.remove(key);
+    }
+
+    /// 写回磁盘（创建父目录若需要）。
+    pub fn save(&self) -> Result<(), String> {
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {e}"))?;
+        }
+        std::fs::write(&self.path, self.doc.to_string())
+            .map_err(|e| format!("写入 {} 失败: {e}", self.path.display()))
+    }
+
+    /// 导出为扁平表。
+    pub fn to_table(&self) -> (ConfigTable, Vec<ConfigDiagnostic>) {
+        parse_toml_document(&self.doc.to_string(), &self.path.display().to_string())
+    }
 }
 
 /// 桌面启动设置（由合并后的键值填充）。
 #[derive(Debug, Clone)]
 pub struct DesktopSettings {
-    /// 游戏安装目录。
+    /// 游戏安装目录（默认：可执行文件所在目录）。
     pub ra2_dir: PathBuf,
     /// 显式版本字符串（可选）。
     pub edition: Option<String>,
@@ -135,12 +225,17 @@ pub struct DesktopSettings {
 
 impl Default for DesktopSettings {
     fn default() -> Self {
-        Self { ra2_dir: PathBuf::from("."), edition: None, net_url: None, net_room: None }
+        Self {
+            ra2_dir: exe_dir(),
+            edition: None,
+            net_url: None,
+            net_room: None,
+        }
     }
 }
 
 impl DesktopSettings {
-    /// 从合并配置填充字段。
+    /// 从合并配置填充字段；缺省 `ra2_dir` 时用可执行文件目录。
     pub fn from_merged(merged: &MergedConfig) -> Self {
         let mut s = Self::default();
         if let Some(v) = merged.get("ra2_dir").or_else(|| merged.get("game_dir")) {
@@ -149,32 +244,50 @@ impl DesktopSettings {
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
         }
-        if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
+        if let Some(v) = merged
+            .get("net_url")
+            .or_else(|| merged.get("battlenet_url"))
+            .filter(|v| !v.is_empty())
+        {
             s.net_url = Some(v.to_string());
         }
-        if let Some(v) = merged.get("net_room").or_else(|| merged.get("room")).filter(|v| !v.is_empty()) {
+        if let Some(v) = merged
+            .get("net_room")
+            .or_else(|| merged.get("room"))
+            .filter(|v| !v.is_empty())
+        {
             s.net_room = Some(v.to_string());
         }
         s
     }
 
-    /// 加载桌面配置：默认 ← 文件覆盖。返回设置与诊断。
+    /// 加载桌面配置：默认（exe 目录）← `RustAlert.toml` 覆盖。
     pub fn load_or_default() -> (Self, Vec<ConfigDiagnostic>) {
+        let exe = exe_dir();
         let defaults = ConfigLayer {
             label: "defaults".into(),
             table: {
                 let mut t = ConfigTable::new();
-                t.insert("ra2_dir", ".");
+                t.insert("ra2_dir", exe.to_string_lossy());
                 t
             },
         };
         let mut layers = vec![defaults];
         let mut diagnostics = Vec::new();
-        if let Some((path, text)) = read_first_existing(&[Path::new("config.toml"), Path::new("ra2.toml")]) {
-            let label = path.display().to_string();
-            let (table, mut diags) = parse_kv_toml_lite(&text, &label);
-            diagnostics.append(&mut diags);
-            layers.push(ConfigLayer { label, table });
+        let path = rust_alert_toml_path();
+        if path.is_file() {
+            match std::fs::read_to_string(&path) {
+                Ok(text) => {
+                    let label = path.display().to_string();
+                    let (table, mut diags) = parse_toml_document(&text, &label);
+                    diagnostics.append(&mut diags);
+                    layers.push(ConfigLayer { label, table });
+                }
+                Err(e) => diagnostics.push(ConfigDiagnostic {
+                    source: path.display().to_string(),
+                    message: format!("读取失败: {e}"),
+                }),
+            }
         }
         let mut merged = MergedConfig::merge_layers(&layers);
         merged.diagnostics.append(&mut diagnostics);
