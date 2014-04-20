@@ -13,7 +13,7 @@ wgpu = { workspace = true }
 winit = { workspace = true }
 pollster = { workspace = true }
 bytemuck = { workspace = true }
-png = { workspace = true }
+image = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

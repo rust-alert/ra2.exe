@@ -20,7 +20,6 @@ mod markers;
 mod pass;
 mod png_out;
 mod resources;
-mod rgba_image;
 mod sprite;
 mod timings;
 mod world;
@@ -31,10 +30,7 @@ use ra_engine::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
 use winit::window::Window;
 
-use crate::camera::Camera;
-use crate::gpu::GpuContext;
-use crate::markers::MarkerGpu;
-use crate::sprite::SpriteGpu;
+use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteGpu};
 
 /// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
@@ -42,18 +38,20 @@ pub use crate::camera::Camera as ViewCamera;
 pub use crate::frame::FrameBuilder;
 /// 渲染阶段图。
 pub use crate::pass::{PassGraph, RenderPassKind};
-/// GPU 资源缓存骨架。
-pub use crate::resources::RenderResourceCache;
-/// CPU 侧 RGBA 像素缓冲，可上传到 GPU 作为预览纹理。
-pub use crate::rgba_image::RgbaImage;
-/// 将 RGBA 写成 PNG 文件。
-pub use crate::png_out::write_png_file;
 /// RGBA → PNG 字节。
 pub use crate::png_out::encode_png;
+/// 将 RGBA 写成 PNG 文件。
+pub use crate::png_out::write_png_file;
+/// GPU 资源缓存骨架。
+pub use crate::resources::RenderResourceCache;
 /// 帧分段计时。
 pub use crate::timings::FrameTimings;
 /// 可复用渲染世界。
 pub use crate::world::RenderWorld;
+/// `image` 的 RGBA 像素类型（便于后续 modder 管线复用）。
+pub use image::Rgba;
+/// CPU 侧 RGBA 像素缓冲（`image` crate），可上传到 GPU 作为预览纹理。
+pub use image::RgbaImage;
 
 /// 清屏底色（接近夜间战术图感觉，非最终主题）。
 const CLEAR_COLOR: wgpu::Color = wgpu::Color { r: 0.04, g: 0.06, b: 0.09, a: 1.0 };
@@ -112,7 +110,6 @@ impl Renderer {
         }
     }
 
-
     /// 请求在下一帧提交后回读表面（用于关键页验收截图）。
     pub fn request_capture(&mut self) {
         self.capture_pending = true;
@@ -148,7 +145,7 @@ impl Renderer {
             if self.markers.is_none() {
                 self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
             }
-            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         else {
             self.camera_ready = false;
@@ -175,11 +172,10 @@ impl Renderer {
             match self.ui_sprite.as_mut() {
                 Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
                 None => {
-                    self.ui_sprite =
-                        Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &image));
+                    self.ui_sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &image));
                 }
             }
-            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         else {
             self.camera_ready = false;
@@ -209,11 +205,11 @@ impl Renderer {
         let gpu = GpuContext::new(window)?;
         if let Some(image) = self.ui_page.as_ref() {
             self.ui_sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
-            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         else if let Some(image) = self.preview.as_ref() {
             self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
-            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width, image.height);
+            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
         self.gpu = Some(gpu);
@@ -331,13 +327,7 @@ impl Renderer {
         }
         if let Some(markers) = self.markers.as_mut() {
             if self.render_world.unit_count() > 0 && self.ui_sprite.is_none() {
-                markers.write_from_world(
-                    &gpu.queue,
-                    &self.render_world,
-                    &self.camera,
-                    gpu.config.width,
-                    gpu.config.height,
-                );
+                markers.write_from_world(&gpu.queue, &self.render_world, &self.camera, gpu.config.width, gpu.config.height);
             }
             else {
                 markers.clear();

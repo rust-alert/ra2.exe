@@ -4,9 +4,10 @@
 //! 禁止把「每对象一张纹理 + `replace_image`」扩展为长期单位/UI 模型。
 
 use bytemuck::{Pod, Zeroable};
+use image::RgbaImage;
 use wgpu::util::DeviceExt;
 
-use crate::{camera::Camera, rgba_image::RgbaImage};
+use crate::camera::Camera;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -107,8 +108,8 @@ impl SpriteGpu {
             texture,
             bind_group,
             vertex_buffer,
-            width: image.width,
-            height: image.height,
+            width: image.width(),
+            height: image.height(),
         }
     }
 
@@ -117,8 +118,8 @@ impl SpriteGpu {
         self.texture = texture;
         self.bind_group = bind_group;
         self.vertex_buffer = vertex_buffer;
-        self.width = image.width;
-        self.height = image.height;
+        self.width = image.width();
+        self.height = image.height();
     }
 
     pub fn size(&self) -> (u32, u32) {
@@ -145,7 +146,7 @@ fn upload(
     sampler: &wgpu::Sampler,
     image: &RgbaImage,
 ) -> (wgpu::Texture, wgpu::BindGroup, wgpu::Buffer) {
-    let size = wgpu::Extent3d { width: image.width, height: image.height, depth_or_array_layers: 1 };
+    let size = wgpu::Extent3d { width: image.width(), height: image.height(), depth_or_array_layers: 1 };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("ra.sprite.tex"),
         size,
@@ -163,8 +164,8 @@ fn upload(
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
-        &image.pixels,
-        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * image.width), rows_per_image: Some(image.height) },
+        image.as_raw(),
+        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * image.width()), rows_per_image: Some(image.height()) },
         size,
     );
 
@@ -178,8 +179,8 @@ fn upload(
         ],
     });
 
-    let cam = Camera::fit(image.width, image.height, 1024, 768);
-    let placeholder = camera_quad(image.width, image.height, &cam, 1024, 768);
+    let cam = Camera::fit(image.width(), image.height(), 1024, 768);
+    let placeholder = camera_quad(image.width(), image.height(), &cam, 1024, 768);
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("ra.sprite.vb"),
         contents: bytemuck::cast_slice(&placeholder),

@@ -3,15 +3,12 @@
 use ra_types::{RaError, RaResult};
 
 use crate::gpu::GpuContext;
-use crate::rgba_image::RgbaImage;
+use image::RgbaImage;
 
 /// 将表面纹理复制到 CPU 侧 RGBA8（行主序）。
 ///
 /// `surface_texture` 须已完成本帧绘制且带 `COPY_SRC`。
-pub fn readback_surface_rgba(
-    gpu: &GpuContext,
-    surface_texture: &wgpu::Texture,
-) -> RaResult<RgbaImage> {
+pub fn readback_surface_rgba(gpu: &GpuContext, surface_texture: &wgpu::Texture) -> RaResult<RgbaImage> {
     let width = gpu.config.width.max(1);
     let height = gpu.config.height.max(1);
     let bpp = 4u32;
@@ -27,9 +24,7 @@ pub fn readback_surface_rgba(
         mapped_at_creation: false,
     });
 
-    let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("ra.screenshot.copy"),
-    });
+    let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.screenshot.copy") });
     encoder.copy_texture_to_buffer(
         wgpu::TexelCopyTextureInfo {
             texture: surface_texture,
@@ -45,11 +40,7 @@ pub fn readback_surface_rgba(
                 rows_per_image: Some(height),
             },
         },
-        wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
+        wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
     );
     gpu.queue.submit(std::iter::once(encoder.finish()));
 
@@ -63,14 +54,9 @@ pub fn readback_surface_rgba(
         .map_err(|_| RaError::Msg("截图 map 通道断开".into()))?
         .map_err(|e| RaError::Msg(format!("截图 map 失败: {e}")))?;
 
-    let data = slice
-        .get_mapped_range()
-        .map_err(|e| RaError::Msg(format!("截图 get_mapped_range 失败: {e}")))?;
+    let data = slice.get_mapped_range().map_err(|e| RaError::Msg(format!("截图 get_mapped_range 失败: {e}")))?;
     let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];
-    let bgra = matches!(
-        gpu.config.format,
-        wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb
-    );
+    let bgra = matches!(gpu.config.format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb);
     for y in 0..height as usize {
         let src_row = y * padded_bytes_per_row as usize;
         let dst_row = y * width as usize * 4;
@@ -91,5 +77,5 @@ pub fn readback_surface_rgba(
     drop(data);
     output.unmap();
 
-    RgbaImage::new(width, height, pixels).ok_or_else(|| RaError::Msg("截图像素尺寸非法".into()))
+    RgbaImage::from_raw(width, height, pixels).ok_or_else(|| RaError::Msg("截图像素尺寸非法".into()))
 }

@@ -42,7 +42,7 @@ byteorder = "1"
 num-bigint = "0.5"
 base64 = "0.23.1"
 oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
-png = "0.17"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 toml_edit = "0.25"
 
 [profile.release]

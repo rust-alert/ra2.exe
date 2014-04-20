@@ -32,8 +32,6 @@ pub struct PassGraph {
 impl PassGraph {
     /// 原型默认：清屏后画对象标记（预览底图仍由过渡 `SpriteGpu` 处理）。
     pub fn prototype_default() -> Self {
-        Self {
-            passes: vec![RenderPassKind::Clear, RenderPassKind::Objects],
-        }
+        Self { passes: vec![RenderPassKind::Clear, RenderPassKind::Objects] }
     }
 }
