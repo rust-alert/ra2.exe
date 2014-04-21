@@ -10,3 +10,4 @@ description = "地图与剧院加载"
 ra-types = { workspace = true }
 ra-assets = { workspace = true }
 base64 = { workspace = true }
+image = { workspace = true }

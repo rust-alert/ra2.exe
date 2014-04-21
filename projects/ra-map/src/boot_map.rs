@@ -101,14 +101,9 @@ pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Op
 ///
 /// - `preferred` 有值：必须命中该文件，失败**不**换候选、**不**返回空图。
 /// - `preferred` 为 `None`：按候选表自动选首张可解析图；全部失败返回错误。
-pub fn find_boot_map(
-    edition: GameEdition,
-    source: &dyn AssetSource,
-    preferred: Option<&str>,
-) -> Result<BootMapResult, String> {
+pub fn find_boot_map(edition: GameEdition, source: &dyn AssetSource, preferred: Option<&str>) -> Result<BootMapResult, String> {
     if let Some(name) = preferred {
-        return find_boot_map_named(edition, source, name)
-            .ok_or_else(|| format!("指定地图不可用: {name}（不换图）"));
+        return find_boot_map_named(edition, source, name).ok_or_else(|| format!("指定地图不可用: {name}（不换图）"));
     }
     find_first_boot_map(edition, source).ok_or_else(|| "无可用启动地图（候选均不可读或解析失败）".to_string())
 }

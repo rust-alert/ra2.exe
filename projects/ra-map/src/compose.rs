@@ -1,5 +1,7 @@
 //! 将 IsoCell + 砖块 RGBA 合成到一张图。
 
+use image::RgbaImage;
+
 use crate::{
     IsoCell,
     iso_math::{TILE_HEIGHT, TILE_WIDTH, iso_to_screen},
@@ -23,12 +25,8 @@ pub struct TileBlit {
 /// 合成结果。
 #[derive(Debug, Clone)]
 pub struct TerrainImage {
-    /// 画布宽（像素）。
-    pub width: u32,
-    /// 画布高（像素）。
-    pub height: u32,
-    /// RGBA 像素缓冲。
-    pub pixels: Vec<u8>,
+    /// RGBA 画布。
+    pub image: RgbaImage,
     /// 实际画上的砖块数。
     pub drawn: usize,
     /// 画布左上角对应的世界屏幕坐标。
@@ -77,18 +75,18 @@ pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) 
 
     let width = (max_x - min_x).clamp(1, 8192) as u32;
     let height = (max_y - min_y).clamp(1, 8192) as u32;
-    let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];
+    let mut image = RgbaImage::new(width, height);
     let mut drawn = 0usize;
 
     for (x, y, blit) in &prepared {
         let dx = *x - min_x;
         let dy = *y - min_y;
-        if blit_over(&mut pixels, width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
+        if blit_over(image.as_mut(), width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
             drawn += 1;
         }
     }
 
-    Some(TerrainImage { width, height, pixels, drawn, origin_x: min_x, origin_y: min_y })
+    Some(TerrainImage { image, drawn, origin_x: min_x, origin_y: min_y })
 }
 
 /// 在已合成地形上绘制覆盖层标记（占位色块，尚未接 SHP）。
@@ -100,6 +98,7 @@ pub fn paint_overlay_markers(
     mut cell_z: impl FnMut(u16, u16) -> u8,
 ) -> usize {
     let mut painted = 0usize;
+    let (width, height) = (image.image.width(), image.image.height());
     for cell in overlays {
         let z = cell_z(cell.x, cell.y);
         let (sx, sy) = iso_to_screen(i32::from(cell.x), i32::from(cell.y), z);
@@ -107,7 +106,7 @@ pub fn paint_overlay_markers(
         let cx = sx + TILE_WIDTH / 2 - image.origin_x - 3;
         let cy = sy + TILE_HEIGHT / 2 - image.origin_y - 3;
         let rgba = overlay_marker_rgba(cell.overlay_id);
-        if fill_rect(&mut image.pixels, image.width, image.height, cx, cy, 6, 6, rgba) {
+        if fill_rect(image.image.as_mut(), width, height, cx, cy, 6, 6, rgba) {
             painted += 1;
         }
     }
@@ -133,8 +132,9 @@ pub fn paint_cell_sprites(
     }
     prepared.sort_by_key(|(x, y, _)| (*y, *x));
     let mut painted = 0usize;
+    let (width, height) = (image.image.width(), image.image.height());
     for (dx, dy, blit) in prepared {
-        if blit_over(&mut image.pixels, image.width, image.height, dx, dy, blit.width, blit.height, &blit.rgba) {
+        if blit_over(image.image.as_mut(), width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
             painted += 1;
         }
     }

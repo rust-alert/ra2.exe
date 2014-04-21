@@ -4,13 +4,8 @@ use ra_assets::Palette;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo,
-    compose::TerrainImage,
-    fallback_preview::RawRgbaImage,
-    overlay_paint::paint_map_overlays,
-    structure_paint::paint_map_structures,
-    terrain_paint::paint_map_terrain_objects,
-    terrain_preview::compose_terrain_preview,
+    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, overlay_paint::paint_map_overlays,
+    structure_paint::paint_map_structures, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -81,18 +76,13 @@ pub fn compose_boot_preview(
         stats.terrain_objects,
         stats.structures,
         stats.mobiles,
-        image.width,
-        image.height
+        image.image.width(),
+        image.image.height()
     );
     Some(BootPreviewResult {
         origin_x: image.origin_x,
         origin_y: image.origin_y,
-        image: RawRgbaImage {
-            label: note.clone(),
-            width: image.width,
-            height: image.height,
-            pixels: image.pixels,
-        },
+        image: RawRgbaImage { label: note.clone(), image: image.image },
         note,
         stats,
     })

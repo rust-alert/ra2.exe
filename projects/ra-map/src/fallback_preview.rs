@@ -1,5 +1,6 @@
 //! 地图合成失败时的启动预览回退（单砖 / 单精灵）。
 
+use image::RgbaImage;
 use ra_assets::{Palette, ShpFile, TmpFile};
 use ra_types::AssetSource;
 
@@ -8,17 +9,13 @@ use crate::{
     tileset::parse_tileset_ini,
 };
 
-/// 原始 RGBA 缓冲（壳层再包成 GPU 图像）。
+/// 带回源注记的 RGBA 图（`image` crate）。
 #[derive(Debug, Clone)]
 pub struct RawRgbaImage {
     /// 来源注记（文件名等）。
     pub label: String,
-    /// 像素宽。
-    pub width: u32,
-    /// 像素高。
-    pub height: u32,
-    /// RGBA 像素。
-    pub pixels: Vec<u8>,
+    /// RGBA 图像。
+    pub image: RgbaImage,
 }
 
 /// 从剧院 TMP 抽一块砖作为回退预览。
@@ -58,12 +55,8 @@ pub fn load_fallback_theater_tile(source: &dyn AssetSource, theater: Theater) ->
         else {
             continue;
         };
-        return Some(RawRgbaImage {
-            label: format!("{name}#{index}"),
-            width: tile.pixel_width,
-            height: tile.pixel_height,
-            pixels: rgba,
-        });
+        let image = RgbaImage::from_raw(tile.pixel_width, tile.pixel_height, rgba)?;
+        return Some(RawRgbaImage { label: format!("{name}#{index}"), image });
     }
     None
 }
@@ -89,12 +82,8 @@ pub fn load_fallback_unit_sprite(source: &dyn AssetSource) -> Option<RawRgbaImag
         if frame.frame_width == 0 || frame.frame_height == 0 {
             continue;
         }
-        return Some(RawRgbaImage {
-            label: name.to_string(),
-            width: u32::from(frame.frame_width),
-            height: u32::from(frame.frame_height),
-            pixels: frame.to_rgba(&pal),
-        });
+        let image = RgbaImage::from_raw(u32::from(frame.frame_width), u32::from(frame.frame_height), frame.to_rgba(&pal))?;
+        return Some(RawRgbaImage { label: name.to_string(), image });
     }
     None
 }
