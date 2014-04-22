@@ -1,7 +1,9 @@
 //! 遭遇战大厅地图预览：后台合成缩略图，主线程轮询。
 
-use std::sync::mpsc::{self, Receiver, TryRecvError};
-use std::thread;
+use std::{
+    sync::mpsc::{self, Receiver, TryRecvError},
+    thread,
+};
 
 use ra_renderer::RgbaImage;
 
@@ -34,17 +36,9 @@ impl PreviewJob {
                 let result = match preview_install_boot_map(&name_for_thread) {
                     Some((note, image)) => {
                         let thumb = downscale_to_fit(&image, 320, 200).unwrap_or(image);
-                        MapPreviewResult {
-                            map_name: name_for_thread,
-                            note,
-                            image: Some(thumb),
-                        }
+                        MapPreviewResult { map_name: name_for_thread, note, image: Some(thumb) }
                     }
-                    None => MapPreviewResult {
-                        map_name: name_for_thread,
-                        note: "preview:无".into(),
-                        image: None,
-                    },
+                    None => MapPreviewResult { map_name: name_for_thread, note: "preview:无".into(), image: None },
                 };
                 let _ = tx.send(result);
             })

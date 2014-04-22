@@ -63,7 +63,7 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
     for _ in 0..(width * height) {
         pixels.extend_from_slice(&rgba);
     }
-    RgbaImage::new(width, height, pixels)
+    RgbaImage::from_raw(width, height, pixels)
 }
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。

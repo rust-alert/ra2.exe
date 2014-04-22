@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{parse_bink_file, BinkVideoDecoder};
+use ra_assets::{BinkVideoDecoder, parse_bink_file};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, RaError, RaResult};
 use winit::{
@@ -23,9 +23,7 @@ use crate::{
     screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
-    ui_compose,
-    ui_decode,
-    ui_hit,
+    ui_compose, ui_decode, ui_hit,
     ui_page::page_resources_from_slots,
     ui_resolve,
 };
@@ -90,12 +88,7 @@ impl AppShell {
             renderer.set_map_preview(image.clone());
         }
         let ctrl = MatchController::from_boot(boot, status_path.clone(), test_scene.clone());
-        let screen = if ctrl.has_session() {
-            OriginalScreen::Match
-        }
-        else {
-            OriginalScreen::MainMenu
-        };
+        let screen = if ctrl.has_session() { OriginalScreen::Match } else { OriginalScreen::MainMenu };
         Self {
             window: None,
             screen,
@@ -205,8 +198,8 @@ impl AppShell {
                     Some(thumb) => {
                         tracing::info!(
                             map = %result.map_name,
-                            w = thumb.width,
-                            h = thumb.height,
+                            w = thumb.width(),
+                            h = thumb.height(),
                             "{}",
                             result.note
                         );
@@ -236,11 +229,8 @@ impl AppShell {
             self.skirmish.preferred_map = None;
             return;
         }
-        let cur = self
-            .selected_map
-            .as_ref()
-            .and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name))
-            .unwrap_or(0);
+        let cur =
+            self.selected_map.as_ref().and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name)).unwrap_or(0);
         let n = self.lobby_maps.len() as isize;
         let next = ((cur as isize + delta).rem_euclid(n)) as usize;
         self.select_lobby_map_index(next);
@@ -290,13 +280,16 @@ impl AppShell {
 
     /// 对当前页已声明资源名做可读性探测，并尝试解码 chrome（不绘制）。
     fn refresh_ui_resolve_note(&mut self) {
-        let Some(probe) = self.ui_probe.as_ref() else {
+        let Some(probe) = self.ui_probe.as_ref()
+        else {
             return;
         };
-        let Some(source) = probe.source.as_ref() else {
+        let Some(source) = probe.source.as_ref()
+        else {
             return;
         };
-        let Some(page) = page_resources_from_slots(self.screen) else {
+        let Some(page) = page_resources_from_slots(self.screen)
+        else {
             return;
         };
         let report = ui_resolve::resolve_page(source, &page);
@@ -311,18 +304,17 @@ impl AppShell {
         let mut banner = if report.named == 0 {
             if probe.note.contains("槽位未填") {
                 probe.note.clone()
-            } else {
+            }
+            else {
                 format!("{} · {}", probe.note, report.banner_note())
             }
-        } else {
+        }
+        else {
             format!("{} · {}", probe.note, report.banner_note())
         };
 
         // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
-        let only_movie_gaps = report
-            .missing
-            .iter()
-            .all(|m| m.to_ascii_lowercase().ends_with(".bik"));
+        let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
         if report.named > 0 && only_movie_gaps {
             let decoded = ui_decode::decode_page_chrome(source, &page);
             tracing::info!(
@@ -441,16 +433,10 @@ impl AppShell {
         if self.screen == OriginalScreen::MainMenu {
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
-                if let Some(page) = ui_compose::compose_main_menu_page(
-                    decoded,
-                    self.window_width as u32,
-                    self.window_height as u32,
-                ) {
-                    tracing::info!(
-                        w = page.width,
-                        h = page.height,
-                        "主菜单 chrome 已合成并上传 UI 页通道"
-                    );
+                if let Some(page) =
+                    ui_compose::compose_main_menu_page(decoded, self.window_width as u32, self.window_height as u32)
+                {
+                    tracing::info!(w = page.width(), h = page.height(), "主菜单 chrome 已合成并上传 UI 页通道");
                     self.renderer.set_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
@@ -468,8 +454,7 @@ impl AppShell {
             self.ensure_lobby_maps();
             self.ensure_lobby_preview();
             let selected = self.selected_map.as_deref();
-            let preview_ready =
-                self.lobby_preview.is_some() && self.lobby_preview_for.as_deref() == selected;
+            let preview_ready = self.lobby_preview.is_some() && self.lobby_preview_for.as_deref() == selected;
             if preview_ready {
                 if let Some(preview) = self.lobby_preview.clone() {
                     self.renderer.set_map_preview(preview);
@@ -548,28 +533,15 @@ impl AppShell {
         }
         let title = match self.screen {
             OriginalScreen::MainMenu => {
-                format!(
-                    "ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图",
-                    self.banner
-                )
+                format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图", self.banner)
             }
-            OriginalScreen::SinglePlayerMenu => {
-                "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into()
-            }
+            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into(),
             OriginalScreen::SkirmishLobby => {
                 let detail = self
                     .selected_map
                     .as_ref()
                     .and_then(|name| self.lobby_maps.iter().find(|m| &m.file_name == name))
-                    .map(|m| {
-                        format!(
-                            "{} {}x{} {}",
-                            m.file_name,
-                            m.width,
-                            m.height,
-                            m.theater.as_str()
-                        )
-                    })
+                    .map(|m| format!("{} {}x{} {}", m.file_name, m.width, m.height, m.theater.as_str()))
                     .unwrap_or_else(|| "（无可用图）".into());
                 format!(
                     "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Home/End · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
@@ -582,10 +554,7 @@ impl AppShell {
                     format!("ra2 · 加载 · {} · Esc/点取消 · F12 截图", self.banner)
                 }
                 else {
-                    format!(
-                        "ra2 · 加载 · {} · Enter/点重试 · Esc 回大厅 · F12 截图",
-                        self.banner
-                    )
+                    format!("ra2 · 加载 · {} · Enter/点重试 · Esc 回大厅 · F12 截图", self.banner)
                 }
             }
             OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回 · F12 截图".into(),
@@ -660,11 +629,7 @@ impl AppShell {
                         1 => "..",
                         _ => "...",
                     };
-                    let stage = self
-                        .load_job
-                        .as_ref()
-                        .map(|job| job.progress().stage)
-                        .unwrap_or_else(|| "装载中".into());
+                    let stage = self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into());
                     self.banner = format!("{stage}{pulse} · {secs}s · Esc/点取消");
                 }
             }
@@ -689,11 +654,7 @@ impl AppShell {
         match self.match_ctrl.as_mut() {
             Some(ctrl) => ctrl.apply_boot(boot, &mut self.renderer),
             None => {
-                self.match_ctrl = Some(MatchController::from_boot(
-                    boot,
-                    self.status_path.clone(),
-                    self.test_scene.clone(),
-                ));
+                self.match_ctrl = Some(MatchController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
             }
         }
         let ok = self.match_ctrl.as_ref().is_some_and(|c| c.has_session());
@@ -721,10 +682,7 @@ impl AppShell {
             MatchNav::ToMainMenu => {
                 // Pre-Alpha：从对局/结算回到遭遇战大厅，保留已选地图。
                 self.ensure_lobby_maps();
-                self.banner = format!(
-                    "已返回大厅 · 地图 {}",
-                    self.selected_map.as_deref().unwrap_or("（未选）")
-                );
+                self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
                 self.set_screen(OriginalScreen::SkirmishLobby);
             }
         }
@@ -910,8 +868,7 @@ impl ApplicationHandler for AppShell {
                 return;
             }
             WindowEvent::KeyboardInput { event: key_ev, .. }
-                if key_ev.state == ElementState::Pressed
-                    && matches!(key_ev.physical_key, PhysicalKey::Code(KeyCode::F12)) =>
+                if key_ev.state == ElementState::Pressed && matches!(key_ev.physical_key, PhysicalKey::Code(KeyCode::F12)) =>
             {
                 // 对局页也走同一截图路径（不交给 MatchController）。
                 self.queue_screenshot(self.screen.as_str());
@@ -937,38 +894,32 @@ impl ApplicationHandler for AppShell {
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::Network
             | OriginalScreen::Options
-            | OriginalScreen::LoadScreen => {
-                match &event {
-                    WindowEvent::CursorMoved { position, .. } => {
-                        self.cursor = (position.x, position.y);
-                    }
-                    WindowEvent::MouseInput {
-                        state: ElementState::Released,
-                        button: winit::event::MouseButton::Left,
-                        ..
-                    } => {
-                        let action = ui_hit::hit_action(
-                            self.screen,
-                            &self.lobby_maps,
-                            self.selected_map.as_deref(),
-                            self.cursor,
-                            self.window_width,
-                            self.window_height,
-                            self.load_allow_retry(),
-                        );
-                        if let Some(action) = action {
-                            tracing::debug!(?action, "菜单逻辑命中");
-                            self.apply_menu_action(event_loop, action);
-                        }
-                    }
-                    WindowEvent::KeyboardInput { event: key_ev, .. } => {
-                        if key_ev.state == ElementState::Pressed {
-                            self.handle_pre_game_key(event_loop, key_ev.physical_key);
-                        }
-                    }
-                    _ => {}
+            | OriginalScreen::LoadScreen => match &event {
+                WindowEvent::CursorMoved { position, .. } => {
+                    self.cursor = (position.x, position.y);
                 }
-            }
+                WindowEvent::MouseInput { state: ElementState::Released, button: winit::event::MouseButton::Left, .. } => {
+                    let action = ui_hit::hit_action(
+                        self.screen,
+                        &self.lobby_maps,
+                        self.selected_map.as_deref(),
+                        self.cursor,
+                        self.window_width,
+                        self.window_height,
+                        self.load_allow_retry(),
+                    );
+                    if let Some(action) = action {
+                        tracing::debug!(?action, "菜单逻辑命中");
+                        self.apply_menu_action(event_loop, action);
+                    }
+                }
+                WindowEvent::KeyboardInput { event: key_ev, .. } => {
+                    if key_ev.state == ElementState::Pressed {
+                        self.handle_pre_game_key(event_loop, key_ev.physical_key);
+                    }
+                }
+                _ => {}
+            },
         }
     }
 
@@ -1013,7 +964,9 @@ pub fn run_shell() -> RaResult<()> {
 enum LaunchMode {
     #[cfg(feature = "test-harness")]
     DirectMatch(BootResult),
-    MainMenu { auto_start: bool },
+    MainMenu {
+        auto_start: bool,
+    },
 }
 
 fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<String>)> {

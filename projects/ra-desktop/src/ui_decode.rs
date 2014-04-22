@@ -47,7 +47,8 @@ impl PageDecodeReport {
         let ok = usize::from(self.background.is_some()) + self.panels.len() + self.button_normals.len();
         if self.errors.is_empty() {
             format!("UI 解码 ok · {ok} 张")
-        } else {
+        }
+        else {
             format!("UI 解码 {} 张 · 失败 {}", ok, self.errors.len())
         }
     }
@@ -77,12 +78,12 @@ pub fn frame_to_canvas_rgba(shp: &ShpFile, frame: &ShpFrame, palette: &Palette) 
     let fh = u32::from(frame.frame_height);
     if fw == 0 || fh == 0 {
         // 空帧：仍返回全透明画布，便于布局占位诊断。
-        return RgbaImage::new(canvas_w, canvas_h, vec![0u8; (canvas_w * canvas_h * 4) as usize]);
+        return RgbaImage::from_raw(canvas_w, canvas_h, vec![0u8; (canvas_w * canvas_h * 4) as usize]);
     }
 
     let frame_rgba = frame.to_rgba(palette);
     if fw == canvas_w && fh == canvas_h && frame.frame_x == 0 && frame.frame_y == 0 {
-        return RgbaImage::new(canvas_w, canvas_h, frame_rgba);
+        return RgbaImage::from_raw(canvas_w, canvas_h, frame_rgba);
     }
 
     let mut canvas = vec![0u8; (canvas_w as usize) * (canvas_h as usize) * 4];
@@ -106,31 +107,19 @@ pub fn frame_to_canvas_rgba(shp: &ShpFile, frame: &ShpFrame, palette: &Palette) 
         }
         canvas[dst..dst + copy_len].copy_from_slice(&frame_rgba[src..src + copy_len]);
     }
-    RgbaImage::new(canvas_w, canvas_h, canvas)
+    RgbaImage::from_raw(canvas_w, canvas_h, canvas)
 }
 
 /// 从挂载源解码单个 `UiAssetRef`。
 pub fn decode_asset_ref(source: &GameAssetSource, asset: &UiAssetRef) -> Result<DecodedUiSprite, String> {
     let frame_idx = asset.frame.unwrap_or(0) as usize;
-    let hit = source
-        .resolve(&asset.name)
-        .ok_or_else(|| format!("{}: 不可读", asset.name))?;
+    let hit = source.resolve(&asset.name).ok_or_else(|| format!("{}: 不可读", asset.name))?;
     let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{}: SHP 解析失败 · {e}", asset.name))?;
     if frame_idx >= shp.frames.len() {
-        return Err(format!(
-            "{}: 帧 {} 越界 · 共 {} 帧",
-            asset.name,
-            frame_idx,
-            shp.frames.len()
-        ));
+        return Err(format!("{}: 帧 {} 越界 · 共 {} 帧", asset.name, frame_idx, shp.frames.len()));
     }
-    let pal_name = asset
-        .palette
-        .as_deref()
-        .ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
-    let pal_hit = source
-        .resolve(pal_name)
-        .ok_or_else(|| format!("{pal_name}: 调色板不可读"))?;
+    let pal_name = asset.palette.as_deref().ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
+    let pal_hit = source.resolve(pal_name).ok_or_else(|| format!("{pal_name}: 调色板不可读"))?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("{pal_name}: 解析失败 · {e}"))?;
     let frame = &shp.frames[frame_idx];
     let image = frame_to_canvas_rgba(&shp, frame, &palette)
@@ -141,12 +130,7 @@ pub fn decode_asset_ref(source: &GameAssetSource, asset: &UiAssetRef) -> Result<
         origin: hit.explain(),
         frame: frame_idx as u16,
         canvas: (shp.width, shp.height),
-        frame_rect: (
-            frame.frame_x,
-            frame.frame_y,
-            frame.frame_width,
-            frame.frame_height,
-        ),
+        frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
     })
 }
 
@@ -173,9 +157,9 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
     for btn in &page.buttons {
         let asset = if btn.enabled {
             btn.asset_for(UiButtonVisualState::Normal)
-        } else {
-            btn.asset_for(UiButtonVisualState::Disabled)
-                .or_else(|| btn.asset_for(UiButtonVisualState::Normal))
+        }
+        else {
+            btn.asset_for(UiButtonVisualState::Disabled).or_else(|| btn.asset_for(UiButtonVisualState::Normal))
         };
         let Some(asset) = asset
         else {
@@ -190,12 +174,7 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
         }
     }
 
-    PageDecodeReport {
-        background,
-        panels,
-        button_normals,
-        errors,
-    }
+    PageDecodeReport { background, panels, button_normals, errors }
 }
 
 #[cfg(test)]
@@ -211,7 +190,7 @@ mod tests {
     }
 
     fn tiny_shp_one_pixel_frame() -> Vec<u8> {
-        // SHP(TS): zero, w=2, h=2, frames=1, then 24-byte header, then 1 pixel? 
+        // SHP(TS): zero, w=2, h=2, frames=1, then 24-byte header, then 1 pixel?
         // Simpler: 2x2 canvas, frame 0 at (0,0) size 2x2 raw pixels [1,0,0,1]
         let mut data = Vec::new();
         data.extend_from_slice(&0u16.to_le_bytes());
@@ -238,8 +217,8 @@ mod tests {
         let shp = ShpFile::parse(&tiny_shp_one_pixel_frame()).unwrap();
         let pal = Palette::parse(&tiny_pal()).unwrap();
         let img = frame_to_canvas_rgba(&shp, &shp.frames[0], &pal).unwrap();
-        assert_eq!((img.width, img.height), (2, 2));
-        assert_eq!(img.pixels.len(), 16);
+        assert_eq!((img.width(), img.height()), (2, 2));
+        assert_eq!(img.as_raw().len(), 16);
     }
 
     #[test]

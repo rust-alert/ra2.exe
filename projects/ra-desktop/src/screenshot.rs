@@ -19,9 +19,7 @@ use crate::screen::OriginalScreen;
 
 /// 截图输出根目录。
 pub fn screenshot_dir() -> PathBuf {
-    std::env::var_os("RA2_SCREENSHOT_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("screenshots"))
+    std::env::var_os("RA2_SCREENSHOT_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("screenshots"))
 }
 
 /// 自动测试验收图目录（稳定文件名，便于打开对照）。
@@ -31,10 +29,7 @@ pub fn acceptance_dir() -> PathBuf {
 
 /// 是否在进入关键页时自动截图。
 pub fn auto_screenshot_enabled() -> bool {
-    matches!(
-        std::env::var("RA2_AUTO_SCREENSHOT").as_deref(),
-        Ok("1") | Ok("true") | Ok("TRUE") | Ok("yes") | Ok("YES")
-    )
+    matches!(std::env::var("RA2_AUTO_SCREENSHOT").as_deref(), Ok("1") | Ok("true") | Ok("TRUE") | Ok("yes") | Ok("YES"))
 }
 
 /// 建议自动截图的关键产品页。
@@ -85,10 +80,7 @@ pub fn save_screenshot(screen: &str, image: &RgbaImage) -> RaResult<PathBuf> {
 
 /// 指定目录落盘（带时间戳）。
 pub fn save_screenshot_to(dir: impl AsRef<Path>, screen: &str, image: &RgbaImage) -> RaResult<PathBuf> {
-    let ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     let safe = sanitize_name(screen);
     let path = dir.as_ref().join(format!("{safe}_{ms}.png"));
     write_png_file(&path, image)?;
@@ -103,17 +95,7 @@ pub fn save_acceptance_png(dir: impl AsRef<Path>, screen: &str, image: &RgbaImag
 }
 
 fn sanitize_name(screen: &str) -> String {
-    screen
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
-                c
-            }
-            else {
-                '_'
-            }
-        })
-        .collect()
+    screen.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect()
 }
 
 /// 仅用于单元测试的路径拼接（不写盘）。

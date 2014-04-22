@@ -79,38 +79,27 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
     let mouse_frame = decode_named_shp_frame(&source, "unittem.pal", "mouse.shp");
     let clock_frame = decode_named_shp_frame(&source, "unittem.pal", "clock.shp");
     let ui_bit = match (&ui_ini, ui_ini_readable) {
-        (Some(doc), _) => format!(
-            "{} sections={} shp_refs={}",
-            manifest.chain.ui_ini,
-            doc.sections.len(),
-            ui_ini_shp_refs.len()
-        ),
+        (Some(doc), _) => {
+            format!("{} sections={} shp_refs={}", manifest.chain.ui_ini, doc.sections.len(), ui_ini_shp_refs.len())
+        }
         (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
     let note = match &mouse_frame {
         Some(img) => format!(
             "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {}",
-            img.width, img.height, ui_bit, mounted_root, mounted_nested
+            img.width(),
+            img.height(),
+            ui_bit,
+            mounted_root,
+            mounted_nested
         ),
-        None => format!(
-            "UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {}",
-            ui_bit, mounted_root, mounted_nested
-        ),
+        None => format!("UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {}", ui_bit, mounted_root, mounted_nested),
     };
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
         tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
     }
-    MenuUiProbe {
-        note,
-        mouse_frame,
-        clock_frame,
-        source: Some(source),
-        ui_ini_name,
-        ui_ini_readable,
-        ui_ini,
-        ui_ini_shp_refs,
-    }
+    MenuUiProbe { note, mouse_frame, clock_frame, source: Some(source), ui_ini_name, ui_ini_readable, ui_ini, ui_ini_shp_refs }
 }
 
 fn decode_named_shp_frame(source: &GameAssetSource, pal_name: &str, shp_name: &str) -> Option<RgbaImage> {
@@ -121,31 +110,31 @@ fn decode_named_shp_frame(source: &GameAssetSource, pal_name: &str, shp_name: &s
     if frame.frame_width == 0 || frame.frame_height == 0 {
         return None;
     }
-    RgbaImage::new(u32::from(frame.frame_width), u32::from(frame.frame_height), frame.to_rgba(&pal))
+    RgbaImage::from_raw(u32::from(frame.frame_width), u32::from(frame.frame_height), frame.to_rgba(&pal))
 }
 
 /// 最近邻缩小到不超过 max_w×max_h（已更小则克隆）。
 pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaImage> {
-    if img.width == 0 || img.height == 0 || max_w == 0 || max_h == 0 {
+    if img.width() == 0 || img.height() == 0 || max_w == 0 || max_h == 0 {
         return None;
     }
-    let scale = (max_w as f32 / img.width as f32).min(max_h as f32 / img.height as f32).min(1.0);
-    let nw = ((img.width as f32) * scale).round().max(1.0) as u32;
-    let nh = ((img.height as f32) * scale).round().max(1.0) as u32;
-    if nw == img.width && nh == img.height {
+    let scale = (max_w as f32 / img.width() as f32).min(max_h as f32 / img.height() as f32).min(1.0);
+    let nw = ((img.width() as f32) * scale).round().max(1.0) as u32;
+    let nh = ((img.height() as f32) * scale).round().max(1.0) as u32;
+    if nw == img.width() && nh == img.height() {
         return Some(img.clone());
     }
     let mut pixels = vec![0u8; (nw as usize) * (nh as usize) * 4];
     for dy in 0..nh {
-        let sy = (dy as f32 * img.height as f32 / nh as f32) as u32;
+        let sy = (dy as f32 * img.height() as f32 / nh as f32) as u32;
         for dx in 0..nw {
-            let sx = (dx as f32 * img.width as f32 / nw as f32) as u32;
-            let si = ((sy * img.width + sx) * 4) as usize;
+            let sx = (dx as f32 * img.width() as f32 / nw as f32) as u32;
+            let si = ((sy * img.width() + sx) * 4) as usize;
             let di = ((dy * nw + dx) * 4) as usize;
-            pixels[di..di + 4].copy_from_slice(&img.pixels[si..si + 4]);
+            pixels[di..di + 4].copy_from_slice(&img.as_raw()[si..si + 4]);
         }
     }
-    RgbaImage::new(nw, nh, pixels)
+    RgbaImage::from_raw(nw, nh, pixels)
 }
 
 #[cfg(test)]
@@ -154,8 +143,8 @@ mod tests {
 
     #[test]
     fn downscale_halves_dimensions() {
-        let src = RgbaImage::new(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
+        let src = RgbaImage::from_raw(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
         let out = downscale_to_fit(&src, 2, 2).unwrap();
-        assert_eq!((out.width, out.height), (2, 1));
+        assert_eq!((out.width(), out.height()), (2, 1));
     }
 }

@@ -50,7 +50,7 @@ fn load_map_terrain_preview(
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
     )?;
-    let rgba = RgbaImage::new(preview.image.width, preview.image.height, preview.image.pixels)?;
+    let rgba = preview.image.image;
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
 }
 
@@ -61,9 +61,10 @@ fn load_boot_map(
     preferred_map: Option<&str>,
 ) -> Result<MapInfo, String> {
     let loaded = find_boot_map(edition, source, preferred_map)?;
-    let theater_mounted = mount_theater_mixes(loaded.map.theater, &mut |mix| {
-        matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0)
-    });
+    let theater_mounted = mount_theater_mixes(
+        loaded.map.theater,
+        &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0),
+    );
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
     Ok(loaded.map)
 }
@@ -99,9 +100,10 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
-    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| {
-        matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0)
-    });
+    let _ = mount_theater_mixes(
+        loaded.map.theater,
+        &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0),
+    );
     let rules = load_rules_chain(&source, &manifest.chain).ok()?;
     let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules)?;
     Some((format!("{} · {}", loaded.note, note), image))
@@ -172,12 +174,7 @@ pub fn boot_world_with_progress(
         Err(e) => {
             note = format!("{note} · {e}");
             report(1.0, "地图失败");
-            return Ok(BootResult {
-                note,
-                engine: None,
-                session: None,
-                preview: None,
-            });
+            return Ok(BootResult { note, engine: None, session: None, preview: None });
         }
     };
 
@@ -206,36 +203,28 @@ pub fn boot_world_with_progress(
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());
-    let (engine, session) =
-        match rules.as_ref().map(|rules| {
-            open_skirmish_session(
-                &source,
-                chain,
-                rules,
-                map,
-                note.clone(),
-                preview_origin,
-                preferred_house,
-            )
-        }) {
-            Some(Ok(mut opened)) => {
-                note = opened.note;
-                note = format!("{note} · difficulty={}", request.difficulty);
-                opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
-                tracing::info!(
-                    "fingerprint edition={} map={} rules_hash={:#x}",
-                    opened.session.expect_game().fingerprint.edition,
-                    opened.session.expect_game().fingerprint.map,
-                    opened.session.expect_game().fingerprint.rules_hash
-                );
-                (Some(opened.engine), Some(opened.session))
-            }
-            Some(Err(e)) => {
-                note = format!("{note} · 会话未打开（{e}）");
-                (None, None)
-            }
-            None => (None, None),
-        };
+    let (engine, session) = match rules
+        .as_ref()
+        .map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house))
+    {
+        Some(Ok(mut opened)) => {
+            note = opened.note;
+            note = format!("{note} · difficulty={}", request.difficulty);
+            opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
+            tracing::info!(
+                "fingerprint edition={} map={} rules_hash={:#x}",
+                opened.session.expect_game().fingerprint.edition,
+                opened.session.expect_game().fingerprint.map,
+                opened.session.expect_game().fingerprint.rules_hash
+            );
+            (Some(opened.engine), Some(opened.session))
+        }
+        Some(Err(e)) => {
+            note = format!("{note} · 会话未打开（{e}）");
+            (None, None)
+        }
+        None => (None, None),
+    };
 
     if session.as_ref().and_then(|s| s.game()).is_some() {
         report(1.0, "完成");
@@ -275,12 +264,7 @@ pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBo
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
-            BootResult {
-                note: format!("启动失败: {e}"),
-                engine: None,
-                session: None,
-                preview: None,
-            }
+            BootResult { note: format!("启动失败: {e}"), engine: None, session: None, preview: None }
         }
     };
     tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
@@ -307,12 +291,7 @@ pub fn boot_from_install_with_progress(
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
-            BootResult {
-                note: format!("启动失败: {e}"),
-                engine: None,
-                session: None,
-                preview: None,
-            }
+            BootResult { note: format!("启动失败: {e}"), engine: None, session: None, preview: None }
         }
     };
     tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
