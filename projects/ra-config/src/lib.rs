@@ -90,10 +90,7 @@ impl MergedConfig {
 
 /// 当前可执行文件所在目录；失败时回退为 `"."`。
 pub fn exe_dir() -> PathBuf {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-        .unwrap_or_else(|| PathBuf::from("."))
+    std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())).unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// `RustAlert.toml` 的规范路径（可执行文件同目录）。
@@ -118,10 +115,7 @@ pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<
     let doc: DocumentMut = match text.parse() {
         Ok(d) => d,
         Err(e) => {
-            diagnostics.push(ConfigDiagnostic {
-                source: source_label.into(),
-                message: format!("TOML 解析失败: {e}"),
-            });
+            diagnostics.push(ConfigDiagnostic { source: source_label.into(), message: format!("TOML 解析失败: {e}") });
             return (table, diagnostics);
         }
     };
@@ -156,23 +150,14 @@ impl RustAlertDocument {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref().to_path_buf();
         let text = std::fs::read_to_string(&path).map_err(|e| format!("读取 {} 失败: {e}", path.display()))?;
-        let doc: DocumentMut = text
-            .parse()
-            .map_err(|e| format!("解析 {} 失败: {e}", path.display()))?;
+        let doc: DocumentMut = text.parse().map_err(|e| format!("解析 {} 失败: {e}", path.display()))?;
         Ok(Self { path, doc })
     }
 
     /// 打开规范路径；不存在则空文档（尚未落盘）。
     pub fn open_or_empty() -> Result<Self, String> {
         let path = rust_alert_toml_path();
-        if path.is_file() {
-            Self::open(path)
-        } else {
-            Ok(Self {
-                path,
-                doc: DocumentMut::new(),
-            })
-        }
+        if path.is_file() { Self::open(path) } else { Ok(Self { path, doc: DocumentMut::new() }) }
     }
 
     /// 文件路径。
@@ -200,8 +185,7 @@ impl RustAlertDocument {
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {e}"))?;
         }
-        std::fs::write(&self.path, self.doc.to_string())
-            .map_err(|e| format!("写入 {} 失败: {e}", self.path.display()))
+        std::fs::write(&self.path, self.doc.to_string()).map_err(|e| format!("写入 {} 失败: {e}", self.path.display()))
     }
 
     /// 导出为扁平表。
@@ -225,12 +209,7 @@ pub struct DesktopSettings {
 
 impl Default for DesktopSettings {
     fn default() -> Self {
-        Self {
-            ra2_dir: exe_dir(),
-            edition: None,
-            net_url: None,
-            net_room: None,
-        }
+        Self { ra2_dir: exe_dir(), edition: None, net_url: None, net_room: None }
     }
 }
 
@@ -244,18 +223,10 @@ impl DesktopSettings {
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
         }
-        if let Some(v) = merged
-            .get("net_url")
-            .or_else(|| merged.get("battlenet_url"))
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
         }
-        if let Some(v) = merged
-            .get("net_room")
-            .or_else(|| merged.get("room"))
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(v) = merged.get("net_room").or_else(|| merged.get("room")).filter(|v| !v.is_empty()) {
             s.net_room = Some(v.to_string());
         }
         s
@@ -283,10 +254,8 @@ impl DesktopSettings {
                     diagnostics.append(&mut diags);
                     layers.push(ConfigLayer { label, table });
                 }
-                Err(e) => diagnostics.push(ConfigDiagnostic {
-                    source: path.display().to_string(),
-                    message: format!("读取失败: {e}"),
-                }),
+                Err(e) => diagnostics
+                    .push(ConfigDiagnostic { source: path.display().to_string(), message: format!("读取失败: {e}") }),
             }
         }
         let mut merged = MergedConfig::merge_layers(&layers);

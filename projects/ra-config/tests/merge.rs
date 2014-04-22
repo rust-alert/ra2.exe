@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use ra_config::{
-    ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document,
-};
+use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document};
 
 #[test]
 fn later_layer_overrides() {
@@ -11,16 +9,8 @@ fn later_layer_overrides() {
     let mut b = ConfigTable::new();
     b.insert("ra2_dir", "C:/games/ra2");
     b.insert("edition", "yr");
-    let merged = MergedConfig::merge_layers(&[
-        ConfigLayer {
-            label: "a".into(),
-            table: a,
-        },
-        ConfigLayer {
-            label: "b".into(),
-            table: b,
-        },
-    ]);
+    let merged =
+        MergedConfig::merge_layers(&[ConfigLayer { label: "a".into(), table: a }, ConfigLayer { label: "b".into(), table: b }]);
     let s = DesktopSettings::from_merged(&merged);
     assert_eq!(s.ra2_dir, PathBuf::from("C:/games/ra2"));
     assert_eq!(s.edition.as_deref(), Some("yr"));
@@ -28,10 +18,7 @@ fn later_layer_overrides() {
 
 #[test]
 fn parse_toml_keeps_string_keys_and_skips_comments() {
-    let (t, d) = parse_toml_document(
-        "# hi\nra2_dir = \"D:/RA2\"\nedition = \"yr\"\n",
-        "t",
-    );
+    let (t, d) = parse_toml_document("# hi\nra2_dir = \"D:/RA2\"\nedition = \"yr\"\n", "t");
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(t.get("ra2_dir"), Some("D:/RA2"));
     assert_eq!(t.get("edition"), Some("yr"));
@@ -41,18 +28,11 @@ fn parse_toml_keeps_string_keys_and_skips_comments() {
 fn rust_alert_document_round_trip_preserves_comment() {
     let dir = std::env::temp_dir().join(format!(
         "ra_config_test_{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("RustAlert.toml");
-    std::fs::write(
-        &path,
-        "# keep me\nra2_dir = \"C:/Games/RA2\"\n",
-    )
-    .unwrap();
+    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n").unwrap();
 
     let mut doc = RustAlertDocument::open(&path).unwrap();
     assert_eq!(doc.get_str("ra2_dir").as_deref(), Some("C:/Games/RA2"));
