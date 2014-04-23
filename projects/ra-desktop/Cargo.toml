@@ -4,11 +4,11 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "原生 GUI 壳；产出 ra2 二进制"
+description = "原生 GUI 壳；产出 rust-ra2 二进制"
 publish = false
 
 [[bin]]
-name = "ra2"
+name = "rust-ra2"
 path = "src/main.rs"
 
 [dependencies]
