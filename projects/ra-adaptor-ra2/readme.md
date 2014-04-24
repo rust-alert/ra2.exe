@@ -36,7 +36,7 @@ pub struct ResourceProfile {
 - **根 MIX**：安装根目录旁，启动时 `mount_bytes`；文件名大小写不敏感匹配（`find_ci_file`）。
 - **嵌套 MIX**：位于主 MIX 内，启动后 `mount_nested` 按需挂载。
 - **INI**：逻辑路径，经 `AssetSource` 读取；当前 `load_rules_chain` 使用 rules + art。
-- **`exe_name`**：布局特征名；引擎是自有 GUI（ **`ra2` / `ra2.exe`**）， **不启动**原版 `game.exe`。
+- **`exe_name`**：布局特征名；引擎是自有 GUI（ **`rust-ra2` / `rust-ra2.exe`**）， **不启动**原版 `game.exe`。
 
 结构与 `ra-adaptor-yuri::ResourceProfile` **同形但各自定义**，避免 adaptor 编排层与 profile crate 循环依赖。
 

@@ -2,7 +2,7 @@
 
 跨平台 GUI 引擎，用于在玩家自备的《命令与征服：红色警戒 2》、《尤里的复仇》以及心灵终结 3（Mental Omega 3）数据上运行自有逻辑。
 
-本仓库是 **现代化重写**：原生入口由 `ra-desktop` 产出二进制 **`ra2`**（Windows 上为 `ra2.exe`），对局由 **`ra-engine`**
+本仓库是 **现代化重写**：原生入口由 `ra-desktop` 产出二进制 **`rust-ra2`**（Windows 上为 `rust-ra2.exe`），对局由 **`ra-engine`**
 推进，呈现走现代 GPU API（桌面常见 DX12 / Vulkan / Metal；浏览器目标走 WebGL2 方向的 `ra-webui`）。 **不是** DirectDraw 兼容层，
 **不是**向原版 `game.exe` / `gamemd.exe` 注入。
 
@@ -15,10 +15,12 @@ crate 文档。
 
 ## 准备游戏数据与配置
 
-在 **可执行文件同目录**放置 `RustAlert.toml`（可选）。若 `ra2` / `ra2.exe` 直接放在游戏安装目录，**可不写配置文件**，默认把 `ra2_dir` 设为 exe 所在目录。
+在 **可执行文件同目录**放置 `RustAlert.toml`，用于分辨率、显示与其它启动选项。模板见 `RustAlert.toml.example`。
+
+默认情形：未配置 `ra2_dir` 时，取 exe 所在目录。因此把 `rust-ra2` / `rust-ra2.exe` 放进游戏安装目录即可定位资源，无需再写安装路径；**不等于**可以不提供本配置文件。
 
 ```toml
-# 仅当 exe 不在游戏目录内时需要
+# 仅当 exe 不在游戏目录内时需要显式写出
 ra2_dir = "C:/path/to/your/ra2"
 edition = "ra2"
 ```
@@ -37,7 +39,7 @@ edition = "ra2"
 工具链以根目录 `rust-toolchain.toml` 为准（ **nightly**，含 `rustfmt` / `clippy`）。
 
 ```shell
-# 原生 GUI（默认成员）→ 产出 ra2 / ra2.exe
+# 原生 GUI（默认成员）→ 产出 rust-ra2 / rust-ra2.exe
 cargo run -p ra-desktop
 # 等价
 cargo run
@@ -99,7 +101,7 @@ tick 路径回归。
 ```mermaid
 flowchart TB
     subgraph shells["壳层"]
-        desktop["ra-desktop<br/>二进制 ra2 / ra2.exe"]
+        desktop["ra-desktop<br/>二进制 rust-ra2 / rust-ra2.exe"]
         webui["ra-webui<br/>Wasm 壳"]
     end
 
@@ -227,7 +229,7 @@ ra2.exe/                 工作区根（本 README）
     ├── ra-net/
     ├── ra-testing/      → headless / GUI 计划（非运行时）
     ├── ra-renderer/
-    ├── ra-desktop/      → 二进制 ra2
+    ├── ra-desktop/      → 二进制 rust-ra2
     └── ra-webui/        → cdylib Wasm 壳
 ```
 
@@ -253,7 +255,7 @@ map / assets / renderer。
 | `ra-net`            | 联机协议无关基础类型（Beta 接入点）                  | [readme](projects/ra-net/readme.md)            |
 | `ra-testing`        | headless 夹具与 GUI 自动化计划（非运行时）           | [readme](projects/ra-testing/readme.md)        |
 | `ra-renderer`       | 呈现（只消费引擎快照）                               | [readme](projects/ra-renderer/readme.md)       |
-| `ra-desktop`        | 原生 GUI 壳 → **`ra2` / `ra2.exe`**                  | [readme](projects/ra-desktop/readme.md)        |
+| `ra-desktop`        | 原生 GUI 壳 → **`rust-ra2` / `rust-ra2.exe`**                  | [readme](projects/ra-desktop/readme.md)        |
 | `ra-webui`          | Wasm 壳                                              | [readme](projects/ra-webui/readme.md)          |
 
 ---
