@@ -138,6 +138,37 @@ pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<
     (table, diagnostics)
 }
 
+/// 首次落盘用的默认 `RustAlert.toml` 文本（含注释，写入当前 `ra2_dir`）。
+pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
+    let dir = ra2_dir.display().to_string().replace('\\', "/");
+    format!(
+        "# RustAlert 桌面启动配置\n\
+         # 首次启动时由程序自动生成，可按需修改后持久化。\n\
+         # 分辨率、显示与其它启动选项写在本文件中。\n\
+         #\n\
+         # 未改 `ra2_dir` 时默认即 exe 所在目录（便于把 `rust-ra2` 放进游戏安装目录）。\n\
+         \n\
+         ra2_dir = \"{dir}\"\n\
+         # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
+         # net_url = \"\"      # 预留战网地址\n\
+         # net_room = \"\"     # 预留房间名\n"
+    )
+}
+
+/// 若 `path` 不存在则写入默认模板；返回是否新创建。
+pub fn ensure_rust_alert_toml(path: &Path) -> Result<bool, String> {
+    if path.is_file() {
+        return Ok(false);
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {e}"))?;
+    }
+    let ra2_dir = path.parent().map(Path::to_path_buf).unwrap_or_else(exe_dir);
+    let text = default_rust_alert_toml_text(&ra2_dir);
+    std::fs::write(path, text).map_err(|e| format!("写入 {} 失败: {e}", path.display()))?;
+    Ok(true)
+}
+
 /// 可编辑的 `RustAlert.toml`（保留注释与格式）。
 #[derive(Debug, Clone)]
 pub struct RustAlertDocument {
@@ -152,6 +183,13 @@ impl RustAlertDocument {
         let text = std::fs::read_to_string(&path).map_err(|e| format!("读取 {} 失败: {e}", path.display()))?;
         let doc: DocumentMut = text.parse().map_err(|e| format!("解析 {} 失败: {e}", path.display()))?;
         Ok(Self { path, doc })
+    }
+
+    /// 打开规范路径；缺失则自动生成默认文件后打开。
+    pub fn open_or_create() -> Result<Self, String> {
+        let path = rust_alert_toml_path();
+        ensure_rust_alert_toml(&path)?;
+        Self::open(path)
     }
 
     /// 打开规范路径；不存在则空文档（尚未落盘）。
@@ -233,6 +271,7 @@ impl DesktopSettings {
     }
 
     /// 加载桌面配置：默认（exe 目录）← `RustAlert.toml` 覆盖。
+    /// 若规范路径缺失，则自动生成默认文件以便持久化。
     pub fn load_or_default() -> (Self, Vec<ConfigDiagnostic>) {
         let exe = exe_dir();
         let defaults = ConfigLayer {
@@ -246,6 +285,17 @@ impl DesktopSettings {
         let mut layers = vec![defaults];
         let mut diagnostics = Vec::new();
         let path = rust_alert_toml_path();
+        match ensure_rust_alert_toml(&path) {
+            Ok(true) => diagnostics.push(ConfigDiagnostic {
+                source: path.display().to_string(),
+                message: "已自动生成默认配置以便持久化".into(),
+            }),
+            Ok(false) => {}
+            Err(e) => diagnostics.push(ConfigDiagnostic {
+                source: path.display().to_string(),
+                message: format!("自动生成配置失败: {e}"),
+            }),
+        }
         if path.is_file() {
             match std::fs::read_to_string(&path) {
                 Ok(text) => {

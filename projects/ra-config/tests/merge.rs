@@ -45,3 +45,22 @@ fn rust_alert_document_round_trip_preserves_comment() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn ensure_creates_missing_toml_once() {
+    let dir = std::env::temp_dir().join(format!(
+        "ra_config_ensure_{}",
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("RustAlert.toml");
+    assert!(!path.is_file());
+
+    assert!(ra_config::ensure_rust_alert_toml(&path).unwrap());
+    assert!(path.is_file());
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("ra2_dir"), "{text}");
+    assert!(!ra_config::ensure_rust_alert_toml(&path).unwrap());
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -4,7 +4,7 @@
 Mod 里意味着什么——语义解析属于 `ra-adaptor` 与各 edition profile crate。
 
 桌面规范文件为可执行文件同目录的 **`RustAlert.toml`**，用 **`toml_edit`** 解析与回写（保留注释与格式）。分辨率等启动选项写在此文件中。
-默认情形：未写 `ra2_dir` 时取 exe 所在目录，便于把 `rust-ra2` / `rust-ra2.exe` 放进游戏安装目录定位资源——这只是安装路径的默认，不是「无需配置文件」。
+缺失时 `DesktopSettings::load_or_default` 会自动生成默认文件以便持久化。默认 `ra2_dir` 为 exe 所在目录。
 
 ## 它是什么
 
