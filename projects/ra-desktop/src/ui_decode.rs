@@ -37,6 +37,8 @@ pub struct PageDecodeReport {
     pub panels: Vec<DecodedUiSprite>,
     /// `(entry_id, 常态图)`；仅成功项。
     pub button_normals: Vec<(&'static str, DecodedUiSprite)>,
+    /// `(entry_id, 按下图)`；仅成功项（缺省时合成回退常态）。
+    pub button_presseds: Vec<(&'static str, DecodedUiSprite)>,
     /// 失败说明。
     pub errors: Vec<String>,
 }
@@ -44,7 +46,10 @@ pub struct PageDecodeReport {
 impl PageDecodeReport {
     /// 标题栏 / 日志短注。
     pub fn banner_note(&self) -> String {
-        let ok = usize::from(self.background.is_some()) + self.panels.len() + self.button_normals.len();
+        let ok = usize::from(self.background.is_some())
+            + self.panels.len()
+            + self.button_normals.len()
+            + self.button_presseds.len();
         if self.errors.is_empty() {
             format!("UI 解码 ok · {ok} 张")
         }
@@ -154,6 +159,7 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
     }
 
     let mut button_normals = Vec::new();
+    let mut button_presseds = Vec::new();
     for btn in &page.buttons {
         let asset = if btn.enabled {
             btn.asset_for(UiButtonVisualState::Normal)
@@ -172,9 +178,25 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
             Ok(img) => button_normals.push((btn.entry_id, img)),
             Err(e) => errors.push(format!("button[{}] · {e}", btn.entry_id)),
         }
+
+        if !btn.enabled {
+            continue;
+        }
+        let Some(pressed) = btn.pressed.as_ref()
+        else {
+            continue;
+        };
+        // 与常态同引用则不必重复解码。
+        if btn.normal.as_ref() == Some(pressed) {
+            continue;
+        }
+        match decode_asset_ref(source, pressed) {
+            Ok(img) => button_presseds.push((btn.entry_id, img)),
+            Err(e) => errors.push(format!("button[{}] pressed · {e}", btn.entry_id)),
+        }
     }
 
-    PageDecodeReport { background, panels, button_normals, errors }
+    PageDecodeReport { background, panels, button_normals, button_presseds, errors }
 }
 
 #[cfg(test)]

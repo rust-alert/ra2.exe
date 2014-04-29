@@ -73,14 +73,24 @@ fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str) -> Option<&'a Dec
     decoded.panels.iter().find(|p| p.label.to_ascii_lowercase().starts_with(&needle.to_ascii_lowercase()))
 }
 
-fn find_button<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
+fn find_button_normal<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
     decoded.button_normals.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
-/// 合成主菜单静态 chrome：背景 + 右侧板 + 全部按钮格。
+fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
+    decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
+}
+
+/// 合成主菜单 chrome：背景 + 右侧板 + 按钮格（可选按下帧覆盖）。
 ///
+/// `pressed_entry_id` 为当前按住的入口 id；无按下帧时回退常态。
 /// 缺背景或任一已声明按钮常态时返回 `None`（该页视觉验收不得通过）。
-pub fn compose_main_menu_page(decoded: &PageDecodeReport, viewport_w: u32, viewport_h: u32) -> Option<RgbaImage> {
+pub fn compose_main_menu_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
     let layout = main_menu_layout(viewport_w, viewport_h);
     let mut page = RgbaImage::from_raw(
@@ -114,10 +124,16 @@ pub fn compose_main_menu_page(decoded: &PageDecodeReport, viewport_w: u32, viewp
     }
 
     for (i, entry_id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
-        let btn = find_button(decoded, entry_id)?;
+        let normal = find_button_normal(decoded, entry_id)?;
+        let sprite = if pressed_entry_id == Some(*entry_id) {
+            find_button_pressed(decoded, entry_id).unwrap_or(normal)
+        }
+        else {
+            normal
+        };
         let cell = layout.buttons[i];
         // 按钮保持原尺寸（156×42），锚定在格左上，不拉伸。
-        blit_rgba(&mut page, &btn.image, cell.x, cell.y);
+        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
     }
 
     Some(page)
@@ -133,5 +149,35 @@ mod tests {
         let src = RgbaImage::from_raw(1, 1, vec![10, 20, 30, 255]).unwrap();
         blit_rgba(&mut dst, &src, 1, 1);
         assert_eq!(&dst.as_mut()[12..16], &[10, 20, 30, 255]);
+    }
+
+    fn solid_sprite(label: &str, rgba: [u8; 4]) -> DecodedUiSprite {
+        DecodedUiSprite {
+            label: label.into(),
+            image: RgbaImage::from_raw(1, 1, rgba.to_vec()).unwrap(),
+            origin: "test".into(),
+            frame: 0,
+            canvas: (1, 1),
+            frame_rect: (0, 0, 1, 1),
+        }
+    }
+
+    #[test]
+    fn compose_uses_pressed_sprite_when_entry_matches() {
+        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+        let pressed = solid_sprite("sdbtnanm.shp#4", [200, 0, 0, 255]);
+        let decoded = PageDecodeReport {
+            background: Some(bg),
+            panels: Vec::new(),
+            button_normals: MAIN_MENU_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+            button_presseds: vec![("single_player", pressed)],
+            errors: Vec::new(),
+        };
+        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player")).unwrap();
+        let layout = main_menu_layout(800, 600);
+        let cell = layout.buttons[0];
+        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
+        assert_eq!(&page.as_raw()[di..di + 4], &[200, 0, 0, 255]);
     }
 }

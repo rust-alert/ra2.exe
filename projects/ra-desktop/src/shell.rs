@@ -23,7 +23,7 @@ use crate::{
     screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
-    ui_compose, ui_decode, ui_hit,
+    ui_compose, ui_decode, ui_hit, ui_layout,
     ui_page::page_resources_from_slots,
     ui_resolve,
 };
@@ -65,6 +65,8 @@ pub struct AppShell {
     ui_probe: Option<MenuUiProbe>,
     /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
+    /// 主菜单当前按住的按钮入口 id（按下帧合成）。
+    menu_pressed_entry: Option<&'static str>,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重。
@@ -111,6 +113,7 @@ impl AppShell {
             lobby_preview_job: None,
             ui_probe: None,
             ui_decode_cache: None,
+            menu_pressed_entry: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -141,6 +144,7 @@ impl AppShell {
             lobby_preview_job: None,
             ui_probe: None,
             ui_decode_cache: None,
+            menu_pressed_entry: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -384,6 +388,7 @@ impl AppShell {
         if self.screen != next {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
+            self.menu_pressed_entry = None;
             self.refresh_ui_resolve_note();
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
@@ -433,9 +438,12 @@ impl AppShell {
         if self.screen == OriginalScreen::MainMenu {
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
-                if let Some(page) =
-                    ui_compose::compose_main_menu_page(decoded, self.window_width as u32, self.window_height as u32)
-                {
+                if let Some(page) = ui_compose::compose_main_menu_page(
+                    decoded,
+                    self.window_width as u32,
+                    self.window_height as u32,
+                    self.menu_pressed_entry,
+                ) {
                     tracing::info!(w = page.width(), h = page.height(), "主菜单 chrome 已合成并上传 UI 页通道");
                     self.renderer.set_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
@@ -898,19 +906,48 @@ impl ApplicationHandler for AppShell {
                 WindowEvent::CursorMoved { position, .. } => {
                     self.cursor = (position.x, position.y);
                 }
-                WindowEvent::MouseInput { state: ElementState::Released, button: winit::event::MouseButton::Left, .. } => {
-                    let action = ui_hit::hit_action(
-                        self.screen,
-                        &self.lobby_maps,
-                        self.selected_map.as_deref(),
-                        self.cursor,
-                        self.window_width,
-                        self.window_height,
-                        self.load_allow_retry(),
-                    );
-                    if let Some(action) = action {
-                        tracing::debug!(?action, "菜单逻辑命中");
-                        self.apply_menu_action(event_loop, action);
+                WindowEvent::MouseInput {
+                    state,
+                    button: winit::event::MouseButton::Left,
+                    ..
+                } => {
+                    match state {
+                        ElementState::Pressed => {
+                            if self.screen == OriginalScreen::MainMenu {
+                                let next = ui_hit::hover_index(
+                                    self.screen,
+                                    &self.lobby_maps,
+                                    self.selected_map.as_deref(),
+                                    self.cursor,
+                                    self.window_width,
+                                    self.window_height,
+                                    self.load_allow_retry(),
+                                )
+                                .and_then(|i| ui_layout::MAIN_MENU_BUTTON_IDS.get(i).copied());
+                                if next != self.menu_pressed_entry {
+                                    self.menu_pressed_entry = next;
+                                    self.refresh_menu_backdrop();
+                                }
+                            }
+                        }
+                        ElementState::Released => {
+                            if self.menu_pressed_entry.take().is_some() {
+                                self.refresh_menu_backdrop();
+                            }
+                            let action = ui_hit::hit_action(
+                                self.screen,
+                                &self.lobby_maps,
+                                self.selected_map.as_deref(),
+                                self.cursor,
+                                self.window_width,
+                                self.window_height,
+                                self.load_allow_retry(),
+                            );
+                            if let Some(action) = action {
+                                tracing::debug!(?action, "菜单逻辑命中");
+                                self.apply_menu_action(event_loop, action);
+                            }
+                        }
                     }
                 }
                 WindowEvent::KeyboardInput { event: key_ev, .. } => {
