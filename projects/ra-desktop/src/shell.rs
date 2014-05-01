@@ -435,16 +435,31 @@ impl AppShell {
             return;
         }
         self.ensure_ui_probe();
-        if self.screen == OriginalScreen::MainMenu {
+        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
-                if let Some(page) = ui_compose::compose_main_menu_page(
-                    decoded,
-                    self.window_width as u32,
-                    self.window_height as u32,
-                    self.menu_pressed_entry,
-                ) {
-                    tracing::info!(w = page.width(), h = page.height(), "主菜单 chrome 已合成并上传 UI 页通道");
+                let page = match self.screen {
+                    OriginalScreen::MainMenu => ui_compose::compose_main_menu_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                    ),
+                    OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                    ),
+                    _ => None,
+                };
+                if let Some(page) = page {
+                    tracing::info!(
+                        screen = self.screen.as_str(),
+                        w = page.width(),
+                        h = page.height(),
+                        "壳层 chrome 已合成并上传 UI 页通道"
+                    );
                     self.renderer.set_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
@@ -913,7 +928,12 @@ impl ApplicationHandler for AppShell {
                 } => {
                     match state {
                         ElementState::Pressed => {
-                            if self.screen == OriginalScreen::MainMenu {
+                            if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+                                let ids: &[&str] = match self.screen {
+                                    OriginalScreen::MainMenu => &ui_layout::MAIN_MENU_BUTTON_IDS,
+                                    OriginalScreen::SinglePlayerMenu => &ui_layout::SINGLE_PLAYER_BUTTON_IDS,
+                                    _ => &[],
+                                };
                                 let next = ui_hit::hover_index(
                                     self.screen,
                                     &self.lobby_maps,
@@ -923,7 +943,7 @@ impl ApplicationHandler for AppShell {
                                     self.window_height,
                                     self.load_allow_retry(),
                                 )
-                                .and_then(|i| ui_layout::MAIN_MENU_BUTTON_IDS.get(i).copied());
+                                .and_then(|i| ids.get(i).copied());
                                 if next != self.menu_pressed_entry {
                                     self.menu_pressed_entry = next;
                                     self.refresh_menu_backdrop();

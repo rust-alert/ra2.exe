@@ -22,6 +22,9 @@ pub const BUTTON_CELL_H: i32 = 42;
 /// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const MAIN_MENU_BUTTON_IDS: [&str; 4] = ["single_player", "network", "options", "exit"];
 
+/// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "training", "back"];
+
 /// 轴对齐矩形（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RectPx {
@@ -84,12 +87,7 @@ pub fn shell_fit_camera(win_w: u32, win_h: u32) -> ViewCamera {
 /// 窗口像素 → 壳层内容像素（与 [`shell_fit_camera`] 一致）。
 pub fn window_to_shell_px(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> (i32, i32) {
     let cam = shell_fit_camera(win_w.max(1.0) as u32, win_h.max(1.0) as u32);
-    let (wx, wy) = cam.screen_to_world(
-        cursor_x as f32,
-        cursor_y as f32,
-        win_w.max(1.0) as f32,
-        win_h.max(1.0) as f32,
-    );
+    let (wx, wy) = cam.screen_to_world(cursor_x as f32, cursor_y as f32, win_w.max(1.0) as f32, win_h.max(1.0) as f32);
     (wx.floor() as i32, wy.floor() as i32)
 }
 
@@ -127,6 +125,12 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
         buttons,
     }
 }
+
+/// 单人页布局：当前与主菜单共用右侧壳层几何（按钮 id 不同）。
+pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
+    main_menu_layout(viewport_w, viewport_h)
+}
+
 
 #[cfg(test)]
 mod tests {

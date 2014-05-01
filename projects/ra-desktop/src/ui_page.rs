@@ -25,33 +25,17 @@ pub struct UiAssetRef {
 impl UiAssetRef {
     /// 仅文件名、无显式调色板。
     pub fn named(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            palette: None,
-            frame: None,
-        }
+        Self { name: name.into(), palette: None, frame: None }
     }
 
     /// 文件名 + 调色板。
     pub fn with_palette(name: impl Into<String>, palette: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            palette: Some(palette.into()),
-            frame: None,
-        }
+        Self { name: name.into(), palette: Some(palette.into()), frame: None }
     }
 
     /// 文件名 + 调色板 + 帧。
-    pub fn with_palette_frame(
-        name: impl Into<String>,
-        palette: impl Into<String>,
-        frame: u16,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            palette: Some(palette.into()),
-            frame: Some(frame),
-        }
+    pub fn with_palette_frame(name: impl Into<String>, palette: impl Into<String>, frame: u16) -> Self {
+        Self { name: name.into(), palette: Some(palette.into()), frame: Some(frame) }
     }
 }
 
@@ -139,27 +123,16 @@ impl UiPageResources {
         if self.background.is_none() {
             return false;
         }
-        self.buttons
-            .iter()
-            .filter(|b| b.enabled)
-            .all(UiButtonResources::has_normal_asset)
+        self.buttons.iter().filter(|b| b.enabled).all(UiButtonResources::has_normal_asset)
     }
 }
 
-fn slot_frame_asset(
-    shp: Option<&'static str>,
-    pal: Option<&'static str>,
-    frame: Option<u16>,
-) -> Option<UiAssetRef> {
+fn slot_frame_asset(shp: Option<&'static str>, pal: Option<&'static str>, frame: Option<u16>) -> Option<UiAssetRef> {
     let frame = frame?;
     let shp = shp?;
     match pal {
         Some(pal) => Some(UiAssetRef::with_palette_frame(shp, pal, frame)),
-        None => Some(UiAssetRef {
-            name: shp.to_string(),
-            palette: None,
-            frame: Some(frame),
-        }),
+        None => Some(UiAssetRef { name: shp.to_string(), palette: None, frame: Some(frame) }),
     }
 }
 
@@ -181,16 +154,8 @@ fn slot_to_button(slot: &UiButtonSlot) -> UiButtonResources {
 pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResources> {
     let page = slots_for(screen)?;
     let background = match (page.background_shp, page.background_pal) {
-        (Some(shp), Some(pal)) => Some(UiAssetRef::with_palette_frame(
-            shp,
-            pal,
-            page.background_frame,
-        )),
-        (Some(shp), None) => Some(UiAssetRef {
-            name: shp.to_string(),
-            palette: None,
-            frame: Some(page.background_frame),
-        }),
+        (Some(shp), Some(pal)) => Some(UiAssetRef::with_palette_frame(shp, pal, page.background_frame)),
+        (Some(shp), None) => Some(UiAssetRef { name: shp.to_string(), palette: None, frame: Some(page.background_frame) }),
         (None, _) => None,
     };
     Some(UiPageResources {
@@ -198,11 +163,7 @@ pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResourc
         background,
         background_palette: page.background_pal.map(str::to_string),
         movie: page.movie_bik.map(UiAssetRef::named),
-        panels: page
-            .panels
-            .iter()
-            .map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame))
-            .collect(),
+        panels: page.panels.iter().map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame)).collect(),
         buttons: page.buttons.iter().map(slot_to_button).collect(),
         fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
     })
@@ -228,29 +189,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_main_menu_is_declared_complete_for_now() {
+    fn main_menu_and_single_player_are_declared_complete() {
         let pages = catalog_pre_game_pages();
         assert!(!pages.is_empty());
         for page in &pages {
-            if page.screen == OriginalScreen::MainMenu {
-                assert!(
-                    page.declared_refs_complete(),
-                    "主菜单应已声明背景与可点按钮资源名"
-                );
-                assert!(page.buttons[0].hover.is_none());
-                assert_eq!(page.buttons[0].normal.as_ref().unwrap().frame, Some(2));
-                assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
-                assert!(!page.panels.is_empty());
-                assert_eq!(
-                    page.movie.as_ref().map(|m| m.name.as_str()),
-                    Some("ra2ts_l.bik")
-                );
-            } else {
-                assert!(
-                    !page.declared_refs_complete(),
-                    "{} 仍无完整背景/按钮资源名",
-                    page.screen.as_str()
-                );
+            match page.screen {
+                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu => {
+                    assert!(
+                        page.declared_refs_complete(),
+                        "{} 应已声明背景与可点按钮资源名",
+                        page.screen.as_str()
+                    );
+                    assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
+                    assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
+                    assert!(!page.panels.is_empty());
+                    assert_eq!(page.movie.as_ref().map(|m| m.name.as_str()), Some("ra2ts_l.bik"));
+                }
+                _ => {
+                    assert!(
+                        !page.declared_refs_complete(),
+                        "{} 仍无完整背景/按钮资源名",
+                        page.screen.as_str()
+                    );
+                }
             }
         }
     }

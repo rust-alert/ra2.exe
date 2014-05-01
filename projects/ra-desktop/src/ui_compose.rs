@@ -6,7 +6,7 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
-    ui_layout::{MAIN_MENU_BUTTON_IDS, RectPx, main_menu_layout},
+    ui_layout::{MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, MainMenuLayout, RectPx, main_menu_layout, single_player_layout},
 };
 
 /// Alpha over 将 `src` 画到 `dst` 的 `(x,y)`（可裁剪）。
@@ -81,18 +81,14 @@ fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Opt
     decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
-/// 合成主菜单 chrome：背景 + 右侧板 + 按钮格（可选按下帧覆盖）。
-///
-/// `pressed_entry_id` 为当前按住的入口 id；无按下帧时回退常态。
-/// 缺背景或任一已声明按钮常态时返回 `None`（该页视觉验收不得通过）。
-pub fn compose_main_menu_page(
+/// 合成壳层菜单 chrome：背景 + 右侧板 + 给定按钮格（可选按下帧）。
+fn compose_shell_menu_page(
     decoded: &PageDecodeReport,
-    viewport_w: u32,
-    viewport_h: u32,
+    layout: MainMenuLayout,
+    button_ids: &[&str],
     pressed_entry_id: Option<&str>,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
-    let layout = main_menu_layout(viewport_w, viewport_h);
     let mut page = RgbaImage::from_raw(
         layout.canvas.w as u32,
         layout.canvas.h as u32,
@@ -123,12 +119,11 @@ pub fn compose_main_menu_page(
         blit_stretched(&mut page, &lower.image, layout.lower_strip);
     }
 
-    for (i, entry_id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
+    for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
         let sprite = if pressed_entry_id == Some(*entry_id) {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        }
-        else {
+        } else {
             normal
         };
         let cell = layout.buttons[i];
@@ -138,6 +133,37 @@ pub fn compose_main_menu_page(
 
     Some(page)
 }
+
+/// 合成主菜单 chrome。
+pub fn compose_main_menu_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+) -> Option<RgbaImage> {
+    compose_shell_menu_page(
+        decoded,
+        main_menu_layout(viewport_w, viewport_h),
+        &MAIN_MENU_BUTTON_IDS,
+        pressed_entry_id,
+    )
+}
+
+/// 合成单人游戏页 chrome（与主菜单共用壳层素材，按钮 id 不同）。
+pub fn compose_single_player_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+) -> Option<RgbaImage> {
+    compose_shell_menu_page(
+        decoded,
+        single_player_layout(viewport_w, viewport_h),
+        &SINGLE_PLAYER_BUTTON_IDS,
+        pressed_entry_id,
+    )
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -179,5 +205,24 @@ mod tests {
         let cell = layout.buttons[0];
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
         assert_eq!(&page.as_raw()[di..di + 4], &[200, 0, 0, 255]);
+    }
+
+    #[test]
+    fn compose_single_player_uses_skirmish_id() {
+        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+        let pressed = solid_sprite("sdbtnanm.shp#4", [0, 200, 0, 255]);
+        let decoded = PageDecodeReport {
+            background: Some(bg),
+            panels: Vec::new(),
+            button_normals: SINGLE_PLAYER_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+            button_presseds: vec![("skirmish", pressed)],
+            errors: Vec::new(),
+        };
+        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish")).unwrap();
+        let layout = single_player_layout(800, 600);
+        let cell = layout.buttons[1];
+        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
+        assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
     }
 }

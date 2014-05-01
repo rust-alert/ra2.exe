@@ -5,10 +5,7 @@
 //! **填了文件名 ≠ 已解码 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。**
 //! 页面级资源索引见 [`crate::ui_page`]；可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
 
-use crate::{
-    menu_action::MenuAction,
-    screen::OriginalScreen,
-};
+use crate::{menu_action::MenuAction, screen::OriginalScreen};
 
 /// 侧板 / 装饰层槽。
 #[derive(Debug, Clone, Copy)]
@@ -93,30 +90,10 @@ const SDBTNANM_FRAME_NORMAL: u16 = 2;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
-    UiPanelSlot {
-        id: "right_top",
-        shp: "sdtp.shp",
-        pal: "shell.pal",
-        frame: 0,
-    },
-    UiPanelSlot {
-        id: "right_tile",
-        shp: "sdbtnbkgd.shp",
-        pal: "shell2.pal",
-        frame: 0,
-    },
-    UiPanelSlot {
-        id: "right_bottom",
-        shp: "sdbtm.shp",
-        pal: "shell.pal",
-        frame: 0,
-    },
-    UiPanelSlot {
-        id: "lower_side",
-        shp: "lwscrnl.shp",
-        pal: "shell.pal",
-        frame: 0,
-    },
+    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
+    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
 ];
 
 const MAIN_MENU_FONTS: &[&str] = &["game.fnt"];
@@ -138,20 +115,11 @@ const fn main_menu_button(
         // 主菜单不闪悬停帧；图集可另有 hover 帧，页面策略关闭。
         hover_frame: None,
         pressed_frame: Some(SDBTNANM_FRAME_PRESSED),
-        disabled_frame: if enabled {
-            None
-        } else {
-            Some(SDBTNANM_FRAME_NORMAL)
-        },
+        disabled_frame: if enabled { None } else { Some(SDBTNANM_FRAME_NORMAL) },
     }
 }
 
-const fn empty_button(
-    entry_id: &'static str,
-    action: MenuAction,
-    enabled: bool,
-    hit: (f32, f32, f32, f32),
-) -> UiButtonSlot {
+const fn empty_button(entry_id: &'static str, action: MenuAction, enabled: bool, hit: (f32, f32, f32, f32)) -> UiButtonSlot {
     UiButtonSlot {
         entry_id,
         action,
@@ -168,42 +136,23 @@ const fn empty_button(
 
 // 命中框为 800×600 内容归一化；实际点击经 `ui_layout` + fit 相机，不直接用窗口比例。
 const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button(
-        "single_player",
-        MenuAction::OpenSinglePlayer,
-        true,
-        (0.805, 0.3317, 1.0, 0.4017),
-    ),
-    main_menu_button(
-        "network",
-        MenuAction::OpenNetwork,
-        false,
-        (0.805, 0.4017, 1.0, 0.4717),
-    ),
-    main_menu_button(
-        "options",
-        MenuAction::OpenOptions,
-        true,
-        (0.805, 0.4717, 1.0, 0.5417),
-    ),
+    main_menu_button("single_player", MenuAction::OpenSinglePlayer, true, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("network", MenuAction::OpenNetwork, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("options", MenuAction::OpenOptions, true, (0.805, 0.4717, 1.0, 0.5417)),
     main_menu_button("exit", MenuAction::Exit, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
+// 命中框占位；实际点击走 `ui_layout` 单人页像素格。
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("campaign", MenuAction::Noop, false, (0.28, 0.30, 0.72, 0.38)),
-    empty_button("skirmish", MenuAction::OpenSkirmish, true, (0.28, 0.42, 0.72, 0.50)),
-    empty_button("training", MenuAction::Noop, false, (0.28, 0.54, 0.72, 0.62)),
-    empty_button("back", MenuAction::Back, true, (0.28, 0.68, 0.72, 0.76)),
+    main_menu_button("campaign", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("skirmish", MenuAction::OpenSkirmish, true, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("training", MenuAction::Noop, false, (0.805, 0.4717, 1.0, 0.5417)),
+    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     empty_button("side", MenuAction::CycleSide, true, (0.18, 0.68, 0.48, 0.75)),
-    empty_button(
-        "difficulty",
-        MenuAction::CycleDifficulty,
-        true,
-        (0.52, 0.68, 0.82, 0.75),
-    ),
+    empty_button("difficulty", MenuAction::CycleDifficulty, true, (0.52, 0.68, 0.82, 0.75)),
     empty_button("start", MenuAction::StartSkirmish, true, (0.28, 0.80, 0.72, 0.87)),
     empty_button("back", MenuAction::Back, true, (0.28, 0.90, 0.72, 0.97)),
 ];
@@ -242,12 +191,13 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::SinglePlayerMenu => Some(UiPageSlots {
             screen,
-            background_shp: None,
-            background_pal: None,
+            // 与主菜单共用壳层 chrome（安装内已证实）；按钮文案待字体链路。
+            background_shp: Some("mnscrnl.shp"),
+            background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: None,
-            panels: &[],
-            fonts: &[],
+            movie_bik: Some("ra2ts_l.bik"),
+            panels: MAIN_MENU_PANELS,
+            fonts: MAIN_MENU_FONTS,
             buttons: SINGLE_PLAYER_BUTTONS,
         }),
         OriginalScreen::SkirmishLobby => Some(UiPageSlots {
@@ -323,7 +273,10 @@ mod tests {
         assert!(matches!(page.buttons[0].action, MenuAction::Noop));
         assert!(matches!(page.buttons[2].action, MenuAction::Noop));
         assert!(page.buttons.iter().any(|b| b.entry_id == "skirmish" && b.enabled));
-        assert!(!page.has_any_asset_name());
+        assert!(page.has_any_asset_name());
+        assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+        assert_eq!(page.buttons[1].normal_frame, Some(2));
+        assert_eq!(page.buttons[1].pressed_frame, Some(4));
     }
 
     #[test]

@@ -7,7 +7,9 @@ use crate::{
     boot::BootMapCandidate,
     menu_action::MenuAction,
     screen::OriginalScreen,
-    ui_layout::{MAIN_MENU_BUTTON_IDS, main_menu_layout, window_to_shell_px},
+    ui_layout::{
+        MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, main_menu_layout, single_player_layout, window_to_shell_px,
+    },
     ui_slots::slots_for,
 };
 
@@ -42,13 +44,10 @@ const LOBBY_X1: f32 = 0.82;
 ///
 /// 主菜单列表的归一化框是 **800×600 内容坐标**（非窗口坐标）；点击请走 [`hit_action`]。
 /// `load_allow_retry`：加载页「重试」是否可点（装载进行中为 `false`）。
-pub fn hits_for(
-    screen: OriginalScreen,
-    maps: &[BootMapCandidate],
-    load_allow_retry: bool,
-) -> Vec<MenuHit> {
+pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_retry: bool) -> Vec<MenuHit> {
     match screen {
         OriginalScreen::MainMenu => hits_main_menu(),
+        OriginalScreen::SinglePlayerMenu => hits_single_player(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
         OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
@@ -69,14 +68,10 @@ pub fn hit_action(
     if screen == OriginalScreen::MainMenu {
         return hit_main_menu_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
-    hit_at(
-        &hits_for(screen, maps, load_allow_retry),
-        cursor.0,
-        cursor.1,
-        win_w,
-        win_h,
-    )
-    .map(|(_, action)| action)
+    if screen == OriginalScreen::SinglePlayerMenu {
+        return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
+    hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action)
 }
 
 /// 命中命中区下标（仅 `enabled`）。
@@ -92,23 +87,13 @@ pub fn hover_index(
     if screen == OriginalScreen::MainMenu {
         return hit_main_menu_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
     }
-    hit_at(
-        &hits_for(screen, maps, load_allow_retry),
-        cursor.0,
-        cursor.1,
-        win_w,
-        win_h,
-    )
-    .map(|(i, _)| i)
+    if screen == OriginalScreen::SinglePlayerMenu {
+        return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
+    hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i)
 }
 
-fn hit_at(
-    hits: &[MenuHit],
-    cursor_x: f64,
-    cursor_y: f64,
-    win_w: f64,
-    win_h: f64,
-) -> Option<(usize, MenuAction)> {
+fn hit_at(hits: &[MenuHit], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     if win_w <= 0.0 || win_h <= 0.0 {
         return None;
     }
@@ -152,12 +137,7 @@ fn hits_main_menu() -> Vec<MenuHit> {
         .collect()
 }
 
-fn hit_main_menu_at(
-    cursor_x: f64,
-    cursor_y: f64,
-    win_w: f64,
-    win_h: f64,
-) -> Option<(usize, MenuAction)> {
+fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     if win_w <= 0.0 || win_h <= 0.0 {
         return None;
     }
@@ -182,6 +162,59 @@ fn hit_main_menu_at(
     None
 }
 
+fn hits_single_player() -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::SinglePlayerMenu)
+    else {
+        return Vec::new();
+    };
+    let layout = single_player_layout(0, 0);
+    let bw = layout.canvas.w as f32;
+    let bh = layout.canvas.h as f32;
+    SINGLE_PLAYER_BUTTON_IDS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, id)| {
+            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
+            let cell = layout.buttons[i];
+            Some(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            })
+        })
+        .collect()
+}
+
+fn hit_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = single_player_layout(0, 0);
+    let Some(page) = slots_for(OriginalScreen::SinglePlayerMenu)
+    else {
+        return None;
+    };
+    for (i, id) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if layout.buttons[i].contains(sx, sy) {
+            return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+
 fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
     let Some(page) = slots_for(screen)
     else {
@@ -191,15 +224,7 @@ fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
         .iter()
         .map(|btn| {
             let (x0, y0, x1, y1) = btn.hit;
-            MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0,
-                y0,
-                x1,
-                y1,
-                enabled: btn.enabled,
-            }
+            MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled: btn.enabled }
         })
         .collect()
 }
@@ -213,21 +238,8 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
         .iter()
         .map(|btn| {
             let (x0, y0, x1, y1) = btn.hit;
-            let enabled = if btn.entry_id == "retry" {
-                allow_retry
-            }
-            else {
-                btn.enabled
-            };
-            MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0,
-                y0,
-                x1,
-                y1,
-                enabled,
-            }
+            let enabled = if btn.entry_id == "retry" { allow_retry } else { btn.enabled };
+            MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled }
         })
         .collect()
 }
@@ -250,15 +262,7 @@ fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
         for btn in page.buttons {
             let (x0, y0, x1, y1) = btn.hit;
-            hits.push(MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0,
-                y0,
-                x1,
-                y1,
-                enabled: btn.enabled,
-            });
+            hits.push(MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled: btn.enabled });
         }
     }
     hits
@@ -272,15 +276,7 @@ mod tests {
     #[test]
     fn main_menu_hit_single_player() {
         // 右侧首钮格中心：壳层约 (722, 220) → 1024×768 fit 后约 (924, 282)
-        let action = hit_action(
-            OriginalScreen::MainMenu,
-            &[],
-            None,
-            (924.0, 282.0),
-            1024.0,
-            768.0,
-            false,
-        );
+        let action = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false);
         assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
     }
 
@@ -297,64 +293,22 @@ mod tests {
     #[test]
     fn disabled_network_not_hit() {
         // 网络钮格中心约壳层 (722, 262) → 窗口约 (924, 335)，禁用。
-        let action = hit_action(
-            OriginalScreen::MainMenu,
-            &[],
-            None,
-            (924.0, 335.0),
-            1024.0,
-            768.0,
-            false,
-        );
+        let action = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false);
         assert_eq!(action, None);
     }
 
     #[test]
     fn lobby_map_row_is_selectable() {
-        let maps = vec![BootMapCandidate {
-            file_name: "mp03t4.map".into(),
-            width: 50,
-            height: 50,
-            theater: Theater::Temperate,
-        }];
+        let maps =
+            vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate }];
         // 首行约 y=0.18 → 138px
-        let action = hit_action(
-            OriginalScreen::SkirmishLobby,
-            &maps,
-            Some("mp03t4.map"),
-            (400.0, 150.0),
-            1024.0,
-            768.0,
-            false,
-        );
+        let action = hit_action(OriginalScreen::SkirmishLobby, &maps, Some("mp03t4.map"), (400.0, 150.0), 1024.0, 768.0, false);
         assert_eq!(action, Some(MenuAction::SelectMap(0)));
     }
 
     #[test]
     fn hover_index_tracks_enabled_button() {
-        assert_eq!(
-            hover_index(
-                OriginalScreen::MainMenu,
-                &[],
-                None,
-                (924.0, 282.0),
-                1024.0,
-                768.0,
-                false,
-            ),
-            Some(0)
-        );
-        assert_eq!(
-            hover_index(
-                OriginalScreen::MainMenu,
-                &[],
-                None,
-                (924.0, 335.0),
-                1024.0,
-                768.0,
-                false,
-            ),
-            None
-        );
+        assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false,), Some(0));
+        assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false,), None);
     }
 }
