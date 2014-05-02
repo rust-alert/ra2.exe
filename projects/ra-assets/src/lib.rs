@@ -29,6 +29,7 @@ pub use image::{
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
     fnt::{FntFile, FntGlyph},
+    csf::CsfFile,
 };
 pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 pub use mix::{
