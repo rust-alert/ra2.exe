@@ -31,6 +31,7 @@ mod ui_layout;
 mod ui_page;
 mod ui_resolve;
 mod ui_slots;
+mod ui_text;
 
 use ra_types::RaResult;
 use tracing_appender::non_blocking::WorkerGuard;

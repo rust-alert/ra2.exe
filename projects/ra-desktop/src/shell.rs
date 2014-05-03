@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{BinkVideoDecoder, parse_bink_file};
+use ra_assets::{BinkVideoDecoder, CsfFile, FntFile, parse_bink_file};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, RaError, RaResult};
 use winit::{
@@ -67,6 +67,10 @@ pub struct AppShell {
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
     menu_pressed_entry: Option<&'static str>,
+    /// 菜单字体（`game.fnt`）。
+    menu_font: Option<FntFile>,
+    /// 菜单文案表（`ra2.csf` / `ra2md.csf`）。
+    menu_csf: Option<CsfFile>,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重。
@@ -114,6 +118,8 @@ impl AppShell {
             ui_probe: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_font: None,
+            menu_csf: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -145,6 +151,8 @@ impl AppShell {
             ui_probe: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_font: None,
+            menu_csf: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -428,6 +436,50 @@ impl AppShell {
         }
     }
 
+    fn ensure_menu_text_assets(&mut self) {
+        let font_bytes = self
+            .ui_probe
+            .as_ref()
+            .and_then(|p| p.source.as_ref())
+            .and_then(|s| s.read("game.fnt").ok());
+        let csf_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| {
+            for name in ["ra2.csf", "ra2md.csf"] {
+                if let Ok(bytes) = s.read(name) {
+                    return Some((name, bytes));
+                }
+            }
+            None
+        });
+
+        if self.menu_font.is_none() {
+            if let Some(bytes) = font_bytes {
+                match FntFile::parse(&bytes) {
+                    Ok(fnt) => {
+                        tracing::info!(glyphs = fnt.glyph_count(), "菜单字体已解析 · game.fnt");
+                        self.menu_font = Some(fnt);
+                    }
+                    Err(e) => tracing::warn!("game.fnt 解析失败 · {e}"),
+                }
+            } else {
+                tracing::warn!("game.fnt 不可读");
+            }
+        }
+        if self.menu_csf.is_none() {
+            if let Some((name, bytes)) = csf_bytes {
+                match CsfFile::parse(&bytes) {
+                    Ok(csf) => {
+                        tracing::info!(entries = csf.len(), file = name, "菜单文案表已解析");
+                        self.menu_csf = Some(csf);
+                    }
+                    Err(e) => tracing::warn!("{name} 解析失败 · {e}"),
+                }
+            } else {
+                tracing::warn!("未找到可读的 ra2.csf / ra2md.csf");
+            }
+        }
+    }
+
+
     /// 前置页：主菜单上传合成 chrome；大厅可显示地图预览；其余清空 UI/预览。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
@@ -435,6 +487,7 @@ impl AppShell {
             return;
         }
         self.ensure_ui_probe();
+        self.ensure_menu_text_assets();
         if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
@@ -444,12 +497,16 @@ impl AppShell {
                         self.window_width as u32,
                         self.window_height as u32,
                         self.menu_pressed_entry,
+                        self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
                     ),
                     OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
                         self.menu_pressed_entry,
+                        self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
                     ),
                     _ => None,
                 };
@@ -921,40 +978,15 @@ impl ApplicationHandler for AppShell {
                 WindowEvent::CursorMoved { position, .. } => {
                     self.cursor = (position.x, position.y);
                 }
-                WindowEvent::MouseInput {
-                    state,
-                    button: winit::event::MouseButton::Left,
-                    ..
-                } => {
-                    match state {
-                        ElementState::Pressed => {
-                            if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
-                                let ids: &[&str] = match self.screen {
-                                    OriginalScreen::MainMenu => &ui_layout::MAIN_MENU_BUTTON_IDS,
-                                    OriginalScreen::SinglePlayerMenu => &ui_layout::SINGLE_PLAYER_BUTTON_IDS,
-                                    _ => &[],
-                                };
-                                let next = ui_hit::hover_index(
-                                    self.screen,
-                                    &self.lobby_maps,
-                                    self.selected_map.as_deref(),
-                                    self.cursor,
-                                    self.window_width,
-                                    self.window_height,
-                                    self.load_allow_retry(),
-                                )
-                                .and_then(|i| ids.get(i).copied());
-                                if next != self.menu_pressed_entry {
-                                    self.menu_pressed_entry = next;
-                                    self.refresh_menu_backdrop();
-                                }
-                            }
-                        }
-                        ElementState::Released => {
-                            if self.menu_pressed_entry.take().is_some() {
-                                self.refresh_menu_backdrop();
-                            }
-                            let action = ui_hit::hit_action(
+                WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
+                    ElementState::Pressed => {
+                        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+                            let ids: &[&str] = match self.screen {
+                                OriginalScreen::MainMenu => &ui_layout::MAIN_MENU_BUTTON_IDS,
+                                OriginalScreen::SinglePlayerMenu => &ui_layout::SINGLE_PLAYER_BUTTON_IDS,
+                                _ => &[],
+                            };
+                            let next = ui_hit::hover_index(
                                 self.screen,
                                 &self.lobby_maps,
                                 self.selected_map.as_deref(),
@@ -962,14 +994,33 @@ impl ApplicationHandler for AppShell {
                                 self.window_width,
                                 self.window_height,
                                 self.load_allow_retry(),
-                            );
-                            if let Some(action) = action {
-                                tracing::debug!(?action, "菜单逻辑命中");
-                                self.apply_menu_action(event_loop, action);
+                            )
+                            .and_then(|i| ids.get(i).copied());
+                            if next != self.menu_pressed_entry {
+                                self.menu_pressed_entry = next;
+                                self.refresh_menu_backdrop();
                             }
                         }
                     }
-                }
+                    ElementState::Released => {
+                        if self.menu_pressed_entry.take().is_some() {
+                            self.refresh_menu_backdrop();
+                        }
+                        let action = ui_hit::hit_action(
+                            self.screen,
+                            &self.lobby_maps,
+                            self.selected_map.as_deref(),
+                            self.cursor,
+                            self.window_width,
+                            self.window_height,
+                            self.load_allow_retry(),
+                        );
+                        if let Some(action) = action {
+                            tracing::debug!(?action, "菜单逻辑命中");
+                            self.apply_menu_action(event_loop, action);
+                        }
+                    }
+                },
                 WindowEvent::KeyboardInput { event: key_ev, .. } => {
                     if key_ev.state == ElementState::Pressed {
                         self.handle_pre_game_key(event_loop, key_ev.physical_key);

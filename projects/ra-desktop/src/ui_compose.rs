@@ -2,11 +2,18 @@
 //!
 //! 合成 ≠ atlas/instance 终态；当前只为验证颜色、原尺寸与粗略位置。
 
+use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
 
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
-    ui_layout::{MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, MainMenuLayout, RectPx, main_menu_layout, single_player_layout},
+    ui_layout::{
+        MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, main_menu_layout, single_player_layout,
+    },
+    ui_text::{
+        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, main_menu_csf_label, resolve_caption,
+        single_player_csf_label,
+    },
 };
 
 /// Alpha over 将 `src` 画到 `dst` 的 `(x,y)`（可裁剪）。
@@ -81,12 +88,14 @@ fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Opt
     decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
-/// 合成壳层菜单 chrome：背景 + 右侧板 + 给定按钮格（可选按下帧）。
 fn compose_shell_menu_page(
     decoded: &PageDecodeReport,
     layout: MainMenuLayout,
     button_ids: &[&str],
     pressed_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    single_player: bool,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
@@ -95,7 +104,6 @@ fn compose_shell_menu_page(
         vec![0u8; (layout.canvas.w as usize) * (layout.canvas.h as usize) * 4],
     )?;
 
-    // 父背景：原尺寸贴在影片区左上（约 632×568），不拉伸铺满。
     blit_rgba(&mut page, &bg.image, layout.background.x, layout.background.y);
 
     if let Some(top) = find_panel(decoded, "sdtp.shp") {
@@ -121,14 +129,17 @@ fn compose_shell_menu_page(
 
     for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
-        let sprite = if pressed_entry_id == Some(*entry_id) {
-            find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else {
-            normal
-        };
+        let sprite =
+            if pressed_entry_id == Some(*entry_id) { find_button_pressed(decoded, entry_id).unwrap_or(normal) } else { normal };
         let cell = layout.buttons[i];
-        // 按钮保持原尺寸（156×42），锚定在格左上，不拉伸。
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        if let Some(fnt) = fnt {
+            let key = if single_player { single_player_csf_label(entry_id) } else { main_menu_csf_label(entry_id) };
+            let caption = resolve_caption(csf, entry_id, key);
+            let disabled = matches!(*entry_id, "network" | "campaign" | "training");
+            let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
+            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, color);
+        }
     }
 
     Some(page)
@@ -140,30 +151,39 @@ pub fn compose_main_menu_page(
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
         main_menu_layout(viewport_w, viewport_h),
         &MAIN_MENU_BUTTON_IDS,
         pressed_entry_id,
+        fnt,
+        csf,
+        false,
     )
 }
 
-/// 合成单人游戏页 chrome（与主菜单共用壳层素材，按钮 id 不同）。
+/// 合成单人游戏页 chrome。
 pub fn compose_single_player_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
         single_player_layout(viewport_w, viewport_h),
         &SINGLE_PLAYER_BUTTON_IDS,
         pressed_entry_id,
+        fnt,
+        csf,
+        true,
     )
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -200,7 +220,7 @@ mod tests {
             button_presseds: vec![("single_player", pressed)],
             errors: Vec::new(),
         };
-        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player")).unwrap();
+        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None).unwrap();
         let layout = main_menu_layout(800, 600);
         let cell = layout.buttons[0];
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -219,7 +239,7 @@ mod tests {
             button_presseds: vec![("skirmish", pressed)],
             errors: Vec::new(),
         };
-        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish")).unwrap();
+        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None).unwrap();
         let layout = single_player_layout(800, 600);
         let cell = layout.buttons[1];
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
