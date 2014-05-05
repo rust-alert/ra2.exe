@@ -31,6 +31,8 @@ fn bfs_detours_around_structure() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
+    // 墙体属 Neutral，先入房主序会把本地玩家落在 Neutral；命令需切到美国人。
+    assert!(world.prefer_local_house("Americans"));
     assert!(!world.pass_grid.is_passable(12, 10));
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });
     world.advance_tick();
