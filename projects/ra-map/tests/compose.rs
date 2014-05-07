@@ -12,9 +12,9 @@ fn compose_one_opaque_tile() {
     })
     .unwrap();
     assert_eq!(img.drawn, 1);
-    assert!(img.width >= 60);
-    assert!(img.height >= 30);
-    assert!(img.pixels.chunks(4).any(|c| c[3] == 255));
+    assert!(img.image.width() >= 60);
+    assert!(img.image.height() >= 30);
+    assert!(img.image.as_raw().chunks(4).any(|c| c[3] == 255));
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn paint_overlay_marks_pixel() {
     let overlays = [OverlayCell { x: 2, y: 3, overlay_id: 110, data: 0 }];
     let n = paint_overlay_markers(&mut img, &overlays, |_, _| 0);
     assert_eq!(n, 1);
-    assert!(img.pixels.chunks(4).any(|c| c[0] == 230 && c[1] == 190 && c[2] == 40));
+    assert!(img.image.as_raw().chunks(4).any(|c| c[0] == 230 && c[1] == 190 && c[2] == 40));
 }
 
 #[test]
@@ -52,5 +52,5 @@ fn paint_cell_sprite_marks_pixel() {
     let items = [(2u16, 3u16, TileBlit { width: 4, height: 4, offset_x: 28, offset_y: 13, rgba: sprite })];
     let n = paint_cell_sprites(&mut img, &items, |_, _| 0);
     assert_eq!(n, 1);
-    assert!(img.pixels.chunks(4).any(|c| c[0] == 255 && c[1] == 0));
+    assert!(img.image.as_raw().chunks(4).any(|c| c[0] == 255 && c[1] == 0));
 }
