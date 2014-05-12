@@ -24,12 +24,13 @@ pub use image::{
     },
     bink_huff::HuffmanTree,
     bink_tables::DC_START_BITS,
+    bink_idct::{BINK_SCAN, bink_idct, idct_add, idct_put},
     bink_video::{BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8},
+    csf::CsfFile,
+    fnt::{FntFile, FntGlyph},
     pal::{Palette, Rgba},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
-    fnt::{FntFile, FntGlyph},
-    csf::CsfFile,
 };
 pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 pub use mix::{
