@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{BinkVideoDecoder, CsfFile, FntFile, parse_bink_file};
+use ra_assets::{CsfFile, FntFile};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, RaError, RaResult};
 use winit::{
@@ -24,6 +24,7 @@ use crate::{
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
     ui_compose, ui_decode, ui_hit, ui_layout,
+    ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
     ui_resolve,
 };
@@ -71,6 +72,10 @@ pub struct AppShell {
     menu_font: Option<FntFile>,
     /// 菜单文案表（`ra2.csf` / `ra2md.csf`）。
     menu_csf: Option<CsfFile>,
+    /// 主菜单 / 单人页循环影片。
+    menu_movie: Option<MenuMoviePlayer>,
+    /// 影片时钟（`tick` 用）。
+    menu_movie_clock: Option<Instant>,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重。
@@ -120,6 +125,8 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_font: None,
             menu_csf: None,
+            menu_movie: None,
+            menu_movie_clock: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -153,6 +160,8 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_font: None,
             menu_csf: None,
+            menu_movie: None,
+            menu_movie_clock: None,
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
@@ -348,45 +357,33 @@ impl AppShell {
 
         if let Some(movie) = page.movie.as_ref() {
             match source.read(&movie.name) {
-                Ok(bytes) => match parse_bink_file(&bytes) {
-                    Ok(file) => {
-                        let hdr = &file.header;
-                        let pkt0 = file.frame_packet(&bytes, 0).ok();
-                        let video0 = pkt0.map(|p| p.video.len()).unwrap_or(0);
-                        match BinkVideoDecoder::new(hdr) {
-                            Ok(_) => tracing::info!(
-                                name = %movie.name,
-                                w = hdr.width,
-                                h = hdr.height,
-                                frames = hdr.num_frames,
-                                fps = hdr.fps(),
-                                video0,
-                                "主菜单影片容器已解析 · 解码器已构造（码流未解）"
-                            ),
-                            Err(e) => tracing::warn!(
-                                name = %movie.name,
-                                "影片解码器构造失败 · {e}"
-                            ),
-                        }
-                        banner = format!(
-                            "{banner} · {} {}×{} {}帧 @{:.0}fps · 包0视频{}B",
-                            movie.name,
-                            hdr.width,
-                            hdr.height,
-                            hdr.num_frames,
-                            hdr.fps(),
-                            video0
+                Ok(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
+                    Ok(player) => {
+                        tracing::info!(
+                            name = %player.name(),
+                            "主菜单影片播放器已就绪（自研 Bink）"
                         );
+                        banner = format!("{banner} · {} 已解首帧", movie.name);
+                        self.menu_movie = Some(player);
+                        self.menu_movie_clock = Some(Instant::now());
                     }
                     Err(e) => {
-                        tracing::warn!(name = %movie.name, "影片容器解析失败 · {e}");
-                        banner = format!("{banner} · {} 容器失败", movie.name);
+                        tracing::warn!(name = %movie.name, "影片播放器启动失败 · {e}");
+                        banner = format!("{banner} · {} 解码失败", movie.name);
+                        self.menu_movie = None;
+                        self.menu_movie_clock = None;
                     }
                 },
                 Err(_) => {
                     tracing::warn!(name = %movie.name, "影片不可读");
+                    self.menu_movie = None;
+                    self.menu_movie_clock = None;
                 }
             }
+        }
+        else {
+            self.menu_movie = None;
+            self.menu_movie_clock = None;
         }
 
         self.banner = banner;
@@ -397,6 +394,10 @@ impl AppShell {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.menu_pressed_entry = None;
+            if !matches!(next, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+                self.menu_movie = None;
+                self.menu_movie_clock = None;
+            }
             self.refresh_ui_resolve_note();
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
@@ -437,11 +438,7 @@ impl AppShell {
     }
 
     fn ensure_menu_text_assets(&mut self) {
-        let font_bytes = self
-            .ui_probe
-            .as_ref()
-            .and_then(|p| p.source.as_ref())
-            .and_then(|s| s.read("game.fnt").ok());
+        let font_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| s.read("game.fnt").ok());
         let csf_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| {
             for name in ["ra2.csf", "ra2md.csf"] {
                 if let Ok(bytes) = s.read(name) {
@@ -460,7 +457,8 @@ impl AppShell {
                     }
                     Err(e) => tracing::warn!("game.fnt 解析失败 · {e}"),
                 }
-            } else {
+            }
+            else {
                 tracing::warn!("game.fnt 不可读");
             }
         }
@@ -473,12 +471,12 @@ impl AppShell {
                     }
                     Err(e) => tracing::warn!("{name} 解析失败 · {e}"),
                 }
-            } else {
+            }
+            else {
                 tracing::warn!("未找到可读的 ra2.csf / ra2md.csf");
             }
         }
     }
-
 
     /// 前置页：主菜单上传合成 chrome；大厅可显示地图预览；其余清空 UI/预览。
     fn refresh_menu_backdrop(&mut self) {
@@ -491,6 +489,7 @@ impl AppShell {
         if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
+                let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
                     OriginalScreen::MainMenu => ui_compose::compose_main_menu_page(
                         decoded,
@@ -499,6 +498,7 @@ impl AppShell {
                         self.menu_pressed_entry,
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
+                        movie,
                     ),
                     OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
                         decoded,
@@ -507,6 +507,7 @@ impl AppShell {
                         self.menu_pressed_entry,
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
+                        movie,
                     ),
                     _ => None,
                 };
@@ -863,6 +864,18 @@ impl AppShell {
             self.renderer.timings.presentation_build = None;
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
+            }
+            if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+                let dt = self.menu_movie_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0);
+                let advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt.min(0.25)));
+                if advanced {
+                    self.refresh_menu_backdrop();
+                }
+                else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
+                    if !self.banner.contains("影片失步") {
+                        self.banner = format!("{} · 影片失步 · {reason}", self.banner);
+                    }
+                }
             }
             if self.screen == OriginalScreen::SkirmishLobby {
                 let ready = self.poll_lobby_preview();

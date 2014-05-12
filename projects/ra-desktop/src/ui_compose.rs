@@ -1,6 +1,6 @@
-//! 将已解码壳层精灵合成整页 RGBA（上传 `set_ui_page` 之前）。
+//! ???????????? RGBA??? `set_ui_page` ????
 //!
-//! 合成 ≠ atlas/instance 终态；当前只为验证颜色、原尺寸与粗略位置。
+//! ?? ? atlas/instance ?????????????????????
 
 use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-/// Alpha over 将 `src` 画到 `dst` 的 `(x,y)`（可裁剪）。
+/// Alpha over ? `src` ?? `dst` ? `(x,y)`??????
 pub fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     if src.width() == 0 || src.height() == 0 || dst.width() == 0 || dst.height() == 0 {
         return;
@@ -56,7 +56,7 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
     }
-    // 面板条允许纵向/横向铺满目标格；用最近邻，避免模糊。
+    // ???????/??????????????????
     for row in 0..rect.h as u32 {
         let sy = row * src.height() / rect.h as u32;
         for col in 0..rect.w as u32 {
@@ -95,6 +95,7 @@ fn compose_shell_menu_page(
     pressed_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
+    movie: Option<&RgbaImage>,
     single_player: bool,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
@@ -105,6 +106,9 @@ fn compose_shell_menu_page(
     )?;
 
     blit_rgba(&mut page, &bg.image, layout.background.x, layout.background.y);
+    if let Some(frame) = movie {
+        blit_stretched(&mut page, frame, layout.movie);
+    }
 
     if let Some(top) = find_panel(decoded, "sdtp.shp") {
         blit_stretched(&mut page, &top.image, layout.panel_top);
@@ -145,7 +149,7 @@ fn compose_shell_menu_page(
     Some(page)
 }
 
-/// 合成主菜单 chrome。
+/// ????? chrome?
 pub fn compose_main_menu_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -153,6 +157,7 @@ pub fn compose_main_menu_page(
     pressed_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
+    movie: Option<&RgbaImage>,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -161,11 +166,12 @@ pub fn compose_main_menu_page(
         pressed_entry_id,
         fnt,
         csf,
+        movie,
         false,
     )
 }
 
-/// 合成单人游戏页 chrome。
+/// ??????? chrome?
 pub fn compose_single_player_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -173,6 +179,7 @@ pub fn compose_single_player_page(
     pressed_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
+    movie: Option<&RgbaImage>,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -181,6 +188,7 @@ pub fn compose_single_player_page(
         pressed_entry_id,
         fnt,
         csf,
+        movie,
         true,
     )
 }
@@ -220,7 +228,7 @@ mod tests {
             button_presseds: vec![("single_player", pressed)],
             errors: Vec::new(),
         };
-        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None).unwrap();
+        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None).unwrap();
         let layout = main_menu_layout(800, 600);
         let cell = layout.buttons[0];
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -239,7 +247,7 @@ mod tests {
             button_presseds: vec![("skirmish", pressed)],
             errors: Vec::new(),
         };
-        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None).unwrap();
+        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None).unwrap();
         let layout = single_player_layout(800, 600);
         let cell = layout.buttons[1];
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;

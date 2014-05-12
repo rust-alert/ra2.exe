@@ -192,6 +192,17 @@ impl BinkVideoDecoder {
         self.has_prev
     }
 
+    /// 清空双缓冲，回到可解关键帧的状态（循环播放回绕时用）。
+    pub fn reset(&mut self) {
+        let with_alpha = self.has_alpha;
+        if let Ok(blank) = BinkYuvFrame::blank(self.width, self.height, with_alpha) {
+            self.cur = blank.clone();
+            self.prev = blank;
+        }
+        self.has_prev = false;
+        self.col_lastval = 0;
+    }
+
     /// 解码一帧视频码流（`BinkFramePacket::video`）。
     ///
     /// 已接 SKIP / FILL / PATTERN / MOTION / INTRA DCT / INTER DCT；
