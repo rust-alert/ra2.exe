@@ -13,6 +13,7 @@ use super::{
     bink_huff::HuffmanTree,
     bink_idct::{idct_add, idct_put},
     bink_patterns::BINK_RUN_PATTERNS,
+    bink_residue::{add_pixels8, read_residue},
     bink_tables::DC_START_BITS,
 };
 
@@ -206,8 +207,8 @@ impl BinkVideoDecoder {
 
     /// 解码一帧视频码流（`BinkFramePacket::video`）。
     ///
-    /// 已接 SKIP / FILL / PATTERN / MOTION / INTRA / INTER / RUN / RAW；
-    /// RESIDUE / SCALED 仍返回 `NotImplemented`。
+    /// 已接 SKIP / FILL / PATTERN / MOTION / INTRA / INTER / RUN / RAW / RESIDUE；
+    /// SCALED 仍返回 `NotImplemented`。
     pub fn decode_packet(&mut self, video: &[u8], _is_keyframe: bool) -> Result<&BinkYuvFrame, BinkVideoError> {
         if self.has_alpha {
             return Err(BinkVideoError::Msg("暂不支持带 alpha 的 Bink".into()));
@@ -321,6 +322,16 @@ impl BinkVideoDecoder {
                         }
                         self.pattern_block(plane_idx, bx, by, width, height, &patterns, c0, c1);
                     }
+                    4 => {
+                        // RESIDUE：运动补偿后加残差。
+                        let ox = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::XOff as usize) as i8 as i32;
+                        let oy = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::YOff as usize) as i8 as i32;
+                        self.copy_block(plane_idx, bx, by, width, height, ox, oy);
+                        let masks = r.read_bits(7)? as i32;
+                        let mut block = [0i16; 64];
+                        read_residue(r, &mut block, masks)?;
+                        self.add_residue_block(plane_idx, bx, by, width, height, &block);
+                    }
                     3 => {
                         // RUN：按扫描图案填色。
                         self.run_block(r, plane_idx, bx, by, width, height)?;
@@ -345,9 +356,8 @@ impl BinkVideoDecoder {
                         self.idct_add_block(plane_idx, bx, by, width, height, &mut block);
                     }
                     _ => {
-                        // SCALED / RESIDUE：尚未接完。
-                        if matches!(blk, 1 | 4) {
-                            return Err(BinkVideoError::NotImplemented("复杂块类型（SCALED/RESIDUE）"));
+                        if blk == 1 {
+                            return Err(BinkVideoError::NotImplemented("SCALED 16×16 块"));
                         }
                         self.copy_block(plane_idx, bx, by, width, height, 0, 0);
                     }
@@ -450,6 +460,56 @@ impl BinkVideoDecoder {
                 let x = x0 + col;
                 if y < h && x < w {
                     self.put_plane_px(plane_idx, w, x, y, v);
+                }
+            }
+        }
+    }
+
+    fn add_residue_block(
+        &mut self,
+        plane_idx: usize,
+        bx: u32,
+        by: u32,
+        width: u32,
+        height: u32,
+        block: &[i16; 64],
+    ) {
+        let (w, h) = Self::plane_dims(width, height);
+        let x0 = (bx as usize) * 8;
+        let y0 = (by as usize) * 8;
+        if x0 + 8 <= w && y0 + 8 <= h {
+            let plane = match plane_idx {
+                0 => self.cur.y.as_mut_slice(),
+                1 => self.cur.u.as_mut_slice(),
+                _ => self.cur.v.as_mut_slice(),
+            };
+            add_pixels8(&mut plane[y0 * w + x0..], w, block);
+            return;
+        }
+        for row in 0..8usize {
+            let y = y0 + row;
+            if y >= h {
+                break;
+            }
+            for col in 0..8usize {
+                let x = x0 + col;
+                if x >= w {
+                    break;
+                }
+                let add = i32::from(block[row * 8 + col]);
+                match plane_idx {
+                    0 => {
+                        let i = y * w + x;
+                        self.cur.y[i] = (i32::from(self.cur.y[i]) + add).clamp(0, 255) as u8;
+                    }
+                    1 => {
+                        let i = y * w + x;
+                        self.cur.u[i] = (i32::from(self.cur.u[i]) + add).clamp(0, 255) as u8;
+                    }
+                    _ => {
+                        let i = y * w + x;
+                        self.cur.v[i] = (i32::from(self.cur.v[i]) + add).clamp(0, 255) as u8;
+                    }
                 }
             }
         }
