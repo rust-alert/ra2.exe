@@ -207,8 +207,7 @@ impl BinkVideoDecoder {
 
     /// 解码一帧视频码流（`BinkFramePacket::video`）。
     ///
-    /// 已接 SKIP / FILL / PATTERN / MOTION / INTRA / INTER / RUN / RAW / RESIDUE；
-    /// SCALED 仍返回 `NotImplemented`。
+    /// 已接全部 BIKi/BIKk 常用平面块类型（含 SCALED 16×16）。
     pub fn decode_packet(&mut self, video: &[u8], _is_keyframe: bool) -> Result<&BinkYuvFrame, BinkVideoError> {
         if self.has_alpha {
             return Err(BinkVideoError::Msg("暂不支持带 alpha 的 Bink".into()));
@@ -294,36 +293,31 @@ impl BinkVideoDecoder {
     ) -> Result<(), BinkVideoError> {
         for by in 0..bh {
             self.refill_row_bundles(r)?;
-            for bx in 0..bw {
+            let mut bx = 0u32;
+            while bx < bw {
                 let blk = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::BlockTypes as usize);
+                // 奇数行/列上的 SCALED 标记属于已解的 16×16，跳过并多推进一格。
+                if blk == 1 && ((by & 1) != 0 || (bx & 1) != 0) {
+                    bx += 2;
+                    continue;
+                }
                 match blk {
                     0 => {
-                        // SKIP：复制上一帧同位置 8×8。
                         self.copy_block(plane_idx, bx, by, width, height, 0, 0);
                     }
+                    1 => {
+                        self.scaled_block(r, plane_idx, bx, by, width, height)?;
+                        bx += 1; // 再加下面公共 +1 → 共跳过右侧 8×8
+                    }
                     2 => {
-                        // MOTION：按偏移从上一帧复制。
                         let ox = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::XOff as usize) as i8 as i32;
                         let oy = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::YOff as usize) as i8 as i32;
                         self.copy_block(plane_idx, bx, by, width, height, ox, oy);
                     }
-                    6 => {
-                        // FILL：纯色块。
-                        let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-                        self.fill_block(plane_idx, bx, by, width, height, v);
-                    }
-                    8 => {
-                        // PATTERN：两色，每行一个 8bit 图案（共 8 行）。
-                        let c0 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-                        let c1 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-                        let mut patterns = [0u8; 8];
-                        for p in &mut patterns {
-                            *p = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Pattern as usize);
-                        }
-                        self.pattern_block(plane_idx, bx, by, width, height, &patterns, c0, c1);
+                    3 => {
+                        self.run_block(r, plane_idx, bx, by, width, height)?;
                     }
                     4 => {
-                        // RESIDUE：运动补偿后加残差。
                         let ox = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::XOff as usize) as i8 as i32;
                         let oy = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::YOff as usize) as i8 as i32;
                         self.copy_block(plane_idx, bx, by, width, height, ox, oy);
@@ -332,22 +326,16 @@ impl BinkVideoDecoder {
                         read_residue(r, &mut block, masks)?;
                         self.add_residue_block(plane_idx, bx, by, width, height, &block);
                     }
-                    3 => {
-                        // RUN：按扫描图案填色。
-                        self.run_block(r, plane_idx, bx, by, width, height)?;
-                    }
-                    9 => {
-                        // RAW：64 个颜色字节按行主序写入。
-                        self.raw_block(plane_idx, bx, by, width, height);
-                    }
                     5 => {
-                        // INTRA DCT：DC + AC → 反量化 → IDCT put。
                         let dc = take_value16(&mut self.bundles, &self.bundle_data, BinkSrc::IntraDc as usize) as i32;
                         let mut block = decode_intra_dct_block(r, dc)?;
                         self.idct_put_block(plane_idx, bx, by, width, height, &mut block);
                     }
+                    6 => {
+                        let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                        self.fill_block(plane_idx, bx, by, width, height, v);
+                    }
                     7 => {
-                        // INTER DCT：运动补偿复制后加残差 IDCT。
                         let ox = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::XOff as usize) as i8 as i32;
                         let oy = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::YOff as usize) as i8 as i32;
                         self.copy_block(plane_idx, bx, by, width, height, ox, oy);
@@ -355,14 +343,163 @@ impl BinkVideoDecoder {
                         let mut block = decode_inter_dct_block(r, dc)?;
                         self.idct_add_block(plane_idx, bx, by, width, height, &mut block);
                     }
-                    _ => {
-                        if blk == 1 {
-                            return Err(BinkVideoError::NotImplemented("SCALED 16×16 块"));
+                    8 => {
+                        let c0 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                        let c1 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                        let mut patterns = [0u8; 8];
+                        for p in &mut patterns {
+                            *p = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Pattern as usize);
                         }
+                        self.pattern_block(plane_idx, bx, by, width, height, &patterns, c0, c1);
+                    }
+                    9 => {
+                        self.raw_block(plane_idx, bx, by, width, height);
+                    }
+                    _ => {
                         self.copy_block(plane_idx, bx, by, width, height, 0, 0);
                     }
                 }
+                bx += 1;
             }
+        }
+        Ok(())
+    }
+
+    fn scaled_block(
+        &mut self,
+        r: &mut BitReader<'_>,
+        plane_idx: usize,
+        bx: u32,
+        by: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<(), BinkVideoError> {
+        let sub = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::SubBlockTypes as usize);
+        match sub {
+            6 => {
+                // FILL：直接填 16×16。
+                let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                self.fill_rect(plane_idx, (bx * 8) as i32, (by * 8) as i32, 16, 16, width, height, v);
+            }
+            3 => {
+                let mut ublock = [0u8; 64];
+                self.decode_run_into(r, &mut ublock)?;
+                self.blit_scaled_ublock(plane_idx, bx, by, width, height, &ublock);
+            }
+            5 => {
+                let dc = take_value16(&mut self.bundles, &self.bundle_data, BinkSrc::IntraDc as usize) as i32;
+                let mut block = decode_intra_dct_block(r, dc)?;
+                let mut ublock = [0u8; 64];
+                idct_put(&mut ublock, 8, &mut block);
+                self.blit_scaled_ublock(plane_idx, bx, by, width, height, &ublock);
+            }
+            8 => {
+                let c0 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                let c1 = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                let mut ublock = [0u8; 64];
+                for row in 0..8usize {
+                    let mut bits = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Pattern as usize);
+                    for col in 0..8usize {
+                        ublock[row * 8 + col] = if (bits & 1) != 0 { c1 } else { c0 };
+                        bits >>= 1;
+                    }
+                }
+                self.blit_scaled_ublock(plane_idx, bx, by, width, height, &ublock);
+            }
+            9 => {
+                let mut ublock = [0u8; 64];
+                for i in 0..64 {
+                    ublock[i] = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                }
+                self.blit_scaled_ublock(plane_idx, bx, by, width, height, &ublock);
+            }
+            other => {
+                return Err(BinkVideoError::Msg(format!("非法 SCALED 子块类型 {other}")));
+            }
+        }
+        Ok(())
+    }
+
+    fn blit_scaled_ublock(&mut self, plane_idx: usize, bx: u32, by: u32, width: u32, height: u32, ublock: &[u8; 64]) {
+        let (w, h) = Self::plane_dims(width, height);
+        let x0 = (bx as usize) * 8;
+        let y0 = (by as usize) * 8;
+        for row in 0..8usize {
+            for col in 0..8usize {
+                let v = ublock[row * 8 + col];
+                for dy in 0..2usize {
+                    for dx in 0..2usize {
+                        let x = x0 + col * 2 + dx;
+                        let y = y0 + row * 2 + dy;
+                        if x < w && y < h {
+                            self.put_plane_px(plane_idx, w, x, y, v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn fill_rect(
+        &mut self,
+        plane_idx: usize,
+        x0: i32,
+        y0: i32,
+        rw: i32,
+        rh: i32,
+        width: u32,
+        height: u32,
+        value: u8,
+    ) {
+        let (w, h) = Self::plane_dims(width, height);
+        for row in 0..rh {
+            let y = y0 + row;
+            if y < 0 || y as usize >= h {
+                continue;
+            }
+            for col in 0..rw {
+                let x = x0 + col;
+                if x < 0 || x as usize >= w {
+                    continue;
+                }
+                self.put_plane_px(plane_idx, w, x as usize, y as usize, value);
+            }
+        }
+    }
+
+    fn decode_run_into(&mut self, r: &mut BitReader<'_>, ublock: &mut [u8; 64]) -> Result<(), BinkVideoError> {
+        if r.bits_left() < 4 {
+            return Err(BinkVideoError::Msg("RUN 块缺扫描图案索引".into()));
+        }
+        let pat_idx = r.read_bits(4)? as usize;
+        let pattern = &BINK_RUN_PATTERNS[pat_idx];
+        let mut scan = 0usize;
+        let mut filled = 0i32;
+        loop {
+            let run = i32::from(take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Run as usize)) + 1;
+            filled += run;
+            if filled > 64 {
+                return Err(BinkVideoError::Msg("RUN 块越界".into()));
+            }
+            if r.read_bit()? {
+                let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                for _ in 0..run {
+                    ublock[pattern[scan] as usize] = v;
+                    scan += 1;
+                }
+            } else {
+                for _ in 0..run {
+                    ublock[pattern[scan] as usize] =
+                        take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
+                    scan += 1;
+                }
+            }
+            if filled >= 63 {
+                break;
+            }
+        }
+        if filled == 63 {
+            ublock[pattern[scan] as usize] = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
         }
         Ok(())
     }
@@ -388,62 +525,22 @@ impl BinkVideoDecoder {
         width: u32,
         height: u32,
     ) -> Result<(), BinkVideoError> {
-        if r.bits_left() < 4 {
-            return Err(BinkVideoError::Msg("RUN 块缺扫描图案索引".into()));
-        }
-        let pat_idx = r.read_bits(4)? as usize;
-        let pattern = &BINK_RUN_PATTERNS[pat_idx];
+        let mut ublock = [0u8; 64];
+        self.decode_run_into(r, &mut ublock)?;
         let (w, h) = Self::plane_dims(width, height);
         let x0 = (bx as usize) * 8;
         let y0 = (by as usize) * 8;
-        let mut scan = 0usize;
-        let mut filled = 0i32;
-        loop {
-            let run = i32::from(take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Run as usize)) + 1;
-            filled += run;
-            if filled > 64 {
-                return Err(BinkVideoError::Msg("RUN 块越界".into()));
-            }
-            if r.read_bit()? {
-                let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-                for _ in 0..run {
-                    let pos = pattern[scan] as usize;
-                    scan += 1;
-                    let col = pos & 7;
-                    let row = pos >> 3;
-                    let x = x0 + col;
-                    let y = y0 + row;
-                    if x < w && y < h {
-                        self.put_plane_px(plane_idx, w, x, y, v);
-                    }
-                }
-            } else {
-                for _ in 0..run {
-                    let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-                    let pos = pattern[scan] as usize;
-                    scan += 1;
-                    let col = pos & 7;
-                    let row = pos >> 3;
-                    let x = x0 + col;
-                    let y = y0 + row;
-                    if x < w && y < h {
-                        self.put_plane_px(plane_idx, w, x, y, v);
-                    }
-                }
-            }
-            if filled >= 63 {
+        for row in 0..8usize {
+            let y = y0 + row;
+            if y >= h {
                 break;
             }
-        }
-        if filled == 63 {
-            let v = take_value(&mut self.bundles, &self.bundle_data, BinkSrc::Colors as usize);
-            let pos = pattern[scan] as usize;
-            let col = pos & 7;
-            let row = pos >> 3;
-            let x = x0 + col;
-            let y = y0 + row;
-            if x < w && y < h {
-                self.put_plane_px(plane_idx, w, x, y, v);
+            for col in 0..8usize {
+                let x = x0 + col;
+                if x >= w {
+                    break;
+                }
+                self.put_plane_px(plane_idx, w, x, y, ublock[row * 8 + col]);
             }
         }
         Ok(())
