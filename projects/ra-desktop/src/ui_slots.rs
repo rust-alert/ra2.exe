@@ -151,10 +151,10 @@ const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
 ];
 
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("side", MenuAction::CycleSide, true, (0.18, 0.68, 0.48, 0.75)),
-    empty_button("difficulty", MenuAction::CycleDifficulty, true, (0.52, 0.68, 0.82, 0.75)),
-    empty_button("start", MenuAction::StartSkirmish, true, (0.28, 0.80, 0.72, 0.87)),
-    empty_button("back", MenuAction::Back, true, (0.28, 0.90, 0.72, 0.97)),
+    main_menu_button("side", MenuAction::CycleSide, true, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("difficulty", MenuAction::CycleDifficulty, true, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("start", MenuAction::StartSkirmish, true, (0.805, 0.4717, 1.0, 0.5417)),
+    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
@@ -202,12 +202,13 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::SkirmishLobby => Some(UiPageSlots {
             screen,
-            background_shp: None,
-            background_pal: None,
+            // Pre-Alpha：与主菜单/单人页共用已证实壳层 chrome；大厅专用板面后续再换。
+            background_shp: Some("mnscrnl.shp"),
+            background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: None,
-            panels: &[],
-            fonts: &[],
+            panels: MAIN_MENU_PANELS,
+            fonts: MAIN_MENU_FONTS,
             buttons: SKIRMISH_LOBBY_BUTTONS,
         }),
         OriginalScreen::LoadScreen => Some(UiPageSlots {
@@ -309,5 +310,11 @@ mod tests {
         assert_eq!(ids, ["side", "difficulty", "start", "back"]);
         assert!(matches!(page.buttons[0].action, MenuAction::CycleSide));
         assert!(matches!(page.buttons[1].action, MenuAction::CycleDifficulty));
+        assert!(page.has_any_asset_name());
+        assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+        assert_eq!(page.buttons[0].normal_frame, Some(2));
+        assert_eq!(page.buttons[0].pressed_frame, Some(4));
+        assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
+        assert_eq!(page.fonts, &["game.fnt"]);
     }
 }
