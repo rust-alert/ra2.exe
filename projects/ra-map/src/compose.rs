@@ -35,6 +35,18 @@ pub struct TerrainImage {
     pub origin_y: i32,
 }
 
+impl TerrainImage {
+    /// 空白画布（测试与占位合成用）。
+    pub fn blank(width: u32, height: u32) -> Self {
+        Self {
+            image: RgbaImage::new(width.max(1), height.max(1)),
+            drawn: 0,
+            origin_x: 0,
+            origin_y: 0,
+        }
+    }
+}
+
 /// 按等距顺序把单元画到画布上。
 ///
 /// `resolve` 返回 `(tile_num, sub_tile)` 对应砖块；缺砖则跳过该单元。
