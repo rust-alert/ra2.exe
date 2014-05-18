@@ -25,6 +25,16 @@ pub const MAIN_MENU_BUTTON_IDS: [&str; 4] = ["single_player", "network", "option
 /// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "training", "back"];
 
+/// 遭遇战大厅右侧按钮入口 id（与 `ui_slots` 顺序一致）。
+pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start", "back"];
+
+/// 大厅地图列表最多可见行。
+pub const LOBBY_MAP_ROW_MAX: i32 = 6;
+/// 大厅地图列表行高（像素）。
+pub const LOBBY_MAP_ROW_H: i32 = 28;
+/// 大厅地图列表行间距。
+pub const LOBBY_MAP_ROW_GAP: i32 = 6;
+
 /// 轴对齐矩形（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RectPx {
@@ -131,6 +141,18 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
     main_menu_layout(viewport_w, viewport_h)
 }
 
+/// 遭遇战大厅布局：右侧按钮格与主菜单同几何；`movie` 区作地图预览占位。
+pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
+    main_menu_layout(viewport_w, viewport_h)
+}
+
+/// 大厅地图列表第 `index` 行的像素矩形（内容坐标）。
+pub fn skirmish_map_row_rect(layout: &MainMenuLayout, index: usize) -> RectPx {
+    let list_x = 24;
+    let list_w = (layout.movie.w - 48).max(1);
+    let y = layout.movie.y + 48 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
+    RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
+}
 
 #[cfg(test)]
 mod tests {
@@ -149,6 +171,15 @@ mod tests {
     }
 
     #[test]
+    fn skirmish_lobby_reuses_right_panel() {
+        let layout = skirmish_lobby_layout(1024, 768);
+        assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), layout.buttons.len());
+        assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
+        let row0 = skirmish_map_row_rect(&layout, 0);
+        assert!(row0.w > 0);
+        assert!(row0.y >= layout.movie.y);
+    }
+
     fn window_center_maps_near_shell_center_when_fitted() {
         let (x, y) = window_to_shell_px(512.0, 384.0, 1024.0, 768.0);
         assert!((x - 400).abs() <= 2);
