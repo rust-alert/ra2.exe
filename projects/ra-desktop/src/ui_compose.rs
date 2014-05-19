@@ -8,13 +8,32 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, main_menu_layout, single_player_layout,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS,
+        SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
-        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, main_menu_csf_label, resolve_caption,
-        single_player_csf_label,
+        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label,
+        resolve_caption, single_player_csf_label, skirmish_lobby_csf_label,
     },
 };
+
+/// 壳层按钮文案来源。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MenuCaptionKind {
+    Main,
+    SinglePlayer,
+    SkirmishLobby,
+}
+
+impl MenuCaptionKind {
+    fn label(self, entry_id: &str) -> Option<&'static str> {
+        match self {
+            Self::Main => main_menu_csf_label(entry_id),
+            Self::SinglePlayer => single_player_csf_label(entry_id),
+            Self::SkirmishLobby => skirmish_lobby_csf_label(entry_id),
+        }
+    }
+}
 
 /// Alpha over ? `src` ?? `dst` ? `(x,y)`??????
 pub fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
@@ -96,7 +115,7 @@ fn compose_shell_menu_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    single_player: bool,
+    captions: MenuCaptionKind,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
@@ -138,7 +157,7 @@ fn compose_shell_menu_page(
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
-            let key = if single_player { single_player_csf_label(entry_id) } else { main_menu_csf_label(entry_id) };
+            let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
             let disabled = matches!(*entry_id, "network" | "campaign" | "training");
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
@@ -167,7 +186,7 @@ pub fn compose_main_menu_page(
         fnt,
         csf,
         movie,
-        false,
+        MenuCaptionKind::Main,
     )
 }
 
@@ -189,8 +208,42 @@ pub fn compose_single_player_page(
         fnt,
         csf,
         movie,
-        true,
+        MenuCaptionKind::SinglePlayer,
     )
+}
+
+/// 合成遭遇战大厅 chrome（可选地图预览与地图名列表）。
+pub fn compose_skirmish_lobby_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    map_preview: Option<&RgbaImage>,
+    map_names: &[(String, bool)],
+) -> Option<RgbaImage> {
+    let layout = skirmish_lobby_layout(viewport_w, viewport_h);
+    let mut page = compose_shell_menu_page(
+        decoded,
+        layout,
+        &SKIRMISH_LOBBY_BUTTON_IDS,
+        pressed_entry_id,
+        fnt,
+        csf,
+        map_preview,
+        MenuCaptionKind::SkirmishLobby,
+    )?;
+    if let Some(fnt) = fnt {
+        let n = map_names.len().min(LOBBY_MAP_ROW_MAX as usize);
+        for (i, (name, selected)) in map_names.iter().take(n).enumerate() {
+            let row = skirmish_map_row_rect(&layout, i);
+            let color = if *selected { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
+            let label = if *selected { format!("> {name}") } else { name.clone() };
+            blit_text_colored(&mut page, fnt, &label, row.x + 4, row.y + 4, color);
+        }
+    }
+    Some(page)
 }
 
 #[cfg(test)]
@@ -253,4 +306,23 @@ mod tests {
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
         assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
     }
+    #[test]
+    fn compose_skirmish_lobby_uses_side_id() {
+        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+        let pressed = solid_sprite("sdbtnanm.shp#4", [0, 0, 200, 255]);
+        let decoded = PageDecodeReport {
+            background: Some(bg),
+            panels: Vec::new(),
+            button_normals: SKIRMISH_LOBBY_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+            button_presseds: vec![("side", pressed)],
+            errors: Vec::new(),
+        };
+        let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("side"), None, None, None, &[]).unwrap();
+        let layout = skirmish_lobby_layout(800, 600);
+        let cell = layout.buttons[0];
+        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
+        assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
+    }
+
 }

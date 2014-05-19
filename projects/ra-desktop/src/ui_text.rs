@@ -25,6 +25,17 @@ pub fn single_player_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 遭遇战大厅入口 → CSF 标签。
+pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "side" => Some("GUI:PlayerSide"),
+        "difficulty" => Some("GUI:Difficulty"),
+        "start" => Some("GUI:Battle"),
+        "back" => Some("GUI:Back"),
+        _ => None,
+    }
+}
+
 /// 解析文案：CSF 命中优先，否则回退 `entry_id`。
 pub fn resolve_caption<'a>(csf: Option<&'a CsfFile>, entry_id: &str, csf_key: Option<&str>) -> String {
     if let (Some(csf), Some(key)) = (csf, csf_key) {
