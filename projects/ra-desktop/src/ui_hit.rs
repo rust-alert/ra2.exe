@@ -1,14 +1,15 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
-//! 主菜单命中对齐 [`crate::ui_layout`] 像素格（经 fit 相机）；其余页仍用 [`crate::ui_slots`] 归一化框。
-//! 遭遇战大厅地图列表行几何与既有大厅列表约定一致。
+//! 主菜单 / 单人页 / 遭遇战大厅命中对齐 [`crate::ui_layout`] 像素格（经 fit 相机）；
+//! 其余页仍用 [`crate::ui_slots`] 归一化框。
 
 use crate::{
     boot::BootMapCandidate,
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, main_menu_layout, single_player_layout, window_to_shell_px,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout,
+        single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -31,14 +32,6 @@ pub struct MenuHit {
     /// 是否可点。
     pub enabled: bool,
 }
-
-/// 大厅地图列表：顶部、行高、最多行数、水平范围（与既有大厅列表一致）。
-const LOBBY_LIST_TOP: f32 = 0.18;
-const LOBBY_ROW_H: f32 = 0.07;
-const LOBBY_ROW_GAP: f32 = 0.015;
-const LOBBY_MAP_MAX: usize = 6;
-const LOBBY_X0: f32 = 0.18;
-const LOBBY_X1: f32 = 0.82;
 
 /// 为当前页构建命中列表；对局/结算返回空。
 ///
@@ -71,6 +64,9 @@ pub fn hit_action(
     if screen == OriginalScreen::SinglePlayerMenu {
         return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
+    if screen == OriginalScreen::SkirmishLobby {
+        return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
     hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action)
 }
 
@@ -89,6 +85,9 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::SinglePlayerMenu {
         return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
+    if screen == OriginalScreen::SkirmishLobby {
+        return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
     }
     hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i)
 }
@@ -214,7 +213,6 @@ fn hit_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) ->
     None
 }
 
-
 fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
     let Some(page) = slots_for(screen)
     else {
@@ -245,27 +243,76 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
 }
 
 fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
+    let layout = skirmish_lobby_layout(0, 0);
+    let bw = layout.canvas.w as f32;
+    let bh = layout.canvas.h as f32;
     let mut hits = Vec::new();
-    for (i, _) in maps.iter().enumerate().take(LOBBY_MAP_MAX) {
-        let y0 = LOBBY_LIST_TOP + (i as f32) * (LOBBY_ROW_H + LOBBY_ROW_GAP);
-        let y1 = y0 + LOBBY_ROW_H;
+    let n = maps.len().min(LOBBY_MAP_ROW_MAX as usize);
+    for i in 0..n {
+        let row = skirmish_map_row_rect(&layout, i);
         hits.push(MenuHit {
             entry_id: "map",
             action: MenuAction::SelectMap(i),
-            x0: LOBBY_X0,
-            y0,
-            x1: LOBBY_X1,
-            y1,
+            x0: row.x as f32 / bw,
+            y0: row.y as f32 / bh,
+            x1: (row.x + row.w) as f32 / bw,
+            y1: (row.y + row.h) as f32 / bh,
             enabled: true,
         });
     }
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
-        for btn in page.buttons {
-            let (x0, y0, x1, y1) = btn.hit;
-            hits.push(MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled: btn.enabled });
+        for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
+            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+            else {
+                continue;
+            };
+            let cell = layout.buttons[i];
+            hits.push(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            });
         }
     }
     hits
+}
+
+fn hit_skirmish_lobby_at(
+    maps: &[BootMapCandidate],
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = skirmish_lobby_layout(0, 0);
+    let n = maps.len().min(LOBBY_MAP_ROW_MAX as usize);
+    for i in 0..n {
+        if skirmish_map_row_rect(&layout, i).contains(sx, sy) {
+            return Some((i, MenuAction::SelectMap(i)));
+        }
+    }
+    let page = slots_for(OriginalScreen::SkirmishLobby)?;
+    for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if layout.buttons[i].contains(sx, sy) {
+            return Some((n + i, btn.action));
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -301,8 +348,22 @@ mod tests {
     fn lobby_map_row_is_selectable() {
         let maps =
             vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate }];
-        // 首行约 y=0.18 → 138px
-        let action = hit_action(OriginalScreen::SkirmishLobby, &maps, Some("mp03t4.map"), (400.0, 150.0), 1024.0, 768.0, false);
+        let layout = skirmish_lobby_layout(0, 0);
+        let row = skirmish_map_row_rect(&layout, 0);
+        let cx = row.x + row.w / 2;
+        let cy = row.y + row.h / 2;
+        let cam = crate::ui_layout::shell_fit_camera(1024, 768);
+        let sx = (cx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
+        let sy = (cy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
+        let action = hit_action(
+            OriginalScreen::SkirmishLobby,
+            &maps,
+            Some("mp03t4.map"),
+            (sx as f64, sy as f64),
+            1024.0,
+            768.0,
+            false,
+        );
         assert_eq!(action, Some(MenuAction::SelectMap(0)));
     }
 
