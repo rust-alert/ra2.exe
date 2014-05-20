@@ -478,7 +478,7 @@ impl AppShell {
         }
     }
 
-    /// 前置页：主菜单上传合成 chrome；大厅可显示地图预览；其余清空 UI/预览。
+    /// 前置页：主菜单 / 单人 / 遭遇战大厅上传合成 chrome；其余清空 UI/预览。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
             self.renderer.clear_ui_page();
@@ -486,7 +486,15 @@ impl AppShell {
         }
         self.ensure_ui_probe();
         self.ensure_menu_text_assets();
-        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+        if matches!(
+            self.screen,
+            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
+        ) {
+            if self.screen == OriginalScreen::SkirmishLobby {
+                self.ensure_lobby_maps();
+                self.ensure_lobby_preview();
+            }
+            // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
@@ -509,6 +517,25 @@ impl AppShell {
                         self.menu_csf.as_ref(),
                         movie,
                     ),
+                    OriginalScreen::SkirmishLobby => {
+                        let selected = self.selected_map.as_deref();
+                        let map_names: Vec<(String, bool)> = self
+                            .lobby_maps
+                            .iter()
+                            .take(ui_layout::LOBBY_MAP_ROW_MAX as usize)
+                            .map(|m| (m.file_name.clone(), selected == Some(m.file_name.as_str())))
+                            .collect();
+                        ui_compose::compose_skirmish_lobby_page(
+                            decoded,
+                            self.window_width as u32,
+                            self.window_height as u32,
+                            self.menu_pressed_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            self.lobby_preview.as_ref(),
+                            &map_names,
+                        )
+                    }
                     _ => None,
                 };
                 if let Some(page) = page {
@@ -531,18 +558,6 @@ impl AppShell {
         }
 
         self.renderer.clear_ui_page();
-        if self.screen == OriginalScreen::SkirmishLobby {
-            self.ensure_lobby_maps();
-            self.ensure_lobby_preview();
-            let selected = self.selected_map.as_deref();
-            let preview_ready = self.lobby_preview.is_some() && self.lobby_preview_for.as_deref() == selected;
-            if preview_ready {
-                if let Some(preview) = self.lobby_preview.clone() {
-                    self.renderer.set_map_preview(preview);
-                    return;
-                }
-            }
-        }
         self.renderer.clear_preview();
     }
 
@@ -993,22 +1008,48 @@ impl ApplicationHandler for AppShell {
                 }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
-                        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
-                            let ids: &[&str] = match self.screen {
-                                OriginalScreen::MainMenu => &ui_layout::MAIN_MENU_BUTTON_IDS,
-                                OriginalScreen::SinglePlayerMenu => &ui_layout::SINGLE_PLAYER_BUTTON_IDS,
-                                _ => &[],
+                        if matches!(
+                            self.screen,
+                            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
+                        ) {
+                            let next = match self.screen {
+                                OriginalScreen::MainMenu => ui_hit::hover_index(
+                                    self.screen,
+                                    &self.lobby_maps,
+                                    self.selected_map.as_deref(),
+                                    self.cursor,
+                                    self.window_width,
+                                    self.window_height,
+                                    self.load_allow_retry(),
+                                )
+                                .and_then(|i| ui_layout::MAIN_MENU_BUTTON_IDS.get(i).copied()),
+                                OriginalScreen::SinglePlayerMenu => ui_hit::hover_index(
+                                    self.screen,
+                                    &self.lobby_maps,
+                                    self.selected_map.as_deref(),
+                                    self.cursor,
+                                    self.window_width,
+                                    self.window_height,
+                                    self.load_allow_retry(),
+                                )
+                                .and_then(|i| ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(i).copied()),
+                                OriginalScreen::SkirmishLobby => {
+                                    let map_n =
+                                        self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
+                                    ui_hit::hover_index(
+                                        self.screen,
+                                        &self.lobby_maps,
+                                        self.selected_map.as_deref(),
+                                        self.cursor,
+                                        self.window_width,
+                                        self.window_height,
+                                        self.load_allow_retry(),
+                                    )
+                                    .and_then(|i| i.checked_sub(map_n))
+                                    .and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
+                                }
+                                _ => None,
                             };
-                            let next = ui_hit::hover_index(
-                                self.screen,
-                                &self.lobby_maps,
-                                self.selected_map.as_deref(),
-                                self.cursor,
-                                self.window_width,
-                                self.window_height,
-                                self.load_allow_retry(),
-                            )
-                            .and_then(|i| ids.get(i).copied());
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
                                 self.refresh_menu_backdrop();
