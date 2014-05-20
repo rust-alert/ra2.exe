@@ -9,8 +9,10 @@
 /// 结算页仍可持有已 `Finished` 的会话快照。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OriginalScreen {
-    /// 主菜单。
+    /// 启动闪屏（最短展示 + 壳层预处理；结束后只进主菜单）。
     #[default]
+    Splash,
+    /// 主菜单。
     MainMenu,
     /// 单人游戏入口（战役 / 遭遇战 / 训练等）。
     SinglePlayerMenu,
@@ -18,7 +20,7 @@ pub enum OriginalScreen {
     SkirmishLobby,
     /// 网络游戏入口（Alpha 可见禁用）。
     Network,
-    /// 加载过渡。
+    /// 进对局前装载页（Alpha 要求；与启动闪屏无关）。
     LoadScreen,
     /// 对局中（含 HUD；输入 → 命令 → tick → 渲染）。
     Match,
@@ -32,6 +34,7 @@ impl OriginalScreen {
     /// 稳定短名（日志 / 标题 / 与 `ui-states.json` id 对齐）。
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Splash => "splash",
             Self::MainMenu => "main_menu",
             Self::SinglePlayerMenu => "single_player_menu",
             Self::SkirmishLobby => "skirmish_lobby",

@@ -177,6 +177,17 @@ const NETWORK_BUTTONS: &[UiButtonSlot] = &[
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
 pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
     match screen {
+        OriginalScreen::Splash => Some(UiPageSlots {
+            screen,
+            // 闪屏专用 SHP 待安装内证据后再填；先占位以便页面机存在。
+            background_shp: None,
+            background_pal: None,
+            background_frame: 0,
+            movie_bik: None,
+            panels: &[],
+            fonts: MAIN_MENU_FONTS,
+            buttons: &[],
+        }),
         OriginalScreen::MainMenu => Some(UiPageSlots {
             screen,
             // 非 640 宽窗口默认大背景；640 分支后续按视口另选 `mnscrns.shp`。

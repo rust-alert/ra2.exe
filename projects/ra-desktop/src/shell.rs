@@ -42,8 +42,6 @@ pub struct AppShell {
     window_height: f64,
     status_path: Option<PathBuf>,
     test_scene: Option<String>,
-    /// 首次 `resumed` 后自动开一局遭遇战（第一阶段便利；正式配置 UI 到位后可关）。
-    auto_start_skirmish: bool,
     /// 装载完成后待切到的目标页。
     pending_after_load: Option<OriginalScreen>,
     /// 光标位置（菜单逻辑命中用）。
@@ -110,7 +108,6 @@ impl AppShell {
             window_height,
             status_path,
             test_scene,
-            auto_start_skirmish: false,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
@@ -133,8 +130,8 @@ impl AppShell {
         }
     }
 
-    /// 正常产品路径：主菜单起，可自动开遭遇战。
-    pub fn with_main_menu(window_width: f64, window_height: f64, auto_start_skirmish: bool) -> Self {
+    /// 正常产品路径：主菜单起；进入对局须经菜单手动操作。
+    pub fn with_main_menu(window_width: f64, window_height: f64) -> Self {
         Self {
             window: None,
             screen: OriginalScreen::MainMenu,
@@ -145,7 +142,6 @@ impl AppShell {
             window_height,
             status_path: None,
             test_scene: None,
-            auto_start_skirmish,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
@@ -486,10 +482,7 @@ impl AppShell {
         }
         self.ensure_ui_probe();
         self.ensure_menu_text_assets();
-        if matches!(
-            self.screen,
-            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
-        ) {
+        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby) {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_preview();
@@ -628,6 +621,7 @@ impl AppShell {
             return;
         }
         let title = match self.screen {
+            OriginalScreen::Splash => format!("ra2 · 闪屏 · {} · Esc/Enter 进主菜单 · F12 截图", self.banner),
             OriginalScreen::MainMenu => {
                 format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图", self.banner)
             }
@@ -790,6 +784,17 @@ impl AppShell {
             return;
         }
         match self.screen {
+            OriginalScreen::Splash => {
+                // 闪屏状态机另轨；当前产品入口直接主菜单。Esc/Enter 进主菜单。
+                if matches!(
+                    key,
+                    PhysicalKey::Code(KeyCode::Escape)
+                        | PhysicalKey::Code(KeyCode::Enter)
+                        | PhysicalKey::Code(KeyCode::NumpadEnter)
+                ) {
+                    self.set_screen(OriginalScreen::MainMenu);
+                }
+            }
             OriginalScreen::MainMenu => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                     self.set_screen(OriginalScreen::SinglePlayerMenu);
@@ -948,10 +953,6 @@ impl ApplicationHandler for AppShell {
         if self.auto_screenshots.should_capture(self.screen) {
             self.queue_screenshot(self.screen.as_str());
         }
-        if self.auto_start_skirmish {
-            self.auto_start_skirmish = false;
-            self.begin_skirmish_load();
-        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
@@ -997,7 +998,8 @@ impl ApplicationHandler for AppShell {
                     self.apply_nav(nav);
                 }
             }
-            OriginalScreen::MainMenu
+            OriginalScreen::Splash
+            | OriginalScreen::MainMenu
             | OriginalScreen::SinglePlayerMenu
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::Network
@@ -1034,8 +1036,7 @@ impl ApplicationHandler for AppShell {
                                 )
                                 .and_then(|i| ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(i).copied()),
                                 OriginalScreen::SkirmishLobby => {
-                                    let map_n =
-                                        self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
+                                    let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
                                     ui_hit::hover_index(
                                         self.screen,
                                         &self.lobby_maps,
@@ -1112,9 +1113,9 @@ pub fn run_shell() -> RaResult<()> {
             }
             AppShell::with_match(boot, window_width, window_height, status_path, test_scene)
         }
-        LaunchMode::MainMenu { auto_start } => {
+        LaunchMode::MainMenu => {
             let _ = (status_path, test_scene);
-            AppShell::with_main_menu(window_width, window_height, auto_start)
+            AppShell::with_main_menu(window_width, window_height)
         }
     };
 
@@ -1126,9 +1127,7 @@ pub fn run_shell() -> RaResult<()> {
 enum LaunchMode {
     #[cfg(feature = "test-harness")]
     DirectMatch(BootResult),
-    MainMenu {
-        auto_start: bool,
-    },
+    MainMenu,
 }
 
 fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<String>)> {
@@ -1161,6 +1160,6 @@ fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<S
         }
     }
 
-    // 产品路径：主菜单起，禁止自动开局（原版主 UI 复刻验收要求）。
-    Ok((LaunchMode::MainMenu { auto_start: false }, 1024.0, 768.0, None, None))
+    // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectMatch 场景）。
+    Ok((LaunchMode::MainMenu, 1024.0, 768.0, None, None))
 }

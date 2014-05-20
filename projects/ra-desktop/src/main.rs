@@ -28,11 +28,11 @@ mod ui_compose;
 mod ui_decode;
 mod ui_hit;
 mod ui_layout;
+mod ui_movie;
 mod ui_page;
 mod ui_resolve;
 mod ui_slots;
 mod ui_text;
-mod ui_movie;
 
 use ra_types::RaResult;
 use tracing_appender::non_blocking::WorkerGuard;

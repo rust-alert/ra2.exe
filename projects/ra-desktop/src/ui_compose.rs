@@ -1,6 +1,6 @@
-//! ???????????? RGBA??? `set_ui_page` ????
+//! 将已解码壳层精灵合成整页 RGBA（上传 `set_ui_page` 之前）。
 //!
-//! ?? ? atlas/instance ?????????????????????
+//! 合成 ≠ atlas/instance 终态；当前只为验证颜色、原尺寸与粗略位置。
 
 use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
@@ -8,12 +8,12 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS,
-        SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
+        main_menu_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
-        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label,
-        resolve_caption, single_player_csf_label, skirmish_lobby_csf_label,
+        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, resolve_caption,
+        single_player_csf_label, skirmish_lobby_csf_label,
     },
 };
 
@@ -35,7 +35,7 @@ impl MenuCaptionKind {
     }
 }
 
-/// Alpha over ? `src` ?? `dst` ? `(x,y)`??????
+/// Alpha over 将 `src` 画到 `dst` 的 `(x,y)`（可裁剪）。
 pub fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     if src.width() == 0 || src.height() == 0 || dst.width() == 0 || dst.height() == 0 {
         return;
@@ -75,7 +75,7 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
     }
-    // ???????/??????????????????
+    // 面板条允许纵向/横向铺满目标格；用最近邻，避免模糊。
     for row in 0..rect.h as u32 {
         let sy = row * src.height() / rect.h as u32;
         for col in 0..rect.w as u32 {
@@ -168,7 +168,7 @@ fn compose_shell_menu_page(
     Some(page)
 }
 
-/// ????? chrome?
+/// 合成主菜单 chrome。
 pub fn compose_main_menu_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -190,7 +190,7 @@ pub fn compose_main_menu_page(
     )
 }
 
-/// ??????? chrome?
+/// 合成单人游戏页 chrome。
 pub fn compose_single_player_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -324,5 +324,4 @@ mod tests {
         let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
         assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
     }
-
 }

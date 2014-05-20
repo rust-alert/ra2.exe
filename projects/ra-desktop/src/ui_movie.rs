@@ -21,16 +21,7 @@ impl MenuMoviePlayer {
         let name = name.into();
         let file = parse_bink_file(&bytes)?;
         let decoder = BinkVideoDecoder::new(&file.header).map_err(|e| e.to_string())?;
-        let mut player = Self {
-            name,
-            bytes,
-            file,
-            decoder,
-            frame_index: 0,
-            accum_secs: 0.0,
-            frame: None,
-            stalled: None,
-        };
+        let mut player = Self { name, bytes, file, decoder, frame_index: 0, accum_secs: 0.0, frame: None, stalled: None };
         player.decode_current()?;
         Ok(player)
     }

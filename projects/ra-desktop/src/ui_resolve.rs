@@ -23,13 +23,9 @@ impl PageResolveReport {
     pub fn banner_note(&self) -> String {
         if self.named == 0 {
             "UI 引用 0 项 · 槽位未填资源名".into()
-        } else {
-            format!(
-                "UI 引用可读 {}/{} · 缺 {}",
-                self.readable,
-                self.named,
-                self.missing.len()
-            )
+        }
+        else {
+            format!("UI 引用可读 {}/{} · 缺 {}", self.readable, self.named, self.missing.len())
         }
     }
 
@@ -39,17 +35,12 @@ impl PageResolveReport {
     }
 }
 
-fn bump_name(
-    source: &impl AssetSource,
-    name: &str,
-    named: &mut usize,
-    readable: &mut usize,
-    missing: &mut Vec<String>,
-) {
+fn bump_name(source: &impl AssetSource, name: &str, named: &mut usize, readable: &mut usize, missing: &mut Vec<String>) {
     *named += 1;
     if source.read(name).is_ok() {
         *readable += 1;
-    } else if !missing.iter().any(|m| m == name) {
+    }
+    else if !missing.iter().any(|m| m == name) {
         missing.push(name.to_string());
     }
 }
@@ -86,10 +77,7 @@ pub fn resolve_page(source: &impl AssetSource, page: &UiPageResources) -> PageRe
         bump_asset(source, panel, &mut named, &mut readable, &mut missing);
     }
     for btn in &page.buttons {
-        for asset in [&btn.normal, &btn.hover, &btn.pressed, &btn.disabled, &btn.focused]
-            .into_iter()
-            .flatten()
-        {
+        for asset in [&btn.normal, &btn.hover, &btn.pressed, &btn.disabled, &btn.focused].into_iter().flatten() {
             bump_asset(source, asset, &mut named, &mut readable, &mut missing);
         }
     }
@@ -97,11 +85,7 @@ pub fn resolve_page(source: &impl AssetSource, page: &UiPageResources) -> PageRe
         bump_name(source, font, &mut named, &mut readable, &mut missing);
     }
 
-    PageResolveReport {
-        named,
-        readable,
-        missing,
-    }
+    PageResolveReport { named, readable, missing }
 }
 
 #[cfg(test)]
@@ -119,16 +103,14 @@ mod tests {
 
     impl AssetSource for MemSource {
         fn read(&self, name: &str) -> Result<Vec<u8>, RaError> {
-            self.0
-                .get(&name.to_ascii_lowercase())
-                .cloned()
-                .ok_or_else(|| RaError::Msg(format!("missing {name}")))
+            self.0.get(&name.to_ascii_lowercase()).cloned().ok_or_else(|| RaError::Msg(format!("missing {name}")))
         }
     }
 
     #[test]
     fn empty_slots_report_zero_named() {
-        let page = page_resources_from_slots(OriginalScreen::SinglePlayerMenu).unwrap();
+        // LoadScreen 仅有空按钮槽，无背景/面板/字体名；用于验证「零命名」契约。
+        let page = page_resources_from_slots(OriginalScreen::LoadScreen).unwrap();
         let src = MemSource(HashMap::new());
         let report = resolve_page(&src, &page);
         assert_eq!(report.named, 0);
