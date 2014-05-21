@@ -42,6 +42,14 @@ pub struct AppShell {
     window_height: f64,
     status_path: Option<PathBuf>,
     test_scene: Option<String>,
+    /// 闪屏开始时刻。
+    splash_started: Option<Instant>,
+    /// 闪屏最短展示秒数。
+    splash_min_secs: f64,
+    /// 闪屏预处理是否完成。
+    splash_preload_done: bool,
+    /// 用户请求跳过闪屏（仍须预处理完成才进主菜单）。
+    splash_skip: bool,
     /// 装载完成后待切到的目标页。
     pending_after_load: Option<OriginalScreen>,
     /// 光标位置（菜单逻辑命中用）。
@@ -108,6 +116,10 @@ impl AppShell {
             window_height,
             status_path,
             test_scene,
+            splash_started: None,
+            splash_min_secs: 2.0,
+            splash_preload_done: false,
+            splash_skip: false,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
@@ -130,18 +142,22 @@ impl AppShell {
         }
     }
 
-    /// 正常产品路径：主菜单起；进入对局须经菜单手动操作。
+    /// 正常产品路径：闪屏 → 主菜单；进入对局须经菜单手动操作。
     pub fn with_main_menu(window_width: f64, window_height: f64) -> Self {
         Self {
             window: None,
-            screen: OriginalScreen::MainMenu,
+            screen: OriginalScreen::Splash,
             match_ctrl: None,
             renderer: Renderer::new(),
-            banner: "主菜单 · 壳层资源探测中".into(),
+            banner: "闪屏 · 预处理中".into(),
             window_width,
             window_height,
             status_path: None,
             test_scene: None,
+            splash_started: None,
+            splash_min_secs: 2.0,
+            splash_preload_done: false,
+            splash_skip: false,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
@@ -161,6 +177,59 @@ impl AppShell {
             pending_screenshot: None,
             auto_screenshots: AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+        }
+    }
+
+    /// 用户请求跳过闪屏；预处理完成后才进主菜单。
+    fn request_splash_skip(&mut self) {
+        if self.screen != OriginalScreen::Splash {
+            return;
+        }
+        self.splash_skip = true;
+        tracing::info!("闪屏跳过已请求");
+    }
+
+    /// 闪屏每帧：推进预处理；条件满足则只切到主菜单。
+    fn tick_splash(&mut self) {
+        if self.screen != OriginalScreen::Splash {
+            return;
+        }
+        if self.splash_started.is_none() {
+            self.splash_started = Some(Instant::now());
+        }
+        if !self.splash_preload_done {
+            self.ensure_ui_probe();
+            self.ensure_menu_text_assets();
+            // 预热主菜单 chrome（不切入主菜单、不推进影片）。
+            let prev = self.screen;
+            self.screen = OriginalScreen::MainMenu;
+            self.refresh_ui_resolve_note();
+            self.screen = prev;
+            self.menu_movie = None;
+            self.menu_movie_clock = None;
+            self.splash_preload_done = true;
+            self.banner = "闪屏 · 预处理完成".into();
+            self.refresh_shell_title();
+        }
+        let elapsed = self.splash_started.map(|t| t.elapsed().as_secs_f64()).unwrap_or(0.0);
+        let min_ok = elapsed >= self.splash_min_secs;
+        if self.splash_preload_done && (min_ok || self.splash_skip) {
+            tracing::info!(elapsed, min = self.splash_min_secs, skip = self.splash_skip, "闪屏结束 → 主菜单");
+            self.set_screen(OriginalScreen::MainMenu);
+        }
+        else {
+            self.upload_splash_backdrop();
+        }
+    }
+
+    /// 闪屏占位画面（无臆造 SHP；黑底 UI 页）。
+    fn upload_splash_backdrop(&mut self) {
+        let w = ui_layout::SHELL_BASE_W as u32;
+        let h = ui_layout::SHELL_BASE_H as u32;
+        let pixels = vec![0u8; (w as usize) * (h as usize) * 4];
+        if let Some(page) = RgbaImage::from_raw(w, h, pixels) {
+            self.renderer.clear_preview();
+            self.renderer.set_ui_page(page);
         }
     }
 
@@ -621,7 +690,9 @@ impl AppShell {
             return;
         }
         let title = match self.screen {
-            OriginalScreen::Splash => format!("ra2 · 闪屏 · {} · Esc/Enter 进主菜单 · F12 截图", self.banner),
+            OriginalScreen::Splash => {
+                format!("ra2 · 闪屏 · {} · Esc/Enter/点击跳过（预处理完成后进主菜单）· F12 截图", self.banner)
+            }
             OriginalScreen::MainMenu => {
                 format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 退出 · F12 截图", self.banner)
             }
@@ -785,14 +856,14 @@ impl AppShell {
         }
         match self.screen {
             OriginalScreen::Splash => {
-                // 闪屏状态机另轨；当前产品入口直接主菜单。Esc/Enter 进主菜单。
+                // 只打跳过标；状态机在预处理完成后切主菜单。
                 if matches!(
                     key,
                     PhysicalKey::Code(KeyCode::Escape)
                         | PhysicalKey::Code(KeyCode::Enter)
                         | PhysicalKey::Code(KeyCode::NumpadEnter)
                 ) {
-                    self.set_screen(OriginalScreen::MainMenu);
+                    self.request_splash_skip();
                 }
             }
             OriginalScreen::MainMenu => match key {
@@ -882,6 +953,9 @@ impl AppShell {
             // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。
             self.renderer.timings.simulation = None;
             self.renderer.timings.presentation_build = None;
+            if self.screen == OriginalScreen::Splash {
+                self.tick_splash();
+            }
             if self.screen == OriginalScreen::LoadScreen {
                 self.poll_load_job();
             }
@@ -948,7 +1022,13 @@ impl ApplicationHandler for AppShell {
             self.screen.as_str()
         );
         self.window = Some(window);
-        self.refresh_menu_backdrop();
+        if self.screen == OriginalScreen::Splash {
+            self.splash_started = Some(Instant::now());
+            self.upload_splash_backdrop();
+        }
+        else {
+            self.refresh_menu_backdrop();
+        }
         self.refresh_shell_title();
         if self.auto_screenshots.should_capture(self.screen) {
             self.queue_screenshot(self.screen.as_str());
@@ -1010,7 +1090,10 @@ impl ApplicationHandler for AppShell {
                 }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
-                        if matches!(
+                        if self.screen == OriginalScreen::Splash {
+                            self.request_splash_skip();
+                        }
+                        else if matches!(
                             self.screen,
                             OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
                         ) {
@@ -1058,21 +1141,26 @@ impl ApplicationHandler for AppShell {
                         }
                     }
                     ElementState::Released => {
-                        if self.menu_pressed_entry.take().is_some() {
-                            self.refresh_menu_backdrop();
+                        if self.screen == OriginalScreen::Splash {
+                            // 闪屏仅接受按下跳过请求；释放不走菜单命中。
                         }
-                        let action = ui_hit::hit_action(
-                            self.screen,
-                            &self.lobby_maps,
-                            self.selected_map.as_deref(),
-                            self.cursor,
-                            self.window_width,
-                            self.window_height,
-                            self.load_allow_retry(),
-                        );
-                        if let Some(action) = action {
-                            tracing::debug!(?action, "菜单逻辑命中");
-                            self.apply_menu_action(event_loop, action);
+                        else {
+                            if self.menu_pressed_entry.take().is_some() {
+                                self.refresh_menu_backdrop();
+                            }
+                            let action = ui_hit::hit_action(
+                                self.screen,
+                                &self.lobby_maps,
+                                self.selected_map.as_deref(),
+                                self.cursor,
+                                self.window_width,
+                                self.window_height,
+                                self.load_allow_retry(),
+                            );
+                            if let Some(action) = action {
+                                tracing::debug!(?action, "菜单逻辑命中");
+                                self.apply_menu_action(event_loop, action);
+                            }
                         }
                     }
                 },
