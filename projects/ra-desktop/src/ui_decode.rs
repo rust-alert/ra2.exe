@@ -46,10 +46,8 @@ pub struct PageDecodeReport {
 impl PageDecodeReport {
     /// 标题栏 / 日志短注。
     pub fn banner_note(&self) -> String {
-        let ok = usize::from(self.background.is_some())
-            + self.panels.len()
-            + self.button_normals.len()
-            + self.button_presseds.len();
+        let ok =
+            usize::from(self.background.is_some()) + self.panels.len() + self.button_normals.len() + self.button_presseds.len();
         if self.errors.is_empty() {
             format!("UI 解码 ok · {ok} 张")
         }

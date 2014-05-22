@@ -355,15 +355,8 @@ mod tests {
         let cam = crate::ui_layout::shell_fit_camera(1024, 768);
         let sx = (cx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let sy = (cy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
-        let action = hit_action(
-            OriginalScreen::SkirmishLobby,
-            &maps,
-            Some("mp03t4.map"),
-            (sx as f64, sy as f64),
-            1024.0,
-            768.0,
-            false,
-        );
+        let action =
+            hit_action(OriginalScreen::SkirmishLobby, &maps, Some("mp03t4.map"), (sx as f64, sy as f64), 1024.0, 768.0, false);
         assert_eq!(action, Some(MenuAction::SelectMap(0)));
     }
 

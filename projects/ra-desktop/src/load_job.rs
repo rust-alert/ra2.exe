@@ -1,11 +1,17 @@
 //! 遭遇战装载任务：后台线程跑装载，主线程只轮询结果与阶段进度。
 
-use std::sync::mpsc::{self, Receiver, TryRecvError};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{
+    sync::{
+        Arc, Mutex,
+        mpsc::{self, Receiver, TryRecvError},
+    },
+    thread,
+};
 
-use crate::boot::{BootResult, boot_from_install_with_progress};
-use crate::skirmish_setup::SkirmishBootRequest;
+use crate::{
+    boot::{BootResult, boot_from_install_with_progress},
+    skirmish_setup::SkirmishBootRequest,
+};
 
 /// 装载阶段可见进度（主线程只读最新快照）。
 #[derive(Debug, Clone)]
@@ -18,10 +24,7 @@ pub struct LoadProgress {
 
 impl Default for LoadProgress {
     fn default() -> Self {
-        Self {
-            ratio: 0.05,
-            stage: "排队".into(),
-        }
+        Self { ratio: 0.05, stage: "排队".into() }
     }
 }
 
@@ -65,10 +68,7 @@ impl LoadJob {
     #[cfg(feature = "test-harness")]
     pub fn start_test_scene(scene: String) -> Self {
         let (tx, rx) = mpsc::channel();
-        let progress = Arc::new(Mutex::new(LoadProgress {
-            ratio: 0.2,
-            stage: "测试场景".into(),
-        }));
+        let progress = Arc::new(Mutex::new(LoadProgress { ratio: 0.2, stage: "测试场景".into() }));
         let progress_worker = Arc::clone(&progress);
         thread::Builder::new()
             .name("ra2-test-load".into())
@@ -78,18 +78,8 @@ impl LoadJob {
                     slot.stage = "打开会话".into();
                 }
                 let boot = match crate::test_boot::boot_scene(&scene) {
-                    Ok(t) => BootResult {
-                        note: t.note,
-                        engine: Some(t.engine),
-                        session: Some(t.session),
-                        preview: t.preview,
-                    },
-                    Err(e) => BootResult {
-                        note: format!("装载失败: {e}"),
-                        engine: None,
-                        session: None,
-                        preview: None,
-                    },
+                    Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
+                    Err(e) => BootResult { note: format!("装载失败: {e}"), engine: None, session: None, preview: None },
                 };
                 if let Ok(mut slot) = progress_worker.lock() {
                     slot.ratio = 1.0;

@@ -6,9 +6,7 @@
 
 use std::path::PathBuf;
 
-use ra_adaptor::{
-    MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_USER_OVERRIDE, find_ci_file,
-};
+use ra_adaptor::{MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_USER_OVERRIDE, find_ci_file};
 use ra_assets::{MixResolveHit, MixVfs};
 use ra_types::{AssetSource, RaError, RaResult};
 
@@ -47,12 +45,7 @@ impl AssetHit {
     pub fn explain(&self) -> String {
         match &self.origin {
             AssetOrigin::Loose { path } => format!("loose:{}", path.display()),
-            AssetOrigin::Mix {
-                archive,
-                parent,
-                layer_id,
-                priority,
-            } => match (parent, layer_id) {
+            AssetOrigin::Mix { archive, parent, layer_id, priority } => match (parent, layer_id) {
                 (Some(p), Some(l)) => format!("mix:{archive} parent={p} layer={l} prio={priority}"),
                 (Some(p), None) => format!("mix:{archive} parent={p} prio={priority}"),
                 (None, Some(l)) => format!("mix:{archive} layer={l} prio={priority}"),
@@ -87,13 +80,7 @@ impl GameAssetSource {
                 skipped += 1;
                 continue;
             };
-            match self.vfs.mount_bytes_with_meta(
-                spec.name.clone(),
-                data,
-                spec.priority,
-                None,
-                Some(spec.layer_id.clone()),
-            ) {
+            match self.vfs.mount_bytes_with_meta(spec.name.clone(), data, spec.priority, None, Some(spec.layer_id.clone())) {
                 Ok(()) => mounted += 1,
                 Err(_) => skipped += 1,
             }
@@ -106,11 +93,7 @@ impl GameAssetSource {
     pub fn mount_present_roots(&mut self, present_mixes: &[String]) -> (usize, usize) {
         let plan: Vec<MountSpec> = present_mixes
             .iter()
-            .map(|name| MountSpec {
-                name: name.clone(),
-                priority: 0,
-                layer_id: "legacy".to_string(),
-            })
+            .map(|name| MountSpec { name: name.clone(), priority: 0, layer_id: "legacy".to_string() })
             .collect();
         self.mount_root_plan(&plan)
     }
@@ -123,12 +106,10 @@ impl GameAssetSource {
         let mut skipped = 0usize;
         for spec in plan {
             match spec.strategy {
-                NestedMountStrategy::AllParents => {
-                    match self.vfs.mount_nested_all_from_parents(&spec.name) {
-                        Ok(n) => mounted += n,
-                        Err(_) => skipped += 1,
-                    }
-                }
+                NestedMountStrategy::AllParents => match self.vfs.mount_nested_all_from_parents(&spec.name) {
+                    Ok(n) => mounted += n,
+                    Err(_) => skipped += 1,
+                },
             }
         }
         (mounted, skipped)
@@ -140,10 +121,7 @@ impl GameAssetSource {
     pub fn mount_nested_names(&mut self, names: &[&str]) -> (usize, usize) {
         let plan: Vec<NestedMountSpec> = names
             .iter()
-            .map(|name| NestedMountSpec {
-                name: (*name).to_string(),
-                strategy: NestedMountStrategy::AllParents,
-            })
+            .map(|name| NestedMountSpec { name: (*name).to_string(), strategy: NestedMountStrategy::AllParents })
             .collect();
         self.mount_nested_plan(&plan)
     }
@@ -152,13 +130,7 @@ impl GameAssetSource {
     pub fn resolve(&self, relative: &str) -> Option<AssetHit> {
         let loose = find_ci_file(&self.root, relative).and_then(|path| {
             let bytes = std::fs::read(&path).ok()?;
-            Some((
-                PRIORITY_USER_OVERRIDE,
-                AssetHit {
-                    origin: AssetOrigin::Loose { path },
-                    bytes,
-                },
-            ))
+            Some((PRIORITY_USER_OVERRIDE, AssetHit { origin: AssetOrigin::Loose { path }, bytes }))
         });
 
         let mix = self.vfs.resolve_hit(relative).map(|h: MixResolveHit<'_>| {
@@ -180,7 +152,8 @@ impl GameAssetSource {
             (Some((lp, lh)), Some((mp, mh))) => {
                 if lp >= mp {
                     Some(lh)
-                } else {
+                }
+                else {
                     Some(mh)
                 }
             }
@@ -192,9 +165,7 @@ impl GameAssetSource {
 
 impl AssetSource for GameAssetSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        self.resolve(relative)
-            .map(|h| h.bytes)
-            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.resolve(relative).map(|h| h.bytes).ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }
 
@@ -231,9 +202,7 @@ mod tests {
         std::fs::write(dir.join("rules.ini"), b"FROM-LOOSE").unwrap();
 
         let mut src = GameAssetSource::new(dir.clone());
-        src.vfs
-            .mount_bytes_with_meta("base.mix", mix_bytes, 0, None, Some("base".into()))
-            .unwrap();
+        src.vfs.mount_bytes_with_meta("base.mix", mix_bytes, 0, None, Some("base".into())).unwrap();
 
         let hit = src.resolve("rules.ini").unwrap();
         assert!(matches!(hit.origin, AssetOrigin::Loose { .. }));
@@ -253,28 +222,14 @@ mod tests {
 
         let dir = scratch("nested");
         let mut src = GameAssetSource::new(dir.clone());
-        src.vfs
-            .mount_bytes_with_meta("base.mix", outer_base, 0, None, Some("base".into()))
-            .unwrap();
-        src.vfs
-            .mount_bytes_with_meta(
-                "expand01.mix",
-                outer_exp,
-                101,
-                None,
-                Some("expansion.plain.01".into()),
-            )
-            .unwrap();
+        src.vfs.mount_bytes_with_meta("base.mix", outer_base, 0, None, Some("base".into())).unwrap();
+        src.vfs.mount_bytes_with_meta("expand01.mix", outer_exp, 101, None, Some("expansion.plain.01".into())).unwrap();
         assert_eq!(src.mount_nested_names(&["cache.mix"]), (2, 0));
 
         let hit = src.resolve("leaf.bin").unwrap();
         assert_eq!(hit.bytes, b"EXP-LEAF");
         match hit.origin {
-            AssetOrigin::Mix {
-                parent: Some(p),
-                priority,
-                ..
-            } => {
+            AssetOrigin::Mix { parent: Some(p), priority, .. } => {
                 assert_eq!(p, "expand01.mix");
                 assert_eq!(priority, 101);
             }

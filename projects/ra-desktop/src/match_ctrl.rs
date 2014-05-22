@@ -68,12 +68,7 @@ pub struct MatchController {
 impl MatchController {
     /// 由装载结果构造；可无会话（装载失败时仍占位）。
     pub fn from_boot(boot: BootResult, status_path: Option<PathBuf>, test_scene: Option<String>) -> Self {
-        let edition = boot
-            .session
-            .as_ref()
-            .and_then(|s| s.game())
-            .map(|g| g.world.edition.as_str())
-            .unwrap_or("—");
+        let edition = boot.session.as_ref().and_then(|s| s.game()).map(|g| g.world.edition.as_str()).unwrap_or("—");
         Self {
             engine: boot.engine,
             session: boot.session,
@@ -130,18 +125,8 @@ impl MatchController {
         {
             if let Some(scene) = self.test_scene.as_ref() {
                 return match crate::test_boot::boot_scene(scene) {
-                    Ok(t) => BootResult {
-                        note: t.note,
-                        engine: Some(t.engine),
-                        session: Some(t.session),
-                        preview: t.preview,
-                    },
-                    Err(e) => BootResult {
-                        note: format!("重开失败: {e}"),
-                        engine: None,
-                        session: None,
-                        preview: None,
-                    },
+                    Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
+                    Err(e) => BootResult { note: format!("重开失败: {e}"), engine: None, session: None, preview: None },
                 };
             }
         }
@@ -278,14 +263,10 @@ impl MatchController {
                 }
                 MatchNav::None
             }
-            WindowEvent::MouseInput {
-                state: ElementState::Released,
-                button: MouseButton::Left,
-                ..
-            } if !accept_commands => MatchNav::None,
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. }
-                if accept_commands =>
-            {
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
+                MatchNav::None
+            }
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
                 self.handle_right_click(renderer, window);
                 MatchNav::None
             }
@@ -322,9 +303,7 @@ impl MatchController {
                         tracing::info!("重开对局…");
                         MatchNav::Rematch
                     }
-                    PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter)
-                        if !accept_commands =>
-                    {
+                    PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
                         tracing::info!("重开对局…");
                         MatchNav::Rematch
                     }
@@ -357,10 +336,7 @@ impl MatchController {
                             else {
                                 self.leave_armed = false;
                                 game.toggle_pause();
-                                tracing::info!(
-                                    "暂停 · {}",
-                                    game.pause_reason.as_deref().unwrap_or("已暂停")
-                                );
+                                tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
                                 MatchNav::None
                             }
                         }
@@ -623,10 +599,7 @@ impl MatchController {
                             )
                         })
                         .unwrap_or_default();
-                    format!(
-                        "{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅",
-                        self.title_base, hud.tick
-                    )
+                    format!("{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
                 else if let Some(MatchOutcome::Victory { owner }) = hud.outcome.as_ref() {
                     let stats = hud
@@ -653,10 +626,7 @@ impl MatchController {
                         )
                     }
                     else {
-                        format!(
-                            "{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc离开 Space继续",
-                            self.title_base, hud.tick
-                        )
+                        format!("{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc离开 Space继续", self.title_base, hud.tick)
                     }
                 }
                 else if self.place_mode.is_some() {
@@ -667,12 +637,7 @@ impl MatchController {
                         (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
-                    let diff = self
-                        .session
-                        .as_ref()
-                        .and_then(|s| s.game())
-                        .map(|g| g.difficulty.as_str())
-                        .unwrap_or("Normal");
+                    let diff = self.session.as_ref().and_then(|s| s.game()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
                     format!(
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
                         self.title_base, hud.tick, zoom
@@ -686,12 +651,7 @@ impl MatchController {
                         (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
-                    let diff = self
-                        .session
-                        .as_ref()
-                        .and_then(|s| s.game())
-                        .map(|g| g.difficulty.as_str())
-                        .unwrap_or("Normal");
+                    let diff = self.session.as_ref().and_then(|s| s.game()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
                     format!(
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc暂停 · z{:.2}",
                         self.title_base, hud.tick, zoom
@@ -714,13 +674,7 @@ impl MatchController {
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
-            crate::test_boot::write_status(
-                path,
-                session,
-                &self.local.selected,
-                screen_label,
-                self.leave_armed,
-            );
+            crate::test_boot::write_status(path, session, &self.local.selected, screen_label, self.leave_armed);
             #[cfg(not(feature = "test-harness"))]
             let _ = (path, session);
         }

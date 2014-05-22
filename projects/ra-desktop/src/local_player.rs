@@ -19,12 +19,8 @@ impl LocalPlayerController {
 
     /// 去掉已死亡或不存在的选中项。
     pub fn prune_dead(&mut self, game: &Game) {
-        self.selected.retain(|&id| {
-            game.world
-                .entity_index(id)
-                .and_then(|i| game.world.entities.get(i))
-                .is_some_and(|e| !e.dead)
-        });
+        self.selected
+            .retain(|&id| game.world.entity_index(id).and_then(|i| game.world.entities.get(i)).is_some_and(|e| !e.dead));
     }
 
     /// 单选一个存活实体（单位或建筑）。

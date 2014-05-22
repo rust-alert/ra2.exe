@@ -20,11 +20,7 @@ pub struct SkirmishBootRequest {
 impl SkirmishBootRequest {
     /// 默认：无指定图、盟军、普通难度。
     pub fn default_lobby() -> Self {
-        Self {
-            preferred_map: None,
-            side: LOBBY_SIDES[0].to_string(),
-            difficulty: LOBBY_DIFFICULTIES[1].to_string(),
-        }
+        Self { preferred_map: None, side: LOBBY_SIDES[0].to_string(), difficulty: LOBBY_DIFFICULTIES[1].to_string() }
     }
 
     /// 循环下一阵营。
@@ -35,21 +31,13 @@ impl SkirmishBootRequest {
 
     /// 循环下一难度。
     pub fn cycle_difficulty(&mut self) {
-        let i = LOBBY_DIFFICULTIES
-            .iter()
-            .position(|s| *s == self.difficulty.as_str())
-            .unwrap_or(1);
+        let i = LOBBY_DIFFICULTIES.iter().position(|s| *s == self.difficulty.as_str()).unwrap_or(1);
         self.difficulty = LOBBY_DIFFICULTIES[(i + 1) % LOBBY_DIFFICULTIES.len()].to_string();
     }
 
     /// 装载笔记片段。
     pub fn note_fragment(&self) -> String {
-        format!(
-            "side={} diff={} map={}",
-            self.side,
-            self.difficulty,
-            self.preferred_map.as_deref().unwrap_or("(auto)")
-        )
+        format!("side={} diff={} map={}", self.side, self.difficulty, self.preferred_map.as_deref().unwrap_or("(auto)"))
     }
 }
 

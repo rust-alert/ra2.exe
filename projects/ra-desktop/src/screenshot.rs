@@ -37,6 +37,7 @@ pub fn is_key_screen(screen: OriginalScreen) -> bool {
     matches!(
         screen,
         OriginalScreen::MainMenu
+            | OriginalScreen::Splash
             | OriginalScreen::SinglePlayerMenu
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::LoadScreen
