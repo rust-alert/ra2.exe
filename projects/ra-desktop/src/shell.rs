@@ -20,7 +20,6 @@ use crate::{
     menu_action::MenuAction,
     preview_job::PreviewJob,
     screen::OriginalScreen,
-    screenshot::AutoScreenshotTracker,
     skirmish_setup::SkirmishBootRequest,
     ui_assets::{MenuUiProbe, probe_menu_ui_assets},
     ui_compose, ui_decode, ui_hit, ui_layout,
@@ -82,10 +81,11 @@ pub struct AppShell {
     menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
     menu_movie_clock: Option<Instant>,
-    /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）。
+    /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）；F12 手动截图用。
     pending_screenshot: Option<&'static str>,
-    /// 自动关键页截图去重。
-    auto_screenshots: AutoScreenshotTracker,
+    /// 自动关键页截图去重（仅 `test-harness`）。
+    #[cfg(feature = "test-harness")]
+    auto_screenshots: crate::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     skirmish: SkirmishBootRequest,
 }
@@ -137,7 +137,8 @@ impl AppShell {
             menu_movie: None,
             menu_movie_clock: None,
             pending_screenshot: None,
-            auto_screenshots: AutoScreenshotTracker::default(),
+            #[cfg(feature = "test-harness")]
+            auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
         }
     }
@@ -175,7 +176,8 @@ impl AppShell {
             menu_movie: None,
             menu_movie_clock: None,
             pending_screenshot: None,
-            auto_screenshots: AutoScreenshotTracker::default(),
+            #[cfg(feature = "test-harness")]
+            auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
         }
     }
@@ -466,6 +468,7 @@ impl AppShell {
             self.refresh_ui_resolve_note();
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
+            #[cfg(feature = "test-harness")]
             if self.auto_screenshots.should_capture(next) {
                 self.queue_screenshot(next.as_str());
             }
@@ -1030,6 +1033,7 @@ impl ApplicationHandler for AppShell {
             self.refresh_menu_backdrop();
         }
         self.refresh_shell_title();
+        #[cfg(feature = "test-harness")]
         if self.auto_screenshots.should_capture(self.screen) {
             self.queue_screenshot(self.screen.as_str());
         }
