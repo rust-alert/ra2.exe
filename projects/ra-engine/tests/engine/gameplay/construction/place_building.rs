@@ -149,4 +149,3 @@ fn push_command_cannot_spoof_place_building_player_via_body() {
     assert_eq!(frame.commands.len(), 1);
     assert_eq!(frame.commands[0].player, PlayerId(0));
 }
-

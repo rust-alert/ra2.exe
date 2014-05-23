@@ -1,7 +1,7 @@
 //! 胜负时锁定 MatchStats。
 
-use crate::common::{test_engine, rules_with_mtnk};
-use ra_engine::{GameCommand, MatchOutcome, Session, MatchState};
+use crate::common::{rules_with_mtnk, test_engine};
+use ra_engine::{GameCommand, MatchOutcome, MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 

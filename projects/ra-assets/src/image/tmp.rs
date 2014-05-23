@@ -72,9 +72,8 @@ impl TmpFile {
             return Err(RaError::Parse(format!("tmp 单元过小: {tile_width}x{tile_height}")));
         }
 
-        let cell_count = (template_width as usize)
-            .checked_mul(template_height as usize)
-            .ok_or_else(|| RaError::Parse("tmp 单元数溢出".into()))?;
+        let cell_count =
+            (template_width as usize).checked_mul(template_height as usize).ok_or_else(|| RaError::Parse("tmp 单元数溢出".into()))?;
         let offsets_end = TMP_HEADER_SIZE
             .checked_add(cell_count.checked_mul(4).ok_or_else(|| RaError::Parse("tmp 偏移表过大".into()))?)
             .ok_or_else(|| RaError::Parse("tmp 偏移表溢出".into()))?;
@@ -97,11 +96,8 @@ impl TmpFile {
 
     /// 将指定单元转为 RGBA。钻石外索引 0 透明；钻石内索引 0 不透明。
     pub fn tile_to_rgba(&self, tile_index: usize, palette: &Palette) -> RaResult<Vec<u8>> {
-        let tile = self
-            .tiles
-            .get(tile_index)
-            .and_then(|t| t.as_ref())
-            .ok_or_else(|| RaError::Parse(format!("tmp 单元 {tile_index} 为空或不存在")))?;
+        let tile =
+            self.tiles.get(tile_index).and_then(|t| t.as_ref()).ok_or_else(|| RaError::Parse(format!("tmp 单元 {tile_index} 为空或不存在")))?;
 
         let mut rgba = Vec::with_capacity(tile.pixels.len() * 4);
         for (i, &idx) in tile.pixels.iter().enumerate() {
@@ -173,8 +169,7 @@ fn parse_tile_cell(data: &[u8], offset: usize, tile_width: u32, tile_height: u32
         (tile_width, tile_height, 0, 0)
     };
 
-    let buf_size =
-        (pixel_width as usize).checked_mul(pixel_height as usize).ok_or_else(|| RaError::Parse("tmp 像素缓冲溢出".into()))?;
+    let buf_size = (pixel_width as usize).checked_mul(pixel_height as usize).ok_or_else(|| RaError::Parse("tmp 像素缓冲溢出".into()))?;
     let mut pixels = vec![0u8; buf_size];
     let mut depth = vec![0u8; buf_size];
 
@@ -188,23 +183,10 @@ fn parse_tile_cell(data: &[u8], offset: usize, tile_width: u32, tile_height: u32
     }
 
     if has_extra {
-        let extra_count =
-            (extra_width as usize).checked_mul(extra_height as usize).ok_or_else(|| RaError::Parse("tmp 附加面过大".into()))?;
+        let extra_count = (extra_width as usize).checked_mul(extra_height as usize).ok_or_else(|| RaError::Parse("tmp 附加面过大".into()))?;
         let extra = slice_at(data, offset, extra_data_offset, extra_count)?;
         let extra_z = if has_z { Some(slice_at(data, offset, extra_z_data_offset, extra_count)?) } else { None };
-        overlay_extra(
-            extra,
-            extra_z,
-            extra_x,
-            extra_y,
-            extra_width,
-            extra_height,
-            &mut pixels,
-            &mut depth,
-            pixel_width,
-            offset_x,
-            offset_y,
-        )?;
+        overlay_extra(extra, extra_z, extra_x, extra_y, extra_width, extra_height, &mut pixels, &mut depth, pixel_width, offset_x, offset_y)?;
     }
 
     let _ = depth;

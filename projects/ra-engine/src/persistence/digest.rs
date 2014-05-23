@@ -8,10 +8,7 @@ impl MatchState {
         let mut h = self.tick;
         h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);
         h = h.wrapping_mul(1099511628211).wrapping_add(self.entities.len() as u64);
-        h = h
-            .wrapping_mul(1099511628211)
-            .wrapping_add(self.last_input_frame.tick)
-            .wrapping_add(self.last_input_frame.commands.len() as u64);
+        h = h.wrapping_mul(1099511628211).wrapping_add(self.last_input_frame.tick).wrapping_add(self.last_input_frame.commands.len() as u64);
         for cmd in &self.last_input_frame.commands {
             h = hash_scheduled(h, cmd);
         }
@@ -85,11 +82,7 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
     match *cmd {
         GameCommand::MoveTo { entity, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(1);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(entity.0)
-                .wrapping_add((x as u64) << 16)
-                .wrapping_add((y as u64) << 32);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
         GameCommand::Attack { attacker, target } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(2);
@@ -101,11 +94,7 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
         }
         GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(4);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(player.0))
-                .wrapping_add((x as u64) << 8)
-                .wrapping_add((y as u64) << 24);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0)).wrapping_add((x as u64) << 8).wrapping_add((y as u64) << 24);
             for b in type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
@@ -119,11 +108,7 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
         }
         GameCommand::SetRallyPoint { factory, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(6);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(factory.0)
-                .wrapping_add((x as u64) << 16)
-                .wrapping_add((y as u64) << 32);
+            h = h.wrapping_mul(1099511628211).wrapping_add(factory.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
     }
     h

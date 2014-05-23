@@ -35,8 +35,8 @@ use ra_types::{GameEdition, RaError, RaResult};
 
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
-    BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, find_boot_map, find_boot_map_named, find_first_boot_map,
-    list_parseable_boot_maps, mount_theater_mixes, try_parse_boot_map,
+    BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, find_boot_map, find_boot_map_named, find_first_boot_map, list_parseable_boot_maps,
+    mount_theater_mixes, try_parse_boot_map,
 };
 pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
@@ -54,8 +54,7 @@ pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::paint_map_terrain_objects;
 pub use terrain_preview::compose_terrain_preview;
 pub use theater::{
-    Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette,
-    theater_tmp_extension,
+    Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette, theater_tmp_extension,
 };
 pub use tileset::{TilesetLookup, parse_tileset_ini};
 pub use tmp_pass::seal_pass_grid_from_tmp;

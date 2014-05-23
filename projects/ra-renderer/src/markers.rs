@@ -72,14 +72,7 @@ impl MarkerGpu {
     }
 
     /// 从可复用 [`RenderWorld`] 写入标记顶点（屏外粗裁剪，避免上传不可见单位）。
-    pub fn write_from_world(
-        &mut self,
-        queue: &wgpu::Queue,
-        world: &RenderWorld,
-        camera: &Camera,
-        surface_w: u32,
-        surface_h: u32,
-    ) {
+    pub fn write_from_world(&mut self, queue: &wgpu::Queue, world: &RenderWorld, camera: &Camera, surface_w: u32, surface_h: u32) {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
         let sh = surface_h.max(1) as f32;
@@ -172,17 +165,7 @@ fn push_rect(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, x: f32, y
     ]);
 }
 
-fn push_ring(
-    out: &mut Vec<Vertex>,
-    camera: &Camera,
-    sw: f32,
-    sh: f32,
-    cx: f32,
-    cy: f32,
-    outer: f32,
-    thickness: f32,
-    color: [f32; 4],
-) {
+fn push_ring(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, cy: f32, outer: f32, thickness: f32, color: [f32; 4]) {
     let inner = outer - thickness;
     push_rect(out, camera, sw, sh, cx - outer, cy - outer, outer * 2.0, thickness, color);
     push_rect(out, camera, sw, sh, cx - outer, cy + inner, outer * 2.0, thickness, color);
@@ -191,7 +174,7 @@ fn push_ring(
 }
 
 /// NDC 点是否在扩大后的可见窗内（粗裁剪 stub，非完整视锥）。
-pub(crate) fn ndc_visible(ndc: [f32; 2], margin: f32) -> bool {
+pub fn ndc_visible(ndc: [f32; 2], margin: f32) -> bool {
     ndc[0].abs() <= margin && ndc[1].abs() <= margin
 }
 
@@ -219,16 +202,3 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
 }
 "#;
-
-#[cfg(test)]
-mod tests {
-    use super::ndc_visible;
-
-    #[test]
-    fn ndc_margin_rejects_far_points() {
-        assert!(ndc_visible([0.0, 0.0], 1.15));
-        assert!(ndc_visible([1.1, -1.1], 1.15));
-        assert!(!ndc_visible([2.0, 0.0], 1.15));
-        assert!(!ndc_visible([0.0, -3.0], 1.15));
-    }
-}

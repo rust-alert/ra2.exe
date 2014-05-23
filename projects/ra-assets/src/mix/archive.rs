@@ -44,12 +44,8 @@ impl MixArchive {
         let first_word = read_u16(&data, 0);
         let (flags, mut entries, body_offset) = if first_word == 0 {
             let flags = read_u16(&data, 2);
-            let (entries, body_offset) = if (flags & FLAG_ENCRYPTED) != 0 {
-                parse_encrypted_new_format(&data)?
-            }
-            else {
-                parse_unencrypted_new_format(&data)?
-            };
+            let (entries, body_offset) =
+                if (flags & FLAG_ENCRYPTED) != 0 { parse_encrypted_new_format(&data)? } else { parse_unencrypted_new_format(&data)? };
             (flags, entries, body_offset)
         }
         else {

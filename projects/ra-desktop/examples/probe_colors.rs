@@ -42,19 +42,9 @@ fn probe(root: &Path, edition: GameEdition) -> RaResult<()> {
     else {
         eprintln!("MISS [Colors]");
     }
-    for house in [
-        "Americans",
-        "Alliance",
-        "French",
-        "Germans",
-        "British",
-        "Africans",
-        "Arabs",
-        "Confederation",
-        "Russians",
-        "Neutral",
-        "Special",
-    ] {
+    for house in
+        ["Americans", "Alliance", "French", "Germans", "British", "Africans", "Arabs", "Confederation", "Russians", "Neutral", "Special"]
+    {
         if db.rules.has_section(house) {
             let color = db.rules.get(house, "Color").unwrap_or("?");
             let side = db.rules.get(house, "Side").unwrap_or("?");

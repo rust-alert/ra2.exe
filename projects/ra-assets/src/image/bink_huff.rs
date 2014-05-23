@@ -1,7 +1,9 @@
 //! Bink 平面 Huffman 树描述：从码流读取符号置换 + 固定 VLC 编号。
 
-use super::bink_bits::{BitReader, VlcTable};
-use super::bink_video::BinkVideoError;
+use super::{
+    bink_bits::{BitReader, VlcTable},
+    bink_video::BinkVideoError,
+};
 
 /// 一棵 16 符号树：选用哪张固定 VLC，以及符号置换。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,7 +50,8 @@ impl HuffmanTree {
                 i += 1;
             }
             Ok(Self { vlc_num, syms })
-        } else {
+        }
+        else {
             let len = r.read_bits(2)? as usize;
             let mut tmp1 = [0u8; 16];
             let mut tmp2 = [0u8; 16];
@@ -82,12 +85,7 @@ impl HuffmanTree {
     }
 }
 
-fn merge_lists(
-    r: &mut BitReader<'_>,
-    dst: &mut [u8],
-    src: &[u8],
-    size: usize,
-) -> Result<(), BinkVideoError> {
+fn merge_lists(r: &mut BitReader<'_>, dst: &mut [u8], src: &[u8], size: usize) -> Result<(), BinkVideoError> {
     let mut src1 = 0usize;
     let mut src2 = size;
     let mut size1 = size;
@@ -98,7 +96,8 @@ fn merge_lists(
             dst[d] = src[src1];
             src1 += 1;
             size1 -= 1;
-        } else {
+        }
+        else {
             dst[d] = src[src2];
             src2 += 1;
             size2 -= 1;
@@ -118,21 +117,4 @@ fn merge_lists(
         d += 1;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn vlc_num_zero_is_identity() {
-        // 仅 4 位：vlc_num = 0
-        let data = [0x00u8];
-        let mut r = BitReader::from_bytes(&data);
-        let t = HuffmanTree::read(&mut r).unwrap();
-        assert_eq!(t.vlc_num, 0);
-        for i in 0..16 {
-            assert_eq!(t.syms[i], i as u8);
-        }
-    }
 }

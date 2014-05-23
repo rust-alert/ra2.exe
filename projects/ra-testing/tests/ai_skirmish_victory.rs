@@ -11,13 +11,7 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
     let slice = alpha_skirmish_v1();
     let mut case = ai_skirmish_open();
     case.advance(1);
-    assert!(case
-        .session
-        .expect_game_mut()
-        .world
-        .entities
-        .iter()
-        .any(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST"));
+    assert!(case.session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST"));
     // 停止继续扩建，只验收「可经命令路径打到结算」。
     case.session.expect_game_mut().ai_enabled = false;
     let tank = case

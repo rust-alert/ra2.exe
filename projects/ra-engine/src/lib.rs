@@ -16,17 +16,16 @@ mod spatial;
 mod state;
 
 pub use engine::{
-    CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError,
-    SystemPhase, SystemSchedule,
+    CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError, SystemPhase, SystemSchedule,
 };
 pub use game::{
-    AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, Game, GameCommand, HudSnapshot, InputFrame,
-    MAX_TICKS_PER_PUMP, MatchOutcome, MatchStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue,
-    SnapshotUnit, decode_command, decode_commands, decode_scheduled, encode_command, encode_commands, encode_scheduled,
+    AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, Game, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
+    MatchOutcome, MatchStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command,
+    decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands, encode_scheduled,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_skirmish_session};
 pub use state::{
-    ATTACK_COOLDOWN_TICKS, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, HIT_FLASH_TICKS, MatchState,
-    ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP, WorldEntity,
+    ATTACK_COOLDOWN_TICKS, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, HIT_FLASH_TICKS, MatchState, ORE_INCOME_PER_TRIP,
+    ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP, WorldEntity,
 };

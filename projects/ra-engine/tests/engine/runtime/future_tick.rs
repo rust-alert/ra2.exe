@@ -9,12 +9,7 @@ fn future_scheduled_command_does_not_apply_early() {
     let mut world = duel_mtnk_world();
     let start_tick = world.tick;
     let future = Tick(start_tick.wrapping_add(3));
-    world.push_scheduled(ScheduledCommand::new(
-        CommandId(9001),
-        PlayerId(0),
-        future,
-        GameCommand::MoveTo { entity: EntityId(1), x: 1, y: 1 },
-    ));
+    world.push_scheduled(ScheduledCommand::new(CommandId(9001), PlayerId(0), future, GameCommand::MoveTo { entity: EntityId(1), x: 1, y: 1 }));
 
     world.advance_tick();
     assert_eq!(world.tick, start_tick.wrapping_add(1));

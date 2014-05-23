@@ -36,6 +36,8 @@ use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteG
 pub use crate::camera::Camera as ViewCamera;
 /// 帧构建器（投影 → `RenderWorld`）。
 pub use crate::frame::FrameBuilder;
+/// NDC 粗裁剪（marker stub）。
+pub use crate::markers::ndc_visible;
 /// 渲染阶段图。
 pub use crate::pass::{PassGraph, RenderPassKind};
 /// RGBA → PNG 字节。

@@ -1,8 +1,10 @@
 //! 测试状态旁路：与 `ra-desktop` test-harness 写出的键值文件对齐。
 
-use std::path::Path;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{
+    path::Path,
+    thread,
+    time::{Duration, Instant},
+};
 
 use ra_types::EntityId;
 
@@ -83,11 +85,7 @@ impl TestStatus {
                     else {
                         value
                             .split(',')
-                            .map(|s| {
-                                s.parse::<u64>()
-                                    .map(EntityId)
-                                    .map_err(|_| format!("无效 selected: {value}"))
-                            })
+                            .map(|s| s.parse::<u64>().map(EntityId).map_err(|_| format!("无效 selected: {value}")))
                             .collect::<Result<Vec<_>, _>>()?
                     };
                 }
@@ -179,20 +177,12 @@ impl TestStatus {
             match Self::read_file(path) {
                 Ok(status) if status.matches_expect(expect) => return Ok(status),
                 Ok(status) => {
-                    last_err = format!(
-                        "状态未满足 expect={expect}（tick={} outcome={}）",
-                        status.tick, status.outcome
-                    );
+                    last_err = format!("状态未满足 expect={expect}（tick={} outcome={}）", status.tick, status.outcome);
                 }
                 Err(e) => last_err = e,
             }
             if Instant::now() >= deadline {
-                return Err(format!(
-                    "等待状态超时（{}ms）· {} · {}",
-                    timeout.as_millis(),
-                    path.display(),
-                    last_err
-                ));
+                return Err(format!("等待状态超时（{}ms）· {} · {}", timeout.as_millis(), path.display(), last_err));
             }
             thread::sleep(Duration::from_millis(50));
         }

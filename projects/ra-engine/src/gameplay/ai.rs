@@ -2,12 +2,12 @@
 //!
 //! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
 
-use crate::gameplay::{
-    deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, owner_allows,
+use crate::{
+    GameCommand, MatchState,
+    gameplay::{deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, owner_allows},
 };
-use crate::{GameCommand, MatchState};
 use ra_map::MapEntityKind;
-use ra_types::{ProductionCategory, PlayerId};
+use ra_types::{PlayerId, ProductionCategory};
 
 /// 为本阵营未部署的可部署单位生成 `Deploy`（已有建造场则跳过）。
 pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> {
@@ -47,9 +47,7 @@ pub fn place_barracks_commands(world: &MatchState, house: &str, player: PlayerId
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
-    let Some(barracks_id) = pick_structure(world, house, |s| {
-        s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry)
-    })
+    let Some(barracks_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
     else {
         return Vec::new();
     };
@@ -61,9 +59,7 @@ pub fn place_war_factory_commands(world: &MatchState, house: &str, player: Playe
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
-    let Some(weap_id) = pick_structure(world, house, |s| {
-        s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle)
-    })
+    let Some(weap_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
     else {
         return Vec::new();
     };

@@ -1,7 +1,6 @@
 //! 确定性世界推进。不依赖渲染器与文件系统。
 
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use ra_adaptor::{RulesDb, build_runtime_definitions};
 use ra_assets::TechnoKind;
@@ -10,8 +9,8 @@ use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, S
 
 use super::{entities::WorldEntity, players::PlayerState};
 use crate::{
-    gameplay::verses_for,
     game::{CommandReject, GameCommand, InputFrame},
+    gameplay::verses_for,
     presentation::DirtyEntitySet,
     spatial::{is_mobile, repath_at},
 };
@@ -99,10 +98,8 @@ impl MatchState {
                 let speed = tt.map(|t| t.speed).unwrap_or(0);
                 // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
                 let attack_range = tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }).unwrap_or(0);
-                let attack_damage =
-                    tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(0);
-                let attack_cooldown_max =
-                    tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
+                let attack_damage = tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(0);
+                let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
                 let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
                 let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
                 let techno_kind = tt.map(|t| techno_class_to_kind(t.class));

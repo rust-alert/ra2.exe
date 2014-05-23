@@ -14,11 +14,7 @@ impl<'a> BitReader<'a> {
     /// 在 `data` 上限制可读位数（不得超过 `data.len() * 8`）。
     pub fn new(data: &'a [u8], bits_total: usize) -> Self {
         let max = data.len().saturating_mul(8);
-        Self {
-            data,
-            bit_pos: 0,
-            bits_total: bits_total.min(max),
-        }
+        Self { data, bit_pos: 0, bits_total: bits_total.min(max) }
     }
 
     /// 覆盖整段字节。
@@ -60,10 +56,7 @@ impl<'a> BitReader<'a> {
             return Err(BinkVideoError::Msg(format!("一次最多读 32 位，请求 {n}")));
         }
         if self.bits_left() < n as isize {
-            return Err(BinkVideoError::Msg(format!(
-                "码流耗尽：需 {n} 位 · 剩 {}",
-                self.bits_left()
-            )));
+            return Err(BinkVideoError::Msg(format!("码流耗尽：需 {n} 位 · 剩 {}", self.bits_left())));
         }
 
         let mut result: u64 = 0;
@@ -91,9 +84,11 @@ impl<'a> BitReader<'a> {
             let v = self.read_bits(n)?;
             self.bit_pos = saved;
             Ok(v)
-        } else if have <= 0 {
+        }
+        else if have <= 0 {
             Ok(0)
-        } else {
+        }
+        else {
             let saved = self.bit_pos;
             let real = have as u32;
             let v = self.read_bits(real)?;
@@ -173,65 +168,4 @@ pub fn build_fixed_vlc_tables() -> Result<[VlcTable; 16], BinkVideoError> {
         out[t] = Some(VlcTable::build(&BINK_TREE_BITS[t], &BINK_TREE_LENS[t])?);
     }
     Ok(std::array::from_fn(|i| out[i].take().expect("filled")))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn read_single_bits_lsb_first() {
-        let data = [0xA3u8];
-        let mut r = BitReader::from_bytes(&data);
-        assert_eq!(r.read_bit().unwrap(), true);
-        assert_eq!(r.read_bit().unwrap(), true);
-        assert_eq!(r.read_bit().unwrap(), false);
-        assert_eq!(r.read_bit().unwrap(), false);
-        assert_eq!(r.read_bit().unwrap(), false);
-        assert_eq!(r.read_bit().unwrap(), true);
-        assert_eq!(r.read_bit().unwrap(), false);
-        assert_eq!(r.read_bit().unwrap(), true);
-    }
-
-    #[test]
-    fn read_bits_nibbles() {
-        let data = [0xA3u8];
-        let mut r = BitReader::from_bytes(&data);
-        assert_eq!(r.read_bits(4).unwrap(), 0x3);
-        assert_eq!(r.read_bits(4).unwrap(), 0xA);
-    }
-
-    #[test]
-    fn read_bits_across_bytes() {
-        let data = [0x78u8, 0x56];
-        let mut r = BitReader::from_bytes(&data);
-        assert_eq!(r.read_bits(16).unwrap(), 0x5678);
-    }
-
-    #[test]
-    fn align_to_dword() {
-        let data = [0xFFu8; 8];
-        let mut r = BitReader::from_bytes(&data);
-        r.skip(5);
-        r.align_to_dword();
-        assert_eq!(r.pos(), 32);
-    }
-
-    #[test]
-    fn eof_errors() {
-        let data = [0u8; 1];
-        let mut r = BitReader::from_bytes(&data);
-        r.skip(8);
-        assert!(r.read_bit().is_err());
-    }
-
-    #[test]
-    fn fixed_vlc_tables_build() {
-        let tables = build_fixed_vlc_tables().unwrap();
-        assert_eq!(tables[0].bits(), 4);
-        // 全 4 位等长树：读 0b0000 → 符号 0
-        let data = [0x00u8];
-        let mut r = BitReader::from_bytes(&data);
-        assert_eq!(tables[0].decode(&mut r).unwrap(), 0);
-    }
 }

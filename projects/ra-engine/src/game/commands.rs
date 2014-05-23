@@ -2,8 +2,8 @@
 //!
 //! 对外调度形状为 [`ScheduledCommand`]；[`GameCommand`] 是其中的可执行载荷（与 `ra_types::CommandBody` 同一类型）。
 
-use std::sync::Arc;
 use ra_types::{CommandBody, CommandId, EntityId, PlayerId, ScheduledCommand, Tick};
+use std::sync::Arc;
 
 /// 可执行命令载荷（跨层与 `ra_types::CommandBody` 共用）。
 pub type GameCommand = CommandBody;
@@ -182,7 +182,6 @@ pub fn decode_commands(bytes: &[u8]) -> Option<Vec<GameCommand>> {
     Some(out)
 }
 
-
 /// 编码已调度命令：信封 + 载荷。
 pub fn encode_scheduled(cmd: &ScheduledCommand) -> Vec<u8> {
     let mut b = Vec::new();
@@ -211,7 +210,6 @@ pub fn decode_scheduled(bytes: &[u8]) -> Option<ScheduledCommand> {
     Some(ScheduledCommand::new(id, player, tick, body))
 }
 
-
 impl crate::state::MatchState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
         use ra_assets::TechnoKind;
@@ -219,10 +217,8 @@ impl crate::state::MatchState {
         use ra_types::TechnoClass;
 
         use crate::{
-            gameplay::{
-                building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant,
-            },
             game::CommandRejectReason,
+            gameplay::{building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant},
             spatial::{is_mobile, repath_at},
             state::{PRODUCE_TICKS, WorldEntity},
         };
@@ -234,7 +230,8 @@ impl crate::state::MatchState {
             }
             match scheduled.body.clone() {
                 GameCommand::MoveTo { entity, x, y } => {
-                    let Some(entity_index) = self.entity_index(entity) else {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
@@ -259,11 +256,13 @@ impl crate::state::MatchState {
                     repath_at(&mut self.entities, entity_index, &self.pass_grid);
                 }
                 GameCommand::Attack { attacker, target } => {
-                    let Some(attacker_index) = self.entity_index(attacker) else {
+                    let Some(attacker_index) = self.entity_index(attacker)
+                    else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
-                    let Some(target_index) = self.entity_index(target) else {
+                    let Some(target_index) = self.entity_index(target)
+                    else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
@@ -297,7 +296,8 @@ impl crate::state::MatchState {
                     repath_at(&mut self.entities, attacker_index, &self.pass_grid);
                 }
                 GameCommand::Deploy { entity } => {
-                    let Some(entity_index) = self.entity_index(entity) else {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
@@ -314,12 +314,7 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self
-                        .definitions
-                        .techno
-                        .get(building_type)
-                        .map(|t| t.armor.clone())
-                        .unwrap_or_else(|| "none".into());
+                    let armor = self.definitions.techno.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
                     let e = &mut self.entities[entity_index];
                     e.kind = MapEntityKind::Structure;
                     e.type_id = Arc::<str>::from(building_type);
@@ -386,8 +381,7 @@ impl crate::state::MatchState {
                     let id = self.alloc_entity_id();
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
-                    self.players[player_index].power_output =
-                        self.players[player_index].power_output.saturating_add(power.output);
+                    self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
                     self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
                     self.pass_grid.set_passable(x, y, false);
                     self.entities.push(WorldEntity {
@@ -473,7 +467,8 @@ impl crate::state::MatchState {
                     self.mark_entity_dirty(self.entities[factory_index].id);
                 }
                 GameCommand::SetRallyPoint { factory, x, y } => {
-                    let Some(factory_index) = self.entity_index(factory) else {
+                    let Some(factory_index) = self.entity_index(factory)
+                    else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };

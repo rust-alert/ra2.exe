@@ -4,9 +4,7 @@ use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use std::sync::Arc;
 
-use ra_engine::{
-    Engine, EngineConfig, GameCommand, MatchOutcome, MatchState, RenderSnapshot, Session,
-};
+use ra_engine::{Engine, EngineConfig, GameCommand, MatchOutcome, MatchState, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
@@ -41,10 +39,7 @@ fn default_engine() -> Engine {
 impl HeadlessCase {
     /// 包装已有会话（附带默认引擎）。
     pub fn new(session: Session) -> Self {
-        Self {
-            engine: default_engine(),
-            session,
-        }
+        Self { engine: default_engine(), session }
     }
 
     /// 在指定 tick 之前入队命令；下一次 `tick` 会按产品路径消费。

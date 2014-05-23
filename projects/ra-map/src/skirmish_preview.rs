@@ -4,8 +4,8 @@ use ra_assets::Palette;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, overlay_paint::paint_map_overlays,
-    structure_paint::paint_map_structures, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
+    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, overlay_paint::paint_map_overlays, structure_paint::paint_map_structures,
+    terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。

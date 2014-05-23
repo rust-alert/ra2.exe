@@ -1,7 +1,7 @@
 //! 快照画面：对局中 / 结算。
 
-use crate::common::{test_engine, rules_with_mtnk};
-use ra_engine::{GameCommand, MatchOutcome, Session, SessionScreen, MatchState};
+use crate::common::{rules_with_mtnk, test_engine};
+use ra_engine::{GameCommand, MatchOutcome, MatchState, Session, SessionScreen};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 

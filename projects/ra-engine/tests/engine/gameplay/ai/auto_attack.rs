@@ -1,9 +1,9 @@
 //! AI 经 GameCommand 自动攻击。
 
+use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use crate::common::test_engine;
-use ra_engine::{Session, MatchState};
+use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -62,6 +62,9 @@ fn ai_issues_attack_via_commands() {
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
-    assert!(session.expect_game_mut().world.entities[1].attack_target == Some(EntityId(1)) || session.expect_game_mut().world.entities[0].health < before);
+    assert!(
+        session.expect_game_mut().world.entities[1].attack_target == Some(EntityId(1))
+            || session.expect_game_mut().world.entities[0].health < before
+    );
     assert!(session.expect_game_mut().world.entities[0].health < before);
 }

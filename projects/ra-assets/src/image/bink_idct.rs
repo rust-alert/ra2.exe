@@ -4,9 +4,8 @@
 
 /// Bink DCT / residue 的 8×8 扫描序（格式常数）。
 pub const BINK_SCAN: [u8; 64] = [
-    0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15, 20, 21, 28, 29, 22, 23, 30, 31, 16, 17, 24, 25, 32, 33, 40,
-    41, 34, 35, 42, 43, 48, 49, 56, 57, 50, 51, 58, 59, 18, 19, 26, 27, 36, 37, 44, 45, 38, 39, 46, 47, 52, 53, 60, 61,
-    54, 55, 62, 63,
+    0, 1, 8, 9, 2, 3, 10, 11, 4, 5, 12, 13, 6, 7, 14, 15, 20, 21, 28, 29, 22, 23, 30, 31, 16, 17, 24, 25, 32, 33, 40, 41, 34, 35, 42, 43, 48,
+    49, 56, 57, 50, 51, 58, 59, 18, 19, 26, 27, 36, 37, 44, 45, 38, 39, 46, 47, 52, 53, 60, 61, 54, 55, 62, 63,
 ];
 
 const A1: i32 = 2896; // (1/√2)<<12
@@ -50,16 +49,8 @@ fn idct8(src: &[i32; 8], munge: impl Fn(i32) -> i32) -> [i32; 8] {
 /// 列变换：AC 全 0 时直接广播 DC（不做缩放）。
 #[inline]
 fn idct_col(block: &[i32; 64], col: usize, temp: &mut [i32; 64]) {
-    let src = [
-        block[col],
-        block[8 + col],
-        block[16 + col],
-        block[24 + col],
-        block[32 + col],
-        block[40 + col],
-        block[48 + col],
-        block[56 + col],
-    ];
+    let src =
+        [block[col], block[8 + col], block[16 + col], block[24 + col], block[32 + col], block[40 + col], block[48 + col], block[56 + col]];
     if src[1] | src[2] | src[3] | src[4] | src[5] | src[6] | src[7] == 0 {
         let v = src[0];
         for row in 0..8 {
@@ -112,41 +103,5 @@ pub fn idct_add(dst: &mut [u8], stride: usize, block: &mut [i32; 64]) {
             let v = i32::from(dst[i]) + block[row * 8 + col];
             dst[i] = v.clamp(0, 255) as u8;
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn scan_visits_all_64() {
-        let mut seen = [false; 64];
-        for &i in &BINK_SCAN {
-            seen[i as usize] = true;
-        }
-        assert!(seen.iter().all(|&x| x));
-    }
-
-    #[test]
-    fn dc_only_idct_is_flat() {
-        let mut block = [0i32; 64];
-        block[0] = 1024;
-        bink_idct(&mut block);
-        let first = block[0];
-        for &v in &block {
-            assert_eq!(v, first);
-        }
-        // 仅 DC=1024：列广播后行变换得 (1024+127)>>8 == 4
-        assert_eq!(first, 4);
-    }
-
-    #[test]
-    fn idct_put_dc_fills_bytes() {
-        let mut block = [0i32; 64];
-        block[0] = 1024;
-        let mut dst = [0u8; 64];
-        idct_put(&mut dst, 8, &mut block);
-        assert!(dst.iter().all(|&b| b == 4));
     }
 }

@@ -83,10 +83,8 @@ impl MenuMoviePlayer {
         let pkt = self.file.frame_packet(&self.bytes, self.frame_index)?;
         let yuv = self.decoder.decode_packet(pkt.video, pkt.is_keyframe).map_err(|e| e.to_string())?;
         let rgba = yuv.to_rgba8();
-        self.frame = Some(
-            RgbaImage::from_raw(yuv.width, yuv.height, rgba)
-                .ok_or_else(|| format!("RGBA 尺寸非法 {}×{}", yuv.width, yuv.height))?,
-        );
+        self.frame =
+            Some(RgbaImage::from_raw(yuv.width, yuv.height, rgba).ok_or_else(|| format!("RGBA 尺寸非法 {}×{}", yuv.width, yuv.height))?);
         Ok(())
     }
 }

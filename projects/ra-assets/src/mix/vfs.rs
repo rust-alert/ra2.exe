@@ -70,14 +70,7 @@ impl MixVfs {
         layer_id: Option<String>,
     ) {
         self.next_seq = self.next_seq.saturating_add(1);
-        self.archives.push(MountedArchive {
-            name: name.into(),
-            archive,
-            priority,
-            seq: self.next_seq,
-            parent,
-            layer_id,
-        });
+        self.archives.push(MountedArchive { name: name.into(), archive, priority, seq: self.next_seq, parent, layer_id });
     }
 
     /// 已挂载档案数。
@@ -170,12 +163,7 @@ impl MixVfs {
             if jobs.iter().any(|(p, _, _, _)| p.eq_ignore_ascii_case(&mounted.name)) {
                 continue;
             }
-            jobs.push((
-                mounted.name.clone(),
-                mounted.priority,
-                mounted.layer_id.clone(),
-                bytes.to_vec(),
-            ));
+            jobs.push((mounted.name.clone(), mounted.priority, mounted.layer_id.clone(), bytes.to_vec()));
         }
 
         let mut mounted_n = 0usize;
@@ -191,12 +179,9 @@ impl MixVfs {
     }
 
     fn has_nested_from_parent(&self, nested_name: &str, parent: &str) -> bool {
-        self.archives.iter().any(|m| {
-            m.name.eq_ignore_ascii_case(nested_name)
-                && m.parent
-                    .as_deref()
-                    .is_some_and(|p| p.eq_ignore_ascii_case(parent))
-        })
+        self.archives
+            .iter()
+            .any(|m| m.name.eq_ignore_ascii_case(nested_name) && m.parent.as_deref().is_some_and(|p| p.eq_ignore_ascii_case(parent)))
     }
 
     /// 从原始字节挂载顶层 MIX（优先级 `0`）。
@@ -205,12 +190,7 @@ impl MixVfs {
     }
 
     /// 从原始字节按显式优先级挂载顶层 MIX。
-    pub fn mount_bytes_with_priority(
-        &mut self,
-        name: impl Into<String>,
-        data: Vec<u8>,
-        priority: i32,
-    ) -> RaResult<()> {
+    pub fn mount_bytes_with_priority(&mut self, name: impl Into<String>, data: Vec<u8>, priority: i32) -> RaResult<()> {
         self.mount_bytes_with_meta(name, data, priority, None, None)
     }
 
@@ -224,8 +204,7 @@ impl MixVfs {
         layer_id: Option<String>,
     ) -> RaResult<()> {
         let name = name.into();
-        let archive =
-            MixArchive::parse(data).map_err(|e| RaError::Parse(format!("挂载 {name} 失败: {e}")))?;
+        let archive = MixArchive::parse(data).map_err(|e| RaError::Parse(format!("挂载 {name} 失败: {e}")))?;
         self.mount_with_meta(name, archive, priority, parent, layer_id);
         Ok(())
     }

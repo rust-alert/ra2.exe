@@ -2,8 +2,7 @@ use ra_net::{MatchFingerprint, PROTOCOL_VERSION, SessionMessage, StateDigest, de
 
 #[test]
 fn roundtrip_hello_and_digest() {
-    let msg =
-        SessionMessage::Hello { protocol: PROTOCOL_VERSION, fingerprint: MatchFingerprint::build("ra2", "m.map", b"rules") };
+    let msg = SessionMessage::Hello { protocol: PROTOCOL_VERSION, fingerprint: MatchFingerprint::build("ra2", "m.map", b"rules") };
     let frame = encode_frame(&msg).unwrap();
     let (decoded, n) = decode_frame(&frame).unwrap();
     assert_eq!(n, frame.len());

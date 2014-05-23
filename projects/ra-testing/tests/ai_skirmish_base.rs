@@ -9,24 +9,14 @@ fn ai_deploys_mcv_and_places_power() {
     let mut case = ai_skirmish_open();
     assert!(case.session.expect_game_mut().ai_enabled);
     case.advance(1);
-    let yard = case
-        .session
-        .expect_game_mut()
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST");
+    let yard =
+        case.session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NACNST");
     assert!(yard.is_some(), "AI should deploy SMCV into NACNST");
     assert_eq!(yard.unwrap().kind, MapEntityKind::Structure);
 
     case.advance(1);
-    let power = case
-        .session
-        .expect_game_mut()
-        .world
-        .entities
-        .iter()
-        .find(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NAPOWR");
+    let power =
+        case.session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == slice.ai_house && e.type_id.as_ref() == "NAPOWR");
     assert!(power.is_some(), "AI should place NAPOWR near yard");
     assert!(case.observe().outcome.is_none());
 }

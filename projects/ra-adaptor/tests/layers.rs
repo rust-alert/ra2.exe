@@ -1,11 +1,13 @@
 //! 资源层发现与稳定排序。
 
-use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use ra_adaptor::{
-    ExpansionFamily, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE, ResourceChain, ResourceLayerKind,
-    compose_resource_layers, discover_expansions, parse_expansion_file_name,
+    ExpansionFamily, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE, ResourceChain, ResourceLayerKind, compose_resource_layers,
+    discover_expansions, parse_expansion_file_name,
 };
 use ra_types::GameEdition;
 
@@ -39,11 +41,7 @@ fn base_only_yields_base_portrait() {
     assert_eq!(c.layers.len(), 1);
     assert_eq!(c.layers[0].kind, ResourceLayerKind::BaseGame);
     assert!(c.root_mount_plan.iter().all(|s| s.priority == PRIORITY_BASE_GAME));
-    assert!(
-        c.nested_mount_plan
-            .iter()
-            .any(|n| n.name.eq_ignore_ascii_case("neutral.mix"))
-    );
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("neutral.mix")));
     let _ = fs::remove_dir_all(&dir);
 }
 
@@ -56,11 +54,7 @@ fn expand01_raises_priority_above_base() {
 
     let c = compose_resource_layers(&dir, &ra2_chain());
     assert_eq!(c.diagnostics.detected_expansions, vec!["expand01.mix".to_string()]);
-    let expand = c
-        .root_mount_plan
-        .iter()
-        .find(|s| s.name.eq_ignore_ascii_case("expand01.mix"))
-        .expect("expand01 in plan");
+    let expand = c.root_mount_plan.iter().find(|s| s.name.eq_ignore_ascii_case("expand01.mix")).expect("expand01 in plan");
     assert_eq!(expand.priority, PRIORITY_EXPANSION_BASE + 1);
     assert!(expand.priority > PRIORITY_BASE_GAME);
     let _ = fs::remove_dir_all(&dir);
@@ -80,20 +74,9 @@ fn multi_expand_stable_order_ignores_discovery_noise() {
     assert_eq!(indexes, vec![1, 2, 3]);
 
     let c = compose_resource_layers(&dir, &ra2_chain());
-    let expand_prios: Vec<_> = c
-        .root_mount_plan
-        .iter()
-        .filter(|s| s.name.to_ascii_lowercase().starts_with("expand"))
-        .map(|s| s.priority)
-        .collect();
-    assert_eq!(
-        expand_prios,
-        vec![
-            PRIORITY_EXPANSION_BASE + 1,
-            PRIORITY_EXPANSION_BASE + 2,
-            PRIORITY_EXPANSION_BASE + 3
-        ]
-    );
+    let expand_prios: Vec<_> =
+        c.root_mount_plan.iter().filter(|s| s.name.to_ascii_lowercase().starts_with("expand")).map(|s| s.priority).collect();
+    assert_eq!(expand_prios, vec![PRIORITY_EXPANSION_BASE + 1, PRIORITY_EXPANSION_BASE + 2, PRIORITY_EXPANSION_BASE + 3]);
     let _ = fs::remove_dir_all(&dir);
 }
 

@@ -67,7 +67,8 @@ pub fn read_dct_coeffs(
                             list_start -= 1;
                             coef_list[list_start] = ccoef;
                             mode_list[list_start] = 3;
-                        } else {
+                        }
+                        else {
                             let t = read_signed_coef(r, bits)?;
                             block[BINK_SCAN[ccoef as usize] as usize] = t;
                             coef_idx[*coef_count] = ccoef as usize;
@@ -85,7 +86,8 @@ pub fn read_dct_coeffs(
                             list_start -= 1;
                             coef_list[list_start] = ccoef;
                             mode_list[list_start] = 3;
-                        } else {
+                        }
+                        else {
                             let t = read_signed_coef(r, bits)?;
                             block[BINK_SCAN[ccoef as usize] as usize] = t;
                             coef_idx[*coef_count] = ccoef as usize;
@@ -137,7 +139,8 @@ fn read_signed_coef(r: &mut BitReader<'_>, bits: i32) -> Result<i32, BinkVideoEr
     if bits == 0 {
         // 1 或 -1
         Ok(1 - ((r.read_bit()? as i32) << 1))
-    } else {
+    }
+    else {
         let mut t = r.read_bits(bits as u32)? as i32 | (1 << bits);
         let sign = -(r.read_bit()? as i32);
         t = (t ^ sign) - sign;
@@ -146,12 +149,7 @@ fn read_signed_coef(r: &mut BitReader<'_>, bits: i32) -> Result<i32, BinkVideoEr
 }
 
 /// 按量化档反量化 DC 与已读 AC。
-pub fn unquantize_dct_coeffs(
-    block: &mut [i32; 64],
-    quant: &[i32; 64],
-    coef_count: usize,
-    coef_idx: &[usize; 64],
-) {
+pub fn unquantize_dct_coeffs(block: &mut [i32; 64], quant: &[i32; 64], coef_count: usize, coef_idx: &[usize; 64]) {
     block[0] = ((block[0] as i64 * quant[0] as i64) >> 11) as i32;
     for i in 0..coef_count {
         let idx = coef_idx[i];
@@ -161,10 +159,7 @@ pub fn unquantize_dct_coeffs(
 }
 
 /// 读满一帧内 DCT 块（含 DC 已就位）并反量化。
-pub fn decode_intra_dct_block(
-    r: &mut BitReader<'_>,
-    dc: i32,
-) -> Result<[i32; 64], BinkVideoError> {
+pub fn decode_intra_dct_block(r: &mut BitReader<'_>, dc: i32) -> Result<[i32; 64], BinkVideoError> {
     let mut block = [0i32; 64];
     block[0] = dc;
     let mut coef_idx = [0usize; 64];
@@ -175,10 +170,7 @@ pub fn decode_intra_dct_block(
 }
 
 /// 读满一帧间 DCT 残差块并反量化。
-pub fn decode_inter_dct_block(
-    r: &mut BitReader<'_>,
-    dc: i32,
-) -> Result<[i32; 64], BinkVideoError> {
+pub fn decode_inter_dct_block(r: &mut BitReader<'_>, dc: i32) -> Result<[i32; 64], BinkVideoError> {
     let mut block = [0i32; 64];
     block[0] = dc;
     let mut coef_idx = [0usize; 64];
@@ -186,24 +178,4 @@ pub fn decode_inter_dct_block(
     let q = read_dct_coeffs(r, &mut block, &mut coef_idx, &mut coef_count, None)?;
     unquantize_dct_coeffs(&mut block, &BINK_INTER_QUANT[q], coef_count, &coef_idx);
     Ok(block)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn emptyish_dct_reads_quant_index() {
-        // bits=0（4bit 全0 → bits=-1 跳过循环）+ quant=0
-        let data = [0u8];
-        let mut r = BitReader::from_bytes(&data);
-        let mut block = [0i32; 64];
-        block[0] = 100;
-        let mut coef_idx = [0usize; 64];
-        let mut coef_count = 0usize;
-        let q = read_dct_coeffs(&mut r, &mut block, &mut coef_idx, &mut coef_count, None).unwrap();
-        assert_eq!(q, 0);
-        assert_eq!(coef_count, 0);
-        assert_eq!(block[0], 100);
-    }
 }

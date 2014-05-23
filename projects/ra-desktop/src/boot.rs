@@ -2,9 +2,7 @@
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_engine::{Engine, Session, open_skirmish_session};
-use ra_map::{
-    MapInfo, compose_boot_preview, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes,
-};
+use ra_map::{MapInfo, compose_boot_preview, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes};
 use ra_renderer::RgbaImage;
 use ra_types::{GameEdition, RaResult};
 
@@ -43,13 +41,9 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesDb,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    let preview = compose_boot_preview(
-        source,
-        map,
-        chain.art_ini,
-        &|id| rules.overlay_types.name(id).map(str::to_owned),
-        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
-    )?;
+    let preview = compose_boot_preview(source, map, chain.art_ini, &|id| rules.overlay_types.name(id).map(str::to_owned), &|base, owner| {
+        rules.color_schemes.palette_for_house(&rules.rules, base, owner)
+    })?;
     let rgba = preview.image.image;
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
 }
@@ -61,10 +55,8 @@ fn load_boot_map(
     preferred_map: Option<&str>,
 ) -> Result<MapInfo, String> {
     let loaded = find_boot_map(edition, source, preferred_map)?;
-    let theater_mounted = mount_theater_mixes(
-        loaded.map.theater,
-        &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0),
-    );
+    let theater_mounted =
+        mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0));
     *note = format!("{note} · {} · 剧院mix {}", loaded.note, theater_mounted);
     Ok(loaded.map)
 }
@@ -100,10 +92,7 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
-    let _ = mount_theater_mixes(
-        loaded.map.theater,
-        &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0),
-    );
+    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0));
     let rules = load_rules_chain(&source, &manifest.chain).ok()?;
     let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules)?;
     Some((format!("{} · {}", loaded.note, note), image))
@@ -203,28 +192,26 @@ pub fn boot_world_with_progress(
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());
-    let (engine, session) = match rules
-        .as_ref()
-        .map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house))
-    {
-        Some(Ok(mut opened)) => {
-            note = opened.note;
-            note = format!("{note} · difficulty={}", request.difficulty);
-            opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
-            tracing::info!(
-                "fingerprint edition={} map={} rules_hash={:#x}",
-                opened.session.expect_game().fingerprint.edition,
-                opened.session.expect_game().fingerprint.map,
-                opened.session.expect_game().fingerprint.rules_hash
-            );
-            (Some(opened.engine), Some(opened.session))
-        }
-        Some(Err(e)) => {
-            note = format!("{note} · 会话未打开（{e}）");
-            (None, None)
-        }
-        None => (None, None),
-    };
+    let (engine, session) =
+        match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house)) {
+            Some(Ok(mut opened)) => {
+                note = opened.note;
+                note = format!("{note} · difficulty={}", request.difficulty);
+                opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
+                tracing::info!(
+                    "fingerprint edition={} map={} rules_hash={:#x}",
+                    opened.session.expect_game().fingerprint.edition,
+                    opened.session.expect_game().fingerprint.map,
+                    opened.session.expect_game().fingerprint.rules_hash
+                );
+                (Some(opened.engine), Some(opened.session))
+            }
+            Some(Err(e)) => {
+                note = format!("{note} · 会话未打开（{e}）");
+                (None, None)
+            }
+            None => (None, None),
+        };
 
     if session.as_ref().and_then(|s| s.game()).is_some() {
         report(1.0, "完成");
@@ -272,10 +259,7 @@ pub fn boot_from_install_with_request(request: crate::skirmish_setup::SkirmishBo
 }
 
 /// 按大厅遭遇战请求装载，并向回调报告阶段进度。
-pub fn boot_from_install_with_progress(
-    request: crate::skirmish_setup::SkirmishBootRequest,
-    mut report: impl FnMut(f32, &str),
-) -> BootResult {
+pub fn boot_from_install_with_progress(request: crate::skirmish_setup::SkirmishBootRequest, mut report: impl FnMut(f32, &str)) -> BootResult {
     report(0.04, "读取配置");
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {

@@ -8,8 +8,10 @@ use std::collections::HashMap;
 use ra_types::{RaError, RaResult};
 
 const HEADER_MAGIC: u32 = 0x4353_4620; // " FSC"
-const LABEL_MAGIC: u32 = 0x4C42_4C20; // " LBL"
-const STRING_MAGIC: u32 = 0x5354_5220; // " RTS"
+/// 标签块魔数（` LBL`）。
+pub const LABEL_MAGIC: u32 = 0x4C42_4C20;
+/// 字符串块魔数（` RTS`）。
+pub const STRING_MAGIC: u32 = 0x5354_5220;
 const STRING_EXTRA_MAGIC: u32 = 0x5354_5257; // "WRTS"
 const MIN_FILE_SIZE: usize = 24;
 
@@ -83,9 +85,7 @@ fn read_label_entry(data: &[u8], mut offset: usize) -> RaResult<(String, String,
     offset += 4;
     let name_len = read_u32(data, offset)? as usize;
     offset += 4;
-    let name_end = offset
-        .checked_add(name_len)
-        .ok_or_else(|| RaError::Msg("CSF 标签名溢出".into()))?;
+    let name_end = offset.checked_add(name_len).ok_or_else(|| RaError::Msg("CSF 标签名溢出".into()))?;
     if name_end > data.len() {
         return Err(RaError::Msg("CSF 标签名截断".into()));
     }
@@ -114,9 +114,7 @@ fn read_string_value(data: &[u8], mut offset: usize) -> RaResult<(String, usize)
     let char_count = read_u32(data, offset)? as usize;
     offset += 4;
     let byte_len = char_count.saturating_mul(2);
-    let end = offset
-        .checked_add(byte_len)
-        .ok_or_else(|| RaError::Msg("CSF 字符串溢出".into()))?;
+    let end = offset.checked_add(byte_len).ok_or_else(|| RaError::Msg("CSF 字符串溢出".into()))?;
     if end > data.len() {
         return Err(RaError::Msg("CSF 字符串截断".into()));
     }
@@ -130,59 +128,10 @@ fn read_string_value(data: &[u8], mut offset: usize) -> RaResult<(String, usize)
     if has_extra {
         let extra_len = read_u32(data, offset)? as usize;
         offset += 4;
-        offset = offset
-            .checked_add(extra_len)
-            .ok_or_else(|| RaError::Msg("CSF 附加数据溢出".into()))?;
+        offset = offset.checked_add(extra_len).ok_or_else(|| RaError::Msg("CSF 附加数据溢出".into()))?;
         if offset > data.len() {
             return Err(RaError::Msg("CSF 附加数据截断".into()));
         }
     }
     Ok((String::from_utf16_lossy(&units), offset))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn encode_not_utf16(s: &str) -> Vec<u8> {
-        let mut out = Vec::new();
-        for u in s.encode_utf16() {
-            out.extend_from_slice(&(!u).to_le_bytes());
-        }
-        out
-    }
-
-    fn tiny_csf() -> Vec<u8> {
-        let label = b"GUI:SINGLEPLAYER";
-        let value = encode_not_utf16("Single Player");
-        let mut data = Vec::new();
-        data.extend_from_slice(&HEADER_MAGIC.to_le_bytes());
-        data.extend_from_slice(&2u32.to_le_bytes()); // version
-        data.extend_from_slice(&1u32.to_le_bytes()); // labels
-        data.extend_from_slice(&1u32.to_le_bytes()); // strings
-        data.extend_from_slice(&0u32.to_le_bytes()); // reserved
-        data.extend_from_slice(&0u32.to_le_bytes()); // language
-        data.extend_from_slice(&LABEL_MAGIC.to_le_bytes());
-        data.extend_from_slice(&1u32.to_le_bytes()); // pairs
-        data.extend_from_slice(&(label.len() as u32).to_le_bytes());
-        data.extend_from_slice(label);
-        data.extend_from_slice(&STRING_MAGIC.to_le_bytes());
-        data.extend_from_slice(&((value.len() / 2) as u32).to_le_bytes());
-        data.extend_from_slice(&value);
-        data
-    }
-
-    #[test]
-    fn parse_and_lookup_is_case_insensitive() {
-        let csf = CsfFile::parse(&tiny_csf()).unwrap();
-        assert_eq!(csf.len(), 1);
-        assert_eq!(csf.get("gui:singleplayer"), Some("Single Player"));
-        assert_eq!(csf.get("GUI:SinglePlayer"), Some("Single Player"));
-    }
-
-    #[test]
-    fn parse_rejects_bad_magic() {
-        let err = CsfFile::parse(&[0u8; 24]).unwrap_err();
-        assert!(err.to_string().contains("魔数"));
-    }
 }

@@ -18,9 +18,9 @@ pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
 pub use definition::{
     AnimationDefinitions, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition, DeployableDefinitions,
-    DeploymentPlacement, HouseDefinitions, LocomotorDefinitions, PowerProfile, ProductionCategory, ProductionDefinitions,
-    ProductionProfile, RuntimeDefinitions, SoundDefinitions, StructureDefinition, StructureDefinitions, TechnoClass,
-    TechnoDefinition, TechnoDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WeaponDefinitions,
+    DeploymentPlacement, HouseDefinitions, LocomotorDefinitions, PowerProfile, ProductionCategory, ProductionDefinitions, ProductionProfile,
+    RuntimeDefinitions, SoundDefinitions, StructureDefinition, StructureDefinitions, TechnoClass, TechnoDefinition, TechnoDefinitions,
+    TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WeaponDefinitions,
 };
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};

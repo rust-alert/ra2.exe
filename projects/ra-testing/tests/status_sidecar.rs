@@ -53,10 +53,7 @@ leave_armed=true
 
 #[test]
 fn wait_until_reads_file_when_expect_matches() {
-    let dir = std::env::temp_dir().join(format!(
-        "ra2-status-wait-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("ra2-status-wait-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
     let path = dir.join("status.txt");
     std::fs::write(&path, "tick=3\nhash=0x1\noutcome=none\n").unwrap();
@@ -68,10 +65,7 @@ fn wait_until_reads_file_when_expect_matches() {
 
 #[test]
 fn wait_until_times_out_when_expect_never_matches() {
-    let dir = std::env::temp_dir().join(format!(
-        "ra2-status-wait-miss-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("ra2-status-wait-miss-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
     let path = dir.join("status.txt");
     std::fs::write(&path, "tick=0\nhash=0x0\noutcome=none\n").unwrap();

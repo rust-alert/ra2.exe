@@ -6,10 +6,12 @@ use ra_adaptor::{ResourceChain, RulesDb};
 use ra_map::{MapInfo, seal_pass_grid_from_tmp};
 use ra_types::{AssetSource, RaResult};
 
-use crate::engine::{Engine, EngineConfig};
-use crate::game::Game;
-use crate::session::Session;
-use crate::state::MatchState;
+use crate::{
+    engine::{Engine, EngineConfig},
+    game::Game,
+    session::Session,
+    state::MatchState,
+};
 
 /// `open_skirmish_session` 的成功结果。
 #[derive(Debug)]
@@ -45,10 +47,7 @@ pub fn open_skirmish_session(
     if let Some(house) = preferred_house {
         if !state.prefer_local_house(house) {
             let available: Vec<&str> = state.players.iter().map(|p| p.house.as_ref()).collect();
-            return Err(ra_types::RaError::Msg(format!(
-                "指定阵营不可用: {house}（地图玩家: {}）",
-                available.join(", ")
-            )));
+            return Err(ra_types::RaError::Msg(format!("指定阵营不可用: {house}（地图玩家: {}）", available.join(", "))));
         }
         note = format!("{note} · local_house={house}");
     }
@@ -66,14 +65,11 @@ pub fn open_skirmish_session(
         state.definitions.deployables.len()
     );
 
-    let rules_bytes = source.read(chain.rules_ini).map_err(|e| {
-        ra_types::RaError::Msg(format!("无法读取规则文件 {} 以生成对局指纹: {e}", chain.rules_ini))
-    })?;
+    let rules_bytes = source
+        .read(chain.rules_ini)
+        .map_err(|e| ra_types::RaError::Msg(format!("无法读取规则文件 {} 以生成对局指纹: {e}", chain.rules_ini)))?;
     if rules_bytes.is_empty() {
-        return Err(ra_types::RaError::Msg(format!(
-            "规则文件 {} 为空，拒绝用空字节生成对局指纹",
-            chain.rules_ini
-        )));
+        return Err(ra_types::RaError::Msg(format!("规则文件 {} 为空，拒绝用空字节生成对局指纹", chain.rules_ini)));
     }
     let fingerprint = Game::build_skirmish_fingerprint(
         chain.edition.as_str(),
@@ -86,11 +82,8 @@ pub fn open_skirmish_session(
 
     let defs_for_engine = Arc::clone(&state.definitions);
     let game = Game::open_skirmish(state, note.clone(), preview_origin, fingerprint);
-    let engine = Engine::new(defs_for_engine, EngineConfig::default())
-        .map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
-    let mut session = engine
-        .create_session(crate::session::SessionSpec::default())
-        .map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
+    let engine = Engine::new(defs_for_engine, EngineConfig::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
+    let mut session = engine.create_session(crate::session::SessionSpec::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     session.attach_game(game);
 
     Ok(SkirmishOpenResult { engine, session, note })

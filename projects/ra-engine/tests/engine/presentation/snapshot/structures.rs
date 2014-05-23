@@ -1,7 +1,7 @@
 //! 快照包含建筑实体。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{Session, MatchState};
+use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 

@@ -101,16 +101,7 @@ impl SpriteGpu {
 
         let (texture, bind_group, vertex_buffer) = upload(device, queue, &bind_group_layout, &sampler, image);
 
-        Self {
-            pipeline,
-            bind_group_layout,
-            sampler,
-            texture,
-            bind_group,
-            vertex_buffer,
-            width: image.width(),
-            height: image.height(),
-        }
+        Self { pipeline, bind_group_layout, sampler, texture, bind_group, vertex_buffer, width: image.width(), height: image.height() }
     }
 
     pub fn replace_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &RgbaImage) {
@@ -158,12 +149,7 @@ fn upload(
         view_formats: &[],
     });
     queue.write_texture(
-        wgpu::TexelCopyTextureInfo {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
+        wgpu::TexelCopyTextureInfo { texture: &texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
         image.as_raw(),
         wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * image.width()), rows_per_image: Some(image.height()) },
         size,

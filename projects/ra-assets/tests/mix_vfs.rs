@@ -65,14 +65,7 @@ fn parse_helper_roundtrip() {
 #[test]
 fn nested_inherits_parent_priority_and_layer() {
     let mut vfs = MixVfs::new();
-    vfs.mount_bytes_with_meta(
-        "expand01.mix",
-        outer_with_nested_cache(b"FROM-EXPAND"),
-        101,
-        None,
-        Some("expansion.plain.01".into()),
-    )
-    .unwrap();
+    vfs.mount_bytes_with_meta("expand01.mix", outer_with_nested_cache(b"FROM-EXPAND"), 101, None, Some("expansion.plain.01".into())).unwrap();
     assert_eq!(vfs.mount_nested_all_from_parents("cache.mix").unwrap(), 1);
 
     let hit = vfs.resolve_hit("leaf.bin").unwrap();
@@ -86,10 +79,8 @@ fn nested_inherits_parent_priority_and_layer() {
 #[test]
 fn nested_from_all_parents_keeps_file_level_overlay() {
     let mut vfs = MixVfs::new();
-    vfs.mount_bytes_with_priority("base.mix", outer_with_nested_cache(b"BASE-LEAF"), 0)
-        .unwrap();
-    vfs.mount_bytes_with_priority("expand01.mix", outer_with_nested_cache(b"EXP-LEAF"), 101)
-        .unwrap();
+    vfs.mount_bytes_with_priority("base.mix", outer_with_nested_cache(b"BASE-LEAF"), 0).unwrap();
+    vfs.mount_bytes_with_priority("expand01.mix", outer_with_nested_cache(b"EXP-LEAF"), 101).unwrap();
 
     assert_eq!(vfs.mount_nested_all_from_parents("cache.mix").unwrap(), 2);
     assert_eq!(vfs.read("leaf.bin").unwrap(), b"EXP-LEAF");

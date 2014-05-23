@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, MatchState};
+use ra_engine::{MatchState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 

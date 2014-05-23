@@ -38,12 +38,7 @@ pub struct TerrainImage {
 impl TerrainImage {
     /// 空白画布（测试与占位合成用）。
     pub fn blank(width: u32, height: u32) -> Self {
-        Self {
-            image: RgbaImage::new(width.max(1), height.max(1)),
-            drawn: 0,
-            origin_x: 0,
-            origin_y: 0,
-        }
+        Self { image: RgbaImage::new(width.max(1), height.max(1)), drawn: 0, origin_x: 0, origin_y: 0 }
     }
 }
 
@@ -104,11 +99,7 @@ pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) 
 /// 在已合成地形上绘制覆盖层标记（占位色块，尚未接 SHP）。
 ///
 /// `cell_z` 提供格子高度；未知时按 0。返回画上的格数。
-pub fn paint_overlay_markers(
-    image: &mut TerrainImage,
-    overlays: &[crate::OverlayCell],
-    mut cell_z: impl FnMut(u16, u16) -> u8,
-) -> usize {
+pub fn paint_overlay_markers(image: &mut TerrainImage, overlays: &[crate::OverlayCell], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
     let mut painted = 0usize;
     let (width, height) = (image.image.width(), image.image.height());
     for cell in overlays {
@@ -128,11 +119,7 @@ pub fn paint_overlay_markers(
 /// 在已合成地形上按格子绘制精灵（树 / 建筑等）。
 ///
 /// `items` 为 `(cell_x, cell_y, blit)`；返回实际画上的数量。
-pub fn paint_cell_sprites(
-    image: &mut TerrainImage,
-    items: &[(u16, u16, TileBlit)],
-    mut cell_z: impl FnMut(u16, u16) -> u8,
-) -> usize {
+pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[(u16, u16, TileBlit)], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
     if items.is_empty() {
         return 0;
     }

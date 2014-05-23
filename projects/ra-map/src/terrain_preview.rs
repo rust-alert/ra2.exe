@@ -39,13 +39,7 @@ pub fn compose_terrain_preview(source: &dyn AssetSource, map: &MapInfo) -> Optio
         let index = usize::from(sub_tile);
         let tile = tmp.tiles.get(index)?.as_ref()?;
         let rgba = tmp.tile_to_rgba(index, &pal).ok()?;
-        let blit = TileBlit {
-            width: tile.pixel_width,
-            height: tile.pixel_height,
-            offset_x: tile.offset_x,
-            offset_y: tile.offset_y,
-            rgba,
-        };
+        let blit = TileBlit { width: tile.pixel_width, height: tile.pixel_height, offset_x: tile.offset_x, offset_y: tile.offset_y, rgba };
         blit_cache.insert((tile_num, sub_tile), blit.clone());
         Some(blit)
     };

@@ -97,20 +97,8 @@ pub fn alpha_skirmish_v1() -> AlphaSkirmishSlice {
         allied_mcv: "AMCV",
         soviet_mcv: "SMCV",
         buildings: &[
-            SliceBuilding {
-                type_id: "GACNST",
-                side: "allied",
-                role: SliceBuildingRole::ConstructionYard,
-                cost: 2500,
-                power: 0,
-            },
-            SliceBuilding {
-                type_id: "NACNST",
-                side: "soviet",
-                role: SliceBuildingRole::ConstructionYard,
-                cost: 2500,
-                power: 0,
-            },
+            SliceBuilding { type_id: "GACNST", side: "allied", role: SliceBuildingRole::ConstructionYard, cost: 2500, power: 0 },
+            SliceBuilding { type_id: "NACNST", side: "soviet", role: SliceBuildingRole::ConstructionYard, cost: 2500, power: 0 },
             SliceBuilding { type_id: "GAPOWR", side: "allied", role: SliceBuildingRole::Power, cost: 600, power: 200 },
             SliceBuilding { type_id: "NAPOWR", side: "soviet", role: SliceBuildingRole::Power, cost: 600, power: 200 },
             SliceBuilding { type_id: "GAPILE", side: "allied", role: SliceBuildingRole::Barracks, cost: 500, power: -20 },

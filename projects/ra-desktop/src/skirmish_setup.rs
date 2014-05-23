@@ -40,26 +40,3 @@ impl SkirmishBootRequest {
         format!("side={} diff={} map={}", self.side, self.difficulty, self.preferred_map.as_deref().unwrap_or("(auto)"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cycle_side_wraps() {
-        let mut r = SkirmishBootRequest::default_lobby();
-        assert_eq!(r.side, "Americans");
-        r.cycle_side();
-        assert_eq!(r.side, "Russians");
-        r.cycle_side();
-        assert_eq!(r.side, "Americans");
-    }
-
-    #[test]
-    fn cycle_difficulty_advances() {
-        let mut r = SkirmishBootRequest::default_lobby();
-        assert_eq!(r.difficulty, "Normal");
-        r.cycle_difficulty();
-        assert_eq!(r.difficulty, "Hard");
-    }
-}

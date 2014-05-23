@@ -2,9 +2,11 @@
 
 use ra_types::BuiltinCapability;
 
-use crate::engine::EngineRuntime;
-use crate::game::{DEFAULT_TICK_HZ, Game, MAX_TICKS_PER_PUMP};
-use crate::state::MatchState;
+use crate::{
+    engine::EngineRuntime,
+    game::{DEFAULT_TICK_HZ, Game, MAX_TICKS_PER_PUMP},
+    state::MatchState,
+};
 
 /// 创建会话时的规格。
 ///
@@ -47,22 +49,13 @@ pub struct Session {
 impl Session {
     /// 空会话。
     pub fn new(spec: SessionSpec) -> Self {
-        Self {
-            spec,
-            phase: SessionPhase::Idle,
-            tick_hz: DEFAULT_TICK_HZ,
-            tick_accum_ms: 0.0,
-            game: None,
-        }
+        Self { spec, phase: SessionPhase::Idle, tick_hz: DEFAULT_TICK_HZ, tick_accum_ms: 0.0, game: None }
     }
 
     /// 测试 / 便利：由权威状态直接挂上一局 `Game` 并进入 Playing。
     pub fn from_state(state: MatchState, boot_note: impl Into<String>) -> Self {
         let note = boot_note.into();
-        let mut session = Self::new(SessionSpec {
-            label: note.clone(),
-            required_capabilities: Vec::new(),
-        });
+        let mut session = Self::new(SessionSpec { label: note.clone(), required_capabilities: Vec::new() });
         session.attach_game(Game::new(state, note));
         session
     }

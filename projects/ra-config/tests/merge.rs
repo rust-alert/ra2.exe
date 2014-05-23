@@ -9,8 +9,7 @@ fn later_layer_overrides() {
     let mut b = ConfigTable::new();
     b.insert("ra2_dir", "C:/games/ra2");
     b.insert("edition", "yr");
-    let merged =
-        MergedConfig::merge_layers(&[ConfigLayer { label: "a".into(), table: a }, ConfigLayer { label: "b".into(), table: b }]);
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "a".into(), table: a }, ConfigLayer { label: "b".into(), table: b }]);
     let s = DesktopSettings::from_merged(&merged);
     assert_eq!(s.ra2_dir, PathBuf::from("C:/games/ra2"));
     assert_eq!(s.edition.as_deref(), Some("yr"));
@@ -26,10 +25,8 @@ fn parse_toml_keeps_string_keys_and_skips_comments() {
 
 #[test]
 fn rust_alert_document_round_trip_preserves_comment() {
-    let dir = std::env::temp_dir().join(format!(
-        "ra_config_test_{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-    ));
+    let dir = std::env::temp_dir()
+        .join(format!("ra_config_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("RustAlert.toml");
     std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n").unwrap();
@@ -48,10 +45,8 @@ fn rust_alert_document_round_trip_preserves_comment() {
 
 #[test]
 fn ensure_creates_missing_toml_once() {
-    let dir = std::env::temp_dir().join(format!(
-        "ra_config_ensure_{}",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
-    ));
+    let dir = std::env::temp_dir()
+        .join(format!("ra_config_ensure_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("RustAlert.toml");
     assert!(!path.is_file());

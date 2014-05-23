@@ -12,9 +12,7 @@ pub struct CapabilityRegistry {
 impl CapabilityRegistry {
     /// 从冻结定义镜像能力声明。
     pub fn from_definitions(definitions: &RuntimeDefinitions) -> Self {
-        Self {
-            builtins: definitions.capabilities.builtins.clone(),
-        }
+        Self { builtins: definitions.capabilities.builtins.clone() }
     }
 
     /// 引擎定义是否声明了该内置能力。

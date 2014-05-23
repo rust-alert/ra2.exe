@@ -1,7 +1,7 @@
 //! 胜负计入建筑作战力量。
 
 use crate::common::rules_with_mtnk;
-use ra_engine::{Session, MatchState};
+use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 

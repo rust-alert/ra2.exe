@@ -4,36 +4,13 @@
 //! 默认情形：未写 `ra2_dir` 时取 exe 所在目录，便于把二进制放进游戏安装目录定位资源；
 //! 分辨率等其它选项仍写在该配置文件中。
 //!
-//! 页面状态机见 [`shell::AppShell`] / [`screen::OriginalScreen`]；对局输入见 [`match_ctrl::MatchController`]。
+//! 页面状态机见 [`ra_desktop::shell::AppShell`] / [`ra_desktop::screen::OriginalScreen`]；
+//! 对局输入见 [`ra_desktop::match_ctrl::MatchController`]。
 //! 产品路径对齐原版主 UI 流程，禁止启动后自动开局。
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod boot;
-mod config;
-mod fs_source;
-mod load_job;
-mod local_player;
-mod match_ctrl;
-mod menu_action;
-mod preview_job;
-mod screen;
-mod screenshot;
-mod shell;
-mod skirmish_setup;
-#[cfg(feature = "test-harness")]
-mod test_boot;
-mod ui_assets;
-mod ui_compose;
-mod ui_decode;
-mod ui_hit;
-mod ui_layout;
-mod ui_movie;
-mod ui_page;
-mod ui_resolve;
-mod ui_slots;
-mod ui_text;
-
+use ra_desktop::shell;
 use ra_types::RaResult;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};

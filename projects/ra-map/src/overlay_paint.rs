@@ -56,8 +56,7 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        let image_key =
-            art.as_ref().and_then(|a| a.get(&type_name, "Image")).unwrap_or(type_name.as_str()).to_ascii_uppercase();
+        let image_key = art.as_ref().and_then(|a| a.get(&type_name, "Image")).unwrap_or(type_name.as_str()).to_ascii_uppercase();
         let frame_idx = cell.data;
         let cache_key = (image_key.clone(), frame_idx);
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -65,10 +64,8 @@ pub fn paint_map_overlays(
             continue;
         }
 
-        let new_theater =
-            art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let theater_yes =
-            art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let new_theater = art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let theater_yes = art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let mut candidates = Vec::new();
         if theater_yes {
             candidates.push(format!("{}.{ext}", image_key.to_ascii_lowercase()));

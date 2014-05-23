@@ -1,9 +1,9 @@
 //! AI 放置兵营并生产步兵。
 
+use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use crate::common::test_engine;
-use ra_engine::{Session, MatchState};
+use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -67,9 +67,18 @@ fn ai_places_barracks_and_produces_infantry() {
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND"), "AI should place barracks");
+    assert!(
+        session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND"),
+        "AI should place barracks"
+    );
     // 下一 tick 兵营空闲后排队生产。
     session.tick(&engine.runtime());
-    let hand = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND").expect("barracks");
+    let hand = session
+        .expect_game_mut()
+        .world
+        .entities
+        .iter()
+        .find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAHAND")
+        .expect("barracks");
     assert_eq!(hand.produce_queue.as_ref().map(|(id, _)| id.as_ref()), Some("E2"));
 }

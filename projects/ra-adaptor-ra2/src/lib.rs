@@ -56,8 +56,5 @@ pub fn profile() -> ResourceProfile {
 
 /// 目录是否呈现原版特征。
 pub fn looks_like(root: &std::path::Path) -> bool {
-    root.join("game.exe").is_file()
-        || root.join("rules.ini").is_file()
-        || root.join("ra2.mix").is_file()
-        || root.join("language.mix").is_file()
+    root.join("game.exe").is_file() || root.join("rules.ini").is_file() || root.join("ra2.mix").is_file() || root.join("language.mix").is_file()
 }

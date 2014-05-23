@@ -1,6 +1,6 @@
 style_edition = "2024"
 edition = "2024"
-max_width = 128
+max_width = 144
 
 imports_granularity = "Crate"
 use_small_heuristics = "Max"

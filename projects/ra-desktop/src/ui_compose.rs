@@ -8,8 +8,8 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
-        main_menu_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout,
+        single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
         MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, resolve_caption,
@@ -134,12 +134,7 @@ fn compose_shell_menu_page(
     }
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
         for i in 0..layout.panel_tile_count {
-            let r = RectPx::new(
-                layout.panel_tile.x,
-                layout.panel_tile.y + i * layout.panel_tile.h,
-                layout.panel_tile.w,
-                layout.panel_tile.h,
-            );
+            let r = RectPx::new(layout.panel_tile.x, layout.panel_tile.y + i * layout.panel_tile.h, layout.panel_tile.w, layout.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
         }
     }
@@ -152,8 +147,7 @@ fn compose_shell_menu_page(
 
     for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
-        let sprite =
-            if pressed_entry_id == Some(*entry_id) { find_button_pressed(decoded, entry_id).unwrap_or(normal) } else { normal };
+        let sprite = if pressed_entry_id == Some(*entry_id) { find_button_pressed(decoded, entry_id).unwrap_or(normal) } else { normal };
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
@@ -244,84 +238,4 @@ pub fn compose_skirmish_lobby_page(
         }
     }
     Some(page)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn blit_writes_opaque_pixel() {
-        let mut dst = RgbaImage::from_raw(2, 2, vec![0u8; 16]).unwrap();
-        let src = RgbaImage::from_raw(1, 1, vec![10, 20, 30, 255]).unwrap();
-        blit_rgba(&mut dst, &src, 1, 1);
-        assert_eq!(&dst.as_mut()[12..16], &[10, 20, 30, 255]);
-    }
-
-    fn solid_sprite(label: &str, rgba: [u8; 4]) -> DecodedUiSprite {
-        DecodedUiSprite {
-            label: label.into(),
-            image: RgbaImage::from_raw(1, 1, rgba.to_vec()).unwrap(),
-            origin: "test".into(),
-            frame: 0,
-            canvas: (1, 1),
-            frame_rect: (0, 0, 1, 1),
-        }
-    }
-
-    #[test]
-    fn compose_uses_pressed_sprite_when_entry_matches() {
-        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
-        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
-        let pressed = solid_sprite("sdbtnanm.shp#4", [200, 0, 0, 255]);
-        let decoded = PageDecodeReport {
-            background: Some(bg),
-            panels: Vec::new(),
-            button_normals: MAIN_MENU_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
-            button_presseds: vec![("single_player", pressed)],
-            errors: Vec::new(),
-        };
-        let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None).unwrap();
-        let layout = main_menu_layout(800, 600);
-        let cell = layout.buttons[0];
-        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
-        assert_eq!(&page.as_raw()[di..di + 4], &[200, 0, 0, 255]);
-    }
-
-    #[test]
-    fn compose_single_player_uses_skirmish_id() {
-        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
-        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
-        let pressed = solid_sprite("sdbtnanm.shp#4", [0, 200, 0, 255]);
-        let decoded = PageDecodeReport {
-            background: Some(bg),
-            panels: Vec::new(),
-            button_normals: SINGLE_PLAYER_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
-            button_presseds: vec![("skirmish", pressed)],
-            errors: Vec::new(),
-        };
-        let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None).unwrap();
-        let layout = single_player_layout(800, 600);
-        let cell = layout.buttons[1];
-        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
-        assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
-    }
-    #[test]
-    fn compose_skirmish_lobby_uses_side_id() {
-        let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
-        let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
-        let pressed = solid_sprite("sdbtnanm.shp#4", [0, 0, 200, 255]);
-        let decoded = PageDecodeReport {
-            background: Some(bg),
-            panels: Vec::new(),
-            button_normals: SKIRMISH_LOBBY_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
-            button_presseds: vec![("side", pressed)],
-            errors: Vec::new(),
-        };
-        let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("side"), None, None, None, &[]).unwrap();
-        let layout = skirmish_lobby_layout(800, 600);
-        let cell = layout.buttons[0];
-        let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
-        assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
-    }
 }

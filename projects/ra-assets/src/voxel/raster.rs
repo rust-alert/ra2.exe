@@ -32,13 +32,7 @@ pub fn rasterize_vxl_posed(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFil
 ///
 /// 节变换：`bounds_min + bone(scale(grid))`，其中 bone 平移乘 `limb.scale`。
 /// 组装后绕模型原点做 8 向偏航。
-pub fn rasterize_vxl_frame(
-    vxl: &VxlFile,
-    palette: &Palette,
-    hva: Option<&HvaFile>,
-    facing: u8,
-    frame: u32,
-) -> Option<VxlSprite> {
+pub fn rasterize_vxl_frame(vxl: &VxlFile, palette: &Palette, hva: Option<&HvaFile>, facing: u8, frame: u32) -> Option<VxlSprite> {
     rasterize_vxl_layers(&[(vxl, hva)], palette, facing, frame)
 }
 
@@ -56,12 +50,7 @@ pub struct VxlLayerPose<'a> {
 }
 
 /// 多层 VXL（车身 / 炮塔 / 炮管）合成一张精灵；各层共用 facing/frame。
-pub fn rasterize_vxl_layers(
-    layers: &[(&VxlFile, Option<&HvaFile>)],
-    palette: &Palette,
-    facing: u8,
-    frame: u32,
-) -> Option<VxlSprite> {
+pub fn rasterize_vxl_layers(layers: &[(&VxlFile, Option<&HvaFile>)], palette: &Palette, facing: u8, frame: u32) -> Option<VxlSprite> {
     let poses: Vec<VxlLayerPose<'_>> = layers.iter().map(|&(vxl, hva)| VxlLayerPose { vxl, hva, facing, frame }).collect();
     rasterize_vxl_layer_poses(&poses, palette, None)
 }
@@ -160,11 +149,7 @@ fn section_axis_scale(extent: f32, size: u8) -> f32 {
 /// HVA 3×4：旋转作用在坐标上，平移乘肢节 `scale`。
 fn apply_matrix_scaled(m: &[f32; 12], x: f32, y: f32, z: f32, limb_scale: f32) -> (f32, f32, f32) {
     let s = if limb_scale.is_finite() && limb_scale > 0.0 { limb_scale } else { 1.0 };
-    (
-        m[0] * x + m[1] * y + m[2] * z + m[3] * s,
-        m[4] * x + m[5] * y + m[6] * z + m[7] * s,
-        m[8] * x + m[9] * y + m[10] * z + m[11] * s,
-    )
+    (m[0] * x + m[1] * y + m[2] * z + m[3] * s, m[4] * x + m[5] * y + m[6] * z + m[7] * s, m[8] * x + m[9] * y + m[10] * z + m[11] * s)
 }
 
 fn yaw_point(x: f32, y: f32, z: f32, cx: f32, cy: f32, facing: u8) -> (f32, f32, f32) {

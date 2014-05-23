@@ -19,12 +19,7 @@ fn command_codec_roundtrip() {
 
 #[test]
 fn scheduled_codec_roundtrip() {
-    let cmd = ScheduledCommand::new(
-        CommandId(9),
-        PlayerId(2),
-        Tick(15),
-        GameCommand::MoveTo { entity: EntityId(4), x: 1, y: 2 },
-    );
+    let cmd = ScheduledCommand::new(CommandId(9), PlayerId(2), Tick(15), GameCommand::MoveTo { entity: EntityId(4), x: 1, y: 2 });
     let bytes = encode_scheduled(&cmd);
     assert_eq!(decode_scheduled(&bytes), Some(cmd));
 }

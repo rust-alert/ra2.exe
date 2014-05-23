@@ -4,8 +4,8 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, ProductionCategory, ProductionProfile,
-    RuntimeDefinitions, StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, ProductionCategory, ProductionProfile, RuntimeDefinitions,
+    StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
 };
 
 use crate::RulesDb;
@@ -63,11 +63,7 @@ pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
         }
 
         let power_raw = ini_i32(&rules.rules, &key, "Power").unwrap_or(0);
-        let (output, drain) = if power_raw >= 0 {
-            (power_raw, 0)
-        } else {
-            (0, -power_raw)
-        };
+        let (output, drain) = if power_raw >= 0 { (power_raw, 0) } else { (0, -power_raw) };
         let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
         let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
         let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
@@ -99,11 +95,7 @@ pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
-            power: PowerProfile {
-                output,
-                drain,
-                requires_power: powered,
-            },
+            power: PowerProfile { output, drain, requires_power: powered },
             cost: tt.cost as i32,
             strength: tt.strength.max(1),
             armor: tt.armor.clone(),
@@ -131,22 +123,13 @@ pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    let mut warhead_keys: Vec<String> = defs
-        .techno
-        .iter()
-        .map(|t| t.warhead.clone())
-        .filter(|w| !w.is_empty())
-        .collect();
+    let mut warhead_keys: Vec<String> = defs.techno.iter().map(|t| t.warhead.clone()).filter(|w| !w.is_empty()).collect();
     warhead_keys.sort();
     warhead_keys.dedup();
     for key in warhead_keys {
         let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
         let id = alloc();
-        defs.warheads.insert(WarheadDefinition {
-            id,
-            type_key: key,
-            verses,
-        });
+        defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
     }
 
     defs

@@ -1,10 +1,12 @@
 //! Bink 平面解码用的 9 路数据捆（bundle）：树描述 + 值缓冲。
 
-use super::bink::BinkVersion;
-use super::bink_bits::{BitReader, VlcTable};
-use super::bink_huff::HuffmanTree;
-use super::bink_tables::BINK_RLELENS;
-use super::bink_video::BinkVideoError;
+use super::{
+    bink::BinkVersion,
+    bink_bits::{BitReader, VlcTable},
+    bink_huff::HuffmanTree,
+    bink_tables::BINK_RLELENS,
+    bink_video::BinkVideoError,
+};
 
 /// Bundle 种类数。
 pub const NB_SRC: usize = 9;
@@ -71,11 +73,7 @@ impl BinkBundle {
 
 /// `floor(log2(x))`，`x == 0` 时为 0。
 pub fn log2_floor(x: u32) -> u32 {
-    if x == 0 {
-        0
-    } else {
-        31 - x.leading_zeros()
-    }
+    if x == 0 { 0 } else { 31 - x.leading_zeros() }
 }
 
 /// 按平面宽与块列数设置各 bundle 的 `len_bits`。
@@ -158,7 +156,8 @@ pub fn read_block_types(
             return Ok(());
         }
         xored
-    } else {
+    }
+    else {
         t_raw
     } as usize;
     let dec_end = cur_dec_start.saturating_add(t);
@@ -168,7 +167,8 @@ pub fn read_block_types(
     if r.read_bit()? {
         let v = r.read_bits(4)? as u8;
         data[cur_dec_start..dec_end].fill(v);
-    } else {
+    }
+    else {
         let mut last: u8 = 0;
         let mut dec = cur_dec_start;
         while dec < dec_end {
@@ -177,7 +177,8 @@ pub fn read_block_types(
                 last = v;
                 data[dec] = v;
                 dec += 1;
-            } else {
+            }
+            else {
                 let run = BINK_RLELENS[(v - 12) as usize] as usize;
                 if dec_end.saturating_sub(dec) < run {
                     return Err(BinkVideoError::Msg("块类型 RLE 越界".into()));
@@ -223,7 +224,8 @@ pub fn read_colors(
         let lo = tree.decode_sym(vlc, r)?;
         let v = (hi << 4) | lo;
         data[cur_dec_start..dec_end].fill(v);
-    } else {
+    }
+    else {
         let mut dec = cur_dec_start;
         while dec < dec_end {
             let hi = col_high[(*col_lastval & 0xF) as usize].decode_sym(vlc, r)?;
@@ -303,7 +305,8 @@ pub fn read_motion_values(
             v = (v ^ sign) - sign;
         }
         data[cur_dec_start..dec_end].fill(v as i8 as u8);
-    } else {
+    }
+    else {
         let mut dec = cur_dec_start;
         while dec < dec_end {
             let mut v = tree.decode_sym(vlc, r)? as i32;
@@ -346,7 +349,8 @@ pub fn read_runs(
     if r.read_bit()? {
         let v = r.read_bits(4)? as u8;
         data[cur_dec_start..dec_end].fill(v);
-    } else {
+    }
+    else {
         let mut dec = cur_dec_start;
         while dec < dec_end {
             data[dec] = tree.decode_sym(vlc, r)?;
@@ -437,7 +441,8 @@ pub fn read_dcs(
                 write_i16(data, dec, v as i16);
                 dec += 2;
             }
-        } else {
+        }
+        else {
             for _ in 0..len2 {
                 write_i16(data, dec, v as i16);
                 dec += 2;
@@ -458,42 +463,4 @@ pub fn alloc_bundles(width: u32, height: u32) -> ([BinkBundle; NB_SRC], Vec<u8>)
     let data = vec![0u8; total];
     let bundles = std::array::from_fn(|i| BinkBundle::slice(blocks, i));
     (bundles, data)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn init_lengths_for_320_wide() {
-        let (mut bundles, _) = alloc_bundles(320, 240);
-        let bw = (320 + 7) >> 3;
-        init_bundle_lengths(&mut bundles, 320, bw);
-        assert!(bundles[BinkSrc::BlockTypes as usize].len_bits >= 1);
-        assert_eq!(
-            bundles[BinkSrc::BlockTypes as usize].len_bits,
-            bundles[BinkSrc::XOff as usize].len_bits
-        );
-    }
-
-    #[test]
-    fn read_bundle_identity_tree() {
-        let (mut bundles, _) = alloc_bundles(16, 16);
-        init_bundle_lengths(&mut bundles, 16, 2);
-        // vlc_num = 0
-        let data = [0x00u8];
-        let mut r = BitReader::from_bytes(&data);
-        let mut col_high = std::array::from_fn(|_| HuffmanTree::default());
-        let mut col_last = 0u8;
-        read_bundle(
-            &mut r,
-            &mut bundles,
-            &mut col_high,
-            &mut col_last,
-            BinkSrc::BlockTypes as usize,
-        )
-        .unwrap();
-        assert_eq!(bundles[0].tree.vlc_num, 0);
-        assert!(!bundles[0].skip_fills);
-    }
 }

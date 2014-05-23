@@ -33,13 +33,7 @@ impl FrameBuilder {
     /// 仅更新脏 ID 对应槽位；`units` 应为这些 ID 的投影切片。
     ///
     /// 未知 ID 的投影会被插入；脏集中有但 `units` 未给出的 ID 会从世界移除（视为销毁）。
-    pub fn apply_dirty_units(
-        world: &mut RenderWorld,
-        source_tick: u64,
-        dirty: &[EntityId],
-        units: &[SnapshotUnit],
-        selected: &[EntityId],
-    ) {
+    pub fn apply_dirty_units(world: &mut RenderWorld, source_tick: u64, dirty: &[EntityId], units: &[SnapshotUnit], selected: &[EntityId]) {
         world.source_tick = source_tick;
         let selected: HashSet<u64> = selected.iter().map(|id| id.0).collect();
         let mut provided: HashSet<u64> = HashSet::with_capacity(units.len());

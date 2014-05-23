@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, PRODUCE_TICKS, MatchState};
+use ra_engine::{CommandRejectReason, GameCommand, MatchState, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 

@@ -1,7 +1,7 @@
 //! 手动暂停与快照字段。
 
-use crate::common::{test_engine, rules_with_mtnk};
-use ra_engine::{Session, MatchState};
+use crate::common::{rules_with_mtnk, test_engine};
+use ra_engine::{MatchState, Session};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 

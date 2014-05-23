@@ -1,7 +1,7 @@
 //! 快照动画状态派生。
 
-use crate::common::{test_engine, rules_with_mtnk};
-use ra_engine::{AnimState, GameCommand, Session, MatchState};
+use crate::common::{rules_with_mtnk, test_engine};
+use ra_engine::{AnimState, GameCommand, MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 

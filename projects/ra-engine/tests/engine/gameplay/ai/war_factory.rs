@@ -1,9 +1,9 @@
 //! AI 放置战车工厂并生产载具。
 
+use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use crate::common::test_engine;
-use ra_engine::{Session, MatchState};
+use ra_engine::{MatchState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -69,6 +69,12 @@ fn ai_places_war_factory_and_produces_tank() {
     session.tick(&engine.runtime());
     assert!(session.expect_game_mut().world.entities.iter().any(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAWEAP"));
     session.tick(&engine.runtime());
-    let weap = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAWEAP").expect("war factory");
+    let weap = session
+        .expect_game_mut()
+        .world
+        .entities
+        .iter()
+        .find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAWEAP")
+        .expect("war factory");
     assert_eq!(weap.produce_queue.as_ref().map(|(id, _)| id.as_ref()), Some("HTNK"));
 }

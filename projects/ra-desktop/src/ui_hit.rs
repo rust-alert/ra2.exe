@@ -8,8 +8,8 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout,
-        single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, single_player_layout,
+        skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -281,13 +281,7 @@ fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     hits
 }
 
-fn hit_skirmish_lobby_at(
-    maps: &[BootMapCandidate],
-    cursor_x: f64,
-    cursor_y: f64,
-    win_w: f64,
-    win_h: f64,
-) -> Option<(usize, MenuAction)> {
+fn hit_skirmish_lobby_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     if win_w <= 0.0 || win_h <= 0.0 {
         return None;
     }
@@ -313,56 +307,4 @@ fn hit_skirmish_lobby_at(
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_map::Theater;
-
-    #[test]
-    fn main_menu_hit_single_player() {
-        // 右侧首钮格中心：壳层约 (722, 220) → 1024×768 fit 后约 (924, 282)
-        let action = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false);
-        assert_eq!(action, Some(MenuAction::OpenSinglePlayer));
-    }
-
-    #[test]
-    fn load_screen_disables_retry_while_loading() {
-        let loading = hits_for(OriginalScreen::LoadScreen, &[], false);
-        let retry = loading.iter().find(|h| h.entry_id == "retry").expect("retry");
-        assert!(!retry.enabled);
-        let failed = hits_for(OriginalScreen::LoadScreen, &[], true);
-        let retry = failed.iter().find(|h| h.entry_id == "retry").expect("retry");
-        assert!(retry.enabled);
-    }
-
-    #[test]
-    fn disabled_network_not_hit() {
-        // 网络钮格中心约壳层 (722, 262) → 窗口约 (924, 335)，禁用。
-        let action = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false);
-        assert_eq!(action, None);
-    }
-
-    #[test]
-    fn lobby_map_row_is_selectable() {
-        let maps =
-            vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate }];
-        let layout = skirmish_lobby_layout(0, 0);
-        let row = skirmish_map_row_rect(&layout, 0);
-        let cx = row.x + row.w / 2;
-        let cy = row.y + row.h / 2;
-        let cam = crate::ui_layout::shell_fit_camera(1024, 768);
-        let sx = (cx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
-        let sy = (cy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
-        let action =
-            hit_action(OriginalScreen::SkirmishLobby, &maps, Some("mp03t4.map"), (sx as f64, sy as f64), 1024.0, 768.0, false);
-        assert_eq!(action, Some(MenuAction::SelectMap(0)));
-    }
-
-    #[test]
-    fn hover_index_tracks_enabled_button() {
-        assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false,), Some(0));
-        assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false,), None);
-    }
 }

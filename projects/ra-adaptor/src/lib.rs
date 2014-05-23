@@ -17,11 +17,9 @@ pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport}
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use definitions::build_runtime_definitions;
 pub use layers::{
-    DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy,
-    PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE, PRIORITY_MOD, PRIORITY_NESTED,
-    PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
-    ResourceLayerKind, compose_resource_layers, discover_expansions, is_expansion_mix_name,
-    missing_base_mixes, parse_expansion_file_name,
+    DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
+    PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
+    ResourceLayerKind, compose_resource_layers, discover_expansions, is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesDb, load_rules, load_rules_chain};
 
@@ -150,14 +148,7 @@ pub fn detect_edition(root: &Path, explicit: Option<GameEdition>) -> RaResult<Ed
     let missing_mixes = missing_base_mixes(root, &chain);
     let stack = AdaptorStack::from_edition(edition).scan_extensions(root);
 
-    Ok(EditionManifest {
-        root: root.to_path_buf(),
-        chain,
-        composition,
-        present_mixes,
-        missing_mixes,
-        stack,
-    })
+    Ok(EditionManifest { root: root.to_path_buf(), chain, composition, present_mixes, missing_mixes, stack })
 }
 
 /// 在目录中按大小写不敏感查找文件，返回实际磁盘名。

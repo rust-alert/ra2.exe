@@ -41,8 +41,7 @@ fn twin_worlds_same_command_stream_match_hash() {
     let mut a = mk();
     let mut b = mk();
     assert_eq!(a.state_hash(), b.state_hash());
-    let cmds =
-        [GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 }, GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) }];
+    let cmds = [GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 }, GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) }];
     for cmd in &cmds {
         a.push_command(cmd.clone());
         b.push_command(cmd.clone());

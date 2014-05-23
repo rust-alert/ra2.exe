@@ -57,12 +57,7 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
         else {
             continue;
         };
-        out.push(BootMapCandidate {
-            file_name: (*name).to_string(),
-            width: map.width,
-            height: map.height,
-            theater: map.theater,
-        });
+        out.push(BootMapCandidate { file_name: (*name).to_string(), width: map.width, height: map.height, theater: map.theater });
     }
     out
 }

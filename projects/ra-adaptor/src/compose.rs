@@ -119,7 +119,6 @@ impl AdaptorStack {
 
 fn phobos_unsupported_report() -> CapabilityReport {
     CapabilityReport {
-        code: "ext.phobos unsupported".into(),
-        message: "MO/Phobos 布局已识别，当前引擎尚未实现 Phobos 扩展语义".into(),
+        code: "ext.phobos unsupported".into(), message: "MO/Phobos 布局已识别，当前引擎尚未实现 Phobos 扩展语义".into()
     }
 }

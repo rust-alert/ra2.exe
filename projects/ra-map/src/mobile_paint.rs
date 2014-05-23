@@ -20,11 +20,8 @@ pub fn paint_map_mobiles(
     art_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
-    let mobiles: Vec<_> = map
-        .entities
-        .iter()
-        .filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
-        .collect();
+    let mobiles: Vec<_> =
+        map.entities.iter().filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)).collect();
     if mobiles.is_empty() {
         return 0;
     }
@@ -50,8 +47,7 @@ pub fn paint_map_mobiles(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
-        let image_key =
-            art.as_ref().and_then(|a| a.get(&ent.type_id, "Image")).unwrap_or(ent.type_id.as_str()).to_ascii_uppercase();
+        let image_key = art.as_ref().and_then(|a| a.get(&ent.type_id, "Image")).unwrap_or(ent.type_id.as_str()).to_ascii_uppercase();
         let frame_hint = ent.facing / 32;
         let cache_key = (image_key.clone(), frame_hint, ent.owner.clone());
         if let Some(blit) = blit_cache.get(&cache_key) {

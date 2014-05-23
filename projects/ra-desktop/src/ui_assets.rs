@@ -86,14 +86,9 @@ pub fn probe_menu_ui_assets() -> MenuUiProbe {
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
     let note = match &mouse_frame {
-        Some(img) => format!(
-            "UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {}",
-            img.width(),
-            img.height(),
-            ui_bit,
-            mounted_root,
-            mounted_nested
-        ),
+        Some(img) => {
+            format!("UI 探测 ok · mouse.shp {}×{} · {} · 根mix {} · 嵌套 {}", img.width(), img.height(), ui_bit, mounted_root, mounted_nested)
+        }
         None => format!("UI 探测：未读到 mouse.shp · {} · 根mix {} · 嵌套 {}", ui_bit, mounted_root, mounted_nested),
     };
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
@@ -135,16 +130,4 @@ pub fn downscale_to_fit(img: &RgbaImage, max_w: u32, max_h: u32) -> Option<RgbaI
         }
     }
     RgbaImage::from_raw(nw, nh, pixels)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn downscale_halves_dimensions() {
-        let src = RgbaImage::from_raw(4, 2, vec![255u8; 4 * 2 * 4]).unwrap();
-        let out = downscale_to_fit(&src, 2, 2).unwrap();
-        assert_eq!((out.width(), out.height()), (2, 1));
-    }
 }

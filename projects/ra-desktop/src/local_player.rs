@@ -19,8 +19,7 @@ impl LocalPlayerController {
 
     /// 去掉已死亡或不存在的选中项。
     pub fn prune_dead(&mut self, game: &Game) {
-        self.selected
-            .retain(|&id| game.world.entity_index(id).and_then(|i| game.world.entities.get(i)).is_some_and(|e| !e.dead));
+        self.selected.retain(|&id| game.world.entity_index(id).and_then(|i| game.world.entities.get(i)).is_some_and(|e| !e.dead));
     }
 
     /// 单选一个存活实体（单位或建筑）。
@@ -31,12 +30,7 @@ impl LocalPlayerController {
             return;
         };
         let e = &game.world.entities[index];
-        if !e.dead
-            && matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            )
-        {
+        if !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure) {
             self.selected.push(id);
         }
     }
@@ -48,12 +42,7 @@ impl LocalPlayerController {
             return;
         };
         let e = &game.world.entities[index];
-        if e.dead
-            || !matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            )
-        {
+        if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure) {
             return;
         }
         if let Some(&first) = self.selected.first() {
@@ -102,9 +91,7 @@ impl LocalPlayerController {
             return;
         }
         let next = match self.selected.first() {
-            Some(&cur) => {
-                mobiles.iter().position(|&i| i == cur).map(|p| mobiles[(p + 1) % mobiles.len()]).unwrap_or(mobiles[0])
-            }
+            Some(&cur) => mobiles.iter().position(|&i| i == cur).map(|p| mobiles[(p + 1) % mobiles.len()]).unwrap_or(mobiles[0]),
             None => mobiles[0],
         };
         self.select_only(game, next);

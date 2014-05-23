@@ -176,15 +176,7 @@ fn decode_limb_voxels(
     Ok(voxels)
 }
 
-fn decode_column(
-    data: &[u8],
-    data_base: usize,
-    col_offset: usize,
-    x: u8,
-    y: u8,
-    size_z: u8,
-    voxels: &mut Vec<VxlVoxel>,
-) -> RaResult<()> {
+fn decode_column(data: &[u8], data_base: usize, col_offset: usize, x: u8, y: u8, size_z: u8, voxels: &mut Vec<VxlVoxel>) -> RaResult<()> {
     let mut pos = data_base + col_offset;
     let mut z: u8 = 0;
     while z < size_z {

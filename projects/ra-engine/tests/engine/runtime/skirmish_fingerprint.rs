@@ -7,8 +7,7 @@ use ra_map::MapInfo;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 fn minimal_rules() -> RulesDb {
-    let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n")
-        .expect("测试 INI 必须有效");
+    let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n").expect("测试 INI 必须有效");
     RulesDb {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
@@ -38,28 +37,14 @@ struct EmptyRulesSource;
 impl AssetSource for EmptyRulesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
         let chain = ResourceChain::for_edition(GameEdition::Ra2);
-        if relative.eq_ignore_ascii_case(chain.rules_ini) {
-            Ok(Vec::new())
-        }
-        else {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
+        if relative.eq_ignore_ascii_case(chain.rules_ini) { Ok(Vec::new()) } else { Err(RaError::MissingFile(relative.to_string())) }
     }
 }
 
 #[test]
 fn open_skirmish_rejects_missing_rules_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(
-        &MissingRulesSource,
-        &chain,
-        &minimal_rules(),
-        tiny_map(),
-        "t".into(),
-        (0, 0),
-        None,
-    )
-    .unwrap_err();
+    let err = open_skirmish_session(&MissingRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains(chain.rules_ini), "{msg}");
     assert!(msg.contains("指纹") || msg.contains("规则"), "{msg}");
@@ -68,16 +53,7 @@ fn open_skirmish_rejects_missing_rules_for_fingerprint() {
 #[test]
 fn open_skirmish_rejects_empty_rules_bytes_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(
-        &EmptyRulesSource,
-        &chain,
-        &minimal_rules(),
-        tiny_map(),
-        "t".into(),
-        (0, 0),
-        None,
-    )
-    .unwrap_err();
+    let err = open_skirmish_session(&EmptyRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("空"), "{msg}");
 }

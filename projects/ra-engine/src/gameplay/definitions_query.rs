@@ -33,27 +33,18 @@ pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: &str
     else {
         return false;
     };
-    defs.structures
-        .get(factory_type)
-        .and_then(|s| s.production.as_ref())
-        .is_some_and(|p| p.category == cat)
+    defs.structures.get(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == cat)
 }
 
 /// 工厂是否可生产给定生产类别。
 pub(crate) fn factory_matches_category(defs: &RuntimeDefinitions, factory_type: &str, category: ProductionCategory) -> bool {
-    defs.structures
-        .get(factory_type)
-        .and_then(|s| s.production.as_ref())
-        .is_some_and(|p| p.category == category)
+    defs.structures.get(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == category)
 }
 
 /// 电力增量（供电 / 耗电）；未知类型视为 0。
 pub(crate) fn building_power(defs: &RuntimeDefinitions, type_id: &str) -> PowerProfileOrZero {
     match defs.structures.get(type_id) {
-        Some(s) => PowerProfileOrZero {
-            output: s.power.output,
-            drain: s.power.drain,
-        },
+        Some(s) => PowerProfileOrZero { output: s.power.output, drain: s.power.drain },
         None => PowerProfileOrZero { output: 0, drain: 0 },
     }
 }
@@ -75,8 +66,5 @@ pub(crate) fn owner_allows(owner_field: &str, house: &str) -> bool {
     if owner_field.is_empty() {
         return true;
     }
-    owner_field
-        .split(|c| c == ',' || c == ';' || c == '|')
-        .map(str::trim)
-        .any(|p| p.eq_ignore_ascii_case(house))
+    owner_field.split(|c| c == ',' || c == ';' || c == '|').map(str::trim).any(|p| p.eq_ignore_ascii_case(house))
 }

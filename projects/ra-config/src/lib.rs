@@ -123,16 +123,16 @@ pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<
         match item {
             Item::Value(v) => match value_as_string(v) {
                 Some(s) => table.insert(key, s),
-                None => diagnostics.push(ConfigDiagnostic {
-                    source: format!("{source_label}:{key}"),
-                    message: format!("不支持的值类型，已跳过键 `{key}`"),
-                }),
+                None => diagnostics
+                    .push(ConfigDiagnostic {
+                        source: format!("{source_label}:{key}"), message: format!("不支持的值类型，已跳过键 `{key}`")
+                    }),
             },
             Item::None => {}
-            _ => diagnostics.push(ConfigDiagnostic {
-                source: format!("{source_label}:{key}"),
-                message: format!("仅支持根级键值，已跳过 `{key}`"),
-            }),
+            _ => diagnostics
+                .push(ConfigDiagnostic {
+                    source: format!("{source_label}:{key}"), message: format!("仅支持根级键值，已跳过 `{key}`")
+                }),
         }
     }
     (table, diagnostics)
@@ -286,15 +286,12 @@ impl DesktopSettings {
         let mut diagnostics = Vec::new();
         let path = rust_alert_toml_path();
         match ensure_rust_alert_toml(&path) {
-            Ok(true) => diagnostics.push(ConfigDiagnostic {
-                source: path.display().to_string(),
-                message: "已自动生成默认配置以便持久化".into(),
-            }),
+            Ok(true) => diagnostics
+                .push(ConfigDiagnostic { source: path.display().to_string(), message: "已自动生成默认配置以便持久化".into() }),
             Ok(false) => {}
-            Err(e) => diagnostics.push(ConfigDiagnostic {
-                source: path.display().to_string(),
-                message: format!("自动生成配置失败: {e}"),
-            }),
+            Err(e) => {
+                diagnostics.push(ConfigDiagnostic { source: path.display().to_string(), message: format!("自动生成配置失败: {e}") })
+            }
         }
         if path.is_file() {
             match std::fs::read_to_string(&path) {
@@ -304,8 +301,7 @@ impl DesktopSettings {
                     diagnostics.append(&mut diags);
                     layers.push(ConfigLayer { label, table });
                 }
-                Err(e) => diagnostics
-                    .push(ConfigDiagnostic { source: path.display().to_string(), message: format!("读取失败: {e}") }),
+                Err(e) => diagnostics.push(ConfigDiagnostic { source: path.display().to_string(), message: format!("读取失败: {e}") }),
             }
         }
         let mut merged = MergedConfig::merge_layers(&layers);

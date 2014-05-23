@@ -7,10 +7,8 @@ fn compose_one_opaque_tile() {
         px.copy_from_slice(&[10, 20, 30, 255]);
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
-    let img = compose_terrain_rgba(&cells, |_, _| {
-        Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })
-    })
-    .unwrap();
+    let img =
+        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })).unwrap();
     assert_eq!(img.drawn, 1);
     assert!(img.image.width() >= 60);
     assert!(img.image.height() >= 30);
@@ -24,10 +22,8 @@ fn paint_overlay_marks_pixel() {
         px.copy_from_slice(&[10, 20, 30, 255]);
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
-    let mut img = compose_terrain_rgba(&cells, |_, _| {
-        Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })
-    })
-    .unwrap();
+    let mut img =
+        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })).unwrap();
     let overlays = [OverlayCell { x: 2, y: 3, overlay_id: 110, data: 0 }];
     let n = paint_overlay_markers(&mut img, &overlays, |_, _| 0);
     assert_eq!(n, 1);
@@ -41,10 +37,8 @@ fn paint_cell_sprite_marks_pixel() {
         px.copy_from_slice(&[10, 20, 30, 255]);
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
-    let mut img = compose_terrain_rgba(&cells, |_, _| {
-        Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })
-    })
-    .unwrap();
+    let mut img =
+        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone() })).unwrap();
     let mut sprite = vec![0u8; 4 * 4 * 4];
     for px in sprite.chunks_exact_mut(4) {
         px.copy_from_slice(&[255, 0, 0, 255]);

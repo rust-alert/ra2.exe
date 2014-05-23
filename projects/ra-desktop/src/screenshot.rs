@@ -1,13 +1,11 @@
 //! 关键页截图：GPU 回读落盘 PNG（默认不进 git）。
 //!
-//! - `F12`：手动截当前页（产品路径保留；类似原版截图便利）。
-//! - 自动截图（`RA2_AUTO_SCREENSHOT` / [`AutoScreenshotTracker`]）：**仅** `test-harness`；
-//!   正式产品路径无此概念、不读该环境变量。
+//! - `F12`：手动截当前页（产品路径保留）。
+//! - 自动截图环境变量 / shell 接线：**仅** `test-harness`。
 //! - `RA2_SCREENSHOT_DIR`：输出根目录（默认 `./screenshots`）。
-//!
-//! 不提供色块菜单 / 假 HUD 的 CPU 导出。真实 UI 接线后再做验收截图基线。
 
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -15,10 +13,6 @@ use std::{
 use ra_renderer::{RgbaImage, write_png_file};
 use ra_types::RaResult;
 
-#[cfg(any(feature = "test-harness", test))]
-use std::collections::HashSet;
-
-#[cfg(any(feature = "test-harness", test))]
 use crate::screen::OriginalScreen;
 
 /// 截图输出根目录。
@@ -27,7 +21,6 @@ pub fn screenshot_dir() -> PathBuf {
 }
 
 /// 自动测试验收图目录（稳定文件名，便于打开对照）。
-#[cfg(any(feature = "test-harness", test))]
 pub fn acceptance_dir() -> PathBuf {
     screenshot_dir().join("acceptance")
 }
@@ -39,7 +32,6 @@ pub fn auto_screenshot_enabled() -> bool {
 }
 
 /// 建议自动截图的关键产品页。
-#[cfg(any(feature = "test-harness", test))]
 pub fn is_key_screen(screen: OriginalScreen) -> bool {
     matches!(
         screen,
@@ -55,14 +47,12 @@ pub fn is_key_screen(screen: OriginalScreen) -> bool {
     )
 }
 
-/// 已自动截过的页面（每进程每页一次）。仅 `test-harness` / 单测。
-#[cfg(any(feature = "test-harness", test))]
+/// 已自动截过的页面（每进程每页一次）。
 #[derive(Debug, Default)]
 pub struct AutoScreenshotTracker {
     done: HashSet<&'static str>,
 }
 
-#[cfg(any(feature = "test-harness", test))]
 impl AutoScreenshotTracker {
     /// 若本页尚未自动截过且属于关键页，则标记并返回 `true`。
     #[cfg(feature = "test-harness")]
@@ -99,7 +89,6 @@ pub fn save_screenshot_to(dir: impl AsRef<Path>, screen: &str, image: &RgbaImage
 }
 
 /// 验收用稳定文件名：`{dir}/{screen}.png`（覆盖写）。
-#[cfg(any(feature = "test-harness", test))]
 pub fn save_acceptance_png(dir: impl AsRef<Path>, screen: &str, image: &RgbaImage) -> RaResult<PathBuf> {
     let path = dir.as_ref().join(format!("{}.png", sanitize_name(screen)));
     write_png_file(&path, image)?;
@@ -113,30 +102,4 @@ fn sanitize_name(screen: &str) -> String {
 /// 仅用于单元测试的路径拼接（不写盘）。
 pub fn planned_path(dir: &Path, screen: &str, ms: u128) -> PathBuf {
     dir.join(format!("{screen}_{ms}.png"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn key_screens_include_main_menu_and_results() {
-        assert!(is_key_screen(OriginalScreen::MainMenu));
-        assert!(is_key_screen(OriginalScreen::Results));
-        assert!(is_key_screen(OriginalScreen::Splash));
-    }
-
-    #[test]
-    fn planned_path_uses_screen_and_millis() {
-        let p = planned_path(Path::new("screenshots"), "main_menu", 42);
-        assert_eq!(p, PathBuf::from("screenshots/main_menu_42.png"));
-    }
-
-    #[test]
-    fn tracker_fires_once_per_screen() {
-        let mut t = AutoScreenshotTracker::default();
-        assert!(t.should_capture_if(OriginalScreen::MainMenu, true));
-        assert!(!t.should_capture_if(OriginalScreen::MainMenu, true));
-        assert!(!t.should_capture_if(OriginalScreen::MainMenu, false));
-    }
 }

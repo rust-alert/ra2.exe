@@ -1,8 +1,8 @@
 //! 工厂生产队列、出厂与集结。
 
-use std::sync::Arc;
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
+use std::sync::Arc;
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},

@@ -116,12 +116,8 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     // `lwscrnl` 画布高 32；贴在内容区底边。
     let lower_strip = RectPx::new(0, SHELL_BASE_H - 32, panel_x, 32);
     // 按钮落在平铺列上：从顶盖下第一格起连续四格。
-    let buttons = [
-        button_cell(panel_x, tile.y, 0),
-        button_cell(panel_x, tile.y, 1),
-        button_cell(panel_x, tile.y, 2),
-        button_cell(panel_x, tile.y, 3),
-    ];
+    let buttons =
+        [button_cell(panel_x, tile.y, 0), button_cell(panel_x, tile.y, 1), button_cell(panel_x, tile.y, 2), button_cell(panel_x, tile.y, 3)];
     MainMenuLayout {
         canvas,
         // 父背景与影片区同左上；`mnscrnl` 约 632×568，不铺满 800 宽。
@@ -152,37 +148,4 @@ pub fn skirmish_map_row_rect(layout: &MainMenuLayout, index: usize) -> RectPx {
     let list_w = (layout.movie.w - 48).max(1);
     let y = layout.movie.y + 48 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
     RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn main_menu_panel_sits_on_right_edge() {
-        let layout = main_menu_layout(1024, 768);
-        assert_eq!(layout.canvas.w, 800);
-        assert_eq!(layout.panel_top.x + layout.panel_top.w, 800);
-        assert!(layout.panel_tile_count > 0);
-        assert_eq!(layout.buttons[0].w, BUTTON_CELL_W);
-        assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
-        assert_eq!(layout.buttons[3].y, RIGHT_PANEL_TOP_H + 3 * BUTTON_CELL_H);
-        assert_eq!(MAIN_MENU_BUTTON_IDS.len(), layout.buttons.len());
-    }
-
-    #[test]
-    fn skirmish_lobby_reuses_right_panel() {
-        let layout = skirmish_lobby_layout(1024, 768);
-        assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), layout.buttons.len());
-        assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
-        let row0 = skirmish_map_row_rect(&layout, 0);
-        assert!(row0.w > 0);
-        assert!(row0.y >= layout.movie.y);
-    }
-
-    fn window_center_maps_near_shell_center_when_fitted() {
-        let (x, y) = window_to_shell_px(512.0, 384.0, 1024.0, 768.0);
-        assert!((x - 400).abs() <= 2);
-        assert!((y - 300).abs() <= 2);
-    }
 }

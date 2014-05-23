@@ -165,11 +165,8 @@ impl ResourceComposition {
 
     /// 挂载计划摘要行（根包 + 嵌套包）。
     pub fn mount_plan_lines(&self) -> Vec<String> {
-        let mut lines: Vec<String> = self
-            .root_mount_plan
-            .iter()
-            .map(|s| format!("mounted: {} priority={} layer={}", s.name, s.priority, s.layer_id))
-            .collect();
+        let mut lines: Vec<String> =
+            self.root_mount_plan.iter().map(|s| format!("mounted: {} priority={} layer={}", s.name, s.priority, s.layer_id)).collect();
         for n in &self.nested_mount_plan {
             let strat = match n.strategy {
                 NestedMountStrategy::AllParents => "all_parents",
@@ -192,11 +189,7 @@ pub fn parse_expansion_file_name(file_name: &str) -> Result<Option<DetectedExpan
     }
 
     if stem == "expand" {
-        return Ok(Some(DetectedExpansion {
-            file_name: file_name.to_string(),
-            index: 0,
-            family: ExpansionFamily::Plain,
-        }));
+        return Ok(Some(DetectedExpansion { file_name: file_name.to_string(), index: 0, family: ExpansionFamily::Plain }));
     }
 
     let rest = &stem["expand".len()..];
@@ -217,15 +210,9 @@ pub fn parse_expansion_file_name(file_name: &str) -> Result<Option<DetectedExpan
     if digits.is_empty() || !digits.chars().all(|c| c.is_ascii_digit()) {
         return Err(format!("扩展名编号无法解析: {file_name}"));
     }
-    let index: u32 = digits
-        .parse()
-        .map_err(|_| format!("扩展名编号溢出或非法: {file_name}"))?;
+    let index: u32 = digits.parse().map_err(|_| format!("扩展名编号溢出或非法: {file_name}"))?;
 
-    Ok(Some(DetectedExpansion {
-        file_name: file_name.to_string(),
-        index,
-        family,
-    }))
+    Ok(Some(DetectedExpansion { file_name: file_name.to_string(), index, family }))
 }
 
 /// 判断静态表中的名字是否为扩展包（应从基座层剔除，改由发现流程纳入）。
@@ -261,13 +248,8 @@ pub fn discover_expansions(root: &Path) -> (Vec<DetectedExpansion>, Vec<String>)
             }
         }
     }
-    found.sort_by(|a, b| (a.index, a.family, a.file_name.to_ascii_lowercase())
-        .cmp(&(b.index, b.family, b.file_name.to_ascii_lowercase())));
-    found.dedup_by(|a, b| {
-        a.index == b.index
-            && a.family == b.family
-            && a.file_name.eq_ignore_ascii_case(&b.file_name)
-    });
+    found.sort_by(|a, b| (a.index, a.family, a.file_name.to_ascii_lowercase()).cmp(&(b.index, b.family, b.file_name.to_ascii_lowercase())));
+    found.dedup_by(|a, b| a.index == b.index && a.family == b.family && a.file_name.eq_ignore_ascii_case(&b.file_name));
     (found, malformed)
 }
 
@@ -275,33 +257,19 @@ pub fn discover_expansions(root: &Path) -> (Vec<DetectedExpansion>, Vec<String>)
 pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceComposition {
     let mut diagnostics = ResourceDiagnostics::default();
 
-    let base_names: Vec<&str> = chain
-        .root_mix_files
-        .iter()
-        .copied()
-        .filter(|n| !is_expansion_mix_name(n))
-        .collect();
+    let base_names: Vec<&str> = chain.root_mix_files.iter().copied().filter(|n| !is_expansion_mix_name(n)).collect();
 
     let mut base_files = Vec::new();
     let mut present_base = Vec::new();
     for name in &base_names {
         match find_ci_file(root, name) {
             Some(path) => {
-                let disk_name = path
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(name)
-                    .to_string();
+                let disk_name = path.file_name().and_then(|s| s.to_str()).unwrap_or(name).to_string();
                 present_base.push(disk_name.clone());
-                base_files.push(ResourceFile {
-                    name: disk_name,
-                    path: Some(path),
-                });
+                base_files.push(ResourceFile { name: disk_name, path: Some(path) });
             }
             None => {
-                diagnostics
-                    .notes
-                    .push(format!("基座 MIX 缺失: {name}"));
+                diagnostics.notes.push(format!("基座 MIX 缺失: {name}"));
             }
         }
     }
@@ -328,10 +296,7 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
             id: layer_id,
             kind: ResourceLayerKind::Expansion,
             priority,
-            files: vec![ResourceFile {
-                name: exp.file_name.clone(),
-                path,
-            }],
+            files: vec![ResourceFile { name: exp.file_name.clone(), path }],
         });
     }
 
@@ -341,38 +306,24 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
     for layer in &layers {
         for file in &layer.files {
             if file.path.is_some() {
-                root_mount_plan.push(MountSpec {
-                    name: file.name.clone(),
-                    priority: layer.priority,
-                    layer_id: layer.id.clone(),
-                });
+                root_mount_plan.push(MountSpec { name: file.name.clone(), priority: layer.priority, layer_id: layer.id.clone() });
             }
         }
     }
 
     if expansions.is_empty() {
-        diagnostics
-            .notes
-            .push("未发现 expand*.mix，沿用基座资源画像".to_string());
+        diagnostics.notes.push("未发现 expand*.mix，沿用基座资源画像".to_string());
     }
 
     let nested_mount_plan: Vec<NestedMountSpec> = chain
         .nested_mix_files
         .iter()
         .copied()
-        .map(|name| NestedMountSpec {
-            name: name.to_string(),
-            strategy: NestedMountStrategy::AllParents,
-        })
+        .map(|name| NestedMountSpec { name: name.to_string(), strategy: NestedMountStrategy::AllParents })
         .collect();
 
     let _ = present_base; // 已并入 layers
-    ResourceComposition {
-        layers,
-        root_mount_plan,
-        nested_mount_plan,
-        diagnostics,
-    }
+    ResourceComposition { layers, root_mount_plan, nested_mount_plan, diagnostics }
 }
 
 /// 基座表中应存在但磁盘缺失的非扩展 MIX 名。
@@ -385,30 +336,4 @@ pub fn missing_base_mixes(root: &Path, chain: &ResourceChain) -> Vec<String> {
         .filter(|n| find_ci_file(root, n).is_none())
         .map(|n| n.to_string())
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_plain_expand_names() {
-        let e = parse_expansion_file_name("expand.mix").unwrap().unwrap();
-        assert_eq!(e.index, 0);
-        assert_eq!(e.family, ExpansionFamily::Plain);
-
-        let e = parse_expansion_file_name("Expand01.MIX").unwrap().unwrap();
-        assert_eq!(e.index, 1);
-        assert_eq!(e.family, ExpansionFamily::Plain);
-    }
-
-    #[test]
-    fn parse_md_mo_and_reject_junk() {
-        let e = parse_expansion_file_name("expandmd02.mix").unwrap().unwrap();
-        assert_eq!((e.index, e.family), (2, ExpansionFamily::Md));
-        let e = parse_expansion_file_name("expandmo99.mix").unwrap().unwrap();
-        assert_eq!((e.index, e.family), (99, ExpansionFamily::Mo));
-        assert!(parse_expansion_file_name("expandfoo.mix").is_err());
-        assert!(parse_expansion_file_name("ra2.mix").unwrap().is_none());
-    }
 }

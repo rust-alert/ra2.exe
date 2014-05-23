@@ -26,19 +26,10 @@ pub fn readback_surface_rgba(gpu: &GpuContext, surface_texture: &wgpu::Texture) 
 
     let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.screenshot.copy") });
     encoder.copy_texture_to_buffer(
-        wgpu::TexelCopyTextureInfo {
-            texture: surface_texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
+        wgpu::TexelCopyTextureInfo { texture: surface_texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
         wgpu::TexelCopyBufferInfo {
             buffer: &output,
-            layout: wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(padded_bytes_per_row),
-                rows_per_image: Some(height),
-            },
+            layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(padded_bytes_per_row), rows_per_image: Some(height) },
         },
         wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
     );
@@ -50,9 +41,7 @@ pub fn readback_surface_rgba(gpu: &GpuContext, surface_texture: &wgpu::Texture) 
         let _ = tx.send(r);
     });
     gpu.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| RaError::Msg(format!("截图 poll 失败: {e}")))?;
-    rx.recv()
-        .map_err(|_| RaError::Msg("截图 map 通道断开".into()))?
-        .map_err(|e| RaError::Msg(format!("截图 map 失败: {e}")))?;
+    rx.recv().map_err(|_| RaError::Msg("截图 map 通道断开".into()))?.map_err(|e| RaError::Msg(format!("截图 map 失败: {e}")))?;
 
     let data = slice.get_mapped_range().map_err(|e| RaError::Msg(format!("截图 get_mapped_range 失败: {e}")))?;
     let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];

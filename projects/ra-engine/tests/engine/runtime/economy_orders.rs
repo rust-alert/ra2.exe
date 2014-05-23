@@ -82,14 +82,7 @@ fn order_rally_on_barracks() {
     session.tick(&engine.runtime());
     session.expect_game_mut().order_place_building("GAPILE", 8, 4);
     session.tick(&engine.runtime());
-    let barracks = session
-        .expect_game()
-        .world
-        .entities
-        .iter()
-        .find(|e| e.type_id.as_ref() == "GAPILE")
-        .map(|e| e.id)
-        .expect("应有兵营");
+    let barracks = session.expect_game().world.entities.iter().find(|e| e.type_id.as_ref() == "GAPILE").map(|e| e.id).expect("应有兵营");
     assert!(session.expect_game().selection_has_structure(&[barracks]));
     session.expect_game_mut().order_rally(&[barracks], 12, 8);
     session.tick(&engine.runtime());

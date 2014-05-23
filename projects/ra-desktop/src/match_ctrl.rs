@@ -137,12 +137,7 @@ impl MatchController {
     fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
         let game = self.session.as_ref()?.game()?;
         let size = window.inner_size();
-        let (wx, wy) = renderer.camera().screen_to_world(
-            self.cursor.0 as f32,
-            self.cursor.1 as f32,
-            size.width as f32,
-            size.height as f32,
-        );
+        let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
         game.image_to_cell(wx, wy)
     }
 
@@ -232,13 +227,7 @@ impl MatchController {
     }
 
     /// 对局页输入。`accept_commands=false` 时仅允许相机与重开 / 回菜单。
-    pub fn handle_event(
-        &mut self,
-        event: &WindowEvent,
-        renderer: &mut Renderer,
-        window: &Window,
-        accept_commands: bool,
-    ) -> MatchNav {
+    pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> MatchNav {
         match event {
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
@@ -263,9 +252,7 @@ impl MatchController {
                 }
                 MatchNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
-                MatchNav::None
-            }
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => MatchNav::None,
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
                 self.handle_right_click(renderer, window);
                 MatchNav::None
@@ -352,11 +339,7 @@ impl MatchController {
                                     .entities
                                     .iter()
                                     .find(|e| {
-                                        !e.dead
-                                            && matches!(
-                                                e.kind,
-                                                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                                            )
+                                        !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
                                     })
                                     .map(|e| e.id)
                             });
@@ -504,12 +487,7 @@ impl MatchController {
         let stats = game
             .match_stats
             .as_ref()
-            .map(|s| {
-                format!(
-                    " · {}tick · 损单位{} · 损建筑{} · 花费{}",
-                    s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
-                )
-            })
+            .map(|s| format!(" · {}tick · 损单位{} · 损建筑{} · 花费{}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
             .unwrap_or_default();
         tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", game.world.tick);
     }
@@ -554,13 +532,7 @@ impl MatchController {
         self.refresh_title(renderer, window, screen_label, Some(&hud));
     }
 
-    fn refresh_title(
-        &mut self,
-        renderer: &Renderer,
-        window: Option<&Arc<Window>>,
-        screen_label: &str,
-        hud: Option<&HudSnapshot>,
-    ) {
+    fn refresh_title(&mut self, renderer: &Renderer, window: Option<&Arc<Window>>, screen_label: &str, hud: Option<&HudSnapshot>) {
         if let Some(window) = window {
             let zoom = renderer.camera().zoom;
             let title = if let Some(hud) = hud {
@@ -577,11 +549,8 @@ impl MatchController {
                         format!("${} 电{}/{}{low}", p.funds, p.power_output, p.power_drain)
                     })
                     .unwrap_or_else(|| "$-".into());
-                let queue = hud
-                    .produce_queues
-                    .first()
-                    .map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks))
-                    .unwrap_or_else(|| "q:-".into());
+                let queue =
+                    hud.produce_queues.first().map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "q:-".into());
                 let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
                 let place = self.place_mode.unwrap_or("-");
                 if screen_label == "results" {
@@ -592,12 +561,7 @@ impl MatchController {
                     let stats = hud
                         .match_stats
                         .as_ref()
-                        .map(|s| {
-                            format!(
-                                " · {}tick 损{}u/{}b 花${}",
-                                s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
-                            )
-                        })
+                        .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
                     format!("{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
@@ -605,25 +569,14 @@ impl MatchController {
                     let stats = hud
                         .match_stats
                         .as_ref()
-                        .map(|s| {
-                            format!(
-                                " · {}tick 损{}u/{}b 花${}",
-                                s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
-                            )
-                        })
+                        .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
-                    format!(
-                        "{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 L/Esc大厅",
-                        self.title_base, hud.tick
-                    )
+                    format!("{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
                 else if hud.paused {
                     let reason = hud.pause_reason.as_deref().unwrap_or("已暂停");
                     if self.leave_armed {
-                        format!(
-                            "{} · [{screen_label}] · t{} · 暂停 · {reason} · 再按 Esc 确认回大厅 · Space继续",
-                            self.title_base, hud.tick
-                        )
+                        format!("{} · [{screen_label}] · t{} · 暂停 · {reason} · 再按 Esc 确认回大厅 · Space继续", self.title_base, hud.tick)
                     }
                     else {
                         format!("{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc离开 Space继续", self.title_base, hud.tick)

@@ -159,11 +159,7 @@ impl PassGrid {
                 if dx != 0 && dy != 0 {
                     let ox = (i32::from(x) + dx) as u16;
                     let oy = (i32::from(y) + dy) as u16;
-                    if !self.is_passable(ox, y)
-                        || !self.is_passable(x, oy)
-                        || !self.climb_ok(x, y, ox, y)
-                        || !self.climb_ok(x, y, x, oy)
-                    {
+                    if !self.is_passable(ox, y) || !self.is_passable(x, oy) || !self.climb_ok(x, y, ox, y) || !self.climb_ok(x, y, x, oy) {
                         continue;
                     }
                 }

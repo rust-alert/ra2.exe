@@ -101,16 +101,7 @@ fn blit_glyph(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
 }
 
 /// 在按钮格内水平居中绘制一行（垂直偏上贴近原版）。
-pub fn blit_caption_in_cell(
-    dst: &mut RgbaImage,
-    fnt: &FntFile,
-    text: &str,
-    cell_x: i32,
-    cell_y: i32,
-    cell_w: i32,
-    cell_h: i32,
-    rgba: [u8; 4],
-) {
+pub fn blit_caption_in_cell(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell_x: i32, cell_y: i32, cell_w: i32, cell_h: i32, rgba: [u8; 4]) {
     let tw = fnt.text_width(text) as i32;
     let th = fnt.bitmap_rows as i32;
     let x = cell_x + ((cell_w - tw).max(0) / 2);
@@ -131,44 +122,4 @@ fn tint_glyph(src: &[u8], width: u32, height: u32, rgba: [u8; 4]) -> Vec<u8> {
         out[i * 4 + 3] = ((u32::from(a) * u32::from(rgba[3])) / 255) as u8;
     }
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_assets::FntFile;
-
-    fn tiny_fnt() -> FntFile {
-        // 复用 fnt 模块测试构造思路的最小子集：直接 parse 内联字节。
-        const FONT_MAGIC: u32 = 0x546E_6F66;
-        const LOOKUP: usize = 65536 * 2;
-        let mut data = Vec::new();
-        data.extend_from_slice(&FONT_MAGIC.to_le_bytes());
-        data.extend_from_slice(&0u32.to_le_bytes());
-        data.extend_from_slice(&1u32.to_le_bytes());
-        data.extend_from_slice(&1u32.to_le_bytes());
-        data.extend_from_slice(&2u32.to_le_bytes());
-        data.extend_from_slice(&1u32.to_le_bytes());
-        data.extend_from_slice(&2u32.to_le_bytes());
-        let mut lut = vec![0u8; LOOKUP];
-        let off = (b'A' as usize) * 2;
-        lut[off] = 1;
-        data.extend_from_slice(&lut);
-        data.push(1);
-        data.push(0b1000_0000);
-        FntFile::parse(&data).unwrap()
-    }
-
-    #[test]
-    fn resolve_caption_falls_back_to_entry_id() {
-        assert_eq!(resolve_caption(None, "single_player", Some("GUI:SinglePlayer")), "single player");
-    }
-
-    #[test]
-    fn blit_text_writes_colored_pixel() {
-        let fnt = tiny_fnt();
-        let mut dst = RgbaImage::from_raw(4, 4, vec![0u8; 64]).unwrap();
-        blit_text_colored(&mut dst, &fnt, "A", 0, 0, [255, 214, 0, 255]);
-        assert_eq!(&dst.as_raw()[0..4], &[255, 214, 0, 255]);
-    }
 }

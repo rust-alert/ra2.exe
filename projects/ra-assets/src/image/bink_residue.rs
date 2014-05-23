@@ -32,7 +32,8 @@ pub fn read_residue(r: &mut BitReader<'_>, block: &mut [i16; 64], mut masks_coun
             }
             if block[nz_coeff[i]] < 0 {
                 block[nz_coeff[i]] -= mask;
-            } else {
+            }
+            else {
                 block[nz_coeff[i]] += mask;
             }
             masks_count -= 1;
@@ -58,7 +59,8 @@ pub fn read_residue(r: &mut BitReader<'_>, block: &mut [i16; 64], mut masks_coun
                             list_start -= 1;
                             coef_list[list_start] = ccoef;
                             mode_list[list_start] = 3;
-                        } else {
+                        }
+                        else {
                             let scan = BINK_SCAN[ccoef as usize] as usize;
                             nz_coeff[nz_coeff_count] = scan;
                             nz_coeff_count += 1;
@@ -81,7 +83,8 @@ pub fn read_residue(r: &mut BitReader<'_>, block: &mut [i16; 64], mut masks_coun
                             list_start -= 1;
                             coef_list[list_start] = ccoef;
                             mode_list[list_start] = 3;
-                        } else {
+                        }
+                        else {
                             let scan = BINK_SCAN[ccoef as usize] as usize;
                             nz_coeff[nz_coeff_count] = scan;
                             nz_coeff_count += 1;
@@ -134,21 +137,5 @@ pub fn add_pixels8(dst: &mut [u8], stride: usize, block: &[i16; 64]) {
             let v = i32::from(dst[i]) + i32::from(block[row * 8 + col]);
             dst[i] = v.clamp(0, 255) as u8;
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn residue_zero_masks_consumes_mask_bits_only() {
-        // masks_count=0：读 3 位 mask 起点后立刻因 masks_count<0 退出。
-        // 实际 masks_count 由调用方传入；此处验证空块可安全调用。
-        let data = [0u8]; // 3 位 mask 指数 + 若干 0
-        let mut r = BitReader::from_bytes(&data);
-        let mut block = [0i16; 64];
-        read_residue(&mut r, &mut block, 0).unwrap();
-        assert!(block.iter().all(|&b| b == 0));
     }
 }

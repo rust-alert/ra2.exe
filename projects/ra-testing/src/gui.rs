@@ -121,16 +121,8 @@ pub fn standard_duel_gui_plan(executable: PathBuf, working_directory: PathBuf, s
             GuiAction::RightClick { point: GuiPoint { x: 520, y: 360 } },
             GuiAction::Wait { duration: Duration::from_secs(1) },
             GuiAction::RightClick { point: GuiPoint { x: 640, y: 360 } },
-            GuiAction::WaitStatus {
-                path: status_path.clone(),
-                expect: "outcome!=none".into(),
-                timeout: Duration::from_secs(60),
-            },
-            GuiAction::WaitStatus {
-                path: status_path.clone(),
-                expect: "screen=results".into(),
-                timeout: Duration::from_secs(15),
-            },
+            GuiAction::WaitStatus { path: status_path.clone(), expect: "outcome!=none".into(), timeout: Duration::from_secs(60) },
+            GuiAction::WaitStatus { path: status_path.clone(), expect: "screen=results".into(), timeout: Duration::from_secs(15) },
             GuiAction::Capture { name: "duel-victory".into() },
             GuiAction::Exit,
         ],
@@ -146,26 +138,14 @@ pub fn standard_duel_gui_plan(executable: PathBuf, working_directory: PathBuf, s
 ///
 /// 执行器接入且原版 UI 接线后，用 `GuiAction::Capture { name }` 对照 GPU 画面。
 pub fn pre_alpha_acceptance_capture_names() -> &'static [&'static str] {
-    &[
-        "main_menu",
-        "single_player_menu",
-        "skirmish_lobby",
-        "load_screen",
-        "options",
-        "network",
-        "match",
-        "results",
-    ]
+    &["main_menu", "single_player_menu", "skirmish_lobby", "load_screen", "options", "network", "match", "results"]
 }
 
 /// Pre-Alpha 关键页截图计划骨架：仅 `Capture` 动作，供执行器逐页归档。
 ///
 /// 不启动进程、不点击。完整鼠标路径仍需后续把 `Click` / `Key` 接上。
 pub fn pre_alpha_acceptance_capture_plan(executable: PathBuf, working_directory: PathBuf) -> GuiAutomationPlan {
-    let actions = pre_alpha_acceptance_capture_names()
-        .iter()
-        .map(|name| GuiAction::Capture { name: (*name).into() })
-        .collect();
+    let actions = pre_alpha_acceptance_capture_names().iter().map(|name| GuiAction::Capture { name: (*name).into() }).collect();
     GuiAutomationPlan {
         name: "pre-alpha-acceptance-captures".into(),
         executable,
@@ -174,33 +154,5 @@ pub fn pre_alpha_acceptance_capture_plan(executable: PathBuf, working_directory:
         env: Vec::new(),
         actions,
         expectations: vec![GuiExpectation::WindowTitleContains("ra2".into())],
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pre_alpha_capture_names_cover_entry_flow() {
-        let names = pre_alpha_acceptance_capture_names();
-        assert!(names.contains(&"main_menu"));
-        assert!(names.contains(&"skirmish_lobby"));
-        assert!(names.contains(&"match"));
-        assert!(names.contains(&"results"));
-        assert!(names.len() >= 8);
-    }
-
-    #[test]
-    fn pre_alpha_capture_plan_lists_one_capture_per_name() {
-        let plan = pre_alpha_acceptance_capture_plan(PathBuf::from("ra2"), PathBuf::from("."));
-        assert_eq!(plan.name, "pre-alpha-acceptance-captures");
-        assert_eq!(plan.actions.len(), pre_alpha_acceptance_capture_names().len());
-        for (action, name) in plan.actions.iter().zip(pre_alpha_acceptance_capture_names()) {
-            match action {
-                GuiAction::Capture { name: captured } => assert_eq!(captured, name),
-                other => panic!("expected Capture, got {other:?}"),
-            }
-        }
     }
 }

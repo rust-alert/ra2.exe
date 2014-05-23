@@ -16,9 +16,11 @@ use std::sync::Arc;
 
 use ra_types::RuntimeDefinitions;
 
-use crate::game::Game;
-use crate::session::{Session, SessionSpec};
-use crate::state::MatchState;
+use crate::{
+    game::Game,
+    session::{Session, SessionSpec},
+    state::MatchState,
+};
 
 /// 引擎错误（骨架）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,13 +64,7 @@ impl Engine {
     /// 用冻结定义构造引擎。
     pub fn new(definitions: Arc<RuntimeDefinitions>, config: EngineConfig) -> Result<Self, EngineError> {
         let capabilities = CapabilityRegistry::from_definitions(&definitions);
-        Ok(Self {
-            definitions,
-            schedule: SystemSchedule::default(),
-            capabilities,
-            version: EngineVersion::default(),
-            config,
-        })
+        Ok(Self { definitions, schedule: SystemSchedule::default(), capabilities, version: EngineVersion::default(), config })
     }
 
     /// 冻结定义。
@@ -108,26 +104,18 @@ impl Engine {
 
     /// 只读推进上下文。
     pub fn runtime(&self) -> EngineRuntime<'_> {
-        EngineRuntime {
-            definitions: self.definitions.as_ref(),
-            capabilities: &self.capabilities,
-            schedule: &self.schedule,
-        }
+        EngineRuntime { definitions: self.definitions.as_ref(), capabilities: &self.capabilities, schedule: &self.schedule }
     }
 
     /// 校验会话规格：标签长度上限，以及 `required_capabilities` 是否全部声明。
     pub fn validate_session_spec(&self, spec: &SessionSpec) -> Result<(), SessionValidationError> {
         const MAX_LABEL_CHARS: usize = 256;
         if spec.label.chars().count() > MAX_LABEL_CHARS {
-            return Err(SessionValidationError {
-                message: format!("会话标签过长（最多 {MAX_LABEL_CHARS} 字符）"),
-            });
+            return Err(SessionValidationError { message: format!("会话标签过长（最多 {MAX_LABEL_CHARS} 字符）") });
         }
         for cap in &spec.required_capabilities {
             if !self.capabilities.contains(*cap) {
-                return Err(SessionValidationError {
-                    message: format!("引擎未声明能力: {cap:?}"),
-                });
+                return Err(SessionValidationError { message: format!("引擎未声明能力: {cap:?}") });
             }
         }
         Ok(())

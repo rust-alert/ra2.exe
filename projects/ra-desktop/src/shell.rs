@@ -317,8 +317,7 @@ impl AppShell {
             self.skirmish.preferred_map = None;
             return;
         }
-        let cur =
-            self.selected_map.as_ref().and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name)).unwrap_or(0);
+        let cur = self.selected_map.as_ref().and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name)).unwrap_or(0);
         let n = self.lobby_maps.len() as isize;
         let next = ((cur as isize + delta).rem_euclid(n)) as usize;
         self.select_lobby_map_index(next);
@@ -390,12 +389,7 @@ impl AppShell {
             report.banner_note()
         );
         let mut banner = if report.named == 0 {
-            if probe.note.contains("槽位未填") {
-                probe.note.clone()
-            }
-            else {
-                format!("{} · {}", probe.note, report.banner_note())
-            }
+            if probe.note.contains("槽位未填") { probe.note.clone() } else { format!("{} · {}", probe.note, report.banner_note()) }
         }
         else {
             format!("{} · {}", probe.note, report.banner_note())
@@ -604,12 +598,7 @@ impl AppShell {
                     _ => None,
                 };
                 if let Some(page) = page {
-                    tracing::info!(
-                        screen = self.screen.as_str(),
-                        w = page.width(),
-                        h = page.height(),
-                        "壳层 chrome 已合成并上传 UI 页通道"
-                    );
+                    tracing::info!(screen = self.screen.as_str(), w = page.width(), h = page.height(), "壳层 chrome 已合成并上传 UI 页通道");
                     self.renderer.set_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
@@ -733,12 +722,8 @@ impl AppShell {
             return;
         }
         self.ensure_lobby_maps();
-        self.banner = format!(
-            "正在装载 {} · {}/{}…",
-            self.selected_map.as_deref().unwrap_or("默认候选图"),
-            self.skirmish.side,
-            self.skirmish.difficulty
-        );
+        self.banner =
+            format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
         self.pending_after_load = Some(OriginalScreen::Match);
         self.set_screen(OriginalScreen::LoadScreen);
         self.load_started = Some(Instant::now());
@@ -862,9 +847,7 @@ impl AppShell {
                 // 只打跳过标；状态机在预处理完成后切主菜单。
                 if matches!(
                     key,
-                    PhysicalKey::Code(KeyCode::Escape)
-                        | PhysicalKey::Code(KeyCode::Enter)
-                        | PhysicalKey::Code(KeyCode::NumpadEnter)
+                    PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter)
                 ) {
                     self.request_splash_skip();
                 }
@@ -882,9 +865,7 @@ impl AppShell {
                 _ => {}
             },
             OriginalScreen::SinglePlayerMenu => match key {
-                PhysicalKey::Code(KeyCode::Enter)
-                | PhysicalKey::Code(KeyCode::NumpadEnter)
-                | PhysicalKey::Code(KeyCode::KeyS) => {
+                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) | PhysicalKey::Code(KeyCode::KeyS) => {
                     self.set_screen(OriginalScreen::SkirmishLobby);
                 }
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
@@ -1196,12 +1177,7 @@ pub fn run_shell() -> RaResult<()> {
         #[cfg(feature = "test-harness")]
         LaunchMode::DirectMatch(boot) => {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
-                tracing::info!(
-                    "preview_origin=({}, {}) entities={}",
-                    game.preview_origin_x,
-                    game.preview_origin_y,
-                    game.world.entities.len()
-                );
+                tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entities.len());
             }
             AppShell::with_match(boot, window_width, window_height, status_path, test_scene)
         }
@@ -1238,12 +1214,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<S
             let t = crate::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
-                LaunchMode::DirectMatch(BootResult {
-                    note: t.note,
-                    engine: Some(t.engine),
-                    session: Some(t.session),
-                    preview: t.preview,
-                }),
+                LaunchMode::DirectMatch(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
                 window_width,
                 window_height,
                 status_path,

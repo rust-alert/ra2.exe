@@ -44,15 +44,13 @@ pub fn paint_map_structures(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in structures {
-        let image_key =
-            art.as_ref().and_then(|a| a.get(&ent.type_id, "Image")).unwrap_or(ent.type_id.as_str()).to_ascii_uppercase();
+        let image_key = art.as_ref().and_then(|a| a.get(&ent.type_id, "Image")).unwrap_or(ent.type_id.as_str()).to_ascii_uppercase();
         let cache_key = (image_key.clone(), ent.owner.clone());
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((ent.x, ent.y, blit.clone()));
             continue;
         }
-        let new_theater =
-            art.as_ref().and_then(|a| a.get(&ent.type_id, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let new_theater = art.as_ref().and_then(|a| a.get(&ent.type_id, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let candidates = if new_theater {
             vec![new_theater_shp_name(&image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
         }

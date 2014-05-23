@@ -2,10 +2,11 @@
 //!
 //! 不碰窗口与 GPU；不持有 UI 选中（选中属桌面 LocalPlayerController）。
 
-use crate::engine::EngineRuntime;
-use crate::game::commands::GameCommand;
-use crate::game::reject::CommandReject;
-use crate::state::MatchState;
+use crate::{
+    engine::EngineRuntime,
+    game::{commands::GameCommand, reject::CommandReject},
+    state::MatchState,
+};
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
 use ra_types::{EntityId, GameEdition};
@@ -240,12 +241,7 @@ impl Game {
     }
 
     /// 由世界与装载备注打开一局（设置预览原点与指纹）。
-    pub fn open_skirmish(
-        world: MatchState,
-        boot_note: impl Into<String>,
-        preview_origin: (i32, i32),
-        fingerprint: MatchFingerprint,
-    ) -> Self {
+    pub fn open_skirmish(world: MatchState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
@@ -311,7 +307,7 @@ impl Game {
     /// 与远端摘要比对。
     ///
     /// 仅在 **同 tick 且哈希相同** 时返回 `true`。tick 不一致或哈希不同均返回 `false`
-    ///（tick 不一致不暂停，但不视为「已同步成功」）。
+    /// （tick 不一致不暂停，但不视为「已同步成功」）。
     pub fn apply_remote_digest(&mut self, remote: &StateDigest) -> bool {
         let local = self.local_digest();
         if remote.tick != local.tick {
@@ -534,10 +530,7 @@ impl Game {
     /// 选中集合中是否包含建筑。
     pub fn selection_has_structure(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world
-                .entity_index(id)
-                .and_then(|i| self.world.entities.get(i))
-                .is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
+            self.world.entity_index(id).and_then(|i| self.world.entities.get(i)).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
         })
     }
 
@@ -567,10 +560,7 @@ impl Game {
                 e.id != from
                     && !e.dead
                     && e.owner != owner
-                    && matches!(
-                        e.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                    )
+                    && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
             })
             .min_by_key(|e| {
                 let dx = i32::from(e.x) - i32::from(fx);
@@ -586,8 +576,7 @@ impl Game {
         if self.world.players.len() < 2 {
             return None;
         }
-        let mut owners: Vec<&str> =
-            self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_ref()).collect();
+        let mut owners: Vec<&str> = self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_ref()).collect();
         owners.sort_unstable();
         owners.dedup();
         if owners.len() == 1 { Some(owners[0]) } else { None }
@@ -604,10 +593,7 @@ impl Game {
                 continue;
             };
             let e = &self.world.entities[index];
-            if !matches!(
-                e.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            ) {
+            if !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure) {
                 continue;
             }
             out.push(self.project_entity(e));
@@ -646,12 +632,7 @@ impl Game {
             .world
             .entities
             .iter()
-            .filter(|e| {
-                matches!(
-                    e.kind,
-                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                )
-            })
+            .filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure))
             .map(|e| self.project_entity(e))
             .collect();
         let hud = self.snapshot_hud();
@@ -734,7 +715,7 @@ fn derive_anim_state(e: &crate::WorldEntity) -> AnimState {
 }
 
 /// 按难度决定本 tick 是否跳过 AI 进攻/生产。
-fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
+pub fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
     if difficulty.eq_ignore_ascii_case("Easy") {
         tick % 2 == 1
     }
@@ -747,33 +728,11 @@ fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
 }
 
 /// Hard 是否追加一轮生产尝试。
-fn difficulty_extra_produce(difficulty: &str) -> bool {
+pub fn difficulty_extra_produce(difficulty: &str) -> bool {
     difficulty.eq_ignore_ascii_case("Hard")
 }
 
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
 fn is_combat_force(e: &crate::WorldEntity) -> bool {
-    !e.dead
-        && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
-}
-
-#[cfg(test)]
-mod difficulty_ai_tests {
-    use super::{difficulty_extra_produce, difficulty_skips_offensive};
-
-    #[test]
-    fn easy_skips_odd_ticks_hard_never_skips() {
-        assert!(difficulty_skips_offensive("Easy", 1));
-        assert!(!difficulty_skips_offensive("Easy", 2));
-        assert!(!difficulty_skips_offensive("Hard", 3));
-        assert!(difficulty_skips_offensive("Normal", 3));
-        assert!(!difficulty_skips_offensive("Normal", 0));
-    }
-
-    #[test]
-    fn only_hard_gets_extra_produce() {
-        assert!(difficulty_extra_produce("Hard"));
-        assert!(!difficulty_extra_produce("Easy"));
-        assert!(!difficulty_extra_produce("Normal"));
-    }
+    !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
 }
