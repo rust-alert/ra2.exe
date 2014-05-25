@@ -1,0 +1,22 @@
+[package]
+name = "ra-napi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "N-API 绑定：供 @game-gpt/red-alert2 加载"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+name = "ra_napi"
+path = "src/lib.rs"
+
+[dependencies]
+napi = { workspace = true }
+napi-derive = { workspace = true }
+ra-desktop = { path = "../../desktop/ra-desktop" }
+ra-config = { workspace = true }
+
+[build-dependencies]
+napi-build = "2"
