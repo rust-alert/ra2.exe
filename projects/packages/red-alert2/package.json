@@ -1,0 +1,45 @@
+{
+    "name": "@game-gpt/red-alert2",
+    "version": "0.1.0",
+    "description": "Red Alert 2 modern rewrite CLI — launch with ra2 launch --path <game-dir>",
+    "type": "module",
+    "license": "MPL-2.0",
+    "bin": {
+        "ra2": "./bin/ra2.mjs"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "bin",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json"
+    },
+    "optionalDependencies": {
+        "@game-gpt/red-alert2-win32-x64": "workspace:*",
+        "@game-gpt/red-alert2-linux-x64": "workspace:*",
+        "@game-gpt/red-alert2-darwin-arm64": "workspace:*",
+        "@game-gpt/red-alert2-darwin-x64": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^22.15.0",
+        "typescript": "^5.8.3"
+    },
+    "keywords": [
+        "red-alert-2",
+        "ra2",
+        "napi",
+        "cli"
+    ]
+}

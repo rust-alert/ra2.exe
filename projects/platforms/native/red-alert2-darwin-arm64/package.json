@@ -1,0 +1,23 @@
+{
+    "name": "@game-gpt/red-alert2-darwin-arm64",
+    "version": "0.1.0",
+    "description": "Red Alert 2 native N-API addon (darwin-arm64)",
+    "license": "MPL-2.0",
+    "os": [
+        "darwin"
+    ],
+    "cpu": [
+        "arm64"
+    ],
+    "main": "red-alert2.darwin-arm64.node",
+    "files": [
+        "red-alert2.darwin-arm64.node",
+        "README.md"
+    ],
+    "keywords": [
+        "red-alert-2",
+        "napi",
+        "darwin",
+        "arm64"
+    ]
+}
