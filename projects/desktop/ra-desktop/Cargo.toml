@@ -4,12 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "原生 GUI 壳；产出 rust-ra2 二进制"
+description = "原生 GUI 壳库；由 @game-gpt/red-alert2 N-API 拉起"
 publish = false
-
-[[bin]]
-name = "rust-ra2"
-path = "src/main.rs"
 
 [lib]
 name = "ra_desktop"
@@ -37,4 +33,3 @@ test-harness = ["dep:ra-testing"]
 [dependencies.ra-testing]
 workspace = true
 optional = true
-

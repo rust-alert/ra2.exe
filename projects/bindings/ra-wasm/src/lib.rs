@@ -1,4 +1,5 @@
-//! 浏览器壳。画布与 fetch 版 `AssetSource` 后续再接。
+//! Wasm 绑定。画布与 fetch 版 `AssetSource` 后续再接。
+//! 平台 npm 包：`@game-gpt/red-alert2-unknown-wasm32`。
 
 #![deny(missing_docs)]
 

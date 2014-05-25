@@ -8,9 +8,35 @@
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 use toml_edit::{DocumentMut, Item, Value};
+
+/// CLI / N-API 一次性启动覆盖（后于 `RustAlert.toml` 生效）。
+#[derive(Debug, Clone)]
+pub struct LaunchOverride {
+    /// 游戏安装目录。
+    pub ra2_dir: PathBuf,
+    /// 可选版本字符串。
+    pub edition: Option<String>,
+}
+
+static LAUNCH_OVERRIDE: Mutex<Option<LaunchOverride>> = Mutex::new(None);
+
+/// 设置启动覆盖（`ra2 launch --path`）。
+pub fn set_launch_override(override_: LaunchOverride) {
+    *LAUNCH_OVERRIDE.lock().expect("launch override lock") = Some(override_);
+}
+
+/// 清除启动覆盖。
+pub fn clear_launch_override() {
+    *LAUNCH_OVERRIDE.lock().expect("launch override lock") = None;
+}
+
+fn take_launch_override_snapshot() -> Option<LaunchOverride> {
+    LAUNCH_OVERRIDE.lock().expect("launch override lock").clone()
+}
 
 /// 规范桌面配置文件名（位于可执行文件同目录）。
 pub const RUST_ALERT_TOML: &str = "RustAlert.toml";
@@ -146,7 +172,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # 首次启动时由程序自动生成，可按需修改后持久化。\n\
          # 分辨率、显示与其它启动选项写在本文件中。\n\
          #\n\
-         # 未改 `ra2_dir` 时默认即 exe 所在目录（便于把 `rust-ra2` 放进游戏安装目录）。\n\
+         # 未改 `ra2_dir` 时默认即进程相关目录；产品路径请用 `ra2 launch --path`。\n\
          \n\
          ra2_dir = \"{dir}\"\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
@@ -306,7 +332,17 @@ impl DesktopSettings {
         }
         let mut merged = MergedConfig::merge_layers(&layers);
         merged.diagnostics.append(&mut diagnostics);
-        let settings = Self::from_merged(&merged);
+        let mut settings = Self::from_merged(&merged);
+        if let Some(over) = take_launch_override_snapshot() {
+            settings.ra2_dir = over.ra2_dir;
+            if over.edition.is_some() {
+                settings.edition = over.edition;
+            }
+            merged.diagnostics.push(ConfigDiagnostic {
+                source: "launch-override".into(),
+                message: format!("CLI/N-API 覆盖 ra2_dir={}", settings.ra2_dir.display()),
+            });
+        }
         (settings, merged.diagnostics)
     }
 }
