@@ -170,5 +170,5 @@ cargo check --workspace
 
 ## 许可证
 
-本 crate 采用 **MPL-2.0**。Phobos 与 Mental Omega 为各自作者之社区项目；本 crate 仅列出常见安装布局中的 **文件名**，不包含
+本 crate 采用 **Apache-2.0**。Phobos 与 Mental Omega 为各自作者之社区项目；本 crate 仅列出常见安装布局中的 **文件名**，不包含
 MO 受版权保护的游戏内容。使用 adaptor 装载前请确保你拥有合法基座游戏与 Mod 分发许可。

@@ -168,4 +168,4 @@ cargo test -p ra-engine
 cargo test -p ra-testing
 ```
 
-许可证：MPL-2.0。
+许可证：Apache-2.0。

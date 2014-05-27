@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "description": "Red Alert 2 modern rewrite CLI — launch with ra2 launch --path <game-dir>",
     "type": "module",
-    "license": "MPL-2.0",
+    "license": "Apache-2.0",
     "bin": {
         "ra2": "./bin/ra2.mjs"
     },

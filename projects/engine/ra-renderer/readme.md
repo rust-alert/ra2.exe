@@ -153,4 +153,4 @@ Wasm：`ra-webui` 未来将传入 canvas 并调用 `attach_window` 的 Web 变�
 
 ## 许可
 
-MPL-2.0。
+Apache-2.0。

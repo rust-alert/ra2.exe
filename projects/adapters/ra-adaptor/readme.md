@@ -190,4 +190,4 @@ DesktopConfig → GameEdition::parse(可选)
 
 ## 许可
 
-MPL-2.0。玩家自备游戏目录；本仓库不含 MIX / INI 二进制内容。
+Apache-2.0。玩家自备游戏目录；本仓库不含 MIX / INI 二进制内容。

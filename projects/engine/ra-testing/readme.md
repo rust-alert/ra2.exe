@@ -223,5 +223,5 @@ cargo check -p ra-testing
 
 ## 许可证
 
-本 crate 采用 **MPL-2.0**。内置 INI 与地图数据为 **合成测试夹具**，不包含 Westwood / EA 原版资源。请勿将本 crate
+本 crate 采用 **Apache-2.0**。内置 INI 与地图数据为 **合成测试夹具**，不包含 Westwood / EA 原版资源。请勿将本 crate
 与商业游戏文件打包分发。

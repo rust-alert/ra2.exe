@@ -216,4 +216,4 @@ cargo doc -p ra-net --no-deps
 
 ## 许可证
 
-本 crate 采用 **MPL-2.0**。在网络服务中使用时请同时遵守游戏内容与第三方 Mod 的许可，本 crate 仅提供消息格式实现。
+本 crate 采用 **Apache-2.0**。在网络服务中使用时请同时遵守游戏内容与第三方 Mod 的许可，本 crate 仅提供消息格式实现。
