@@ -3,10 +3,11 @@ resolver = "2"
 members = [
     "projects/engine/*",
     "projects/adapters/*",
-    "projects/desktop/*",
+    "projects/hosts/*",
     "projects/bindings/*",
+    "projects/tooling/*",
 ]
-default-members = ["projects/desktop/ra-desktop"]
+default-members = ["projects/hosts/ra-desktop"]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,7 +22,7 @@ ra-config = { path = "projects/engine/ra-config" }
 ra-map = { path = "projects/engine/ra-map" }
 ra-engine = { path = "projects/engine/ra-engine" }
 ra-ecs = { path = "projects/engine/ra-ecs" }
-ra-testing = { path = "projects/engine/ra-testing" }
+ra-testing = { path = "projects/tooling/ra-testing" }
 ra-net = { path = "projects/engine/ra-net" }
 ra-renderer = { path = "projects/engine/ra-renderer" }
 ra-adaptor = { path = "projects/adapters/ra-adaptor" }
