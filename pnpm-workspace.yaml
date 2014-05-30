@@ -1,5 +1,4 @@
 packages:
   - 'projects/packages/*'
   - 'projects/platforms/native/*'
-  - 'projects/platforms/wasm/*'
   - 'projects/tooling/*'

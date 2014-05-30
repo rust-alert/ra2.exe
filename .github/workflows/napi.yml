@@ -1,0 +1,60 @@
+name: NAPI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+jobs:
+  native:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            short: win32-x64
+          - os: ubuntu-latest
+            short: linux-x64
+          - os: macos-latest
+            short: darwin-arm64
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm run build:native
+      - name: Smoke version()
+        shell: bash
+        run: |
+          node -e "const p=require('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json'); const path=require('path'); const bin=path.join(path.dirname(require.resolve('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json')), p.main); const n=require(bin); console.log(n.version());"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: red-alert2-${{ matrix.short }}
+          path: projects/platforms/native/red-alert2-${{ matrix.short }}/red-alert2.*.node
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm run build:ts
+      - run: pnpm run lint

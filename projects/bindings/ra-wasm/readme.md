@@ -1,5 +1,5 @@
 # ra-wasm
 
-Wasm / WebGL2 绑定 crate。平台 npm 包为 **`@game-gpt/red-alert2-unknown-wasm32`**。
+Wasm / WebGL2 绑定。浏览器 npm 面后续为 `packages/red-alert2-wasm`（勿再建 `platforms/wasm` 占位包）。
 
 当前导出为占位符号，画布与资源加载尚未接线。
