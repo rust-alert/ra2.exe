@@ -4,7 +4,7 @@
     "type": "module",
     "packageManager": "pnpm@9.15.4",
     "scripts": {
-        "build:ts": "pnpm --filter @game-gpt/red-alert2 run build",
+        "build:ts": "pnpm --filter @game-gpt/red-alert2 --filter @game-gpt/red-alert2-unknown-wasm32 run build",
         "build:native": "node scripts/build/napi.mjs --release",
         "build": "pnpm run build:ts && pnpm run build:native",
         "lint": "biome check .",

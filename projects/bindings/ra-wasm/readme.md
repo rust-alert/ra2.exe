@@ -1,5 +1,5 @@
 # ra-wasm
 
-Wasm / WebGL2 绑定。浏览器 npm 面后续为 `packages/red-alert2-wasm`（勿再建 `platforms/wasm` 占位包）。
+Rust → 浏览器绑定。构建产物进入 `platforms/wasm/red-alert2-unknown-wasm32`，由 `@game-gpt/red-alert2` 对外整合。
 
-当前导出为占位符号，画布与资源加载尚未接线。
+站点（homepage / playground）只依赖 `@game-gpt/red-alert2`，不要直接依赖本平台包。

@@ -1,4 +1,4 @@
-//! Wasm 绑定。浏览器 npm 面后续为 `packages/red-alert2-wasm`。
+//! Wasm 绑定。产物进入 `platforms/wasm/red-alert2-unknown-wasm32`，再由 `@game-gpt/red-alert2` 整合。
 
 #![deny(missing_docs)]
 
