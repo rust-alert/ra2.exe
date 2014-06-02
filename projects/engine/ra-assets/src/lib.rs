@@ -33,6 +33,7 @@ pub use image::{
     csf::{CsfFile, LABEL_MAGIC, STRING_MAGIC},
     fnt::{FONT_MAGIC, FntFile, FntGlyph},
     pal::{Palette, Rgba},
+    pcx::{PcxImage, parse_pcx},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
