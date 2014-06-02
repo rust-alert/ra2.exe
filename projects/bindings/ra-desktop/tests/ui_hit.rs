@@ -52,3 +52,13 @@ fn hover_index_tracks_enabled_button() {
     assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false,), Some(0));
     assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false,), None);
 }
+
+#[test]
+fn physical_cursor_with_logical_window_misses_on_hidpi() {
+    // 回归：逻辑窗 1024×768、缩放 1.5 时，若误用物理光标 (1386,423) 会打飞命中。
+    // 生产路径必须先把 CursorMoved 转成逻辑像素 (924,282)。
+    let logical = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false);
+    let physical_mixed = hit_action(OriginalScreen::MainMenu, &[], None, (1386.0, 423.0), 1024.0, 768.0, false);
+    assert_eq!(logical, Some(MenuAction::OpenSinglePlayer));
+    assert_eq!(physical_mixed, None);
+}

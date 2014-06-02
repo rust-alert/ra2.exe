@@ -11,7 +11,7 @@ fn main_menu_entries_match_expected_ids() {
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.background_pal, Some("shell.pal"));
     assert_eq!(page.movie_bik, Some("ra2ts_l.bik"));
-    assert!(page.buttons[0].hover_frame.is_none());
+    assert_eq!(page.buttons[0].hover_frame, Some(3));
     assert_eq!(page.buttons[0].normal_frame, Some(2));
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
@@ -68,4 +68,12 @@ fn skirmish_lobby_exposes_side_and_difficulty() {
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
     assert_eq!(page.fonts, &["game.fnt"]);
+}
+
+#[test]
+fn splash_declares_title_pcx() {
+    let page = slots_for(OriginalScreen::Splash).unwrap();
+    assert_eq!(page.background_pcx, Some("title.pcx"));
+    assert!(page.has_any_asset_name());
+    assert!(page.buttons.is_empty());
 }

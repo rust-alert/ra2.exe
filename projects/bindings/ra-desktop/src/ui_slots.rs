@@ -52,6 +52,8 @@ pub struct UiPageSlots {
     pub screen: OriginalScreen,
     /// 背景 SHP（可空）。
     pub background_shp: Option<&'static str>,
+    /// 背景 PCX（闪屏等；与 SHP 二选一优先 PCX）。
+    pub background_pcx: Option<&'static str>,
     /// 背景调色板（可空）。
     pub background_pal: Option<&'static str>,
     /// 背景帧（缺省 0）。
@@ -69,7 +71,7 @@ pub struct UiPageSlots {
 impl UiPageSlots {
     /// 是否已为任一槽填了具体文件名（用于区分「模型」与「已接线资产」）。
     pub fn has_any_asset_name(&self) -> bool {
-        if self.background_shp.is_some() || self.background_pal.is_some() || !self.panels.is_empty() {
+        if self.background_shp.is_some() || self.background_pcx.is_some() || self.background_pal.is_some() || !self.panels.is_empty() {
             return true;
         }
         if self.movie_bik.is_some() {
@@ -87,6 +89,7 @@ const SDBTNANM_SHP: &str = "sdbtnanm.shp";
 const SDBTNANM_PAL: &str = "sdbtnanm.pal";
 /// 常态 / 按下帧；主菜单不启用悬停换帧。
 const SDBTNANM_FRAME_NORMAL: u16 = 2;
+const SDBTNANM_FRAME_HOVER: u16 = 3;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
@@ -107,8 +110,8 @@ const fn main_menu_button(entry_id: &'static str, action: MenuAction, enabled: b
         anim_shp: Some(SDBTNANM_SHP),
         anim_pal: Some(SDBTNANM_PAL),
         normal_frame: Some(SDBTNANM_FRAME_NORMAL),
-        // 主菜单不闪悬停帧；图集可另有 hover 帧，页面策略关闭。
-        hover_frame: None,
+        // 主菜单悬停用稳态帧 3（非闪烁动画）。
+        hover_frame: Some(SDBTNANM_FRAME_HOVER),
         pressed_frame: Some(SDBTNANM_FRAME_PRESSED),
         disabled_frame: if enabled { None } else { Some(SDBTNANM_FRAME_NORMAL) },
     }
@@ -174,8 +177,9 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
     match screen {
         OriginalScreen::Splash => Some(UiPageSlots {
             screen,
-            // 闪屏专用 SHP 待安装内证据后再填；先占位以便页面机存在。
+            // 安装内 `title.pcx`（自由女神像 + 基洛夫）可读证据。
             background_shp: None,
+            background_pcx: Some("title.pcx"),
             background_pal: None,
             background_frame: 0,
             movie_bik: None,
@@ -187,6 +191,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             screen,
             // 非 640 宽窗口默认大背景；640 分支后续按视口另选 `mnscrns.shp`。
             background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             // 大布局默认 `ra2ts_l.bik`；640 窄布局后续切 `ra2ts_s.bik`。
@@ -199,6 +204,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             screen,
             // 与主菜单共用壳层 chrome（安装内已证实）；按钮文案待字体链路。
             background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: Some("ra2ts_l.bik"),
@@ -210,6 +216,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             screen,
             // Pre-Alpha：与主菜单/单人页共用已证实壳层 chrome；大厅专用板面后续再换。
             background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: None,
@@ -220,6 +227,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         OriginalScreen::LoadScreen => Some(UiPageSlots {
             screen,
             background_shp: None,
+            background_pcx: None,
             background_pal: None,
             background_frame: 0,
             movie_bik: None,
@@ -230,6 +238,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         OriginalScreen::Options => Some(UiPageSlots {
             screen,
             background_shp: None,
+            background_pcx: None,
             background_pal: None,
             background_frame: 0,
             movie_bik: None,
@@ -240,6 +249,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         OriginalScreen::Network => Some(UiPageSlots {
             screen,
             background_shp: None,
+            background_pcx: None,
             background_pal: None,
             background_frame: 0,
             movie_bik: None,
