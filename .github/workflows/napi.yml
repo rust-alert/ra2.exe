@@ -48,6 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -56,5 +62,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install
+      - run: pnpm run build:wasm
       - run: pnpm run build:ts
       - run: pnpm run lint
+      - name: Smoke wasm init
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from 'node:fs';
+          import { init, engineName, supportsWebgl2 } from './projects/platforms/wasm/red-alert2-unknown-wasm32/dist/index.js';
+          await init(readFileSync('./projects/platforms/wasm/red-alert2-unknown-wasm32/pkg/ra_wasm_bg.wasm'));
+          console.log(engineName(), supportsWebgl2());
+          EOF

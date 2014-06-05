@@ -1,7 +1,7 @@
 /**
  * Publish npm packages (requires NPM_TOKEN or NODE_AUTH_TOKEN).
  *
- * Usage: node scripts/ci/publish-npm.mjs
+ * Builds Wasm pkg first. Usage: node scripts/ci/publish-npm.mjs
  */
 
 import { spawnSync } from 'node:child_process';
@@ -26,16 +26,20 @@ if (!process.env.NPM_TOKEN && !process.env.NODE_AUTH_TOKEN) {
 }
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const node = process.execPath;
+
+function run(cmd, args, cwd = root) {
+    const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: false, env: process.env });
+    if (r.status !== 0) process.exit(r.status ?? 1);
+}
+
+run(node, ['scripts/build/wasm.mjs', '--release']);
+run(pnpm, ['run', 'build:ts']);
 
 for (const rel of packages) {
     const abs = path.join(root, rel);
     if (!fs.existsSync(path.join(abs, 'package.json'))) continue;
     console.log(`publish ${rel}`);
-    const r = spawnSync(npm, ['publish', '--access', 'public'], {
-        cwd: abs,
-        stdio: 'inherit',
-        shell: false,
-        env: process.env,
-    });
-    if (r.status !== 0) process.exit(r.status ?? 1);
+    run(npm, ['publish', '--access', 'public'], abs);
 }

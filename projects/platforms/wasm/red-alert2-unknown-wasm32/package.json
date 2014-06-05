@@ -1,6 +1,6 @@
 {
     "name": "@game-gpt/red-alert2-unknown-wasm32",
-    "version": "0.1.0",
+    "version": "0.0.0",
     "type": "module",
     "description": "Wasm artifact produced from ra-wasm. Consumed via @game-gpt/red-alert2.",
     "license": "Apache-2.0",
@@ -18,7 +18,8 @@
         "pkg"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.json"
+        "build:wasm": "node ../../../../scripts/build/wasm.mjs --release",
+        "build": "pnpm run build:wasm && tsc -p tsconfig.json"
     },
     "devDependencies": {
         "typescript": "^5.8.3"

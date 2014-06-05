@@ -6,7 +6,8 @@
     "scripts": {
         "build:ts": "pnpm --filter @game-gpt/red-alert2 --filter @game-gpt/red-alert2-unknown-wasm32 run build",
         "build:native": "node scripts/build/napi.mjs --release",
-        "build": "pnpm run build:ts && pnpm run build:native",
+        "build:wasm": "node scripts/build/wasm.mjs --release",
+        "build": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:native",
         "lint": "biome check .",
         "lint:fix": "biome check --write .",
         "fmt": "biome format --write . && cargo fmt --all",
