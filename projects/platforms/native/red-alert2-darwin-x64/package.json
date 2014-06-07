@@ -1,6 +1,6 @@
 {
     "name": "@game-gpt/red-alert2-darwin-x64",
-    "version": "0.1.0",
+    "version": "0.0.0",
     "description": "Red Alert 2 native N-API addon (darwin-x64)",
     "license": "Apache-2.0",
     "os": [
