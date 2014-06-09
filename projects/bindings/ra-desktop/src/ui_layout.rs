@@ -18,6 +18,8 @@ pub const RIGHT_PANEL_TILE_H: i32 = 42;
 pub const BUTTON_CELL_W: i32 = 156;
 /// 按钮格高。
 pub const BUTTON_CELL_H: i32 = 42;
+/// 底部装饰条高（`lwscrnl`）。
+pub const LOWER_STRIP_H: i32 = 32;
 
 /// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const MAIN_MENU_BUTTON_IDS: [&str; 4] = ["single_player", "network", "options", "exit"];
@@ -79,13 +81,12 @@ pub struct MainMenuLayout {
     pub panel_bottom: RectPx,
     /// 底部装饰条。
     pub lower_strip: RectPx,
-    /// 四个主菜单按钮格（单人 / 网络 / 选项 / 退出）。
+    /// 四个主菜单按钮格（单人 / 网络 / 选项 / 退出）；退出贴底盖上沿。
     pub buttons: [RectPx; 4],
 }
 
-fn button_cell(panel_x: i32, tile_y: i32, row: i32) -> RectPx {
+fn button_cell(panel_x: i32, y: i32) -> RectPx {
     let x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-    let y = tile_y + row * BUTTON_CELL_H;
     RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
 }
 
@@ -102,27 +103,34 @@ pub fn window_to_shell_px(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
 }
 
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
+///
+/// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，退出钮贴在底盖上沿一行
+///（对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前三个入口仍占连续平铺格。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
     let panel_top = RectPx::new(panel_x, 0, RIGHT_PANEL_W, RIGHT_PANEL_TOP_H);
     let tile = RectPx::new(panel_x, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, RIGHT_PANEL_TILE_H);
-    // 底盖高度按零售 `sdbtm` 画布 65 近似。
-    let bottom_h = 65;
-    let remaining = (SHELL_BASE_H - RIGHT_PANEL_TOP_H - bottom_h).max(0);
+    let remaining = (SHELL_BASE_H - RIGHT_PANEL_TOP_H).max(0);
     let tile_count = (remaining / RIGHT_PANEL_TILE_H).clamp(0, 9);
     let bottom_y = tile.y + tile_count * RIGHT_PANEL_TILE_H;
     let panel_bottom = RectPx::new(panel_x, bottom_y, RIGHT_PANEL_W, SHELL_BASE_H - bottom_y);
-    // `lwscrnl` 画布高 32；贴在内容区底边。
-    let lower_strip = RectPx::new(0, SHELL_BASE_H - 32, panel_x, 32);
-    // 按钮落在平铺列上：从顶盖下第一格起连续四格。
-    let buttons =
-        [button_cell(panel_x, tile.y, 0), button_cell(panel_x, tile.y, 1), button_cell(panel_x, tile.y, 2), button_cell(panel_x, tile.y, 3)];
+    // 原版 `ra2ts_l` 为 632×570；底条 `lwscrnl` 高 32 贴底，与影片下沿重叠 2px。
+    let movie_w = panel_x;
+    let movie_h = 570;
+    let lower_strip = RectPx::new(0, SHELL_BASE_H - LOWER_STRIP_H, movie_w, LOWER_STRIP_H);
+    let exit_y = panel_bottom.y - BUTTON_CELL_H;
+    let buttons = [
+        button_cell(panel_x, tile.y),
+        button_cell(panel_x, tile.y + BUTTON_CELL_H),
+        button_cell(panel_x, tile.y + 2 * BUTTON_CELL_H),
+        button_cell(panel_x, exit_y),
+    ];
     MainMenuLayout {
         canvas,
-        // 父背景与影片区同左上；`mnscrnl` 约 632×568，不铺满 800 宽。
-        background: RectPx::new(0, 0, 632, 568),
-        movie: RectPx::new(0, 0, 632, 568),
+        // `mnscrnl` / 影片区：632×570，底边留给 `lwscrnl`。
+        background: RectPx::new(0, 0, movie_w, movie_h),
+        movie: RectPx::new(0, 0, movie_w, movie_h),
         panel_top,
         panel_tile: tile,
         panel_tile_count: tile_count,
