@@ -22,7 +22,16 @@ pub const BUTTON_CELL_H: i32 = 42;
 pub const LOWER_STRIP_H: i32 = 32;
 
 /// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
-pub const MAIN_MENU_BUTTON_IDS: [&str; 4] = ["single_player", "network", "options", "exit"];
+///
+/// 顺序对齐原版 0xE2：前五项连续平铺格，末项 Exit 贴底盖。
+pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = [
+    "single_player",
+    "ww_online",
+    "network",
+    "movies",
+    "options",
+    "exit",
+];
 
 /// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "training", "back"];
@@ -81,8 +90,8 @@ pub struct MainMenuLayout {
     pub panel_bottom: RectPx,
     /// 底部装饰条。
     pub lower_strip: RectPx,
-    /// 四个主菜单按钮格（单人 / 网络 / 选项 / 退出）；退出贴底盖上沿。
-    pub buttons: [RectPx; 4],
+    /// 六个主菜单按钮格；末项 Exit 贴底盖上沿。
+    pub buttons: [RectPx; 6],
 }
 
 fn button_cell(panel_x: i32, y: i32) -> RectPx {
@@ -104,8 +113,8 @@ pub fn window_to_shell_px(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
 
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
-/// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，退出钮贴在底盖上沿一行
-///（对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前三个入口仍占连续平铺格。
+/// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，Exit 贴底盖上沿一行
+///（对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前五项占连续平铺格。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
@@ -124,6 +133,8 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
         button_cell(panel_x, tile.y),
         button_cell(panel_x, tile.y + BUTTON_CELL_H),
         button_cell(panel_x, tile.y + 2 * BUTTON_CELL_H),
+        button_cell(panel_x, tile.y + 3 * BUTTON_CELL_H),
+        button_cell(panel_x, tile.y + 4 * BUTTON_CELL_H),
         button_cell(panel_x, exit_y),
     ];
     MainMenuLayout {
@@ -140,14 +151,35 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     }
 }
 
-/// 单人页布局：当前与主菜单共用右侧壳层几何（按钮 id 不同）。
-pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
-    main_menu_layout(viewport_w, viewport_h)
+fn four_stack_plus_exit(panel_x: i32, tile_y: i32, exit_y: i32) -> [RectPx; 4] {
+    [
+        button_cell(panel_x, tile_y),
+        button_cell(panel_x, tile_y + BUTTON_CELL_H),
+        button_cell(panel_x, tile_y + 2 * BUTTON_CELL_H),
+        button_cell(panel_x, exit_y),
+    ]
 }
 
-/// 遭遇战大厅布局：右侧按钮格与主菜单同几何；`movie` 区作地图预览占位。
+/// 单人页：前三连格 + 返回贴底盖（与主菜单 Exit 同锚点）。
+pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
+    let mut layout = main_menu_layout(viewport_w, viewport_h);
+    let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
+    let four = four_stack_plus_exit(layout.panel_top.x, layout.panel_tile.y, exit_y);
+    // 合成/命中仍读 `buttons[0..4]`；多出的两格不参与单人页。
+    layout.buttons = [
+        four[0],
+        four[1],
+        four[2],
+        four[3],
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
+    layout
+}
+
+/// 遭遇战大厅：右侧四钮几何与单人页相同；`movie` 区作地图预览占位。
 pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
-    main_menu_layout(viewport_w, viewport_h)
+    single_player_layout(viewport_w, viewport_h)
 }
 
 /// 大厅地图列表第 `index` 行的像素矩形（内容坐标）。

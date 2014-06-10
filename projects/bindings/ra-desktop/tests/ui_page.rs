@@ -33,8 +33,10 @@ fn main_menu_and_single_player_are_declared_complete() {
 fn main_menu_index_keeps_entry_ids() {
     let page = page_resources_from_slots(OriginalScreen::MainMenu).expect("main menu");
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["single_player", "network", "options", "exit"]);
+    assert_eq!(ids, ["single_player", "ww_online", "network", "movies", "options", "exit"]);
     assert!(!page.buttons[1].enabled);
+    assert!(!page.buttons[2].enabled);
+    assert!(!page.buttons[3].enabled);
 }
 
 #[test]

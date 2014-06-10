@@ -7,9 +7,24 @@ use ra_renderer::RgbaImage;
 pub fn main_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
         "single_player" => Some("GUI:SinglePlayer"),
-        "network" => Some("GUI:NetworkOnline"),
+        "ww_online" => Some("GUI:WWOnline"),
+        "network" => Some("GUI:Network"),
+        "movies" => Some("GUI:MoviesAndCredits"),
         "options" => Some("GUI:Options"),
         "exit" => Some("GUI:ExitGame"),
+        _ => None,
+    }
+}
+
+/// 主菜单悬停提示 → CSF（底栏 `STT:*`）。
+pub fn main_menu_csf_tooltip(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "single_player" => Some("STT:MainButtonSinglePlayer"),
+        "ww_online" => Some("STT:MainButtonWWOnline"),
+        "network" => Some("STT:MainButtonNetwork"),
+        "movies" => Some("STT:MainButtonMovies"),
+        "options" => Some("STT:MainButtonOptions"),
+        "exit" => Some("STT:MainButtonExit"),
         _ => None,
     }
 }
