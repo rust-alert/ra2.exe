@@ -12,8 +12,8 @@ use crate::{
         single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
-        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, resolve_caption,
-        single_player_csf_label, skirmish_lobby_csf_label,
+        MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, main_menu_csf_tooltip,
+        resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
     },
 };
 
@@ -170,6 +170,29 @@ fn compose_shell_menu_page(
             );
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
             blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, color);
+        }
+    }
+
+    if captions == MenuCaptionKind::Main {
+        if let Some(fnt) = fnt {
+            let title = resolve_caption(csf, "main_menu", Some("GUI:MainMenu"));
+            blit_caption_in_cell(
+                &mut page,
+                fnt,
+                &title,
+                layout.title.x,
+                layout.title.y,
+                layout.title.w,
+                layout.title.h,
+                MENU_TEXT_ENABLED,
+            );
+            if let Some(hovered) = hovered_entry_id {
+                if let Some(key) = main_menu_csf_tooltip(hovered) {
+                    if let Some(text) = resolve_csf_text(csf, key) {
+                        blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
+                    }
+                }
+            }
         }
     }
 

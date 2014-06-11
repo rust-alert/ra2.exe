@@ -63,6 +63,16 @@ pub fn resolve_caption<'a>(csf: Option<&'a CsfFile>, entry_id: &str, csf_key: Op
     entry_id.replace('_', " ")
 }
 
+/// 仅当 CSF 有非空文案时返回；缺省不回退。
+pub fn resolve_csf_text(csf: Option<&CsfFile>, key: &str) -> Option<String> {
+    let text = csf?.get(key)?;
+    if text.is_empty() {
+        None
+    } else {
+        Some(text.to_string())
+    }
+}
+
 /// 启用按钮常用黄字（近似原版壳层）。
 pub const MENU_TEXT_ENABLED: [u8; 4] = [255, 214, 0, 255];
 /// 禁用按钮灰字。
