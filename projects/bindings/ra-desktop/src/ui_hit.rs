@@ -70,7 +70,8 @@ pub fn hit_action(
     hit_at(&hits_for(screen, maps, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action)
 }
 
-/// 命中命中区下标（仅 `enabled`）。
+/// 命中命中区下标。主菜单 / 单人页包含禁用项（用于悬停帧与底栏提示）；
+/// 点击仍走 [`hit_action`]（仅 `enabled`）。
 pub fn hover_index(
     screen: OriginalScreen,
     maps: &[BootMapCandidate],
@@ -81,10 +82,10 @@ pub fn hover_index(
     load_allow_retry: bool,
 ) -> Option<usize> {
     if screen == OriginalScreen::MainMenu {
-        return hit_main_menu_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+        return hover_main_menu_at(cursor.0, cursor.1, win_w, win_h);
     }
     if screen == OriginalScreen::SinglePlayerMenu {
-        return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+        return hover_single_player_at(cursor.0, cursor.1, win_w, win_h);
     }
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
@@ -161,6 +162,21 @@ fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opt
     None
 }
 
+/// 悬停：含禁用钮（底栏提示仍可显示）。
+fn hover_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = main_menu_layout(0, 0);
+    for (i, _) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
+        if layout.buttons[i].contains(sx, sy) {
+            return Some(i);
+        }
+    }
+    None
+}
+
 fn hits_single_player() -> Vec<MenuHit> {
     let Some(page) = slots_for(OriginalScreen::SinglePlayerMenu)
     else {
@@ -208,6 +224,21 @@ fn hit_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) ->
         }
         if layout.buttons[i].contains(sx, sy) {
             return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+/// 悬停：含禁用钮。
+fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = single_player_layout(0, 0);
+    for (i, _) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
+        if layout.buttons[i].contains(sx, sy) {
+            return Some(i);
         }
     }
     None

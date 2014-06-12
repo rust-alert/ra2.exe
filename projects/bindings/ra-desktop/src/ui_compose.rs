@@ -152,9 +152,13 @@ fn compose_shell_menu_page(
 
     for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
-        let sprite = if pressed_entry_id == Some(*entry_id) {
+        let disabled = matches!(
+            *entry_id,
+            "ww_online" | "network" | "movies" | "campaign" | "training"
+        );
+        let sprite = if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else if hovered_entry_id == Some(*entry_id) {
+        } else if hovered_entry_id == Some(*entry_id) && !disabled {
             find_button_hover(decoded, entry_id).unwrap_or(normal)
         } else {
             normal
@@ -164,10 +168,6 @@ fn compose_shell_menu_page(
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            let disabled = matches!(
-                *entry_id,
-                "ww_online" | "network" | "movies" | "campaign" | "training"
-            );
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
             blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, color);
         }

@@ -28,7 +28,7 @@ fn load_screen_disables_retry_while_loading() {
 
 #[test]
 fn disabled_network_not_hit() {
-    // 网络钮格中心约壳层 (722, 262) → 窗口约 (924, 335)，禁用。
+    // 第二格现为 WWOnline（禁用），壳层约 (722, 262) → 窗口约 (924, 335)。
     let action = hit_action(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false);
     assert_eq!(action, None);
 }
@@ -50,7 +50,8 @@ fn lobby_map_row_is_selectable() {
 #[test]
 fn hover_index_tracks_enabled_button() {
     assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 282.0), 1024.0, 768.0, false,), Some(0));
-    assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false,), None);
+    // 禁用钮仍可悬停（底栏 STT 提示），但不可点击。
+    assert_eq!(hover_index(OriginalScreen::MainMenu, &[], None, (924.0, 335.0), 1024.0, 768.0, false,), Some(1));
 }
 
 #[test]
