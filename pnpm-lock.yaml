@@ -19,6 +19,22 @@ importers:
         version: 5.9.3
 
   projects/hosts/red-alert2:
+    optionalDependencies:
+      '@game-gpt/red-alert2-darwin-arm64':
+        specifier: workspace:*
+        version: link:../../platforms/native/red-alert2-darwin-arm64
+      '@game-gpt/red-alert2-darwin-x64':
+        specifier: workspace:*
+        version: link:../../platforms/native/red-alert2-darwin-x64
+      '@game-gpt/red-alert2-linux-x64':
+        specifier: workspace:*
+        version: link:../../platforms/native/red-alert2-linux-x64
+      '@game-gpt/red-alert2-unknown-wasm32':
+        specifier: workspace:*
+        version: link:../../platforms/wasm/red-alert2-unknown-wasm32
+      '@game-gpt/red-alert2-win32-x64':
+        specifier: workspace:*
+        version: link:../../platforms/native/red-alert2-win32-x64
     devDependencies:
       '@types/node':
         specifier: ^22.15.0

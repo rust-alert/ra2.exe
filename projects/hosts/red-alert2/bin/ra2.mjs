@@ -16,7 +16,7 @@ async function main() {
     }
 
     if (args[0] === '--version' || args[0] === '-V') {
-        const { version } = await import('../dist/index.js');
+        const { version } = await import('../dist/native.js');
         console.log(version());
         return;
     }
@@ -51,7 +51,7 @@ async function main() {
             printUsage();
             process.exit(1);
         }
-        const { launch } = await import('../dist/index.js');
+        const { launch } = await import('../dist/native.js');
         launch({ path: gamePath, edition });
         return;
     }
