@@ -8,6 +8,7 @@
 mod asset_source;
 mod command;
 pub mod definition;
+mod display_mode;
 mod edition;
 mod error;
 mod id;
@@ -22,6 +23,7 @@ pub use definition::{
     RuntimeDefinitions, SoundDefinitions, StructureDefinition, StructureDefinitions, TechnoClass, TechnoDefinition, TechnoDefinitions,
     TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WeaponDefinitions,
 };
+pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
 pub use id::{EntityId, HouseId, LocomotorId, PlayerId, SessionId, TypeId, WarheadId, WeaponId};
