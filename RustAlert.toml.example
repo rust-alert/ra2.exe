@@ -7,6 +7,7 @@
 # 放进游戏安装目录即可定位资源。
 
 # ra2_dir = "C:/path/to/your/ra2"
+# display_mode = "1024x768"   # 640x480 / 800x600 / 1024x768
 # edition = "ra2"   # 或 "yr"；省略则按目录特征自动探测
 # net_url = ""      # 预留战网地址
 # net_room = ""     # 预留房间名

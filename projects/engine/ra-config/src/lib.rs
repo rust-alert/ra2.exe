@@ -11,6 +11,7 @@ use std::{
     sync::Mutex,
 };
 
+use ra_types::DisplayMode;
 use toml_edit::{DocumentMut, Item, Value};
 
 /// CLI / N-API 一次性启动覆盖（后于 `RustAlert.toml` 生效）。
@@ -175,6 +176,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # 未改 `ra2_dir` 时默认即进程相关目录；产品路径请用 `ra2 launch --path`。\n\
          \n\
          ra2_dir = \"{dir}\"\n\
+         # display_mode = \"1024x768\"   # 640x480 / 800x600 / 1024x768\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n"
@@ -263,17 +265,19 @@ impl RustAlertDocument {
 pub struct DesktopSettings {
     /// 游戏安装目录（默认：可执行文件所在目录）。
     pub ra2_dir: PathBuf,
-    /// 显式版本字符串（可选）。
+    /// 正式版本字符串（可选）。
     pub edition: Option<String>,
-    /// 预留：目标战网接入地址（协议未定点前仅配置，不接 socket）。
+    /// 客户区显示分辨率档（离散，非自由宽高）。
+    pub display_mode: DisplayMode,
+    /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
-    /// 预留：房间名。
+    /// 预留房间名。
     pub net_room: Option<String>,
 }
 
 impl Default for DesktopSettings {
     fn default() -> Self {
-        Self { ra2_dir: exe_dir(), edition: None, net_url: None, net_room: None }
+        Self { ra2_dir: exe_dir(), edition: None, display_mode: DisplayMode::DEFAULT, net_url: None, net_room: None }
     }
 }
 
@@ -286,6 +290,18 @@ impl DesktopSettings {
         }
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
+        }
+        if let Some(v) = merged
+            .get("display_mode")
+            .or_else(|| merged.get("resolution"))
+            .filter(|v| !v.is_empty())
+        {
+            match DisplayMode::parse(v) {
+                Ok(mode) => s.display_mode = mode,
+                Err(_) => {
+                    // 非法档位忽略，保留默认；诊断由上层合并日志可选扩展。
+                }
+            }
         }
         if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
@@ -305,6 +321,7 @@ impl DesktopSettings {
             table: {
                 let mut t = ConfigTable::new();
                 t.insert("ra2_dir", exe.to_string_lossy());
+                t.insert("display_mode", DisplayMode::DEFAULT.as_str());
                 t
             },
         };

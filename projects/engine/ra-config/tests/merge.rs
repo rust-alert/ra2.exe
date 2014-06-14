@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document};
+use ra_types::DisplayMode;
 
 #[test]
 fn later_layer_overrides() {
@@ -58,4 +59,28 @@ fn ensure_creates_missing_toml_once() {
     assert!(!ra_config::ensure_rust_alert_toml(&path).unwrap());
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+
+#[test]
+fn display_mode_from_merged_and_alias() {
+    let mut table = ConfigTable::new();
+    table.insert("ra2_dir", ".");
+    table.insert("display_mode", "800x600");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    let s = DesktopSettings::from_merged(&merged);
+    assert_eq!(s.display_mode, DisplayMode::W800H600);
+
+    let mut table = ConfigTable::new();
+    table.insert("resolution", "640x480");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    assert_eq!(DesktopSettings::from_merged(&merged).display_mode, DisplayMode::W640H480);
+}
+
+#[test]
+fn unknown_display_mode_keeps_default() {
+    let mut table = ConfigTable::new();
+    table.insert("display_mode", "1920x1080");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    assert_eq!(DesktopSettings::from_merged(&merged).display_mode, DisplayMode::DEFAULT);
 }
