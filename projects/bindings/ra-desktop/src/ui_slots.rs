@@ -163,10 +163,11 @@ const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     empty_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
 ];
 
+// 命中框占位；实际点击走 `ui_layout` 选项页像素格。音频/视频仍禁用占位。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("audio", MenuAction::Noop, false, (0.28, 0.28, 0.72, 0.36)),
-    empty_button("video", MenuAction::Noop, false, (0.28, 0.40, 0.72, 0.48)),
-    empty_button("back", MenuAction::Back, true, (0.28, 0.60, 0.72, 0.68)),
+    main_menu_button("audio", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("video", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[
@@ -239,13 +240,14 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::Options => Some(UiPageSlots {
             screen,
-            background_shp: None,
+            // 与主菜单/单人页共用已证实壳层 chrome；选项专用对话框资源未证实前不臆造。
+            background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
-            background_pal: None,
+            background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: None,
-            panels: &[],
-            fonts: &[],
+            movie_bik: Some("ra2ts_l.bik"),
+            panels: MAIN_MENU_PANELS,
+            fonts: MAIN_MENU_FONTS,
             buttons: OPTIONS_BUTTONS,
         }),
         OriginalScreen::Network => Some(UiPageSlots {

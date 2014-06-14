@@ -39,6 +39,9 @@ pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "traini
 /// 遭遇战大厅右侧按钮入口 id（与 `ui_slots` 顺序一致）。
 pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start", "back"];
 
+/// 选项页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["audio", "video", "back"];
+
 /// 大厅地图列表最多可见行。
 pub const LOBBY_MAP_ROW_MAX: i32 = 6;
 /// 大厅地图列表行高（像素）。
@@ -190,6 +193,23 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
 /// 遭遇战大厅：右侧四钮几何与单人页相同；`movie` 区作地图预览占位。
 pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
     single_player_layout(viewport_w, viewport_h)
+}
+
+/// 选项页：音频 / 视频连格 + 返回贴底盖（音频/视频仍为禁用占位）。
+pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
+    let mut layout = main_menu_layout(viewport_w, viewport_h);
+    let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
+    let panel_x = layout.panel_top.x;
+    let tile_y = layout.panel_tile.y;
+    layout.buttons = [
+        button_cell(panel_x, tile_y),
+        button_cell(panel_x, tile_y + BUTTON_CELL_H),
+        button_cell(panel_x, exit_y),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
+    layout
 }
 
 /// 大厅地图列表第 `index` 行的像素矩形（内容坐标）。
