@@ -4,8 +4,8 @@ use ra_desktop::{
     ui_compose::*,
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, single_player_layout,
-        skirmish_lobby_layout,
+        MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, options_layout,
+        single_player_layout, skirmish_lobby_layout,
     },
 };
 use ra_renderer::RgbaImage;
@@ -105,4 +105,24 @@ fn compose_skirmish_lobby_uses_side_id() {
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
+}
+
+#[test]
+fn compose_options_uses_back_id() {
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+    let pressed = solid_sprite("sdbtnanm.shp#4", [200, 200, 0, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: Vec::new(),
+        button_normals: OPTIONS_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+        button_hovers: Vec::new(),
+        button_presseds: vec![("back", pressed)],
+        errors: Vec::new(),
+    };
+    let page = compose_options_page(&decoded, 800, 600, Some("back"), None, None, None, None).unwrap();
+    let layout = options_layout(800, 600);
+    let cell = layout.buttons[2];
+    let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
+    assert_eq!(&page.as_raw()[di..di + 4], &[200, 200, 0, 255]);
 }

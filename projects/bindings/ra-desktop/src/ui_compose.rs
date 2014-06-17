@@ -8,12 +8,13 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, RectPx, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout,
-        single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx, SINGLE_PLAYER_BUTTON_IDS,
+        SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
+        skirmish_map_row_rect,
     },
     ui_text::{
         MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, blit_caption_in_cell, blit_text_colored, main_menu_csf_label, main_menu_csf_tooltip,
-        resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
+        options_csf_label, resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
     },
 };
 
@@ -23,6 +24,7 @@ enum MenuCaptionKind {
     Main,
     SinglePlayer,
     SkirmishLobby,
+    Options,
 }
 
 impl MenuCaptionKind {
@@ -31,6 +33,7 @@ impl MenuCaptionKind {
             Self::Main => main_menu_csf_label(entry_id),
             Self::SinglePlayer => single_player_csf_label(entry_id),
             Self::SkirmishLobby => skirmish_lobby_csf_label(entry_id),
+            Self::Options => options_csf_label(entry_id),
         }
     }
 }
@@ -154,7 +157,7 @@ fn compose_shell_menu_page(
         let normal = find_button_normal(decoded, entry_id)?;
         let disabled = matches!(
             *entry_id,
-            "ww_online" | "network" | "movies" | "campaign" | "training"
+            "ww_online" | "network" | "movies" | "campaign" | "training" | "audio" | "video"
         );
         let sprite = if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
@@ -173,9 +176,19 @@ fn compose_shell_menu_page(
         }
     }
 
-    if captions == MenuCaptionKind::Main {
+    if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::Options) {
         if let Some(fnt) = fnt {
-            let title = resolve_caption(csf, "main_menu", Some("GUI:MainMenu"));
+            let title_key = match captions {
+                MenuCaptionKind::Main => Some("GUI:MainMenu"),
+                MenuCaptionKind::Options => Some("GUI:Options"),
+                _ => None,
+            };
+            let title_fallback = match captions {
+                MenuCaptionKind::Main => "main_menu",
+                MenuCaptionKind::Options => "options",
+                _ => "menu",
+            };
+            let title = resolve_caption(csf, title_fallback, title_key);
             blit_caption_in_cell(
                 &mut page,
                 fnt,
@@ -186,10 +199,12 @@ fn compose_shell_menu_page(
                 layout.title.h,
                 MENU_TEXT_ENABLED,
             );
-            if let Some(hovered) = hovered_entry_id {
-                if let Some(key) = main_menu_csf_tooltip(hovered) {
-                    if let Some(text) = resolve_csf_text(csf, key) {
-                        blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
+            if captions == MenuCaptionKind::Main {
+                if let Some(hovered) = hovered_entry_id {
+                    if let Some(key) = main_menu_csf_tooltip(hovered) {
+                        if let Some(text) = resolve_csf_text(csf, key) {
+                            blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
+                        }
                     }
                 }
             }
@@ -244,6 +259,30 @@ pub fn compose_single_player_page(
         csf,
         movie,
         MenuCaptionKind::SinglePlayer,
+    )
+}
+
+/// 合成选项页 chrome（音频/视频禁用占位，返回可用）。
+pub fn compose_options_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    movie: Option<&RgbaImage>,
+) -> Option<RgbaImage> {
+    compose_shell_menu_page(
+        decoded,
+        options_layout(viewport_w, viewport_h),
+        &OPTIONS_BUTTON_IDS,
+        pressed_entry_id,
+        hovered_entry_id,
+        fnt,
+        csf,
+        movie,
+        MenuCaptionKind::Options,
     )
 }
 

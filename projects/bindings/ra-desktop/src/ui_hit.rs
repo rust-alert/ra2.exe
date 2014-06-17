@@ -8,8 +8,8 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, single_player_layout,
-        skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
+        LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
+        main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -42,6 +42,7 @@ pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_re
         OriginalScreen::MainMenu => hits_main_menu(),
         OriginalScreen::SinglePlayerMenu => hits_single_player(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
+        OriginalScreen::Options => hits_options(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
         OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
         other => hits_from_slots(other),
@@ -63,6 +64,9 @@ pub fn hit_action(
     }
     if screen == OriginalScreen::SinglePlayerMenu {
         return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
+    if screen == OriginalScreen::Options {
+        return hit_options_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
@@ -86,6 +90,9 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::SinglePlayerMenu {
         return hover_single_player_at(cursor.0, cursor.1, win_w, win_h);
+    }
+    if screen == OriginalScreen::Options {
+        return hover_options_at(cursor.0, cursor.1, win_w, win_h);
     }
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
@@ -237,6 +244,73 @@ fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
     let layout = single_player_layout(0, 0);
     for (i, _) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
+        if layout.buttons[i].contains(sx, sy) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn hits_options() -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::Options)
+    else {
+        return Vec::new();
+    };
+    let layout = options_layout(0, 0);
+    let bw = layout.canvas.w as f32;
+    let bh = layout.canvas.h as f32;
+    OPTIONS_BUTTON_IDS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, id)| {
+            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
+            let cell = layout.buttons[i];
+            Some(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            })
+        })
+        .collect()
+}
+
+fn hit_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = options_layout(0, 0);
+    let Some(page) = slots_for(OriginalScreen::Options)
+    else {
+        return None;
+    };
+    for (i, id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if layout.buttons[i].contains(sx, sy) {
+            return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+/// 悬停：含禁用钮。
+fn hover_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = options_layout(0, 0);
+    for (i, _) in OPTIONS_BUTTON_IDS.iter().enumerate() {
         if layout.buttons[i].contains(sx, sy) {
             return Some(i);
         }
