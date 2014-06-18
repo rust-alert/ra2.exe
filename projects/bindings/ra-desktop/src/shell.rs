@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_assets::{CsfFile, FntFile};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{AssetSource, RaError, RaResult};
+use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, WindowEvent},
@@ -39,6 +39,8 @@ pub struct AppShell {
     banner: String,
     window_width: f64,
     window_height: f64,
+    /// 客户区分辨率档（布局与缓冲基准，非自由拉伸）。
+    display_mode: DisplayMode,
     status_path: Option<PathBuf>,
     test_scene: Option<String>,
     /// 闪屏开始时刻。
@@ -118,6 +120,7 @@ impl AppShell {
             banner: String::new(),
             window_width,
             window_height,
+            display_mode: DisplayMode::DEFAULT,
             status_path,
             test_scene,
             splash_started: None,
@@ -150,7 +153,11 @@ impl AppShell {
     }
 
     /// 正常产品路径：闪屏 → 主菜单；进入对局须经菜单手动操作。
-    pub fn with_main_menu(window_width: f64, window_height: f64) -> Self {
+    pub fn with_main_menu(display_mode: DisplayMode) -> Self {
+        let (window_width, window_height) = {
+            let (w, h) = display_mode.size();
+            (w as f64, h as f64)
+        };
         Self {
             window: None,
             screen: OriginalScreen::Splash,
@@ -159,6 +166,7 @@ impl AppShell {
             banner: "闪屏 · 预处理中".into(),
             window_width,
             window_height,
+            display_mode,
             status_path: None,
             test_scene: None,
             splash_started: None,
@@ -498,7 +506,10 @@ impl AppShell {
             self.screen = next;
             self.menu_pressed_entry = None;
             self.menu_hovered_entry = None;
-            if !matches!(next, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu) {
+            if !matches!(
+                next,
+                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options
+            ) {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
             }
@@ -583,7 +594,7 @@ impl AppShell {
         }
     }
 
-    /// 前置页：主菜单 / 单人 / 遭遇战大厅上传合成 chrome；其余清空 UI/预览。
+    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；其余清空 UI/预览。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
             self.renderer.clear_ui_page();
@@ -591,7 +602,10 @@ impl AppShell {
         }
         self.ensure_ui_probe();
         self.ensure_menu_text_assets();
-        if matches!(self.screen, OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby) {
+        if matches!(
+            self.screen,
+            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::SkirmishLobby
+        ) {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_preview();
@@ -612,6 +626,16 @@ impl AppShell {
                         movie,
                     ),
                     OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                        self.menu_hovered_entry,
+                        self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
+                        movie,
+                    ),
+                    OriginalScreen::Options => ui_compose::compose_options_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -679,6 +703,7 @@ impl AppShell {
         match self.screen {
             OriginalScreen::MainMenu => ui_layout::MAIN_MENU_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::SkirmishLobby => {
                 let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
                 idx.checked_sub(map_n).and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
@@ -1055,7 +1080,9 @@ impl ApplicationHandler for AppShell {
                 .create_window(
                     Window::default_attributes()
                         .with_title("ra2")
-                        .with_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height)),
+                        .with_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height))
+                        // 客户区尺寸由 `DisplayMode` 离散档决定，禁止自由拉伸窗口。
+                        .with_resizable(false),
                 )
                 .expect("创建窗口失败"),
         );
@@ -1096,23 +1123,20 @@ impl ApplicationHandler for AppShell {
             }
             WindowEvent::Resized(size) => {
                 self.renderer.resize(size.width, size.height);
-                // 命中框按逻辑窗口尺寸算；物理缓冲变化后必须同步，否则缩放后点击错位。
-                let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
-                let logical = size.to_logical::<f64>(scale);
-                self.window_width = logical.width.max(1.0);
-                self.window_height = logical.height.max(1.0);
+                // GPU 表面跟物理缓冲；命中/布局锁定在选定 `DisplayMode` 客户区。
+                let (w, h) = self.display_mode.size();
+                self.window_width = w as f64;
+                self.window_height = h as f64;
                 if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
                     self.refresh_menu_backdrop();
                 }
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                if let Some(window) = self.window.as_ref() {
-                    let logical = window.inner_size().to_logical::<f64>(*scale_factor);
-                    self.window_width = logical.width.max(1.0);
-                    self.window_height = logical.height.max(1.0);
-                    if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
-                        self.refresh_menu_backdrop();
-                    }
+            WindowEvent::ScaleFactorChanged { .. } => {
+                let (w, h) = self.display_mode.size();
+                self.window_width = w as f64;
+                self.window_height = h as f64;
+                if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+                    self.refresh_menu_backdrop();
                 }
             }
             WindowEvent::RedrawRequested => {
@@ -1155,7 +1179,10 @@ impl ApplicationHandler for AppShell {
                     self.cursor = (logical.x, logical.y);
                     if matches!(
                         self.screen,
-                        OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
+                        OriginalScreen::MainMenu
+                            | OriginalScreen::SinglePlayerMenu
+                            | OriginalScreen::Options
+                            | OriginalScreen::SkirmishLobby
                     ) {
                         let next = self.menu_entry_under_cursor();
                         if next != self.menu_hovered_entry {
@@ -1171,7 +1198,10 @@ impl ApplicationHandler for AppShell {
                         }
                         else if matches!(
                             self.screen,
-                            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::SkirmishLobby
+                            OriginalScreen::MainMenu
+                                | OriginalScreen::SinglePlayerMenu
+                                | OriginalScreen::Options
+                                | OriginalScreen::SkirmishLobby
                         ) {
                             let next = self.menu_entry_under_cursor();
                             if next != self.menu_pressed_entry {
@@ -1223,7 +1253,7 @@ impl ApplicationHandler for AppShell {
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, window_width, window_height, status_path, test_scene) = resolve_launch()?;
+    let (mode, display_mode, status_path, test_scene) = resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -1234,11 +1264,11 @@ pub fn run_shell() -> RaResult<()> {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
                 tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entities.len());
             }
-            AppShell::with_match(boot, window_width, window_height, status_path, test_scene)
+            AppShell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
         }
         LaunchMode::MainMenu => {
             let _ = (status_path, test_scene);
-            AppShell::with_main_menu(window_width, window_height)
+            AppShell::with_main_menu(display_mode)
         }
     };
 
@@ -1253,7 +1283,7 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = crate::test_boot::requested_scene() {
@@ -1270,8 +1300,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<S
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
                 LaunchMode::DirectMatch(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
-                window_width,
-                window_height,
+                DisplayMode::DEFAULT,
                 status_path,
                 Some(scene),
             ));
@@ -1279,5 +1308,15 @@ fn resolve_launch() -> RaResult<(LaunchMode, f64, f64, Option<PathBuf>, Option<S
     }
 
     // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectMatch 场景）。
-    Ok((LaunchMode::MainMenu, 1024.0, 768.0, None, None))
+    let (settings, diagnostics) = crate::config::load_desktop_config_with_diagnostics();
+    for d in &diagnostics {
+        tracing::info!(source = %d.source, "{}", d.message);
+    }
+    let display_mode = settings.display_mode;
+    tracing::info!(
+        display_mode = display_mode.as_str(),
+        ra2_dir = %settings.ra2_dir.display(),
+        "desktop display mode"
+    );
+    Ok((LaunchMode::MainMenu, display_mode, None, None))
 }
