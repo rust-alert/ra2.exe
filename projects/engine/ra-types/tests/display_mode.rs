@@ -24,6 +24,13 @@ fn parse_rejects_free_resolution() {
 }
 
 #[test]
+fn cycle_next_wraps_all_modes() {
+    assert_eq!(DisplayMode::W640H480.cycle_next(), DisplayMode::W800H600);
+    assert_eq!(DisplayMode::W800H600.cycle_next(), DisplayMode::W1024H768);
+    assert_eq!(DisplayMode::W1024H768.cycle_next(), DisplayMode::W640H480);
+}
+
+#[test]
 fn all_modes_have_unique_labels() {
     let labels: Vec<_> = DisplayMode::ALL.iter().map(|m| m.as_str()).collect();
     let mut sorted = labels.clone();

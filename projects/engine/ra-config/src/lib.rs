@@ -362,4 +362,11 @@ impl DesktopSettings {
         }
         (settings, merged.diagnostics)
     }
+
+    /// 将 `display_mode` 写回规范路径上的 `RustAlert.toml`（保留其它键）。
+    pub fn persist_display_mode(mode: DisplayMode) -> Result<(), String> {
+        let mut doc = RustAlertDocument::open_or_create()?;
+        doc.set_str("display_mode", mode.as_str());
+        doc.save()
+    }
 }
