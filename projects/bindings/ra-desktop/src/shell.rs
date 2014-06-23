@@ -755,6 +755,7 @@ impl AppShell {
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }
+            MenuAction::CycleDisplayMode => self.cycle_display_mode(),
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
@@ -764,6 +765,29 @@ impl AppShell {
                 }
             }
         }
+    }
+
+    /// 循环离散分辨率：改窗口客户区、落盘配置、刷新 chrome。
+    fn cycle_display_mode(&mut self) {
+        self.display_mode = self.display_mode.cycle_next();
+        let (w, h) = self.display_mode.size();
+        self.window_width = w as f64;
+        self.window_height = h as f64;
+        if let Some(window) = self.window.as_ref() {
+            let _ = window.request_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height));
+        }
+        match ra_config::DesktopSettings::persist_display_mode(self.display_mode) {
+            Ok(()) => {
+                tracing::info!(display_mode = self.display_mode.as_str(), "已写入 display_mode");
+                self.banner = format!("分辨率 · {}", self.display_mode.as_str());
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "写入 display_mode 失败");
+                self.banner = format!("分辨率 · {} · 写入失败", self.display_mode.as_str());
+            }
+        }
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
     }
 
     fn refresh_shell_title(&mut self) {
@@ -803,7 +827,12 @@ impl AppShell {
                     format!("ra2 · 加载 · {} · Enter/点重试 · Esc 回大厅 · F12 截图", self.banner)
                 }
             }
-            OriginalScreen::Options => "ra2 · 选项（音频/视频占位禁用）· Esc 返回 · F12 截图".into(),
+            OriginalScreen::Options => {
+                format!(
+                    "ra2 · 选项 · {} · 视频循环分辨率 · Esc 返回 · F12 截图",
+                    self.banner
+                )
+            }
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
         window.set_title(&title);

@@ -27,6 +27,8 @@ pub enum MenuAction {
     CycleSide,
     /// 循环遭遇战难度。
     CycleDifficulty,
+    /// 循环客户区 `DisplayMode`（选项「视频」）。
+    CycleDisplayMode,
     /// 选中大厅地图列表中的一项。
     SelectMap(usize),
 }
