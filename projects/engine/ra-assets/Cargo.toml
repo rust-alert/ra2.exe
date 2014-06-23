@@ -12,3 +12,4 @@ blowfish = { workspace = true }
 byteorder = { workspace = true }
 num-bigint = { workspace = true }
 oak-ini = { workspace = true }
+symphonia = { workspace = true, features = ["wav", "pcm"] }
