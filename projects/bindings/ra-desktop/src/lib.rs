@@ -7,6 +7,7 @@
 pub mod boot;
 pub mod config;
 pub mod fs_source;
+pub mod audio;
 pub mod load_job;
 pub mod local_player;
 pub mod match_ctrl;
