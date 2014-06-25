@@ -13,7 +13,7 @@ pub mod mix;
 pub mod rules;
 pub mod voxel;
 
-pub use audio::{PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
+pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
 
 pub use image::{
     bink::{
