@@ -110,3 +110,22 @@ fn pcm_to_source(pcm: &PcmAudio) -> Option<SamplesBuffer> {
     };
     Some(SamplesBuffer::new(out_channels, rate, samples))
 }
+
+/// 资源缺失时的短点击占位（约 40ms @ 22050 mono），待 `audio.bag` 接入后可替换。
+pub fn synthetic_ui_click() -> PcmAudio {
+    const RATE: u32 = 22_050;
+    const FRAMES: usize = 882; // ~40ms
+    let mut samples = Vec::with_capacity(FRAMES);
+    for i in 0..FRAMES {
+        let t = i as f32 / RATE as f32;
+        let env = (1.0 - t / 0.04).clamp(0.0, 1.0);
+        let s = (t * 1800.0 * std::f32::consts::TAU).sin() * env * 0.35;
+        samples.push((s * 32767.0) as i16);
+    }
+    PcmAudio {
+        sample_rate: RATE,
+        channels: 1,
+        samples,
+    }
+}
+

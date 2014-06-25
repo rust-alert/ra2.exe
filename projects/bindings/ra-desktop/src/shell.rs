@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{CsfFile, FntFile};
+use ra_assets::{CsfFile, FntFile, PcmAudio, decode_wav_pcm};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
 use winit::{
@@ -94,6 +94,14 @@ pub struct AppShell {
     auto_screenshots: crate::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     skirmish: SkirmishBootRequest,
+    /// 桌面音频输出（设备不可用则为 `None`）。
+    audio: Option<crate::audio::ShellAudio>,
+    /// 主菜单 BGM PCM（`intro.wav`）。
+    menu_bgm: Option<PcmAudio>,
+    /// 菜单点击音效 PCM。
+    menu_click: Option<PcmAudio>,
+    /// 当前是否已在播壳层 BGM。
+    menu_bgm_playing: bool,
 }
 
 impl AppShell {
@@ -149,6 +157,10 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            audio: crate::audio::ShellAudio::try_open(),
+            menu_bgm: None,
+            menu_click: None,
+            menu_bgm_playing: false,
         }
     }
 
@@ -195,6 +207,10 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            audio: crate::audio::ShellAudio::try_open(),
+            menu_bgm: None,
+            menu_click: None,
+            menu_bgm_playing: false,
         }
     }
 
@@ -218,6 +234,7 @@ impl AppShell {
         if !self.splash_preload_done {
             self.ensure_ui_probe();
             self.ensure_menu_text_assets();
+            self.ensure_menu_audio_assets();
             // 预热主菜单 chrome（不切入主菜单、不推进影片）。
             let prev = self.screen;
             self.screen = OriginalScreen::MainMenu;
@@ -513,6 +530,7 @@ impl AppShell {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
             }
+            self.sync_shell_audio();
             self.refresh_ui_resolve_note();
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
@@ -687,6 +705,96 @@ impl AppShell {
 
     fn load_allow_retry(&self) -> bool {
         self.load_job.is_none()
+    }
+
+    /// 惰性装载菜单 BGM / 点击采样。
+    fn ensure_menu_audio_assets(&mut self) {
+        if self.menu_bgm.is_some() && self.menu_click.is_some() {
+            return;
+        }
+        self.ensure_ui_probe();
+        if self.menu_bgm.is_none() {
+            let bytes = self
+                .ui_probe
+                .as_ref()
+                .and_then(|p| p.source.as_ref())
+                .and_then(|s| s.read("intro.wav").ok());
+            if let Some(bytes) = bytes {
+                match decode_wav_pcm(&bytes) {
+                    Ok(pcm) => {
+                        tracing::info!(
+                            frames = pcm.samples.len(),
+                            rate = pcm.sample_rate,
+                            "已加载菜单 BGM · intro.wav"
+                        );
+                        self.menu_bgm = Some(pcm);
+                    }
+                    Err(e) => tracing::warn!(error = %e, "intro.wav 解码失败"),
+                }
+            } else {
+                tracing::warn!("intro.wav 不可读");
+            }
+        }
+        if self.menu_click.is_none() {
+            let mut loaded = None;
+            for name in ["guimainbuttonsound.wav", "button.wav", "click.wav"] {
+                let bytes = self
+                    .ui_probe
+                    .as_ref()
+                    .and_then(|p| p.source.as_ref())
+                    .and_then(|s| s.read(name).ok());
+                let Some(bytes) = bytes
+                else {
+                    continue;
+                };
+                match decode_wav_pcm(&bytes) {
+                    Ok(pcm) => {
+                        tracing::info!(%name, "已加载菜单点击音效");
+                        loaded = Some(pcm);
+                        break;
+                    }
+                    Err(e) => tracing::debug!(%name, error = %e, "点击音候选解码失败"),
+                }
+            }
+            self.menu_click = Some(loaded.unwrap_or_else(|| {
+                tracing::info!("使用合成点击音效占位（待 audio.bag）");
+                crate::audio::synthetic_ui_click()
+            }));
+        }
+    }
+
+    /// 前置壳层页播 BGM；离开壳层则停。
+    fn sync_shell_audio(&mut self) {
+        self.ensure_menu_audio_assets();
+        let wants_bgm = matches!(
+            self.screen,
+            OriginalScreen::MainMenu
+                | OriginalScreen::SinglePlayerMenu
+                | OriginalScreen::Options
+                | OriginalScreen::SkirmishLobby
+                | OriginalScreen::Network
+        );
+        if wants_bgm {
+            if !self.menu_bgm_playing {
+                if let (Some(audio), Some(bgm)) = (self.audio.as_mut(), self.menu_bgm.as_ref()) {
+                    audio.play_music_loop(bgm);
+                    self.menu_bgm_playing = true;
+                }
+            }
+        } else if self.menu_bgm_playing {
+            if let Some(audio) = self.audio.as_mut() {
+                audio.stop_music();
+            }
+            self.menu_bgm_playing = false;
+        }
+    }
+
+    /// 菜单按钮按下时播一次点击音。
+    fn play_menu_click(&mut self) {
+        self.ensure_menu_audio_assets();
+        if let (Some(audio), Some(click)) = (self.audio.as_mut(), self.menu_click.as_ref()) {
+            audio.play_sfx(click);
+        }
     }
 
     /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
@@ -1235,6 +1343,9 @@ impl ApplicationHandler for AppShell {
                             let next = self.menu_entry_under_cursor();
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
+                                if next.is_some() {
+                                    self.play_menu_click();
+                                }
                                 self.refresh_menu_backdrop();
                             }
                         }
