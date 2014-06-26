@@ -70,6 +70,29 @@ impl ShellAudio {
         }
     }
 
+    /// 设置 BGM 音量（0..1），立刻作用于当前音乐轨。
+    pub fn set_music_volume(&mut self, volume: f32) {
+        self.music_volume = volume.clamp(0.0, 1.0);
+        if let Some(player) = self.music.as_ref() {
+            player.set_volume(self.music_volume);
+        }
+    }
+
+    /// 当前 BGM 音量（0..1）。
+    pub fn music_volume(&self) -> f32 {
+        self.music_volume
+    }
+
+    /// 设置短音效音量（0..1），作用于随后的 `play_sfx`。
+    pub fn set_sfx_volume(&mut self, volume: f32) {
+        self.sfx_volume = volume.clamp(0.0, 1.0);
+    }
+
+    /// 当前短音效音量（0..1）。
+    pub fn sfx_volume(&self) -> f32 {
+        self.sfx_volume
+    }
+
     /// 播放一次短音效（不打断 BGM）。
     pub fn play_sfx(&mut self, pcm: &PcmAudio) {
         self.sfx.retain(|p| !p.empty());
@@ -111,7 +134,7 @@ fn pcm_to_source(pcm: &PcmAudio) -> Option<SamplesBuffer> {
     Some(SamplesBuffer::new(out_channels, rate, samples))
 }
 
-/// 资源缺失时的短点击占位（约 40ms @ 22050 mono），待 `audio.bag` 接入后可替换。
+/// 资源缺失时的短点击占位（约 40ms @ 22050 mono）。
 pub fn synthetic_ui_click() -> PcmAudio {
     const RATE: u32 = 22_050;
     const FRAMES: usize = 882; // ~40ms
