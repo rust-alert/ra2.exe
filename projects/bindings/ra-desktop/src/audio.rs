@@ -96,6 +96,14 @@ impl ShellAudio {
     /// 播放一次短音效（不打断 BGM）。
     pub fn play_sfx(&mut self, pcm: &PcmAudio) {
         self.sfx.retain(|p| !p.empty());
+        // 连点时丢弃最旧实例，避免短音轨无限堆积。
+        const MAX_SFX: usize = 4;
+        while self.sfx.len() >= MAX_SFX {
+            if let Some(old) = self.sfx.first() {
+                old.stop();
+            }
+            self.sfx.remove(0);
+        }
         let Some(source) = pcm_to_source(pcm)
         else {
             tracing::warn!("SFX 采样无效，跳过播放");
