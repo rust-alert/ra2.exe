@@ -102,6 +102,10 @@ pub struct AppShell {
     menu_click: Option<PcmAudio>,
     /// 当前是否已在播壳层 BGM。
     menu_bgm_playing: bool,
+    /// 已解析的 `audio.bag` 索引（惰性）。
+    audio_bag: Option<AudioIndex>,
+    /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
+    audio_bag_tried: bool,
 }
 
 impl AppShell {
@@ -161,6 +165,8 @@ impl AppShell {
             menu_bgm: None,
             menu_click: None,
             menu_bgm_playing: false,
+            audio_bag: None,
+            audio_bag_tried: false,
         }
     }
 
@@ -211,6 +217,8 @@ impl AppShell {
             menu_bgm: None,
             menu_click: None,
             menu_bgm_playing: false,
+            audio_bag: None,
+            audio_bag_tried: false,
         }
     }
 
@@ -720,6 +728,51 @@ impl AppShell {
         self.load_job.is_none()
     }
 
+    /// 惰性解析 `audio.idx` / `audio.bag`，结果缓存在壳层。
+    fn ensure_audio_bag(&mut self) {
+        if self.audio_bag_tried {
+            return;
+        }
+        self.audio_bag_tried = true;
+        self.ensure_ui_probe();
+        let idx_bytes = self
+            .ui_probe
+            .as_ref()
+            .and_then(|p| p.source.as_ref())
+            .and_then(|s| s.read("audio.idx").ok());
+        let bag_bytes = self
+            .ui_probe
+            .as_ref()
+            .and_then(|p| p.source.as_ref())
+            .and_then(|s| s.read("audio.bag").ok());
+        let Some((idx, bag)) = idx_bytes.zip(bag_bytes)
+        else {
+            tracing::debug!("audio.idx/audio.bag 不可读");
+            return;
+        };
+        match AudioIndex::parse(&idx, bag) {
+            Some(index) => {
+                tracing::info!(entries = index.len(), "已缓存 audio.bag 索引");
+                self.audio_bag = Some(index);
+            }
+            None => tracing::warn!("audio.idx 解析失败"),
+        }
+    }
+
+    /// 从缓存的 bag 按候选名解码首个命中采样。
+    fn decode_bag_named(&mut self, names: &[&str]) -> Option<PcmAudio> {
+        self.ensure_audio_bag();
+        let index = self.audio_bag.as_ref()?;
+        for name in names {
+            if let Some(pcm) = index.decode(name) {
+                tracing::info!(%name, frames = pcm.samples.len(), "已从 audio.bag 解码采样");
+                return Some(pcm);
+            }
+        }
+        tracing::debug!(entries = index.len(), "audio.bag 未命中候选名");
+        None
+    }
+
     /// 惰性装载菜单 BGM / 点击采样。
     fn ensure_menu_audio_assets(&mut self) {
         if self.menu_bgm.is_some() && self.menu_click.is_some() {
@@ -749,37 +802,8 @@ impl AppShell {
             }
         }
         if self.menu_click.is_none() {
-            let mut loaded = None;
-            // 优先 audio.bag（主按钮音效常在此）。
-            let idx_bytes = self
-                .ui_probe
-                .as_ref()
-                .and_then(|p| p.source.as_ref())
-                .and_then(|s| s.read("audio.idx").ok());
-            let bag_bytes = self
-                .ui_probe
-                .as_ref()
-                .and_then(|p| p.source.as_ref())
-                .and_then(|s| s.read("audio.bag").ok());
-            if let (Some(idx), Some(bag)) = (idx_bytes, bag_bytes) {
-                if let Some(index) = AudioIndex::parse(&idx, bag) {
-                    for name in ["GUIMainButtonSound", "GUIMAINBUTTONSO", "BUTTON"] {
-                        if let Some(pcm) = index.decode(name) {
-                            tracing::info!(%name, frames = pcm.samples.len(), "已从 audio.bag 加载点击音效");
-                            loaded = Some(pcm);
-                            break;
-                        }
-                    }
-                    if loaded.is_none() {
-                        tracing::debug!(
-                            entries = index.len(),
-                            "audio.bag 已解析但未命中主按钮音效名"
-                        );
-                    }
-                } else {
-                    tracing::warn!("audio.idx 解析失败");
-                }
-            }
+            let mut loaded =
+                self.decode_bag_named(&["GUIMainButtonSound", "GUIMAINBUTTONSO", "BUTTON"]);
             if loaded.is_none() {
                 for name in ["guimainbuttonsound.wav", "button.wav", "click.wav"] {
                     let bytes = self
