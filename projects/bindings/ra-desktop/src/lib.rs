@@ -12,6 +12,7 @@ pub mod load_job;
 pub mod local_player;
 pub mod match_ctrl;
 pub mod menu_action;
+pub mod options_dialog;
 pub mod preview_job;
 pub mod screen;
 pub mod screenshot;
