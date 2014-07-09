@@ -163,11 +163,11 @@ const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     empty_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
 ];
 
-// 命中框占位；实际点击走 `ui_layout` 选项页像素格。音频/视频仍禁用占位。
+// 命中框占位；实际点击走 `ui_layout` 选项页像素格。右栏为接受 / 取消 / 主菜单。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("audio", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("video", MenuAction::CycleDisplayMode, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
+    main_menu_button("accept", MenuAction::OptionsAccept, true, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("cancel", MenuAction::OptionsCancel, true, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("main_menu", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[

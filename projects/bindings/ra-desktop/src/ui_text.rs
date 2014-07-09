@@ -54,9 +54,9 @@ pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
 /// 选项页入口 → CSF 标签。
 pub fn options_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
-        "audio" => Some("GUI:Sound"),
-        "video" => Some("GUI:Video"),
-        "back" => Some("GUI:Back"),
+        "accept" => Some("GUI:Ok"),
+        "cancel" => Some("GUI:Cancel"),
+        "main_menu" => Some("GUI:MainMenu"),
         _ => None,
     }
 }
