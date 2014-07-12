@@ -407,9 +407,10 @@ pub fn compose_single_player_page(
     )
 }
 
-/// 合成选项页 chrome（音频/视频禁用占位，返回可用）。
+/// 合成选项页 chrome，并叠画左栏草稿控件。
 pub fn compose_options_page(
     decoded: &PageDecodeReport,
+    state: &crate::options_dialog::OptionsDialogState,
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
@@ -418,7 +419,7 @@ pub fn compose_options_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
 ) -> Option<RgbaImage> {
-    compose_shell_menu_page(
+    let mut page = compose_shell_menu_page(
         decoded,
         options_layout(viewport_w, viewport_h),
         &OPTIONS_BUTTON_IDS,
@@ -428,7 +429,10 @@ pub fn compose_options_page(
         csf,
         movie,
         MenuCaptionKind::Options,
-    )
+    )?;
+    let dlg = crate::options_dialog::OptionsDialogLayout::new();
+    paint_options_dialog_controls(&mut page, &dlg, state, fnt, csf);
+    Some(page)
 }
 
 /// 合成遭遇战大厅 chrome（可选地图预览与地图名列表）。
