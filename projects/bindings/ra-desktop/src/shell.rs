@@ -108,6 +108,8 @@ pub struct AppShell {
     audio_bag_tried: bool,
     /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
     options_state: Option<crate::options_dialog::OptionsDialogState>,
+    /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
+    options_pointer_consumed: bool,
 }
 
 impl AppShell {
@@ -170,6 +172,7 @@ impl AppShell {
             audio_bag: None,
             audio_bag_tried: false,
             options_state: None,
+            options_pointer_consumed: false,
         }
     }
 
@@ -223,6 +226,7 @@ impl AppShell {
             audio_bag: None,
             audio_bag_tried: false,
             options_state: None,
+            options_pointer_consumed: false,
         }
     }
 
@@ -237,6 +241,82 @@ impl AppShell {
                 "已应用壳层音量"
             );
         }
+    }
+
+    fn shell_cursor_px(&self) -> (i32, i32) {
+        ui_layout::window_to_shell_px(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+    }
+
+    /// 用选项草稿中的音乐/音效滑条即时推到设备（不落盘）。
+    fn sync_options_live_volumes(&mut self) {
+        let Some(state) = self.options_state.as_ref()
+        else {
+            return;
+        };
+        let music = state.music_volume_f32();
+        let sound = state.sound_volume_f32();
+        if let Some(audio) = self.audio.as_mut() {
+            audio.set_music_volume(music);
+            audio.set_sfx_volume(sound);
+        }
+    }
+
+    /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
+    fn handle_options_press(&mut self) -> bool {
+        let layout = crate::options_dialog::OptionsDialogLayout::new();
+        let (x, y) = self.shell_cursor_px();
+        let Some(hit) = self
+            .options_state
+            .as_mut()
+            .and_then(|state| state.on_press(&layout, x, y))
+        else {
+            return false;
+        };
+        use crate::options_dialog::OptionsHit;
+        match hit {
+            OptionsHit::Accept => {
+                self.menu_pressed_entry = Some("accept");
+                self.play_menu_click();
+                self.refresh_menu_backdrop();
+                true
+            }
+            OptionsHit::Cancel => {
+                self.menu_pressed_entry = Some("cancel");
+                self.play_menu_click();
+                self.refresh_menu_backdrop();
+                true
+            }
+            OptionsHit::MainMenu => {
+                self.menu_pressed_entry = Some("main_menu");
+                self.play_menu_click();
+                self.refresh_menu_backdrop();
+                true
+            }
+            OptionsHit::Track(_) | OptionsHit::Toggle(_) | OptionsHit::ResolutionCombo | OptionsHit::ResolutionRow(_) => {
+                self.options_pointer_consumed = true;
+                self.play_menu_click();
+                self.sync_options_live_volumes();
+                self.refresh_menu_backdrop();
+                true
+            }
+        }
+    }
+
+    /// 选项页拖动滑条。
+    fn handle_options_drag(&mut self) -> bool {
+        let layout = crate::options_dialog::OptionsDialogLayout::new();
+        let (x, y) = self.shell_cursor_px();
+        let dragged = self
+            .options_state
+            .as_mut()
+            .map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y))
+            .unwrap_or(false);
+        if !dragged {
+            return false;
+        }
+        self.sync_options_live_volumes();
+        self.refresh_menu_backdrop();
+        true
     }
 
     /// 用户请求跳过闪屏；预处理完成后才进主菜单。
@@ -1446,7 +1526,9 @@ impl ApplicationHandler for AppShell {
                     let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
                     let logical = position.to_logical::<f64>(scale);
                     self.cursor = (logical.x, logical.y);
-                    if matches!(
+                    if self.screen == OriginalScreen::Options && self.handle_options_drag() {
+                        // 拖动滑条已刷新。
+                    } else if matches!(
                         self.screen,
                         OriginalScreen::MainMenu
                             | OriginalScreen::SinglePlayerMenu
@@ -1464,6 +1546,9 @@ impl ApplicationHandler for AppShell {
                     ElementState::Pressed => {
                         if self.screen == OriginalScreen::Splash {
                             self.request_splash_skip();
+                        }
+                        else if self.screen == OriginalScreen::Options && self.handle_options_press() {
+                            // 选项左/右栏已处理。
                         }
                         else if matches!(
                             self.screen,
@@ -1485,6 +1570,30 @@ impl ApplicationHandler for AppShell {
                     ElementState::Released => {
                         if self.screen == OriginalScreen::Splash {
                             // 闪屏仅接受按下跳过请求；释放不走菜单命中。
+                        }
+                        else if self.screen == OriginalScreen::Options {
+                            let consumed = self.options_pointer_consumed;
+                            self.options_pointer_consumed = false;
+                            if let Some(state) = self.options_state.as_mut() {
+                                state.on_release();
+                            }
+                            if self.menu_pressed_entry.take().is_some() {
+                                self.refresh_menu_backdrop();
+                            }
+                            if consumed {
+                                self.refresh_menu_backdrop();
+                            } else if let Some(action) = ui_hit::hit_action(
+                                self.screen,
+                                &self.lobby_maps,
+                                self.selected_map.as_deref(),
+                                self.cursor,
+                                self.window_width,
+                                self.window_height,
+                                self.load_allow_retry(),
+                            ) {
+                                tracing::debug!(?action, "菜单逻辑命中");
+                                self.apply_menu_action(event_loop, action);
+                            }
                         }
                         else {
                             if self.menu_pressed_entry.take().is_some() {
