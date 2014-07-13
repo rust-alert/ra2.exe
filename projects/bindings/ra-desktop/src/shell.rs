@@ -108,6 +108,8 @@ pub struct AppShell {
     audio_bag_tried: bool,
     /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
     options_state: Option<crate::options_dialog::OptionsDialogState>,
+    /// 进入选项页时的音量快照（取消时还原实时预览）。
+    options_volume_baseline: Option<(f32, f32)>,
     /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
     options_pointer_consumed: bool,
 }
@@ -172,6 +174,7 @@ impl AppShell {
             audio_bag: None,
             audio_bag_tried: false,
             options_state: None,
+            options_volume_baseline: None,
             options_pointer_consumed: false,
         }
     }
@@ -226,6 +229,7 @@ impl AppShell {
             audio_bag: None,
             audio_bag_tried: false,
             options_state: None,
+            options_volume_baseline: None,
             options_pointer_consumed: false,
         }
     }
@@ -992,7 +996,7 @@ impl AppShell {
             MenuAction::Back => match self.screen {
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options => {
                     if self.screen == OriginalScreen::Options {
-                        self.options_state = None;
+                        self.discard_options_draft();
                     }
                     self.set_screen(OriginalScreen::MainMenu);
                 }
@@ -1025,7 +1029,7 @@ impl AppShell {
             MenuAction::CycleDisplayMode => self.cycle_display_mode(),
             MenuAction::OptionsAccept => self.apply_options_accept(),
             MenuAction::OptionsCancel => {
-                self.options_state = None;
+                self.discard_options_draft();
                 self.set_screen(OriginalScreen::MainMenu);
                 self.banner = "选项已取消".into();
                 self.refresh_shell_title();
@@ -1048,6 +1052,8 @@ impl AppShell {
             .as_ref()
             .map(|a| (a.music_volume(), a.sfx_volume()))
             .unwrap_or((0.4, 0.7));
+        self.options_volume_baseline = Some((music, sound));
+        self.options_pointer_consumed = false;
         self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(
             self.display_mode,
             music,
@@ -1056,13 +1062,28 @@ impl AppShell {
         self.set_screen(OriginalScreen::Options);
     }
 
+    /// 丢弃选项草稿并还原进入页前的音量预览。
+    fn discard_options_draft(&mut self) {
+        if let Some((music, sound)) = self.options_volume_baseline.take() {
+            if let Some(audio) = self.audio.as_mut() {
+                audio.set_music_volume(music);
+                audio.set_sfx_volume(sound);
+            }
+        }
+        self.options_state = None;
+        self.options_pointer_consumed = false;
+    }
+
     /// 接受选项草稿：音量立刻生效并落盘，分辨率变更则改窗。
     fn apply_options_accept(&mut self) {
         let Some(state) = self.options_state.take()
         else {
+            self.options_volume_baseline = None;
             self.set_screen(OriginalScreen::MainMenu);
             return;
         };
+        self.options_volume_baseline = None;
+        self.options_pointer_consumed = false;
         let music = state.music_volume_f32();
         let sound = state.sound_volume_f32();
         self.apply_audio_volumes(music, sound);
