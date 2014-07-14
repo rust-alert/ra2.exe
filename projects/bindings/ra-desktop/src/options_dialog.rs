@@ -181,14 +181,15 @@ impl OptionsDialogState {
         Some(hit)
     }
 
-    /// 拖动中更新滑条。
+    /// 拖动中更新滑条；档位变化时返回 `true`。
     pub fn on_drag(&mut self, layout: &OptionsDialogLayout, x: i32, _y: i32) -> bool {
         let Some(id) = self.dragging
         else {
             return false;
         };
+        let before = self.track_value(id);
         self.apply_track_at(layout, id, x);
-        true
+        self.track_value(id) != before
     }
 
     /// 松开；返回是否点在右栏导航钮上（由壳层消费）。
