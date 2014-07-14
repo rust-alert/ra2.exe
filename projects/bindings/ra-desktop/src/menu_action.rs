@@ -27,8 +27,6 @@ pub enum MenuAction {
     CycleSide,
     /// 循环遭遇战难度。
     CycleDifficulty,
-    /// 循环客户区 `DisplayMode`（选项「视频」临时入口）。
-    CycleDisplayMode,
     /// 选项页接受（提交草稿）。
     OptionsAccept,
     /// 选项页取消（丢弃草稿）。
