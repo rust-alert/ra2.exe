@@ -87,6 +87,49 @@ pub fn resolve_csf_text(csf: Option<&CsfFile>, key: &str) -> Option<String> {
 pub const MENU_TEXT_ENABLED: [u8; 4] = [255, 214, 0, 255];
 /// 禁用按钮灰字。
 pub const MENU_TEXT_DISABLED: [u8; 4] = [128, 128, 128, 255];
+/// 选项分区标题。
+pub const MENU_TEXT_SECTION: [u8; 4] = [255, 214, 0, 255];
+/// 选项控件说明（偏红）。
+pub const MENU_TEXT_ACCENT: [u8; 4] = [220, 48, 48, 255];
+
+/// 选项左栏文案键。
+pub fn options_dialog_csf_key(kind: &str) -> Option<&'static str> {
+    match kind {
+        "title" => Some("GUI:OptionsMenu"),
+        "display" => Some("GUI:DisplayOptions"),
+        "game" => Some("GUI:GameOptions"),
+        "ui" => Some("GUI:UIOptions"),
+        "audio" => Some("GUI:AudioOptions"),
+        "detail" => Some("GUI:VisualDetails"),
+        "resolution" => Some("GUI:SetResolution"),
+        "difficulty" => Some("GUI:Difficulty"),
+        "tooltips" => Some("GUI:Tooltips"),
+        "target_lines" | "scanlines" => Some("GUI:TargetLines"),
+        "show_hidden" | "damage" => Some("GUI:ShowHidden"),
+        "scroll" => Some("GUI:ScrollRate"),
+        "music" => Some("GUI:MusicVolume"),
+        "sound" => Some("GUI:SoundVolume"),
+        "voice" => Some("GUI:VoiceVolume"),
+        "high" => Some("TXT_HIGH"),
+        "hard" => Some("TXT_HARD"),
+        "fastest" => Some("TXT_FASTEST"),
+        _ => None,
+    }
+}
+
+/// 退出确认钮 → CSF。
+pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "ok" => Some("GUI:Ok"),
+        "cancel" => Some("GUI:Cancel"),
+        _ => None,
+    }
+}
+
+/// 退出确认提示 CSF 键。
+pub fn exit_confirm_prompt_csf_key() -> &'static str {
+    "TXT_CONFIRM_EXIT"
+}
 
 /// 将白字字形着色后画到目标（字距 1px）。
 pub fn blit_text_colored(dst: &mut RgbaImage, fnt: &FntFile, text: &str, x: i32, y: i32, rgba: [u8; 4]) {
