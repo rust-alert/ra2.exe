@@ -13,7 +13,7 @@ fn main_menu_entries_match_expected_ids() {
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.background_pal, Some("shell.pal"));
     assert_eq!(page.movie_bik, Some("ra2ts_l.bik"));
-    assert_eq!(page.buttons[0].hover_frame, Some(3));
+    assert_eq!(page.buttons[0].hover_frame, None);
     assert_eq!(page.buttons[0].normal_frame, Some(2));
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
