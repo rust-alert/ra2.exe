@@ -638,17 +638,24 @@ pub fn compose_skirmish_lobby_page(
     map_names: &[(String, bool)],
 ) -> Option<RgbaImage> {
     let layout = skirmish_lobby_layout(viewport_w, viewport_h);
+    // 壳层 chrome 仍走共享合成；地图预览进 `map_preview` 分区，不占右栏 movie 通道。
     let mut page = compose_shell_menu_page(
         decoded,
-        layout,
+        layout.shell,
         &SKIRMISH_LOBBY_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
         fnt,
         csf,
-        map_preview,
+        None,
         MenuCaptionKind::SkirmishLobby,
     )?;
+    // 左上列表底板 + 预览区底板（专用大厅板面资源到位前的分区占位）。
+    fill_rect(&mut page, layout.map_list, [12, 16, 24, 220]);
+    fill_rect(&mut page, layout.map_preview, [8, 10, 16, 220]);
+    if let Some(preview) = map_preview {
+        blit_stretched(&mut page, preview, layout.map_preview);
+    }
     if let Some(fnt) = fnt {
         let n = map_names.len().min(LOBBY_MAP_ROW_MAX as usize);
         for (i, (name, selected)) in map_names.iter().take(n).enumerate() {
