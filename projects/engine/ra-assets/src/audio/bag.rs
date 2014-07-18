@@ -115,6 +115,11 @@ impl AudioIndex {
         self.entries.is_empty()
     }
 
+    /// 所有条目名（大写，按 idx 顺序）。
+    pub fn names(&self) -> impl Iterator<Item = &str> + '_ {
+        self.entries.iter().map(|e| e.name.as_str())
+    }
+
     /// 按名查找（大小写不敏感；过长名按 idx 字段宽度截断再试）。
     pub fn get(&self, name: &str) -> Option<&AudioBagEntry> {
         let key = name.to_ascii_uppercase();
