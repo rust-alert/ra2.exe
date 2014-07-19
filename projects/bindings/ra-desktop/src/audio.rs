@@ -142,6 +142,40 @@ fn pcm_to_source(pcm: &PcmAudio) -> Option<SamplesBuffer> {
     Some(SamplesBuffer::new(out_channels, rate, samples))
 }
 
+/// 宽松抽取 INI `section`/`key`（整文件严格解析失败时的回退）。
+pub fn soft_ini_get(bytes: &[u8], section: &str, key: &str) -> Option<String> {
+    let text = String::from_utf8_lossy(bytes);
+    let mut in_section = false;
+    for raw in text.lines() {
+        let line = raw.split(';').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix('[') {
+            if let Some(name) = rest.strip_suffix(']') {
+                in_section = name.trim().eq_ignore_ascii_case(section);
+                continue;
+            }
+        }
+        if !in_section {
+            continue;
+        }
+        let Some((k, v)) = line.split_once('=')
+        else {
+            continue;
+        };
+        if k.trim().eq_ignore_ascii_case(key) {
+            return Some(v.trim().to_string());
+        }
+    }
+    None
+}
+
+/// 去掉主题 `Sound=` 前导 `$` / `#`。
+pub fn theme_sound_stem(raw: &str) -> &str {
+    raw.trim().trim_start_matches(['$', '#'])
+}
+
 /// 资源缺失时的短点击占位（约 40ms @ 22050 mono）。
 pub fn synthetic_ui_click() -> PcmAudio {
     const RATE: u32 = 22_050;
