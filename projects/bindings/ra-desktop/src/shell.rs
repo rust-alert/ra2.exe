@@ -721,10 +721,18 @@ impl AppShell {
         }
     }
 
-    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；其余清空 UI/预览。
+    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；闪屏独立保留 `title.pcx`。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
             self.renderer.clear_ui_page();
+            return;
+        }
+        // 闪屏是独立产品页：禁止走菜单合成路径，更不能 clear 掉已上传的 title.pcx。
+        if self.screen == OriginalScreen::Splash {
+            if !self.splash_uploaded {
+                self.upload_splash_backdrop();
+                self.splash_uploaded = true;
+            }
             return;
         }
         self.ensure_ui_probe();
