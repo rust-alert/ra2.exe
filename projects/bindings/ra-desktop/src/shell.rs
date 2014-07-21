@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{AudioIndex, CsfFile, FntFile, PcmAudio, decode_wav_pcm};
+use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes, decode_wav_pcm};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
 use winit::{
@@ -96,9 +96,9 @@ pub struct AppShell {
     skirmish: SkirmishBootRequest,
     /// 桌面音频输出（设备不可用则为 `None`）。
     audio: Option<crate::audio::ShellAudio>,
-    /// 主菜单 BGM PCM（`intro.wav`）。
+    /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
     menu_bgm: Option<PcmAudio>,
-    /// 菜单点击音效 PCM。
+    /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
     menu_click: Option<PcmAudio>,
     /// 当前是否已在播壳层 BGM。
     menu_bgm_playing: bool,
@@ -872,6 +872,114 @@ impl AppShell {
         None
     }
 
+    /// 从挂载源读逻辑文件名。
+    fn read_asset_bytes(&self, name: &str) -> Option<Vec<u8>> {
+        self.ui_probe
+            .as_ref()
+            .and_then(|p| p.source.as_ref())
+            .and_then(|s| s.read(name).ok())
+    }
+
+    /// 解析 INI；失败时仍可用 `soft_ini_get`。
+    fn read_ini_doc(&self, name: &str) -> Option<IniDocument> {
+        let bytes = self.read_asset_bytes(name)?;
+        match IniDocument::parse(&bytes) {
+            Ok(doc) => Some(doc),
+            Err(e) => {
+                tracing::debug!(%name, error = %e, "INI 严格解析失败，改用宽松扫描");
+                None
+            }
+        }
+    }
+
+    /// `theme.ini` `[INTRO]` 的 `Sound=` 词干（缺省 `Grinder`）。
+    fn menu_theme_sound_stem(&self) -> String {
+        let from_doc = self
+            .read_ini_doc("theme.ini")
+            .as_ref()
+            .and_then(|d| d.get("INTRO", "Sound"))
+            .map(crate::audio::theme_sound_stem)
+            .map(str::to_string)
+            .filter(|s| !s.is_empty());
+        if let Some(s) = from_doc {
+            return s;
+        }
+        self.read_asset_bytes("theme.ini")
+            .and_then(|b| crate::audio::soft_ini_get(&b, "INTRO", "Sound"))
+            .map(|s| crate::audio::theme_sound_stem(&s).to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Grinder".into())
+    }
+
+    /// 规则里的主菜单点击事件 id（缺省 `MenuClick`）。
+    fn menu_click_sound_id(&self) -> String {
+        let from_doc = self
+            .read_ini_doc("rules.ini")
+            .as_ref()
+            .and_then(|d| d.get("AudioVisual", "GUIMainButtonSound"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        if let Some(s) = from_doc {
+            return s;
+        }
+        self.read_asset_bytes("rules.ini")
+            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMainButtonSound"))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "MenuClick".into())
+    }
+
+    /// `sound.ini` 事件 → `Sounds=` 采样名列表。
+    fn sound_event_sample_names(&self, event_id: &str) -> Vec<String> {
+        let line = self
+            .read_ini_doc("sound.ini")
+            .as_ref()
+            .and_then(|d| d.get(event_id, "Sounds"))
+            .map(str::to_string)
+            .or_else(|| {
+                self.read_asset_bytes("sound.ini")
+                    .and_then(|b| crate::audio::soft_ini_get(&b, event_id, "Sounds"))
+            })
+            .unwrap_or_default();
+        line.split_whitespace()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// 按词干尝试 `{stem}.wav` / `{stem}.aud`。
+    fn decode_theme_track(&self, stem: &str) -> Option<PcmAudio> {
+        for ext in ["wav", "aud"] {
+            let name = format!("{stem}.{ext}");
+            let Some(bytes) = self.read_asset_bytes(&name)
+            else {
+                continue;
+            };
+            match decode_audio_bytes(&bytes, Some(ext)) {
+                Ok(pcm) => {
+                    tracing::info!(
+                        %name,
+                        frames = pcm.samples.len() / pcm.channels.max(1) as usize,
+                        rate = pcm.sample_rate,
+                        "已加载菜单 BGM"
+                    );
+                    return Some(pcm);
+                }
+                Err(e) => {
+                    if ext == "wav" {
+                        if let Ok(pcm) = decode_wav_pcm(&bytes) {
+                            tracing::info!(%name, "已加载菜单 BGM（wav 回退）");
+                            return Some(pcm);
+                        }
+                    }
+                    tracing::warn!(%name, error = %e, "主题曲解码失败");
+                }
+            }
+        }
+        None
+    }
+
     /// 惰性装载菜单 BGM / 点击采样。
     fn ensure_menu_audio_assets(&mut self) {
         if self.menu_bgm.is_some() && self.menu_click.is_some() {
@@ -879,53 +987,29 @@ impl AppShell {
         }
         self.ensure_ui_probe();
         if self.menu_bgm.is_none() {
-            let bytes = self
-                .ui_probe
-                .as_ref()
-                .and_then(|p| p.source.as_ref())
-                .and_then(|s| s.read("intro.wav").ok());
-            if let Some(bytes) = bytes {
-                match decode_wav_pcm(&bytes) {
-                    Ok(pcm) => {
-                        tracing::info!(
-                            frames = pcm.samples.len(),
-                            rate = pcm.sample_rate,
-                            "已加载菜单 BGM · intro.wav"
-                        );
-                        self.menu_bgm = Some(pcm);
-                    }
-                    Err(e) => tracing::warn!(error = %e, "intro.wav 解码失败"),
-                }
+            let stem = self.menu_theme_sound_stem();
+            if let Some(pcm) = self.decode_theme_track(&stem) {
+                self.menu_bgm = Some(pcm);
             } else {
-                tracing::warn!("intro.wav 不可读");
+                tracing::warn!(
+                    %stem,
+                    "菜单主题曲不可读（检查 theme.mix / {stem}.wav）。壳层将静音运行 BGM"
+                );
             }
         }
         if self.menu_click.is_none() {
-            let mut loaded =
-                self.decode_bag_named(&["GUIMainButtonSound", "GUIMAINBUTTONSO", "BUTTON"]);
-            if loaded.is_none() {
-                for name in ["guimainbuttonsound.wav", "button.wav", "click.wav"] {
-                    let bytes = self
-                        .ui_probe
-                        .as_ref()
-                        .and_then(|p| p.source.as_ref())
-                        .and_then(|s| s.read(name).ok());
-                    let Some(bytes) = bytes
-                    else {
-                        continue;
-                    };
-                    match decode_wav_pcm(&bytes) {
-                        Ok(pcm) => {
-                            tracing::info!(%name, "已加载菜单点击 WAV");
-                            loaded = Some(pcm);
-                            break;
-                        }
-                        Err(e) => tracing::debug!(%name, error = %e, "点击音 WAV 解码失败"),
-                    }
+            let event_id = self.menu_click_sound_id();
+            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
+            // 零售 `[MenuClick] Sounds=umenucl1`；sound.ini 解析失败时仍走 bag 名。
+            for fallback in ["umenucl1", "UMENUCL1", "MenuClick"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push(fallback.into());
                 }
             }
+            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
+            let loaded = self.decode_bag_named(&refs);
             self.menu_click = Some(loaded.unwrap_or_else(|| {
-                tracing::info!("使用合成点击音效占位");
+                tracing::warn!(%event_id, "菜单点击采样未命中，使用合成占位");
                 crate::audio::synthetic_ui_click()
             }));
         }
