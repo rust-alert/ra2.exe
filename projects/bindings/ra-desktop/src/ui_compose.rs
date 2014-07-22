@@ -329,6 +329,17 @@ fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Opt
     decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
+/// 主菜单 owner-draw 文案裁切：未按 `+0/+1/-2/-1`，按下 `+2/+5/-4/-5`。
+fn owner_draw_caption_rect(cell: RectPx, pressed: bool) -> (i32, i32, i32, i32) {
+    let (dx, dy) = if pressed { (2, 5) } else { (0, 1) };
+    (
+        cell.x + dx,
+        cell.y + dy,
+        (cell.w - 2 - dx).max(0),
+        (cell.h - dy).max(0),
+    )
+}
+
 fn compose_shell_menu_page(
     decoded: &PageDecodeReport,
     layout: MainMenuLayout,
@@ -387,7 +398,9 @@ fn compose_shell_menu_page(
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
-            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, color);
+            let pressed = pressed_entry_id == Some(*entry_id) && !disabled;
+            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
         }
     }
 
@@ -520,7 +533,9 @@ pub fn compose_options_page(
         if let Some(fnt) = fnt {
             let key = options_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ENABLED);
+            let pressed = pressed_entry_id == Some(*entry_id);
+            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
         }
     }
 
@@ -619,7 +634,9 @@ pub fn compose_exit_confirm_page(
         if let Some(fnt) = fnt {
             let key = exit_confirm_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            blit_caption_in_cell(&mut page, fnt, &caption, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ENABLED);
+            let pressed = pressed_entry_id == Some(*entry_id);
+            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
         }
     }
     Some(page)
