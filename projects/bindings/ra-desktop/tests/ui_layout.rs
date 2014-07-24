@@ -45,11 +45,11 @@ fn main_menu_exit_sits_on_bottom_cover() {
 fn skirmish_lobby_reuses_right_panel() {
     let layout = skirmish_lobby_layout(1024, 768);
     assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), 4);
-    assert_eq!(layout.buttons[0].y, RIGHT_PANEL_TOP_H);
-    assert_eq!(layout.buttons[3].y, layout.panel_bottom.y - BUTTON_CELL_H);
+    assert_eq!(layout.shell.buttons[0].y, RIGHT_PANEL_TOP_H);
+    assert_eq!(layout.shell.buttons[3].y, layout.shell.panel_bottom.y - BUTTON_CELL_H);
     let row0 = skirmish_map_row_rect(&layout, 0);
     assert!(row0.w > 0);
-    assert!(row0.y >= layout.movie.y);
+    assert!(row0.y >= layout.shell.movie.y);
 }
 
 #[test]
