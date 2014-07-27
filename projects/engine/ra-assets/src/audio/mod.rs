@@ -1,8 +1,9 @@
-//! 音频解码：标准容器走 Symphonia；`audio.bag` 走专有索引。
+//! 音频解码：标准容器走 Symphonia；`audio.bag` 走专有索引；RIFF IMA 主题曲自研。
 
 mod bag;
 mod decode;
 mod ima_adpcm;
+mod wav_riff;
 
 pub use bag::{AudioBagEntry, AudioIndex};
 pub use decode::{decode_audio_bytes, decode_wav_pcm};
@@ -33,6 +34,8 @@ pub enum WavError {
     BadChannels(u16),
     /// 解出 0 采样。
     EmptyDecode,
+    /// 不支持的 WAV 编码（如未实现的压缩格式标签）。
+    UnsupportedWavFormat(u16),
 }
 
 impl std::fmt::Display for WavError {
@@ -44,6 +47,7 @@ impl std::fmt::Display for WavError {
             Self::MissingChannels => write!(f, "缺声道信息"),
             Self::BadChannels(n) => write!(f, "非法声道数 {n}"),
             Self::EmptyDecode => write!(f, "解码结果为空"),
+            Self::UnsupportedWavFormat(tag) => write!(f, "不支持的 WAV 格式标签 {tag}"),
         }
     }
 }

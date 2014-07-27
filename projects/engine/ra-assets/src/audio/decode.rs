@@ -17,6 +17,11 @@ use super::{PcmAudio, WavError};
 
 /// 探测并解码整段字节（无文件路径，适合 MIX 读出的缓冲）。
 pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudio, WavError> {
+    // 主题曲多为 Microsoft IMA ADPCM WAV（格式标签 17）；Symphonia 默认未编入该解码器。
+    if let Some(riff) = super::wav_riff::try_decode_riff_wave(data) {
+        return riff;
+    }
+
     let cursor = Cursor::new(data.to_vec());
     let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
 
