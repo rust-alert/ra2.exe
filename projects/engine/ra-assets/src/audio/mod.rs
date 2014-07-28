@@ -1,5 +1,6 @@
-//! 音频解码：标准容器走 Symphonia；`audio.bag` 走专有索引；RIFF IMA 主题曲自研。
+//! 音频解码：RIFF / Westwood AUD / Symphonia；`audio.bag` 走专有索引。
 
+mod aud;
 mod bag;
 mod decode;
 mod ima_adpcm;

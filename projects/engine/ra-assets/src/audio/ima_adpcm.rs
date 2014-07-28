@@ -59,6 +59,15 @@ impl ImaState {
     }
 }
 
+/// 连续 nibble 流解码（Westwood `.aud` DEAF 块载荷，无块前导）。
+pub fn decode_nibble_stream(data: &[u8], out: &mut Vec<i16>) {
+    let mut state = ImaState::new();
+    for &byte in data {
+        out.push(state.decode_nibble(byte & 0x0F));
+        out.push(state.decode_nibble((byte >> 4) & 0x0F));
+    }
+}
+
 /// 按块对齐解码 IMA ADPCM → 交错 `i16`。
 ///
 /// `block_align` 为每块字节数（`nBlockAlign`）。为 0 时按声道取零售常见默认
