@@ -28,6 +28,8 @@ pub enum OriginalScreen {
     Results,
     /// 选项。
     Options,
+    /// 退出确认（主菜单之上的二次确认）。
+    ExitConfirm,
 }
 
 impl OriginalScreen {
@@ -43,6 +45,7 @@ impl OriginalScreen {
             Self::Match => "match",
             Self::Results => "results",
             Self::Options => "options",
+            Self::ExitConfirm => "exit_confirm",
         }
     }
 

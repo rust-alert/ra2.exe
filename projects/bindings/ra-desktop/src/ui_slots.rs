@@ -169,6 +169,12 @@ const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("main_menu", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
+// 退出确认：确定 / 取消。共用主菜单按钮动画；磁暴步兵立绘待安装内证据后再填专用 SHP。
+const EXIT_CONFIRM_BUTTONS: &[UiButtonSlot] = &[
+    main_menu_button("ok", MenuAction::ConfirmExit, true, (0.30, 0.62, 0.48, 0.70)),
+    main_menu_button("cancel", MenuAction::Back, true, (0.52, 0.62, 0.70, 0.70)),
+];
+
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[
     empty_button("online", MenuAction::Noop, false, (0.22, 0.36, 0.78, 0.44)),
     empty_button("back", MenuAction::Back, true, (0.22, 0.56, 0.78, 0.64)),
@@ -248,6 +254,18 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: OPTIONS_BUTTONS,
+        }),
+        OriginalScreen::ExitConfirm => Some(UiPageSlots {
+            screen,
+            // 壳层与主菜单相同；居中确认框由合成层绘制。磁暴步兵立绘资源名待证伪。
+            background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
+            background_pal: Some("shell.pal"),
+            background_frame: 0,
+            movie_bik: Some("ra2ts_l.bik"),
+            panels: MAIN_MENU_PANELS,
+            fonts: MAIN_MENU_FONTS,
+            buttons: EXIT_CONFIRM_BUTTONS,
         }),
         OriginalScreen::Network => Some(UiPageSlots {
             screen,
