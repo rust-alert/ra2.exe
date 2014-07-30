@@ -1,4 +1,4 @@
-﻿//! 验证本安装 `intro.aud` 可解码为菜单 BGM。
+﻿//! 验证本安装 `intro.aud` 可解码为菜单 BGM，并打印峰值 / RMS。
 
 use ra_adaptor::{detect_edition, find_ci_file};
 use ra_assets::{MixVfs, decode_audio_bytes};
@@ -22,17 +22,23 @@ fn main() {
         let _ = vfs.mount_nested_all_from_parents(name);
     }
     let bytes = vfs.read("intro.aud").expect("intro.aud");
-    println!("intro.aud len={}", bytes.len());
-    match decode_audio_bytes(&bytes, Some("aud")) {
-        Ok(pcm) => println!(
-            "ok rate={} ch={} frames={}",
-            pcm.sample_rate,
-            pcm.channels,
-            pcm.samples.len() / pcm.channels.max(1) as usize
-        ),
-        Err(e) => {
-            eprintln!("decode err={e}");
-            std::process::exit(1);
+    let pcm = decode_audio_bytes(&bytes, Some("aud")).expect("decode");
+    let mut peak = 0i32;
+    let mut sum = 0f64;
+    for &s in &pcm.samples {
+        let a = (s as i32).abs();
+        if a > peak {
+            peak = a;
         }
+        sum += (s as f64) * (s as f64);
     }
+    let n = pcm.samples.len().max(1) as f64;
+    println!(
+        "frames={} peak={} rms={:.1} rate={} ch={}",
+        pcm.samples.len(),
+        peak,
+        (sum / n).sqrt(),
+        pcm.sample_rate,
+        pcm.channels
+    );
 }

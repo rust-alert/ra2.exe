@@ -37,6 +37,7 @@ fn decode_ima_aud(data: &[u8], sample_rate: u16, flags: u8) -> Result<PcmAudio, 
     }
 
     let mut samples: Vec<i16> = Vec::new();
+    let mut state = ima_adpcm::ImaState::new();
     let mut offset = HEADER_SIZE;
     while offset + CHUNK_HEADER_SIZE <= data.len() {
         let compressed_size = u16::from_le_bytes([data[offset], data[offset + 1]]) as usize;
@@ -51,7 +52,8 @@ fn decode_ima_aud(data: &[u8], sample_rate: u16, flags: u8) -> Result<PcmAudio, 
         }
         offset += CHUNK_HEADER_SIZE;
         let end = (offset + compressed_size).min(data.len());
-        ima_adpcm::decode_nibble_stream(&data[offset..end], &mut samples);
+        // IMA 预测器跨 DEAF 块延续；每块清零会导致能量塌缩、几乎听不见。
+        ima_adpcm::decode_nibble_stream(&data[offset..end], &mut state, &mut samples);
         offset = end;
     }
 
@@ -73,5 +75,36 @@ mod tests {
     fn rejects_short_and_non_aud() {
         assert!(try_decode_aud(&[0u8; 8]).is_none());
         assert!(try_decode_aud(b"RIFF........").is_none());
+    }
+
+    #[test]
+    fn carries_ima_state_across_deaf_chunks() {
+        // 两块各 1 字节载荷；连续解码应与单块 2 字节一致。
+        fn chunk(payload: &[u8]) -> Vec<u8> {
+            let mut c = Vec::new();
+            c.extend_from_slice(&(payload.len() as u16).to_le_bytes());
+            c.extend_from_slice(&((payload.len() * 4) as u16).to_le_bytes());
+            c.extend_from_slice(&CHUNK_MAGIC.to_le_bytes());
+            c.extend_from_slice(payload);
+            c
+        }
+        let mut hdr = vec![0u8; 12];
+        hdr[0..2].copy_from_slice(&22_050u16.to_le_bytes());
+        hdr[10] = 0x02;
+        hdr[11] = FORMAT_IMA;
+        let one = {
+            let mut d = hdr.clone();
+            d.extend(chunk(&[0x12, 0x34]));
+            d
+        };
+        let two = {
+            let mut d = hdr;
+            d.extend(chunk(&[0x12]));
+            d.extend(chunk(&[0x34]));
+            d
+        };
+        let a = decode_ima_aud(&one, 22_050, 0x02).expect("one");
+        let b = decode_ima_aud(&two, 22_050, 0x02).expect("two");
+        assert_eq!(a.samples, b.samples);
     }
 }
