@@ -37,6 +37,23 @@ pub struct MixResolveHit<'a> {
     pub bytes: &'a [u8],
 }
 
+/// 挂载树上的一条原始索引条目（未做逻辑名解析）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MixRawEntry<'a> {
+    /// 档案挂载名。
+    pub archive_name: &'a str,
+    /// 父档案名（根档为 `None`）。
+    pub parent: Option<&'a str>,
+    /// 内容层 id。
+    pub layer_id: Option<&'a str>,
+    /// 档案优先级。
+    pub priority: i32,
+    /// 条目 id（文件名 `mix_hash`）。
+    pub entry_id: i32,
+    /// 条目字节。
+    pub bytes: &'a [u8],
+}
+
 /// 已挂载 MIX 档案的虚拟文件系统。
 #[derive(Debug, Default)]
 pub struct MixVfs {
@@ -76,6 +93,31 @@ impl MixVfs {
     /// 已挂载档案数。
     pub fn archive_count(&self) -> usize {
         self.archives.len()
+    }
+
+    /// 遍历每个已挂载档案中的全部索引条目（含被更高优先级覆盖的同名哈希）。
+    ///
+    /// 用于全量解包；按逻辑名读取仍应走 [`Self::resolve_hit`]。
+    pub fn for_each_raw_entry<F>(&self, mut visit: F)
+    where
+        F: FnMut(MixRawEntry<'_>),
+    {
+        for mounted in &self.archives {
+            for entry in mounted.archive.entries() {
+                let Some(bytes) = mounted.archive.get_by_id(entry.id)
+                else {
+                    continue;
+                };
+                visit(MixRawEntry {
+                    archive_name: mounted.name.as_str(),
+                    parent: mounted.parent.as_deref(),
+                    layer_id: mounted.layer_id.as_deref(),
+                    priority: mounted.priority,
+                    entry_id: entry.id,
+                    bytes,
+                });
+            }
+        }
     }
 
     /// 按名取字节；返回拷贝，便于壳层持有。
