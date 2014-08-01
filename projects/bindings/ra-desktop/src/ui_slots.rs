@@ -91,11 +91,29 @@ const SDBTNANM_PAL: &str = "sdbtnanm.pal";
 const SDBTNANM_FRAME_NORMAL: u16 = 2;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
+/// 退出确认 MessageBox 底板（磁暴步兵立绘在 `pudlgbgn` 帧 0；RA2 用 `dialog.pal`）。
+const PUDLGBGN_SHP: &str = "pudlgbgn.shp";
+const PUDLGBGN_PAL: &str = "dialog.pal";
+/// 退出确认确定/取消按钮（`mnbttn`：0 抬起 / 1 禁用 / 2 按下）。
+const MNBTTN_SHP: &str = "mnbttn.shp";
+const MNBTTN_PAL: &str = "mainbttn.pal";
+const MNBTTN_FRAME_UP: u16 = 0;
+const MNBTTN_FRAME_PRESSED: u16 = 2;
+
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
+];
+
+/// 主菜单壳层 + 退出确认底板。
+const EXIT_CONFIRM_PANELS: &[UiPanelSlot] = &[
+    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
+    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "exit_modal_bg", shp: PUDLGBGN_SHP, pal: PUDLGBGN_PAL, frame: 0 },
 ];
 
 const MAIN_MENU_FONTS: &[&str] = &["game.fnt"];
@@ -169,10 +187,31 @@ const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("main_menu", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
-// 退出确认：确定 / 取消。共用主菜单按钮动画；磁暴步兵立绘待安装内证据后再填专用 SHP。
+const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool, hit: (f32, f32, f32, f32)) -> UiButtonSlot {
+    UiButtonSlot {
+        entry_id,
+        action,
+        enabled,
+        hit,
+        anim_shp: Some(MNBTTN_SHP),
+        anim_pal: Some(MNBTTN_PAL),
+        normal_frame: Some(MNBTTN_FRAME_UP),
+        hover_frame: None,
+        pressed_frame: Some(MNBTTN_FRAME_PRESSED),
+        disabled_frame: if enabled { None } else { Some(MNBTTN_FRAME_UP) },
+    }
+}
+
+// 退出确认：底下仍画主菜单六钮（仅视觉，命中只走 ok/cancel）+ MessageBox 确定/取消。
 const EXIT_CONFIRM_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("ok", MenuAction::ConfirmExit, true, (0.30, 0.62, 0.48, 0.70)),
-    main_menu_button("cancel", MenuAction::Back, true, (0.52, 0.62, 0.70, 0.70)),
+    main_menu_button("single_player", MenuAction::Noop, true, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("ww_online", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("network", MenuAction::Noop, false, (0.805, 0.4717, 1.0, 0.5417)),
+    main_menu_button("movies", MenuAction::Noop, false, (0.805, 0.5417, 1.0, 0.6117)),
+    main_menu_button("options", MenuAction::Noop, true, (0.805, 0.6117, 1.0, 0.6817)),
+    main_menu_button("exit", MenuAction::Noop, true, (0.805, 0.8917, 1.0, 0.9617)),
+    modal_button("ok", MenuAction::ConfirmExit, true, (0.6075, 0.595, 0.76375, 0.635)),
+    modal_button("cancel", MenuAction::Back, true, (0.6075, 0.7033, 0.76375, 0.7433)),
 ];
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[
@@ -257,13 +296,13 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::ExitConfirm => Some(UiPageSlots {
             screen,
-            // 壳层与主菜单相同；居中确认框由合成层绘制。磁暴步兵立绘资源名待证伪。
+            // 底下主菜单壳层 + 居中 `pudlgbgn` 确认框（磁暴步兵立绘）。结算废墟图不是本页。
             background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: Some("ra2ts_l.bik"),
-            panels: MAIN_MENU_PANELS,
+            panels: EXIT_CONFIRM_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: EXIT_CONFIRM_BUTTONS,
         }),

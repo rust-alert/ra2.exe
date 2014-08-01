@@ -260,31 +260,61 @@ pub fn skirmish_map_row_rect(layout: &SkirmishLobbyLayout, index: usize) -> Rect
     RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
 }
 
+/// 退出确认 MessageBox 面板宽（`pudlgbgn` 画布）。
+pub const EXIT_CONFIRM_DIALOG_W: i32 = 450;
+/// 退出确认 MessageBox 面板高。
+pub const EXIT_CONFIRM_DIALOG_H: i32 = 325;
+
 /// 退出确认居中框几何（800×600 内容坐标）。
+///
+/// 对齐零售确认框：居中 `pudlgbgn` 面板 + 正文静态区 + 右侧纵向确定/取消。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExitConfirmLayout {
-    /// 对话框底板。
+    /// 对话框底板（`pudlgbgn`）。
     pub dialog: RectPx,
     /// 提示文案区。
     pub prompt: RectPx,
-    /// 确定 / 取消。
+    /// 确定 / 取消（控件格；按钮图在格内居中）。
     pub buttons: [RectPx; 2],
 }
 
-/// 退出确认布局（相对壳层画布居中）。
+fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
+    // MS Sans Serif 8pt：x×6/4、y×13/8，四舍五入。
+    fn mul_div_round(n: i32, numer: i32, denom: i32) -> i32 {
+        let value = n * numer;
+        if value >= 0 {
+            (value + denom / 2) / denom
+        } else {
+            (value - denom / 2) / denom
+        }
+    }
+    RectPx::new(
+        mul_div_round(x, 6, 4),
+        mul_div_round(y, 13, 8),
+        mul_div_round(w, 6, 4),
+        mul_div_round(h, 13, 8),
+    )
+}
+
+fn modal_child(dialog: RectPx, local: RectPx) -> RectPx {
+    RectPx::new(dialog.x + local.x, dialog.y + local.y, local.w, local.h)
+}
+
+/// 退出确认布局（相对壳层画布居中；底下仍是主菜单右栏）。
 pub fn exit_confirm_layout(_viewport_w: u32, _viewport_h: u32) -> ExitConfirmLayout {
-    let dialog = RectPx::new(180, 180, 440, 200);
-    let prompt = RectPx::new(dialog.x + 24, dialog.y + 28, dialog.w - 48, 64);
-    let btn_y = dialog.y + dialog.h - BUTTON_CELL_H - 24;
-    let gap = 24;
-    let total_w = BUTTON_CELL_W * 2 + gap;
-    let btn_x0 = dialog.x + (dialog.w - total_w) / 2;
+    let dialog = RectPx::new(
+        (((SHELL_BASE_W - EXIT_CONFIRM_DIALOG_W) + 1) / 2).max(0),
+        (((SHELL_BASE_H - EXIT_CONFIRM_DIALOG_H) + 1) / 2).max(0),
+        EXIT_CONFIRM_DIALOG_W,
+        EXIT_CONFIRM_DIALOG_H,
+    );
+    // 正文 0x5B0 (40,40,220,50)；OK 0x5AE (207,135,83,15)；Cancel id=2 (207,175,83,15)。
     ExitConfirmLayout {
         dialog,
-        prompt,
+        prompt: modal_child(dialog, dlu_rect(40, 40, 220, 50)),
         buttons: [
-            RectPx::new(btn_x0, btn_y, BUTTON_CELL_W, BUTTON_CELL_H),
-            RectPx::new(btn_x0 + BUTTON_CELL_W + gap, btn_y, BUTTON_CELL_W, BUTTON_CELL_H),
+            modal_child(dialog, dlu_rect(207, 135, 83, 15)),
+            modal_child(dialog, dlu_rect(207, 175, 83, 15)),
         ],
     }
 }
