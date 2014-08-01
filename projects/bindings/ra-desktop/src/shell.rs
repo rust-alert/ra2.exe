@@ -1000,17 +1000,13 @@ impl AppShell {
             .collect()
     }
 
-    /// 按词干尝试 `{stem}.wav` / `{stem}.aud`；本安装 Theme 占位时回退 `intro.aud`。
+    /// 按 `theme.ini` 词干尝试 `{stem}.wav` / `{stem}.aud`（通常来自 `THEME.MIX`）。
+    ///
+    /// 不回退 `intro.aud`：那是别的曲目，不是主菜单 `Grinder`。
     fn decode_theme_track(&self, stem: &str) -> Option<PcmAudio> {
         let mut names: Vec<String> = Vec::new();
         for ext in ["wav", "aud"] {
             names.push(format!("{stem}.{ext}"));
-        }
-        // 证据：`local.mix` 含 `intro.aud`（菜单曲）；`Grinder.wav` 随 Theme 占位不可读。
-        for fallback in ["intro.aud", "INTRO.AUD", "Intro.aud"] {
-            if !names.iter().any(|n| n.eq_ignore_ascii_case(fallback)) {
-                names.push(fallback.into());
-            }
         }
         for name in &names {
             let Some(bytes) = self.read_asset_bytes(name)
@@ -1036,7 +1032,7 @@ impl AppShell {
         None
     }
 
-    /// 主题曲缺失诊断（仅本安装；不跨目录）。
+    /// 主题曲缺失诊断（仅当前 `--path` 安装根）。
     fn warn_theme_unavailable(&self, stem: &str) {
         let theme_note = match self
             .read_asset_bytes("theme.mix")
@@ -1044,12 +1040,12 @@ impl AppShell {
         {
             Some(bytes) if bytes.as_slice() == b"CLASS" || bytes.len() < 64 => {
                 format!(
-                    "theme.mix 为占位（{} 字节）。已尝试 intro.aud 仍失败",
+                    "theme.mix 为占位（{} 字节），无法读取 {stem}.wav",
                     bytes.len()
                 )
             }
-            Some(bytes) => format!("theme.mix 可读（{} 字节）但未解出 {stem}.* / intro.aud", bytes.len()),
-            None => "无 theme.mix，且 intro.aud 未解出".into(),
+            Some(bytes) => format!("theme.mix 可读（{} 字节）但未解出 {stem}.wav/.aud", bytes.len()),
+            None => format!("无 theme.mix，且未解出 {stem}.wav/.aud"),
         };
         tracing::warn!(%stem, %theme_note, "菜单主题曲不可用，BGM 静音");
     }
