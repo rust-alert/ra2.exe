@@ -45,6 +45,7 @@ pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,
     hash::{crc32, mix_hash, westwood_pad},
+    names::MixNameTable,
     vfs::{MixRawEntry, MixResolveHit, MixVfs},
 };
 pub use rules::{

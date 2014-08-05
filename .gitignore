@@ -23,7 +23,9 @@ projects/platforms/wasm/**/pkg/
 
 # 运行时日志目录（`ra-logger` 写入 logs/rust-ra2.log）
 logs/
+tmp/
 *.txt
+!projects/engine/ra-assets/data/mix_known_names.txt
 *.log
 
 # Python
