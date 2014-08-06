@@ -135,6 +135,8 @@ pub struct UnpackOptions {
     pub edition: Option<String>,
     /// 输出根目录。
     pub out: String,
+    /// 可选额外文件名表（一行一个逻辑名）。
+    pub names_file: Option<String>,
 }
 
 /// 全量解包结果（N-API）。
@@ -142,10 +144,16 @@ pub struct UnpackOptions {
 pub struct UnpackResultJs {
     /// 写出条目数。
     pub files_written: u32,
+    /// 恢复原名后写出的条目数。
+    pub named_written: u32,
+    /// 仍以哈希 id 落盘的条目数。
+    pub unnamed_written: u32,
     /// 累计字节。
     pub bytes_written: f64,
     /// 写出的档案子目录数。
     pub archives: u32,
+    /// 恢复表登记条数。
+    pub name_table_size: u32,
     /// 探测版本。
     pub edition: String,
     /// 根 MIX 挂载数。
@@ -156,7 +164,7 @@ pub struct UnpackResultJs {
     pub out_dir: String,
 }
 
-/// 全量解包已挂载 MIX 树中的全部索引条目（按档案分子目录，文件名为条目 id）。
+/// 全量解包已挂载 MIX 树中的全部索引条目（按档案分子目录；原名来自哈希恢复表）。
 #[napi]
 pub fn unpack(options: UnpackOptions) -> Result<UnpackResultJs> {
     let path = PathBuf::from(options.path.trim());
@@ -172,12 +180,16 @@ pub fn unpack(options: UnpackOptions) -> Result<UnpackResultJs> {
         ra2_dir: path,
         edition: options.edition.filter(|s| !s.trim().is_empty()),
         out_dir: out,
+        names_file: options.names_file.filter(|s| !s.trim().is_empty()).map(PathBuf::from),
     };
     let report = unpack_all(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
     Ok(UnpackResultJs {
         files_written: report.files_written as u32,
+        named_written: report.named_written as u32,
+        unnamed_written: report.unnamed_written as u32,
         bytes_written: report.bytes_written as f64,
         archives: report.archives as u32,
+        name_table_size: report.name_table_size as u32,
         edition: report.edition,
         mounted_root: report.mounted_root as u32,
         mounted_nested: report.mounted_nested as u32,

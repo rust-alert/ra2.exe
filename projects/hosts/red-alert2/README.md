@@ -15,8 +15,9 @@ ra2 launch --path "C:/Games/RA2"
 ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
 ```
 
-全量解包已挂载 MIX 树（按档案分子目录，文件名为条目 id；MIX 索引不含原文件名）：
+全量解包已挂载 MIX 树（按档案分子目录；原名由内置哈希恢复表还原，未命中则 `id_XXXXXXXX.bin`）：
 
 ```bash
 ra2 unpack --path "C:/Games/RA2" --out ./unpacked
+ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt
 ```

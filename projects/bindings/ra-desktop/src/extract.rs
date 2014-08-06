@@ -1,14 +1,15 @@
 //! 从已挂载安装目录导出资源（供 `ra2 extract` / `ra2 unpack` / N-API 使用）。
 //!
-//! - [`extract_named`]：按逻辑名导出（替代一次性 `probe_*`）。
-//! - [`unpack_all`]：把已挂载 MIX 树中的**全部索引条目**写出（按档案分子目录，文件名为条目 id）。
+//! - [`extract_named`]：按逻辑名导出。
+//! - [`unpack_all`]：把已挂载 MIX 树中的**全部索引条目**写出（按档案分子目录）。
 //!
-//! MIX 索引不含原文件名，全量解包只能以 `mix_hash` id 落盘；已知逻辑名请用 `extract`。
+//! MIX 索引不含原文件名。全量解包用内置 [`ra_assets::MixNameTable`]（及可选 `--names-file`）按哈希恢复原名；
+//! 未命中则落盘为 `id_XXXXXXXX.bin`。按名导出请用 `extract`。
 
 use std::path::{Path, PathBuf};
 
 use ra_adaptor::detect_edition;
-use ra_assets::{Palette, ShpFile};
+use ra_assets::{MixNameTable, Palette, ShpFile};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -226,6 +227,8 @@ pub struct UnpackRequest {
     pub edition: Option<String>,
     /// 输出根目录。
     pub out_dir: PathBuf,
+    /// 额外文件名表路径（一行一个逻辑名，追加到内置 well-known 表）。
+    pub names_file: Option<PathBuf>,
 }
 
 /// 全量解包结果。
@@ -233,10 +236,16 @@ pub struct UnpackRequest {
 pub struct UnpackReport {
     /// 写出的条目数。
     pub files_written: usize,
+    /// 其中成功恢复原名的条目数。
+    pub named_written: usize,
+    /// 仍以 `id_XXXXXXXX.bin` 落盘的条目数。
+    pub unnamed_written: usize,
     /// 累计字节。
     pub bytes_written: u64,
     /// 参与解包的挂载档案数。
     pub archives: usize,
+    /// 恢复表登记条数。
+    pub name_table_size: usize,
     /// 探测版本。
     pub edition: String,
     /// 成功挂载的根 MIX 数。
@@ -249,11 +258,17 @@ pub struct UnpackReport {
 
 /// 将安装内已挂载的全部 MIX 条目解包到 `out_dir`。
 ///
-/// 目录布局：`out/<archive>/id_<XXXXXXXX>.bin`；嵌套档为 `out/<archive>@<parent>/...`。
-/// 不解码 SHP/PCX；需要可读文件名时用 [`extract_named`]。
+/// 目录布局：`out/<archive>/<recovered-or-id>`；嵌套档为 `out/<archive>@<parent>/...`。
+/// 原名来自内置哈希恢复表（及可选 `--names-file`）；未命中则 `id_XXXXXXXX.bin`。
 pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
     if req.out_dir.as_os_str().is_empty() {
         return Err(RaError::Msg("unpack: out_dir must not be empty".into()));
+    }
+
+    let mut name_table = MixNameTable::builtin()?;
+    if let Some(path) = req.names_file.as_ref() {
+        let added = name_table.extend_file(path)?;
+        tracing::info!(path = %path.display(), added, total = name_table.len(), "已追加 MIX 文件名表");
     }
 
     let explicit = match req.edition.as_deref() {
@@ -268,6 +283,8 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
     std::fs::create_dir_all(&req.out_dir).map_err(|e| RaError::Io(format!("{}: {e}", req.out_dir.display())))?;
 
     let mut files_written = 0usize;
+    let mut named_written = 0usize;
+    let mut unnamed_written = 0usize;
     let mut bytes_written = 0u64;
     let mut archive_dirs = std::collections::BTreeSet::<String>::new();
 
@@ -282,13 +299,20 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
             tracing::warn!(dir = %dest_dir.display(), "创建解包目录失败 · {e}");
             return;
         }
-        // 以无符号十六进制 id 命名；MIX 索引无原文件名。
-        let file_name = format!("id_{:08X}.bin", entry.entry_id as u32);
+        let (file_name, recovered) = match name_table.lookup(entry.entry_id) {
+            Some(name) => (sanitize_filename(name), true),
+            None => (format!("id_{:08X}.bin", entry.entry_id as u32), false),
+        };
         let dest = dest_dir.join(file_name);
         match std::fs::write(&dest, entry.bytes) {
             Ok(()) => {
                 files_written += 1;
                 bytes_written += entry.bytes.len() as u64;
+                if recovered {
+                    named_written += 1;
+                } else {
+                    unnamed_written += 1;
+                }
             }
             Err(e) => tracing::warn!(path = %dest.display(), "写入解包文件失败 · {e}"),
         }
@@ -296,8 +320,11 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
 
     Ok(UnpackReport {
         files_written,
+        named_written,
+        unnamed_written,
         bytes_written,
         archives: archive_dirs.len(),
+        name_table_size: name_table.len(),
         edition: manifest.chain.edition.as_str().to_string(),
         mounted_root,
         mounted_nested,

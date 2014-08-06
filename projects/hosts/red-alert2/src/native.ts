@@ -38,12 +38,16 @@ export type UnpackOptions = {
     path: string;
     out: string;
     edition?: string;
+    namesFile?: string;
 };
 
 export type UnpackResult = {
     filesWritten: number;
+    namedWritten: number;
+    unnamedWritten: number;
     bytesWritten: number;
     archives: number;
+    nameTableSize: number;
     edition: string;
     mountedRoot: number;
     mountedNested: number;

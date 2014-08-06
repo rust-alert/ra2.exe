@@ -5,19 +5,21 @@ function printUsage() {
     console.log(`Usage:
   ra2 launch --path <game-dir> [--edition ra2|yr]
   ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--palette name.pal] [--decode-shp] [--] <name>...
-  ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr]
+  ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>]
   ra2 --version
   ra2 --help
 
 Examples:
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
-  ra2 unpack --path "C:/Games/RA2" --out ./unpacked`);
+  ra2 unpack --path "C:/Games/RA2" --out ./unpacked
+  ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt`);
 }
 
 function parsePathEditionOut(args, command) {
     let gamePath = null;
     let out = null;
     let edition;
+    let namesFile;
     const rest = [];
 
     for (let i = 0; i < args.length; i += 1) {
@@ -46,6 +48,14 @@ function parsePathEditionOut(args, command) {
             i += 1;
             continue;
         }
+        if (a === '--names-file') {
+            namesFile = args[i + 1];
+            if (!namesFile) {
+                throw new Error(`${command}: --names-file requires a path`);
+            }
+            i += 1;
+            continue;
+        }
         rest.push(a);
     }
 
@@ -55,7 +65,7 @@ function parsePathEditionOut(args, command) {
     if (!out) {
         throw new Error(`${command}: --out is required`);
     }
-    return { path: gamePath, out, edition, rest };
+    return { path: gamePath, out, edition, namesFile, rest };
 }
 
 function parseExtractArgs(args) {
@@ -227,9 +237,10 @@ async function main() {
             path: opts.path,
             out: opts.out,
             edition: opts.edition,
+            namesFile: opts.namesFile,
         });
         console.log(
-            `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} archives=${result.archives} files=${result.filesWritten} bytes=${result.bytesWritten} out=${result.outDir}`,
+            `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} archives=${result.archives} files=${result.filesWritten} named=${result.namedWritten} unnamed=${result.unnamedWritten} names=${result.nameTableSize} bytes=${result.bytesWritten} out=${result.outDir}`,
         );
         return;
     }
