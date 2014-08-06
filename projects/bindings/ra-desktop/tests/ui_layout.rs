@@ -53,8 +53,12 @@ fn skirmish_lobby_reuses_right_panel() {
 }
 
 #[test]
-fn window_center_maps_near_shell_center_when_fitted() {
-    let (x, y) = window_to_shell_px(512.0, 384.0, 1024.0, 768.0);
-    assert!((x - 400).abs() <= 2);
-    assert!((y - 300).abs() <= 2);
+fn exit_confirm_centers_pudlgbgn_panel() {
+    let dlg = exit_confirm_layout(800, 600);
+    assert_eq!(dlg.dialog, RectPx::new(175, 138, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H));
+    // 正文与右侧纵向确定/取消（DLU→像素）。
+    assert_eq!(dlg.prompt, RectPx::new(235, 203, 330, 81));
+    assert_eq!(dlg.buttons[0], RectPx::new(486, 357, 125, 24));
+    assert_eq!(dlg.buttons[1], RectPx::new(486, 422, 125, 24));
 }
+

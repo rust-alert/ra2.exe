@@ -568,42 +568,29 @@ pub fn compose_exit_confirm_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
 ) -> Option<RgbaImage> {
-    let shell = main_menu_layout(viewport_w, viewport_h);
-    let bg = decoded.background.as_ref()?;
-    let mut page = RgbaImage::from_raw(
-        shell.canvas.w as u32,
-        shell.canvas.h as u32,
-        vec![0u8; (shell.canvas.w as usize) * (shell.canvas.h as usize) * 4],
+    // 先画完整主菜单壳（右栏六钮仍在），再压暗并叠居中 MessageBox。
+    let mut page = compose_shell_menu_page(
+        decoded,
+        main_menu_layout(viewport_w, viewport_h),
+        &MAIN_MENU_BUTTON_IDS,
+        None,
+        None,
+        fnt,
+        csf,
+        movie,
+        MenuCaptionKind::Main,
     )?;
-    blit_rgba(&mut page, &bg.image, shell.background.x, shell.background.y);
-    if let Some(frame) = movie {
-        blit_stretched(&mut page, frame, shell.movie);
-    }
-    if let Some(top) = find_panel(decoded, "sdtp.shp") {
-        blit_stretched(&mut page, &top.image, shell.panel_top);
-    }
-    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
-        for i in 0..shell.panel_tile_count {
-            let r = RectPx::new(shell.panel_tile.x, shell.panel_tile.y + i * shell.panel_tile.h, shell.panel_tile.w, shell.panel_tile.h);
-            blit_stretched(&mut page, &tile.image, r);
-        }
-    }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp") {
-        blit_stretched(&mut page, &bottom.image, shell.panel_bottom);
-    }
-    if let Some(lower) = find_panel(decoded, "lwscrnl.shp") {
-        blit_stretched(&mut page, &lower.image, shell.lower_strip);
-    }
 
+    let shell = main_menu_layout(viewport_w, viewport_h);
     dim_rect(&mut page, shell.canvas, 160);
 
     let dlg = exit_confirm_layout(viewport_w, viewport_h);
-    fill_rect(&mut page, dlg.dialog, [96, 24, 24, 255]);
-    fill_rect(
-        &mut page,
-        RectPx::new(dlg.dialog.x + 3, dlg.dialog.y + 3, dlg.dialog.w - 6, dlg.dialog.h - 6),
-        [16, 16, 20, 255],
-    );
+    if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp") {
+        blit_rgba(&mut page, &modal_bg.image, dlg.dialog.x, dlg.dialog.y);
+    } else {
+        // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
+        fill_rect(&mut page, dlg.dialog, [40, 24, 24, 255]);
+    }
     if let Some(fnt) = fnt {
         let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
         blit_caption_in_cell(
@@ -630,7 +617,7 @@ pub fn compose_exit_confirm_page(
             normal
         };
         let cell = dlg.buttons[i];
-        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        blit_centered(&mut page, &sprite.image, cell);
         if let Some(fnt) = fnt {
             let key = exit_confirm_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
@@ -640,6 +627,12 @@ pub fn compose_exit_confirm_page(
         }
     }
     Some(page)
+}
+
+fn blit_centered(dst: &mut RgbaImage, src: &RgbaImage, cell: RectPx) {
+    let x = cell.x + (cell.w - src.width() as i32) / 2;
+    let y = cell.y + (cell.h - src.height() as i32) / 2;
+    blit_rgba(dst, src, x, y);
 }
 
 /// 合成遭遇战大厅 chrome（可选地图预览与地图名列表）。

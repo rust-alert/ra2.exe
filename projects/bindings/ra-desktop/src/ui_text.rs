@@ -128,7 +128,7 @@ pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
 
 /// 退出确认提示 CSF 键。
 pub fn exit_confirm_prompt_csf_key() -> &'static str {
-    "TXT_CONFIRM_EXIT"
+    "GUI:ExitAreYouSure"
 }
 
 /// 将白字字形着色后画到目标（字距 1px）。
