@@ -29,7 +29,11 @@ pnpm exec ra2 --help
 
 cargo test -p ra-assets -p ra-map -p ra-engine -p ra-testing
 cargo run -p ra-desktop --example launch
-cargo run -p ra-desktop --example probe_boot -- "C:/path/to/your/ra2"
+
+# 按逻辑名导出 / 全量解包（含哈希原名恢复）
+pnpm exec ra2 extract --path "C:/Games/RA2" --out ./tmp/extract --decode-shp -- sdtp.shp title.pcx
+pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
+pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack --names-file ./extra_names.txt
 
 pnpm run lint
 pnpm run fmt

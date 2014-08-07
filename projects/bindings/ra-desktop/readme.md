@@ -34,8 +34,13 @@ pnpm run build:native
 pnpm exec ra2 launch --path "C:/Games/RA2"
 
 cargo run -p ra-desktop --example launch
-cargo run -p ra-desktop --example probe_boot -- "C:/path/to/your/ra2"
+
+# 按逻辑名导出 / 全量解包（含哈希原名恢复）
+pnpm exec ra2 extract --path "C:/Games/RA2" --out ./tmp/extract --decode-shp -- sdtp.shp title.pcx
+pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
+pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack --names-file ./extra_names.txt
 ```
+
 
 `test-harness` feature 仍可用于合成场景；配合环境变量 `RA2_TEST_SCENE` / `RA2_TEST_STATUS_PATH`。
 

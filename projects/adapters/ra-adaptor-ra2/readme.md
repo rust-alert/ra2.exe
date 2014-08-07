@@ -151,12 +151,12 @@ cargo build -p ra-adaptor-ra2
 无测试、无 feature。修改 `profile()` 或 `looks_like` 后，请在真实原版目录上运行：
 
 ```shell
-cargo run -p ra-desktop
-# 或
-cargo run -p ra-desktop --example probe_boot -- "C:/path/to/ra2"
+pnpm exec ra2 launch --path "C:/path/to/ra2"
+pnpm exec ra2 extract --path "C:/path/to/ra2" --out ./tmp/extract -- rules.ini
+pnpm exec ra2 unpack --path "C:/path/to/ra2" --out ./tmp/unpack
 ```
 
-确认根 MIX 扫描计数、嵌套挂载数与 `boot_note` 合理。
+确认根 MIX 扫描计数、嵌套挂载数合理，且 `extract`/`unpack` 能读到预期资源。
 
 ## 许可
 

@@ -176,7 +176,13 @@ pub struct EditionManifest {
 cargo build -p ra-adaptor
 ```
 
-无单元测试、无 feature 开关。真实目录验证请运行 `ra-desktop` 或 `examples/probe_*.rs`。
+无单元测试、无 feature 开关。真实目录验证请用：
+
+```shell
+pnpm exec ra2 launch --path "C:/Games/RA2"
+pnpm exec ra2 extract --path "C:/Games/RA2" --out ./tmp/extract -- rules.ini art.ini
+pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
+```
 
 典型调用链：
 
