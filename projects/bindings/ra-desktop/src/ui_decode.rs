@@ -121,24 +121,38 @@ pub fn frame_to_canvas_rgba(shp: &ShpFile, frame: &ShpFrame, palette: &Palette) 
 /// 从挂载源解码单个 `UiAssetRef`。
 pub fn decode_asset_ref(source: &GameAssetSource, asset: &UiAssetRef) -> Result<DecodedUiSprite, String> {
     let frame_idx = asset.frame.unwrap_or(0) as usize;
+    let mut frames = decode_asset_frames(source, asset)?;
+    if frame_idx >= frames.len() {
+        return Err(format!("{}: 帧 {} 越界 · 共 {} 帧", asset.name, frame_idx, frames.len()));
+    }
+    Ok(frames.swap_remove(frame_idx))
+}
+
+/// 解码 `UiAssetRef` 指向 SHP 的全部帧（面板动画用）。
+pub fn decode_asset_frames(source: &GameAssetSource, asset: &UiAssetRef) -> Result<Vec<DecodedUiSprite>, String> {
     let hit = source.resolve(&asset.name).ok_or_else(|| format!("{}: 不可读", asset.name))?;
     let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{}: SHP 解析失败 · {e}", asset.name))?;
-    if frame_idx >= shp.frames.len() {
-        return Err(format!("{}: 帧 {} 越界 · 共 {} 帧", asset.name, frame_idx, shp.frames.len()));
+    if shp.frames.is_empty() {
+        return Err(format!("{}: SHP 无帧", asset.name));
     }
     let pal_name = asset.palette.as_deref().ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
     let pal_hit = source.resolve(pal_name).ok_or_else(|| format!("{pal_name}: 调色板不可读"))?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("{pal_name}: 解析失败 · {e}"))?;
-    let frame = &shp.frames[frame_idx];
-    let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;
-    Ok(DecodedUiSprite {
-        label: format!("{}#{}", asset.name, frame_idx),
-        image,
-        origin: hit.explain(),
-        frame: frame_idx as u16,
-        canvas: (shp.width, shp.height),
-        frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
-    })
+    let origin = hit.explain();
+    let mut out = Vec::with_capacity(shp.frames.len());
+    for (frame_idx, frame) in shp.frames.iter().enumerate() {
+        let image = frame_to_canvas_rgba(&shp, frame, &palette)
+            .ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;
+        out.push(DecodedUiSprite {
+            label: format!("{}#{}", asset.name, frame_idx),
+            image,
+            origin: origin.clone(),
+            frame: frame_idx as u16,
+            canvas: (shp.width, shp.height),
+            frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
+        });
+    }
+    Ok(out)
 }
 
 /// 解码一页已声明的背景、面板与可点按钮常态（及禁用按钮若有 disabled/normal）。
@@ -154,8 +168,9 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
 
     let mut panels = Vec::new();
     for (i, panel) in page.panels.iter().enumerate() {
-        match decode_asset_ref(source, panel) {
-            Ok(img) => panels.push(img),
+        // 面板可能含多帧（如 `sdtp.shp` 右上角 WARNING 指示）；全部解出供壳层循环。
+        match decode_asset_frames(source, panel) {
+            Ok(frames) => panels.extend(frames),
             Err(e) => errors.push(format!("panel[{i}] · {e}")),
         }
     }
