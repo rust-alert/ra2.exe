@@ -313,8 +313,21 @@ pub fn paint_options_dialog_controls(
     }
 }
 
-fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str) -> Option<&'a DecodedUiSprite> {
-    decoded.panels.iter().find(|p| p.label.to_ascii_lowercase().starts_with(&needle.to_ascii_lowercase()))
+fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str, anim_frame: usize) -> Option<&'a DecodedUiSprite> {
+    let needle = needle.to_ascii_lowercase();
+    let mut matches: Vec<&DecodedUiSprite> = decoded
+        .panels
+        .iter()
+        .filter(|p| {
+            let lab = p.label.to_ascii_lowercase();
+            lab == needle || lab.starts_with(&format!("{needle}#"))
+        })
+        .collect();
+    if matches.is_empty() {
+        return None;
+    }
+    matches.sort_by_key(|p| p.frame);
+    Some(matches[anim_frame % matches.len()])
 }
 
 fn find_button_normal<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
@@ -350,6 +363,7 @@ fn compose_shell_menu_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
     captions: MenuCaptionKind,
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
@@ -363,19 +377,19 @@ fn compose_shell_menu_page(
         blit_stretched(&mut page, frame, layout.movie);
     }
 
-    if let Some(top) = find_panel(decoded, "sdtp.shp") {
+    if let Some(top) = find_panel(decoded, "sdtp.shp", panel_anim_frame) {
         blit_stretched(&mut page, &top.image, layout.panel_top);
     }
-    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", panel_anim_frame) {
         for i in 0..layout.panel_tile_count {
             let r = RectPx::new(layout.panel_tile.x, layout.panel_tile.y + i * layout.panel_tile.h, layout.panel_tile.w, layout.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
         }
     }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp") {
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", panel_anim_frame) {
         blit_stretched(&mut page, &bottom.image, layout.panel_bottom);
     }
-    if let Some(lower) = find_panel(decoded, "lwscrnl.shp") {
+    if let Some(lower) = find_panel(decoded, "lwscrnl.shp", panel_anim_frame) {
         blit_stretched(&mut page, &lower.image, layout.lower_strip);
     }
 
@@ -440,6 +454,7 @@ pub fn compose_main_menu_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -451,6 +466,7 @@ pub fn compose_main_menu_page(
         csf,
         movie,
         MenuCaptionKind::Main,
+        panel_anim_frame,
     )
 }
 
@@ -464,6 +480,7 @@ pub fn compose_single_player_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -475,6 +492,7 @@ pub fn compose_single_player_page(
         csf,
         movie,
         MenuCaptionKind::SinglePlayer,
+        panel_anim_frame,
     )
 }
 
@@ -489,6 +507,7 @@ pub fn compose_options_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     _movie: Option<&RgbaImage>,
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let shell = options_layout(viewport_w, viewport_h);
     let dlg = crate::options_dialog::OptionsDialogLayout::new();
@@ -500,19 +519,19 @@ pub fn compose_options_page(
     // 整页黑底，避免残留主菜单影片/大背景。
     fill_rect(&mut page, shell.canvas, [0, 0, 0, 255]);
 
-    if let Some(top) = find_panel(decoded, "sdtp.shp") {
+    if let Some(top) = find_panel(decoded, "sdtp.shp", panel_anim_frame) {
         blit_stretched(&mut page, &top.image, shell.panel_top);
     }
-    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp") {
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", panel_anim_frame) {
         for i in 0..shell.panel_tile_count {
             let r = RectPx::new(shell.panel_tile.x, shell.panel_tile.y + i * shell.panel_tile.h, shell.panel_tile.w, shell.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
         }
     }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp") {
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", panel_anim_frame) {
         blit_stretched(&mut page, &bottom.image, shell.panel_bottom);
     }
-    if let Some(lower) = find_panel(decoded, "lwscrnl.shp") {
+    if let Some(lower) = find_panel(decoded, "lwscrnl.shp", panel_anim_frame) {
         blit_stretched(&mut page, &lower.image, shell.lower_strip);
     }
 
@@ -567,6 +586,7 @@ pub fn compose_exit_confirm_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     // 先画完整主菜单壳（右栏六钮仍在），再压暗并叠居中 MessageBox。
     let mut page = compose_shell_menu_page(
@@ -579,13 +599,14 @@ pub fn compose_exit_confirm_page(
         csf,
         movie,
         MenuCaptionKind::Main,
+        panel_anim_frame,
     )?;
 
     let shell = main_menu_layout(viewport_w, viewport_h);
     dim_rect(&mut page, shell.canvas, 160);
 
     let dlg = exit_confirm_layout(viewport_w, viewport_h);
-    if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp") {
+    if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dlg.dialog.x, dlg.dialog.y);
     } else {
         // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
@@ -646,6 +667,7 @@ pub fn compose_skirmish_lobby_page(
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
     map_names: &[(String, bool)],
+    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = skirmish_lobby_layout(viewport_w, viewport_h);
     // 壳层 chrome 仍走共享合成；地图预览进 `map_preview` 分区，不占右栏 movie 通道。
@@ -659,6 +681,7 @@ pub fn compose_skirmish_lobby_page(
         csf,
         None,
         MenuCaptionKind::SkirmishLobby,
+        panel_anim_frame,
     )?;
     // 左上列表底板 + 预览区底板（专用大厅板面资源到位前的分区占位）。
     fill_rect(&mut page, layout.map_list, [12, 16, 24, 220]);
