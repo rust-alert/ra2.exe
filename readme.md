@@ -28,12 +28,14 @@ pnpm run build
 pnpm exec ra2 --help
 
 cargo test -p ra-assets -p ra-map -p ra-engine -p ra-testing
-cargo run -p ra-desktop --example launch
 
-# 按逻辑名导出 / 全量解包（含哈希原名恢复）
+# 资源查证：用 extract / unpack，不要再写一次性 Rust 探针
 pnpm exec ra2 extract --path "C:/Games/RA2" --out ./tmp/extract --decode-shp -- sdtp.shp title.pcx
 pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
 pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack --names-file ./extra_names.txt
+
+# 仅调试原生壳（非资源探针）：需 RustAlert.toml 或默认目录
+cargo run -p ra-desktop --example launch
 
 pnpm run lint
 pnpm run fmt
