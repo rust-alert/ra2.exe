@@ -21,7 +21,7 @@ use crate::{
     preview_job::PreviewJob,
     screen::OriginalScreen,
     skirmish_setup::SkirmishBootRequest,
-    ui_assets::{MenuUiProbe, probe_menu_ui_assets},
+    ui_assets::{MenuUiAssets, load_menu_ui_assets},
     ui_compose, ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
@@ -69,8 +69,8 @@ pub struct AppShell {
     lobby_preview: Option<RgbaImage>,
     /// 后台地图预览任务。
     lobby_preview_job: Option<PreviewJob>,
-    /// 主菜单阶段 UI 资源探测（惰性一次）。
-    ui_probe: Option<MenuUiProbe>,
+    /// 主菜单阶段已挂载资源（惰性一次）。
+    menu_assets: Option<MenuUiAssets>,
     /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
@@ -162,7 +162,7 @@ impl AppShell {
             lobby_preview_for: None,
             lobby_preview: None,
             lobby_preview_job: None,
-            ui_probe: None,
+            menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
             menu_hovered_entry: None,
@@ -221,7 +221,7 @@ impl AppShell {
             lobby_preview_for: None,
             lobby_preview: None,
             lobby_preview_job: None,
-            ui_probe: None,
+            menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
             menu_hovered_entry: None,
@@ -362,7 +362,7 @@ impl AppShell {
             self.splash_uploaded = true;
         }
         if !self.splash_preload_done {
-            self.ensure_ui_probe();
+            self.ensure_menu_assets();
             self.ensure_menu_text_assets();
             self.ensure_menu_audio_assets();
             // 预热主菜单 chrome：不切入 MainMenu，避免合成/清屏打穿闪屏。
@@ -383,11 +383,11 @@ impl AppShell {
 
     /// 在闪屏状态下预热主菜单资源缓存（不改 `screen`、不上传菜单合成页）。
     fn warm_main_menu_chrome(&mut self) {
-        let Some(probe) = self.ui_probe.as_ref()
+        let Some(assets) = self.menu_assets.as_ref()
         else {
             return;
         };
-        let Some(source) = probe.source.as_ref()
+        let Some(source) = assets.source.as_ref()
         else {
             return;
         };
@@ -411,11 +411,11 @@ impl AppShell {
 
     /// 闪屏画面：解码槽位中的 `title.pcx`（失败则黑底占位并写明原因）。
     fn upload_splash_backdrop(&mut self) {
-        self.ensure_ui_probe();
+        self.ensure_menu_assets();
         let pcx_name = ui_slots::slots_for(OriginalScreen::Splash)
             .and_then(|s| s.background_pcx)
             .unwrap_or("title.pcx");
-        let decoded = match self.ui_probe.as_ref().and_then(|p| p.source.as_ref()) {
+        let decoded = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
             None => {
                 tracing::warn!(name = pcx_name, "闪屏 PCX 跳过 · 安装资源源未挂载（检查 ra2_dir / edition）");
                 None
@@ -568,32 +568,32 @@ impl AppShell {
         self.refresh_shell_title();
     }
 
-    fn ensure_ui_probe(&mut self) {
-        if self.ui_probe.is_some() {
+    fn ensure_menu_assets(&mut self) {
+        if self.menu_assets.is_some() {
             return;
         }
-        let probe = probe_menu_ui_assets();
+        let assets = load_menu_ui_assets();
         tracing::info!(
-            ui_ini = ?probe.ui_ini_name,
-            ui_ini_ok = probe.ui_ini_readable,
-            ui_sections = probe.ui_ini.as_ref().map(|d| d.sections.len()),
-            ui_shp_refs = probe.ui_ini_shp_refs.len(),
-            has_source = probe.source.is_some(),
+            ui_ini = ?assets.ui_ini_name,
+            ui_ini_ok = assets.ui_ini_readable,
+            ui_sections = assets.ui_ini.as_ref().map(|d| d.sections.len()),
+            ui_shp_refs = assets.ui_ini_shp_refs.len(),
+            has_source = assets.source.is_some(),
             "{}",
-            probe.note
+            assets.note
         );
-        self.banner = probe.note.clone();
-        self.ui_probe = Some(probe);
+        self.banner = assets.note.clone();
+        self.menu_assets = Some(assets);
         self.refresh_ui_resolve_note();
     }
 
-    /// 对当前页已声明资源名做可读性探测，并尝试解码 chrome（不绘制）。
+    /// 对当前页已声明资源名做可读性检查，并尝试解码 chrome（不绘制）。
     fn refresh_ui_resolve_note(&mut self) {
-        let Some(probe) = self.ui_probe.as_ref()
+        let Some(assets) = self.menu_assets.as_ref()
         else {
             return;
         };
-        let Some(source) = probe.source.as_ref()
+        let Some(source) = assets.source.as_ref()
         else {
             return;
         };
@@ -611,10 +611,10 @@ impl AppShell {
             report.banner_note()
         );
         let mut banner = if report.named == 0 {
-            if probe.note.contains("槽位未填") { probe.note.clone() } else { format!("{} · {}", probe.note, report.banner_note()) }
+            if assets.note.contains("槽位未填") { assets.note.clone() } else { format!("{} · {}", assets.note, report.banner_note()) }
         }
         else {
-            format!("{} · {}", probe.note, report.banner_note())
+            format!("{} · {}", assets.note, report.banner_note())
         };
 
         // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
@@ -730,8 +730,8 @@ impl AppShell {
     }
 
     fn ensure_menu_text_assets(&mut self) {
-        let font_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| s.read("game.fnt").ok());
-        let csf_bytes = self.ui_probe.as_ref().and_then(|p| p.source.as_ref()).and_then(|s| {
+        let font_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("game.fnt").ok());
+        let csf_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| {
             // 资料片优先 `ra2md.csf`，再回退原版 `ra2.csf`。
             for name in ["ra2md.csf", "ra2.csf"] {
                 if let Ok(bytes) = s.read(name) {
@@ -785,7 +785,7 @@ impl AppShell {
             }
             return;
         }
-        self.ensure_ui_probe();
+        self.ensure_menu_assets();
         self.ensure_menu_text_assets();
         if matches!(
             self.screen,
@@ -902,16 +902,16 @@ impl AppShell {
             return;
         }
         self.audio_bag_tried = true;
-        self.ensure_ui_probe();
+        self.ensure_menu_assets();
         let idx_bytes = self
-            .ui_probe
+            .menu_assets
             .as_ref()
-            .and_then(|p| p.source.as_ref())
+            .and_then(|a| a.source.as_ref())
             .and_then(|s| s.read("audio.idx").ok());
         let bag_bytes = self
-            .ui_probe
+            .menu_assets
             .as_ref()
-            .and_then(|p| p.source.as_ref())
+            .and_then(|a| a.source.as_ref())
             .and_then(|s| s.read("audio.bag").ok());
         let Some((idx, bag)) = idx_bytes.zip(bag_bytes)
         else {
@@ -943,9 +943,9 @@ impl AppShell {
 
     /// 从挂载源读逻辑文件名。
     fn read_asset_bytes(&self, name: &str) -> Option<Vec<u8>> {
-        self.ui_probe
+        self.menu_assets
             .as_ref()
-            .and_then(|p| p.source.as_ref())
+            .and_then(|a| a.source.as_ref())
             .and_then(|s| s.read(name).ok())
     }
 
@@ -1072,7 +1072,7 @@ impl AppShell {
         if (self.menu_bgm.is_some() || self.menu_bgm_tried) && self.menu_click.is_some() {
             return;
         }
-        self.ensure_ui_probe();
+        self.ensure_menu_assets();
         if self.menu_bgm.is_none() && !self.menu_bgm_tried {
             self.menu_bgm_tried = true;
             let stem = self.menu_theme_sound_stem();
