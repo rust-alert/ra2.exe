@@ -97,3 +97,33 @@ fn md_family_parses() {
     assert_eq!(e.family, ExpansionFamily::Md);
     assert_eq!(e.index, 1);
 }
+
+#[test]
+fn ra2_edition_skips_expandmd_on_combo_disk() {
+    let dir = scratch_dir("ra2-skip-md");
+    touch(&dir, "ra2.mix");
+    touch(&dir, "language.mix");
+    touch(&dir, "expand01.mix");
+    touch(&dir, "expandmd01.mix");
+
+    let c = compose_resource_layers(&dir, &ra2_chain());
+    assert_eq!(c.diagnostics.detected_expansions, vec!["expand01.mix".to_string()]);
+    assert!(c.root_mount_plan.iter().any(|s| s.name.eq_ignore_ascii_case("expand01.mix")));
+    assert!(!c.root_mount_plan.iter().any(|s| s.name.to_ascii_lowercase().starts_with("expandmd")));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn yr_edition_keeps_expandmd_on_combo_disk() {
+    let dir = scratch_dir("yr-keep-md");
+    touch(&dir, "ra2md.mix");
+    touch(&dir, "langmd.mix");
+    touch(&dir, "expandmd01.mix");
+    touch(&dir, "expand01.mix");
+
+    let c = compose_resource_layers(&dir, &ResourceChain::for_edition(GameEdition::Yr));
+    let names: Vec<_> = c.diagnostics.detected_expansions.iter().map(|s| s.to_ascii_lowercase()).collect();
+    assert!(names.iter().any(|n| n == "expandmd01.mix"));
+    assert!(names.iter().any(|n| n == "expand01.mix"));
+    let _ = fs::remove_dir_all(&dir);
+}

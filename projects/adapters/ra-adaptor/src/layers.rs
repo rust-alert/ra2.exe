@@ -4,6 +4,8 @@
 
 use std::path::{Path, PathBuf};
 
+use ra_types::GameEdition;
+
 use crate::{ResourceChain, find_ci_file};
 
 /// 基础层优先级（最低）。
@@ -49,6 +51,17 @@ impl ExpansionFamily {
             Self::Plain => "plain",
             Self::Md => "md",
             Self::Mo => "mo",
+        }
+    }
+
+    /// 该扩展族是否应纳入给定 `GameEdition` 的挂载计划。
+    ///
+    /// 合集盘常同时放 `expand01`（原版）与 `expandmd01`（尤里）。若 `edition=ra2` 仍挂上
+    /// `expandmd*`，会以更高优先级盖掉壳层底板（如 `pudlgbgn.shp` 磁暴步兵被尤里立绘覆盖）。
+    pub fn allowed_for_edition(self, edition: GameEdition) -> bool {
+        match edition {
+            GameEdition::Ra2 => matches!(self, Self::Plain),
+            GameEdition::Yr | GameEdition::Mo3 => matches!(self, Self::Plain | Self::Md | Self::Mo),
         }
     }
 }
@@ -286,6 +299,10 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
 
     let (expansions, malformed) = discover_expansions(root);
     diagnostics.malformed = malformed;
+    let expansions: Vec<_> = expansions
+        .into_iter()
+        .filter(|e| e.family.allowed_for_edition(chain.edition))
+        .collect();
     diagnostics.detected_expansions = expansions.iter().map(|e| e.file_name.clone()).collect();
 
     for exp in &expansions {

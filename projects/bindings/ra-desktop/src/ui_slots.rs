@@ -91,7 +91,9 @@ const SDBTNANM_PAL: &str = "sdbtnanm.pal";
 const SDBTNANM_FRAME_NORMAL: u16 = 2;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
-/// 退出确认 MessageBox 底板（磁暴步兵立绘在 `pudlgbgn` 帧 0；RA2 用 `dialog.pal`）。
+/// 退出确认 MessageBox 底板（原版 RA2：`pudlgbgn` 帧 0 为磁暴步兵；配 `dialog.pal`）。
+///
+/// 合集盘上尤里的 `expandmd01.mix` 会覆盖同名底板；`edition=ra2` 时 adaptor 不得挂载 `expandmd*`。
 const PUDLGBGN_SHP: &str = "pudlgbgn.shp";
 const PUDLGBGN_PAL: &str = "dialog.pal";
 /// 退出确认确定/取消按钮（`mnbttn`：0 抬起 / 1 禁用 / 2 按下）。
@@ -160,10 +162,11 @@ const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 单人页像素格。
+// 顺序对齐壳层：新战役 / 载入 / 遭遇战 / 主菜单（贴底）。
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("campaign", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("skirmish", MenuAction::OpenSkirmish, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("training", MenuAction::Noop, false, (0.805, 0.4717, 1.0, 0.5417)),
+    main_menu_button("load", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("skirmish", MenuAction::OpenSkirmish, true, (0.805, 0.4717, 1.0, 0.5417)),
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
