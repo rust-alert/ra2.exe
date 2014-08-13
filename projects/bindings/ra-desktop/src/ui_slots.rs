@@ -104,6 +104,8 @@ const MNBTTN_FRAME_PRESSED: u16 = 2;
 
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    // WARNING 屏指示条动画（叠在 `sdtp` 窗口内，91 帧）。
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
@@ -112,6 +114,7 @@ const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
 /// 主菜单壳层 + 退出确认底板。
 const EXIT_CONFIRM_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
