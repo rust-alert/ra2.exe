@@ -14,7 +14,7 @@ pub enum OriginalScreen {
     Splash,
     /// 主菜单。
     MainMenu,
-    /// 单人游戏入口（战役 / 遭遇战 / 训练等）。
+    /// 单人游戏入口（新战役 / 载入 / 遭遇战）。
     SinglePlayerMenu,
     /// 遭遇战大厅（地图、槽位、规则）。
     SkirmishLobby,

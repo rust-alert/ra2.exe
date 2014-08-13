@@ -34,7 +34,9 @@ pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = [
 ];
 
 /// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
-pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "skirmish", "training", "back"];
+///
+/// 顺序：新战役 → 载入 → 遭遇战 → 主菜单（贴底盖）。
+pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "load", "skirmish", "back"];
 
 /// 遭遇战大厅右侧按钮入口 id（与 `ui_slots` 顺序一致）。
 pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start", "back"];

@@ -33,11 +33,16 @@ pub fn main_menu_csf_tooltip(entry_id: &str) -> Option<&'static str> {
 pub fn single_player_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
         "campaign" => Some("GUI:NewCampaign"),
+        "load" => Some("GUI:LoadSavedGame"),
         "skirmish" => Some("GUI:Skirmish"),
-        "training" => Some("GUI:LoadScenario"),
-        "back" => Some("GUI:Back"),
+        "back" => Some("GUI:MainMenu"),
         _ => None,
     }
+}
+
+/// 单人页顶栏标题 CSF。
+pub fn single_player_title_csf_key() -> &'static str {
+    "GUI:SinglePlayer"
 }
 
 /// 遭遇战大厅入口 → CSF 标签。

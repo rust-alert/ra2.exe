@@ -31,6 +31,15 @@ fn resolve_caption_falls_back_to_entry_id() {
 }
 
 #[test]
+fn single_player_csf_keys_match_shell_labels() {
+    assert_eq!(single_player_csf_label("campaign"), Some("GUI:NewCampaign"));
+    assert_eq!(single_player_csf_label("load"), Some("GUI:LoadSavedGame"));
+    assert_eq!(single_player_csf_label("skirmish"), Some("GUI:Skirmish"));
+    assert_eq!(single_player_csf_label("back"), Some("GUI:MainMenu"));
+    assert_eq!(single_player_title_csf_key(), "GUI:SinglePlayer");
+}
+
+#[test]
 fn blit_text_writes_colored_pixel() {
     let fnt = tiny_fnt();
     let mut dst = RgbaImage::from_raw(4, 4, vec![0u8; 64]).unwrap();

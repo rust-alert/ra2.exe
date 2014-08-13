@@ -15,7 +15,8 @@ use crate::{
     ui_text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_text_colored,
         exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label, main_menu_csf_tooltip, options_csf_label,
-        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, skirmish_lobby_csf_label,
+        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key,
+        skirmish_lobby_csf_label,
     },
 };
 
@@ -397,7 +398,7 @@ fn compose_shell_menu_page(
         let normal = find_button_normal(decoded, entry_id)?;
         let disabled = matches!(
             *entry_id,
-            "ww_online" | "network" | "movies" | "campaign" | "training"
+            "ww_online" | "network" | "movies" | "campaign" | "load"
         );
         let sprite = if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
@@ -418,9 +419,15 @@ fn compose_shell_menu_page(
         }
     }
 
-    if captions == MenuCaptionKind::Main {
-        if let Some(fnt) = fnt {
-            let title = resolve_caption(csf, "main_menu", Some("GUI:MainMenu"));
+    if let Some(fnt) = fnt {
+        let title = match captions {
+            MenuCaptionKind::Main => Some(resolve_caption(csf, "main_menu", Some("GUI:MainMenu"))),
+            MenuCaptionKind::SinglePlayer => {
+                Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key())))
+            }
+            MenuCaptionKind::SkirmishLobby => None,
+        };
+        if let Some(title) = title {
             blit_caption_in_cell(
                 &mut page,
                 fnt,
@@ -431,6 +438,8 @@ fn compose_shell_menu_page(
                 layout.title.h,
                 MENU_TEXT_ENABLED,
             );
+        }
+        if captions == MenuCaptionKind::Main {
             if let Some(hovered) = hovered_entry_id {
                 if let Some(key) = main_menu_csf_tooltip(hovered) {
                     if let Some(text) = resolve_csf_text(csf, key) {

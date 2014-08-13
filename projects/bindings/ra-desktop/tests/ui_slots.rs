@@ -21,17 +21,22 @@ fn main_menu_entries_match_expected_ids() {
 }
 
 #[test]
-fn single_player_keeps_disabled_campaign_slot() {
+fn single_player_order_is_campaign_load_skirmish_back() {
     let page = slots_for(OriginalScreen::SinglePlayerMenu).unwrap();
-    assert_eq!(page.buttons[0].entry_id, "campaign");
+    let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
+    assert_eq!(ids, ["campaign", "load", "skirmish", "back"]);
     assert!(!page.buttons[0].enabled);
     assert!(matches!(page.buttons[0].action, MenuAction::Noop));
-    assert!(matches!(page.buttons[2].action, MenuAction::Noop));
-    assert!(page.buttons.iter().any(|b| b.entry_id == "skirmish" && b.enabled));
+    assert!(!page.buttons[1].enabled);
+    assert!(matches!(page.buttons[1].action, MenuAction::Noop));
+    assert!(page.buttons[2].enabled);
+    assert!(matches!(page.buttons[2].action, MenuAction::OpenSkirmish));
+    assert!(page.buttons[3].enabled);
+    assert!(matches!(page.buttons[3].action, MenuAction::Back));
     assert!(page.has_any_asset_name());
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
-    assert_eq!(page.buttons[1].normal_frame, Some(2));
-    assert_eq!(page.buttons[1].pressed_frame, Some(4));
+    assert_eq!(page.buttons[2].normal_frame, Some(2));
+    assert_eq!(page.buttons[2].pressed_frame, Some(4));
 }
 
 #[test]

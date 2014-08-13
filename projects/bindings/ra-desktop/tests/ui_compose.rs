@@ -83,7 +83,7 @@ fn compose_single_player_uses_skirmish_id() {
     };
     let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None, 0).unwrap();
     let layout = single_player_layout(800, 600);
-    let cell = layout.buttons[1];
+    let cell = layout.buttons[2];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
 }
