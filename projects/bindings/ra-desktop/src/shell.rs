@@ -85,11 +85,11 @@ pub struct AppShell {
     menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
     menu_movie_clock: Option<Instant>,
-    /// 壳层面板动画时钟（`sdtp` 等）。
+    /// 壳层面板动画时钟（`sdwrnanm` WARNING 屏）。
     menu_panel_anim_clock: Option<Instant>,
     /// 面板动画未消耗的累计秒（跨帧保留，避免每帧 dt 小于步长时永不推进）。
     menu_panel_anim_accum: f64,
-    /// 壳层面板动画帧序号（对多帧 SHP 取模）。
+    /// `sdwrnanm` 动画帧序号（对多帧 SHP 取模）。
     menu_panel_anim_frame: usize,
     /// 闪屏 PCX 已上传（避免每帧重解）。
     splash_uploaded: bool,
@@ -1613,8 +1613,8 @@ impl AppShell {
                     .unwrap_or(0.0)
                     .min(0.25);
                 let movie_advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt));
-                // `sdtp.shp` 等壳层面板多帧循环（右上角 WARNING 指示）。
-                const PANEL_FRAME_SECS: f64 = 0.12;
+                // `sdwrnanm.shp`：右上角 WARNING 屏指示条循环（`sdtp` 只作外壳）。
+                const PANEL_FRAME_SECS: f64 = 1.0 / 15.0;
                 let panel_dt = self
                     .menu_panel_anim_clock
                     .replace(Instant::now())
