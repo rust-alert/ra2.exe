@@ -48,11 +48,13 @@ num-bigint = "0.5"
 base64 = "0.23.1"
 oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
-toml_edit = "0.25"
+serde = { version = "1", features = ["derive"] }
+toml_edit = { version = "0.25", features = ["serde"] }
 napi = { version = "3", default-features = true, features = ["napi4"] }
 napi-derive = "3"
 # 标准音频解码（WAV/PCM 等）；Westwood 专有 AUD/BAG 另接。
-symphonia = { version = "0.6", default-features = false, features = ["wav", "pcm"] }
+# 钉在 0.5：0.6 挪了 `SampleBuffer` / `DecoderOptions` 等 API，解码路径未跟前先不升。
+symphonia = { version = "=0.5.4", default-features = false, features = ["wav", "pcm"] }
 # 仅设备播放；PCM 解码已由 `ra-assets` + Symphonia 完成，勿再拉 rodio 内置 demux。
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
 

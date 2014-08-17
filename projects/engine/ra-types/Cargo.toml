@@ -9,3 +9,7 @@ description = "RA 引擎基类型与冻结 RuntimeDefinitions 契约"
 [dependencies]
 thiserror = { workspace = true }
 bitflags = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+toml_edit = { workspace = true }

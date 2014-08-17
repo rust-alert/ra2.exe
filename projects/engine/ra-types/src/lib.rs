@@ -13,6 +13,7 @@ mod edition;
 mod error;
 mod id;
 mod math;
+mod present_feel;
 mod time;
 
 pub use asset_source::AssetSource;
@@ -26,6 +27,7 @@ pub use definition::{
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
+pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use id::{EntityId, HouseId, LocomotorId, PlayerId, SessionId, TypeId, WarheadId, WeaponId};
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use time::{DurationTicks, Tick, TickRate};
