@@ -96,11 +96,12 @@ const SDBTNANM_FRAME_PRESSED: u16 = 4;
 /// 合集盘上尤里的 `expandmd01.mix` 会覆盖同名底板；`edition=ra2` 时 adaptor 不得挂载 `expandmd*`。
 const PUDLGBGN_SHP: &str = "pudlgbgn.shp";
 const PUDLGBGN_PAL: &str = "dialog.pal";
-/// 退出确认确定/取消按钮（`mnbttn`：0 抬起 / 1 禁用 / 2 按下）。
+/// 退出确认确定/取消按钮（`mnbttn`：0 抬起 / 1 按下 / 2 禁用；画布 126×25）。
 const MNBTTN_SHP: &str = "mnbttn.shp";
 const MNBTTN_PAL: &str = "mainbttn.pal";
 const MNBTTN_FRAME_UP: u16 = 0;
-const MNBTTN_FRAME_PRESSED: u16 = 2;
+const MNBTTN_FRAME_PRESSED: u16 = 1;
+const MNBTTN_FRAME_DISABLED: u16 = 2;
 
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
@@ -204,7 +205,7 @@ const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool,
         normal_frame: Some(MNBTTN_FRAME_UP),
         hover_frame: None,
         pressed_frame: Some(MNBTTN_FRAME_PRESSED),
-        disabled_frame: if enabled { None } else { Some(MNBTTN_FRAME_UP) },
+        disabled_frame: if enabled { None } else { Some(MNBTTN_FRAME_DISABLED) },
     }
 }
 

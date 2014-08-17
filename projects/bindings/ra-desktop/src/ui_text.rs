@@ -40,6 +40,17 @@ pub fn single_player_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 单人页悬停提示 → CSF（底栏 `STT:*`）。
+pub fn single_player_csf_tooltip(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "campaign" => Some("STT:SingleButtonNewCampaign"),
+        "load" => Some("STT:SingleButtonLoadSavedGame"),
+        "skirmish" => Some("STT:SingleButtonSkirmish"),
+        "back" => Some("STT:SingleButtonBack"),
+        _ => None,
+    }
+}
+
 /// 单人页顶栏标题 CSF。
 pub fn single_player_title_csf_key() -> &'static str {
     "GUI:SinglePlayer"
@@ -183,7 +194,52 @@ fn blit_glyph(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     }
 }
 
-/// 在按钮格内水平居中绘制一行（垂直偏上贴近原版）。
+/// 在矩形内左上锚点绘制一行（超出宽度则截断绘制，不居中）。
+///
+/// 对齐 MessageBox 正文静态 `0x5B0`：左/上锚点，在控件矩形内裁剪。
+pub fn blit_caption_top_left_clipped(
+    dst: &mut RgbaImage,
+    fnt: &FntFile,
+    text: &str,
+    cell_x: i32,
+    cell_y: i32,
+    cell_w: i32,
+    cell_h: i32,
+    rgba: [u8; 4],
+) {
+    if cell_w <= 0 || cell_h <= 0 {
+        return;
+    }
+    let th = fnt.bitmap_rows as i32;
+    if th > cell_h {
+        return;
+    }
+    // 逐字绘制并在右边界截断。
+    let mut pen_x = cell_x;
+    let mut first = true;
+    for ch in text.chars() {
+        let cp = ch as u32;
+        if cp > u32::from(u16::MAX) {
+            continue;
+        }
+        let Some(glyph) = fnt.glyph(cp as u16)
+        else {
+            continue;
+        };
+        let advance = if first { 0 } else { 1 } + glyph.width as i32;
+        if pen_x + advance > cell_x + cell_w {
+            break;
+        }
+        if !first {
+            pen_x += 1;
+        }
+        first = false;
+        blit_text_colored(dst, fnt, &ch.to_string(), pen_x, cell_y, rgba);
+        pen_x += glyph.width as i32;
+    }
+}
+
+/// 在按钮格内水平居中绘制一行（垂直居中；按下态由调用方先 inset 格）。
 pub fn blit_caption_in_cell(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell_x: i32, cell_y: i32, cell_w: i32, cell_h: i32, rgba: [u8; 4]) {
     let tw = fnt.text_width(text) as i32;
     let th = fnt.bitmap_rows as i32;

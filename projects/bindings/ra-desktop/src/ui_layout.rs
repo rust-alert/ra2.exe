@@ -270,21 +270,26 @@ pub fn skirmish_map_row_rect(layout: &SkirmishLobbyLayout, index: usize) -> Rect
     RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
 }
 
-/// 退出确认 MessageBox 面板宽（`pudlgbgn` 画布）。
-pub const EXIT_CONFIRM_DIALOG_W: i32 = 450;
-/// 退出确认 MessageBox 面板高。
-pub const EXIT_CONFIRM_DIALOG_H: i32 = 325;
+/// 退出确认 MessageBox 面板宽（安装内 `pudlgbgn.shp` 画布；非 DLU 四舍五入的 450）。
+pub const EXIT_CONFIRM_DIALOG_W: i32 = 451;
+/// 退出确认 MessageBox 面板高（安装内 `pudlgbgn.shp` 画布；非 DLU 四舍五入的 325）。
+pub const EXIT_CONFIRM_DIALOG_H: i32 = 326;
+/// MessageBox 按钮艺术宽（安装内 `mnbttn.shp` 画布）。
+pub const EXIT_CONFIRM_BUTTON_W: i32 = 126;
+/// MessageBox 按钮艺术高（安装内 `mnbttn.shp` 画布）。
+pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 
 /// 退出确认居中框几何（800×600 内容坐标）。
 ///
-/// 对齐零售确认框：居中 `pudlgbgn` 面板 + 正文静态区 + 右侧纵向确定/取消。
+/// 面板尺寸取自 `pudlgbgn` 画布。子控件仍按模板 0x120 的 DLU：
+/// 正文 `0x5B0` `(40,40,220,50)`，确定 `0x5AE` `(207,135,83,15)`，取消 id=2 `(207,175,83,15)`。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExitConfirmLayout {
     /// 对话框底板（`pudlgbgn`）。
     pub dialog: RectPx,
-    /// 提示文案区。
+    /// 提示文案区（左上锚点，非居中）。
     pub prompt: RectPx,
-    /// 确定 / 取消（控件格；按钮图在格内居中）。
+    /// 确定 / 取消（DLU 控件格；`mnbttn` 自左上贴齐，可溢出 1px）。
     pub buttons: [RectPx; 2],
 }
 
@@ -318,13 +323,19 @@ pub fn exit_confirm_layout(_viewport_w: u32, _viewport_h: u32) -> ExitConfirmLay
         EXIT_CONFIRM_DIALOG_W,
         EXIT_CONFIRM_DIALOG_H,
     );
-    // 正文 0x5B0 (40,40,220,50)；OK 0x5AE (207,135,83,15)；Cancel id=2 (207,175,83,15)。
     ExitConfirmLayout {
         dialog,
         prompt: modal_child(dialog, dlu_rect(40, 40, 220, 50)),
+        // 控件原点取 DLU，宽高取 `mnbttn` 画布（126×25），避免 125×24 格内居中错位。
         buttons: [
-            modal_child(dialog, dlu_rect(207, 135, 83, 15)),
-            modal_child(dialog, dlu_rect(207, 175, 83, 15)),
+            {
+                let r = modal_child(dialog, dlu_rect(207, 135, 83, 15));
+                RectPx::new(r.x, r.y, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H)
+            },
+            {
+                let r = modal_child(dialog, dlu_rect(207, 175, 83, 15));
+                RectPx::new(r.x, r.y, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H)
+            },
         ],
     }
 }

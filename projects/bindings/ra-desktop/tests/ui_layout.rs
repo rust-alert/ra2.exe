@@ -55,10 +55,11 @@ fn skirmish_lobby_reuses_right_panel() {
 #[test]
 fn exit_confirm_centers_pudlgbgn_panel() {
     let dlg = exit_confirm_layout(800, 600);
-    assert_eq!(dlg.dialog, RectPx::new(175, 138, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H));
-    // 正文与右侧纵向确定/取消（DLU→像素）。
-    assert_eq!(dlg.prompt, RectPx::new(235, 203, 330, 81));
-    assert_eq!(dlg.buttons[0], RectPx::new(486, 357, 125, 24));
-    assert_eq!(dlg.buttons[1], RectPx::new(486, 422, 125, 24));
+    // 画布 451×326；居中 ((800-451)+1)/2=175，((600-326)+1)/2=137。
+    assert_eq!(dlg.dialog, RectPx::new(175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H));
+    // 正文左上锚点区；按钮原点取 DLU，尺寸取 `mnbttn` 126×25。
+    assert_eq!(dlg.prompt, RectPx::new(235, 202, 330, 81));
+    assert_eq!(dlg.buttons[0], RectPx::new(486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
+    assert_eq!(dlg.buttons[1], RectPx::new(486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
 }
 

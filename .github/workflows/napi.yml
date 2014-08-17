@@ -21,15 +21,15 @@ jobs:
             short: darwin-arm64
     steps:
       - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust Nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           node -e "const p=require('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json'); const path=require('path'); const bin=path.join(path.dirname(require.resolve('./projects/platforms/native/red-alert2-${{ matrix.short }}/package.json')), p.main); const n=require(bin); console.log(n.version());"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: red-alert2-${{ matrix.short }}
           path: projects/platforms/native/red-alert2-${{ matrix.short }}/red-alert2.*.node
@@ -47,17 +47,17 @@ jobs:
   js:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust Nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: wasm32-unknown-unknown
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
