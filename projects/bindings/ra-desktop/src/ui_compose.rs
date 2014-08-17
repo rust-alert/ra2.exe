@@ -13,9 +13,10 @@ use crate::{
         main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
     },
     ui_text::{
-        MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_text_colored,
-        exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label, main_menu_csf_tooltip, options_csf_label,
-        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key,
+        MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,
+        blit_caption_top_left_clipped, blit_text_colored, exit_confirm_csf_label, exit_confirm_prompt_csf_key,
+        main_menu_csf_label, main_menu_csf_tooltip, options_csf_label, options_dialog_csf_key, resolve_caption,
+        resolve_csf_text, single_player_csf_label, single_player_csf_tooltip, single_player_title_csf_key,
         skirmish_lobby_csf_label,
     },
 };
@@ -457,13 +458,14 @@ fn compose_shell_menu_page(
                 MENU_TEXT_ENABLED,
             );
         }
-        if captions == MenuCaptionKind::Main {
-            if let Some(hovered) = hovered_entry_id {
-                if let Some(key) = main_menu_csf_tooltip(hovered) {
-                    if let Some(text) = resolve_csf_text(csf, key) {
-                        blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
-                    }
-                }
+        let tooltip_key = match (captions, hovered_entry_id) {
+            (MenuCaptionKind::Main, Some(hovered)) => main_menu_csf_tooltip(hovered),
+            (MenuCaptionKind::SinglePlayer, Some(hovered)) => single_player_csf_tooltip(hovered),
+            _ => None,
+        };
+        if let Some(key) = tooltip_key {
+            if let Some(text) = resolve_csf_text(csf, key) {
+                blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
             }
         }
     }
@@ -639,7 +641,7 @@ pub fn compose_exit_confirm_page(
     }
     if let Some(fnt) = fnt {
         let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
-        blit_caption_in_cell(
+        blit_caption_top_left_clipped(
             &mut page,
             fnt,
             &prompt,
@@ -663,7 +665,8 @@ pub fn compose_exit_confirm_page(
             normal
         };
         let cell = dlg.buttons[i];
-        blit_centered(&mut page, &sprite.image, cell);
+        // `mnbttn` 自控件 DLU 原点贴齐，不居中缩进。
+        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
             let key = exit_confirm_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
@@ -673,12 +676,6 @@ pub fn compose_exit_confirm_page(
         }
     }
     Some(page)
-}
-
-fn blit_centered(dst: &mut RgbaImage, src: &RgbaImage, cell: RectPx) {
-    let x = cell.x + (cell.w - src.width() as i32) / 2;
-    let y = cell.y + (cell.h - src.height() as i32) / 2;
-    blit_rgba(dst, src, x, y);
 }
 
 /// 合成遭遇战大厅 chrome（可选地图预览与地图名列表）。
