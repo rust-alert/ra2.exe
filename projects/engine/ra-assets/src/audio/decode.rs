@@ -5,13 +5,13 @@
 
 use std::io::Cursor;
 
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{CODEC_TYPE_NULL, DecoderOptions};
+use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
+use symphonia::core::codecs::CodecParameters;
 use symphonia::core::errors::Error as SymError;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 use super::{PcmAudio, WavError};
 
@@ -38,22 +38,20 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
         hint.with_extension(ext.trim_start_matches('.'));
     }
 
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+    let mut format = symphonia::default::get_probe()
+        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
         .map_err(map_sym)?;
 
-    let mut format = probed.format;
     let track = format
-        .tracks()
-        .iter()
-        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .default_track(TrackType::Audio)
         .ok_or(WavError::NoAudioTrack)?
         .clone();
 
-    let sample_rate = track.codec_params.sample_rate.ok_or(WavError::MissingSampleRate)?;
-    let channels = track
-        .codec_params
+    let audio_params = audio_codec_params(&track.codec_params)?;
+    let sample_rate = audio_params.sample_rate.ok_or(WavError::MissingSampleRate)?;
+    let channels = audio_params
         .channels
+        .as_ref()
         .map(|c| c.count() as u16)
         .ok_or(WavError::MissingChannels)?;
     if channels == 0 || channels > 2 {
@@ -61,39 +59,40 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
     }
 
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make_audio_decoder(audio_params, &AudioDecoderOptions::default())
         .map_err(map_sym)?;
 
     let track_id = track.id;
     let mut samples: Vec<i16> = Vec::new();
-    let mut sample_buf: Option<SampleBuffer<i16>> = None;
+    let mut chunk: Vec<i16> = Vec::new();
 
     loop {
         let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            Err(SymError::IoError(_)) => break,
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
             Err(SymError::ResetRequired) => {
-                decoder.reset();
-                continue;
+                // 内存缓冲整段解码极少遇到轨表变更；遇此直接失败即可。
+                return Err(map_sym(SymError::ResetRequired));
             }
             Err(e) => return Err(map_sym(e)),
         };
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
 
         let decoded = match decoder.decode(&packet) {
             Ok(audio) => audio,
             Err(SymError::DecodeError(_)) => continue,
+            Err(SymError::ResetRequired) => {
+                decoder.reset();
+                continue;
+            }
             Err(e) => return Err(map_sym(e)),
         };
 
-        if sample_buf.is_none() {
-            sample_buf = Some(SampleBuffer::new(decoded.capacity() as u64, *decoded.spec()));
-        }
-        let buf = sample_buf.as_mut().unwrap();
-        buf.copy_interleaved_ref(decoded);
-        samples.extend_from_slice(buf.samples());
+        // `copy_to_vec_interleaved` 会按本包长度 resize，不能直接往总缓冲写。
+        decoded.copy_to_vec_interleaved(&mut chunk);
+        samples.extend_from_slice(&chunk);
     }
 
     if samples.is_empty() {
@@ -110,6 +109,13 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
 /// 按 WAV 扩展名提示解码。
 pub fn decode_wav_pcm(data: &[u8]) -> Result<PcmAudio, WavError> {
     decode_audio_bytes(data, Some("wav"))
+}
+
+fn audio_codec_params(params: &Option<CodecParameters>) -> Result<&AudioCodecParameters, WavError> {
+    match params {
+        Some(CodecParameters::Audio(audio)) if audio.codec != CODEC_ID_NULL_AUDIO => Ok(audio),
+        _ => Err(WavError::NoAudioTrack),
+    }
 }
 
 fn map_sym(err: SymError) -> WavError {
