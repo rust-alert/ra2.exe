@@ -8,4 +8,5 @@ description = "配置来源、合并与诊断"
 
 [dependencies]
 ra-types = { workspace = true }
+serde = { workspace = true }
 toml_edit = { workspace = true }

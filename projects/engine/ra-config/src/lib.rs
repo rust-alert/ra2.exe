@@ -11,8 +11,9 @@ use std::{
     sync::Mutex,
 };
 
-use ra_types::DisplayMode;
-use toml_edit::{DocumentMut, Item, Value};
+use ra_types::{DisplayMode, PresentFeel};
+use serde::Deserialize;
+use toml_edit::{DocumentMut, Item, Table, Value};
 
 /// CLI / N-API 一次性启动覆盖（后于 `RustAlert.toml` 生效）。
 #[derive(Debug, Clone)]
@@ -156,18 +157,38 @@ pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<
                     }),
             },
             Item::None => {}
-            _ => diagnostics
-                .push(ConfigDiagnostic {
-                    source: format!("{source_label}:{key}"), message: format!("仅支持根级键值，已跳过 `{key}`")
-                }),
+            // 结构化段（如 `[present]`）由 `DocumentMut` + serde 读取，不进扁平表。
+            Item::Table(_) | Item::ArrayOfTables(_) => {}
         }
     }
     (table, diagnostics)
 }
 
+/// 仅反序列化文档中的 `[present]`（其余根键忽略）。
+#[derive(Debug, Default, Deserialize)]
+struct PresentSectionFile {
+    #[serde(default)]
+    present: PresentFeel,
+}
+
+/// 从完整 TOML 文本读取 `[present]`；缺失则默认，失败则诊断并回退默认。
+pub fn present_feel_from_toml_text(text: &str, source_label: &str) -> (PresentFeel, Vec<ConfigDiagnostic>) {
+    match toml_edit::de::from_str::<PresentSectionFile>(text) {
+        Ok(file) => (file.present.sanitized(), Vec::new()),
+        Err(e) => (
+            PresentFeel::DEFAULT,
+            vec![ConfigDiagnostic {
+                source: source_label.into(),
+                message: format!("[present] 解析失败，已用默认质感: {e}"),
+            }],
+        ),
+    }
+}
+
 /// 首次落盘用的默认 `RustAlert.toml` 文本（含注释，写入当前 `ra2_dir`）。
 pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
     let dir = ra2_dir.display().to_string().replace('\\', "/");
+    let feel = PresentFeel::DEFAULT;
     format!(
         "# RustAlert 桌面启动配置\n\
          # 首次启动时由程序自动生成，可按需修改后持久化。\n\
@@ -181,7 +202,20 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # sound_volume = 0.7           # 壳层点击等短音效，0..1\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
-         # net_room = \"\"     # 预留房间名\n"
+         # net_room = \"\"     # 预留房间名\n\
+         \n\
+         # 壳层质感呈现（模拟原版 16 位色观感；由 toml_edit + serde 读写本表）\n\
+         [present]\n\
+         mode = \"{mode}\"                 # off | 16bit\n\
+         quantize = \"{quant}\"            # rgb565 | rgb555\n\
+         gamma = {gamma}                   # >1 压暗中高光，原版观感约 1.2\n\
+         highlight_roll_off = {roll}       # 0..1，额外压亮部\n\
+         dither = {dither}                 # 量化前有序抖动\n",
+        mode = feel.mode.as_str(),
+        quant = feel.quantize.as_str(),
+        gamma = feel.gamma,
+        roll = feel.highlight_roll_off,
+        dither = feel.dither,
     )
 }
 
@@ -248,6 +282,27 @@ impl RustAlertDocument {
         self.doc[key] = Item::Value(value.into());
     }
 
+    /// 读取 `[present]` 质感表（serde）；缺失则默认。
+    pub fn present_feel(&self) -> (PresentFeel, Vec<ConfigDiagnostic>) {
+        present_feel_from_toml_text(&self.doc.to_string(), &self.path.display().to_string())
+    }
+
+    /// 写入 `[present]` 表（serde → `toml_edit` Item，保留其它根键与注释）。
+    pub fn set_present_feel(&mut self, feel: &PresentFeel) -> Result<(), String> {
+        let feel = feel.sanitized();
+        let generated = toml_edit::ser::to_document(&feel).map_err(|e| format!("序列化 [present] 失败: {e}"))?;
+        let mut table = Table::new();
+        for (key, item) in generated.as_table().iter() {
+            table.insert(key, item.clone());
+        }
+        // 保留已有表装饰（若有）。
+        if let Some(existing) = self.doc.get("present").and_then(Item::as_table) {
+            *table.decor_mut() = existing.decor().clone();
+        }
+        self.doc["present"] = Item::Table(table);
+        Ok(())
+    }
+
     /// 移除根级键。
     pub fn remove(&mut self, key: &str) {
         let _ = self.doc.remove(key);
@@ -290,6 +345,8 @@ pub struct DesktopSettings {
     pub music_volume: f32,
     /// 壳层短音效音量（0..1）。
     pub sound_volume: f32,
+    /// 壳层质感呈现（`[present]` 表）。
+    pub present: PresentFeel,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
     /// 预留房间名。
@@ -304,6 +361,7 @@ impl Default for DesktopSettings {
             display_mode: DisplayMode::DEFAULT,
             music_volume: 0.4,
             sound_volume: 0.7,
+            present: PresentFeel::DEFAULT,
             net_url: None,
             net_room: None,
         }
@@ -387,7 +445,24 @@ impl DesktopSettings {
                     let label = path.display().to_string();
                     let (table, mut diags) = parse_toml_document(&text, &label);
                     diagnostics.append(&mut diags);
-                    layers.push(ConfigLayer { label, table });
+                    layers.push(ConfigLayer { label: label.clone(), table });
+                    let (present, mut present_diags) = present_feel_from_toml_text(&text, &label);
+                    diagnostics.append(&mut present_diags);
+                    let mut merged = MergedConfig::merge_layers(&layers);
+                    merged.diagnostics.append(&mut diagnostics);
+                    let mut settings = Self::from_merged(&merged);
+                    settings.present = present;
+                    if let Some(over) = take_launch_override_snapshot() {
+                        settings.ra2_dir = over.ra2_dir;
+                        if over.edition.is_some() {
+                            settings.edition = over.edition;
+                        }
+                        merged.diagnostics.push(ConfigDiagnostic {
+                            source: "launch-override".into(),
+                            message: format!("CLI/N-API 覆盖 ra2_dir={}", settings.ra2_dir.display()),
+                        });
+                    }
+                    return (settings, merged.diagnostics);
                 }
                 Err(e) => diagnostics.push(ConfigDiagnostic { source: path.display().to_string(), message: format!("读取失败: {e}") }),
             }
@@ -422,6 +497,13 @@ impl DesktopSettings {
         let mut doc = RustAlertDocument::open_or_create()?;
         doc.set_f64("music_volume", music);
         doc.set_f64("sound_volume", sound);
+        doc.save()
+    }
+
+    /// 将 `[present]` 质感表写回规范路径上的 `RustAlert.toml`（保留其它键与注释）。
+    pub fn persist_present_feel(feel: PresentFeel) -> Result<(), String> {
+        let mut doc = RustAlertDocument::open_or_create()?;
+        doc.set_present_feel(&feel)?;
         doc.save()
     }
 }

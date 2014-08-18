@@ -24,6 +24,7 @@ flowchart LR
 |----|------|
 | `ra2_dir` / `game_dir` | 游戏安装根目录 |
 | `edition` | 可选 `ra2` / `yr` / `mo3` 等 |
+| `[present]` | 壳层质感呈现（`PresentFeel`：16 位色模拟参数） |
 
 模板见仓库根目录 `RustAlert.toml.example`。
 

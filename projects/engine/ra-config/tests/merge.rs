@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document};
+use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document, present_feel_from_toml_text};
 use ra_types::DisplayMode;
 
 #[test]
@@ -113,4 +113,51 @@ fn invalid_audio_volume_keeps_default() {
     let s = DesktopSettings::from_merged(&merged);
     assert!((s.music_volume - 0.4).abs() < 1e-6);
     assert!((s.sound_volume - 0.7).abs() < 1e-6);
+}
+
+#[test]
+fn present_table_serde_roundtrip_preserves_other_keys() {
+    let dir = std::env::temp_dir()
+        .join(format!("ra_config_present_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("RustAlert.toml");
+    std::fs::write(
+        &path,
+        "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ngamma = 1.0\ndither = false\n",
+    )
+    .unwrap();
+
+    let mut doc = RustAlertDocument::open(&path).unwrap();
+    let (feel, diags) = doc.present_feel();
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(feel.mode, ra_types::PresentMode::Off);
+
+    let mut next = feel;
+    next.mode = ra_types::PresentMode::Bit16;
+    next.gamma = 1.2;
+    next.dither = true;
+    doc.set_present_feel(&next).unwrap();
+    doc.save().unwrap();
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("# keep me"), "{text}");
+    assert!(text.contains("ra2_dir"), "{text}");
+    assert!(text.contains("[present]"), "{text}");
+    assert!(text.contains("16bit"), "{text}");
+
+    let (again, diags) = present_feel_from_toml_text(&text, "t");
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(again.mode, ra_types::PresentMode::Bit16);
+    assert!((again.gamma - 1.2).abs() < 1e-6);
+    assert!(again.dither);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn parse_toml_skips_present_table_without_diag() {
+    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[present]\nmode = \"16bit\"\n", "t");
+    assert!(d.is_empty(), "{d:?}");
+    assert_eq!(t.get("ra2_dir"), Some("."));
+    assert!(t.get("mode").is_none());
 }

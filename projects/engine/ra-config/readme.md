@@ -55,6 +55,12 @@ doc.save()?;
 | `net_url`  | `battlenet_url` | 预留战网地址                              |
 | `net_room` | `room`          | 预留房间名                                |
 
+结构化段：
+
+| 表          | 类型            | 含义 |
+|-------------|-----------------|------|
+| `[present]` | `PresentFeel`   | 壳层质感呈现（16 位色模拟）；`toml_edit` + serde 读写，不进扁平 `ConfigTable` |
+
 模板见仓库根目录 `RustAlert.toml.example`。
 
 ## 构建与测试

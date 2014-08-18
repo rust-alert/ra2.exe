@@ -8,6 +8,16 @@
 
 # ra2_dir = "C:/path/to/your/ra2"
 # display_mode = "1024x768"   # 640x480 / 800x600 / 1024x768
+# music_volume = 0.4
+# sound_volume = 0.7
 # edition = "ra2"   # 或 "yr"；省略则按目录特征自动探测
 # net_url = ""      # 预留战网地址
 # net_room = ""     # 预留房间名
+
+# 壳层质感呈现（模拟原版 16 位色观感）
+# [present]
+# mode = "16bit"              # off | 16bit
+# quantize = "rgb565"         # rgb565 | rgb555
+# gamma = 1.2                 # >1 压暗中高光
+# highlight_roll_off = 0.0    # 0..1
+# dither = true
