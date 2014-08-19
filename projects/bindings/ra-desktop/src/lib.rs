@@ -28,6 +28,7 @@ pub mod ui_hit;
 pub mod ui_layout;
 pub mod ui_movie;
 pub mod ui_page;
+pub mod ui_present;
 pub mod ui_resolve;
 pub mod ui_slots;
 pub mod ui_text;
