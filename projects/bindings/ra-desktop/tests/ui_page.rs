@@ -7,16 +7,19 @@ fn main_menu_and_single_player_are_declared_complete() {
     assert!(!pages.is_empty());
     for page in &pages {
         match page.screen {
-            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options => {
+            OriginalScreen::MainMenu
+            | OriginalScreen::SinglePlayerMenu
+            | OriginalScreen::Options
+            | OriginalScreen::ExitConfirm => {
                 assert!(page.declared_refs_complete(), "{} 应已声明背景与可点按钮资源名", page.screen.as_str());
                 assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
                 assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
                 assert!(!page.panels.is_empty());
                 assert_eq!(page.movie.as_ref().map(|m| m.name.as_str()), Some("ra2ts_l.bik"));
             }
-            OriginalScreen::SkirmishLobby => {
+            OriginalScreen::SkirmishLobby | OriginalScreen::Campaign => {
                 // 与主菜单共用壳层 chrome；无循环影片槽。
-                assert!(page.declared_refs_complete(), "遭遇战大厅应已声明背景与可点按钮资源名");
+                assert!(page.declared_refs_complete(), "{} 应已声明背景与可点按钮资源名", page.screen.as_str());
                 assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
                 assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
                 assert!(!page.panels.is_empty());

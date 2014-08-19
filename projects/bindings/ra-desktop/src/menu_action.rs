@@ -15,6 +15,16 @@ pub enum MenuAction {
     ConfirmExit,
     /// 进入遭遇战大厅。
     OpenSkirmish,
+    /// 进入战役选边页。
+    OpenCampaign,
+    /// 选中战役侧：盟军。
+    SelectCampaignAllied,
+    /// 选中战役侧：新兵训练营。
+    SelectCampaignTutorial,
+    /// 选中战役侧：苏军。
+    SelectCampaignSoviet,
+    /// 循环战役难度（易 / 中 / 难）。
+    CycleCampaignDifficulty,
     /// 返回上一级。
     Back,
     /// 开始装载遭遇战。
@@ -25,14 +35,16 @@ pub enum MenuAction {
     RetryLoad,
     /// 占位禁用项（不可点，无导航）。
     Noop,
-    /// 循环遭遇战本地阵营。
+    /// 循环遭遇战本地阵营（键盘快捷键；原版在玩家行下拉里改）。
     CycleSide,
-    /// 循环遭遇战难度。
+    /// 循环遭遇战难度（键盘快捷键；原版在 AI 行下拉里改）。
     CycleDifficulty,
     /// 选项页接受（提交草稿）。
     OptionsAccept,
     /// 选项页取消（丢弃草稿）。
     OptionsCancel,
-    /// 选中大厅地图列表中的一项。
+    /// 右栏「选图」：暂切换下一张候选图（完整选图模态后续再接）。
+    ChooseMap,
+    /// 选中大厅地图列表中的一项（选图模态）。
     SelectMap(usize),
 }

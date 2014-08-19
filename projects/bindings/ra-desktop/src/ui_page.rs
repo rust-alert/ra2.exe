@@ -174,6 +174,7 @@ pub fn catalog_pre_game_pages() -> Vec<UiPageResources> {
     [
         OriginalScreen::MainMenu,
         OriginalScreen::SinglePlayerMenu,
+        OriginalScreen::Campaign,
         OriginalScreen::SkirmishLobby,
         OriginalScreen::LoadScreen,
         OriginalScreen::Options,

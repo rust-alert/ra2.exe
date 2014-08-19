@@ -16,6 +16,8 @@ pub enum OriginalScreen {
     MainMenu,
     /// 单人游戏入口（新战役 / 载入 / 遭遇战）。
     SinglePlayerMenu,
+    /// 战役选边页（盟军 / 新兵训练营 / 苏军；Pre-Alpha 可进可回，开局属 Alpha）。
+    Campaign,
     /// 遭遇战大厅（地图、槽位、规则）。
     SkirmishLobby,
     /// 网络游戏入口（Alpha 可见禁用）。
@@ -39,6 +41,7 @@ impl OriginalScreen {
             Self::Splash => "splash",
             Self::MainMenu => "main_menu",
             Self::SinglePlayerMenu => "single_player_menu",
+            Self::Campaign => "campaign",
             Self::SkirmishLobby => "skirmish_lobby",
             Self::Network => "network",
             Self::LoadScreen => "load_screen",
