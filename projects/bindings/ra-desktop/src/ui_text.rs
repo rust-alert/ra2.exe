@@ -51,18 +51,79 @@ pub fn single_player_csf_tooltip(entry_id: &str) -> Option<&'static str> {
     }
 }
 
-/// 单人页顶栏标题 CSF。
+/// 单人页顶栏标题 CSF（对话框 `0x100` 控件 `0x694`）。
 pub fn single_player_title_csf_key() -> &'static str {
-    "GUI:SinglePlayer"
+    "GUI:SinglePlayerMenu"
+}
+
+/// 战役页入口 → CSF 标签。
+pub fn campaign_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "load" => Some("GUI:Load"),
+        "back" => Some("GUI:Back"),
+        _ => None,
+    }
+}
+
+/// 战役页悬停提示 → CSF。
+pub fn campaign_csf_tooltip(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "allied" => Some("STT:CampaignAnimAllied"),
+        "tutorial" => Some("STT:CampaignAnimTutorial"),
+        "soviet" => Some("STT:CampaignAnimSoviet"),
+        "load" => Some("STT:CampaignButtonLoad"),
+        "back" => Some("STT:CampaignButtonBack"),
+        "difficulty" => Some("STT:CampaignSliderDifficulty"),
+        _ => None,
+    }
+}
+
+/// 战役页顶栏标题 CSF（对话框 `0x94` 控件 `0x694`）。
+pub fn campaign_title_csf_key() -> &'static str {
+    "GUI:CampaignMenu"
+}
+
+/// 战役难度档位 → CSF。
+pub fn campaign_difficulty_csf_key(level: u8) -> &'static str {
+    match level {
+        0 => "TXT_EASY",
+        2 => "TXT_HARD",
+        _ => "TXT_NORMAL",
+    }
 }
 
 /// 遭遇战大厅入口 → CSF 标签。
 pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
-        "side" => Some("GUI:PlayerSide"),
-        "difficulty" => Some("GUI:Difficulty"),
-        "start" => Some("GUI:Battle"),
+        "start" => Some("GUI:StartGame"),
+        "choose_map" => Some("GUI:ChooseMap"),
         "back" => Some("GUI:Back"),
+        _ => None,
+    }
+}
+
+/// 遭遇战右栏标题 CSF。
+pub fn skirmish_title_csf_key() -> &'static str {
+    "GUI:SkirmishGame"
+}
+
+/// 遭遇战左栏 / 右栏静态文案 CSF。
+pub fn skirmish_lobby_static_csf_key(kind: &str) -> Option<&'static str> {
+    match kind {
+        "players" => Some("GUI:Players"),
+        "side" => Some("GUI:Side"),
+        "color" => Some("GUI:Color"),
+        "battle" => Some("GUI:Battle"),
+        "short_game" => Some("GUI:ShortGame"),
+        "mcv_repacks" => Some("GUI:MCVRepacks"),
+        "crates" => Some("GUI:CratesAppear"),
+        "superweapons" => Some("GUI:SuperWeaponsAllowed"),
+        "build_off_ally" => Some("GUI:BuildOffAlly"),
+        "game_speed" => Some("GUI:GameSpeed"),
+        "credits" => Some("GUI:Credits"),
+        "unit_count" => Some("GUI:UnitCount"),
+        "ai_hard" => Some("GUI:AIHard"),
+        "none" => Some("GUI:None"),
         _ => None,
     }
 }

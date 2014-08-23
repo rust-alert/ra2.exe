@@ -36,7 +36,25 @@ fn single_player_csf_keys_match_shell_labels() {
     assert_eq!(single_player_csf_label("load"), Some("GUI:LoadSavedGame"));
     assert_eq!(single_player_csf_label("skirmish"), Some("GUI:Skirmish"));
     assert_eq!(single_player_csf_label("back"), Some("GUI:MainMenu"));
-    assert_eq!(single_player_title_csf_key(), "GUI:SinglePlayer");
+    assert_eq!(single_player_title_csf_key(), "GUI:SinglePlayerMenu");
+    assert_eq!(single_player_csf_tooltip("campaign"), Some("STT:SingleButtonNewCampaign"));
+    assert_eq!(single_player_csf_tooltip("load"), Some("STT:SingleButtonLoadSavedGame"));
+    assert_eq!(single_player_csf_tooltip("skirmish"), Some("STT:SingleButtonSkirmish"));
+    assert_eq!(single_player_csf_tooltip("back"), Some("STT:SingleButtonBack"));
+}
+
+#[test]
+fn campaign_csf_keys_match_shell_labels() {
+    assert_eq!(campaign_csf_label("load"), Some("GUI:Load"));
+    assert_eq!(campaign_csf_label("back"), Some("GUI:Back"));
+    assert_eq!(campaign_title_csf_key(), "GUI:CampaignMenu");
+    assert_eq!(campaign_csf_tooltip("allied"), Some("STT:CampaignAnimAllied"));
+    assert_eq!(campaign_csf_tooltip("tutorial"), Some("STT:CampaignAnimTutorial"));
+    assert_eq!(campaign_csf_tooltip("soviet"), Some("STT:CampaignAnimSoviet"));
+    assert_eq!(campaign_csf_tooltip("difficulty"), Some("STT:CampaignSliderDifficulty"));
+    assert_eq!(campaign_difficulty_csf_key(0), "TXT_EASY");
+    assert_eq!(campaign_difficulty_csf_key(1), "TXT_NORMAL");
+    assert_eq!(campaign_difficulty_csf_key(2), "TXT_HARD");
 }
 
 #[test]
