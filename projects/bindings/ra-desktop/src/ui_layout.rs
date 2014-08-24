@@ -46,8 +46,18 @@ pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = [
 /// 顺序：新战役 → 载入 → 遭遇战 → 主菜单（贴底盖）。
 pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "load", "skirmish", "back"];
 
+/// 战役页右栏按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+///
+/// 顺序对齐对话框 `0x94`：载入 → 上一页（贴底）。
+pub const CAMPAIGN_BUTTON_IDS: [&str; 2] = ["load", "back"];
+
+/// 战役三侧入口 id（盟军 / 新兵训练营 / 苏军；`battle.ini` 的 ALL1 / TUT1 / SOV1）。
+pub const CAMPAIGN_SIDE_IDS: [&str; 3] = ["allied", "tutorial", "soviet"];
+
 /// 遭遇战大厅右侧按钮入口 id（与 `ui_slots` 顺序一致）。
-pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 4] = ["side", "difficulty", "start", "back"];
+///
+/// 顺序对齐原版 0x102：开始游戏 → 选图（自订战役）→ 上一页（贴底）。
+pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 3] = ["start", "choose_map", "back"];
 
 /// 选项页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -55,12 +65,16 @@ pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
 /// 退出确认对话框按钮 id。
 pub const EXIT_CONFIRM_BUTTON_IDS: [&str; 2] = ["ok", "cancel"];
 
-/// 大厅地图列表最多可见行。
-pub const LOBBY_MAP_ROW_MAX: i32 = 6;
-/// 大厅地图列表行高（像素）。
-pub const LOBBY_MAP_ROW_H: i32 = 28;
-/// 大厅地图列表行间距。
-pub const LOBBY_MAP_ROW_GAP: i32 = 6;
+/// 遭遇战玩家行数（本地 + AI）。
+pub const SKIRMISH_ROW_COUNT: usize = 8;
+/// 遭遇战 AI 行数（不含本地玩家）。
+pub const SKIRMISH_AI_ROW_COUNT: usize = 7;
+/// 下拉面高度（像素）。
+pub const SKIRMISH_COMBO_FACE_H: i32 = 24;
+/// 勾选图标宽。
+pub const SKIRMISH_CHECK_W: i32 = 18;
+/// 勾选图标高。
+pub const SKIRMISH_CHECK_H: i32 = 18;
 
 /// 轴对齐矩形（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -203,45 +217,198 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
     layout
 }
 
-/// 遭遇战大厅专用布局（壳层 chrome + 左侧列表/预览分区）。
-///
-/// 不再复用单人页布局函数；右侧四钮几何可与壳层惯例相近，但左侧分区独立。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SkirmishLobbyLayout {
-    /// 共用壳层 chrome（背景 / 右栏 / 底条）。
-    pub shell: MainMenuLayout,
-    /// 地图名列表区（左上）。
-    pub map_list: RectPx,
-    /// 地图预览区（列表下方）。
-    pub map_preview: RectPx,
+fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
+    // MS Sans Serif 8pt：x×6/4、y×13/8，四舍五入。
+    fn mul_div_round(n: i32, numer: i32, denom: i32) -> i32 {
+        let value = n * numer;
+        if value >= 0 {
+            (value + denom / 2) / denom
+        } else {
+            (value - denom / 2) / denom
+        }
+    }
+    RectPx::new(
+        mul_div_round(x, 6, 4),
+        mul_div_round(y, 13, 8),
+        mul_div_round(w, 6, 4),
+        mul_div_round(h, 13, 8),
+    )
 }
 
-/// 遭遇战大厅布局（800×600 内容坐标）。
+fn skirmish_snap_button(source: RectPx, panel_tile_y: i32) -> RectPx {
+    // 偏置截断：相对 `sdbtnbkgd` 列顶，按 42px 格吸附（壳层 chrome，非截图估）。
+    let tile_h = RIGHT_PANEL_TILE_H.max(1);
+    let tile_index = ((source.y - panel_tile_y + tile_h / 2) / tile_h).max(0);
+    button_cell(SHELL_BASE_W - RIGHT_PANEL_W, panel_tile_y + tile_index * tile_h)
+}
+
+fn skirmish_right_anchor(base: RectPx) -> RectPx {
+    // 右栏静态/预览：相对 `RIGHT_PANEL_W` 水平居中锚到右缘。
+    let inset = (RIGHT_PANEL_W - base.w) / 2;
+    RectPx::new(SHELL_BASE_W - base.w - inset, base.y, base.w, base.h)
+}
+
+fn combo_face(dlu: RectPx) -> RectPx {
+    RectPx::new(dlu.x, dlu.y, dlu.w, SKIRMISH_COMBO_FACE_H)
+}
+
+/// 遭遇战大厅专用布局（左：玩家行 + 选项；右：预览 + 开始/选图/返回）。
+///
+/// 控件 DLU 取自安装 `game.exe` 的 `RT_DIALOG` id=`258`（`0x102`）模板；
+/// 右栏 owner-draw 钮再按壳层 42px 格吸附。禁止按截图像素估坐标。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SkirmishLobbyLayout {
+    /// 共用壳层 chrome（背景 / 右栏）。遭遇战不画底条装饰。
+    pub shell: MainMenuLayout,
+    /// 右栏小地图预览（`0x468`）。
+    pub map_preview: RectPx,
+    /// 右栏标题（`0x694` / `GUI:SkirmishGame`）。
+    pub title: RectPx,
+    /// 右栏游戏类型（`0x6EC`）。
+    pub game_type: RectPx,
+    /// 右栏地图名（`0x5A8`）。
+    pub map_label: RectPx,
+    /// 本地玩家名（`0x6A0`）。
+    pub player_name: RectPx,
+    /// 各行阵营旗（`0x6DA`..`0x6E1`）。
+    pub flags: [RectPx; SKIRMISH_ROW_COUNT],
+    /// 各行国家下拉面。
+    pub side_faces: [RectPx; SKIRMISH_ROW_COUNT],
+    /// 各行颜色下拉面。
+    pub color_faces: [RectPx; SKIRMISH_ROW_COUNT],
+    /// AI 难度/类型下拉面（行 1..=7）。
+    pub ai_faces: [RectPx; SKIRMISH_AI_ROW_COUNT],
+    /// 勾选：`0x54E` / `0x693` / `0x696` / `0x69A` / `0x69D`。
+    pub checkboxes: [RectPx; 5],
+    /// 游戏速度滑条（`0x529`）。
+    pub track_speed: RectPx,
+    /// 资金滑条（`0x511`）。
+    pub track_credits: RectPx,
+    /// 部队数滑条（`0x50C`）。
+    pub track_units: RectPx,
+    /// 速度说明（`0x699` / `GUI:GameSpeed`）。
+    pub label_speed: RectPx,
+    /// 资金说明（`0x69B` / `GUI:Credits`）。
+    pub label_credits: RectPx,
+    /// 部队数说明（`0x69C` / `GUI:UnitCount`）。
+    pub label_units: RectPx,
+    /// 底栏状态提示（`0x695`）。
+    pub status_help: RectPx,
+}
+
+/// 遭遇战大厅布局（800×600 内容坐标；DLU→px 用 MS Sans Serif 8pt）。
 pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyLayout {
-    let shell = main_menu_layout(viewport_w, viewport_h);
-    let exit_y = shell.panel_bottom.y - BUTTON_CELL_H;
-    let panel_x = shell.panel_top.x;
-    let tile_y = shell.panel_tile.y;
-    let mut shell = shell;
-    // 右栏：阵营 / 难度 / 开始 连格，返回贴底盖。
+    let mut shell = main_menu_layout(viewport_w, viewport_h);
+    // 遭遇战无 `lwscrnl` 底条；右栏三钮：开始 / 选图 / 返回（贴底盖格）。
+    shell.lower_strip = RectPx::new(0, 0, 0, 0);
+    let start = skirmish_snap_button(dlu_rect(318, 149, 108, 23), shell.panel_tile.y);
+    let choose = skirmish_snap_button(dlu_rect(318, 176, 108, 23), shell.panel_tile.y);
+    // 返回：壳层贴底盖上沿一行（owner-draw 底行惯例），不用对话框里偏上的 `0x5C0` y。
+    let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
     shell.buttons = [
-        button_cell(panel_x, tile_y),
-        button_cell(panel_x, tile_y + BUTTON_CELL_H),
-        button_cell(panel_x, tile_y + 2 * BUTTON_CELL_H),
-        button_cell(panel_x, exit_y),
+        start,
+        choose,
+        back,
+        RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
     ];
-    let content_w = (shell.movie.w - 32).max(1);
-    let list_h = LOBBY_MAP_ROW_MAX * LOBBY_MAP_ROW_H + (LOBBY_MAP_ROW_MAX - 1) * LOBBY_MAP_ROW_GAP + 16;
-    let map_list = RectPx::new(shell.movie.x + 16, shell.movie.y + 16, content_w, list_h);
-    let preview_y = map_list.y + map_list.h + 12;
-    let preview_h = (shell.movie.y + shell.movie.h - preview_y - 16).max(80);
-    let map_preview = RectPx::new(shell.movie.x + 16, preview_y, content_w, preview_h);
+
+    // 行 y DLU：本地 11，其后每行 +16（与模板旗标/下拉一致）。
+    let row_y = |i: usize| 11 + (i as i32) * 16;
+    let mut flags = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
+    let mut side_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
+    let mut color_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
+    let mut ai_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_AI_ROW_COUNT];
+    for i in 0..SKIRMISH_ROW_COUNT {
+        let y = row_y(i);
+        flags[i] = dlu_rect(143, y, 32, 12);
+        side_faces[i] = combo_face(dlu_rect(180, y, 78, 74));
+        color_faces[i] = combo_face(dlu_rect(264, y, 35, 73));
+    }
+    for i in 0..SKIRMISH_AI_ROW_COUNT {
+        let y = row_y(i + 1);
+        ai_faces[i] = combo_face(dlu_rect(35, y, 100, 74));
+    }
+
     SkirmishLobbyLayout {
         shell,
-        map_list,
-        map_preview,
+        map_preview: skirmish_right_anchor(dlu_rect(324, 23, 96, 69)),
+        title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
+        game_type: skirmish_right_anchor(dlu_rect(327, 103, 90, 10)),
+        map_label: skirmish_right_anchor(dlu_rect(327, 116, 90, 20)),
+        player_name: dlu_rect(35, 11, 100, 12),
+        flags,
+        side_faces,
+        color_faces,
+        ai_faces,
+        checkboxes: [
+            dlu_rect(35, 145, 100, 10),
+            dlu_rect(35, 162, 100, 10),
+            dlu_rect(35, 179, 100, 10),
+            dlu_rect(35, 197, 103, 10),
+            dlu_rect(146, 196, 166, 11),
+        ],
+        track_speed: dlu_rect(214, 145, 85, 13),
+        track_credits: dlu_rect(214, 162, 85, 13),
+        track_units: dlu_rect(214, 179, 85, 13),
+        label_speed: dlu_rect(146, 145, 60, 10),
+        label_credits: dlu_rect(146, 162, 60, 10),
+        label_units: dlu_rect(146, 179, 60, 10),
+        status_help: dlu_rect(10, 282, 303, 12),
+    }
+}
+
+/// 战役选边页布局（左：三侧图 + 难度；右：载入 / 返回）。
+///
+/// 控件 DLU 取自安装 `game.exe` 的 `RT_DIALOG` id=`148`（`0x94`）模板；
+/// 右栏 owner-draw 钮再按壳层 42px 格吸附。禁止按截图像素估坐标。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CampaignLayout {
+    /// 共用壳层 chrome（背景 / 右栏 / 底条）。
+    pub shell: MainMenuLayout,
+    /// 右栏标题（`0x694` / `GUI:CampaignMenu`）。
+    pub title: RectPx,
+    /// 盟军侧图（`0x6EA` / `fsalg.shp`）。
+    pub allied: RectPx,
+    /// 新兵训练营侧图（`0x6EB` / `fsbclg.shp`）。
+    pub tutorial: RectPx,
+    /// 苏军侧图（`0x6EC` / `fsslg.shp`）。
+    pub soviet: RectPx,
+    /// 难度标签（`0x71E` / `GUI:Difficulty`）。
+    pub difficulty_label: RectPx,
+    /// 难度当前值（`0x670`）。
+    pub difficulty_value: RectPx,
+    /// 难度滑条（`0x50F`）。
+    pub difficulty_track: RectPx,
+    /// 底栏状态提示（`0x695`）。
+    pub status_help: RectPx,
+}
+
+/// 战役页布局（800×600 内容坐标；DLU→px 用 MS Sans Serif 8pt）。
+pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
+    let mut shell = main_menu_layout(viewport_w, viewport_h);
+    // 载入：`0x40E` (318,122,108,23)；返回贴底盖（不用模板偏上的 `0x686` y）。
+    let load = skirmish_snap_button(dlu_rect(318, 122, 108, 23), shell.panel_tile.y);
+    let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
+    shell.buttons = [
+        load,
+        back,
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
+    CampaignLayout {
+        shell,
+        title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
+        allied: dlu_rect(16, 10, 284, 71),
+        tutorial: dlu_rect(41, 85, 232, 56),
+        soviet: dlu_rect(52, 145, 212, 71),
+        difficulty_label: dlu_rect(90, 234, 75, 12),
+        difficulty_value: dlu_rect(155, 234, 75, 12),
+        difficulty_track: dlu_rect(90, 250, 140, 13),
+        status_help: dlu_rect(8, 282, 303, 12),
     }
 }
 
@@ -260,14 +427,6 @@ pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
         RectPx::new(0, 0, 0, 0),
     ];
     layout
-}
-
-/// 大厅地图列表第 `index` 行的像素矩形（相对大厅布局）。
-pub fn skirmish_map_row_rect(layout: &SkirmishLobbyLayout, index: usize) -> RectPx {
-    let list_x = layout.map_list.x + 8;
-    let list_w = (layout.map_list.w - 16).max(1);
-    let y = layout.map_list.y + 8 + (index as i32) * (LOBBY_MAP_ROW_H + LOBBY_MAP_ROW_GAP);
-    RectPx::new(list_x, y, list_w, LOBBY_MAP_ROW_H)
 }
 
 /// 退出确认 MessageBox 面板宽（安装内 `pudlgbgn.shp` 画布；非 DLU 四舍五入的 450）。
@@ -291,24 +450,6 @@ pub struct ExitConfirmLayout {
     pub prompt: RectPx,
     /// 确定 / 取消（DLU 控件格；`mnbttn` 自左上贴齐，可溢出 1px）。
     pub buttons: [RectPx; 2],
-}
-
-fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
-    // MS Sans Serif 8pt：x×6/4、y×13/8，四舍五入。
-    fn mul_div_round(n: i32, numer: i32, denom: i32) -> i32 {
-        let value = n * numer;
-        if value >= 0 {
-            (value + denom / 2) / denom
-        } else {
-            (value - denom / 2) / denom
-        }
-    }
-    RectPx::new(
-        mul_div_round(x, 6, 4),
-        mul_div_round(y, 13, 8),
-        mul_div_round(w, 6, 4),
-        mul_div_round(h, 13, 8),
-    )
 }
 
 fn modal_child(dialog: RectPx, local: RectPx) -> RectPx {

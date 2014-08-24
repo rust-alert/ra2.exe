@@ -25,8 +25,8 @@ fn single_player_order_is_campaign_load_skirmish_back() {
     let page = slots_for(OriginalScreen::SinglePlayerMenu).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
     assert_eq!(ids, ["campaign", "load", "skirmish", "back"]);
-    assert!(!page.buttons[0].enabled);
-    assert!(matches!(page.buttons[0].action, MenuAction::Noop));
+    assert!(page.buttons[0].enabled);
+    assert!(matches!(page.buttons[0].action, MenuAction::OpenCampaign));
     assert!(!page.buttons[1].enabled);
     assert!(matches!(page.buttons[1].action, MenuAction::Noop));
     assert!(page.buttons[2].enabled);
@@ -37,6 +37,21 @@ fn single_player_order_is_campaign_load_skirmish_back() {
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.buttons[2].normal_frame, Some(2));
     assert_eq!(page.buttons[2].pressed_frame, Some(4));
+}
+
+#[test]
+fn campaign_declares_three_side_panels_and_rail() {
+    let page = slots_for(OriginalScreen::Campaign).unwrap();
+    let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
+    assert_eq!(ids, ["load", "back"]);
+    assert!(!page.buttons[0].enabled);
+    assert!(page.buttons[1].enabled);
+    assert!(matches!(page.buttons[1].action, MenuAction::Back));
+    assert_eq!(page.movie_bik, None);
+    assert!(page.panels.iter().any(|p| p.shp == "fsalg.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "fsbclg.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "fsslg.shp"));
+    assert!(page.has_any_asset_name());
 }
 
 #[test]
@@ -74,17 +89,19 @@ fn options_rail_accept_cancel_main_menu() {
 }
 
 #[test]
-fn skirmish_lobby_exposes_side_and_difficulty() {
+fn skirmish_lobby_exposes_start_choose_map_back() {
     let page = slots_for(OriginalScreen::SkirmishLobby).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["side", "difficulty", "start", "back"]);
-    assert!(matches!(page.buttons[0].action, MenuAction::CycleSide));
-    assert!(matches!(page.buttons[1].action, MenuAction::CycleDifficulty));
+    assert_eq!(ids, ["start", "choose_map", "back"]);
+    assert!(matches!(page.buttons[0].action, MenuAction::StartSkirmish));
+    assert!(matches!(page.buttons[1].action, MenuAction::ChooseMap));
+    assert!(matches!(page.buttons[2].action, MenuAction::Back));
     assert!(page.has_any_asset_name());
     assert_eq!(page.background_shp, Some("mnscrnl.shp"));
     assert_eq!(page.buttons[0].normal_frame, Some(2));
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
+    assert!(!page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
     assert_eq!(page.fonts, &["game.fnt"]);
 }
 

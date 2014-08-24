@@ -168,17 +168,43 @@ const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
 // 命中框占位；实际点击走 `ui_layout` 单人页像素格。
 // 顺序对齐壳层：新战役 / 载入 / 遭遇战 / 主菜单（贴底）。
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("campaign", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("campaign", MenuAction::OpenCampaign, true, (0.805, 0.3317, 1.0, 0.4017)),
     main_menu_button("load", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
     main_menu_button("skirmish", MenuAction::OpenSkirmish, true, (0.805, 0.4717, 1.0, 0.5417)),
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
+/// 战役页：右栏载入（未实现）+ 返回；三侧图走面板槽解码。
+const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[
+    main_menu_button("load", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
+];
+
+/// 战役页面板：壳层 chrome + 三侧动画图（`neutral.mix` 证据）。
+const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
+    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
+    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "allied", shp: "fsalg.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "tutorial", shp: "fsbclg.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "soviet", shp: "fsslg.shp", pal: "shell.pal", frame: 0 },
+];
+
+// 命中框占位；实际点击走 `ui_layout` 遭遇战像素格。
+// 顺序：开始游戏 / 选图 / 上一页（贴底）。
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("side", MenuAction::CycleSide, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("difficulty", MenuAction::CycleDifficulty, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("start", MenuAction::StartSkirmish, true, (0.805, 0.4717, 1.0, 0.5417)),
-    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
+    main_menu_button("start", MenuAction::StartSkirmish, true, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("choose_map", MenuAction::ChooseMap, true, (0.805, 0.4717, 1.0, 0.5417)),
+    main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
+];
+
+/// 遭遇战右栏：有 `sdtp` 外壳与按钮底，但不画 WARNING 动画与底条。
+const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
+    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
+    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
 ];
 
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
@@ -266,15 +292,27 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: MAIN_MENU_FONTS,
             buttons: SINGLE_PLAYER_BUTTONS,
         }),
-        OriginalScreen::SkirmishLobby => Some(UiPageSlots {
+        OriginalScreen::Campaign => Some(UiPageSlots {
             screen,
-            // Pre-Alpha：与主菜单/单人页共用已证实壳层 chrome；大厅专用板面后续再换。
+            // 无循环影片：左区画三侧 `fs*.shp`；右栏仍用壳层 chrome。
             background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: None,
-            panels: MAIN_MENU_PANELS,
+            panels: CAMPAIGN_PANELS,
+            fonts: MAIN_MENU_FONTS,
+            buttons: CAMPAIGN_BUTTONS,
+        }),
+        OriginalScreen::SkirmishLobby => Some(UiPageSlots {
+            screen,
+            // 背景仍用已证实的 `mnscrnl`；右栏去掉 WARNING / 底条，预览叠在 `sdtp` 窗内。
+            background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
+            background_pal: Some("shell.pal"),
+            background_frame: 0,
+            movie_bik: None,
+            panels: SKIRMISH_LOBBY_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: SKIRMISH_LOBBY_BUTTONS,
         }),

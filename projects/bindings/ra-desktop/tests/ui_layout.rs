@@ -42,14 +42,43 @@ fn main_menu_exit_sits_on_bottom_cover() {
 }
 
 #[test]
-fn skirmish_lobby_reuses_right_panel() {
-    let layout = skirmish_lobby_layout(1024, 768);
-    assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS.len(), 4);
-    assert_eq!(layout.shell.buttons[0].y, RIGHT_PANEL_TOP_H);
-    assert_eq!(layout.shell.buttons[3].y, layout.shell.panel_bottom.y - BUTTON_CELL_H);
-    let row0 = skirmish_map_row_rect(&layout, 0);
-    assert!(row0.w > 0);
-    assert!(row0.y >= layout.shell.movie.y);
+fn skirmish_lobby_matches_game_exe_dialog_0x102() {
+    let layout = skirmish_lobby_layout(800, 600);
+    assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS, ["start", "choose_map", "back"]);
+    // 开始/选图：模板 y DLU 149/176 → 吸附到 tile 1/2。
+    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 241, 156, 42));
+    assert_eq!(layout.shell.buttons[1], RectPx::new(644, 283, 156, 42));
+    assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
+    // 预览 `0x468` DLU (324,23,96,69) → right_anchor。
+    assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
+    // 玩家名 `0x6A0` DLU (35,11,100,12)。
+    assert_eq!(layout.player_name, RectPx::new(53, 18, 150, 20));
+    // 快速游戏 `0x54E` DLU (35,145,100,10)。
+    assert_eq!(layout.checkboxes[0], RectPx::new(53, 236, 150, 16));
+    // 速度滑条 `0x529` DLU (214,145,85,13)。
+    assert_eq!(layout.track_speed, RectPx::new(321, 236, 128, 21));
+    assert_eq!(layout.label_speed, RectPx::new(219, 236, 90, 16));
+    assert_eq!(layout.shell.lower_strip, RectPx::new(0, 0, 0, 0));
+}
+
+#[test]
+fn campaign_matches_game_exe_dialog_0x94() {
+    use ra_desktop::ui_layout::{CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, campaign_layout};
+    let layout = campaign_layout(800, 600);
+    assert_eq!(CAMPAIGN_BUTTON_IDS, ["load", "back"]);
+    assert_eq!(CAMPAIGN_SIDE_IDS, ["allied", "tutorial", "soviet"]);
+    // 载入 `0x40E` DLU (318,122,108,23) → 吸附 tile 0；返回贴底盖。
+    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 199, 156, 42));
+    assert_eq!(layout.shell.buttons[1], RectPx::new(644, 535, 156, 42));
+    // 三侧图 `0x6EA`/`0x6EB`/`0x6EC`。
+    assert_eq!(layout.allied, RectPx::new(24, 16, 426, 115));
+    assert_eq!(layout.tutorial, RectPx::new(62, 138, 348, 91));
+    assert_eq!(layout.soviet, RectPx::new(78, 236, 318, 115));
+    // 难度标签 / 值 / 滑条。
+    assert_eq!(layout.difficulty_label, RectPx::new(135, 380, 113, 20));
+    assert_eq!(layout.difficulty_value, RectPx::new(233, 380, 113, 20));
+    assert_eq!(layout.difficulty_track, RectPx::new(135, 406, 210, 21));
+    assert_eq!(layout.status_help, RectPx::new(12, 458, 455, 20));
 }
 
 #[test]
@@ -62,4 +91,3 @@ fn exit_confirm_centers_pudlgbgn_panel() {
     assert_eq!(dlg.buttons[0], RectPx::new(486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
     assert_eq!(dlg.buttons[1], RectPx::new(486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
 }
-
