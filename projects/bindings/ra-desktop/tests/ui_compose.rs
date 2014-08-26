@@ -88,7 +88,7 @@ fn compose_single_player_uses_skirmish_id() {
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
 }
 #[test]
-fn compose_skirmish_lobby_uses_side_id() {
+fn compose_skirmish_lobby_uses_start_id() {
     let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
     let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
     let pressed = solid_sprite("sdbtnanm.shp#4", [0, 0, 200, 255]);
@@ -97,10 +97,11 @@ fn compose_skirmish_lobby_uses_side_id() {
         panels: Vec::new(),
         button_normals: SKIRMISH_LOBBY_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
         button_hovers: Vec::new(),
-        button_presseds: vec![("side", pressed)],
+        button_presseds: vec![("start", pressed)],
         errors: Vec::new(),
     };
-    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("side"), None, None, None, None, &[], 0).unwrap();
+    let paint = SkirmishLobbyPaint::default();
+    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, &paint, 0).unwrap();
     let layout = skirmish_lobby_layout(800, 600);
     let cell = layout.shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -130,4 +131,26 @@ fn compose_options_uses_main_menu_id() {
     let cell = layout.buttons[2];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[200, 200, 0, 255]);
+}
+
+#[test]
+fn compose_campaign_uses_back_id() {
+    use ra_desktop::ui_layout::{CAMPAIGN_BUTTON_IDS, campaign_layout};
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+    let pressed = solid_sprite("sdbtnanm.shp#4", [0, 200, 200, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: Vec::new(),
+        button_normals: CAMPAIGN_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+        button_hovers: Vec::new(),
+        button_presseds: vec![("back", pressed)],
+        errors: Vec::new(),
+    };
+    let paint = CampaignPaint { selected_side: Some("allied"), difficulty: 1 };
+    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, paint, 0).unwrap();
+    let layout = campaign_layout(800, 600);
+    let cell = layout.shell.buttons[1];
+    let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
+    assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 200, 255]);
 }

@@ -8,16 +8,18 @@ use ra_renderer::RgbaImage;
 use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        EXIT_CONFIRM_BUTTON_IDS, LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx,
-        SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, exit_confirm_layout,
-        main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout, skirmish_map_row_rect,
+        CAMPAIGN_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS,
+        RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
+        SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, exit_confirm_layout, main_menu_layout,
+        options_layout, single_player_layout, skirmish_lobby_layout,
     },
     ui_text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,
-        blit_caption_top_left_clipped, blit_text_colored, exit_confirm_csf_label, exit_confirm_prompt_csf_key,
+        blit_caption_top_left_clipped, blit_text_colored, campaign_csf_label, campaign_csf_tooltip,
+        campaign_difficulty_csf_key, campaign_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key,
         main_menu_csf_label, main_menu_csf_tooltip, options_csf_label, options_dialog_csf_key, resolve_caption,
         resolve_csf_text, single_player_csf_label, single_player_csf_tooltip, single_player_title_csf_key,
-        skirmish_lobby_csf_label,
+        skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
     },
 };
 
@@ -26,6 +28,7 @@ use crate::{
 enum MenuCaptionKind {
     Main,
     SinglePlayer,
+    Campaign,
     SkirmishLobby,
 }
 
@@ -34,6 +37,7 @@ impl MenuCaptionKind {
         match self {
             Self::Main => main_menu_csf_label(entry_id),
             Self::SinglePlayer => single_player_csf_label(entry_id),
+            Self::Campaign => campaign_csf_label(entry_id),
             Self::SkirmishLobby => skirmish_lobby_csf_label(entry_id),
         }
     }
@@ -415,10 +419,8 @@ fn compose_shell_menu_page(
 
     for (i, entry_id) in button_ids.iter().enumerate() {
         let normal = find_button_normal(decoded, entry_id)?;
-        let disabled = matches!(
-            *entry_id,
-            "ww_online" | "network" | "movies" | "campaign" | "load"
-        );
+        // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
+        let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load");
         let sprite = if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
         } else if hovered_entry_id == Some(*entry_id) && !disabled {
@@ -444,7 +446,8 @@ fn compose_shell_menu_page(
             MenuCaptionKind::SinglePlayer => {
                 Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key())))
             }
-            MenuCaptionKind::SkirmishLobby => None,
+            // 战役 / 遭遇战标题由各自 compose 按对话框锚点另画。
+            MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby => None,
         };
         if let Some(title) = title {
             blit_caption_in_cell(
@@ -461,6 +464,7 @@ fn compose_shell_menu_page(
         let tooltip_key = match (captions, hovered_entry_id) {
             (MenuCaptionKind::Main, Some(hovered)) => main_menu_csf_tooltip(hovered),
             (MenuCaptionKind::SinglePlayer, Some(hovered)) => single_player_csf_tooltip(hovered),
+            // 战役底栏提示用对话框 `0x695` 锚点，在 `compose_campaign_page` 另画。
             _ => None,
         };
         if let Some(key) = tooltip_key {
@@ -523,6 +527,126 @@ pub fn compose_single_player_page(
         MenuCaptionKind::SinglePlayer,
         panel_anim_frame,
     )
+}
+
+/// 战役选边绘制参数（Pre-Alpha：只记选择，不开局）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CampaignPaint {
+    /// 已选侧：`allied` / `tutorial` / `soviet`。
+    pub selected_side: Option<&'static str>,
+    /// 难度档：0 易 / 1 中 / 2 难。
+    pub difficulty: u8,
+}
+
+impl Default for CampaignPaint {
+    fn default() -> Self {
+        Self { selected_side: None, difficulty: 1 }
+    }
+}
+
+/// 合成战役选边页：三侧图 + 难度 + 右栏载入/返回。
+pub fn compose_campaign_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    paint: CampaignPaint,
+    panel_anim_frame: usize,
+) -> Option<RgbaImage> {
+    let layout = campaign_layout(viewport_w, viewport_h);
+    let mut page = compose_shell_menu_page(
+        decoded,
+        layout.shell,
+        &CAMPAIGN_BUTTON_IDS,
+        pressed_entry_id,
+        hovered_entry_id,
+        fnt,
+        csf,
+        None,
+        MenuCaptionKind::Campaign,
+        panel_anim_frame,
+    )?;
+
+    let sides = [
+        ("allied", "fsalg.shp", layout.allied),
+        ("tutorial", "fsbclg.shp", layout.tutorial),
+        ("soviet", "fsslg.shp", layout.soviet),
+    ];
+    for (id, shp, rect) in sides {
+        if let Some(sprite) = find_panel(decoded, shp, panel_anim_frame) {
+            blit_stretched(&mut page, &sprite.image, rect);
+        }
+        let selected = paint.selected_side == Some(id);
+        let hovered = hovered_entry_id == Some(id);
+        if selected || hovered {
+            let color = if selected { [255, 214, 0, 255] } else { [180, 24, 24, 255] };
+            stroke_rect(&mut page, rect, color);
+        }
+    }
+
+    // 难度轨：底槽 + 按档位落点（控件 `0x50F`）。
+    fill_rect(&mut page, layout.difficulty_track, [20, 12, 12, 255]);
+    stroke_rect(&mut page, layout.difficulty_track, [180, 24, 24, 255]);
+    let level = paint.difficulty.min(2) as i32;
+    let thumb_w = 18;
+    let span = (layout.difficulty_track.w - thumb_w).max(1);
+    let thumb_x = layout.difficulty_track.x + (span * level) / 2;
+    fill_rect(
+        &mut page,
+        RectPx::new(thumb_x, layout.difficulty_track.y, thumb_w, layout.difficulty_track.h),
+        [220, 40, 40, 255],
+    );
+
+    if let Some(fnt) = fnt {
+        let title = resolve_caption(csf, "campaign", Some(campaign_title_csf_key()));
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &title,
+            layout.title.x,
+            layout.title.y,
+            layout.title.w,
+            layout.title.h,
+            MENU_TEXT_ENABLED,
+        );
+        let diff_label = resolve_caption(csf, "difficulty", Some("GUI:Difficulty"));
+        blit_text_colored(
+            &mut page,
+            fnt,
+            &diff_label,
+            layout.difficulty_label.x,
+            layout.difficulty_label.y,
+            MENU_TEXT_ENABLED,
+        );
+        let diff_value = resolve_caption(csf, "difficulty_value", Some(campaign_difficulty_csf_key(paint.difficulty)));
+        blit_text_colored(
+            &mut page,
+            fnt,
+            &diff_value,
+            layout.difficulty_value.x,
+            layout.difficulty_value.y,
+            MENU_TEXT_ENABLED,
+        );
+        if let Some(hovered) = hovered_entry_id {
+            if let Some(key) = campaign_csf_tooltip(hovered) {
+                if let Some(text) = resolve_csf_text(csf, key) {
+                    blit_text_colored(
+                        &mut page,
+                        fnt,
+                        &text,
+                        layout.status_help.x,
+                        layout.status_help.y,
+                        MENU_TEXT_ENABLED,
+                    );
+                }
+            }
+        }
+    }
+
+    Some(page)
 }
 
 /// 合成选项页：黑底 + 右栏侧板/按钮 + 左栏对话框控件（无主菜单影片）。
@@ -678,7 +802,262 @@ pub fn compose_exit_confirm_page(
     Some(page)
 }
 
-/// 合成遭遇战大厅 chrome（可选地图预览与地图名列表）。
+fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
+    if rect.w <= 0 || rect.h <= 0 {
+        return;
+    }
+    fill_rect(dst, RectPx::new(rect.x, rect.y, rect.w, 1), rgba);
+    fill_rect(dst, RectPx::new(rect.x, rect.y + rect.h - 1, rect.w, 1), rgba);
+    fill_rect(dst, RectPx::new(rect.x, rect.y, 1, rect.h), rgba);
+    fill_rect(dst, RectPx::new(rect.x + rect.w - 1, rect.y, 1, rect.h), rgba);
+}
+
+fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4]) {
+    fill_rect(dst, rect, [8, 8, 12, 255]);
+    stroke_rect(dst, rect, [180, 24, 24, 255]);
+    fill_rect(
+        dst,
+        RectPx::new(rect.x + 2, rect.y + 2, (rect.w - 4).max(1), (rect.h - 4).max(1)),
+        fill,
+    );
+}
+
+fn draw_skirmish_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool, chrome: Option<&SkirmishChromeSprites>) {
+    let box_r = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
+    if let Some(img) = chrome.and_then(|c| if checked { c.checkbox_on.as_ref() } else { c.checkbox_off.as_ref() }) {
+        blit_rgba(dst, img, box_r.x, box_r.y);
+        return;
+    }
+    fill_rect(dst, box_r, [90, 20, 20, 255]);
+    stroke_rect(dst, box_r, [200, 40, 40, 255]);
+    fill_rect(
+        dst,
+        RectPx::new(box_r.x + 2, box_r.y + 2, box_r.w - 4, box_r.h - 4),
+        [12, 12, 16, 255],
+    );
+    if checked {
+        fill_rect(
+            dst,
+            RectPx::new(box_r.x + 5, box_r.y + 5, 8, 8),
+            [255, 160, 32, 255],
+        );
+    }
+}
+
+fn draw_skirmish_trackbar(
+    dst: &mut RgbaImage,
+    track: RectPx,
+    pos: i32,
+    max: i32,
+    chrome: Option<&SkirmishChromeSprites>,
+) {
+    fill_rect(dst, track, [64, 16, 16, 255]);
+    let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
+    fill_rect(dst, inner, [12, 12, 16, 255]);
+    let max = max.max(1);
+    let thumb_w = chrome.and_then(|c| c.track_thumb.as_ref()).map(|t| t.width() as i32).unwrap_or(10);
+    let travel = (inner.w - thumb_w).max(1);
+    let thumb_x = inner.x + (pos.clamp(0, max) * travel) / max;
+    if let Some(thumb) = chrome.and_then(|c| c.track_thumb.as_ref()) {
+        let ty = track.y + (track.h - thumb.height() as i32) / 2;
+        blit_rgba(dst, thumb, thumb_x, ty);
+    } else {
+        fill_rect(dst, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
+    }
+}
+
+fn blit_flag(dst: &mut RgbaImage, flag: Option<&RgbaImage>, rect: RectPx) {
+    fill_rect(dst, rect, [40, 40, 48, 255]);
+    stroke_rect(dst, rect, [180, 24, 24, 255]);
+    let Some(img) = flag
+    else {
+        return;
+    };
+    let dx = rect.x + (rect.w - img.width() as i32) / 2;
+    let dy = rect.y + (rect.h - img.height() as i32) / 2;
+    blit_rgba(dst, img, dx, dy);
+}
+
+/// 遭遇战 owner-draw 控件精灵（安装内 PCX；缺省时合成回退色块）。
+#[derive(Debug, Clone, Default)]
+pub struct SkirmishChromeSprites {
+    /// 未勾选 `cue_i.pcx`（18×18）。
+    pub checkbox_off: Option<RgbaImage>,
+    /// 已勾选 `cce_i.pcx`（18×18）。
+    pub checkbox_on: Option<RgbaImage>,
+    /// 滑条拇指 `trakgrip.pcx`（12×22）。
+    pub track_thumb: Option<RgbaImage>,
+    /// 本地玩家旗标。
+    pub flag: Option<RgbaImage>,
+    /// AI 行旗标（可与本地相同资源）。
+    pub ai_flag: Option<RgbaImage>,
+}
+
+/// 遭遇战大厅绘制参数（左栏玩家/选项 + 右栏地图名）。
+#[derive(Debug, Clone)]
+pub struct SkirmishLobbyPaint<'a> {
+    /// 当前地图显示名。
+    pub map_name: &'a str,
+    /// 本地玩家名。
+    pub player_name: &'a str,
+    /// 本地国家显示名。
+    pub country_name: &'a str,
+    /// 本地颜色色块。
+    pub color_rgb: [u8; 3],
+    /// AI 行显示名（空则不画第二行）。
+    pub ai_name: &'a str,
+    /// AI 国家显示名。
+    pub ai_country: &'a str,
+    /// 快速游戏。
+    pub short_game: bool,
+    /// 基地重新部署。
+    pub mcv_repacks: bool,
+    /// 升级工具箱。
+    pub crates: bool,
+    /// 超级武器。
+    pub superweapons: bool,
+    /// 于盟友建造场旁建设。
+    pub build_off_ally: bool,
+    /// 游戏速度（0..=6）。
+    pub game_speed: u8,
+    /// 资金。
+    pub credits: i32,
+    /// 部队数。
+    pub unit_count: i32,
+    /// 安装内控件 PCX（可空）。
+    pub chrome: Option<&'a SkirmishChromeSprites>,
+}
+
+impl Default for SkirmishLobbyPaint<'_> {
+    fn default() -> Self {
+        Self {
+            map_name: "",
+            player_name: "me",
+            country_name: "",
+            color_rgb: [0, 160, 0],
+            ai_name: "",
+            ai_country: "",
+            short_game: true,
+            mcv_repacks: true,
+            crates: true,
+            superweapons: true,
+            build_off_ally: false,
+            game_speed: 6,
+            credits: 10_000,
+            unit_count: 10,
+            chrome: None,
+        }
+    }
+}
+
+fn paint_skirmish_lobby_controls(
+    page: &mut RgbaImage,
+    layout: &SkirmishLobbyLayout,
+    paint: &SkirmishLobbyPaint<'_>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+) {
+    let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, skirmish_lobby_static_csf_key(kind));
+    let chrome = paint.chrome;
+
+    // 玩家名 / 下拉面 / 色块（本地 + 可选 AI 行）。
+    draw_combo_face(page, layout.player_name, [16, 16, 20, 255]);
+    draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255]);
+    draw_combo_face(page, layout.color_faces[0], [paint.color_rgb[0], paint.color_rgb[1], paint.color_rgb[2], 255]);
+    blit_flag(page, chrome.and_then(|c| c.flag.as_ref()), layout.flags[0]);
+
+    if !paint.ai_name.is_empty() {
+        draw_combo_face(page, layout.ai_faces[0], [16, 16, 20, 255]);
+        draw_combo_face(page, layout.side_faces[1], [16, 16, 20, 255]);
+        draw_combo_face(page, layout.color_faces[1], [180, 40, 40, 255]);
+        blit_flag(page, chrome.and_then(|c| c.ai_flag.as_ref()), layout.flags[1]);
+    }
+
+    let checks = [
+        paint.short_game,
+        paint.mcv_repacks,
+        paint.crates,
+        paint.superweapons,
+        paint.build_off_ally,
+    ];
+    for (i, checked) in checks.iter().enumerate() {
+        draw_skirmish_checkbox(page, layout.checkboxes[i], *checked, chrome);
+    }
+
+    draw_skirmish_trackbar(page, layout.track_speed, i32::from(paint.game_speed), 6, chrome);
+    let credit_pos = (paint.credits / 1000).clamp(0, 10);
+    draw_skirmish_trackbar(page, layout.track_credits, credit_pos, 10, chrome);
+    draw_skirmish_trackbar(page, layout.track_units, paint.unit_count.clamp(0, 20), 20, chrome);
+
+    if let Some(fnt) = fnt {
+        blit_text_colored(page, fnt, paint.player_name, layout.player_name.x + 4, layout.player_name.y + 2, MENU_TEXT_ENABLED);
+        let country = if paint.country_name.is_empty() {
+            label("side", "Side")
+        } else {
+            paint.country_name.to_string()
+        };
+        blit_text_colored(page, fnt, &country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
+
+        if !paint.ai_name.is_empty() {
+            blit_text_colored(page, fnt, paint.ai_name, layout.ai_faces[0].x + 4, layout.ai_faces[0].y + 4, MENU_TEXT_ENABLED);
+            let ai_country = if paint.ai_country.is_empty() {
+                label("ai_hard", "Hard")
+            } else {
+                paint.ai_country.to_string()
+            };
+            blit_text_colored(page, fnt, &ai_country, layout.side_faces[1].x + 4, layout.side_faces[1].y + 4, MENU_TEXT_ENABLED);
+        }
+
+        let check_labels = [
+            ("short_game", "Short Game"),
+            ("mcv_repacks", "MCV Repacks"),
+            ("crates", "Crates Appear"),
+            ("superweapons", "Super Weapons"),
+            ("build_off_ally", "Build Off Ally"),
+        ];
+        for (i, (key, fb)) in check_labels.iter().enumerate() {
+            let r = layout.checkboxes[i];
+            blit_text_colored(
+                page,
+                fnt,
+                &label(key, fb),
+                r.x + SKIRMISH_CHECK_W + 8,
+                r.y + 1,
+                MENU_TEXT_ENABLED,
+            );
+        }
+
+        blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), layout.label_speed.x, layout.label_speed.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("credits", "Credits"), layout.label_credits.x, layout.label_credits.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), layout.label_units.x, layout.label_units.y, MENU_TEXT_ENABLED);
+        blit_text_colored(
+            page,
+            fnt,
+            &paint.game_speed.to_string(),
+            layout.track_speed.x + layout.track_speed.w - 28,
+            layout.track_speed.y + 2,
+            MENU_TEXT_ENABLED,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &paint.credits.to_string(),
+            layout.track_credits.x + layout.track_credits.w - 48,
+            layout.track_credits.y + 2,
+            MENU_TEXT_ENABLED,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &paint.unit_count.to_string(),
+            layout.track_units.x + layout.track_units.w - 28,
+            layout.track_units.y + 2,
+            MENU_TEXT_ENABLED,
+        );
+    }
+}
+
+/// 合成遭遇战大厅：右栏预览/地图名 + 左栏玩家与选项（非左侧地图列表）。
 pub fn compose_skirmish_lobby_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -688,11 +1067,10 @@ pub fn compose_skirmish_lobby_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
-    map_names: &[(String, bool)],
+    paint: &SkirmishLobbyPaint<'_>,
     panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = skirmish_lobby_layout(viewport_w, viewport_h);
-    // 壳层 chrome 仍走共享合成；地图预览进 `map_preview` 分区，不占右栏 movie 通道。
     let mut page = compose_shell_menu_page(
         decoded,
         layout.shell,
@@ -705,21 +1083,42 @@ pub fn compose_skirmish_lobby_page(
         MenuCaptionKind::SkirmishLobby,
         panel_anim_frame,
     )?;
-    // 左上列表底板 + 预览区底板（专用大厅板面资源到位前的分区占位）。
-    fill_rect(&mut page, layout.map_list, [12, 16, 24, 220]);
-    fill_rect(&mut page, layout.map_preview, [8, 10, 16, 220]);
+
+    // 右栏：小地图预览盖住 WARNING 区；标题 / 作战 / 地图名。
+    fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);
+    stroke_rect(&mut page, layout.map_preview, [180, 24, 24, 255]);
     if let Some(preview) = map_preview {
         blit_stretched(&mut page, preview, layout.map_preview);
     }
     if let Some(fnt) = fnt {
-        let n = map_names.len().min(LOBBY_MAP_ROW_MAX as usize);
-        for (i, (name, selected)) in map_names.iter().take(n).enumerate() {
-            let row = skirmish_map_row_rect(&layout, i);
-            let color = if *selected { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
-            let label = if *selected { format!("> {name}") } else { name.clone() };
-            blit_text_colored(&mut page, fnt, &label, row.x + 4, row.y + 4, color);
+        let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &title,
+            layout.title.x,
+            layout.title.y,
+            layout.title.w,
+            layout.title.h,
+            MENU_TEXT_ENABLED,
+        );
+        let battle = resolve_caption(csf, "battle", skirmish_lobby_static_csf_key("battle"));
+        blit_text_colored(&mut page, fnt, &battle, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
+        if !paint.map_name.is_empty() {
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                paint.map_name,
+                layout.map_label.x,
+                layout.map_label.y,
+                layout.map_label.w,
+                layout.map_label.h,
+                MENU_TEXT_ENABLED,
+            );
         }
     }
+
+    paint_skirmish_lobby_controls(&mut page, &layout, paint, fnt, csf);
     Some(page)
 }
 
