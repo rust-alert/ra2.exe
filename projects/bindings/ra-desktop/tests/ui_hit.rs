@@ -5,7 +5,7 @@ use ra_desktop::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_hit::*,
-    ui_layout::{skirmish_lobby_layout, skirmish_map_row_rect},
+    ui_layout::skirmish_lobby_layout,
 };
 use ra_map::Theater;
 
@@ -78,17 +78,17 @@ fn disabled_network_not_hit() {
 }
 
 #[test]
-fn lobby_map_row_is_selectable() {
+fn lobby_start_button_is_hit() {
     let maps = vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate }];
     let layout = skirmish_lobby_layout(0, 0);
-    let row = skirmish_map_row_rect(&layout, 0);
-    let cx = row.x + row.w / 2;
-    let cy = row.y + row.h / 2;
+    let cell = layout.shell.buttons[0];
+    let cx = cell.x + cell.w / 2;
+    let cy = cell.y + cell.h / 2;
     let cam = ra_desktop::ui_layout::shell_fit_camera(1024, 768);
     let sx = (cx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
     let sy = (cy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
     let action = hit_action(OriginalScreen::SkirmishLobby, &maps, Some("mp03t4.map"), (sx as f64, sy as f64), 1024.0, 768.0, false);
-    assert_eq!(action, Some(MenuAction::SelectMap(0)));
+    assert_eq!(action, Some(MenuAction::StartSkirmish));
 }
 
 #[test]
@@ -106,4 +106,35 @@ fn physical_cursor_with_logical_window_misses_on_hidpi() {
     let physical_mixed = hit_action(OriginalScreen::MainMenu, &[], None, (1386.0, 423.0), 1024.0, 768.0, false);
     assert_eq!(logical, Some(MenuAction::OpenSinglePlayer));
     assert_eq!(physical_mixed, None);
+}
+
+#[test]
+fn campaign_side_and_difficulty_are_hit() {
+    let cam = ra_desktop::ui_layout::shell_fit_camera(1024, 768);
+    let to_win = |sx: i32, sy: i32| {
+        let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
+        let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
+        (x as f64, y as f64)
+    };
+    let layout = ra_desktop::ui_layout::campaign_layout(0, 0);
+    let allied = layout.allied;
+    let track = layout.difficulty_track;
+    let back = layout.shell.buttons[1];
+    let (ax, ay) = to_win(allied.x + allied.w / 2, allied.y + allied.h / 2);
+    let (tx, ty) = to_win(track.x + track.w / 2, track.y + track.h / 2);
+    let (bx, by) = to_win(back.x + back.w / 2, back.y + back.h / 2);
+    assert_eq!(
+        hit_action(OriginalScreen::Campaign, &[], None, (ax, ay), 1024.0, 768.0, false),
+        Some(MenuAction::SelectCampaignAllied)
+    );
+    assert_eq!(
+        hit_action(OriginalScreen::Campaign, &[], None, (tx, ty), 1024.0, 768.0, false),
+        Some(MenuAction::CycleCampaignDifficulty)
+    );
+    assert_eq!(
+        hit_action(OriginalScreen::Campaign, &[], None, (bx, by), 1024.0, 768.0, false),
+        Some(MenuAction::Back)
+    );
+    assert_eq!(campaign_entry_at(ax, ay, 1024.0, 768.0), Some("allied"));
+    assert_eq!(campaign_entry_at(tx, ty, 1024.0, 768.0), Some("difficulty"));
 }

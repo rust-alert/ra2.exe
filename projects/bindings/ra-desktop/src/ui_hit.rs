@@ -8,9 +8,9 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        EXIT_CONFIRM_BUTTON_IDS, LOBBY_MAP_ROW_MAX, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
-        SKIRMISH_LOBBY_BUTTON_IDS, exit_confirm_layout, main_menu_layout, options_layout, single_player_layout,
-        skirmish_lobby_layout, skirmish_map_row_rect, window_to_shell_px,
+        CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS,
+        SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, exit_confirm_layout, main_menu_layout,
+        options_layout, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -42,6 +42,7 @@ pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_re
     match screen {
         OriginalScreen::MainMenu => hits_main_menu(),
         OriginalScreen::SinglePlayerMenu => hits_single_player(),
+        OriginalScreen::Campaign => hits_campaign(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
         OriginalScreen::Options => hits_options(),
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
@@ -66,6 +67,9 @@ pub fn hit_action(
     }
     if screen == OriginalScreen::SinglePlayerMenu {
         return hit_single_player_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
+    if screen == OriginalScreen::Campaign {
+        return hit_campaign_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
     if screen == OriginalScreen::Options {
         return hit_options_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
@@ -95,6 +99,9 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::SinglePlayerMenu {
         return hover_single_player_at(cursor.0, cursor.1, win_w, win_h);
+    }
+    if screen == OriginalScreen::Campaign {
+        return hover_campaign_at(cursor.0, cursor.1, win_w, win_h);
     }
     if screen == OriginalScreen::Options {
         return hover_options_at(cursor.0, cursor.1, win_w, win_h);
@@ -253,6 +260,116 @@ fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
     let layout = single_player_layout(0, 0);
     for (i, _) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
         if layout.buttons[i].contains(sx, sy) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// 战役页悬停入口 id（三侧 / 难度轨 / 右栏钮）。
+pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<&'static str> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = campaign_layout(0, 0);
+    let sides = [
+        (CAMPAIGN_SIDE_IDS[0], layout.allied),
+        (CAMPAIGN_SIDE_IDS[1], layout.tutorial),
+        (CAMPAIGN_SIDE_IDS[2], layout.soviet),
+    ];
+    for (id, rect) in sides {
+        if rect.contains(sx, sy) {
+            return Some(id);
+        }
+    }
+    if layout.difficulty_track.contains(sx, sy)
+        || layout.difficulty_label.contains(sx, sy)
+        || layout.difficulty_value.contains(sx, sy)
+    {
+        return Some("difficulty");
+    }
+    for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
+        if layout.shell.buttons[i].contains(sx, sy) {
+            return Some(*id);
+        }
+    }
+    None
+}
+
+fn hits_campaign() -> Vec<MenuHit> {
+    let layout = campaign_layout(0, 0);
+    let bw = layout.shell.canvas.w as f32;
+    let bh = layout.shell.canvas.h as f32;
+    let mut out = Vec::new();
+    let sides = [
+        (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied, layout.allied),
+        (CAMPAIGN_SIDE_IDS[1], MenuAction::SelectCampaignTutorial, layout.tutorial),
+        (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet, layout.soviet),
+    ];
+    for (id, action, cell) in sides {
+        out.push(MenuHit {
+            entry_id: id,
+            action,
+            x0: cell.x as f32 / bw,
+            y0: cell.y as f32 / bh,
+            x1: (cell.x + cell.w) as f32 / bw,
+            y1: (cell.y + cell.h) as f32 / bh,
+            enabled: true,
+        });
+    }
+    let track = layout.difficulty_track;
+    out.push(MenuHit {
+        entry_id: "difficulty",
+        action: MenuAction::CycleCampaignDifficulty,
+        x0: track.x as f32 / bw,
+        y0: track.y as f32 / bh,
+        x1: (track.x + track.w) as f32 / bw,
+        y1: (track.y + track.h) as f32 / bh,
+        enabled: true,
+    });
+    if let Some(page) = slots_for(OriginalScreen::Campaign) {
+        for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
+            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+            else {
+                continue;
+            };
+            let cell = layout.shell.buttons[i];
+            out.push(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            });
+        }
+    }
+    out
+}
+
+fn hit_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    let hits = hits_campaign();
+    hit_at(&hits, cursor_x, cursor_y, win_w, win_h)
+}
+
+fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = campaign_layout(0, 0);
+    let rects = [
+        layout.allied,
+        layout.tutorial,
+        layout.soviet,
+        layout.difficulty_track,
+        layout.shell.buttons[0],
+        layout.shell.buttons[1],
+    ];
+    for (i, rect) in rects.iter().enumerate() {
+        if rect.contains(sx, sy) {
             return Some(i);
         }
     }
@@ -422,24 +539,12 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
         .collect()
 }
 
-fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
+fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     let layout = skirmish_lobby_layout(0, 0);
     let bw = layout.shell.canvas.w as f32;
     let bh = layout.shell.canvas.h as f32;
     let mut hits = Vec::new();
-    let n = maps.len().min(LOBBY_MAP_ROW_MAX as usize);
-    for i in 0..n {
-        let row = skirmish_map_row_rect(&layout, i);
-        hits.push(MenuHit {
-            entry_id: "map",
-            action: MenuAction::SelectMap(i),
-            x0: row.x as f32 / bw,
-            y0: row.y as f32 / bh,
-            x1: (row.x + row.w) as f32 / bw,
-            y1: (row.y + row.h) as f32 / bh,
-            enabled: true,
-        });
-    }
+    // 地图列表不在本页左侧；选图走右栏 `choose_map`（完整模态后续接）。
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
         for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
             let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
@@ -461,18 +566,12 @@ fn hits_skirmish_lobby(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     hits
 }
 
-fn hit_skirmish_lobby_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     if win_w <= 0.0 || win_h <= 0.0 {
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
     let layout = skirmish_lobby_layout(0, 0);
-    let n = maps.len().min(LOBBY_MAP_ROW_MAX as usize);
-    for i in 0..n {
-        if skirmish_map_row_rect(&layout, i).contains(sx, sy) {
-            return Some((i, MenuAction::SelectMap(i)));
-        }
-    }
     let page = slots_for(OriginalScreen::SkirmishLobby)?;
     for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
         let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
@@ -483,7 +582,7 @@ fn hit_skirmish_lobby_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64
             continue;
         }
         if layout.shell.buttons[i].contains(sx, sy) {
-            return Some((n + i, btn.action));
+            return Some((i, btn.action));
         }
     }
     None
