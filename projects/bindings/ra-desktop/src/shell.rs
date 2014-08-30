@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{AssetSource, DisplayMode, RaError, RaResult};
+use ra_types::{AssetSource, DisplayMode, PresentFeel, RaError, RaResult};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, WindowEvent},
@@ -25,6 +25,7 @@ use crate::{
     ui_compose, ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
+    ui_present,
     ui_resolve, ui_slots,
 };
 
@@ -41,6 +42,8 @@ pub struct AppShell {
     window_height: f64,
     /// 客户区分辨率档（布局与缓冲基准，非自由拉伸）。
     display_mode: DisplayMode,
+    /// 壳层质感呈现（来自 `RustAlert.toml` `[present]`）。
+    present: PresentFeel,
     status_path: Option<PathBuf>,
     test_scene: Option<String>,
     /// 闪屏开始时刻。
@@ -147,6 +150,7 @@ impl AppShell {
             window_width,
             window_height,
             display_mode: DisplayMode::DEFAULT,
+            present: PresentFeel::DEFAULT,
             status_path,
             test_scene,
             splash_started: None,
@@ -206,6 +210,7 @@ impl AppShell {
             window_width,
             window_height,
             display_mode,
+            present: PresentFeel::DEFAULT,
             status_path: None,
             test_scene: None,
             splash_started: None,
@@ -261,6 +266,26 @@ impl AppShell {
                 "已应用壳层音量"
             );
         }
+    }
+
+
+    /// 应用壳层质感呈现配置（上传 UI 页前生效）。
+    pub fn apply_present_feel(&mut self, present: PresentFeel) {
+        self.present = present.sanitized();
+        tracing::info!(
+            mode = self.present.mode.as_str(),
+            quantize = self.present.quantize.as_str(),
+            gamma = self.present.gamma,
+            highlight_roll_off = self.present.highlight_roll_off,
+            dither = self.present.dither,
+            "已应用壳层质感呈现"
+        );
+    }
+
+    /// 上传 UI 页：先按 `[present]` 做质感变换再进 GPU。
+    fn upload_ui_page(&mut self, page: RgbaImage) {
+        let page = ui_present::present_ui_page(page, self.present);
+        self.renderer.set_ui_page(page);
     }
 
     fn shell_cursor_px(&self) -> (i32, i32) {
@@ -441,7 +466,7 @@ impl AppShell {
                 self.refresh_shell_title();
             }
             self.renderer.clear_preview();
-            self.renderer.set_ui_page(page);
+            self.upload_ui_page(page);
             return;
         }
         if !self.banner.contains("闪屏缺图") {
@@ -453,7 +478,7 @@ impl AppShell {
         let pixels = vec![0u8; (w as usize) * (h as usize) * 4];
         if let Some(page) = RgbaImage::from_raw(w, h, pixels) {
             self.renderer.clear_preview();
-            self.renderer.set_ui_page(page);
+            self.upload_ui_page(page);
         }
     }
 
@@ -876,7 +901,7 @@ impl AppShell {
                 };
                 if let Some(page) = page {
                     tracing::info!(screen = self.screen.as_str(), w = page.width(), h = page.height(), "壳层 chrome 已合成并上传 UI 页通道");
-                    self.renderer.set_ui_page(page);
+                    self.upload_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
                         self.refresh_shell_title();
@@ -1906,7 +1931,7 @@ impl ApplicationHandler for AppShell {
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, status_path, test_scene) = resolve_launch()?;
+    let (mode, display_mode, music_volume, sound_volume, present, status_path, test_scene) = resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -1925,6 +1950,7 @@ pub fn run_shell() -> RaResult<()> {
         }
     };
     app.apply_audio_volumes(music_volume, sound_volume);
+    app.apply_present_feel(present);
 
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     tracing::info!("事件循环结束");
@@ -1937,7 +1963,7 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = crate::test_boot::requested_scene() {
@@ -1957,6 +1983,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, Option<PathB
                 DisplayMode::DEFAULT,
                 0.4,
                 0.7,
+                PresentFeel::DEFAULT,
                 status_path,
                 Some(scene),
             ));
@@ -1973,6 +2000,8 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, Option<PathB
         display_mode = display_mode.as_str(),
         music_volume = settings.music_volume,
         sound_volume = settings.sound_volume,
+        present_mode = settings.present.mode.as_str(),
+        present_gamma = settings.present.gamma,
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
@@ -1981,6 +2010,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, Option<PathB
         display_mode,
         settings.music_volume,
         settings.sound_volume,
+        settings.present,
         None,
         None,
     ))
