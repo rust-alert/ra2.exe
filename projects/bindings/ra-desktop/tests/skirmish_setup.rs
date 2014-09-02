@@ -1,20 +1,25 @@
-//! 集成测试：原 `src/skirmish_setup.rs` 内联测试迁出。
+//! 集成测试：遭遇战大厅配置循环。
 
-use ra_desktop::skirmish_setup::*;
+use ra_desktop::skirmish_setup::{LOBBY_DIFFICULTIES, LOBBY_SIDES, SkirmishBootRequest};
+
 #[test]
 fn cycle_side_wraps() {
-    let mut r = SkirmishBootRequest::default_lobby();
-    assert_eq!(r.side, "Americans");
-    r.cycle_side();
-    assert_eq!(r.side, "Russians");
-    r.cycle_side();
-    assert_eq!(r.side, "Americans");
+    let mut req = SkirmishBootRequest::default_lobby();
+    assert_eq!(req.side, LOBBY_SIDES[0]);
+    for expected in LOBBY_SIDES.iter().skip(1) {
+        req.cycle_side();
+        assert_eq!(req.side, *expected);
+    }
+    req.cycle_side();
+    assert_eq!(req.side, LOBBY_SIDES[0]);
 }
 
 #[test]
 fn cycle_difficulty_advances() {
-    let mut r = SkirmishBootRequest::default_lobby();
-    assert_eq!(r.difficulty, "Normal");
-    r.cycle_difficulty();
-    assert_eq!(r.difficulty, "Hard");
+    let mut req = SkirmishBootRequest::default_lobby();
+    assert_eq!(req.difficulty, LOBBY_DIFFICULTIES[1]);
+    req.cycle_difficulty();
+    assert_eq!(req.difficulty, LOBBY_DIFFICULTIES[2]);
+    req.cycle_difficulty();
+    assert_eq!(req.difficulty, LOBBY_DIFFICULTIES[0]);
 }

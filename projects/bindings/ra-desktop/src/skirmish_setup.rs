@@ -5,6 +5,7 @@
 use crate::ui_layout::{RectPx, SkirmishLobbyLayout, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W};
 
 /// 大厅可选阵营短名（需与地图实体 `owner` 对得上才会成为本地玩家）。
+/// 旗标 PCX 取自 `local.mix` 已证实文件名。
 pub const LOBBY_SIDES: &[&str] = &["Americans", "French", "Germans", "British", "Russians"];
 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
@@ -18,11 +19,6 @@ pub fn side_flag_pcx(side: &str) -> &'static str {
         "Germans" => "geri.pcx",
         "British" => "gbri.pcx",
         "Russians" => "rusi.pcx",
-        "Korea" | "Alliance" => "kori.pcx",
-        "Cuba" => "cubi.pcx",
-        "Libya" => "libi.pcx",
-        "Iraq" => "iraqi.pcx",
-        "Yuri" | "YuriCountry" => "yrii.pcx",
         _ => "usai.pcx",
     }
 }
