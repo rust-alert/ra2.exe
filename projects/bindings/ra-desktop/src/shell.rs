@@ -20,9 +20,10 @@ use crate::{
     menu_action::MenuAction,
     preview_job::PreviewJob,
     screen::OriginalScreen,
-    skirmish_setup::SkirmishBootRequest,
+    skirmish_setup::{SkirmishBootRequest, side_flag_pcx},
     ui_assets::{MenuUiAssets, load_menu_ui_assets},
-    ui_compose, ui_decode, ui_hit, ui_layout,
+    ui_compose::{self, SkirmishChromeSprites},
+    ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
     ui_present,
@@ -72,6 +73,12 @@ pub struct AppShell {
     lobby_preview: Option<RgbaImage>,
     /// 后台地图预览任务。
     lobby_preview_job: Option<PreviewJob>,
+    /// 遭遇战控件 PCX 缓存（勾选/滑条拇指/旗标）。
+    skirmish_chrome: Option<SkirmishChromeSprites>,
+    /// 旗标缓存对应的阵营名（换边时重载）。
+    skirmish_chrome_side: Option<String>,
+    /// 遭遇战左栏按下是否已消费（勾选/滑条，勿再走右栏按钮命中）。
+    skirmish_pointer_consumed: bool,
     /// 主菜单阶段已挂载资源（惰性一次）。
     menu_assets: Option<MenuUiAssets>,
     /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
@@ -103,6 +110,10 @@ pub struct AppShell {
     auto_screenshots: crate::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     skirmish: SkirmishBootRequest,
+    /// 战役选边：`allied` / `tutorial` / `soviet`。
+    campaign_side: Option<&'static str>,
+    /// 战役难度档：0 易 / 1 中 / 2 难。
+    campaign_difficulty: u8,
     /// 桌面音频输出（设备不可用则为 `None`）。
     audio: Option<crate::audio::ShellAudio>,
     /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
@@ -166,6 +177,9 @@ impl AppShell {
             lobby_preview_for: None,
             lobby_preview: None,
             lobby_preview_job: None,
+            skirmish_chrome: None,
+            skirmish_chrome_side: None,
+            skirmish_pointer_consumed: false,
             menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
@@ -182,6 +196,8 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            campaign_side: None,
+            campaign_difficulty: 1,
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
@@ -226,6 +242,9 @@ impl AppShell {
             lobby_preview_for: None,
             lobby_preview: None,
             lobby_preview_job: None,
+            skirmish_chrome: None,
+            skirmish_chrome_side: None,
+            skirmish_pointer_consumed: false,
             menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
@@ -242,6 +261,8 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            campaign_side: None,
+            campaign_difficulty: 1,
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
@@ -267,7 +288,6 @@ impl AppShell {
             );
         }
     }
-
 
     /// 应用壳层质感呈现配置（上传 UI 页前生效）。
     pub fn apply_present_feel(&mut self, present: PresentFeel) {
@@ -360,6 +380,74 @@ impl AppShell {
             return false;
         }
         self.sync_options_live_volumes();
+        self.refresh_menu_backdrop();
+        true
+    }
+
+    /// 从挂载源解码 PCX → RGBA；品红 `(255,0,255)` 作色键透明（旗标索引未必为 0）。
+    fn load_pcx_rgba(source: &crate::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
+        let bytes = source.read(name).ok()?;
+        let pcx = ra_assets::parse_pcx(&bytes).ok()?;
+        let mut rgba = pcx.rgba;
+        for px in rgba.chunks_exact_mut(4) {
+            if px[0] == 255 && px[1] == 0 && px[2] == 255 {
+                px[3] = 0;
+            }
+        }
+        RgbaImage::from_raw(pcx.width, pcx.height, rgba)
+    }
+
+    /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
+    fn ensure_skirmish_chrome(&mut self) {
+        self.ensure_menu_assets();
+        let side = self.skirmish.side.clone();
+        let need_flag = self.skirmish_chrome_side.as_deref() != Some(side.as_str());
+        let need_base = self.skirmish_chrome.as_ref().map(|c| c.checkbox_off.is_none()).unwrap_or(true);
+        if !need_base && !need_flag {
+            return;
+        }
+        let Some(source) = self.menu_assets.as_ref().and_then(|a| a.source.as_ref())
+        else {
+            return;
+        };
+        let mut chrome = self.skirmish_chrome.take().unwrap_or_default();
+        if need_base {
+            chrome.checkbox_off = Self::load_pcx_rgba(source, "cue_i.pcx");
+            chrome.checkbox_on = Self::load_pcx_rgba(source, "cce_i.pcx");
+            chrome.track_thumb = Self::load_pcx_rgba(source, "trakgrip.pcx");
+        }
+        if need_flag {
+            let flag = Self::load_pcx_rgba(source, side_flag_pcx(&side));
+            chrome.ai_flag = flag.clone();
+            chrome.flag = flag;
+            self.skirmish_chrome_side = Some(side);
+        }
+        self.skirmish_chrome = Some(chrome);
+    }
+
+    /// 遭遇战左栏按下：勾选 / 滑条优先于右栏按钮。
+    fn handle_skirmish_press(&mut self) -> bool {
+        let layout = ui_layout::skirmish_lobby_layout(0, 0);
+        let (x, y) = self.shell_cursor_px();
+        if self.skirmish.on_press(&layout, x, y).is_none() {
+            return false;
+        }
+        self.skirmish_pointer_consumed = true;
+        self.play_menu_click();
+        self.refresh_menu_backdrop();
+        true
+    }
+
+    /// 遭遇战滑条拖动。
+    fn handle_skirmish_drag(&mut self) -> bool {
+        if self.skirmish.dragging.is_none() {
+            return false;
+        }
+        let layout = ui_layout::skirmish_lobby_layout(0, 0);
+        let (x, y) = self.shell_cursor_px();
+        if !self.skirmish.on_drag(&layout, x, y) {
+            return false;
+        }
         self.refresh_menu_backdrop();
         true
     }
@@ -816,6 +904,7 @@ impl AppShell {
             self.screen,
             OriginalScreen::MainMenu
                 | OriginalScreen::SinglePlayerMenu
+                | OriginalScreen::Campaign
                 | OriginalScreen::Options
                 | OriginalScreen::ExitConfirm
                 | OriginalScreen::SkirmishLobby
@@ -823,6 +912,7 @@ impl AppShell {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_preview();
+                self.ensure_skirmish_chrome();
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
@@ -851,6 +941,20 @@ impl AppShell {
                         movie,
                         self.menu_panel_anim_frame,
                     ),
+                    OriginalScreen::Campaign => ui_compose::compose_campaign_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                        self.menu_hovered_entry,
+                        self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
+                        ui_compose::CampaignPaint {
+                            selected_side: self.campaign_side,
+                            difficulty: self.campaign_difficulty,
+                        },
+                        self.menu_panel_anim_frame,
+                    ),
                     OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
                         ui_compose::compose_options_page(
                             decoded,
@@ -877,13 +981,35 @@ impl AppShell {
                         self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SkirmishLobby => {
-                        let selected = self.selected_map.as_deref();
-                        let map_names: Vec<(String, bool)> = self
-                            .lobby_maps
-                            .iter()
-                            .take(ui_layout::LOBBY_MAP_ROW_MAX as usize)
-                            .map(|m| (m.file_name.clone(), selected == Some(m.file_name.as_str())))
-                            .collect();
+                        let map_name = self
+                            .selected_map
+                            .clone()
+                            .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()))
+                            .unwrap_or_default();
+                        let country = self.skirmish.side.clone();
+                        let ai_name = self
+                            .menu_csf
+                            .as_ref()
+                            .and_then(|c| c.get("GUI:AIHard").map(|s| s.to_string()))
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or_else(|| "Hard AI".into());
+                        let paint = ui_compose::SkirmishLobbyPaint {
+                            map_name: map_name.as_str(),
+                            player_name: "me",
+                            country_name: country.as_str(),
+                            color_rgb: [0, 160, 0],
+                            ai_name: ai_name.as_str(),
+                            ai_country: country.as_str(),
+                            short_game: self.skirmish.short_game,
+                            mcv_repacks: self.skirmish.mcv_repacks,
+                            crates: self.skirmish.crates,
+                            superweapons: self.skirmish.superweapons,
+                            build_off_ally: self.skirmish.build_off_ally,
+                            game_speed: self.skirmish.game_speed,
+                            credits: self.skirmish.credits,
+                            unit_count: self.skirmish.unit_count,
+                            chrome: self.skirmish_chrome.as_ref(),
+                        };
                         ui_compose::compose_skirmish_lobby_page(
                             decoded,
                             self.window_width as u32,
@@ -893,7 +1019,7 @@ impl AppShell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
-                            &map_names,
+                            &paint,
                             self.menu_panel_anim_frame,
                         )
                     }
@@ -1162,6 +1288,9 @@ impl AppShell {
 
     /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
     fn menu_entry_under_cursor(&self) -> Option<&'static str> {
+        if self.screen == OriginalScreen::Campaign {
+            return ui_hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
+        }
         let idx = ui_hit::hover_index(
             self.screen,
             &self.lobby_maps,
@@ -1176,10 +1305,7 @@ impl AppShell {
             OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::SkirmishLobby => {
-                let map_n = self.lobby_maps.len().min(ui_layout::LOBBY_MAP_ROW_MAX as usize);
-                idx.checked_sub(map_n).and_then(|i| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(i).copied())
-            }
+            OriginalScreen::SkirmishLobby => ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied(),
             _ => None,
         }
     }
@@ -1204,6 +1330,42 @@ impl AppShell {
                 self.ensure_lobby_maps();
                 self.set_screen(OriginalScreen::SkirmishLobby);
             }
+            MenuAction::OpenCampaign => {
+                self.campaign_side = None;
+                self.campaign_difficulty = 1;
+                self.set_screen(OriginalScreen::Campaign);
+                self.banner = "战役选边".into();
+                self.refresh_shell_title();
+            }
+            MenuAction::SelectCampaignAllied => {
+                self.campaign_side = Some("allied");
+                self.banner = "盟军战役（开局未接线）".into();
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
+            MenuAction::SelectCampaignTutorial => {
+                self.campaign_side = Some("tutorial");
+                self.banner = "新兵训练营（开局未接线）".into();
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
+            MenuAction::SelectCampaignSoviet => {
+                self.campaign_side = Some("soviet");
+                self.banner = "苏军战役（开局未接线）".into();
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
+            MenuAction::CycleCampaignDifficulty => {
+                self.campaign_difficulty = (self.campaign_difficulty + 1) % 3;
+                let label = match self.campaign_difficulty {
+                    0 => "易",
+                    2 => "难",
+                    _ => "中",
+                };
+                self.banner = format!("战役难度 · {label}");
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
             MenuAction::Back => match self.screen {
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options | OriginalScreen::ExitConfirm => {
                     if self.screen == OriginalScreen::Options {
@@ -1211,7 +1373,9 @@ impl AppShell {
                     }
                     self.set_screen(OriginalScreen::MainMenu);
                 }
-                OriginalScreen::SkirmishLobby => self.set_screen(OriginalScreen::SinglePlayerMenu),
+                OriginalScreen::SkirmishLobby | OriginalScreen::Campaign => {
+                    self.set_screen(OriginalScreen::SinglePlayerMenu);
+                }
                 _ => self.set_screen(OriginalScreen::MainMenu),
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
@@ -1251,6 +1415,10 @@ impl AppShell {
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
                 }
+            }
+            MenuAction::ChooseMap => {
+                // 完整选图模态未接前：右栏选图先切下一张候选图。
+                self.cycle_lobby_map(1);
             }
         }
     }
@@ -1348,6 +1516,9 @@ impl AppShell {
                 format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 确认退出 · F12 截图", self.banner)
             }
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into(),
+            OriginalScreen::Campaign => {
+                format!("ra2 · 战役 · {} · Esc 返回 · F12 截图", self.banner)
+            }
             OriginalScreen::SkirmishLobby => {
                 let detail = self
                     .selected_map
@@ -1536,11 +1707,17 @@ impl AppShell {
             },
             OriginalScreen::SinglePlayerMenu => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) | PhysicalKey::Code(KeyCode::KeyS) => {
+                    self.ensure_lobby_maps();
                     self.set_screen(OriginalScreen::SkirmishLobby);
                 }
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
                 _ => {}
             },
+            OriginalScreen::Campaign => {
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.set_screen(OriginalScreen::SinglePlayerMenu);
+                }
+            }
             OriginalScreen::SkirmishLobby => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                     self.begin_skirmish_load();
@@ -1811,6 +1988,7 @@ impl ApplicationHandler for AppShell {
             OriginalScreen::Splash
             | OriginalScreen::MainMenu
             | OriginalScreen::SinglePlayerMenu
+            | OriginalScreen::Campaign
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::Network
             | OriginalScreen::Options
@@ -1823,10 +2001,13 @@ impl ApplicationHandler for AppShell {
                     self.cursor = (logical.x, logical.y);
                     if self.screen == OriginalScreen::Options && self.handle_options_drag() {
                         // 拖动滑条已刷新。
+                    } else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_drag() {
+                        // 遭遇战滑条拖动已刷新。
                     } else if matches!(
                         self.screen,
                         OriginalScreen::MainMenu
                             | OriginalScreen::SinglePlayerMenu
+                            | OriginalScreen::Campaign
                             | OriginalScreen::Options
                             | OriginalScreen::ExitConfirm
                             | OriginalScreen::SkirmishLobby
@@ -1846,10 +2027,14 @@ impl ApplicationHandler for AppShell {
                         else if self.screen == OriginalScreen::Options && self.handle_options_press() {
                             // 选项左/右栏已处理。
                         }
+                        else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_press() {
+                            // 遭遇战左栏勾选/滑条已处理。
+                        }
                         else if matches!(
                             self.screen,
                             OriginalScreen::MainMenu
                                 | OriginalScreen::SinglePlayerMenu
+                                | OriginalScreen::Campaign
                                 | OriginalScreen::Options
                                 | OriginalScreen::ExitConfirm
                                 | OriginalScreen::SkirmishLobby
@@ -1874,6 +2059,28 @@ impl ApplicationHandler for AppShell {
                             if let Some(state) = self.options_state.as_mut() {
                                 state.on_release();
                             }
+                            if self.menu_pressed_entry.take().is_some() {
+                                self.refresh_menu_backdrop();
+                            }
+                            if consumed {
+                                self.refresh_menu_backdrop();
+                            } else if let Some(action) = ui_hit::hit_action(
+                                self.screen,
+                                &self.lobby_maps,
+                                self.selected_map.as_deref(),
+                                self.cursor,
+                                self.window_width,
+                                self.window_height,
+                                self.load_allow_retry(),
+                            ) {
+                                tracing::debug!(?action, "菜单逻辑命中");
+                                self.apply_menu_action(event_loop, action);
+                            }
+                        }
+                        else if self.screen == OriginalScreen::SkirmishLobby {
+                            let consumed = self.skirmish_pointer_consumed;
+                            self.skirmish_pointer_consumed = false;
+                            self.skirmish.on_release();
                             if self.menu_pressed_entry.take().is_some() {
                                 self.refresh_menu_backdrop();
                             }
