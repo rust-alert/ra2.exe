@@ -1805,6 +1805,7 @@ impl AppShell {
                 self.screen,
                 OriginalScreen::MainMenu
                     | OriginalScreen::SinglePlayerMenu
+                    | OriginalScreen::Campaign
                     | OriginalScreen::Options
                     | OriginalScreen::ExitConfirm
                     | OriginalScreen::SkirmishLobby
