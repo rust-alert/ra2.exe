@@ -531,16 +531,18 @@ pub fn compose_single_player_page(
 
 /// 战役选边绘制参数（Pre-Alpha：只记选择，不开局）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CampaignPaint {
+pub struct CampaignPaint<'a> {
     /// 已选侧：`allied` / `tutorial` / `soviet`。
     pub selected_side: Option<&'static str>,
     /// 难度档：0 易 / 1 中 / 2 难。
     pub difficulty: u8,
+    /// 难度滑条拇指（安装内 `trakgrip.pcx`，可空）。
+    pub track_thumb: Option<&'a RgbaImage>,
 }
 
-impl Default for CampaignPaint {
+impl Default for CampaignPaint<'_> {
     fn default() -> Self {
-        Self { selected_side: None, difficulty: 1 }
+        Self { selected_side: None, difficulty: 1, track_thumb: None }
     }
 }
 
@@ -553,7 +555,7 @@ pub fn compose_campaign_page(
     hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
-    paint: CampaignPaint,
+    paint: CampaignPaint<'_>,
     panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = campaign_layout(viewport_w, viewport_h);
@@ -587,18 +589,29 @@ pub fn compose_campaign_page(
         }
     }
 
-    // 难度轨：底槽 + 按档位落点（控件 `0x50F`）。
-    fill_rect(&mut page, layout.difficulty_track, [20, 12, 12, 255]);
-    stroke_rect(&mut page, layout.difficulty_track, [180, 24, 24, 255]);
-    let level = paint.difficulty.min(2) as i32;
-    let thumb_w = 18;
-    let span = (layout.difficulty_track.w - thumb_w).max(1);
-    let thumb_x = layout.difficulty_track.x + (span * level) / 2;
-    fill_rect(
-        &mut page,
-        RectPx::new(thumb_x, layout.difficulty_track.y, thumb_w, layout.difficulty_track.h),
-        [220, 40, 40, 255],
+    // 难度轨：底槽 + 档位拇指（优先安装内 `trakgrip.pcx`，控件 `0x50F`）。
+    fill_rect(&mut page, layout.difficulty_track, [64, 16, 16, 255]);
+    let inner = RectPx::new(
+        layout.difficulty_track.x + 2,
+        layout.difficulty_track.y + 2,
+        (layout.difficulty_track.w - 4).max(1),
+        (layout.difficulty_track.h - 4).max(1),
     );
+    fill_rect(&mut page, inner, [12, 12, 16, 255]);
+    let level = i32::from(paint.difficulty.min(2));
+    let thumb_w = paint.track_thumb.map(|t| t.width() as i32).unwrap_or(10);
+    let travel = (inner.w - thumb_w).max(1);
+    let thumb_x = inner.x + (level * travel) / 2;
+    if let Some(thumb) = paint.track_thumb {
+        let ty = layout.difficulty_track.y + (layout.difficulty_track.h - thumb.height() as i32) / 2;
+        blit_rgba(&mut page, thumb, thumb_x, ty);
+    } else {
+        fill_rect(
+            &mut page,
+            RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2),
+            [220, 40, 40, 255],
+        );
+    }
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "campaign", Some(campaign_title_csf_key()));
