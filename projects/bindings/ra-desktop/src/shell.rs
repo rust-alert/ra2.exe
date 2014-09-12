@@ -912,6 +912,8 @@ impl AppShell {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_preview();
+            }
+            if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby) {
                 self.ensure_skirmish_chrome();
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
@@ -941,20 +943,24 @@ impl AppShell {
                         movie,
                         self.menu_panel_anim_frame,
                     ),
-                    OriginalScreen::Campaign => ui_compose::compose_campaign_page(
-                        decoded,
-                        self.window_width as u32,
-                        self.window_height as u32,
-                        self.menu_pressed_entry,
-                        self.menu_hovered_entry,
-                        self.menu_font.as_ref(),
-                        self.menu_csf.as_ref(),
-                        ui_compose::CampaignPaint {
-                            selected_side: self.campaign_side,
-                            difficulty: self.campaign_difficulty,
-                        },
-                        self.menu_panel_anim_frame,
-                    ),
+                    OriginalScreen::Campaign => {
+                        let track_thumb = self.skirmish_chrome.as_ref().and_then(|c| c.track_thumb.as_ref());
+                        ui_compose::compose_campaign_page(
+                            decoded,
+                            self.window_width as u32,
+                            self.window_height as u32,
+                            self.menu_pressed_entry,
+                            self.menu_hovered_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            ui_compose::CampaignPaint {
+                                selected_side: self.campaign_side,
+                                difficulty: self.campaign_difficulty,
+                                track_thumb,
+                            },
+                            self.menu_panel_anim_frame,
+                        )
+                    }
                     OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
                         ui_compose::compose_options_page(
                             decoded,
