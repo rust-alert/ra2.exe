@@ -83,6 +83,8 @@ pub enum SkirmishLobbyHit {
     Toggle(SkirmishCheckbox),
     /// 点在滑条上（开始拖或跳档）。
     Track(SkirmishTrackbar),
+    /// 点本地国家下拉面 → 循环阵营。
+    CycleSide,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -198,7 +200,7 @@ impl SkirmishBootRequest {
         }
     }
 
-    /// 按下：勾选切换或开始拖滑条。
+    /// 按下：勾选切换、滑条拖动，或点国家面循环阵营。
     pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<SkirmishLobbyHit> {
         for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
             let rect = layout.checkboxes[i];
@@ -216,6 +218,11 @@ impl SkirmishBootRequest {
                 self.set_track_pos(id, track_pos_from_mouse(rect, x, id));
                 return Some(SkirmishLobbyHit::Track(id));
             }
+        }
+        // 本地国家下拉面（行 0）：暂用点击循环，完整列表后续再接。
+        if layout.side_faces[0].contains(x, y) {
+            self.cycle_side();
+            return Some(SkirmishLobbyHit::CycleSide);
         }
         None
     }
@@ -285,6 +292,16 @@ mod tests {
         assert_eq!(s.game_speed, 6);
         s.on_release();
         assert!(s.dragging.is_none());
+    }
+
+    #[test]
+    fn side_face_click_cycles_side() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        assert_eq!(s.side, "Americans");
+        let face = layout.side_faces[0];
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleSide));
+        assert_eq!(s.side, "French");
     }
 
     #[test]
