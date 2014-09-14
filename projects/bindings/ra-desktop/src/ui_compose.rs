@@ -945,7 +945,7 @@ impl Default for SkirmishLobbyPaint<'_> {
     fn default() -> Self {
         Self {
             map_name: "",
-            player_name: "me",
+            player_name: "Player",
             country_name: "",
             color_rgb: [0, 160, 0],
             ai_name: "",

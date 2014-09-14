@@ -1001,7 +1001,7 @@ impl AppShell {
                             .unwrap_or_else(|| "Hard AI".into());
                         let paint = ui_compose::SkirmishLobbyPaint {
                             map_name: map_name.as_str(),
-                            player_name: "me",
+                            player_name: self.skirmish.player_name.as_str(),
                             country_name: country.as_str(),
                             color_rgb: [0, 160, 0],
                             ai_name: ai_name.as_str(),

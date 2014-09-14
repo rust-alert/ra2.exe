@@ -88,6 +88,8 @@ pub enum SkirmishLobbyHit {
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkirmishBootRequest {
+    /// 本地玩家名（零售默认 `Player`）。
+    pub player_name: String,
     /// 优选地图文件名。
     pub preferred_map: Option<String>,
     /// 期望本地阵营（规则/地图 house 名）。
@@ -115,9 +117,10 @@ pub struct SkirmishBootRequest {
 }
 
 impl SkirmishBootRequest {
-    /// 默认：无指定图、盟军、普通难度；勾选对齐零售默认（盟友旁建造关）。
+    /// 默认：玩家名 `Player`、无指定图、盟军、普通难度；勾选对齐零售默认（盟友旁建造关）。
     pub fn default_lobby() -> Self {
         Self {
+            player_name: "Player".to_string(),
             preferred_map: None,
             side: LOBBY_SIDES[0].to_string(),
             difficulty: LOBBY_DIFFICULTIES[1].to_string(),
@@ -266,6 +269,7 @@ mod tests {
         assert_eq!(s.game_speed, 6);
         assert_eq!(s.credits, 10_000);
         assert_eq!(s.unit_count, 10);
+        assert_eq!(s.player_name, "Player");
     }
 
     #[test]
