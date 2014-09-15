@@ -110,8 +110,9 @@ mod tests {
         };
         apply_present_feel(&mut img, feel);
         let v = img.as_raw()[0];
-        assert!(v < 200, "gamma should darken mid-bright grey, got {v}");
-        assert!(v > 140, "should not crush too hard, got {v}");
+        // 默认 gamma≈1.15：200 → 约 178（对齐侧栏金属亮度，勿压到过暗）。
+        assert!(v < 195, "gamma should darken mid-bright grey, got {v}");
+        assert!(v > 160, "should not crush too hard, got {v}");
     }
 
     #[test]

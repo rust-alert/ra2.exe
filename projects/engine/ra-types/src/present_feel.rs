@@ -55,7 +55,7 @@ impl PresentQuantize {
 
 /// 壳层质感呈现参数集（对应 `RustAlert.toml` 的 `[present]`）。
 ///
-/// 默认对齐同机原版主菜单截图：`16bit` + `rgb565` + `gamma≈1.2` + 有序抖动。
+/// 默认对齐同机原版主菜单截图：`16bit` + `rgb565` + `gamma≈1.15` + 有序抖动。
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PresentFeel {
@@ -63,7 +63,7 @@ pub struct PresentFeel {
     pub mode: PresentMode,
     /// 量化格式（仅 16 位模式）。
     pub quantize: PresentQuantize,
-    /// 显示伽马；`>1` 压暗中高光（原版观感约 `1.2`）。
+    /// 显示伽马；`>1` 压暗中高光（同机原版侧栏金属对照约 `1.15`）。
     pub gamma: f32,
     /// 高光收敛 `0..1`：额外压亮部，`0` 表示关闭。
     pub highlight_roll_off: f32,
@@ -82,7 +82,7 @@ impl PresentFeel {
     pub const DEFAULT: Self = Self {
         mode: PresentMode::Bit16,
         quantize: PresentQuantize::Rgb565,
-        gamma: 1.2,
+        gamma: 1.15,
         highlight_roll_off: 0.0,
         dither: true,
     };

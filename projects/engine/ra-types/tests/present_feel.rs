@@ -36,7 +36,7 @@ fn present_feel_default_is_16bit() {
     let f = PresentFeel::DEFAULT;
     assert!(f.is_active());
     assert_eq!(f.mode, PresentMode::Bit16);
-    assert!((f.gamma - 1.2).abs() < 1e-6);
+    assert!((f.gamma - 1.15).abs() < 1e-6);
     assert!(f.dither);
 }
 

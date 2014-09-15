@@ -208,7 +208,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          [present]\n\
          mode = \"{mode}\"                 # off | 16bit\n\
          quantize = \"{quant}\"            # rgb565 | rgb555\n\
-         gamma = {gamma}                   # >1 压暗中高光，原版观感约 1.2\n\
+         gamma = {gamma}                   # >1 压暗中高光，同机原版侧栏对照约 1.15\n\
          highlight_roll_off = {roll}       # 0..1，额外压亮部\n\
          dither = {dither}                 # 量化前有序抖动\n",
         mode = feel.mode.as_str(),
