@@ -20,6 +20,8 @@ pub enum OriginalScreen {
     Campaign,
     /// 遭遇战大厅（地图、槽位、规则）。
     SkirmishLobby,
+    /// 遭遇战选图（自订战役；对话框 `0x6B`）。
+    ChooseMap,
     /// 网络游戏入口（Alpha 可见禁用）。
     Network,
     /// 进对局前装载页（Alpha 要求；与启动闪屏无关）。
@@ -43,6 +45,7 @@ impl OriginalScreen {
             Self::SinglePlayerMenu => "single_player_menu",
             Self::Campaign => "campaign",
             Self::SkirmishLobby => "skirmish_lobby",
+            Self::ChooseMap => "choose_map",
             Self::Network => "network",
             Self::LoadScreen => "load_screen",
             Self::Match => "match",

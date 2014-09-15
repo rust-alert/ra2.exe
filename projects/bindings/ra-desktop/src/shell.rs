@@ -1427,6 +1427,11 @@ impl AppShell {
                 // 完整选图模态未接前：右栏选图先切下一张候选图。
                 self.cycle_lobby_map(1);
             }
+            MenuAction::UseMap => {
+                self.set_screen(OriginalScreen::SkirmishLobby);
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
         }
     }
 
@@ -1536,6 +1541,12 @@ impl AppShell {
                 format!(
                     "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Home/End · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
                     self.skirmish.side, self.skirmish.difficulty
+                )
+            }
+            OriginalScreen::ChooseMap => {
+                format!(
+                    "ra2 · 选图 · {} · Esc 回大厅 · F12 截图",
+                    self.selected_map.as_deref().unwrap_or("（未选）")
                 )
             }
             OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
@@ -1748,6 +1759,11 @@ impl AppShell {
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::SinglePlayerMenu),
                 _ => {}
             },
+            OriginalScreen::ChooseMap => {
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.set_screen(OriginalScreen::SkirmishLobby);
+                }
+            }
             OriginalScreen::Network | OriginalScreen::Options => {
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
                     if self.screen == OriginalScreen::Options {
@@ -1998,6 +2014,7 @@ impl ApplicationHandler for AppShell {
             | OriginalScreen::SinglePlayerMenu
             | OriginalScreen::Campaign
             | OriginalScreen::SkirmishLobby
+            | OriginalScreen::ChooseMap
             | OriginalScreen::Network
             | OriginalScreen::Options
             | OriginalScreen::ExitConfirm

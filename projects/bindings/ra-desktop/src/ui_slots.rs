@@ -362,6 +362,8 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: &[],
             buttons: NETWORK_BUTTONS,
         }),
+        // 选图对话框页面资源未接线前不挂槽，避免假 chrome。
+        OriginalScreen::ChooseMap => None,
         OriginalScreen::Match | OriginalScreen::Results => None,
     }
 }

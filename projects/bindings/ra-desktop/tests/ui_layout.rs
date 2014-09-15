@@ -62,6 +62,22 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
 }
 
 #[test]
+fn choose_map_matches_game_exe_dialog_0x6b() {
+    let layout = choose_map_layout(800, 600);
+    assert_eq!(CHOOSE_MAP_BUTTON_IDS, ["use_map", "create_random", "cancel"]);
+    // 使用地图 `0x6C5` DLU y 122 → 吸附 tile 0；随机 y 149 → tile 1；取消贴底盖。
+    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 199, 156, 42));
+    assert_eq!(layout.shell.buttons[1], RectPx::new(644, 241, 156, 42));
+    assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
+    assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
+    assert_eq!(layout.title, RectPx::new(635, 2, 162, 16));
+    assert_eq!(layout.game_type_list, RectPx::new(30, 127, 195, 260));
+    assert_eq!(layout.map_list, RectPx::new(252, 127, 195, 260));
+    assert_eq!(layout.label_engagement, RectPx::new(35, 33, 386, 20));
+    assert_eq!(layout.shell.lower_strip, RectPx::new(0, 0, 0, 0));
+}
+
+#[test]
 fn campaign_matches_game_exe_dialog_0x94() {
     use ra_desktop::ui_layout::{CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, campaign_layout};
     let layout = campaign_layout(800, 600);

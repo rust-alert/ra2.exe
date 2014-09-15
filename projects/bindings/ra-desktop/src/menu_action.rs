@@ -43,8 +43,10 @@ pub enum MenuAction {
     OptionsAccept,
     /// 选项页取消（丢弃草稿）。
     OptionsCancel,
-    /// 右栏「选图」：暂切换下一张候选图（完整选图模态后续再接）。
+    /// 打开遭遇战选图页（对话框 `0x6B`）。
     ChooseMap,
-    /// 选中大厅地图列表中的一项（选图模态）。
+    /// 选图页：使用当前选中地图并返回大厅。
+    UseMap,
+    /// 选中选图页地图列表中的一项。
     SelectMap(usize),
 }
