@@ -61,7 +61,8 @@ fn bikk_solid_fill_planes_return_frame() {
     };
     push(0, 32, &mut bytes, &mut bit_buf, &mut bit_n);
     let mut n_total = 32u32;
-    for color in [16u32, 128u32, 200u32] {
+    // BIKk 码流平面顺序为 Y/V/U，解码写入时对调为 Y/U/V。
+    for color in [16u32, 200u32, 128u32] {
         push(1, 1, &mut bytes, &mut bit_buf, &mut bit_n);
         push(color, 8, &mut bytes, &mut bit_buf, &mut bit_n);
         n_total += 9;
