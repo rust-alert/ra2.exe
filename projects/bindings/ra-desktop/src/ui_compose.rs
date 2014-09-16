@@ -578,7 +578,9 @@ pub fn compose_campaign_page(
         ("soviet", "fsslg.shp", layout.soviet),
     ];
     for (id, shp, rect) in sides {
-        if let Some(sprite) = find_panel(decoded, shp, panel_anim_frame) {
+        // 侧图不得与 `sdwrnanm` 共用 `panel_anim_frame`：WARNING 帧数远多于侧图，
+        // 取模会抽到错误高亮/箭头帧，观感像调色板错了。悬停动画另计时后再接。
+        if let Some(sprite) = find_panel(decoded, shp, 0) {
             blit_stretched(&mut page, &sprite.image, rect);
         }
         let selected = paint.selected_side == Some(id);
