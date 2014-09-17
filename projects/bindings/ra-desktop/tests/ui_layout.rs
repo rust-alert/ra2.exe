@@ -94,7 +94,11 @@ fn campaign_matches_game_exe_dialog_0x94() {
     assert_eq!(layout.difficulty_label, RectPx::new(135, 380, 113, 20));
     assert_eq!(layout.difficulty_value, RectPx::new(233, 380, 113, 20));
     assert_eq!(layout.difficulty_track, RectPx::new(135, 406, 210, 21));
-    assert_eq!(layout.status_help, RectPx::new(12, 458, 455, 20));
+    // 标题 / 底栏提示与主菜单壳层 chrome 同格。
+    assert_eq!(layout.title, layout.shell.title);
+    assert_eq!(layout.status_help, layout.shell.tooltip);
+    assert_eq!(layout.title, RectPx::new(635, 9, 163, 18));
+    assert_eq!(layout.status_help, RectPx::new(10, 579, 455, 20));
 }
 
 #[test]

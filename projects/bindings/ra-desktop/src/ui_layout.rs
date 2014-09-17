@@ -373,7 +373,7 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
 pub struct CampaignLayout {
     /// 共用壳层 chrome（背景 / 右栏 / 底条）。
     pub shell: MainMenuLayout,
-    /// 右栏标题（`0x694` / `GUI:CampaignMenu`）。
+    /// 右栏标题（与主菜单壳层 `title` 同格；CSF `GUI:CampaignMenu`）。
     pub title: RectPx,
     /// 盟军侧图（`0x6EA` / `fsalg.shp`）。
     pub allied: RectPx,
@@ -387,7 +387,7 @@ pub struct CampaignLayout {
     pub difficulty_value: RectPx,
     /// 难度滑条（`0x50F`）。
     pub difficulty_track: RectPx,
-    /// 底栏状态提示（`0x695`）。
+    /// 底栏状态提示（与主菜单壳层 `tooltip` 同格）。
     pub status_help: RectPx,
 }
 
@@ -407,14 +407,16 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     ];
     CampaignLayout {
         shell,
-        title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
+        // 右栏标题 / 底栏提示跟主菜单壳层 chrome 同格（`y=9` / 贴底），
+        // 不用对话框 DLU `(318,1)` / `(8,282)`：那会把标题贴顶、提示悬在地图中下部。
+        title: shell.title,
         allied: dlu_rect(16, 10, 284, 71),
         tutorial: dlu_rect(41, 85, 232, 56),
         soviet: dlu_rect(52, 145, 212, 71),
         difficulty_label: dlu_rect(90, 234, 75, 12),
         difficulty_value: dlu_rect(155, 234, 75, 12),
         difficulty_track: dlu_rect(90, 250, 140, 13),
-        status_help: dlu_rect(8, 282, 303, 12),
+        status_help: shell.tooltip,
     }
 }
 
