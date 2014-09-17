@@ -114,6 +114,10 @@ pub struct AppShell {
     campaign_side: Option<&'static str>,
     /// 战役难度档：0 易 / 1 中 / 2 难。
     campaign_difficulty: u8,
+    /// 战役难度滑条是否正在拖动。
+    campaign_dragging: bool,
+    /// 战役左栏按下是否已消费（难度滑条，勿再走点击轮换）。
+    campaign_pointer_consumed: bool,
     /// 桌面音频输出（设备不可用则为 `None`）。
     audio: Option<crate::audio::ShellAudio>,
     /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
@@ -198,6 +202,8 @@ impl AppShell {
             skirmish: SkirmishBootRequest::default_lobby(),
             campaign_side: None,
             campaign_difficulty: 1,
+            campaign_dragging: false,
+            campaign_pointer_consumed: false,
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
@@ -263,6 +269,8 @@ impl AppShell {
             skirmish: SkirmishBootRequest::default_lobby(),
             campaign_side: None,
             campaign_difficulty: 1,
+            campaign_dragging: false,
+            campaign_pointer_consumed: false,
             audio: crate::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
@@ -450,6 +458,51 @@ impl AppShell {
         }
         self.refresh_menu_backdrop();
         true
+    }
+
+    /// 战役难度滑条按下：按轨坐标落档并开始拖动。
+    fn handle_campaign_press(&mut self) -> bool {
+        let layout = ui_layout::campaign_layout(0, 0);
+        let (x, y) = self.shell_cursor_px();
+        if !(layout.difficulty_track.contains(x, y)
+            || layout.difficulty_label.contains(x, y)
+            || layout.difficulty_value.contains(x, y))
+        {
+            return false;
+        }
+        self.campaign_dragging = true;
+        self.campaign_pointer_consumed = true;
+        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        self.play_menu_click();
+        true
+    }
+
+    /// 战役难度滑条拖动。
+    fn handle_campaign_drag(&mut self) -> bool {
+        if !self.campaign_dragging {
+            return false;
+        }
+        let layout = ui_layout::campaign_layout(0, 0);
+        let (x, _) = self.shell_cursor_px();
+        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        true
+    }
+
+    /// 按轨道 X 映射难度 0..=2，档位变化时刷新。
+    fn set_campaign_difficulty_from_x(&mut self, track: ui_layout::RectPx, x: i32) {
+        let next = campaign_difficulty_from_track_x(track, x);
+        if next == self.campaign_difficulty {
+            return;
+        }
+        self.campaign_difficulty = next;
+        let label = match next {
+            0 => "易",
+            2 => "难",
+            _ => "中",
+        };
+        self.banner = format!("战役难度 · {label}");
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
     }
 
     /// 用户请求跳过闪屏；预处理完成后才进主菜单。
@@ -1340,6 +1393,8 @@ impl AppShell {
             MenuAction::OpenCampaign => {
                 self.campaign_side = None;
                 self.campaign_difficulty = 1;
+                self.campaign_dragging = false;
+                self.campaign_pointer_consumed = false;
                 self.set_screen(OriginalScreen::Campaign);
                 self.banner = "战役选边".into();
                 self.refresh_shell_title();
@@ -2028,6 +2083,8 @@ impl ApplicationHandler for AppShell {
                         // 拖动滑条已刷新。
                     } else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_drag() {
                         // 遭遇战滑条拖动已刷新。
+                    } else if self.screen == OriginalScreen::Campaign && self.handle_campaign_drag() {
+                        // 战役难度滑条拖动已刷新。
                     } else if matches!(
                         self.screen,
                         OriginalScreen::MainMenu
@@ -2054,6 +2111,9 @@ impl ApplicationHandler for AppShell {
                         }
                         else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_press() {
                             // 遭遇战左栏勾选/滑条已处理。
+                        }
+                        else if self.screen == OriginalScreen::Campaign && self.handle_campaign_press() {
+                            // 战役难度滑条已处理。
                         }
                         else if matches!(
                             self.screen,
@@ -2124,6 +2184,28 @@ impl ApplicationHandler for AppShell {
                                 self.apply_menu_action(event_loop, action);
                             }
                         }
+                        else if self.screen == OriginalScreen::Campaign {
+                            let consumed = self.campaign_pointer_consumed;
+                            self.campaign_pointer_consumed = false;
+                            self.campaign_dragging = false;
+                            if self.menu_pressed_entry.take().is_some() {
+                                self.refresh_menu_backdrop();
+                            }
+                            if consumed {
+                                // 难度已在按下/拖动时落档，勿再 CycleCampaignDifficulty。
+                            } else if let Some(action) = ui_hit::hit_action(
+                                self.screen,
+                                &self.lobby_maps,
+                                self.selected_map.as_deref(),
+                                self.cursor,
+                                self.window_width,
+                                self.window_height,
+                                self.load_allow_retry(),
+                            ) {
+                                tracing::debug!(?action, "菜单逻辑命中");
+                                self.apply_menu_action(event_loop, action);
+                            }
+                        }
                         else {
                             if self.menu_pressed_entry.take().is_some() {
                                 self.refresh_menu_backdrop();
@@ -2159,6 +2241,13 @@ impl ApplicationHandler for AppShell {
             window.request_redraw();
         }
     }
+}
+
+/// 战役难度轨鼠标 X → 档位 0..=2（与遭遇战滑条同一套整数映射）。
+fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) -> u8 {
+    let travel = (track.w - 12).max(1);
+    let rel = (mouse_x - track.x - 6).clamp(0, travel);
+    ((rel * 2 + travel / 2) / travel).clamp(0, 2) as u8
 }
 
 /// 解析启动参数并进入事件循环。
@@ -2246,4 +2335,18 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         None,
         None,
     ))
+}
+
+#[cfg(test)]
+mod campaign_track_tests {
+    use super::campaign_difficulty_from_track_x;
+    use crate::ui_layout::campaign_layout;
+
+    #[test]
+    fn difficulty_track_maps_left_mid_right() {
+        let track = campaign_layout(800, 600).difficulty_track;
+        assert_eq!(campaign_difficulty_from_track_x(track, track.x + 2), 0);
+        assert_eq!(campaign_difficulty_from_track_x(track, track.x + track.w / 2), 1);
+        assert_eq!(campaign_difficulty_from_track_x(track, track.x + track.w - 2), 2);
+    }
 }
