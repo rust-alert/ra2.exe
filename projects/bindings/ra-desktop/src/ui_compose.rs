@@ -430,6 +430,10 @@ fn compose_shell_menu_page(
         };
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        // `sdbtnanm` 禁用帧暂与常态同号；压暗格面，避免「载入」等禁用钮仍像高亮可点。
+        if disabled {
+            dim_rect(&mut page, cell, 110);
+        }
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
@@ -464,7 +468,7 @@ fn compose_shell_menu_page(
         let tooltip_key = match (captions, hovered_entry_id) {
             (MenuCaptionKind::Main, Some(hovered)) => main_menu_csf_tooltip(hovered),
             (MenuCaptionKind::SinglePlayer, Some(hovered)) => single_player_csf_tooltip(hovered),
-            // 战役底栏提示用对话框 `0x695` 锚点，在 `compose_campaign_page` 另画。
+            // 战役底栏提示用壳层 `tooltip` 锚点，在 `compose_campaign_page` 另画。
             _ => None,
         };
         if let Some(key) = tooltip_key {
