@@ -207,6 +207,13 @@ const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
 ];
 
+/// 选图页：使用地图 / 创建随机地图（未实现）/ 取消。
+const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
+    main_menu_button("use_map", MenuAction::UseMap, true, (0.805, 0.3317, 1.0, 0.4017)),
+    main_menu_button("create_random", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("cancel", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
+];
+
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     empty_button("loading", MenuAction::Noop, false, (0.30, 0.40, 0.74, 0.48)),
     empty_button("retry", MenuAction::RetryLoad, true, (0.30, 0.52, 0.50, 0.60)),
@@ -316,6 +323,17 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: MAIN_MENU_FONTS,
             buttons: SKIRMISH_LOBBY_BUTTONS,
         }),
+        OriginalScreen::ChooseMap => Some(UiPageSlots {
+            screen,
+            background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
+            background_pal: Some("shell.pal"),
+            background_frame: 0,
+            movie_bik: None,
+            panels: SKIRMISH_LOBBY_PANELS,
+            fonts: MAIN_MENU_FONTS,
+            buttons: CHOOSE_MAP_BUTTONS,
+        }),
         OriginalScreen::LoadScreen => Some(UiPageSlots {
             screen,
             background_shp: None,
@@ -362,8 +380,6 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: &[],
             buttons: NETWORK_BUTTONS,
         }),
-        // 选图对话框页面资源未接线前不挂槽，避免假 chrome。
-        OriginalScreen::ChooseMap => None,
         OriginalScreen::Match | OriginalScreen::Results => None,
     }
 }

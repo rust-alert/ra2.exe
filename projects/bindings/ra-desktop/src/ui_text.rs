@@ -102,6 +102,32 @@ pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 选图页入口 → CSF 标签。
+pub fn choose_map_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "use_map" => Some("GUI:UseMap"),
+        "create_random" => Some("GUI:CreateRandomMap"),
+        "cancel" => Some("GUI:Cancel"),
+        _ => None,
+    }
+}
+
+/// 选图页标题 CSF。
+pub fn choose_map_title_csf_key() -> &'static str {
+    "GUI:ChooseMap"
+}
+
+/// 选图页静态文案 CSF。
+pub fn choose_map_static_csf_key(kind: &str) -> Option<&'static str> {
+    match kind {
+        "select_engagement" => Some("GUI:SelectEngagement"),
+        "game_type" => Some("GUI:GameType"),
+        "game_map" => Some("GUI:GameMap"),
+        "battle" => Some("GUI:Battle"),
+        _ => None,
+    }
+}
+
 /// 遭遇战右栏标题 CSF。
 pub fn skirmish_title_csf_key() -> &'static str {
     "GUI:SkirmishGame"

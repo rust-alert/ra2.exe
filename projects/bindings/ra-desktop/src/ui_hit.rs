@@ -8,9 +8,10 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-        SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, exit_confirm_layout, main_menu_layout,
-        options_layout, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
+        CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
+        OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, choose_map_layout,
+        exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
+        window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -44,6 +45,7 @@ pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_re
         OriginalScreen::SinglePlayerMenu => hits_single_player(),
         OriginalScreen::Campaign => hits_campaign(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
+        OriginalScreen::ChooseMap => hits_choose_map(maps),
         OriginalScreen::Options => hits_options(),
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
@@ -77,6 +79,9 @@ pub fn hit_action(
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
+    if screen == OriginalScreen::ChooseMap {
+        return hit_choose_map_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
     if screen == OriginalScreen::ExitConfirm {
         return hit_exit_confirm_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
@@ -108,6 +113,9 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::SkirmishLobby {
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
+    if screen == OriginalScreen::ChooseMap {
+        return hit_choose_map_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
     }
     if screen == OriginalScreen::ExitConfirm {
         return hover_exit_confirm_at(cursor.0, cursor.1, win_w, win_h);
@@ -583,6 +591,77 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
         }
         if layout.shell.buttons[i].contains(sx, sy) {
             return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
+
+fn hits_choose_map(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
+    let layout = choose_map_layout(0, 0);
+    let bw = layout.shell.canvas.w as f32;
+    let bh = layout.shell.canvas.h as f32;
+    let mut hits = Vec::new();
+    if let Some(page) = slots_for(OriginalScreen::ChooseMap) {
+        for (i, id) in CHOOSE_MAP_BUTTON_IDS.iter().enumerate() {
+            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+            else {
+                continue;
+            };
+            let cell = layout.shell.buttons[i];
+            hits.push(MenuHit {
+                entry_id: btn.entry_id,
+                action: btn.action,
+                x0: cell.x as f32 / bw,
+                y0: cell.y as f32 / bh,
+                x1: (cell.x + cell.w) as f32 / bw,
+                y1: (cell.y + cell.h) as f32 / bh,
+                enabled: btn.enabled,
+            });
+        }
+    }
+    let visible = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+    for (i, _) in maps.iter().take(visible).enumerate() {
+        let row_y = layout.map_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H;
+        hits.push(MenuHit {
+            entry_id: "map_row",
+            action: MenuAction::SelectMap(i),
+            x0: layout.map_list.x as f32 / bw,
+            y0: row_y as f32 / bh,
+            x1: (layout.map_list.x + layout.map_list.w) as f32 / bw,
+            y1: (row_y + CHOOSE_MAP_LIST_ROW_H) as f32 / bh,
+            enabled: true,
+        });
+    }
+    hits
+}
+
+fn hit_choose_map_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let layout = choose_map_layout(0, 0);
+    let page = slots_for(OriginalScreen::ChooseMap)?;
+    for (i, id) in CHOOSE_MAP_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        if layout.shell.buttons[i].contains(sx, sy) {
+            return Some((i, btn.action));
+        }
+    }
+    if layout.map_list.contains(sx, sy) {
+        let row = ((sy - layout.map_list.y) / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+        let visible = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+        if row < maps.len().min(visible) {
+            // 按钮之后的列表下标，供悬停映射用。
+            return Some((CHOOSE_MAP_BUTTON_IDS.len() + row, MenuAction::SelectMap(row)));
         }
     }
     None
