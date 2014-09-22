@@ -138,3 +138,31 @@ fn campaign_side_and_difficulty_are_hit() {
     assert_eq!(campaign_entry_at(ax, ay, 1024.0, 768.0), Some("allied"));
     assert_eq!(campaign_entry_at(tx, ty, 1024.0, 768.0), Some("difficulty"));
 }
+
+#[test]
+fn choose_map_use_and_list_row_are_hit() {
+    let maps = vec![BootMapCandidate {
+        file_name: "mp03t4.map".into(),
+        width: 50,
+        height: 50,
+        theater: Theater::Temperate,
+    }];
+    let cam = ra_desktop::ui_layout::shell_fit_camera(1024, 768);
+    let to_win = |sx: i32, sy: i32| {
+        let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
+        let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
+        (x as f64, y as f64)
+    };
+    let layout = ra_desktop::ui_layout::choose_map_layout(0, 0);
+    let use_map = layout.shell.buttons[0];
+    let (ux, uy) = to_win(use_map.x + use_map.w / 2, use_map.y + use_map.h / 2);
+    assert_eq!(
+        hit_action(OriginalScreen::ChooseMap, &maps, Some("mp03t4.map"), (ux, uy), 1024.0, 768.0, false),
+        Some(MenuAction::UseMap)
+    );
+    let (mx, my) = to_win(layout.map_list.x + 8, layout.map_list.y + 8);
+    assert_eq!(
+        hit_action(OriginalScreen::ChooseMap, &maps, Some("mp03t4.map"), (mx, my), 1024.0, 768.0, false),
+        Some(MenuAction::SelectMap(0))
+    );
+}
