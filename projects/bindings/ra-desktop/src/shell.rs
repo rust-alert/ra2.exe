@@ -110,6 +110,8 @@ pub struct AppShell {
     auto_screenshots: crate::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     skirmish: SkirmishBootRequest,
+    /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
+    choose_map_revert: Option<Option<String>>,
     /// 战役选边：`allied` / `tutorial` / `soviet`。
     campaign_side: Option<&'static str>,
     /// 战役难度档：0 易 / 1 中 / 2 难。
@@ -200,6 +202,7 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            choose_map_revert: None,
             campaign_side: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
@@ -267,6 +270,7 @@ impl AppShell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            choose_map_revert: None,
             campaign_side: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
@@ -961,8 +965,9 @@ impl AppShell {
                 | OriginalScreen::Options
                 | OriginalScreen::ExitConfirm
                 | OriginalScreen::SkirmishLobby
+                | OriginalScreen::ChooseMap
         ) {
-            if self.screen == OriginalScreen::SkirmishLobby {
+            if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_preview();
             }
@@ -1079,6 +1084,26 @@ impl AppShell {
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
                             &paint,
+                            self.menu_panel_anim_frame,
+                        )
+                    }
+                    OriginalScreen::ChooseMap => {
+                        let map_names: Vec<&str> =
+                            self.lobby_maps.iter().map(|m| m.file_name.as_str()).collect();
+                        let selected_map_index = self.selected_map.as_ref().and_then(|sel| {
+                            self.lobby_maps.iter().position(|m| &m.file_name == sel)
+                        });
+                        ui_compose::compose_choose_map_page(
+                            decoded,
+                            self.window_width as u32,
+                            self.window_height as u32,
+                            self.menu_pressed_entry,
+                            self.menu_hovered_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            self.lobby_preview.as_ref(),
+                            &map_names,
+                            selected_map_index,
                             self.menu_panel_anim_frame,
                         )
                     }
@@ -1321,6 +1346,7 @@ impl AppShell {
                 | OriginalScreen::Options
                 | OriginalScreen::ExitConfirm
                 | OriginalScreen::SkirmishLobby
+                | OriginalScreen::ChooseMap
                 | OriginalScreen::Network
         );
         if wants_bgm {
@@ -1366,6 +1392,7 @@ impl AppShell {
             OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::SkirmishLobby => ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::ChooseMap => ui_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied(),
             _ => None,
         }
     }
@@ -1438,6 +1465,7 @@ impl AppShell {
                 OriginalScreen::SkirmishLobby | OriginalScreen::Campaign => {
                     self.set_screen(OriginalScreen::SinglePlayerMenu);
                 }
+                OriginalScreen::ChooseMap => self.cancel_choose_map(),
                 _ => self.set_screen(OriginalScreen::MainMenu),
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
@@ -1474,20 +1502,53 @@ impl AppShell {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
                     self.skirmish.preferred_map = Some(map.file_name.clone());
+                    self.ensure_lobby_preview();
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
                 }
             }
-            MenuAction::ChooseMap => {
-                // 完整选图模态未接前：右栏选图先切下一张候选图。
-                self.cycle_lobby_map(1);
-            }
-            MenuAction::UseMap => {
-                self.set_screen(OriginalScreen::SkirmishLobby);
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
-            }
+            MenuAction::ChooseMap => self.open_choose_map_page(),
+            MenuAction::UseMap => self.confirm_choose_map(),
         }
+    }
+
+    /// 进入选图页并快照当前优选地图（取消时还原）。
+    fn open_choose_map_page(&mut self) {
+        self.ensure_lobby_maps();
+        self.choose_map_revert = Some(self.skirmish.preferred_map.clone());
+        if self.selected_map.is_none() {
+            self.selected_map = self
+                .skirmish
+                .preferred_map
+                .clone()
+                .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
+        }
+        self.set_screen(OriginalScreen::ChooseMap);
+        self.banner = "选图".into();
+        self.refresh_shell_title();
+    }
+
+    /// 使用当前选中地图并返回遭遇战大厅。
+    fn confirm_choose_map(&mut self) {
+        self.choose_map_revert = None;
+        if let Some(name) = self.selected_map.clone() {
+            self.skirmish.preferred_map = Some(name);
+        }
+        self.set_screen(OriginalScreen::SkirmishLobby);
+        self.banner = "已选用地图".into();
+        self.refresh_shell_title();
+    }
+
+    /// 取消选图：还原进入页前的优选地图并回大厅。
+    fn cancel_choose_map(&mut self) {
+        if let Some(prev) = self.choose_map_revert.take() {
+            self.skirmish.preferred_map = prev.clone();
+            self.selected_map = prev.or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
+            self.ensure_lobby_preview();
+        }
+        self.set_screen(OriginalScreen::SkirmishLobby);
+        self.banner = "已取消选图".into();
+        self.refresh_shell_title();
     }
 
     /// 进入选项页并快照当前显示档 / 音量草稿。
@@ -1816,7 +1877,7 @@ impl AppShell {
             },
             OriginalScreen::ChooseMap => {
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
-                    self.set_screen(OriginalScreen::SkirmishLobby);
+                    self.cancel_choose_map();
                 }
             }
             OriginalScreen::Network | OriginalScreen::Options => {
@@ -2093,6 +2154,7 @@ impl ApplicationHandler for AppShell {
                             | OriginalScreen::Options
                             | OriginalScreen::ExitConfirm
                             | OriginalScreen::SkirmishLobby
+                            | OriginalScreen::ChooseMap
                     ) {
                         let next = self.menu_entry_under_cursor();
                         if next != self.menu_hovered_entry {
@@ -2123,6 +2185,7 @@ impl ApplicationHandler for AppShell {
                                 | OriginalScreen::Options
                                 | OriginalScreen::ExitConfirm
                                 | OriginalScreen::SkirmishLobby
+                                | OriginalScreen::ChooseMap
                         ) {
                             let next = self.menu_entry_under_cursor();
                             if next != self.menu_pressed_entry {
