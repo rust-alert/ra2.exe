@@ -248,6 +248,59 @@ impl SkirmishBootRequest {
     }
 }
 
+/// 光标下的悬停入口 id（供底栏 `STT:Skirmish*`；不改状态）。
+pub fn hover_entry_at(layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<&'static str> {
+    if layout.player_name.contains(x, y) {
+        return Some("player_name");
+    }
+    if layout.flags[0].contains(x, y) {
+        return Some("flag");
+    }
+    if layout.side_faces[0].contains(x, y) {
+        return Some("country");
+    }
+    if layout.color_faces[0].contains(x, y) {
+        return Some("color");
+    }
+    for face in &layout.ai_faces {
+        if face.contains(x, y) {
+            return Some("ai");
+        }
+    }
+    for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
+        let rect = layout.checkboxes[i];
+        let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
+        if icon.contains(x, y) || rect.contains(x, y) {
+            return Some(match id {
+                SkirmishCheckbox::ShortGame => "short_game",
+                SkirmishCheckbox::McvRepacks => "mcv_repacks",
+                SkirmishCheckbox::Crates => "crates",
+                SkirmishCheckbox::SuperWeapons => "superweapons",
+                SkirmishCheckbox::BuildOffAlly => "build_off_ally",
+            });
+        }
+    }
+    if layout.track_speed.contains(x, y) || layout.label_speed.contains(x, y) {
+        return Some("speed");
+    }
+    if layout.track_credits.contains(x, y) || layout.label_credits.contains(x, y) {
+        return Some("credits");
+    }
+    if layout.track_units.contains(x, y) || layout.label_units.contains(x, y) {
+        return Some("units");
+    }
+    if layout.map_preview.contains(x, y) {
+        return Some("map_preview");
+    }
+    if layout.game_type.contains(x, y) {
+        return Some("game_type");
+    }
+    if layout.map_label.contains(x, y) {
+        return Some("map_label");
+    }
+    None
+}
+
 fn track_rect(layout: &SkirmishLobbyLayout, id: SkirmishTrackbar) -> RectPx {
     match id {
         SkirmishTrackbar::GameSpeed => layout.track_speed,
@@ -308,5 +361,18 @@ mod tests {
     fn americans_flag_pcx() {
         assert_eq!(side_flag_pcx("Americans"), "usai.pcx");
         assert_eq!(side_flag_pcx("Russians"), "rusi.pcx");
+    }
+
+    #[test]
+    fn hover_entry_reports_checkbox_and_country() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let r = layout.checkboxes[0];
+        assert_eq!(hover_entry_at(&layout, r.x + 2, r.y + 2), Some("short_game"));
+        let face = layout.side_faces[0];
+        assert_eq!(hover_entry_at(&layout, face.x + 2, face.y + 2), Some("country"));
+        assert_eq!(
+            hover_entry_at(&layout, layout.map_preview.x + 2, layout.map_preview.y + 2),
+            Some("map_preview")
+        );
     }
 }

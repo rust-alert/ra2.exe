@@ -21,7 +21,7 @@ use crate::{
         choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label,
         main_menu_csf_tooltip, options_csf_label, options_dialog_csf_key, resolve_caption, resolve_csf_text,
         single_player_csf_label, single_player_csf_tooltip, single_player_title_csf_key, skirmish_lobby_csf_label,
-        skirmish_lobby_static_csf_key, skirmish_title_csf_key,
+        skirmish_lobby_csf_tooltip, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
     },
 };
 
@@ -1142,6 +1142,23 @@ pub fn compose_skirmish_lobby_page(
     }
 
     paint_skirmish_lobby_controls(&mut page, &layout, paint, fnt, csf);
+
+    // 底栏 `0x695`：悬停右栏钮或左栏控件时的 `STT:Skirmish*`。
+    if let (Some(fnt), Some(hovered)) = (fnt, hovered_entry_id) {
+        if let Some(key) = skirmish_lobby_csf_tooltip(hovered) {
+            if let Some(text) = resolve_csf_text(csf, key) {
+                blit_text_colored(
+                    &mut page,
+                    fnt,
+                    &text,
+                    layout.status_help.x,
+                    layout.status_help.y,
+                    MENU_TEXT_ENABLED,
+                );
+            }
+        }
+    }
+
     Some(page)
 }
 

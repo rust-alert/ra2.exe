@@ -20,7 +20,7 @@ use crate::{
     menu_action::MenuAction,
     preview_job::PreviewJob,
     screen::OriginalScreen,
-    skirmish_setup::{SkirmishBootRequest, side_flag_pcx},
+    skirmish_setup::{SkirmishBootRequest, hover_entry_at, side_flag_pcx},
     ui_assets::{MenuUiAssets, load_menu_ui_assets},
     ui_compose::{self, SkirmishChromeSprites},
     ui_decode, ui_hit, ui_layout,
@@ -1377,6 +1377,24 @@ impl AppShell {
         if self.screen == OriginalScreen::Campaign {
             return ui_hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
         }
+        if self.screen == OriginalScreen::SkirmishLobby {
+            if let Some(id) = ui_hit::hover_index(
+                self.screen,
+                &self.lobby_maps,
+                self.selected_map.as_deref(),
+                self.cursor,
+                self.window_width,
+                self.window_height,
+                self.load_allow_retry(),
+            )
+            .and_then(|idx| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied())
+            {
+                return Some(id);
+            }
+            let layout = ui_layout::skirmish_lobby_layout(0, 0);
+            let (x, y) = self.shell_cursor_px();
+            return hover_entry_at(&layout, x, y);
+        }
         let idx = ui_hit::hover_index(
             self.screen,
             &self.lobby_maps,
@@ -1391,7 +1409,6 @@ impl AppShell {
             OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::SkirmishLobby => ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ChooseMap => ui_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied(),
             _ => None,
         }

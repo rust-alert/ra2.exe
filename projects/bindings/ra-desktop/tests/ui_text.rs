@@ -44,6 +44,17 @@ fn single_player_csf_keys_match_shell_labels() {
 }
 
 #[test]
+fn skirmish_lobby_csf_tooltips_match_stt_keys() {
+    assert_eq!(skirmish_lobby_csf_tooltip("start"), Some("STT:SkirmishButtonStartGame"));
+    assert_eq!(skirmish_lobby_csf_tooltip("choose_map"), Some("STT:SkirmishButtonChooseMap"));
+    assert_eq!(skirmish_lobby_csf_tooltip("back"), Some("STT:SkirmishButtonBack"));
+    assert_eq!(skirmish_lobby_csf_tooltip("short_game"), Some("STT:SkirmishCBoxShortGame"));
+    assert_eq!(skirmish_lobby_csf_tooltip("speed"), Some("STT:SkirmishSliderSpeed"));
+    assert_eq!(skirmish_lobby_csf_tooltip("country"), Some("STT:SkirmishComboCountry"));
+    assert_eq!(skirmish_lobby_csf_tooltip("player_name"), Some("STT:SkirmishEditPlayer"));
+}
+
+#[test]
 fn campaign_csf_keys_match_shell_labels() {
     assert_eq!(campaign_csf_label("load"), Some("GUI:Load"));
     assert_eq!(campaign_csf_label("back"), Some("GUI:Back"));

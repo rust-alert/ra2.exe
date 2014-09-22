@@ -102,6 +102,32 @@ pub fn skirmish_lobby_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 遭遇战大厅悬停 → 底栏 `STT:*`。
+pub fn skirmish_lobby_csf_tooltip(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "start" => Some("STT:SkirmishButtonStartGame"),
+        "choose_map" => Some("STT:SkirmishButtonChooseMap"),
+        "back" => Some("STT:SkirmishButtonBack"),
+        "short_game" => Some("STT:SkirmishCBoxShortGame"),
+        "mcv_repacks" => Some("STT:SkirmishCBoxRedeploys"),
+        "crates" => Some("STT:SkirmishCBoxCrates"),
+        "superweapons" => Some("STT:SkirmishCBoxSWAllowed"),
+        "build_off_ally" => Some("STT:SkirmishCBoxBuildOffAlly"),
+        "speed" => Some("STT:SkirmishSliderSpeed"),
+        "credits" => Some("STT:SkirmishSliderCredits"),
+        "units" => Some("STT:SkirmishSliderUnit"),
+        "country" => Some("STT:SkirmishComboCountry"),
+        "color" => Some("STT:SkirmishComboColor"),
+        "ai" => Some("STT:SkirmishComboAIPlayer"),
+        "player_name" => Some("STT:SkirmishEditPlayer"),
+        "flag" => Some("STT:SkirmishPictureFlag"),
+        "map_preview" => Some("STT:SkirmishMapThumbnail"),
+        "game_type" => Some("STT:SkirmishLabelGameType"),
+        "map_label" => Some("STT:SkirmishLabelScenario"),
+        _ => None,
+    }
+}
+
 /// 选图页入口 → CSF 标签。
 pub fn choose_map_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
