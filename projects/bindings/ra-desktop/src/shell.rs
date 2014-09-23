@@ -1061,7 +1061,7 @@ impl AppShell {
                             map_name: map_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
                             country_name: country.as_str(),
-                            color_rgb: [0, 160, 0],
+                            color_rgb: self.skirmish.color_rgb(),
                             ai_name: ai_name.as_str(),
                             ai_country: country.as_str(),
                             short_game: self.skirmish.short_game,

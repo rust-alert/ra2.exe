@@ -11,6 +11,18 @@ pub const LOBBY_SIDES: &[&str] = &["Americans", "French", "Germans", "British", 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
+/// 大厅可选玩家色块（RGB；点击颜色面循环）。
+pub const LOBBY_COLORS: &[[u8; 3]] = &[
+    [255, 214, 0],   // 金黄
+    [200, 24, 24],   // 红
+    [32, 72, 200],   // 蓝
+    [0, 160, 0],     // 绿
+    [220, 120, 16],  // 橙
+    [0, 180, 180],   // 青
+    [140, 48, 180],  // 紫
+    [220, 80, 160],  // 粉
+];
+
 /// 阵营 → 安装内旗标 PCX（`local.mix` 证据）。
 pub fn side_flag_pcx(side: &str) -> &'static str {
     match side {
@@ -85,6 +97,8 @@ pub enum SkirmishLobbyHit {
     Track(SkirmishTrackbar),
     /// 点本地国家下拉面 → 循环阵营。
     CycleSide,
+    /// 点本地颜色下拉面 → 循环色块。
+    CycleColor,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -98,6 +112,8 @@ pub struct SkirmishBootRequest {
     pub side: String,
     /// 难度标签。
     pub difficulty: String,
+    /// 本地玩家色块下标（`LOBBY_COLORS`）。
+    pub color_index: u8,
     /// 快速游戏。
     pub short_game: bool,
     /// 基地重新部署。
@@ -126,6 +142,7 @@ impl SkirmishBootRequest {
             preferred_map: None,
             side: LOBBY_SIDES[0].to_string(),
             difficulty: LOBBY_DIFFICULTIES[1].to_string(),
+            color_index: 0,
             short_game: true,
             mcv_repacks: true,
             crates: true,
@@ -142,6 +159,18 @@ impl SkirmishBootRequest {
     pub fn cycle_side(&mut self) {
         let i = LOBBY_SIDES.iter().position(|s| *s == self.side.as_str()).unwrap_or(0);
         self.side = LOBBY_SIDES[(i + 1) % LOBBY_SIDES.len()].to_string();
+    }
+
+    /// 循环下一色块。
+    pub fn cycle_color(&mut self) {
+        let n = LOBBY_COLORS.len() as u8;
+        self.color_index = (self.color_index + 1) % n.max(1);
+    }
+
+    /// 当前色块 RGB。
+    pub fn color_rgb(&self) -> [u8; 3] {
+        let i = (self.color_index as usize) % LOBBY_COLORS.len();
+        LOBBY_COLORS[i]
     }
 
     /// 循环下一难度。
@@ -219,10 +248,14 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::Track(id));
             }
         }
-        // 本地国家下拉面（行 0）：暂用点击循环，完整列表后续再接。
+        // 本地国家 / 颜色下拉面（行 0）：暂用点击循环，完整列表后续再接。
         if layout.side_faces[0].contains(x, y) {
             self.cycle_side();
             return Some(SkirmishLobbyHit::CycleSide);
+        }
+        if layout.color_faces[0].contains(x, y) {
+            self.cycle_color();
+            return Some(SkirmishLobbyHit::CycleColor);
         }
         None
     }
@@ -355,6 +388,18 @@ mod tests {
         let face = layout.side_faces[0];
         assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleSide));
         assert_eq!(s.side, "French");
+    }
+
+    #[test]
+    fn color_face_click_cycles_color() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        assert_eq!(s.color_index, 0);
+        assert_eq!(s.color_rgb(), LOBBY_COLORS[0]);
+        let face = layout.color_faces[0];
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleColor));
+        assert_eq!(s.color_index, 1);
+        assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
     }
 
     #[test]

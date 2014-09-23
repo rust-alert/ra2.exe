@@ -957,7 +957,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             map_name: "",
             player_name: "Player",
             country_name: "",
-            color_rgb: [0, 160, 0],
+            color_rgb: crate::skirmish_setup::LOBBY_COLORS[0],
             ai_name: "",
             ai_country: "",
             short_game: true,
