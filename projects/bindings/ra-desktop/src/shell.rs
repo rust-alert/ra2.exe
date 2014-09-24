@@ -464,6 +464,34 @@ impl AppShell {
         true
     }
 
+    /// 玩家名编辑中的键盘输入。返回 `true` 表示已消费（勿再走大厅快捷键）。
+    fn handle_skirmish_name_key(&mut self, key_ev: &winit::event::KeyEvent) -> bool {
+        if self.screen != OriginalScreen::SkirmishLobby || !self.skirmish.player_name_editing {
+            return false;
+        }
+        match key_ev.physical_key {
+            PhysicalKey::Code(KeyCode::Backspace) => {
+                if self.skirmish.backspace_name() {
+                    self.refresh_menu_backdrop();
+                }
+            }
+            PhysicalKey::Code(KeyCode::Escape)
+            | PhysicalKey::Code(KeyCode::Enter)
+            | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+                self.skirmish.end_name_edit();
+                self.refresh_menu_backdrop();
+            }
+            _ => {
+                if let Some(text) = key_ev.text.as_deref() {
+                    if self.skirmish.append_name_text(text) {
+                        self.refresh_menu_backdrop();
+                    }
+                }
+            }
+        }
+        true
+    }
+
     /// 战役难度滑条按下：按轨坐标落档并开始拖动。
     fn handle_campaign_press(&mut self) -> bool {
         let layout = ui_layout::campaign_layout(0, 0);
@@ -844,6 +872,9 @@ impl AppShell {
 
     fn set_screen(&mut self, next: OriginalScreen) {
         if self.screen != next {
+            if self.screen == OriginalScreen::SkirmishLobby {
+                self.skirmish.end_name_edit();
+            }
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.menu_pressed_entry = None;
@@ -1072,6 +1103,7 @@ impl AppShell {
                             game_speed: self.skirmish.game_speed,
                             credits: self.skirmish.credits,
                             unit_count: self.skirmish.unit_count,
+                            player_name_editing: self.skirmish.player_name_editing,
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         ui_compose::compose_skirmish_lobby_page(
@@ -2205,6 +2237,9 @@ impl ApplicationHandler for AppShell {
                                 | OriginalScreen::ChooseMap
                         ) {
                             let next = self.menu_entry_under_cursor();
+                            if self.screen == OriginalScreen::SkirmishLobby && next.is_some() {
+                                self.skirmish.end_name_edit();
+                            }
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
                                 if next.is_some() {
@@ -2308,7 +2343,11 @@ impl ApplicationHandler for AppShell {
                 },
                 WindowEvent::KeyboardInput { event: key_ev, .. } => {
                     if key_ev.state == ElementState::Pressed {
-                        self.handle_pre_game_key(event_loop, key_ev.physical_key);
+                        if self.handle_skirmish_name_key(key_ev) {
+                            // 编辑玩家名时吞掉大厅快捷键。
+                        } else {
+                            self.handle_pre_game_key(event_loop, key_ev.physical_key);
+                        }
                     }
                 }
                 _ => {}

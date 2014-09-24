@@ -23,6 +23,9 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
     [220, 80, 160],  // 粉
 ];
 
+/// 玩家名最大字符数（零售 Handle 常见上限）。
+pub const PLAYER_NAME_MAX_CHARS: usize = 12;
+
 /// 阵营 → 安装内旗标 PCX（`local.mix` 证据）。
 pub fn side_flag_pcx(side: &str) -> &'static str {
     match side {
@@ -99,6 +102,8 @@ pub enum SkirmishLobbyHit {
     CycleSide,
     /// 点本地颜色下拉面 → 循环色块。
     CycleColor,
+    /// 聚焦玩家名编辑框。
+    FocusName,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -132,6 +137,8 @@ pub struct SkirmishBootRequest {
     pub unit_count: i32,
     /// 正在拖动的滑条。
     pub dragging: Option<SkirmishTrackbar>,
+    /// 玩家名编辑框是否聚焦。
+    pub player_name_editing: bool,
 }
 
 impl SkirmishBootRequest {
@@ -152,6 +159,7 @@ impl SkirmishBootRequest {
             credits: 10_000,
             unit_count: 10,
             dragging: None,
+            player_name_editing: false,
         }
     }
 
@@ -171,6 +179,42 @@ impl SkirmishBootRequest {
     pub fn color_rgb(&self) -> [u8; 3] {
         let i = (self.color_index as usize) % LOBBY_COLORS.len();
         LOBBY_COLORS[i]
+    }
+
+    /// 结束玩家名编辑。
+    pub fn end_name_edit(&mut self) {
+        self.player_name_editing = false;
+        if self.player_name.trim().is_empty() {
+            self.player_name = "Player".to_string();
+        }
+    }
+
+    /// 追加玩家名文本（可打印 ASCII，截断到上限）。
+    pub fn append_name_text(&mut self, text: &str) -> bool {
+        if !self.player_name_editing {
+            return false;
+        }
+        let mut changed = false;
+        for ch in text.chars() {
+            if self.player_name.chars().count() >= PLAYER_NAME_MAX_CHARS {
+                break;
+            }
+            if !is_player_name_char(ch) {
+                continue;
+            }
+            self.player_name.push(ch);
+            changed = true;
+        }
+        changed
+    }
+
+    /// 玩家名退格。
+    pub fn backspace_name(&mut self) -> bool {
+        if !self.player_name_editing || self.player_name.is_empty() {
+            return false;
+        }
+        self.player_name.pop();
+        true
     }
 
     /// 循环下一难度。
@@ -231,6 +275,13 @@ impl SkirmishBootRequest {
 
     /// 按下：勾选切换、滑条拖动，或点国家面循环阵营。
     pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<SkirmishLobbyHit> {
+        if layout.player_name.contains(x, y) {
+            self.player_name_editing = true;
+            return Some(SkirmishLobbyHit::FocusName);
+        }
+        // 点到其它左栏控件时退出编辑。
+        self.player_name_editing = false;
+
         for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
             let rect = layout.checkboxes[i];
             let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
@@ -349,6 +400,10 @@ fn track_pos_from_mouse(rect: RectPx, mouse_x: i32, id: SkirmishTrackbar) -> i32
     (rel * max + travel / 2) / travel
 }
 
+fn is_player_name_char(ch: char) -> bool {
+    matches!(ch, ' '..='~')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -400,6 +455,31 @@ mod tests {
         assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleColor));
         assert_eq!(s.color_index, 1);
         assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
+    }
+
+    #[test]
+    fn player_name_edit_accepts_ascii_and_backspace() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        let r = layout.player_name;
+        assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2), Some(SkirmishLobbyHit::FocusName));
+        assert!(s.player_name_editing);
+        s.player_name.clear();
+        assert!(s.append_name_text("Ab"));
+        assert_eq!(s.player_name, "Ab");
+        assert!(s.backspace_name());
+        assert_eq!(s.player_name, "A");
+        // 超长截断。
+        s.player_name.clear();
+        assert!(s.append_name_text(&"x".repeat(PLAYER_NAME_MAX_CHARS + 4)));
+        assert_eq!(s.player_name.len(), PLAYER_NAME_MAX_CHARS);
+        s.end_name_edit();
+        assert!(!s.player_name_editing);
+        // 空名回退 `Player`。
+        s.player_name_editing = true;
+        s.player_name.clear();
+        s.end_name_edit();
+        assert_eq!(s.player_name, "Player");
     }
 
     #[test]

@@ -947,6 +947,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub credits: i32,
     /// 部队数。
     pub unit_count: i32,
+    /// 玩家名编辑框是否聚焦。
+    pub player_name_editing: bool,
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -968,6 +970,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             game_speed: 6,
             credits: 10_000,
             unit_count: 10,
+            player_name_editing: false,
             chrome: None,
         }
     }
@@ -984,7 +987,12 @@ fn paint_skirmish_lobby_controls(
     let chrome = paint.chrome;
 
     // 玩家名 / 下拉面 / 色块（本地 + 可选 AI 行）。
-    draw_combo_face(page, layout.player_name, [16, 16, 20, 255]);
+    let name_face = if paint.player_name_editing {
+        [40, 40, 56, 255]
+    } else {
+        [16, 16, 20, 255]
+    };
+    draw_combo_face(page, layout.player_name, name_face);
     draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255]);
     draw_combo_face(page, layout.color_faces[0], [paint.color_rgb[0], paint.color_rgb[1], paint.color_rgb[2], 255]);
     blit_flag(page, chrome.and_then(|c| c.flag.as_ref()), layout.flags[0]);
@@ -1013,7 +1021,23 @@ fn paint_skirmish_lobby_controls(
     draw_skirmish_trackbar(page, layout.track_units, paint.unit_count.clamp(0, 20), 20, chrome);
 
     if let Some(fnt) = fnt {
-        blit_text_colored(page, fnt, paint.player_name, layout.player_name.x + 4, layout.player_name.y + 2, MENU_TEXT_ENABLED);
+        let name_shown = if paint.player_name_editing {
+            format!("{}|", paint.player_name)
+        } else {
+            paint.player_name.to_string()
+        };
+        blit_text_colored(
+            page,
+            fnt,
+            &name_shown,
+            layout.player_name.x + 4,
+            layout.player_name.y + 2,
+            if paint.player_name_editing {
+                MENU_TEXT_ACCENT
+            } else {
+                MENU_TEXT_ENABLED
+            },
+        );
         let country = if paint.country_name.is_empty() {
             label("side", "Side")
         } else {
