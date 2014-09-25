@@ -2,7 +2,9 @@
 //!
 //! 控件几何在 [`crate::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
-use crate::ui_layout::{RectPx, SkirmishLobbyLayout, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W};
+use crate::ui_layout::{
+    RectPx, SkirmishLobbyLayout, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
+};
 
 /// 大厅可选阵营短名（需与地图实体 `owner` 对得上才会成为本地玩家）。
 /// 旗标 PCX 取自 `local.mix` 已证实文件名。
@@ -98,12 +100,21 @@ pub enum SkirmishLobbyHit {
     Toggle(SkirmishCheckbox),
     /// 点在滑条上（开始拖或跳档）。
     Track(SkirmishTrackbar),
-    /// 点本地国家下拉面 → 循环阵营。
-    CycleSide,
+    /// 打开 / 关闭国家下拉。
+    ToggleCountryCombo,
+    /// 在国家下拉里选中一项。
+    PickCountry(usize),
     /// 点本地颜色下拉面 → 循环色块。
     CycleColor,
     /// 聚焦玩家名编辑框。
     FocusName,
+}
+
+/// 展开中的下拉种类。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkirmishComboKind {
+    /// 本地国家。
+    Country,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -139,6 +150,8 @@ pub struct SkirmishBootRequest {
     pub dragging: Option<SkirmishTrackbar>,
     /// 玩家名编辑框是否聚焦。
     pub player_name_editing: bool,
+    /// 展开中的下拉（`None` 表示收起）。
+    pub open_combo: Option<SkirmishComboKind>,
 }
 
 impl SkirmishBootRequest {
@@ -160,6 +173,7 @@ impl SkirmishBootRequest {
             unit_count: 10,
             dragging: None,
             player_name_editing: false,
+            open_combo: None,
         }
     }
 
@@ -186,6 +200,29 @@ impl SkirmishBootRequest {
         self.player_name_editing = false;
         if self.player_name.trim().is_empty() {
             self.player_name = "Player".to_string();
+        }
+    }
+
+    /// 收起下拉。
+    pub fn close_combo(&mut self) {
+        self.open_combo = None;
+    }
+
+    /// 国家下拉列表矩形（紧贴行 0 国家面下方）。
+    pub fn country_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
+        let face = layout.side_faces[0];
+        RectPx::new(
+            face.x,
+            face.y + face.h,
+            face.w,
+            SKIRMISH_COMBO_FACE_H * LOBBY_SIDES.len() as i32,
+        )
+    }
+
+    /// 设置阵营为 `LOBBY_SIDES[i]`。
+    pub fn set_side_index(&mut self, index: usize) {
+        if let Some(side) = LOBBY_SIDES.get(index) {
+            self.side = (*side).to_string();
         }
     }
 
@@ -275,8 +312,27 @@ impl SkirmishBootRequest {
 
     /// 按下：勾选切换、滑条拖动，或点国家面循环阵营。
     pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<SkirmishLobbyHit> {
+        // 国家下拉展开时优先命中列表 / 面框。
+        if self.open_combo == Some(SkirmishComboKind::Country) {
+            let list = Self::country_list_rect(layout);
+            if list.contains(x, y) {
+                let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_SIDES.len() as i32 - 1) as usize;
+                self.set_side_index(row);
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::PickCountry(row));
+            }
+            if layout.side_faces[0].contains(x, y) {
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::ToggleCountryCombo);
+            }
+            self.open_combo = None;
+        }
+
         if layout.player_name.contains(x, y) {
             self.player_name_editing = true;
+            self.open_combo = None;
             return Some(SkirmishLobbyHit::FocusName);
         }
         // 点到其它左栏控件时退出编辑。
@@ -299,10 +355,10 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::Track(id));
             }
         }
-        // 本地国家 / 颜色下拉面（行 0）：暂用点击循环，完整列表后续再接。
+        // 本地国家面：展开列表（键盘 Q 仍可循环）。
         if layout.side_faces[0].contains(x, y) {
-            self.cycle_side();
-            return Some(SkirmishLobbyHit::CycleSide);
+            self.open_combo = Some(SkirmishComboKind::Country);
+            return Some(SkirmishLobbyHit::ToggleCountryCombo);
         }
         if layout.color_faces[0].contains(x, y) {
             self.cycle_color();
@@ -436,13 +492,19 @@ mod tests {
     }
 
     #[test]
-    fn side_face_click_cycles_side() {
+    fn side_face_click_opens_country_combo() {
         let layout = skirmish_lobby_layout(800, 600);
         let mut s = SkirmishBootRequest::default_lobby();
         assert_eq!(s.side, "Americans");
         let face = layout.side_faces[0];
-        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleSide));
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleCountryCombo));
+        assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
+        let list = SkirmishBootRequest::country_list_rect(&layout);
+        // 第二项 French。
+        let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickCountry(1)));
         assert_eq!(s.side, "French");
+        assert!(s.open_combo.is_none());
     }
 
     #[test]

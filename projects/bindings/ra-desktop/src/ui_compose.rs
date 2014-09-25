@@ -6,11 +6,12 @@ use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
 
 use crate::{
+    skirmish_setup::LOBBY_SIDES,
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
         CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
         OPTIONS_BUTTON_IDS, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
-        SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout,
+        SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout,
         campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout, options_layout,
         single_player_layout, skirmish_lobby_layout,
     },
@@ -949,6 +950,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub unit_count: i32,
     /// 玩家名编辑框是否聚焦。
     pub player_name_editing: bool,
+    /// 是否展开国家下拉。
+    pub country_combo_open: bool,
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -971,6 +974,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             credits: 10_000,
             unit_count: 10,
             player_name_editing: false,
+            country_combo_open: false,
             chrome: None,
         }
     }
@@ -1101,6 +1105,34 @@ fn paint_skirmish_lobby_controls(
             layout.track_units.y + 2,
             MENU_TEXT_ENABLED,
         );
+    }
+
+    if paint.country_combo_open {
+        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout);
+        fill_rect(page, list, [12, 12, 18, 255]);
+        stroke_rect(page, list, [180, 24, 24, 255]);
+        for (i, side) in LOBBY_SIDES.iter().enumerate() {
+            let row = RectPx::new(
+                list.x,
+                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
+                list.w,
+                SKIRMISH_COMBO_FACE_H,
+            );
+            let selected = paint.country_name.eq_ignore_ascii_case(side);
+            if selected {
+                fill_rect(page, row, [48, 28, 8, 255]);
+            }
+            if let Some(fnt) = fnt {
+                blit_text_colored(
+                    page,
+                    fnt,
+                    side,
+                    row.x + 4,
+                    row.y + 4,
+                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
+                );
+            }
+        }
     }
 }
 

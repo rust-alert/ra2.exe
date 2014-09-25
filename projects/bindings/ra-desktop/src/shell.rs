@@ -874,6 +874,7 @@ impl AppShell {
         if self.screen != next {
             if self.screen == OriginalScreen::SkirmishLobby {
                 self.skirmish.end_name_edit();
+                self.skirmish.close_combo();
             }
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
@@ -1104,6 +1105,8 @@ impl AppShell {
                             credits: self.skirmish.credits,
                             unit_count: self.skirmish.unit_count,
                             player_name_editing: self.skirmish.player_name_editing,
+                            country_combo_open: self.skirmish.open_combo
+                                == Some(crate::skirmish_setup::SkirmishComboKind::Country),
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         ui_compose::compose_skirmish_lobby_page(
@@ -1902,6 +1905,10 @@ impl AppShell {
                 }
             }
             OriginalScreen::SkirmishLobby => match key {
+                PhysicalKey::Code(KeyCode::Escape) if self.skirmish.open_combo.is_some() => {
+                    self.skirmish.close_combo();
+                    self.refresh_menu_backdrop();
+                }
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                     self.begin_skirmish_load();
                 }
@@ -2239,6 +2246,7 @@ impl ApplicationHandler for AppShell {
                             let next = self.menu_entry_under_cursor();
                             if self.screen == OriginalScreen::SkirmishLobby && next.is_some() {
                                 self.skirmish.end_name_edit();
+                                self.skirmish.close_combo();
                             }
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
