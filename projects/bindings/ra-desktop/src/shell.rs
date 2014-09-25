@@ -1107,6 +1107,8 @@ impl AppShell {
                             player_name_editing: self.skirmish.player_name_editing,
                             country_combo_open: self.skirmish.open_combo
                                 == Some(crate::skirmish_setup::SkirmishComboKind::Country),
+                            color_combo_open: self.skirmish.open_combo
+                                == Some(crate::skirmish_setup::SkirmishComboKind::Color),
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         ui_compose::compose_skirmish_lobby_page(

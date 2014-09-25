@@ -6,7 +6,7 @@ use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
 
 use crate::{
-    skirmish_setup::LOBBY_SIDES,
+    skirmish_setup::{LOBBY_COLORS, LOBBY_SIDES},
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
         CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
@@ -952,6 +952,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub player_name_editing: bool,
     /// 是否展开国家下拉。
     pub country_combo_open: bool,
+    /// 是否展开颜色下拉。
+    pub color_combo_open: bool,
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -975,6 +977,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             unit_count: 10,
             player_name_editing: false,
             country_combo_open: false,
+            color_combo_open: false,
             chrome: None,
         }
     }
@@ -1131,6 +1134,25 @@ fn paint_skirmish_lobby_controls(
                     row.y + 4,
                     if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
                 );
+            }
+        }
+    }
+
+    if paint.color_combo_open {
+        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(layout);
+        fill_rect(page, list, [12, 12, 18, 255]);
+        stroke_rect(page, list, [180, 24, 24, 255]);
+        for (i, rgb) in LOBBY_COLORS.iter().enumerate() {
+            let row = RectPx::new(
+                list.x,
+                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
+                list.w,
+                SKIRMISH_COMBO_FACE_H,
+            );
+            let swatch = RectPx::new(row.x + 4, row.y + 4, row.w - 8, row.h - 8);
+            fill_rect(page, swatch, [rgb[0], rgb[1], rgb[2], 255]);
+            if paint.color_rgb == *rgb {
+                stroke_rect(page, swatch, [255, 214, 0, 255]);
             }
         }
     }

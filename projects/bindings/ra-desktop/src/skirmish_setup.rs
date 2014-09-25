@@ -104,8 +104,10 @@ pub enum SkirmishLobbyHit {
     ToggleCountryCombo,
     /// 在国家下拉里选中一项。
     PickCountry(usize),
-    /// 点本地颜色下拉面 → 循环色块。
-    CycleColor,
+    /// 打开 / 关闭颜色下拉。
+    ToggleColorCombo,
+    /// 在颜色下拉里选中一项。
+    PickColor(usize),
     /// 聚焦玩家名编辑框。
     FocusName,
 }
@@ -115,6 +117,8 @@ pub enum SkirmishLobbyHit {
 pub enum SkirmishComboKind {
     /// 本地国家。
     Country,
+    /// 本地颜色。
+    Color,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -219,10 +223,28 @@ impl SkirmishBootRequest {
         )
     }
 
+    /// 颜色下拉列表矩形（紧贴行 0 颜色面下方）。
+    pub fn color_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
+        let face = layout.color_faces[0];
+        RectPx::new(
+            face.x,
+            face.y + face.h,
+            face.w.max(28),
+            SKIRMISH_COMBO_FACE_H * LOBBY_COLORS.len() as i32,
+        )
+    }
+
     /// 设置阵营为 `LOBBY_SIDES[i]`。
     pub fn set_side_index(&mut self, index: usize) {
         if let Some(side) = LOBBY_SIDES.get(index) {
             self.side = (*side).to_string();
+        }
+    }
+
+    /// 设置色块为 `LOBBY_COLORS[i]`。
+    pub fn set_color_index(&mut self, index: usize) {
+        if index < LOBBY_COLORS.len() {
+            self.color_index = index as u8;
         }
     }
 
@@ -310,9 +332,9 @@ impl SkirmishBootRequest {
         }
     }
 
-    /// 按下：勾选切换、滑条拖动，或点国家面循环阵营。
+    /// 按下：勾选 / 滑条 / 下拉 / 玩家名。
     pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<SkirmishLobbyHit> {
-        // 国家下拉展开时优先命中列表 / 面框。
+        // 已展开的下拉优先命中列表 / 面框。
         if self.open_combo == Some(SkirmishComboKind::Country) {
             let list = Self::country_list_rect(layout);
             if list.contains(x, y) {
@@ -326,6 +348,21 @@ impl SkirmishBootRequest {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleCountryCombo);
+            }
+            self.open_combo = None;
+        } else if self.open_combo == Some(SkirmishComboKind::Color) {
+            let list = Self::color_list_rect(layout);
+            if list.contains(x, y) {
+                let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_COLORS.len() as i32 - 1) as usize;
+                self.set_color_index(row);
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::PickColor(row));
+            }
+            if layout.color_faces[0].contains(x, y) {
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::ToggleColorCombo);
             }
             self.open_combo = None;
         }
@@ -355,14 +392,14 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::Track(id));
             }
         }
-        // 本地国家面：展开列表（键盘 Q 仍可循环）。
+        // 本地国家 / 颜色面：展开列表。
         if layout.side_faces[0].contains(x, y) {
             self.open_combo = Some(SkirmishComboKind::Country);
             return Some(SkirmishLobbyHit::ToggleCountryCombo);
         }
         if layout.color_faces[0].contains(x, y) {
-            self.cycle_color();
-            return Some(SkirmishLobbyHit::CycleColor);
+            self.open_combo = Some(SkirmishComboKind::Color);
+            return Some(SkirmishLobbyHit::ToggleColorCombo);
         }
         None
     }
@@ -508,15 +545,19 @@ mod tests {
     }
 
     #[test]
-    fn color_face_click_cycles_color() {
+    fn color_face_click_opens_color_combo() {
         let layout = skirmish_lobby_layout(800, 600);
         let mut s = SkirmishBootRequest::default_lobby();
         assert_eq!(s.color_index, 0);
-        assert_eq!(s.color_rgb(), LOBBY_COLORS[0]);
         let face = layout.color_faces[0];
-        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::CycleColor));
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleColorCombo));
+        assert_eq!(s.open_combo, Some(SkirmishComboKind::Color));
+        let list = SkirmishBootRequest::color_list_rect(&layout);
+        let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickColor(1)));
         assert_eq!(s.color_index, 1);
         assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
+        assert!(s.open_combo.is_none());
     }
 
     #[test]
