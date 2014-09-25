@@ -79,11 +79,13 @@ impl Default for PresentFeel {
 
 impl PresentFeel {
     /// 产品默认：开启 16 位质感模拟。
+    ///
+    /// `gamma≈1.15` 对齐侧栏金属；`highlight_roll_off≈0.25` 压 WARNING 屏高光过曝。
     pub const DEFAULT: Self = Self {
         mode: PresentMode::Bit16,
         quantize: PresentQuantize::Rgb565,
         gamma: 1.15,
-        highlight_roll_off: 0.0,
+        highlight_roll_off: 0.25,
         dither: true,
     };
 

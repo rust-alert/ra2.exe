@@ -37,6 +37,7 @@ fn present_feel_default_is_16bit() {
     assert!(f.is_active());
     assert_eq!(f.mode, PresentMode::Bit16);
     assert!((f.gamma - 1.15).abs() < 1e-6);
+    assert!((f.highlight_roll_off - 0.25).abs() < 1e-6);
     assert!(f.dither);
 }
 

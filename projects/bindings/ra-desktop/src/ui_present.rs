@@ -121,4 +121,24 @@ mod tests {
         apply_present_feel(&mut img, PresentFeel::DEFAULT);
         assert_eq!(img.as_raw(), &[255, 255, 255, 0]);
     }
+
+    #[test]
+    fn highlight_roll_off_crushes_near_white_more_than_mid_grey() {
+        let feel = PresentFeel {
+            mode: PresentMode::Bit16,
+            dither: false,
+            highlight_roll_off: 0.25,
+            gamma: 1.0,
+            ..PresentFeel::DEFAULT
+        };
+        let mut bright = solid(252, 252, 180);
+        let mut mid = solid(120, 120, 120);
+        apply_present_feel(&mut bright, feel);
+        apply_present_feel(&mut mid, feel);
+        let b = u16::from(bright.as_raw()[0]) + u16::from(bright.as_raw()[1]);
+        let m = u16::from(mid.as_raw()[0]) + u16::from(mid.as_raw()[1]);
+        // 近白应明显被压；中灰几乎不动（gamma=1）。
+        assert!(b < 252 + 252 - 20, "near-white should roll off, got sum={b}");
+        assert!(m >= 120 + 120 - 8, "mid grey should stay near input, got sum={m}");
+    }
 }
