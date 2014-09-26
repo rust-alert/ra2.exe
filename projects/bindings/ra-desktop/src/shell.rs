@@ -1083,12 +1083,15 @@ impl AppShell {
                             .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()))
                             .unwrap_or_default();
                         let country = self.skirmish.side.clone();
+                        let ai_csf = crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(
+                            &self.skirmish.difficulty,
+                        );
                         let ai_name = self
                             .menu_csf
                             .as_ref()
-                            .and_then(|c| c.get("GUI:AIHard").map(|s| s.to_string()))
+                            .and_then(|c| c.get(ai_csf).map(|s| s.to_string()))
                             .filter(|s| !s.is_empty())
-                            .unwrap_or_else(|| "Hard AI".into());
+                            .unwrap_or_else(|| self.skirmish.difficulty.clone());
                         let paint = ui_compose::SkirmishLobbyPaint {
                             map_name: map_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
@@ -1096,6 +1099,7 @@ impl AppShell {
                             color_rgb: self.skirmish.color_rgb(),
                             ai_name: ai_name.as_str(),
                             ai_country: country.as_str(),
+                            ai_difficulty: self.skirmish.difficulty.as_str(),
                             short_game: self.skirmish.short_game,
                             mcv_repacks: self.skirmish.mcv_repacks,
                             crates: self.skirmish.crates,
@@ -1109,6 +1113,8 @@ impl AppShell {
                                 == Some(crate::skirmish_setup::SkirmishComboKind::Country),
                             color_combo_open: self.skirmish.open_combo
                                 == Some(crate::skirmish_setup::SkirmishComboKind::Color),
+                            ai_combo_open: self.skirmish.open_combo
+                                == Some(crate::skirmish_setup::SkirmishComboKind::Ai),
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         ui_compose::compose_skirmish_lobby_page(

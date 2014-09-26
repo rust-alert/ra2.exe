@@ -6,7 +6,7 @@ use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
 
 use crate::{
-    skirmish_setup::{LOBBY_COLORS, LOBBY_SIDES},
+    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES, LOBBY_SIDES},
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
         CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
@@ -932,6 +932,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub ai_name: &'a str,
     /// AI 国家显示名。
     pub ai_country: &'a str,
+    /// AI 难度短名（`Easy` / `Normal` / `Hard`）。
+    pub ai_difficulty: &'a str,
     /// 快速游戏。
     pub short_game: bool,
     /// 基地重新部署。
@@ -954,6 +956,8 @@ pub struct SkirmishLobbyPaint<'a> {
     pub country_combo_open: bool,
     /// 是否展开颜色下拉。
     pub color_combo_open: bool,
+    /// 是否展开 AI 难度下拉。
+    pub ai_combo_open: bool,
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -967,6 +971,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             color_rgb: crate::skirmish_setup::LOBBY_COLORS[0],
             ai_name: "",
             ai_country: "",
+            ai_difficulty: "Normal",
             short_game: true,
             mcv_repacks: true,
             crates: true,
@@ -978,6 +983,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             player_name_editing: false,
             country_combo_open: false,
             color_combo_open: false,
+            ai_combo_open: false,
             chrome: None,
         }
     }
@@ -1153,6 +1159,39 @@ fn paint_skirmish_lobby_controls(
             fill_rect(page, swatch, [rgb[0], rgb[1], rgb[2], 255]);
             if paint.color_rgb == *rgb {
                 stroke_rect(page, swatch, [255, 214, 0, 255]);
+            }
+        }
+    }
+
+    if paint.ai_combo_open {
+        let list = crate::skirmish_setup::SkirmishBootRequest::ai_list_rect(layout);
+        fill_rect(page, list, [12, 12, 18, 255]);
+        stroke_rect(page, list, [180, 24, 24, 255]);
+        for (i, diff) in LOBBY_DIFFICULTIES.iter().enumerate() {
+            let row = RectPx::new(
+                list.x,
+                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
+                list.w,
+                SKIRMISH_COMBO_FACE_H,
+            );
+            let selected = paint.ai_difficulty.eq_ignore_ascii_case(diff);
+            if selected {
+                fill_rect(page, row, [48, 28, 8, 255]);
+            }
+            if let Some(fnt) = fnt {
+                let label = resolve_caption(
+                    csf,
+                    diff,
+                    Some(crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(diff)),
+                );
+                blit_text_colored(
+                    page,
+                    fnt,
+                    &label,
+                    row.x + 4,
+                    row.y + 4,
+                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
+                );
             }
         }
     }

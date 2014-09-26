@@ -108,6 +108,10 @@ pub enum SkirmishLobbyHit {
     ToggleColorCombo,
     /// 在颜色下拉里选中一项。
     PickColor(usize),
+    /// 打开 / 关闭 AI 难度下拉。
+    ToggleAiCombo,
+    /// 在 AI 难度下拉里选中一项。
+    PickAi(usize),
     /// 聚焦玩家名编辑框。
     FocusName,
 }
@@ -119,6 +123,8 @@ pub enum SkirmishComboKind {
     Country,
     /// 本地颜色。
     Color,
+    /// AI 难度（行 0）。
+    Ai,
 }
 
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
@@ -234,6 +240,17 @@ impl SkirmishBootRequest {
         )
     }
 
+    /// AI 难度下拉列表矩形（紧贴行 0 AI 面下方）。
+    pub fn ai_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
+        let face = layout.ai_faces[0];
+        RectPx::new(
+            face.x,
+            face.y + face.h,
+            face.w,
+            SKIRMISH_COMBO_FACE_H * LOBBY_DIFFICULTIES.len() as i32,
+        )
+    }
+
     /// 设置阵营为 `LOBBY_SIDES[i]`。
     pub fn set_side_index(&mut self, index: usize) {
         if let Some(side) = LOBBY_SIDES.get(index) {
@@ -245,6 +262,22 @@ impl SkirmishBootRequest {
     pub fn set_color_index(&mut self, index: usize) {
         if index < LOBBY_COLORS.len() {
             self.color_index = index as u8;
+        }
+    }
+
+    /// 设置 AI 难度为 `LOBBY_DIFFICULTIES[i]`。
+    pub fn set_difficulty_index(&mut self, index: usize) {
+        if let Some(diff) = LOBBY_DIFFICULTIES.get(index) {
+            self.difficulty = (*diff).to_string();
+        }
+    }
+
+    /// AI 难度对应 CSF 标签键。
+    pub fn ai_difficulty_csf_key(difficulty: &str) -> &'static str {
+        match difficulty {
+            "Easy" => "GUI:AIEasy",
+            "Hard" => "GUI:AIHard",
+            _ => "GUI:AINormal",
         }
     }
 
@@ -365,6 +398,22 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::ToggleColorCombo);
             }
             self.open_combo = None;
+        } else if self.open_combo == Some(SkirmishComboKind::Ai) {
+            let list = Self::ai_list_rect(layout);
+            if list.contains(x, y) {
+                let row =
+                    ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_DIFFICULTIES.len() as i32 - 1) as usize;
+                self.set_difficulty_index(row);
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::PickAi(row));
+            }
+            if layout.ai_faces[0].contains(x, y) {
+                self.open_combo = None;
+                self.player_name_editing = false;
+                return Some(SkirmishLobbyHit::ToggleAiCombo);
+            }
+            self.open_combo = None;
         }
 
         if layout.player_name.contains(x, y) {
@@ -400,6 +449,10 @@ impl SkirmishBootRequest {
         if layout.color_faces[0].contains(x, y) {
             self.open_combo = Some(SkirmishComboKind::Color);
             return Some(SkirmishLobbyHit::ToggleColorCombo);
+        }
+        if layout.ai_faces[0].contains(x, y) {
+            self.open_combo = Some(SkirmishComboKind::Ai);
+            return Some(SkirmishLobbyHit::ToggleAiCombo);
         }
         None
     }
@@ -557,6 +610,23 @@ mod tests {
         assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickColor(1)));
         assert_eq!(s.color_index, 1);
         assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
+        assert!(s.open_combo.is_none());
+    }
+
+    #[test]
+    fn ai_face_click_opens_difficulty_combo() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        assert_eq!(s.difficulty, "Normal");
+        let face = layout.ai_faces[0];
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleAiCombo));
+        assert_eq!(s.open_combo, Some(SkirmishComboKind::Ai));
+        let list = SkirmishBootRequest::ai_list_rect(&layout);
+        // 第三项 Hard。
+        let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickAi(2)));
+        assert_eq!(s.difficulty, "Hard");
+        assert_eq!(SkirmishBootRequest::ai_difficulty_csf_key(&s.difficulty), "GUI:AIHard");
         assert!(s.open_combo.is_none());
     }
 
