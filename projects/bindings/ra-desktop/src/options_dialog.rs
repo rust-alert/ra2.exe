@@ -1,9 +1,9 @@
-//! 选项对话框：左四区控件 + 右栏接受/取消/主菜单。
+//! 选项对话框：左五区控件 + 右栏接受/取消/主菜单。
 //!
-//! 布局对齐原版选项板（显示 / 游戏 / 界面 / 音效）；右栏动作为接受、取消、主菜单。
+//! 布局对齐原版选项板（显示 / 游戏 / 界面 / 音效），并增补质感呈现区；右栏动作为接受、取消、主菜单。
 //! 本模块只持草稿状态与命中，不直接碰窗口或配置落盘。
 
-use ra_types::DisplayMode;
+use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
 use crate::ui_layout::{BUTTON_CELL_H, BUTTON_CELL_W, RIGHT_PANEL_W, RectPx, SHELL_BASE_H, SHELL_BASE_W, main_menu_layout};
 
@@ -25,6 +25,10 @@ pub enum OptionsTrackbar {
     Sound,
     /// 语音音量（0..=10）。
     Voice,
+    /// 质感伽马档（映射到 `PresentFeel.gamma`）。
+    PresentGamma,
+    /// 质感高光收敛档（映射到 `PresentFeel.highlight_roll_off`）。
+    PresentRollOff,
 }
 
 impl OptionsTrackbar {
@@ -34,6 +38,7 @@ impl OptionsTrackbar {
             Self::Detail | Self::Difficulty => 2,
             Self::Scroll => 6,
             Self::Music | Self::Sound | Self::Voice => 10,
+            Self::PresentGamma | Self::PresentRollOff => 20,
         }
     }
 }
@@ -47,6 +52,8 @@ pub enum OptionsCheckbox {
     Scanlines,
     /// 显示损害特性。
     ShowDamage,
+    /// 启用 16 位质感呈现。
+    Present16bit,
 }
 
 /// 选项页命中结果（含拖动起点）。
@@ -91,6 +98,8 @@ pub struct OptionsDialogState {
     pub sound: u8,
     /// 语音 0..=10。
     pub voice: u8,
+    /// 壳层质感呈现草稿。
+    pub present: PresentFeel,
     /// 分辨率下拉是否展开。
     pub resolution_open: bool,
     /// 正在拖动的滑条。
@@ -98,8 +107,8 @@ pub struct OptionsDialogState {
 }
 
 impl OptionsDialogState {
-    /// 从当前壳层显示档与音量构造草稿。
-    pub fn from_shell(display_mode: DisplayMode, music_vol: f32, sfx_vol: f32) -> Self {
+    /// 从当前壳层显示档、音量与质感构造草稿。
+    pub fn from_shell(display_mode: DisplayMode, music_vol: f32, sfx_vol: f32, present: PresentFeel) -> Self {
         Self {
             detail: 2,
             display_mode,
@@ -111,6 +120,7 @@ impl OptionsDialogState {
             music: vol_to_pos(music_vol),
             sound: vol_to_pos(sfx_vol),
             voice: vol_to_pos(sfx_vol),
+            present: present.sanitized(),
             resolution_open: false,
             dragging: None,
         }
@@ -131,14 +141,15 @@ impl OptionsDialogState {
         pos_to_vol(self.voice)
     }
 
-    fn track_value_mut(&mut self, id: OptionsTrackbar) -> &mut u8 {
+    fn track_value_mut(&mut self, id: OptionsTrackbar) -> Option<&mut u8> {
         match id {
-            OptionsTrackbar::Detail => &mut self.detail,
-            OptionsTrackbar::Difficulty => &mut self.difficulty,
-            OptionsTrackbar::Scroll => &mut self.scroll,
-            OptionsTrackbar::Music => &mut self.music,
-            OptionsTrackbar::Sound => &mut self.sound,
-            OptionsTrackbar::Voice => &mut self.voice,
+            OptionsTrackbar::Detail => Some(&mut self.detail),
+            OptionsTrackbar::Difficulty => Some(&mut self.difficulty),
+            OptionsTrackbar::Scroll => Some(&mut self.scroll),
+            OptionsTrackbar::Music => Some(&mut self.music),
+            OptionsTrackbar::Sound => Some(&mut self.sound),
+            OptionsTrackbar::Voice => Some(&mut self.voice),
+            OptionsTrackbar::PresentGamma | OptionsTrackbar::PresentRollOff => None,
         }
     }
 
@@ -151,6 +162,8 @@ impl OptionsDialogState {
             OptionsTrackbar::Music => self.music,
             OptionsTrackbar::Sound => self.sound,
             OptionsTrackbar::Voice => self.voice,
+            OptionsTrackbar::PresentGamma => gamma_to_pos(self.present.gamma),
+            OptionsTrackbar::PresentRollOff => roll_to_pos(self.present.highlight_roll_off),
         }
     }
 
@@ -162,6 +175,13 @@ impl OptionsDialogState {
                 OptionsCheckbox::Tooltips => self.tooltips = !self.tooltips,
                 OptionsCheckbox::Scanlines => self.scanlines = !self.scanlines,
                 OptionsCheckbox::ShowDamage => self.show_damage = !self.show_damage,
+                OptionsCheckbox::Present16bit => {
+                    self.present.mode = if self.present.is_active() {
+                        PresentMode::Off
+                    } else {
+                        PresentMode::Bit16
+                    };
+                }
             },
             OptionsHit::Track(id) => {
                 self.dragging = Some(id);
@@ -208,7 +228,22 @@ impl OptionsDialogState {
         } else {
             ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8
         };
-        *self.track_value_mut(id) = pos.min(max);
+        let pos = pos.min(max);
+        match id {
+            OptionsTrackbar::PresentGamma => {
+                self.present.gamma = gamma_from_pos(pos);
+                self.present = self.present.sanitized();
+            }
+            OptionsTrackbar::PresentRollOff => {
+                self.present.highlight_roll_off = roll_from_pos(pos);
+                self.present = self.present.sanitized();
+            }
+            other => {
+                if let Some(slot) = self.track_value_mut(other) {
+                    *slot = pos;
+                }
+            }
+        }
     }
 }
 
@@ -218,6 +253,24 @@ fn vol_to_pos(v: f32) -> u8 {
 
 fn pos_to_vol(p: u8) -> f32 {
     f32::from(p.min(10)) / 10.0
+}
+
+/// 伽马滑条：`0..=20` → `0.50..=2.50`（步长 0.10）。
+fn gamma_from_pos(pos: u8) -> f32 {
+    0.5 + f32::from(pos.min(20)) * 0.1
+}
+
+fn gamma_to_pos(gamma: f32) -> u8 {
+    (((gamma.clamp(0.5, 2.5) - 0.5) / 0.1).round() as u8).min(20)
+}
+
+/// 高光收敛滑条：`0..=20` → `0.00..=1.00`（步长 0.05）。
+fn roll_from_pos(pos: u8) -> f32 {
+    f32::from(pos.min(20)) * 0.05
+}
+
+fn roll_to_pos(roll: f32) -> u8 {
+    ((roll.clamp(0.0, 1.0) / 0.05).round() as u8).min(20)
 }
 
 /// 选项对话框一帧几何（800×600 内容坐标）。
@@ -245,6 +298,8 @@ pub struct OptionsDialogLayout {
     pub sec_game: RectPx,
     /// 界面区标题。
     pub sec_ui: RectPx,
+    /// 质感呈现区标题。
+    pub sec_present: RectPx,
     /// 音效区标题。
     pub sec_audio: RectPx,
     /// 详细程度滑条。
@@ -253,10 +308,16 @@ pub struct OptionsDialogLayout {
     pub resolution: RectPx,
     /// 难度滑条。
     pub track_difficulty: RectPx,
-    /// 三勾选。
+    /// 三勾选（提示 / 扫描线 / 损害）。
     pub checks: [RectPx; 3],
     /// 滚动滑条。
     pub track_scroll: RectPx,
+    /// 16 位质感勾选。
+    pub check_present: RectPx,
+    /// 质感伽马滑条。
+    pub track_present_gamma: RectPx,
+    /// 质感高光收敛滑条。
+    pub track_present_roll: RectPx,
     /// 音乐 / 音效 / 语音。
     pub track_music: RectPx,
     pub track_sound: RectPx,
@@ -277,7 +338,8 @@ impl OptionsDialogLayout {
         let left = content.x + 16;
         let usable_w = content.w - 32;
         let col_w = usable_w / 2 - 8;
-        let y0 = content.y + 20;
+        // 略压原版四区间距，腾出「质感」区（仍落在 800×600 内容板内）。
+        let y0 = content.y + 12;
         Self {
             canvas: RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H),
             content,
@@ -288,21 +350,25 @@ impl OptionsDialogLayout {
             title: shell.title,
             rail,
             sec_display: RectPx::new(left, y0, usable_w, 18),
-            track_detail: RectPx::new(left, y0 + 36, col_w, 22),
-            resolution: RectPx::new(left + col_w + 16, y0 + 36, col_w, 28),
-            sec_game: RectPx::new(left, y0 + 100, usable_w, 18),
-            track_difficulty: RectPx::new(left, y0 + 136, usable_w - 40, 22),
-            sec_ui: RectPx::new(left, y0 + 200, usable_w, 18),
+            track_detail: RectPx::new(left, y0 + 32, col_w, 22),
+            resolution: RectPx::new(left + col_w + 16, y0 + 32, col_w, 28),
+            sec_game: RectPx::new(left, y0 + 80, usable_w, 18),
+            track_difficulty: RectPx::new(left, y0 + 112, usable_w - 40, 22),
+            sec_ui: RectPx::new(left, y0 + 168, usable_w, 18),
             checks: [
-                RectPx::new(left, y0 + 236, 220, 22),
-                RectPx::new(left, y0 + 266, 220, 22),
-                RectPx::new(left, y0 + 296, 220, 22),
+                RectPx::new(left, y0 + 198, 220, 22),
+                RectPx::new(left, y0 + 224, 220, 22),
+                RectPx::new(left, y0 + 250, 220, 22),
             ],
-            track_scroll: RectPx::new(left + col_w + 16, y0 + 236, col_w, 22),
-            sec_audio: RectPx::new(left, y0 + 360, usable_w, 18),
-            track_music: RectPx::new(left, y0 + 396, usable_w - 40, 22),
-            track_sound: RectPx::new(left, y0 + 440, usable_w - 40, 22),
-            track_voice: RectPx::new(left, y0 + 484, usable_w - 40, 22),
+            track_scroll: RectPx::new(left + col_w + 16, y0 + 198, col_w, 22),
+            sec_present: RectPx::new(left, y0 + 290, usable_w, 18),
+            check_present: RectPx::new(left, y0 + 318, 280, 22),
+            track_present_gamma: RectPx::new(left, y0 + 348, usable_w - 40, 22),
+            track_present_roll: RectPx::new(left, y0 + 378, usable_w - 40, 22),
+            sec_audio: RectPx::new(left, y0 + 420, usable_w, 18),
+            track_music: RectPx::new(left, y0 + 448, usable_w - 40, 22),
+            track_sound: RectPx::new(left, y0 + 482, usable_w - 40, 22),
+            track_voice: RectPx::new(left, y0 + 516, usable_w - 40, 22),
         }
     }
 
@@ -314,6 +380,8 @@ impl OptionsDialogLayout {
             OptionsTrackbar::Music => self.track_music,
             OptionsTrackbar::Sound => self.track_sound,
             OptionsTrackbar::Voice => self.track_voice,
+            OptionsTrackbar::PresentGamma => self.track_present_gamma,
+            OptionsTrackbar::PresentRollOff => self.track_present_roll,
         }
     }
 
@@ -353,6 +421,9 @@ impl OptionsDialogLayout {
                 return Some(OptionsHit::Toggle(id));
             }
         }
+        if self.check_present.contains(x, y) {
+            return Some(OptionsHit::Toggle(OptionsCheckbox::Present16bit));
+        }
         for id in [
             OptionsTrackbar::Detail,
             OptionsTrackbar::Difficulty,
@@ -360,6 +431,8 @@ impl OptionsDialogLayout {
             OptionsTrackbar::Music,
             OptionsTrackbar::Sound,
             OptionsTrackbar::Voice,
+            OptionsTrackbar::PresentGamma,
+            OptionsTrackbar::PresentRollOff,
         ] {
             if self.trackbar_rect(id).contains(x, y) {
                 return Some(OptionsHit::Track(id));
@@ -400,7 +473,7 @@ mod tests {
     #[test]
     fn track_drag_maps_edges() {
         let layout = OptionsDialogLayout::new();
-        let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.4, 0.7);
+        let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.4, 0.7, PresentFeel::DEFAULT);
         let track = layout.track_music;
         state.on_press(&layout, track.x + 6, track.y + 4);
         assert_eq!(state.music, 0);
@@ -411,11 +484,40 @@ mod tests {
     #[test]
     fn resolution_row_selects_mode() {
         let layout = OptionsDialogLayout::new();
-        let mut state = OptionsDialogState::from_shell(DisplayMode::W640H480, 0.5, 0.5);
+        let mut state = OptionsDialogState::from_shell(DisplayMode::W640H480, 0.5, 0.5, PresentFeel::DEFAULT);
         state.resolution_open = true;
         let row = layout.resolution_row(2);
         state.on_press(&layout, row.x + 4, row.y + 4);
         assert_eq!(state.display_mode, DisplayMode::W1024H768);
         assert!(!state.resolution_open);
+    }
+
+    #[test]
+    fn present_toggle_and_gamma_track() {
+        let layout = OptionsDialogLayout::new();
+        let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.5, 0.5, PresentFeel::DEFAULT);
+        assert!(state.present.is_active());
+        state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
+        assert!(!state.present.is_active());
+        state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
+        assert!(state.present.is_active());
+
+        let track = layout.track_present_gamma;
+        state.on_press(&layout, track.x + 6, track.y + 4);
+        assert!((state.present.gamma - 0.5).abs() < 1e-3);
+        state.on_press(&layout, track.x + track.w - 2, track.y + 4);
+        assert!((state.present.gamma - 2.5).abs() < 1e-3);
+
+        let roll = layout.track_present_roll;
+        state.on_press(&layout, roll.x + 6, roll.y + 4);
+        assert!((state.present.highlight_roll_off - 0.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn present_controls_fit_content() {
+        let layout = OptionsDialogLayout::new();
+        let bottom = layout.track_voice.y + layout.track_voice.h;
+        assert!(bottom <= layout.content.y + layout.content.h);
+        assert!(layout.sec_present.y < layout.sec_audio.y);
     }
 }
