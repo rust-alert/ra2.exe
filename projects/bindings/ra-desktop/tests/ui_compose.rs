@@ -125,6 +125,7 @@ fn compose_options_uses_main_menu_id() {
         ra_types::DisplayMode::W800H600,
         0.4,
         0.7,
+        ra_types::PresentFeel::DEFAULT,
     );
     let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, 0).unwrap();
     let layout = options_layout(800, 600);

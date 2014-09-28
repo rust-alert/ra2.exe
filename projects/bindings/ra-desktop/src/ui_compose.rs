@@ -263,6 +263,8 @@ pub fn paint_options_dialog_controls(
             MENU_TEXT_ACCENT,
         );
 
+        blit_text_colored(page, fnt, &label("present", "Present Feel"), layout.sec_present.x, layout.sec_present.y, MENU_TEXT_SECTION);
+        draw_section_rule(page, layout.sec_present);
         blit_text_colored(page, fnt, &label("audio", "Audio Options"), layout.sec_audio.x, layout.sec_audio.y, MENU_TEXT_SECTION);
         draw_section_rule(page, layout.sec_audio);
     }
@@ -275,6 +277,18 @@ pub fn paint_options_dialog_controls(
         crate::options_dialog::OptionsTrackbar::Difficulty.max(),
     );
     draw_trackbar(page, layout.track_scroll, state.scroll, crate::options_dialog::OptionsTrackbar::Scroll.max());
+    draw_trackbar(
+        page,
+        layout.track_present_gamma,
+        state.track_value(crate::options_dialog::OptionsTrackbar::PresentGamma),
+        crate::options_dialog::OptionsTrackbar::PresentGamma.max(),
+    );
+    draw_trackbar(
+        page,
+        layout.track_present_roll,
+        state.track_value(crate::options_dialog::OptionsTrackbar::PresentRollOff),
+        crate::options_dialog::OptionsTrackbar::PresentRollOff.max(),
+    );
     draw_trackbar(page, layout.track_music, state.music, crate::options_dialog::OptionsTrackbar::Music.max());
     draw_trackbar(page, layout.track_sound, state.sound, crate::options_dialog::OptionsTrackbar::Sound.max());
     draw_trackbar(page, layout.track_voice, state.voice, crate::options_dialog::OptionsTrackbar::Voice.max());
@@ -282,11 +296,36 @@ pub fn paint_options_dialog_controls(
     draw_checkbox(page, layout.checks[0], state.tooltips);
     draw_checkbox(page, layout.checks[1], state.scanlines);
     draw_checkbox(page, layout.checks[2], state.show_damage);
+    draw_checkbox(page, layout.check_present, state.present.is_active());
     if let Some(fnt) = fnt {
         let tx = layout.checks[0].x + 22;
         blit_text_colored(page, fnt, &label("tooltips", "Tooltips"), tx, layout.checks[0].y + 4, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("scanlines", "Target Lines"), tx, layout.checks[1].y + 4, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("damage", "See Hidden Objects"), tx, layout.checks[2].y + 4, MENU_TEXT_ACCENT);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("present_16bit", "16-bit Present"),
+            layout.check_present.x + 22,
+            layout.check_present.y + 4,
+            MENU_TEXT_ACCENT,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("present_gamma", "Present Gamma"),
+            layout.track_present_gamma.x,
+            layout.track_present_gamma.y - 16,
+            MENU_TEXT_ACCENT,
+        );
+        blit_text_colored(
+            page,
+            fnt,
+            &label("present_roll", "Highlight Roll-Off"),
+            layout.track_present_roll.x,
+            layout.track_present_roll.y - 16,
+            MENU_TEXT_ACCENT,
+        );
         blit_text_colored(page, fnt, &label("music", "Music Volume"), layout.track_music.x, layout.track_music.y - 16, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("sound", "Sound Volume"), layout.track_sound.x, layout.track_sound.y - 16, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("voice", "Voice Volume"), layout.track_voice.x, layout.track_voice.y - 16, MENU_TEXT_ACCENT);
@@ -1407,13 +1446,13 @@ pub fn compose_choose_map_page(
 mod tests {
     use super::*;
     use crate::options_dialog::{OptionsDialogLayout, OptionsDialogState};
-    use ra_types::DisplayMode;
+    use ra_types::{DisplayMode, PresentFeel};
 
     #[test]
     fn paint_options_draws_music_thumb() {
         let mut page = RgbaImage::from_raw(800, 600, vec![0u8; 800 * 600 * 4]).unwrap();
         let layout = OptionsDialogLayout::new();
-        let state = OptionsDialogState::from_shell(DisplayMode::W800H600, 1.0, 0.0);
+        let state = OptionsDialogState::from_shell(DisplayMode::W800H600, 1.0, 0.0, PresentFeel::DEFAULT);
         paint_options_dialog_controls(&mut page, &layout, &state, None, None);
         let track = layout.track_music;
         let px = track.x + track.w - 8;
