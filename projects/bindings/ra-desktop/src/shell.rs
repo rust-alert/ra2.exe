@@ -138,6 +138,8 @@ pub struct AppShell {
     options_state: Option<crate::options_dialog::OptionsDialogState>,
     /// 进入选项页时的音量快照（取消时还原实时预览）。
     options_volume_baseline: Option<(f32, f32)>,
+    /// 进入选项页时的质感快照（取消时还原实时预览）。
+    options_present_baseline: Option<PresentFeel>,
     /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
     options_pointer_consumed: bool,
 }
@@ -216,6 +218,7 @@ impl AppShell {
             audio_bag_tried: false,
             options_state: None,
             options_volume_baseline: None,
+            options_present_baseline: None,
             options_pointer_consumed: false,
         }
     }
@@ -284,6 +287,7 @@ impl AppShell {
             audio_bag_tried: false,
             options_state: None,
             options_volume_baseline: None,
+            options_present_baseline: None,
             options_pointer_consumed: false,
         }
     }
@@ -338,6 +342,18 @@ impl AppShell {
         }
     }
 
+    /// 用选项草稿中的质感即时推到壳层（不落盘，避免拖动时刷日志）。
+    fn sync_options_live_present(&mut self) {
+        let Some(state) = self.options_state.as_ref()
+        else {
+            return;
+        };
+        let next = state.present.sanitized();
+        if next != self.present {
+            self.present = next;
+        }
+    }
+
     /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
     fn handle_options_press(&mut self) -> bool {
         let layout = crate::options_dialog::OptionsDialogLayout::new();
@@ -373,6 +389,7 @@ impl AppShell {
                 self.options_pointer_consumed = true;
                 self.play_menu_click();
                 self.sync_options_live_volumes();
+                self.sync_options_live_present();
                 self.refresh_menu_backdrop();
                 true
             }
@@ -392,6 +409,7 @@ impl AppShell {
             return false;
         }
         self.sync_options_live_volumes();
+        self.sync_options_live_present();
         self.refresh_menu_backdrop();
         true
     }
@@ -1611,7 +1629,7 @@ impl AppShell {
         self.refresh_shell_title();
     }
 
-    /// 进入选项页并快照当前显示档 / 音量草稿。
+    /// 进入选项页并快照当前显示档 / 音量 / 质感草稿。
     fn open_options_page(&mut self) {
         let (music, sound) = self
             .audio
@@ -1619,16 +1637,18 @@ impl AppShell {
             .map(|a| (a.music_volume(), a.sfx_volume()))
             .unwrap_or((0.4, 0.7));
         self.options_volume_baseline = Some((music, sound));
+        self.options_present_baseline = Some(self.present);
         self.options_pointer_consumed = false;
         self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(
             self.display_mode,
             music,
             sound,
+            self.present,
         ));
         self.set_screen(OriginalScreen::Options);
     }
 
-    /// 丢弃选项草稿并还原进入页前的音量预览。
+    /// 丢弃选项草稿并还原进入页前的音量 / 质感预览。
     fn discard_options_draft(&mut self) {
         if let Some((music, sound)) = self.options_volume_baseline.take() {
             if let Some(audio) = self.audio.as_mut() {
@@ -1636,19 +1656,24 @@ impl AppShell {
                 audio.set_sfx_volume(sound);
             }
         }
+        if let Some(present) = self.options_present_baseline.take() {
+            self.present = present.sanitized();
+        }
         self.options_state = None;
         self.options_pointer_consumed = false;
     }
 
-    /// 接受选项草稿：音量立刻生效并落盘，分辨率变更则改窗。
+    /// 接受选项草稿：音量与质感立刻生效并落盘，分辨率变更则改窗。
     fn apply_options_accept(&mut self) {
         let Some(state) = self.options_state.take()
         else {
             self.options_volume_baseline = None;
+            self.options_present_baseline = None;
             self.set_screen(OriginalScreen::MainMenu);
             return;
         };
         self.options_volume_baseline = None;
+        self.options_present_baseline = None;
         self.options_pointer_consumed = false;
         let music = state.music_volume_f32();
         let sound = state.sound_volume_f32();
@@ -1656,6 +1681,16 @@ impl AppShell {
         match ra_config::DesktopSettings::persist_audio_volumes(music, sound) {
             Ok(()) => tracing::info!(music, sound, "已写入壳层音量"),
             Err(e) => tracing::warn!(error = %e, "写入壳层音量失败"),
+        }
+        self.apply_present_feel(state.present);
+        match ra_config::DesktopSettings::persist_present_feel(self.present) {
+            Ok(()) => tracing::info!(
+                mode = self.present.mode.as_str(),
+                gamma = self.present.gamma,
+                highlight_roll_off = self.present.highlight_roll_off,
+                "已写入 [present]"
+            ),
+            Err(e) => tracing::warn!(error = %e, "写入 [present] 失败"),
         }
         if state.display_mode != self.display_mode {
             self.apply_display_mode(state.display_mode);
