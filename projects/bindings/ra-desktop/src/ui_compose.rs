@@ -99,11 +99,12 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
             if dx < 0 || dy < 0 || dx as u32 >= dst.width() || dy as u32 >= dst.height() {
                 continue;
             }
-            if src.as_raw()[si + 3] == 0 {
+            let raw = src.as_raw();
+            if raw[si + 3] == 0 {
                 continue;
             }
             let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
-            dst.as_mut()[di..di + 4].copy_from_slice(&src.as_raw()[si..si + 4]);
+            dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
         }
     }
 }
@@ -629,6 +630,7 @@ pub fn compose_campaign_page(
         // 侧图不得与 `sdwrnanm` 共用 `panel_anim_frame`：WARNING 帧数远多于侧图，
         // 取模会抽到错误高亮/箭头帧，观感像调色板错了。悬停动画另计时后再接。
         if let Some(sprite) = find_panel(decoded, shp, 0) {
+            // 侧图空区是近黑索引（非索引 0），应叠在 `fsbkgdlg` 上融合，勿抠色。
             blit_stretched(&mut page, &sprite.image, rect);
         }
         let selected = paint.selected_side == Some(id);

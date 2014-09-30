@@ -408,7 +408,7 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     CampaignLayout {
         shell,
         // 右栏标题 / 底栏提示跟主菜单壳层 chrome 同格（`y=9` / 贴底），
-        // 不用对话框 DLU `(318,1)` / `(8,282)`：那会把标题贴顶、提示悬在地图中下部。
+        // 不用对话框 DLU `(318,1)` / `(8,282)`：那会把标题贴顶、提示悬在左区中下部。
         title: shell.title,
         allied: dlu_rect(16, 10, 284, 71),
         tutorial: dlu_rect(41, 85, 232, 56),

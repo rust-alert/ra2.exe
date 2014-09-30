@@ -180,16 +180,16 @@ const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 
-/// 战役页面板：壳层 chrome + 三侧动画图（`neutral.mix` 证据）。
+/// 战役页面板：壳层 chrome + 三侧动画图（`neutral.mix`；侧图调色板用 `fsscrn.pal`）。
 const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "allied", shp: "fsalg.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "tutorial", shp: "fsbclg.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "soviet", shp: "fsslg.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "allied", shp: "fsalg.shp", pal: "fsscrn.pal", frame: 0 },
+    UiPanelSlot { id: "tutorial", shp: "fsbclg.shp", pal: "fsscrn.pal", frame: 0 },
+    UiPanelSlot { id: "soviet", shp: "fsslg.shp", pal: "fsscrn.pal", frame: 0 },
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 遭遇战像素格。
@@ -301,10 +301,11 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::Campaign => Some(UiPageSlots {
             screen,
+            // 对话框 `0x94` 父背景是 `fsbkgdlg` + `fsscrn.pal`（非主菜单 `mnscrnl`）。
             // 无循环影片：左区画三侧 `fs*.shp`；右栏仍用壳层 chrome。
-            background_shp: Some("mnscrnl.shp"),
+            background_shp: Some("fsbkgdlg.shp"),
             background_pcx: None,
-            background_pal: Some("shell.pal"),
+            background_pal: Some("fsscrn.pal"),
             background_frame: 0,
             movie_bik: None,
             panels: CAMPAIGN_PANELS,

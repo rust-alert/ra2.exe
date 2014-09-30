@@ -48,9 +48,11 @@ fn campaign_declares_three_side_panels_and_rail() {
     assert!(page.buttons[1].enabled);
     assert!(matches!(page.buttons[1].action, MenuAction::Back));
     assert_eq!(page.movie_bik, None);
-    assert!(page.panels.iter().any(|p| p.shp == "fsalg.shp"));
-    assert!(page.panels.iter().any(|p| p.shp == "fsbclg.shp"));
-    assert!(page.panels.iter().any(|p| p.shp == "fsslg.shp"));
+    assert_eq!(page.background_shp, Some("fsbkgdlg.shp"));
+    assert_eq!(page.background_pal, Some("fsscrn.pal"));
+    assert!(page.panels.iter().any(|p| p.shp == "fsalg.shp" && p.pal == "fsscrn.pal"));
+    assert!(page.panels.iter().any(|p| p.shp == "fsbclg.shp" && p.pal == "fsscrn.pal"));
+    assert!(page.panels.iter().any(|p| p.shp == "fsslg.shp" && p.pal == "fsscrn.pal"));
     assert!(page.has_any_asset_name());
 }
 

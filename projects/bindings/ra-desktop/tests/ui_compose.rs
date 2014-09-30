@@ -137,7 +137,7 @@ fn compose_options_uses_main_menu_id() {
 #[test]
 fn compose_campaign_uses_back_id() {
     use ra_desktop::ui_layout::{CAMPAIGN_BUTTON_IDS, campaign_layout};
-    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let bg = solid_sprite("fsbkgdlg.shp#0", [1, 2, 3, 255]);
     let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
     let pressed = solid_sprite("sdbtnanm.shp#4", [0, 200, 200, 255]);
     let decoded = PageDecodeReport {
