@@ -101,7 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn bit16_darkens_mid_highlights() {
+    fn bit16_mild_gamma_keeps_mid_grey_near_input() {
         let mut img = solid(200, 200, 200);
         let feel = PresentFeel {
             mode: PresentMode::Bit16,
@@ -110,9 +110,9 @@ mod tests {
         };
         apply_present_feel(&mut img, feel);
         let v = img.as_raw()[0];
-        // 默认 gamma≈1.15：200 → 约 178（对齐侧栏金属亮度，勿压到过暗）。
-        assert!(v < 195, "gamma should darken mid-bright grey, got {v}");
-        assert!(v > 160, "should not crush too hard, got {v}");
+        // 默认 gamma≈1.08：略压中亮灰，勿回到发白或整屏偏暗。
+        assert!(v < 200, "mild gamma should darken a little, got {v}");
+        assert!(v > 175, "should not crush mid-bright grey, got {v}");
     }
 
     #[test]
