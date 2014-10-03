@@ -11,7 +11,7 @@ use crate::{
     fs_source::GameAssetSource,
 };
 
-pub use ra_map::BootMapCandidate;
+pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
 ///

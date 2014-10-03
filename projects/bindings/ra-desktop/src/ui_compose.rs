@@ -969,12 +969,14 @@ pub struct SkirmishLobbyPaint<'a> {
     pub country_name: &'a str,
     /// 本地颜色色块。
     pub color_rgb: [u8; 3],
-    /// AI 行显示名（空则不画第二行）。
+    /// AI 行显示名（难度文案；`ai_rows==0` 时不画）。
     pub ai_name: &'a str,
     /// AI 国家显示名。
     pub ai_country: &'a str,
     /// AI 难度短名（`Easy` / `Normal` / `Hard`）。
     pub ai_difficulty: &'a str,
+    /// 可见 AI 行数（0..=7，由地图开局席位推导）。
+    pub ai_rows: usize,
     /// 快速游戏。
     pub short_game: bool,
     /// 基地重新部署。
@@ -1013,6 +1015,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             ai_name: "",
             ai_country: "",
             ai_difficulty: "Normal",
+            ai_rows: 1,
             short_game: true,
             mcv_repacks: true,
             crates: true,
@@ -1051,11 +1054,21 @@ fn paint_skirmish_lobby_controls(
     draw_combo_face(page, layout.color_faces[0], [paint.color_rgb[0], paint.color_rgb[1], paint.color_rgb[2], 255]);
     blit_flag(page, chrome.and_then(|c| c.flag.as_ref()), layout.flags[0]);
 
-    if !paint.ai_name.is_empty() {
-        draw_combo_face(page, layout.ai_faces[0], [16, 16, 20, 255]);
-        draw_combo_face(page, layout.side_faces[1], [16, 16, 20, 255]);
-        draw_combo_face(page, layout.color_faces[1], [180, 40, 40, 255]);
-        blit_flag(page, chrome.and_then(|c| c.ai_flag.as_ref()), layout.flags[1]);
+    let ai_rows = paint.ai_rows.min(layout.ai_faces.len());
+    for i in 0..ai_rows {
+        draw_combo_face(page, layout.ai_faces[i], [16, 16, 20, 255]);
+        let human_row = i + 1;
+        if human_row < layout.side_faces.len() {
+            draw_combo_face(page, layout.side_faces[human_row], [16, 16, 20, 255]);
+        }
+        if human_row < layout.color_faces.len() {
+            // 预览色：相对本地色错开一档，避免与玩家行撞色。
+            let rgb = crate::skirmish_setup::LOBBY_COLORS[(i + 1) % crate::skirmish_setup::LOBBY_COLORS.len()];
+            draw_combo_face(page, layout.color_faces[human_row], [rgb[0], rgb[1], rgb[2], 255]);
+        }
+        if human_row < layout.flags.len() {
+            blit_flag(page, chrome.and_then(|c| c.ai_flag.as_ref()), layout.flags[human_row]);
+        }
     }
 
     let checks = [
@@ -1099,14 +1112,36 @@ fn paint_skirmish_lobby_controls(
         };
         blit_text_colored(page, fnt, &country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
 
-        if !paint.ai_name.is_empty() {
-            blit_text_colored(page, fnt, paint.ai_name, layout.ai_faces[0].x + 4, layout.ai_faces[0].y + 4, MENU_TEXT_ENABLED);
-            let ai_country = if paint.ai_country.is_empty() {
-                label("ai_hard", "Hard")
-            } else {
-                paint.ai_country.to_string()
-            };
-            blit_text_colored(page, fnt, &ai_country, layout.side_faces[1].x + 4, layout.side_faces[1].y + 4, MENU_TEXT_ENABLED);
+        let ai_label = if paint.ai_name.is_empty() {
+            paint.ai_difficulty.to_string()
+        } else {
+            paint.ai_name.to_string()
+        };
+        let ai_country = if paint.ai_country.is_empty() {
+            country.clone()
+        } else {
+            paint.ai_country.to_string()
+        };
+        for i in 0..ai_rows {
+            blit_text_colored(
+                page,
+                fnt,
+                &ai_label,
+                layout.ai_faces[i].x + 4,
+                layout.ai_faces[i].y + 4,
+                MENU_TEXT_ENABLED,
+            );
+            let human_row = i + 1;
+            if human_row < layout.side_faces.len() {
+                blit_text_colored(
+                    page,
+                    fnt,
+                    &ai_country,
+                    layout.side_faces[human_row].x + 4,
+                    layout.side_faces[human_row].y + 4,
+                    MENU_TEXT_ENABLED,
+                );
+            }
         }
 
         let check_labels = [

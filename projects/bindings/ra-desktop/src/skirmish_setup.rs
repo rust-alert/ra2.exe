@@ -365,8 +365,15 @@ impl SkirmishBootRequest {
         }
     }
 
-    /// 按下：勾选 / 滑条 / 下拉 / 玩家名。
-    pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<SkirmishLobbyHit> {
+    /// 按下：勾选 / 滑条 / 下拉 / 玩家名。`ai_rows` 为当前地图可见 AI 行数。
+    pub fn on_press(
+        &mut self,
+        layout: &SkirmishLobbyLayout,
+        x: i32,
+        y: i32,
+        ai_rows: usize,
+    ) -> Option<SkirmishLobbyHit> {
+        let ai_rows = ai_rows.min(layout.ai_faces.len());
         // 已展开的下拉优先命中列表 / 面框。
         if self.open_combo == Some(SkirmishComboKind::Country) {
             let list = Self::country_list_rect(layout);
@@ -399,21 +406,25 @@ impl SkirmishBootRequest {
             }
             self.open_combo = None;
         } else if self.open_combo == Some(SkirmishComboKind::Ai) {
-            let list = Self::ai_list_rect(layout);
-            if list.contains(x, y) {
-                let row =
-                    ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_DIFFICULTIES.len() as i32 - 1) as usize;
-                self.set_difficulty_index(row);
+            if ai_rows == 0 {
                 self.open_combo = None;
-                self.player_name_editing = false;
-                return Some(SkirmishLobbyHit::PickAi(row));
-            }
-            if layout.ai_faces[0].contains(x, y) {
+            } else {
+                let list = Self::ai_list_rect(layout);
+                if list.contains(x, y) {
+                    let row =
+                        ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_DIFFICULTIES.len() as i32 - 1) as usize;
+                    self.set_difficulty_index(row);
+                    self.open_combo = None;
+                    self.player_name_editing = false;
+                    return Some(SkirmishLobbyHit::PickAi(row));
+                }
+                if layout.ai_faces[0].contains(x, y) {
+                    self.open_combo = None;
+                    self.player_name_editing = false;
+                    return Some(SkirmishLobbyHit::ToggleAiCombo);
+                }
                 self.open_combo = None;
-                self.player_name_editing = false;
-                return Some(SkirmishLobbyHit::ToggleAiCombo);
             }
-            self.open_combo = None;
         }
 
         if layout.player_name.contains(x, y) {
@@ -450,7 +461,8 @@ impl SkirmishBootRequest {
             self.open_combo = Some(SkirmishComboKind::Color);
             return Some(SkirmishLobbyHit::ToggleColorCombo);
         }
-        if layout.ai_faces[0].contains(x, y) {
+        // 仅当地图有 AI 席位时展开难度下拉（行 0 代表共用难度）。
+        if ai_rows > 0 && layout.ai_faces[0].contains(x, y) {
             self.open_combo = Some(SkirmishComboKind::Ai);
             return Some(SkirmishLobbyHit::ToggleAiCombo);
         }
@@ -571,10 +583,10 @@ mod tests {
         let layout = skirmish_lobby_layout(800, 600);
         let mut s = SkirmishBootRequest::default_lobby();
         let r = layout.checkboxes[0];
-        assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2), Some(SkirmishLobbyHit::Toggle(SkirmishCheckbox::ShortGame)));
+        assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2, 1), Some(SkirmishLobbyHit::Toggle(SkirmishCheckbox::ShortGame)));
         assert!(!s.short_game);
         let t = layout.track_speed;
-        assert_eq!(s.on_press(&layout, t.x + 4, t.y + 4), Some(SkirmishLobbyHit::Track(SkirmishTrackbar::GameSpeed)));
+        assert_eq!(s.on_press(&layout, t.x + 4, t.y + 4, 1), Some(SkirmishLobbyHit::Track(SkirmishTrackbar::GameSpeed)));
         assert!(s.on_drag(&layout, t.x + t.w - 4, t.y + 4));
         assert_eq!(s.game_speed, 6);
         s.on_release();
@@ -587,12 +599,12 @@ mod tests {
         let mut s = SkirmishBootRequest::default_lobby();
         assert_eq!(s.side, "Americans");
         let face = layout.side_faces[0];
-        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleCountryCombo));
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
         assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
         let list = SkirmishBootRequest::country_list_rect(&layout);
         // 第二项 French。
         let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
-        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickCountry(1)));
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(1)));
         assert_eq!(s.side, "French");
         assert!(s.open_combo.is_none());
     }
@@ -603,11 +615,11 @@ mod tests {
         let mut s = SkirmishBootRequest::default_lobby();
         assert_eq!(s.color_index, 0);
         let face = layout.color_faces[0];
-        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleColorCombo));
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleColorCombo));
         assert_eq!(s.open_combo, Some(SkirmishComboKind::Color));
         let list = SkirmishBootRequest::color_list_rect(&layout);
         let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
-        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickColor(1)));
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickColor(1)));
         assert_eq!(s.color_index, 1);
         assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
         assert!(s.open_combo.is_none());
@@ -619,14 +631,23 @@ mod tests {
         let mut s = SkirmishBootRequest::default_lobby();
         assert_eq!(s.difficulty, "Normal");
         let face = layout.ai_faces[0];
-        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2), Some(SkirmishLobbyHit::ToggleAiCombo));
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleAiCombo));
         assert_eq!(s.open_combo, Some(SkirmishComboKind::Ai));
         let list = SkirmishBootRequest::ai_list_rect(&layout);
         // 第三项 Hard。
         let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
-        assert_eq!(s.on_press(&layout, list.x + 2, y), Some(SkirmishLobbyHit::PickAi(2)));
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickAi(2)));
         assert_eq!(s.difficulty, "Hard");
         assert_eq!(SkirmishBootRequest::ai_difficulty_csf_key(&s.difficulty), "GUI:AIHard");
+        assert!(s.open_combo.is_none());
+    }
+
+    #[test]
+    fn ai_face_ignored_when_map_has_no_ai_rows() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        let face = layout.ai_faces[0];
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 0), None);
         assert!(s.open_combo.is_none());
     }
 
@@ -635,7 +656,7 @@ mod tests {
         let layout = skirmish_lobby_layout(800, 600);
         let mut s = SkirmishBootRequest::default_lobby();
         let r = layout.player_name;
-        assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2), Some(SkirmishLobbyHit::FocusName));
+        assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2, 1), Some(SkirmishLobbyHit::FocusName));
         assert!(s.player_name_editing);
         s.player_name.clear();
         assert!(s.append_name_text("Ab"));

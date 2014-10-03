@@ -459,13 +459,26 @@ impl AppShell {
     fn handle_skirmish_press(&mut self) -> bool {
         let layout = ui_layout::skirmish_lobby_layout(0, 0);
         let (x, y) = self.shell_cursor_px();
-        if self.skirmish.on_press(&layout, x, y).is_none() {
+        let ai_rows = self.lobby_ai_rows();
+        if self.skirmish.on_press(&layout, x, y, ai_rows).is_none() {
             return false;
         }
         self.skirmish_pointer_consumed = true;
         self.play_menu_click();
         self.refresh_menu_backdrop();
         true
+    }
+
+    /// 当前选中地图对应的 AI 行数。
+    fn lobby_ai_rows(&self) -> usize {
+        let slots = self
+            .selected_map
+            .as_ref()
+            .and_then(|sel| self.lobby_maps.iter().find(|m| &m.file_name == sel))
+            .or_else(|| self.lobby_maps.first())
+            .map(|m| m.start_slots)
+            .unwrap_or(4);
+        crate::boot::skirmish_ai_row_count(slots)
     }
 
     /// 遭遇战滑条拖动。
@@ -1110,6 +1123,7 @@ impl AppShell {
                             .and_then(|c| c.get(ai_csf).map(|s| s.to_string()))
                             .filter(|s| !s.is_empty())
                             .unwrap_or_else(|| self.skirmish.difficulty.clone());
+                        let ai_rows = self.lobby_ai_rows();
                         let paint = ui_compose::SkirmishLobbyPaint {
                             map_name: map_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
@@ -1118,6 +1132,7 @@ impl AppShell {
                             ai_name: ai_name.as_str(),
                             ai_country: country.as_str(),
                             ai_difficulty: self.skirmish.difficulty.as_str(),
+                            ai_rows,
                             short_game: self.skirmish.short_game,
                             mcv_repacks: self.skirmish.mcv_repacks,
                             crates: self.skirmish.crates,
