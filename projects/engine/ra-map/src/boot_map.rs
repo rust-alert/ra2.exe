@@ -27,6 +27,38 @@ pub struct BootMapCandidate {
     pub height: u32,
     /// 剧院。
     pub theater: Theater,
+    /// 遭遇战开局席位数（2..=8；来自航点 0..7 或文件名 `tN`）。
+    pub start_slots: u8,
+}
+
+/// 统计遭遇战开局席位：优先航点编号 `< 8`，否则从文件名 `tN` 推断，再否则 4。
+pub fn count_skirmish_start_slots(waypoints: &[crate::Waypoint], file_name: &str) -> u8 {
+    let from_wp = waypoints.iter().filter(|w| w.index < 8).count();
+    if from_wp >= 2 {
+        return (from_wp as u8).min(8);
+    }
+    infer_start_slots_from_file_name(file_name).unwrap_or(4)
+}
+
+/// 本地玩家占 1 席后，大厅应显示的 AI 行数（0..=7）。
+pub fn skirmish_ai_row_count(start_slots: u8) -> usize {
+    start_slots.saturating_sub(1).min(7) as usize
+}
+
+fn infer_start_slots_from_file_name(file_name: &str) -> Option<u8> {
+    let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(file_name);
+    let bytes = stem.as_bytes();
+    let mut i = 0usize;
+    while i + 1 < bytes.len() {
+        if matches!(bytes[i], b't' | b'T') && bytes[i + 1].is_ascii_digit() {
+            let n = (bytes[i + 1] - b'0') as u8;
+            if (2..=8).contains(&n) {
+                return Some(n);
+            }
+        }
+        i += 1;
+    }
+    None
 }
 
 /// 尝试解析一张启动地图；失败返回错误文案。
@@ -57,7 +89,13 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
         else {
             continue;
         };
-        out.push(BootMapCandidate { file_name: (*name).to_string(), width: map.width, height: map.height, theater: map.theater });
+        out.push(BootMapCandidate {
+            file_name: (*name).to_string(),
+            width: map.width,
+            height: map.height,
+            theater: map.theater,
+            start_slots: count_skirmish_start_slots(&map.waypoints, name),
+        });
     }
     out
 }
