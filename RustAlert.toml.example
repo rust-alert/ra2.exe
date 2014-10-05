@@ -18,6 +18,6 @@
 # [present]
 # mode = "16bit"              # off | 16bit
 # quantize = "rgb565"         # rgb565 | rgb555
-# gamma = 1.08                # >1 压暗中高光；默认约 1.08（1.0 略发白）
+# gamma = 1.0                 # 可选；默认 1.0（恒等）。主质感靠 16bit 量化展开
 # highlight_roll_off = 0.0    # 0..1
 # dither = true

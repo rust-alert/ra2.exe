@@ -1,7 +1,7 @@
 //! 壳层质感呈现：在 32 位管线上模拟原版 16 位色 DirectDraw 观感。
 //!
-//! 原版零售客户区多为 RGB565；现代路径解码为 8 位扩展色后直出，会偏亮、偏白、
-//! 高光更冲。本配置描述「呈现侧」如何压回原版质感，不是改资源解码。
+//! 原版零售客户区多为 RGB565。主路径是呈现侧做 **16 位截断量化 + 满量程线性展开**
+//!（可选有序抖动），不是用显示伽马去拟合明暗。`gamma` / `highlight_roll_off` 仅可选附加。
 //!
 //! 落盘形态为 `RustAlert.toml` 的 `[present]` 表，由 `toml_edit` + serde 读写。
 
@@ -55,7 +55,7 @@ impl PresentQuantize {
 
 /// 壳层质感呈现参数集（对应 `RustAlert.toml` 的 `[present]`）。
 ///
-/// 默认对齐同机原版主菜单观感：`16bit` + `rgb565` + `gamma≈1.08` + 有序抖动。
+/// 默认：`16bit` + `rgb565` 截断往返 + 有序抖动；`gamma=1.0`、`highlight_roll_off=0`。
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PresentFeel {
@@ -63,7 +63,7 @@ pub struct PresentFeel {
     pub mode: PresentMode,
     /// 量化格式（仅 16 位模式）。
     pub quantize: PresentQuantize,
-    /// 显示伽马；`>1` 压暗中高光。默认约 `1.08`（同机原版对照：去压暗会略发白）。
+    /// 可选显示伽马；默认 `1.0`（恒等）。主质感靠 16 位量化展开，不靠伽马拧亮度。
     pub gamma: f32,
     /// 高光收敛 `0..1`：额外压亮部，`0` 表示关闭。
     pub highlight_roll_off: f32,
@@ -80,12 +80,11 @@ impl Default for PresentFeel {
 impl PresentFeel {
     /// 产品默认：开启 16 位质感模拟。
     ///
-    /// `gamma≈1.08` 微调中高光对比（`1.0` 略发白、`1.15`+roll 曾整屏偏暗）；
-    /// `highlight_roll_off=0`；保留 `rgb565` 量化与有序抖动。
+    /// `rgb565` 截断量化 + 线性展开 + 抖动；`gamma=1.0`、`highlight_roll_off=0`。
     pub const DEFAULT: Self = Self {
         mode: PresentMode::Bit16,
         quantize: PresentQuantize::Rgb565,
-        gamma: 1.08,
+        gamma: 1.0,
         highlight_roll_off: 0.0,
         dither: true,
     };
