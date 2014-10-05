@@ -1,6 +1,9 @@
 //! 壳层质感呈现：按 [`PresentFeel`] 把 8 位扩展色压回原版 16 位观感。
 //!
 //! 在合成 RGBA **上传 GPU 之前**调用。不改 SHP/调色板解码。
+//!
+//! 主路径是 RGB565/555 **截断量化 + 满量程线性展开**（对齐常见 16 位表面往返），
+//! 不是用显示伽马去拧整体明暗。`gamma` / `highlight_roll_off` 仅作可选附加。
 
 use ra_renderer::RgbaImage;
 use ra_types::{PresentFeel, PresentQuantize};
@@ -51,7 +54,9 @@ pub fn apply_present_feel(image: &mut RgbaImage, feel: PresentFeel) {
                 (PresentQuantize::Rgb565, _) => 5,
                 (PresentQuantize::Rgb555, _) => 5,
             };
-            let step = 255.0 / ((1u32 << bits) as f32 - 1.0);
+            // 抖动幅度对齐该通道丢弃的低位宽度（5bit→8，6bit→4）。
+            let loss = 8u32 - u32::from(bits);
+            let step = (1u32 << loss) as f32;
             px[c] = quantize_channel(v + dither * step, bits);
         }
     }
@@ -74,14 +79,15 @@ fn build_gamma_lut(gamma: f32) -> [u8; 256] {
     lut
 }
 
+/// 16 位表面往返：截断到 `bits` 位，再按 `round(n * 255 / max)` 线性展开回 8 位。
+///
+/// 不用 bit-replicate（`(n<<k)|(n>>m)`）：那是另一种展开，和常见显示链扩表不一致。
 fn quantize_channel(v: f32, bits: u8) -> u8 {
-    let max_c = ((1u32 << bits) - 1) as f32;
-    let stepped = ((v.clamp(0.0, 255.0) / 255.0) * max_c).round().clamp(0.0, max_c) as u8;
-    match bits {
-        5 => (stepped << 3) | (stepped >> 2),
-        6 => (stepped << 2) | (stepped >> 4),
-        _ => stepped,
-    }
+    let max_c = (1u32 << bits) - 1;
+    let loss = 8u32 - u32::from(bits);
+    let clamped = v.clamp(0.0, 255.0);
+    let stepped = ((clamped as u32) >> loss).min(max_c);
+    (((stepped * 255) + (max_c / 2)) / max_c) as u8
 }
 
 #[cfg(test)]
@@ -101,18 +107,27 @@ mod tests {
     }
 
     #[test]
-    fn bit16_mild_gamma_keeps_mid_grey_near_input() {
+    fn default_uses_identity_gamma_and_rgb565_codebook() {
         let mut img = solid(200, 200, 200);
         let feel = PresentFeel {
             mode: PresentMode::Bit16,
             dither: false,
             ..PresentFeel::DEFAULT
         };
+        assert!((feel.gamma - 1.0).abs() < 1e-6);
+        assert!((feel.highlight_roll_off - 0.0).abs() < 1e-6);
         apply_present_feel(&mut img, feel);
         let v = img.as_raw()[0];
-        // 默认 gamma≈1.08：略压中亮灰，勿回到发白或整屏偏暗。
-        assert!(v < 200, "mild gamma should darken a little, got {v}");
-        assert!(v > 175, "should not crush mid-bright grey, got {v}");
+        // 200 >> 3 = 25 → round(25*255/31)=206。
+        assert_eq!(v, 206);
+    }
+
+    #[test]
+    fn five_bit_expand_is_linear_not_bit_replicate() {
+        // 输入落在截断档 3：3<<3=24..31 → 取 24。
+        assert_eq!(quantize_channel(24.0, 5), 25);
+        // bit-replicate 会得到 24；线性满量程展开为 25。
+        assert_ne!(quantize_channel(24.0, 5), (3u8 << 3) | (3u8 >> 2));
     }
 
     #[test]
@@ -139,6 +154,6 @@ mod tests {
         let m = u16::from(mid.as_raw()[0]) + u16::from(mid.as_raw()[1]);
         // 近白应明显被压；中灰几乎不动（gamma=1）。
         assert!(b < 252 + 252 - 20, "near-white should roll off, got sum={b}");
-        assert!(m >= 120 + 120 - 8, "mid grey should stay near input, got sum={m}");
+        assert!(m >= 120 + 120 - 16, "mid grey should stay near input, got sum={m}");
     }
 }
