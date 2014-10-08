@@ -50,6 +50,13 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let (mounted_nested, _) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    // 遭遇战滑条饰条 `trofl`/`trofm`/`trofr` 在安装根 `Wdt.mix`（可缺）。
+    let (mounted_wdt, _) = source.mount_root_plan(&[ra_adaptor::MountSpec {
+        name: "Wdt.mix".to_string(),
+        priority: 0,
+        layer_id: "skirmish-chrome".to_string(),
+    }]);
+    let mounted_root = mounted_root + mounted_wdt;
 
     let ui_ini_bytes = source.read(manifest.chain.ui_ini).ok();
     let ui_ini_readable = ui_ini_bytes.is_some();

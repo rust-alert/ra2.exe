@@ -445,6 +445,9 @@ impl AppShell {
             chrome.checkbox_off = Self::load_pcx_rgba(source, "cue_i.pcx");
             chrome.checkbox_on = Self::load_pcx_rgba(source, "cce_i.pcx");
             chrome.track_thumb = Self::load_pcx_rgba(source, "trakgrip.pcx");
+            chrome.track_cap_l = Self::load_pcx_rgba(source, "trofl.pcx");
+            chrome.track_cap_m = Self::load_pcx_rgba(source, "trofm.pcx");
+            chrome.track_cap_r = Self::load_pcx_rgba(source, "trofr.pcx");
         }
         if need_flag {
             let flag = Self::load_pcx_rgba(source, side_flag_pcx(&side));

@@ -916,17 +916,41 @@ fn draw_skirmish_trackbar(
     max: i32,
     chrome: Option<&SkirmishChromeSprites>,
 ) {
-    fill_rect(dst, track, [64, 16, 16, 255]);
-    let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
-    fill_rect(dst, inner, [12, 12, 16, 255]);
+    let caps = chrome.and_then(|c| {
+        Some((
+            c.track_cap_l.as_ref()?,
+            c.track_cap_m.as_ref()?,
+            c.track_cap_r.as_ref()?,
+        ))
+    });
+    if let Some((cap_l, cap_m, cap_r)) = caps {
+        let h = cap_l.height() as i32;
+        let ty = track.y + (track.h - h) / 2;
+        let lw = cap_l.width() as i32;
+        let rw = cap_r.width() as i32;
+        blit_rgba(dst, cap_l, track.x, ty);
+        blit_rgba(dst, cap_r, track.x + track.w - rw, ty);
+        let mid_w = (track.w - lw - rw).max(1);
+        blit_stretched(
+            dst,
+            cap_m,
+            RectPx::new(track.x + lw, ty, mid_w, h),
+        );
+    } else {
+        fill_rect(dst, track, [64, 16, 16, 255]);
+        let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
+        fill_rect(dst, inner, [12, 12, 16, 255]);
+    }
+
     let max = max.max(1);
     let thumb_w = chrome.and_then(|c| c.track_thumb.as_ref()).map(|t| t.width() as i32).unwrap_or(10);
-    let travel = (inner.w - thumb_w).max(1);
-    let thumb_x = inner.x + (pos.clamp(0, max) * travel) / max;
+    let travel = (track.w - thumb_w).max(1);
+    let thumb_x = track.x + (pos.clamp(0, max) * travel) / max;
     if let Some(thumb) = chrome.and_then(|c| c.track_thumb.as_ref()) {
         let ty = track.y + (track.h - thumb.height() as i32) / 2;
         blit_rgba(dst, thumb, thumb_x, ty);
     } else {
+        let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
         fill_rect(dst, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
     }
 }
@@ -952,6 +976,12 @@ pub struct SkirmishChromeSprites {
     pub checkbox_on: Option<RgbaImage>,
     /// 滑条拇指 `trakgrip.pcx`（12×22）。
     pub track_thumb: Option<RgbaImage>,
+    /// 滑条左帽 `trofl.pcx`。
+    pub track_cap_l: Option<RgbaImage>,
+    /// 滑条中段 `trofm.pcx`（按轨宽拉伸）。
+    pub track_cap_m: Option<RgbaImage>,
+    /// 滑条右帽 `trofr.pcx`。
+    pub track_cap_r: Option<RgbaImage>,
     /// 本地玩家旗标。
     pub flag: Option<RgbaImage>,
     /// AI 行旗标（可与本地相同资源）。
