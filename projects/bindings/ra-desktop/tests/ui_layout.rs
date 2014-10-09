@@ -78,7 +78,7 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
 }
 
 #[test]
-fn campaign_matches_game_exe_dialog_0x94() {
+fn campaign_matches_fsbkgdlg_side_origins() {
     use ra_desktop::ui_layout::{CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, campaign_layout};
     let layout = campaign_layout(800, 600);
     assert_eq!(CAMPAIGN_BUTTON_IDS, ["load", "back"]);
@@ -86,14 +86,15 @@ fn campaign_matches_game_exe_dialog_0x94() {
     // 载入 `0x40E` DLU (318,122,108,23) → 吸附 tile 0；返回贴底盖。
     assert_eq!(layout.shell.buttons[0], RectPx::new(644, 199, 156, 42));
     assert_eq!(layout.shell.buttons[1], RectPx::new(644, 535, 156, 42));
-    // 三侧图 `0x6EA`/`0x6EB`/`0x6EC`。
-    assert_eq!(layout.allied, RectPx::new(24, 16, 426, 115));
-    assert_eq!(layout.tutorial, RectPx::new(62, 138, 348, 91));
-    assert_eq!(layout.soviet, RectPx::new(78, 236, 318, 115));
-    // 难度标签 / 值 / 滑条。
-    assert_eq!(layout.difficulty_label, RectPx::new(135, 380, 113, 20));
-    assert_eq!(layout.difficulty_value, RectPx::new(233, 380, 113, 20));
-    assert_eq!(layout.difficulty_track, RectPx::new(135, 406, 210, 21));
+    // 三侧图：相对 `fsbkgdlg` 的 SHP 原点与画布。
+    assert_eq!(layout.allied, RectPx::new(30, 26, 570, 135));
+    assert_eq!(layout.tutorial, RectPx::new(82, 186, 468, 108));
+    assert_eq!(layout.soviet, RectPx::new(98, 298, 444, 149));
+    // 难度在苏军画布下沿之下。
+    assert_eq!(layout.difficulty_label, RectPx::new(135, 459, 113, 20));
+    assert_eq!(layout.difficulty_value, RectPx::new(248, 459, 113, 20));
+    assert_eq!(layout.difficulty_track, RectPx::new(135, 483, 210, 22));
+    assert!(layout.difficulty_track.y >= layout.soviet.y + layout.soviet.h);
     // 标题 / 底栏提示与主菜单壳层 chrome 同格。
     assert_eq!(layout.title, layout.shell.title);
     assert_eq!(layout.status_help, layout.shell.tooltip);

@@ -367,23 +367,24 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
 
 /// 战役选边页布局（左：三侧图 + 难度；右：载入 / 返回）。
 ///
-/// 控件 DLU 取自安装 `game.exe` 的 `RT_DIALOG` id=`148`（`0x94`）模板；
-/// 右栏 owner-draw 钮再按壳层 42px 格吸附。禁止按截图像素估坐标。
+/// 右栏 owner-draw 钮按壳层 42px 格吸附。三侧命中框取自 `fsalg`/`fsbclg`/`fsslg`
+/// 相对 `fsbkgdlg` 的 1:1 原点与画布（登记对齐，非截图估）；难度控件放在苏军
+/// 画布下沿之下，避免压住徽标。对话框 `0x94` 旧 DLU 侧图格与烘焙背景不对齐，不用。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CampaignLayout {
     /// 共用壳层 chrome（背景 / 右栏 / 底条）。
     pub shell: MainMenuLayout,
     /// 右栏标题（与主菜单壳层 `title` 同格；CSF `GUI:CampaignMenu`）。
     pub title: RectPx,
-    /// 盟军侧图（`0x6EA` / `fsalg.shp`）。
+    /// 盟军侧图（`fsalg.shp` 570×135 @ (30,26)）。
     pub allied: RectPx,
-    /// 新兵训练营侧图（`0x6EB` / `fsbclg.shp`）。
+    /// 新兵训练营侧图（`fsbclg.shp` 468×108 @ (82,186)）。
     pub tutorial: RectPx,
-    /// 苏军侧图（`0x6EC` / `fsslg.shp`）。
+    /// 苏军侧图（`fsslg.shp` 444×149 @ (98,298)）。
     pub soviet: RectPx,
-    /// 难度标签（`0x71E` / `GUI:Difficulty`）。
+    /// 难度标签（`GUI:Difficulty`）。
     pub difficulty_label: RectPx,
-    /// 难度当前值（`0x670`）。
+    /// 难度当前值。
     pub difficulty_value: RectPx,
     /// 难度滑条（`0x50F`）。
     pub difficulty_track: RectPx,
@@ -391,7 +392,20 @@ pub struct CampaignLayout {
     pub status_help: RectPx,
 }
 
-/// 战役页布局（800×600 内容坐标；DLU→px 用 MS Sans Serif 8pt）。
+/// `fsalg.shp` 相对 `fsbkgdlg` 左上角。
+pub const CAMPAIGN_ALLIED_ORIGIN: (i32, i32) = (30, 26);
+/// `fsalg.shp` 画布。
+pub const CAMPAIGN_ALLIED_SIZE: (i32, i32) = (570, 135);
+/// `fsbclg.shp` 相对 `fsbkgdlg` 左上角。
+pub const CAMPAIGN_TUTORIAL_ORIGIN: (i32, i32) = (82, 186);
+/// `fsbclg.shp` 画布。
+pub const CAMPAIGN_TUTORIAL_SIZE: (i32, i32) = (468, 108);
+/// `fsslg.shp` 相对 `fsbkgdlg` 左上角。
+pub const CAMPAIGN_SOVIET_ORIGIN: (i32, i32) = (98, 298);
+/// `fsslg.shp` 画布。
+pub const CAMPAIGN_SOVIET_SIZE: (i32, i32) = (444, 149);
+
+/// 战役页布局（800×600 内容坐标）。
 pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
     // 载入：`0x40E` (318,122,108,23)；返回贴底盖（不用模板偏上的 `0x686` y）。
@@ -405,17 +419,37 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
     ];
+    let allied = RectPx::new(
+        CAMPAIGN_ALLIED_ORIGIN.0,
+        CAMPAIGN_ALLIED_ORIGIN.1,
+        CAMPAIGN_ALLIED_SIZE.0,
+        CAMPAIGN_ALLIED_SIZE.1,
+    );
+    let tutorial = RectPx::new(
+        CAMPAIGN_TUTORIAL_ORIGIN.0,
+        CAMPAIGN_TUTORIAL_ORIGIN.1,
+        CAMPAIGN_TUTORIAL_SIZE.0,
+        CAMPAIGN_TUTORIAL_SIZE.1,
+    );
+    let soviet = RectPx::new(
+        CAMPAIGN_SOVIET_ORIGIN.0,
+        CAMPAIGN_SOVIET_ORIGIN.1,
+        CAMPAIGN_SOVIET_SIZE.0,
+        CAMPAIGN_SOVIET_SIZE.1,
+    );
+    // 苏军画布下沿之下留空：标签一行 + 滑条（宽沿用原 DLU 换算 210）。
+    let diff_y = soviet.y + soviet.h + 12;
+    let diff_x = 135;
+    let diff_label_w = 113;
     CampaignLayout {
         shell,
-        // 右栏标题 / 底栏提示跟主菜单壳层 chrome 同格（`y=9` / 贴底），
-        // 不用对话框 DLU `(318,1)` / `(8,282)`：那会把标题贴顶、提示悬在左区中下部。
         title: shell.title,
-        allied: dlu_rect(16, 10, 284, 71),
-        tutorial: dlu_rect(41, 85, 232, 56),
-        soviet: dlu_rect(52, 145, 212, 71),
-        difficulty_label: dlu_rect(90, 234, 75, 12),
-        difficulty_value: dlu_rect(155, 234, 75, 12),
-        difficulty_track: dlu_rect(90, 250, 140, 13),
+        allied,
+        tutorial,
+        soviet,
+        difficulty_label: RectPx::new(diff_x, diff_y, diff_label_w, 20),
+        difficulty_value: RectPx::new(diff_x + diff_label_w, diff_y, diff_label_w, 20),
+        difficulty_track: RectPx::new(diff_x, diff_y + 24, 210, 22),
         status_help: shell.tooltip,
     }
 }
