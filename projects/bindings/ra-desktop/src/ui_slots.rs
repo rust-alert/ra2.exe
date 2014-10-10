@@ -180,7 +180,7 @@ const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 
-/// 战役页面板：壳层 chrome + 三侧动画图（`neutral.mix`；侧图调色板用 `fsscrn.pal`）。
+/// 战役页面板：壳层 chrome。三侧 `fs*.shp` 供悬停箭头透叠；静态徽标在 `fsbkgdlg`。
 const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },

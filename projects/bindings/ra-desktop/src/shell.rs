@@ -1081,6 +1081,7 @@ impl AppShell {
                                 selected_side: self.campaign_side,
                                 difficulty: self.campaign_difficulty,
                                 track_thumb,
+                                side_anim_frame: 1,
                             },
                             self.menu_panel_anim_frame,
                         )

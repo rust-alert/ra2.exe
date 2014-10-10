@@ -109,6 +109,30 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
+/// 1:1 贴图，跳过透明与近黑（`fsscrn` 空区约 (8,8,8)，非索引 0）。
+fn blit_rgba_skip_near_black(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32, max_rgb_sum: u16) {
+    let raw = src.as_raw();
+    for row in 0..src.height() {
+        for col in 0..src.width() {
+            let si = ((row * src.width() + col) * 4) as usize;
+            if raw[si + 3] == 0 {
+                continue;
+            }
+            let sum = u16::from(raw[si]) + u16::from(raw[si + 1]) + u16::from(raw[si + 2]);
+            if sum <= max_rgb_sum {
+                continue;
+            }
+            let dx = x + col as i32;
+            let dy = y + row as i32;
+            if dx < 0 || dy < 0 || dx as u32 >= dst.width() || dy as u32 >= dst.height() {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+        }
+    }
+}
+
 fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
         return;
@@ -587,13 +611,23 @@ pub struct CampaignPaint<'a> {
     pub difficulty: u8,
     /// 难度滑条拇指（安装内 `trakgrip.pcx`，可空）。
     pub track_thumb: Option<&'a RgbaImage>,
+    /// 侧图悬停/已选箭头动画帧（对侧图 SHP 帧数取模；与 `sdwrnanm` 时钟分离）。
+    pub side_anim_frame: usize,
 }
 
 impl Default for CampaignPaint<'_> {
     fn default() -> Self {
-        Self { selected_side: None, difficulty: 1, track_thumb: None }
+        Self {
+            selected_side: None,
+            difficulty: 1,
+            track_thumb: None,
+            side_anim_frame: 1,
+        }
     }
 }
+
+/// `fsscrn.pal` 下侧图空区近黑 RGB 和阈值（约 (8,8,8)）。
+const CAMPAIGN_SIDE_NEAR_BLACK_SUM: u16 = 32;
 
 /// 合成战役选边页：三侧图 + 难度 + 右栏载入/返回。
 pub fn compose_campaign_page(
@@ -627,17 +661,19 @@ pub fn compose_campaign_page(
         ("soviet", "fsslg.shp", layout.soviet),
     ];
     for (id, shp, rect) in sides {
-        // 侧图不得与 `sdwrnanm` 共用 `panel_anim_frame`：WARNING 帧数远多于侧图，
-        // 取模会抽到错误高亮/箭头帧，观感像调色板错了。悬停动画另计时后再接。
-        if let Some(sprite) = find_panel(decoded, shp, 0) {
-            // 侧图空区是近黑索引（非索引 0），应叠在 `fsbkgdlg` 上融合，勿抠色。
-            blit_stretched(&mut page, &sprite.image, rect);
-        }
-        let selected = paint.selected_side == Some(id);
-        let hovered = hovered_entry_id == Some(id);
-        if selected || hovered {
-            let color = if selected { [255, 214, 0, 255] } else { [180, 24, 24, 255] };
-            stroke_rect(&mut page, rect, color);
+        // `fsbkgdlg` 已烘焙静态徽标。勿整幅不透明拉伸侧图（近黑空区 → 黑块重影）。
+        // 悬停/已选：1:1 近黑透叠箭头动画帧。
+        let active = paint.selected_side == Some(id) || hovered_entry_id == Some(id);
+        if active {
+            if let Some(sprite) = find_panel(decoded, shp, paint.side_anim_frame.max(1)) {
+                blit_rgba_skip_near_black(
+                    &mut page,
+                    &sprite.image,
+                    rect.x,
+                    rect.y,
+                    CAMPAIGN_SIDE_NEAR_BLACK_SUM,
+                );
+            }
         }
     }
 

@@ -148,7 +148,12 @@ fn compose_campaign_uses_back_id() {
         button_presseds: vec![("back", pressed)],
         errors: Vec::new(),
     };
-    let paint = CampaignPaint { selected_side: Some("allied"), difficulty: 1, track_thumb: None };
+    let paint = CampaignPaint {
+        selected_side: Some("allied"),
+        difficulty: 1,
+        track_thumb: None,
+        side_anim_frame: 1,
+    };
     let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, paint, 0).unwrap();
     let layout = campaign_layout(800, 600);
     let cell = layout.shell.buttons[1];
