@@ -101,6 +101,14 @@ pub struct AppShell {
     menu_panel_anim_accum: f64,
     /// `sdwrnanm` 动画帧序号（对多帧 SHP 取模）。
     menu_panel_anim_frame: usize,
+    /// 战役侧图箭头动画时钟（与 WARNING 屏分离）。
+    campaign_side_anim_clock: Option<Instant>,
+    /// 侧图动画累计秒。
+    campaign_side_anim_accum: f64,
+    /// 侧图箭头帧序号。
+    campaign_side_anim_frame: usize,
+    /// 战役选边悬停语音（`AlliedCampaignSelect` 等，惰性）。
+    campaign_side_sfx: [Option<PcmAudio>; 3],
     /// 闪屏 PCX 已上传（避免每帧重解）。
     splash_uploaded: bool,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）；F12 手动截图用。
@@ -199,6 +207,10 @@ impl AppShell {
             menu_panel_anim_clock: None,
             menu_panel_anim_accum: 0.0,
             menu_panel_anim_frame: 0,
+            campaign_side_anim_clock: None,
+            campaign_side_anim_accum: 0.0,
+            campaign_side_anim_frame: 1,
+            campaign_side_sfx: [None, None, None],
             splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
@@ -268,6 +280,10 @@ impl AppShell {
             menu_panel_anim_clock: None,
             menu_panel_anim_accum: 0.0,
             menu_panel_anim_frame: 0,
+            campaign_side_anim_clock: None,
+            campaign_side_anim_accum: 0.0,
+            campaign_side_anim_frame: 1,
+            campaign_side_sfx: [None, None, None],
             splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
@@ -1081,7 +1097,7 @@ impl AppShell {
                                 selected_side: self.campaign_side,
                                 difficulty: self.campaign_difficulty,
                                 track_thumb,
-                                side_anim_frame: 1,
+                                side_anim_frame: self.campaign_side_anim_frame.max(1),
                             },
                             self.menu_panel_anim_frame,
                         )
@@ -1449,6 +1465,49 @@ impl AppShell {
         self.ensure_menu_audio_assets();
         if let (Some(audio), Some(click)) = (self.audio.as_mut(), self.menu_click.as_ref()) {
             audio.play_sfx(click);
+        }
+    }
+
+    /// 战役选边悬停切入语音（`sound.ini` Allied/BootCamp/SovietCampaignSelect）。
+    fn play_campaign_side_hover(&mut self, side: &str) {
+        let slot = match side {
+            "allied" => 0,
+            "tutorial" => 1,
+            "soviet" => 2,
+            _ => return,
+        };
+        let event_id = match side {
+            "allied" => "AlliedCampaignSelect",
+            "tutorial" => "BootCampSelect",
+            "soviet" => "SovietCampaignSelect",
+            _ => return,
+        };
+        if self.campaign_side_sfx[slot].is_none() {
+            self.ensure_menu_assets();
+            let mut names: Vec<String> = self
+                .sound_event_sample_names(event_id)
+                .into_iter()
+                .map(|s| s.trim().trim_start_matches(['$', '#']).to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            // 零售缺省采样名（sound.ini 解析失败时仍可从 bag 取）。
+            for fallback in match side {
+                "allied" => ["itanatc", "ITANATC"],
+                "tutorial" => ["igisea", "IGISEA"],
+                _ => ["vgrsatc", "VGRSATC"],
+            } {
+                if !names.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    names.push(fallback.into());
+                }
+            }
+            let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+            self.campaign_side_sfx[slot] = self.decode_bag_named(&refs);
+            if self.campaign_side_sfx[slot].is_none() {
+                tracing::warn!(%event_id, "战役选边悬停采样未命中");
+            }
+        }
+        if let (Some(audio), Some(pcm)) = (self.audio.as_mut(), self.campaign_side_sfx[slot].as_ref()) {
+            audio.play_sfx(pcm);
         }
     }
 
@@ -2088,7 +2147,32 @@ impl AppShell {
                     self.menu_panel_anim_frame = self.menu_panel_anim_frame.wrapping_add(1);
                     panel_advanced = true;
                 }
-                if movie_advanced || panel_advanced {
+                let mut side_advanced = false;
+                if self.screen == OriginalScreen::Campaign {
+                    let side_hot = matches!(
+                        self.menu_hovered_entry,
+                        Some("allied" | "tutorial" | "soviet")
+                    ) || self.campaign_side.is_some();
+                    if side_hot {
+                        const SIDE_FRAME_SECS: f64 = 1.0 / 12.0;
+                        let side_dt = self
+                            .campaign_side_anim_clock
+                            .replace(Instant::now())
+                            .map(|t0| t0.elapsed().as_secs_f64())
+                            .unwrap_or(0.0)
+                            .min(0.25);
+                        self.campaign_side_anim_accum += side_dt;
+                        while self.campaign_side_anim_accum >= SIDE_FRAME_SECS {
+                            self.campaign_side_anim_accum -= SIDE_FRAME_SECS;
+                            self.campaign_side_anim_frame =
+                                self.campaign_side_anim_frame.wrapping_add(1).max(1);
+                            side_advanced = true;
+                        }
+                    } else {
+                        self.campaign_side_anim_clock = None;
+                    }
+                }
+                if movie_advanced || panel_advanced || side_advanced {
                     self.refresh_menu_backdrop();
                 } else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
                     if !self.banner.contains("影片失步") {
@@ -2276,6 +2360,15 @@ impl ApplicationHandler for AppShell {
                     ) {
                         let next = self.menu_entry_under_cursor();
                         if next != self.menu_hovered_entry {
+                            if self.screen == OriginalScreen::Campaign {
+                                if matches!(next, Some("allied" | "tutorial" | "soviet")) {
+                                    if let Some(side) = next {
+                                        self.play_campaign_side_hover(side);
+                                    }
+                                    self.campaign_side_anim_frame = 1;
+                                    self.campaign_side_anim_accum = 0.0;
+                                }
+                            }
                             self.menu_hovered_entry = next;
                             self.refresh_menu_backdrop();
                         }
