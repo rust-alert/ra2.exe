@@ -125,7 +125,7 @@ fn campaign_side_and_difficulty_are_hit() {
     let layout = ra_desktop::ui_layout::campaign_layout(0, 0);
     let allied = layout.allied;
     let track = layout.difficulty_track;
-    let back = layout.shell.buttons[1];
+    let back = layout.shell.buttons[0];
     let (ax, ay) = to_win(allied.x + allied.w / 2, allied.y + allied.h / 2);
     let (tx, ty) = to_win(track.x + track.w / 2, track.y + track.h / 2);
     let (bx, by) = to_win(back.x + back.w / 2, back.y + back.h / 2);

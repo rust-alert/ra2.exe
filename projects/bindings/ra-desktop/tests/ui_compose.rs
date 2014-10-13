@@ -156,7 +156,7 @@ fn compose_campaign_uses_back_id() {
     };
     let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, paint, 0).unwrap();
     let layout = campaign_layout(800, 600);
-    let cell = layout.shell.buttons[1];
+    let cell = layout.shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 200, 255]);
 }

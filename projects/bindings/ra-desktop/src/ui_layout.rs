@@ -48,8 +48,8 @@ pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "load", "skirmish",
 
 /// 战役页右栏按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 ///
-/// 顺序对齐对话框 `0x94`：载入 → 上一页（贴底）。
-pub const CAMPAIGN_BUTTON_IDS: [&str; 2] = ["load", "back"];
+/// 原版 `0x94` 右栏为部队格 + 唯一「上一页」；无「载入」钮。
+pub const CAMPAIGN_BUTTON_IDS: [&str; 1] = ["back"];
 
 /// 战役三侧入口 id（盟军 / 新兵训练营 / 苏军；`battle.ini` 的 ALL1 / TUT1 / SOV1）。
 pub const CAMPAIGN_SIDE_IDS: [&str; 3] = ["allied", "tutorial", "soviet"];
@@ -396,8 +396,8 @@ pub struct CampaignLayout {
 pub const CAMPAIGN_ALLIED_ORIGIN: (i32, i32) = (30, 26);
 /// `fsalg.shp` 画布。
 pub const CAMPAIGN_ALLIED_SIZE: (i32, i32) = (570, 135);
-/// `fsbclg.shp` 相对 `fsbkgdlg` 左上角。
-pub const CAMPAIGN_TUTORIAL_ORIGIN: (i32, i32) = (82, 186);
+/// `fsbclg.shp` 相对 `fsbkgdlg` 左上角（登记对齐 y=187，勿用 186：差 1px 悬停会抖）。
+pub const CAMPAIGN_TUTORIAL_ORIGIN: (i32, i32) = (82, 187);
 /// `fsbclg.shp` 画布。
 pub const CAMPAIGN_TUTORIAL_SIZE: (i32, i32) = (468, 108);
 /// `fsslg.shp` 相对 `fsbkgdlg` 左上角。
@@ -408,12 +408,11 @@ pub const CAMPAIGN_SOVIET_SIZE: (i32, i32) = (444, 149);
 /// 战役页布局（800×600 内容坐标）。
 pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
-    // 载入：`0x40E` (318,122,108,23)；返回贴底盖（不用模板偏上的 `0x686` y）。
-    let load = skirmish_snap_button(dlu_rect(318, 122, 108, 23), shell.panel_tile.y);
+    // 仅「上一页」贴底盖；右栏其余为部队 cameo 格（后续接线，勿再放载入钮）。
     let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
     shell.buttons = [
-        load,
         back,
+        RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
@@ -437,19 +436,20 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
         CAMPAIGN_SOVIET_SIZE.0,
         CAMPAIGN_SOVIET_SIZE.1,
     );
-    // 苏军画布下沿之下留空：标签一行 + 滑条（宽沿用原 DLU 换算 210）。
-    let diff_y = soviet.y + soviet.h + 12;
-    let diff_x = 135;
-    let diff_label_w = 113;
+    // 难度：原版截图映到 800×600 — 标签 y≈454、轨 y≈483、x≈191、轨宽≈247。
+    let diff_label_y = 454;
+    let diff_x = 191;
+    let diff_track_w = 247;
+    let diff_label_w = 100;
     CampaignLayout {
         shell,
         title: shell.title,
         allied,
         tutorial,
         soviet,
-        difficulty_label: RectPx::new(diff_x, diff_y, diff_label_w, 20),
-        difficulty_value: RectPx::new(diff_x + diff_label_w, diff_y, diff_label_w, 20),
-        difficulty_track: RectPx::new(diff_x, diff_y + 24, 210, 22),
+        difficulty_label: RectPx::new(diff_x, diff_label_y, diff_label_w, 20),
+        difficulty_value: RectPx::new(diff_x + diff_track_w - diff_label_w, diff_label_y, diff_label_w, 20),
+        difficulty_track: RectPx::new(diff_x, 483, diff_track_w, 13),
         status_help: shell.tooltip,
     }
 }

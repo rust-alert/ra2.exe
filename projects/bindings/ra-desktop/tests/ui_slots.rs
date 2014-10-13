@@ -43,10 +43,9 @@ fn single_player_order_is_campaign_load_skirmish_back() {
 fn campaign_declares_three_side_panels_and_rail() {
     let page = slots_for(OriginalScreen::Campaign).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["load", "back"]);
-    assert!(!page.buttons[0].enabled);
-    assert!(page.buttons[1].enabled);
-    assert!(matches!(page.buttons[1].action, MenuAction::Back));
+    assert_eq!(ids, ["back"]);
+    assert!(page.buttons[0].enabled);
+    assert!(matches!(page.buttons[0].action, MenuAction::Back));
     assert_eq!(page.movie_bik, None);
     assert_eq!(page.background_shp, Some("fsbkgdlg.shp"));
     assert_eq!(page.background_pal, Some("fsscrn.pal"));

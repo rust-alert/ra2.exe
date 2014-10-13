@@ -174,9 +174,8 @@ const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
 ];
 
-/// 战役页：右栏载入（未实现）+ 返回；三侧图走面板槽解码。
+/// 战役页：右栏仅「上一页」；中列为空部队格（cameo 后续接线）。
 const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("load", MenuAction::Noop, false, (0.805, 0.3317, 1.0, 0.4017)),
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 

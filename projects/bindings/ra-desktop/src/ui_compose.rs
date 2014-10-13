@@ -133,6 +133,33 @@ fn blit_rgba_skip_near_black(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i3
     }
 }
 
+/// 教程悬停：只贴金黄箭头像素，不重画帽/枪（与烘焙底叠画会抖）。
+fn blit_rgba_arrow_gold(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
+    let raw = src.as_raw();
+    for row in 0..src.height() {
+        for col in 0..src.width() {
+            let si = ((row * src.width() + col) * 4) as usize;
+            if raw[si + 3] == 0 {
+                continue;
+            }
+            let r = raw[si];
+            let g = raw[si + 1];
+            let b = raw[si + 2];
+            // 金黄箭头：高 R/G、低 B；排除棕色帽身。
+            if r < 160 || g < 120 || b > 90 {
+                continue;
+            }
+            let dx = x + col as i32;
+            let dy = y + row as i32;
+            if dx < 0 || dy < 0 || dx as u32 >= dst.width() || dy as u32 >= dst.height() {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+        }
+    }
+}
+
 fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
         return;
@@ -666,13 +693,23 @@ pub fn compose_campaign_page(
         let active = paint.selected_side == Some(id) || hovered_entry_id == Some(id);
         if active {
             if let Some(sprite) = find_panel(decoded, shp, paint.side_anim_frame.max(1)) {
-                blit_rgba_skip_near_black(
-                    &mut page,
-                    &sprite.image,
-                    rect.x,
-                    rect.y,
-                    CAMPAIGN_SIDE_NEAR_BLACK_SUM,
-                );
+                // 教程侧图：只叠金黄箭头，避免徽标与烘焙底 1px 错位造成抖动。
+                if id == "tutorial" {
+                    blit_rgba_arrow_gold(
+                        &mut page,
+                        &sprite.image,
+                        rect.x,
+                        rect.y,
+                    );
+                } else {
+                    blit_rgba_skip_near_black(
+                        &mut page,
+                        &sprite.image,
+                        rect.x,
+                        rect.y,
+                        CAMPAIGN_SIDE_NEAR_BLACK_SUM,
+                    );
+                }
             }
         }
     }
