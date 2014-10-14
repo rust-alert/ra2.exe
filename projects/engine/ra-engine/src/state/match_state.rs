@@ -249,6 +249,17 @@ impl MatchState {
         }
     }
 
+    /// 将所有玩家资金设为同一起始值（遭遇战大厅资金滑条）。
+    pub fn set_all_players_funds(&mut self, funds: i32) {
+        if self.players.is_empty() {
+            return;
+        }
+        for player in &mut self.players {
+            player.funds = funds;
+        }
+        self.rehash();
+    }
+
     /// 按 house 名称读取资金。
     pub fn house_funds(&self, house: &str) -> Option<i32> {
         self.players.iter().find(|p| p.house.as_ref() == house).map(|p| p.funds)

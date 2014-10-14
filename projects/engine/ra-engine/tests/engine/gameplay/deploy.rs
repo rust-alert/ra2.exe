@@ -48,6 +48,16 @@ fn set_house_funds_updates_player_state() {
 }
 
 #[test]
+fn set_all_players_funds_seeds_every_house() {
+    let mut world = mcv_world();
+    world.set_all_players_funds(8_000);
+    assert_eq!(world.house_funds("Americans"), Some(8_000));
+    for player in &world.players {
+        assert_eq!(player.funds, 8_000);
+    }
+}
+
+#[test]
 fn deploy_mcv_becomes_construction_yard() {
     let mut world = mcv_world();
     let id = world.entities[0].id;
