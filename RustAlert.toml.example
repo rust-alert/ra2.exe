@@ -10,7 +10,7 @@
 # display_mode = "1024x768"   # 640x480 / 800x600 / 1024x768
 # music_volume = 0.4
 # sound_volume = 0.7
-# edition = "ra2"   # 或 "yr"；省略则按目录特征自动探测
+# edition = "ra2"   # 或 "yr"。合集盘务必写明；省略则自动探测，可能落到 YR
 # net_url = ""      # 预留战网地址
 # net_room = ""     # 预留房间名
 

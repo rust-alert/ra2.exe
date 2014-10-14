@@ -12,11 +12,12 @@
 
 ```bash
 npm i -g @game-gpt/red-alert2
-ra2 launch --path "C:/Games/RA2"
-ra2 launch --path "C:/Games/RA2" --edition yr
+# 合集盘 / 同时有 game.exe 与 gamemd.exe 时必须显式指定版本，否则可能落到 YR 资源链
+ra2 launch --path "C:/Games/RA2" --edition ra2
+ra2 launch --path "C:/Games/YR" --edition yr
 ```
 
-`--path` 指向含零售 MIX/INI 的安装根目录。
+`--path` 指向含零售 MIX/INI 的安装根目录。壳层 UI 当前以 **RA2** 资源链对照为主；混装安装请始终加 `--edition ra2`。
 
 ---
 
@@ -30,9 +31,9 @@ pnpm exec ra2 --help
 cargo test -p ra-assets -p ra-map -p ra-engine -p ra-testing
 
 # 资源查证：用 extract / unpack，不要再写一次性 Rust 探针
-pnpm exec ra2 extract --path "C:/Games/RA2" --out ./tmp/extract --decode-shp -- sdtp.shp title.pcx
-pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
-pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack --names-file ./extra_names.txt
+pnpm exec ra2 extract --path "C:/Games/RA2" --edition ra2 --out ./tmp/extract --decode-shp -- sdtp.shp title.pcx
+pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack
+pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack --names-file ./extra_names.txt
 
 # 仅调试原生壳（非资源探针）：需 RustAlert.toml 或默认目录
 cargo run -p ra-desktop --example launch
