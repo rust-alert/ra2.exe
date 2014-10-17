@@ -196,8 +196,13 @@ pub fn boot_world_with_progress(
         match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house)) {
             Some(Ok(mut opened)) => {
                 note = opened.note;
-                note = format!("{note} · difficulty={}", request.difficulty);
-                opened.session.expect_game_mut().set_difficulty(request.difficulty.clone());
+                note = format!(
+                    "{note} · player={} · difficulty={} · credits={}",
+                    request.player_name, request.difficulty, request.credits
+                );
+                let game = opened.session.expect_game_mut();
+                game.set_difficulty(request.difficulty.clone());
+                game.world.set_all_players_funds(request.credits);
                 tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
                     opened.session.expect_game().fingerprint.edition,

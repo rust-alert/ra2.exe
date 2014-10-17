@@ -318,13 +318,15 @@ impl SkirmishBootRequest {
     /// 装载笔记片段。
     pub fn note_fragment(&self) -> String {
         format!(
-            "side={} diff={} map={} speed={} credits={} units={}",
+            "player={} side={} diff={} map={} speed={} credits={} units={} short={}",
+            self.player_name,
             self.side,
             self.difficulty,
             self.preferred_map.as_deref().unwrap_or("(auto)"),
             self.game_speed,
             self.credits,
-            self.unit_count
+            self.unit_count,
+            self.short_game as u8
         )
     }
 
