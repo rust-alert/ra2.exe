@@ -3,7 +3,7 @@
 //! 控件几何在 [`crate::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
 use crate::ui_layout::{
-    RectPx, SkirmishLobbyLayout, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
+    RectPx, SkirmishLobbyLayout, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
 };
 
 /// 大厅可选阵营短名（需与地图实体 `owner` 对得上才会成为本地玩家）。
@@ -134,12 +134,16 @@ pub struct SkirmishBootRequest {
     pub player_name: String,
     /// 优选地图文件名。
     pub preferred_map: Option<String>,
-    /// 期望本地阵营（规则/地图 house 名）。
+    /// 期望本地阵营（规则/地图 house 名；与 `row_sides[0]` 同步）。
     pub side: String,
+    /// 各行国家下标（`LOBBY_SIDES`；行 0 本地，其后 AI）。
+    pub row_sides: [u8; SKIRMISH_ROW_COUNT],
     /// 难度标签。
     pub difficulty: String,
-    /// 本地玩家色块下标（`LOBBY_COLORS`）。
+    /// 本地玩家色块下标（`LOBBY_COLORS`；与 `row_colors[0]` 同步）。
     pub color_index: u8,
+    /// 各行色块下标（`LOBBY_COLORS`）。
+    pub row_colors: [u8; SKIRMISH_ROW_COUNT],
     /// 快速游戏。
     pub short_game: bool,
     /// 基地重新部署。
@@ -162,6 +166,8 @@ pub struct SkirmishBootRequest {
     pub player_name_editing: bool,
     /// 展开中的下拉（`None` 表示收起）。
     pub open_combo: Option<SkirmishComboKind>,
+    /// 当前下拉所在玩家行（0 本地）。
+    pub combo_row: usize,
 }
 
 impl SkirmishBootRequest {
@@ -171,8 +177,10 @@ impl SkirmishBootRequest {
             player_name: "Player".to_string(),
             preferred_map: None,
             side: LOBBY_SIDES[0].to_string(),
+            row_sides: default_row_sides(),
             difficulty: LOBBY_DIFFICULTIES[1].to_string(),
             color_index: 0,
+            row_colors: default_row_colors(),
             short_game: true,
             mcv_repacks: true,
             crates: true,
@@ -184,25 +192,43 @@ impl SkirmishBootRequest {
             dragging: None,
             player_name_editing: false,
             open_combo: None,
+            combo_row: 0,
         }
     }
 
-    /// 循环下一阵营。
+    /// 循环下一阵营（仅本地行）。
     pub fn cycle_side(&mut self) {
-        let i = LOBBY_SIDES.iter().position(|s| *s == self.side.as_str()).unwrap_or(0);
-        self.side = LOBBY_SIDES[(i + 1) % LOBBY_SIDES.len()].to_string();
+        let i = self.row_side_index(0);
+        self.set_row_side(0, (i + 1) % LOBBY_SIDES.len());
     }
 
-    /// 循环下一色块。
+    /// 循环下一色块（仅本地行）。
     pub fn cycle_color(&mut self) {
-        let n = LOBBY_COLORS.len() as u8;
-        self.color_index = (self.color_index + 1) % n.max(1);
+        let i = self.row_color_index(0);
+        self.set_row_color(0, (i + 1) % LOBBY_COLORS.len());
     }
 
-    /// 当前色块 RGB。
+    /// 当前色块 RGB（本地行）。
     pub fn color_rgb(&self) -> [u8; 3] {
-        let i = (self.color_index as usize) % LOBBY_COLORS.len();
-        LOBBY_COLORS[i]
+        self.row_color_rgb(0)
+    }
+
+    /// 指定行国家短名。
+    pub fn row_side(&self, row: usize) -> &'static str {
+        LOBBY_SIDES[self.row_side_index(row)]
+    }
+
+    /// 指定行色块 RGB。
+    pub fn row_color_rgb(&self, row: usize) -> [u8; 3] {
+        LOBBY_COLORS[self.row_color_index(row)]
+    }
+
+    fn row_side_index(&self, row: usize) -> usize {
+        (self.row_sides[row.min(SKIRMISH_ROW_COUNT - 1)] as usize) % LOBBY_SIDES.len()
+    }
+
+    fn row_color_index(&self, row: usize) -> usize {
+        (self.row_colors[row.min(SKIRMISH_ROW_COUNT - 1)] as usize) % LOBBY_COLORS.len()
     }
 
     /// 结束玩家名编辑。
@@ -216,11 +242,12 @@ impl SkirmishBootRequest {
     /// 收起下拉。
     pub fn close_combo(&mut self) {
         self.open_combo = None;
+        self.combo_row = 0;
     }
 
-    /// 国家下拉列表矩形（紧贴行 0 国家面下方）。
-    pub fn country_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
-        let face = layout.side_faces[0];
+    /// 国家下拉列表矩形（紧贴指定行国家面下方）。
+    pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
+        let face = layout.side_faces[row.min(layout.side_faces.len().saturating_sub(1))];
         RectPx::new(
             face.x,
             face.y + face.h,
@@ -229,9 +256,9 @@ impl SkirmishBootRequest {
         )
     }
 
-    /// 颜色下拉列表矩形（紧贴行 0 颜色面下方）。
-    pub fn color_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
-        let face = layout.color_faces[0];
+    /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
+    pub fn color_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
+        let face = layout.color_faces[row.min(layout.color_faces.len().saturating_sub(1))];
         RectPx::new(
             face.x,
             face.y + face.h,
@@ -251,18 +278,38 @@ impl SkirmishBootRequest {
         )
     }
 
-    /// 设置阵营为 `LOBBY_SIDES[i]`。
-    pub fn set_side_index(&mut self, index: usize) {
+    /// 设置指定行阵营为 `LOBBY_SIDES[index]`。
+    pub fn set_row_side(&mut self, row: usize, index: usize) {
+        if row >= SKIRMISH_ROW_COUNT {
+            return;
+        }
         if let Some(side) = LOBBY_SIDES.get(index) {
-            self.side = (*side).to_string();
+            self.row_sides[row] = index as u8;
+            if row == 0 {
+                self.side = (*side).to_string();
+            }
         }
     }
 
-    /// 设置色块为 `LOBBY_COLORS[i]`。
-    pub fn set_color_index(&mut self, index: usize) {
-        if index < LOBBY_COLORS.len() {
+    /// 设置当前下拉行的阵营。
+    pub fn set_side_index(&mut self, index: usize) {
+        self.set_row_side(self.combo_row, index);
+    }
+
+    /// 设置指定行色块为 `LOBBY_COLORS[index]`。
+    pub fn set_row_color(&mut self, row: usize, index: usize) {
+        if row >= SKIRMISH_ROW_COUNT || index >= LOBBY_COLORS.len() {
+            return;
+        }
+        self.row_colors[row] = index as u8;
+        if row == 0 {
             self.color_index = index as u8;
         }
+    }
+
+    /// 设置当前下拉行的色块。
+    pub fn set_color_index(&mut self, index: usize) {
+        self.set_row_color(self.combo_row, index);
     }
 
     /// 设置 AI 难度为 `LOBBY_DIFFICULTIES[i]`。
@@ -376,32 +423,33 @@ impl SkirmishBootRequest {
         ai_rows: usize,
     ) -> Option<SkirmishLobbyHit> {
         let ai_rows = ai_rows.min(layout.ai_faces.len());
+        let human_rows = (1 + ai_rows).min(layout.side_faces.len());
         // 已展开的下拉优先命中列表 / 面框。
         if self.open_combo == Some(SkirmishComboKind::Country) {
-            let list = Self::country_list_rect(layout);
+            let list = Self::country_list_rect(layout, self.combo_row);
             if list.contains(x, y) {
-                let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_SIDES.len() as i32 - 1) as usize;
-                self.set_side_index(row);
+                let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_SIDES.len() as i32 - 1) as usize;
+                self.set_side_index(choice);
                 self.open_combo = None;
                 self.player_name_editing = false;
-                return Some(SkirmishLobbyHit::PickCountry(row));
+                return Some(SkirmishLobbyHit::PickCountry(choice));
             }
-            if layout.side_faces[0].contains(x, y) {
+            if self.combo_row < layout.side_faces.len() && layout.side_faces[self.combo_row].contains(x, y) {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleCountryCombo);
             }
             self.open_combo = None;
         } else if self.open_combo == Some(SkirmishComboKind::Color) {
-            let list = Self::color_list_rect(layout);
+            let list = Self::color_list_rect(layout, self.combo_row);
             if list.contains(x, y) {
-                let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_COLORS.len() as i32 - 1) as usize;
-                self.set_color_index(row);
+                let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_COLORS.len() as i32 - 1) as usize;
+                self.set_color_index(choice);
                 self.open_combo = None;
                 self.player_name_editing = false;
-                return Some(SkirmishLobbyHit::PickColor(row));
+                return Some(SkirmishLobbyHit::PickColor(choice));
             }
-            if layout.color_faces[0].contains(x, y) {
+            if self.combo_row < layout.color_faces.len() && layout.color_faces[self.combo_row].contains(x, y) {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleColorCombo);
@@ -454,14 +502,18 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::Track(id));
             }
         }
-        // 本地国家 / 颜色面：展开列表。
-        if layout.side_faces[0].contains(x, y) {
-            self.open_combo = Some(SkirmishComboKind::Country);
-            return Some(SkirmishLobbyHit::ToggleCountryCombo);
-        }
-        if layout.color_faces[0].contains(x, y) {
-            self.open_combo = Some(SkirmishComboKind::Color);
-            return Some(SkirmishLobbyHit::ToggleColorCombo);
+        // 各行国家 / 颜色面：展开该行自己的列表。
+        for row in 0..human_rows {
+            if layout.side_faces[row].contains(x, y) {
+                self.combo_row = row;
+                self.open_combo = Some(SkirmishComboKind::Country);
+                return Some(SkirmishLobbyHit::ToggleCountryCombo);
+            }
+            if layout.color_faces[row].contains(x, y) {
+                self.combo_row = row;
+                self.open_combo = Some(SkirmishComboKind::Color);
+                return Some(SkirmishLobbyHit::ToggleColorCombo);
+            }
         }
         // 仅当地图有 AI 席位时展开难度下拉（行 0 代表共用难度）。
         if ai_rows > 0 && layout.ai_faces[0].contains(x, y) {
@@ -497,13 +549,13 @@ pub fn hover_entry_at(layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<&'
     if layout.player_name.contains(x, y) {
         return Some("player_name");
     }
-    if layout.flags[0].contains(x, y) {
+    if layout.flags.iter().any(|r| r.contains(x, y)) {
         return Some("flag");
     }
-    if layout.side_faces[0].contains(x, y) {
+    if layout.side_faces.iter().any(|r| r.contains(x, y)) {
         return Some("country");
     }
-    if layout.color_faces[0].contains(x, y) {
+    if layout.color_faces.iter().any(|r| r.contains(x, y)) {
         return Some("color");
     }
     for face in &layout.ai_faces {
@@ -564,6 +616,22 @@ fn is_player_name_char(ch: char) -> bool {
     matches!(ch, ' '..='~')
 }
 
+fn default_row_sides() -> [u8; SKIRMISH_ROW_COUNT] {
+    let mut sides = [0u8; SKIRMISH_ROW_COUNT];
+    for (i, slot) in sides.iter_mut().enumerate() {
+        *slot = (i % LOBBY_SIDES.len()) as u8;
+    }
+    sides
+}
+
+fn default_row_colors() -> [u8; SKIRMISH_ROW_COUNT] {
+    let mut colors = [0u8; SKIRMISH_ROW_COUNT];
+    for (i, slot) in colors.iter_mut().enumerate() {
+        *slot = (i % LOBBY_COLORS.len()) as u8;
+    }
+    colors
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -603,11 +671,13 @@ mod tests {
         let face = layout.side_faces[0];
         assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
         assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
-        let list = SkirmishBootRequest::country_list_rect(&layout);
-        // 第二项 French。
-        let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
-        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(1)));
-        assert_eq!(s.side, "French");
+        let list = SkirmishBootRequest::country_list_rect(&layout, 0);
+        // 第三项 Germans，避免与默认行 1（French）撞名。
+        let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
+        assert_eq!(s.side, "Germans");
+        assert_eq!(s.row_side(0), "Germans");
+        assert_eq!(s.row_side(1), "French");
         assert!(s.open_combo.is_none());
     }
 
@@ -619,12 +689,30 @@ mod tests {
         let face = layout.color_faces[0];
         assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleColorCombo));
         assert_eq!(s.open_combo, Some(SkirmishComboKind::Color));
-        let list = SkirmishBootRequest::color_list_rect(&layout);
-        let y = list.y + SKIRMISH_COMBO_FACE_H + 2;
-        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickColor(1)));
-        assert_eq!(s.color_index, 1);
-        assert_eq!(s.color_rgb(), LOBBY_COLORS[1]);
+        let list = SkirmishBootRequest::color_list_rect(&layout, 0);
+        let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickColor(2)));
+        assert_eq!(s.color_index, 2);
+        assert_eq!(s.row_color_rgb(0), LOBBY_COLORS[2]);
+        assert_eq!(s.row_color_rgb(1), LOBBY_COLORS[1]);
         assert!(s.open_combo.is_none());
+    }
+
+    #[test]
+    fn ai_row_country_pick_does_not_change_local_side() {
+        let layout = skirmish_lobby_layout(800, 600);
+        let mut s = SkirmishBootRequest::default_lobby();
+        assert_eq!(s.row_side(0), "Americans");
+        assert_eq!(s.row_side(1), "French");
+        let face = layout.side_faces[1];
+        assert_eq!(s.on_press(&layout, face.x + 2, face.y + 2, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
+        assert_eq!(s.combo_row, 1);
+        let list = SkirmishBootRequest::country_list_rect(&layout, 1);
+        let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
+        assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
+        assert_eq!(s.row_side(1), "Germans");
+        assert_eq!(s.row_side(0), "Americans");
+        assert_eq!(s.side, "Americans");
     }
 
     #[test]

@@ -446,8 +446,14 @@ impl AppShell {
     /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
     fn ensure_skirmish_chrome(&mut self) {
         self.ensure_menu_assets();
-        let side = self.skirmish.side.clone();
-        let need_flag = self.skirmish_chrome_side.as_deref() != Some(side.as_str());
+        let flag_key = self
+            .skirmish
+            .row_sides
+            .iter()
+            .map(|i| crate::skirmish_setup::LOBBY_SIDES[(*i as usize) % crate::skirmish_setup::LOBBY_SIDES.len()])
+            .collect::<Vec<_>>()
+            .join(",");
+        let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
         let need_base = self.skirmish_chrome.as_ref().map(|c| c.checkbox_off.is_none()).unwrap_or(true);
         if !need_base && !need_flag {
             return;
@@ -466,10 +472,13 @@ impl AppShell {
             chrome.track_cap_r = Self::load_pcx_rgba(source, "trofr.pcx");
         }
         if need_flag {
-            let flag = Self::load_pcx_rgba(source, side_flag_pcx(&side));
-            chrome.ai_flag = flag.clone();
-            chrome.flag = flag;
-            self.skirmish_chrome_side = Some(side);
+            for i in 0..ui_layout::SKIRMISH_ROW_COUNT {
+                let side = self.skirmish.row_side(i);
+                chrome.row_flags[i] = Self::load_pcx_rgba(source, side_flag_pcx(side));
+            }
+            chrome.flag = chrome.row_flags[0].clone();
+            chrome.ai_flag = chrome.row_flags[1].clone();
+            self.skirmish_chrome_side = Some(flag_key);
         }
         self.skirmish_chrome = Some(chrome);
     }
@@ -1150,7 +1159,7 @@ impl AppShell {
                             country_name: country.as_str(),
                             color_rgb: self.skirmish.color_rgb(),
                             ai_name: ai_name.as_str(),
-                            ai_country: country.as_str(),
+                            ai_country: self.skirmish.row_side(1),
                             ai_difficulty: self.skirmish.difficulty.as_str(),
                             ai_rows,
                             short_game: self.skirmish.short_game,
@@ -1168,6 +1177,9 @@ impl AppShell {
                                 == Some(crate::skirmish_setup::SkirmishComboKind::Color),
                             ai_combo_open: self.skirmish.open_combo
                                 == Some(crate::skirmish_setup::SkirmishComboKind::Ai),
+                            combo_row: self.skirmish.combo_row,
+                            row_side_indices: self.skirmish.row_sides,
+                            row_color_indices: self.skirmish.row_colors,
                             chrome: self.skirmish_chrome.as_ref(),
                         };
                         ui_compose::compose_skirmish_lobby_page(

@@ -1028,6 +1028,28 @@ fn draw_skirmish_trackbar(
     }
 }
 
+fn row_side_name(paint: &SkirmishLobbyPaint<'_>, row: usize) -> &'static str {
+    let i = paint.row_side_indices[row.min(paint.row_side_indices.len() - 1)] as usize % LOBBY_SIDES.len();
+    LOBBY_SIDES[i]
+}
+
+fn row_color_rgb(paint: &SkirmishLobbyPaint<'_>, row: usize) -> [u8; 3] {
+    let i = paint.row_color_indices[row.min(paint.row_color_indices.len() - 1)] as usize % LOBBY_COLORS.len();
+    LOBBY_COLORS[i]
+}
+
+fn row_flag(chrome: Option<&SkirmishChromeSprites>, row: usize) -> Option<&RgbaImage> {
+    chrome.and_then(|c| {
+        c.row_flags.get(row).and_then(|f| f.as_ref()).or_else(|| {
+            if row == 0 {
+                c.flag.as_ref()
+            } else {
+                c.ai_flag.as_ref()
+            }
+        })
+    })
+}
+
 fn blit_flag(dst: &mut RgbaImage, flag: Option<&RgbaImage>, rect: RectPx) {
     fill_rect(dst, rect, [40, 40, 48, 255]);
     stroke_rect(dst, rect, [180, 24, 24, 255]);
@@ -1059,6 +1081,8 @@ pub struct SkirmishChromeSprites {
     pub flag: Option<RgbaImage>,
     /// AI 行旗标（可与本地相同资源）。
     pub ai_flag: Option<RgbaImage>,
+    /// 各玩家行旗标（行 0 本地）。
+    pub row_flags: [Option<RgbaImage>; crate::ui_layout::SKIRMISH_ROW_COUNT],
 }
 
 /// 遭遇战大厅绘制参数（左栏玩家/选项 + 右栏地图名）。
@@ -1104,6 +1128,12 @@ pub struct SkirmishLobbyPaint<'a> {
     pub color_combo_open: bool,
     /// 是否展开 AI 难度下拉。
     pub ai_combo_open: bool,
+    /// 当前展开下拉所在玩家行。
+    pub combo_row: usize,
+    /// 各行国家下标（`LOBBY_SIDES`）。
+    pub row_side_indices: [u8; crate::ui_layout::SKIRMISH_ROW_COUNT],
+    /// 各行色块下标（`LOBBY_COLORS`）。
+    pub row_color_indices: [u8; crate::ui_layout::SKIRMISH_ROW_COUNT],
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }
@@ -1131,6 +1161,9 @@ impl Default for SkirmishLobbyPaint<'_> {
             country_combo_open: false,
             color_combo_open: false,
             ai_combo_open: false,
+            combo_row: 0,
+            row_side_indices: [0, 1, 2, 3, 4, 0, 1, 2],
+            row_color_indices: [0, 1, 2, 3, 4, 5, 6, 7],
             chrome: None,
         }
     }
@@ -1153,9 +1186,10 @@ fn paint_skirmish_lobby_controls(
         [16, 16, 20, 255]
     };
     draw_combo_face(page, layout.player_name, name_face);
+    let local_rgb = row_color_rgb(paint, 0);
     draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255]);
-    draw_combo_face(page, layout.color_faces[0], [paint.color_rgb[0], paint.color_rgb[1], paint.color_rgb[2], 255]);
-    blit_flag(page, chrome.and_then(|c| c.flag.as_ref()), layout.flags[0]);
+    draw_combo_face(page, layout.color_faces[0], [local_rgb[0], local_rgb[1], local_rgb[2], 255]);
+    blit_flag(page, row_flag(chrome, 0), layout.flags[0]);
 
     let ai_rows = paint.ai_rows.min(layout.ai_faces.len());
     for i in 0..ai_rows {
@@ -1165,12 +1199,11 @@ fn paint_skirmish_lobby_controls(
             draw_combo_face(page, layout.side_faces[human_row], [16, 16, 20, 255]);
         }
         if human_row < layout.color_faces.len() {
-            // 预览色：相对本地色错开一档，避免与玩家行撞色。
-            let rgb = crate::skirmish_setup::LOBBY_COLORS[(i + 1) % crate::skirmish_setup::LOBBY_COLORS.len()];
+            let rgb = row_color_rgb(paint, human_row);
             draw_combo_face(page, layout.color_faces[human_row], [rgb[0], rgb[1], rgb[2], 255]);
         }
         if human_row < layout.flags.len() {
-            blit_flag(page, chrome.and_then(|c| c.ai_flag.as_ref()), layout.flags[human_row]);
+            blit_flag(page, row_flag(chrome, human_row), layout.flags[human_row]);
         }
     }
 
@@ -1208,22 +1241,13 @@ fn paint_skirmish_lobby_controls(
                 MENU_TEXT_ENABLED
             },
         );
-        let country = if paint.country_name.is_empty() {
-            label("side", "Side")
-        } else {
-            paint.country_name.to_string()
-        };
-        blit_text_colored(page, fnt, &country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
+        let country = row_side_name(paint, 0);
+        blit_text_colored(page, fnt, country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
 
         let ai_label = if paint.ai_name.is_empty() {
             paint.ai_difficulty.to_string()
         } else {
             paint.ai_name.to_string()
-        };
-        let ai_country = if paint.ai_country.is_empty() {
-            country.clone()
-        } else {
-            paint.ai_country.to_string()
         };
         for i in 0..ai_rows {
             blit_text_colored(
@@ -1239,7 +1263,7 @@ fn paint_skirmish_lobby_controls(
                 blit_text_colored(
                     page,
                     fnt,
-                    &ai_country,
+                    row_side_name(paint, human_row),
                     layout.side_faces[human_row].x + 4,
                     layout.side_faces[human_row].y + 4,
                     MENU_TEXT_ENABLED,
@@ -1296,9 +1320,10 @@ fn paint_skirmish_lobby_controls(
     }
 
     if paint.country_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout);
+        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout, paint.combo_row);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
+        let selected_side = row_side_name(paint, paint.combo_row);
         for (i, side) in LOBBY_SIDES.iter().enumerate() {
             let row = RectPx::new(
                 list.x,
@@ -1306,7 +1331,7 @@ fn paint_skirmish_lobby_controls(
                 list.w,
                 SKIRMISH_COMBO_FACE_H,
             );
-            let selected = paint.country_name.eq_ignore_ascii_case(side);
+            let selected = selected_side.eq_ignore_ascii_case(side);
             if selected {
                 fill_rect(page, row, [48, 28, 8, 255]);
             }
@@ -1324,9 +1349,10 @@ fn paint_skirmish_lobby_controls(
     }
 
     if paint.color_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(layout);
+        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(layout, paint.combo_row);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
+        let selected_rgb = row_color_rgb(paint, paint.combo_row);
         for (i, rgb) in LOBBY_COLORS.iter().enumerate() {
             let row = RectPx::new(
                 list.x,
@@ -1336,7 +1362,7 @@ fn paint_skirmish_lobby_controls(
             );
             let swatch = RectPx::new(row.x + 4, row.y + 4, row.w - 8, row.h - 8);
             fill_rect(page, swatch, [rgb[0], rgb[1], rgb[2], 255]);
-            if paint.color_rgb == *rgb {
+            if selected_rgb == *rgb {
                 stroke_rect(page, swatch, [255, 214, 0, 255]);
             }
         }
