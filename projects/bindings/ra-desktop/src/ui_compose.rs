@@ -133,20 +133,40 @@ fn blit_rgba_skip_near_black(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i3
     }
 }
 
-/// 教程悬停：只贴金黄箭头像素，不重画帽/枪（与烘焙底叠画会抖）。
-fn blit_rgba_arrow_gold(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
+/// 相对静止帧差分贴图：只画动画帧相对 `base` 变化的像素（战役悬停箭头）。
+fn blit_rgba_diff_from_base(
+    dst: &mut RgbaImage,
+    src: &RgbaImage,
+    base: Option<&RgbaImage>,
+    x: i32,
+    y: i32,
+    max_rgb_sum: u16,
+) {
+    let Some(base) = base
+    else {
+        blit_rgba_skip_near_black(dst, src, x, y, max_rgb_sum);
+        return;
+    };
+    if src.width() != base.width() || src.height() != base.height() {
+        blit_rgba_skip_near_black(dst, src, x, y, max_rgb_sum);
+        return;
+    }
     let raw = src.as_raw();
+    let base_raw = base.as_raw();
     for row in 0..src.height() {
         for col in 0..src.width() {
             let si = ((row * src.width() + col) * 4) as usize;
             if raw[si + 3] == 0 {
                 continue;
             }
-            let r = raw[si];
-            let g = raw[si + 1];
-            let b = raw[si + 2];
-            // 金黄箭头：高 R/G、低 B；排除棕色帽身。
-            if r < 160 || g < 120 || b > 90 {
+            let sum = u16::from(raw[si]) + u16::from(raw[si + 1]) + u16::from(raw[si + 2]);
+            if sum <= max_rgb_sum {
+                continue;
+            }
+            let dr = i16::from(raw[si]).abs_diff(i16::from(base_raw[si]));
+            let dg = i16::from(raw[si + 1]).abs_diff(i16::from(base_raw[si + 1]));
+            let db = i16::from(raw[si + 2]).abs_diff(i16::from(base_raw[si + 2]));
+            if u16::from(dr) + u16::from(dg) + u16::from(db) < 24 {
                 continue;
             }
             let dx = x + col as i32;
@@ -692,24 +712,18 @@ pub fn compose_campaign_page(
         // 悬停/已选：1:1 近黑透叠箭头动画帧。
         let active = paint.selected_side == Some(id) || hovered_entry_id == Some(id);
         if active {
-            if let Some(sprite) = find_panel(decoded, shp, paint.side_anim_frame.max(1)) {
-                // 教程侧图：只叠金黄箭头，避免徽标与烘焙底 1px 错位造成抖动。
-                if id == "tutorial" {
-                    blit_rgba_arrow_gold(
-                        &mut page,
-                        &sprite.image,
-                        rect.x,
-                        rect.y,
-                    );
-                } else {
-                    blit_rgba_skip_near_black(
-                        &mut page,
-                        &sprite.image,
-                        rect.x,
-                        rect.y,
-                        CAMPAIGN_SIDE_NEAR_BLACK_SUM,
-                    );
-                }
+            // 三侧同一套：相对 frame0 差分贴像素，只叠箭头动画，不重画烘焙徽标。
+            let base = find_panel(decoded, shp, 0);
+            let frame = paint.side_anim_frame.max(1);
+            if let Some(sprite) = find_panel(decoded, shp, frame) {
+                blit_rgba_diff_from_base(
+                    &mut page,
+                    &sprite.image,
+                    base.map(|b| &b.image),
+                    rect.x,
+                    rect.y,
+                    CAMPAIGN_SIDE_NEAR_BLACK_SUM,
+                );
             }
         }
     }
