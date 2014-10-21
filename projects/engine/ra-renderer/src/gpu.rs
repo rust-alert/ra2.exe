@@ -52,6 +52,8 @@ impl GpuContext {
 
         let caps = surface.get_capabilities(&adapter);
         let format = caps.formats.iter().copied().find(|f| f.is_srgb()).unwrap_or(caps.formats[0]);
+        // 壳层 UI 以「编码字节」写入时需 unorm 视图，避免把显示域字节当线性色再 sRGB 编码。
+        let view_formats = encoded_view_formats(format);
         let size = window.inner_size();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
@@ -67,12 +69,17 @@ impl GpuContext {
                 .copied()
                 .find(|m| *m == wgpu::CompositeAlphaMode::Opaque)
                 .unwrap_or(caps.alpha_modes[0]),
-            view_formats: vec![],
+            view_formats,
             desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &config);
 
         Ok(Self { surface, device, queue, config, backend: info.backend })
+    }
+
+    /// 交换链纹理的编码域（非 sRGB）格式；非 sRGB 表面则与 `config.format` 相同。
+    pub fn encoded_surface_format(&self) -> wgpu::TextureFormat {
+        self.config.format.remove_srgb_suffix()
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -95,5 +102,31 @@ impl GpuContext {
             wgpu::Backend::BrowserWebGpu => "wgpu/webgpu",
             _ => "wgpu",
         }
+    }
+}
+
+/// 若 `format` 为 sRGB，则附加其 unorm 别名供编码域壳层绘制。
+fn encoded_view_formats(format: wgpu::TextureFormat) -> Vec<wgpu::TextureFormat> {
+    let encoded = format.remove_srgb_suffix();
+    if encoded != format {
+        vec![encoded]
+    } else {
+        Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encoded_view_formats;
+
+    #[test]
+    fn srgb_surface_exposes_unorm_view_format() {
+        let views = encoded_view_formats(wgpu::TextureFormat::Bgra8UnormSrgb);
+        assert_eq!(views, vec![wgpu::TextureFormat::Bgra8Unorm]);
+    }
+
+    #[test]
+    fn unorm_surface_needs_no_extra_view_format() {
+        assert!(encoded_view_formats(wgpu::TextureFormat::Bgra8Unorm).is_empty());
     }
 }
