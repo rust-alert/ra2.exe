@@ -46,6 +46,8 @@ pub use crate::png_out::encode_png;
 pub use crate::png_out::write_png_file;
 /// GPU 资源缓存骨架。
 pub use crate::resources::RenderResourceCache;
+/// 精灵色域（壳层 UI 用编码字节直通）。
+pub use crate::sprite::SpriteColorSpace;
 /// 帧分段计时。
 pub use crate::timings::FrameTimings;
 /// 可复用渲染世界。

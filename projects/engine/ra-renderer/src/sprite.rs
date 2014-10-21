@@ -16,6 +16,17 @@ struct Vertex {
     uv: [f32; 2],
 }
 
+/// 精灵采样 / 写出的色域语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpriteColorSpace {
+    /// 纹理按 sRGB 上传，目标按表面 sRGB 语义（地图预览等）。
+    Srgb,
+    /// 编码字节直通：`Rgba8Unorm` 纹理，写入表面的 unorm 视图（壳层 UI）。
+    ///
+    /// 避免把已经是显示域的字节再当线性色做一次 sRGB 编码（观感发白）。
+    EncodedBytes,
+}
+
 pub struct SpriteGpu {
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -25,10 +36,29 @@ pub struct SpriteGpu {
     vertex_buffer: wgpu::Buffer,
     width: u32,
     height: u32,
+    color_space: SpriteColorSpace,
+    /// 创建 pipeline 时的颜色目标格式（sRGB 表面或 unorm 别名）。
+    target_format: wgpu::TextureFormat,
 }
 
 impl SpriteGpu {
+    /// 按色域语义创建精灵（预览用 [`SpriteColorSpace::Srgb`]）。
     pub fn create(device: &wgpu::Device, queue: &wgpu::Queue, surface_format: wgpu::TextureFormat, image: &RgbaImage) -> Self {
+        Self::create_with_color_space(device, queue, surface_format, image, SpriteColorSpace::Srgb)
+    }
+
+    /// 创建精灵并指定采样/写出色域。
+    pub fn create_with_color_space(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        surface_format: wgpu::TextureFormat,
+        image: &RgbaImage,
+        color_space: SpriteColorSpace,
+    ) -> Self {
+        let target_format = match color_space {
+            SpriteColorSpace::Srgb => surface_format,
+            SpriteColorSpace::EncodedBytes => surface_format.remove_srgb_suffix(),
+        };
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ra.sprite.bgl"),
             entries: &[
@@ -63,7 +93,10 @@ impl SpriteGpu {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("ra.sprite.pipeline"),
+            label: Some(match color_space {
+                SpriteColorSpace::Srgb => "ra.sprite.pipeline.srgb",
+                SpriteColorSpace::EncodedBytes => "ra.sprite.pipeline.encoded",
+            }),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -79,7 +112,7 @@ impl SpriteGpu {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_format,
+                    format: target_format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -99,13 +132,25 @@ impl SpriteGpu {
             ..Default::default()
         });
 
-        let (texture, bind_group, vertex_buffer) = upload(device, queue, &bind_group_layout, &sampler, image);
+        let (texture, bind_group, vertex_buffer) = upload(device, queue, &bind_group_layout, &sampler, image, color_space);
 
-        Self { pipeline, bind_group_layout, sampler, texture, bind_group, vertex_buffer, width: image.width(), height: image.height() }
+        Self {
+            pipeline,
+            bind_group_layout,
+            sampler,
+            texture,
+            bind_group,
+            vertex_buffer,
+            width: image.width(),
+            height: image.height(),
+            color_space,
+            target_format,
+        }
     }
 
     pub fn replace_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &RgbaImage) {
-        let (texture, bind_group, vertex_buffer) = upload(device, queue, &self.bind_group_layout, &self.sampler, image);
+        let (texture, bind_group, vertex_buffer) =
+            upload(device, queue, &self.bind_group_layout, &self.sampler, image, self.color_space);
         self.texture = texture;
         self.bind_group = bind_group;
         self.vertex_buffer = vertex_buffer;
@@ -115,6 +160,16 @@ impl SpriteGpu {
 
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    /// 该精灵写出时应使用的颜色目标格式（可能是表面 sRGB，或 unorm 别名）。
+    pub fn target_format(&self) -> wgpu::TextureFormat {
+        self.target_format
+    }
+
+    /// 是否为编码字节直通壳层路径。
+    pub fn is_encoded_bytes(&self) -> bool {
+        self.color_space == SpriteColorSpace::EncodedBytes
     }
 
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
@@ -136,15 +191,23 @@ fn upload(
     bind_group_layout: &wgpu::BindGroupLayout,
     sampler: &wgpu::Sampler,
     image: &RgbaImage,
+    color_space: SpriteColorSpace,
 ) -> (wgpu::Texture, wgpu::BindGroup, wgpu::Buffer) {
     let size = wgpu::Extent3d { width: image.width(), height: image.height(), depth_or_array_layers: 1 };
+    let format = match color_space {
+        SpriteColorSpace::Srgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+        SpriteColorSpace::EncodedBytes => wgpu::TextureFormat::Rgba8Unorm,
+    };
     let texture = device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("ra.sprite.tex"),
+        label: Some(match color_space {
+            SpriteColorSpace::Srgb => "ra.sprite.tex.srgb",
+            SpriteColorSpace::EncodedBytes => "ra.sprite.tex.encoded",
+        }),
         size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        format,
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
