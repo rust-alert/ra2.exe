@@ -77,11 +77,6 @@ impl GpuContext {
         Ok(Self { surface, device, queue, config, backend: info.backend })
     }
 
-    /// 交换链纹理的编码域（非 sRGB）格式；非 sRGB 表面则与 `config.format` 相同。
-    pub fn encoded_surface_format(&self) -> wgpu::TextureFormat {
-        self.config.format.remove_srgb_suffix()
-    }
-
     pub fn resize(&mut self, width: u32, height: u32) {
         let width = width.max(1);
         let height = height.max(1);
