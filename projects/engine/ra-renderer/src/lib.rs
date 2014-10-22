@@ -171,12 +171,19 @@ impl Renderer {
     /// 设置原版壳层 UI 页纹理（与 [`Self::set_map_preview`] 分通道）。
     ///
     /// 当前接受已合成的整页 RGBA，作为 atlas/instance UI pass 之前的过渡上传路径。
+    /// 使用 [`SpriteColorSpace::EncodedBytes`]：CPU 侧已是显示域字节，GPU 不再按 sRGB 线性化。
     pub fn set_ui_page(&mut self, image: RgbaImage) {
         if let Some(gpu) = self.gpu.as_ref() {
             match self.ui_sprite.as_mut() {
                 Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
                 None => {
-                    self.ui_sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &image));
+                    self.ui_sprite = Some(SpriteGpu::create_with_color_space(
+                        &gpu.device,
+                        &gpu.queue,
+                        gpu.config.format,
+                        &image,
+                        crate::sprite::SpriteColorSpace::EncodedBytes,
+                    ));
                 }
             }
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
@@ -208,7 +215,13 @@ impl Renderer {
         }
         let gpu = GpuContext::new(window)?;
         if let Some(image) = self.ui_page.as_ref() {
-            self.ui_sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
+            self.ui_sprite = Some(SpriteGpu::create_with_color_space(
+                &gpu.device,
+                &gpu.queue,
+                gpu.config.format,
+                image,
+                crate::sprite::SpriteColorSpace::EncodedBytes,
+            ));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         else if let Some(image) = self.preview.as_ref() {
@@ -331,10 +344,19 @@ impl Renderer {
             wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
             _ => return,
         };
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
         // UI 页优先于地图预览：菜单不应误用 preview 通道。
         let active_sprite = self.ui_sprite.as_ref().or(self.sprite.as_ref());
+        let encoded_ui = self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
+        let view = if let Some(ui) = self.ui_sprite.as_ref().filter(|s| s.is_encoded_bytes()) {
+            // 编码域写出：走 unorm 视图，字节原样落入 sRGB 交换链存储。
+            frame.texture.create_view(&wgpu::TextureViewDescriptor {
+                format: Some(ui.target_format()),
+                ..Default::default()
+            })
+        } else {
+            frame.texture.create_view(&wgpu::TextureViewDescriptor::default())
+        };
+
         if let Some(sprite) = active_sprite {
             sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
         }
@@ -347,16 +369,21 @@ impl Renderer {
             }
         }
 
+        let clear = if encoded_ui {
+            wgpu::Color::BLACK
+        } else {
+            CLEAR_COLOR
+        };
         let submit_start = std::time::Instant::now();
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ra.frame_pass"),
+                label: Some(if encoded_ui { "ra.frame_pass.encoded_ui" } else { "ra.frame_pass" }),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     depth_slice: None,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(CLEAR_COLOR), store: wgpu::StoreOp::Store },
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Clear(clear), store: wgpu::StoreOp::Store },
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
