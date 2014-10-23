@@ -2,8 +2,9 @@
 //!
 //! 在合成 RGBA **上传 GPU 之前**调用。不改 SHP/调色板解码。
 //!
-//! 主路径是 RGB565/555 **截断量化 + 满量程线性展开**（对齐常见 16 位表面往返），
-//! 不是用显示伽马去拧整体明暗。`gamma` / `highlight_roll_off` 仅作可选附加。
+//! 主路径是 RGB565/555 **截断量化 + 满量程线性展开**（对齐常见 16 位表面往返）。
+//! GPU 侧壳层页以编码字节直通交换链 unorm 视图，避免再按 sRGB 线性化发白。
+//! `gamma` / `highlight_roll_off` 仅作可选附加。
 
 use ra_renderer::RgbaImage;
 use ra_types::{PresentFeel, PresentQuantize};
