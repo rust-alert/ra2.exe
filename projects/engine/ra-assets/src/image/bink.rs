@@ -11,12 +11,32 @@ pub enum BinkVersion {
     BikK,
 }
 
+/// YUV → RGB 时的亮度色域。
+///
+/// `BIKi` 等常见为 studio/MPEG（黑≈Y16）；`BIKk` 为 full/JPEG（黑=Y0）。
+/// 误用 full 解 MPEG 会使暗部抬成深灰（主菜单 CRT 内发灰）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinkColorRange {
+    /// Studio：Y∈[16,235] → 黑白。
+    Mpeg,
+    /// Full：Y∈[0,255] → 黑白。
+    Jpeg,
+}
+
 impl BinkVersion {
     fn from_tag(tag: u32) -> Result<Self, String> {
         match tag {
             0x694B_4942 => Ok(Self::BikI), // "BIKi" LE
             0x6B4B_4942 => Ok(Self::BikK), // "BIKk" LE
             other => Err(format!("不支持的 Bink 签名 0x{other:08X}（非 BIKi/BIKk）")),
+        }
+    }
+
+    /// 该修订默认的 YUV 色域。
+    pub const fn color_range(self) -> BinkColorRange {
+        match self {
+            Self::BikK => BinkColorRange::Jpeg,
+            Self::BikI => BinkColorRange::Mpeg,
         }
     }
 }
