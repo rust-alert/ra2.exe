@@ -55,10 +55,7 @@ impl SpriteGpu {
         image: &RgbaImage,
         color_space: SpriteColorSpace,
     ) -> Self {
-        let target_format = match color_space {
-            SpriteColorSpace::Srgb => surface_format,
-            SpriteColorSpace::EncodedBytes => surface_format.remove_srgb_suffix(),
-        };
+        let target_format = target_format_for(surface_format, color_space);
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ra.sprite.bgl"),
             entries: &[
@@ -185,6 +182,14 @@ impl SpriteGpu {
     }
 }
 
+/// 壳层编码域写出用表面 unorm 别名；预览仍用表面原生 sRGB 格式。
+fn target_format_for(surface_format: wgpu::TextureFormat, color_space: SpriteColorSpace) -> wgpu::TextureFormat {
+    match color_space {
+        SpriteColorSpace::Srgb => surface_format,
+        SpriteColorSpace::EncodedBytes => surface_format.remove_srgb_suffix(),
+    }
+}
+
 fn upload(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -256,6 +261,31 @@ fn camera_quad(img_w: u32, img_h: u32, camera: &Camera, surf_w: u32, surf_h: u32
         Vertex { pos: p11, uv: [1.0, 1.0] },
         Vertex { pos: p01, uv: [0.0, 1.0] },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SpriteColorSpace, target_format_for};
+
+    #[test]
+    fn encoded_bytes_target_strips_srgb_suffix() {
+        assert_eq!(
+            target_format_for(wgpu::TextureFormat::Bgra8UnormSrgb, SpriteColorSpace::EncodedBytes),
+            wgpu::TextureFormat::Bgra8Unorm
+        );
+        assert_eq!(
+            target_format_for(wgpu::TextureFormat::Rgba8UnormSrgb, SpriteColorSpace::EncodedBytes),
+            wgpu::TextureFormat::Rgba8Unorm
+        );
+    }
+
+    #[test]
+    fn srgb_preview_keeps_surface_format() {
+        assert_eq!(
+            target_format_for(wgpu::TextureFormat::Bgra8UnormSrgb, SpriteColorSpace::Srgb),
+            wgpu::TextureFormat::Bgra8UnormSrgb
+        );
+    }
 }
 
 const SPRITE_WGSL: &str = r#"
