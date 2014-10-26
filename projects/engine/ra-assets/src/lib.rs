@@ -17,8 +17,8 @@ pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_byte
 
 pub use image::{
     bink::{
-        BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkFile, BinkFrameIndexEntry, BinkFramePacket, BinkHeader, BinkVersion,
-        parse_bink_file, parse_bink_header,
+        BINK_FLAG_ALPHA, BINK_FLAG_GRAY, BinkAudioTrack, BinkColorRange, BinkFile, BinkFrameIndexEntry, BinkFramePacket, BinkHeader,
+        BinkVersion, parse_bink_file, parse_bink_header,
     },
     bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
     bink_bundle::{

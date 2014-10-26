@@ -3,7 +3,7 @@
 //! 容器抽包见 [`super::bink`]；本模块产出可上传 GPU / `set_ui_page` 的像素。
 
 use super::{
-    bink::{BinkHeader, BinkVersion},
+    bink::{BinkColorRange, BinkHeader, BinkVersion},
     bink_bits::{BitReader, VlcTable, build_fixed_vlc_tables},
     bink_bundle::{
         BinkBundle, BinkSrc, NB_SRC, alloc_bundles, init_bundle_lengths, read_block_types, read_bundle, read_colors, read_dcs,
@@ -63,11 +63,23 @@ pub struct BinkYuvFrame {
     pub v: Vec<u8>,
     /// 可选 A 平面（与 Y 同尺寸）。
     pub a: Option<Vec<u8>>,
+    /// 转 RGBA 时使用的色域。
+    pub color_range: BinkColorRange,
 }
 
 impl BinkYuvFrame {
-    /// 分配空平面（Y=0，UV=128，A=255）。
+    /// 分配空平面（Y=0，UV=128，A=255）。默认 JPEG 色域（Y0=黑）。
     pub fn blank(width: u32, height: u32, with_alpha: bool) -> Result<Self, BinkVideoError> {
+        Self::blank_with_range(width, height, with_alpha, BinkColorRange::Jpeg)
+    }
+
+    /// 按色域分配空平面。
+    pub fn blank_with_range(
+        width: u32,
+        height: u32,
+        with_alpha: bool,
+        color_range: BinkColorRange,
+    ) -> Result<Self, BinkVideoError> {
         if width == 0 || height == 0 || width % 2 != 0 || height % 2 != 0 {
             return Err(BinkVideoError::BadSize { width, height });
         }
@@ -82,17 +94,34 @@ impl BinkYuvFrame {
             u: vec![128u8; uv_len],
             v: vec![128u8; uv_len],
             a: with_alpha.then(|| vec![255u8; y_len]),
+            color_range,
         })
     }
 
-    /// 转为紧密 RGBA8（BT.601，色度最近邻上采样）。
+    /// 转为紧密 RGBA8（按 [`Self::color_range`]）。
     pub fn to_rgba8(&self) -> Vec<u8> {
-        yuv420_planes_to_rgba8(self.width, self.height, &self.y, &self.u, &self.v, self.a.as_deref())
+        yuv420_planes_to_rgba8(
+            self.width,
+            self.height,
+            &self.y,
+            &self.u,
+            &self.v,
+            self.a.as_deref(),
+            self.color_range,
+        )
     }
 }
 
 /// YUV420 平面 → RGBA8。
-pub fn yuv420_planes_to_rgba8(width: u32, height: u32, y: &[u8], u: &[u8], v: &[u8], a: Option<&[u8]>) -> Vec<u8> {
+pub fn yuv420_planes_to_rgba8(
+    width: u32,
+    height: u32,
+    y: &[u8],
+    u: &[u8],
+    v: &[u8],
+    a: Option<&[u8]>,
+    color_range: BinkColorRange,
+) -> Vec<u8> {
     let w = width as usize;
     let h = height as usize;
     let uv_w = w / 2;
@@ -101,12 +130,13 @@ pub fn yuv420_planes_to_rgba8(width: u32, height: u32, y: &[u8], u: &[u8], v: &[
         let y_row = row * w;
         let uv_row = (row / 2) * uv_w;
         for col in 0..w {
-            let yi = y.get(y_row + col).copied().unwrap_or(0) as f32;
-            let ui = u.get(uv_row + col / 2).copied().unwrap_or(128) as f32 - 128.0;
-            let vi = v.get(uv_row + col / 2).copied().unwrap_or(128) as f32 - 128.0;
-            let r = (yi + 1.402 * vi).clamp(0.0, 255.0) as u8;
-            let g = (yi - 0.344_136 * ui - 0.714_136 * vi).clamp(0.0, 255.0) as u8;
-            let b = (yi + 1.772 * ui).clamp(0.0, 255.0) as u8;
+            let yi = y.get(y_row + col).copied().unwrap_or(0) as i32;
+            let ui = u.get(uv_row + col / 2).copied().unwrap_or(128) as i32;
+            let vi = v.get(uv_row + col / 2).copied().unwrap_or(128) as i32;
+            let (r, g, b) = match color_range {
+                BinkColorRange::Mpeg => yuv_to_rgb_mpeg(yi, ui, vi),
+                BinkColorRange::Jpeg => yuv_to_rgb_jpeg(yi, ui, vi),
+            };
             let alpha = a.and_then(|plane| plane.get(y_row + col).copied()).unwrap_or(255);
             let o = (y_row + col) * 4;
             out[o] = r;
@@ -116,6 +146,36 @@ pub fn yuv420_planes_to_rgba8(width: u32, height: u32, y: &[u8], u: &[u8], v: &[
         }
     }
     out
+}
+
+#[inline]
+fn clip_u8(v: i32) -> u8 {
+    v.clamp(0, 255) as u8
+}
+
+/// Studio/MPEG：Y16→黑，Y235→白。
+#[inline]
+fn yuv_to_rgb_mpeg(y: i32, u: i32, v: i32) -> (u8, u8, u8) {
+    let c = (y - 16) * 298;
+    let d = u - 128;
+    let e = v - 128;
+    (
+        clip_u8((c + 409 * e + 128) >> 8),
+        clip_u8((c - 100 * d - 208 * e + 128) >> 8),
+        clip_u8((c + 516 * d + 128) >> 8),
+    )
+}
+
+/// Full/JPEG：Y0→黑，Y255→白。
+#[inline]
+fn yuv_to_rgb_jpeg(y: i32, u: i32, v: i32) -> (u8, u8, u8) {
+    let d = u - 128;
+    let e = v - 128;
+    (
+        clip_u8(y + ((359 * e + 128) >> 8)),
+        clip_u8(y + ((-88 * d - 183 * e + 128) >> 8)),
+        clip_u8(y + ((454 * d + 128) >> 8)),
+    )
 }
 
 /// 自有 Bink 视频解码器（双缓冲 + 固定 VLC；平面块逐步填入）。
@@ -145,8 +205,9 @@ impl BinkVideoDecoder {
         if header.is_gray() {
             return Err(BinkVideoError::Msg("不支持灰度 Bink".into()));
         }
-        let cur = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
-        let prev = BinkYuvFrame::blank(header.width, header.height, header.has_alpha())?;
+        let range = header.version.color_range();
+        let cur = BinkYuvFrame::blank_with_range(header.width, header.height, header.has_alpha(), range)?;
+        let prev = BinkYuvFrame::blank_with_range(header.width, header.height, header.has_alpha(), range)?;
         let (bundles, bundle_data) = alloc_bundles(header.width, header.height);
         Ok(Self {
             width: header.width,
@@ -197,7 +258,8 @@ impl BinkVideoDecoder {
     /// 清空双缓冲，回到可解关键帧的状态（循环播放回绕时用）。
     pub fn reset(&mut self) {
         let with_alpha = self.has_alpha;
-        if let Ok(blank) = BinkYuvFrame::blank(self.width, self.height, with_alpha) {
+        let range = self.version.color_range();
+        if let Ok(blank) = BinkYuvFrame::blank_with_range(self.width, self.height, with_alpha, range) {
             self.cur = blank.clone();
             self.prev = blank;
         }
