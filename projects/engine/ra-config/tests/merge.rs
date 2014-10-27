@@ -123,7 +123,7 @@ fn present_table_serde_roundtrip_preserves_other_keys() {
     let path = dir.join("RustAlert.toml");
     std::fs::write(
         &path,
-        "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ngamma = 1.0\ndither = false\n",
+        "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ndither = false\n",
     )
     .unwrap();
 
@@ -134,7 +134,6 @@ fn present_table_serde_roundtrip_preserves_other_keys() {
 
     let mut next = feel;
     next.mode = ra_types::PresentMode::Bit16;
-    next.gamma = 1.2;
     next.dither = true;
     doc.set_present_feel(&next).unwrap();
     doc.save().unwrap();
@@ -148,7 +147,6 @@ fn present_table_serde_roundtrip_preserves_other_keys() {
     let (again, diags) = present_feel_from_toml_text(&text, "t");
     assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(again.mode, ra_types::PresentMode::Bit16);
-    assert!((again.gamma - 1.2).abs() < 1e-6);
     assert!(again.dither);
 
     let _ = std::fs::remove_dir_all(&dir);
