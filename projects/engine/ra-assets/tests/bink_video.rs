@@ -1,7 +1,7 @@
 //! 集成测试：原 `src/image/bink_video.rs` 内联测试迁出。
 
 use ra_assets::{
-    image::bink::{BinkVersion, parse_bink_header},
+    image::bink::{BinkColorRange, BinkVersion, parse_bink_header},
     *,
 };
 
@@ -86,4 +86,23 @@ fn blank_yuv_to_rgba_is_opaque_black() {
     let rgba = frame.to_rgba8();
     assert_eq!(rgba.len(), 4 * 4 * 4);
     assert_eq!(&rgba[0..4], &[0, 0, 0, 255]);
+}
+
+#[test]
+fn biki_uses_mpeg_range_so_y16_is_black() {
+    assert_eq!(BinkVersion::BikI.color_range(), BinkColorRange::Mpeg);
+    assert_eq!(BinkVersion::BikK.color_range(), BinkColorRange::Jpeg);
+    let mut frame = BinkYuvFrame::blank_with_range(2, 2, false, BinkColorRange::Mpeg).unwrap();
+    frame.y.fill(16);
+    frame.u.fill(128);
+    frame.v.fill(128);
+    let rgba = frame.to_rgba8();
+    assert_eq!(&rgba[0..4], &[0, 0, 0, 255]);
+}
+
+#[test]
+fn mpeg_y16_as_jpeg_would_lift_black() {
+    // 误用 full 色域解 studio 样本时，Y16 会抬成深灰——即主菜单 CRT 暗部发灰。
+    let grey = yuv420_planes_to_rgba8(2, 2, &[16, 16, 16, 16], &[128], &[128], None, BinkColorRange::Jpeg);
+    assert!(grey[0] > 8, "jpeg path leaves Y16 as lifted grey, got {}", grey[0]);
 }
