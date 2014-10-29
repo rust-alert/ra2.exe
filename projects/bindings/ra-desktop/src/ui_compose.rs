@@ -349,18 +349,6 @@ pub fn paint_options_dialog_controls(
         crate::options_dialog::OptionsTrackbar::Difficulty.max(),
     );
     draw_trackbar(page, layout.track_scroll, state.scroll, crate::options_dialog::OptionsTrackbar::Scroll.max());
-    draw_trackbar(
-        page,
-        layout.track_present_gamma,
-        state.track_value(crate::options_dialog::OptionsTrackbar::PresentGamma),
-        crate::options_dialog::OptionsTrackbar::PresentGamma.max(),
-    );
-    draw_trackbar(
-        page,
-        layout.track_present_roll,
-        state.track_value(crate::options_dialog::OptionsTrackbar::PresentRollOff),
-        crate::options_dialog::OptionsTrackbar::PresentRollOff.max(),
-    );
     draw_trackbar(page, layout.track_music, state.music, crate::options_dialog::OptionsTrackbar::Music.max());
     draw_trackbar(page, layout.track_sound, state.sound, crate::options_dialog::OptionsTrackbar::Sound.max());
     draw_trackbar(page, layout.track_voice, state.voice, crate::options_dialog::OptionsTrackbar::Voice.max());
@@ -380,22 +368,6 @@ pub fn paint_options_dialog_controls(
             &label("present_16bit", "16-bit Present"),
             layout.check_present.x + 22,
             layout.check_present.y + 4,
-            MENU_TEXT_ACCENT,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &label("present_gamma", "Present Gamma"),
-            layout.track_present_gamma.x,
-            layout.track_present_gamma.y - 16,
-            MENU_TEXT_ACCENT,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &label("present_roll", "Highlight Roll-Off"),
-            layout.track_present_roll.x,
-            layout.track_present_roll.y - 16,
             MENU_TEXT_ACCENT,
         );
         blit_text_colored(page, fnt, &label("music", "Music Volume"), layout.track_music.x, layout.track_music.y - 16, MENU_TEXT_ACCENT);

@@ -240,7 +240,7 @@ pub fn options_dialog_csf_key(kind: &str) -> Option<&'static str> {
         "sound" => Some("GUI:SoundVolume"),
         "voice" => Some("GUI:VoiceVolume"),
         // 质感区无原版 CSF 键，绘制侧用英文 fallback。
-        "present" | "present_16bit" | "present_gamma" | "present_roll" => None,
+        "present" | "present_16bit" => None,
         "high" => Some("TXT_HIGH"),
         "hard" => Some("TXT_HARD"),
         "fastest" => Some("TXT_FASTEST"),

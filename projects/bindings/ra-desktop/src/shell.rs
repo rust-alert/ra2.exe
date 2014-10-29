@@ -27,7 +27,8 @@ use crate::{
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots,
     ui_present,
-    ui_resolve, ui_slots,
+    ui_resolve,
+    startup_splash::{self, StartupSplashPresentation},
 };
 
 /// 外壳持有的可导航应用状态。
@@ -47,9 +48,9 @@ pub struct AppShell {
     present: PresentFeel,
     status_path: Option<PathBuf>,
     test_scene: Option<String>,
-    /// 闪屏开始时刻。
-    splash_started: Option<Instant>,
-    /// 闪屏最短展示秒数。
+    /// 进程启动闪屏 presentation（独立 owner；非菜单槽）。
+    startup_splash: Option<StartupSplashPresentation>,
+    /// 闪屏最短展示秒数（首次成功 present 后起算；可调，默认 3）。
     splash_min_secs: f64,
     /// 闪屏预处理是否完成。
     splash_preload_done: bool,
@@ -109,8 +110,6 @@ pub struct AppShell {
     campaign_side_anim_frame: usize,
     /// 战役选边悬停语音（`AlliedCampaignSelect` 等，惰性）。
     campaign_side_sfx: [Option<PcmAudio>; 3],
-    /// 闪屏 PCX 已上传（避免每帧重解）。
-    splash_uploaded: bool,
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）；F12 手动截图用。
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重（仅 `test-harness`）。
@@ -180,8 +179,8 @@ impl AppShell {
             present: PresentFeel::DEFAULT,
             status_path,
             test_scene,
-            splash_started: None,
-            splash_min_secs: 3.0,
+            startup_splash: None,
+            splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -211,7 +210,6 @@ impl AppShell {
             campaign_side_anim_accum: 0.0,
             campaign_side_anim_frame: 1,
             campaign_side_sfx: [None, None, None],
-            splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
@@ -253,8 +251,8 @@ impl AppShell {
             present: PresentFeel::DEFAULT,
             status_path: None,
             test_scene: None,
-            splash_started: None,
-            splash_min_secs: 3.0,
+            startup_splash: None,
+            splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -284,7 +282,6 @@ impl AppShell {
             campaign_side_anim_accum: 0.0,
             campaign_side_anim_frame: 1,
             campaign_side_sfx: [None, None, None],
-            splash_uploaded: false,
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
             auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
@@ -327,8 +324,6 @@ impl AppShell {
         tracing::info!(
             mode = self.present.mode.as_str(),
             quantize = self.present.quantize.as_str(),
-            gamma = self.present.gamma,
-            highlight_roll_off = self.present.highlight_roll_off,
             dither = self.present.dither,
             "已应用壳层质感呈现"
         );
@@ -605,19 +600,13 @@ impl AppShell {
         tracing::info!("闪屏跳过已请求");
     }
 
-    /// 闪屏每帧：推进预处理；条件满足则只切到主菜单。
+    /// 闪屏每帧：保证启动画面在屏、推进预处理；期限结束或跳过后切主菜单。
     fn tick_splash(&mut self) {
         if self.screen != OriginalScreen::Splash {
             return;
         }
-        if self.splash_started.is_none() {
-            self.splash_started = Some(Instant::now());
-        }
-        // 先保证标题图在屏，再做菜单资源预热（预热不得切换页面、不得清空 UI 页）。
-        if !self.splash_uploaded || !self.renderer.has_ui_page() {
-            self.upload_splash_backdrop();
-            self.splash_uploaded = true;
-        }
+        // 先保证启动画面在屏，再做菜单资源预热（预热不得切换页面、不得清空 UI 页）。
+        self.ensure_startup_splash_presented();
         if !self.splash_preload_done {
             self.ensure_menu_assets();
             self.ensure_menu_text_assets();
@@ -630,10 +619,20 @@ impl AppShell {
             }
             self.refresh_shell_title();
         }
-        let elapsed = self.splash_started.map(|t| t.elapsed().as_secs_f64()).unwrap_or(0.0);
-        let min_ok = elapsed >= self.splash_min_secs;
+        let now = Instant::now();
+        let hold_active = self
+            .startup_splash
+            .as_ref()
+            .is_some_and(|splash| splash.is_active(now));
+        let min_ok = !hold_active;
         if self.splash_preload_done && (min_ok || self.splash_skip) {
-            tracing::info!(elapsed, min = self.splash_min_secs, skip = self.splash_skip, "闪屏结束 → 主菜单");
+            tracing::info!(
+                hold_active,
+                min = self.splash_min_secs,
+                skip = self.splash_skip,
+                "启动闪屏结束 → 主菜单"
+            );
+            self.startup_splash = None;
             self.set_screen(OriginalScreen::MainMenu);
         }
     }
@@ -666,51 +665,63 @@ impl AppShell {
         }
     }
 
-    /// 闪屏画面：解码槽位中的 `title.pcx`（失败则黑底占位并写明原因）。
-    fn upload_splash_backdrop(&mut self) {
-        self.ensure_menu_assets();
-        let pcx_name = ui_slots::slots_for(OriginalScreen::Splash)
-            .and_then(|s| s.background_pcx)
-            .unwrap_or("title.pcx");
-        let decoded = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
-            None => {
-                tracing::warn!(name = pcx_name, "闪屏 PCX 跳过 · 安装资源源未挂载（检查 ra2_dir / edition）");
-                None
-            }
-            Some(src) => match src.read(pcx_name) {
-                Ok(bytes) => match ra_assets::parse_pcx(&bytes) {
-                    Ok(img) => RgbaImage::from_raw(img.width, img.height, img.rgba),
-                    Err(e) => {
-                        tracing::warn!(name = pcx_name, "闪屏 PCX 解析失败 · {e}");
-                        None
-                    }
-                },
-                Err(e) => {
-                    tracing::warn!(name = pcx_name, "闪屏 PCX 不可读 · {e}");
-                    None
+    /// 构造或复用启动闪屏 presentation，并上传到 UI 页；首次成功上传时武装最短展示期限。
+    fn ensure_startup_splash_presented(&mut self) {
+        if self.startup_splash.is_none() {
+            self.ensure_menu_assets();
+            self.ensure_menu_text_assets();
+            let client_w = self.window_width.round().max(1.0) as u32;
+            let client_h = self.window_height.round().max(1.0) as u32;
+            let minimum = std::time::Duration::from_secs_f64(self.splash_min_secs.max(0.0));
+            let built = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
+                None => {
+                    tracing::warn!("启动闪屏 · 安装资源源未挂载，使用黑底占位");
+                    StartupSplashPresentation::placeholder(client_w, client_h, minimum).ok()
                 }
-            },
-        };
-        if let Some(page) = decoded {
-            tracing::info!(name = pcx_name, w = page.width(), h = page.height(), "闪屏 PCX 已上传");
-            if !self.banner.contains(pcx_name) {
-                self.banner = format!("{} · {pcx_name} {}×{}", self.banner, page.width(), page.height());
+                Some(source) => {
+                    match StartupSplashPresentation::build(
+                        source,
+                        self.menu_csf.as_ref(),
+                        self.menu_font.as_ref(),
+                        client_w,
+                        client_h,
+                        minimum,
+                    ) {
+                        Ok(splash) => Some(splash),
+                        Err(e) => {
+                            tracing::warn!("启动闪屏构造失败 · {e} · 回退黑底占位");
+                            StartupSplashPresentation::placeholder(client_w, client_h, minimum).ok()
+                        }
+                    }
+                }
+            };
+            if let Some(splash) = built {
+                let shp = splash.shp_name();
+                let w = splash.image().width();
+                let h = splash.image().height();
+                tracing::info!(shp, pal = splash.pal_name(), w, h, "启动闪屏已合成");
+                if !self.banner.contains(shp) {
+                    self.banner = format!("{} · {shp} {w}×{h}", self.banner);
+                    self.refresh_shell_title();
+                }
+                self.startup_splash = Some(splash);
+            } else if !self.banner.contains("闪屏缺图") {
+                self.banner = format!("{} · 闪屏缺图", self.banner);
                 self.refresh_shell_title();
             }
-            self.renderer.clear_preview();
-            self.upload_ui_page(page);
+        }
+
+        let Some(splash) = self.startup_splash.as_ref()
+        else {
             return;
-        }
-        if !self.banner.contains("闪屏缺图") {
-            self.banner = format!("{} · 闪屏缺图 {pcx_name}", self.banner);
-            self.refresh_shell_title();
-        }
-        let w = ui_layout::SHELL_BASE_W as u32;
-        let h = ui_layout::SHELL_BASE_H as u32;
-        let pixels = vec![0u8; (w as usize) * (h as usize) * 4];
-        if let Some(page) = RgbaImage::from_raw(w, h, pixels) {
+        };
+        if !self.renderer.has_ui_page() {
+            let page = splash.image().clone();
             self.renderer.clear_preview();
             self.upload_ui_page(page);
+        }
+        if let Some(splash) = self.startup_splash.as_mut() {
+            splash.mark_presented(Instant::now());
         }
     }
 
@@ -1032,18 +1043,15 @@ impl AppShell {
         }
     }
 
-    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；闪屏独立保留 `title.pcx`。
+    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；启动闪屏由独立 owner 保持。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
             self.renderer.clear_ui_page();
             return;
         }
-        // 闪屏是独立产品页：禁止走菜单合成路径，更不能 clear 掉已上传的 title.pcx。
+        // 启动闪屏禁止走菜单合成路径，更不能 clear 掉已上传的 GLSS/GLSL 画面。
         if self.screen == OriginalScreen::Splash {
-            if !self.splash_uploaded || !self.renderer.has_ui_page() {
-                self.upload_splash_backdrop();
-                self.splash_uploaded = true;
-            }
+            self.ensure_startup_splash_presented();
             return;
         }
         self.ensure_menu_assets();
@@ -1776,8 +1784,7 @@ impl AppShell {
         match ra_config::DesktopSettings::persist_present_feel(self.present) {
             Ok(()) => tracing::info!(
                 mode = self.present.mode.as_str(),
-                gamma = self.present.gamma,
-                highlight_roll_off = self.present.highlight_roll_off,
+                dither = self.present.dither,
                 "已写入 [present]"
             ),
             Err(e) => tracing::warn!(error = %e, "写入 [present] 失败"),
@@ -2248,9 +2255,7 @@ impl ApplicationHandler for AppShell {
         );
         self.window = Some(window.clone());
         if self.screen == OriginalScreen::Splash {
-            self.splash_started = Some(Instant::now());
-            self.upload_splash_backdrop();
-            self.splash_uploaded = true;
+            self.ensure_startup_splash_presented();
         }
         else {
             self.refresh_menu_backdrop();
@@ -2616,7 +2621,6 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         music_volume = settings.music_volume,
         sound_volume = settings.sound_volume,
         present_mode = settings.present.mode.as_str(),
-        present_gamma = settings.present.gamma,
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
