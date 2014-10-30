@@ -52,7 +52,7 @@ pub struct UiPageSlots {
     pub screen: OriginalScreen,
     /// 背景 SHP（可空）。
     pub background_shp: Option<&'static str>,
-    /// 背景 PCX（闪屏等；与 SHP 二选一优先 PCX）。
+    /// 背景 PCX（与 SHP 二选一优先 PCX；进程启动闪屏不走本槽）。
     pub background_pcx: Option<&'static str>,
     /// 背景调色板（可空）。
     pub background_pal: Option<&'static str>,
@@ -261,18 +261,9 @@ const NETWORK_BUTTONS: &[UiButtonSlot] = &[
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
 pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
     match screen {
-        OriginalScreen::Splash => Some(UiPageSlots {
-            screen,
-            // 安装内 `title.pcx`（自由女神像 + 基洛夫）可读证据。
-            background_shp: None,
-            background_pcx: Some("title.pcx"),
-            background_pal: None,
-            background_frame: 0,
-            movie_bik: None,
-            panels: &[],
-            fonts: MAIN_MENU_FONTS,
-            buttons: &[],
-        }),
+        // 进程启动闪屏由 `startup_splash` owner 呈现（`GLSS`/`GLSL` + `GLS.PAL`），
+        // 不是菜单壳层槽；勿再绑 `title.pcx`。
+        OriginalScreen::Splash => None,
         OriginalScreen::MainMenu => Some(UiPageSlots {
             screen,
             // 非 640 宽窗口默认大背景；640 分支后续按视口另选 `mnscrns.shp`。

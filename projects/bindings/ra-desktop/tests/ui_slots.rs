@@ -107,9 +107,7 @@ fn skirmish_lobby_exposes_start_choose_map_back() {
 }
 
 #[test]
-fn splash_declares_title_pcx() {
-    let page = slots_for(OriginalScreen::Splash).unwrap();
-    assert_eq!(page.background_pcx, Some("title.pcx"));
-    assert!(page.has_any_asset_name());
-    assert!(page.buttons.is_empty());
+fn splash_has_no_menu_shell_slots() {
+    // 进程启动闪屏不走菜单槽；资源由 `startup_splash` 绑定 `GLSS`/`GLSL`。
+    assert!(slots_for(OriginalScreen::Splash).is_none());
 }

@@ -19,6 +19,7 @@ pub mod screen;
 pub mod screenshot;
 pub mod shell;
 pub mod skirmish_setup;
+pub mod startup_splash;
 #[cfg(feature = "test-harness")]
 pub mod test_boot;
 pub mod ui_assets;

@@ -9,7 +9,7 @@
 /// 结算页仍可持有已 `Finished` 的会话快照。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OriginalScreen {
-    /// 启动闪屏（最短展示 + 壳层预处理；结束后只进主菜单）。
+    /// 启动闪屏产品页（画面由 `startup_splash` owner 持有；最短展示 + 预处理后进主菜单）。
     #[default]
     Splash,
     /// 主菜单。
