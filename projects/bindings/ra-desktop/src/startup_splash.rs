@@ -1,7 +1,8 @@
 //! 进程启动闪屏：独立 presentation owner，不是主菜单壳层槽。
 //!
 //! 职责：在 MIX 挂载后尽快呈现 `GLSS`/`GLSL` + `GLS.PAL`（宽正好 640 用小图，其余用大图），
-//! 最短展示从**首次成功 present** 起算；期间可继续预处理，到期后再把控制权交给主菜单。
+//! 将画面**最近邻放大铺满**客户区；最短展示从**首次成功 present** 起算。
+//! 期间可继续预处理，到期后再把控制权交给主菜单。
 
 use std::time::{Duration, Instant};
 
@@ -233,10 +234,37 @@ fn try_blit_splash_art(
     let art = frame_to_canvas_rgba(&shp, frame, &palette)
         .ok_or_else(|| format!("{shp_name}: 画布 RGBA 构造失败"))?;
 
-    let origin_x = centered_offset(client_width as i32, shp.width as i32);
-    let origin_y = centered_offset(client_height as i32, shp.height as i32);
-    blit_rgba(canvas, &art, origin_x, origin_y);
+    // 原版资源固定 640×480 / 800×600；客户区更大时最近邻放大铺满，避免黑边。
+    if art.width() == client_width && art.height() == client_height {
+        blit_rgba(canvas, &art, 0, 0);
+    } else {
+        blit_nearest_fill(canvas, &art);
+    }
     Ok(())
+}
+
+/// 将 `src` 最近邻拉伸铺满整个 `dst`。
+fn blit_nearest_fill(dst: &mut RgbaImage, src: &RgbaImage) {
+    let dw = dst.width();
+    let dh = dst.height();
+    let sw = src.width();
+    let sh = src.height();
+    if dw == 0 || dh == 0 || sw == 0 || sh == 0 {
+        return;
+    }
+    let dst_raw = dst.as_mut();
+    let src_raw = src.as_raw();
+    for dy in 0..dh {
+        let sy = ((dy as u64 * sh as u64) / dh as u64) as u32;
+        let sy = sy.min(sh - 1);
+        for dx in 0..dw {
+            let sx = ((dx as u64 * sw as u64) / dw as u64) as u32;
+            let sx = sx.min(sw - 1);
+            let si = ((sy * sw + sx) * 4) as usize;
+            let di = ((dy * dw + dx) * 4) as usize;
+            dst_raw[di..di + 4].copy_from_slice(&src_raw[si..si + 4]);
+        }
+    }
 }
 
 fn overlay_startup_text(canvas: &mut RgbaImage, csf: Option<&CsfFile>, font: &FntFile) {
@@ -304,12 +332,14 @@ mod tests {
     }
 
     #[test]
-    fn centered_offset_uses_signed_truncation_toward_zero() {
-        assert_eq!(centered_offset(800, 800), 0);
-        assert_eq!(centered_offset(801, 800), 0);
-        assert_eq!(centered_offset(799, 800), 0);
-        assert_eq!(centered_offset(798, 800), -1);
-        assert_eq!(centered_offset(806, 800), 3);
+    fn nearest_fill_covers_destination() {
+        let mut dst = opaque_black(4, 2).unwrap();
+        let src = RgbaImage::from_raw(2, 1, vec![10, 20, 30, 255, 40, 50, 60, 255]).unwrap();
+        blit_nearest_fill(&mut dst, &src);
+        assert_eq!(&dst.as_raw()[0..4], &[10, 20, 30, 255]);
+        assert_eq!(&dst.as_raw()[4..8], &[10, 20, 30, 255]);
+        assert_eq!(&dst.as_raw()[8..12], &[40, 50, 60, 255]);
+        assert_eq!(&dst.as_raw()[12..16], &[40, 50, 60, 255]);
     }
 
     #[test]
