@@ -90,8 +90,12 @@ pub struct AppShell {
     menu_hovered_entry: Option<&'static str>,
     /// 菜单字体（`game.fnt`）。
     menu_font: Option<FntFile>,
+    /// 是否已尝试装载菜单字体（失败后不再每帧读盘/打日志）。
+    menu_font_tried: bool,
     /// 菜单文案表（`ra2.csf` / `ra2md.csf`）。
     menu_csf: Option<CsfFile>,
+    /// 是否已尝试装载菜单文案表。
+    menu_csf_tried: bool,
     /// 主菜单 / 单人页循环影片。
     menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
@@ -149,6 +153,8 @@ pub struct AppShell {
     options_present_baseline: Option<PresentFeel>,
     /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
     options_pointer_consumed: bool,
+    /// 上次已写入的窗口标题（避免每帧 `set_title` 卡顿）。
+    last_shell_title: String,
 }
 
 impl AppShell {
@@ -200,7 +206,9 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_hovered_entry: None,
             menu_font: None,
+            menu_font_tried: false,
             menu_csf: None,
+            menu_csf_tried: false,
             menu_movie: None,
             menu_movie_clock: None,
             menu_panel_anim_clock: None,
@@ -230,6 +238,7 @@ impl AppShell {
             options_volume_baseline: None,
             options_present_baseline: None,
             options_pointer_consumed: false,
+            last_shell_title: String::new(),
         }
     }
 
@@ -272,7 +281,9 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_hovered_entry: None,
             menu_font: None,
+            menu_font_tried: false,
             menu_csf: None,
+            menu_csf_tried: false,
             menu_movie: None,
             menu_movie_clock: None,
             menu_panel_anim_clock: None,
@@ -302,6 +313,7 @@ impl AppShell {
             options_volume_baseline: None,
             options_present_baseline: None,
             options_pointer_consumed: false,
+            last_shell_title: String::new(),
         }
     }
 
@@ -1002,43 +1014,46 @@ impl AppShell {
     }
 
     fn ensure_menu_text_assets(&mut self) {
-        let font_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("game.fnt").ok());
-        let csf_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| {
-            // 资料片优先 `ra2md.csf`，再回退原版 `ra2.csf`。
-            for name in ["ra2md.csf", "ra2.csf"] {
-                if let Ok(bytes) = s.read(name) {
-                    return Some((name, bytes));
-                }
-            }
-            None
-        });
+        if (self.menu_font.is_some() || self.menu_font_tried)
+            && (self.menu_csf.is_some() || self.menu_csf_tried)
+        {
+            return;
+        }
+        let source = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
 
-        if self.menu_font.is_none() {
-            if let Some(bytes) = font_bytes {
-                match FntFile::parse(&bytes) {
+        if self.menu_font.is_none() && !self.menu_font_tried {
+            self.menu_font_tried = true;
+            match source.and_then(|s| s.read("game.fnt").ok()) {
+                Some(bytes) => match FntFile::parse(&bytes) {
                     Ok(fnt) => {
                         tracing::info!(glyphs = fnt.glyph_count(), "菜单字体已解析 · game.fnt");
                         self.menu_font = Some(fnt);
                     }
                     Err(e) => tracing::warn!("game.fnt 解析失败 · {e}"),
-                }
-            }
-            else {
-                tracing::warn!("game.fnt 不可读");
+                },
+                None => tracing::warn!("game.fnt 不可读"),
             }
         }
-        if self.menu_csf.is_none() {
-            if let Some((name, bytes)) = csf_bytes {
-                match CsfFile::parse(&bytes) {
+        if self.menu_csf.is_none() && !self.menu_csf_tried {
+            self.menu_csf_tried = true;
+            let csf_bytes = source.and_then(|s| {
+                // 资料片优先 `ra2md.csf`，再回退原版 `ra2.csf`。
+                for name in ["ra2md.csf", "ra2.csf"] {
+                    if let Ok(bytes) = s.read(name) {
+                        return Some((name, bytes));
+                    }
+                }
+                None
+            });
+            match csf_bytes {
+                Some((name, bytes)) => match CsfFile::parse(&bytes) {
                     Ok(csf) => {
                         tracing::info!(entries = csf.len(), file = name, "菜单文案表已解析");
                         self.menu_csf = Some(csf);
                     }
                     Err(e) => tracing::warn!("{name} 解析失败 · {e}"),
-                }
-            }
-            else {
-                tracing::warn!("未找到可读的 ra2.csf / ra2md.csf");
+                },
+                None => tracing::warn!("未找到可读的 ra2.csf / ra2md.csf"),
             }
         }
     }
@@ -1226,7 +1241,7 @@ impl AppShell {
                     _ => None,
                 };
                 if let Some(page) = page {
-                    tracing::info!(screen = self.screen.as_str(), w = page.width(), h = page.height(), "壳层 chrome 已合成并上传 UI 页通道");
+                    tracing::debug!(screen = self.screen.as_str(), w = page.width(), h = page.height(), "壳层 chrome 已合成并上传 UI 页通道");
                     self.upload_ui_page(page);
                     if !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
@@ -1877,7 +1892,10 @@ impl AppShell {
             }
             OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
         };
-        window.set_title(&title);
+        if title != self.last_shell_title {
+            window.set_title(&title);
+            self.last_shell_title = title;
+        }
     }
 
     fn begin_skirmish_load(&mut self) {

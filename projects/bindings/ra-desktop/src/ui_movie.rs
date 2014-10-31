@@ -52,27 +52,26 @@ impl MenuMoviePlayer {
         }
         self.accum_secs += dt_secs;
         let mut advanced = false;
-        while self.accum_secs >= dur {
-            self.accum_secs -= dur;
+        // 单 tick 最多解一帧，避免 hitch 后连环追帧导致卡顿尖峰。
+        if self.accum_secs >= dur {
+            self.accum_secs = (self.accum_secs - dur).min(dur);
             let n = self.file.header.num_frames as usize;
-            if n == 0 {
-                break;
-            }
-            let next = (self.frame_index + 1) % n;
-            if next == 0 {
-                self.decoder.reset();
-            }
-            self.frame_index = next;
-            match self.decode_current() {
-                Ok(()) => advanced = true,
-                Err(e) => {
-                    tracing::warn!(
-                        name = %self.name,
-                        frame = self.frame_index,
-                        "菜单影片解码失步 · {e}"
-                    );
-                    self.stalled = Some(e);
-                    break;
+            if n > 0 {
+                let next = (self.frame_index + 1) % n;
+                if next == 0 {
+                    self.decoder.reset();
+                }
+                self.frame_index = next;
+                match self.decode_current() {
+                    Ok(()) => advanced = true,
+                    Err(e) => {
+                        tracing::warn!(
+                            name = %self.name,
+                            frame = self.frame_index,
+                            "菜单影片解码失步 · {e}"
+                        );
+                        self.stalled = Some(e);
+                    }
                 }
             }
         }
