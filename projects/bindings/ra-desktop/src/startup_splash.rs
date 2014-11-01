@@ -308,10 +308,6 @@ fn opaque_black(width: u32, height: u32) -> Option<RgbaImage> {
     RgbaImage::from_raw(width, height, pixels)
 }
 
-fn centered_offset(client_extent: i32, art_extent: i32) -> i32 {
-    (client_extent - art_extent) / 2
-}
-
 fn csf_text(csf: Option<&CsfFile>, key: &str, fallback: &str) -> String {
     match csf.and_then(|table| table.get(key)) {
         Some(text) => text.to_string(),
