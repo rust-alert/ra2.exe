@@ -13,6 +13,8 @@ use crate::{config::load_desktop_config_with_diagnostics, fs_source::GameAssetSo
 pub struct MenuUiAssets {
     /// 人类可读备注（标题栏 / 日志）。
     pub note: String,
+    /// 探测到的游戏版本（挂载失败时为 `None`）。
+    pub edition: Option<GameEdition>,
     /// 已挂载的安装资源（挂载失败时为 `None`）。
     pub source: Option<GameAssetSource>,
     /// 版本链上的 UI 配置文件名（如 `ui.ini` / `uimd.ini`）。
@@ -37,6 +39,7 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
         Err(e) => {
             return MenuUiAssets {
                 note: format!("菜单资源挂载失败: {e}"),
+                edition: None,
                 source: None,
                 ui_ini_name: None,
                 ui_ini_readable: false,
@@ -75,12 +78,16 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
         (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
-    let note = format!("菜单资源已挂载 · {ui_bit} · 根mix {mounted_root} · 嵌套 {mounted_nested}");
+    let note = format!(
+        "菜单资源已挂载 · {} · {ui_bit} · 根mix {mounted_root} · 嵌套 {mounted_nested}",
+        manifest.chain.edition.as_str()
+    );
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
         tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
     }
     MenuUiAssets {
         note,
+        edition: Some(manifest.chain.edition),
         source: Some(source),
         ui_ini_name,
         ui_ini_readable,

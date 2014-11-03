@@ -86,6 +86,8 @@ pub struct AppShell {
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
     menu_pressed_entry: Option<&'static str>,
+    /// 释放后待提交的菜单动作（等 pressed 帧至少 present 一帧后再执行）。
+    menu_pending_commit: Option<MenuAction>,
     /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
     menu_hovered_entry: Option<&'static str>,
     /// 菜单字体（`game.fnt`）。
@@ -198,6 +200,7 @@ impl AppShell {
             menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_pending_commit: None,
             menu_hovered_entry: None,
             menu_font: None,
             menu_font_tried: false,
@@ -270,6 +273,7 @@ impl AppShell {
             menu_assets: None,
             ui_decode_cache: None,
             menu_pressed_entry: None,
+            menu_pending_commit: None,
             menu_hovered_entry: None,
             menu_font: None,
             menu_font_tried: false,
@@ -673,10 +677,15 @@ impl AppShell {
             let client_w = self.window_width.round().max(1.0) as u32;
             let client_h = self.window_height.round().max(1.0) as u32;
             let minimum = std::time::Duration::from_secs_f64(self.splash_min_secs.max(0.0));
+            let prefer_md = self
+                .menu_assets
+                .as_ref()
+                .and_then(|a| a.edition)
+                .is_some_and(startup_splash::prefer_md_splash);
             let built = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
                 None => {
                     tracing::warn!("启动闪屏 · 安装资源源未挂载，使用黑底占位");
-                    StartupSplashPresentation::placeholder(client_w, client_h, minimum).ok()
+                    StartupSplashPresentation::placeholder(client_w, client_h, prefer_md, minimum).ok()
                 }
                 Some(source) => {
                     match StartupSplashPresentation::build(
@@ -685,12 +694,13 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         client_w,
                         client_h,
+                        prefer_md,
                         minimum,
                     ) {
                         Ok(splash) => Some(splash),
                         Err(e) => {
                             tracing::warn!("启动闪屏构造失败 · {e} · 回退黑底占位");
-                            StartupSplashPresentation::placeholder(client_w, client_h, minimum).ok()
+                            StartupSplashPresentation::placeholder(client_w, client_h, prefer_md, minimum).ok()
                         }
                     }
                 }
@@ -699,7 +709,7 @@ impl AppShell {
                 let shp = splash.shp_name();
                 let w = splash.image().width();
                 let h = splash.image().height();
-                tracing::info!(shp, pal = splash.pal_name(), w, h, "启动闪屏已合成");
+                tracing::info!(shp, pal = splash.pal_name(), prefer_md, w, h, "启动闪屏已合成");
                 if !self.banner.contains(shp) {
                     self.banner = format!("{} · {shp} {w}×{h}", self.banner);
                     self.refresh_shell_title();
@@ -949,6 +959,7 @@ impl AppShell {
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
             self.screen = next;
             self.menu_pressed_entry = None;
+            self.menu_pending_commit = None;
             self.menu_hovered_entry = None;
             if !matches!(
                 next,
@@ -1570,6 +1581,10 @@ impl AppShell {
     }
 
     fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
+        // 键盘等直接提交路径：取消尚未 present 的按下排队。
+        self.menu_pending_commit = None;
+        let had_pressed = self.menu_pressed_entry.take().is_some();
+        let screen_before = self.screen;
         match action {
             MenuAction::OpenSinglePlayer => self.set_screen(OriginalScreen::SinglePlayerMenu),
             MenuAction::OpenNetwork => {

@@ -1,13 +1,17 @@
 //! 进程启动闪屏：独立 presentation owner，不是主菜单壳层槽。
 //!
-//! 职责：在 MIX 挂载后尽快呈现 `GLSS`/`GLSL` + `GLS.PAL`（宽正好 640 用小图，其余用大图），
-//! 将画面**最近邻放大铺满**客户区；最短展示从**首次成功 present** 起算。
-//! 期间可继续预处理，到期后再把控制权交给主菜单。
+//! 职责：在 MIX 挂载后尽快呈现启动画面并铺满客户区——
+//! - 原版 RA2：`GLSS`/`GLSL` + `GLS.PAL`（自由女神像 + 基洛夫）
+//! - 尤里的复仇 / 心灵终结：优先 `GLSSMD`/`GLSLMD` + `GLSMD.PAL`（基因突变器），缺省再回退 RA2 套
+//!
+//! 宽正好 640 用小图，其余用大图；画面最近邻放大铺满客户区。
+//! 最短展示从**首次成功 present** 起算；期间可继续预处理，到期后再把控制权交给主菜单。
 
 use std::time::{Duration, Instant};
 
 use ra_assets::{CsfFile, FntFile, Palette, ShpFile};
 use ra_renderer::RgbaImage;
+use ra_types::GameEdition;
 
 use crate::{
     fs_source::GameAssetSource,
@@ -40,6 +44,11 @@ const TRADEMARK_TOP_FALLBACK: &str =
 const TRADEMARK_BOTTOM_KEY: &str = "GUI:TradeMarkBottom";
 const TRADEMARK_BOTTOM_FALLBACK: &str =
     "trademarks of Electronic Arts Inc. in the U.S. and/or other countries.";
+
+/// 是否优先使用资料片 `*MD` 启动画面（尤里基因突变器图）。
+pub fn prefer_md_splash(edition: GameEdition) -> bool {
+    matches!(edition, GameEdition::Yr | GameEdition::Mo3)
+}
 
 /// 最短展示期限：仅在首次成功 present 时武装一次。
 #[derive(Debug)]
@@ -80,8 +89,9 @@ pub struct StartupSplashPresentation {
 }
 
 impl StartupSplashPresentation {
-    /// 按客户区宽度选择 SHP，合成黑底居中画面与启动文案。
+    /// 按客户区宽度与版本选择 SHP，合成铺满客户区的启动画面与文案。
     ///
+    /// `prefer_md` 为真时优先资料片 `*MD`（基因突变器），否则优先原版 RA2 套。
     /// `minimum_visible` 为最短展示时长（首次成功 present 后起算）。
     pub fn build(
         source: &GameAssetSource,
@@ -89,13 +99,14 @@ impl StartupSplashPresentation {
         font: Option<&FntFile>,
         client_width: u32,
         client_height: u32,
+        prefer_md: bool,
         minimum_visible: Duration,
     ) -> Result<Self, String> {
         if client_width == 0 || client_height == 0 {
             return Err("启动闪屏需要非零客户区尺寸".into());
         }
         let (shp_name, pal_name, image) =
-            compose_startup_splash(source, csf, font, client_width, client_height)?;
+            compose_startup_splash(source, csf, font, client_width, client_height, prefer_md)?;
         Ok(Self {
             image,
             shp_name,
@@ -105,16 +116,22 @@ impl StartupSplashPresentation {
     }
 
     /// 资源不可用时的黑底占位（仍遵守最短展示）。
-    pub fn placeholder(client_width: u32, client_height: u32, minimum_visible: Duration) -> Result<Self, String> {
+    pub fn placeholder(
+        client_width: u32,
+        client_height: u32,
+        prefer_md: bool,
+        minimum_visible: Duration,
+    ) -> Result<Self, String> {
         if client_width == 0 || client_height == 0 {
             return Err("启动闪屏需要非零客户区尺寸".into());
         }
         let image = opaque_black(client_width, client_height)
             .ok_or_else(|| "启动闪屏占位画布构造失败".to_string())?;
+        let (shp_name, pal_name) = splash_names_for_width(client_width, prefer_md);
         Ok(Self {
             image,
-            shp_name: splash_shp_for_width(client_width),
-            pal_name: SPLASH_PALETTE,
+            shp_name,
+            pal_name,
             hold: VisibleHold::new(minimum_visible),
         })
     }
@@ -145,27 +162,34 @@ impl StartupSplashPresentation {
     }
 }
 
-/// 按客户区宽度选择启动 SHP：正好 640 用小图，其余用大图。
+/// 按客户区宽度选择启动 SHP：正好 640 用小图，其余用大图（默认原版 RA2 名）。
 pub fn splash_shp_for_width(client_width: u32) -> &'static str {
-    if client_width == 640 {
-        SMALL_SPLASH_SHP
-    } else {
-        LARGE_SPLASH_SHP
-    }
+    splash_names_for_width(client_width, false).0
 }
 
-fn splash_candidates(client_width: u32) -> [(&'static str, &'static str); 2] {
-    let primary = if client_width == 640 {
+/// 按宽度与是否资料片返回 `(shp, pal)`。
+pub fn splash_names_for_width(client_width: u32, prefer_md: bool) -> (&'static str, &'static str) {
+    if prefer_md {
+        if client_width == 640 {
+            (SMALL_SPLASH_SHP_MD, SPLASH_PALETTE_MD)
+        } else {
+            (LARGE_SPLASH_SHP_MD, SPLASH_PALETTE_MD)
+        }
+    } else if client_width == 640 {
         (SMALL_SPLASH_SHP, SPLASH_PALETTE)
     } else {
         (LARGE_SPLASH_SHP, SPLASH_PALETTE)
-    };
-    let md = if client_width == 640 {
-        (SMALL_SPLASH_SHP_MD, SPLASH_PALETTE_MD)
+    }
+}
+
+fn splash_candidates(client_width: u32, prefer_md: bool) -> [(&'static str, &'static str); 2] {
+    let ra2 = splash_names_for_width(client_width, false);
+    let md = splash_names_for_width(client_width, true);
+    if prefer_md {
+        [md, ra2]
     } else {
-        (LARGE_SPLASH_SHP_MD, SPLASH_PALETTE_MD)
-    };
-    [primary, md]
+        [ra2, md]
+    }
 }
 
 fn compose_startup_splash(
@@ -174,15 +198,15 @@ fn compose_startup_splash(
     font: Option<&FntFile>,
     client_width: u32,
     client_height: u32,
+    prefer_md: bool,
 ) -> Result<(&'static str, &'static str, RgbaImage), String> {
     let mut canvas = opaque_black(client_width, client_height)
         .ok_or_else(|| "启动闪屏画布构造失败".to_string())?;
 
-    let mut used_shp = splash_shp_for_width(client_width);
-    let mut used_pal = SPLASH_PALETTE;
+    let (mut used_shp, mut used_pal) = splash_names_for_width(client_width, prefer_md);
     let mut art_ok = false;
 
-    for (shp_name, pal_name) in splash_candidates(client_width) {
+    for (shp_name, pal_name) in splash_candidates(client_width, prefer_md) {
         match try_blit_splash_art(source, &mut canvas, shp_name, pal_name, client_width, client_height) {
             Ok(()) => {
                 used_shp = shp_name;
@@ -200,6 +224,7 @@ fn compose_startup_splash(
         tracing::warn!(
             shp = used_shp,
             pal = used_pal,
+            prefer_md,
             "启动闪屏美术不可用 · 仅黑底 + 文案"
         );
     }
@@ -325,6 +350,29 @@ mod tests {
         assert_eq!(splash_shp_for_width(639), LARGE_SPLASH_SHP);
         assert_eq!(splash_shp_for_width(800), LARGE_SPLASH_SHP);
         assert_eq!(splash_shp_for_width(1920), LARGE_SPLASH_SHP);
+    }
+
+    #[test]
+    fn yr_and_mo3_prefer_md_splash_ra2_does_not() {
+        assert!(prefer_md_splash(GameEdition::Yr));
+        assert!(prefer_md_splash(GameEdition::Mo3));
+        assert!(!prefer_md_splash(GameEdition::Ra2));
+    }
+
+    #[test]
+    fn md_preference_reorders_splash_candidates() {
+        let ra2_first = splash_candidates(800, false);
+        assert_eq!(ra2_first[0], (LARGE_SPLASH_SHP, SPLASH_PALETTE));
+        assert_eq!(ra2_first[1], (LARGE_SPLASH_SHP_MD, SPLASH_PALETTE_MD));
+
+        let md_first = splash_candidates(800, true);
+        assert_eq!(md_first[0], (LARGE_SPLASH_SHP_MD, SPLASH_PALETTE_MD));
+        assert_eq!(md_first[1], (LARGE_SPLASH_SHP, SPLASH_PALETTE));
+
+        assert_eq!(
+            splash_names_for_width(640, true),
+            (SMALL_SPLASH_SHP_MD, SPLASH_PALETTE_MD)
+        );
     }
 
     #[test]
