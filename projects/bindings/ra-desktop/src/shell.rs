@@ -100,13 +100,7 @@ pub struct AppShell {
     menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
     menu_movie_clock: Option<Instant>,
-    /// 壳层面板动画时钟（`sdwrnanm` WARNING 屏）。
-    menu_panel_anim_clock: Option<Instant>,
-    /// 面板动画未消耗的累计秒（跨帧保留，避免每帧 dt 小于步长时永不推进）。
-    menu_panel_anim_accum: f64,
-    /// `sdwrnanm` 动画帧序号（对多帧 SHP 取模）。
-    menu_panel_anim_frame: usize,
-    /// 战役侧图箭头动画时钟（与 WARNING 屏分离）。
+    /// 战役侧图箭头动画时钟。
     campaign_side_anim_clock: Option<Instant>,
     /// 侧图动画累计秒。
     campaign_side_anim_accum: f64,
@@ -211,9 +205,6 @@ impl AppShell {
             menu_csf_tried: false,
             menu_movie: None,
             menu_movie_clock: None,
-            menu_panel_anim_clock: None,
-            menu_panel_anim_accum: 0.0,
-            menu_panel_anim_frame: 0,
             campaign_side_anim_clock: None,
             campaign_side_anim_accum: 0.0,
             campaign_side_anim_frame: 1,
@@ -286,9 +277,6 @@ impl AppShell {
             menu_csf_tried: false,
             menu_movie: None,
             menu_movie_clock: None,
-            menu_panel_anim_clock: None,
-            menu_panel_anim_accum: 0.0,
-            menu_panel_anim_frame: 0,
             campaign_side_anim_clock: None,
             campaign_side_anim_accum: 0.0,
             campaign_side_anim_frame: 1,
@@ -1102,7 +1090,6 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
-                        self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
                         decoded,
@@ -1113,7 +1100,6 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
-                        self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::Campaign => {
                         let track_thumb = self.skirmish_chrome.as_ref().and_then(|c| c.track_thumb.as_ref());
@@ -1131,7 +1117,6 @@ impl AppShell {
                                 track_thumb,
                                 side_anim_frame: self.campaign_side_anim_frame.max(1),
                             },
-                            self.menu_panel_anim_frame,
                         )
                     }
                     OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
@@ -1145,7 +1130,6 @@ impl AppShell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             movie,
-                            self.menu_panel_anim_frame,
                         )
                     }),
                     OriginalScreen::ExitConfirm => ui_compose::compose_exit_confirm_page(
@@ -1157,7 +1141,6 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
-                        self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SkirmishLobby => {
                         let map_name = self
@@ -1215,7 +1198,6 @@ impl AppShell {
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
                             &paint,
-                            self.menu_panel_anim_frame,
                         )
                     }
                     OriginalScreen::ChooseMap => {
@@ -1235,7 +1217,6 @@ impl AppShell {
                             self.lobby_preview.as_ref(),
                             &map_names,
                             selected_map_index,
-                            self.menu_panel_anim_frame,
                         )
                     }
                     _ => None,
@@ -2169,21 +2150,6 @@ impl AppShell {
                     .unwrap_or(0.0)
                     .min(0.25);
                 let movie_advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt));
-                // `sdwrnanm.shp`：右上角 WARNING 屏指示条循环（`sdtp` 只作外壳）。
-                const PANEL_FRAME_SECS: f64 = 1.0 / 15.0;
-                let panel_dt = self
-                    .menu_panel_anim_clock
-                    .replace(Instant::now())
-                    .map(|t0| t0.elapsed().as_secs_f64())
-                    .unwrap_or(0.0)
-                    .min(0.25);
-                self.menu_panel_anim_accum += panel_dt;
-                let mut panel_advanced = false;
-                while self.menu_panel_anim_accum >= PANEL_FRAME_SECS {
-                    self.menu_panel_anim_accum -= PANEL_FRAME_SECS;
-                    self.menu_panel_anim_frame = self.menu_panel_anim_frame.wrapping_add(1);
-                    panel_advanced = true;
-                }
                 let mut side_advanced = false;
                 if self.screen == OriginalScreen::Campaign {
                     let side_hot = matches!(
@@ -2209,7 +2175,7 @@ impl AppShell {
                         self.campaign_side_anim_clock = None;
                     }
                 }
-                if movie_advanced || panel_advanced || side_advanced {
+                if movie_advanced || side_advanced {
                     self.refresh_menu_backdrop();
                 } else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
                     if !self.banner.contains("影片失步") {

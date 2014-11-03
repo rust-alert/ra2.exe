@@ -10,7 +10,7 @@ use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
         CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
-        OPTIONS_BUTTON_IDS, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
+        OPTIONS_BUTTON_IDS, RectPx, SINGLE_PLAYER_BUTTON_IDS,
         SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout,
         campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout, options_layout,
         single_player_layout, skirmish_lobby_layout,
@@ -424,23 +424,10 @@ fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str, anim_frame: usize
     Some(matches[anim_frame % matches.len()])
 }
 
-/// 右栏顶盖：`sdtp` 外壳固定帧 0，再叠 `sdwrnanm` WARNING 屏动画。
-fn blit_right_panel_top(
-    page: &mut RgbaImage,
-    decoded: &PageDecodeReport,
-    panel_top: RectPx,
-    warn_anim_frame: usize,
-) {
+/// 右栏顶盖：idle 只画 `sdtp` 第 0 帧（已含 WARNING 小屏）。
+fn blit_right_panel_top(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_top: RectPx) {
     if let Some(top) = find_panel(decoded, "sdtp.shp", 0) {
         blit_stretched(page, &top.image, panel_top);
-    }
-    if let Some(warn) = find_panel(decoded, "sdwrnanm.shp", warn_anim_frame) {
-        blit_rgba(
-            page,
-            &warn.image,
-            panel_top.x + SDWRNANM_OFFSET_X,
-            panel_top.y + SDWRNANM_OFFSET_Y,
-        );
     }
 }
 
@@ -477,7 +464,6 @@ fn compose_shell_menu_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
     captions: MenuCaptionKind,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
@@ -491,7 +477,7 @@ fn compose_shell_menu_page(
         blit_stretched(&mut page, frame, layout.movie);
     }
 
-    blit_right_panel_top(&mut page, decoded, layout.panel_top, panel_anim_frame);
+    blit_right_panel_top(&mut page, decoded, layout.panel_top);
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..layout.panel_tile_count {
             let r = RectPx::new(layout.panel_tile.x, layout.panel_tile.y + i * layout.panel_tile.h, layout.panel_tile.w, layout.panel_tile.h);
@@ -579,7 +565,6 @@ pub fn compose_main_menu_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -591,7 +576,6 @@ pub fn compose_main_menu_page(
         csf,
         movie,
         MenuCaptionKind::Main,
-        panel_anim_frame,
     )
 }
 
@@ -605,7 +589,6 @@ pub fn compose_single_player_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
         decoded,
@@ -617,7 +600,6 @@ pub fn compose_single_player_page(
         csf,
         movie,
         MenuCaptionKind::SinglePlayer,
-        panel_anim_frame,
     )
 }
 
@@ -630,7 +612,7 @@ pub struct CampaignPaint<'a> {
     pub difficulty: u8,
     /// 难度滑条拇指（安装内 `trakgrip.pcx`，可空）。
     pub track_thumb: Option<&'a RgbaImage>,
-    /// 侧图悬停/已选箭头动画帧（对侧图 SHP 帧数取模；与 `sdwrnanm` 时钟分离）。
+    /// 侧图悬停/已选箭头动画帧（对侧图 SHP 帧数取模）。
     pub side_anim_frame: usize,
 }
 
@@ -658,7 +640,6 @@ pub fn compose_campaign_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     paint: CampaignPaint<'_>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = campaign_layout(viewport_w, viewport_h);
     let mut page = compose_shell_menu_page(
@@ -671,7 +652,6 @@ pub fn compose_campaign_page(
         csf,
         None,
         MenuCaptionKind::Campaign,
-        panel_anim_frame,
     )?;
 
     let sides = [
@@ -784,7 +764,6 @@ pub fn compose_options_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     _movie: Option<&RgbaImage>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let shell = options_layout(viewport_w, viewport_h);
     let dlg = crate::options_dialog::OptionsDialogLayout::new();
@@ -796,7 +775,7 @@ pub fn compose_options_page(
     // 整页黑底，避免残留主菜单影片/大背景。
     fill_rect(&mut page, shell.canvas, [0, 0, 0, 255]);
 
-    blit_right_panel_top(&mut page, decoded, shell.panel_top, panel_anim_frame);
+    blit_right_panel_top(&mut page, decoded, shell.panel_top);
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..shell.panel_tile_count {
             let r = RectPx::new(shell.panel_tile.x, shell.panel_tile.y + i * shell.panel_tile.h, shell.panel_tile.w, shell.panel_tile.h);
@@ -861,7 +840,6 @@ pub fn compose_exit_confirm_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     // 先画完整主菜单壳（右栏六钮仍在），再压暗并叠居中 MessageBox。
     let mut page = compose_shell_menu_page(
@@ -874,7 +852,6 @@ pub fn compose_exit_confirm_page(
         csf,
         movie,
         MenuCaptionKind::Main,
-        panel_anim_frame,
     )?;
 
     let shell = main_menu_layout(viewport_w, viewport_h);
@@ -1399,7 +1376,6 @@ pub fn compose_skirmish_lobby_page(
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
     paint: &SkirmishLobbyPaint<'_>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = skirmish_lobby_layout(viewport_w, viewport_h);
     let mut page = compose_shell_menu_page(
@@ -1412,7 +1388,6 @@ pub fn compose_skirmish_lobby_page(
         csf,
         None,
         MenuCaptionKind::SkirmishLobby,
-        panel_anim_frame,
     )?;
 
     // 右栏：小地图预览盖住 WARNING 区；标题 / 作战 / 地图名。
@@ -1485,7 +1460,6 @@ pub fn compose_choose_map_page(
     map_preview: Option<&RgbaImage>,
     map_names: &[&str],
     selected_map_index: Option<usize>,
-    panel_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = choose_map_layout(viewport_w, viewport_h);
     let mut page = compose_shell_menu_page(
@@ -1498,7 +1472,6 @@ pub fn compose_choose_map_page(
         csf,
         None,
         MenuCaptionKind::ChooseMap,
-        panel_anim_frame,
     )?;
 
     fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);

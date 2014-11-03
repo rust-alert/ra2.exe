@@ -168,7 +168,7 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
 
     let mut panels = Vec::new();
     for (i, panel) in page.panels.iter().enumerate() {
-        // 面板可能含多帧（如 `sdwrnanm.shp` WARNING 指示）；全部解出供壳层循环。
+        // 面板可能含多帧（如战役侧图箭头）；全部解出供壳层取帧。
         match decode_asset_frames(source, panel) {
             Ok(frames) => panels.extend(frames),
             Err(e) => errors.push(format!("panel[{i}] · {e}")),
