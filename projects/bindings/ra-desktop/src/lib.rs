@@ -18,6 +18,7 @@ pub mod preview_job;
 pub mod screen;
 pub mod screenshot;
 pub mod shell;
+pub mod shell_slide;
 pub mod skirmish_setup;
 pub mod startup_splash;
 #[cfg(feature = "test-harness")]
