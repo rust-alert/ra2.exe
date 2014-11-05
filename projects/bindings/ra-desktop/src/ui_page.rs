@@ -5,10 +5,12 @@
 //! 资源名齐 ≠ 可读 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。
 //! 当前仅键盘与 [`crate::ui_hit`] 逻辑命中，不绘制按钮图。
 
+use ra_types::GameEdition;
+
 use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
-    ui_slots::{UiButtonSlot, slots_for},
+    ui_slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
 };
 
 /// 逻辑资源引用（文件名或装载键；尚未解析为像素）。
@@ -151,19 +153,37 @@ fn slot_to_button(slot: &UiButtonSlot) -> UiButtonResources {
 }
 
 /// 从现有槽位表构造页面资源索引（资产名仍可为空）。
+///
+/// `edition` 影响退出确认底板调色板（见 [`pudlgbgn_palette`]）；缺省按 RA2。
 pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResources> {
+    page_resources_from_slots_with_edition(screen, None)
+}
+
+/// 同 [`page_resources_from_slots`]，并按资料片选择退出确认调色板。
+pub fn page_resources_from_slots_with_edition(
+    screen: OriginalScreen,
+    edition: Option<GameEdition>,
+) -> Option<UiPageResources> {
     let page = slots_for(screen)?;
     let background = match (page.background_shp, page.background_pal) {
         (Some(shp), Some(pal)) => Some(UiAssetRef::with_palette_frame(shp, pal, page.background_frame)),
         (Some(shp), None) => Some(UiAssetRef { name: shp.to_string(), palette: None, frame: Some(page.background_frame) }),
         (None, _) => None,
     };
+    let exit_pal = pudlgbgn_palette(edition);
     Some(UiPageResources {
         screen,
         background,
         background_palette: page.background_pal.map(str::to_string),
         movie: page.movie_bik.map(UiAssetRef::named),
-        panels: page.panels.iter().map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame)).collect(),
+        panels: page
+            .panels
+            .iter()
+            .map(|p| {
+                let pal = if p.id == "exit_modal_bg" { exit_pal } else { p.pal };
+                UiAssetRef::with_palette_frame(p.shp, pal, p.frame)
+            })
+            .collect(),
         buttons: page.buttons.iter().map(slot_to_button).collect(),
         fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
     })

@@ -43,6 +43,24 @@ fn main_menu_index_keeps_entry_ids() {
 }
 
 #[test]
+fn exit_confirm_palette_follows_edition() {
+    use ra_types::GameEdition;
+
+    let ra2 = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Ra2))
+        .expect("exit confirm");
+    let yr = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Yr))
+        .expect("exit confirm");
+    fn pudlg_pal(page: &UiPageResources) -> Option<&str> {
+        page.panels
+            .iter()
+            .find(|p| p.name.eq_ignore_ascii_case("pudlgbgn.shp"))
+            .and_then(|p| p.palette.as_deref())
+    }
+    assert_eq!(pudlg_pal(&ra2), Some("dialog.pal"));
+    assert_eq!(pudlg_pal(&yr), Some("dialogn.pal"));
+}
+
+#[test]
 fn button_asset_for_falls_back_to_normal() {
     let btn = UiButtonResources {
         entry_id: "x",

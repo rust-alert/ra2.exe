@@ -5,6 +5,8 @@
 //! **填了文件名 ≠ 已解码 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。**
 //! 页面级资源索引见 [`crate::ui_page`]；可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
 
+use ra_types::GameEdition;
+
 use crate::{menu_action::MenuAction, screen::OriginalScreen};
 
 /// 侧板 / 装饰层槽。
@@ -91,11 +93,21 @@ const SDBTNANM_PAL: &str = "sdbtnanm.pal";
 const SDBTNANM_FRAME_NORMAL: u16 = 2;
 const SDBTNANM_FRAME_PRESSED: u16 = 4;
 
-/// 退出确认 MessageBox 底板（原版 RA2：`pudlgbgn` 帧 0 为磁暴步兵；配 `dialog.pal`）。
+/// 退出确认 MessageBox 底板（`pudlgbgn` 帧 0）。
 ///
-/// 合集盘上尤里的 `expandmd01.mix` 会覆盖同名底板；`edition=ra2` 时 adaptor 不得挂载 `expandmd*`。
+/// 调色板随资料片变化：原版 RA2 为 `dialog.pal`；YR / Mo3 的 MD 底板配 `dialogn.pal`。
+/// 合集盘上 `expandmd01.mix` 会覆盖同名底板；`edition=ra2` 时 adaptor 不得挂载 `expandmd*`。
 const PUDLGBGN_SHP: &str = "pudlgbgn.shp";
 const PUDLGBGN_PAL: &str = "dialog.pal";
+const PUDLGBGN_PAL_MD: &str = "dialogn.pal";
+
+/// 退出确认底板调色板：RA2 → `dialog.pal`；YR / Mo3 → `dialogn.pal`。
+pub fn pudlgbgn_palette(edition: Option<GameEdition>) -> &'static str {
+    match edition {
+        Some(GameEdition::Yr | GameEdition::Mo3) => PUDLGBGN_PAL_MD,
+        _ => PUDLGBGN_PAL,
+    }
+}
 /// 退出确认确定/取消按钮（`mnbttn`：0 抬起 / 1 按下 / 2 禁用；画布 126×25）。
 const MNBTTN_SHP: &str = "mnbttn.shp";
 const MNBTTN_PAL: &str = "mainbttn.pal";
@@ -347,7 +359,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::ExitConfirm => Some(UiPageSlots {
             screen,
-            // 底下主菜单壳层 + 居中 `pudlgbgn` 确认框（磁暴步兵立绘）。结算废墟图不是本页。
+            // 底下主菜单壳层 + 居中 `pudlgbgn` 确认框。调色板见 `pudlgbgn_palette`。
             background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
             background_pal: Some("shell.pal"),

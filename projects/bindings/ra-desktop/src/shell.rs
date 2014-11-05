@@ -25,7 +25,7 @@ use crate::{
     ui_compose::{self, SkirmishChromeSprites},
     ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
-    ui_page::page_resources_from_slots,
+    ui_page::page_resources_from_slots_with_edition,
     ui_present,
     ui_resolve,
     startup_splash::{self, StartupSplashPresentation},
@@ -651,7 +651,8 @@ impl AppShell {
         else {
             return;
         };
-        let Some(page) = page_resources_from_slots(OriginalScreen::MainMenu)
+        let edition = assets.edition;
+        let Some(page) = page_resources_from_slots_with_edition(OriginalScreen::MainMenu, edition)
         else {
             return;
         };
@@ -875,7 +876,8 @@ impl AppShell {
         else {
             return;
         };
-        let Some(page) = page_resources_from_slots(self.screen)
+        let edition = assets.edition;
+        let Some(page) = page_resources_from_slots_with_edition(self.screen, edition)
         else {
             return;
         };
