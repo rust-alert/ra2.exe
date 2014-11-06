@@ -41,7 +41,7 @@ fn compose_uses_pressed_sprite_when_entry_matches() {
         button_presseds: vec![("single_player", pressed)],
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None).unwrap();
     let layout = main_menu_layout(800, 600);
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -61,7 +61,7 @@ fn compose_uses_hover_sprite_when_not_pressed() {
         button_presseds: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, None, Some("single_player"), None, None, None).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, None, Some("single_player"), None, None, None, None).unwrap();
     let layout = main_menu_layout(800, 600);
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -81,7 +81,7 @@ fn compose_single_player_uses_skirmish_id() {
         button_presseds: vec![("skirmish", pressed)],
         errors: Vec::new(),
     };
-    let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None).unwrap();
+    let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None, None).unwrap();
     let layout = single_player_layout(800, 600);
     let cell = layout.buttons[2];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -101,7 +101,7 @@ fn compose_skirmish_lobby_uses_start_id() {
         errors: Vec::new(),
     };
     let paint = SkirmishLobbyPaint::default();
-    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, &paint).unwrap();
+    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, None, &paint).unwrap();
     let layout = skirmish_lobby_layout(800, 600);
     let cell = layout.shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -154,7 +154,7 @@ fn compose_campaign_uses_back_id() {
         track_thumb: None,
         side_anim_frame: 1,
     };
-    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, paint).unwrap();
+    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint).unwrap();
     let layout = campaign_layout(800, 600);
     let cell = layout.shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;

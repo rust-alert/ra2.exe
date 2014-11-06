@@ -17,12 +17,11 @@ use crate::{
     },
     ui_text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,
-        blit_caption_top_left_clipped, blit_text_colored, campaign_csf_label, campaign_csf_tooltip,
-        campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key,
-        choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label,
-        main_menu_csf_tooltip, options_csf_label, options_dialog_csf_key, resolve_caption, resolve_csf_text,
-        single_player_csf_label, single_player_csf_tooltip, single_player_title_csf_key, skirmish_lobby_csf_label,
-        skirmish_lobby_csf_tooltip, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
+        blit_caption_top_left_clipped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key,
+        campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key, choose_map_title_csf_key,
+        exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label, options_csf_label,
+        options_dialog_csf_key, resolve_caption, single_player_csf_label, single_player_title_csf_key,
+        skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
     },
 };
 
@@ -460,6 +459,8 @@ fn compose_shell_menu_page(
     button_ids: &[&str],
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    // 底栏状态提示可见切片（壳层打字机提供，与按钮 hover 图解耦）。
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -539,15 +540,10 @@ fn compose_shell_menu_page(
                 MENU_TEXT_ENABLED,
             );
         }
-        let tooltip_key = match (captions, hovered_entry_id) {
-            (MenuCaptionKind::Main, Some(hovered)) => main_menu_csf_tooltip(hovered),
-            (MenuCaptionKind::SinglePlayer, Some(hovered)) => single_player_csf_tooltip(hovered),
-            // 战役底栏提示用壳层 `tooltip` 锚点，在 `compose_campaign_page` 另画。
-            _ => None,
-        };
-        if let Some(key) = tooltip_key {
-            if let Some(text) = resolve_csf_text(csf, key) {
-                blit_text_colored(&mut page, fnt, &text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
+        // 主菜单 / 单人页底栏：由壳层传入打字机可见切片。
+        if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer) {
+            if let Some(text) = status_text.filter(|s| !s.is_empty()) {
+                blit_text_colored(&mut page, fnt, text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
             }
         }
     }
@@ -562,6 +558,7 @@ pub fn compose_main_menu_page(
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -572,6 +569,7 @@ pub fn compose_main_menu_page(
         &MAIN_MENU_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
+        status_text,
         fnt,
         csf,
         movie,
@@ -586,6 +584,7 @@ pub fn compose_single_player_page(
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
@@ -596,6 +595,7 @@ pub fn compose_single_player_page(
         &SINGLE_PLAYER_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
+        status_text,
         fnt,
         csf,
         movie,
@@ -637,6 +637,7 @@ pub fn compose_campaign_page(
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     paint: CampaignPaint<'_>,
@@ -648,6 +649,7 @@ pub fn compose_campaign_page(
         &CAMPAIGN_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
+        None,
         fnt,
         csf,
         None,
@@ -734,19 +736,15 @@ pub fn compose_campaign_page(
             layout.difficulty_value.y,
             MENU_TEXT_ENABLED,
         );
-        if let Some(hovered) = hovered_entry_id {
-            if let Some(key) = campaign_csf_tooltip(hovered) {
-                if let Some(text) = resolve_csf_text(csf, key) {
-                    blit_text_colored(
-                        &mut page,
-                        fnt,
-                        &text,
-                        layout.status_help.x,
-                        layout.status_help.y,
-                        MENU_TEXT_ENABLED,
-                    );
-                }
-            }
+        if let Some(text) = status_text.filter(|s| !s.is_empty()) {
+            blit_text_colored(
+                &mut page,
+                fnt,
+                text,
+                layout.status_help.x,
+                layout.status_help.y,
+                MENU_TEXT_ENABLED,
+            );
         }
     }
 
@@ -846,6 +844,7 @@ pub fn compose_exit_confirm_page(
         decoded,
         main_menu_layout(viewport_w, viewport_h),
         &MAIN_MENU_BUTTON_IDS,
+        None,
         None,
         None,
         fnt,
@@ -1372,6 +1371,7 @@ pub fn compose_skirmish_lobby_page(
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
@@ -1384,6 +1384,7 @@ pub fn compose_skirmish_lobby_page(
         &SKIRMISH_LOBBY_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
+        None,
         fnt,
         csf,
         None,
@@ -1426,20 +1427,16 @@ pub fn compose_skirmish_lobby_page(
 
     paint_skirmish_lobby_controls(&mut page, &layout, paint, fnt, csf);
 
-    // 底栏 `0x695`：悬停右栏钮或左栏控件时的 `STT:Skirmish*`。
-    if let (Some(fnt), Some(hovered)) = (fnt, hovered_entry_id) {
-        if let Some(key) = skirmish_lobby_csf_tooltip(hovered) {
-            if let Some(text) = resolve_csf_text(csf, key) {
-                blit_text_colored(
-                    &mut page,
-                    fnt,
-                    &text,
-                    layout.status_help.x,
-                    layout.status_help.y,
-                    MENU_TEXT_ENABLED,
-                );
-            }
-        }
+    // 底栏状态提示：壳层打字机可见切片。
+    if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
+        blit_text_colored(
+            &mut page,
+            fnt,
+            text,
+            layout.status_help.x,
+            layout.status_help.y,
+            MENU_TEXT_ENABLED,
+        );
     }
 
     Some(page)
@@ -1455,6 +1452,7 @@ pub fn compose_choose_map_page(
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
+    status_text: Option<&str>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
@@ -1468,6 +1466,7 @@ pub fn compose_choose_map_page(
         &CHOOSE_MAP_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
+        status_text,
         fnt,
         csf,
         None,

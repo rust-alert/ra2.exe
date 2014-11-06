@@ -34,6 +34,7 @@ pub mod ui_present;
 pub mod ui_resolve;
 pub mod ui_slots;
 pub mod ui_text;
+pub mod ui_typewriter;
 
 use ra_types::RaResult;
 use tracing_appender::non_blocking::WorkerGuard;

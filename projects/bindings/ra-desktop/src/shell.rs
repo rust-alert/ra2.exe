@@ -28,6 +28,11 @@ use crate::{
     ui_page::page_resources_from_slots_with_edition,
     ui_present,
     ui_resolve,
+    ui_text::{
+        campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip,
+        skirmish_lobby_csf_tooltip,
+    },
+    ui_typewriter::TypewriterText,
     startup_splash::{self, StartupSplashPresentation},
 };
 
@@ -90,6 +95,8 @@ pub struct AppShell {
     menu_pending_commit: Option<MenuAction>,
     /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
     menu_hovered_entry: Option<&'static str>,
+    /// 底栏状态提示打字机（与按钮 hover 图解耦；亦可复用于局内右上消息）。
+    status_line: TypewriterText,
     /// 菜单字体（`game.fnt`）。
     menu_font: Option<FntFile>,
     /// 是否已尝试装载菜单字体（失败后不再每帧读盘/打日志）。
@@ -202,6 +209,7 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_pending_commit: None,
             menu_hovered_entry: None,
+            status_line: TypewriterText::default(),
             menu_font: None,
             menu_font_tried: false,
             menu_csf: None,
@@ -275,6 +283,7 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_pending_commit: None,
             menu_hovered_entry: None,
+            status_line: TypewriterText::default(),
             menu_font: None,
             menu_font_tried: false,
             menu_csf: None,
@@ -963,6 +972,7 @@ impl AppShell {
             self.menu_pressed_entry = None;
             self.menu_pending_commit = None;
             self.menu_hovered_entry = None;
+            self.status_line.clear();
             if !matches!(
                 next,
                 OriginalScreen::MainMenu
@@ -1059,6 +1069,40 @@ impl AppShell {
         }
     }
 
+
+    /// 当前底栏可见切片；空串视为无提示。
+    fn status_line_visible(&self) -> Option<&str> {
+        let text = self.status_line.visible();
+        if text.is_empty() {
+            None
+        } else {
+            Some(text)
+        }
+    }
+
+    /// 按当前页面与悬停入口解析 CSF 提示，提交给打字机。
+    fn sync_status_line_from_hover(&mut self) {
+        let Some(entry) = self.menu_hovered_entry else {
+            self.status_line.clear();
+            return;
+        };
+        let key = match self.screen {
+            OriginalScreen::MainMenu => main_menu_csf_tooltip(entry),
+            OriginalScreen::SinglePlayerMenu => single_player_csf_tooltip(entry),
+            OriginalScreen::Campaign => campaign_csf_tooltip(entry),
+            OriginalScreen::SkirmishLobby => skirmish_lobby_csf_tooltip(entry),
+            _ => None,
+        };
+        let text = key
+            .and_then(|k| resolve_csf_text(self.menu_csf.as_ref(), k))
+            .unwrap_or_default();
+        if text.is_empty() {
+            self.status_line.clear();
+        } else {
+            self.status_line.set_text(text);
+        }
+    }
+
     /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；启动闪屏由独立 owner 保持。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
@@ -1100,6 +1144,7 @@ impl AppShell {
                         self.window_height as u32,
                         self.menu_pressed_entry,
                         self.menu_hovered_entry,
+                        self.status_line_visible(),
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
@@ -1110,6 +1155,7 @@ impl AppShell {
                         self.window_height as u32,
                         self.menu_pressed_entry,
                         self.menu_hovered_entry,
+                        self.status_line_visible(),
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
@@ -1122,6 +1168,7 @@ impl AppShell {
                             self.window_height as u32,
                             self.menu_pressed_entry,
                             self.menu_hovered_entry,
+                            self.status_line_visible(),
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             ui_compose::CampaignPaint {
@@ -1207,6 +1254,7 @@ impl AppShell {
                             self.window_height as u32,
                             self.menu_pressed_entry,
                             self.menu_hovered_entry,
+                            self.status_line_visible(),
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
@@ -1225,6 +1273,7 @@ impl AppShell {
                             self.window_height as u32,
                             self.menu_pressed_entry,
                             self.menu_hovered_entry,
+                            self.status_line_visible(),
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
@@ -2159,6 +2208,7 @@ impl AppShell {
                     | OriginalScreen::Options
                     | OriginalScreen::ExitConfirm
                     | OriginalScreen::SkirmishLobby
+                    | OriginalScreen::ChooseMap
             ) {
                 let dt = self
                     .menu_movie_clock
@@ -2167,6 +2217,7 @@ impl AppShell {
                     .unwrap_or(0.0)
                     .min(0.25);
                 let movie_advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt));
+                let status_advanced = self.status_line.tick(dt);
                 let mut side_advanced = false;
                 if self.screen == OriginalScreen::Campaign {
                     let side_hot = matches!(
@@ -2192,7 +2243,7 @@ impl AppShell {
                         self.campaign_side_anim_clock = None;
                     }
                 }
-                if movie_advanced || side_advanced {
+                if movie_advanced || side_advanced || status_advanced {
                     self.refresh_menu_backdrop();
                 } else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
                     if !self.banner.contains("影片失步") {
@@ -2388,6 +2439,7 @@ impl ApplicationHandler for AppShell {
                                 }
                             }
                             self.menu_hovered_entry = next;
+                            self.sync_status_line_from_hover();
                             self.refresh_menu_backdrop();
                         }
                     }
