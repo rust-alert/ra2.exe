@@ -12,6 +12,14 @@ pub const SHELL_BASE_H: i32 = 600;
 pub const RIGHT_PANEL_W: i32 = 168;
 /// 右侧顶盖高（`sdtp`）。
 pub const RIGHT_PANEL_TOP_H: i32 = 199;
+/// WARNING 窗内动画（`sdwrnanm`）画布宽。
+pub const SDWRNANM_W: i32 = 92;
+/// WARNING 窗内动画（`sdwrnanm`）画布高。
+pub const SDWRNANM_H: i32 = 53;
+/// `sdwrnanm` 相对 `sdtp` 左上角的 X 偏移（窗内可视区）。
+pub const SDWRNANM_OFFSET_X: i32 = 38;
+/// `sdwrnanm` 相对 `sdtp` 左上角的 Y 偏移（窗内可视区）。
+pub const SDWRNANM_OFFSET_Y: i32 = 48;
 /// 右侧平铺条高（`sdbtnbkgd`）。
 pub const RIGHT_PANEL_TILE_H: i32 = 42;
 /// 按钮格宽（窄列）。

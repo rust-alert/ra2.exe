@@ -17,7 +17,7 @@ fn main_menu_entries_match_expected_ids() {
     assert_eq!(page.buttons[0].normal_frame, Some(2));
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
-    assert!(!page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
     assert_eq!(page.fonts, &["game.fnt"]);
 }
 
@@ -53,7 +53,7 @@ fn campaign_declares_three_side_panels_and_rail() {
     assert!(page.panels.iter().any(|p| p.shp == "fsalg.shp" && p.pal == "fsscrn.pal"));
     assert!(page.panels.iter().any(|p| p.shp == "fsbclg.shp" && p.pal == "fsscrn.pal"));
     assert!(page.panels.iter().any(|p| p.shp == "fsslg.shp" && p.pal == "fsscrn.pal"));
-    assert!(!page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
     assert!(page.has_any_asset_name());
 }
 
@@ -88,7 +88,7 @@ fn options_rail_accept_cancel_main_menu() {
     assert_eq!(page.buttons[2].normal_frame, Some(2));
     assert_eq!(page.buttons[2].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
-    assert!(!page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
     assert_eq!(page.fonts, &["game.fnt"]);
 }
 
