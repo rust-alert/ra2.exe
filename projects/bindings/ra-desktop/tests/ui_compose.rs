@@ -240,7 +240,7 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, None, None, None, None, None, None, 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, None, None, None, None, None, None, None, 0).unwrap();
     let layout = main_menu_layout(800, 600);
     let wx = layout.panel_top.x + SDWRNANM_OFFSET_X;
     let wy = layout.panel_top.y + SDWRNANM_OFFSET_Y;
