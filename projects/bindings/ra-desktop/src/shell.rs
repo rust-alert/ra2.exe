@@ -33,6 +33,10 @@ use crate::{
         skirmish_lobby_csf_tooltip,
     },
     ui_typewriter::TypewriterText,
+    shell_slide::{
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
+        ShellFrameWave, ShellSlideSpec, WaveDirection,
+    },
     startup_splash::{self, StartupSplashPresentation},
 };
 
@@ -91,8 +95,10 @@ pub struct AppShell {
     ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
     menu_pressed_entry: Option<&'static str>,
-    /// 释放后待提交的菜单动作（等 pressed 帧至少 present 一帧后再执行）。
+    /// 切页排队：`SlideOut` 完成后提交的 `MenuAction`。
     menu_pending_commit: Option<MenuAction>,
+    /// 进行中的右栏 `SDBTNANM` 帧波浪（出去 / 进来）。
+    menu_frame_wave: Option<ShellFrameWave>,
     /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
     menu_hovered_entry: Option<&'static str>,
     /// 底栏状态提示打字机（与按钮 hover 图解耦；亦可复用于局内右上消息）。
@@ -214,6 +220,7 @@ impl AppShell {
             ui_decode_cache: None,
             menu_pressed_entry: None,
             menu_pending_commit: None,
+            menu_frame_wave: None,
             menu_hovered_entry: None,
             status_line: TypewriterText::default(),
             menu_font: None,
@@ -291,6 +298,7 @@ impl AppShell {
             ui_decode_cache: None,
             menu_pressed_entry: None,
             menu_pending_commit: None,
+            menu_frame_wave: None,
             menu_hovered_entry: None,
             status_line: TypewriterText::default(),
             menu_font: None,
@@ -659,6 +667,7 @@ impl AppShell {
             );
             self.startup_splash = None;
             self.set_screen(OriginalScreen::MainMenu);
+            self.maybe_start_slide_in();
         }
     }
 
@@ -985,6 +994,7 @@ impl AppShell {
             self.menu_pending_commit = None;
             self.menu_hovered_entry = None;
             self.status_line.clear();
+            // `menu_frame_wave` 由切页状态机显式启停，不在此清空。
             if !matches!(
                 next,
                 OriginalScreen::MainMenu
@@ -1147,6 +1157,8 @@ impl AppShell {
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
+            let wave_frames = self.current_wave_frames();
+            let wave = wave_frames.as_deref();
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
@@ -1160,7 +1172,7 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
-                        None,
+                        wave,
                         self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
@@ -1173,7 +1185,7 @@ impl AppShell {
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
                         movie,
-                        None,
+                        wave,
                         self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::Campaign => {
@@ -1193,7 +1205,7 @@ impl AppShell {
                                 track_thumb,
                                 side_anim_frame: self.campaign_side_anim_frame.max(1),
                             },
-                            None,
+                            wave,
                             self.menu_panel_anim_frame,
                         )
                     }
@@ -1279,7 +1291,7 @@ impl AppShell {
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
                             &paint,
-                            None,
+                            wave,
                             0,
                         )
                     }
@@ -1301,7 +1313,7 @@ impl AppShell {
                             self.lobby_preview.as_ref(),
                             &map_names,
                             selected_map_index,
-                            None,
+                            wave,
                             0,
                         )
                     }
@@ -1656,10 +1668,137 @@ impl AppShell {
     }
 
     fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
-        // 键盘等直接提交路径：取消尚未 present 的按下排队。
+        self.request_menu_action(event_loop, action);
+    }
+
+    /// 是否为会换壳层页的导航动作（才走出去 / 进来波浪）。
+    fn action_uses_shell_slide(action: MenuAction) -> bool {
+        matches!(
+            action,
+            MenuAction::OpenSinglePlayer
+                | MenuAction::OpenNetwork
+                | MenuAction::OpenOptions
+                | MenuAction::Exit
+                | MenuAction::OpenSkirmish
+                | MenuAction::OpenCampaign
+                | MenuAction::Back
+                | MenuAction::StartSkirmish
+                | MenuAction::OptionsAccept
+                | MenuAction::OptionsCancel
+                | MenuAction::ChooseMap
+                | MenuAction::UseMap
+        )
+    }
+
+    /// 当前页若在允许列表内，返回波浪规格。
+    fn slide_spec_for(screen: OriginalScreen) -> Option<ShellSlideSpec> {
+        match screen {
+            OriginalScreen::MainMenu => Some(MAIN_MENU_SLIDE),
+            OriginalScreen::SinglePlayerMenu => Some(SINGLE_PLAYER_SLIDE),
+            OriginalScreen::SkirmishLobby => Some(SKIRMISH_SLIDE),
+            OriginalScreen::Campaign => Some(CAMPAIGN_SLIDE),
+            OriginalScreen::ChooseMap => Some(CHOOSE_MAP_SLIDE),
+            _ => None,
+        }
+    }
+
+    /// 当前页参与波浪的按钮 id 表。
+    fn wave_button_ids(screen: OriginalScreen) -> Option<&'static [&'static str]> {
+        match screen {
+            OriginalScreen::MainMenu => Some(&ui_layout::MAIN_MENU_BUTTON_IDS),
+            OriginalScreen::SinglePlayerMenu => Some(&ui_layout::SINGLE_PLAYER_BUTTON_IDS),
+            OriginalScreen::SkirmishLobby => Some(&ui_layout::SKIRMISH_LOBBY_BUTTON_IDS),
+            OriginalScreen::Campaign => Some(&ui_layout::CAMPAIGN_BUTTON_IDS),
+            OriginalScreen::ChooseMap => Some(&ui_layout::CHOOSE_MAP_BUTTON_IDS),
+            _ => None,
+        }
+    }
+
+    /// 合成用：各钮当前 `SDBTNANM` 帧；无波浪时为 `None`。
+    fn current_wave_frames(&self) -> Option<Vec<u16>> {
+        let wave = self.menu_frame_wave.as_ref()?;
+        let ids = Self::wave_button_ids(self.screen)?;
+        Some(
+            ids.iter()
+                .enumerate()
+                .map(|(i, id)| {
+                    if self.screen == OriginalScreen::MainMenu {
+                        wave.frame_for_main_menu_entry(id, i as u32)
+                    } else {
+                        wave.frame_for_slot(i as u32)
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    /// 新页进场波浪（仅当目标页有规格且当前无波浪）。
+    fn maybe_start_slide_in(&mut self) {
+        if self.menu_frame_wave.is_some() {
+            return;
+        }
+        let Some(spec) = Self::slide_spec_for(self.screen) else {
+            return;
+        };
+        self.menu_frame_wave = Some(ShellFrameWave::new(spec, WaveDirection::SlideIn, Instant::now()));
+        self.refresh_menu_backdrop();
+    }
+
+    /// 菜单导航入口：可切页动作先 SlideOut，完成后再提交，再对目标页 SlideIn。
+    fn request_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
+        if self.menu_frame_wave.is_some() {
+            return;
+        }
+        if Self::action_uses_shell_slide(action) {
+            if let Some(spec) = Self::slide_spec_for(self.screen) {
+                self.menu_pressed_entry = None;
+                self.menu_pending_commit = Some(action);
+                self.menu_frame_wave =
+                    Some(ShellFrameWave::new(spec, WaveDirection::SlideOut, Instant::now()));
+                self.refresh_menu_backdrop();
+                return;
+            }
+            let before = self.screen;
+            self.commit_menu_action(event_loop, action);
+            if self.screen != before {
+                self.maybe_start_slide_in();
+            }
+            return;
+        }
+        self.commit_menu_action(event_loop, action);
+    }
+
+    /// 推进切页波浪。`SlideOut` 结束后提交排队动作并启动 `SlideIn`。
+    fn tick_menu_frame_wave(&mut self, event_loop: &ActiveEventLoop) {
+        let Some(wave) = self.menu_frame_wave.as_mut() else {
+            return;
+        };
+        let now = Instant::now();
+        if !wave.advance(now) {
+            return;
+        }
+        if !wave.is_complete() {
+            self.refresh_menu_backdrop();
+            return;
+        }
+        let direction = wave.direction();
+        self.menu_frame_wave = None;
+        if direction == WaveDirection::SlideOut {
+            if let Some(action) = self.menu_pending_commit.take() {
+                self.commit_menu_action(event_loop, action);
+                self.maybe_start_slide_in();
+            } else {
+                self.refresh_menu_backdrop();
+            }
+        } else {
+            self.refresh_menu_backdrop();
+        }
+    }
+
+    fn commit_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
+        // 直接提交路径：取消尚未完成的出去波浪排队。
         self.menu_pending_commit = None;
-        let had_pressed = self.menu_pressed_entry.take().is_some();
-        let screen_before = self.screen;
+        let _ = self.menu_pressed_entry.take();
         match action {
             MenuAction::OpenSinglePlayer => self.set_screen(OriginalScreen::SinglePlayerMenu),
             MenuAction::OpenNetwork => {
@@ -2422,6 +2561,7 @@ impl ApplicationHandler for AppShell {
                 }
             }
             WindowEvent::RedrawRequested => {
+                self.tick_menu_frame_wave(event_loop);
                 self.redraw();
                 return;
             }
@@ -2497,7 +2637,10 @@ impl ApplicationHandler for AppShell {
                 }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
-                        if self.screen == OriginalScreen::Splash {
+                        if self.menu_frame_wave.is_some() {
+                            // 切页波浪进行中忽略新按下。
+                        }
+                        else if self.screen == OriginalScreen::Splash {
                             self.request_splash_skip();
                         }
                         else if self.screen == OriginalScreen::Options && self.handle_options_press() {
@@ -2534,7 +2677,10 @@ impl ApplicationHandler for AppShell {
                         }
                     }
                     ElementState::Released => {
-                        if self.screen == OriginalScreen::Splash {
+                        if self.menu_frame_wave.is_some() {
+                            // 切页波浪进行中忽略释放提交。
+                        }
+                        else if self.screen == OriginalScreen::Splash {
                             // 闪屏仅接受按下跳过请求；释放不走菜单命中。
                         }
                         else if self.screen == OriginalScreen::Options {
