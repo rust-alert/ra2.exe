@@ -154,6 +154,14 @@ pub struct AppShell {
     menu_bgm_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
     menu_click: Option<PcmAudio>,
+    /// 壳层出去音效（`GUIMoveOutSound` → 默认 `MenuSlideOut` / `uslide2`）。
+    menu_move_out: Option<PcmAudio>,
+    /// 是否已尝试装载出去音效。
+    menu_move_out_tried: bool,
+    /// 壳层进来音效（`GUIMoveInSound` → 默认 `MenuSlideIn` / `uslide1`）。
+    menu_move_in: Option<PcmAudio>,
+    /// 是否已尝试装载进来音效。
+    menu_move_in_tried: bool,
     /// 当前是否已在播壳层 BGM。
     menu_bgm_playing: bool,
     /// 已解析的 `audio.bag` 索引（惰性）。
@@ -249,6 +257,10 @@ impl AppShell {
             menu_bgm: None,
             menu_bgm_tried: false,
             menu_click: None,
+            menu_move_out: None,
+            menu_move_out_tried: false,
+            menu_move_in: None,
+            menu_move_in_tried: false,
             menu_bgm_playing: false,
             audio_bag: None,
             audio_bag_tried: false,
@@ -327,6 +339,10 @@ impl AppShell {
             menu_bgm: None,
             menu_bgm_tried: false,
             menu_click: None,
+            menu_move_out: None,
+            menu_move_out_tried: false,
+            menu_move_in: None,
+            menu_move_in_tried: false,
             menu_bgm_playing: false,
             audio_bag: None,
             audio_bag_tried: false,
@@ -1443,6 +1459,42 @@ impl AppShell {
             .unwrap_or_else(|| "MenuClick".into())
     }
 
+    /// 规则里的壳层出去事件 id（缺省 `MenuSlideOut`）。
+    fn menu_move_out_sound_id(&self) -> String {
+        let from_doc = self
+            .read_ini_doc("rules.ini")
+            .as_ref()
+            .and_then(|d| d.get("AudioVisual", "GUIMoveOutSound"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        if let Some(s) = from_doc {
+            return s;
+        }
+        self.read_asset_bytes("rules.ini")
+            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveOutSound"))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "MenuSlideOut".into())
+    }
+
+    /// 规则里的壳层进来事件 id（缺省 `MenuSlideIn`）。
+    fn menu_move_in_sound_id(&self) -> String {
+        let from_doc = self
+            .read_ini_doc("rules.ini")
+            .as_ref()
+            .and_then(|d| d.get("AudioVisual", "GUIMoveInSound"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        if let Some(s) = from_doc {
+            return s;
+        }
+        self.read_asset_bytes("rules.ini")
+            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveInSound"))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "MenuSlideIn".into())
+    }
+
     /// `sound.ini` 事件 → `Sounds=` 采样名列表。
     fn sound_event_sample_names(&self, event_id: &str) -> Vec<String> {
         let line = self
@@ -1512,9 +1564,13 @@ impl AppShell {
         tracing::warn!(%stem, %theme_note, "菜单主题曲不可用，BGM 静音");
     }
 
-    /// 惰性装载菜单 BGM / 点击采样。
+    /// 惰性装载菜单 BGM / 点击 / 切页进出采样。
     fn ensure_menu_audio_assets(&mut self) {
-        if (self.menu_bgm.is_some() || self.menu_bgm_tried) && self.menu_click.is_some() {
+        if (self.menu_bgm.is_some() || self.menu_bgm_tried)
+            && self.menu_click.is_some()
+            && self.menu_move_out_tried
+            && self.menu_move_in_tried
+        {
             return;
         }
         self.ensure_menu_assets();
@@ -1542,6 +1598,36 @@ impl AppShell {
                 tracing::warn!(%event_id, "菜单点击采样未命中，使用合成占位");
                 crate::audio::synthetic_ui_click()
             }));
+        }
+        if !self.menu_move_out_tried {
+            self.menu_move_out_tried = true;
+            let event_id = self.menu_move_out_sound_id();
+            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
+            for fallback in ["uslide2", "USLIDE2", "MenuSlideOut"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push(fallback.into());
+                }
+            }
+            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
+            self.menu_move_out = self.decode_bag_named(&refs);
+            if self.menu_move_out.is_none() {
+                tracing::warn!(%event_id, "壳层出去采样未命中");
+            }
+        }
+        if !self.menu_move_in_tried {
+            self.menu_move_in_tried = true;
+            let event_id = self.menu_move_in_sound_id();
+            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
+            for fallback in ["uslide1", "USLIDE1", "MenuSlideIn"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push(fallback.into());
+                }
+            }
+            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
+            self.menu_move_in = self.decode_bag_named(&refs);
+            if self.menu_move_in.is_none() {
+                tracing::warn!(%event_id, "壳层进来采样未命中");
+            }
         }
     }
 
@@ -1579,6 +1665,22 @@ impl AppShell {
         self.ensure_menu_audio_assets();
         if let (Some(audio), Some(click)) = (self.audio.as_mut(), self.menu_click.as_ref()) {
             audio.play_sfx(click);
+        }
+    }
+
+    /// 壳层出去波浪开始时播一次（`GUIMoveOutSound`）。
+    fn play_menu_move_out(&mut self) {
+        self.ensure_menu_audio_assets();
+        if let (Some(audio), Some(sfx)) = (self.audio.as_mut(), self.menu_move_out.as_ref()) {
+            audio.play_sfx(sfx);
+        }
+    }
+
+    /// 壳层进来波浪开始时播一次（`GUIMoveInSound`）。
+    fn play_menu_move_in(&mut self) {
+        self.ensure_menu_audio_assets();
+        if let (Some(audio), Some(sfx)) = (self.audio.as_mut(), self.menu_move_in.as_ref()) {
+            audio.play_sfx(sfx);
         }
     }
 
@@ -1741,6 +1843,7 @@ impl AppShell {
             return;
         };
         self.menu_frame_wave = Some(ShellFrameWave::new(spec, WaveDirection::SlideIn, Instant::now()));
+        self.play_menu_move_in();
         self.refresh_menu_backdrop();
     }
 
@@ -1755,6 +1858,7 @@ impl AppShell {
                 self.menu_pending_commit = Some(action);
                 self.menu_frame_wave =
                     Some(ShellFrameWave::new(spec, WaveDirection::SlideOut, Instant::now()));
+                self.play_menu_move_out();
                 self.refresh_menu_backdrop();
                 return;
             }
