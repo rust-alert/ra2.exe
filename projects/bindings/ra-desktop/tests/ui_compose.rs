@@ -45,20 +45,7 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
         errors: Vec::new(),
     };
     let frames = [10u16, 10, 10, 10, 10, 10];
-    let page = compose_main_menu_page(
-        &decoded,
-        800,
-        600,
-        Some("single_player"),
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(&frames),
-        0,
-    )
-    .unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(&frames), 0).unwrap();
     let layout = main_menu_layout(800, 600);
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -164,12 +151,8 @@ fn compose_options_uses_main_menu_id() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let state = ra_desktop::options_dialog::OptionsDialogState::from_shell(
-        ra_types::DisplayMode::W800H600,
-        0.4,
-        0.7,
-        ra_types::PresentFeel::DEFAULT,
-    );
+    let state =
+        ra_desktop::options_dialog::OptionsDialogState::from_shell(ra_types::DisplayMode::W800H600, 0.4, 0.7, ra_types::PresentFeel::DEFAULT);
     let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, 0).unwrap();
     let layout = options_layout(800, 600);
     let cell = layout.buttons[2];
@@ -192,12 +175,7 @@ fn compose_campaign_uses_back_id() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let paint = CampaignPaint {
-        selected_side: Some("allied"),
-        difficulty: 1,
-        track_thumb: None,
-        side_anim_frame: 1,
-    };
+    let paint = CampaignPaint { selected_side: Some("allied"), difficulty: 1, track_thumb: None, side_anim_frame: 1 };
     let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint, None, 0).unwrap();
     let layout = campaign_layout(800, 600);
     let cell = layout.shell.buttons[0];

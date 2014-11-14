@@ -61,7 +61,6 @@ fn ensure_creates_missing_toml_once() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-
 #[test]
 fn display_mode_from_merged_and_alias() {
     let mut table = ConfigTable::new();
@@ -121,11 +120,7 @@ fn present_table_serde_roundtrip_preserves_other_keys() {
         .join(format!("ra_config_present_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("RustAlert.toml");
-    std::fs::write(
-        &path,
-        "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ndither = false\n",
-    )
-    .unwrap();
+    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ndither = false\n").unwrap();
 
     let mut doc = RustAlertDocument::open(&path).unwrap();
     let (feel, diags) = doc.present_feel();

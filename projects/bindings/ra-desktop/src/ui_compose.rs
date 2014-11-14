@@ -9,18 +9,16 @@ use crate::{
     skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES, LOBBY_SIDES},
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_layout::{
-        CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
-        OPTIONS_BUTTON_IDS, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
-        SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout,
-        campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout, options_layout,
-        single_player_layout, skirmish_lobby_layout,
+        CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx,
+        SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
+        SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
+        options_layout, single_player_layout, skirmish_lobby_layout,
     },
     ui_text::{
-        MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,
-        blit_caption_top_left_clipped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key,
-        campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key, choose_map_title_csf_key,
-        exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label, options_csf_label,
-        options_dialog_csf_key, resolve_caption, single_player_csf_label, single_player_title_csf_key,
+        MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_caption_top_left_clipped,
+        blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
+        choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label,
+        options_csf_label, options_dialog_csf_key, resolve_caption, single_player_csf_label, single_player_title_csf_key,
         skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
     },
 };
@@ -133,14 +131,7 @@ fn blit_rgba_skip_near_black(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i3
 }
 
 /// 相对静止帧差分贴图：只画动画帧相对 `base` 变化的像素（战役悬停箭头）。
-fn blit_rgba_diff_from_base(
-    dst: &mut RgbaImage,
-    src: &RgbaImage,
-    base: Option<&RgbaImage>,
-    x: i32,
-    y: i32,
-    max_rgb_sum: u16,
-) {
+fn blit_rgba_diff_from_base(dst: &mut RgbaImage, src: &RgbaImage, base: Option<&RgbaImage>, x: i32, y: i32, max_rgb_sum: u16) {
     let Some(base) = base
     else {
         blit_rgba_skip_near_black(dst, src, x, y, max_rgb_sum);
@@ -238,17 +229,9 @@ fn draw_trackbar(dst: &mut RgbaImage, track: RectPx, pos: u8, max: u8) {
 fn draw_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool) {
     let box_r = RectPx::new(rect.x, rect.y + 2, 16, 16);
     fill_rect(dst, box_r, [80, 16, 16, 255]);
-    fill_rect(
-        dst,
-        RectPx::new(box_r.x + 2, box_r.y + 2, 12, 12),
-        [12, 12, 16, 255],
-    );
+    fill_rect(dst, RectPx::new(box_r.x + 2, box_r.y + 2, 12, 12), [12, 12, 16, 255]);
     if checked {
-        fill_rect(
-            dst,
-            RectPx::new(box_r.x + 4, box_r.y + 4, 8, 8),
-            [220, 40, 40, 255],
-        );
+        fill_rect(dst, RectPx::new(box_r.x + 4, box_r.y + 4, 8, 8), [220, 40, 40, 255]);
     }
 }
 
@@ -267,11 +250,7 @@ pub fn paint_options_dialog_controls(
 ) {
     // 左板：深色底板（原版黑底 + 地图水印未接前用纯色占位）。
     fill_rect(page, layout.content, [8, 10, 14, 255]);
-    fill_rect(
-        page,
-        RectPx::new(layout.content.x + 2, layout.content.y + 2, layout.content.w - 4, layout.content.h - 4),
-        [18, 22, 32, 255],
-    );
+    fill_rect(page, RectPx::new(layout.content.x + 2, layout.content.y + 2, layout.content.w - 4, layout.content.h - 4), [18, 22, 32, 255]);
 
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
 
@@ -317,14 +296,7 @@ pub fn paint_options_dialog_controls(
 
         blit_text_colored(page, fnt, &label("ui", "UI Options"), layout.sec_ui.x, layout.sec_ui.y, MENU_TEXT_SECTION);
         draw_section_rule(page, layout.sec_ui);
-        blit_text_colored(
-            page,
-            fnt,
-            &label("scroll", "Scroll Rate"),
-            layout.track_scroll.x,
-            layout.track_scroll.y - 16,
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, &label("scroll", "Scroll Rate"), layout.track_scroll.x, layout.track_scroll.y - 16, MENU_TEXT_ACCENT);
         blit_text_colored(
             page,
             fnt,
@@ -341,12 +313,7 @@ pub fn paint_options_dialog_controls(
     }
 
     draw_trackbar(page, layout.track_detail, state.detail, crate::options_dialog::OptionsTrackbar::Detail.max());
-    draw_trackbar(
-        page,
-        layout.track_difficulty,
-        state.difficulty,
-        crate::options_dialog::OptionsTrackbar::Difficulty.max(),
-    );
+    draw_trackbar(page, layout.track_difficulty, state.difficulty, crate::options_dialog::OptionsTrackbar::Difficulty.max());
     draw_trackbar(page, layout.track_scroll, state.scroll, crate::options_dialog::OptionsTrackbar::Scroll.max());
     draw_trackbar(page, layout.track_music, state.music, crate::options_dialog::OptionsTrackbar::Music.max());
     draw_trackbar(page, layout.track_sound, state.sound, crate::options_dialog::OptionsTrackbar::Sound.max());
@@ -381,23 +348,12 @@ pub fn paint_options_dialog_controls(
         [8, 8, 12, 255],
     );
     if let Some(fnt) = fnt {
-        blit_text_colored(
-            page,
-            fnt,
-            state.display_mode.as_str(),
-            layout.resolution.x + 8,
-            layout.resolution.y + 6,
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, state.display_mode.as_str(), layout.resolution.x + 8, layout.resolution.y + 6, MENU_TEXT_ACCENT);
     }
     if state.resolution_open {
         for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {
             let row = layout.resolution_row(i);
-            let bg = if *mode == state.display_mode {
-                [90, 40, 20, 255]
-            } else {
-                [28, 28, 34, 255]
-            };
+            let bg = if *mode == state.display_mode { [90, 40, 20, 255] } else { [28, 28, 34, 255] };
             fill_rect(page, row, bg);
             if let Some(fnt) = fnt {
                 blit_text_colored(page, fnt, mode.as_str(), row.x + 8, row.y + 4, MENU_TEXT_ACCENT);
@@ -424,22 +380,12 @@ fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str, anim_frame: usize
 }
 
 /// 右栏顶盖：先画 `sdtp` 帧 0 外壳，再把 `sdwrnanm` 当前帧 1:1 贴进窗内（不拉伸、不盖金属边框）。
-fn blit_right_panel_top(
-    page: &mut RgbaImage,
-    decoded: &PageDecodeReport,
-    panel_top: RectPx,
-    warn_anim_frame: usize,
-) {
+fn blit_right_panel_top(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_top: RectPx, warn_anim_frame: usize) {
     if let Some(top) = find_panel(decoded, "sdtp.shp", 0) {
         blit_stretched(page, &top.image, panel_top);
     }
     if let Some(warn) = find_panel(decoded, "sdwrnanm.shp", warn_anim_frame) {
-        blit_rgba(
-            page,
-            &warn.image,
-            panel_top.x + SDWRNANM_OFFSET_X,
-            panel_top.y + SDWRNANM_OFFSET_Y,
-        );
+        blit_rgba(page, &warn.image, panel_top.x + SDWRNANM_OFFSET_X, panel_top.y + SDWRNANM_OFFSET_Y);
     }
 }
 
@@ -458,12 +404,7 @@ fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Opt
 /// 主菜单 owner-draw 文案裁切：未按 `+0/+1/-2/-1`，按下 `+2/+5/-4/-5`。
 fn owner_draw_caption_rect(cell: RectPx, pressed: bool) -> (i32, i32, i32, i32) {
     let (dx, dy) = if pressed { (2, 5) } else { (0, 1) };
-    (
-        cell.x + dx,
-        cell.y + dy,
-        (cell.w - 2 - dx).max(0),
-        (cell.h - dy).max(0),
-    )
+    (cell.x + dx, cell.y + dy, (cell.w - 2 - dx).max(0), (cell.h - dy).max(0))
 }
 
 fn compose_shell_menu_page(
@@ -516,11 +457,14 @@ fn compose_shell_menu_page(
         let wave_frame = wave_button_frames.and_then(|frames| frames.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        } else if pressed_entry_id == Some(*entry_id) && !disabled {
+        }
+        else if pressed_entry_id == Some(*entry_id) && !disabled {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else if hovered_entry_id == Some(*entry_id) && !disabled {
+        }
+        else if hovered_entry_id == Some(*entry_id) && !disabled {
             find_button_hover(decoded, entry_id).unwrap_or(normal)
-        } else {
+        }
+        else {
             normal
         };
         let cell = layout.buttons[i];
@@ -542,23 +486,12 @@ fn compose_shell_menu_page(
     if let Some(fnt) = fnt {
         let title = match captions {
             MenuCaptionKind::Main => Some(resolve_caption(csf, "main_menu", Some("GUI:MainMenu"))),
-            MenuCaptionKind::SinglePlayer => {
-                Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key())))
-            }
+            MenuCaptionKind::SinglePlayer => Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key()))),
             // 战役 / 遭遇战 / 选图标题由各自 compose 按对话框锚点另画。
             MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby | MenuCaptionKind::ChooseMap => None,
         };
         if let Some(title) = title {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                &title,
-                layout.title.x,
-                layout.title.y,
-                layout.title.w,
-                layout.title.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
         }
         // 主菜单 / 单人页底栏：由壳层传入打字机可见切片。
         if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer) {
@@ -646,12 +579,7 @@ pub struct CampaignPaint<'a> {
 
 impl Default for CampaignPaint<'_> {
     fn default() -> Self {
-        Self {
-            selected_side: None,
-            difficulty: 1,
-            track_thumb: None,
-            side_anim_frame: 1,
-        }
+        Self { selected_side: None, difficulty: 1, track_thumb: None, side_anim_frame: 1 }
     }
 }
 
@@ -688,11 +616,7 @@ pub fn compose_campaign_page(
         warn_anim_frame,
     )?;
 
-    let sides = [
-        ("allied", "fsalg.shp", layout.allied),
-        ("tutorial", "fsbclg.shp", layout.tutorial),
-        ("soviet", "fsslg.shp", layout.soviet),
-    ];
+    let sides = [("allied", "fsalg.shp", layout.allied), ("tutorial", "fsbclg.shp", layout.tutorial), ("soviet", "fsslg.shp", layout.soviet)];
     for (id, shp, rect) in sides {
         // `fsbkgdlg` 已烘焙静态徽标。勿整幅不透明拉伸侧图（近黑空区 → 黑块重影）。
         // 悬停/已选：1:1 近黑透叠箭头动画帧。
@@ -702,14 +626,7 @@ pub fn compose_campaign_page(
             let base = find_panel(decoded, shp, 0);
             let frame = paint.side_anim_frame.max(1);
             if let Some(sprite) = find_panel(decoded, shp, frame) {
-                blit_rgba_diff_from_base(
-                    &mut page,
-                    &sprite.image,
-                    base.map(|b| &b.image),
-                    rect.x,
-                    rect.y,
-                    CAMPAIGN_SIDE_NEAR_BLACK_SUM,
-                );
+                blit_rgba_diff_from_base(&mut page, &sprite.image, base.map(|b| &b.image), rect.x, rect.y, CAMPAIGN_SIDE_NEAR_BLACK_SUM);
             }
         }
     }
@@ -730,53 +647,20 @@ pub fn compose_campaign_page(
     if let Some(thumb) = paint.track_thumb {
         let ty = layout.difficulty_track.y + (layout.difficulty_track.h - thumb.height() as i32) / 2;
         blit_rgba(&mut page, thumb, thumb_x, ty);
-    } else {
-        fill_rect(
-            &mut page,
-            RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2),
-            [220, 40, 40, 255],
-        );
+    }
+    else {
+        fill_rect(&mut page, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
     }
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "campaign", Some(campaign_title_csf_key()));
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title,
-            layout.title.x,
-            layout.title.y,
-            layout.title.w,
-            layout.title.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
         let diff_label = resolve_caption(csf, "difficulty", Some("GUI:Difficulty"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &diff_label,
-            layout.difficulty_label.x,
-            layout.difficulty_label.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &diff_label, layout.difficulty_label.x, layout.difficulty_label.y, MENU_TEXT_ENABLED);
         let diff_value = resolve_caption(csf, "difficulty_value", Some(campaign_difficulty_csf_key(paint.difficulty)));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &diff_value,
-            layout.difficulty_value.x,
-            layout.difficulty_value.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &diff_value, layout.difficulty_value.x, layout.difficulty_value.y, MENU_TEXT_ENABLED);
         if let Some(text) = status_text.filter(|s| !s.is_empty()) {
-            blit_text_colored(
-                &mut page,
-                fnt,
-                text,
-                layout.status_help.x,
-                layout.status_help.y,
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(&mut page, fnt, text, layout.status_help.x, layout.status_help.y, MENU_TEXT_ENABLED);
         }
     }
 
@@ -827,9 +711,11 @@ pub fn compose_options_page(
         };
         let sprite = if pressed_entry_id == Some(*entry_id) {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else if hovered_entry_id == Some(*entry_id) {
+        }
+        else if hovered_entry_id == Some(*entry_id) {
             find_button_hover(decoded, entry_id).unwrap_or(normal)
-        } else {
+        }
+        else {
             normal
         };
         let cell = shell.buttons[i];
@@ -845,16 +731,7 @@ pub fn compose_options_page(
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "options", options_dialog_csf_key("title"));
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title,
-            shell.title.x,
-            shell.title.y,
-            shell.title.w,
-            shell.title.h,
-            MENU_TEXT_SECTION,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title, shell.title.x, shell.title.y, shell.title.w, shell.title.h, MENU_TEXT_SECTION);
     }
 
     paint_options_dialog_controls(&mut page, &dlg, state, fnt, csf);
@@ -895,22 +772,14 @@ pub fn compose_exit_confirm_page(
     let dlg = exit_confirm_layout(viewport_w, viewport_h);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dlg.dialog.x, dlg.dialog.y);
-    } else {
+    }
+    else {
         // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
         fill_rect(&mut page, dlg.dialog, [40, 24, 24, 255]);
     }
     if let Some(fnt) = fnt {
         let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
-        blit_caption_top_left_clipped(
-            &mut page,
-            fnt,
-            &prompt,
-            dlg.prompt.x,
-            dlg.prompt.y,
-            dlg.prompt.w,
-            dlg.prompt.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_left_clipped(&mut page, fnt, &prompt, dlg.prompt.x, dlg.prompt.y, dlg.prompt.w, dlg.prompt.h, MENU_TEXT_ENABLED);
     }
     for (i, entry_id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
         let Some(normal) = find_button_normal(decoded, entry_id)
@@ -919,9 +788,11 @@ pub fn compose_exit_confirm_page(
         };
         let sprite = if pressed_entry_id == Some(*entry_id) {
             find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else if hovered_entry_id == Some(*entry_id) {
+        }
+        else if hovered_entry_id == Some(*entry_id) {
             find_button_hover(decoded, entry_id).unwrap_or(normal)
-        } else {
+        }
+        else {
             normal
         };
         let cell = dlg.buttons[i];
@@ -951,11 +822,7 @@ fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
 fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4]) {
     fill_rect(dst, rect, [8, 8, 12, 255]);
     stroke_rect(dst, rect, [180, 24, 24, 255]);
-    fill_rect(
-        dst,
-        RectPx::new(rect.x + 2, rect.y + 2, (rect.w - 4).max(1), (rect.h - 4).max(1)),
-        fill,
-    );
+    fill_rect(dst, RectPx::new(rect.x + 2, rect.y + 2, (rect.w - 4).max(1), (rect.h - 4).max(1)), fill);
 }
 
 fn draw_skirmish_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool, chrome: Option<&SkirmishChromeSprites>) {
@@ -966,34 +833,14 @@ fn draw_skirmish_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool, chro
     }
     fill_rect(dst, box_r, [90, 20, 20, 255]);
     stroke_rect(dst, box_r, [200, 40, 40, 255]);
-    fill_rect(
-        dst,
-        RectPx::new(box_r.x + 2, box_r.y + 2, box_r.w - 4, box_r.h - 4),
-        [12, 12, 16, 255],
-    );
+    fill_rect(dst, RectPx::new(box_r.x + 2, box_r.y + 2, box_r.w - 4, box_r.h - 4), [12, 12, 16, 255]);
     if checked {
-        fill_rect(
-            dst,
-            RectPx::new(box_r.x + 5, box_r.y + 5, 8, 8),
-            [255, 160, 32, 255],
-        );
+        fill_rect(dst, RectPx::new(box_r.x + 5, box_r.y + 5, 8, 8), [255, 160, 32, 255]);
     }
 }
 
-fn draw_skirmish_trackbar(
-    dst: &mut RgbaImage,
-    track: RectPx,
-    pos: i32,
-    max: i32,
-    chrome: Option<&SkirmishChromeSprites>,
-) {
-    let caps = chrome.and_then(|c| {
-        Some((
-            c.track_cap_l.as_ref()?,
-            c.track_cap_m.as_ref()?,
-            c.track_cap_r.as_ref()?,
-        ))
-    });
+fn draw_skirmish_trackbar(dst: &mut RgbaImage, track: RectPx, pos: i32, max: i32, chrome: Option<&SkirmishChromeSprites>) {
+    let caps = chrome.and_then(|c| Some((c.track_cap_l.as_ref()?, c.track_cap_m.as_ref()?, c.track_cap_r.as_ref()?)));
     if let Some((cap_l, cap_m, cap_r)) = caps {
         let h = cap_l.height() as i32;
         let ty = track.y + (track.h - h) / 2;
@@ -1002,12 +849,9 @@ fn draw_skirmish_trackbar(
         blit_rgba(dst, cap_l, track.x, ty);
         blit_rgba(dst, cap_r, track.x + track.w - rw, ty);
         let mid_w = (track.w - lw - rw).max(1);
-        blit_stretched(
-            dst,
-            cap_m,
-            RectPx::new(track.x + lw, ty, mid_w, h),
-        );
-    } else {
+        blit_stretched(dst, cap_m, RectPx::new(track.x + lw, ty, mid_w, h));
+    }
+    else {
         fill_rect(dst, track, [64, 16, 16, 255]);
         let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
         fill_rect(dst, inner, [12, 12, 16, 255]);
@@ -1020,7 +864,8 @@ fn draw_skirmish_trackbar(
     if let Some(thumb) = chrome.and_then(|c| c.track_thumb.as_ref()) {
         let ty = track.y + (track.h - thumb.height() as i32) / 2;
         blit_rgba(dst, thumb, thumb_x, ty);
-    } else {
+    }
+    else {
         let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
         fill_rect(dst, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
     }
@@ -1037,15 +882,7 @@ fn row_color_rgb(paint: &SkirmishLobbyPaint<'_>, row: usize) -> [u8; 3] {
 }
 
 fn row_flag(chrome: Option<&SkirmishChromeSprites>, row: usize) -> Option<&RgbaImage> {
-    chrome.and_then(|c| {
-        c.row_flags.get(row).and_then(|f| f.as_ref()).or_else(|| {
-            if row == 0 {
-                c.flag.as_ref()
-            } else {
-                c.ai_flag.as_ref()
-            }
-        })
-    })
+    chrome.and_then(|c| c.row_flags.get(row).and_then(|f| f.as_ref()).or_else(|| if row == 0 { c.flag.as_ref() } else { c.ai_flag.as_ref() }))
 }
 
 fn blit_flag(dst: &mut RgbaImage, flag: Option<&RgbaImage>, rect: RectPx) {
@@ -1178,11 +1015,7 @@ fn paint_skirmish_lobby_controls(
     let chrome = paint.chrome;
 
     // 玩家名 / 下拉面 / 色块（本地 + 可选 AI 行）。
-    let name_face = if paint.player_name_editing {
-        [40, 40, 56, 255]
-    } else {
-        [16, 16, 20, 255]
-    };
+    let name_face = if paint.player_name_editing { [40, 40, 56, 255] } else { [16, 16, 20, 255] };
     draw_combo_face(page, layout.player_name, name_face);
     let local_rgb = row_color_rgb(paint, 0);
     draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255]);
@@ -1205,13 +1038,7 @@ fn paint_skirmish_lobby_controls(
         }
     }
 
-    let checks = [
-        paint.short_game,
-        paint.mcv_repacks,
-        paint.crates,
-        paint.superweapons,
-        paint.build_off_ally,
-    ];
+    let checks = [paint.short_game, paint.mcv_repacks, paint.crates, paint.superweapons, paint.build_off_ally];
     for (i, checked) in checks.iter().enumerate() {
         draw_skirmish_checkbox(page, layout.checkboxes[i], *checked, chrome);
     }
@@ -1222,40 +1049,21 @@ fn paint_skirmish_lobby_controls(
     draw_skirmish_trackbar(page, layout.track_units, paint.unit_count.clamp(0, 20), 20, chrome);
 
     if let Some(fnt) = fnt {
-        let name_shown = if paint.player_name_editing {
-            format!("{}|", paint.player_name)
-        } else {
-            paint.player_name.to_string()
-        };
+        let name_shown = if paint.player_name_editing { format!("{}|", paint.player_name) } else { paint.player_name.to_string() };
         blit_text_colored(
             page,
             fnt,
             &name_shown,
             layout.player_name.x + 4,
             layout.player_name.y + 2,
-            if paint.player_name_editing {
-                MENU_TEXT_ACCENT
-            } else {
-                MENU_TEXT_ENABLED
-            },
+            if paint.player_name_editing { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
         );
         let country = row_side_name(paint, 0);
         blit_text_colored(page, fnt, country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
 
-        let ai_label = if paint.ai_name.is_empty() {
-            paint.ai_difficulty.to_string()
-        } else {
-            paint.ai_name.to_string()
-        };
+        let ai_label = if paint.ai_name.is_empty() { paint.ai_difficulty.to_string() } else { paint.ai_name.to_string() };
         for i in 0..ai_rows {
-            blit_text_colored(
-                page,
-                fnt,
-                &ai_label,
-                layout.ai_faces[i].x + 4,
-                layout.ai_faces[i].y + 4,
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(page, fnt, &ai_label, layout.ai_faces[i].x + 4, layout.ai_faces[i].y + 4, MENU_TEXT_ENABLED);
             let human_row = i + 1;
             if human_row < layout.side_faces.len() {
                 blit_text_colored(
@@ -1278,14 +1086,7 @@ fn paint_skirmish_lobby_controls(
         ];
         for (i, (key, fb)) in check_labels.iter().enumerate() {
             let r = layout.checkboxes[i];
-            blit_text_colored(
-                page,
-                fnt,
-                &label(key, fb),
-                r.x + SKIRMISH_CHECK_W + 8,
-                r.y + 1,
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(page, fnt, &label(key, fb), r.x + SKIRMISH_CHECK_W + 8, r.y + 1, MENU_TEXT_ENABLED);
         }
 
         blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), layout.label_speed.x, layout.label_speed.y, MENU_TEXT_ENABLED);
@@ -1323,25 +1124,13 @@ fn paint_skirmish_lobby_controls(
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = row_side_name(paint, paint.combo_row);
         for (i, side) in LOBBY_SIDES.iter().enumerate() {
-            let row = RectPx::new(
-                list.x,
-                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
-                list.w,
-                SKIRMISH_COMBO_FACE_H,
-            );
+            let row = RectPx::new(list.x, list.y + (i as i32) * SKIRMISH_COMBO_FACE_H, list.w, SKIRMISH_COMBO_FACE_H);
             let selected = selected_side.eq_ignore_ascii_case(side);
             if selected {
                 fill_rect(page, row, [48, 28, 8, 255]);
             }
             if let Some(fnt) = fnt {
-                blit_text_colored(
-                    page,
-                    fnt,
-                    side,
-                    row.x + 4,
-                    row.y + 4,
-                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
-                );
+                blit_text_colored(page, fnt, side, row.x + 4, row.y + 4, if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
             }
         }
     }
@@ -1352,12 +1141,7 @@ fn paint_skirmish_lobby_controls(
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_rgb = row_color_rgb(paint, paint.combo_row);
         for (i, rgb) in LOBBY_COLORS.iter().enumerate() {
-            let row = RectPx::new(
-                list.x,
-                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
-                list.w,
-                SKIRMISH_COMBO_FACE_H,
-            );
+            let row = RectPx::new(list.x, list.y + (i as i32) * SKIRMISH_COMBO_FACE_H, list.w, SKIRMISH_COMBO_FACE_H);
             let swatch = RectPx::new(row.x + 4, row.y + 4, row.w - 8, row.h - 8);
             fill_rect(page, swatch, [rgb[0], rgb[1], rgb[2], 255]);
             if selected_rgb == *rgb {
@@ -1371,30 +1155,14 @@ fn paint_skirmish_lobby_controls(
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         for (i, diff) in LOBBY_DIFFICULTIES.iter().enumerate() {
-            let row = RectPx::new(
-                list.x,
-                list.y + (i as i32) * SKIRMISH_COMBO_FACE_H,
-                list.w,
-                SKIRMISH_COMBO_FACE_H,
-            );
+            let row = RectPx::new(list.x, list.y + (i as i32) * SKIRMISH_COMBO_FACE_H, list.w, SKIRMISH_COMBO_FACE_H);
             let selected = paint.ai_difficulty.eq_ignore_ascii_case(diff);
             if selected {
                 fill_rect(page, row, [48, 28, 8, 255]);
             }
             if let Some(fnt) = fnt {
-                let label = resolve_caption(
-                    csf,
-                    diff,
-                    Some(crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(diff)),
-                );
-                blit_text_colored(
-                    page,
-                    fnt,
-                    &label,
-                    row.x + 4,
-                    row.y + 4,
-                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
-                );
+                let label = resolve_caption(csf, diff, Some(crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(diff)));
+                blit_text_colored(page, fnt, &label, row.x + 4, row.y + 4, if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
             }
         }
     }
@@ -1439,16 +1207,7 @@ pub fn compose_skirmish_lobby_page(
     }
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title,
-            layout.title.x,
-            layout.title.y,
-            layout.title.w,
-            layout.title.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
         let battle = resolve_caption(csf, "battle", skirmish_lobby_static_csf_key("battle"));
         blit_text_colored(&mut page, fnt, &battle, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
         if !paint.map_name.is_empty() {
@@ -1469,14 +1228,7 @@ pub fn compose_skirmish_lobby_page(
 
     // 底栏状态提示：壳层打字机可见切片。
     if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
-        blit_text_colored(
-            &mut page,
-            fnt,
-            text,
-            layout.status_help.x,
-            layout.status_help.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, text, layout.status_help.x, layout.status_help.y, MENU_TEXT_ENABLED);
     }
 
     Some(page)
@@ -1534,98 +1286,28 @@ pub fn compose_choose_map_page(
 
     let visible_rows = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
     for (i, name) in map_names.iter().take(visible_rows).enumerate() {
-        let row = RectPx::new(
-            layout.map_list.x,
-            layout.map_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H,
-            layout.map_list.w,
-            CHOOSE_MAP_LIST_ROW_H,
-        );
+        let row =
+            RectPx::new(layout.map_list.x, layout.map_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H, layout.map_list.w, CHOOSE_MAP_LIST_ROW_H);
         if Some(i) == selected_map_index {
             fill_rect(&mut page, row, [48, 28, 8, 255]);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                name,
-                row.x + 4,
-                row.y + 1,
-                row.w - 8,
-                row.h - 2,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y + 1, row.w - 8, row.h - 2, MENU_TEXT_ENABLED);
         }
     }
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title,
-            layout.title.x,
-            layout.title.y,
-            layout.title.w,
-            layout.title.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
         let engagement = resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &engagement,
-            layout.label_engagement.x,
-            layout.label_engagement.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &engagement, layout.label_engagement.x, layout.label_engagement.y, MENU_TEXT_ENABLED);
         let game_type = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &game_type,
-            layout.label_game_type.x,
-            layout.label_game_type.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &game_type, layout.label_game_type.x, layout.label_game_type.y, MENU_TEXT_ENABLED);
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &game_map,
-            layout.label_game_map.x,
-            layout.label_game_map.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &game_map, layout.label_game_map.x, layout.label_game_map.y, MENU_TEXT_ENABLED);
         let battle = resolve_caption(csf, "battle", choose_map_static_csf_key("battle"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &battle,
-            type_row.x + 4,
-            type_row.y + 1,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &battle, type_row.x + 4, type_row.y + 1, MENU_TEXT_ENABLED);
     }
 
     Some(page)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::options_dialog::{OptionsDialogLayout, OptionsDialogState};
-    use ra_types::{DisplayMode, PresentFeel};
-
-    #[test]
-    fn paint_options_draws_music_thumb() {
-        let mut page = RgbaImage::from_raw(800, 600, vec![0u8; 800 * 600 * 4]).unwrap();
-        let layout = OptionsDialogLayout::new();
-        let state = OptionsDialogState::from_shell(DisplayMode::W800H600, 1.0, 0.0, PresentFeel::DEFAULT);
-        paint_options_dialog_controls(&mut page, &layout, &state, None, None);
-        let track = layout.track_music;
-        let px = track.x + track.w - 8;
-        let py = track.y + track.h / 2;
-        let di = ((py as u32 * page.width() + px as u32) * 4) as usize;
-        assert_eq!(&page.as_raw()[di..di + 3], &[220, 40, 40]);
-    }
 }

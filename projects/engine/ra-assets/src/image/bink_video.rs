@@ -74,12 +74,7 @@ impl BinkYuvFrame {
     }
 
     /// 按色域分配空平面。
-    pub fn blank_with_range(
-        width: u32,
-        height: u32,
-        with_alpha: bool,
-        color_range: BinkColorRange,
-    ) -> Result<Self, BinkVideoError> {
+    pub fn blank_with_range(width: u32, height: u32, with_alpha: bool, color_range: BinkColorRange) -> Result<Self, BinkVideoError> {
         if width == 0 || height == 0 || width % 2 != 0 || height % 2 != 0 {
             return Err(BinkVideoError::BadSize { width, height });
         }
@@ -100,28 +95,12 @@ impl BinkYuvFrame {
 
     /// 转为紧密 RGBA8（按 [`Self::color_range`]）。
     pub fn to_rgba8(&self) -> Vec<u8> {
-        yuv420_planes_to_rgba8(
-            self.width,
-            self.height,
-            &self.y,
-            &self.u,
-            &self.v,
-            self.a.as_deref(),
-            self.color_range,
-        )
+        yuv420_planes_to_rgba8(self.width, self.height, &self.y, &self.u, &self.v, self.a.as_deref(), self.color_range)
     }
 }
 
 /// YUV420 平面 → RGBA8。
-pub fn yuv420_planes_to_rgba8(
-    width: u32,
-    height: u32,
-    y: &[u8],
-    u: &[u8],
-    v: &[u8],
-    a: Option<&[u8]>,
-    color_range: BinkColorRange,
-) -> Vec<u8> {
+pub fn yuv420_planes_to_rgba8(width: u32, height: u32, y: &[u8], u: &[u8], v: &[u8], a: Option<&[u8]>, color_range: BinkColorRange) -> Vec<u8> {
     let w = width as usize;
     let h = height as usize;
     let uv_w = w / 2;
@@ -159,11 +138,7 @@ fn yuv_to_rgb_mpeg(y: i32, u: i32, v: i32) -> (u8, u8, u8) {
     let c = (y - 16) * 298;
     let d = u - 128;
     let e = v - 128;
-    (
-        clip_u8((c + 409 * e + 128) >> 8),
-        clip_u8((c - 100 * d - 208 * e + 128) >> 8),
-        clip_u8((c + 516 * d + 128) >> 8),
-    )
+    (clip_u8((c + 409 * e + 128) >> 8), clip_u8((c - 100 * d - 208 * e + 128) >> 8), clip_u8((c + 516 * d + 128) >> 8))
 }
 
 /// Full/JPEG：Y0→黑，Y255→白。
@@ -171,11 +146,7 @@ fn yuv_to_rgb_mpeg(y: i32, u: i32, v: i32) -> (u8, u8, u8) {
 fn yuv_to_rgb_jpeg(y: i32, u: i32, v: i32) -> (u8, u8, u8) {
     let d = u - 128;
     let e = v - 128;
-    (
-        clip_u8(y + ((359 * e + 128) >> 8)),
-        clip_u8(y + ((-88 * d - 183 * e + 128) >> 8)),
-        clip_u8(y + ((454 * d + 128) >> 8)),
-    )
+    (clip_u8(y + ((359 * e + 128) >> 8)), clip_u8(y + ((-88 * d - 183 * e + 128) >> 8)), clip_u8(y + ((454 * d + 128) >> 8)))
 }
 
 /// 自有 Bink 视频解码器（双缓冲 + 固定 VLC；平面块逐步填入）。
@@ -295,9 +266,11 @@ impl BinkVideoDecoder {
     fn dest_plane(&self, bitstream_plane: usize) -> usize {
         if bitstream_plane == 0 {
             0
-        } else if matches!(self.version, BinkVersion::BikI | BinkVersion::BikK) {
+        }
+        else if matches!(self.version, BinkVersion::BikI | BinkVersion::BikK) {
             bitstream_plane ^ 3
-        } else {
+        }
+        else {
             bitstream_plane
         }
     }

@@ -1,6 +1,7 @@
 //! N-API 入口：`version` + `launch` + `extract` + `unpack`。
 
 #![deny(clippy::all)]
+#![warn(missing_docs)]
 
 use std::path::PathBuf;
 

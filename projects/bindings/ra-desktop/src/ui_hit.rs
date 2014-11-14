@@ -8,10 +8,9 @@ use crate::{
     menu_action::MenuAction,
     screen::OriginalScreen,
     ui_layout::{
-        CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
-        OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, choose_map_layout,
-        exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
-        window_to_shell_px,
+        CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS,
+        SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
+        options_layout, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
     },
     ui_slots::slots_for,
 };
@@ -281,20 +280,13 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
     let layout = campaign_layout(0, 0);
-    let sides = [
-        (CAMPAIGN_SIDE_IDS[0], layout.allied),
-        (CAMPAIGN_SIDE_IDS[1], layout.tutorial),
-        (CAMPAIGN_SIDE_IDS[2], layout.soviet),
-    ];
+    let sides = [(CAMPAIGN_SIDE_IDS[0], layout.allied), (CAMPAIGN_SIDE_IDS[1], layout.tutorial), (CAMPAIGN_SIDE_IDS[2], layout.soviet)];
     for (id, rect) in sides {
         if rect.contains(sx, sy) {
             return Some(id);
         }
     }
-    if layout.difficulty_track.contains(sx, sy)
-        || layout.difficulty_label.contains(sx, sy)
-        || layout.difficulty_value.contains(sx, sy)
-    {
+    if layout.difficulty_track.contains(sx, sy) || layout.difficulty_label.contains(sx, sy) || layout.difficulty_value.contains(sx, sy) {
         return Some("difficulty");
     }
     for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
@@ -368,14 +360,7 @@ fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Op
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
     let layout = campaign_layout(0, 0);
-    let rects = [
-        layout.allied,
-        layout.tutorial,
-        layout.soviet,
-        layout.difficulty_track,
-        layout.shell.buttons[0],
-        layout.shell.buttons[1],
-    ];
+    let rects = [layout.allied, layout.tutorial, layout.soviet, layout.difficulty_track, layout.shell.buttons[0], layout.shell.buttons[1]];
     for (i, rect) in rects.iter().enumerate() {
         if rect.contains(sx, sy) {
             return Some(i);

@@ -177,10 +177,7 @@ pub fn present_feel_from_toml_text(text: &str, source_label: &str) -> (PresentFe
         Ok(file) => (file.present.sanitized(), Vec::new()),
         Err(e) => (
             PresentFeel::DEFAULT,
-            vec![ConfigDiagnostic {
-                source: source_label.into(),
-                message: format!("[present] 解析失败，已用默认质感: {e}"),
-            }],
+            vec![ConfigDiagnostic { source: source_label.into(), message: format!("[present] 解析失败，已用默认质感: {e}") }],
         ),
     }
 }
@@ -321,11 +318,7 @@ impl RustAlertDocument {
 /// 解析 0..1 音量；非法或非有限值返回 `None`（调用方保留默认）。
 pub fn parse_unit_volume(raw: &str) -> Option<f32> {
     let v: f32 = raw.trim().parse().ok()?;
-    if v.is_finite() {
-        Some(v.clamp(0.0, 1.0))
-    } else {
-        None
-    }
+    if v.is_finite() { Some(v.clamp(0.0, 1.0)) } else { None }
 }
 
 /// 桌面启动设置（由合并后的键值填充）。
@@ -374,11 +367,7 @@ impl DesktopSettings {
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
         }
-        if let Some(v) = merged
-            .get("display_mode")
-            .or_else(|| merged.get("resolution"))
-            .filter(|v| !v.is_empty())
-        {
+        if let Some(v) = merged.get("display_mode").or_else(|| merged.get("resolution")).filter(|v| !v.is_empty()) {
             match DisplayMode::parse(v) {
                 Ok(mode) => s.display_mode = mode,
                 Err(_) => {
@@ -386,18 +375,10 @@ impl DesktopSettings {
                 }
             }
         }
-        if let Some(v) = merged
-            .get("music_volume")
-            .or_else(|| merged.get("score_volume"))
-            .and_then(parse_unit_volume)
-        {
+        if let Some(v) = merged.get("music_volume").or_else(|| merged.get("score_volume")).and_then(parse_unit_volume) {
             s.music_volume = v;
         }
-        if let Some(v) = merged
-            .get("sound_volume")
-            .or_else(|| merged.get("sfx_volume"))
-            .and_then(parse_unit_volume)
-        {
+        if let Some(v) = merged.get("sound_volume").or_else(|| merged.get("sfx_volume")).and_then(parse_unit_volume) {
             s.sound_volume = v;
         }
         if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {

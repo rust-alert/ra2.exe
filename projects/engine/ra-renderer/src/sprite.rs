@@ -146,8 +146,7 @@ impl SpriteGpu {
     }
 
     pub fn replace_image(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, image: &RgbaImage) {
-        let (texture, bind_group, vertex_buffer) =
-            upload(device, queue, &self.bind_group_layout, &self.sampler, image, self.color_space);
+        let (texture, bind_group, vertex_buffer) = upload(device, queue, &self.bind_group_layout, &self.sampler, image, self.color_space);
         self.texture = texture;
         self.bind_group = bind_group;
         self.vertex_buffer = vertex_buffer;
@@ -183,7 +182,8 @@ impl SpriteGpu {
 }
 
 /// 壳层编码域写出用表面 unorm 别名；预览仍用表面原生 sRGB 格式。
-fn target_format_for(surface_format: wgpu::TextureFormat, color_space: SpriteColorSpace) -> wgpu::TextureFormat {
+/// 按色域语义选择 pipeline 颜色目标格式。
+pub fn target_format_for(surface_format: wgpu::TextureFormat, color_space: SpriteColorSpace) -> wgpu::TextureFormat {
     match color_space {
         SpriteColorSpace::Srgb => surface_format,
         SpriteColorSpace::EncodedBytes => surface_format.remove_srgb_suffix(),
@@ -262,32 +262,6 @@ fn camera_quad(img_w: u32, img_h: u32, camera: &Camera, surf_w: u32, surf_h: u32
         Vertex { pos: p01, uv: [0.0, 1.0] },
     ]
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{SpriteColorSpace, target_format_for};
-
-    #[test]
-    fn encoded_bytes_target_strips_srgb_suffix() {
-        assert_eq!(
-            target_format_for(wgpu::TextureFormat::Bgra8UnormSrgb, SpriteColorSpace::EncodedBytes),
-            wgpu::TextureFormat::Bgra8Unorm
-        );
-        assert_eq!(
-            target_format_for(wgpu::TextureFormat::Rgba8UnormSrgb, SpriteColorSpace::EncodedBytes),
-            wgpu::TextureFormat::Rgba8Unorm
-        );
-    }
-
-    #[test]
-    fn srgb_preview_keeps_surface_format() {
-        assert_eq!(
-            target_format_for(wgpu::TextureFormat::Bgra8UnormSrgb, SpriteColorSpace::Srgb),
-            wgpu::TextureFormat::Bgra8UnormSrgb
-        );
-    }
-}
-
 const SPRITE_WGSL: &str = r#"
 struct VertexInput {
     @location(0) pos: vec2<f32>,

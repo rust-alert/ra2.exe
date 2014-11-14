@@ -36,6 +36,8 @@ use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteG
 pub use crate::camera::Camera as ViewCamera;
 /// 帧构建器（投影 → `RenderWorld`）。
 pub use crate::frame::FrameBuilder;
+/// 表面 sRGB → unorm 视图格式列表。
+pub use crate::gpu::encoded_view_formats;
 /// NDC 粗裁剪（marker stub）。
 pub use crate::markers::ndc_visible;
 /// 渲染阶段图。
@@ -48,6 +50,8 @@ pub use crate::png_out::write_png_file;
 pub use crate::resources::RenderResourceCache;
 /// 精灵色域（壳层 UI 用编码字节直通）。
 pub use crate::sprite::SpriteColorSpace;
+/// 精灵 pipeline 目标格式。
+pub use crate::sprite::target_format_for;
 /// 帧分段计时。
 pub use crate::timings::FrameTimings;
 /// 可复用渲染世界。
@@ -349,11 +353,9 @@ impl Renderer {
         let encoded_ui = self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
         let view = if let Some(ui) = self.ui_sprite.as_ref().filter(|s| s.is_encoded_bytes()) {
             // 编码域写出：走 unorm 视图，字节原样落入 sRGB 交换链存储。
-            frame.texture.create_view(&wgpu::TextureViewDescriptor {
-                format: Some(ui.target_format()),
-                ..Default::default()
-            })
-        } else {
+            frame.texture.create_view(&wgpu::TextureViewDescriptor { format: Some(ui.target_format()), ..Default::default() })
+        }
+        else {
             frame.texture.create_view(&wgpu::TextureViewDescriptor::default())
         };
 
@@ -369,11 +371,7 @@ impl Renderer {
             }
         }
 
-        let clear = if encoded_ui {
-            wgpu::Color::BLACK
-        } else {
-            CLEAR_COLOR
-        };
+        let clear = if encoded_ui { wgpu::Color::BLACK } else { CLEAR_COLOR };
         let submit_start = std::time::Instant::now();
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
         {

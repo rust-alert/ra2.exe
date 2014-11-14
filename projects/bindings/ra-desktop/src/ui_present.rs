@@ -9,12 +9,7 @@ use ra_renderer::RgbaImage;
 use ra_types::{PresentFeel, PresentQuantize};
 
 /// 4×4 Bayer 有序抖动矩阵（0..15）。
-const BAYER4: [[u8; 4]; 4] = [
-    [0, 8, 2, 10],
-    [12, 4, 14, 6],
-    [3, 11, 1, 9],
-    [13, 7, 15, 5],
-];
+const BAYER4: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [13, 7, 15, 5]];
 
 /// 就地应用质感呈现；`mode = off` 时无操作。
 pub fn apply_present_feel(image: &mut RgbaImage, feel: PresentFeel) {
@@ -37,7 +32,8 @@ pub fn apply_present_feel(image: &mut RgbaImage, feel: PresentFeel) {
         let dither = if dither_on {
             let b = f32::from(BAYER4[(y as usize) & 3][(x as usize) & 3]);
             (b / 16.0) - 0.5
-        } else {
+        }
+        else {
             0.0
         };
 
@@ -51,7 +47,8 @@ pub fn apply_present_feel(image: &mut RgbaImage, feel: PresentFeel) {
                 let loss = 8u32 - u32::from(bits);
                 let step = (1u32 << loss) as f32;
                 px[c] = quantize_channel_f32(f32::from(px[c]) + dither * step, bits);
-            } else {
+            }
+            else {
                 px[c] = quantize_channel_u8(px[c], bits);
             }
         }
@@ -65,7 +62,9 @@ pub fn present_ui_page(mut image: RgbaImage, feel: PresentFeel) -> RgbaImage {
 }
 
 /// 16 位表面往返：截断到 `bits` 位，再按 `round(n * 255 / max)` 线性展开回 8 位。
-fn quantize_channel_u8(v: u8, bits: u8) -> u8 {
+/// 截断到 \its\ 位再线性展开回 8 位。
+/// 截断到 `bits` 位再线性展开回 8 位。
+pub fn quantize_channel_u8(v: u8, bits: u8) -> u8 {
     let max_c = (1u32 << bits) - 1;
     let loss = 8u32 - u32::from(bits);
     let stepped = (u32::from(v) >> loss).min(max_c);
@@ -74,47 +73,4 @@ fn quantize_channel_u8(v: u8, bits: u8) -> u8 {
 
 fn quantize_channel_f32(v: f32, bits: u8) -> u8 {
     quantize_channel_u8(v.clamp(0.0, 255.0) as u8, bits)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_types::PresentMode;
-
-    fn solid(r: u8, g: u8, b: u8) -> RgbaImage {
-        RgbaImage::from_raw(1, 1, vec![r, g, b, 255]).unwrap()
-    }
-
-    #[test]
-    fn off_is_noop() {
-        let mut img = solid(200, 180, 160);
-        apply_present_feel(&mut img, PresentFeel::OFF);
-        assert_eq!(img.as_raw(), &[200, 180, 160, 255]);
-    }
-
-    #[test]
-    fn default_rgb565_codebook_without_gamma() {
-        let mut img = solid(200, 200, 200);
-        let feel = PresentFeel {
-            mode: PresentMode::Bit16,
-            dither: false,
-            ..PresentFeel::DEFAULT
-        };
-        apply_present_feel(&mut img, feel);
-        // 200 >> 3 = 25 → round(25*255/31)=206。
-        assert_eq!(img.as_raw()[0], 206);
-    }
-
-    #[test]
-    fn five_bit_expand_is_linear_not_bit_replicate() {
-        assert_eq!(quantize_channel_u8(24, 5), 25);
-        assert_ne!(quantize_channel_u8(24, 5), (3u8 << 3) | (3u8 >> 2));
-    }
-
-    #[test]
-    fn transparent_pixels_untouched() {
-        let mut img = RgbaImage::from_raw(1, 1, vec![255, 255, 255, 0]).unwrap();
-        apply_present_feel(&mut img, PresentFeel::DEFAULT);
-        assert_eq!(img.as_raw(), &[255, 255, 255, 0]);
-    }
 }

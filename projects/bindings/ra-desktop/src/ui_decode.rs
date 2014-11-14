@@ -149,8 +149,7 @@ pub fn decode_asset_frames(source: &GameAssetSource, asset: &UiAssetRef) -> Resu
     let origin = hit.explain();
     let mut out = Vec::with_capacity(shp.frames.len());
     for (frame_idx, frame) in shp.frames.iter().enumerate() {
-        let image = frame_to_canvas_rgba(&shp, frame, &palette)
-            .ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;
+        let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;
         out.push(DecodedUiSprite {
             label: format!("{}#{}", asset.name, frame_idx),
             image,
@@ -232,17 +231,9 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
 
     // 切页波浪需要 `SDBTNANM` 全帧；与各钮常态/按下帧共用同一 SHP。
     let mut sdbtnanm_frames = Vec::new();
-    if let Some(btn) = page.buttons.iter().find(|b| {
-        b.normal
-            .as_ref()
-            .is_some_and(|a| a.name.eq_ignore_ascii_case("sdbtnanm.shp"))
-    }) {
+    if let Some(btn) = page.buttons.iter().find(|b| b.normal.as_ref().is_some_and(|a| a.name.eq_ignore_ascii_case("sdbtnanm.shp"))) {
         if let Some(normal) = btn.normal.as_ref() {
-            let all = UiAssetRef {
-                name: normal.name.clone(),
-                palette: normal.palette.clone(),
-                frame: None,
-            };
+            let all = UiAssetRef { name: normal.name.clone(), palette: normal.palette.clone(), frame: None };
             match decode_asset_frames(source, &all) {
                 Ok(frames) => sdbtnanm_frames = frames,
                 Err(e) => errors.push(format!("sdbtnanm 全帧 · {e}")),
@@ -250,13 +241,5 @@ pub fn decode_page_chrome(source: &GameAssetSource, page: &UiPageResources) -> P
         }
     }
 
-    PageDecodeReport {
-        background,
-        panels,
-        button_normals,
-        button_hovers,
-        button_presseds,
-        sdbtnanm_frames,
-        errors,
-    }
+    PageDecodeReport { background, panels, button_normals, button_hovers, button_presseds, sdbtnanm_frames, errors }
 }

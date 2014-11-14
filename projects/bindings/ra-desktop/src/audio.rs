@@ -5,8 +5,7 @@
 use std::num::NonZero;
 
 use ra_assets::PcmAudio;
-use rodio::buffer::SamplesBuffer;
-use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source};
+use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source, buffer::SamplesBuffer};
 
 /// 壳层音频：BGM 单轨循环 + SFX 短音。
 pub struct ShellAudio {
@@ -26,13 +25,7 @@ impl ShellAudio {
         match DeviceSinkBuilder::open_default_sink() {
             Ok(device) => {
                 tracing::info!("音频输出已打开");
-                Some(Self {
-                    _device: device,
-                    music: None,
-                    sfx: Vec::new(),
-                    music_volume: 0.4,
-                    sfx_volume: 0.7,
-                })
+                Some(Self { _device: device, music: None, sfx: Vec::new(), music_volume: 0.4, sfx_volume: 0.7 })
             }
             Err(e) => {
                 tracing::warn!(error = %e, "音频输出不可用，继续静音运行");
@@ -131,14 +124,11 @@ fn pcm_to_source(pcm: &PcmAudio) -> Option<SamplesBuffer> {
                 [f, f]
             })
             .collect()
-    } else {
+    }
+    else {
         pcm.samples.iter().map(|&s| s as f32 / 32768.0).collect()
     };
-    let out_channels = if pcm.channels == 1 {
-        NonZero::new(2).unwrap()
-    } else {
-        channels
-    };
+    let out_channels = if pcm.channels == 1 { NonZero::new(2).unwrap() } else { channels };
     Some(SamplesBuffer::new(out_channels, rate, samples))
 }
 
@@ -187,25 +177,5 @@ pub fn synthetic_ui_click() -> PcmAudio {
         let s = (t * 1800.0 * std::f32::consts::TAU).sin() * env * 0.35;
         samples.push((s * 32767.0) as i16);
     }
-    PcmAudio {
-        sample_rate: RATE,
-        channels: 1,
-        samples,
-    }
+    PcmAudio { sample_rate: RATE, channels: 1, samples }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn soft_ini_get_reads_section_after_noise() {
-        let bytes = b"[SoundList]\n1=MenuClick\nbad line without eq\n[MenuClick]\nSounds=umenucl1\nVolume=90\n";
-        assert_eq!(
-            soft_ini_get(bytes, "MenuClick", "Sounds").as_deref(),
-            Some("umenucl1")
-        );
-        assert_eq!(theme_sound_stem(" $Grinder "), "Grinder");
-    }
-}
-

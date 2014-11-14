@@ -54,11 +54,8 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let (mounted_nested, _) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     // 遭遇战滑条饰条 `trofl`/`trofm`/`trofr` 在安装根 `Wdt.mix`（可缺）。
-    let (mounted_wdt, _) = source.mount_root_plan(&[ra_adaptor::MountSpec {
-        name: "Wdt.mix".to_string(),
-        priority: 0,
-        layer_id: "skirmish-chrome".to_string(),
-    }]);
+    let (mounted_wdt, _) =
+        source.mount_root_plan(&[ra_adaptor::MountSpec { name: "Wdt.mix".to_string(), priority: 0, layer_id: "skirmish-chrome".to_string() }]);
     let mounted_root = mounted_root + mounted_wdt;
 
     let ui_ini_bytes = source.read(manifest.chain.ui_ini).ok();
@@ -78,22 +75,11 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
         (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
-    let note = format!(
-        "菜单资源已挂载 · {} · {ui_bit} · 根mix {mounted_root} · 嵌套 {mounted_nested}",
-        manifest.chain.edition.as_str()
-    );
+    let note = format!("菜单资源已挂载 · {} · {ui_bit} · 根mix {mounted_root} · 嵌套 {mounted_nested}", manifest.chain.edition.as_str());
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
         tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
     }
-    MenuUiAssets {
-        note,
-        edition: Some(manifest.chain.edition),
-        source: Some(source),
-        ui_ini_name,
-        ui_ini_readable,
-        ui_ini,
-        ui_ini_shp_refs,
-    }
+    MenuUiAssets { note, edition: Some(manifest.chain.edition), source: Some(source), ui_ini_name, ui_ini_readable, ui_ini, ui_ini_shp_refs }
 }
 
 /// 最近邻缩小到不超过 max_w×max_h（已更小则克隆）。

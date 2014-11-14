@@ -1,7 +1,6 @@
 //! RIFF WAVE 轻量解析：PCM16 与 Microsoft IMA ADPCM（主题曲常用）。
 
-use super::ima_adpcm;
-use super::{PcmAudio, WavError};
+use super::{PcmAudio, WavError, ima_adpcm};
 
 const WAVE_FORMAT_PCM: u16 = 1;
 const WAVE_FORMAT_IMA_ADPCM: u16 = 17;
@@ -17,7 +16,7 @@ struct WavStream<'a> {
 }
 
 /// 若是 RIFF/WAVE，走自研解码（含 IMA ADPCM）；否则交给调用方回退。
-pub(crate) fn try_decode_riff_wave(data: &[u8]) -> Option<Result<PcmAudio, WavError>> {
+pub fn try_decode_riff_wave(data: &[u8]) -> Option<Result<PcmAudio, WavError>> {
     let stream = parse_riff_wave(data)?;
     Some(decode_stream(stream))
 }
@@ -79,11 +78,7 @@ fn decode_stream(stream: WavStream<'_>) -> Result<PcmAudio, WavError> {
     let samples = match stream.format {
         WAVE_FORMAT_PCM => decode_pcm16(stream.data, stream.channels, stream.bits_per_sample)?,
         WAVE_FORMAT_IMA_ADPCM => {
-            let samples = ima_adpcm::decode_blocks(
-                stream.data,
-                stream.channels,
-                u32::from(stream.block_align),
-            );
+            let samples = ima_adpcm::decode_blocks(stream.data, stream.channels, u32::from(stream.block_align));
             if samples.is_empty() {
                 return Err(WavError::EmptyDecode);
             }
@@ -93,11 +88,7 @@ fn decode_stream(stream: WavStream<'_>) -> Result<PcmAudio, WavError> {
             return Err(WavError::UnsupportedWavFormat(other));
         }
     };
-    Ok(PcmAudio {
-        sample_rate: stream.sample_rate,
-        channels: stream.channels,
-        samples,
-    })
+    Ok(PcmAudio { sample_rate: stream.sample_rate, channels: stream.channels, samples })
 }
 
 fn decode_pcm16(data: &[u8], _channels: u16, bits: u16) -> Result<Vec<i16>, WavError> {
@@ -106,49 +97,9 @@ fn decode_pcm16(data: &[u8], _channels: u16, bits: u16) -> Result<Vec<i16>, WavE
             if data.len() % 2 != 0 {
                 return Err(WavError::EmptyDecode);
             }
-            Ok(data
-                .chunks_exact(2)
-                .map(|c| i16::from_le_bytes([c[0], c[1]]))
-                .collect())
+            Ok(data.chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]])).collect())
         }
         8 => Ok(data.iter().map(|&b| ((b as i16) - 128) << 8).collect()),
         _ => Err(WavError::UnsupportedWavFormat(WAVE_FORMAT_PCM)),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn pcm16_wav(channels: u16, rate: u32, samples: &[i16]) -> Vec<u8> {
-        let data_bytes = samples.len() * 2;
-        let mut out = Vec::new();
-        out.extend_from_slice(b"RIFF");
-        out.extend_from_slice(&(36 + data_bytes as u32).to_le_bytes());
-        out.extend_from_slice(b"WAVE");
-        out.extend_from_slice(b"fmt ");
-        out.extend_from_slice(&16u32.to_le_bytes());
-        out.extend_from_slice(&1u16.to_le_bytes());
-        out.extend_from_slice(&channels.to_le_bytes());
-        out.extend_from_slice(&rate.to_le_bytes());
-        let byte_rate = rate * u32::from(channels) * 2;
-        out.extend_from_slice(&byte_rate.to_le_bytes());
-        out.extend_from_slice(&(channels * 2).to_le_bytes());
-        out.extend_from_slice(&16u16.to_le_bytes());
-        out.extend_from_slice(b"data");
-        out.extend_from_slice(&(data_bytes as u32).to_le_bytes());
-        for s in samples {
-            out.extend_from_slice(&s.to_le_bytes());
-        }
-        out
-    }
-
-    #[test]
-    fn decodes_pcm16_riff() {
-        let samples = [0i16, 1000, -1000];
-        let wav = pcm16_wav(1, 22050, &samples);
-        let pcm = try_decode_riff_wave(&wav).unwrap().unwrap();
-        assert_eq!(pcm.samples, samples);
-        assert_eq!(pcm.sample_rate, 22050);
     }
 }

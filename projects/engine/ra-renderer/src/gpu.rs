@@ -63,12 +63,7 @@ impl GpuContext {
             height: size.height.max(1),
             present_mode: wgpu::PresentMode::Fifo,
             // 优先不透明合成，避免部分驱动在首帧前透出桌面/白底。
-            alpha_mode: caps
-                .alpha_modes
-                .iter()
-                .copied()
-                .find(|m| *m == wgpu::CompositeAlphaMode::Opaque)
-                .unwrap_or(caps.alpha_modes[0]),
+            alpha_mode: caps.alpha_modes.iter().copied().find(|m| *m == wgpu::CompositeAlphaMode::Opaque).unwrap_or(caps.alpha_modes[0]),
             view_formats,
             desired_maximum_frame_latency: 2,
         };
@@ -101,27 +96,8 @@ impl GpuContext {
 }
 
 /// 若 `format` 为 sRGB，则附加其 unorm 别名供编码域壳层绘制。
-fn encoded_view_formats(format: wgpu::TextureFormat) -> Vec<wgpu::TextureFormat> {
+/// 若表面为 sRGB，则附加对应 unorm 视图格式。
+pub fn encoded_view_formats(format: wgpu::TextureFormat) -> Vec<wgpu::TextureFormat> {
     let encoded = format.remove_srgb_suffix();
-    if encoded != format {
-        vec![encoded]
-    } else {
-        Vec::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::encoded_view_formats;
-
-    #[test]
-    fn srgb_surface_exposes_unorm_view_format() {
-        let views = encoded_view_formats(wgpu::TextureFormat::Bgra8UnormSrgb);
-        assert_eq!(views, vec![wgpu::TextureFormat::Bgra8Unorm]);
-    }
-
-    #[test]
-    fn unorm_surface_needs_no_extra_view_format() {
-        assert!(encoded_view_formats(wgpu::TextureFormat::Bgra8Unorm).is_empty());
-    }
+    if encoded != format { vec![encoded] } else { Vec::new() }
 }

@@ -74,14 +74,7 @@ impl ExtractRequest {
 
     /// 从桌面配置构造（覆盖 `out_dir` / `names`）。
     pub fn from_config(cfg: &DesktopConfig, out_dir: PathBuf, names: Vec<String>) -> Self {
-        Self {
-            ra2_dir: cfg.ra2_dir.clone(),
-            edition: cfg.edition.clone(),
-            out_dir,
-            names,
-            palette: None,
-            decode_shp: false,
-        }
+        Self { ra2_dir: cfg.ra2_dir.clone(), edition: cfg.edition.clone(), out_dir, names, palette: None, decode_shp: false }
     }
 }
 
@@ -139,22 +132,10 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
             }
         }
 
-        written.push(ExtractedFile {
-            name: name.clone(),
-            path: dest,
-            bytes: hit.bytes.len(),
-            origin,
-            shp_frames,
-        });
+        written.push(ExtractedFile { name: name.clone(), path: dest, bytes: hit.bytes.len(), origin, shp_frames });
     }
 
-    Ok(ExtractReport {
-        written,
-        missing,
-        edition: manifest.chain.edition.as_str().to_string(),
-        mounted_root,
-        mounted_nested,
-    })
+    Ok(ExtractReport { written, missing, edition: manifest.chain.edition.as_str().to_string(), mounted_root, mounted_nested })
 }
 
 fn sanitize_filename(name: &str) -> String {
@@ -212,10 +193,7 @@ fn load_palette_for_shp(source: &GameAssetSource, shp_name: &str, override_pal: 
             Err(e) => last = Some(format!("{name}: {e}")),
         }
     }
-    Err(RaError::Msg(format!(
-        "no palette for {shp_name}: {}",
-        last.unwrap_or_else(|| "no candidates".into())
-    )))
+    Err(RaError::Msg(format!("no palette for {shp_name}: {}", last.unwrap_or_else(|| "no candidates".into()))))
 }
 
 /// 全量解包请求。
@@ -310,7 +288,8 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
                 bytes_written += entry.bytes.len() as u64;
                 if recovered {
                     named_written += 1;
-                } else {
+                }
+                else {
                     unnamed_written += 1;
                 }
             }

@@ -187,9 +187,7 @@ const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
 ];
 
 /// 战役页：右栏仅「上一页」；中列为空部队格（cameo 后续接线）。
-const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
-];
+const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617))];
 
 /// 战役页面板：壳层 chrome。三侧 `fs*.shp` 供悬停箭头透叠；静态徽标在 `fsbkgdlg`。
 const CAMPAIGN_PANELS: &[UiPanelSlot] = &[

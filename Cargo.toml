@@ -28,6 +28,7 @@ ra-adaptor = { path = "projects/adapters/ra-adaptor" }
 ra-adaptor-ra2 = { path = "projects/adapters/ra-adaptor-ra2" }
 ra-adaptor-yuri = { path = "projects/adapters/ra-adaptor-yuri" }
 ra-adaptor-phobos = { path = "projects/adapters/ra-adaptor-phobos" }
+ra-desktop = { path = "projects/bindings/ra-desktop" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }

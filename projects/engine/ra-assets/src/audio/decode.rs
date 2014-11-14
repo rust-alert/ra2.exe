@@ -5,13 +5,16 @@
 
 use std::io::Cursor;
 
-use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
-use symphonia::core::codecs::CodecParameters;
-use symphonia::core::errors::Error as SymError;
-use symphonia::core::formats::probe::Hint;
-use symphonia::core::formats::{FormatOptions, TrackType};
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::MetadataOptions;
+use symphonia::core::{
+    codecs::{
+        CodecParameters,
+        audio::{AudioCodecParameters, AudioDecoderOptions, CODEC_ID_NULL_AUDIO},
+    },
+    errors::Error as SymError,
+    formats::{FormatOptions, TrackType, probe::Hint},
+    io::MediaSourceStream,
+    meta::MetadataOptions,
+};
 
 use super::{PcmAudio, WavError};
 
@@ -38,29 +41,19 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
         hint.with_extension(ext.trim_start_matches('.'));
     }
 
-    let mut format = symphonia::default::get_probe()
-        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
-        .map_err(map_sym)?;
+    let mut format =
+        symphonia::default::get_probe().probe(&hint, mss, FormatOptions::default(), MetadataOptions::default()).map_err(map_sym)?;
 
-    let track = format
-        .default_track(TrackType::Audio)
-        .ok_or(WavError::NoAudioTrack)?
-        .clone();
+    let track = format.default_track(TrackType::Audio).ok_or(WavError::NoAudioTrack)?.clone();
 
     let audio_params = audio_codec_params(&track.codec_params)?;
     let sample_rate = audio_params.sample_rate.ok_or(WavError::MissingSampleRate)?;
-    let channels = audio_params
-        .channels
-        .as_ref()
-        .map(|c| c.count() as u16)
-        .ok_or(WavError::MissingChannels)?;
+    let channels = audio_params.channels.as_ref().map(|c| c.count() as u16).ok_or(WavError::MissingChannels)?;
     if channels == 0 || channels > 2 {
         return Err(WavError::BadChannels(channels));
     }
 
-    let mut decoder = symphonia::default::get_codecs()
-        .make_audio_decoder(audio_params, &AudioDecoderOptions::default())
-        .map_err(map_sym)?;
+    let mut decoder = symphonia::default::get_codecs().make_audio_decoder(audio_params, &AudioDecoderOptions::default()).map_err(map_sym)?;
 
     let track_id = track.id;
     let mut samples: Vec<i16> = Vec::new();
@@ -99,11 +92,7 @@ pub fn decode_audio_bytes(data: &[u8], hint_ext: Option<&str>) -> Result<PcmAudi
         return Err(WavError::EmptyDecode);
     }
 
-    Ok(PcmAudio {
-        sample_rate,
-        channels,
-        samples,
-    })
+    Ok(PcmAudio { sample_rate, channels, samples })
 }
 
 /// 按 WAV 扩展名提示解码。

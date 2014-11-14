@@ -7,10 +7,7 @@ fn main_menu_and_single_player_are_declared_complete() {
     assert!(!pages.is_empty());
     for page in &pages {
         match page.screen {
-            OriginalScreen::MainMenu
-            | OriginalScreen::SinglePlayerMenu
-            | OriginalScreen::Options
-            | OriginalScreen::ExitConfirm => {
+            OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::ExitConfirm => {
                 assert!(page.declared_refs_complete(), "{} 应已声明背景与可点按钮资源名", page.screen.as_str());
                 assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
                 assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
@@ -46,15 +43,10 @@ fn main_menu_index_keeps_entry_ids() {
 fn exit_confirm_palette_follows_edition() {
     use ra_types::GameEdition;
 
-    let ra2 = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Ra2))
-        .expect("exit confirm");
-    let yr = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Yr))
-        .expect("exit confirm");
+    let ra2 = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Ra2)).expect("exit confirm");
+    let yr = page_resources_from_slots_with_edition(OriginalScreen::ExitConfirm, Some(GameEdition::Yr)).expect("exit confirm");
     fn pudlg_pal(page: &UiPageResources) -> Option<&str> {
-        page.panels
-            .iter()
-            .find(|p| p.name.eq_ignore_ascii_case("pudlgbgn.shp"))
-            .and_then(|p| p.palette.as_deref())
+        page.panels.iter().find(|p| p.name.eq_ignore_ascii_case("pudlgbgn.shp")).and_then(|p| p.palette.as_deref())
     }
     assert_eq!(pudlg_pal(&ra2), Some("dialog.pal"));
     assert_eq!(pudlg_pal(&yr), Some("dialogn.pal"));

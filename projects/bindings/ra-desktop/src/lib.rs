@@ -4,11 +4,11 @@
 
 #![allow(missing_docs)]
 
+pub mod audio;
 pub mod boot;
 pub mod config;
-pub mod fs_source;
-pub mod audio;
 pub mod extract;
+pub mod fs_source;
 pub mod load_job;
 pub mod local_player;
 pub mod match_ctrl;

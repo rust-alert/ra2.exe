@@ -6,8 +6,7 @@
 //! 内置表来自引擎已引用名 + `rules`/`art`/`sound` 等公开 INI 引用；
 //! 可用文本文件继续追加（一行一个逻辑名）。
 
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use ra_types::{RaError, RaResult};
 
@@ -60,9 +59,7 @@ impl MixNameTable {
         let id = mix_hash(&key);
         match self.by_id.get(&id) {
             Some(existing) if existing.eq_ignore_ascii_case(&key) => Ok(()),
-            Some(existing) => Err(RaError::Parse(format!(
-                "mix name hash collision: {existing} vs {key} (id={id})"
-            ))),
+            Some(existing) => Err(RaError::Parse(format!("mix name hash collision: {existing} vs {key} (id={id})"))),
             None => {
                 self.by_id.insert(id, key);
                 Ok(())
@@ -83,28 +80,5 @@ impl MixNameTable {
     pub fn extend_file(&mut self, path: &Path) -> RaResult<usize> {
         let text = std::fs::read_to_string(path).map_err(|e| RaError::Io(format!("{}: {e}", path.display())))?;
         self.extend_lines(&text)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn builtin_has_no_collisions_and_contains_shell_assets() {
-        let table = MixNameTable::builtin().expect("builtin");
-        assert!(table.len() > 100);
-        let id = mix_hash("sdtp.shp");
-        assert_eq!(table.lookup(id), Some("sdtp.shp"));
-        assert_eq!(table.lookup(mix_hash("title.pcx")), Some("title.pcx"));
-    }
-
-    #[test]
-    fn insert_detects_collision() {
-        let mut table = MixNameTable::new();
-        table.insert("alpha.bin").unwrap();
-        // 人为构造极难；用 mock：插入同名应成功，冲突需真实不同名同哈希。
-        table.insert("ALPHA.BIN").unwrap();
-        assert_eq!(table.len(), 1);
     }
 }

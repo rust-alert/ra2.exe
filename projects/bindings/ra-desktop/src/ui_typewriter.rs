@@ -23,11 +23,7 @@ impl Default for TypewriterText {
 impl TypewriterText {
     /// `duration_secs <= 0` 表示瞬间整行，无打字机。
     pub fn new(duration_secs: f64) -> Self {
-        Self {
-            full: String::new(),
-            elapsed: 0.0,
-            duration_secs: duration_secs.max(0.0),
-        }
+        Self { full: String::new(), elapsed: 0.0, duration_secs: duration_secs.max(0.0) }
     }
 
     /// 提交新目标。同文案不重启；换文案则从空前缀重新打字。
@@ -107,52 +103,5 @@ impl TypewriterText {
         let t = (self.elapsed / self.duration_secs).clamp(0.0, 1.0);
         let n = (t * total as f64).ceil() as usize;
         n.clamp(1, total)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn zero_duration_is_instant() {
-        let mut t = TypewriterText::new(0.0);
-        t.set_text("HELLO");
-        assert_eq!(t.visible(), "HELLO");
-        assert!(!t.tick(1.0));
-        assert!(!t.is_animating());
-    }
-
-    #[test]
-    fn finishes_in_about_point_four_seconds() {
-        let mut t = TypewriterText::new(0.4);
-        t.set_text("ABCD");
-        assert_eq!(t.visible(), "");
-        assert!(t.tick(0.05));
-        assert!(t.visible().chars().count() >= 1);
-        assert!(t.visible().chars().count() < 4);
-        assert!(t.tick(0.35));
-        assert_eq!(t.visible(), "ABCD");
-        assert!(!t.is_animating());
-        assert!(!t.tick(0.1));
-    }
-
-    #[test]
-    fn same_text_keeps_progress() {
-        let mut t = TypewriterText::new(0.4);
-        t.set_text("XY");
-        let _ = t.tick(0.4);
-        t.set_text("XY");
-        assert_eq!(t.visible(), "XY");
-    }
-
-    #[test]
-    fn unicode_scalar_steps() {
-        let mut t = TypewriterText::new(0.4);
-        t.set_text("任务AB");
-        let _ = t.tick(0.1);
-        assert_eq!(t.visible().chars().count(), 1);
-        let _ = t.tick(0.3);
-        assert_eq!(t.visible(), "任务AB");
     }
 }

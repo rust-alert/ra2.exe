@@ -24,18 +24,10 @@ pub struct WaveFrames {
 }
 
 /// 显示方向（SlideIn）：保持 10 → 斜坡 10‥5 → 收束 1。
-pub const GROUP_A_IN: WaveFrames = WaveFrames {
-    before: 10,
-    base: 10,
-    after: 1,
-};
+pub const GROUP_A_IN: WaveFrames = WaveFrames { before: 10, base: 10, after: 1 };
 
 /// 关闭方向（SlideOut）：保持 1 → 斜坡 5‥10 → 收束 10。
-pub const GROUP_A_OUT: WaveFrames = WaveFrames {
-    before: 1,
-    base: 5,
-    after: 10,
-};
+pub const GROUP_A_OUT: WaveFrames = WaveFrames { before: 1, base: 5, after: 10 };
 
 /// 波浪方向。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,14 +73,8 @@ pub const CAMPAIGN_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 1 };
 pub const CHOOSE_MAP_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 3 };
 
 /// 主菜单各入口的进场 tick（Exit 与 Options 同为 5）。
-const MAIN_MENU_ENTRY_TICKS: &[(&str, i32)] = &[
-    ("single_player", 1),
-    ("ww_online", 2),
-    ("network", 3),
-    ("movies", 4),
-    ("options", 5),
-    ("exit", 5),
-];
+const MAIN_MENU_ENTRY_TICKS: &[(&str, i32)] =
+    &[("single_player", 1), ("ww_online", 2), ("network", 3), ("movies", 4), ("options", 5), ("exit", 5)];
 
 /// 按槽位下标取进场 tick（槽 0 → tick 1）。
 pub fn entry_tick_for_slot(slot: u32) -> i32 {
@@ -97,10 +83,7 @@ pub fn entry_tick_for_slot(slot: u32) -> i32 {
 
 /// 主菜单按入口 id 取进场 tick；未知 id 回退槽序。
 pub fn main_menu_entry_tick(entry_id: &str, slot: u32) -> i32 {
-    MAIN_MENU_ENTRY_TICKS
-        .iter()
-        .find_map(|(id, tick)| (*id == entry_id).then_some(*tick))
-        .unwrap_or_else(|| entry_tick_for_slot(slot))
+    MAIN_MENU_ENTRY_TICKS.iter().find_map(|(id, tick)| (*id == entry_id).then_some(*tick)).unwrap_or_else(|| entry_tick_for_slot(slot))
 }
 
 /// 总 tick = `N + 3`（含雷达锚点档）+ 尾部。
@@ -114,9 +97,11 @@ pub fn frame_for_tick(tick: i32, entry_tick: i32, direction: WaveDirection) -> u
     let delta = tick - entry_tick;
     let frame = if delta < 0 {
         f.before
-    } else if delta < WAVE_RAMP_STEPS {
+    }
+    else if delta < WAVE_RAMP_STEPS {
         f.base + delta * direction.dir()
-    } else {
+    }
+    else {
         f.after
     };
     frame.max(0) as u16
@@ -135,13 +120,7 @@ pub struct ShellFrameWave {
 impl ShellFrameWave {
     /// 新建进场 / 离场波浪。
     pub fn new(spec: ShellSlideSpec, direction: WaveDirection, now: Instant) -> Self {
-        Self {
-            last_step_at: now,
-            tick: 0,
-            total_ticks: total_ticks_for(spec.slot_count),
-            direction,
-            slot_count: spec.slot_count,
-        }
+        Self { last_step_at: now, tick: 0, total_ticks: total_ticks_for(spec.slot_count), direction, slot_count: spec.slot_count }
     }
 
     /// 当前方向。
@@ -166,11 +145,7 @@ impl ShellFrameWave {
         }
         let step = Duration::from_millis(u64::from(WAVE_TICK_MS));
         let elapsed = now.duration_since(self.last_step_at);
-        if elapsed >= step {
-            None
-        } else {
-            Some(step - elapsed)
-        }
+        if elapsed >= step { None } else { Some(step - elapsed) }
     }
 
     /// 至多推进一 tick（满 30 ms 才动），不跳帧。
@@ -194,64 +169,11 @@ impl ShellFrameWave {
 
     /// 主菜单入口 id 对应的当前帧。
     pub fn frame_for_main_menu_entry(&self, entry_id: &str, slot: u32) -> u16 {
-        frame_for_tick(
-            self.tick as i32,
-            main_menu_entry_tick(entry_id, slot),
-            self.direction,
-        )
+        frame_for_tick(self.tick as i32, main_menu_entry_tick(entry_id, slot), self.direction)
     }
 
     /// 诊断用槽数。
     pub fn slot_count(&self) -> u32 {
         self.slot_count
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn total_ticks_matches_native_table() {
-        for (n, total) in [(3u32, 12), (4, 13), (5, 14), (6, 15)] {
-            assert_eq!(total_ticks_for(n), total, "N={n}");
-        }
-    }
-
-    #[test]
-    fn slide_in_ramps_down_then_settles() {
-        // 槽 0 进场 tick=1：tick1→10 … tick6→5，之后收束 1。
-        assert_eq!(frame_for_tick(0, 1, WaveDirection::SlideIn), 10);
-        assert_eq!(frame_for_tick(1, 1, WaveDirection::SlideIn), 10);
-        assert_eq!(frame_for_tick(2, 1, WaveDirection::SlideIn), 9);
-        assert_eq!(frame_for_tick(6, 1, WaveDirection::SlideIn), 5);
-        assert_eq!(frame_for_tick(7, 1, WaveDirection::SlideIn), 1);
-    }
-
-    #[test]
-    fn slide_out_ramps_up_then_settles() {
-        assert_eq!(frame_for_tick(0, 1, WaveDirection::SlideOut), 1);
-        assert_eq!(frame_for_tick(1, 1, WaveDirection::SlideOut), 5);
-        assert_eq!(frame_for_tick(2, 1, WaveDirection::SlideOut), 6);
-        assert_eq!(frame_for_tick(6, 1, WaveDirection::SlideOut), 10);
-        assert_eq!(frame_for_tick(7, 1, WaveDirection::SlideOut), 10);
-    }
-
-    #[test]
-    fn main_menu_exit_shares_options_stagger() {
-        assert_eq!(main_menu_entry_tick("options", 4), 5);
-        assert_eq!(main_menu_entry_tick("exit", 5), 5);
-    }
-
-    #[test]
-    fn advance_one_tick_per_interval() {
-        let start = Instant::now();
-        let mut wave = ShellFrameWave::new(MAIN_MENU_SLIDE, WaveDirection::SlideIn, start);
-        assert!(!wave.advance(start));
-        assert!(wave.advance(start + Duration::from_millis(30)));
-        assert_eq!(wave.tick(), 1);
-        assert!(!wave.advance(start + Duration::from_millis(45)));
-        assert!(wave.advance(start + Duration::from_millis(60)));
-        assert_eq!(wave.tick(), 2);
     }
 }

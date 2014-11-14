@@ -32,14 +32,7 @@ pub const LOWER_STRIP_H: i32 = 32;
 /// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 ///
 /// 顺序对齐原版 0xE2：前五项连续平铺格，末项 Exit 贴底盖。
-pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = [
-    "single_player",
-    "ww_online",
-    "network",
-    "movies",
-    "options",
-    "exit",
-];
+pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = ["single_player", "ww_online", "network", "movies", "options", "exit"];
 
 /// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
 ///
@@ -154,7 +147,7 @@ pub fn window_to_shell_px(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
 /// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，Exit 贴底盖上沿一行
-///（对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前五项占连续平铺格。
+/// （对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前五项占连续平铺格。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
@@ -212,14 +205,7 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
     let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
     let four = four_stack_plus_exit(layout.panel_top.x, layout.panel_tile.y, exit_y);
     // 合成/命中仍读 `buttons[0..4]`；多出的两格不参与单人页。
-    layout.buttons = [
-        four[0],
-        four[1],
-        four[2],
-        four[3],
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    layout.buttons = [four[0], four[1], four[2], four[3], RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
     layout
 }
 
@@ -227,18 +213,9 @@ fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
     // MS Sans Serif 8pt：x×6/4、y×13/8，四舍五入。
     fn mul_div_round(n: i32, numer: i32, denom: i32) -> i32 {
         let value = n * numer;
-        if value >= 0 {
-            (value + denom / 2) / denom
-        } else {
-            (value - denom / 2) / denom
-        }
+        if value >= 0 { (value + denom / 2) / denom } else { (value - denom / 2) / denom }
     }
-    RectPx::new(
-        mul_div_round(x, 6, 4),
-        mul_div_round(y, 13, 8),
-        mul_div_round(w, 6, 4),
-        mul_div_round(h, 13, 8),
-    )
+    RectPx::new(mul_div_round(x, 6, 4), mul_div_round(y, 13, 8), mul_div_round(w, 6, 4), mul_div_round(h, 13, 8))
 }
 
 fn skirmish_snap_button(source: RectPx, panel_tile_y: i32) -> RectPx {
@@ -311,14 +288,7 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
     let choose = skirmish_snap_button(dlu_rect(318, 176, 108, 23), shell.panel_tile.y);
     // 返回：壳层贴底盖上沿一行（owner-draw 底行惯例），不用对话框里偏上的 `0x5C0` y。
     let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons = [
-        start,
-        choose,
-        back,
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    shell.buttons = [start, choose, back, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
 
     // 行 y DLU：本地 11，其后每行 +16（与模板旗标/下拉一致）。
     let row_y = |i: usize| 11 + (i as i32) * 16;
@@ -410,32 +380,11 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
     // 仅「上一页」贴底盖；右栏其余为部队 cameo 格（后续接线，勿再放载入钮）。
     let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons = [
-        back,
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
-    let allied = RectPx::new(
-        CAMPAIGN_ALLIED_ORIGIN.0,
-        CAMPAIGN_ALLIED_ORIGIN.1,
-        CAMPAIGN_ALLIED_SIZE.0,
-        CAMPAIGN_ALLIED_SIZE.1,
-    );
-    let tutorial = RectPx::new(
-        CAMPAIGN_TUTORIAL_ORIGIN.0,
-        CAMPAIGN_TUTORIAL_ORIGIN.1,
-        CAMPAIGN_TUTORIAL_SIZE.0,
-        CAMPAIGN_TUTORIAL_SIZE.1,
-    );
-    let soviet = RectPx::new(
-        CAMPAIGN_SOVIET_ORIGIN.0,
-        CAMPAIGN_SOVIET_ORIGIN.1,
-        CAMPAIGN_SOVIET_SIZE.0,
-        CAMPAIGN_SOVIET_SIZE.1,
-    );
+    shell.buttons =
+        [back, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
+    let allied = RectPx::new(CAMPAIGN_ALLIED_ORIGIN.0, CAMPAIGN_ALLIED_ORIGIN.1, CAMPAIGN_ALLIED_SIZE.0, CAMPAIGN_ALLIED_SIZE.1);
+    let tutorial = RectPx::new(CAMPAIGN_TUTORIAL_ORIGIN.0, CAMPAIGN_TUTORIAL_ORIGIN.1, CAMPAIGN_TUTORIAL_SIZE.0, CAMPAIGN_TUTORIAL_SIZE.1);
+    let soviet = RectPx::new(CAMPAIGN_SOVIET_ORIGIN.0, CAMPAIGN_SOVIET_ORIGIN.1, CAMPAIGN_SOVIET_SIZE.0, CAMPAIGN_SOVIET_SIZE.1);
     // 难度：原版截图映到 800×600 — 标签 y≈454、轨 y≈483、x≈191、轨宽≈247。
     let diff_label_y = 454;
     let diff_x = 191;
@@ -556,14 +505,7 @@ pub fn choose_map_layout(viewport_w: u32, viewport_h: u32) -> ChooseMapLayout {
     let use_map = skirmish_snap_button(dlu_rect(318, 122, 108, 23), shell.panel_tile.y);
     let create_random = skirmish_snap_button(dlu_rect(318, 149, 108, 23), shell.panel_tile.y);
     let cancel = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons = [
-        use_map,
-        create_random,
-        cancel,
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    shell.buttons = [use_map, create_random, cancel, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
     ChooseMapLayout {
         shell,
         title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),

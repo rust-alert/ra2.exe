@@ -20,24 +20,19 @@ use crate::{
     menu_action::MenuAction,
     preview_job::PreviewJob,
     screen::OriginalScreen,
+    shell_slide::{
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec, WaveDirection,
+    },
     skirmish_setup::{SkirmishBootRequest, hover_entry_at, side_flag_pcx},
+    startup_splash::{self, StartupSplashPresentation},
     ui_assets::{MenuUiAssets, load_menu_ui_assets},
     ui_compose::{self, SkirmishChromeSprites},
     ui_decode, ui_hit, ui_layout,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots_with_edition,
-    ui_present,
-    ui_resolve,
-    ui_text::{
-        campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip,
-        skirmish_lobby_csf_tooltip,
-    },
+    ui_present, ui_resolve,
+    ui_text::{campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip, skirmish_lobby_csf_tooltip},
     ui_typewriter::TypewriterText,
-    shell_slide::{
-        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
-        ShellFrameWave, ShellSlideSpec, WaveDirection,
-    },
-    startup_splash::{self, StartupSplashPresentation},
 };
 
 /// 外壳持有的可导航应用状态。
@@ -359,11 +354,7 @@ impl AppShell {
         if let Some(audio) = self.audio.as_mut() {
             audio.set_music_volume(music_volume);
             audio.set_sfx_volume(sound_volume);
-            tracing::info!(
-                music_volume = audio.music_volume(),
-                sound_volume = audio.sfx_volume(),
-                "已应用壳层音量"
-            );
+            tracing::info!(music_volume = audio.music_volume(), sound_volume = audio.sfx_volume(), "已应用壳层音量");
         }
     }
 
@@ -418,10 +409,7 @@ impl AppShell {
     fn handle_options_press(&mut self) -> bool {
         let layout = crate::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
-        let Some(hit) = self
-            .options_state
-            .as_mut()
-            .and_then(|state| state.on_press(&layout, x, y))
+        let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(&layout, x, y))
         else {
             return false;
         };
@@ -460,11 +448,7 @@ impl AppShell {
     fn handle_options_drag(&mut self) -> bool {
         let layout = crate::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
-        let dragged = self
-            .options_state
-            .as_mut()
-            .map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y))
-            .unwrap_or(false);
+        let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y)).unwrap_or(false);
         if !dragged {
             return false;
         }
@@ -578,9 +562,7 @@ impl AppShell {
                     self.refresh_menu_backdrop();
                 }
             }
-            PhysicalKey::Code(KeyCode::Escape)
-            | PhysicalKey::Code(KeyCode::Enter)
-            | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+            PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                 self.skirmish.end_name_edit();
                 self.refresh_menu_backdrop();
             }
@@ -599,10 +581,7 @@ impl AppShell {
     fn handle_campaign_press(&mut self) -> bool {
         let layout = ui_layout::campaign_layout(0, 0);
         let (x, y) = self.shell_cursor_px();
-        if !(layout.difficulty_track.contains(x, y)
-            || layout.difficulty_label.contains(x, y)
-            || layout.difficulty_value.contains(x, y))
-        {
+        if !(layout.difficulty_track.contains(x, y) || layout.difficulty_label.contains(x, y) || layout.difficulty_value.contains(x, y)) {
             return false;
         }
         self.campaign_dragging = true;
@@ -669,18 +648,10 @@ impl AppShell {
             self.refresh_shell_title();
         }
         let now = Instant::now();
-        let hold_active = self
-            .startup_splash
-            .as_ref()
-            .is_some_and(|splash| splash.is_active(now));
+        let hold_active = self.startup_splash.as_ref().is_some_and(|splash| splash.is_active(now));
         let min_ok = !hold_active;
         if self.splash_preload_done && (min_ok || self.splash_skip) {
-            tracing::info!(
-                hold_active,
-                min = self.splash_min_secs,
-                skip = self.splash_skip,
-                "启动闪屏结束 → 主菜单"
-            );
+            tracing::info!(hold_active, min = self.splash_min_secs, skip = self.splash_skip, "启动闪屏结束 → 主菜单");
             self.startup_splash = None;
             self.set_screen(OriginalScreen::MainMenu);
             self.maybe_start_slide_in();
@@ -724,11 +695,7 @@ impl AppShell {
             let client_w = self.window_width.round().max(1.0) as u32;
             let client_h = self.window_height.round().max(1.0) as u32;
             let minimum = std::time::Duration::from_secs_f64(self.splash_min_secs.max(0.0));
-            let prefer_md = self
-                .menu_assets
-                .as_ref()
-                .and_then(|a| a.edition)
-                .is_some_and(startup_splash::prefer_md_splash);
+            let prefer_md = self.menu_assets.as_ref().and_then(|a| a.edition).is_some_and(startup_splash::prefer_md_splash);
             let built = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
                 None => {
                     tracing::warn!("启动闪屏 · 安装资源源未挂载，使用黑底占位");
@@ -762,7 +729,8 @@ impl AppShell {
                     self.refresh_shell_title();
                 }
                 self.startup_splash = Some(splash);
-            } else if !self.banner.contains("闪屏缺图") {
+            }
+            else if !self.banner.contains("闪屏缺图") {
                 self.banner = format!("{} · 闪屏缺图", self.banner);
                 self.refresh_shell_title();
             }
@@ -1013,10 +981,7 @@ impl AppShell {
             // `menu_frame_wave` 由切页状态机显式启停，不在此清空。
             if !matches!(
                 next,
-                OriginalScreen::MainMenu
-                    | OriginalScreen::SinglePlayerMenu
-                    | OriginalScreen::Options
-                    | OriginalScreen::ExitConfirm
+                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::ExitConfirm
             ) {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
@@ -1063,9 +1028,7 @@ impl AppShell {
     }
 
     fn ensure_menu_text_assets(&mut self) {
-        if (self.menu_font.is_some() || self.menu_font_tried)
-            && (self.menu_csf.is_some() || self.menu_csf_tried)
-        {
+        if (self.menu_font.is_some() || self.menu_font_tried) && (self.menu_csf.is_some() || self.menu_csf_tried) {
             return;
         }
         let source = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
@@ -1107,20 +1070,16 @@ impl AppShell {
         }
     }
 
-
     /// 当前底栏可见切片；空串视为无提示。
     fn status_line_visible(&self) -> Option<&str> {
         let text = self.status_line.visible();
-        if text.is_empty() {
-            None
-        } else {
-            Some(text)
-        }
+        if text.is_empty() { None } else { Some(text) }
     }
 
     /// 按当前页面与悬停入口解析 CSF 提示，提交给打字机。
     fn sync_status_line_from_hover(&mut self) {
-        let Some(entry) = self.menu_hovered_entry else {
+        let Some(entry) = self.menu_hovered_entry
+        else {
             self.status_line.clear();
             return;
         };
@@ -1131,12 +1090,11 @@ impl AppShell {
             OriginalScreen::SkirmishLobby => skirmish_lobby_csf_tooltip(entry),
             _ => None,
         };
-        let text = key
-            .and_then(|k| resolve_csf_text(self.menu_csf.as_ref(), k))
-            .unwrap_or_default();
+        let text = key.and_then(|k| resolve_csf_text(self.menu_csf.as_ref(), k)).unwrap_or_default();
         if text.is_empty() {
             self.status_line.clear();
-        } else {
+        }
+        else {
             self.status_line.set_text(text);
         }
     }
@@ -1251,15 +1209,10 @@ impl AppShell {
                         self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SkirmishLobby => {
-                        let map_name = self
-                            .selected_map
-                            .clone()
-                            .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()))
-                            .unwrap_or_default();
+                        let map_name =
+                            self.selected_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone())).unwrap_or_default();
                         let country = self.skirmish.side.clone();
-                        let ai_csf = crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(
-                            &self.skirmish.difficulty,
-                        );
+                        let ai_csf = crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
                             .as_ref()
@@ -1285,12 +1238,9 @@ impl AppShell {
                             credits: self.skirmish.credits,
                             unit_count: self.skirmish.unit_count,
                             player_name_editing: self.skirmish.player_name_editing,
-                            country_combo_open: self.skirmish.open_combo
-                                == Some(crate::skirmish_setup::SkirmishComboKind::Country),
-                            color_combo_open: self.skirmish.open_combo
-                                == Some(crate::skirmish_setup::SkirmishComboKind::Color),
-                            ai_combo_open: self.skirmish.open_combo
-                                == Some(crate::skirmish_setup::SkirmishComboKind::Ai),
+                            country_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Country),
+                            color_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Color),
+                            ai_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
@@ -1312,11 +1262,9 @@ impl AppShell {
                         )
                     }
                     OriginalScreen::ChooseMap => {
-                        let map_names: Vec<&str> =
-                            self.lobby_maps.iter().map(|m| m.file_name.as_str()).collect();
-                        let selected_map_index = self.selected_map.as_ref().and_then(|sel| {
-                            self.lobby_maps.iter().position(|m| &m.file_name == sel)
-                        });
+                        let map_names: Vec<&str> = self.lobby_maps.iter().map(|m| m.file_name.as_str()).collect();
+                        let selected_map_index =
+                            self.selected_map.as_ref().and_then(|sel| self.lobby_maps.iter().position(|m| &m.file_name == sel));
                         ui_compose::compose_choose_map_page(
                             decoded,
                             self.window_width as u32,
@@ -1364,16 +1312,8 @@ impl AppShell {
         }
         self.audio_bag_tried = true;
         self.ensure_menu_assets();
-        let idx_bytes = self
-            .menu_assets
-            .as_ref()
-            .and_then(|a| a.source.as_ref())
-            .and_then(|s| s.read("audio.idx").ok());
-        let bag_bytes = self
-            .menu_assets
-            .as_ref()
-            .and_then(|a| a.source.as_ref())
-            .and_then(|s| s.read("audio.bag").ok());
+        let idx_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("audio.idx").ok());
+        let bag_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("audio.bag").ok());
         let Some((idx, bag)) = idx_bytes.zip(bag_bytes)
         else {
             tracing::debug!("audio.idx/audio.bag 不可读");
@@ -1404,10 +1344,7 @@ impl AppShell {
 
     /// 从挂载源读逻辑文件名。
     fn read_asset_bytes(&self, name: &str) -> Option<Vec<u8>> {
-        self.menu_assets
-            .as_ref()
-            .and_then(|a| a.source.as_ref())
-            .and_then(|s| s.read(name).ok())
+        self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read(name).ok())
     }
 
     /// 解析 INI；失败时仍可用 `soft_ini_get`。
@@ -1502,16 +1439,9 @@ impl AppShell {
             .as_ref()
             .and_then(|d| d.get(event_id, "Sounds"))
             .map(str::to_string)
-            .or_else(|| {
-                self.read_asset_bytes("sound.ini")
-                    .and_then(|b| crate::audio::soft_ini_get(&b, event_id, "Sounds"))
-            })
+            .or_else(|| self.read_asset_bytes("sound.ini").and_then(|b| crate::audio::soft_ini_get(&b, event_id, "Sounds")))
             .unwrap_or_default();
-        line.split_whitespace()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .collect()
+        line.split_whitespace().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
     }
 
     /// 按 `theme.ini` 词干尝试 `{stem}.wav` / `{stem}.aud`（通常来自 `THEME.MIX`）。
@@ -1548,15 +1478,9 @@ impl AppShell {
 
     /// 主题曲缺失诊断（仅当前 `--path` 安装根）。
     fn warn_theme_unavailable(&self, stem: &str) {
-        let theme_note = match self
-            .read_asset_bytes("theme.mix")
-            .or_else(|| self.read_asset_bytes("Theme.mix"))
-        {
+        let theme_note = match self.read_asset_bytes("theme.mix").or_else(|| self.read_asset_bytes("Theme.mix")) {
             Some(bytes) if bytes.as_slice() == b"CLASS" || bytes.len() < 64 => {
-                format!(
-                    "theme.mix 为占位（{} 字节），无法读取 {stem}.wav",
-                    bytes.len()
-                )
+                format!("theme.mix 为占位（{} 字节），无法读取 {stem}.wav", bytes.len())
             }
             Some(bytes) => format!("theme.mix 可读（{} 字节）但未解出 {stem}.wav/.aud", bytes.len()),
             None => format!("无 theme.mix，且未解出 {stem}.wav/.aud"),
@@ -1566,10 +1490,7 @@ impl AppShell {
 
     /// 惰性装载菜单 BGM / 点击 / 切页进出采样。
     fn ensure_menu_audio_assets(&mut self) {
-        if (self.menu_bgm.is_some() || self.menu_bgm_tried)
-            && self.menu_click.is_some()
-            && self.menu_move_out_tried
-            && self.menu_move_in_tried
+        if (self.menu_bgm.is_some() || self.menu_bgm_tried) && self.menu_click.is_some() && self.menu_move_out_tried && self.menu_move_in_tried
         {
             return;
         }
@@ -1579,7 +1500,8 @@ impl AppShell {
             let stem = self.menu_theme_sound_stem();
             if let Some(pcm) = self.decode_theme_track(&stem) {
                 self.menu_bgm = Some(pcm);
-            } else {
+            }
+            else {
                 self.warn_theme_unavailable(&stem);
             }
         }
@@ -1652,7 +1574,8 @@ impl AppShell {
                     self.menu_bgm_playing = true;
                 }
             }
-        } else if self.menu_bgm_playing {
+        }
+        else if self.menu_bgm_playing {
             if let Some(audio) = self.audio.as_mut() {
                 audio.stop_music();
             }
@@ -1826,7 +1749,8 @@ impl AppShell {
                 .map(|(i, id)| {
                     if self.screen == OriginalScreen::MainMenu {
                         wave.frame_for_main_menu_entry(id, i as u32)
-                    } else {
+                    }
+                    else {
                         wave.frame_for_slot(i as u32)
                     }
                 })
@@ -1839,7 +1763,8 @@ impl AppShell {
         if self.menu_frame_wave.is_some() {
             return;
         }
-        let Some(spec) = Self::slide_spec_for(self.screen) else {
+        let Some(spec) = Self::slide_spec_for(self.screen)
+        else {
             return;
         };
         self.menu_frame_wave = Some(ShellFrameWave::new(spec, WaveDirection::SlideIn, Instant::now()));
@@ -1856,8 +1781,7 @@ impl AppShell {
             if let Some(spec) = Self::slide_spec_for(self.screen) {
                 self.menu_pressed_entry = None;
                 self.menu_pending_commit = Some(action);
-                self.menu_frame_wave =
-                    Some(ShellFrameWave::new(spec, WaveDirection::SlideOut, Instant::now()));
+                self.menu_frame_wave = Some(ShellFrameWave::new(spec, WaveDirection::SlideOut, Instant::now()));
                 self.play_menu_move_out();
                 self.refresh_menu_backdrop();
                 return;
@@ -1874,7 +1798,8 @@ impl AppShell {
 
     /// 推进切页波浪。`SlideOut` 结束后提交排队动作并启动 `SlideIn`。
     fn tick_menu_frame_wave(&mut self, event_loop: &ActiveEventLoop) {
-        let Some(wave) = self.menu_frame_wave.as_mut() else {
+        let Some(wave) = self.menu_frame_wave.as_mut()
+        else {
             return;
         };
         let now = Instant::now();
@@ -1891,10 +1816,12 @@ impl AppShell {
             if let Some(action) = self.menu_pending_commit.take() {
                 self.commit_menu_action(event_loop, action);
                 self.maybe_start_slide_in();
-            } else {
+            }
+            else {
                 self.refresh_menu_backdrop();
             }
-        } else {
+        }
+        else {
             self.refresh_menu_backdrop();
         }
     }
@@ -2022,11 +1949,7 @@ impl AppShell {
         self.ensure_lobby_maps();
         self.choose_map_revert = Some(self.skirmish.preferred_map.clone());
         if self.selected_map.is_none() {
-            self.selected_map = self
-                .skirmish
-                .preferred_map
-                .clone()
-                .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
+            self.selected_map = self.skirmish.preferred_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
         }
         self.set_screen(OriginalScreen::ChooseMap);
         self.banner = "选图".into();
@@ -2058,20 +1981,11 @@ impl AppShell {
 
     /// 进入选项页并快照当前显示档 / 音量 / 质感草稿。
     fn open_options_page(&mut self) {
-        let (music, sound) = self
-            .audio
-            .as_ref()
-            .map(|a| (a.music_volume(), a.sfx_volume()))
-            .unwrap_or((0.4, 0.7));
+        let (music, sound) = self.audio.as_ref().map(|a| (a.music_volume(), a.sfx_volume())).unwrap_or((0.4, 0.7));
         self.options_volume_baseline = Some((music, sound));
         self.options_present_baseline = Some(self.present);
         self.options_pointer_consumed = false;
-        self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(
-            self.display_mode,
-            music,
-            sound,
-            self.present,
-        ));
+        self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
         self.set_screen(OriginalScreen::Options);
     }
 
@@ -2111,11 +2025,7 @@ impl AppShell {
         }
         self.apply_present_feel(state.present);
         match ra_config::DesktopSettings::persist_present_feel(self.present) {
-            Ok(()) => tracing::info!(
-                mode = self.present.mode.as_str(),
-                dither = self.present.dither,
-                "已写入 [present]"
-            ),
+            Ok(()) => tracing::info!(mode = self.present.mode.as_str(), dither = self.present.dither, "已写入 [present]"),
             Err(e) => tracing::warn!(error = %e, "写入 [present] 失败"),
         }
         if state.display_mode != self.display_mode {
@@ -2181,10 +2091,7 @@ impl AppShell {
                 )
             }
             OriginalScreen::ChooseMap => {
-                format!(
-                    "ra2 · 选图 · {} · Esc 回大厅 · F12 截图",
-                    self.selected_map.as_deref().unwrap_or("（未选）")
-                )
+                format!("ra2 · 选图 · {} · Esc 回大厅 · F12 截图", self.selected_map.as_deref().unwrap_or("（未选）"))
             }
             OriginalScreen::Network => "ra2 · 网络（占位禁用）· Esc 返回 · F12 截图".into(),
             OriginalScreen::LoadScreen => {
@@ -2196,10 +2103,7 @@ impl AppShell {
                 }
             }
             OriginalScreen::Options => {
-                format!(
-                    "ra2 · 选项 · {} · 视频循环分辨率 · Esc 返回 · F12 截图",
-                    self.banner
-                )
+                format!("ra2 · 选项 · {} · 视频循环分辨率 · Esc 返回 · F12 截图", self.banner)
             }
             OriginalScreen::ExitConfirm => {
                 format!("ra2 · 确认退出 · {} · Enter 退出 · Esc 取消 · F12 截图", self.banner)
@@ -2477,12 +2381,7 @@ impl AppShell {
                     | OriginalScreen::SkirmishLobby
                     | OriginalScreen::ChooseMap
             ) {
-                let dt = self
-                    .menu_movie_clock
-                    .replace(Instant::now())
-                    .map(|t0| t0.elapsed().as_secs_f64())
-                    .unwrap_or(0.0)
-                    .min(0.25);
+                let dt = self.menu_movie_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0).min(0.25);
                 let movie_advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt));
                 let status_advanced = self.status_line.tick(dt);
                 // WARNING 窗内动画：分类器间隔 100ms（10 FPS），勿与全局 15 FPS chrome 时钟混用。
@@ -2497,49 +2396,40 @@ impl AppShell {
                 );
                 let mut panel_advanced = false;
                 if warn_pages {
-                    let panel_dt = self
-                        .menu_panel_anim_clock
-                        .replace(Instant::now())
-                        .map(|t0| t0.elapsed().as_secs_f64())
-                        .unwrap_or(0.0)
-                        .min(0.25);
+                    let panel_dt =
+                        self.menu_panel_anim_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0).min(0.25);
                     self.menu_panel_anim_accum += panel_dt;
                     while self.menu_panel_anim_accum >= WARN_FRAME_SECS {
                         self.menu_panel_anim_accum -= WARN_FRAME_SECS;
                         self.menu_panel_anim_frame = self.menu_panel_anim_frame.wrapping_add(1);
                         panel_advanced = true;
                     }
-                } else {
+                }
+                else {
                     self.menu_panel_anim_clock = None;
                 }
                 let mut side_advanced = false;
                 if self.screen == OriginalScreen::Campaign {
-                    let side_hot = matches!(
-                        self.menu_hovered_entry,
-                        Some("allied" | "tutorial" | "soviet")
-                    ) || self.campaign_side.is_some();
+                    let side_hot = matches!(self.menu_hovered_entry, Some("allied" | "tutorial" | "soviet")) || self.campaign_side.is_some();
                     if side_hot {
                         const SIDE_FRAME_SECS: f64 = 1.0 / 12.0;
-                        let side_dt = self
-                            .campaign_side_anim_clock
-                            .replace(Instant::now())
-                            .map(|t0| t0.elapsed().as_secs_f64())
-                            .unwrap_or(0.0)
-                            .min(0.25);
+                        let side_dt =
+                            self.campaign_side_anim_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0).min(0.25);
                         self.campaign_side_anim_accum += side_dt;
                         while self.campaign_side_anim_accum >= SIDE_FRAME_SECS {
                             self.campaign_side_anim_accum -= SIDE_FRAME_SECS;
-                            self.campaign_side_anim_frame =
-                                self.campaign_side_anim_frame.wrapping_add(1).max(1);
+                            self.campaign_side_anim_frame = self.campaign_side_anim_frame.wrapping_add(1).max(1);
                             side_advanced = true;
                         }
-                    } else {
+                    }
+                    else {
                         self.campaign_side_anim_clock = None;
                     }
                 }
                 if movie_advanced || side_advanced || status_advanced || panel_advanced {
                     self.refresh_menu_backdrop();
-                } else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
+                }
+                else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
                     if !self.banner.contains("影片失步") {
                         self.banner = format!("{} · 影片失步 · {reason}", self.banner);
                     }
@@ -2708,11 +2598,14 @@ impl ApplicationHandler for AppShell {
                     self.cursor = (logical.x, logical.y);
                     if self.screen == OriginalScreen::Options && self.handle_options_drag() {
                         // 拖动滑条已刷新。
-                    } else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_drag() {
+                    }
+                    else if self.screen == OriginalScreen::SkirmishLobby && self.handle_skirmish_drag() {
                         // 遭遇战滑条拖动已刷新。
-                    } else if self.screen == OriginalScreen::Campaign && self.handle_campaign_drag() {
+                    }
+                    else if self.screen == OriginalScreen::Campaign && self.handle_campaign_drag() {
                         // 战役难度滑条拖动已刷新。
-                    } else if matches!(
+                    }
+                    else if matches!(
                         self.screen,
                         OriginalScreen::MainMenu
                             | OriginalScreen::SinglePlayerMenu
@@ -2798,7 +2691,8 @@ impl ApplicationHandler for AppShell {
                             }
                             if consumed {
                                 self.refresh_menu_backdrop();
-                            } else if let Some(action) = ui_hit::hit_action(
+                            }
+                            else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
                                 self.selected_map.as_deref(),
@@ -2820,7 +2714,8 @@ impl ApplicationHandler for AppShell {
                             }
                             if consumed {
                                 self.refresh_menu_backdrop();
-                            } else if let Some(action) = ui_hit::hit_action(
+                            }
+                            else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
                                 self.selected_map.as_deref(),
@@ -2842,7 +2737,8 @@ impl ApplicationHandler for AppShell {
                             }
                             if consumed {
                                 // 难度已在按下/拖动时落档，勿再 CycleCampaignDifficulty。
-                            } else if let Some(action) = ui_hit::hit_action(
+                            }
+                            else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
                                 self.selected_map.as_deref(),
@@ -2879,7 +2775,8 @@ impl ApplicationHandler for AppShell {
                     if key_ev.state == ElementState::Pressed {
                         if self.handle_skirmish_name_key(key_ev) {
                             // 编辑玩家名时吞掉大厅快捷键。
-                        } else {
+                        }
+                        else {
                             self.handle_pre_game_key(event_loop, key_ev.physical_key);
                         }
                     }
@@ -2897,7 +2794,7 @@ impl ApplicationHandler for AppShell {
 }
 
 /// 战役难度轨鼠标 X → 档位 0..=2（与遭遇战滑条同一套整数映射）。
-fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) -> u8 {
+pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) -> u8 {
     let travel = (track.w - 12).max(1);
     let rel = (mouse_x - track.x - 6).clamp(0, travel);
     ((rel * 2 + travel / 2) / travel).clamp(0, 2) as u8
@@ -2978,27 +2875,5 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
-    Ok((
-        LaunchMode::MainMenu,
-        display_mode,
-        settings.music_volume,
-        settings.sound_volume,
-        settings.present,
-        None,
-        None,
-    ))
-}
-
-#[cfg(test)]
-mod campaign_track_tests {
-    use super::campaign_difficulty_from_track_x;
-    use crate::ui_layout::campaign_layout;
-
-    #[test]
-    fn difficulty_track_maps_left_mid_right() {
-        let track = campaign_layout(800, 600).difficulty_track;
-        assert_eq!(campaign_difficulty_from_track_x(track, track.x + 2), 0);
-        assert_eq!(campaign_difficulty_from_track_x(track, track.x + track.w / 2), 1);
-        assert_eq!(campaign_difficulty_from_track_x(track, track.x + track.w - 2), 2);
-    }
+    Ok((LaunchMode::MainMenu, display_mode, settings.music_volume, settings.sound_volume, settings.present, None, None))
 }

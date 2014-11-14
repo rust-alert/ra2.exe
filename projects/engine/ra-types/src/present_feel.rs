@@ -1,7 +1,7 @@
 //! 壳层质感呈现：在 32 位管线上模拟原版 16 位色 DirectDraw 观感。
 //!
 //! 原版零售客户区多为 RGB565。呈现侧只做 **16 位截断量化 + 满量程线性展开**
-//!（可选有序抖动）。亮度观感由资源解码（如 BIK 色域）决定，不用显示伽马拧 UI。
+//! （可选有序抖动）。亮度观感由资源解码（如 BIK 色域）决定，不用显示伽马拧 UI。
 //!
 //! 落盘形态为 `RustAlert.toml` 的 `[present]` 表，由 `toml_edit` + serde 读写。
 
@@ -75,18 +75,10 @@ impl Default for PresentFeel {
 
 impl PresentFeel {
     /// 产品默认：开启 16 位质感模拟。
-    pub const DEFAULT: Self = Self {
-        mode: PresentMode::Bit16,
-        quantize: PresentQuantize::Rgb565,
-        dither: true,
-    };
+    pub const DEFAULT: Self = Self { mode: PresentMode::Bit16, quantize: PresentQuantize::Rgb565, dither: true };
 
     /// 对照用：关闭模拟。
-    pub const OFF: Self = Self {
-        mode: PresentMode::Off,
-        quantize: PresentQuantize::Rgb565,
-        dither: false,
-    };
+    pub const OFF: Self = Self { mode: PresentMode::Off, quantize: PresentQuantize::Rgb565, dither: false };
 
     /// 是否会对像素做呈现变换。
     pub const fn is_active(self) -> bool {
@@ -95,10 +87,6 @@ impl PresentFeel {
 
     /// 夹紧到合法范围（配置加载后调用）。
     pub fn sanitized(self) -> Self {
-        Self {
-            mode: self.mode,
-            quantize: self.quantize,
-            dither: self.dither,
-        }
+        Self { mode: self.mode, quantize: self.quantize, dither: self.dither }
     }
 }

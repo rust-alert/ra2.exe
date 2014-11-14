@@ -2,11 +2,10 @@
 
 /// IMA 步长表（89 项，公开标准）。
 const STEP_TABLE: [i32; 89] = [
-    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73,
-    80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494,
-    544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499,
-    2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487,
-    12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767,
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173,
+    190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
+    2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818,
+    18500, 20350, 22385, 24623, 27086, 29794, 32767,
 ];
 
 /// 步进索引调整（nibble 低 3 位）。
@@ -25,10 +24,7 @@ pub struct ImaState {
 impl ImaState {
     /// 零预测器、步长索引 0。
     pub fn new() -> Self {
-        Self {
-            predicted: 0,
-            index: 0,
-        }
+        Self { predicted: 0, index: 0 }
     }
 
     fn set(&mut self, predicted: i32, index: i32) {
@@ -51,7 +47,8 @@ impl ImaState {
         }
         if nibble & 0x08 != 0 {
             self.predicted -= diff;
-        } else {
+        }
+        else {
             self.predicted += diff;
         }
         self.predicted = self.predicted.clamp(-32768, 32767);
@@ -74,7 +71,7 @@ pub fn decode_nibble_stream(data: &[u8], state: &mut ImaState, out: &mut Vec<i16
 /// 按块对齐解码 IMA ADPCM → 交错 `i16`。
 ///
 /// `block_align` 为每块字节数（`nBlockAlign`）。为 0 时按声道取零售常见默认
-///（单声道 512 / 立体声 1024）。
+/// （单声道 512 / 立体声 1024）。
 pub fn decode_blocks(data: &[u8], channels: u16, block_align: u32) -> Vec<i16> {
     let channels = channels.max(1) as usize;
     let preamble = PREAMBLE_PER_CH * channels;
@@ -145,28 +142,4 @@ pub fn decode_blocks(data: &[u8], channels: u16, block_align: u32) -> Vec<i16> {
     }
 
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_input_yields_empty() {
-        assert!(decode_blocks(&[], 1, 512).is_empty());
-    }
-
-    #[test]
-    fn mono_preamble_only_emits_predictor() {
-        // predictor=1000, index=0, reserved=0，无载荷。
-        let block = {
-            let mut b = vec![0u8; 512];
-            b[0..2].copy_from_slice(&1000i16.to_le_bytes());
-            b[2] = 0;
-            b[3] = 0;
-            b
-        };
-        let out = decode_blocks(&block, 1, 512);
-        assert_eq!(out.first().copied(), Some(1000));
-    }
 }

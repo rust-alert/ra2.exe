@@ -168,11 +168,7 @@ impl OptionsDialogState {
                 OptionsCheckbox::Scanlines => self.scanlines = !self.scanlines,
                 OptionsCheckbox::ShowDamage => self.show_damage = !self.show_damage,
                 OptionsCheckbox::Present16bit => {
-                    self.present.mode = if self.present.is_active() {
-                        PresentMode::Off
-                    } else {
-                        PresentMode::Bit16
-                    };
+                    self.present.mode = if self.present.is_active() { PresentMode::Off } else { PresentMode::Bit16 };
                 }
             },
             OptionsHit::Track(id) => {
@@ -215,11 +211,7 @@ impl OptionsDialogState {
         let max = id.max();
         let inner = (track.w - 12).max(1);
         let rel = (x - track.x - 6).clamp(0, inner);
-        let pos = if max == 0 {
-            0
-        } else {
-            ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8
-        };
+        let pos = if max == 0 { 0 } else { ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8 };
         let pos = pos.min(max);
         *self.track_value_mut(id) = pos;
     }
@@ -311,11 +303,7 @@ impl OptionsDialogLayout {
             sec_game: RectPx::new(left, y0 + 80, usable_w, 18),
             track_difficulty: RectPx::new(left, y0 + 112, usable_w - 40, 22),
             sec_ui: RectPx::new(left, y0 + 168, usable_w, 18),
-            checks: [
-                RectPx::new(left, y0 + 198, 220, 22),
-                RectPx::new(left, y0 + 224, 220, 22),
-                RectPx::new(left, y0 + 250, 220, 22),
-            ],
+            checks: [RectPx::new(left, y0 + 198, 220, 22), RectPx::new(left, y0 + 224, 220, 22), RectPx::new(left, y0 + 250, 220, 22)],
             track_scroll: RectPx::new(left + col_w + 16, y0 + 198, col_w, 22),
             sec_present: RectPx::new(left, y0 + 290, usable_w, 18),
             check_present: RectPx::new(left, y0 + 318, 280, 22),
@@ -405,59 +393,5 @@ fn button_cell(panel_x: i32, y: i32) -> RectPx {
 impl Default for OptionsDialogLayout {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rail_accept_is_top_tile_cell() {
-        let layout = OptionsDialogLayout::new();
-        let shell = main_menu_layout(0, 0);
-        assert_eq!(layout.rail[0].y, shell.panel_tile.y);
-        assert!(layout.rail[2].y < shell.panel_bottom.y);
-    }
-
-    #[test]
-    fn track_drag_maps_edges() {
-        let layout = OptionsDialogLayout::new();
-        let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.4, 0.7, PresentFeel::DEFAULT);
-        let track = layout.track_music;
-        state.on_press(&layout, track.x + 6, track.y + 4);
-        assert_eq!(state.music, 0);
-        state.on_press(&layout, track.x + track.w - 2, track.y + 4);
-        assert_eq!(state.music, 10);
-    }
-
-    #[test]
-    fn resolution_row_selects_mode() {
-        let layout = OptionsDialogLayout::new();
-        let mut state = OptionsDialogState::from_shell(DisplayMode::W640H480, 0.5, 0.5, PresentFeel::DEFAULT);
-        state.resolution_open = true;
-        let row = layout.resolution_row(2);
-        state.on_press(&layout, row.x + 4, row.y + 4);
-        assert_eq!(state.display_mode, DisplayMode::W1024H768);
-        assert!(!state.resolution_open);
-    }
-
-    #[test]
-    fn present_toggle_only() {
-        let layout = OptionsDialogLayout::new();
-        let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.5, 0.5, PresentFeel::DEFAULT);
-        assert!(state.present.is_active());
-        state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
-        assert!(!state.present.is_active());
-        state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
-        assert!(state.present.is_active());
-    }
-
-    #[test]
-    fn present_controls_fit_content() {
-        let layout = OptionsDialogLayout::new();
-        let bottom = layout.track_voice.y + layout.track_voice.h;
-        assert!(bottom <= layout.content.y + layout.content.h);
-        assert!(layout.sec_present.y < layout.sec_audio.y);
     }
 }

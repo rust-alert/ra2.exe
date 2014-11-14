@@ -1,7 +1,6 @@
 //! `audio.idx` / `audio.bag`：RA2 音效包索引与载荷切片。
 
-use super::ima_adpcm;
-use super::PcmAudio;
+use super::{PcmAudio, ima_adpcm};
 
 const IDX_HEADER: usize = 12;
 const ENTRY_V1: usize = 32;
@@ -86,19 +85,8 @@ impl AudioIndex {
             let size = u32::from_le_bytes(raw[20..24].try_into().ok()?);
             let sample_rate = u32::from_le_bytes(raw[24..28].try_into().ok()?);
             let flags = u32::from_le_bytes(raw[28..32].try_into().ok()?);
-            let chunk_size = if entry_size == ENTRY_V2 {
-                u32::from_le_bytes(raw[32..36].try_into().ok()?)
-            } else {
-                0
-            };
-            entries.push(AudioBagEntry {
-                name,
-                offset,
-                size,
-                sample_rate,
-                flags,
-                chunk_size,
-            });
+            let chunk_size = if entry_size == ENTRY_V2 { u32::from_le_bytes(raw[32..36].try_into().ok()?) } else { 0 };
+            entries.push(AudioBagEntry { name, offset, size, sample_rate, flags, chunk_size });
             off += entry_size;
         }
 
@@ -134,11 +122,7 @@ impl AudioIndex {
             }
         }
         let trunc16: String = key.chars().take(16).collect();
-        if trunc16 != key && trunc16 != trunc15 {
-            self.entries.iter().find(|e| e.name == trunc16)
-        } else {
-            None
-        }
+        if trunc16 != key && trunc16 != trunc15 { self.entries.iter().find(|e| e.name == trunc16) } else { None }
     }
 
     /// 解码指定条目为 PCM16。
@@ -157,69 +141,18 @@ fn decode_entry(entry: &AudioBagEntry, data: &[u8]) -> Option<PcmAudio> {
     }
     let samples = if entry.is_ima_adpcm() {
         ima_adpcm::decode_blocks(data, entry.channels(), entry.chunk_size)
-    } else if entry.is_16bit() {
+    }
+    else if entry.is_16bit() {
         if data.len() % 2 != 0 {
             return None;
         }
-        data.chunks_exact(2)
-            .map(|c| i16::from_le_bytes([c[0], c[1]]))
-            .collect()
-    } else {
+        data.chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]])).collect()
+    }
+    else {
         data.iter().map(|&b| ((b as i16) - 128) << 8).collect()
     };
     if samples.is_empty() {
         return None;
     }
-    Some(PcmAudio {
-        sample_rate: entry.sample_rate,
-        channels: entry.channels(),
-        samples,
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn build_idx_v1(entries: &[(&str, u32, u32, u32, u32)]) -> Vec<u8> {
-        let mut idx = Vec::new();
-        idx.extend_from_slice(&0u32.to_le_bytes());
-        idx.extend_from_slice(&1u32.to_le_bytes());
-        idx.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-        for &(name, offset, size, rate, flags) in entries {
-            let mut name_buf = [0u8; 16];
-            let nb = name.as_bytes();
-            let n = nb.len().min(15);
-            name_buf[..n].copy_from_slice(&nb[..n]);
-            idx.extend_from_slice(&name_buf);
-            idx.extend_from_slice(&offset.to_le_bytes());
-            idx.extend_from_slice(&size.to_le_bytes());
-            idx.extend_from_slice(&rate.to_le_bytes());
-            idx.extend_from_slice(&flags.to_le_bytes());
-        }
-        idx
-    }
-
-    #[test]
-    fn parse_and_decode_pcm16() {
-        let idx = build_idx_v1(&[("CLICK", 0, 4, 22050, FLAG_16BIT)]);
-        let bag = {
-            let mut b = Vec::new();
-            b.extend_from_slice(&1000i16.to_le_bytes());
-            b.extend_from_slice(&(-1000i16).to_le_bytes());
-            b
-        };
-        let index = AudioIndex::parse(&idx, bag).unwrap();
-        assert_eq!(index.len(), 1);
-        let pcm = index.decode("click").unwrap();
-        assert_eq!(pcm.sample_rate, 22050);
-        assert_eq!(pcm.samples, vec![1000, -1000]);
-    }
-
-    #[test]
-    fn reject_bad_version() {
-        let mut idx = build_idx_v1(&[]);
-        idx[4..8].copy_from_slice(&99u32.to_le_bytes());
-        assert!(AudioIndex::parse(&idx, vec![]).is_none());
-    }
+    Some(PcmAudio { sample_rate: entry.sample_rate, channels: entry.channels(), samples })
 }

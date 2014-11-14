@@ -299,10 +299,7 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
 
     let (expansions, malformed) = discover_expansions(root);
     diagnostics.malformed = malformed;
-    let expansions: Vec<_> = expansions
-        .into_iter()
-        .filter(|e| e.family.allowed_for_edition(chain.edition))
-        .collect();
+    let expansions: Vec<_> = expansions.into_iter().filter(|e| e.family.allowed_for_edition(chain.edition)).collect();
     diagnostics.detected_expansions = expansions.iter().map(|e| e.file_name.clone()).collect();
 
     for exp in &expansions {

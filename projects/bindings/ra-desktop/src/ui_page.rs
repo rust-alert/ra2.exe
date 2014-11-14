@@ -160,10 +160,7 @@ pub fn page_resources_from_slots(screen: OriginalScreen) -> Option<UiPageResourc
 }
 
 /// 同 [`page_resources_from_slots`]，并按资料片选择退出确认调色板。
-pub fn page_resources_from_slots_with_edition(
-    screen: OriginalScreen,
-    edition: Option<GameEdition>,
-) -> Option<UiPageResources> {
+pub fn page_resources_from_slots_with_edition(screen: OriginalScreen, edition: Option<GameEdition>) -> Option<UiPageResources> {
     let page = slots_for(screen)?;
     let background = match (page.background_shp, page.background_pal) {
         (Some(shp), Some(pal)) => Some(UiAssetRef::with_palette_frame(shp, pal, page.background_frame)),
