@@ -1,0 +1,220 @@
+# Trusted Publisher contract（唯一 npm 可信发布工作流 — 勿改文件名）:
+#   file = publish-npm.yml
+#   repo = rust-alert/ra2.exe
+#   env  = NPM_PUBLISH
+#
+# 触发:
+#   - push tag v*           （例如 v0.1.0）
+#   - workflow_dispatch     （手动重试 / 指定版本）
+# 不要在其它工作流文件上登记 Trusted Publisher。
+
+name: Publish npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without v prefix (required for workflow_dispatch)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-native:
+    name: Native ${{ matrix.short }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            short: win32-x64
+            triple: win32-x64-msvc
+          - os: ubuntu-latest
+            short: linux-x64
+            triple: linux-x64-gnu
+          - os: macos-latest
+            short: darwin-arm64
+            triple: darwin-arm64
+          - os: macos-15-intel
+            short: darwin-x64
+            triple: darwin-x64
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install Linux audio deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - run: pnpm install
+
+      - name: Build native (release)
+        run: node scripts/build/napi.mjs --release
+
+      - name: Stage native artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="dist/${{ matrix.short }}"
+          mkdir -p "$out"
+          src="projects/platforms/native/red-alert2-${{ matrix.short }}"
+          named="red-alert2.${{ matrix.triple }}.node"
+          if [[ -f "$src/$named" ]]; then
+            cp "$src/$named" "$out/$named"
+          elif [[ -f "$src/red-alert2.node" ]]; then
+            cp "$src/red-alert2.node" "$out/$named"
+          else
+            echo "missing native binary under $src (want $named)" >&2
+            ls -la "$src" || true
+            exit 1
+          fi
+          ls -la "$out"
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.short }}
+          path: dist/${{ matrix.short }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish packages
+    needs: build-native
+    runs-on: ubuntu-latest
+    environment: NPM_PUBLISH
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            v="${{ inputs.version }}"
+            v="${v#v}"
+            if [[ -z "$v" ]]; then
+              echo "inputs.version required for workflow_dispatch" >&2
+              exit 1
+            fi
+          else
+            ref="${GITHUB_REF#refs/tags/}"
+            v="${ref#v}"
+            if [[ -z "$v" || "$v" == *"/"* ]]; then
+              echo "could not parse version from GITHUB_REF=$GITHUB_REF" >&2
+              exit 1
+            fi
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "resolved version=$v"
+
+      - name: Require green CI on publish commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha="${{ github.sha }}"
+          repo="${{ github.repository }}"
+          # Tag / workflow_dispatch 都要求同 SHA 的 CI 已绿。
+          # 勿在 status=in_progress 时读 .[0]（conclusion 空会被当成 missing）。
+          for attempt in $(seq 1 90); do
+            json="$(gh run list --repo "$repo" --commit "$sha" --workflow ci.yml --limit 5 --json conclusion,status,databaseId)"
+            completed="$(echo "$json" | jq -r '[.[] | select(.status=="completed")] | .[0].conclusion // empty')"
+            open="$(echo "$json" | jq -r '[.[] | select(.status!="completed")] | length')"
+            if [[ "$completed" == "success" ]]; then
+              echo "CI success confirmed for publish commit (attempt $attempt)"
+              exit 0
+            fi
+            if [[ "$completed" == "failure" || "$completed" == "cancelled" || "$completed" == "timed_out" ]]; then
+              echo "Refusing npm publish: CI on $sha concluded '$completed'" >&2
+              exit 1
+            fi
+            echo "waiting for CI on $sha (open=$open completed='${completed:-none}') attempt=$attempt/90"
+            sleep 20
+          done
+          echo "Refusing npm publish: timed out waiting for CI success on $sha" >&2
+          exit 1
+
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Ensure npm supports Trusted Publishing
+        run: npm install -g npm@latest
+
+      - run: pnpm install
+
+      - name: Build Wasm artifact
+        run: pnpm run build:wasm
+
+      - name: Build TypeScript packages
+        run: pnpm run build:ts
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: dist/native-artifacts
+
+      - name: Normalize artifact layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/native-flat
+          for d in dist/native-artifacts/native-* dist/native-artifacts/*; do
+            [[ -d "$d" ]] || continue
+            base="$(basename "$d")"
+            short="${base#native-}"
+            mkdir -p "dist/native-flat/$short"
+            cp -r "$d"/. "dist/native-flat/$short/" || true
+          done
+          find dist/native-flat -type f -print
+          for short in win32-x64 linux-x64 darwin-arm64 darwin-x64; do
+            if [[ ! -d "dist/native-flat/$short" ]] || [[ -z "$(ls -A "dist/native-flat/$short" 2>/dev/null)" ]]; then
+              echo "missing native artifact for $short" >&2
+              exit 1
+            fi
+          done
+
+      - name: Strip token-style npmrc (OIDC only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset NODE_AUTH_TOKEN NPM_TOKEN || true
+          for f in "${HOME}/.npmrc" "${NPM_CONFIG_USERCONFIG:-}" "${RUNNER_TEMP:-}/.npmrc"; do
+            [[ -n "${f}" && -f "${f}" ]] || continue
+            if grep -q '_authToken' "${f}"; then
+              grep -v '_authToken' "${f}" > "${f}.oidc" && mv "${f}.oidc" "${f}"
+              echo "stripped _authToken from ${f}"
+            fi
+          done
+
+      - name: Publish real packages
+        env:
+          RA2_NATIVE_ARTIFACTS: ${{ github.workspace }}/dist/native-flat
+          GITHUB_REF: refs/tags/v${{ steps.ver.outputs.version }}
+        run: node scripts/ci/publish-npm.mjs --version=${{ steps.ver.outputs.version }}

@@ -74,6 +74,8 @@ pnpm run fmt
 
 Release 配置（工作区 `Cargo.toml`）启用较高优化、LTO、符号剥离与 `panic = "abort"`，适合分发原生插件；日常开发用默认 debug 即可。
 
+npm 正式发布走 GitHub Actions **Trusted Publisher**（OIDC），工作流文件固定为 `.github/workflows/publish-npm.yml`，环境名 `NPM_PUBLISH`。推送 `v*` 标签（或手动 `workflow_dispatch`）后：先编齐四平台 native，再等待同提交的 `ci.yml` 全绿，然后编 wasm / TypeScript，最后按「平台包 → wasm → `@game-gpt/red-alert2`」顺序发布。本地一般不要 `npm publish`。
+
 ---
 
 ## 游戏如何执行

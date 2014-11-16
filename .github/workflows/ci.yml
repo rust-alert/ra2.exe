@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Linux audio deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Build
+        run: cargo build --release --workspace
+
+      - name: Tests
+        run: cargo test --release --workspace
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Add wasm32 target
+        if: runner.os == 'Linux'
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        if: runner.os == 'Linux'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build Wasm + TypeScript
+        if: runner.os == 'Linux'
+        run: |
+          pnpm run build:wasm
+          pnpm run build:ts
+
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: pnpm run lint
+
+      - name: Smoke wasm init
+        if: runner.os == 'Linux'
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from 'node:fs';
+          import { init, engineName, supportsWebgl2 } from './projects/platforms/wasm/red-alert2-unknown-wasm32/dist/index.js';
+          await init(readFileSync('./projects/platforms/wasm/red-alert2-unknown-wasm32/pkg/ra_wasm_bg.wasm'));
+          console.log(engineName(), supportsWebgl2());
+          EOF
+
+      - name: Build native addon
+        run: pnpm run build:native
+
+      - name: Smoke native version()
+        shell: bash
+        run: |
+          short=$(node -e "const {platform:p,arch:a}=process; if(p==='win32'&&a==='x64')console.log('win32-x64'); else if(p==='darwin'&&a==='arm64')console.log('darwin-arm64'); else if(p==='darwin'&&a==='x64')console.log('darwin-x64'); else if(p==='linux'&&a==='x64')console.log('linux-x64'); else process.exit(1)")
+          node -e "const p=require('./projects/platforms/native/red-alert2-${short}/package.json'); const path=require('path'); const bin=path.join(path.dirname(require.resolve('./projects/platforms/native/red-alert2-${short}/package.json')), p.main); const n=require(bin); console.log(n.version());"
