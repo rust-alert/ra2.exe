@@ -1,7 +1,26 @@
 {
     "name": "@game-gpt/red-alert2-darwin-arm64",
     "version": "0.0.0",
-    "description": "Red Alert 2 native N-API addon (darwin-arm64)",
+    "private": true,
+    "description": "Prebuilt Node-API addon for `@game-gpt/red-alert2` on macOS Apple Silicon (darwin-arm64). Platform artifact only. Prefer installing `@game-gpt/red-alert2` and letting the package manager select this optional dependency.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rust-alert/ra2.exe.git",
+        "directory": "projects/platforms/native/red-alert2-darwin-arm64"
+    },
+    "homepage": "https://github.com/rust-alert/ra2.exe/tree/master/projects/platforms/native/red-alert2-darwin-arm64",
+    "bugs": {
+        "url": "https://github.com/rust-alert/ra2.exe/issues"
+    },
+    "keywords": [
+        "red-alert-2",
+        "ra2",
+        "napi",
+        "native-addon",
+        "darwin",
+        "arm64",
+        "macos"
+    ],
     "license": "Apache-2.0",
     "os": [
         "darwin"
@@ -14,10 +33,7 @@
         "red-alert2.darwin-arm64.node",
         "README.md"
     ],
-    "keywords": [
-        "red-alert-2",
-        "napi",
-        "darwin",
-        "arm64"
-    ]
+    "engines": {
+        "node": ">=20"
+    }
 }

@@ -69,7 +69,7 @@ jobs:
           EOF
 
       - name: Build native addon
-        run: pnpm run build:native
+        run: pnpm run build:napi
 
       - name: Smoke native version()
         shell: bash

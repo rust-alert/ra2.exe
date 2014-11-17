@@ -1,19 +1,33 @@
 {
     "name": "ra2",
     "private": true,
+    "description": "Workspace for the Red Alert 2 modern rewrite. Product face is `@game-gpt/red-alert2` (CLI + N-API + Wasm). Does not ship retail game assets.",
     "type": "module",
     "packageManager": "pnpm@9.15.4",
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
-        "build:ts": "pnpm --filter @game-gpt/red-alert2 --filter @game-gpt/red-alert2-unknown-wasm32 run build",
-        "build:native": "node scripts/build/napi.mjs --release",
+        "build:napi": "node scripts/build/napi.mjs --release",
         "build:wasm": "node scripts/build/wasm.mjs --release",
-        "build": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:native",
+        "build:ts": "pnpm --filter @game-gpt/red-alert2 run build",
+        "build": "pnpm run build:wasm && pnpm run build:ts && pnpm run build:napi",
+        "test": "cargo test --release --workspace",
         "lint": "biome check .",
         "lint:fix": "biome check --write .",
         "fmt": "biome format --write . && cargo fmt --all",
         "fmt:check": "biome format . && cargo fmt --all -- --check",
         "publish:npm": "node scripts/ci/publish-npm.mjs"
     },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rust-alert/ra2.exe.git"
+    },
+    "homepage": "https://github.com/rust-alert/ra2.exe",
+    "bugs": {
+        "url": "https://github.com/rust-alert/ra2.exe/issues"
+    },
+    "license": "Apache-2.0",
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
         "@game-gpt/red-alert2": "workspace:*",

@@ -3,7 +3,20 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
-    "description": "Browser playground. Depends on published @game-gpt/red-alert2, not the workspace link.",
+    "description": "Browser playground for `@game-gpt/red-alert2` Wasm face. Depends on the published registry package, not the workspace link.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rust-alert/ra2.exe.git",
+        "directory": "projects/sites/playground"
+    },
+    "homepage": "https://github.com/rust-alert/ra2.exe/tree/master/projects/sites/playground",
+    "bugs": {
+        "url": "https://github.com/rust-alert/ra2.exe/issues"
+    },
+    "license": "Apache-2.0",
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
         "dev": "python -m http.server 4174",
         "check": "node --input-type=module -e \"import('@game-gpt/red-alert2/wasm').then(m=>console.log('ok', Object.keys(m)))\""

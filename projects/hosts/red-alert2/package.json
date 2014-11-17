@@ -1,8 +1,29 @@
 {
     "name": "@game-gpt/red-alert2",
     "version": "0.0.0",
-    "description": "Red Alert 2 modern rewrite. Desktop CLI ra2 launch --path, Node API, and browser Wasm face.",
+    "private": true,
     "type": "module",
+    "description": "Modern rewrite of Command & Conquer: Red Alert 2. Desktop CLI (`ra2 launch --path`), Node N-API host, and browser Wasm face. Bring your own legal game install. Not a DirectDraw shim and not an injector for the retail exe.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rust-alert/ra2.exe.git",
+        "directory": "projects/hosts/red-alert2"
+    },
+    "homepage": "https://github.com/rust-alert/ra2.exe/tree/master/projects/hosts/red-alert2",
+    "bugs": {
+        "url": "https://github.com/rust-alert/ra2.exe/issues"
+    },
+    "keywords": [
+        "red-alert-2",
+        "command-and-conquer",
+        "ra2",
+        "yuris-revenge",
+        "napi",
+        "wasm",
+        "webgl2",
+        "cli",
+        "rts"
+    ],
     "license": "Apache-2.0",
     "bin": {
         "ra2": "./bin/ra2.mjs"
@@ -44,12 +65,5 @@
     "devDependencies": {
         "@types/node": "^22.15.0",
         "typescript": "^5.8.3"
-    },
-    "keywords": [
-        "red-alert-2",
-        "ra2",
-        "napi",
-        "wasm",
-        "cli"
-    ]
+    }
 }

@@ -1,6 +1,6 @@
 /**
- * Build `ra-napi` and install the `.node` into the current-platform workspace package
- * (`projects/platforms/native/red-alert2-<short>/` → npm name `@game-gpt/red-alert2-<short>`).
+ * 构建 `ra-napi` → 当前平台 `@game-gpt/red-alert2-<short>`（与 `wasm.mjs` 对等的 native 管线）：
+ *   编译 `ra-napi`，把 `.node` 装进 `projects/platforms/native/red-alert2-<short>/`。
  *
  * Usage: node scripts/build/napi.mjs [--release]
  */
@@ -89,19 +89,33 @@ mkdirSync(outDir, { recursive: true });
 
 const pkgJsonPath = path.join(outDir, 'package.json');
 const binaryName = `red-alert2.${plat.triple}.node`;
+const pkgName = `@game-gpt/red-alert2-${plat.short}`;
+const repoDir = `projects/platforms/native/red-alert2-${plat.short}`;
 if (!existsSync(pkgJsonPath)) {
     writeFileSync(
         pkgJsonPath,
         `${JSON.stringify(
             {
-                name: `@game-gpt/red-alert2-${plat.short}`,
-                version: '0.1.0',
-                description: `Red Alert 2 native N-API addon (${plat.short})`,
-                license: 'MPL-2.0',
+                name: pkgName,
+                version: '0.0.0',
+                private: true,
+                description: `Prebuilt Node-API addon for \`@game-gpt/red-alert2\` (${plat.short}). Platform artifact only.`,
+                repository: {
+                    type: 'git',
+                    url: 'https://github.com/rust-alert/ra2.exe.git',
+                    directory: repoDir,
+                },
+                homepage: `https://github.com/rust-alert/ra2.exe/tree/master/${repoDir}`,
+                bugs: {
+                    url: 'https://github.com/rust-alert/ra2.exe/issues',
+                },
+                keywords: ['red-alert-2', 'ra2', 'napi', 'native-addon', ...plat.os, ...plat.cpu],
+                license: 'Apache-2.0',
                 os: plat.os,
                 cpu: plat.cpu,
                 main: binaryName,
                 files: [binaryName, 'README.md'],
+                engines: { node: '>=20' },
             },
             null,
             4,
@@ -109,11 +123,16 @@ if (!existsSync(pkgJsonPath)) {
     );
 } else {
     try {
+        // 只同步构建相关字段，保留 description / repository / homepage 等发布元数据。
         const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-        pkg.name = `@game-gpt/red-alert2-${plat.short}`;
-        pkg.description = `Red Alert 2 native N-API addon (${plat.short})`;
+        pkg.name = pkgName;
+        pkg.private = true;
+        pkg.os = plat.os;
+        pkg.cpu = plat.cpu;
         pkg.main = binaryName;
         pkg.files = [binaryName, 'README.md'];
+        if (!pkg.license) pkg.license = 'Apache-2.0';
+        if (!pkg.engines) pkg.engines = { node: '>=20' };
         writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, 4)}\n`);
     } catch {
         /* ignore */

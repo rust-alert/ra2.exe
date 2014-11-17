@@ -1,8 +1,25 @@
 {
     "name": "@game-gpt/red-alert2-unknown-wasm32",
     "version": "0.0.0",
+    "private": true,
     "type": "module",
-    "description": "Wasm artifact produced from ra-wasm. Consumed via @game-gpt/red-alert2.",
+    "description": "Wasm-pack artifact from `ra-wasm` (WebGL2-oriented). Consumed via `@game-gpt/red-alert2`. Not a standalone product API.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rust-alert/ra2.exe.git",
+        "directory": "projects/platforms/wasm/red-alert2-unknown-wasm32"
+    },
+    "homepage": "https://github.com/rust-alert/ra2.exe/tree/master/projects/platforms/wasm/red-alert2-unknown-wasm32",
+    "bugs": {
+        "url": "https://github.com/rust-alert/ra2.exe/issues"
+    },
+    "keywords": [
+        "red-alert-2",
+        "ra2",
+        "wasm",
+        "wasm-pack",
+        "webgl2"
+    ],
     "license": "Apache-2.0",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -14,19 +31,16 @@
     },
     "files": [
         "dist",
-        "README.md",
-        "pkg"
+        "pkg",
+        "README.md"
     ],
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
-        "build:wasm": "node ../../../../scripts/build/wasm.mjs --release",
-        "build": "pnpm run build:wasm && tsc -p tsconfig.json"
+        "build": "tsc -p tsconfig.json"
     },
     "devDependencies": {
         "typescript": "^5.8.3"
-    },
-    "keywords": [
-        "red-alert-2",
-        "wasm",
-        "webgl2"
-    ]
+    }
 }

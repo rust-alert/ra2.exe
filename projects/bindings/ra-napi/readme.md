@@ -14,7 +14,7 @@ flowchart LR
 ## 构建
 
 ```shell
-pnpm run build:native
+pnpm run build:napi
 ```
 
 产物由 `scripts/build/napi.mjs` 写入平台包目录，再由 `@game-gpt/red-alert2` 整合。

@@ -96,7 +96,7 @@ function resolveBinaryPath(): { name: string; triple: string; binary: string } {
     const dir = path.dirname(pkgJson);
     const binary = path.join(dir, `red-alert2.${triple}.node`);
     if (!existsSync(binary)) {
-        throw new Error(`native addon missing: ${binary} (run pnpm run build:native)`);
+        throw new Error(`native addon missing: ${binary} (run pnpm run build:napi)`);
     }
     return { name, triple, binary };
 }
