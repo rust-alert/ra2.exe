@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Wasm / WebGL2 绑定；产出 `@game-gpt/red-alert2-unknown-wasm32`"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Wasm / WebGL2 绑定，产出 `@game-gpt/red-alert2-unknown-wasm32`"
+keywords = ["red-alert-2", "wasm", "webgl2", "wasm-bindgen"]
+categories = ["game-development", "wasm", "api-bindings"]
 publish = false
 
 [lib]

@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "尤里的复仇资源表"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "《尤里的复仇》资源表"
+keywords = ["yuris-revenge", "red-alert-2", "adaptor"]
+categories = ["game-development"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Westwood 格式解析"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Westwood 资源格式解析（MIX / SHP / PAL / AUD 等），不绑定具体游戏版本"
+keywords = ["red-alert-2", "westwood", "mix", "assets"]
+categories = ["game-development", "encoding"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

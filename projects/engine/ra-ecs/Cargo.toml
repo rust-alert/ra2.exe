@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
 description = "通用实体组件存储、查询与结构变更（无 RTS 语义）"
+keywords = ["ecs", "entity-component"]
+categories = ["game-development", "data-structures"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

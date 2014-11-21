@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Phobos 扩展适配（含心灵终结 3 等内容布局）"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Phobos / 心灵终结 3 等内容布局资源表"
+keywords = ["phobos", "mental-omega", "red-alert-2", "adaptor"]
+categories = ["game-development"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

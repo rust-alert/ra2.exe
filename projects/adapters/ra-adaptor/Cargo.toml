@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "版本探测与资源表装配"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "版本探测与资源表装配入口（ra2 / yr / phobos）"
+keywords = ["red-alert-2", "adaptor", "assets"]
+categories = ["game-development"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

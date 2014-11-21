@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
 description = "RA 引擎基类型与冻结 RuntimeDefinitions 契约"
+keywords = ["red-alert-2", "rts", "types"]
+categories = ["game-development", "data-structures"]
+publish = false
 
 [dependencies]
 thiserror = { workspace = true }

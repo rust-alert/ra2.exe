@@ -13,6 +13,9 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Aster <192607617@qq.com>"]
 license = "Apache-2.0"
+repository = "https://github.com/rust-alert/ra2.exe"
+homepage = "https://github.com/rust-alert/ra2.exe"
+readme = "readme.md"
 
 [workspace.dependencies]
 ra-types = { path = "projects/engine/ra-types" }

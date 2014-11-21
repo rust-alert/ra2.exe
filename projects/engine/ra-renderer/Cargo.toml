@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "wgpu 渲染（原生 + WebGL2）"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "wgpu 呈现层（桌面 DX12 / Vulkan / Metal；浏览器 WebGL2 方向）"
+keywords = ["red-alert-2", "wgpu", "rendering", "webgl2"]
+categories = ["game-development", "rendering", "graphics"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

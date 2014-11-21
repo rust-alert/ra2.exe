@@ -4,6 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "联机协议无关基础类型（Beta 战网接入点）"
+keywords = ["red-alert-2", "networking", "multiplayer"]
+categories = ["game-development", "network-programming"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "N-API 绑定：供 @game-gpt/red-alert2 加载"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Node-API 绑定与原生宿主（窗口 / 输入 / 事件循环），产出平台 `.node`"
+keywords = ["red-alert-2", "napi", "nodejs", "native-addon"]
+categories = ["game-development", "api-bindings"]
 publish = false
 
 [lib]

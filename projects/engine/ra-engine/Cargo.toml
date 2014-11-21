@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "一局游戏运行时：命令、固定 tick、权威状态与呈现投影"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "一局对局运行时：命令、固定 tick、权威状态与呈现投影"
+keywords = ["red-alert-2", "rts", "simulation", "game-engine"]
+categories = ["game-development", "simulation"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }

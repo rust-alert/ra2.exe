@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "无窗口遭遇战与桌面 GUI 自动化测试支撑"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "无窗口遭遇战夹具与桌面 GUI 自动化测试支持（非运行时依赖）"
+keywords = ["red-alert-2", "testing", "headless"]
+categories = ["game-development", "development-tools"]
 publish = false
 
 [dependencies]

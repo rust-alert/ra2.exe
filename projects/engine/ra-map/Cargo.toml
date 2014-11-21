@@ -4,7 +4,13 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
 description = "地图与剧院加载"
+keywords = ["red-alert-2", "map", "theater"]
+categories = ["game-development"]
+publish = false
 
 [dependencies]
 ra-types = { workspace = true }
