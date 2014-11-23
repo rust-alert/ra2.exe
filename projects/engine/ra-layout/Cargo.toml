@@ -1,0 +1,17 @@
+[package]
+name = "ra-layout"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "UI 空间约束求解与壳层页面几何（LayoutSnapshot）"
+keywords = ["red-alert-2", "ui", "layout"]
+categories = ["game-development", "gui"]
+publish = false
+
+[dependencies]
+ra-types = { workspace = true }
+ra-renderer = { workspace = true }
