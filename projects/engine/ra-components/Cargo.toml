@@ -1,0 +1,23 @@
+[package]
+name = "ra-components"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "UI 组件语义与画面组合（无宿主窗口，不直调 wgpu）"
+keywords = ["red-alert-2", "ui", "components"]
+categories = ["game-development", "gui"]
+publish = false
+
+[dependencies]
+ra-types = { workspace = true }
+ra-layout = { workspace = true }
+ra-assets = { workspace = true }
+ra-renderer = { workspace = true }
+ra-adaptor = { workspace = true }
+ra-map = { workspace = true }
+ra-config = { workspace = true }
+tracing = { workspace = true }
