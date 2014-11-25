@@ -1,14 +1,19 @@
 //! N-API 入口：`version` + `launch` + `extract` + `unpack`。
+//!
+//! 原生窗口与事件循环在 [`host`]。
 
 #![deny(clippy::all)]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+
+pub mod host;
 
 use std::path::PathBuf;
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ra_config::LaunchOverride;
-use ra_desktop::extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all};
+
+use crate::host::extract::{ExtractRequest, UnpackRequest, extract_named, unpack_all};
 
 /// 绑定版本字符串。
 #[napi]
@@ -33,7 +38,7 @@ pub fn launch(options: LaunchOptions) -> Result<()> {
         return Err(Error::from_reason("--path must not be empty"));
     }
     ra_config::set_launch_override(LaunchOverride { ra2_dir: path, edition: options.edition.filter(|s| !s.trim().is_empty()) });
-    ra_desktop::run().map_err(|e| Error::from_reason(format!("{e}")))
+    host::run().map_err(|e| Error::from_reason(format!("{e}")))
 }
 
 /// `ra2 extract` 选项。

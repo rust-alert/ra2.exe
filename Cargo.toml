@@ -6,7 +6,7 @@ members = [
     "projects/bindings/*",
     "projects/tooling/*",
 ]
-default-members = ["projects/bindings/ra-desktop"]
+default-members = ["projects/bindings/ra-napi"]
 
 [workspace.package]
 version = "0.1.0"
@@ -27,11 +27,13 @@ ra-ecs = { path = "projects/engine/ra-ecs" }
 ra-testing = { path = "projects/tooling/ra-testing" }
 ra-net = { path = "projects/engine/ra-net" }
 ra-renderer = { path = "projects/engine/ra-renderer" }
+ra-layout = { path = "projects/engine/ra-layout" }
+ra-components = { path = "projects/engine/ra-components" }
 ra-adaptor = { path = "projects/adapters/ra-adaptor" }
 ra-adaptor-ra2 = { path = "projects/adapters/ra-adaptor-ra2" }
 ra-adaptor-yuri = { path = "projects/adapters/ra-adaptor-yuri" }
 ra-adaptor-phobos = { path = "projects/adapters/ra-adaptor-phobos" }
-ra-desktop = { path = "projects/bindings/ra-desktop" }
+ra-napi = { path = "projects/bindings/ra-napi" }
 thiserror = "2"
 bitflags = "2"
 bytemuck = { version = "1", features = ["derive"] }

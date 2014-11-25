@@ -2,10 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use ra_desktop::{
-    screen::OriginalScreen,
-    screenshot::{AutoScreenshotTracker, is_key_screen, planned_path},
-};
+use ra_components::original_screen::OriginalScreen;
+use ra_napi::host::screenshot::{AutoScreenshotTracker, is_key_screen, planned_path};
 
 #[test]
 fn key_screens_include_main_menu_and_results() {

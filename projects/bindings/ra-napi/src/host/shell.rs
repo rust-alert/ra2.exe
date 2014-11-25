@@ -13,13 +13,15 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{
+use super::{
     boot::BootResult,
     load_job::LoadJob,
     match_ctrl::{MatchController, MatchNav},
-    menu_action::MenuAction,
     preview_job::PreviewJob,
-    screen::OriginalScreen,
+};
+use ra_components::{
+    menu_action::MenuAction,
+    original_screen::OriginalScreen,
     shell_slide::{
         CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec, WaveDirection,
     },
@@ -27,13 +29,14 @@ use crate::{
     startup_splash::{self, StartupSplashPresentation},
     ui_assets::{MenuUiAssets, load_menu_ui_assets},
     ui_compose::{self, SkirmishChromeSprites},
-    ui_decode, ui_hit, ui_layout,
+    ui_decode, ui_hit,
     ui_movie::MenuMoviePlayer,
     ui_page::page_resources_from_slots_with_edition,
     ui_present, ui_resolve,
     ui_text::{campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip, skirmish_lobby_csf_tooltip},
     ui_typewriter::TypewriterText,
 };
+use ra_layout::ui_layout;
 
 /// 外壳持有的可导航应用状态。
 pub struct AppShell {
@@ -69,7 +72,7 @@ pub struct AppShell {
     /// 当前装载开始时刻。
     load_started: Option<Instant>,
     /// 遭遇战大厅可选地图。
-    lobby_maps: Vec<crate::boot::BootMapCandidate>,
+    lobby_maps: Vec<super::boot::BootMapCandidate>,
     /// 当前选中的地图文件名。
     selected_map: Option<String>,
     /// 大厅缩略图对应的地图名（与 `lobby_preview` 配对）。
@@ -128,7 +131,7 @@ pub struct AppShell {
     pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重（仅 `test-harness`）。
     #[cfg(feature = "test-harness")]
-    auto_screenshots: crate::screenshot::AutoScreenshotTracker,
+    auto_screenshots: super::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     skirmish: SkirmishBootRequest,
     /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
@@ -142,7 +145,7 @@ pub struct AppShell {
     /// 战役左栏按下是否已消费（难度滑条，勿再走点击轮换）。
     campaign_pointer_consumed: bool,
     /// 桌面音频输出（设备不可用则为 `None`）。
-    audio: Option<crate::audio::ShellAudio>,
+    audio: Option<super::audio::ShellAudio>,
     /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
     menu_bgm: Option<PcmAudio>,
     /// 是否已尝试装载菜单 BGM（失败后不再每帧重试）。
@@ -164,7 +167,7 @@ pub struct AppShell {
     /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
     audio_bag_tried: bool,
     /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
-    options_state: Option<crate::options_dialog::OptionsDialogState>,
+    options_state: Option<ra_components::options_dialog::OptionsDialogState>,
     /// 进入选项页时的音量快照（取消时还原实时预览）。
     options_volume_baseline: Option<(f32, f32)>,
     /// 进入选项页时的质感快照（取消时还原实时预览）。
@@ -241,14 +244,14 @@ impl AppShell {
             campaign_side_sfx: [None, None, None],
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
-            auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
+            auto_screenshots: super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
             choose_map_revert: None,
             campaign_side: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
             campaign_pointer_consumed: false,
-            audio: crate::audio::ShellAudio::try_open(),
+            audio: super::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
             menu_click: None,
@@ -323,14 +326,14 @@ impl AppShell {
             campaign_side_sfx: [None, None, None],
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
-            auto_screenshots: crate::screenshot::AutoScreenshotTracker::default(),
+            auto_screenshots: super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
             choose_map_revert: None,
             campaign_side: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
             campaign_pointer_consumed: false,
-            audio: crate::audio::ShellAudio::try_open(),
+            audio: super::audio::ShellAudio::try_open(),
             menu_bgm: None,
             menu_bgm_tried: false,
             menu_click: None,
@@ -407,13 +410,13 @@ impl AppShell {
 
     /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
     fn handle_options_press(&mut self) -> bool {
-        let layout = crate::options_dialog::OptionsDialogLayout::new();
+        let layout = ra_components::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
         let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(&layout, x, y))
         else {
             return false;
         };
-        use crate::options_dialog::OptionsHit;
+        use ra_components::options_dialog::OptionsHit;
         match hit {
             OptionsHit::Accept => {
                 self.menu_pressed_entry = Some("accept");
@@ -446,7 +449,7 @@ impl AppShell {
 
     /// 选项页拖动滑条。
     fn handle_options_drag(&mut self) -> bool {
-        let layout = crate::options_dialog::OptionsDialogLayout::new();
+        let layout = ra_components::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
         let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y)).unwrap_or(false);
         if !dragged {
@@ -459,7 +462,7 @@ impl AppShell {
     }
 
     /// 从挂载源解码 PCX → RGBA；品红 `(255,0,255)` 作色键透明（旗标索引未必为 0）。
-    fn load_pcx_rgba(source: &crate::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
+    fn load_pcx_rgba(source: &ra_components::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
         let bytes = source.read(name).ok()?;
         let pcx = ra_assets::parse_pcx(&bytes).ok()?;
         let mut rgba = pcx.rgba;
@@ -478,7 +481,7 @@ impl AppShell {
             .skirmish
             .row_sides
             .iter()
-            .map(|i| crate::skirmish_setup::LOBBY_SIDES[(*i as usize) % crate::skirmish_setup::LOBBY_SIDES.len()])
+            .map(|i| ra_components::skirmish_setup::LOBBY_SIDES[(*i as usize) % ra_components::skirmish_setup::LOBBY_SIDES.len()])
             .collect::<Vec<_>>()
             .join(",");
         let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
@@ -534,7 +537,7 @@ impl AppShell {
             .or_else(|| self.lobby_maps.first())
             .map(|m| m.start_slots)
             .unwrap_or(4);
-        crate::boot::skirmish_ai_row_count(slots)
+        super::boot::skirmish_ai_row_count(slots)
     }
 
     /// 遭遇战滑条拖动。
@@ -754,7 +757,7 @@ impl AppShell {
         if !self.lobby_maps.is_empty() {
             return;
         }
-        self.lobby_maps = crate::boot::list_install_boot_maps();
+        self.lobby_maps = super::boot::list_install_boot_maps();
         if self.selected_map.is_none() {
             self.selected_map = self.lobby_maps.first().map(|m| m.file_name.clone());
         }
@@ -1018,7 +1021,7 @@ impl AppShell {
             tracing::warn!("截图尚未就绪 · screen={name}");
             return;
         };
-        match crate::screenshot::save_screenshot(name, &image) {
+        match super::screenshot::save_screenshot(name, &image) {
             Ok(path) => {
                 tracing::info!(%name, path = %path.display(), "关键页截图已保存");
                 self.banner = format!("截图已保存 · {}", path.display());
@@ -1212,7 +1215,7 @@ impl AppShell {
                         let map_name =
                             self.selected_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone())).unwrap_or_default();
                         let country = self.skirmish.side.clone();
-                        let ai_csf = crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
+                        let ai_csf = ra_components::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
                             .as_ref()
@@ -1238,9 +1241,9 @@ impl AppShell {
                             credits: self.skirmish.credits,
                             unit_count: self.skirmish.unit_count,
                             player_name_editing: self.skirmish.player_name_editing,
-                            country_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Country),
-                            color_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Color),
-                            ai_combo_open: self.skirmish.open_combo == Some(crate::skirmish_setup::SkirmishComboKind::Ai),
+                            country_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Country),
+                            color_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Color),
+                            ai_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
@@ -1365,15 +1368,15 @@ impl AppShell {
             .read_ini_doc("theme.ini")
             .as_ref()
             .and_then(|d| d.get("INTRO", "Sound"))
-            .map(crate::audio::theme_sound_stem)
+            .map(super::audio::theme_sound_stem)
             .map(str::to_string)
             .filter(|s| !s.is_empty());
         if let Some(s) = from_doc {
             return s;
         }
         self.read_asset_bytes("theme.ini")
-            .and_then(|b| crate::audio::soft_ini_get(&b, "INTRO", "Sound"))
-            .map(|s| crate::audio::theme_sound_stem(&s).to_string())
+            .and_then(|b| super::audio::soft_ini_get(&b, "INTRO", "Sound"))
+            .map(|s| super::audio::theme_sound_stem(&s).to_string())
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "Grinder".into())
     }
@@ -1391,7 +1394,7 @@ impl AppShell {
             return s;
         }
         self.read_asset_bytes("rules.ini")
-            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMainButtonSound"))
+            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMainButtonSound"))
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "MenuClick".into())
     }
@@ -1409,7 +1412,7 @@ impl AppShell {
             return s;
         }
         self.read_asset_bytes("rules.ini")
-            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveOutSound"))
+            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveOutSound"))
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "MenuSlideOut".into())
     }
@@ -1427,7 +1430,7 @@ impl AppShell {
             return s;
         }
         self.read_asset_bytes("rules.ini")
-            .and_then(|b| crate::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveInSound"))
+            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveInSound"))
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "MenuSlideIn".into())
     }
@@ -1439,7 +1442,7 @@ impl AppShell {
             .as_ref()
             .and_then(|d| d.get(event_id, "Sounds"))
             .map(str::to_string)
-            .or_else(|| self.read_asset_bytes("sound.ini").and_then(|b| crate::audio::soft_ini_get(&b, event_id, "Sounds")))
+            .or_else(|| self.read_asset_bytes("sound.ini").and_then(|b| super::audio::soft_ini_get(&b, event_id, "Sounds")))
             .unwrap_or_default();
         line.split_whitespace().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
     }
@@ -1518,7 +1521,7 @@ impl AppShell {
             let loaded = self.decode_bag_named(&refs);
             self.menu_click = Some(loaded.unwrap_or_else(|| {
                 tracing::warn!(%event_id, "菜单点击采样未命中，使用合成占位");
-                crate::audio::synthetic_ui_click()
+                super::audio::synthetic_ui_click()
             }));
         }
         if !self.menu_move_out_tried {
@@ -1985,7 +1988,7 @@ impl AppShell {
         self.options_volume_baseline = Some((music, sound));
         self.options_present_baseline = Some(self.present);
         self.options_pointer_consumed = false;
-        self.options_state = Some(crate::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
+        self.options_state = Some(ra_components::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
         self.set_screen(OriginalScreen::Options);
     }
 
@@ -2837,17 +2840,17 @@ enum LaunchMode {
 fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
-        if let Some(scene) = crate::test_boot::requested_scene() {
-            let status_path = crate::test_boot::status_path();
-            let window_width = crate::test_boot::TEST_WINDOW_WIDTH;
-            let window_height = crate::test_boot::TEST_WINDOW_HEIGHT;
+        if let Some(scene) = super::test_boot::requested_scene() {
+            let status_path = super::test_boot::status_path();
+            let window_width = super::test_boot::TEST_WINDOW_WIDTH;
+            let window_height = super::test_boot::TEST_WINDOW_HEIGHT;
             tracing::info!(
                 "test-harness scene={scene} window={}x{} status={}",
                 window_width,
                 window_height,
                 status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
             );
-            let t = crate::test_boot::boot_scene(&scene)?;
+            let t = super::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
                 LaunchMode::DirectMatch(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
@@ -2862,7 +2865,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
     }
 
     // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectMatch 场景）。
-    let (settings, diagnostics) = crate::config::load_desktop_config_with_diagnostics();
+    let (settings, diagnostics) = super::config::load_desktop_config_with_diagnostics();
     for d in &diagnostics {
         tracing::info!(source = %d.source, "{}", d.message);
     }

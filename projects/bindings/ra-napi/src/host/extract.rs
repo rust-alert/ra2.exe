@@ -13,10 +13,8 @@ use ra_assets::{MixNameTable, Palette, ShpFile};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
-use crate::{
-    config::{DesktopConfig, load_desktop_config_with_diagnostics},
-    fs_source::{AssetOrigin, GameAssetSource},
-};
+use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
+use ra_components::fs_source::{AssetOrigin, GameAssetSource};
 
 /// 一次导出请求。
 #[derive(Debug, Clone)]

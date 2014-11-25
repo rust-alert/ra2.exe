@@ -8,10 +8,8 @@ use std::{
     thread,
 };
 
-use crate::{
-    boot::{BootResult, boot_from_install_with_progress},
-    skirmish_setup::SkirmishBootRequest,
-};
+use super::boot::{BootResult, boot_from_install_with_progress};
+use ra_components::skirmish_setup::SkirmishBootRequest;
 
 /// 装载阶段可见进度（主线程只读最新快照）。
 #[derive(Debug, Clone)]
@@ -77,7 +75,7 @@ impl LoadJob {
                     slot.ratio = 0.55;
                     slot.stage = "打开会话".into();
                 }
-                let boot = match crate::test_boot::boot_scene(&scene) {
+                let boot = match super::test_boot::boot_scene(&scene) {
                     Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
                     Err(e) => BootResult { note: format!("装载失败: {e}"), engine: None, session: None, preview: None },
                 };

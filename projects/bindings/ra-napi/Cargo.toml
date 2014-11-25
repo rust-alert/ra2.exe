@@ -13,15 +13,40 @@ categories = ["game-development", "api-bindings"]
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 name = "ra_napi"
 path = "src/lib.rs"
 
 [dependencies]
 napi = { workspace = true }
 napi-derive = { workspace = true }
-ra-desktop = { workspace = true }
+ra-types = { workspace = true }
 ra-config = { workspace = true }
+ra-adaptor = { workspace = true }
+ra-assets = { workspace = true }
+ra-map = { workspace = true }
+ra-engine = { workspace = true }
+ra-net = { workspace = true }
+ra-renderer = { workspace = true }
+ra-layout = { workspace = true }
+ra-components = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+winit = { workspace = true }
+rodio = { workspace = true }
+
+[features]
+default = []
+test-harness = ["dep:ra-testing"]
+
+[dependencies.ra-testing]
+workspace = true
+optional = true
 
 [build-dependencies]
 napi-build = "2"
+
+[[example]]
+name = "launch"
+required-features = []

@@ -11,7 +11,7 @@ use winit::{
     window::Window,
 };
 
-use crate::{boot::BootResult, local_player::LocalPlayerController};
+use super::{boot::BootResult, local_player::LocalPlayerController};
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,14 +124,14 @@ impl MatchController {
         #[cfg(feature = "test-harness")]
         {
             if let Some(scene) = self.test_scene.as_ref() {
-                return match crate::test_boot::boot_scene(scene) {
+                return match super::test_boot::boot_scene(scene) {
                     Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
                     Err(e) => BootResult { note: format!("重开失败: {e}"), engine: None, session: None, preview: None },
                 };
             }
         }
         let _ = &self.test_scene;
-        crate::boot::boot_from_install()
+        super::boot::boot_from_install()
     }
 
     fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
@@ -627,7 +627,7 @@ impl MatchController {
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
-            crate::test_boot::write_status(path, session, &self.local.selected, screen_label, self.leave_armed);
+            super::test_boot::write_status(path, session, &self.local.selected, screen_label, self.leave_armed);
             #[cfg(not(feature = "test-harness"))]
             let _ = (path, session);
         }

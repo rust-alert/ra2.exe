@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/audio.rs` 内联测试迁出。
 
-use ra_desktop::audio::*;
+use ra_napi::host::audio::*;
 
 #[test]
 fn soft_ini_get_reads_section_after_noise() {

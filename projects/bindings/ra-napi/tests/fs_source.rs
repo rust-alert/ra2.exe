@@ -1,7 +1,7 @@
 //! 集成测试：原 `src/fs_source.rs` 内联测试迁出。
 
 use ra_assets::mix_hash;
-use ra_desktop::fs_source::*;
+use ra_components::fs_source::*;
 use ra_types::AssetSource;
 use std::{
     path::PathBuf,
@@ -21,7 +21,7 @@ fn old_mix(id: i32, body: &[u8]) -> Vec<u8> {
 
 fn scratch(tag: &str) -> PathBuf {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("ra-desktop-fs-{tag}-{nanos}"));
+    let dir = std::env::temp_dir().join(format!("ra-napi-fs-{tag}-{nanos}"));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
