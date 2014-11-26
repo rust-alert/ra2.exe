@@ -9,7 +9,7 @@ use ra_ecs::{EcsEntity, EcsWorld};
 use ra_types::EntityId;
 
 use super::{
-    components::{Health, Identity, Owner, Transform},
+    components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Owner, Transform},
     entities::WorldEntity,
 };
 
@@ -63,6 +63,31 @@ impl EcsRegistry {
         self.world.insert(
             handle,
             Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
+        );
+        self.world.insert(handle, Locomotor { speed: entity.speed });
+        self.world.insert(
+            handle,
+            MovementState {
+                destination_x: entity.target_x,
+                destination_y: entity.target_y,
+                path: entity.path.clone(),
+                move_accum: entity.move_accum,
+            },
+        );
+        self.world.insert(
+            handle,
+            CombatStats {
+                armor: entity.armor.clone(),
+                attack_range: entity.attack_range,
+                attack_damage: entity.attack_damage,
+                attack_cooldown_max: entity.attack_cooldown_max,
+                attack_verses: entity.attack_verses,
+                techno_kind: entity.techno_kind,
+            },
+        );
+        self.world.insert(
+            handle,
+            AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
         );
     }
 

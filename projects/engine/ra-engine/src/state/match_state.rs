@@ -287,6 +287,20 @@ impl MatchState {
         Some((transform.x, transform.y, transform.facing))
     }
 
+    /// 读取 ECS 中同步后的移动目的地（迁移期诊断用）。
+    pub fn ecs_move_destination(&self, id: EntityId) -> Option<(Option<u16>, Option<u16>)> {
+        let handle = self.ecs.resolve(id)?;
+        let movement = self.ecs.world().get::<crate::state::components::MovementState>(handle)?;
+        Some((movement.destination_x, movement.destination_y))
+    }
+
+    /// 读取 ECS 中同步后的攻击目标与冷却（迁移期诊断用）。
+    pub fn ecs_attack_state(&self, id: EntityId) -> Option<(Option<EntityId>, u32)> {
+        let handle = self.ecs.resolve(id)?;
+        let attack = self.ecs.world().get::<crate::state::components::AttackState>(handle)?;
+        Some((attack.target, attack.cooldown))
+    }
+
     /// 按 house 名称设置资金（启动与测试播种用）。
     pub fn set_house_funds(&mut self, house: &str, funds: i32) -> bool {
         if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
