@@ -65,7 +65,6 @@ impl crate::state::MatchState {
         };
         let max_health = tt.strength.max(1);
         let id = self.alloc_entity_id();
-        self.register_ecs_entity(id);
         let unit_index = self.entities.len();
         self.entities.push(WorldEntity {
             id,
@@ -100,6 +99,7 @@ impl crate::state::MatchState {
             hit_flash: 0,
             dead: false,
         });
+        self.bind_ecs_at(unit_index);
         self.mark_entity_dirty(id);
         if let Some((rx, ry)) = rally {
             let e = &mut self.entities[unit_index];

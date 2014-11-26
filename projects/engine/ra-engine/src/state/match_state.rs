@@ -14,7 +14,6 @@ use crate::{
     presentation::DirtyEntitySet,
     spatial::{is_mobile, repath_at},
 };
-use ra_ecs::EcsEntity;
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -88,7 +87,7 @@ impl MatchState {
         let definitions = Arc::new(build_runtime_definitions(rules));
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
-        let mut ecs = EcsRegistry::new();
+        let ecs = EcsRegistry::new();
         let entities: Vec<WorldEntity> = map
             .entities
             .iter()
@@ -109,7 +108,6 @@ impl MatchState {
                 let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
                 let id = EntityId(next_entity_id);
                 next_entity_id = next_entity_id.saturating_add(1);
-                ecs.register(id);
                 WorldEntity {
                     id,
                     kind: e.kind,
@@ -167,6 +165,7 @@ impl MatchState {
             ecs,
         };
         for i in 0..world.entities.len() {
+            world.bind_ecs_at(i);
             repath_at(&mut world.entities, i, &world.pass_grid);
             world.mark_entity_dirty(world.entities[i].id);
         }
@@ -243,9 +242,20 @@ impl MatchState {
         id
     }
 
-    /// 为已分配的稳定 ID 注册内部 ECS 句柄（在 `entities.push` 之前调用）。
-    pub(crate) fn register_ecs_entity(&mut self, id: EntityId) -> EcsEntity {
-        self.ecs.register(id)
+    /// 为已分配的稳定 ID 注册内部 ECS 句柄并写入基础组件（在 `entities.push` 之后调用）。
+    pub(crate) fn bind_ecs_at(&mut self, index: usize) {
+        let entity = &self.entities[index];
+        self.ecs.bind_from_world_entity(entity);
+    }
+
+    /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件（权威仍在 `WorldEntity`）。
+    pub(crate) fn sync_ecs_components(&mut self) {
+        for i in 0..self.entities.len() {
+            let snapshot = self.entities[i].clone();
+            if let Some(handle) = self.ecs.resolve(snapshot.id) {
+                self.ecs.write_components(handle, &snapshot);
+            }
+        }
     }
 
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。
@@ -261,6 +271,20 @@ impl MatchState {
     /// ECS 内存中存活实体数（播种与生成路径上应与映射表一致）。
     pub fn ecs_alive_count(&self) -> usize {
         self.ecs.ecs_len()
+    }
+
+    /// 读取 ECS 中同步后的生命组件（迁移期诊断用）。
+    pub fn ecs_health(&self, id: EntityId) -> Option<(u32, u32, bool)> {
+        let handle = self.ecs.resolve(id)?;
+        let health = self.ecs.world().get::<crate::state::components::Health>(handle)?;
+        Some((health.current, health.maximum, health.dead))
+    }
+
+    /// 读取 ECS 中同步后的坐标（迁移期诊断用）。
+    pub fn ecs_transform(&self, id: EntityId) -> Option<(u16, u16, u8)> {
+        let handle = self.ecs.resolve(id)?;
+        let transform = self.ecs.world().get::<crate::state::components::Transform>(handle)?;
+        Some((transform.x, transform.y, transform.facing))
     }
 
     /// 按 house 名称设置资金（启动与测试播种用）。
@@ -330,7 +354,10 @@ impl MatchState {
                 SystemPhase::Turrets => self.advance_turrets(),
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
-                SystemPhase::Rehash => self.rehash(),
+                SystemPhase::Rehash => {
+                    self.sync_ecs_components();
+                    self.rehash();
+                }
             }
         }
     }

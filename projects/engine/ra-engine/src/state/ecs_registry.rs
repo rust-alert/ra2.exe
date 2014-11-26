@@ -1,12 +1,17 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
 //! 当前阶段：每个 `WorldEntity` 在 ECS 中有对应存活句柄，玩法状态仍以 `WorldEntity` 为权威。
-//! 后续把组件迁入 ECS 后，本表继续负责对外稳定 ID 与内部句柄的翻译。
+//! tick 末把身份 / 空间 / 生命同步进组件，供迁移期只读查询。后续再翻转权威读写方向。
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use ra_ecs::{EcsEntity, EcsWorld};
 use ra_types::EntityId;
+
+use super::{
+    components::{Health, Identity, Owner, Transform},
+    entities::WorldEntity,
+};
 
 /// 一局内的 ECS 世界与对外 ID 映射。
 #[derive(Debug, Clone, Default)]
@@ -31,6 +36,36 @@ impl EcsRegistry {
         entity
     }
 
+    /// 注册句柄并写入基础组件快照。
+    pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
+        let handle = self.register(entity.id);
+        self.write_components(handle, entity);
+        handle
+    }
+
+    /// 用 `WorldEntity` 覆盖基础组件（权威仍在 `WorldEntity`）。
+    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity) {
+        self.world.insert(
+            handle,
+            Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
+        );
+        self.world.insert(handle, Owner { house: Arc::clone(&entity.owner) });
+        self.world.insert(
+            handle,
+            Transform {
+                x: entity.x,
+                y: entity.y,
+                facing: entity.facing,
+                turret_facing: entity.turret_facing,
+                sub_cell: entity.sub_cell,
+            },
+        );
+        self.world.insert(
+            handle,
+            Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
+        );
+    }
+
     /// 按稳定 ID 解析仍有效的内部句柄。
     pub(crate) fn resolve(&self, id: EntityId) -> Option<EcsEntity> {
         let entity = *self.by_id.get(&id)?;
@@ -47,15 +82,8 @@ impl EcsRegistry {
         self.world.len()
     }
 
-    /// 只读访问内部世界（供后续组件迁移与调试）。
-    #[allow(dead_code)]
+    /// 只读访问内部世界。
     pub(crate) fn world(&self) -> &EcsWorld {
         &self.world
-    }
-
-    /// 可变访问内部世界。
-    #[allow(dead_code)]
-    pub(crate) fn world_mut(&mut self) -> &mut EcsWorld {
-        &mut self.world
     }
 }

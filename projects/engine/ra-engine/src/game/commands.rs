@@ -379,7 +379,6 @@ impl crate::state::MatchState {
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor.clone();
                     let id = self.alloc_entity_id();
-                    self.register_ecs_entity(id);
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
@@ -418,6 +417,7 @@ impl crate::state::MatchState {
                         hit_flash: 0,
                         dead: false,
                     });
+                    self.bind_ecs_at(self.entities.len() - 1);
                     self.mark_entity_dirty(id);
                 }
                 GameCommand::Produce { player, ref type_id } => {
