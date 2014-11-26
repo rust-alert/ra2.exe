@@ -40,7 +40,7 @@ flowchart TB
   ph[ra-adaptor-phobos]
   ra2[ra-adaptor-ra2]
   cfg[ra-config edition=mo3]
-  desk[ra-desktop]
+  desk[ra-napi]
   eng[ra-engine]
 
   cfg --> desk
@@ -129,7 +129,7 @@ ra-types = { workspace = true }
 - **MO 特有 expand 包**（`expandmo94`–`expandmo99` 等），覆盖不同 MO 版本常见打包；
 - **地图与主题包**（`mapsmo03.mix`、`thememo.mix`），供多人地图与 UI 资源 mount。
 
-`ra-adaptor` 的 `scan_root_mixes` 仅检查文件是否存在，不验证 MIX 内容；真正 `mount_bytes` 在 `ra-desktop` 启动流程。
+`ra-adaptor` 的 `scan_root_mixes` 仅检查文件是否存在，不验证 MIX 内容；真正 `mount_bytes` 在 `ra-napi` 启动流程。
 
 ```mermaid
 flowchart LR

@@ -83,7 +83,7 @@ pub enum GuiExpectation {
 /// 平台无关的桌面测试计划。
 ///
 /// 后续 Windows 执行器可采用 UI Automation 负责窗口与输入，截图比较仍由本计划
-/// 保持统一。不要把 OS 自动化库引入 `ra-desktop`。
+/// 保持统一。不要把 OS 自动化库引入 `ra-napi host`。
 #[derive(Debug, Clone)]
 pub struct GuiAutomationPlan {
     /// 计划名称。

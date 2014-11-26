@@ -1,7 +1,7 @@
 # ra-map
 
 本 crate 管的是 **一张地图从 INI 与二进制段变成结构化 `MapInfo`、通行格网 `PassGrid` 与启动预览 RGBA** 的管道。输出供 **
-`ra-engine`** 开局与世界引导使用，也供 `ra-desktop` 在 boot 阶段合成预览图。本 crate 没有 wgpu、没有 tick、不扫描安装目录。
+`ra-engine`** 开局与世界引导使用，也供 `ra-napi` 在 boot 阶段合成预览图。本 crate 没有 wgpu、没有 tick、不扫描安装目录。
 
 依赖 `ra-types` 与 `ra-assets`（INI、PAL、SHP、TMP 等）。字节一律经 `AssetSource` 传入。
 
@@ -26,7 +26,7 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant Desk as ra-desktop
+    participant Desk as ra-napi
     participant Map as ra-map
     participant As as ra-assets
     participant Eng as ra-engine

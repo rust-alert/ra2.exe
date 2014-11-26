@@ -10,7 +10,7 @@
 flowchart LR
     ra2[ra-adaptor-ra2 profile]
     ad[ra-adaptor ResourceChain]
-    desk[ra-desktop mount]
+    desk[ra-napi mount]
     eng[ra-engine]
     ra2 --> ad --> desk
     ad --> eng
@@ -137,7 +137,7 @@ flowchart TD
 ## 依赖与边界
 
 - **依赖**：仅 `ra-types`（`GameEdition`）。
-- **不依赖**：`ra-engine`、`ra-assets`、`ra-desktop`。
+- **不依赖**：`ra-engine`、`ra-assets`、`ra-napi`。
 - **被依赖**：`ra-adaptor` 在 `ResourceChain::for_edition(Ra2)` 时调用 `profile()`。
 
 本 crate **不**解析 MIX 内容、 **不**装载规则、 **不**推进 tick——只做 RA2 版的「文件名真相表」。

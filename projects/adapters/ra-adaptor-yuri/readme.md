@@ -37,7 +37,7 @@ flowchart TB
   yr[ra-adaptor-yuri]
   ph[ra-adaptor-phobos]
   types[ra-types]
-  desk[ra-desktop]
+  desk[ra-napi]
   eng[ra-engine]
 
   ad --> ra2

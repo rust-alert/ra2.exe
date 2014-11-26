@@ -1,4 +1,4 @@
-//! 测试状态旁路：与 `ra-desktop` test-harness 写出的键值文件对齐。
+//! 测试状态旁路：与 `ra-napi` test-harness 写出的键值文件对齐。
 
 use std::{
     path::Path,

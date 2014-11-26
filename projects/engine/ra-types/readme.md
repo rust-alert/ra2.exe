@@ -164,7 +164,7 @@ pub trait AssetSource {
 
 | 实现方                        | 行为                    |
 |-------------------------------|-------------------------|
-| `ra-desktop::GameAssetSource` | 松散文件优先 → `MixVfs` |
+| `ra-napi::GameAssetSource` | 松散文件优先 → `MixVfs` |
 | 未来 `ra-webui`               | fetch / 打包资源 → 内存 |
 | 测试夹具                      | `HashMap` 或内联字节    |
 

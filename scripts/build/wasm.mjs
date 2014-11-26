@@ -9,15 +9,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import {
-    existsSync,
-    mkdirSync,
-    readdirSync,
-    readFileSync,
-    rmSync,
-    unlinkSync,
-    writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -117,9 +109,7 @@ if (existsSync(pkgDir)) {
 
 rmSync(distDir, { recursive: true, force: true });
 const tscJs = path.join(root, 'node_modules', 'typescript', 'bin', 'tsc');
-const tscArgs = existsSync(tscJs)
-    ? [tscJs, '-p', 'tsconfig.json']
-    : ['--package=typescript', 'tsc', '-p', 'tsconfig.json'];
+const tscArgs = existsSync(tscJs) ? [tscJs, '-p', 'tsconfig.json'] : ['--package=typescript', 'tsc', '-p', 'tsconfig.json'];
 const tscCmd = existsSync(tscJs) ? process.execPath : process.platform === 'win32' ? 'npx.cmd' : 'npx';
 console.log(`tsc -p tsconfig.json (cwd=${outPkg})`);
 run(tscCmd, tscArgs, outPkg);

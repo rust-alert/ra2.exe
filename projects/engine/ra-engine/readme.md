@@ -1,7 +1,7 @@
 # ra-engine
 
 一局 RTS 对局的运行时。本 crate 是仓库的 **仿真重心**：玩家与 AI 的意图以命令进入，按固定逻辑 tick 推进，持有权威状态，并导出供
-UI、动画与渲染使用的只读快照。它不创建操作系统窗口，不初始化 GPU，不扫描用户磁盘上的安装目录——这些由 `ra-desktop` /
+UI、动画与渲染使用的只读快照。它不创建操作系统窗口，不初始化 GPU，不扫描用户磁盘上的安装目录——这些由 `ra-napi` /
 `ra-webui` 与 adaptor 在开局前完成。
 
 若你正在查找「世界如何往前走」「命令如何被拒绝」「胜负如何判定」「HUD 资金从哪来」，答案应首先落在本包，而不是渲染器或桌面事件循环。
@@ -22,7 +22,7 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph consumers["消费方"]
-    desk[ra-desktop]
+    desk[ra-napi]
     test[ra-testing]
     ren[ra-renderer]
     net[ra-net · Beta]
@@ -73,7 +73,7 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-  participant Desk as ra-desktop
+  participant Desk as ra-napi
   participant Eng as ra-engine
   participant Ren as ra-renderer
   Desk->>Eng: 输入转为命令并入队

@@ -36,7 +36,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  desk[ra-desktop]
+  desk[ra-napi]
   test[ra-testing]
   ren[ra-renderer]
   eng[ra-engine]
@@ -165,7 +165,7 @@ Workspace 级检查：
 cargo check --workspace
 ```
 
-修改 `EcsEntity` 布局或公开 API 时，请全量编译 `ra-engine`，确认无隐式依赖泄漏到 `ra-desktop`。
+修改 `EcsEntity` 布局或公开 API 时，请全量编译 `ra-engine`，确认无隐式依赖泄漏到 `ra-napi`。
 
 ## 许可证
 

@@ -21,7 +21,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    participant Desk as ra-desktop
+    participant Desk as ra-napi
     participant Eng as ra-engine
     participant Ren as ra-renderer
 
@@ -146,7 +146,7 @@ flowchart TB
 cargo build -p ra-renderer
 ```
 
-无默认 GPU 单元测试（需物理适配器；CI 未接 wgpu 测试）。本地验证请运行 `ra-desktop` 观察 `ra2 gpu: …` 日志。
+无默认 GPU 单元测试（需物理适配器；CI 未接 wgpu 测试）。本地验证请运行 `ra-napi` 观察 `ra2 gpu: …` 日志。
 
 Wasm：`ra-webui` 未来将传入 canvas 并调用 `attach_window` 的 Web 变体；当前 `gpu.rs` 尚未分出
 `cfg(target_arch = "wasm32")` 分支。

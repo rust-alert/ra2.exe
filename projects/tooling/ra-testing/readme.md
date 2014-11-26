@@ -35,7 +35,7 @@ flowchart TB
   GUI -.-> EXEC
 ```
 
-**Non-goals**：不替代 `ra-engine` 单元测试；不在 CI 默认路径启动真实 `ra-desktop`（除非独立带桌面作业）；不分发可玩二进制。
+**Non-goals**：不替代 `ra-engine` 单元测试；不在 CI 默认路径启动真实 `ra-napi`（除非独立带桌面作业）；不分发可玩二进制。
 
 ## 在仓库中的位置
 
@@ -46,7 +46,7 @@ flowchart TB
   assets[ra-assets]
   ad[ra-adaptor]
   map[ra-map]
-  desk[ra-desktop]
+  desk[ra-napi]
   ci[CI]
 
   test --> eng
@@ -58,7 +58,7 @@ flowchart TB
 ```
 
 - **`ra-engine`** 持有权威仿真；本 crate 是 **消费者**，封装夹具与观测 API。
-- **`ra-desktop`** 正常依赖图 **不**应依赖 `ra-testing`。GUI 执行器应位于测试工具或 `--features test-harness` 隔离路径。
+- **`ra-napi`** 正常依赖图 **不**应依赖 `ra-testing`。GUI 执行器应位于测试工具或 `--features test-harness` 隔离路径。
 - **Workspace 成员** 可在 `tests/` 或 `dev-dependencies` 引用本 crate（若 policy 允许）。
 
 仿真重心不变： **一局 match runtime** 在 `ra-engine` 内 owns 命令、固定 tick 与 snapshots。`ra-testing` 只缩短「构造一局 + 跑
@@ -130,7 +130,7 @@ let plan: GuiAutomationPlan = standard_duel_gui_plan();
 ```
 
 `GuiAction` / `GuiExpectation` **平台无关**；Windows 第一版执行器应使用 UI Automation，在 **带桌面会话的 CI 作业**运行，独立於
-`ra-desktop` 主 binary。
+`ra-napi` 主 binary。
 
 `TestStatus` 解析 `RA2_TEST_STATUS_PATH` 旁路文件（`tick` / `hash` / `outcome` / `selected` / `difficulty` / `screen` 等键），供 GUI 测试轮询引擎状态而无需
 OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可直接承接 `GuiAction::WaitStatus`（例如 `screen=results` / `leave_armed=true`）。
@@ -138,7 +138,7 @@ OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可
 ```mermaid
 sequenceDiagram
   participant P as GuiAutomationPlan
-  participant D as ra-desktop test-harness
+  participant D as ra-napi test-harness
   participant S as TestStatus 文件
   P->>D: 启动 --test-scene=duel
   D->>S: 每 tick 写入 hash/outcome
@@ -200,7 +200,7 @@ flowchart LR
 ### 演进方向
 
 1. 用 `alpha_skirmish_v1` 驱动 MCV → 建造 → 采矿 → 生产 headless 剧本，逐步扩展 `tests/`；
-2. `ra-desktop` 增加 `test-harness` feature：`--test-scene`、`RA2_TEST_SCENE`、`RA2_TEST_STATUS_PATH`；
+2. `ra-napi` 增加 `test-harness` feature：`--test-scene`、`RA2_TEST_SCENE`、`RA2_TEST_STATUS_PATH`；
 3. 实现 Windows GUI 执行器；
 4. CI：headless 全平台，GUI 独立作业。
 

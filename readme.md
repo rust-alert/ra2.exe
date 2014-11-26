@@ -2,7 +2,7 @@
 
 跨平台 GUI 引擎，用于在玩家自备的《命令与征服：红色警戒 2》、《尤里的复仇》以及心灵终结 3（Mental Omega 3）数据上运行自有逻辑。
 
-本仓库是 **现代化重写**：产品入口为 npm 包 **`@game-gpt/red-alert2`**（CLI `ra2 launch --path`），经 N-API 拉起原生窗口实现 `ra-desktop`；对局由 **`ra-engine`**
+本仓库是 **现代化重写**：产品入口为 npm 包 **`@game-gpt/red-alert2`**（CLI `ra2 launch --path`），经 N-API 拉起原生窗口实现 `ra-napi`；对局由 **`ra-engine`**
 推进，呈现走现代 GPU API（桌面常见 DX12 / Vulkan / Metal；浏览器目标走 WebGL2 方向的 `ra-wasm`）。**不是** DirectDraw 兼容层，
 **不是**向原版 `game.exe` / `gamemd.exe` 注入。
 
@@ -64,7 +64,7 @@ pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack
 pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack --names-file ./extra_names.txt
 
 # 仅调试原生壳（非资源探针）：需 RustAlert.toml 或默认目录
-cargo run -p ra-desktop --example launch
+cargo run -p ra-napi --example launch
 
 pnpm run lint
 pnpm run fmt
@@ -80,8 +80,8 @@ npm 正式发布走 GitHub Actions **Trusted Publisher**（OIDC），工作流�
 
 ## 游戏如何执行
 
-桌面经 `@game-gpt/red-alert2` → `ra-napi` → `ra-desktop`；浏览器经同一 host 的 `./wasm` 面 → `ra-wasm`（当前占位）。两条壳层都把对局权威状态交给 **`ra-engine`**：装载配置与内容后打开会话，每帧提交命令、`pump` 固定 tick，再取 `RenderSnapshot` 交给 `ra-renderer`。细节见 [
-`projects/bindings/ra-desktop/readme.md`](projects/bindings/ra-desktop/readme.md) 与 [
+桌面经 `@game-gpt/red-alert2` → `ra-napi` → `ra-napi`；浏览器经同一 host 的 `./wasm` 面 → `ra-wasm`（当前占位）。两条壳层都把对局权威状态交给 **`ra-engine`**：装载配置与内容后打开会话，每帧提交命令、`pump` 固定 tick，再取 `RenderSnapshot` 交给 `ra-renderer`。细节见 [
+`projects/bindings/ra-napi/readme.md`](projects/bindings/ra-napi/readme.md) 与 [
 `projects/engine/ra-engine/readme.md`](projects/engine/ra-engine/readme.md)。
 
 ```mermaid
@@ -90,7 +90,7 @@ sequenceDiagram
     participant Host as "@game-gpt/red-alert2"
     participant Napi as ra-napi
     participant Cfg as ra-config
-    participant Desk as ra-desktop
+    participant Desk as ra-napi
     participant Ad as ra-adaptor
     participant Map as ra-map
     participant Eng as ra-engine
@@ -128,11 +128,13 @@ flowchart TB
     subgraph shells["壳层 / 绑定"]
         host["@game-gpt/red-alert2<br/>CLI / Node / 浏览器面"]
         napi["ra-napi"]
-        desktop["ra-desktop<br/>窗口 / 输入 / 事件循环"]
+        desktop["ra-napi<br/>窗口 / 输入 / 事件循环"]
         wasm["ra-wasm<br/>Wasm 绑定"]
     end
 
     subgraph present["呈现"]
+        layout["ra-layout"]
+        components["ra-components"]
         renderer["ra-renderer"]
     end
 
@@ -158,13 +160,19 @@ flowchart TB
     host --> wasm
     napi --> desktop
     desktop --> config
+    desktop --> components
     desktop --> renderer
     desktop --> engine
     desktop --> map
     desktop --> assets
     desktop --> adaptor
+    wasm -.-> components
     wasm -.-> renderer
     wasm -.-> engine
+    components --> layout
+    components --> renderer
+    components --> engine
+    layout --> types
     renderer --> engine
     engine -.-> ecs
     engine --> map
@@ -183,7 +191,7 @@ flowchart TB
 
 `ra-engine` 内部按 runtime / state / spatial / gameplay / lifecycle / presentation / persistence 划分，详见引擎 README。
 
-虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-ecs` 已存在但尚未被 `ra-engine` 依赖。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
+虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-ecs` 已存在但尚未被 `ra-engine` 依赖；`ra-layout` / `ra-components` 已落骨架，壳层 UI 尚未迁入。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
 
 ### Crate / 包依赖关系（简化）
 
@@ -199,8 +207,10 @@ flowchart LR
     cf[ra-config]
     mp[ra-map]
     eng[ra-engine]
+    lay[ra-layout]
+    comp[ra-components]
     re[ra-renderer]
-    de[ra-desktop]
+    de[ra-napi]
     napi[ra-napi]
     host["@game-gpt/red-alert2"]
     we[ra-wasm]
@@ -224,6 +234,9 @@ flowchart LR
     eng --> mp
     eng --> as
     eng --> net
+    lay --> types
+    comp --> types
+    comp --> lay
     re --> types
     re --> eng
     de --> ad
@@ -249,22 +262,22 @@ flowchart LR
 
 ```text
 ra2.exe/                 工作区根（本 README）
-├── Cargo.toml           Rust workspace；默认成员 ra-desktop
+├── Cargo.toml           Rust workspace；默认成员 ra-napi
 ├── package.json         pnpm workspace 根
 ├── rust-toolchain.toml  nightly
 ├── License.md           Apache-2.0
 ├── scripts/             构建 / 发布脚本
 └── projects/
-    ├── engine/          ra-types … ra-renderer / ra-net
+    ├── engine/          ra-types … ra-layout / ra-components / ra-renderer / ra-net
     ├── adapters/        ra-adaptor*
-    ├── bindings/        ra-napi · ra-desktop · ra-wasm
+    ├── bindings/        ra-napi · ra-napi · ra-wasm
     ├── tooling/         ra-testing（后续 ra-modder）
     ├── hosts/           red-alert2（@game-gpt/red-alert2）
     ├── platforms/       native / wasm 平台包
     └── sites/           homepage / playground
 ```
 
-每个 crate 目录下有独立 `readme.md`，说明该包职责与现状。建议先读 `ra-engine` 与 `ra-desktop`，再按启动链路下钻 adaptor /
+每个 crate 目录下有独立 `readme.md`，说明该包职责与现状。建议先读 `ra-engine` 与 `ra-napi`，再按启动链路下钻 adaptor /
 map / assets / renderer。
 
 ---
@@ -275,7 +288,7 @@ map / assets / renderer。
 |---------------------|------------------------------------------------------|----------------------------------------------------------------|
 | `@game-gpt/red-alert2` | CLI + Node API + 浏览器面                         | [README](projects/hosts/red-alert2/README.md)                  |
 | `ra-napi`           | N-API 绑定（供 host 加载）                           | —                                                              |
-| `ra-desktop`        | 原生窗口 / 输入 / 事件循环（仅供 `ra-napi`）         | [readme](projects/bindings/ra-desktop/readme.md)               |
+| `ra-napi`        | 原生窗口 / 输入 / 事件循环（仅供 `ra-napi`）         | [readme](projects/bindings/ra-napi/readme.md)               |
 | `ra-wasm`           | Wasm 绑定（占位）                                    | [readme](projects/bindings/ra-wasm/readme.md)                  |
 | `ra-types`          | 基类型 + 冻结 `RuntimeDefinitions`（全体层共同语言） | [readme](projects/engine/ra-types/readme.md)                   |
 | `ra-ecs`            | 通用实体/组件存储与结构变更（无 RTS 语义）           | [readme](projects/engine/ra-ecs/readme.md)                     |
@@ -287,6 +300,8 @@ map / assets / renderer。
 | `ra-adaptor-yuri`   | 尤里的复仇资源表                                     | [readme](projects/adapters/ra-adaptor-yuri/readme.md)          |
 | `ra-adaptor-phobos` | Phobos / MO 布局资源表                               | [readme](projects/adapters/ra-adaptor-phobos/readme.md)        |
 | `ra-engine`         | **一局对局：命令、固定 tick、权威状态、呈现快照**    | [readme](projects/engine/ra-engine/readme.md)                  |
+| `ra-layout`         | UI 空间求解（约束 → `LayoutSnapshot`；骨架）         | [readme](projects/engine/ra-layout/readme.md)                  |
+| `ra-components`     | UI 组件与画面组合（骨架；不直调 wgpu）               | [readme](projects/engine/ra-components/readme.md)              |
 | `ra-net`            | 联机协议无关基础类型（Beta 接入点）                  | [readme](projects/engine/ra-net/readme.md)                     |
 | `ra-testing`        | headless 夹具与 GUI 自动化计划（非运行时）           | [readme](projects/tooling/ra-testing/readme.md)                |
 | `ra-renderer`       | 呈现（只消费引擎快照）                               | [readme](projects/engine/ra-renderer/readme.md)                |
@@ -295,7 +310,7 @@ map / assets / renderer。
 
 ## 设计要点
 
-- **共享内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`。
+- **共享内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`；菜单布局与组件为 `ra-layout` / `ra-components`（壳层逐步迁入）。
 - **I/O 边界**：解析器只吃字节（`AssetSource` / 资源挂载）；文件系统与窗口留在壳层。
 - **现代 GPU**：呈现路径基于现代图形 API；不把 DirectDraw / 原版 exe 注入作为主路径。
 - **可测运行时**：`ra-testing` 经 `ra-engine` 做无窗口确定性回归；完整启动验证需自备游戏目录。

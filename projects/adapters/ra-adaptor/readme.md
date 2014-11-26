@@ -31,7 +31,7 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant Desk as ra-desktop
+    participant Desk as ra-napi
     participant Ad as ra-adaptor
     participant As as ra-assets
     participant Eng as ra-engine
@@ -71,7 +71,7 @@ root 不是目录？ → Io("游戏目录不存在")
 3 布局启发式，优先 `Mo3`，不再与原版/YR 报歧义。
 
 `scan_root_mixes` 只用 `find_ci_file` 检查文件是否存在， **不打开 MIX、不验证索引**。嵌套包名列在 `nested_mix_files`，实际
-`mount_nested` 由 `ra-desktop` 在 boot 阶段执行。
+`mount_nested` 由 `ra-napi` 在 boot 阶段执行。
 
 ## `ResourceChain`
 

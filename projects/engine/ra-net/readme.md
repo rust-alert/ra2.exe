@@ -15,7 +15,7 @@ crate **不打开 socket**，不依赖 wgpu、窗口或具体传输（WebSocket�
 - 定期交换 **状态摘要** 以检测 desync；
 - desync 时请求 **重同步快照**。
 
-`ra-net` 把这些概念固化为 Rust 类型与纯函数编解码，使 `ra-desktop`、未来 Web 壳或专用 relay **共享同一消息形状**，而不把
+`ra-net` 把这些概念固化为 Rust 类型与纯函数编解码，使 `ra-napi`、未来 Web 壳或专用 relay **共享同一消息形状**，而不把
 TCP 细节塞进引擎。
 
 ```mermaid
@@ -44,7 +44,7 @@ sequenceDiagram
 ```mermaid
 flowchart TB
   subgraph shell["平台壳 · Beta"]
-    desk[ra-desktop]
+    desk[ra-napi]
     web[ra-webui · 规划]
     relay[relay · 规划]
   end
@@ -191,7 +191,7 @@ pub struct StateDigest {
 
 计划中的传输层将：
 
-- 在 `ra-desktop` 或独立 binary 中建立连接；
+- 在 `ra-napi` 或独立 binary 中建立连接；
 - 把 `encode_frame` 输出写入 socket；
 - 收到字节流后循环 `decode_frame`；
 - 将 `Command` 转为 `GameCommand`  push 到 `Session`。
