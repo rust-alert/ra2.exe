@@ -7,13 +7,14 @@ use ra_assets::TechnoKind;
 use ra_map::{MapInfo, PassGrid};
 use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass, Tick};
 
-use super::{entities::WorldEntity, players::PlayerState};
+use super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{
     game::{CommandReject, GameCommand, InputFrame},
     gameplay::verses_for,
     presentation::DirtyEntitySet,
     spatial::{is_mobile, repath_at},
 };
+use ra_ecs::EcsEntity;
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
@@ -76,6 +77,8 @@ pub struct MatchState {
     pub(crate) state_hash: u64,
     /// 呈现脏实体集（增量 `RenderWorld` 用；与全量 snapshot 并存）。
     pub(crate) presentation_dirty: DirtyEntitySet,
+    /// 内部 ECS 世界与 `EntityId` 映射（玩法字段仍以 `entities` 为权威）。
+    pub(crate) ecs: EcsRegistry,
 }
 
 impl MatchState {
@@ -85,6 +88,7 @@ impl MatchState {
         let definitions = Arc::new(build_runtime_definitions(rules));
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
+        let mut ecs = EcsRegistry::new();
         let entities: Vec<WorldEntity> = map
             .entities
             .iter()
@@ -105,6 +109,7 @@ impl MatchState {
                 let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
                 let id = EntityId(next_entity_id);
                 next_entity_id = next_entity_id.saturating_add(1);
+                ecs.register(id);
                 WorldEntity {
                     id,
                     kind: e.kind,
@@ -159,6 +164,7 @@ impl MatchState {
             seen_command_ids: HashSet::new(),
             state_hash: 0,
             presentation_dirty: DirtyEntitySet::new(),
+            ecs,
         };
         for i in 0..world.entities.len() {
             repath_at(&mut world.entities, i, &world.pass_grid);
@@ -235,6 +241,26 @@ impl MatchState {
         let id = EntityId(self.next_entity_id);
         self.next_entity_id = self.next_entity_id.saturating_add(1);
         id
+    }
+
+    /// 为已分配的稳定 ID 注册内部 ECS 句柄（在 `entities.push` 之前调用）。
+    pub(crate) fn register_ecs_entity(&mut self, id: EntityId) -> EcsEntity {
+        self.ecs.register(id)
+    }
+
+    /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。
+    pub fn has_ecs_entity(&self, id: EntityId) -> bool {
+        self.ecs.resolve(id).is_some()
+    }
+
+    /// 已注册的 ECS 映射条目数（应与 `entities.len()` 对齐）。
+    pub fn ecs_registry_len(&self) -> usize {
+        self.ecs.len()
+    }
+
+    /// ECS 内存中存活实体数（播种与生成路径上应与映射表一致）。
+    pub fn ecs_alive_count(&self) -> usize {
+        self.ecs.ecs_len()
     }
 
     /// 按 house 名称设置资金（启动与测试播种用）。

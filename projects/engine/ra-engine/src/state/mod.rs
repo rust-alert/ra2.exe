@@ -1,5 +1,6 @@
 //! 一局权威状态。
 
+mod ecs_registry;
 mod entities;
 mod match_state;
 mod players;

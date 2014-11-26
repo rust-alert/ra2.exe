@@ -17,7 +17,7 @@ flowchart LR
 
 ## 在仓库中的位置
 
-桌面、测试与渲染器都依赖本 crate；本 crate 再依赖地图、适配投影、定义契约与（规划中的）通用 ECS 基础设施。
+桌面、测试与渲染器都依赖本 crate；本 crate 再依赖地图、适配投影、定义契约与通用 ECS 基础设施（`ra-ecs`）。
 
 ```mermaid
 flowchart TB

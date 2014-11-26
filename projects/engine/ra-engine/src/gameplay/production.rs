@@ -65,6 +65,7 @@ impl crate::state::MatchState {
         };
         let max_health = tt.strength.max(1);
         let id = self.alloc_entity_id();
+        self.register_ecs_entity(id);
         let unit_index = self.entities.len();
         self.entities.push(WorldEntity {
             id,

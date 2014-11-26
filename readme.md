@@ -174,7 +174,7 @@ flowchart TB
     components --> engine
     layout --> types
     renderer --> engine
-    engine -.-> ecs
+    engine --> ecs
     engine --> map
     engine --> adaptor
     map --> assets
@@ -182,7 +182,6 @@ flowchart TB
     assets --> types
     config --> types
     adaptor --> types
-    ecs --> types
     engine --> types
     renderer --> types
     net --> types
@@ -191,7 +190,7 @@ flowchart TB
 
 `ra-engine` 内部按 runtime / state / spatial / gameplay / lifecycle / presentation / persistence 划分，详见引擎 README。
 
-虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-ecs` 已存在但尚未被 `ra-engine` 依赖；`ra-layout` / `ra-components` 已落骨架，壳层 UI 尚未迁入。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
+虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-layout` / `ra-components` 已落骨架，壳层 UI 尚未迁入。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
 
 ### Crate / 包依赖关系（简化）
 
@@ -219,7 +218,6 @@ flowchart LR
     ra2a --> types
     yra --> types
     phobos --> types
-    ecs --> types
     ad --> types
     ad --> as
     ad --> ra2a
@@ -234,6 +232,7 @@ flowchart LR
     eng --> mp
     eng --> as
     eng --> net
+    eng --> ecs
     lay --> types
     comp --> types
     comp --> lay
