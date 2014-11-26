@@ -13,5 +13,4 @@ categories = ["game-development", "data-structures"]
 publish = false
 
 [dependencies]
-ra-types = { workspace = true }
 

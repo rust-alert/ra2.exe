@@ -4,34 +4,18 @@
 
 #![deny(missing_docs)]
 
-/// ECS 内部实体句柄（槽位 + 世代）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct EcsEntity {
-    /// 槽位。
-    pub slot: u32,
-    /// 世代（防复用误命中）。
-    pub generation: u32,
-}
+mod commands;
+mod entity;
+mod store;
+mod world;
 
-/// 组件存储世界（骨架；后续接入成熟 ECS 实现）。
-#[derive(Debug, Default)]
-pub struct EcsWorld;
+pub use commands::EcsCommandBuffer;
+pub use entity::EcsEntity;
+pub use world::EcsWorld;
 
-/// 结构变更缓冲（骨架）。
-#[derive(Debug, Default)]
-pub struct EcsCommandBuffer;
+/// 可放入 [`EcsWorld`] 的组件标记。
+///
+/// 玩法组件类型应定义在 `ra-engine`（或其它上层 crate），本 crate 只提供存储与查询。
+pub trait Component: Clone + 'static {}
 
-impl EcsWorld {
-    /// 是否仍包含该句柄（骨架恒为 false）。
-    pub fn contains(&self, _entity: EcsEntity) -> bool {
-        false
-    }
-
-    /// 取得命令缓冲（骨架）。
-    pub fn commands(&mut self) -> EcsCommandBuffer {
-        EcsCommandBuffer
-    }
-
-    /// 应用命令缓冲（骨架空操作）。
-    pub fn apply(&mut self, _commands: EcsCommandBuffer) {}
-}
+impl<T: Clone + 'static> Component for T {}
