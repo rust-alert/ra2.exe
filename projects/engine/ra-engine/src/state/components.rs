@@ -97,3 +97,30 @@ pub struct AttackState {
     /// 开火冷却剩余 tick。
     pub cooldown: u32,
 }
+
+/// 工厂生产队列与集结格。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProductionQueue {
+    /// 队列中的类型 ID 与剩余 tick。
+    pub item: Option<(Arc<str>, u32)>,
+    /// 集结格 X。
+    pub rally_x: Option<u16>,
+    /// 集结格 Y。
+    pub rally_y: Option<u16>,
+}
+
+/// 矿场采矿行程进度。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HarvesterState {
+    /// 本趟采矿累计 tick。
+    pub ore_trip_accum: u32,
+}
+
+/// 呈现相关动画桥接状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AnimationState {
+    /// HVA 动画帧。
+    pub hva_frame: u16,
+    /// 受击闪白剩余 tick。
+    pub hit_flash: u32,
+}

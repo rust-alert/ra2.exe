@@ -1,7 +1,9 @@
 //! ECS 基础组件与 `WorldEntity` 同步。
 
+use std::sync::Arc;
+
 use crate::common::duel_mtnk_world;
-use ra_engine::GameCommand;
+use ra_engine::{GameCommand, SystemPhase, SystemSchedule};
 
 #[test]
 fn seed_writes_identity_transform_health_components() {
@@ -14,6 +16,8 @@ fn seed_writes_identity_transform_health_components() {
     );
     assert_eq!(world.ecs_move_destination(id), Some((None, None)));
     assert_eq!(world.ecs_attack_state(id), Some((None, 0)));
+    assert_eq!(world.ecs_produce_remaining(id), Some(None));
+    assert_eq!(world.ecs_animation(id), Some((0, 0)));
 }
 
 #[test]
@@ -56,4 +60,18 @@ fn tick_sync_updates_attack_target() {
     world.push_command(GameCommand::Attack { attacker, target });
     world.advance_tick();
     assert_eq!(world.ecs_attack_state(attacker).map(|(t, _)| t), Some(Some(target)));
+}
+
+#[test]
+fn rehash_phase_syncs_production_and_animation() {
+    let mut world = duel_mtnk_world();
+    let id = world.entities[0].id;
+    world.entities[0].produce_queue = Some((Arc::from("E1"), 7));
+    world.entities[0].rally_x = Some(11);
+    world.entities[0].rally_y = Some(12);
+    world.entities[0].hva_frame = 3;
+    world.entities[0].hit_flash = 2;
+    world.advance_scheduled_tick(&SystemSchedule::from_phases(vec![SystemPhase::Rehash]));
+    assert_eq!(world.ecs_produce_remaining(id), Some(Some(7)));
+    assert_eq!(world.ecs_animation(id), Some((3, 2)));
 }

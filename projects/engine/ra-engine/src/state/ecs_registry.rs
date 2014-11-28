@@ -9,7 +9,10 @@ use ra_ecs::{EcsEntity, EcsWorld};
 use ra_types::EntityId;
 
 use super::{
-    components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Owner, Transform},
+    components::{
+        AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
+        ProductionQueue, Transform,
+    },
     entities::WorldEntity,
 };
 
@@ -88,6 +91,19 @@ impl EcsRegistry {
         self.world.insert(
             handle,
             AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
+        );
+        self.world.insert(
+            handle,
+            ProductionQueue {
+                item: entity.produce_queue.clone(),
+                rally_x: entity.rally_x,
+                rally_y: entity.rally_y,
+            },
+        );
+        self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
+        self.world.insert(
+            handle,
+            AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
         );
     }
 
