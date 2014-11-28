@@ -53,6 +53,81 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
 }
 
 #[test]
+fn compose_hides_button_caption_while_wave_frames_active() {
+    use ra_assets::{FONT_MAGIC, FntFile};
+
+    const LOOKUP_TABLE_BYTES: usize = 65536 * 2;
+    let bytes_per_row = 1u32;
+    let bitmap_rows = 1u32;
+    let cell_height = 2u32;
+    let num_slots = 1u32;
+    let glyph_stride = 1 + bytes_per_row * bitmap_rows;
+    let mut data = Vec::new();
+    data.extend_from_slice(&FONT_MAGIC.to_le_bytes());
+    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&bytes_per_row.to_le_bytes());
+    data.extend_from_slice(&bitmap_rows.to_le_bytes());
+    data.extend_from_slice(&cell_height.to_le_bytes());
+    data.extend_from_slice(&num_slots.to_le_bytes());
+    data.extend_from_slice(&glyph_stride.to_le_bytes());
+    let mut lut = vec![0u8; LOOKUP_TABLE_BYTES];
+    let off = (b's' as usize) * 2;
+    lut[off] = 1;
+    lut[off + 1] = 0;
+    data.extend_from_slice(&lut);
+    data.push(1);
+    data.push(0b1000_0000);
+    let fnt = FntFile::parse(&data).unwrap();
+
+    let layout = main_menu_layout(800, 600);
+    let cell = layout.buttons[0];
+    let w = cell.w.max(1) as u16;
+    let h = cell.h.max(1) as u16;
+    let px = (u32::from(w) * u32::from(h)) as usize;
+    let normal_big = DecodedUiSprite {
+        label: "sdbtnanm.shp#2".into(),
+        image: RgbaImage::from_raw(u32::from(w), u32::from(h), vec![10u8; px * 4]).unwrap(),
+        origin: "test".into(),
+        frame: 2,
+        canvas: (w, h),
+        frame_rect: (0, 0, w, h),
+    };
+    let wave_big = DecodedUiSprite {
+        label: "sdbtnanm.shp#10".into(),
+        image: RgbaImage::from_raw(u32::from(w), u32::from(h), [0u8, 0, 255, 255].repeat(px)).unwrap(),
+        origin: "test".into(),
+        frame: 10,
+        canvas: (w, h),
+        frame_rect: (0, 0, w, h),
+    };
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: Vec::new(),
+        button_normals: MAIN_MENU_BUTTON_IDS.iter().map(|id| (*id, normal_big.clone())).collect(),
+        button_hovers: Vec::new(),
+        button_presseds: Vec::new(),
+        sdbtnanm_frames: vec![wave_big],
+        errors: Vec::new(),
+    };
+    let sample = |page: &RgbaImage| {
+        let x = (cell.x + cell.w / 2) as u32;
+        let y = (cell.y + cell.h / 2) as u32;
+        let di = ((y * page.width() + x) * 4) as usize;
+        page.as_raw()[di..di + 4].to_vec()
+    };
+
+    let steady = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, None, 0).unwrap();
+    // 稳态会叠黄字，中心附近不应再是纯钮面灰。
+    assert_ne!(&sample(&steady)[..3], &[10, 10, 10]);
+
+    let frames = [10u16, 10, 10, 10, 10, 10];
+    let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(&frames), 0).unwrap();
+    // 波浪中只留 `SDBTNANM` 帧色，不叠字。
+    assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
+}
+
+#[test]
 fn compose_uses_pressed_sprite_when_entry_matches() {
     let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
     let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);

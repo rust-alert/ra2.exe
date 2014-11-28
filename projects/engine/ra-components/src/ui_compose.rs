@@ -473,11 +473,15 @@ fn compose_shell_menu_page(
         if disabled {
             dim_rect(&mut page, cell, 110);
         }
+        // 波浪进出期间只播 `SDBTNANM` 帧，不叠 CSF 字（字等收束后由稳态帧再画）。
+        if wave_frame.is_some() {
+            continue;
+        }
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
-            let pressed = wave_frame.is_none() && pressed_entry_id == Some(entry_id) && !disabled;
+            let pressed = pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
         }
