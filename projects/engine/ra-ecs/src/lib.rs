@@ -16,6 +16,7 @@ pub use world::EcsWorld;
 /// 可放入 [`EcsWorld`] 的组件标记。
 ///
 /// 玩法组件类型应定义在 `ra-engine`（或其它上层 crate），本 crate 只提供存储与查询。
-pub trait Component: Clone + 'static {}
+/// `Send`：装载线程可携带含 ECS 的会话结果回主线程。
+pub trait Component: Clone + Send + 'static {}
 
-impl<T: Clone + 'static> Component for T {}
+impl<T: Clone + Send + 'static> Component for T {}

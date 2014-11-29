@@ -103,7 +103,7 @@ impl<T> ComponentStore<T> {
     }
 }
 
-pub(crate) trait ErasedStore: Any {
+pub(crate) trait ErasedStore: Any + Send {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     fn clear_slot(&mut self, slot: u32);
