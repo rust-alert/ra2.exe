@@ -248,14 +248,52 @@ impl MatchState {
         self.ecs.bind_from_world_entity(entity);
     }
 
-    /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件（权威仍在 `WorldEntity`）。
+    /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
+    ///
+    /// `Health` 已由 ECS 权威推进，同步时不从投影回写，避免覆盖战斗结果。
     pub(crate) fn sync_ecs_components(&mut self) {
         for i in 0..self.entities.len() {
             let snapshot = self.entities[i].clone();
             if let Some(handle) = self.ecs.resolve(snapshot.id) {
-                self.ecs.write_components(handle, &snapshot);
+                self.ecs.write_components(handle, &snapshot, false);
             }
         }
+        self.project_all_health_to_world_entities();
+    }
+
+    /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
+    pub(crate) fn project_health_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(health) = self.ecs.world().get::<crate::state::components::Health>(handle).copied() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.health = health.current;
+        entity.max_health = health.maximum;
+        entity.dead = health.dead;
+    }
+
+    pub(crate) fn project_all_health_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_health_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改生命，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_health_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Health) -> R) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let health = self.ecs.world_mut().get_mut::<crate::state::components::Health>(handle)?;
+            f(health)
+        };
+        self.project_health_to_world_entity(id);
+        Some(result)
     }
 
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。

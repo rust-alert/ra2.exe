@@ -1,6 +1,7 @@
 //! 玩法侧 ECS 组件（无 INI / MIX 依赖）。
 //!
-//! 当前仍由 `WorldEntity` 权威推进，tick 末同步到这些组件，供迁移期查询与后续翻转权威。
+//! 迁移约定：多数字段仍由 `WorldEntity` 权威推进，并在 tick 末同步到组件。
+//! `Health` 已改为 ECS 权威，经投影写回 `WorldEntity` 供未迁移读路径使用。
 
 use std::sync::Arc;
 

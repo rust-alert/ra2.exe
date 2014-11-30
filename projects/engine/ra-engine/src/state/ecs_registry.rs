@@ -42,12 +42,14 @@ impl EcsRegistry {
     /// 注册句柄并写入基础组件快照。
     pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
         let handle = self.register(entity.id);
-        self.write_components(handle, entity);
+        self.write_components(handle, entity, true);
         handle
     }
 
-    /// 用 `WorldEntity` 覆盖基础组件（权威仍在 `WorldEntity`）。
-    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity) {
+    /// 用 `WorldEntity` 覆盖组件。
+    ///
+    /// `write_health == false` 时跳过生命组件，避免把仍以 ECS 为权威的 `Health` 盖回旧投影。
+    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity, write_health: bool) {
         self.world.insert(
             handle,
             Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
@@ -63,10 +65,12 @@ impl EcsRegistry {
                 sub_cell: entity.sub_cell,
             },
         );
-        self.world.insert(
-            handle,
-            Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
-        );
+        if write_health {
+            self.world.insert(
+                handle,
+                Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
+            );
+        }
         self.world.insert(handle, Locomotor { speed: entity.speed });
         self.world.insert(
             handle,
@@ -126,5 +130,10 @@ impl EcsRegistry {
     /// 只读访问内部世界。
     pub(crate) fn world(&self) -> &EcsWorld {
         &self.world
+    }
+
+    /// 可变访问内部世界。
+    pub(crate) fn world_mut(&mut self) -> &mut EcsWorld {
+        &mut self.world
     }
 }

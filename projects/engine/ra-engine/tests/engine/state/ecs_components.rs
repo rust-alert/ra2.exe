@@ -63,6 +63,24 @@ fn tick_sync_updates_attack_target() {
 }
 
 #[test]
+fn combat_writes_health_through_ecs_authority() {
+    let mut world = duel_mtnk_world();
+    let attacker = world.entities[0].id;
+    let target = world.entities[1].id;
+    let before = world.ecs_health(target).unwrap().0;
+    world.push_command(GameCommand::Attack { attacker, target });
+    for _ in 0..8 {
+        world.advance_tick();
+        let (current, _, _) = world.ecs_health(target).unwrap();
+        if current < before {
+            assert_eq!(world.entities[1].health, current);
+            return;
+        }
+    }
+    panic!("expected combat to reduce ECS health");
+}
+
+#[test]
 fn rehash_phase_syncs_production_and_animation() {
     let mut world = duel_mtnk_world();
     let id = world.entities[0].id;

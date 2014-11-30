@@ -75,15 +75,25 @@ impl crate::state::MatchState {
         let type_id = self.entities[index].type_id.clone();
         let (x, y) = (self.entities[index].x, self.entities[index].y);
         let dirty_id = self.entities[index].id;
+        let killed = self
+            .with_health_mut(dirty_id, |health| {
+                health.current = health.current.saturating_sub(amount);
+                if health.current == 0 {
+                    health.dead = true;
+                    true
+                }
+                else {
+                    false
+                }
+            })
+            .unwrap_or(false);
         {
             let e = &mut self.entities[index];
-            e.health = e.health.saturating_sub(amount);
             e.hit_flash = HIT_FLASH_TICKS;
-            if e.health > 0 {
+            if !killed {
                 self.mark_entity_dirty(dirty_id);
                 return;
             }
-            e.dead = true;
             e.speed = 0;
             e.path.clear();
             e.target_x = None;
