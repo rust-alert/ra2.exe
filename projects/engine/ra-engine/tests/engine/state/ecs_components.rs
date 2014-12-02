@@ -81,6 +81,26 @@ fn combat_writes_health_through_ecs_authority() {
 }
 
 #[test]
+fn movement_writes_transform_through_ecs_authority() {
+    let mut world = duel_mtnk_world();
+    let id = world.entities[0].id;
+    let (x, y) = (world.entities[0].x, world.entities[0].y);
+    let start = world.ecs_transform(id).unwrap();
+    world.push_command(GameCommand::MoveTo { entity: id, x: x.saturating_add(3), y });
+    for _ in 0..32 {
+        world.advance_tick();
+        let now = world.ecs_transform(id).unwrap();
+        if now != start {
+            assert_eq!(world.entities[0].x, now.0);
+            assert_eq!(world.entities[0].y, now.1);
+            assert_eq!(world.entities[0].facing, now.2);
+            return;
+        }
+    }
+    panic!("expected movement to change ECS transform");
+}
+
+#[test]
 fn rehash_phase_syncs_production_and_animation() {
     let mut world = duel_mtnk_world();
     let id = world.entities[0].id;

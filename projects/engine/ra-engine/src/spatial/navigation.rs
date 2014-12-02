@@ -98,16 +98,14 @@ fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u1
     best.map(|(_, x, y)| (x, y)).unwrap_or((tx, ty))
 }
 
-pub(crate) fn step_along_path(entity: &mut WorldEntity) -> bool {
+pub(crate) fn step_along_path(entity: &mut WorldEntity) -> Option<(u16, u16, u8)> {
     let Some((x, y)) = entity.path.first().copied()
     else {
-        return false;
+        return None;
     };
     entity.path.remove(0);
-    entity.facing = facing_toward(entity.x, entity.y, x, y);
-    entity.x = x;
-    entity.y = y;
-    true
+    let facing = facing_toward(entity.x, entity.y, x, y);
+    Some((x, y, facing))
 }
 
 impl crate::state::MatchState {
@@ -161,11 +159,17 @@ impl crate::state::MatchState {
                         break;
                     }
                 }
-                if !step_along_path(&mut self.entities[i]) {
-                    break;
-                }
-                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
                 let id = self.entities[i].id;
+                let Some((x, y, facing)) = step_along_path(&mut self.entities[i])
+                else {
+                    break;
+                };
+                let _ = self.with_transform_mut(id, |transform| {
+                    transform.facing = facing;
+                    transform.x = x;
+                    transform.y = y;
+                });
+                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
                 self.mark_entity_dirty(id);
             }
         }

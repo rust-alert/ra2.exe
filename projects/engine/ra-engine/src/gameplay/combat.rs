@@ -147,9 +147,11 @@ impl crate::state::MatchState {
                 self.entities[i].facing
             };
             let before = self.entities[i].turret_facing;
-            turn_facing_toward(&mut self.entities[i].turret_facing, desired, TURRET_TURN_STEP);
+            let id = self.entities[i].id;
+            let _ = self.with_transform_mut(id, |transform| {
+                turn_facing_toward(&mut transform.turret_facing, desired, TURRET_TURN_STEP);
+            });
             if self.entities[i].turret_facing != before {
-                let id = self.entities[i].id;
                 self.mark_entity_dirty(id);
             }
         }

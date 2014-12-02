@@ -42,29 +42,37 @@ impl EcsRegistry {
     /// 注册句柄并写入基础组件快照。
     pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
         let handle = self.register(entity.id);
-        self.write_components(handle, entity, true);
+        self.write_components(handle, entity, true, true);
         handle
     }
 
     /// 用 `WorldEntity` 覆盖组件。
     ///
-    /// `write_health == false` 时跳过生命组件，避免把仍以 ECS 为权威的 `Health` 盖回旧投影。
-    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity, write_health: bool) {
+    /// `write_health` / `write_transform` 为 false 时跳过对应组件，避免盖掉 ECS 权威字段。
+    pub(crate) fn write_components(
+        &mut self,
+        handle: EcsEntity,
+        entity: &WorldEntity,
+        write_health: bool,
+        write_transform: bool,
+    ) {
         self.world.insert(
             handle,
             Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
         );
         self.world.insert(handle, Owner { house: Arc::clone(&entity.owner) });
-        self.world.insert(
-            handle,
-            Transform {
-                x: entity.x,
-                y: entity.y,
-                facing: entity.facing,
-                turret_facing: entity.turret_facing,
-                sub_cell: entity.sub_cell,
-            },
-        );
+        if write_transform {
+            self.world.insert(
+                handle,
+                Transform {
+                    x: entity.x,
+                    y: entity.y,
+                    facing: entity.facing,
+                    turret_facing: entity.turret_facing,
+                    sub_cell: entity.sub_cell,
+                },
+            );
+        }
         if write_health {
             self.world.insert(
                 handle,
