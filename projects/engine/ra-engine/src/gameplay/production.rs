@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
-    spatial::repath_at,
     state::{ATTACK_COOLDOWN_TICKS, WorldEntity},
 };
 
@@ -102,12 +101,13 @@ impl crate::state::MatchState {
         self.bind_ecs_at(unit_index);
         self.mark_entity_dirty(id);
         if let Some((rx, ry)) = rally {
-            let e = &mut self.entities[unit_index];
-            e.target_x = Some(rx);
-            e.target_y = Some(ry);
-            e.path.clear();
-            e.move_accum = 0;
-            repath_at(&mut self.entities, unit_index, &self.pass_grid);
+            let _ = self.with_movement_mut(id, |movement| {
+                movement.destination_x = Some(rx);
+                movement.destination_y = Some(ry);
+                movement.path.clear();
+                movement.move_accum = 0;
+            });
+            self.repath_entity_at(unit_index);
         }
     }
 

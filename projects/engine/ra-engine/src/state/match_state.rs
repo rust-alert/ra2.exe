@@ -12,7 +12,7 @@ use crate::{
     game::{CommandReject, GameCommand, InputFrame},
     gameplay::verses_for,
     presentation::DirtyEntitySet,
-    spatial::{is_mobile, repath_at},
+    spatial::is_mobile,
 };
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
@@ -166,7 +166,7 @@ impl MatchState {
         };
         for i in 0..world.entities.len() {
             world.bind_ecs_at(i);
-            repath_at(&mut world.entities, i, &world.pass_grid);
+            world.repath_entity_at(i);
             world.mark_entity_dirty(world.entities[i].id);
         }
         world.rehash();
@@ -250,16 +250,17 @@ impl MatchState {
 
     /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
     ///
-    /// `Health` / `Transform` 已由 ECS 权威推进，同步时不从投影回写。
+    /// `Health` / `Transform` / `MovementState` 已由 ECS 权威推进，同步时不从投影回写。
     pub(crate) fn sync_ecs_components(&mut self) {
         for i in 0..self.entities.len() {
             let snapshot = self.entities[i].clone();
             if let Some(handle) = self.ecs.resolve(snapshot.id) {
-                self.ecs.write_components(handle, &snapshot, false, false);
+                self.ecs.write_components(handle, &snapshot, super::ecs_registry::ComponentWriteMask::SYNC);
             }
         }
         self.project_all_health_to_world_entities();
         self.project_all_transforms_to_world_entities();
+        self.project_all_movements_to_world_entities();
     }
 
     /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
@@ -336,6 +337,55 @@ impl MatchState {
         };
         self.project_transform_to_world_entity(id);
         Some(result)
+    }
+
+    /// 将 ECS `MovementState` 投影回 `WorldEntity`。
+    pub(crate) fn project_movement_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(movement) = self.ecs.world().get::<crate::state::components::MovementState>(handle).cloned() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.target_x = movement.destination_x;
+        entity.target_y = movement.destination_y;
+        entity.path = movement.path;
+        entity.move_accum = movement.move_accum;
+    }
+
+    pub(crate) fn project_all_movements_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_movement_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改移动状态，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_movement_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::MovementState) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let movement = self.ecs.world_mut().get_mut::<crate::state::components::MovementState>(handle)?;
+            f(movement)
+        };
+        self.project_movement_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 为指定下标实体重算路径并写入 ECS `MovementState`。
+    pub(crate) fn repath_entity_at(&mut self, index: usize) {
+        let path = crate::spatial::compute_repath(&self.entities, index, &self.pass_grid);
+        let id = self.entities[index].id;
+        let _ = self.with_movement_mut(id, |movement| {
+            movement.path = path;
+        });
     }
 
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。
@@ -495,7 +545,7 @@ impl MatchState {
     pub fn repath_mobiles(&mut self) {
         for i in 0..self.entities.len() {
             if is_mobile(self.entities[i].kind) {
-                repath_at(&mut self.entities, i, &self.pass_grid);
+                self.repath_entity_at(i);
             }
         }
         self.rehash();

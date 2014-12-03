@@ -219,7 +219,7 @@ impl crate::state::MatchState {
         use crate::{
             game::CommandRejectReason,
             gameplay::{building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant},
-            spatial::{is_mobile, repath_at},
+            spatial::is_mobile,
             state::{PRODUCE_TICKS, WorldEntity},
         };
 
@@ -247,13 +247,15 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
-                    let e = &mut self.entities[entity_index];
-                    e.attack_target = None;
-                    e.target_x = Some(x);
-                    e.target_y = Some(y);
-                    e.path.clear();
-                    e.move_accum = 0;
-                    repath_at(&mut self.entities, entity_index, &self.pass_grid);
+                    let id = self.entities[entity_index].id;
+                    self.entities[entity_index].attack_target = None;
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.destination_x = Some(x);
+                        movement.destination_y = Some(y);
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(entity_index);
                 }
                 GameCommand::Attack { attacker, target } => {
                     let Some(attacker_index) = self.entity_index(attacker)
@@ -287,13 +289,15 @@ impl crate::state::MatchState {
                         continue;
                     }
                     let (tx, ty) = (self.entities[target_index].x, self.entities[target_index].y);
-                    let a = &mut self.entities[attacker_index];
-                    a.attack_target = Some(target);
-                    a.target_x = Some(tx);
-                    a.target_y = Some(ty);
-                    a.path.clear();
-                    a.move_accum = 0;
-                    repath_at(&mut self.entities, attacker_index, &self.pass_grid);
+                    let attacker_id = self.entities[attacker_index].id;
+                    self.entities[attacker_index].attack_target = Some(target);
+                    let _ = self.with_movement_mut(attacker_id, |movement| {
+                        movement.destination_x = Some(tx);
+                        movement.destination_y = Some(ty);
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(attacker_index);
                 }
                 GameCommand::Deploy { entity } => {
                     let Some(entity_index) = self.entity_index(entity)
@@ -315,23 +319,27 @@ impl crate::state::MatchState {
                         continue;
                     };
                     let armor = self.definitions.techno.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-                    let e = &mut self.entities[entity_index];
-                    e.kind = MapEntityKind::Structure;
-                    e.type_id = Arc::<str>::from(building_type);
-                    e.speed = 0;
-                    e.target_x = None;
-                    e.target_y = None;
-                    e.path.clear();
-                    e.move_accum = 0;
-                    e.attack_target = None;
-                    e.attack_range = 0;
-                    e.attack_damage = 0;
-                    e.attack_cooldown = 0;
-                    e.attack_verses = full_verses();
-                    e.armor = armor;
-                    e.techno_kind = Some(TechnoKind::Building);
-                    e.hva_frame = 0;
-                    let dirty_id = e.id;
+                    let dirty_id = self.entities[entity_index].id;
+                    {
+                        let e = &mut self.entities[entity_index];
+                        e.kind = MapEntityKind::Structure;
+                        e.type_id = Arc::<str>::from(building_type);
+                        e.speed = 0;
+                        e.attack_target = None;
+                        e.attack_range = 0;
+                        e.attack_damage = 0;
+                        e.attack_cooldown = 0;
+                        e.attack_verses = full_verses();
+                        e.armor = armor;
+                        e.techno_kind = Some(TechnoKind::Building);
+                        e.hva_frame = 0;
+                    }
+                    let _ = self.with_movement_mut(dirty_id, |movement| {
+                        movement.destination_x = None;
+                        movement.destination_y = None;
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
                     self.mark_entity_dirty(dirty_id);
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {

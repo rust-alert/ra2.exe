@@ -44,11 +44,11 @@ pub(crate) fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x:
     entities.iter().enumerate().any(|(j, o)| j != self_i && !o.dead && is_mobile(o.kind) && o.x == x && o.y == y)
 }
 
-pub(crate) fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid) {
-    entities[i].path.clear();
+/// 根据当前投影坐标与目的地计算路径（不写入实体）。
+pub(crate) fn compute_repath(entities: &[WorldEntity], i: usize, grid: &PassGrid) -> Vec<(u16, u16)> {
     let (Some(tx), Some(ty)) = (entities[i].target_x, entities[i].target_y)
     else {
-        return;
+        return Vec::new();
     };
     let (sx, sy) = (entities[i].x, entities[i].y);
     let mut grid = grid.clone();
@@ -62,12 +62,12 @@ pub(crate) fn repath_at(entities: &mut [WorldEntity], i: usize, grid: &PassGrid)
     grid.set_passable(gx, gy, true);
     let Some(mut path) = grid.find_path_diag(sx, sy, gx, gy)
     else {
-        return;
+        return Vec::new();
     };
     if path.first() == Some(&(sx, sy)) {
         path.remove(0);
     }
-    entities[i].path = path;
+    path
 }
 
 fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
@@ -98,13 +98,11 @@ fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u1
     best.map(|(_, x, y)| (x, y)).unwrap_or((tx, ty))
 }
 
-pub(crate) fn step_along_path(entity: &mut WorldEntity) -> Option<(u16, u16, u8)> {
-    let Some((x, y)) = entity.path.first().copied()
-    else {
-        return None;
-    };
-    entity.path.remove(0);
-    let facing = facing_toward(entity.x, entity.y, x, y);
+/// 弹出路径首格并返回新坐标与朝向（路径写入仍由调用方经 ECS 完成）。
+pub(crate) fn take_path_step(path: &mut Vec<(u16, u16)>, from_x: u16, from_y: u16) -> Option<(u16, u16, u8)> {
+    let (x, y) = path.first().copied()?;
+    path.remove(0);
+    let facing = facing_toward(from_x, from_y, x, y);
     Some((x, y, facing))
 }
 
@@ -122,7 +120,10 @@ impl crate::state::MatchState {
                         && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
                             <= self.entities[i].attack_range
                     {
-                        self.entities[i].path.clear();
+                        let id = self.entities[i].id;
+                        let _ = self.with_movement_mut(id, |movement| {
+                            movement.path.clear();
+                        });
                         continue;
                     }
                 }
@@ -132,14 +133,23 @@ impl crate::state::MatchState {
                 continue;
             };
             if self.entities[i].x == tx && self.entities[i].y == ty {
-                self.entities[i].path.clear();
+                let id = self.entities[i].id;
+                let _ = self.with_movement_mut(id, |movement| {
+                    movement.path.clear();
+                });
                 continue;
             }
-            self.entities[i].move_accum = self.entities[i].move_accum.saturating_add(self.entities[i].speed);
+            let id = self.entities[i].id;
+            let speed = self.entities[i].speed;
+            let _ = self.with_movement_mut(id, |movement| {
+                movement.move_accum = movement.move_accum.saturating_add(speed);
+            });
             while self.entities[i].move_accum >= crate::state::CELL_MOVE_COST {
-                self.entities[i].move_accum -= crate::state::CELL_MOVE_COST;
+                let _ = self.with_movement_mut(id, |movement| {
+                    movement.move_accum -= crate::state::CELL_MOVE_COST;
+                });
                 if self.entities[i].path.is_empty() {
-                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    self.repath_entity_at(i);
                     if self.entities[i].path.is_empty() {
                         break;
                     }
@@ -149,8 +159,10 @@ impl crate::state::MatchState {
                     break;
                 };
                 if cell_occupied_by_other(&self.entities, i, nx, ny) {
-                    self.entities[i].path.clear();
-                    repath_at(&mut self.entities, i, &self.pass_grid);
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.path.clear();
+                    });
+                    self.repath_entity_at(i);
                     let Some((nx2, ny2)) = self.entities[i].path.first().copied()
                     else {
                         break;
@@ -159,8 +171,10 @@ impl crate::state::MatchState {
                         break;
                     }
                 }
-                let id = self.entities[i].id;
-                let Some((x, y, facing)) = step_along_path(&mut self.entities[i])
+                let from_x = self.entities[i].x;
+                let from_y = self.entities[i].y;
+                let step = self.with_movement_mut(id, |movement| take_path_step(&mut movement.path, from_x, from_y));
+                let Some(Some((x, y, facing))) = step
                 else {
                     break;
                 };

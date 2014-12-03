@@ -13,13 +13,14 @@ fn duplicate_command_id_is_rejected_on_second_apply() {
     world.push_scheduled(first);
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
+    assert_eq!(world.ecs_move_destination(EntityId(1)), Some((Some(1), Some(1))));
     assert_eq!(world.entities[0].target_x, Some(1));
 
-    world.entities[0].target_x = None;
-    world.entities[0].target_y = None;
     world.push_scheduled(dup);
     world.advance_tick();
     assert_eq!(world.last_rejects().len(), 1);
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::DuplicateCommand);
-    assert!(world.entities[0].target_x.is_none());
+    // 重复命令被拒绝后，ECS 权威目的地应保持首次执行结果。
+    assert_eq!(world.ecs_move_destination(EntityId(1)), Some((Some(1), Some(1))));
+    assert_eq!(world.entities[0].target_x, Some(1));
 }

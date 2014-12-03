@@ -1,7 +1,7 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! 当前阶段：每个 `WorldEntity` 在 ECS 中有对应存活句柄，玩法状态仍以 `WorldEntity` 为权威。
-//! tick 末把身份 / 空间 / 生命同步进组件，供迁移期只读查询。后续再翻转权威读写方向。
+//! `Health` / `Transform` / `MovementState` 以 ECS 为权威，经投影写回 `WorldEntity`。
+//! 其余组件仍由 `WorldEntity` 推进，并在 tick 末同步进 ECS。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -15,6 +15,24 @@ use super::{
     },
     entities::WorldEntity,
 };
+
+/// 控制 `write_components` 是否覆盖已由 ECS 权威推进的字段。
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ComponentWriteMask {
+    /// 写入 `Health`。
+    pub health: bool,
+    /// 写入 `Transform`。
+    pub transform: bool,
+    /// 写入 `MovementState`。
+    pub movement: bool,
+}
+
+impl ComponentWriteMask {
+    /// 播种 / 绑定时写入全部组件。
+    pub(crate) const ALL: Self = Self { health: true, transform: true, movement: true };
+    /// tick 同步：跳过 ECS 权威字段。
+    pub(crate) const SYNC: Self = Self { health: false, transform: false, movement: false };
+}
 
 /// 一局内的 ECS 世界与对外 ID 映射。
 #[derive(Debug, Clone, Default)]
@@ -42,26 +60,18 @@ impl EcsRegistry {
     /// 注册句柄并写入基础组件快照。
     pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
         let handle = self.register(entity.id);
-        self.write_components(handle, entity, true, true);
+        self.write_components(handle, entity, ComponentWriteMask::ALL);
         handle
     }
 
-    /// 用 `WorldEntity` 覆盖组件。
-    ///
-    /// `write_health` / `write_transform` 为 false 时跳过对应组件，避免盖掉 ECS 权威字段。
-    pub(crate) fn write_components(
-        &mut self,
-        handle: EcsEntity,
-        entity: &WorldEntity,
-        write_health: bool,
-        write_transform: bool,
-    ) {
+    /// 用 `WorldEntity` 覆盖组件（受 [`ComponentWriteMask`] 约束）。
+    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity, mask: ComponentWriteMask) {
         self.world.insert(
             handle,
             Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
         );
         self.world.insert(handle, Owner { house: Arc::clone(&entity.owner) });
-        if write_transform {
+        if mask.transform {
             self.world.insert(
                 handle,
                 Transform {
@@ -73,22 +83,24 @@ impl EcsRegistry {
                 },
             );
         }
-        if write_health {
+        if mask.health {
             self.world.insert(
                 handle,
                 Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
             );
         }
         self.world.insert(handle, Locomotor { speed: entity.speed });
-        self.world.insert(
-            handle,
-            MovementState {
-                destination_x: entity.target_x,
-                destination_y: entity.target_y,
-                path: entity.path.clone(),
-                move_accum: entity.move_accum,
-            },
-        );
+        if mask.movement {
+            self.world.insert(
+                handle,
+                MovementState {
+                    destination_x: entity.target_x,
+                    destination_y: entity.target_y,
+                    path: entity.path.clone(),
+                    move_accum: entity.move_accum,
+                },
+            );
+        }
         self.world.insert(
             handle,
             CombatStats {

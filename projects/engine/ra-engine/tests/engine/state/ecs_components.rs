@@ -44,12 +44,12 @@ fn tick_sync_updates_move_destination() {
     let mut world = duel_mtnk_world();
     let id = world.entities[0].id;
     let (x, y) = (world.entities[0].x, world.entities[0].y);
-    world.push_command(GameCommand::MoveTo { entity: id, x: x.saturating_add(3), y });
+    let dest_x = x.saturating_add(3);
+    world.push_command(GameCommand::MoveTo { entity: id, x: dest_x, y });
     world.advance_tick();
-    assert_eq!(
-        world.ecs_move_destination(id),
-        Some((world.entities[0].target_x, world.entities[0].target_y))
-    );
+    assert_eq!(world.ecs_move_destination(id), Some((Some(dest_x), Some(y))));
+    assert_eq!(world.entities[0].target_x, Some(dest_x));
+    assert_eq!(world.entities[0].target_y, Some(y));
 }
 
 #[test]

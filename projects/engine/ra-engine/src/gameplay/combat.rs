@@ -31,8 +31,12 @@ impl crate::state::MatchState {
                 continue;
             }
             // 追击：把移动目标钉在敌人当前格。
-            self.entities[i].target_x = Some(self.entities[ti].x);
-            self.entities[i].target_y = Some(self.entities[ti].y);
+            let attacker_id = self.entities[i].id;
+            let (tx, ty) = (self.entities[ti].x, self.entities[ti].y);
+            let _ = self.with_movement_mut(attacker_id, |movement| {
+                movement.destination_x = Some(tx);
+                movement.destination_y = Some(ty);
+            });
 
             if self.entities[i].attack_cooldown > 0 {
                 self.entities[i].attack_cooldown -= 1;
@@ -95,12 +99,14 @@ impl crate::state::MatchState {
                 return;
             }
             e.speed = 0;
-            e.path.clear();
-            e.target_x = None;
-            e.target_y = None;
             e.attack_target = None;
-            e.move_accum = 0;
         }
+        let _ = self.with_movement_mut(dirty_id, |movement| {
+            movement.path.clear();
+            movement.destination_x = None;
+            movement.destination_y = None;
+            movement.move_accum = 0;
+        });
         self.mark_entity_dirty(dirty_id);
         let dead_id = dirty_id;
         for o in self.entities.iter_mut() {
