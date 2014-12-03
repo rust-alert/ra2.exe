@@ -17,11 +17,20 @@ use crate::{
     },
 };
 use ra_layout::{
-    CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, RectPx,
-    SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
-    SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout, options_layout,
-    single_player_layout, skirmish_lobby_layout,
+    BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
+    OPTIONS_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H,
+    SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout,
+    exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
 };
+
+/// 切页波浪帧：有字钮 + 右侧空格（无字平铺）共用 `SDBTNANM`。
+#[derive(Debug, Clone, Copy)]
+pub struct ShellWaveFrames<'a> {
+    /// 与当前页按钮 id 表对齐。
+    pub buttons: &'a [u16],
+    /// 与 `panel_tile_count` 对齐；空格收起/展开用。
+    pub tiles: &'a [u16],
+}
 
 /// 壳层按钮文案来源。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -419,8 +428,8 @@ fn compose_shell_menu_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
     captions: MenuCaptionKind,
-    // 与 `button_ids` 对齐的 `SDBTNANM` 帧覆盖（切页波浪）；`None` 走常态/悬停/按下。
-    wave_button_frames: Option<&[u16]>,
+    // 切页波浪；`None` 走常态/悬停/按下。
+    wave: Option<ShellWaveFrames<'_>>,
     // WARNING 窗内 `sdwrnanm` 帧（对解码帧数取模）。
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
@@ -437,10 +446,41 @@ fn compose_shell_menu_page(
     }
 
     blit_right_panel_top(&mut page, decoded, layout.panel_top, warn_anim_frame);
+    let btn_n = button_ids.len();
+    let tile_occupied = |tile_y: i32| {
+        (0..btn_n).any(|i| {
+            let b = layout.buttons[i];
+            b.w > 0 && b.h > 0 && b.y == tile_y
+        })
+    };
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..layout.panel_tile_count {
-            let r = RectPx::new(layout.panel_tile.x, layout.panel_tile.y + i * layout.panel_tile.h, layout.panel_tile.w, layout.panel_tile.h);
+            let tile_y = layout.panel_tile.y + i * layout.panel_tile.h;
+            // 波浪中空格不铺静态 `sdbtnbkgd`，否则收起帧透底仍像「没收」。
+            if wave.is_some() && !tile_occupied(tile_y) {
+                continue;
+            }
+            let r = RectPx::new(layout.panel_tile.x, tile_y, layout.panel_tile.w, layout.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
+        }
+    }
+    // 波浪期间：无字平铺格播 `SDBTNANM`，与有字钮一起收起/展开。
+    if let Some(wave) = wave {
+        for ti in 0..layout.panel_tile_count {
+            let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;
+            if tile_occupied(tile_y) {
+                continue;
+            }
+            let Some(&frame) = wave.tiles.get(ti as usize)
+            else {
+                continue;
+            };
+            let Some(sprite) = decoded.sdbtnanm_frame(frame)
+            else {
+                continue;
+            };
+            let cell_x = layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W);
+            blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
         }
     }
     if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
@@ -454,7 +494,7 @@ fn compose_shell_menu_page(
         let normal = find_button_normal(decoded, entry_id)?;
         // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
         let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random");
-        let wave_frame = wave_button_frames.and_then(|frames| frames.get(i).copied());
+        let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
         }
@@ -519,7 +559,7 @@ pub fn compose_main_menu_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    wave_button_frames: Option<&[u16]>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
@@ -533,7 +573,7 @@ pub fn compose_main_menu_page(
         csf,
         movie,
         MenuCaptionKind::Main,
-        wave_button_frames,
+        wave,
         warn_anim_frame,
     )
 }
@@ -549,7 +589,7 @@ pub fn compose_single_player_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
-    wave_button_frames: Option<&[u16]>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     compose_shell_menu_page(
@@ -563,7 +603,7 @@ pub fn compose_single_player_page(
         csf,
         movie,
         MenuCaptionKind::SinglePlayer,
-        wave_button_frames,
+        wave,
         warn_anim_frame,
     )
 }
@@ -601,7 +641,7 @@ pub fn compose_campaign_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     paint: CampaignPaint<'_>,
-    wave_button_frames: Option<&[u16]>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = campaign_layout(viewport_w, viewport_h);
@@ -616,7 +656,7 @@ pub fn compose_campaign_page(
         csf,
         None,
         MenuCaptionKind::Campaign,
-        wave_button_frames,
+        wave,
         warn_anim_frame,
     )?;
 
@@ -1184,7 +1224,7 @@ pub fn compose_skirmish_lobby_page(
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
     paint: &SkirmishLobbyPaint<'_>,
-    wave_button_frames: Option<&[u16]>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = skirmish_lobby_layout(viewport_w, viewport_h);
@@ -1199,7 +1239,7 @@ pub fn compose_skirmish_lobby_page(
         csf,
         None,
         MenuCaptionKind::SkirmishLobby,
-        wave_button_frames,
+        wave,
         warn_anim_frame,
     )?;
 
@@ -1254,7 +1294,7 @@ pub fn compose_choose_map_page(
     map_preview: Option<&RgbaImage>,
     map_names: &[&str],
     selected_map_index: Option<usize>,
-    wave_button_frames: Option<&[u16]>,
+    wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let layout = choose_map_layout(viewport_w, viewport_h);
@@ -1269,7 +1309,7 @@ pub fn compose_choose_map_page(
         csf,
         None,
         MenuCaptionKind::ChooseMap,
-        wave_button_frames,
+        wave,
         warn_anim_frame,
     )?;
 
@@ -1311,6 +1351,252 @@ pub fn compose_choose_map_page(
         blit_text_colored(&mut page, fnt, &game_map, layout.label_game_map.x, layout.label_game_map.y, MENU_TEXT_ENABLED);
         let battle = resolve_caption(csf, "battle", choose_map_static_csf_key("battle"));
         blit_text_colored(&mut page, fnt, &battle, type_row.x + 4, type_row.y + 1, MENU_TEXT_ENABLED);
+    }
+
+    Some(page)
+}
+
+/// 装载页绘制输入（状态文案与是否允许重试）。
+#[derive(Debug, Clone, Copy)]
+pub struct LoadScreenPaint<'a> {
+    /// 标题栏/中区主状态（装载中或失败说明）。
+    pub status: &'a str,
+    /// 是否允许「重试」（装载线程进行中为 false）。
+    pub allow_retry: bool,
+}
+
+/// 合成遭遇战装载页：壳层右栏 + 中区状态 + 重试/取消。
+pub fn compose_load_screen_page(
+    decoded: &PageDecodeReport,
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    paint: LoadScreenPaint<'_>,
+) -> Option<RgbaImage> {
+    let layout = main_menu_layout(viewport_w, viewport_h);
+    let mut page = RgbaImage::from_raw(
+        layout.canvas.w as u32,
+        layout.canvas.h as u32,
+        vec![0u8; (layout.canvas.w as usize) * (layout.canvas.h as usize) * 4],
+    )?;
+    fill_rect(&mut page, layout.canvas, [12, 16, 24, 255]);
+    if let Some(bg) = decoded.background.as_ref() {
+        blit_rgba(&mut page, &bg.image, layout.background.x, layout.background.y);
+    }
+
+    // 右栏：与遭遇战大厅同套 chrome（无 WARNING 动画）。
+    if let Some(top) = find_panel(decoded, "sdtp.shp", 0) {
+        blit_stretched(&mut page, &top.image, layout.panel_top);
+    }
+    else {
+        fill_rect(&mut page, layout.panel_top, [40, 28, 28, 255]);
+    }
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
+        for i in 0..layout.panel_tile_count {
+            let tile_y = layout.panel_tile.y + i * layout.panel_tile.h;
+            let r = RectPx::new(layout.panel_tile.x, tile_y, layout.panel_tile.w, layout.panel_tile.h);
+            blit_stretched(&mut page, &tile.image, r);
+        }
+    }
+    else {
+        fill_rect(&mut page, layout.panel_tile, [32, 24, 24, 255]);
+    }
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
+        blit_stretched(&mut page, &bottom.image, layout.panel_bottom);
+    }
+    else {
+        fill_rect(&mut page, layout.panel_bottom, [40, 28, 28, 255]);
+    }
+
+    let status_box = RectPx::new(
+        (layout.canvas.w as f32 * 0.30) as i32,
+        (layout.canvas.h as f32 * 0.40) as i32,
+        ((layout.canvas.w as f32 * 0.44) as i32).max(1),
+        ((layout.canvas.h as f32 * 0.08) as i32).max(1),
+    );
+    fill_rect(&mut page, status_box, [18, 22, 32, 255]);
+    stroke_rect(&mut page, status_box, [180, 24, 24, 255]);
+    if let Some(fnt) = fnt {
+        blit_caption_top_left_clipped(
+            &mut page,
+            fnt,
+            paint.status,
+            status_box.x + 8,
+            status_box.y + 6,
+            status_box.w - 16,
+            status_box.h - 12,
+            MENU_TEXT_ENABLED,
+        );
+        blit_text_colored(&mut page, fnt, "装载", layout.title.x, layout.title.y, MENU_TEXT_SECTION);
+    }
+
+    for entry_id in ["retry", "cancel"] {
+        let Some(slot) = slots_load_button_hit(entry_id)
+        else {
+            continue;
+        };
+        let enabled = entry_id != "retry" || paint.allow_retry;
+        let rect = hit_to_rect(layout.canvas, slot);
+        let normal = find_button_normal(decoded, entry_id);
+        let sprite = if !enabled {
+            find_button_pressed(decoded, entry_id).or(normal)
+        }
+        else if pressed_entry_id == Some(entry_id) {
+            find_button_pressed(decoded, entry_id).or(normal)
+        }
+        else if hovered_entry_id == Some(entry_id) {
+            find_button_hover(decoded, entry_id).or(normal)
+        }
+        else {
+            normal
+        };
+        if let Some(sprite) = sprite {
+            let bx = rect.x + (rect.w - sprite.image.width() as i32) / 2;
+            let by = rect.y + (rect.h - sprite.image.height() as i32) / 2;
+            blit_rgba(&mut page, &sprite.image, bx, by);
+            if let Some(fnt) = fnt {
+                let label = if entry_id == "retry" { "重试" } else { "取消" };
+                let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
+                let pressed = enabled && pressed_entry_id == Some(entry_id);
+                let cell = RectPx::new(bx, by, sprite.image.width() as i32, sprite.image.height() as i32);
+                let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+                blit_caption_in_cell(&mut page, fnt, label, tx, ty, tw, th, color);
+            }
+            if !enabled {
+                dim_rect(&mut page, rect, 110);
+            }
+        }
+        else {
+            let fill = if enabled { [120, 24, 24, 255] } else { [48, 40, 40, 255] };
+            fill_rect(&mut page, rect, fill);
+            stroke_rect(&mut page, rect, [200, 40, 40, 255]);
+            if let Some(fnt) = fnt {
+                let label = if entry_id == "retry" { "重试" } else { "取消" };
+                let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
+                blit_caption_in_cell(&mut page, fnt, label, rect.x + 8, rect.y + 8, rect.w - 16, rect.h - 16, color);
+            }
+        }
+    }
+
+    Some(page)
+}
+
+fn slots_load_button_hit(entry_id: &str) -> Option<(f32, f32, f32, f32)> {
+    match entry_id {
+        "retry" => Some((0.30, 0.52, 0.50, 0.60)),
+        "cancel" => Some((0.54, 0.52, 0.74, 0.60)),
+        _ => None,
+    }
+}
+
+fn hit_to_rect(canvas: RectPx, hit: (f32, f32, f32, f32)) -> RectPx {
+    let x0 = canvas.x + (canvas.w as f32 * hit.0) as i32;
+    let y0 = canvas.y + (canvas.h as f32 * hit.1) as i32;
+    let x1 = canvas.x + (canvas.w as f32 * hit.2) as i32;
+    let y1 = canvas.y + (canvas.h as f32 * hit.3) as i32;
+    RectPx::new(x0, y0, (x1 - x0).max(1), (y1 - y0).max(1))
+}
+
+/// 对局 HUD 侧栏绘制输入（由宿主从 `HudSnapshot` 投影，组件不依赖 `ra-engine`）。
+#[derive(Debug, Clone, Copy)]
+pub struct MatchHudPaint<'a> {
+    /// 仿真 tick。
+    pub tick: u64,
+    /// 本地资金。
+    pub funds: i32,
+    /// 供电。
+    pub power_output: i32,
+    /// 耗电。
+    pub power_drain: i32,
+    /// 是否低电。
+    pub low_power: bool,
+    /// 选中摘要（如 `#3` 或 `#3+2`）。
+    pub selected_summary: &'a str,
+    /// 生产队列首项文案（可空）。
+    pub produce_queue: Option<&'a str>,
+    /// 最近命令拒绝原因（可空）。
+    pub reject: Option<&'a str>,
+    /// 是否暂停。
+    pub paused: bool,
+    /// 暂停原因。
+    pub pause_reason: Option<&'a str>,
+    /// 结算文案（可空）。
+    pub outcome: Option<&'a str>,
+}
+
+/// 合成对局 HUD 叠加层：左透明、右 `RIGHT_PANEL_W` 实心栏。
+pub fn compose_match_hud_overlay(viewport_w: u32, viewport_h: u32, fnt: Option<&FntFile>, paint: MatchHudPaint<'_>) -> Option<RgbaImage> {
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let panel_w = RIGHT_PANEL_W.min(w as i32).max(1);
+    let panel_x = (w as i32 - panel_w).max(0);
+    let panel = RectPx::new(panel_x, 0, panel_w, h as i32);
+    fill_rect(&mut page, panel, [28, 32, 40, 230]);
+    stroke_rect(&mut page, panel, [180, 40, 40, 255]);
+
+    // 顶部资金 / 电力。
+    let econ = RectPx::new(panel.x + 8, 12, panel.w - 16, 48);
+    fill_rect(&mut page, econ, [16, 18, 24, 255]);
+    stroke_rect(&mut page, econ, [120, 28, 28, 255]);
+    let funds_line = format!("$ {}", paint.funds);
+    let power_mark = if paint.low_power { "!" } else { "" };
+    let power_line = format!("电 {}/{}{power_mark}", paint.power_output, paint.power_drain);
+    if let Some(fnt) = fnt {
+        blit_text_colored(&mut page, fnt, &funds_line, econ.x + 6, econ.y + 6, MENU_TEXT_ACCENT);
+        let power_color = if paint.low_power { [255, 80, 80, 255] } else { MENU_TEXT_ENABLED };
+        blit_text_colored(&mut page, fnt, &power_line, econ.x + 6, econ.y + 26, power_color);
+    }
+
+    // 选中 / 队列 / 拒绝。
+    let mut y = econ.y + econ.h + 12;
+    let line_h = 18;
+    let text_x = panel.x + 8;
+    let text_w = panel.w - 16;
+    if let Some(fnt) = fnt {
+        blit_caption_top_left_clipped(&mut page, fnt, &format!("选中 {}", paint.selected_summary), text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
+        y += line_h + 4;
+        let queue = paint.produce_queue.unwrap_or("队列 —");
+        blit_caption_top_left_clipped(&mut page, fnt, queue, text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
+        y += line_h + 4;
+        if let Some(reject) = paint.reject {
+            blit_caption_top_left_clipped(&mut page, fnt, reject, text_x, y, text_w, line_h, [255, 120, 80, 255]);
+            y += line_h + 8;
+        }
+        else {
+            y += 8;
+        }
+        blit_caption_top_left_clipped(&mut page, fnt, &format!("t{}", paint.tick), text_x, y, text_w, line_h, MENU_TEXT_SECTION);
+        y += line_h + 8;
+        if paint.paused {
+            let reason = paint.pause_reason.unwrap_or("已暂停");
+            blit_caption_top_left_clipped(&mut page, fnt, reason, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
+            y += line_h + 8;
+        }
+        if let Some(outcome) = paint.outcome {
+            blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
+            y += line_h + 8;
+        }
+    }
+
+    // 建造 cameo 占位格（本轮不接线建造命令）。
+    let grid_top = y.max(panel.y + 160);
+    let cell = 48;
+    let gap = 4;
+    let cols = ((panel.w - 16) / (cell + gap)).max(1);
+    for i in 0..8 {
+        let col = i % cols;
+        let row = i / cols;
+        let cx = panel.x + 8 + col * (cell + gap);
+        let cy = grid_top + row * (cell + gap);
+        if cy + cell > panel.y + panel.h - 8 {
+            break;
+        }
+        let r = RectPx::new(cx, cy, cell, cell);
+        fill_rect(&mut page, r, [20, 22, 28, 255]);
+        stroke_rect(&mut page, r, [90, 30, 30, 255]);
     }
 
     Some(page)

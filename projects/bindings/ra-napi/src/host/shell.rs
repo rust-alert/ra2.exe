@@ -1134,8 +1134,11 @@ impl AppShell {
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
-            let wave_frames = self.current_wave_frames();
-            let wave = wave_frames.as_deref();
+            let wave_owned = self.current_wave_frames();
+            let wave = wave_owned.as_ref().map(|(buttons, tiles)| ui_compose::ShellWaveFrames {
+                buttons: buttons.as_slice(),
+                tiles: tiles.as_slice(),
+            });
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
@@ -1742,23 +1745,24 @@ impl AppShell {
         }
     }
 
-    /// 合成用：各钮当前 `SDBTNANM` 帧；无波浪时为 `None`。
-    fn current_wave_frames(&self) -> Option<Vec<u16>> {
+    /// 合成用：按钮帧 + 空格平铺帧；无波浪时为 `None`。
+    fn current_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
         let wave = self.menu_frame_wave.as_ref()?;
         let ids = Self::wave_button_ids(self.screen)?;
-        Some(
-            ids.iter()
-                .enumerate()
-                .map(|(i, id)| {
-                    if self.screen == OriginalScreen::MainMenu {
-                        wave.frame_for_main_menu_entry(id, i as u32)
-                    }
-                    else {
-                        wave.frame_for_slot(i as u32)
-                    }
-                })
-                .collect(),
-        )
+        let buttons = ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| {
+                if self.screen == OriginalScreen::MainMenu {
+                    wave.frame_for_main_menu_entry(id, i as u32)
+                } else {
+                    wave.frame_for_slot(i as u32)
+                }
+            })
+            .collect::<Vec<_>>();
+        let tile_count = ui_layout::main_menu_layout(0, 0).panel_tile_count.max(0) as u32;
+        let tiles = (0..tile_count).map(|ti| wave.frame_for_slot(ti)).collect::<Vec<_>>();
+        Some((buttons, tiles))
     }
 
     /// 新页进场波浪（仅当目标页有规格且当前无波浪）。

@@ -45,7 +45,7 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
         errors: Vec::new(),
     };
     let frames = [10u16, 10, 10, 10, 10, 10];
-    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(&frames), 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[] }), 0).unwrap();
     let layout = main_menu_layout(800, 600);
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -122,7 +122,7 @@ fn compose_hides_button_caption_while_wave_frames_active() {
     assert_ne!(&sample(&steady)[..3], &[10, 10, 10]);
 
     let frames = [10u16, 10, 10, 10, 10, 10];
-    let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(&frames), 0).unwrap();
+    let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[] }), 0).unwrap();
     // 波浪中只留 `SDBTNANM` 帧色，不叠字。
     assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
 }
@@ -308,4 +308,58 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
     let edge_y = layout.panel_top.y + 2;
     let ei = ((edge_y as u32 * page.width() + edge_x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[ei..ei + 4], &[40, 40, 40, 40]);
+}
+
+
+#[test]
+fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
+    let layout = main_menu_layout(800, 600);
+    let tile_h = layout.panel_tile.h;
+    let tile_y0 = layout.panel_tile.y;
+    // 找一个无按钮占用的平铺格。
+    let empty_ti = (0..layout.panel_tile_count)
+        .find(|&ti| {
+            let y = tile_y0 + ti * tile_h;
+            !layout.buttons.iter().any(|b| b.w > 0 && b.y == y)
+        })
+        .expect("main menu should have empty panel tiles");
+    let empty_y = tile_y0 + empty_ti * tile_h;
+    let cell_x = layout.panel_tile.x + (ra_layout::RIGHT_PANEL_W - ra_layout::BUTTON_CELL_W);
+
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let bkgd = solid_sprite("sdbtnbkgd.shp#0", [90, 90, 90, 255]);
+    let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+    let mut wave10 = solid_sprite("sdbtnanm.shp#10", [0, 255, 0, 255]);
+    wave10.frame = 10;
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: vec![bkgd],
+        button_normals: MAIN_MENU_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+        button_hovers: Vec::new(),
+        button_presseds: Vec::new(),
+        sdbtnanm_frames: vec![wave10],
+        errors: Vec::new(),
+    };
+    let buttons = [10u16; 6];
+    let mut tiles = vec![1u16; layout.panel_tile_count as usize];
+    tiles[empty_ti as usize] = 10;
+    let page = compose_main_menu_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(ShellWaveFrames {
+            buttons: &buttons,
+            tiles: &tiles,
+        }),
+        0,
+    )
+    .unwrap();
+    let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
+    assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
 }
