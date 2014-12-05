@@ -248,7 +248,9 @@ impl crate::state::MatchState {
                         continue;
                     }
                     let id = self.entities[entity_index].id;
-                    self.entities[entity_index].attack_target = None;
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                    });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
                         movement.destination_y = Some(y);
@@ -290,7 +292,9 @@ impl crate::state::MatchState {
                     }
                     let (tx, ty) = (self.entities[target_index].x, self.entities[target_index].y);
                     let attacker_id = self.entities[attacker_index].id;
-                    self.entities[attacker_index].attack_target = Some(target);
+                    let _ = self.with_attack_mut(attacker_id, |attack| {
+                        attack.target = Some(target);
+                    });
                     let _ = self.with_movement_mut(attacker_id, |movement| {
                         movement.destination_x = Some(tx);
                         movement.destination_y = Some(ty);
@@ -325,15 +329,17 @@ impl crate::state::MatchState {
                         e.kind = MapEntityKind::Structure;
                         e.type_id = Arc::<str>::from(building_type);
                         e.speed = 0;
-                        e.attack_target = None;
                         e.attack_range = 0;
                         e.attack_damage = 0;
-                        e.attack_cooldown = 0;
                         e.attack_verses = full_verses();
                         e.armor = armor;
                         e.techno_kind = Some(TechnoKind::Building);
                         e.hva_frame = 0;
                     }
+                    let _ = self.with_attack_mut(dirty_id, |attack| {
+                        attack.target = None;
+                        attack.cooldown = 0;
+                    });
                     let _ = self.with_movement_mut(dirty_id, |movement| {
                         movement.destination_x = None;
                         movement.destination_y = None;

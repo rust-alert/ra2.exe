@@ -1,6 +1,6 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! `Health` / `Transform` / `MovementState` 以 ECS 为权威，经投影写回 `WorldEntity`。
+//! `Health` / `Transform` / `MovementState` / `AttackState` 以 ECS 为权威，经投影写回 `WorldEntity`。
 //! 其余组件仍由 `WorldEntity` 推进，并在 tick 末同步进 ECS。
 
 use std::{collections::HashMap, sync::Arc};
@@ -25,13 +25,15 @@ pub(crate) struct ComponentWriteMask {
     pub transform: bool,
     /// 写入 `MovementState`。
     pub movement: bool,
+    /// 写入 `AttackState`。
+    pub attack: bool,
 }
 
 impl ComponentWriteMask {
     /// 播种 / 绑定时写入全部组件。
-    pub(crate) const ALL: Self = Self { health: true, transform: true, movement: true };
+    pub(crate) const ALL: Self = Self { health: true, transform: true, movement: true, attack: true };
     /// tick 同步：跳过 ECS 权威字段。
-    pub(crate) const SYNC: Self = Self { health: false, transform: false, movement: false };
+    pub(crate) const SYNC: Self = Self { health: false, transform: false, movement: false, attack: false };
 }
 
 /// 一局内的 ECS 世界与对外 ID 映射。
@@ -112,10 +114,12 @@ impl EcsRegistry {
                 techno_kind: entity.techno_kind,
             },
         );
-        self.world.insert(
-            handle,
-            AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
-        );
+        if mask.attack {
+            self.world.insert(
+                handle,
+                AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
+            );
+        }
         self.world.insert(
             handle,
             ProductionQueue {

@@ -250,7 +250,7 @@ impl MatchState {
 
     /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
     ///
-    /// `Health` / `Transform` / `MovementState` 已由 ECS 权威推进，同步时不从投影回写。
+    /// `Health` / `Transform` / `MovementState` / `AttackState` 已由 ECS 权威推进，同步时不从投影回写。
     pub(crate) fn sync_ecs_components(&mut self) {
         for i in 0..self.entities.len() {
             let snapshot = self.entities[i].clone();
@@ -261,6 +261,7 @@ impl MatchState {
         self.project_all_health_to_world_entities();
         self.project_all_transforms_to_world_entities();
         self.project_all_movements_to_world_entities();
+        self.project_all_attacks_to_world_entities();
     }
 
     /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
@@ -386,6 +387,44 @@ impl MatchState {
         let _ = self.with_movement_mut(id, |movement| {
             movement.path = path;
         });
+    }
+
+    /// 将 ECS `AttackState` 投影回 `WorldEntity`。
+    pub(crate) fn project_attack_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(attack) = self.ecs.world().get::<crate::state::components::AttackState>(handle).copied() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.attack_target = attack.target;
+        entity.attack_cooldown = attack.cooldown;
+    }
+
+    pub(crate) fn project_all_attacks_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_attack_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改攻击状态，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_attack_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::AttackState) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let attack = self.ecs.world_mut().get_mut::<crate::state::components::AttackState>(handle)?;
+            f(attack)
+        };
+        self.project_attack_to_world_entity(id);
+        Some(result)
     }
 
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。

@@ -17,21 +17,25 @@ impl crate::state::MatchState {
             if self.entities[i].dead || !is_mobile(self.entities[i].kind) {
                 continue;
             }
+            let attacker_id = self.entities[i].id;
             let Some(target_id) = self.entities[i].attack_target
             else {
                 continue;
             };
             let Some(ti) = self.entity_index(target_id)
             else {
-                self.entities[i].attack_target = None;
+                let _ = self.with_attack_mut(attacker_id, |attack| {
+                    attack.target = None;
+                });
                 continue;
             };
             if self.entities[ti].dead || ti == i {
-                self.entities[i].attack_target = None;
+                let _ = self.with_attack_mut(attacker_id, |attack| {
+                    attack.target = None;
+                });
                 continue;
             }
             // 追击：把移动目标钉在敌人当前格。
-            let attacker_id = self.entities[i].id;
             let (tx, ty) = (self.entities[ti].x, self.entities[ti].y);
             let _ = self.with_movement_mut(attacker_id, |movement| {
                 movement.destination_x = Some(tx);
@@ -39,7 +43,9 @@ impl crate::state::MatchState {
             });
 
             if self.entities[i].attack_cooldown > 0 {
-                self.entities[i].attack_cooldown -= 1;
+                let _ = self.with_attack_mut(attacker_id, |attack| {
+                    attack.cooldown = attack.cooldown.saturating_sub(1);
+                });
                 continue;
             }
             let dist = manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y);
@@ -49,7 +55,10 @@ impl crate::state::MatchState {
                 let armor = self.entities[ti].armor.as_str();
                 let dmg = scale_damage(base, &verses, armor);
                 damage_events.push((ti, dmg));
-                self.entities[i].attack_cooldown = self.entities[i].attack_cooldown_max;
+                let cooldown_max = self.entities[i].attack_cooldown_max;
+                let _ = self.with_attack_mut(attacker_id, |attack| {
+                    attack.cooldown = cooldown_max;
+                });
             }
         }
         for (ti, dmg) in damage_events {
@@ -99,8 +108,10 @@ impl crate::state::MatchState {
                 return;
             }
             e.speed = 0;
-            e.attack_target = None;
         }
+        let _ = self.with_attack_mut(dirty_id, |attack| {
+            attack.target = None;
+        });
         let _ = self.with_movement_mut(dirty_id, |movement| {
             movement.path.clear();
             movement.destination_x = None;
@@ -109,10 +120,16 @@ impl crate::state::MatchState {
         });
         self.mark_entity_dirty(dirty_id);
         let dead_id = dirty_id;
-        for o in self.entities.iter_mut() {
-            if o.attack_target == Some(dead_id) {
-                o.attack_target = None;
-            }
+        let attackers: Vec<_> = self
+            .entities
+            .iter()
+            .filter(|o| o.attack_target == Some(dead_id))
+            .map(|o| o.id)
+            .collect();
+        for attacker_id in attackers {
+            let _ = self.with_attack_mut(attacker_id, |attack| {
+                attack.target = None;
+            });
         }
         if kind == MapEntityKind::Structure {
             self.pass_grid.set_passable(x, y, true);

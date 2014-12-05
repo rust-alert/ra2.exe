@@ -60,6 +60,11 @@ fn tick_sync_updates_attack_target() {
     world.push_command(GameCommand::Attack { attacker, target });
     world.advance_tick();
     assert_eq!(world.ecs_attack_state(attacker).map(|(t, _)| t), Some(Some(target)));
+    assert_eq!(world.entities[0].attack_target, Some(target));
+    assert_eq!(
+        world.ecs_attack_state(attacker).map(|(_, cd)| cd),
+        Some(world.entities[0].attack_cooldown)
+    );
 }
 
 #[test]
