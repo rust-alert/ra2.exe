@@ -250,8 +250,7 @@ impl MatchState {
 
     /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
     ///
-    /// `Health` / `Transform` / `MovementState` / `AttackState` / `ProductionQueue` / `HarvesterState`
-    /// 已由 ECS 权威推进，同步时不从投影回写。
+    /// 玩法权威组件已由 ECS 推进，同步时不从投影回写。
     pub(crate) fn sync_ecs_components(&mut self) {
         for i in 0..self.entities.len() {
             let snapshot = self.entities[i].clone();
@@ -265,6 +264,7 @@ impl MatchState {
         self.project_all_attacks_to_world_entities();
         self.project_all_productions_to_world_entities();
         self.project_all_harvesters_to_world_entities();
+        self.project_all_animations_to_world_entities();
     }
 
     /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
@@ -502,6 +502,44 @@ impl MatchState {
             f(harvester)
         };
         self.project_harvester_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 将 ECS `AnimationState` 投影回 `WorldEntity`。
+    pub(crate) fn project_animation_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(anim) = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.hva_frame = anim.hva_frame;
+        entity.hit_flash = anim.hit_flash;
+    }
+
+    pub(crate) fn project_all_animations_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_animation_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改动画桥接状态，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_animation_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::AnimationState) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let anim = self.ecs.world_mut().get_mut::<crate::state::components::AnimationState>(handle)?;
+            f(anim)
+        };
+        self.project_animation_to_world_entity(id);
         Some(result)
     }
 

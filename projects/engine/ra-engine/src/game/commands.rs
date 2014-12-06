@@ -334,8 +334,10 @@ impl crate::state::MatchState {
                         e.attack_verses = full_verses();
                         e.armor = armor;
                         e.techno_kind = Some(TechnoKind::Building);
-                        e.hva_frame = 0;
                     }
+                    let _ = self.with_animation_mut(dirty_id, |anim| {
+                        anim.hva_frame = 0;
+                    });
                     let _ = self.with_attack_mut(dirty_id, |attack| {
                         attack.target = None;
                         attack.cooldown = 0;

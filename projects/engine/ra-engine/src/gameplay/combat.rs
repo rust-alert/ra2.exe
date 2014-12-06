@@ -67,14 +67,18 @@ impl crate::state::MatchState {
     }
 
     pub(crate) fn tick_hit_flash(&mut self) {
-        let mut dirty = Vec::new();
-        for e in &mut self.entities {
-            if e.hit_flash > 0 {
-                e.hit_flash -= 1;
-                dirty.push(e.id);
-            }
-        }
-        for id in dirty {
+        let ids: Vec<_> = self
+            .entities
+            .iter()
+            .filter(|e| e.hit_flash > 0)
+            .map(|e| e.id)
+            .collect();
+        for id in ids {
+            let _ = self.with_animation_mut(id, |anim| {
+                if anim.hit_flash > 0 {
+                    anim.hit_flash -= 1;
+                }
+            });
             self.mark_entity_dirty(id);
         }
     }
@@ -102,13 +106,18 @@ impl crate::state::MatchState {
             .unwrap_or(false);
         {
             let e = &mut self.entities[index];
-            e.hit_flash = HIT_FLASH_TICKS;
             if !killed {
+                let _ = self.with_animation_mut(dirty_id, |anim| {
+                    anim.hit_flash = HIT_FLASH_TICKS;
+                });
                 self.mark_entity_dirty(dirty_id);
                 return;
             }
             e.speed = 0;
         }
+        let _ = self.with_animation_mut(dirty_id, |anim| {
+            anim.hit_flash = HIT_FLASH_TICKS;
+        });
         let _ = self.with_attack_mut(dirty_id, |attack| {
             attack.target = None;
         });

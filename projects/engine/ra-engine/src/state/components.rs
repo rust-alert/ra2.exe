@@ -1,8 +1,9 @@
 //! 玩法侧 ECS 组件（无 INI / MIX 依赖）。
 //!
-//! 迁移约定：多数字段仍由 `WorldEntity` 权威推进，并在 tick 末同步到组件。
-//! `Health`、`Transform`、`MovementState`、`AttackState`、`ProductionQueue`、`HarvesterState`
-//! 已改为 ECS 权威，经投影写回 `WorldEntity`。
+//! 运行时可变玩法字段以 ECS 为权威，经投影写回 `WorldEntity`：
+//! `Health`、`Transform`、`MovementState`、`AttackState`、`ProductionQueue`、
+//! `HarvesterState`、`AnimationState`。
+//! `Identity` / `Owner` / `Locomotor` / `CombatStats` 仍随播种写入并由 tick 同步刷新。
 
 use std::sync::Arc;
 

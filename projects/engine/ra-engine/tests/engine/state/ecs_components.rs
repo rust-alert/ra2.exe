@@ -104,14 +104,31 @@ fn movement_writes_transform_through_ecs_authority() {
 }
 
 #[test]
-fn rehash_phase_syncs_production_and_animation() {
+fn rehash_phase_keeps_ecs_animation_authority() {
     let mut world = duel_mtnk_world();
     let id = world.entities[0].id;
-    // 经生产权威写入后，投影与 ECS 诊断应对齐。
+    // 直接改投影不应在 Rehash 后盖掉 ECS 权威动画字段。
     world.entities[0].hva_frame = 3;
     world.entities[0].hit_flash = 2;
-    // 直接写投影再强制 bind 不合适；用 Produce 路径之外的诊断：先 seed 空队列，再经 Rehash 同步动画。
     world.advance_scheduled_tick(&SystemSchedule::from_phases(vec![SystemPhase::Rehash]));
-    assert_eq!(world.ecs_produce_remaining(id), Some(None));
-    assert_eq!(world.ecs_animation(id), Some((3, 2)));
+    assert_eq!(world.ecs_animation(id), Some((0, 0)));
+    assert_eq!(world.entities[0].hva_frame, 0);
+    assert_eq!(world.entities[0].hit_flash, 0);
+}
+
+#[test]
+fn combat_hit_flash_writes_through_ecs_animation() {
+    let mut world = duel_mtnk_world();
+    let attacker = world.entities[0].id;
+    let target = world.entities[1].id;
+    world.push_command(GameCommand::Attack { attacker, target });
+    for _ in 0..16 {
+        world.advance_tick();
+        let (_, flash) = world.ecs_animation(target).unwrap();
+        if flash > 0 {
+            assert_eq!(world.entities[1].hit_flash, flash);
+            return;
+        }
+    }
+    panic!("expected combat to set ECS hit_flash");
 }

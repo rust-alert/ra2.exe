@@ -183,7 +183,9 @@ impl crate::state::MatchState {
                     transform.x = x;
                     transform.y = y;
                 });
-                self.entities[i].hva_frame = self.entities[i].hva_frame.wrapping_add(1);
+                let _ = self.with_animation_mut(id, |anim| {
+                    anim.hva_frame = anim.hva_frame.wrapping_add(1);
+                });
                 self.mark_entity_dirty(id);
             }
         }

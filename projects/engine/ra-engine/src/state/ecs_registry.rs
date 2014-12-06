@@ -1,7 +1,9 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! `Health` / `Transform` / `MovementState` / `AttackState` / `ProductionQueue` / `HarvesterState`
-//! 以 ECS 为权威，经投影写回 `WorldEntity`。其余组件仍由 `WorldEntity` 推进，并在 tick 末同步进 ECS。
+//! 玩法运行时组件以 ECS 为权威，经投影写回 `WorldEntity`：
+//! `Health` / `Transform` / `MovementState` / `AttackState` /
+//! `ProductionQueue` / `HarvesterState` / `AnimationState`。
+//! `Identity` / `Owner` / `Locomotor` / `CombatStats` 仍随 `WorldEntity` 播种与同步。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -31,6 +33,8 @@ pub(crate) struct ComponentWriteMask {
     pub production: bool,
     /// 写入 `HarvesterState`。
     pub harvester: bool,
+    /// 写入 `AnimationState`。
+    pub animation: bool,
 }
 
 impl ComponentWriteMask {
@@ -42,6 +46,7 @@ impl ComponentWriteMask {
         attack: true,
         production: true,
         harvester: true,
+        animation: true,
     };
     /// tick 同步：跳过 ECS 权威字段。
     pub(crate) const SYNC: Self = Self {
@@ -51,6 +56,7 @@ impl ComponentWriteMask {
         attack: false,
         production: false,
         harvester: false,
+        animation: false,
     };
 }
 
@@ -151,10 +157,12 @@ impl EcsRegistry {
         if mask.harvester {
             self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
         }
-        self.world.insert(
-            handle,
-            AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
-        );
+        if mask.animation {
+            self.world.insert(
+                handle,
+                AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
+            );
+        }
     }
 
     /// 按稳定 ID 解析仍有效的内部句柄。
