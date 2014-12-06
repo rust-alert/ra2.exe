@@ -1745,22 +1745,44 @@ impl AppShell {
         }
     }
 
+    /// 当前页壳层 chrome 布局（波浪按物理平铺格取帧）。
+    fn wave_shell_layout(screen: OriginalScreen) -> Option<ui_layout::MainMenuLayout> {
+        Some(match screen {
+            OriginalScreen::MainMenu => ui_layout::main_menu_layout(0, 0),
+            OriginalScreen::SinglePlayerMenu => ui_layout::single_player_layout(0, 0),
+            OriginalScreen::SkirmishLobby => ui_layout::skirmish_lobby_layout(0, 0).shell,
+            OriginalScreen::Campaign => ui_layout::campaign_layout(0, 0).shell,
+            OriginalScreen::ChooseMap => ui_layout::choose_map_layout(0, 0).shell,
+            _ => return None,
+        })
+    }
+
+    /// 按钮格相对 `panel_tile` 的平铺下标（贴底 Exit/返回落在末格）。
+    fn panel_tile_index(layout: &ui_layout::MainMenuLayout, cell: ui_layout::RectPx) -> u32 {
+        let tile_h = layout.panel_tile.h.max(1);
+        ((cell.y - layout.panel_tile.y) / tile_h).max(0) as u32
+    }
+
     /// 合成用：按钮帧 + 空格平铺帧；无波浪时为 `None`。
+    /// 帧序按物理格自上而下统一交错，末钮与中间无字格同一波浪。
     fn current_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
         let wave = self.menu_frame_wave.as_ref()?;
         let ids = Self::wave_button_ids(self.screen)?;
+        let layout = Self::wave_shell_layout(self.screen)?;
         let buttons = ids
             .iter()
             .enumerate()
-            .map(|(i, id)| {
-                if self.screen == OriginalScreen::MainMenu {
-                    wave.frame_for_main_menu_entry(id, i as u32)
+            .map(|(i, _id)| {
+                let cell = layout.buttons.get(i).copied().unwrap_or(ui_layout::RectPx::new(0, 0, 0, 0));
+                let ti = if cell.w > 0 && cell.h > 0 {
+                    Self::panel_tile_index(&layout, cell)
                 } else {
-                    wave.frame_for_slot(i as u32)
-                }
+                    i as u32
+                };
+                wave.frame_for_slot(ti)
             })
             .collect::<Vec<_>>();
-        let tile_count = ui_layout::main_menu_layout(0, 0).panel_tile_count.max(0) as u32;
+        let tile_count = layout.panel_tile_count.max(0) as u32;
         let tiles = (0..tile_count).map(|ti| wave.frame_for_slot(ti)).collect::<Vec<_>>();
         Some((buttons, tiles))
     }

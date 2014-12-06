@@ -61,29 +61,24 @@ pub struct ShellSlideSpec {
     pub slot_count: u32,
 }
 
-/// 主菜单：五个交错档；Exit 与 Options 同档。
-pub const MAIN_MENU_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 5 };
-/// 单人页：四个右栏钮。
-pub const SINGLE_PLAYER_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 4 };
-/// 遭遇战大厅：三个右栏钮。
-pub const SKIRMISH_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 3 };
-/// 战役页：仅「上一页」一钮（侧图不走 `SDBTNANM` 波浪）。
-pub const CAMPAIGN_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 1 };
-/// 选图页：三个右栏钮。
-pub const CHOOSE_MAP_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: 3 };
+/// 右栏 `sdbtnbkgd` 平铺格数（与 `main_menu_layout` 的 `panel_tile_count` 一致）。
+/// 波浪按物理格自上而下交错：有字钮、无字空格、贴底末钮同一套档位。
+pub const SHELL_PANEL_WAVE_SLOTS: u32 = 9;
 
-/// 主菜单各入口的进场 tick（Exit 与 Options 同为 5）。
-const MAIN_MENU_ENTRY_TICKS: &[(&str, i32)] =
-    &[("single_player", 1), ("ww_online", 2), ("network", 3), ("movies", 4), ("options", 5), ("exit", 5)];
+/// 主菜单：整列平铺格统一波浪。
+pub const MAIN_MENU_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 单人页：整列统一波浪（返回贴底盖）。
+pub const SINGLE_PLAYER_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 遭遇战大厅：整列统一波浪。
+pub const SKIRMISH_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 战役页：侧图不走 `SDBTNANM`；右栏仍整列统一波浪。
+pub const CAMPAIGN_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
+/// 选图页：整列统一波浪。
+pub const CHOOSE_MAP_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };
 
-/// 按槽位下标取进场 tick（槽 0 → tick 1）。
+/// 按平铺格下标取进场 tick（格 0 → tick 1）。
 pub fn entry_tick_for_slot(slot: u32) -> i32 {
     slot as i32 + 1
-}
-
-/// 主菜单按入口 id 取进场 tick；未知 id 回退槽序。
-pub fn main_menu_entry_tick(entry_id: &str, slot: u32) -> i32 {
-    MAIN_MENU_ENTRY_TICKS.iter().find_map(|(id, tick)| (*id == entry_id).then_some(*tick)).unwrap_or_else(|| entry_tick_for_slot(slot))
 }
 
 /// 总 tick = `N + 3`（含雷达锚点档）+ 尾部。
@@ -165,11 +160,6 @@ impl ShellFrameWave {
     /// 槽位下标对应的当前 `SDBTNANM` 帧。
     pub fn frame_for_slot(&self, slot: u32) -> u16 {
         frame_for_tick(self.tick as i32, entry_tick_for_slot(slot), self.direction)
-    }
-
-    /// 主菜单入口 id 对应的当前帧。
-    pub fn frame_for_main_menu_entry(&self, entry_id: &str, slot: u32) -> u16 {
-        frame_for_tick(self.tick as i32, main_menu_entry_tick(entry_id, slot), self.direction)
     }
 
     /// 诊断用槽数。

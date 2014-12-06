@@ -30,9 +30,12 @@ fn slide_out_ramps_up_then_settles() {
 }
 
 #[test]
-fn main_menu_exit_shares_options_stagger() {
-    assert_eq!(main_menu_entry_tick("options", 4), 5);
-    assert_eq!(main_menu_entry_tick("exit", 5), 5);
+fn panel_wave_uses_physical_tile_slots() {
+    // 格 4（Options）→ tick 5；格 8（Exit）→ tick 9；总长覆盖整列。
+    assert_eq!(entry_tick_for_slot(4), 5);
+    assert_eq!(entry_tick_for_slot(8), 9);
+    assert_eq!(MAIN_MENU_SLIDE.slot_count, SHELL_PANEL_WAVE_SLOTS);
+    assert_eq!(total_ticks_for(SHELL_PANEL_WAVE_SLOTS), 18);
 }
 
 #[test]
