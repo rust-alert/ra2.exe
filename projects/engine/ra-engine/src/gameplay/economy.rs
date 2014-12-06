@@ -16,14 +16,27 @@ impl crate::state::MatchState {
     pub(crate) fn advance_refinery_income(&mut self) {
         let defs = Arc::clone(&self.definitions);
         let mut credits: Vec<(Arc<str>, i32)> = Vec::new();
-        for e in &mut self.entities {
-            if e.dead || !is_refinery(&defs, &e.type_id) {
+        let n = self.entities.len();
+        for index in 0..n {
+            if self.entities[index].dead || !is_refinery(&defs, &self.entities[index].type_id) {
                 continue;
             }
-            e.ore_trip_accum = e.ore_trip_accum.saturating_add(1);
-            if e.ore_trip_accum >= ORE_TRIP_TICKS {
-                e.ore_trip_accum = 0;
-                credits.push((e.owner.clone(), ORE_INCOME_PER_TRIP as i32));
+            let id = self.entities[index].id;
+            let owner = self.entities[index].owner.clone();
+            let paid = self
+                .with_harvester_mut(id, |harvester| {
+                    harvester.ore_trip_accum = harvester.ore_trip_accum.saturating_add(1);
+                    if harvester.ore_trip_accum >= ORE_TRIP_TICKS {
+                        harvester.ore_trip_accum = 0;
+                        true
+                    }
+                    else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
+            if paid {
+                credits.push((owner, ORE_INCOME_PER_TRIP as i32));
             }
         }
         for (house, amount) in credits {

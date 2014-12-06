@@ -250,7 +250,8 @@ impl MatchState {
 
     /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
     ///
-    /// `Health` / `Transform` / `MovementState` / `AttackState` 已由 ECS 权威推进，同步时不从投影回写。
+    /// `Health` / `Transform` / `MovementState` / `AttackState` / `ProductionQueue` / `HarvesterState`
+    /// 已由 ECS 权威推进，同步时不从投影回写。
     pub(crate) fn sync_ecs_components(&mut self) {
         for i in 0..self.entities.len() {
             let snapshot = self.entities[i].clone();
@@ -262,6 +263,8 @@ impl MatchState {
         self.project_all_transforms_to_world_entities();
         self.project_all_movements_to_world_entities();
         self.project_all_attacks_to_world_entities();
+        self.project_all_productions_to_world_entities();
+        self.project_all_harvesters_to_world_entities();
     }
 
     /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
@@ -424,6 +427,81 @@ impl MatchState {
             f(attack)
         };
         self.project_attack_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 将 ECS `ProductionQueue` 投影回 `WorldEntity`。
+    pub(crate) fn project_production_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(queue) = self.ecs.world().get::<crate::state::components::ProductionQueue>(handle).cloned() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.produce_queue = queue.item;
+        entity.rally_x = queue.rally_x;
+        entity.rally_y = queue.rally_y;
+    }
+
+    pub(crate) fn project_all_productions_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_production_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改生产队列，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_production_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::ProductionQueue) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let queue = self.ecs.world_mut().get_mut::<crate::state::components::ProductionQueue>(handle)?;
+            f(queue)
+        };
+        self.project_production_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 将 ECS `HarvesterState` 投影回 `WorldEntity`。
+    pub(crate) fn project_harvester_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(harvester) = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        self.entities[index].ore_trip_accum = harvester.ore_trip_accum;
+    }
+
+    pub(crate) fn project_all_harvesters_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_harvester_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改采矿行程，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_harvester_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::HarvesterState) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let harvester = self.ecs.world_mut().get_mut::<crate::state::components::HarvesterState>(handle)?;
+            f(harvester)
+        };
+        self.project_harvester_to_world_entity(id);
         Some(result)
     }
 

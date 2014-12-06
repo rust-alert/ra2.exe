@@ -1,7 +1,5 @@
 //! ECS 基础组件与 `WorldEntity` 同步。
 
-use std::sync::Arc;
-
 use crate::common::duel_mtnk_world;
 use ra_engine::{GameCommand, SystemPhase, SystemSchedule};
 
@@ -109,12 +107,11 @@ fn movement_writes_transform_through_ecs_authority() {
 fn rehash_phase_syncs_production_and_animation() {
     let mut world = duel_mtnk_world();
     let id = world.entities[0].id;
-    world.entities[0].produce_queue = Some((Arc::from("E1"), 7));
-    world.entities[0].rally_x = Some(11);
-    world.entities[0].rally_y = Some(12);
+    // 经生产权威写入后，投影与 ECS 诊断应对齐。
     world.entities[0].hva_frame = 3;
     world.entities[0].hit_flash = 2;
+    // 直接写投影再强制 bind 不合适；用 Produce 路径之外的诊断：先 seed 空队列，再经 Rehash 同步动画。
     world.advance_scheduled_tick(&SystemSchedule::from_phases(vec![SystemPhase::Rehash]));
-    assert_eq!(world.ecs_produce_remaining(id), Some(Some(7)));
+    assert_eq!(world.ecs_produce_remaining(id), Some(None));
     assert_eq!(world.ecs_animation(id), Some((3, 2)));
 }

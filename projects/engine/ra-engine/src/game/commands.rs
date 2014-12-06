@@ -478,8 +478,12 @@ impl crate::state::MatchState {
                     }
                     self.players[player_index].funds -= cost;
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
-                    self.entities[factory_index].produce_queue = Some((Arc::<str>::from(type_id.to_ascii_uppercase()), PRODUCE_TICKS));
-                    self.mark_entity_dirty(self.entities[factory_index].id);
+                    let factory_id = self.entities[factory_index].id;
+                    let queued = Arc::<str>::from(type_id.to_ascii_uppercase());
+                    let _ = self.with_production_mut(factory_id, |queue| {
+                        queue.item = Some((queued, PRODUCE_TICKS));
+                    });
+                    self.mark_entity_dirty(factory_id);
                 }
                 GameCommand::SetRallyPoint { factory, x, y } => {
                     let Some(factory_index) = self.entity_index(factory)
@@ -503,10 +507,11 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    let e = &mut self.entities[factory_index];
-                    e.rally_x = Some(x);
-                    e.rally_y = Some(y);
-                    let id = e.id;
+                    let id = self.entities[factory_index].id;
+                    let _ = self.with_production_mut(id, |queue| {
+                        queue.rally_x = Some(x);
+                        queue.rally_y = Some(y);
+                    });
                     self.mark_entity_dirty(id);
                 }
             }

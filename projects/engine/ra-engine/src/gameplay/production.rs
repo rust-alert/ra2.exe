@@ -12,21 +12,30 @@ use crate::{
 impl crate::state::MatchState {
     pub(crate) fn advance_production(&mut self) {
         let mut spawns: Vec<(usize, Arc<str>)> = Vec::new();
-        for (index, e) in self.entities.iter_mut().enumerate() {
-            if e.dead {
+        let n = self.entities.len();
+        for index in 0..n {
+            if self.entities[index].dead {
                 continue;
             }
-            let Some((type_id, remaining)) = e.produce_queue.as_mut()
-            else {
-                continue;
-            };
-            if *remaining > 1 {
-                *remaining -= 1;
-                continue;
+            let id = self.entities[index].id;
+            let finished = self
+                .with_production_mut(id, |queue| {
+                    let Some((type_id, remaining)) = queue.item.as_mut()
+                    else {
+                        return None;
+                    };
+                    if *remaining > 1 {
+                        *remaining -= 1;
+                        return None;
+                    }
+                    let type_id = type_id.clone();
+                    queue.item = None;
+                    Some(type_id)
+                })
+                .flatten();
+            if let Some(type_id) = finished {
+                spawns.push((index, type_id));
             }
-            let type_id = type_id.clone();
-            e.produce_queue = None;
-            spawns.push((index, type_id));
         }
         for (factory_index, type_id) in spawns {
             self.spawn_produced_unit(factory_index, type_id.as_ref());

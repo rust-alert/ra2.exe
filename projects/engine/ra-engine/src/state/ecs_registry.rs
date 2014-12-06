@@ -1,7 +1,7 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! `Health` / `Transform` / `MovementState` / `AttackState` 以 ECS 为权威，经投影写回 `WorldEntity`。
-//! 其余组件仍由 `WorldEntity` 推进，并在 tick 末同步进 ECS。
+//! `Health` / `Transform` / `MovementState` / `AttackState` / `ProductionQueue` / `HarvesterState`
+//! 以 ECS 为权威，经投影写回 `WorldEntity`。其余组件仍由 `WorldEntity` 推进，并在 tick 末同步进 ECS。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -27,13 +27,31 @@ pub(crate) struct ComponentWriteMask {
     pub movement: bool,
     /// 写入 `AttackState`。
     pub attack: bool,
+    /// 写入 `ProductionQueue`。
+    pub production: bool,
+    /// 写入 `HarvesterState`。
+    pub harvester: bool,
 }
 
 impl ComponentWriteMask {
     /// 播种 / 绑定时写入全部组件。
-    pub(crate) const ALL: Self = Self { health: true, transform: true, movement: true, attack: true };
+    pub(crate) const ALL: Self = Self {
+        health: true,
+        transform: true,
+        movement: true,
+        attack: true,
+        production: true,
+        harvester: true,
+    };
     /// tick 同步：跳过 ECS 权威字段。
-    pub(crate) const SYNC: Self = Self { health: false, transform: false, movement: false, attack: false };
+    pub(crate) const SYNC: Self = Self {
+        health: false,
+        transform: false,
+        movement: false,
+        attack: false,
+        production: false,
+        harvester: false,
+    };
 }
 
 /// 一局内的 ECS 世界与对外 ID 映射。
@@ -120,15 +138,19 @@ impl EcsRegistry {
                 AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
             );
         }
-        self.world.insert(
-            handle,
-            ProductionQueue {
-                item: entity.produce_queue.clone(),
-                rally_x: entity.rally_x,
-                rally_y: entity.rally_y,
-            },
-        );
-        self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
+        if mask.production {
+            self.world.insert(
+                handle,
+                ProductionQueue {
+                    item: entity.produce_queue.clone(),
+                    rally_x: entity.rally_x,
+                    rally_y: entity.rally_y,
+                },
+            );
+        }
+        if mask.harvester {
+            self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
+        }
         self.world.insert(
             handle,
             AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
