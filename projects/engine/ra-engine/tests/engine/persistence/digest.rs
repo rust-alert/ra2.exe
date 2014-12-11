@@ -31,11 +31,11 @@ fn twin_worlds_same_command_stream_match_hash() {
     });
     let mk = || {
         let mut w = MatchState::new(GameEdition::Ra2, &rules, map.clone());
-        w.entities[0].target_x = None;
-        w.entities[0].target_y = None;
-        w.entities[1].target_x = None;
-        w.entities[1].target_y = None;
-        w.entities[1].speed = 0;
+        let a = w.entities[0].id;
+        let b = w.entities[1].id;
+        assert!(w.clear_ecs_movement(a));
+        assert!(w.clear_ecs_movement(b));
+        assert!(w.set_ecs_speed(b, 0));
         w
     };
     let mut a = mk();

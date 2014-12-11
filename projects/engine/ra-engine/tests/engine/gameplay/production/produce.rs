@@ -97,7 +97,9 @@ fn produce_rejects_when_queue_busy() {
 #[test]
 fn produce_rejects_without_matching_factory() {
     let mut world = factory_world();
-    world.entities[0].dead = true;
+    let id = world.entities[0].id;
+    let max = world.entities[0].max_health;
+    assert!(world.set_ecs_health(id, 0, max, true));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);

@@ -33,10 +33,11 @@ fn living_structure_prevents_sole_victor() {
     });
     // 结构体借用 MTNK 规则仅作 Strength；种类为 Structure 即计入作战力量。
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "victory");
-    session.expect_game_mut().world.entities[1].kind = MapEntityKind::Structure;
-    session.expect_game_mut().world.entities[1].type_id = "NACNST".into();
+    let enemy = session.expect_game().world.entities[1].id;
+    let max = session.expect_game().world.entities[1].max_health;
+    assert!(session.expect_game_mut().world.set_ecs_type_id(enemy, "NACNST", MapEntityKind::Structure));
     assert_eq!(session.expect_game_mut().world.players.len(), 2);
     assert!(session.expect_game().sole_victor().is_none());
-    session.expect_game_mut().world.entities[1].dead = true;
+    assert!(session.expect_game_mut().world.set_ecs_health(enemy, 0, max, true));
     assert_eq!(session.expect_game().sole_victor(), Some("Americans"));
 }

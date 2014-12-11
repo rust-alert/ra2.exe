@@ -33,10 +33,10 @@ fn victory_locks_match_stats() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "stats");
-    session.expect_game_mut().world.entities[0].attack_damage = 80;
-    session.expect_game_mut().world.entities[0].attack_range = 4;
-    session.expect_game_mut().world.entities[0].attack_cooldown_max = 1;
-    session.expect_game_mut().world.entities[1].health = 50;
+    let attacker = session.expect_game().world.entities[0].id;
+    let target = session.expect_game().world.entities[1].id;
+    assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
+    assert!(session.expect_game_mut().world.set_ecs_health(target, 50, 50, false));
     session.expect_game_mut().world.players[0].funds_spent = 1200;
     session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..20 {

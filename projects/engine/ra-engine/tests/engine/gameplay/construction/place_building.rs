@@ -73,7 +73,9 @@ fn place_building_rejects_insufficient_funds() {
 #[test]
 fn place_building_rejects_missing_yard() {
     let mut world = yard_world();
-    world.entities[0].dead = true;
+    let id = world.entities[0].id;
+    let max = world.entities[0].max_health;
+    assert!(world.set_ecs_health(id, 0, max, true));
     world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);

@@ -63,11 +63,11 @@ fn order_attack_and_detects_victor() {
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     {
         let world = &mut session.expect_game_mut().world;
-        world.entities[0].target_x = None;
-        world.entities[0].target_y = None;
-        world.entities[1].target_x = None;
-        world.entities[1].target_y = None;
-        world.entities[1].speed = 0;
+        let a = world.entities[0].id;
+        let b = world.entities[1].id;
+        assert!(world.clear_ecs_movement(a));
+        assert!(world.clear_ecs_movement(b));
+        assert!(world.set_ecs_speed(b, 0));
     }
     let foe = session.expect_game().nearest_hostile(EntityId(1)).unwrap();
     assert_eq!(foe, EntityId(2));

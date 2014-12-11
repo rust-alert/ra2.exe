@@ -56,7 +56,9 @@ fn living_refinery_credits_funds_each_ore_trip() {
 #[test]
 fn dead_refinery_stops_ore_income() {
     let mut world = refinery_world();
-    world.entities[0].dead = true;
+    let id = world.entities[0].id;
+    let max = world.entities[0].max_health;
+    assert!(world.set_ecs_health(id, 0, max, true));
     for _ in 0..ORE_TRIP_TICKS {
         world.advance_tick();
     }

@@ -33,12 +33,10 @@ fn snapshot_anim_state_take_damage_then_die() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hit");
-    // 压低生命，下一击即可致死或可见闪白。
-    session.expect_game_mut().world.entities[1].health = 30;
-    session.expect_game_mut().world.entities[0].attack_damage = 20;
-    session.expect_game_mut().world.entities[0].attack_range = 4;
-    session.expect_game_mut().world.entities[0].attack_cooldown = 0;
-    session.expect_game_mut().world.entities[0].attack_cooldown_max = 8;
+    let attacker = session.expect_game().world.entities[0].id;
+    let target = session.expect_game().world.entities[1].id;
+    assert!(session.expect_game_mut().world.set_ecs_health(target, 30, 30, false));
+    assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 20, 4, 8));
     session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     session.tick(&engine.runtime());
     let snap = session.expect_game().snapshot(&[]);

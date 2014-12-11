@@ -70,7 +70,8 @@ fn produced_unit_paths_toward_rally_point() {
 #[test]
 fn set_rally_rejects_non_factory() {
     let mut world = barracks_world();
-    world.entities[0].type_id = "GACNST".into();
+    let id = world.entities[0].id;
+    assert!(world.set_ecs_type_id(id, "GACNST", MapEntityKind::Structure));
     world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 5, y: 5 });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);

@@ -75,7 +75,8 @@ fn deploy_mcv_becomes_construction_yard() {
 #[test]
 fn deploy_rejects_non_mcv_unit() {
     let mut world = mcv_world();
-    world.entities[0].type_id = "MTNK".into();
+    let id = world.entities[0].id;
+    assert!(world.set_ecs_type_id(id, "MTNK", MapEntityKind::Unit));
     world.push_command(GameCommand::Deploy { entity: EntityId(1) });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::CannotDeploy);
