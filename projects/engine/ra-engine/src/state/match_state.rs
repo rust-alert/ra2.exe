@@ -248,23 +248,158 @@ impl MatchState {
         self.ecs.bind_from_world_entity(entity);
     }
 
-    /// 把全部 `WorldEntity` 基础字段同步进 ECS 组件。
+    /// 把 ECS 权威组件投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
     ///
-    /// 玩法权威组件已由 ECS 推进，同步时不从投影回写。
+    /// 不再从 `WorldEntity` 回写 ECS，避免双真相。
     pub(crate) fn sync_ecs_components(&mut self) {
-        for i in 0..self.entities.len() {
-            let snapshot = self.entities[i].clone();
-            if let Some(handle) = self.ecs.resolve(snapshot.id) {
-                self.ecs.write_components(handle, &snapshot, super::ecs_registry::ComponentWriteMask::SYNC);
-            }
-        }
+        self.project_all_identities_to_world_entities();
+        self.project_all_owners_to_world_entities();
         self.project_all_health_to_world_entities();
         self.project_all_transforms_to_world_entities();
+        self.project_all_locomotors_to_world_entities();
         self.project_all_movements_to_world_entities();
+        self.project_all_combat_stats_to_world_entities();
         self.project_all_attacks_to_world_entities();
         self.project_all_productions_to_world_entities();
         self.project_all_harvesters_to_world_entities();
         self.project_all_animations_to_world_entities();
+    }
+
+    /// 将 ECS `Identity` 投影回 `WorldEntity`。
+    pub(crate) fn project_identity_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(identity) = self.ecs.world().get::<crate::state::components::Identity>(handle).cloned() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.type_id = identity.type_id;
+        entity.kind = identity.kind;
+    }
+
+    pub(crate) fn project_all_identities_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_identity_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改身份，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_identity_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::Identity) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let identity = self.ecs.world_mut().get_mut::<crate::state::components::Identity>(handle)?;
+            f(identity)
+        };
+        self.project_identity_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 将 ECS `Owner` 投影回 `WorldEntity`。
+    pub(crate) fn project_owner_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(owner) = self.ecs.world().get::<crate::state::components::Owner>(handle).cloned() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        self.entities[index].owner = owner.house;
+    }
+
+    pub(crate) fn project_all_owners_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_owner_to_world_entity(id);
+        }
+    }
+
+    /// 将 ECS `Locomotor` 投影回 `WorldEntity`。
+    pub(crate) fn project_locomotor_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(loco) = self.ecs.world().get::<crate::state::components::Locomotor>(handle).copied() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        self.entities[index].speed = loco.speed;
+    }
+
+    pub(crate) fn project_all_locomotors_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_locomotor_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改移动能力，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_locomotor_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::Locomotor) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let loco = self.ecs.world_mut().get_mut::<crate::state::components::Locomotor>(handle)?;
+            f(loco)
+        };
+        self.project_locomotor_to_world_entity(id);
+        Some(result)
+    }
+
+    /// 将 ECS `CombatStats` 投影回 `WorldEntity`。
+    pub(crate) fn project_combat_stats_to_world_entity(&mut self, id: EntityId) {
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(stats) = self.ecs.world().get::<crate::state::components::CombatStats>(handle).cloned() else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let entity = &mut self.entities[index];
+        entity.armor = stats.armor;
+        entity.attack_range = stats.attack_range;
+        entity.attack_damage = stats.attack_damage;
+        entity.attack_cooldown_max = stats.attack_cooldown_max;
+        entity.attack_verses = stats.attack_verses;
+        entity.techno_kind = stats.techno_kind;
+    }
+
+    pub(crate) fn project_all_combat_stats_to_world_entities(&mut self) {
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_combat_stats_to_world_entity(id);
+        }
+    }
+
+    /// 以 ECS 为权威修改战斗参数，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_combat_stats_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::CombatStats) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let stats = self.ecs.world_mut().get_mut::<crate::state::components::CombatStats>(handle)?;
+            f(stats)
+        };
+        self.project_combat_stats_to_world_entity(id);
+        Some(result)
     }
 
     /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
@@ -598,6 +733,55 @@ impl MatchState {
         let handle = self.ecs.resolve(id)?;
         let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle)?;
         Some((anim.hva_frame, anim.hit_flash))
+    }
+
+    /// 测试 / 调试：写入 ECS `Health` 并投影。
+    pub fn set_ecs_health(&mut self, id: EntityId, current: u32, maximum: u32, dead: bool) -> bool {
+        self.with_health_mut(id, |health| {
+            health.current = current;
+            health.maximum = maximum;
+            health.dead = dead;
+        })
+        .is_some()
+    }
+
+    /// 测试 / 调试：写入 ECS 攻击参数并投影。
+    pub fn set_ecs_attack_power(&mut self, id: EntityId, damage: u32, range: u32, cooldown_max: u32) -> bool {
+        self.with_combat_stats_mut(id, |stats| {
+            stats.attack_damage = damage;
+            stats.attack_range = range;
+            stats.attack_cooldown_max = cooldown_max;
+        })
+        .is_some()
+    }
+
+    /// 测试 / 调试：写入 ECS 身份类型并投影。
+    pub fn set_ecs_type_id(&mut self, id: EntityId, type_id: impl Into<std::sync::Arc<str>>, kind: ra_map::MapEntityKind) -> bool {
+        let type_id = type_id.into();
+        self.with_identity_mut(id, |identity| {
+            identity.type_id = type_id;
+            identity.kind = kind;
+        })
+        .is_some()
+    }
+
+    /// 测试 / 调试：写入 ECS 移动速度并投影。
+    pub fn set_ecs_speed(&mut self, id: EntityId, speed: u32) -> bool {
+        self.with_locomotor_mut(id, |loco| {
+            loco.speed = speed;
+        })
+        .is_some()
+    }
+
+    /// 测试 / 调试：清空 ECS 移动目的地与路径并投影。
+    pub fn clear_ecs_movement(&mut self, id: EntityId) -> bool {
+        self.with_movement_mut(id, |movement| {
+            movement.destination_x = None;
+            movement.destination_y = None;
+            movement.path.clear();
+            movement.move_accum = 0;
+        })
+        .is_some()
     }
 
     /// 按 house 名称设置资金（启动与测试播种用）。

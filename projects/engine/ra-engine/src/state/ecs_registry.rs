@@ -1,9 +1,7 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! 玩法运行时组件以 ECS 为权威，经投影写回 `WorldEntity`：
-//! `Health` / `Transform` / `MovementState` / `AttackState` /
-//! `ProductionQueue` / `HarvesterState` / `AnimationState`。
-//! `Identity` / `Owner` / `Locomotor` / `CombatStats` 仍随 `WorldEntity` 播种与同步。
+//! 玩法运行时组件以 ECS 为权威，经投影写回 `WorldEntity`。
+//! 播种时由 `WorldEntity` 初始快照写入组件；之后 tick 只做 ECS → 投影。
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -17,48 +15,6 @@ use super::{
     },
     entities::WorldEntity,
 };
-
-/// 控制 `write_components` 是否覆盖已由 ECS 权威推进的字段。
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ComponentWriteMask {
-    /// 写入 `Health`。
-    pub health: bool,
-    /// 写入 `Transform`。
-    pub transform: bool,
-    /// 写入 `MovementState`。
-    pub movement: bool,
-    /// 写入 `AttackState`。
-    pub attack: bool,
-    /// 写入 `ProductionQueue`。
-    pub production: bool,
-    /// 写入 `HarvesterState`。
-    pub harvester: bool,
-    /// 写入 `AnimationState`。
-    pub animation: bool,
-}
-
-impl ComponentWriteMask {
-    /// 播种 / 绑定时写入全部组件。
-    pub(crate) const ALL: Self = Self {
-        health: true,
-        transform: true,
-        movement: true,
-        attack: true,
-        production: true,
-        harvester: true,
-        animation: true,
-    };
-    /// tick 同步：跳过 ECS 权威字段。
-    pub(crate) const SYNC: Self = Self {
-        health: false,
-        transform: false,
-        movement: false,
-        attack: false,
-        production: false,
-        harvester: false,
-        animation: false,
-    };
-}
 
 /// 一局内的 ECS 世界与对外 ID 映射。
 #[derive(Debug, Clone, Default)]
@@ -83,50 +39,44 @@ impl EcsRegistry {
         entity
     }
 
-    /// 注册句柄并写入基础组件快照。
+    /// 注册句柄并写入完整组件快照（仅播种 / 生成路径）。
     pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
         let handle = self.register(entity.id);
-        self.write_components(handle, entity, ComponentWriteMask::ALL);
+        self.write_all_components(handle, entity);
         handle
     }
 
-    /// 用 `WorldEntity` 覆盖组件（受 [`ComponentWriteMask`] 约束）。
-    pub(crate) fn write_components(&mut self, handle: EcsEntity, entity: &WorldEntity, mask: ComponentWriteMask) {
+    /// 用 `WorldEntity` 覆盖全部组件（仅绑定时使用）。
+    pub(crate) fn write_all_components(&mut self, handle: EcsEntity, entity: &WorldEntity) {
         self.world.insert(
             handle,
             Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
         );
         self.world.insert(handle, Owner { house: Arc::clone(&entity.owner) });
-        if mask.transform {
-            self.world.insert(
-                handle,
-                Transform {
-                    x: entity.x,
-                    y: entity.y,
-                    facing: entity.facing,
-                    turret_facing: entity.turret_facing,
-                    sub_cell: entity.sub_cell,
-                },
-            );
-        }
-        if mask.health {
-            self.world.insert(
-                handle,
-                Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
-            );
-        }
+        self.world.insert(
+            handle,
+            Transform {
+                x: entity.x,
+                y: entity.y,
+                facing: entity.facing,
+                turret_facing: entity.turret_facing,
+                sub_cell: entity.sub_cell,
+            },
+        );
+        self.world.insert(
+            handle,
+            Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
+        );
         self.world.insert(handle, Locomotor { speed: entity.speed });
-        if mask.movement {
-            self.world.insert(
-                handle,
-                MovementState {
-                    destination_x: entity.target_x,
-                    destination_y: entity.target_y,
-                    path: entity.path.clone(),
-                    move_accum: entity.move_accum,
-                },
-            );
-        }
+        self.world.insert(
+            handle,
+            MovementState {
+                destination_x: entity.target_x,
+                destination_y: entity.target_y,
+                path: entity.path.clone(),
+                move_accum: entity.move_accum,
+            },
+        );
         self.world.insert(
             handle,
             CombatStats {
@@ -138,31 +88,23 @@ impl EcsRegistry {
                 techno_kind: entity.techno_kind,
             },
         );
-        if mask.attack {
-            self.world.insert(
-                handle,
-                AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
-            );
-        }
-        if mask.production {
-            self.world.insert(
-                handle,
-                ProductionQueue {
-                    item: entity.produce_queue.clone(),
-                    rally_x: entity.rally_x,
-                    rally_y: entity.rally_y,
-                },
-            );
-        }
-        if mask.harvester {
-            self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
-        }
-        if mask.animation {
-            self.world.insert(
-                handle,
-                AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
-            );
-        }
+        self.world.insert(
+            handle,
+            AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
+        );
+        self.world.insert(
+            handle,
+            ProductionQueue {
+                item: entity.produce_queue.clone(),
+                rally_x: entity.rally_x,
+                rally_y: entity.rally_y,
+            },
+        );
+        self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
+        self.world.insert(
+            handle,
+            AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
+        );
     }
 
     /// 按稳定 ID 解析仍有效的内部句柄。

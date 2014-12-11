@@ -105,7 +105,6 @@ impl crate::state::MatchState {
             })
             .unwrap_or(false);
         {
-            let e = &mut self.entities[index];
             if !killed {
                 let _ = self.with_animation_mut(dirty_id, |anim| {
                     anim.hit_flash = HIT_FLASH_TICKS;
@@ -113,8 +112,10 @@ impl crate::state::MatchState {
                 self.mark_entity_dirty(dirty_id);
                 return;
             }
-            e.speed = 0;
         }
+        let _ = self.with_locomotor_mut(dirty_id, |loco| {
+            loco.speed = 0;
+        });
         let _ = self.with_animation_mut(dirty_id, |anim| {
             anim.hit_flash = HIT_FLASH_TICKS;
         });

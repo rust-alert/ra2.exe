@@ -324,17 +324,21 @@ impl crate::state::MatchState {
                     };
                     let armor = self.definitions.techno.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
                     let dirty_id = self.entities[entity_index].id;
-                    {
-                        let e = &mut self.entities[entity_index];
-                        e.kind = MapEntityKind::Structure;
-                        e.type_id = Arc::<str>::from(building_type);
-                        e.speed = 0;
-                        e.attack_range = 0;
-                        e.attack_damage = 0;
-                        e.attack_verses = full_verses();
-                        e.armor = armor;
-                        e.techno_kind = Some(TechnoKind::Building);
-                    }
+                    let building_type = Arc::<str>::from(building_type);
+                    let _ = self.with_identity_mut(dirty_id, |identity| {
+                        identity.kind = MapEntityKind::Structure;
+                        identity.type_id = Arc::clone(&building_type);
+                    });
+                    let _ = self.with_locomotor_mut(dirty_id, |loco| {
+                        loco.speed = 0;
+                    });
+                    let _ = self.with_combat_stats_mut(dirty_id, |stats| {
+                        stats.attack_range = 0;
+                        stats.attack_damage = 0;
+                        stats.attack_verses = full_verses();
+                        stats.armor = armor;
+                        stats.techno_kind = Some(TechnoKind::Building);
+                    });
                     let _ = self.with_animation_mut(dirty_id, |anim| {
                         anim.hva_frame = 0;
                     });

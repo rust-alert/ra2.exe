@@ -132,3 +132,20 @@ fn combat_hit_flash_writes_through_ecs_animation() {
     }
     panic!("expected combat to set ECS hit_flash");
 }
+
+#[test]
+fn death_clears_locomotor_speed_through_ecs() {
+    let mut world = duel_mtnk_world();
+    let attacker = world.entities[0].id;
+    let target = world.entities[1].id;
+    assert!(world.entities[1].speed > 0);
+    world.push_command(GameCommand::Attack { attacker, target });
+    for _ in 0..128 {
+        world.advance_tick();
+        if world.entities[1].dead {
+            break;
+        }
+    }
+    assert!(world.entities[1].dead);
+    assert_eq!(world.entities[1].speed, 0);
+}
