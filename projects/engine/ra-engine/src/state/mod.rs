@@ -1,6 +1,6 @@
 //! 一局权威状态。
 
-mod components;
+pub(crate) mod components;
 mod ecs_registry;
 mod entities;
 mod match_state;

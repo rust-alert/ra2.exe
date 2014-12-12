@@ -248,6 +248,12 @@ impl MatchState {
         self.ecs.bind_from_world_entity(entity);
     }
 
+    /// 按稳定 ID 只读取 ECS 组件（玩法系统应优先走此路径，而非读投影）。
+    pub(crate) fn ecs_get<T: ra_ecs::Component>(&self, id: EntityId) -> Option<&T> {
+        let handle = self.ecs.resolve(id)?;
+        self.ecs.world().get::<T>(handle)
+    }
+
     /// 把 ECS 权威组件投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
     ///
     /// 不再从 `WorldEntity` 回写 ECS，避免双真相。
