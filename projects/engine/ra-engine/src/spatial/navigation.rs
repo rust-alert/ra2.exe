@@ -2,7 +2,10 @@
 
 use ra_map::{MapEntityKind, PassGrid};
 
-use crate::state::WorldEntity;
+use crate::state::{
+    WorldEntity,
+    components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Transform},
+};
 
 pub(crate) fn is_mobile(kind: MapEntityKind) -> bool {
     matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
@@ -110,51 +113,68 @@ impl crate::state::MatchState {
     pub(crate) fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {
-            if self.entities[i].dead || !is_mobile(self.entities[i].kind) || self.entities[i].speed == 0 {
+            let id = self.entities[i].id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(id).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
+                continue;
+            }
+            let speed = self.ecs_get::<Locomotor>(id).map(|loco| loco.speed).unwrap_or(0);
+            if speed == 0 {
                 continue;
             }
             // 攻击中且已在射程内：停步开火，不继续挤占目标格。
-            if let Some(target_id) = self.entities[i].attack_target {
-                if let Some(ti) = self.entity_index(target_id) {
-                    if !self.entities[ti].dead
-                        && manhattan(self.entities[i].x, self.entities[i].y, self.entities[ti].x, self.entities[ti].y)
-                            <= self.entities[i].attack_range
-                    {
-                        let id = self.entities[i].id;
-                        let _ = self.with_movement_mut(id, |movement| {
-                            movement.path.clear();
-                        });
-                        continue;
+            if let Some(target_id) = self.ecs_get::<AttackState>(id).and_then(|a| a.target) {
+                if self.entity_index(target_id).is_some() {
+                    let target_dead = self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true);
+                    let range = self.ecs_get::<CombatStats>(id).map(|s| s.attack_range).unwrap_or(0);
+                    if !target_dead {
+                        if let (Some(ax), Some(tx)) =
+                            (self.ecs_get::<Transform>(id).copied(), self.ecs_get::<Transform>(target_id).copied())
+                        {
+                            if manhattan(ax.x, ax.y, tx.x, tx.y) <= range {
+                                let _ = self.with_movement_mut(id, |movement| {
+                                    movement.path.clear();
+                                });
+                                continue;
+                            }
+                        }
                     }
                 }
             }
-            let (Some(tx), Some(ty)) = (self.entities[i].target_x, self.entities[i].target_y)
+            let Some(movement) = self.ecs_get::<MovementState>(id).cloned()
             else {
                 continue;
             };
-            if self.entities[i].x == tx && self.entities[i].y == ty {
-                let id = self.entities[i].id;
+            let (Some(tx), Some(ty)) = (movement.destination_x, movement.destination_y)
+            else {
+                continue;
+            };
+            let Some(xf) = self.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            if xf.x == tx && xf.y == ty {
                 let _ = self.with_movement_mut(id, |movement| {
                     movement.path.clear();
                 });
                 continue;
             }
-            let id = self.entities[i].id;
-            let speed = self.entities[i].speed;
             let _ = self.with_movement_mut(id, |movement| {
                 movement.move_accum = movement.move_accum.saturating_add(speed);
             });
-            while self.entities[i].move_accum >= crate::state::CELL_MOVE_COST {
+            while self.ecs_get::<MovementState>(id).map(|m| m.move_accum).unwrap_or(0) >= crate::state::CELL_MOVE_COST {
                 let _ = self.with_movement_mut(id, |movement| {
                     movement.move_accum -= crate::state::CELL_MOVE_COST;
                 });
-                if self.entities[i].path.is_empty() {
+                if self.ecs_get::<MovementState>(id).map(|m| m.path.is_empty()).unwrap_or(true) {
                     self.repath_entity_at(i);
-                    if self.entities[i].path.is_empty() {
+                    if self.ecs_get::<MovementState>(id).map(|m| m.path.is_empty()).unwrap_or(true) {
                         break;
                     }
                 }
-                let Some((nx, ny)) = self.entities[i].path.first().copied()
+                let Some((nx, ny)) = self.ecs_get::<MovementState>(id).and_then(|m| m.path.first().copied())
                 else {
                     break;
                 };
@@ -163,7 +183,7 @@ impl crate::state::MatchState {
                         movement.path.clear();
                     });
                     self.repath_entity_at(i);
-                    let Some((nx2, ny2)) = self.entities[i].path.first().copied()
+                    let Some((nx2, ny2)) = self.ecs_get::<MovementState>(id).and_then(|m| m.path.first().copied())
                     else {
                         break;
                     };
@@ -171,8 +191,8 @@ impl crate::state::MatchState {
                         break;
                     }
                 }
-                let from_x = self.entities[i].x;
-                let from_y = self.entities[i].y;
+                let from_x = self.ecs_get::<Transform>(id).map(|t| t.x).unwrap_or(0);
+                let from_y = self.ecs_get::<Transform>(id).map(|t| t.y).unwrap_or(0);
                 let step = self.with_movement_mut(id, |movement| take_path_step(&mut movement.path, from_x, from_y));
                 let Some(Some((x, y, facing))) = step
                 else {
