@@ -9,7 +9,10 @@ use ra_map::MapEntityKind;
 
 use crate::{
     gameplay::{is_construction_yard, is_power_plant, is_refinery},
-    state::{ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS},
+    state::{
+        ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS,
+        components::{Health, Identity, Owner},
+    },
 };
 
 impl crate::state::MatchState {
@@ -18,11 +21,21 @@ impl crate::state::MatchState {
         let mut credits: Vec<(Arc<str>, i32)> = Vec::new();
         let n = self.entities.len();
         for index in 0..n {
-            if self.entities[index].dead || !is_refinery(&defs, &self.entities[index].type_id) {
+            let id = self.entities[index].id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            let id = self.entities[index].id;
-            let owner = self.entities[index].owner.clone();
+            let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone())
+            else {
+                continue;
+            };
+            if !is_refinery(&defs, &type_id) {
+                continue;
+            }
+            let Some(owner) = self.ecs_get::<Owner>(id).map(|o| o.house.clone())
+            else {
+                continue;
+            };
             let paid = self
                 .with_harvester_mut(id, |harvester| {
                     harvester.ore_trip_accum = harvester.ore_trip_accum.saturating_add(1);
@@ -48,13 +61,27 @@ impl crate::state::MatchState {
 
     pub(crate) fn house_has_living_yard(&self, house: &str) -> bool {
         self.entities.iter().any(|e| {
-            !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, &e.type_id)
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| is_construction_yard(&self.definitions, &i.type_id))
+                    .unwrap_or(false)
         })
     }
 
     pub(crate) fn house_has_living_power(&self, house: &str) -> bool {
         self.entities.iter().any(|e| {
-            !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_power_plant(&self.definitions, &e.type_id)
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| is_power_plant(&self.definitions, &i.type_id))
+                    .unwrap_or(false)
         })
     }
 }

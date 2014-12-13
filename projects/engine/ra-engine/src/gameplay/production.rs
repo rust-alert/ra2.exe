@@ -6,7 +6,10 @@ use std::sync::Arc;
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
-    state::{ATTACK_COOLDOWN_TICKS, WorldEntity},
+    state::{
+        ATTACK_COOLDOWN_TICKS, WorldEntity,
+        components::{Health, Identity, Owner, ProductionQueue, Transform},
+    },
 };
 
 impl crate::state::MatchState {
@@ -14,10 +17,10 @@ impl crate::state::MatchState {
         let mut spawns: Vec<(usize, Arc<str>)> = Vec::new();
         let n = self.entities.len();
         for index in 0..n {
-            if self.entities[index].dead {
+            let id = self.entities[index].id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            let id = self.entities[index].id;
             let finished = self
                 .with_production_mut(id, |queue| {
                     let Some((type_id, remaining)) = queue.item.as_mut()
@@ -47,15 +50,20 @@ impl crate::state::MatchState {
         else {
             return;
         };
-        let factory = &self.entities[factory_index];
-        let owner = factory.owner.clone();
-        let fx = factory.x;
-        let fy = factory.y;
-        let rally = match (factory.rally_x, factory.rally_y) {
+        let factory_id = self.entities[factory_index].id;
+        let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| o.house.clone())
+        else {
+            return;
+        };
+        let Some(factory_xf) = self.ecs_get::<Transform>(factory_id).copied()
+        else {
+            return;
+        };
+        let rally = self.ecs_get::<ProductionQueue>(factory_id).and_then(|q| match (q.rally_x, q.rally_y) {
             (Some(rx), Some(ry)) => Some((rx, ry)),
             _ => None,
-        };
-        let Some((x, y)) = self.find_spawn_cell(fx, fy)
+        });
+        let Some((x, y)) = self.find_spawn_cell(factory_xf.x, factory_xf.y)
         else {
             return;
         };
@@ -139,21 +147,29 @@ impl crate::state::MatchState {
     pub(crate) fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
-            !e.dead
-                && e.owner.as_ref() == house
-                && e.kind == MapEntityKind::Structure
-                && factory_matches_unit(&self.definitions, &e.type_id, class)
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| factory_matches_unit(&self.definitions, &i.type_id, class))
+                    .unwrap_or(false)
         })
     }
 
     pub(crate) fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
-            !e.dead
-                && e.owner.as_ref() == house
-                && e.kind == MapEntityKind::Structure
-                && e.produce_queue.is_none()
-                && factory_matches_unit(&self.definitions, &e.type_id, class)
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+                && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| factory_matches_unit(&self.definitions, &i.type_id, class))
+                    .unwrap_or(false)
         })
     }
 }
