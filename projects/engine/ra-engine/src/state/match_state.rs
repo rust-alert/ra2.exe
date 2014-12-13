@@ -867,13 +867,19 @@ impl MatchState {
 
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
     pub fn can_place_structure(&self, x: u16, y: u16) -> bool {
+        use crate::state::components::{Health, Transform};
+
         if !self.pass_grid.in_bounds(x, y) {
             return false;
         }
         if !self.pass_grid.is_passable(x, y) {
             return false;
         }
-        !self.entities.iter().any(|e| !e.dead && e.x == x && e.y == y)
+        !self.entities.iter().any(|e| {
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Transform>(id).map(|t| t.x == x && t.y == y).unwrap_or(false)
+        })
     }
 
     /// 当前确定性状态哈希（锁步校验用）。

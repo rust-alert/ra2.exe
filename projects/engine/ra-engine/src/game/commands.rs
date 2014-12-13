@@ -220,7 +220,10 @@ impl crate::state::MatchState {
             game::CommandRejectReason,
             gameplay::{building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant},
             spatial::is_mobile,
-            state::{PRODUCE_TICKS, WorldEntity},
+            state::{
+                PRODUCE_TICKS, WorldEntity,
+                components::{Health, Identity, Transform},
+            },
         };
 
         for (command_index, scheduled) in cmds.iter().enumerate() {
@@ -235,7 +238,8 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
-                    if self.entities[entity_index].dead {
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
@@ -243,11 +247,10 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    if !is_mobile(self.entities[entity_index].kind) {
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
-                    let id = self.entities[entity_index].id;
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
                     });
@@ -274,7 +277,9 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    if self.entities[attacker_index].dead {
+                    let attacker_id = self.entities[attacker_index].id;
+                    let target_id = self.entities[target_index].id;
+                    if self.ecs_get::<Health>(attacker_id).map(|h| h.dead).unwrap_or(true) {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
@@ -282,22 +287,25 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    if self.entities[target_index].dead {
+                    if self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    if !is_mobile(self.entities[attacker_index].kind) {
+                    if !self.ecs_get::<Identity>(attacker_id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
-                    let (tx, ty) = (self.entities[target_index].x, self.entities[target_index].y);
-                    let attacker_id = self.entities[attacker_index].id;
+                    let Some(target_xf) = self.ecs_get::<Transform>(target_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
                     });
                     let _ = self.with_movement_mut(attacker_id, |movement| {
-                        movement.destination_x = Some(tx);
-                        movement.destination_y = Some(ty);
+                        movement.destination_x = Some(target_xf.x);
+                        movement.destination_y = Some(target_xf.y);
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -309,7 +317,8 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
-                    if self.entities[entity_index].dead {
+                    let dirty_id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(dirty_id).map(|h| h.dead).unwrap_or(true) {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
@@ -317,13 +326,17 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(building_type) = deploy_into_type(&self.definitions, &self.entities[entity_index].type_id)
+                    let Some(type_id) = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id.clone())
+                    else {
+                        self.reject(command_index, CommandRejectReason::CannotDeploy);
+                        continue;
+                    };
+                    let Some(building_type) = deploy_into_type(&self.definitions, &type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
                     let armor = self.definitions.techno.get(building_type).map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-                    let dirty_id = self.entities[entity_index].id;
                     let building_type = Arc::<str>::from(building_type);
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
@@ -497,7 +510,8 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
-                    if self.entities[factory_index].dead {
+                    let id = self.entities[factory_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                         self.reject(command_index, CommandRejectReason::EntityDead);
                         continue;
                     }
@@ -505,7 +519,12 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    if !is_production_factory(&self.definitions, &self.entities[factory_index].type_id) {
+                    let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone())
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if !is_production_factory(&self.definitions, &type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -513,7 +532,6 @@ impl crate::state::MatchState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    let id = self.entities[factory_index].id;
                     let _ = self.with_production_mut(id, |queue| {
                         queue.rally_x = Some(x);
                         queue.rally_y = Some(y);
@@ -530,7 +548,10 @@ impl crate::state::MatchState {
         else {
             return false;
         };
-        self.entities[entity_index].owner.as_ref() == p.house.as_ref()
+        let id = self.entities[entity_index].id;
+        self.ecs_get::<crate::state::components::Owner>(id)
+            .map(|o| o.house.as_ref() == p.house.as_ref())
+            .unwrap_or(false)
     }
 
     pub(crate) fn reject(&mut self, command_index: usize, reason: crate::game::CommandRejectReason) {
