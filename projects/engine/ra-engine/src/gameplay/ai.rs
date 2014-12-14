@@ -5,6 +5,7 @@
 use crate::{
     GameCommand, MatchState,
     gameplay::{deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, owner_allows},
+    state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
 use ra_map::MapEntityKind;
 use ra_types::{PlayerId, ProductionCategory};
@@ -16,16 +17,24 @@ pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> 
     }
     let mut out = Vec::new();
     for e in world.entities.iter() {
-        if e.dead || e.owner.as_ref() != house {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if deploy_into_type(&world.definitions, &e.type_id).is_none() {
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
             continue;
         }
-        if e.kind != MapEntityKind::Unit {
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            continue;
+        };
+        if deploy_into_type(&world.definitions, &identity.type_id).is_none() {
             continue;
         }
-        out.push(GameCommand::Deploy { entity: e.id });
+        if identity.kind != MapEntityKind::Unit {
+            continue;
+        }
+        out.push(GameCommand::Deploy { entity: id });
     }
     out
 }
@@ -59,11 +68,11 @@ pub fn place_war_factory_commands(world: &MatchState, house: &str, player: Playe
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
-    let Some(weap_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
+    let Some(wf_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, weap_id)
+    place_near_yard(world, house, player, wf_id)
 }
 
 /// 有供电且无矿场时，在建造场邻格放置一座矿场。
@@ -71,14 +80,14 @@ pub fn place_refinery_commands(world: &MatchState, house: &str, player: PlayerId
     if !house_has_power(world, house) || house_has_refinery(world, house) {
         return Vec::new();
     }
-    let Some(refn_id) = pick_structure(world, house, |s| s.refinery)
+    let Some(refinery_id) = pick_structure(world, house, |s| s.refinery)
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, refn_id)
+    place_near_yard(world, house, player, refinery_id)
 }
 
-/// 空闲兵营存在且资金足够时，排队生产步兵。
+/// 有空闲兵营时生产一名步兵。
 pub fn produce_infantry_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_idle_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
@@ -90,7 +99,7 @@ pub fn produce_infantry_commands(world: &MatchState, house: &str, player: Player
     produce_unit(world, house, player, unit_id)
 }
 
-/// 空闲战车工厂存在且资金足够时，排队生产载具。
+/// 有空闲战车工厂时生产一辆载具。
 pub fn produce_vehicle_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_idle_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
@@ -144,11 +153,23 @@ fn place_near_yard(world: &MatchState, house: &str, player: PlayerId, type_id: &
 pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand> {
     let mut out = Vec::new();
     for (attacker_index, attacker) in world.entities.iter().enumerate() {
-        if attacker.dead
-            || attacker.owner.as_ref() != house
-            || attacker.attack_damage == 0
-            || attacker.attack_target.is_some()
-            || !matches!(attacker.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+        let id = attacker.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            continue;
+        }
+        if world.ecs_get::<CombatStats>(id).map(|s| s.attack_damage == 0).unwrap_or(true) {
+            continue;
+        }
+        if world.ecs_get::<AttackState>(id).map(|a| a.target.is_some()).unwrap_or(false) {
+            continue;
+        }
+        if !world
+            .ecs_get::<Identity>(id)
+            .map(|i| matches!(i.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            .unwrap_or(false)
         {
             continue;
         }
@@ -156,7 +177,7 @@ pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand>
         else {
             continue;
         };
-        out.push(GameCommand::Attack { attacker: attacker.id, target: world.entities[target_index].id });
+        out.push(GameCommand::Attack { attacker: id, target: world.entities[target_index].id });
     }
     out
 }
@@ -186,53 +207,62 @@ fn pick_techno<'a>(world: &'a MatchState, house: &str, category: ProductionCateg
         .next()
 }
 
-fn house_has_yard(world: &MatchState, house: &str) -> bool {
+fn living_house_structure<'a, F>(world: &'a MatchState, house: &str, pred: F) -> bool
+where
+    F: Fn(&MatchState, &Identity) -> bool,
+{
     world.entities.iter().any(|e| {
-        !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id)
+        let id = e.id;
+        !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure && pred(world, i)).unwrap_or(false)
     })
+}
+
+fn house_has_yard(world: &MatchState, house: &str) -> bool {
+    living_house_structure(world, house, |w, i| is_construction_yard(&w.definitions, &i.type_id))
 }
 
 fn house_has_power(world: &MatchState, house: &str) -> bool {
-    world
-        .entities
-        .iter()
-        .any(|e| !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_power_plant(&world.definitions, &e.type_id))
+    living_house_structure(world, house, |w, i| is_power_plant(&w.definitions, &i.type_id))
 }
 
 fn house_has_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
-    world.entities.iter().any(|e| {
-        !e.dead
-            && e.owner.as_ref() == house
-            && e.kind == MapEntityKind::Structure
-            && factory_matches_category(&world.definitions, &e.type_id, category)
-    })
+    living_house_structure(world, house, |w, i| factory_matches_category(&w.definitions, &i.type_id, category))
 }
 
 fn house_has_idle_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
     world.entities.iter().any(|e| {
-        !e.dead
-            && e.owner.as_ref() == house
-            && e.kind == MapEntityKind::Structure
-            && e.produce_queue.is_none()
-            && factory_matches_category(&world.definitions, &e.type_id, category)
+        let id = e.id;
+        !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+            && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(true)
+            && world
+                .ecs_get::<Identity>(id)
+                .map(|i| factory_matches_category(&world.definitions, &i.type_id, category))
+                .unwrap_or(false)
     })
 }
 
 fn house_has_refinery(world: &MatchState, house: &str) -> bool {
-    world
-        .entities
-        .iter()
-        .any(|e| !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_refinery(&world.definitions, &e.type_id))
+    living_house_structure(world, house, |w, i| is_refinery(&w.definitions, &i.type_id))
 }
 
 fn yard_cell(world: &MatchState, house: &str) -> Option<(u16, u16)> {
     world.entities.iter().find_map(|e| {
-        if !e.dead && e.owner.as_ref() == house && e.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &e.type_id) {
-            Some((e.x, e.y))
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return None;
         }
-        else {
-            None
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            return None;
         }
+        let identity = world.ecs_get::<Identity>(id)?;
+        if identity.kind != MapEntityKind::Structure || !is_construction_yard(&world.definitions, &identity.type_id) {
+            return None;
+        }
+        world.ecs_get::<Transform>(id).map(|t| (t.x, t.y))
     })
 }
 
@@ -270,20 +300,28 @@ fn find_open_near(world: &MatchState, fx: u16, fy: u16) -> Option<(u16, u16)> {
 }
 
 fn nearest_enemy(world: &MatchState, from: usize, house: &str) -> Option<usize> {
-    let a = &world.entities[from];
+    let from_id = world.entities[from].id;
+    let from_xf = world.ecs_get::<Transform>(from_id)?;
     let mut best: Option<(u32, usize)> = None;
     for (i, e) in world.entities.iter().enumerate() {
-        if i == from || e.dead || e.owner.as_ref() == house {
+        if i == from {
             continue;
         }
-        let dist = manhattan(a.x, a.y, e.x, e.y);
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        if world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let dist = (i32::from(from_xf.x) - i32::from(xf.x)).unsigned_abs() + (i32::from(from_xf.y) - i32::from(xf.y)).unsigned_abs();
         if best.map(|(d, _)| dist < d).unwrap_or(true) {
             best = Some((dist, i));
         }
     }
     best.map(|(_, i)| i)
-}
-
-fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
-    (i32::from(ax) - i32::from(bx)).unsigned_abs() + (i32::from(ay) - i32::from(by)).unsigned_abs()
 }
