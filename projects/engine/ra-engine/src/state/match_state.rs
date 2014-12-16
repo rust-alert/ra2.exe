@@ -526,7 +526,7 @@ impl MatchState {
 
     /// 为指定下标实体重算路径并写入 ECS `MovementState`。
     pub(crate) fn repath_entity_at(&mut self, index: usize) {
-        let path = crate::spatial::compute_repath(&self.entities, index, &self.pass_grid);
+        let path = self.compute_repath_at(index);
         let id = self.entities[index].id;
         let _ = self.with_movement_mut(id, |movement| {
             movement.path = path;
@@ -889,13 +889,21 @@ impl MatchState {
 
     /// 已绑定 techno 规则的实体数量。
     pub fn bound_techno_count(&self) -> usize {
-        self.entities.iter().filter(|e| e.techno_kind.is_some()).count()
+        use crate::state::components::CombatStats;
+
+        self.entities
+            .iter()
+            .filter(|e| self.ecs_get::<CombatStats>(e.id).and_then(|s| s.techno_kind).is_some())
+            .count()
     }
 
     /// 通行表变更后，为全部移动单位重算路径。
     pub fn repath_mobiles(&mut self) {
+        use crate::state::components::Identity;
+
         for i in 0..self.entities.len() {
-            if is_mobile(self.entities[i].kind) {
+            let id = self.entities[i].id;
+            if self.ecs_get::<Identity>(id).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
                 self.repath_entity_at(i);
             }
         }

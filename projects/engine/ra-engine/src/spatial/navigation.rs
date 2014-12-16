@@ -2,10 +2,7 @@
 
 use ra_map::{MapEntityKind, PassGrid};
 
-use crate::state::{
-    WorldEntity,
-    components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Transform},
-};
+use crate::state::components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Transform};
 
 pub(crate) fn is_mobile(kind: MapEntityKind) -> bool {
     matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
@@ -43,34 +40,67 @@ pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u
     }
 }
 
-pub(crate) fn cell_occupied_by_other(entities: &[WorldEntity], self_i: usize, x: u16, y: u16) -> bool {
-    entities.iter().enumerate().any(|(j, o)| j != self_i && !o.dead && is_mobile(o.kind) && o.x == x && o.y == y)
-}
+impl crate::state::MatchState {
+    /// 其它存活移动单位是否占用该格（读 ECS）。
+    pub(crate) fn cell_occupied_by_other(&self, self_i: usize, x: u16, y: u16) -> bool {
+        self.entities.iter().enumerate().any(|(j, o)| {
+            if j == self_i {
+                return false;
+            }
+            let id = o.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !self.ecs_get::<Identity>(id).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
+                return false;
+            }
+            self.ecs_get::<Transform>(id).map(|t| t.x == x && t.y == y).unwrap_or(false)
+        })
+    }
 
-/// 根据当前投影坐标与目的地计算路径（不写入实体）。
-pub(crate) fn compute_repath(entities: &[WorldEntity], i: usize, grid: &PassGrid) -> Vec<(u16, u16)> {
-    let (Some(tx), Some(ty)) = (entities[i].target_x, entities[i].target_y)
-    else {
-        return Vec::new();
-    };
-    let (sx, sy) = (entities[i].x, entities[i].y);
-    let mut grid = grid.clone();
-    for (j, entity) in entities.iter().enumerate() {
-        if j != i && !entity.dead && is_mobile(entity.kind) {
-            grid.set_passable(entity.x, entity.y, false);
+    /// 根据 ECS 坐标与目的地计算路径（不写入实体）。
+    pub(crate) fn compute_repath_at(&self, i: usize) -> Vec<(u16, u16)> {
+        let id = self.entities[i].id;
+        let (Some(tx), Some(ty)) = self
+            .ecs_get::<MovementState>(id)
+            .map(|m| (m.destination_x, m.destination_y))
+            .unwrap_or((None, None))
+        else {
+            return Vec::new();
+        };
+        let Some(xf) = self.ecs_get::<Transform>(id).copied()
+        else {
+            return Vec::new();
+        };
+        let (sx, sy) = (xf.x, xf.y);
+        let mut grid = self.pass_grid.clone();
+        for (j, entity) in self.entities.iter().enumerate() {
+            if j == i {
+                continue;
+            }
+            let oid = entity.id;
+            if self.ecs_get::<Health>(oid).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(oid).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
+                continue;
+            }
+            if let Some(ox) = self.ecs_get::<Transform>(oid).copied() {
+                grid.set_passable(ox.x, ox.y, false);
+            }
         }
+        grid.set_passable(sx, sy, true);
+        let (gx, gy) = nearest_free_goal(&grid, sx, sy, tx, ty);
+        grid.set_passable(gx, gy, true);
+        let Some(mut path) = grid.find_path_diag(sx, sy, gx, gy)
+        else {
+            return Vec::new();
+        };
+        if path.first() == Some(&(sx, sy)) {
+            path.remove(0);
+        }
+        path
     }
-    grid.set_passable(sx, sy, true);
-    let (gx, gy) = nearest_free_goal(&grid, sx, sy, tx, ty);
-    grid.set_passable(gx, gy, true);
-    let Some(mut path) = grid.find_path_diag(sx, sy, gx, gy)
-    else {
-        return Vec::new();
-    };
-    if path.first() == Some(&(sx, sy)) {
-        path.remove(0);
-    }
-    path
 }
 
 fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
@@ -178,7 +208,7 @@ impl crate::state::MatchState {
                 else {
                     break;
                 };
-                if cell_occupied_by_other(&self.entities, i, nx, ny) {
+                if self.cell_occupied_by_other(i, nx, ny) {
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.path.clear();
                     });
@@ -187,7 +217,7 @@ impl crate::state::MatchState {
                     else {
                         break;
                     };
-                    if cell_occupied_by_other(&self.entities, i, nx2, ny2) {
+                    if self.cell_occupied_by_other(i, nx2, ny2) {
                         break;
                     }
                 }
