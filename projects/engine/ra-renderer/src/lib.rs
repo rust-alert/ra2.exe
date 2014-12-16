@@ -76,6 +76,8 @@ pub struct Renderer {
     /// 原版壳层 UI 页（与地图预览分通道；CPU 合成图的过渡上传）。
     ui_page: Option<RgbaImage>,
     ui_sprite: Option<SpriteGpu>,
+    /// 为真时 UI 为对局屏空间叠加层：不劫持世界相机，可与 preview/markers 同帧。
+    ui_overlay: bool,
     markers: Option<MarkerGpu>,
     /// 下一帧 `submit_frame` 结束后做表面回读。
     capture_pending: bool,
@@ -105,6 +107,7 @@ impl Renderer {
             sprite: None,
             ui_page: None,
             ui_sprite: None,
+            ui_overlay: false,
             markers: None,
             capture_pending: false,
             last_capture: None,
@@ -176,7 +179,19 @@ impl Renderer {
     ///
     /// 当前接受已合成的整页 RGBA，作为 atlas/instance UI pass 之前的过渡上传路径。
     /// 使用 [`SpriteColorSpace::EncodedBytes`]：CPU 侧已是显示域字节，GPU 不再按 sRGB 线性化。
+    /// 菜单全页模式：相机会 letterbox 到该页。对局叠加请用 [`Self::set_ui_overlay`]。
     pub fn set_ui_page(&mut self, image: RgbaImage) {
+        self.ui_overlay = false;
+        self.upload_ui_texture(image, true);
+    }
+
+    /// 设置对局 HUD 叠加层：不重置世界相机，与地图预览 / markers 同帧绘制。
+    pub fn set_ui_overlay(&mut self, image: RgbaImage) {
+        self.ui_overlay = true;
+        self.upload_ui_texture(image, false);
+    }
+
+    fn upload_ui_texture(&mut self, image: RgbaImage, fit_camera: bool) {
         if let Some(gpu) = self.gpu.as_ref() {
             match self.ui_sprite.as_mut() {
                 Some(sprite) => sprite.replace_image(&gpu.device, &gpu.queue, &image),
@@ -190,9 +205,11 @@ impl Renderer {
                     ));
                 }
             }
-            self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
+            if fit_camera {
+                self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
+            }
         }
-        else {
+        else if fit_camera {
             self.camera_ready = false;
         }
         self.ui_page = Some(image);
@@ -202,6 +219,7 @@ impl Renderer {
     pub fn clear_ui_page(&mut self) {
         self.ui_page = None;
         self.ui_sprite = None;
+        self.ui_overlay = false;
         if self.preview.is_none() {
             self.camera_ready = false;
         }
@@ -243,7 +261,14 @@ impl Renderer {
             gpu.resize(width, height);
         }
         let (sw, sh) = self.gpu.as_ref().map(|g| (g.config.width, g.config.height)).unwrap_or((width.max(1), height.max(1)));
-        if let Some(ui) = self.ui_sprite.as_ref() {
+        // 对局叠加 HUD 不劫持世界相机；优先按地图预览适配。
+        if self.ui_overlay {
+            if let Some(sprite) = self.sprite.as_ref() {
+                let (iw, ih) = sprite.size();
+                self.reset_camera_to_fit(sw, sh, iw, ih);
+            }
+        }
+        else if let Some(ui) = self.ui_sprite.as_ref() {
             let (iw, ih) = ui.size();
             self.reset_camera_to_fit(sw, sh, iw, ih);
         }
@@ -329,7 +354,13 @@ impl Renderer {
     fn submit_frame(&mut self) {
         if !self.camera_ready {
             if let Some(gpu) = self.gpu.as_ref() {
-                if let Some(ui) = self.ui_sprite.as_ref() {
+                if self.ui_overlay {
+                    if let Some(sprite) = self.sprite.as_ref() {
+                        let (iw, ih) = sprite.size();
+                        self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
+                    }
+                }
+                else if let Some(ui) = self.ui_sprite.as_ref() {
                     let (iw, ih) = ui.size();
                     self.reset_camera_to_fit(gpu.config.width, gpu.config.height, iw, ih);
                 }
@@ -348,22 +379,39 @@ impl Renderer {
             wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
             _ => return,
         };
-        // UI 页优先于地图预览：菜单不应误用 preview 通道。
-        let active_sprite = self.ui_sprite.as_ref().or(self.sprite.as_ref());
-        let encoded_ui = self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
-        let view = if let Some(ui) = self.ui_sprite.as_ref().filter(|s| s.is_encoded_bytes()) {
-            // 编码域写出：走 unorm 视图，字节原样落入 sRGB 交换链存储。
-            frame.texture.create_view(&wgpu::TextureViewDescriptor { format: Some(ui.target_format()), ..Default::default() })
-        }
-        else {
-            frame.texture.create_view(&wgpu::TextureViewDescriptor::default())
-        };
 
-        if let Some(sprite) = active_sprite {
+        let overlay = self.ui_overlay && self.ui_sprite.is_some();
+        let world_sprite = if overlay { self.sprite.as_ref() } else { self.ui_sprite.as_ref().or(self.sprite.as_ref()) };
+        let encoded_menu_ui = !overlay && self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
+        let srgb_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let unorm_view = self.ui_sprite.as_ref().filter(|s| s.is_encoded_bytes()).map(|ui| {
+            frame.texture.create_view(&wgpu::TextureViewDescriptor { format: Some(ui.target_format()), ..Default::default() })
+        });
+
+        if let Some(sprite) = world_sprite {
             sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
         }
+        let ui_cam = if overlay {
+            self.ui_sprite.as_ref().map(|ui| {
+                let (iw, ih) = ui.size();
+                Camera::fit(iw, ih, gpu.config.width, gpu.config.height)
+            })
+        }
+        else {
+            None
+        };
+        if let (Some(ui), Some(cam)) = (self.ui_sprite.as_ref(), ui_cam.as_ref()) {
+            ui.write_vertices(&gpu.queue, cam, gpu.config.width, gpu.config.height);
+        }
+        else if !overlay {
+            if let Some(ui) = self.ui_sprite.as_ref() {
+                ui.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
+            }
+        }
+
         if let Some(markers) = self.markers.as_mut() {
-            if self.render_world.unit_count() > 0 && self.ui_sprite.is_none() {
+            let draw_markers = self.render_world.unit_count() > 0 && (overlay || self.ui_sprite.is_none());
+            if draw_markers {
                 markers.write_from_world(&gpu.queue, &self.render_world, &self.camera, gpu.config.width, gpu.config.height);
             }
             else {
@@ -371,14 +419,59 @@ impl Renderer {
             }
         }
 
-        let clear = if encoded_ui { wgpu::Color::BLACK } else { CLEAR_COLOR };
+        let clear = if encoded_menu_ui { wgpu::Color::BLACK } else { CLEAR_COLOR };
         let submit_start = std::time::Instant::now();
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
-        {
+
+        if overlay {
+            // Pass 1：世界（预览 + markers），sRGB 视图。
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("ra.frame_pass.world"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &srgb_view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load: wgpu::LoadOp::Clear(CLEAR_COLOR), store: wgpu::StoreOp::Store },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                if let Some(sprite) = self.sprite.as_ref() {
+                    sprite.draw(&mut pass);
+                }
+                if let Some(markers) = self.markers.as_ref() {
+                    if self.render_world.unit_count() > 0 {
+                        markers.draw(&mut pass);
+                    }
+                }
+            }
+            // Pass 2：HUD 叠加（编码域 unorm），保留世界内容。
+            if let (Some(ui), Some(view)) = (self.ui_sprite.as_ref(), unorm_view.as_ref()) {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("ra.frame_pass.hud_overlay"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                ui.draw(&mut pass);
+            }
+        }
+        else {
+            let view = unorm_view.as_ref().unwrap_or(&srgb_view);
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some(if encoded_ui { "ra.frame_pass.encoded_ui" } else { "ra.frame_pass" }),
+                label: Some(if encoded_menu_ui { "ra.frame_pass.encoded_ui" } else { "ra.frame_pass" }),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view,
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations { load: wgpu::LoadOp::Clear(clear), store: wgpu::StoreOp::Store },
@@ -388,15 +481,16 @@ impl Renderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            if let Some(sprite) = active_sprite {
+            if let Some(sprite) = world_sprite {
                 sprite.draw(&mut pass);
             }
             if let Some(markers) = self.markers.as_ref() {
-                if self.ui_sprite.is_none() {
+                if self.ui_sprite.is_none() && self.render_world.unit_count() > 0 {
                     markers.draw(&mut pass);
                 }
             }
         }
+
         gpu.queue.submit(std::iter::once(encoder.finish()));
         self.timings.gpu_submit = Some(submit_start.elapsed());
 

@@ -2,7 +2,10 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
+use ra_assets::FntFile;
+use ra_components::ui_compose::{MatchHudPaint, compose_match_hud_overlay};
 use ra_engine::{Engine, HudSnapshot, MatchOutcome, Session, SessionPhase};
+use ra_layout::ui_layout::{SHELL_BASE_H, SHELL_BASE_W};
 use ra_map::MapEntityKind;
 use ra_renderer::Renderer;
 use winit::{
@@ -492,44 +495,89 @@ impl MatchController {
         tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", game.world.tick);
     }
 
-    /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。标题走 `HudSnapshot`。
-    /// 不绘制屏上色块 HUD；原版 UI 未接线前仅世界标记 + 窗口标题。
-    pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str) {
-        let Some(session) = self.session.as_mut()
-        else {
-            renderer.draw_frame(None);
-            self.refresh_title(renderer, window, screen_label, None);
-            return;
-        };
-        let Some(game) = session.game_mut()
-        else {
-            renderer.draw_frame(None);
-            self.refresh_title(renderer, window, screen_label, None);
-            return;
-        };
+    /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
+    pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str, fnt: Option<&FntFile>) {
+        enum PendingDraw {
+            Full(ra_engine::RenderSnapshot),
+            Incremental { tick: u64, dirty: Vec<ra_types::EntityId>, units: Vec<ra_engine::SnapshotUnit> },
+        }
 
         let selected = self.local.selected.clone();
         let force_full = renderer.render_world().unit_count() == 0;
-        let pres_started = Instant::now();
-        let hud = if force_full {
-            let snap = game.snapshot(&selected);
-            renderer.timings.presentation_build = Some(pres_started.elapsed());
-            let hud = game.snapshot_hud();
-            renderer.draw_frame(Some(&snap));
-            // 全量同步已消费脏集语义：清空以免下一帧重复投影。
-            let _ = game.world.take_presentation_dirty();
-            hud
-        }
-        else {
-            let dirty = game.world.take_presentation_dirty();
-            let units = game.project_units(&dirty);
-            let tick = game.world.tick;
-            renderer.timings.presentation_build = Some(pres_started.elapsed());
-            let hud = game.snapshot_hud();
-            renderer.draw_incremental(tick, &dirty, &units, &selected);
-            hud
+        let prepared = {
+            let Some(session) = self.session.as_mut()
+            else {
+                renderer.draw_frame(None);
+                self.refresh_title(renderer, window, screen_label, None);
+                return;
+            };
+            let Some(game) = session.game_mut()
+            else {
+                renderer.draw_frame(None);
+                self.refresh_title(renderer, window, screen_label, None);
+                return;
+            };
+            let pres_started = Instant::now();
+            if force_full {
+                let snap = game.snapshot(&selected);
+                renderer.timings.presentation_build = Some(pres_started.elapsed());
+                let hud = game.snapshot_hud();
+                let _ = game.world.take_presentation_dirty();
+                (hud, PendingDraw::Full(snap))
+            }
+            else {
+                let dirty = game.world.take_presentation_dirty();
+                let units = game.project_units(&dirty);
+                let tick = game.world.tick;
+                renderer.timings.presentation_build = Some(pres_started.elapsed());
+                let hud = game.snapshot_hud();
+                (hud, PendingDraw::Incremental { tick, dirty, units })
+            }
         };
+        let (hud, pending) = prepared;
+        self.upload_match_hud(renderer, &hud, fnt);
+        match pending {
+            PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
+            PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
+        }
         self.refresh_title(renderer, window, screen_label, Some(&hud));
+    }
+
+    fn upload_match_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>) {
+        let local_house = self
+            .session
+            .as_ref()
+            .and_then(|s| s.game())
+            .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
+            .map(|p| p.house.clone());
+        let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_ref()));
+        let nsel = self.local.selected.len();
+        let selected_summary = match (self.local.selected.first().copied(), nsel) {
+            (Some(id), n) if n > 1 => format!("#{}+{}", id.0, n - 1),
+            (Some(id), _) => format!("#{}", id.0),
+            _ => "—".into(),
+        };
+        let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
+        let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
+        let outcome_owned = hud.outcome.as_ref().map(|o| match o {
+            MatchOutcome::Victory { owner } => format!("胜 {owner}"),
+        });
+        let paint = MatchHudPaint {
+            tick: hud.tick,
+            funds: local.map(|p| p.funds).unwrap_or(0),
+            power_output: local.map(|p| p.power_output).unwrap_or(0),
+            power_drain: local.map(|p| p.power_drain).unwrap_or(0),
+            low_power: local.map(|p| p.low_power).unwrap_or(false),
+            selected_summary: selected_summary.as_str(),
+            produce_queue: queue.as_deref(),
+            reject,
+            paused: hud.paused,
+            pause_reason: hud.pause_reason.as_deref(),
+            outcome: outcome_owned.as_deref(),
+        };
+        if let Some(page) = compose_match_hud_overlay(SHELL_BASE_W as u32, SHELL_BASE_H as u32, fnt, paint) {
+            renderer.set_ui_overlay(page);
+        }
     }
 
     fn refresh_title(&mut self, renderer: &Renderer, window: Option<&Arc<Window>>, screen_label: &str, hud: Option<&HudSnapshot>) {

@@ -59,6 +59,8 @@ pub struct AppShell {
     startup_splash: Option<StartupSplashPresentation>,
     /// 闪屏最短展示秒数（首次成功 present 后起算；可调，默认 3）。
     splash_min_secs: f64,
+    /// 遭遇战装载页最短展示秒数（`RustAlert.toml` 的 `load_min_secs`，默认 3；`0` 关闭）。
+    load_min_secs: f64,
     /// 闪屏预处理是否完成。
     splash_preload_done: bool,
     /// 用户请求跳过闪屏（仍须预处理完成才进主菜单）。
@@ -71,6 +73,8 @@ pub struct AppShell {
     load_job: Option<LoadJob>,
     /// 当前装载开始时刻。
     load_started: Option<Instant>,
+    /// 后台已完成、等待最短展示时间后再 `finish_load` 的结果。
+    pending_load_boot: Option<BootResult>,
     /// 遭遇战大厅可选地图。
     lobby_maps: Vec<super::boot::BootMapCandidate>,
     /// 当前选中的地图文件名。
@@ -208,12 +212,14 @@ impl AppShell {
             test_scene,
             startup_splash: None,
             splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
+            load_min_secs: 3.0,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
             load_started: None,
+            pending_load_boot: None,
             lobby_maps: Vec::new(),
             selected_map: None,
             lobby_preview_for: None,
@@ -290,12 +296,14 @@ impl AppShell {
             test_scene: None,
             startup_splash: None,
             splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
+            load_min_secs: 3.0,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
             load_started: None,
+            pending_load_boot: None,
             lobby_maps: Vec::new(),
             selected_map: None,
             lobby_preview_for: None,
@@ -1102,10 +1110,12 @@ impl AppShell {
         }
     }
 
-    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅上传合成 chrome；启动闪屏由独立 owner 保持。
+    /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅 / 装载页上传合成 chrome；启动闪屏由独立 owner 保持。
     fn refresh_menu_backdrop(&mut self) {
         if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
-            self.renderer.clear_ui_page();
+            // 对局 HUD 由 `MatchController::draw_frame` 维护，勿在此清空；仍预热字体。
+            self.ensure_menu_assets();
+            self.ensure_menu_text_assets();
             return;
         }
         // 启动闪屏禁止走菜单合成路径，更不能 clear 掉已上传的 GLSS/GLSL 画面。
@@ -1124,6 +1134,7 @@ impl AppShell {
                 | OriginalScreen::ExitConfirm
                 | OriginalScreen::SkirmishLobby
                 | OriginalScreen::ChooseMap
+                | OriginalScreen::LoadScreen
         ) {
             if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 self.ensure_lobby_maps();
@@ -1134,6 +1145,8 @@ impl AppShell {
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
+            let load_allow_retry = self.load_allow_retry();
+            let load_status = if self.screen == OriginalScreen::LoadScreen { Some(self.banner.clone()) } else { None };
             let wave_owned = self.current_wave_frames();
             let wave = wave_owned.as_ref().map(|(buttons, tiles)| ui_compose::ShellWaveFrames {
                 buttons: buttons.as_slice(),
@@ -1287,15 +1300,54 @@ impl AppShell {
                             0,
                         )
                     }
+                    OriginalScreen::LoadScreen => ui_compose::compose_load_screen_page(
+                        decoded,
+                        self.window_width as u32,
+                        self.window_height as u32,
+                        self.menu_pressed_entry,
+                        self.menu_hovered_entry,
+                        self.menu_font.as_ref(),
+                        ui_compose::LoadScreenPaint {
+                            status: load_status.as_deref().unwrap_or(""),
+                            allow_retry: load_allow_retry,
+                        },
+                    ),
                     _ => None,
                 };
                 if let Some(page) = page {
                     tracing::debug!(screen = self.screen.as_str(), w = page.width(), h = page.height(), "壳层 chrome 已合成并上传 UI 页通道");
                     self.upload_ui_page(page);
-                    if !self.banner.contains("chrome 已上传") {
+                    if self.screen != OriginalScreen::LoadScreen && !self.banner.contains("chrome 已上传") {
                         self.banner = format!("{} · chrome 已上传", self.banner);
                         self.refresh_shell_title();
                     }
+                    return;
+                }
+            }
+            // 装载页即使 chrome 未解码也要画出可读状态，禁止纯色空窗。
+            if self.screen == OriginalScreen::LoadScreen {
+                let empty = ui_decode::PageDecodeReport {
+                    background: None,
+                    panels: Vec::new(),
+                    button_normals: Vec::new(),
+                    button_hovers: Vec::new(),
+                    button_presseds: Vec::new(),
+                    sdbtnanm_frames: Vec::new(),
+                    errors: Vec::new(),
+                };
+                if let Some(page) = ui_compose::compose_load_screen_page(
+                    &empty,
+                    self.window_width as u32,
+                    self.window_height as u32,
+                    self.menu_pressed_entry,
+                    self.menu_hovered_entry,
+                    self.menu_font.as_ref(),
+                    ui_compose::LoadScreenPaint {
+                        status: load_status.as_deref().unwrap_or(self.banner.as_str()),
+                        allow_retry: load_allow_retry,
+                    },
+                ) {
+                    self.upload_ui_page(page);
                     return;
                 }
             }
@@ -1308,7 +1360,7 @@ impl AppShell {
     }
 
     fn load_allow_retry(&self) -> bool {
-        self.load_job.is_none()
+        self.load_job.is_none() && self.pending_load_boot.is_none()
     }
 
     /// 惰性解析 `audio.idx` / `audio.bag`，结果缓存在壳层。
@@ -2146,7 +2198,7 @@ impl AppShell {
     }
 
     fn begin_skirmish_load(&mut self) {
-        if self.load_job.is_some() {
+        if self.load_job.is_some() || self.pending_load_boot.is_some() {
             tracing::warn!("装载已在进行，忽略重复开始");
             return;
         }
@@ -2154,6 +2206,7 @@ impl AppShell {
         self.banner =
             format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
         self.pending_after_load = Some(OriginalScreen::Match);
+        self.pending_load_boot = None;
         self.set_screen(OriginalScreen::LoadScreen);
         self.load_started = Some(Instant::now());
         #[cfg(feature = "test-harness")]
@@ -2177,10 +2230,11 @@ impl AppShell {
 
     /// 放弃进行中的装载并回到遭遇战大厅（工作线程结果会被丢弃）。
     fn cancel_skirmish_load(&mut self) {
-        if self.load_job.is_none() && self.screen != OriginalScreen::LoadScreen {
+        if self.load_job.is_none() && self.pending_load_boot.is_none() && self.screen != OriginalScreen::LoadScreen {
             return;
         }
         self.load_job = None;
+        self.pending_load_boot = None;
         self.load_started = None;
         self.pending_after_load = None;
         self.banner = "已取消装载".into();
@@ -2189,37 +2243,59 @@ impl AppShell {
     }
 
     fn poll_load_job(&mut self) {
-        let Some(job) = self.load_job.as_ref()
-        else {
-            return;
-        };
-        match job.try_take() {
-            Ok(Some(boot)) => {
-                self.load_job = None;
-                self.load_started = None;
-                self.finish_load(boot);
-            }
-            Ok(None) => {
-                if let Some(t0) = self.load_started {
-                    let secs = t0.elapsed().as_secs();
-                    let pulse = match secs % 3 {
-                        0 => ".",
-                        1 => "..",
-                        _ => "...",
-                    };
-                    let stage = self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into());
-                    self.banner = format!("{stage}{pulse} · {secs}s · Esc/点取消");
+        if let Some(job) = self.load_job.as_ref() {
+            match job.try_take() {
+                Ok(Some(boot)) => {
+                    self.load_job = None;
+                    self.pending_load_boot = Some(boot);
+                }
+                Ok(None) => {}
+                Err(()) => {
+                    self.load_job = None;
+                    self.pending_load_boot = None;
+                    self.load_started = None;
+                    self.pending_after_load = None;
+                    self.banner = "装载线程异常断开 · Enter/点重试 · Esc 回大厅".into();
+                    tracing::error!("遭遇战装载线程异常断开");
+                    self.set_screen(OriginalScreen::LoadScreen);
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                    return;
                 }
             }
-            Err(()) => {
-                self.load_job = None;
+        }
+
+        if self.pending_load_boot.is_some() {
+            let min = std::time::Duration::from_secs_f64(self.load_min_secs.max(0.0));
+            let ready = self.load_started.map(|t0| t0.elapsed() >= min).unwrap_or(true);
+            if ready {
+                let boot = self.pending_load_boot.take().expect("pending_load_boot");
                 self.load_started = None;
-                self.pending_after_load = None;
-                self.banner = "装载线程异常断开 · Enter/点重试 · Esc 回大厅".into();
-                tracing::error!("遭遇战装载线程异常断开");
-                self.set_screen(OriginalScreen::LoadScreen);
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
+                self.finish_load(boot);
+                return;
+            }
+        }
+
+        if self.load_job.is_some() || self.pending_load_boot.is_some() {
+            if let Some(t0) = self.load_started {
+                let secs = t0.elapsed().as_secs();
+                let pulse = match secs % 3 {
+                    0 => ".",
+                    1 => "..",
+                    _ => "...",
+                };
+                let stage = if self.pending_load_boot.is_some() {
+                    "装载完成，准备进入".into()
+                }
+                else {
+                    self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into())
+                };
+                let next = format!("{stage}{pulse} · {secs}s · Esc/点取消");
+                if next != self.banner {
+                    self.banner = next;
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                }
             }
         }
     }
@@ -2379,7 +2455,7 @@ impl AppShell {
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
                 let (nav, sim_dt) = ctrl.pump(dt);
                 self.renderer.timings.simulation = Some(sim_dt);
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str());
+                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref());
                 self.apply_nav(nav);
             }
         }
@@ -2387,7 +2463,7 @@ impl AppShell {
             if let Some(ctrl) = self.match_ctrl.as_mut() {
                 let _ = ctrl.take_pump_clock();
                 self.renderer.timings.simulation = None;
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str());
+                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref());
             }
         }
         else {
@@ -2831,7 +2907,7 @@ pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) 
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, status_path, test_scene) = resolve_launch()?;
+    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, status_path, test_scene) = resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -2851,6 +2927,7 @@ pub fn run_shell() -> RaResult<()> {
     };
     app.apply_audio_volumes(music_volume, sound_volume);
     app.apply_present_feel(present);
+    app.load_min_secs = load_min_secs;
 
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     tracing::info!("事件循环结束");
@@ -2863,7 +2940,7 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, f64, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = super::test_boot::requested_scene() {
@@ -2884,6 +2961,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
                 0.4,
                 0.7,
                 PresentFeel::DEFAULT,
+                0.0,
                 status_path,
                 Some(scene),
             ));
@@ -2900,9 +2978,19 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         display_mode = display_mode.as_str(),
         music_volume = settings.music_volume,
         sound_volume = settings.sound_volume,
+        load_min_secs = settings.load_min_secs,
         present_mode = settings.present.mode.as_str(),
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
-    Ok((LaunchMode::MainMenu, display_mode, settings.music_volume, settings.sound_volume, settings.present, None, None))
+    Ok((
+        LaunchMode::MainMenu,
+        display_mode,
+        settings.music_volume,
+        settings.sound_volume,
+        settings.present,
+        settings.load_min_secs,
+        None,
+        None,
+    ))
 }

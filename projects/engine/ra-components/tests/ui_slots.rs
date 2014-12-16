@@ -65,9 +65,14 @@ fn load_screen_exposes_retry_and_cancel_slots() {
     let retry = page.buttons.iter().find(|b| b.entry_id == "retry").unwrap();
     assert!(retry.enabled);
     assert!(matches!(retry.action, MenuAction::RetryLoad));
+    assert!(retry.anim_shp.is_some());
     let cancel = page.buttons.iter().find(|b| b.entry_id == "cancel").unwrap();
     assert!(cancel.enabled);
     assert!(matches!(cancel.action, MenuAction::CancelLoad));
+    assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+    assert_eq!(page.background_pal, Some("shell.pal"));
+    assert!(page.has_any_asset_name());
+    assert_eq!(page.fonts, &["game.fnt"]);
 }
 
 #[test]

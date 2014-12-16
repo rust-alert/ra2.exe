@@ -19,13 +19,26 @@ impl AssetSource for MemSource {
 
 #[test]
 fn empty_slots_report_zero_named() {
-    // LoadScreen 仅有空按钮槽，无背景/面板/字体名；用于验证「零命名」契约。
-    let page = page_resources_from_slots(OriginalScreen::LoadScreen).unwrap();
+    // Network 仍为零命名占位页；LoadScreen 已声明壳层资源。
+    let page = page_resources_from_slots(OriginalScreen::Network).unwrap();
     let src = MemSource(HashMap::new());
     let report = resolve_page(&src, &page);
     assert_eq!(report.named, 0);
     assert!(!report.all_named_readable());
     assert!(report.banner_note().contains("0"));
+}
+
+#[test]
+fn load_screen_declares_shell_chrome() {
+    let page = page_resources_from_slots(OriginalScreen::LoadScreen).unwrap();
+    assert!(page.background.is_some());
+    assert!(!page.panels.is_empty());
+    assert!(!page.fonts.is_empty());
+    let retry = page.buttons.iter().find(|b| b.entry_id == "retry").unwrap();
+    assert!(retry.normal.is_some());
+    let src = MemSource(HashMap::new());
+    let report = resolve_page(&src, &page);
+    assert!(report.named > 0);
 }
 
 #[test]

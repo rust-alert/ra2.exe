@@ -53,7 +53,7 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
 }
 
 #[test]
-fn compose_hides_button_caption_while_wave_frames_active() {
+fn compose_keeps_button_caption_while_wave_frames_active() {
     use ra_assets::{FONT_MAGIC, FntFile};
 
     const LOOKUP_TABLE_BYTES: usize = 65536 * 2;
@@ -123,8 +123,8 @@ fn compose_hides_button_caption_while_wave_frames_active() {
 
     let frames = [10u16, 10, 10, 10, 10, 10];
     let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[] }), 0).unwrap();
-    // 波浪中只留 `SDBTNANM` 帧色，不叠字。
-    assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
+    // 波浪中钮面是帧色，字仍叠上，中心不应再是纯蓝。
+    assert_ne!(&sample(&waving)[..], &[0, 0, 255, 255]);
 }
 
 #[test]
@@ -312,7 +312,7 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
 
 
 #[test]
-fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
+fn compose_empty_tiles_keep_static_bkgd_during_wave() {
     let layout = main_menu_layout(800, 600);
     let tile_h = layout.panel_tile.h;
     let tile_y0 = layout.panel_tile.y;
@@ -361,5 +361,130 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
     )
     .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
-    assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
+    // 空格保持静态底，不吃波浪帧绿。
+    assert_eq!(&page.as_raw()[di..di + 4], &[90, 90, 90, 255]);
+}
+
+#[test]
+fn compose_load_screen_paints_right_panel() {
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let top = solid_sprite("sdtp.shp#0", [40, 40, 40, 255]);
+    let tile = solid_sprite("sdbtnbkgd.shp#0", [50, 50, 50, 255]);
+    let bottom = solid_sprite("sdbtm.shp#0", [60, 60, 60, 255]);
+    let btn = solid_sprite("mnbttn.shp#0", [200, 20, 20, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: vec![top, tile, bottom],
+        button_normals: vec![("retry", btn.clone()), ("cancel", btn)],
+        button_hovers: Vec::new(),
+        button_presseds: Vec::new(),
+        sdbtnanm_frames: Vec::new(),
+        errors: Vec::new(),
+    };
+    let page = compose_load_screen_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        LoadScreenPaint { status: "装载失败 · test", allow_retry: true },
+    )
+    .unwrap();
+    let layout = main_menu_layout(800, 600);
+    let di = ((layout.panel_top.y as u32 * page.width() + layout.panel_top.x as u32) * 4) as usize;
+    assert_eq!(page.as_raw()[di + 3], 255);
+    assert_ne!(&page.as_raw()[di..di + 3], &[0, 0, 0]);
+}
+
+#[test]
+fn compose_match_hud_overlay_right_strip_opaque() {
+    let page = compose_match_hud_overlay(
+        800,
+        600,
+        None,
+        MatchHudPaint {
+            tick: 12,
+            funds: 1000,
+            power_output: 100,
+            power_drain: 50,
+            low_power: false,
+            selected_summary: "—",
+            produce_queue: None,
+            reject: None,
+            paused: false,
+            pause_reason: None,
+            outcome: None,
+        },
+    )
+    .unwrap();
+    // 左侧透明。
+    assert_eq!(page.as_raw()[3], 0);
+    // 右侧栏内有可见像素（避开顶栏描边与资金框）。
+    let x = (800 - 40) as u32;
+    let y = 120u32;
+    let di = ((y * 800 + x) * 4) as usize;
+    assert!(page.as_raw()[di + 3] >= 230, "right strip alpha={}", page.as_raw()[di + 3]);
+}
+
+#[test]
+fn compose_load_screen_paints_right_panel() {
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let top = solid_sprite("sdtp.shp#0", [40, 40, 40, 255]);
+    let tile = solid_sprite("sdbtnbkgd.shp#0", [50, 50, 50, 255]);
+    let bottom = solid_sprite("sdbtm.shp#0", [60, 60, 60, 255]);
+    let btn = solid_sprite("mnbttn.shp#0", [200, 20, 20, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: vec![top, tile, bottom],
+        button_normals: vec![("retry", btn.clone()), ("cancel", btn)],
+        button_hovers: Vec::new(),
+        button_presseds: Vec::new(),
+        sdbtnanm_frames: Vec::new(),
+        errors: Vec::new(),
+    };
+    let page = compose_load_screen_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        LoadScreenPaint { status: "装载失败 · test", allow_retry: true },
+    )
+    .unwrap();
+    let layout = main_menu_layout(800, 600);
+    let di = ((layout.panel_top.y as u32 * page.width() + layout.panel_top.x as u32) * 4) as usize;
+    assert_eq!(page.as_raw()[di + 3], 255);
+    assert_ne!(&page.as_raw()[di..di + 3], &[0, 0, 0]);
+}
+
+#[test]
+fn compose_match_hud_overlay_right_strip_opaque() {
+    let page = compose_match_hud_overlay(
+        800,
+        600,
+        None,
+        MatchHudPaint {
+            tick: 12,
+            funds: 1000,
+            power_output: 100,
+            power_drain: 50,
+            low_power: false,
+            selected_summary: "—",
+            produce_queue: None,
+            reject: None,
+            paused: false,
+            pause_reason: None,
+            outcome: None,
+        },
+    )
+    .unwrap();
+    // 左侧透明。
+    assert_eq!(page.as_raw()[3], 0);
+    // 右侧栏内有可见像素（避开顶栏描边与资金框）。
+    let x = (800 - 40) as u32;
+    let y = 120u32;
+    let di = ((y * 800 + x) * 4) as usize;
+    assert!(page.as_raw()[di + 3] >= 230, "right strip alpha={}", page.as_raw()[di + 3]);
 }

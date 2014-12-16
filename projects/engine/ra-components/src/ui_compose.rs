@@ -17,18 +17,18 @@ use crate::{
     },
 };
 use ra_layout::{
-    BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
-    OPTIONS_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout,
-    exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
+    CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS,
+    RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
+    SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
+    options_layout, single_player_layout, skirmish_lobby_layout,
 };
 
-/// 切页波浪帧：有字钮 + 右侧空格（无字平铺）共用 `SDBTNANM`。
+/// 切页波浪帧：有字钮播 `SDBTNANM`；`tiles` 保留字段兼容壳层传参（空格不再吃波浪）。
 #[derive(Debug, Clone, Copy)]
 pub struct ShellWaveFrames<'a> {
     /// 与当前页按钮 id 表对齐。
     pub buttons: &'a [u16],
-    /// 与 `panel_tile_count` 对齐；空格收起/展开用。
+    /// 历史字段：曾用于空格波浪；合成侧忽略。
     pub tiles: &'a [u16],
 }
 
@@ -446,43 +446,14 @@ fn compose_shell_menu_page(
     }
 
     blit_right_panel_top(&mut page, decoded, layout.panel_top, warn_anim_frame);
-    let btn_n = button_ids.len();
-    let tile_occupied = |tile_y: i32| {
-        (0..btn_n).any(|i| {
-            let b = layout.buttons[i];
-            b.w > 0 && b.h > 0 && b.y == tile_y
-        })
-    };
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..layout.panel_tile_count {
             let tile_y = layout.panel_tile.y + i * layout.panel_tile.h;
-            // 波浪中空格不铺静态 `sdbtnbkgd`，否则收起帧透底仍像「没收」。
-            if wave.is_some() && !tile_occupied(tile_y) {
-                continue;
-            }
             let r = RectPx::new(layout.panel_tile.x, tile_y, layout.panel_tile.w, layout.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
         }
     }
-    // 波浪期间：无字平铺格播 `SDBTNANM`，与有字钮一起收起/展开。
-    if let Some(wave) = wave {
-        for ti in 0..layout.panel_tile_count {
-            let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;
-            if tile_occupied(tile_y) {
-                continue;
-            }
-            let Some(&frame) = wave.tiles.get(ti as usize)
-            else {
-                continue;
-            };
-            let Some(sprite) = decoded.sdbtnanm_frame(frame)
-            else {
-                continue;
-            };
-            let cell_x = layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-            blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
-        }
-    }
+    // 无字空格只铺 `sdbtnbkgd`，不参与 `SDBTNANM` 波浪（避免收束后「假按钮」瞬间消失）。
     if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
         blit_stretched(&mut page, &bottom.image, layout.panel_bottom);
     }
@@ -513,15 +484,13 @@ fn compose_shell_menu_page(
         if disabled {
             dim_rect(&mut page, cell, 110);
         }
-        // 波浪进出期间只播 `SDBTNANM` 帧，不叠 CSF 字（字等收束后由稳态帧再画）。
-        if wave_frame.is_some() {
-            continue;
-        }
+        // 按钮 SHP 与 CSF 字分层：波浪只换钮面帧，字始终叠在格内（进出都带着字）。
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
-            let pressed = pressed_entry_id == Some(entry_id) && !disabled;
+            // 波浪中忽略按下沉底，避免与进出帧抢位移。
+            let pressed = wave_frame.is_none() && pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
         }

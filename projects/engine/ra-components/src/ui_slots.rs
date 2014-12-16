@@ -223,10 +223,11 @@ const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("cancel", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 
+/// 装载页：中区状态 + 重试/取消（`mnbttn`）；右栏复用遭遇战壳层 chrome。
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     empty_button("loading", MenuAction::Noop, false, (0.30, 0.40, 0.74, 0.48)),
-    empty_button("retry", MenuAction::RetryLoad, true, (0.30, 0.52, 0.50, 0.60)),
-    empty_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
+    modal_button("retry", MenuAction::RetryLoad, true, (0.30, 0.52, 0.50, 0.60)),
+    modal_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 选项页像素格。右栏为接受 / 取消 / 主菜单。
@@ -337,13 +338,14 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::LoadScreen => Some(UiPageSlots {
             screen,
-            background_shp: None,
+            // 与遭遇战大厅共用已证实壳层 chrome；装载中/失败必须可见，禁止空槽清屏。
+            background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
-            background_pal: None,
+            background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: None,
-            panels: &[],
-            fonts: &[],
+            panels: SKIRMISH_LOBBY_PANELS,
+            fonts: MAIN_MENU_FONTS,
             buttons: LOAD_SCREEN_BUTTONS,
         }),
         OriginalScreen::Options => Some(UiPageSlots {
