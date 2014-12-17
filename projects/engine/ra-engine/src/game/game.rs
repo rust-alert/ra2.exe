@@ -5,7 +5,10 @@
 use crate::{
     engine::EngineRuntime,
     game::{commands::GameCommand, reject::CommandReject},
-    state::MatchState,
+    state::{
+        MatchState,
+        components::{Health, Identity, Owner, Transform},
+    },
 };
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
 use ra_net::{MatchFingerprint, StateDigest};
@@ -357,15 +360,28 @@ impl Game {
     pub fn pick_mobile_at(&self, x: u16, y: u16) -> Option<EntityId> {
         let mut best: Option<(u32, EntityId)> = None;
         for e in &self.world.entities {
-            if e.dead || !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            let dist = (i32::from(e.x) - i32::from(x)).unsigned_abs() + (i32::from(e.y) - i32::from(y)).unsigned_abs();
+            if !self
+                .world
+                .ecs_get::<Identity>(id)
+                .map(|identity| matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let dist = (i32::from(xf.x) - i32::from(x)).unsigned_abs() + (i32::from(xf.y) - i32::from(y)).unsigned_abs();
             if dist > 1 {
                 continue;
             }
             if best.map(|(d, _)| dist < d).unwrap_or(true) {
-                best = Some((dist, e.id));
+                best = Some((dist, id));
             }
         }
         best.map(|(_, id)| id)
@@ -530,7 +546,12 @@ impl Game {
     /// 选中集合中是否包含建筑。
     pub fn selection_has_structure(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world.entity_index(id).and_then(|i| self.world.entities.get(i)).is_some_and(|e| !e.dead && e.kind == MapEntityKind::Structure)
+            !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self
+                    .world
+                    .ecs_get::<Identity>(id)
+                    .map(|identity| identity.kind == MapEntityKind::Structure)
+                    .unwrap_or(false)
         })
     }
 
@@ -541,33 +562,61 @@ impl Game {
 
     /// 点选格上精确匹配的存活建筑。
     pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<EntityId> {
-        self.world.entities.iter().find(|e| !e.dead && e.kind == MapEntityKind::Structure && e.x == x && e.y == y).map(|e| e.id)
+        self.world.entities.iter().find_map(|e| {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return None;
+            }
+            if !self
+                .world
+                .ecs_get::<Identity>(id)
+                .map(|identity| identity.kind == MapEntityKind::Structure)
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            let xf = self.world.ecs_get::<Transform>(id)?;
+            (xf.x == x && xf.y == y).then_some(id)
+        })
     }
 
     /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。
     pub fn nearest_hostile(&self, from: EntityId) -> Option<EntityId> {
-        let from_index = self.world.entity_index(from)?;
-        let from_e = &self.world.entities[from_index];
-        if from_e.dead {
+        if self.world.ecs_get::<Health>(from).map(|h| h.dead).unwrap_or(true) {
             return None;
         }
-        let owner = from_e.owner.clone();
-        let (fx, fy) = (from_e.x, from_e.y);
+        let owner = self.world.ecs_get::<Owner>(from)?.house.clone();
+        let xf = self.world.ecs_get::<Transform>(from).copied()?;
+        let (fx, fy) = (xf.x, xf.y);
         self.world
             .entities
             .iter()
-            .filter(|e| {
-                e.id != from
-                    && !e.dead
-                    && e.owner != owner
-                    && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
+            .filter_map(|e| {
+                let id = e.id;
+                if id == from {
+                    return None;
+                }
+                if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                    return None;
+                }
+                let identity = self.world.ecs_get::<Identity>(id)?;
+                if !matches!(
+                    identity.kind,
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                ) {
+                    return None;
+                }
+                let other_owner = self.world.ecs_get::<Owner>(id)?;
+                if other_owner.house == owner {
+                    return None;
+                }
+                let ox = self.world.ecs_get::<Transform>(id)?;
+                let dx = i32::from(ox.x) - i32::from(fx);
+                let dy = i32::from(ox.y) - i32::from(fy);
+                Some((dx * dx + dy * dy, id))
             })
-            .min_by_key(|e| {
-                let dx = i32::from(e.x) - i32::from(fx);
-                let dy = i32::from(e.y) - i32::from(fy);
-                dx * dx + dy * dy
-            })
-            .map(|e| e.id)
+            .min_by_key(|(dist, _)| *dist)
+            .map(|(_, id)| id)
     }
 
     /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
@@ -576,7 +625,18 @@ impl Game {
         if self.world.players.len() < 2 {
             return None;
         }
-        let mut owners: Vec<&str> = self.world.entities.iter().filter(|e| is_combat_force(e)).map(|e| e.owner.as_ref()).collect();
+        let mut owners: Vec<&str> = self
+            .world
+            .entities
+            .iter()
+            .filter_map(|e| {
+                let id = e.id;
+                if !is_combat_force(&self.world, id) {
+                    return None;
+                }
+                self.world.ecs_get::<Owner>(id).map(|o| o.house.as_ref())
+            })
+            .collect();
         owners.sort_unstable();
         owners.dedup();
         if owners.len() == 1 { Some(owners[0]) } else { None }
@@ -733,6 +793,17 @@ pub fn difficulty_extra_produce(difficulty: &str) -> bool {
 }
 
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
-fn is_combat_force(e: &crate::WorldEntity) -> bool {
-    !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
+fn is_combat_force(world: &MatchState, id: EntityId) -> bool {
+    if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+        return false;
+    }
+    world
+        .ecs_get::<Identity>(id)
+        .map(|identity| {
+            matches!(
+                identity.kind,
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+            )
+        })
+        .unwrap_or(false)
 }
