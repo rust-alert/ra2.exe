@@ -462,14 +462,16 @@ impl Game {
         let mut units_lost = 0u32;
         let mut buildings_lost = 0u32;
         for e in &self.world.entities {
-            if !e.dead {
+            let id = e.id;
+            if !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(false) {
                 continue;
             }
-            match e.kind {
-                MapEntityKind::Structure => buildings_lost = buildings_lost.saturating_add(1),
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => {
+            match self.world.ecs_get::<Identity>(id).map(|identity| identity.kind) {
+                Some(MapEntityKind::Structure) => buildings_lost = buildings_lost.saturating_add(1),
+                Some(MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) => {
                     units_lost = units_lost.saturating_add(1);
                 }
+                _ => {}
             }
         }
         let funds_spent = self.world.players.iter().map(|p| p.funds_spent).sum();
