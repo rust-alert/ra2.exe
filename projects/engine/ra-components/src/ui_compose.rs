@@ -18,9 +18,9 @@ use crate::{
 };
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS,
-    RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H,
-    SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
-    options_layout, single_player_layout, skirmish_lobby_layout,
+    RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
+    SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout,
+    main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
 };
 
 /// 切页波浪帧：有字钮播 `SDBTNANM`；`tiles` 保留字段兼容壳层传参（空格不再吃波浪）。
@@ -484,13 +484,15 @@ fn compose_shell_menu_page(
         if disabled {
             dim_rect(&mut page, cell, 110);
         }
-        // 按钮 SHP 与 CSF 字分层：波浪只换钮面帧，字始终叠在格内（进出都带着字）。
+        // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
+        if wave_frame.is_some() {
+            continue;
+        }
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
             let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
-            // 波浪中忽略按下沉底，避免与进出帧抢位移。
-            let pressed = wave_frame.is_none() && pressed_entry_id == Some(entry_id) && !disabled;
+            let pressed = pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
         }

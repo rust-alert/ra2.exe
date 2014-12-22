@@ -29,6 +29,9 @@ pub const GROUP_A_IN: WaveFrames = WaveFrames { before: 10, base: 10, after: 1 }
 /// 关闭方向（SlideOut）：保持 1 → 斜坡 5‥10 → 收束 10。
 pub const GROUP_A_OUT: WaveFrames = WaveFrames { before: 1, base: 5, after: 10 };
 
+/// 完全收起帧（`SlideOut` 收束 / `SlideIn` 进场前 / 出→进间隙保持）。
+pub const WAVE_STOWED_FRAME: u16 = 10;
+
 /// 波浪方向。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaveDirection {
