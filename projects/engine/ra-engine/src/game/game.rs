@@ -7,7 +7,7 @@ use crate::{
     game::{commands::GameCommand, reject::CommandReject},
     state::{
         MatchState,
-        components::{Health, Identity, Owner, Transform},
+        components::{AttackState, AnimationState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
     },
 };
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
@@ -678,7 +678,7 @@ impl Game {
             facing: e.facing,
             turret_facing: e.turret_facing,
             hva_frame: e.hva_frame,
-            anim_state: derive_anim_state(e),
+            anim_state: derive_anim_state(&self.world, e.id),
             health: e.health,
             max_health: e.max_health,
             dead: e.dead,
@@ -734,13 +734,15 @@ impl Game {
             .entities
             .iter()
             .filter_map(|e| {
-                let (type_id, remaining_ticks) = e.produce_queue.as_ref()?;
+                let id = e.id;
+                let queue = self.world.ecs_get::<ProductionQueue>(id)?;
+                let (type_id, remaining_ticks) = queue.item.as_ref()?;
                 Some(SnapshotProduceQueue {
-                    factory: e.id,
+                    factory: id,
                     type_id: type_id.clone(),
                     remaining_ticks: *remaining_ticks,
-                    rally_x: e.rally_x,
-                    rally_y: e.rally_y,
+                    rally_x: queue.rally_x,
+                    rally_y: queue.rally_y,
                 })
             })
             .collect();
@@ -757,20 +759,24 @@ impl Game {
     }
 }
 
-fn derive_anim_state(e: &crate::WorldEntity) -> AnimState {
-    if e.dead {
+fn derive_anim_state(world: &MatchState, id: EntityId) -> AnimState {
+    if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
         return AnimState::Die;
     }
-    if e.hit_flash > 0 {
+    if world.ecs_get::<AnimationState>(id).map(|a| a.hit_flash > 0).unwrap_or(false) {
         return AnimState::TakeDamage;
     }
-    if e.produce_queue.is_some() {
+    if world.ecs_get::<ProductionQueue>(id).map(|p| p.item.is_some()).unwrap_or(false) {
         return AnimState::Produce;
     }
-    if e.attack_target.is_some() {
+    if world.ecs_get::<AttackState>(id).map(|a| a.target.is_some()).unwrap_or(false) {
         return AnimState::Attack;
     }
-    if e.target_x.is_some() || !e.path.is_empty() {
+    if world
+        .ecs_get::<MovementState>(id)
+        .map(|m| m.destination_x.is_some() || !m.path.is_empty())
+        .unwrap_or(false)
+    {
         return AnimState::Move;
     }
     AnimState::Idle
