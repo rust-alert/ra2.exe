@@ -198,6 +198,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # music_volume = 0.4           # 壳层 BGM，0..1\n\
          # sound_volume = 0.7           # 壳层点击等短音效，0..1\n\
          # load_min_secs = 3.0          # 遭遇战装载页最短展示秒数（0 关闭）\n\
+         # shell_slide_gap_secs = 0.2   # 壳层按钮出去后、进来前的间隔（0 关闭）\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n\
@@ -339,6 +340,8 @@ pub struct DesktopSettings {
     pub present: PresentFeel,
     /// 遭遇战装载页最短展示秒数（后台已完成也等到点再切页；`0` 关闭）。
     pub load_min_secs: f64,
+    /// 壳层切页：按钮 `SlideOut` 结束后到 `SlideIn` 开始前的间隔秒数（`0` 关闭）。
+    pub shell_slide_gap_secs: f64,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
     /// 预留房间名。
@@ -355,6 +358,7 @@ impl Default for DesktopSettings {
             sound_volume: 0.7,
             present: PresentFeel::DEFAULT,
             load_min_secs: 3.0,
+            shell_slide_gap_secs: 0.2,
             net_url: None,
             net_room: None,
         }
@@ -388,6 +392,9 @@ impl DesktopSettings {
         if let Some(v) = merged.get("load_min_secs").and_then(|raw| raw.trim().parse::<f64>().ok()).filter(|v| v.is_finite()) {
             s.load_min_secs = v.max(0.0);
         }
+        if let Some(v) = merged.get("shell_slide_gap_secs").and_then(|raw| raw.trim().parse::<f64>().ok()).filter(|v| v.is_finite()) {
+            s.shell_slide_gap_secs = v.max(0.0);
+        }
         if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
         }
@@ -410,6 +417,7 @@ impl DesktopSettings {
                 t.insert("music_volume", "0.4");
                 t.insert("sound_volume", "0.7");
                 t.insert("load_min_secs", "3.0");
+                t.insert("shell_slide_gap_secs", "0.2");
                 t
             },
         };

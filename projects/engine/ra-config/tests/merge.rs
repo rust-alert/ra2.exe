@@ -115,6 +115,26 @@ fn invalid_audio_volume_keeps_default() {
 }
 
 #[test]
+fn shell_slide_gap_secs_from_merged_and_disable() {
+    assert!((DesktopSettings::default().shell_slide_gap_secs - 0.2).abs() < 1e-9);
+
+    let mut table = ConfigTable::new();
+    table.insert("shell_slide_gap_secs", "0.5");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    assert!((DesktopSettings::from_merged(&merged).shell_slide_gap_secs - 0.5).abs() < 1e-9);
+
+    let mut table = ConfigTable::new();
+    table.insert("shell_slide_gap_secs", "0");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    assert!((DesktopSettings::from_merged(&merged).shell_slide_gap_secs - 0.0).abs() < 1e-9);
+
+    let mut table = ConfigTable::new();
+    table.insert("shell_slide_gap_secs", "-1");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    assert!((DesktopSettings::from_merged(&merged).shell_slide_gap_secs - 0.0).abs() < 1e-9);
+}
+
+#[test]
 fn present_table_serde_roundtrip_preserves_other_keys() {
     let dir = std::env::temp_dir()
         .join(format!("ra_config_present_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
