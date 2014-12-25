@@ -10,8 +10,8 @@ use ra_types::EntityId;
 
 use super::{
     components::{
-        AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
-        ProductionQueue, Transform,
+        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
+        MovementState, Owner, ProductionQueue, Transform,
     },
     entities::WorldEntity,
 };
@@ -43,6 +43,23 @@ impl EcsRegistry {
     pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
         let handle = self.register(entity.id);
         self.write_all_components(handle, entity);
+        handle
+    }
+
+    /// 注册句柄并写入组件包（ECS 权威生成路径）。
+    pub(crate) fn bind_bundle(&mut self, id: EntityId, bundle: EntitySpawnBundle) -> EcsEntity {
+        let handle = self.register(id);
+        self.world.insert(handle, bundle.identity);
+        self.world.insert(handle, bundle.owner);
+        self.world.insert(handle, bundle.transform);
+        self.world.insert(handle, bundle.health);
+        self.world.insert(handle, bundle.locomotor);
+        self.world.insert(handle, bundle.movement);
+        self.world.insert(handle, bundle.combat);
+        self.world.insert(handle, bundle.attack);
+        self.world.insert(handle, bundle.production);
+        self.world.insert(handle, bundle.harvester);
+        self.world.insert(handle, bundle.animation);
         handle
     }
 

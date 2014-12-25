@@ -125,3 +125,30 @@ pub struct AnimationState {
     /// 受击闪白剩余 tick。
     pub hit_flash: u32,
 }
+
+/// 生成时一次性写入的 ECS 组件包（权威），随后投影到 `WorldEntity` 槽位。
+#[derive(Debug, Clone)]
+pub struct EntitySpawnBundle {
+    /// 稳定身份。
+    pub identity: Identity,
+    /// 所属房主。
+    pub owner: Owner,
+    /// 空间变换。
+    pub transform: Transform,
+    /// 生命。
+    pub health: Health,
+    /// 移动能力。
+    pub locomotor: Locomotor,
+    /// 移动状态。
+    pub movement: MovementState,
+    /// 战斗静态参数。
+    pub combat: CombatStats,
+    /// 攻击状态。
+    pub attack: AttackState,
+    /// 生产队列。
+    pub production: ProductionQueue,
+    /// 采矿状态。
+    pub harvester: HarvesterState,
+    /// 动画桥接。
+    pub animation: AnimationState,
+}

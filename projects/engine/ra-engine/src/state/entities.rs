@@ -74,3 +74,42 @@ pub struct WorldEntity {
     /// 生命归零后为真。
     pub dead: bool,
 }
+
+impl WorldEntity {
+    /// 仅占投影槽位的空实体（字段由随后的 ECS 投影覆盖）。
+    pub(crate) fn projection_slot(id: EntityId) -> Self {
+        Self {
+            id,
+            kind: MapEntityKind::Unit,
+            owner: Arc::from(""),
+            type_id: Arc::from(""),
+            x: 0,
+            y: 0,
+            facing: 0,
+            turret_facing: 0,
+            sub_cell: 0,
+            health: 0,
+            max_health: 0,
+            speed: 0,
+            armor: String::new(),
+            attack_range: 0,
+            attack_damage: 0,
+            attack_cooldown_max: 0,
+            attack_verses: [0; 11],
+            techno_kind: None,
+            target_x: None,
+            target_y: None,
+            path: Vec::new(),
+            move_accum: 0,
+            hva_frame: 0,
+            attack_target: None,
+            attack_cooldown: 0,
+            ore_trip_accum: 0,
+            produce_queue: None,
+            rally_x: None,
+            rally_y: None,
+            hit_flash: 0,
+            dead: false,
+        }
+    }
+}

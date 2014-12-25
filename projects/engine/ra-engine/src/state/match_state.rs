@@ -248,6 +248,31 @@ impl MatchState {
         self.ecs.bind_from_world_entity(entity);
     }
 
+    /// 以 ECS 组件包生成实体：占投影槽 → 写权威组件 → 投影回槽位。
+    pub(crate) fn spawn_from_bundle(&mut self, bundle: crate::state::components::EntitySpawnBundle) -> usize {
+        let id = bundle.identity.entity_id;
+        self.entities.push(WorldEntity::projection_slot(id));
+        let index = self.entities.len() - 1;
+        self.ecs.bind_bundle(id, bundle);
+        self.project_entity_from_ecs(id);
+        index
+    }
+
+    /// 将单个实体的全部 ECS 组件投影回 `WorldEntity`。
+    pub(crate) fn project_entity_from_ecs(&mut self, id: EntityId) {
+        self.project_identity_to_world_entity(id);
+        self.project_owner_to_world_entity(id);
+        self.project_health_to_world_entity(id);
+        self.project_transform_to_world_entity(id);
+        self.project_locomotor_to_world_entity(id);
+        self.project_movement_to_world_entity(id);
+        self.project_combat_stats_to_world_entity(id);
+        self.project_attack_to_world_entity(id);
+        self.project_production_to_world_entity(id);
+        self.project_harvester_to_world_entity(id);
+        self.project_animation_to_world_entity(id);
+    }
+
     /// 按稳定 ID 只读取 ECS 组件（玩法系统应优先走此路径，而非读投影）。
     pub(crate) fn ecs_get<T: ra_ecs::Component>(&self, id: EntityId) -> Option<&T> {
         let handle = self.ecs.resolve(id)?;

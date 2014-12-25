@@ -7,8 +7,11 @@ use std::sync::Arc;
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
     state::{
-        ATTACK_COOLDOWN_TICKS, WorldEntity,
-        components::{Health, Identity, Owner, ProductionQueue, Transform},
+        ATTACK_COOLDOWN_TICKS,
+        components::{
+            AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
+            MovementState, Owner, ProductionQueue, Transform,
+        },
     },
 };
 
@@ -81,41 +84,35 @@ impl crate::state::MatchState {
         };
         let max_health = tt.strength.max(1);
         let id = self.alloc_entity_id();
-        let unit_index = self.entities.len();
-        self.entities.push(WorldEntity {
-            id,
-            kind,
-            owner,
-            type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
-            x,
-            y,
-            facing: 0,
-            turret_facing: 0,
-            sub_cell: 0,
-            health: max_health,
-            max_health,
-            speed: tt.speed,
-            armor: tt.armor.clone(),
-            attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
-            attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
-            attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
-            attack_verses: verses_for(&self.definitions, &tt.warhead),
-            techno_kind: Some(techno_kind),
-            target_x: None,
-            target_y: None,
-            path: Vec::new(),
-            move_accum: 0,
-            hva_frame: 0,
-            attack_target: None,
-            attack_cooldown: 0,
-            ore_trip_accum: 0,
-            produce_queue: None,
-            rally_x: None,
-            rally_y: None,
-            hit_flash: 0,
-            dead: false,
+        let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
+            identity: Identity {
+                entity_id: id,
+                type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
+                kind,
+            },
+            owner: Owner { house: owner },
+            transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
+            health: Health { current: max_health, maximum: max_health, dead: false },
+            locomotor: Locomotor { speed: tt.speed },
+            movement: MovementState {
+                destination_x: None,
+                destination_y: None,
+                path: Vec::new(),
+                move_accum: 0,
+            },
+            combat: CombatStats {
+                armor: tt.armor.clone(),
+                attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
+                attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
+                attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
+                attack_verses: verses_for(&self.definitions, &tt.warhead),
+                techno_kind: Some(techno_kind),
+            },
+            attack: AttackState { target: None, cooldown: 0 },
+            production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+            harvester: HarvesterState { ore_trip_accum: 0 },
+            animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
-        self.bind_ecs_at(unit_index);
         self.mark_entity_dirty(id);
         if let Some((rx, ry)) = rally {
             let _ = self.with_movement_mut(id, |movement| {
