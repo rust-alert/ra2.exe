@@ -221,8 +221,11 @@ impl crate::state::MatchState {
             gameplay::{building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant},
             spatial::is_mobile,
             state::{
-                PRODUCE_TICKS, WorldEntity,
-                components::{Health, Identity, Transform},
+                PRODUCE_TICKS,
+                components::{
+                    AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity,
+                    Locomotor, MovementState, Owner, ProductionQueue, Transform,
+                },
             },
         };
 
@@ -417,40 +420,35 @@ impl crate::state::MatchState {
                     self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
                     self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
                     self.pass_grid.set_passable(x, y, false);
-                    self.entities.push(WorldEntity {
-                        id,
-                        kind: MapEntityKind::Structure,
-                        owner: house,
-                        type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
-                        x,
-                        y,
-                        facing: 0,
-                        turret_facing: 0,
-                        sub_cell: 0,
-                        health: max_health,
-                        max_health,
-                        speed: 0,
-                        armor,
-                        attack_range: 0,
-                        attack_damage: 0,
-                        attack_cooldown_max: 0,
-                        attack_verses: full_verses(),
-                        techno_kind: Some(TechnoKind::Building),
-                        target_x: None,
-                        target_y: None,
-                        path: Vec::new(),
-                        move_accum: 0,
-                        hva_frame: 0,
-                        attack_target: None,
-                        attack_cooldown: 0,
-                        ore_trip_accum: 0,
-                        produce_queue: None,
-                        rally_x: None,
-                        rally_y: None,
-                        hit_flash: 0,
-                        dead: false,
+                    self.spawn_from_bundle(EntitySpawnBundle {
+                        identity: Identity {
+                            entity_id: id,
+                            type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
+                            kind: MapEntityKind::Structure,
+                        },
+                        owner: Owner { house },
+                        transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
+                        health: Health { current: max_health, maximum: max_health, dead: false },
+                        locomotor: Locomotor { speed: 0 },
+                        movement: MovementState {
+                            destination_x: None,
+                            destination_y: None,
+                            path: Vec::new(),
+                            move_accum: 0,
+                        },
+                        combat: CombatStats {
+                            armor,
+                            attack_range: 0,
+                            attack_damage: 0,
+                            attack_cooldown_max: 0,
+                            attack_verses: full_verses(),
+                            techno_kind: Some(TechnoKind::Building),
+                        },
+                        attack: AttackState { target: None, cooldown: 0 },
+                        production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+                        harvester: HarvesterState { ore_trip_accum: 0 },
+                        animation: AnimationState { hva_frame: 0, hit_flash: 0 },
                     });
-                    self.bind_ecs_at(self.entities.len() - 1);
                     self.mark_entity_dirty(id);
                 }
                 GameCommand::Produce { player, ref type_id } => {
