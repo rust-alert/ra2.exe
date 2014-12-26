@@ -1,20 +1,14 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
 //! 玩法运行时组件以 ECS 为权威，经投影写回 `WorldEntity`。
-//! 播种时由 `WorldEntity` 初始快照写入组件；之后 tick 只做 ECS → 投影。
+//! 播种与生成经 `EntitySpawnBundle` 写入组件；tick 只做 ECS → 投影。
 
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use ra_ecs::{EcsEntity, EcsWorld};
 use ra_types::EntityId;
 
-use super::{
-    components::{
-        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
-        MovementState, Owner, ProductionQueue, Transform,
-    },
-    entities::WorldEntity,
-};
+use super::components::EntitySpawnBundle;
 
 /// 一局内的 ECS 世界与对外 ID 映射。
 #[derive(Debug, Clone, Default)]
@@ -39,13 +33,6 @@ impl EcsRegistry {
         entity
     }
 
-    /// 注册句柄并写入完整组件快照（仅播种 / 生成路径）。
-    pub(crate) fn bind_from_world_entity(&mut self, entity: &WorldEntity) -> EcsEntity {
-        let handle = self.register(entity.id);
-        self.write_all_components(handle, entity);
-        handle
-    }
-
     /// 注册句柄并写入组件包（ECS 权威生成路径）。
     pub(crate) fn bind_bundle(&mut self, id: EntityId, bundle: EntitySpawnBundle) -> EcsEntity {
         let handle = self.register(id);
@@ -61,67 +48,6 @@ impl EcsRegistry {
         self.world.insert(handle, bundle.harvester);
         self.world.insert(handle, bundle.animation);
         handle
-    }
-
-    /// 用 `WorldEntity` 覆盖全部组件（仅绑定时使用）。
-    pub(crate) fn write_all_components(&mut self, handle: EcsEntity, entity: &WorldEntity) {
-        self.world.insert(
-            handle,
-            Identity { entity_id: entity.id, type_id: Arc::clone(&entity.type_id), kind: entity.kind },
-        );
-        self.world.insert(handle, Owner { house: Arc::clone(&entity.owner) });
-        self.world.insert(
-            handle,
-            Transform {
-                x: entity.x,
-                y: entity.y,
-                facing: entity.facing,
-                turret_facing: entity.turret_facing,
-                sub_cell: entity.sub_cell,
-            },
-        );
-        self.world.insert(
-            handle,
-            Health { current: entity.health, maximum: entity.max_health, dead: entity.dead },
-        );
-        self.world.insert(handle, Locomotor { speed: entity.speed });
-        self.world.insert(
-            handle,
-            MovementState {
-                destination_x: entity.target_x,
-                destination_y: entity.target_y,
-                path: entity.path.clone(),
-                move_accum: entity.move_accum,
-            },
-        );
-        self.world.insert(
-            handle,
-            CombatStats {
-                armor: entity.armor.clone(),
-                attack_range: entity.attack_range,
-                attack_damage: entity.attack_damage,
-                attack_cooldown_max: entity.attack_cooldown_max,
-                attack_verses: entity.attack_verses,
-                techno_kind: entity.techno_kind,
-            },
-        );
-        self.world.insert(
-            handle,
-            AttackState { target: entity.attack_target, cooldown: entity.attack_cooldown },
-        );
-        self.world.insert(
-            handle,
-            ProductionQueue {
-                item: entity.produce_queue.clone(),
-                rally_x: entity.rally_x,
-                rally_y: entity.rally_y,
-            },
-        );
-        self.world.insert(handle, HarvesterState { ore_trip_accum: entity.ore_trip_accum });
-        self.world.insert(
-            handle,
-            AnimationState { hva_frame: entity.hva_frame, hit_flash: entity.hit_flash },
-        );
     }
 
     /// 按稳定 ID 解析仍有效的内部句柄。

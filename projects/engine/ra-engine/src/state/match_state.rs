@@ -7,7 +7,15 @@ use ra_assets::TechnoKind;
 use ra_map::{MapInfo, PassGrid};
 use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass, Tick};
 
-use super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
+use super::{
+    components::{
+        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
+        MovementState, Owner, ProductionQueue, Transform,
+    },
+    ecs_registry::EcsRegistry,
+    entities::WorldEntity,
+    players::PlayerState,
+};
 use crate::{
     game::{CommandReject, GameCommand, InputFrame},
     gameplay::verses_for,
@@ -88,61 +96,60 @@ impl MatchState {
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let ecs = EcsRegistry::new();
-        let entities: Vec<WorldEntity> = map
-            .entities
-            .iter()
-            .map(|e| {
-                if !house_order.iter().any(|h| h == &e.owner) {
-                    house_order.push(e.owner.clone());
-                }
-                let tt = definitions.techno.get(&e.type_id);
-                let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
-                let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
-                let speed = tt.map(|t| t.speed).unwrap_or(0);
-                // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
-                let attack_range = tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }).unwrap_or(0);
-                let attack_damage = tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(0);
-                let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
-                let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
-                let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
-                let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
-                let id = EntityId(next_entity_id);
-                next_entity_id = next_entity_id.saturating_add(1);
-                WorldEntity {
-                    id,
-                    kind: e.kind,
-                    owner: Arc::<str>::from(e.owner.as_ref()),
+        let mut seed_bundles: Vec<EntitySpawnBundle> = Vec::with_capacity(map.entities.len());
+        for e in &map.entities {
+            if !house_order.iter().any(|h| h == &e.owner) {
+                house_order.push(e.owner.clone());
+            }
+            let tt = definitions.techno.get(&e.type_id);
+            let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
+            let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
+            let speed = tt.map(|t| t.speed).unwrap_or(0);
+            // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
+            let attack_range = tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }).unwrap_or(0);
+            let attack_damage = tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(0);
+            let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
+            let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+            let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
+            let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
+            let id = EntityId(next_entity_id);
+            next_entity_id = next_entity_id.saturating_add(1);
+            seed_bundles.push(EntitySpawnBundle {
+                identity: Identity {
+                    entity_id: id,
                     type_id: Arc::<str>::from(e.type_id.as_ref()),
+                    kind: e.kind,
+                },
+                owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
+                transform: Transform {
                     x: e.x,
                     y: e.y,
                     facing: e.facing,
                     turret_facing: e.facing,
                     sub_cell: e.sub_cell,
-                    health,
-                    max_health,
-                    speed,
+                },
+                health: Health { current: health, maximum: max_health, dead: false },
+                locomotor: Locomotor { speed },
+                movement: MovementState {
+                    destination_x: None,
+                    destination_y: None,
+                    path: Vec::new(),
+                    move_accum: 0,
+                },
+                combat: CombatStats {
                     armor,
                     attack_range,
                     attack_damage,
                     attack_cooldown_max,
                     attack_verses,
                     techno_kind,
-                    target_x: None,
-                    target_y: None,
-                    path: Vec::new(),
-                    move_accum: 0,
-                    hva_frame: 0,
-                    attack_target: None,
-                    attack_cooldown: 0,
-                    ore_trip_accum: 0,
-                    produce_queue: None,
-                    rally_x: None,
-                    rally_y: None,
-                    hit_flash: 0,
-                    dead: false,
-                }
-            })
-            .collect();
+                },
+                attack: AttackState { target: None, cooldown: 0 },
+                production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+                harvester: HarvesterState { ore_trip_accum: 0 },
+                animation: AnimationState { hva_frame: 0, hit_flash: 0 },
+            });
+        }
         let players: Vec<PlayerState> =
             house_order.into_iter().enumerate().map(|(i, house)| PlayerState::new(PlayerId(i as u8), house)).collect();
         let mut world = Self {
@@ -150,7 +157,7 @@ impl MatchState {
             tick: 0,
             map,
             pass_grid,
-            entities,
+            entities: Vec::with_capacity(seed_bundles.len()),
             players,
             local_player: PlayerId(0),
             definitions,
@@ -164,10 +171,11 @@ impl MatchState {
             presentation_dirty: DirtyEntitySet::new(),
             ecs,
         };
-        for i in 0..world.entities.len() {
-            world.bind_ecs_at(i);
-            world.repath_entity_at(i);
-            world.mark_entity_dirty(world.entities[i].id);
+        for bundle in seed_bundles {
+            let id = bundle.identity.entity_id;
+            let index = world.spawn_from_bundle(bundle);
+            world.repath_entity_at(index);
+            world.mark_entity_dirty(id);
         }
         world.rehash();
         world
@@ -240,12 +248,6 @@ impl MatchState {
         let id = EntityId(self.next_entity_id);
         self.next_entity_id = self.next_entity_id.saturating_add(1);
         id
-    }
-
-    /// 为已分配的稳定 ID 注册内部 ECS 句柄并写入基础组件（在 `entities.push` 之后调用）。
-    pub(crate) fn bind_ecs_at(&mut self, index: usize) {
-        let entity = &self.entities[index];
-        self.ecs.bind_from_world_entity(entity);
     }
 
     /// 以 ECS 组件包生成实体：占投影槽 → 写权威组件 → 投影回槽位。
