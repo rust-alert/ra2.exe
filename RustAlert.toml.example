@@ -11,7 +11,7 @@
 # music_volume = 0.4
 # sound_volume = 0.7
 # load_min_secs = 3.0   # 遭遇战装载页最短展示秒数（0 关闭）
-# shell_slide_gap_secs = 0.2   # 壳层按钮出去后、进来前的间隔（0 关闭）
+# shell_slide_gap_secs = 0.2   # 出去→进来停顿，模拟原版重型机械卡顿（0 关闭）
 # edition = "ra2"   # 或 "yr"。合集盘务必写明；省略则自动探测，可能落到 YR
 # net_url = ""      # 预留战网地址
 # net_room = ""     # 预留房间名

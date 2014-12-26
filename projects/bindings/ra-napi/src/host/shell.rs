@@ -1,6 +1,6 @@
 //! 单窗口应用外壳：页面导航、窗口生命周期；对局逻辑委托 `MatchController`。
 
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc, time::{Duration, Instant}};
 
 use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes};
 use ra_renderer::{Renderer, RgbaImage};
@@ -23,7 +23,8 @@ use ra_components::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     shell_slide::{
-        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec, WaveDirection,
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
+        WAVE_STOWED_FRAME, WaveDirection,
     },
     skirmish_setup::{SkirmishBootRequest, hover_entry_at, side_flag_pcx},
     startup_splash::{self, StartupSplashPresentation},
@@ -61,6 +62,8 @@ pub struct AppShell {
     splash_min_secs: f64,
     /// 遭遇战装载页最短展示秒数（`RustAlert.toml` 的 `load_min_secs`，默认 3；`0` 关闭）。
     load_min_secs: f64,
+    /// 壳层切页出去→进来之间的停顿秒数（模拟原版重型机械卡顿；`0` 关闭）。
+    shell_slide_gap_secs: f64,
     /// 闪屏预处理是否完成。
     splash_preload_done: bool,
     /// 用户请求跳过闪屏（仍须预处理完成才进主菜单）。
@@ -101,6 +104,8 @@ pub struct AppShell {
     menu_pending_commit: Option<MenuAction>,
     /// 进行中的右栏 `SDBTNANM` 帧波浪（出去 / 进来）。
     menu_frame_wave: Option<ShellFrameWave>,
+    /// 出去结束后、进来开始前的卡顿截止时刻（无字、钮面收起）。
+    menu_slide_gap_until: Option<Instant>,
     /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
     menu_hovered_entry: Option<&'static str>,
     /// 底栏状态提示打字机（与按钮 hover 图解耦；亦可复用于局内右上消息）。
@@ -213,6 +218,7 @@ impl AppShell {
             startup_splash: None,
             splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
             load_min_secs: 3.0,
+            shell_slide_gap_secs: 0.2,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -233,6 +239,7 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_pending_commit: None,
             menu_frame_wave: None,
+            menu_slide_gap_until: None,
             menu_hovered_entry: None,
             status_line: TypewriterText::default(),
             menu_font: None,
@@ -297,6 +304,7 @@ impl AppShell {
             startup_splash: None,
             splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
             load_min_secs: 3.0,
+            shell_slide_gap_secs: 0.2,
             splash_preload_done: false,
             splash_skip: false,
             pending_after_load: None,
@@ -317,6 +325,7 @@ impl AppShell {
             menu_pressed_entry: None,
             menu_pending_commit: None,
             menu_frame_wave: None,
+            menu_slide_gap_until: None,
             menu_hovered_entry: None,
             status_line: TypewriterText::default(),
             menu_font: None,
@@ -989,7 +998,7 @@ impl AppShell {
             self.menu_pending_commit = None;
             self.menu_hovered_entry = None;
             self.status_line.clear();
-            // `menu_frame_wave` 由切页状态机显式启停，不在此清空。
+            // `menu_frame_wave` / `menu_slide_gap_until` 由切页状态机显式启停，不在此清空。
             if !matches!(
                 next,
                 OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::ExitConfirm
@@ -1081,8 +1090,11 @@ impl AppShell {
         }
     }
 
-    /// 当前底栏可见切片；空串视为无提示。
+    /// 当前底栏可见切片；空串或切页进出/卡顿中视为无提示。
     fn status_line_visible(&self) -> Option<&str> {
+        if self.shell_slide_busy() {
+            return None;
+        }
         let text = self.status_line.visible();
         if text.is_empty() { None } else { Some(text) }
     }
@@ -1815,9 +1827,26 @@ impl AppShell {
         ((cell.y - layout.panel_tile.y) / tile_h).max(0) as u32
     }
 
-    /// 合成用：按钮帧 + 空格平铺帧；无波浪时为 `None`。
+    /// 切页波浪或出去→进来卡顿进行中。
+    fn shell_slide_busy(&self) -> bool {
+        self.menu_frame_wave.is_some() || self.menu_slide_gap_until.is_some()
+    }
+
+    /// 合成用收起帧（卡顿间隙：钮面停在 `WAVE_STOWED_FRAME`，不叠字）。
+    fn stowed_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
+        let ids = Self::wave_button_ids(self.screen)?;
+        let layout = Self::wave_shell_layout(self.screen)?;
+        let buttons = vec![WAVE_STOWED_FRAME; ids.len()];
+        let tiles = vec![WAVE_STOWED_FRAME; layout.panel_tile_count.max(0) as usize];
+        Some((buttons, tiles))
+    }
+
+    /// 合成用：按钮帧 + 空格平铺帧；无波浪且无卡顿时为 `None`。
     /// 帧序按物理格自上而下统一交错，末钮与中间无字格同一波浪。
     fn current_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
+        if self.menu_slide_gap_until.is_some() {
+            return self.stowed_wave_frames();
+        }
         let wave = self.menu_frame_wave.as_ref()?;
         let ids = Self::wave_button_ids(self.screen)?;
         let layout = Self::wave_shell_layout(self.screen)?;
@@ -1839,9 +1868,9 @@ impl AppShell {
         Some((buttons, tiles))
     }
 
-    /// 新页进场波浪（仅当目标页有规格且当前无波浪）。
+    /// 新页进场波浪（仅当目标页有规格且当前无波浪 / 卡顿）。
     fn maybe_start_slide_in(&mut self) {
-        if self.menu_frame_wave.is_some() {
+        if self.shell_slide_busy() {
             return;
         }
         let Some(spec) = Self::slide_spec_for(self.screen)
@@ -1853,9 +1882,21 @@ impl AppShell {
         self.refresh_menu_backdrop();
     }
 
+    /// `SlideOut` 完成后：可选卡顿，再 `SlideIn`（`shell_slide_gap_secs=0` 则立刻进）。
+    fn begin_slide_gap_or_in(&mut self) {
+        let gap = self.shell_slide_gap_secs.max(0.0);
+        if gap > 0.0 {
+            self.menu_slide_gap_until = Some(Instant::now() + Duration::from_secs_f64(gap));
+            self.refresh_menu_backdrop();
+        }
+        else {
+            self.maybe_start_slide_in();
+        }
+    }
+
     /// 菜单导航入口：可切页动作先 SlideOut，完成后再提交，再对目标页 SlideIn。
     fn request_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
-        if self.menu_frame_wave.is_some() {
+        if self.shell_slide_busy() {
             return;
         }
         if Self::action_uses_shell_slide(action) {
@@ -1877,8 +1918,15 @@ impl AppShell {
         self.commit_menu_action(event_loop, action);
     }
 
-    /// 推进切页波浪。`SlideOut` 结束后提交排队动作并启动 `SlideIn`。
+    /// 推进切页波浪 / 卡顿。`SlideOut` 结束后提交排队动作，经间隔再 `SlideIn`。
     fn tick_menu_frame_wave(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(deadline) = self.menu_slide_gap_until {
+            if Instant::now() >= deadline {
+                self.menu_slide_gap_until = None;
+                self.maybe_start_slide_in();
+            }
+            return;
+        }
         let Some(wave) = self.menu_frame_wave.as_mut()
         else {
             return;
@@ -1896,7 +1944,7 @@ impl AppShell {
         if direction == WaveDirection::SlideOut {
             if let Some(action) = self.menu_pending_commit.take() {
                 self.commit_menu_action(event_loop, action);
-                self.maybe_start_slide_in();
+                self.begin_slide_gap_or_in();
             }
             else {
                 self.refresh_menu_backdrop();
@@ -1908,7 +1956,7 @@ impl AppShell {
     }
 
     fn commit_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {
-        // 直接提交路径：取消尚未完成的出去波浪排队。
+        // 直接提交路径：取消尚未完成的出去波浪排队（卡顿由 `begin_slide_gap_or_in` 另管）。
         self.menu_pending_commit = None;
         let _ = self.menu_pressed_entry.take();
         match action {
@@ -2739,8 +2787,8 @@ impl ApplicationHandler for AppShell {
                 }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
-                        if self.menu_frame_wave.is_some() {
-                            // 切页波浪进行中忽略新按下。
+                        if self.shell_slide_busy() {
+                            // 切页波浪 / 卡顿进行中忽略新按下。
                         }
                         else if self.screen == OriginalScreen::Splash {
                             self.request_splash_skip();
@@ -2779,8 +2827,8 @@ impl ApplicationHandler for AppShell {
                         }
                     }
                     ElementState::Released => {
-                        if self.menu_frame_wave.is_some() {
-                            // 切页波浪进行中忽略释放提交。
+                        if self.shell_slide_busy() {
+                            // 切页波浪 / 卡顿进行中忽略释放提交。
                         }
                         else if self.screen == OriginalScreen::Splash {
                             // 闪屏仅接受按下跳过请求；释放不走菜单命中。
@@ -2907,7 +2955,8 @@ pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) 
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, status_path, test_scene) = resolve_launch()?;
+    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, shell_slide_gap_secs, status_path, test_scene) =
+        resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -2928,6 +2977,7 @@ pub fn run_shell() -> RaResult<()> {
     app.apply_audio_volumes(music_volume, sound_volume);
     app.apply_present_feel(present);
     app.load_min_secs = load_min_secs;
+    app.shell_slide_gap_secs = shell_slide_gap_secs;
 
     event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
     tracing::info!("事件循环结束");
@@ -2940,7 +2990,7 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, f64, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, f64, f64, Option<PathBuf>, Option<String>)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = super::test_boot::requested_scene() {
@@ -2962,6 +3012,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
                 0.7,
                 PresentFeel::DEFAULT,
                 0.0,
+                0.0,
                 status_path,
                 Some(scene),
             ));
@@ -2979,6 +3030,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         music_volume = settings.music_volume,
         sound_volume = settings.sound_volume,
         load_min_secs = settings.load_min_secs,
+        shell_slide_gap_secs = settings.shell_slide_gap_secs,
         present_mode = settings.present.mode.as_str(),
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
@@ -2990,6 +3042,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         settings.sound_volume,
         settings.present,
         settings.load_min_secs,
+        settings.shell_slide_gap_secs,
         None,
         None,
     ))

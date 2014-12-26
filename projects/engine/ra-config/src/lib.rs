@@ -198,7 +198,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # music_volume = 0.4           # 壳层 BGM，0..1\n\
          # sound_volume = 0.7           # 壳层点击等短音效，0..1\n\
          # load_min_secs = 3.0          # 遭遇战装载页最短展示秒数（0 关闭）\n\
-         # shell_slide_gap_secs = 0.2   # 壳层按钮出去后、进来前的间隔（0 关闭）\n\
+         # shell_slide_gap_secs = 0.2   # 出去→进来停顿，模拟原版重型机械卡顿（0 关闭）\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n\
@@ -340,7 +340,7 @@ pub struct DesktopSettings {
     pub present: PresentFeel,
     /// 遭遇战装载页最短展示秒数（后台已完成也等到点再切页；`0` 关闭）。
     pub load_min_secs: f64,
-    /// 壳层切页：按钮 `SlideOut` 结束后到 `SlideIn` 开始前的间隔秒数（`0` 关闭）。
+    /// 壳层切页出去→进来之间的停顿秒数（模拟原版重型机械卡顿；`0` 关闭）。
     pub shell_slide_gap_secs: f64,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
