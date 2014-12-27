@@ -650,39 +650,54 @@ impl Game {
     pub fn project_units(&self, ids: &[EntityId]) -> Vec<SnapshotUnit> {
         let mut out = Vec::with_capacity(ids.len());
         for &id in ids {
-            let Some(index) = self.world.entity_index(id)
-            else {
-                continue;
-            };
-            let e = &self.world.entities[index];
-            if !matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure) {
+            if self.world.entity_index(id).is_none() {
                 continue;
             }
-            out.push(self.project_entity(e));
+            if !self
+                .world
+                .ecs_get::<Identity>(id)
+                .map(|identity| {
+                    matches!(
+                        identity.kind,
+                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                    )
+                })
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            if let Some(unit) = self.project_entity(id) {
+                out.push(unit);
+            }
         }
         out
     }
 
-    fn project_entity(&self, e: &crate::WorldEntity) -> SnapshotUnit {
-        let z = self.world.pass_grid.cell_height(e.x, e.y);
-        let (sx, sy) = iso_to_screen(i32::from(e.x), i32::from(e.y), z);
-        SnapshotUnit {
-            id: e.id,
-            kind: e.kind,
-            type_id: e.type_id.clone(),
-            owner: e.owner.clone(),
-            x: e.x,
-            y: e.y,
+    fn project_entity(&self, id: EntityId) -> Option<SnapshotUnit> {
+        let identity = self.world.ecs_get::<Identity>(id)?;
+        let owner = self.world.ecs_get::<Owner>(id)?;
+        let xf = self.world.ecs_get::<Transform>(id).copied()?;
+        let health = self.world.ecs_get::<Health>(id).copied()?;
+        let hva_frame = self.world.ecs_get::<AnimationState>(id).map(|a| a.hva_frame).unwrap_or(0);
+        let z = self.world.pass_grid.cell_height(xf.x, xf.y);
+        let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+        Some(SnapshotUnit {
+            id,
+            kind: identity.kind,
+            type_id: identity.type_id.clone(),
+            owner: owner.house.clone(),
+            x: xf.x,
+            y: xf.y,
             screen_x: sx - self.preview_origin_x,
             screen_y: sy - self.preview_origin_y,
-            facing: e.facing,
-            turret_facing: e.turret_facing,
-            hva_frame: e.hva_frame,
-            anim_state: derive_anim_state(&self.world, e.id),
-            health: e.health,
-            max_health: e.max_health,
-            dead: e.dead,
-        }
+            facing: xf.facing,
+            turret_facing: xf.turret_facing,
+            hva_frame,
+            anim_state: derive_anim_state(&self.world, id),
+            health: health.current,
+            max_health: health.maximum,
+            dead: health.dead,
+        })
     }
 
     /// 从当前世界与本地选中构建一帧呈现快照。
@@ -694,8 +709,23 @@ impl Game {
             .world
             .entities
             .iter()
-            .filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure))
-            .map(|e| self.project_entity(e))
+            .filter_map(|e| {
+                let id = e.id;
+                if !self
+                    .world
+                    .ecs_get::<Identity>(id)
+                    .map(|identity| {
+                        matches!(
+                            identity.kind,
+                            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                        )
+                    })
+                    .unwrap_or(false)
+                {
+                    return None;
+                }
+                self.project_entity(id)
+            })
             .collect();
         let hud = self.snapshot_hud();
         RenderSnapshot {
