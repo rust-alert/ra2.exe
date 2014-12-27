@@ -281,21 +281,14 @@ impl MatchState {
         self.ecs.world().get::<T>(handle)
     }
 
-    /// 把 ECS 权威组件投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
+    /// 把 ECS 权威组件投影回 `WorldEntity`（兼容尚未改读组件的路径）。
     ///
     /// 不再从 `WorldEntity` 回写 ECS，避免双真相。
     pub(crate) fn sync_ecs_components(&mut self) {
-        self.project_all_identities_to_world_entities();
-        self.project_all_owners_to_world_entities();
-        self.project_all_health_to_world_entities();
-        self.project_all_transforms_to_world_entities();
-        self.project_all_locomotors_to_world_entities();
-        self.project_all_movements_to_world_entities();
-        self.project_all_combat_stats_to_world_entities();
-        self.project_all_attacks_to_world_entities();
-        self.project_all_productions_to_world_entities();
-        self.project_all_harvesters_to_world_entities();
-        self.project_all_animations_to_world_entities();
+        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
+        for id in ids {
+            self.project_entity_from_ecs(id);
+        }
     }
 
     /// 将 ECS `Identity` 投影回 `WorldEntity`。
@@ -314,12 +307,6 @@ impl MatchState {
         entity.kind = identity.kind;
     }
 
-    pub(crate) fn project_all_identities_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_identity_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改身份，并立即投影回 `WorldEntity`。
     pub(crate) fn with_identity_mut<R>(
@@ -350,12 +337,6 @@ impl MatchState {
         self.entities[index].owner = owner.house;
     }
 
-    pub(crate) fn project_all_owners_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_owner_to_world_entity(id);
-        }
-    }
 
     /// 将 ECS `Locomotor` 投影回 `WorldEntity`。
     pub(crate) fn project_locomotor_to_world_entity(&mut self, id: EntityId) {
@@ -371,12 +352,6 @@ impl MatchState {
         self.entities[index].speed = loco.speed;
     }
 
-    pub(crate) fn project_all_locomotors_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_locomotor_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改移动能力，并立即投影回 `WorldEntity`。
     pub(crate) fn with_locomotor_mut<R>(
@@ -413,12 +388,6 @@ impl MatchState {
         entity.techno_kind = stats.techno_kind;
     }
 
-    pub(crate) fn project_all_combat_stats_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_combat_stats_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改战斗参数，并立即投影回 `WorldEntity`。
     pub(crate) fn with_combat_stats_mut<R>(
@@ -452,12 +421,6 @@ impl MatchState {
         entity.dead = health.dead;
     }
 
-    pub(crate) fn project_all_health_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_health_to_world_entity(id);
-        }
-    }
 
     /// 将 ECS `Transform` 投影回 `WorldEntity`。
     pub(crate) fn project_transform_to_world_entity(&mut self, id: EntityId) {
@@ -478,12 +441,6 @@ impl MatchState {
         entity.sub_cell = transform.sub_cell;
     }
 
-    pub(crate) fn project_all_transforms_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_transform_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改生命，并立即投影回 `WorldEntity`。
     pub(crate) fn with_health_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Health) -> R) -> Option<R> {
@@ -529,12 +486,6 @@ impl MatchState {
         entity.move_accum = movement.move_accum;
     }
 
-    pub(crate) fn project_all_movements_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_movement_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改移动状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_movement_mut<R>(
@@ -576,12 +527,6 @@ impl MatchState {
         entity.attack_cooldown = attack.cooldown;
     }
 
-    pub(crate) fn project_all_attacks_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_attack_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改攻击状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_attack_mut<R>(
@@ -615,12 +560,6 @@ impl MatchState {
         entity.rally_y = queue.rally_y;
     }
 
-    pub(crate) fn project_all_productions_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_production_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改生产队列，并立即投影回 `WorldEntity`。
     pub(crate) fn with_production_mut<R>(
@@ -651,12 +590,6 @@ impl MatchState {
         self.entities[index].ore_trip_accum = harvester.ore_trip_accum;
     }
 
-    pub(crate) fn project_all_harvesters_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_harvester_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改采矿行程，并立即投影回 `WorldEntity`。
     pub(crate) fn with_harvester_mut<R>(
@@ -689,12 +622,6 @@ impl MatchState {
         entity.hit_flash = anim.hit_flash;
     }
 
-    pub(crate) fn project_all_animations_to_world_entities(&mut self) {
-        let ids: Vec<EntityId> = self.entities.iter().map(|e| e.id).collect();
-        for id in ids {
-            self.project_animation_to_world_entity(id);
-        }
-    }
 
     /// 以 ECS 为权威修改动画桥接状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_animation_mut<R>(
