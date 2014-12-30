@@ -262,17 +262,77 @@ impl MatchState {
 
     /// 将单个实体的全部 ECS 组件投影回 `WorldEntity`。
     pub(crate) fn project_entity_from_ecs(&mut self, id: EntityId) {
-        self.project_identity_to_world_entity(id);
-        self.project_owner_to_world_entity(id);
-        self.project_health_to_world_entity(id);
-        self.project_transform_to_world_entity(id);
-        self.project_locomotor_to_world_entity(id);
-        self.project_movement_to_world_entity(id);
-        self.project_combat_stats_to_world_entity(id);
-        self.project_attack_to_world_entity(id);
-        self.project_production_to_world_entity(id);
-        self.project_harvester_to_world_entity(id);
-        self.project_animation_to_world_entity(id);
+        let Some(handle) = self.ecs.resolve(id) else {
+            return;
+        };
+        let Some(index) = self.entity_index(id) else {
+            return;
+        };
+        let identity = self.ecs.world().get::<crate::state::components::Identity>(handle).cloned();
+        let owner = self.ecs.world().get::<crate::state::components::Owner>(handle).cloned();
+        let health = self.ecs.world().get::<crate::state::components::Health>(handle).copied();
+        let transform = self.ecs.world().get::<crate::state::components::Transform>(handle).copied();
+        let loco = self.ecs.world().get::<crate::state::components::Locomotor>(handle).copied();
+        let movement = self.ecs.world().get::<crate::state::components::MovementState>(handle).cloned();
+        let stats = self.ecs.world().get::<crate::state::components::CombatStats>(handle).cloned();
+        let attack = self.ecs.world().get::<crate::state::components::AttackState>(handle).copied();
+        let queue = self.ecs.world().get::<crate::state::components::ProductionQueue>(handle).cloned();
+        let harvester = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied();
+        let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied();
+
+        let entity = &mut self.entities[index];
+        if let Some(identity) = identity {
+            entity.type_id = identity.type_id;
+            entity.kind = identity.kind;
+        }
+        if let Some(owner) = owner {
+            entity.owner = owner.house;
+        }
+        if let Some(health) = health {
+            entity.health = health.current;
+            entity.max_health = health.maximum;
+            entity.dead = health.dead;
+        }
+        if let Some(transform) = transform {
+            entity.x = transform.x;
+            entity.y = transform.y;
+            entity.facing = transform.facing;
+            entity.turret_facing = transform.turret_facing;
+            entity.sub_cell = transform.sub_cell;
+        }
+        if let Some(loco) = loco {
+            entity.speed = loco.speed;
+        }
+        if let Some(movement) = movement {
+            entity.target_x = movement.destination_x;
+            entity.target_y = movement.destination_y;
+            entity.path = movement.path;
+            entity.move_accum = movement.move_accum;
+        }
+        if let Some(stats) = stats {
+            entity.armor = stats.armor;
+            entity.attack_range = stats.attack_range;
+            entity.attack_damage = stats.attack_damage;
+            entity.attack_cooldown_max = stats.attack_cooldown_max;
+            entity.attack_verses = stats.attack_verses;
+            entity.techno_kind = stats.techno_kind;
+        }
+        if let Some(attack) = attack {
+            entity.attack_target = attack.target;
+            entity.attack_cooldown = attack.cooldown;
+        }
+        if let Some(queue) = queue {
+            entity.produce_queue = queue.item;
+            entity.rally_x = queue.rally_x;
+            entity.rally_y = queue.rally_y;
+        }
+        if let Some(harvester) = harvester {
+            entity.ore_trip_accum = harvester.ore_trip_accum;
+        }
+        if let Some(anim) = anim {
+            entity.hva_frame = anim.hva_frame;
+            entity.hit_flash = anim.hit_flash;
+        }
     }
 
     /// 按稳定 ID 只读取 ECS 组件（玩法系统应优先走此路径，而非读投影）。
@@ -291,22 +351,19 @@ impl MatchState {
         }
     }
 
-    /// 将 ECS `Identity` 投影回 `WorldEntity`。
-    pub(crate) fn project_identity_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
+    fn with_component_mut<T: ra_ecs::Component, R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Option<R> {
+        let handle = self.ecs.resolve(id)?;
+        let result = {
+            let component = self.ecs.world_mut().get_mut::<T>(handle)?;
+            f(component)
         };
-        let Some(identity) = self.ecs.world().get::<crate::state::components::Identity>(handle).cloned() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.type_id = identity.type_id;
-        entity.kind = identity.kind;
+        self.project_entity_from_ecs(id);
+        Some(result)
     }
-
 
     /// 以 ECS 为权威修改身份，并立即投影回 `WorldEntity`。
     pub(crate) fn with_identity_mut<R>(
@@ -314,44 +371,8 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::Identity) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let identity = self.ecs.world_mut().get_mut::<crate::state::components::Identity>(handle)?;
-            f(identity)
-        };
-        self.project_identity_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `Owner` 投影回 `WorldEntity`。
-    pub(crate) fn project_owner_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(owner) = self.ecs.world().get::<crate::state::components::Owner>(handle).cloned() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        self.entities[index].owner = owner.house;
-    }
-
-
-    /// 将 ECS `Locomotor` 投影回 `WorldEntity`。
-    pub(crate) fn project_locomotor_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(loco) = self.ecs.world().get::<crate::state::components::Locomotor>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        self.entities[index].speed = loco.speed;
-    }
-
 
     /// 以 ECS 为权威修改移动能力，并立即投影回 `WorldEntity`。
     pub(crate) fn with_locomotor_mut<R>(
@@ -359,35 +380,8 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::Locomotor) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let loco = self.ecs.world_mut().get_mut::<crate::state::components::Locomotor>(handle)?;
-            f(loco)
-        };
-        self.project_locomotor_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `CombatStats` 投影回 `WorldEntity`。
-    pub(crate) fn project_combat_stats_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(stats) = self.ecs.world().get::<crate::state::components::CombatStats>(handle).cloned() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.armor = stats.armor;
-        entity.attack_range = stats.attack_range;
-        entity.attack_damage = stats.attack_damage;
-        entity.attack_cooldown_max = stats.attack_cooldown_max;
-        entity.attack_verses = stats.attack_verses;
-        entity.techno_kind = stats.techno_kind;
-    }
-
 
     /// 以 ECS 为权威修改战斗参数，并立即投影回 `WorldEntity`。
     pub(crate) fn with_combat_stats_mut<R>(
@@ -395,62 +389,16 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::CombatStats) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let stats = self.ecs.world_mut().get_mut::<crate::state::components::CombatStats>(handle)?;
-            f(stats)
-        };
-        self.project_combat_stats_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `Health` 投影回 `WorldEntity`（兼容快照、摘要与未迁移读路径）。
-    pub(crate) fn project_health_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(health) = self.ecs.world().get::<crate::state::components::Health>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.health = health.current;
-        entity.max_health = health.maximum;
-        entity.dead = health.dead;
-    }
-
-
-    /// 将 ECS `Transform` 投影回 `WorldEntity`。
-    pub(crate) fn project_transform_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(transform) = self.ecs.world().get::<crate::state::components::Transform>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.x = transform.x;
-        entity.y = transform.y;
-        entity.facing = transform.facing;
-        entity.turret_facing = transform.turret_facing;
-        entity.sub_cell = transform.sub_cell;
-    }
-
 
     /// 以 ECS 为权威修改生命，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_health_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Health) -> R) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let health = self.ecs.world_mut().get_mut::<crate::state::components::Health>(handle)?;
-            f(health)
-        };
-        self.project_health_to_world_entity(id);
-        Some(result)
+    pub(crate) fn with_health_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::Health) -> R,
+    ) -> Option<R> {
+        self.with_component_mut(id, f)
     }
 
     /// 以 ECS 为权威修改空间变换，并立即投影回 `WorldEntity`。
@@ -459,33 +407,8 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::Transform) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let transform = self.ecs.world_mut().get_mut::<crate::state::components::Transform>(handle)?;
-            f(transform)
-        };
-        self.project_transform_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `MovementState` 投影回 `WorldEntity`。
-    pub(crate) fn project_movement_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(movement) = self.ecs.world().get::<crate::state::components::MovementState>(handle).cloned() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.target_x = movement.destination_x;
-        entity.target_y = movement.destination_y;
-        entity.path = movement.path;
-        entity.move_accum = movement.move_accum;
-    }
-
 
     /// 以 ECS 为权威修改移动状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_movement_mut<R>(
@@ -493,13 +416,7 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::MovementState) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let movement = self.ecs.world_mut().get_mut::<crate::state::components::MovementState>(handle)?;
-            f(movement)
-        };
-        self.project_movement_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
 
     /// 为指定下标实体重算路径并写入 ECS `MovementState`。
@@ -511,55 +428,14 @@ impl MatchState {
         });
     }
 
-    /// 将 ECS `AttackState` 投影回 `WorldEntity`。
-    pub(crate) fn project_attack_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(attack) = self.ecs.world().get::<crate::state::components::AttackState>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.attack_target = attack.target;
-        entity.attack_cooldown = attack.cooldown;
-    }
-
-
     /// 以 ECS 为权威修改攻击状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_attack_mut<R>(
         &mut self,
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::AttackState) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let attack = self.ecs.world_mut().get_mut::<crate::state::components::AttackState>(handle)?;
-            f(attack)
-        };
-        self.project_attack_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `ProductionQueue` 投影回 `WorldEntity`。
-    pub(crate) fn project_production_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(queue) = self.ecs.world().get::<crate::state::components::ProductionQueue>(handle).cloned() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.produce_queue = queue.item;
-        entity.rally_x = queue.rally_x;
-        entity.rally_y = queue.rally_y;
-    }
-
 
     /// 以 ECS 为权威修改生产队列，并立即投影回 `WorldEntity`。
     pub(crate) fn with_production_mut<R>(
@@ -567,29 +443,8 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::ProductionQueue) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let queue = self.ecs.world_mut().get_mut::<crate::state::components::ProductionQueue>(handle)?;
-            f(queue)
-        };
-        self.project_production_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `HarvesterState` 投影回 `WorldEntity`。
-    pub(crate) fn project_harvester_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(harvester) = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        self.entities[index].ore_trip_accum = harvester.ore_trip_accum;
-    }
-
 
     /// 以 ECS 为权威修改采矿行程，并立即投影回 `WorldEntity`。
     pub(crate) fn with_harvester_mut<R>(
@@ -597,31 +452,8 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::HarvesterState) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let harvester = self.ecs.world_mut().get_mut::<crate::state::components::HarvesterState>(handle)?;
-            f(harvester)
-        };
-        self.project_harvester_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
-
-    /// 将 ECS `AnimationState` 投影回 `WorldEntity`。
-    pub(crate) fn project_animation_to_world_entity(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
-            return;
-        };
-        let Some(anim) = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied() else {
-            return;
-        };
-        let Some(index) = self.entity_index(id) else {
-            return;
-        };
-        let entity = &mut self.entities[index];
-        entity.hva_frame = anim.hva_frame;
-        entity.hit_flash = anim.hit_flash;
-    }
-
 
     /// 以 ECS 为权威修改动画桥接状态，并立即投影回 `WorldEntity`。
     pub(crate) fn with_animation_mut<R>(
@@ -629,13 +461,7 @@ impl MatchState {
         id: EntityId,
         f: impl FnOnce(&mut crate::state::components::AnimationState) -> R,
     ) -> Option<R> {
-        let handle = self.ecs.resolve(id)?;
-        let result = {
-            let anim = self.ecs.world_mut().get_mut::<crate::state::components::AnimationState>(handle)?;
-            f(anim)
-        };
-        self.project_animation_to_world_entity(id);
-        Some(result)
+        self.with_component_mut(id, f)
     }
 
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。
