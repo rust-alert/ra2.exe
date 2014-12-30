@@ -312,7 +312,7 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
 
 
 #[test]
-fn compose_empty_tiles_keep_static_bkgd_during_wave() {
+fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
     let layout = main_menu_layout(800, 600);
     let tile_h = layout.panel_tile.h;
     let tile_y0 = layout.panel_tile.y;
@@ -361,8 +361,8 @@ fn compose_empty_tiles_keep_static_bkgd_during_wave() {
     )
     .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
-    // 空格保持静态底，不吃波浪帧绿。
-    assert_eq!(&page.as_raw()[di..di + 4], &[90, 90, 90, 255]);
+    // 空格吃波浪帧，不再留静态底灰。
+    assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
 }
 
 #[test]
