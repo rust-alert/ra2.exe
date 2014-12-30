@@ -456,15 +456,12 @@ fn compose_shell_menu_page(
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..layout.panel_tile_count {
             let tile_y = layout.panel_tile.y + i * layout.panel_tile.h;
-            // 波浪中空格不铺静态 `sdbtnbkgd`，改播 `SDBTNANM` 与有字钮同进出。
-            if wave.is_some() && !tile_occupied(tile_y) {
-                continue;
-            }
+            // 始终铺 `sdbtnbkgd`（含左侧红线），波浪只叠钮面，不藏底。
             let r = RectPx::new(layout.panel_tile.x, tile_y, layout.panel_tile.w, layout.panel_tile.h);
             blit_stretched(&mut page, &tile.image, r);
         }
     }
-    // 波浪期间：无字平铺格播 `SDBTNANM`，与有字钮一起收起/展开。
+    // 波浪期间：无字平铺格播 `SDBTNANM`，压在底图钮格上，与有字钮同进出。
     if let Some(wave) = wave {
         for ti in 0..layout.panel_tile_count {
             let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;

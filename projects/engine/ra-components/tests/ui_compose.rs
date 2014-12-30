@@ -361,8 +361,12 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
     )
     .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
-    // 空格吃波浪帧，不再留静态底灰。
+    // 空格钮格叠波浪帧绿。
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
+    // 左侧红线带仍是 `sdbtnbkgd`，不被波浪藏掉。
+    let wire_x = layout.panel_tile.x as u32;
+    let wi = ((empty_y as u32 * page.width() + wire_x) * 4) as usize;
+    assert_eq!(&page.as_raw()[wi..wi + 4], &[90, 90, 90, 255]);
 }
 
 #[test]
