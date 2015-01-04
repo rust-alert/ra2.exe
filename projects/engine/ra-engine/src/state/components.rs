@@ -1,7 +1,6 @@
 //! 玩法侧 ECS 组件（无 INI / MIX 依赖）。
 //!
-//! 运行时玩法字段以 ECS 为权威，经投影写回 `WorldEntity` 供未迁移读路径与快照使用。
-//! `WorldEntity` 不再作为可变真相。
+//! 运行时玩法字段以 ECS 为权威。`WorldEntity` 仅为投影槽，经 `project_entity_from_ecs` 覆盖。
 
 use std::sync::Arc;
 

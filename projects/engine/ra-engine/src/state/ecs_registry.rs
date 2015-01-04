@@ -1,7 +1,7 @@
 //! `EntityId` ↔ `EcsEntity` 映射，以及内部 [`EcsWorld`]。
 //!
-//! 玩法运行时组件以 ECS 为权威，经投影写回 `WorldEntity`。
-//! 播种与生成经 `EntitySpawnBundle` 写入组件；tick 只做 ECS → 投影。
+//! 玩法组件以 ECS 为权威。投影槽 `WorldEntity` 由 `bind_bundle` 之后的
+//! `project_entity_from_ecs` 覆盖。tick 只做 ECS → 投影，禁止投影回写 ECS。
 
 use std::collections::HashMap;
 

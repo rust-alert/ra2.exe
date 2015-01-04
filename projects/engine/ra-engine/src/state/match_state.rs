@@ -479,45 +479,39 @@ impl MatchState {
         self.ecs.ecs_len()
     }
 
-    /// 读取 ECS 中同步后的生命组件（迁移期诊断用）。
+    /// 读取 ECS `Health`（测试与诊断）。
     pub fn ecs_health(&self, id: EntityId) -> Option<(u32, u32, bool)> {
-        let handle = self.ecs.resolve(id)?;
-        let health = self.ecs.world().get::<crate::state::components::Health>(handle)?;
+        let health = self.ecs_get::<crate::state::components::Health>(id)?;
         Some((health.current, health.maximum, health.dead))
     }
 
-    /// 读取 ECS 中同步后的坐标（迁移期诊断用）。
+    /// 读取 ECS `Transform` 坐标与朝向（测试与诊断）。
     pub fn ecs_transform(&self, id: EntityId) -> Option<(u16, u16, u8)> {
-        let handle = self.ecs.resolve(id)?;
-        let transform = self.ecs.world().get::<crate::state::components::Transform>(handle)?;
+        let transform = self.ecs_get::<crate::state::components::Transform>(id)?;
         Some((transform.x, transform.y, transform.facing))
     }
 
-    /// 读取 ECS 中同步后的移动目的地（迁移期诊断用）。
+    /// 读取 ECS `MovementState` 目的地（测试与诊断）。
     pub fn ecs_move_destination(&self, id: EntityId) -> Option<(Option<u16>, Option<u16>)> {
-        let handle = self.ecs.resolve(id)?;
-        let movement = self.ecs.world().get::<crate::state::components::MovementState>(handle)?;
+        let movement = self.ecs_get::<crate::state::components::MovementState>(id)?;
         Some((movement.destination_x, movement.destination_y))
     }
 
-    /// 读取 ECS 中同步后的攻击目标与冷却（迁移期诊断用）。
+    /// 读取 ECS `AttackState`（测试与诊断）。
     pub fn ecs_attack_state(&self, id: EntityId) -> Option<(Option<EntityId>, u32)> {
-        let handle = self.ecs.resolve(id)?;
-        let attack = self.ecs.world().get::<crate::state::components::AttackState>(handle)?;
+        let attack = self.ecs_get::<crate::state::components::AttackState>(id)?;
         Some((attack.target, attack.cooldown))
     }
 
-    /// 读取 ECS 中同步后的生产队列剩余 tick（迁移期诊断用）。
+    /// 读取 ECS 生产队列剩余 tick（测试与诊断）。
     pub fn ecs_produce_remaining(&self, id: EntityId) -> Option<Option<u32>> {
-        let handle = self.ecs.resolve(id)?;
-        let queue = self.ecs.world().get::<crate::state::components::ProductionQueue>(handle)?;
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
         Some(queue.item.as_ref().map(|(_, rem)| *rem))
     }
 
-    /// 读取 ECS 中同步后的动画桥接字段（迁移期诊断用）。
+    /// 读取 ECS `AnimationState`（测试与诊断）。
     pub fn ecs_animation(&self, id: EntityId) -> Option<(u16, u32)> {
-        let handle = self.ecs.resolve(id)?;
-        let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle)?;
+        let anim = self.ecs_get::<crate::state::components::AnimationState>(id)?;
         Some((anim.hva_frame, anim.hit_flash))
     }
 

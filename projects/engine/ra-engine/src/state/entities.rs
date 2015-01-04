@@ -1,6 +1,7 @@
 //! 世界实体的运行时投影。
 //!
-//! 权威状态在 ECS 组件中；本结构由 tick 末投影生成，供摘要、快照与尚未迁移的读路径使用。
+//! 权威状态在 ECS 组件中。本结构是兼容槽位：生成时占位，由 `project_entity_from_ecs`
+//! 与 `with_*_mut` 覆盖字段。玩法决策与锁步摘要应读 ECS，勿把本结构当可变真相。
 
 use std::sync::Arc;
 
@@ -8,7 +9,7 @@ use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
-/// 世界实体的运行时状态。
+/// 实体的 ECS → 投影缓存（字段与组件对应，非权威存储）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldEntity {
     /// 稳定实体 ID（不随列表紧凑化改变）。
