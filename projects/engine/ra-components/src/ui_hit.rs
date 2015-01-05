@@ -514,6 +514,10 @@ fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
 }
 
 fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
+    // 装载中不提供鼠标钮（Esc 仍取消）；失败后才露出重试/取消。
+    if !allow_retry {
+        return Vec::new();
+    }
     let Some(page) = slots_for(OriginalScreen::LoadScreen)
     else {
         return Vec::new();
@@ -522,8 +526,7 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
         .iter()
         .map(|btn| {
             let (x0, y0, x1, y1) = btn.hit;
-            let enabled = if btn.entry_id == "retry" { allow_retry } else { btn.enabled };
-            MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled }
+            MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled: btn.enabled }
         })
         .collect()
 }

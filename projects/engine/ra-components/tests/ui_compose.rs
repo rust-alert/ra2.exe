@@ -370,35 +370,48 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
 }
 
 #[test]
-fn compose_load_screen_paints_right_panel() {
-    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
-    let top = solid_sprite("sdtp.shp#0", [40, 40, 40, 255]);
-    let tile = solid_sprite("sdbtnbkgd.shp#0", [50, 50, 50, 255]);
-    let bottom = solid_sprite("sdbtm.shp#0", [60, 60, 60, 255]);
+fn compose_load_screen_paints_country_art_and_progress() {
+    let bg = solid_sprite("ls800ustates.shp#0", [1, 2, 3, 255]);
+    let mut bar = solid_sprite("progbarm.shp#0", [200, 40, 40, 255]);
+    bar.image = RgbaImage::from_raw(80, 5, vec![200u8, 40, 40, 255].repeat(80 * 5)).unwrap();
     let btn = solid_sprite("mnbttn.shp#0", [200, 20, 20, 255]);
     let decoded = PageDecodeReport {
         background: Some(bg),
-        panels: vec![top, tile, bottom],
+        panels: vec![bar],
         button_normals: vec![("retry", btn.clone()), ("cancel", btn)],
         button_hovers: Vec::new(),
         button_presseds: Vec::new(),
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_load_screen_page(
+    let loading = compose_load_screen_page(
         &decoded,
         800,
         600,
         None,
         None,
         None,
-        LoadScreenPaint { status: "装载失败 · test", allow_retry: true },
+        LoadScreenPaint { status: "装载中", allow_retry: false, progress: 0.5 },
     )
     .unwrap();
-    let layout = main_menu_layout(800, 600);
-    let di = ((layout.panel_top.y as u32 * page.width() + layout.panel_top.x as u32) * 4) as usize;
-    assert_eq!(page.as_raw()[di + 3], 255);
-    assert_ne!(&page.as_raw()[di..di + 3], &[0, 0, 0]);
+    // 国家艺术铺满画布左上。
+    assert_eq!(&loading.as_raw()[0..4], &[1, 2, 3, 255]);
+    // 进度条原点附近应有填充。
+    let px = ((101u32 * loading.width() + 48) * 4) as usize;
+    assert_eq!(&loading.as_raw()[px..px + 4], &[200, 40, 40, 255]);
+
+    let failed = compose_load_screen_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        LoadScreenPaint { status: "装载失败 · test", allow_retry: true, progress: 1.0 },
+    )
+    .unwrap();
+    assert_eq!(failed.width(), 800);
+    assert_eq!(failed.height(), 600);
 }
 
 #[test]

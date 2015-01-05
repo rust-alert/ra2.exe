@@ -223,11 +223,17 @@ const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("cancel", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 
-/// 装载页：中区状态 + 重试/取消（`mnbttn`）；右栏复用遭遇战壳层 chrome。
+/// 装载页：国家 `ls800*`/`ls640*` 全幅艺术 + `progbarm`；失败时 `mnbttn` 重试/取消。
+const LOAD_SCREEN_PANELS: &[UiPanelSlot] = &[UiPanelSlot {
+    id: "progress",
+    shp: "progbarm.shp",
+    pal: "shell.pal",
+    frame: 0,
+}];
+
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("loading", MenuAction::Noop, false, (0.30, 0.40, 0.74, 0.48)),
-    modal_button("retry", MenuAction::RetryLoad, true, (0.30, 0.52, 0.50, 0.60)),
-    modal_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.52, 0.74, 0.60)),
+    modal_button("retry", MenuAction::RetryLoad, true, (0.30, 0.88, 0.50, 0.96)),
+    modal_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.88, 0.74, 0.96)),
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 选项页像素格。右栏为接受 / 取消 / 主菜单。
@@ -338,13 +344,13 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::LoadScreen => Some(UiPageSlots {
             screen,
-            // 与遭遇战大厅共用已证实壳层 chrome；装载中/失败必须可见，禁止空槽清屏。
-            background_shp: Some("mnscrnl.shp"),
+            // 默认美国人 800 宽艺术；壳层按所选国家 / 视口覆盖资源名与调色板。
+            background_shp: Some("ls800ustates.shp"),
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
             movie_bik: None,
-            panels: SKIRMISH_LOBBY_PANELS,
+            panels: LOAD_SCREEN_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: LOAD_SCREEN_BUTTONS,
         }),

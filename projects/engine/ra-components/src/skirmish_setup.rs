@@ -38,6 +38,66 @@ pub fn side_flag_pcx(side: &str) -> &'static str {
     }
 }
 
+/// 阵营 → 标准装载艺术图后缀（`ls800{suffix}.shp` / `ls640{suffix}.shp`）。
+pub fn load_screen_art_suffix(side: &str) -> &'static str {
+    match side {
+        "Americans" => "ustates",
+        "French" => "france",
+        "Germans" => "germany",
+        "British" => "ukingdom",
+        "Russians" => "russia",
+        "Alliance" | "Korea" | "Koreans" => "korea",
+        "Confederation" | "Cuba" | "Cubans" => "cuba",
+        "Iraq" | "Iraqis" => "iraq",
+        "Libya" | "Libyans" => "libya",
+        "YuriCountry" | "Yuri" => "yuri",
+        "Observer" | "Observers" => "obs",
+        _ => "ustates",
+    }
+}
+
+/// 阵营 → 装载图优先调色板（缺则回退 `shell.pal`）。
+pub fn load_screen_preferred_pal(side: &str) -> &'static str {
+    match load_screen_art_suffix(side) {
+        "ustates" => "mplsu.pal",
+        "france" => "mplsf.pal",
+        "germany" => "mplsg.pal",
+        "ukingdom" => "mplsuk.pal",
+        "russia" => "mplsr.pal",
+        "korea" => "mplsk.pal",
+        "cuba" => "mplsc.pal",
+        "iraq" => "mplsi.pal",
+        "libya" => "mplsl.pal",
+        "yuri" => "mpyls.pal",
+        "obs" => "mplsobs.pal",
+        _ => "shell.pal",
+    }
+}
+
+/// 装载图回退调色板（库存 RA2 常缺 `mpls*.pal`；`shell.pal` 可解且色相可用）。
+pub const LOAD_SCREEN_FALLBACK_PAL: &str = "shell.pal";
+
+/// 进度条 SHP（帧 0；按进度横向裁剪填充）。
+pub const LOAD_SCREEN_PROGRESS_SHP: &str = "progbarm.shp";
+
+/// 按视口宽选 `ls800*` / `ls640*` 背景名。
+pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
+    let suffix = load_screen_art_suffix(side);
+    let prefix = if viewport_w >= 800 { "ls800" } else { "ls640" };
+    format!("{prefix}{suffix}.shp")
+}
+
+/// 选择可读的装载调色板：优先国家 `mpls*`，否则 [`LOAD_SCREEN_FALLBACK_PAL`]。
+pub fn load_screen_palette(side: &str, pal_readable: impl Fn(&str) -> bool) -> &'static str {
+    let preferred = load_screen_preferred_pal(side);
+    if pal_readable(preferred) {
+        preferred
+    }
+    else {
+        LOAD_SCREEN_FALLBACK_PAL
+    }
+}
+
 /// 勾选框种类（对齐 `0x102` 控件 id）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SkirmishCheckbox {

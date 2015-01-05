@@ -32,7 +32,7 @@ use ra_components::{
     ui_compose::{self, SkirmishChromeSprites},
     ui_decode, ui_hit,
     ui_movie::MenuMoviePlayer,
-    ui_page::page_resources_from_slots_with_edition,
+    ui_page::{page_resources_for_load_screen, page_resources_from_slots_with_edition},
     ui_present, ui_resolve,
     ui_text::{campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip, skirmish_lobby_csf_tooltip},
     ui_typewriter::TypewriterText,
@@ -911,7 +911,13 @@ impl AppShell {
             return;
         };
         let edition = assets.edition;
-        let Some(page) = page_resources_from_slots_with_edition(self.screen, edition)
+        let page = if self.screen == OriginalScreen::LoadScreen {
+            page_resources_for_load_screen(&self.skirmish.side, self.window_width as u32, |name| source.resolve(name).is_some())
+        }
+        else {
+            page_resources_from_slots_with_edition(self.screen, edition)
+        };
+        let Some(page) = page
         else {
             return;
         };
@@ -932,8 +938,12 @@ impl AppShell {
         };
 
         // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
+        // 装载页：只要国家背景可读就解码（进度条 / 失败钮可缺）。
         let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
-        if report.named > 0 && only_movie_gaps {
+        let load_bg_name = page.background.as_ref().map(|b| b.name.to_ascii_lowercase());
+        let load_bg_ok = self.screen == OriginalScreen::LoadScreen
+            && load_bg_name.as_ref().is_some_and(|bg| !report.missing.iter().any(|m| m.eq_ignore_ascii_case(bg)));
+        if report.named > 0 && (only_movie_gaps || load_bg_ok) {
             let decoded = ui_decode::decode_page_chrome(source, &page);
             tracing::info!(
                 screen = self.screen.as_str(),
@@ -1159,6 +1169,7 @@ impl AppShell {
             self.renderer.clear_preview();
             let load_allow_retry = self.load_allow_retry();
             let load_status = if self.screen == OriginalScreen::LoadScreen { Some(self.banner.clone()) } else { None };
+            let load_progress = self.load_screen_progress();
             let wave_owned = self.current_wave_frames();
             let wave = wave_owned.as_ref().map(|(buttons, tiles)| ui_compose::ShellWaveFrames {
                 buttons: buttons.as_slice(),
@@ -1322,6 +1333,7 @@ impl AppShell {
                         ui_compose::LoadScreenPaint {
                             status: load_status.as_deref().unwrap_or(""),
                             allow_retry: load_allow_retry,
+                            progress: load_progress,
                         },
                     ),
                     _ => None,
@@ -1357,6 +1369,7 @@ impl AppShell {
                     ui_compose::LoadScreenPaint {
                         status: load_status.as_deref().unwrap_or(self.banner.as_str()),
                         allow_retry: load_allow_retry,
+                        progress: load_progress,
                     },
                 ) {
                     self.upload_ui_page(page);
@@ -1373,6 +1386,20 @@ impl AppShell {
 
     fn load_allow_retry(&self) -> bool {
         self.load_job.is_none() && self.pending_load_boot.is_none()
+    }
+
+    /// 装载页进度：进行中读任务 ratio；最短展示等待或失败后视为满格。
+    fn load_screen_progress(&self) -> f32 {
+        if self.pending_load_boot.is_some() {
+            return 1.0;
+        }
+        if let Some(job) = self.load_job.as_ref() {
+            return job.progress().ratio.clamp(0.0, 1.0);
+        }
+        if self.screen == OriginalScreen::LoadScreen && self.load_allow_retry() {
+            return 1.0;
+        }
+        0.0
     }
 
     /// 惰性解析 `audio.idx` / `audio.bag`，结果缓存在壳层。
@@ -2338,7 +2365,8 @@ impl AppShell {
                 else {
                     self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into())
                 };
-                let next = format!("{stage}{pulse} · {secs}s · Esc/点取消");
+                let pct = (self.load_screen_progress() * 100.0).round() as i32;
+                let next = format!("{stage}{pulse} · {secs}s · {pct}% · Esc 取消");
                 if next != self.banner {
                     self.banner = next;
                     self.refresh_menu_backdrop();

@@ -29,9 +29,9 @@ fn empty_slots_report_zero_named() {
 }
 
 #[test]
-fn load_screen_declares_shell_chrome() {
+fn load_screen_declares_country_art() {
     let page = page_resources_from_slots(OriginalScreen::LoadScreen).unwrap();
-    assert!(page.background.is_some());
+    assert_eq!(page.background.as_ref().map(|b| b.name.as_str()), Some("ls800ustates.shp"));
     assert!(!page.panels.is_empty());
     assert!(!page.fonts.is_empty());
     let retry = page.buttons.iter().find(|b| b.entry_id == "retry").unwrap();

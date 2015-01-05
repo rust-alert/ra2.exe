@@ -44,13 +44,14 @@ fn exit_confirm_ok_and_cancel_cells() {
 }
 
 #[test]
-fn load_screen_disables_retry_while_loading() {
+fn load_screen_hides_hits_while_loading() {
     let loading = hits_for(OriginalScreen::LoadScreen, &[], false);
-    let retry = loading.iter().find(|h| h.entry_id == "retry").expect("retry");
-    assert!(!retry.enabled);
+    assert!(loading.is_empty());
     let failed = hits_for(OriginalScreen::LoadScreen, &[], true);
     let retry = failed.iter().find(|h| h.entry_id == "retry").expect("retry");
     assert!(retry.enabled);
+    let cancel = failed.iter().find(|h| h.entry_id == "cancel").expect("cancel");
+    assert!(cancel.enabled);
 }
 
 #[test]

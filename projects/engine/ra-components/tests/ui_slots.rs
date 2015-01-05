@@ -61,7 +61,7 @@ fn campaign_declares_three_side_panels_and_rail() {
 fn load_screen_exposes_retry_and_cancel_slots() {
     let page = slots_for(OriginalScreen::LoadScreen).unwrap();
     let ids: Vec<_> = page.buttons.iter().map(|b| b.entry_id).collect();
-    assert_eq!(ids, ["loading", "retry", "cancel"]);
+    assert_eq!(ids, ["retry", "cancel"]);
     let retry = page.buttons.iter().find(|b| b.entry_id == "retry").unwrap();
     assert!(retry.enabled);
     assert!(matches!(retry.action, MenuAction::RetryLoad));
@@ -69,8 +69,9 @@ fn load_screen_exposes_retry_and_cancel_slots() {
     let cancel = page.buttons.iter().find(|b| b.entry_id == "cancel").unwrap();
     assert!(cancel.enabled);
     assert!(matches!(cancel.action, MenuAction::CancelLoad));
-    assert_eq!(page.background_shp, Some("mnscrnl.shp"));
+    assert_eq!(page.background_shp, Some("ls800ustates.shp"));
     assert_eq!(page.background_pal, Some("shell.pal"));
+    assert!(page.panels.iter().any(|p| p.shp == "progbarm.shp"));
     assert!(page.has_any_asset_name());
     assert_eq!(page.fonts, &["game.fnt"]);
 }
