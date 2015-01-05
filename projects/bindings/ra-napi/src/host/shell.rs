@@ -1171,9 +1171,14 @@ impl AppShell {
             let load_status = if self.screen == OriginalScreen::LoadScreen { Some(self.banner.clone()) } else { None };
             let load_progress = self.load_screen_progress();
             let wave_owned = self.current_wave_frames();
-            let wave = wave_owned.as_ref().map(|(buttons, tiles)| ui_compose::ShellWaveFrames {
-                buttons: buttons.as_slice(),
-                tiles: tiles.as_slice(),
+            let wave = wave_owned.as_ref().map(|(buttons, tiles)| {
+                let animate_empty_tiles =
+                    self.menu_frame_wave.as_ref().is_some_and(|w| w.direction() == WaveDirection::SlideOut);
+                ui_compose::ShellWaveFrames {
+                    buttons: buttons.as_slice(),
+                    tiles: tiles.as_slice(),
+                    animate_empty_tiles,
+                }
             });
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());

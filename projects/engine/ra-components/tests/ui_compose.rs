@@ -45,7 +45,7 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
         errors: Vec::new(),
     };
     let frames = [10u16, 10, 10, 10, 10, 10];
-    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[] }), 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[], animate_empty_tiles: false }), 0).unwrap();
     let layout = main_menu_layout(800, 600);
     let cell = layout.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -122,7 +122,7 @@ fn compose_hides_button_caption_while_wave_frames_active() {
     assert_ne!(&sample(&steady)[..3], &[10, 10, 10]);
 
     let frames = [10u16, 10, 10, 10, 10, 10];
-    let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[] }), 0).unwrap();
+    let waving = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[], animate_empty_tiles: false }), 0).unwrap();
     // 波浪中只留 `SDBTNANM` 帧色，字等停稳后再叠。
     assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
 }
@@ -356,17 +356,40 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         Some(ShellWaveFrames {
             buttons: &buttons,
             tiles: &tiles,
+            animate_empty_tiles: true,
         }),
         0,
     )
     .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
-    // 空格钮格叠波浪帧绿。
+    // 出去时：空格钮格叠波浪帧绿。
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
     // 左侧红线带仍是 `sdbtnbkgd`，不被波浪藏掉。
     let wire_x = layout.panel_tile.x as u32;
     let wi = ((empty_y as u32 * page.width() + wire_x) * 4) as usize;
     assert_eq!(&page.as_raw()[wi..wi + 4], &[90, 90, 90, 255]);
+
+    let slide_in = compose_main_menu_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(ShellWaveFrames {
+            buttons: &buttons,
+            tiles: &tiles,
+            animate_empty_tiles: false,
+        }),
+        0,
+    )
+    .unwrap();
+    let di_in = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
+    // 进来时：空格不叠满钮，只留底图，避免收束后消失。
+    assert_eq!(&slide_in.as_raw()[di_in..di_in + 4], &[90, 90, 90, 255]);
 }
 
 #[test]

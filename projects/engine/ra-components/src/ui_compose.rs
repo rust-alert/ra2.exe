@@ -23,13 +23,15 @@ use ra_layout::{
     exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
 };
 
-/// 切页波浪帧：有字钮 + 无字空格共用 `SDBTNANM` 进出。
+/// 切页波浪帧：有字钮进出；空格仅在出去时叠 `SDBTNANM`（进来不叠满钮，避免收束后消失）。
 #[derive(Debug, Clone, Copy)]
 pub struct ShellWaveFrames<'a> {
     /// 与当前页按钮 id 表对齐。
     pub buttons: &'a [u16],
-    /// 与 `panel_tile_count` 对齐；空格收起/展开用。
+    /// 与 `panel_tile_count` 对齐；仅当 `animate_empty_tiles` 时用于空格。
     pub tiles: &'a [u16],
+    /// 空格是否叠钮面波浪（`SlideOut` 为 true，`SlideIn` / 间隙为 false）。
+    pub animate_empty_tiles: bool,
 }
 
 /// 壳层按钮文案来源。
@@ -461,23 +463,25 @@ fn compose_shell_menu_page(
             blit_stretched(&mut page, &tile.image, r);
         }
     }
-    // 波浪期间：无字平铺格播 `SDBTNANM`，压在底图钮格上，与有字钮同进出。
+    // 波浪出去：无字平铺格叠 `SDBTNANM`；进来不叠，避免满钮收束后瞬间消失。
     if let Some(wave) = wave {
-        for ti in 0..layout.panel_tile_count {
-            let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;
-            if tile_occupied(tile_y) {
-                continue;
+        if wave.animate_empty_tiles {
+            for ti in 0..layout.panel_tile_count {
+                let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;
+                if tile_occupied(tile_y) {
+                    continue;
+                }
+                let Some(&frame) = wave.tiles.get(ti as usize)
+                else {
+                    continue;
+                };
+                let Some(sprite) = decoded.sdbtnanm_frame(frame)
+                else {
+                    continue;
+                };
+                let cell_x = layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W);
+                blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
             }
-            let Some(&frame) = wave.tiles.get(ti as usize)
-            else {
-                continue;
-            };
-            let Some(sprite) = decoded.sdbtnanm_frame(frame)
-            else {
-                continue;
-            };
-            let cell_x = layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-            blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
         }
     }
     if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
