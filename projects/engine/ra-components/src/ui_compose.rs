@@ -510,13 +510,13 @@ fn compose_shell_menu_page(
         };
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
-        // `sdbtnanm` 禁用帧暂与常态同号；压暗格面，避免「载入」等禁用钮仍像高亮可点。
-        if disabled {
-            dim_rect(&mut page, cell, 110);
-        }
         // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
         if wave_frame.is_some() {
             continue;
+        }
+        // 禁用压暗与字同显隐：波浪中已无字，不再单独留暗斑。
+        if disabled {
+            dim_rect(&mut page, cell, 110);
         }
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
