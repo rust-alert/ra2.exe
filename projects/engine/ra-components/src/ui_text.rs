@@ -210,8 +210,8 @@ pub fn resolve_csf_text(csf: Option<&CsfFile>, key: &str) -> Option<String> {
 
 /// 启用按钮常用黄字（近似原版壳层）。
 pub const MENU_TEXT_ENABLED: [u8; 4] = [255, 214, 0, 255];
-/// 禁用按钮灰字。
-pub const MENU_TEXT_DISABLED: [u8; 4] = [128, 128, 128, 255];
+/// 禁用按钮暗红字（原版壳层约 `#9F0000`，非灰字）。
+pub const MENU_TEXT_DISABLED: [u8; 4] = [0x9F, 0x00, 0x00, 255];
 /// 选项分区标题。
 pub const MENU_TEXT_SECTION: [u8; 4] = [255, 214, 0, 255];
 /// 选项控件说明（偏红）。

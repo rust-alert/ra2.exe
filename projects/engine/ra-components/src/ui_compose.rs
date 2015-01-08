@@ -514,10 +514,7 @@ fn compose_shell_menu_page(
         if wave_frame.is_some() {
             continue;
         }
-        // 禁用压暗与字同显隐：波浪中已无字，不再单独留暗斑。
-        if disabled {
-            dim_rect(&mut page, cell, 110);
-        }
+        // 壳层禁用：同常态 `SDBTNANM` 帧 + 暗红字，不压暗钮面（原版无整格压暗投影）。
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
