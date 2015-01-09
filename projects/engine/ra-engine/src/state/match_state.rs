@@ -26,6 +26,23 @@ use crate::{
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;
 
+/// ECS 战斗静态参数只读视图（测试与诊断）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EcsCombatView {
+    /// 护甲名。
+    pub armor: String,
+    /// 攻击射程。
+    pub attack_range: u32,
+    /// 单次基础伤害。
+    pub attack_damage: u32,
+    /// 开火冷却上限。
+    pub attack_cooldown_max: u32,
+    /// 弹头对各护甲的伤害百分比。
+    pub attack_verses: [u32; 11],
+    /// 对应 techno 种类。
+    pub techno_kind: Option<TechnoKind>,
+}
+
 /// 炮塔每 tick 最多转过的朝向单位（0..=255 环）。
 pub const TURRET_TURN_STEP: u8 = 16;
 
@@ -61,8 +78,8 @@ pub struct MatchState {
     pub map: MapInfo,
     /// 通行格（由地图结构派生，可被重寻路使用）。
     pub pass_grid: PassGrid,
-    /// 世界实体列表（与地图播种顺序对应）。
-    pub entities: Vec<WorldEntity>,
+    /// 世界实体投影槽（与地图播种顺序对应；权威在 ECS）。
+    pub(crate) entities: Vec<WorldEntity>,
     /// 玩家状态（资金、电力等）。
     pub players: Vec<PlayerState>,
     /// 本地玩家 ID。
@@ -84,7 +101,7 @@ pub struct MatchState {
     pub(crate) state_hash: u64,
     /// 呈现脏实体集（增量 `RenderWorld` 用；与全量 snapshot 并存）。
     pub(crate) presentation_dirty: DirtyEntitySet,
-    /// 内部 ECS 世界与 `EntityId` 映射（玩法字段仍以 `entities` 为权威）。
+    /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
 
@@ -464,6 +481,39 @@ impl MatchState {
         self.with_component_mut(id, f)
     }
 
+    /// 投影槽实体数量（应与 ECS 映射对齐）。
+    pub fn entity_count(&self) -> usize {
+        self.entities.len()
+    }
+
+    /// 按下标取稳定实体 ID。
+    pub fn entity_id_at(&self, index: usize) -> Option<EntityId> {
+        self.entities.get(index).map(|e| e.id)
+    }
+
+    /// 全部稳定实体 ID（投影槽顺序）。
+    pub fn entity_ids(&self) -> Vec<EntityId> {
+        self.entities.iter().map(|e| e.id).collect()
+    }
+
+    /// 按房主与类型键查找首个实体 ID。
+    pub fn find_entity_id_by_owner_type(&self, owner: &str, type_id: &str) -> Option<EntityId> {
+        self.entities.iter().find_map(|e| {
+            let id = e.id;
+            let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == owner).unwrap_or(false);
+            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id.as_ref() == type_id).unwrap_or(false);
+            (house_ok && type_ok).then_some(id)
+        })
+    }
+
+    /// 按类型键查找首个实体 ID。
+    pub fn find_entity_id_by_type(&self, type_id: &str) -> Option<EntityId> {
+        self.entities.iter().find_map(|e| {
+            let id = e.id;
+            self.ecs_get::<Identity>(id).filter(|i| i.type_id.as_ref() == type_id).map(|_| id)
+        })
+    }
+
     /// 稳定 ID 是否已在内部 ECS 注册且句柄仍有效。
     pub fn has_ecs_entity(&self, id: EntityId) -> bool {
         self.ecs.resolve(id).is_some()
@@ -485,10 +535,31 @@ impl MatchState {
         Some((health.current, health.maximum, health.dead))
     }
 
-    /// 读取 ECS `Transform` 坐标与朝向（测试与诊断）。
+    /// 读取 ECS `Identity`（测试与诊断）。
+    pub fn ecs_identity(&self, id: EntityId) -> Option<(std::sync::Arc<str>, ra_map::MapEntityKind)> {
+        let identity = self.ecs_get::<crate::state::components::Identity>(id)?;
+        Some((std::sync::Arc::clone(&identity.type_id), identity.kind))
+    }
+
+    /// 读取 ECS `Owner` 房主名（测试与诊断）。
+    pub fn ecs_owner(&self, id: EntityId) -> Option<std::sync::Arc<str>> {
+        self.ecs_get::<crate::state::components::Owner>(id).map(|o| std::sync::Arc::clone(&o.house))
+    }
+
+    /// 读取 ECS `Transform` 坐标与车身朝向（测试与诊断）。
     pub fn ecs_transform(&self, id: EntityId) -> Option<(u16, u16, u8)> {
         let transform = self.ecs_get::<crate::state::components::Transform>(id)?;
         Some((transform.x, transform.y, transform.facing))
+    }
+
+    /// 读取 ECS 炮塔朝向（测试与诊断）。
+    pub fn ecs_turret_facing(&self, id: EntityId) -> Option<u8> {
+        self.ecs_get::<crate::state::components::Transform>(id).map(|t| t.turret_facing)
+    }
+
+    /// 读取 ECS `Locomotor` 速度（测试与诊断）。
+    pub fn ecs_speed(&self, id: EntityId) -> Option<u32> {
+        self.ecs_get::<crate::state::components::Locomotor>(id).map(|l| l.speed)
     }
 
     /// 读取 ECS `MovementState` 目的地（测试与诊断）。
@@ -497,10 +568,28 @@ impl MatchState {
         Some((movement.destination_x, movement.destination_y))
     }
 
+    /// 读取 ECS 移动路径（测试与诊断）。
+    pub fn ecs_path(&self, id: EntityId) -> Option<Vec<(u16, u16)>> {
+        self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.path.clone())
+    }
+
     /// 读取 ECS `AttackState`（测试与诊断）。
     pub fn ecs_attack_state(&self, id: EntityId) -> Option<(Option<EntityId>, u32)> {
         let attack = self.ecs_get::<crate::state::components::AttackState>(id)?;
         Some((attack.target, attack.cooldown))
+    }
+
+    /// 读取 ECS 战斗静态参数（测试与诊断）。
+    pub fn ecs_combat_view(&self, id: EntityId) -> Option<EcsCombatView> {
+        let stats = self.ecs_get::<crate::state::components::CombatStats>(id)?;
+        Some(EcsCombatView {
+            armor: stats.armor.clone(),
+            attack_range: stats.attack_range,
+            attack_damage: stats.attack_damage,
+            attack_cooldown_max: stats.attack_cooldown_max,
+            attack_verses: stats.attack_verses,
+            techno_kind: stats.techno_kind,
+        })
     }
 
     /// 读取 ECS 生产队列剩余 tick（测试与诊断）。
@@ -509,10 +598,29 @@ impl MatchState {
         Some(queue.item.as_ref().map(|(_, rem)| *rem))
     }
 
+    /// 读取 ECS 生产队列条目（测试与诊断）。
+    pub fn ecs_produce_item(&self, id: EntityId) -> Option<Option<(std::sync::Arc<str>, u32)>> {
+        self.ecs_get::<crate::state::components::ProductionQueue>(id).map(|q| q.item.clone())
+    }
+
+    /// 读取 ECS 集结格（测试与诊断）。
+    pub fn ecs_rally(&self, id: EntityId) -> Option<(Option<u16>, Option<u16>)> {
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
+        Some((queue.rally_x, queue.rally_y))
+    }
+
     /// 读取 ECS `AnimationState`（测试与诊断）。
     pub fn ecs_animation(&self, id: EntityId) -> Option<(u16, u32)> {
         let anim = self.ecs_get::<crate::state::components::AnimationState>(id)?;
         Some((anim.hva_frame, anim.hit_flash))
+    }
+
+    /// 测试 / 调试：写入 ECS 炮塔朝向并投影。
+    pub fn set_ecs_turret_facing(&mut self, id: EntityId, turret_facing: u8) -> bool {
+        self.with_transform_mut(id, |transform| {
+            transform.turret_facing = turret_facing;
+        })
+        .is_some()
     }
 
     /// 测试 / 调试：写入 ECS `Health` 并投影。

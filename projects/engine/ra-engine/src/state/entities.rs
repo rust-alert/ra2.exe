@@ -11,7 +11,7 @@ use ra_types::EntityId;
 
 /// 实体的 ECS → 投影缓存（字段与组件对应，非权威存储）。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorldEntity {
+pub(crate) struct WorldEntity {
     /// 稳定实体 ID（不随列表紧凑化改变）。
     pub id: EntityId,
     /// 地图实体种类（单位、建筑、步兵等）。

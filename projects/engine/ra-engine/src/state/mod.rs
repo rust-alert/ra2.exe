@@ -8,6 +8,5 @@ mod players;
 mod resources;
 mod rng;
 
-pub use entities::WorldEntity;
 pub use match_state::*;
 pub use players::PlayerState;

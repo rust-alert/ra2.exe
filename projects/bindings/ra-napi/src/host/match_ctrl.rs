@@ -212,11 +212,9 @@ impl MatchController {
             let hostile = selected
                 .first()
                 .and_then(|&atk| {
-                    let ai = game.world.entity_index(atk)?;
-                    let ti = game.world.entity_index(target)?;
-                    let a = game.world.entities.get(ai)?;
-                    let t = game.world.entities.get(ti)?;
-                    Some(a.owner != t.owner)
+                    let a_owner = game.world.ecs_owner(atk)?;
+                    let t_owner = game.world.ecs_owner(target)?;
+                    Some(a_owner != t_owner)
                 })
                 .unwrap_or(false);
             if hostile {
@@ -338,13 +336,12 @@ impl MatchController {
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
                             let seed = self.local.selected.first().copied().or_else(|| {
-                                game.world
-                                    .entities
-                                    .iter()
-                                    .find(|e| {
-                                        !e.dead && matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-                                    })
-                                    .map(|e| e.id)
+                                game.world.entity_ids().into_iter().find(|&eid| {
+                                    game.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
+                                        && game.world.ecs_identity(eid).is_some_and(|(_, kind)| {
+                                            matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+                                        })
+                                })
                             });
                             if let Some(id) = seed {
                                 self.local.select_all_of_owner(game, id);

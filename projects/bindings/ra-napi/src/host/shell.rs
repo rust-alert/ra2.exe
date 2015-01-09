@@ -2998,7 +2998,7 @@ pub fn run_shell() -> RaResult<()> {
         #[cfg(feature = "test-harness")]
         LaunchMode::DirectMatch(boot) => {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
-                tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entities.len());
+                tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
             AppShell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
         }

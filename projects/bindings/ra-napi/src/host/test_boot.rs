@@ -83,7 +83,7 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         outcome,
         game.paused,
         selected_s,
-        game.world.entities.len(),
+        game.world.entity_count(),
         funds,
         power_output,
         power_drain,
