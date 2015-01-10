@@ -19,6 +19,6 @@ fn dirty_set_drains_sorted_unique() {
 fn world_seed_marks_all_entities_dirty() {
     let mut world = duel_mtnk_world();
     let drained = world.take_presentation_dirty();
-    assert_eq!(drained.len(), world.entities.len());
+    assert_eq!(drained.len(), world.entity_count());
     assert!(world.presentation_dirty().is_empty());
 }

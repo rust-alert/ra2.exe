@@ -58,11 +58,11 @@ fn attack_structure_kills_and_frees_cell() {
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..10 {
         world.advance_tick();
-        if world.entities[1].dead {
+        if world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").2 {
             break;
         }
     }
-    assert!(world.entities[1].dead);
+    assert!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").2);
     assert!(world.pass_grid.is_passable(6, 4));
     assert_eq!(world.players[1].power_output, 0);
 }

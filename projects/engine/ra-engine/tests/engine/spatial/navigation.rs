@@ -36,14 +36,14 @@ fn bfs_detours_around_structure() {
     assert!(!world.pass_grid.is_passable(12, 10));
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });
     world.advance_tick();
-    assert!(!world.entities[1].path.is_empty());
-    assert!(!world.entities[1].path.iter().any(|&(x, y)| x == 12 && y == 10));
+    assert!(!world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").is_empty());
+    assert!(!world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").iter().any(|&(x, y)| x == 12 && y == 10));
     // 八邻绕行仍短于直线穿墙，且不踩封死格。
-    assert!(!world.entities[1].path.is_empty());
-    assert!(world.entities[1].path.len() >= 3);
+    assert!(!world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").is_empty());
+    assert!(world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").len() >= 3);
     for _ in 0..20 {
         world.advance_tick();
     }
-    assert_eq!(world.entities[1].x, 14);
-    assert_eq!(world.entities[1].y, 10);
+    assert_eq!(world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, 14);
+    assert_eq!(world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1, 10);
 }

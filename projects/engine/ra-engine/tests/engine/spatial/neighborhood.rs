@@ -36,8 +36,8 @@ fn shared_waypoint_queues_on_neighbor() {
     for _ in 0..30 {
         world.advance_tick();
     }
-    let a = (world.entities[0].x, world.entities[0].y);
-    let b = (world.entities[1].x, world.entities[1].y);
+    let a = (world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1);
+    let b = (world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1);
     assert_ne!(a, b);
     // 一车占目标，另一车停在曼哈顿距离 ≤2 的邻域。
     let on_wp = |p: (u16, u16)| p == (12, 10);

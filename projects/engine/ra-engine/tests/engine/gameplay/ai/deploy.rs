@@ -54,6 +54,8 @@ fn ai_deploys_mcv_via_command() {
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game_mut().world.entities[1].kind, MapEntityKind::Structure);
-    assert_eq!(session.expect_game_mut().world.entities[1].type_id.as_ref(), "NACNST");
+    let mcv = session.expect_game().world.entity_id_at(1).expect("entity");
+    let identity = session.expect_game().world.ecs_identity(mcv).expect("id");
+    assert_eq!(identity.1, MapEntityKind::Structure);
+    assert_eq!(identity.0.as_ref(), "NACNST");
 }

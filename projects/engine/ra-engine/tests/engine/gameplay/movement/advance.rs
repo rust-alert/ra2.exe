@@ -20,18 +20,18 @@ fn advances_when_ordered_to_move() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    assert_eq!(world.entities[0].target_x, None);
-    assert!(world.entities[0].path.is_empty());
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
+    assert!(world.ecs_path(world.entity_id_at(0).expect("entity")).expect("path").is_empty());
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
-    assert_eq!(world.entities[0].target_x, Some(12));
-    assert_eq!(world.entities[0].x, 11);
-    assert_eq!(world.entities[0].hva_frame, 1);
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(12));
+    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 11);
+    assert_eq!(world.ecs_animation(world.entity_id_at(0).expect("entity")).expect("anim").0, 1);
     world.advance_tick();
-    assert_eq!(world.entities[0].x, 12);
-    assert_eq!(world.entities[0].hva_frame, 2);
+    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 12);
+    assert_eq!(world.ecs_animation(world.entity_id_at(0).expect("entity")).expect("anim").0, 2);
     world.advance_tick();
-    assert_eq!(world.entities[0].x, 12);
+    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 12);
 }
 
 #[test]
@@ -49,11 +49,11 @@ fn move_to_command_sets_target() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    assert_eq!(world.entities[0].target_x, None);
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
-    assert_eq!(world.entities[0].target_x, Some(12));
-    assert_eq!(world.entities[0].x, 11);
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(12));
+    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 11);
 }
 
 #[test]
@@ -72,12 +72,13 @@ fn turret_chases_body_facing() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    world.entities[0].turret_facing = 128;
+    let id0 = world.entity_id_at(0).expect("entity");
+    assert!(world.set_ecs_turret_facing(id0, 128));
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
     world.advance_tick();
     // 车身迈步后 facing 变；炮塔每 tick 最多转 TURRET_TURN_STEP。
-    let body = world.entities[0].facing;
-    let tur = world.entities[0].turret_facing;
+    let body = world.ecs_transform(id0).expect("xf").2;
+    let tur = world.ecs_turret_facing(id0).expect("turret");
     assert_ne!(tur, 128);
     let delta = (i16::from(body) - i16::from(tur)).rem_euclid(256);
     let shortest = if delta > 128 { 256 - delta } else { delta };

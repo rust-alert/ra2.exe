@@ -11,7 +11,7 @@ fn records_reject_for_missing_entity_command() {
     world.advance_tick();
     assert_eq!(world.last_rejects().len(), 1);
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::EntityNotFound);
-    assert_eq!(world.entities[0].x, 4);
+    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 4);
 }
 
 #[test]
@@ -20,18 +20,18 @@ fn records_reject_for_self_attack() {
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(1) });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
-    assert!(world.entities[0].attack_target.is_none());
+    assert!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0.is_none());
 }
 
 #[test]
 fn rejects_local_player_moving_enemy_unit() {
     let mut world = duel_mtnk_world();
     assert_eq!(world.local_player, PlayerId(0));
-    assert_eq!(world.entities[1].owner.as_ref(), "Russians");
-    let enemy_x = world.entities[1].x;
+    assert_eq!(world.ecs_owner(world.entity_id_at(1).expect("entity")).expect("owner").as_ref(), "Russians");
+    let enemy_x = world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0;
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 1, y: 1 });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
-    assert_eq!(world.entities[1].x, enemy_x);
-    assert_ne!(world.entities[1].target_x, Some(1));
+    assert_eq!(world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, enemy_x);
+    assert_ne!(world.ecs_move_destination(world.entity_id_at(1).expect("entity")).expect("dest").0, Some(1));
 }

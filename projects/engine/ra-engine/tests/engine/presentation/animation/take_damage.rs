@@ -33,8 +33,8 @@ fn snapshot_anim_state_take_damage_then_die() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "hit");
-    let attacker = session.expect_game().world.entities[0].id;
-    let target = session.expect_game().world.entities[1].id;
+    let attacker = session.expect_game().world.entity_id_at(0).expect("entity");
+    let target = session.expect_game().world.entity_id_at(1).expect("entity");
     assert!(session.expect_game_mut().world.set_ecs_health(target, 30, 30, false));
     assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 20, 4, 8));
     session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
@@ -46,7 +46,8 @@ fn snapshot_anim_state_take_damage_then_die() {
     }
     else {
         assert_eq!(tgt.anim_state, AnimState::TakeDamage);
-        assert!(session.expect_game_mut().world.entities[1].hit_flash <= HIT_FLASH_TICKS);
-        assert!(session.expect_game_mut().world.entities[1].hit_flash > 0);
+        let flash = session.expect_game().world.ecs_animation(target).expect("anim").1;
+        assert!(flash <= HIT_FLASH_TICKS);
+        assert!(flash > 0);
     }
 }

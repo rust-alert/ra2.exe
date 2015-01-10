@@ -6,8 +6,8 @@ use ra_types::EntityId;
 #[test]
 fn seeds_stable_entity_ids_and_players() {
     let world = duel_mtnk_world();
-    assert_eq!(world.entities[0].id, EntityId(1));
-    assert_eq!(world.entities[1].id, EntityId(2));
+    assert_eq!(world.entity_id_at(0).expect("entity"), EntityId(1));
+    assert_eq!(world.entity_id_at(1).expect("entity"), EntityId(2));
     assert_eq!(world.entity_index(EntityId(2)), Some(1));
     assert_eq!(world.entity_index(EntityId(99)), None);
     assert_eq!(world.players.len(), 2);
@@ -19,8 +19,8 @@ fn seeds_stable_entity_ids_and_players() {
 #[test]
 fn registers_ecs_handles_for_seeded_entities() {
     let world = duel_mtnk_world();
-    assert_eq!(world.ecs_registry_len(), world.entities.len());
-    assert_eq!(world.ecs_alive_count(), world.entities.len());
+    assert_eq!(world.ecs_registry_len(), world.entity_count());
+    assert_eq!(world.ecs_alive_count(), world.entity_count());
     assert!(world.has_ecs_entity(EntityId(1)));
     assert!(world.has_ecs_entity(EntityId(2)));
     assert!(!world.has_ecs_entity(EntityId(99)));

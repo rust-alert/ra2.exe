@@ -14,7 +14,7 @@ fn duplicate_command_id_is_rejected_on_second_apply() {
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.ecs_move_destination(EntityId(1)), Some((Some(1), Some(1))));
-    assert_eq!(world.entities[0].target_x, Some(1));
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(1));
 
     world.push_scheduled(dup);
     world.advance_tick();
@@ -22,5 +22,5 @@ fn duplicate_command_id_is_rejected_on_second_apply() {
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::DuplicateCommand);
     // 重复命令被拒绝后，ECS 权威目的地应保持首次执行结果。
     assert_eq!(world.ecs_move_destination(EntityId(1)), Some((Some(1), Some(1))));
-    assert_eq!(world.entities[0].target_x, Some(1));
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(1));
 }

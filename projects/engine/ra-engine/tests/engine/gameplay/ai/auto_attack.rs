@@ -58,13 +58,16 @@ fn duel_session() -> Session {
 fn ai_issues_attack_via_commands() {
     let engine = test_engine();
     let mut session = duel_session();
-    let before = session.expect_game_mut().world.entities[0].health;
+    let ally = session.expect_game().world.entity_id_at(0).expect("entity");
+    let enemy = session.expect_game().world.entity_id_at(1).expect("entity");
+    let before = session.expect_game().world.ecs_health(ally).expect("health").0;
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
+    let game = session.expect_game();
     assert!(
-        session.expect_game_mut().world.entities[1].attack_target == Some(EntityId(1))
-            || session.expect_game_mut().world.entities[0].health < before
+        game.world.ecs_attack_state(enemy).expect("atk").0 == Some(EntityId(1))
+            || game.world.ecs_health(ally).expect("health").0 < before
     );
-    assert!(session.expect_game_mut().world.entities[0].health < before);
+    assert!(game.world.ecs_health(ally).expect("health").0 < before);
 }

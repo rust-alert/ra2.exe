@@ -30,16 +30,16 @@ fn omitting_combat_phase_skips_damage() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    let a = world.entities[0].id;
-    let b = world.entities[1].id;
+    let a = world.entity_id_at(0).expect("entity");
+    let b = world.entity_id_at(1).expect("entity");
     assert!(world.clear_ecs_movement(a));
     assert!(world.clear_ecs_movement(b));
     assert!(world.set_ecs_speed(b, 0));
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
-    let start_hp = world.entities[1].health;
+    let start_hp = world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0;
     let schedule = SystemSchedule::standard().without(SystemPhase::Combat);
     assert!(!schedule.contains(SystemPhase::Combat));
     world.advance_scheduled_tick(&schedule);
-    assert_eq!(world.entities[0].attack_target, Some(EntityId(2)));
-    assert_eq!(world.entities[1].health, start_hp);
+    assert_eq!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0, Some(EntityId(2)));
+    assert_eq!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, start_hp);
 }

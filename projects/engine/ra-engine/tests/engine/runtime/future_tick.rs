@@ -14,14 +14,14 @@ fn future_scheduled_command_does_not_apply_early() {
     world.advance_tick();
     assert_eq!(world.tick, start_tick.wrapping_add(1));
     assert!(world.last_input_frame().commands.is_empty());
-    assert_ne!(world.entities[0].target_x, Some(1));
+    assert_ne!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(1));
 
     world.advance_tick();
     assert!(world.last_input_frame().commands.is_empty());
-    assert_ne!(world.entities[0].target_x, Some(1));
+    assert_ne!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(1));
 
     world.advance_tick();
     assert_eq!(world.tick, future.0);
     assert_eq!(world.last_input_frame().commands.len(), 1);
-    assert_eq!(world.entities[0].target_x, Some(1));
+    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(1));
 }

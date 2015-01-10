@@ -63,8 +63,8 @@ fn order_attack_and_detects_victor() {
     let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
     {
         let world = &mut session.expect_game_mut().world;
-        let a = world.entities[0].id;
-        let b = world.entities[1].id;
+        let a = world.entity_id_at(0).expect("entity");
+        let b = world.entity_id_at(1).expect("entity");
         assert!(world.clear_ecs_movement(a));
         assert!(world.clear_ecs_movement(b));
         assert!(world.set_ecs_speed(b, 0));
@@ -79,7 +79,7 @@ fn order_attack_and_detects_victor() {
         }
     }
     assert_eq!(session.expect_game().sole_victor(), Some("Americans"));
-    assert!(session.expect_game().world.entities[1].dead);
+    assert!(session.expect_game().world.ecs_health(session.expect_game().world.entity_id_at(1).expect("entity")).expect("health").2);
     assert_eq!(session.expect_game().outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
     assert!(session.expect_game().paused);
     assert_eq!(session.pump(&engine.runtime(), 1.0), 0);

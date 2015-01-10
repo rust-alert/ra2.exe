@@ -51,11 +51,11 @@ fn verses_scales_damage_against_armor() {
         sub_cell: 0,
     });
     let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
-    assert_eq!(world.entities[0].attack_damage, 100);
-    assert_eq!(world.entities[0].attack_verses[5], 50);
-    assert_eq!(world.entities[1].armor, "heavy");
+    assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_damage, 100);
+    assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_verses[5], 50);
+    assert_eq!(world.ecs_combat_view(world.entity_id_at(1).expect("entity")).expect("combat").armor, "heavy");
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     world.advance_tick();
     // 100 * 50% = 50
-    assert_eq!(world.entities[1].health, 350);
+    assert_eq!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, 350);
 }

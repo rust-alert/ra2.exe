@@ -61,17 +61,18 @@ fn produce_infantry_spawns_after_queue_ticks() {
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("Americans"), Some(10_000 - 200));
-    assert_eq!(world.entities.len(), 2);
+    assert_eq!(world.entity_count(), 2);
     for _ in 0..(PRODUCE_TICKS - 1) {
-        assert_eq!(world.entities.len(), 2);
+        assert_eq!(world.entity_count(), 2);
         world.advance_tick();
     }
-    assert_eq!(world.entities.len(), 3);
-    let unit = &world.entities[2];
-    assert_eq!(unit.id, EntityId(3));
-    assert_eq!(unit.kind, MapEntityKind::Infantry);
-    assert_eq!(unit.type_id.as_ref(), "E1");
-    assert_eq!(unit.owner.as_ref(), "Americans");
+    assert_eq!(world.entity_count(), 3);
+    let unit = world.entity_id_at(2).expect("entity");
+    assert_eq!(unit, EntityId(3));
+    let identity = world.ecs_identity(unit).expect("id");
+    assert_eq!(identity.1, MapEntityKind::Infantry);
+    assert_eq!(identity.0.as_ref(), "E1");
+    assert_eq!(world.ecs_owner(unit).expect("owner").as_ref(), "Americans");
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn produce_rejects_insufficient_funds() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
-    assert_eq!(world.entities.len(), 2);
+    assert_eq!(world.entity_count(), 2);
 }
 
 #[test]
@@ -97,8 +98,8 @@ fn produce_rejects_when_queue_busy() {
 #[test]
 fn produce_rejects_without_matching_factory() {
     let mut world = factory_world();
-    let id = world.entities[0].id;
-    let max = world.entities[0].max_health;
+    let id = world.entity_id_at(0).expect("entity");
+    let max = world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").1;
     assert!(world.set_ecs_health(id, 0, max, true));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();

@@ -37,8 +37,8 @@ fn seeds_attack_stats_from_primary_weapon() {
         sub_cell: 0,
     });
     let world = MatchState::new(GameEdition::Ra2, &rules, map);
-    let e = &world.entities[0];
-    assert_eq!(e.attack_damage, 75);
-    assert_eq!(e.attack_range, 5);
-    assert_eq!(e.attack_cooldown_max, 20);
+    let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
+    assert_eq!(combat.attack_damage, 75);
+    assert_eq!(combat.attack_range, 5);
+    assert_eq!(combat.attack_cooldown_max, 20);
 }

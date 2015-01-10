@@ -45,8 +45,8 @@ fn set_rally_point_on_factory() {
     world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 10, y: 8 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.entities[0].rally_x, Some(10));
-    assert_eq!(world.entities[0].rally_y, Some(8));
+    assert_eq!(world.ecs_rally(world.entity_id_at(0).expect("entity")).expect("rally").0, Some(10));
+    assert_eq!(world.ecs_rally(world.entity_id_at(0).expect("entity")).expect("rally").1, Some(8));
 }
 
 #[test]
@@ -59,18 +59,18 @@ fn produced_unit_paths_toward_rally_point() {
     for _ in 0..(PRODUCE_TICKS - 1) {
         world.advance_tick();
     }
-    assert_eq!(world.entities.len(), 2);
-    let unit = &world.entities[1];
-    assert_eq!(unit.type_id.as_ref(), "E1");
-    assert_eq!(unit.target_x, Some(10));
-    assert_eq!(unit.target_y, Some(2));
-    assert!(!unit.path.is_empty());
+    assert_eq!(world.entity_count(), 2);
+    let unit = world.entity_id_at(1).expect("unit");
+    assert_eq!(world.ecs_identity(unit).expect("id").0.as_ref(), "E1");
+    assert_eq!(world.ecs_move_destination(unit).expect("dest").0, Some(10));
+    assert_eq!(world.ecs_move_destination(unit).expect("dest").1, Some(2));
+    assert!(!world.ecs_path(unit).expect("path").is_empty());
 }
 
 #[test]
 fn set_rally_rejects_non_factory() {
     let mut world = barracks_world();
-    let id = world.entities[0].id;
+    let id = world.entity_id_at(0).expect("entity");
     assert!(world.set_ecs_type_id(id, "GACNST", MapEntityKind::Structure));
     world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 5, y: 5 });
     world.advance_tick();

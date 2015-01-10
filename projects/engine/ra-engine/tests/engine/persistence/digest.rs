@@ -31,8 +31,8 @@ fn twin_worlds_same_command_stream_match_hash() {
     });
     let mk = || {
         let mut w = MatchState::new(GameEdition::Ra2, &rules, map.clone());
-        let a = w.entities[0].id;
-        let b = w.entities[1].id;
+        let a = w.entity_id_at(0).expect("entity");
+        let b = w.entity_id_at(1).expect("entity");
         assert!(w.clear_ecs_movement(a));
         assert!(w.clear_ecs_movement(b));
         assert!(w.set_ecs_speed(b, 0));

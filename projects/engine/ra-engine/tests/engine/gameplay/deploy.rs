@@ -60,26 +60,26 @@ fn set_all_players_funds_seeds_every_house() {
 #[test]
 fn deploy_mcv_becomes_construction_yard() {
     let mut world = mcv_world();
-    let id = world.entities[0].id;
+    let id = world.entity_id_at(0).expect("entity");
     world.push_command(GameCommand::Deploy { entity: EntityId(1) });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.entities[0].id, id);
-    assert_eq!(world.entities[0].id, EntityId(1));
-    assert_eq!(world.entities[0].kind, MapEntityKind::Structure);
-    assert_eq!(world.entities[0].type_id.as_ref(), "GACNST");
-    assert_eq!(world.entities[0].speed, 0);
-    assert!(world.entities[0].attack_target.is_none());
+    assert_eq!(world.entity_id_at(0).expect("entity"), id);
+    assert_eq!(world.entity_id_at(0).expect("entity"), EntityId(1));
+    assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").1, MapEntityKind::Structure);
+    assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "GACNST");
+    assert_eq!(world.ecs_speed(world.entity_id_at(0).expect("entity")).expect("speed"), 0);
+    assert!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0.is_none());
 }
 
 #[test]
 fn deploy_rejects_non_mcv_unit() {
     let mut world = mcv_world();
-    let id = world.entities[0].id;
+    let id = world.entity_id_at(0).expect("entity");
     assert!(world.set_ecs_type_id(id, "MTNK", MapEntityKind::Unit));
     world.push_command(GameCommand::Deploy { entity: EntityId(1) });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::CannotDeploy);
-    assert_eq!(world.entities[0].kind, MapEntityKind::Unit);
-    assert_eq!(world.entities[0].type_id.as_ref(), "MTNK");
+    assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").1, MapEntityKind::Unit);
+    assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "MTNK");
 }

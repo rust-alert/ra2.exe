@@ -65,7 +65,7 @@ fn ai_places_refinery_near_yard() {
     let mut session = Session::from_state(world, "ai-refn");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    let refn = session.expect_game_mut().world.entities.iter().find(|e| e.owner.as_ref() == "Soviets" && e.type_id.as_ref() == "NAREFN");
+    let refn = session.expect_game_mut().world.find_entity_id_by_owner_type("Soviets", "NAREFN");
     assert!(refn.is_some(), "AI should place NAREFN");
     assert_eq!(session.expect_game_mut().world.house_funds("Soviets"), Some(10_000 - 2000));
 }
