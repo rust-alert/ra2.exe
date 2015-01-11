@@ -1,9 +1,18 @@
-//! PAL 调色板：256 色 × RGB（VGA 6-bit，左移 2 位还原）。
+//! PAL 调色板：256 色 × RGB（VGA 6-bit → 8-bit）。
+//!
+//! 扩色用 `(v & 63) * 255 / 63`（满幅到 255），对齐常见 MIX 工具预览；
+//! 不是 `v << 2`（最高只到 252）。
 
 use ra_types::{RaError, RaResult};
 
 const COLOR_COUNT: usize = 256;
 const PAL_FILE_SIZE: usize = COLOR_COUNT * 3;
+
+/// VGA 6-bit 分量扩到 8-bit（`0..=63` → `0..=255`）。
+#[inline]
+fn expand_vga6(v: u8) -> u8 {
+    ((u16::from(v & 63) * 255) / 63) as u8
+}
 
 /// RGBA 颜色。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,9 +57,9 @@ impl Palette {
         for (i, color) in colors.iter_mut().enumerate() {
             let base = i * 3;
             let raw = [data[base], data[base + 1], data[base + 2]];
-            let r = raw[0] << 2;
-            let g = raw[1] << 2;
-            let b = raw[2] << 2;
+            let r = expand_vga6(raw[0]);
+            let g = expand_vga6(raw[1]);
+            let b = expand_vga6(raw[2]);
             // 索引 0，以及原生品红色键，按透明处理。
             let transparent = i == 0 || raw == [63, 0, 63];
             *color = Rgba { r, g, b, a: if transparent { 0 } else { 255 } };
