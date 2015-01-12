@@ -15,6 +15,7 @@ mod id;
 mod math;
 mod present_feel;
 mod time;
+mod vga_expand;
 
 pub use asset_source::AssetSource;
 pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledCommand};
@@ -31,3 +32,4 @@ pub use id::{EntityId, HouseId, LocomotorId, PlayerId, SessionId, TypeId, Warhea
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};
+pub use vga_expand::VgaExpandMode;

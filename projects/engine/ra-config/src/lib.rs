@@ -11,7 +11,7 @@ use std::{
     sync::Mutex,
 };
 
-use ra_types::{DisplayMode, PresentFeel};
+use ra_types::{DisplayMode, PresentFeel, VgaExpandMode};
 use serde::Deserialize;
 use toml_edit::{DocumentMut, Item, Table, Value};
 
@@ -199,6 +199,7 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # sound_volume = 0.7           # 壳层点击等短音效，0..1\n\
          # load_min_secs = 3.0          # 遭遇战装载页最短展示秒数（0 关闭）\n\
          # shell_slide_gap_secs = 0.2   # 出去→进来停顿，模拟原版重型机械卡顿（0 关闭）\n\
+         # palette_vga_expand = \"full\" # full=*255/63 满幅 | shift2=左移二位（最高 252）\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n\
@@ -342,6 +343,8 @@ pub struct DesktopSettings {
     pub load_min_secs: f64,
     /// 壳层切页出去→进来之间的停顿秒数（模拟原版重型机械卡顿；`0` 关闭）。
     pub shell_slide_gap_secs: f64,
+    /// VGA 调色板 6→8 bit 扩色：`full`（`*255/63`）或 `shift2`（`<<2`）。
+    pub palette_vga_expand: VgaExpandMode,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
     /// 预留房间名。
@@ -359,6 +362,7 @@ impl Default for DesktopSettings {
             present: PresentFeel::DEFAULT,
             load_min_secs: 3.0,
             shell_slide_gap_secs: 0.2,
+            palette_vga_expand: VgaExpandMode::Full,
             net_url: None,
             net_room: None,
         }
@@ -395,6 +399,9 @@ impl DesktopSettings {
         if let Some(v) = merged.get("shell_slide_gap_secs").and_then(|raw| raw.trim().parse::<f64>().ok()).filter(|v| v.is_finite()) {
             s.shell_slide_gap_secs = v.max(0.0);
         }
+        if let Some(v) = merged.get("palette_vga_expand").and_then(VgaExpandMode::parse) {
+            s.palette_vga_expand = v;
+        }
         if let Some(v) = merged.get("net_url").or_else(|| merged.get("battlenet_url")).filter(|v| !v.is_empty()) {
             s.net_url = Some(v.to_string());
         }
@@ -418,6 +425,7 @@ impl DesktopSettings {
                 t.insert("sound_volume", "0.7");
                 t.insert("load_min_secs", "3.0");
                 t.insert("shell_slide_gap_secs", "0.2");
+                t.insert("palette_vga_expand", VgaExpandMode::Full.as_str());
                 t
             },
         };

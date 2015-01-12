@@ -35,7 +35,7 @@ pub use image::{
     bink_video::{BinkVideoDecoder, BinkVideoError, BinkYuvFrame, yuv420_planes_to_rgba8},
     csf::{CsfFile, LABEL_MAGIC, STRING_MAGIC},
     fnt::{FONT_MAGIC, FntFile, FntGlyph},
-    pal::{Palette, Rgba},
+    pal::{Palette, Rgba, default_vga_expand, set_default_vga_expand},
     pcx::{PcxImage, parse_pcx},
     shp::{ShpFile, ShpFrame, decode_rle_frame},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},

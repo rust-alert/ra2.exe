@@ -6,7 +6,9 @@ pub use ra_config::{ConfigDiagnostic, DesktopSettings, LaunchOverride};
 pub type DesktopConfig = DesktopSettings;
 
 pub fn load_desktop_config_with_diagnostics() -> (DesktopConfig, Vec<ConfigDiagnostic>) {
-    DesktopSettings::load_or_default()
+    let (settings, diagnostics) = DesktopSettings::load_or_default();
+    ra_assets::set_default_vga_expand(settings.palette_vga_expand);
+    (settings, diagnostics)
 }
 
 /// 设置一次性启动覆盖（`ra2 launch --path` / N-API）。
