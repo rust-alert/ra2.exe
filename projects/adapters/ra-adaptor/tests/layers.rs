@@ -114,6 +114,27 @@ fn ra2_edition_skips_expandmd_on_combo_disk() {
 }
 
 #[test]
+fn ra2_edition_supplements_ra2md_for_load_pals() {
+    let dir = scratch_dir("ra2-md-pal");
+    touch(&dir, "language.mix");
+    touch(&dir, "ra2.mix");
+    touch(&dir, "multi.mix");
+    touch(&dir, "theme.mix");
+    touch(&dir, "maps01.mix");
+    touch(&dir, "maps02.mix");
+    touch(&dir, "ra2md.mix");
+    touch(&dir, "expandmd01.mix");
+
+    let c = compose_resource_layers(&dir, &ra2_chain());
+    let md = c.root_mount_plan.iter().find(|s| s.name.eq_ignore_ascii_case("ra2md.mix")).expect("ra2md.mix");
+    assert_eq!(md.priority, PRIORITY_BASE_GAME - 1);
+    assert_eq!(md.layer_id, "base.md_load_pal");
+    assert!(!c.root_mount_plan.iter().any(|s| s.name.to_ascii_lowercase().starts_with("expandmd")));
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("loadmd.mix")));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn yr_edition_keeps_expandmd_on_combo_disk() {
     let dir = scratch_dir("yr-keep-md");
     touch(&dir, "ra2md.mix");

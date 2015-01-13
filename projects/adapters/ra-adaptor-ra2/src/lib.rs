@@ -41,6 +41,8 @@ pub fn profile() -> ResourceProfile {
             "audio.mix",
             "neutral.mix",
             "load.mix",
+            // 合集盘若旁挂 `ra2md.mix`，国家装载调色板在 `loadmd.mix`（见 compose 补充根包）。
+            "loadmd.mix",
             "sidec01.mix",
             "sidec02.mix",
             "sidenc01.mix",

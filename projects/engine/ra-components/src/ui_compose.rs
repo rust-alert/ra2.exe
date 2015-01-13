@@ -1400,29 +1400,8 @@ pub fn compose_load_screen_page(
         blit_rgba_clipped_width(&mut page, &bar.image, x, y, clip_w);
     }
 
-    // 失败时才叠状态与操作钮；装载中只留国家艺术 + 进度条。
+    // 失败时只露操作钮；不再叠中区假对话框（状态在窗口标题）。
     if paint.allow_retry {
-        let status_box = RectPx::new(
-            (layout.canvas.w as f32 * 0.18) as i32,
-            (layout.canvas.h as f32 * 0.78) as i32,
-            ((layout.canvas.w as f32 * 0.64) as i32).max(1),
-            ((layout.canvas.h as f32 * 0.08) as i32).max(1),
-        );
-        fill_rect(&mut page, status_box, [12, 14, 20, 220]);
-        stroke_rect(&mut page, status_box, [180, 24, 24, 255]);
-        if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                paint.status,
-                status_box.x + 8,
-                status_box.y + 6,
-                status_box.w - 16,
-                status_box.h - 12,
-                MENU_TEXT_ENABLED,
-            );
-        }
-
         for entry_id in ["retry", "cancel"] {
             let Some(slot) = slots_load_button_hit(entry_id)
             else {
