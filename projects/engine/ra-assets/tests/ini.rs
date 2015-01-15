@@ -1,4 +1,4 @@
-//! `IniDocument`（oak Westwood AST）行为。
+//! `IniDocument`（Westwood 方言）行为。
 
 use ra_assets::IniDocument;
 
@@ -28,4 +28,13 @@ fn preserves_list_values_with_commas() {
 fn collect_shp_refs_dedupes_and_keeps_order() {
     let doc = IniDocument::parse(b"[A]\nBg=Menu.shp\nBtn=ok.shp, Menu.shp\nOther=readme.txt\n[B]\nX=\"Hover.SHP\"\n").unwrap();
     assert_eq!(doc.collect_shp_refs(), vec!["Menu.shp", "ok.shp", "Hover.SHP"]);
+}
+
+#[test]
+fn mirage_warhead_section_with_trailing_slash_slash() {
+    let doc = IniDocument::parse(
+        b"[MirageWH]    // Supposed to be a heat ray.\nVerses=100%,100%,80%\n",
+    )
+    .unwrap();
+    assert_eq!(doc.get("MirageWH", "Verses"), Some("100%,100%,80%"));
 }

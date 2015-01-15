@@ -1,16 +1,16 @@
 //! 通用 INI 文档（无红警语义；保序、保重复、保来源位置）。
 //!
-//! 由 `oak-ini` Westwood 方言 AST 转换而来。
+//! 由自研 Westwood 方言解析器产出。
 
 use ra_types::RaResult;
 
-use super::from_oak;
+use super::parse;
 
 /// 输入来源编号（多文件栈中的一份）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct SourceId(pub u32);
 
-/// 源文本字节区间（与 `oak-ini` span 对齐：`start..end`）。
+/// 源文本字节区间（`start..end`，相对原文）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SourceSpan {
     /// 所属来源。
@@ -72,9 +72,9 @@ pub struct IniDocument {
 }
 
 impl IniDocument {
-    /// 解析 UTF-8 INI 字节（`oak-ini` Westwood 方言）。
+    /// 解析 UTF-8 INI 字节（Westwood / RA2 方言）。
     pub fn parse(bytes: &[u8]) -> RaResult<Self> {
-        from_oak::parse_with_oak(bytes, SourceId(0))
+        parse::parse_westwood(bytes, SourceId(0))
     }
 
     /// 按比较键查找最后一个匹配 section。

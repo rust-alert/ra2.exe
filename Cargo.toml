@@ -52,7 +52,6 @@ blowfish = "0.10.0"
 byteorder = "1"
 num-bigint = "0.5"
 base64 = "0.23.1"
-oak-ini = { git = "https://github.com/ygg-lang/oaks.git", branch = "dev" }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
 serde = { version = "1", features = ["derive"] }
 toml_edit = { version = "0.25", features = ["serde"] }
