@@ -56,26 +56,13 @@ pub fn load_screen_art_suffix(side: &str) -> &'static str {
     }
 }
 
-/// 阵营 → 装载图优先调色板（缺则回退共享 `mpls.pal`）。
-pub fn load_screen_preferred_pal(side: &str) -> &'static str {
-    match load_screen_art_suffix(side) {
-        "ustates" => "mplsu.pal",
-        "france" => "mplsf.pal",
-        "germany" => "mplsg.pal",
-        "ukingdom" => "mplsuk.pal",
-        "russia" => "mplsr.pal",
-        "korea" => "mplsk.pal",
-        "cuba" => "mplsc.pal",
-        "iraq" => "mplsi.pal",
-        "libya" => "mplsl.pal",
-        "yuri" => "mpyls.pal",
-        "obs" => "mplsobs.pal",
-        _ => "mpls.pal",
-    }
-}
-
-/// 装载图回退调色板（国家 `mpls*` 缺失时用共享 `mpls.pal`，勿用菜单 `shell.pal`）。
+/// 装载图调色板：原版 / 共和国之辉盘均为共享 `mpls.pal`（`cache.mix`），无国家专用 `mplsu` 等。
 pub const LOAD_SCREEN_FALLBACK_PAL: &str = "mpls.pal";
+
+/// 阵营 → 装载图优先调色板（原版链只有共享盘，恒为 [`LOAD_SCREEN_FALLBACK_PAL`]）。
+pub fn load_screen_preferred_pal(_side: &str) -> &'static str {
+    LOAD_SCREEN_FALLBACK_PAL
+}
 
 /// 进度条 SHP（帧 0；按进度横向裁剪填充）。
 pub const LOAD_SCREEN_PROGRESS_SHP: &str = "progbarm.shp";
@@ -87,17 +74,15 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
-/// 选择可读的装载调色板：国家 `mpls*` → 共享 `mpls.pal`。
+/// 选择可读的装载调色板（原版链：共享 `mpls.pal`）。
 pub fn load_screen_palette(side: &str, pal_readable: impl Fn(&str) -> bool) -> &'static str {
     let preferred = load_screen_preferred_pal(side);
     if pal_readable(preferred) {
-        return preferred;
+        preferred
+    } else {
+        // 缺盘时仍返回规范名，解码失败由壳层空页路径兜底。
+        preferred
     }
-    if pal_readable(LOAD_SCREEN_FALLBACK_PAL) {
-        return LOAD_SCREEN_FALLBACK_PAL;
-    }
-    // 极端缺盘时仍声明国家名，便于诊断；解码失败由壳层空页路径兜底。
-    preferred
 }
 
 /// 勾选框种类（对齐 `0x102` 控件 id）。

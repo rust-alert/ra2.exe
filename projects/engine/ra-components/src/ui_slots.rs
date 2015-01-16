@@ -347,7 +347,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             // 默认美国人 800 宽艺术；壳层按所选国家 / 视口覆盖资源名与调色板。
             background_shp: Some("ls800ustates.shp"),
             background_pcx: None,
-            background_pal: Some("mplsu.pal"),
+            background_pal: Some("mpls.pal"),
             background_frame: 0,
             movie_bik: None,
             panels: LOAD_SCREEN_PANELS,

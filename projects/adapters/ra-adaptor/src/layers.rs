@@ -288,20 +288,6 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
     }
 
     let mut layers = Vec::new();
-    // 原版画像下：若合集盘旁有 `ra2md.mix`，低优先级挂上以便嵌套打开 `loadmd.mix`
-    //（国家装载 `mpls*.pal`）。不得抬过基座，也不得引入 `expandmd*`。
-    if chain.edition == GameEdition::Ra2 {
-        if let Some(path) = find_ci_file(root, "ra2md.mix") {
-            let disk_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("ra2md.mix").to_string();
-            layers.push(ResourceLayer {
-                id: "base.md_load_pal".to_string(),
-                kind: ResourceLayerKind::BaseGame,
-                priority: PRIORITY_BASE_GAME - 1,
-                files: vec![ResourceFile { name: disk_name, path: Some(path) }],
-            });
-            diagnostics.notes.push("已补充低优先级 ra2md.mix，供装载页读取 loadmd 国家调色板".into());
-        }
-    }
     if !base_files.is_empty() {
         layers.push(ResourceLayer {
             id: "base".to_string(),
