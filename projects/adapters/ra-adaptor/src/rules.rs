@@ -26,8 +26,14 @@ pub struct RulesDb {
 
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
 pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesDb> {
-    let rules = IniDocument::parse(&source.read(chain.rules_ini)?)?;
-    let art = IniDocument::parse(&source.read(chain.art_ini)?)?;
+    let rules_bytes = source.read(chain.rules_ini)?;
+    let rules = IniDocument::parse(&rules_bytes).map_err(|e| {
+        ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len()))
+    })?;
+    let art_bytes = source.read(chain.art_ini)?;
+    let art = IniDocument::parse(&art_bytes).map_err(|e| {
+        ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len()))
+    })?;
     let overlay_types = OverlayTypeRegistry::from_rules(&rules);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let techno_types = TechnoTypeRegistry::from_rules(&rules);

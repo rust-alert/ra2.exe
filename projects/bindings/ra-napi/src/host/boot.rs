@@ -170,7 +170,9 @@ pub fn boot_world_with_progress(
     let rules = match load_rules_chain(&source, chain) {
         Ok(db) => Some(db),
         Err(e) => {
-            note = format!("{note} · 规则待加载（{e}）");
+            // 规则是开战硬前置：解析失败不得静默成 session=none。
+            note = format!("{note} · 规则解析失败（{e}）");
+            tracing::error!(error = %e, rules = %chain.rules_ini, art = %chain.art_ini, "规则装载失败");
             None
         }
     };
