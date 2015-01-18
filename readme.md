@@ -63,8 +63,8 @@ pnpm exec ra2 extract --path "C:/Games/RA2" --edition ra2 --out ./tmp/extract --
 pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack
 pnpm exec ra2 unpack --path "C:/Games/RA2" --edition ra2 --out ./tmp/unpack --names-file ./extra_names.txt
 
-# 仅调试原生壳（非资源探针）：需 RustAlert.toml 或默认目录
-cargo run -p ra-napi --example launch
+# 原生壳：只走 TypeScript CLI（不要 cargo run / Rust bin / example）
+pnpm exec ra2 launch --path "C:/Games/RA2" --edition ra2
 
 pnpm run lint
 pnpm run fmt

@@ -11,6 +11,10 @@ description = "Node-API 绑定与原生宿主（窗口 / 输入 / 事件循环�
 keywords = ["red-alert-2", "napi", "nodejs", "native-addon"]
 categories = ["game-development", "api-bindings"]
 publish = false
+autobins = false
+autoexamples = false
+autotests = true
+autobenches = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -46,7 +50,3 @@ optional = true
 
 [build-dependencies]
 napi-build = "2"
-
-[[example]]
-name = "launch"
-required-features = []

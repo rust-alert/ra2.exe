@@ -21,10 +21,10 @@ pnpm run build:napi
 
 产物由 `scripts/build/napi.mjs` 写入平台包目录，再由 `@game-gpt/red-alert2` 整合。
 
-调试原生壳（非资源探针）：
+原生壳与资源工具统一走 TypeScript CLI（不要再用 `cargo run` / Rust `bin` / `example`）：
 
 ```shell
-cargo run -p ra-napi --example launch
+pnpm exec ra2 launch --path "C:/Games/RA2" --edition ra2
 ```
 
 ## 调用约定
