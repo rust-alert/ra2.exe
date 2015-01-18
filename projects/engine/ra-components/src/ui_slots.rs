@@ -227,7 +227,8 @@ const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
 const LOAD_SCREEN_PANELS: &[UiPanelSlot] = &[UiPanelSlot {
     id: "progress",
     shp: "progbarm.shp",
-    pal: "mpls.pal",
+    // 填充条在 conquer.mix；与国家艺术共用 mpls.pal 会花屏（extract --decode-shp 已证）。
+    pal: "shell.pal",
     frame: 0,
 }];
 

@@ -187,7 +187,7 @@ pub fn page_resources_from_slots_with_edition(screen: OriginalScreen, edition: O
     })
 }
 
-/// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`，调色板可读则用国家 `mpls*`。
+/// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`，背景用共享 `mpls.pal`。
 pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::LoadScreen)?;
     let pal = load_screen_palette(side, &readable);
@@ -202,7 +202,11 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
             .iter()
             // 进度条可选：库存缺 `progbarm` 时仍解码国家背景。
             .filter(|p| readable(p.shp))
-            .map(|p| UiAssetRef::with_palette_frame(p.shp, pal, p.frame))
+            .map(|p| {
+                // 面板用自身声明的 pal（`progbarm`→`shell.pal`），勿跟背景 `mpls.pal` 绑死。
+                let panel_pal = if readable(p.pal) { p.pal } else { pal };
+                UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
+            })
             .collect(),
         buttons: page.buttons.iter().map(slot_to_button).collect(),
         fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
