@@ -18,3 +18,4 @@ blowfish = { workspace = true }
 byteorder = { workspace = true }
 num-bigint = { workspace = true }
 symphonia = { workspace = true, features = ["wav", "pcm"] }
+encoding_rs = { workspace = true }

@@ -38,3 +38,9 @@ fn mirage_warhead_section_with_trailing_slash_slash() {
     .unwrap();
     assert_eq!(doc.get("MirageWH", "Verses"), Some("100%,100%,80%"));
 }
+
+#[test]
+fn accepts_windows_1252_ellipsis_in_value() {
+    let doc = IniDocument::parse(b"[VOX]\nText=control\x85standby.\n").unwrap();
+    assert_eq!(doc.get("VOX", "Text"), Some("control\u{2026}standby."));
+}

@@ -10,7 +10,7 @@ use super::parse;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct SourceId(pub u32);
 
-/// 源文本字节区间（`start..end`，相对原文）。
+/// 源文本字节区间（`start..end`，相对**解码后** UTF-8 文本）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SourceSpan {
     /// 所属来源。
@@ -72,7 +72,9 @@ pub struct IniDocument {
 }
 
 impl IniDocument {
-    /// 解析 UTF-8 INI 字节（Westwood / RA2 方言）。
+    /// 解析 INI 字节（Westwood / RA2 方言）。
+    ///
+    /// 非 UTF-8 输入先经 `encoding_rs`（Windows-1252）转成 UTF-8，再解析。
     pub fn parse(bytes: &[u8]) -> RaResult<Self> {
         parse::parse_westwood(bytes, SourceId(0))
     }

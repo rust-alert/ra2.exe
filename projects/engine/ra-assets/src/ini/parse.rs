@@ -1,21 +1,36 @@
-//! Westwood / RA2 方言 INI：自研行式解析。
+//! Westwood / RA2 方言 INI：自研行式解析（只吃 UTF-8）。
 //!
-//! 与通用 INI 库差异过大，不依赖第三方：
+//! 入参字节先经 [`decode_westwood_text`] 转成 UTF-8，再按行解析。
+//! 与通用 INI 库差异过大，不依赖第三方解析器：
 //! - `;` 与行内 `//` 注释（含 section 头尾随）
 //! - 无 `=` 的装饰行直接忽略
 //! - `Key=` 空值合法
 //! - 重复键保序；查找大小写不敏感
-//! - 源字节偏移取自原文（不先删行再解析）
+//! - span 相对**解码后**的 UTF-8 文本
 
-use ra_types::{RaError, RaResult};
+use ra_types::RaResult;
 
 use super::document::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 
-/// 解析 UTF-8 Westwood 方言 INI。
+/// 解析 Westwood 方言 INI：非 UTF-8 先转码，再走 UTF-8 行式解析。
 pub(crate) fn parse_westwood(bytes: &[u8], source: SourceId) -> RaResult<IniDocument> {
-    let text = std::str::from_utf8(bytes).map_err(|e| RaError::Parse(e.to_string()))?;
-    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let text = decode_westwood_text(bytes);
+    Ok(parse_utf8(&text, source))
+}
 
+/// 将原版 / 资料片 INI 字节转为 UTF-8 文本。
+///
+/// 优先按 UTF-8（可带 BOM）；否则按 Windows-1252（`encoding_rs`）解码。
+pub(crate) fn decode_westwood_text(bytes: &[u8]) -> String {
+    let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+    let (cow, _encoding_used, _had_errors) = encoding_rs::WINDOWS_1252.decode(bytes);
+    cow.into_owned()
+}
+
+fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
     let mut leading: Vec<IniEntry> = Vec::new();
     let mut sections: Vec<IniSection> = Vec::new();
     let mut current: Option<IniSection> = None;
@@ -76,7 +91,7 @@ pub(crate) fn parse_westwood(bytes: &[u8], source: SourceId) -> RaResult<IniDocu
         sections.push(sec);
     }
 
-    Ok(IniDocument { source, leading, sections })
+    IniDocument { source, leading, sections }
 }
 
 /// 去掉行尾 `;` / `//` 注释；双引号内与 `://` 不截断。
@@ -182,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn span_uses_original_offsets() {
+    fn span_uses_decoded_utf8_offsets() {
         let raw = "[A]\nKey=1\n";
         let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
         let sec = doc.section("A").unwrap();
@@ -191,5 +206,14 @@ mod tests {
         let entry = &sec.entries[0];
         let es = entry.span.unwrap();
         assert_eq!(&raw[es.start..es.end], "Key=1");
+    }
+
+    #[test]
+    fn windows_1252_high_bytes_decode_before_parse() {
+        // `0x85` 在 Windows-1252 为省略号；非法 UTF-8。
+        let raw = b"[VOX]\nText=battlefield control\x85standby.\nRussian=csof016\n";
+        let doc = parse_westwood(raw, SourceId::default()).unwrap();
+        assert_eq!(doc.get("VOX", "Text"), Some("battlefield control\u{2026}standby."));
+        assert_eq!(doc.get("VOX", "Russian"), Some("csof016"));
     }
 }

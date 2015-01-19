@@ -61,6 +61,7 @@ napi-derive = "3"
 symphonia = { version = "0.6.1", default-features = false, features = ["wav", "pcm"] }
 # 仅设备播放；PCM 解码已由 `ra-assets` + Symphonia 完成，勿再拉 rodio 内置 demux。
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
+encoding_rs = "0.8"
 
 [profile.release]
 opt-level = 3
