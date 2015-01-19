@@ -209,6 +209,17 @@ impl MatchState {
         }
     }
 
+    /// 确保玩家表含有该 house（遭遇战大厅阵营）。
+    ///
+    /// 多人图实体多为 `Neutral` 平民，大厅所选国家不会出现在放置段里，需要显式登记。
+    pub fn ensure_house(&mut self, house: &str) {
+        if self.players.iter().any(|p| p.house.as_ref() == house) {
+            return;
+        }
+        let id = PlayerId(self.players.len() as u8);
+        self.players.push(PlayerState::new(id, house));
+    }
+
     /// 标记实体对呈现层变脏。
     pub fn mark_entity_dirty(&mut self, id: EntityId) {
         self.presentation_dirty.mark(id);

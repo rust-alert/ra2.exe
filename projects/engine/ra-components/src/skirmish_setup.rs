@@ -4,7 +4,7 @@
 
 use ra_layout::ui_layout::{RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SkirmishLobbyLayout};
 
-/// 大厅可选阵营短名（需与地图实体 `owner` 对得上才会成为本地玩家）。
+/// 大厅可选阵营短名（写入装载请求；遭遇战会登记进玩家表，不要求地图实体已有同名 owner）。
 /// 旗标 PCX 取自 `local.mix` 已证实文件名。
 pub const LOBBY_SIDES: &[&str] = &["Americans", "French", "Germans", "British", "Russians"];
 
