@@ -41,6 +41,13 @@ fn parse_and_lookup_is_case_insensitive() {
 }
 
 #[test]
+fn text_table_escapes_newlines_and_sorts_keys() {
+    let csf = CsfFile::parse(&tiny_csf()).unwrap();
+    let text = csf.to_text_table();
+    assert_eq!(text, "GUI:SINGLEPLAYER=Single Player\n");
+}
+
+#[test]
 fn parse_rejects_bad_magic() {
     let err = CsfFile::parse(&[0u8; 24]).unwrap_err();
     assert!(err.to_string().contains("魔数"));

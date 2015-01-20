@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 
 use ra_adaptor::detect_edition;
-use ra_assets::{MixNameTable, Palette, ShpFile};
+use ra_assets::{CsfFile, MixNameTable, Palette, ShpFile};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -31,6 +31,8 @@ pub struct ExtractRequest {
     pub palette: Option<String>,
     /// 为 `.shp` 额外写出 `name.frameNNNN.png`。
     pub decode_shp: bool,
+    /// 为 `.csf` 额外写出 `name.txt`（UTF-8 `KEY=value` 表）。
+    pub decode_csf: bool,
 }
 
 /// 单个已写出文件。
@@ -46,6 +48,8 @@ pub struct ExtractedFile {
     pub origin: String,
     /// 若为 SHP 且已解码，帧数。
     pub shp_frames: Option<usize>,
+    /// 若为 CSF 且已解码，条目数。
+    pub csf_entries: Option<usize>,
 }
 
 /// 导出结果摘要。
@@ -72,7 +76,15 @@ impl ExtractRequest {
 
     /// 从桌面配置构造（覆盖 `out_dir` / `names`）。
     pub fn from_config(cfg: &DesktopConfig, out_dir: PathBuf, names: Vec<String>) -> Self {
-        Self { ra2_dir: cfg.ra2_dir.clone(), edition: cfg.edition.clone(), out_dir, names, palette: None, decode_shp: false }
+        Self {
+            ra2_dir: cfg.ra2_dir.clone(),
+            edition: cfg.edition.clone(),
+            out_dir,
+            names,
+            palette: None,
+            decode_shp: false,
+            decode_csf: false,
+        }
     }
 }
 
@@ -123,14 +135,28 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
         };
 
         let mut shp_frames = None;
+        let mut csf_entries = None;
         if req.decode_shp && name.to_ascii_lowercase().ends_with(".shp") {
             match decode_shp_frames_to_png(&source, name, &hit.bytes, &req.out_dir, &safe, req.palette.as_deref()) {
                 Ok(n) => shp_frames = Some(n),
                 Err(e) => tracing::warn!(name = %name, "SHP 解码跳过 · {e}"),
             }
         }
+        if req.decode_csf && name.to_ascii_lowercase().ends_with(".csf") {
+            match decode_csf_to_text(&hit.bytes, &req.out_dir, &safe) {
+                Ok(n) => csf_entries = Some(n),
+                Err(e) => tracing::warn!(name = %name, "CSF 解码跳过 · {e}"),
+            }
+        }
 
-        written.push(ExtractedFile { name: name.clone(), path: dest, bytes: hit.bytes.len(), origin, shp_frames });
+        written.push(ExtractedFile {
+            name: name.clone(),
+            path: dest,
+            bytes: hit.bytes.len(),
+            origin,
+            shp_frames,
+            csf_entries,
+        });
     }
 
     Ok(ExtractReport { written, missing, edition: manifest.chain.edition.as_str().to_string(), mounted_root, mounted_nested })
@@ -194,6 +220,15 @@ fn load_palette_for_shp(source: &GameAssetSource, shp_name: &str, override_pal: 
     Err(RaError::Msg(format!("no palette for {shp_name}: {}", last.unwrap_or_else(|| "no candidates".into()))))
 }
 
+fn decode_csf_to_text(csf_bytes: &[u8], out_dir: &Path, safe_name: &str) -> RaResult<usize> {
+    let table = CsfFile::parse(csf_bytes)?;
+    let text = table.to_text_table();
+    let stem = Path::new(safe_name).file_stem().and_then(|s| s.to_str()).unwrap_or(safe_name);
+    let dest = out_dir.join(format!("{stem}.txt"));
+    std::fs::write(&dest, text.as_bytes()).map_err(|e| RaError::Io(format!("{}: {e}", dest.display())))?;
+    Ok(table.len())
+}
+
 /// 全量解包请求。
 #[derive(Debug, Clone)]
 pub struct UnpackRequest {
@@ -205,6 +240,8 @@ pub struct UnpackRequest {
     pub out_dir: PathBuf,
     /// 额外文件名表路径（一行一个逻辑名，追加到内置 well-known 表）。
     pub names_file: Option<PathBuf>,
+    /// 遇到 `.csf` 时额外写出同名 `.txt` 文本表。
+    pub decode_csf: bool,
 }
 
 /// 全量解包结果。
@@ -279,7 +316,7 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
             Some(name) => (sanitize_filename(name), true),
             None => (format!("id_{:08X}.bin", entry.entry_id as u32), false),
         };
-        let dest = dest_dir.join(file_name);
+        let dest = dest_dir.join(&file_name);
         match std::fs::write(&dest, entry.bytes) {
             Ok(()) => {
                 files_written += 1;
@@ -289,6 +326,11 @@ pub fn unpack_all(req: &UnpackRequest) -> RaResult<UnpackReport> {
                 }
                 else {
                     unnamed_written += 1;
+                }
+                if req.decode_csf && file_name.to_ascii_lowercase().ends_with(".csf") {
+                    if let Err(e) = decode_csf_to_text(entry.bytes, &dest_dir, &file_name) {
+                        tracing::warn!(path = %dest.display(), "CSF 解码跳过 · {e}");
+                    }
                 }
             }
             Err(e) => tracing::warn!(path = %dest.display(), "写入解包文件失败 · {e}"),

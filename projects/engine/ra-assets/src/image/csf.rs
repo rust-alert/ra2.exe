@@ -65,6 +65,33 @@ impl CsfFile {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// 遍历全部条目（键已为大写）。
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> + '_ {
+        self.entries.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+
+    /// 导出为 UTF-8 文本表：每行 `KEY=value`，值内换行写成 `\n`，按键排序。
+    pub fn to_text_table(&self) -> String {
+        let mut keys: Vec<&str> = self.entries.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        let mut out = String::new();
+        for key in keys {
+            let value = self.entries.get(key).map(String::as_str).unwrap_or("");
+            out.push_str(key);
+            out.push('=');
+            for ch in value.chars() {
+                match ch {
+                    '\n' => out.push_str("\\n"),
+                    '\r' => out.push_str("\\r"),
+                    '\\' => out.push_str("\\\\"),
+                    c => out.push(c),
+                }
+            }
+            out.push('\n');
+        }
+        out
+    }
 }
 
 fn read_u32(data: &[u8], offset: usize) -> RaResult<u32> {

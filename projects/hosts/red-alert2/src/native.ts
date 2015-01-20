@@ -16,6 +16,7 @@ export type ExtractOptions = {
     edition?: string;
     palette?: string;
     decodeShp?: boolean;
+    decodeCsf?: boolean;
 };
 
 export type ExtractedFile = {
@@ -24,6 +25,7 @@ export type ExtractedFile = {
     bytes: number;
     origin: string;
     shpFrames: number | null;
+    csfEntries: number | null;
 };
 
 export type ExtractResult = {
@@ -39,6 +41,7 @@ export type UnpackOptions = {
     out: string;
     edition?: string;
     namesFile?: string;
+    decodeCsf?: boolean;
 };
 
 export type UnpackResult = {

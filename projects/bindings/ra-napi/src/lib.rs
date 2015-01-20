@@ -56,6 +56,8 @@ pub struct ExtractOptions {
     pub palette: Option<String>,
     /// 为 `.shp` 额外写出各帧 PNG。
     pub decode_shp: Option<bool>,
+    /// 为 `.csf` 额外写出 UTF-8 `KEY=value` 文本表（`name.txt`）。
+    pub decode_csf: Option<bool>,
 }
 
 /// 单个已导出文件（N-API）。
@@ -71,6 +73,8 @@ pub struct ExtractedFileJs {
     pub origin: String,
     /// SHP 已解码帧数（未解码则为 `null`）。
     pub shp_frames: Option<u32>,
+    /// CSF 已解码条目数（未解码则为 `null`）。
+    pub csf_entries: Option<u32>,
 }
 
 /// 按名导出结果（N-API）。
@@ -88,7 +92,7 @@ pub struct ExtractResultJs {
     pub mounted_nested: u32,
 }
 
-/// 按逻辑名从安装 VFS 导出原始字节（可选 SHP→PNG）。
+/// 按逻辑名从安装 VFS 导出原始字节（可选 SHP→PNG / CSF→TXT）。
 #[napi]
 pub fn extract(options: ExtractOptions) -> Result<ExtractResultJs> {
     let path = PathBuf::from(options.path.trim());
@@ -110,6 +114,7 @@ pub fn extract(options: ExtractOptions) -> Result<ExtractResultJs> {
         names: options.names,
         palette: options.palette.filter(|s| !s.trim().is_empty()),
         decode_shp: options.decode_shp.unwrap_or(false),
+        decode_csf: options.decode_csf.unwrap_or(false),
     };
 
     let report = extract_named(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
@@ -123,6 +128,7 @@ pub fn extract(options: ExtractOptions) -> Result<ExtractResultJs> {
                 bytes: f.bytes as u32,
                 origin: f.origin,
                 shp_frames: f.shp_frames.map(|n| n as u32),
+                csf_entries: f.csf_entries.map(|n| n as u32),
             })
             .collect(),
         missing: report.missing,
@@ -143,6 +149,8 @@ pub struct UnpackOptions {
     pub out: String,
     /// 可选额外文件名表（一行一个逻辑名）。
     pub names_file: Option<String>,
+    /// 遇到 `.csf` 时额外写出同名 `.txt` 文本表。
+    pub decode_csf: Option<bool>,
 }
 
 /// 全量解包结果（N-API）。
@@ -187,6 +195,7 @@ pub fn unpack(options: UnpackOptions) -> Result<UnpackResultJs> {
         edition: options.edition.filter(|s| !s.trim().is_empty()),
         out_dir: out,
         names_file: options.names_file.filter(|s| !s.trim().is_empty()).map(PathBuf::from),
+        decode_csf: options.decode_csf.unwrap_or(false),
     };
     let report = unpack_all(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
     Ok(UnpackResultJs {

@@ -4,15 +4,16 @@ import { pathToFileURL } from 'node:url';
 function printUsage() {
     console.log(`Usage:
   ra2 launch --path <game-dir> [--edition ra2|yr]
-  ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--palette name.pal] [--decode-shp] [--] <name>...
-  ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>]
+  ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
+  ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
   ra2 --version
   ra2 --help
 
 Examples:
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
+  ra2 extract --path "C:/Games/RA2" --out ./out --decode-csf -- ra2.csf
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked
-  ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt`);
+  ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf`);
 }
 
 function parsePathEditionOut(args, command) {
@@ -20,6 +21,7 @@ function parsePathEditionOut(args, command) {
     let out = null;
     let edition;
     let namesFile;
+    let decodeCsf = false;
     const rest = [];
 
     for (let i = 0; i < args.length; i += 1) {
@@ -56,6 +58,10 @@ function parsePathEditionOut(args, command) {
             i += 1;
             continue;
         }
+        if (a === '--decode-csf') {
+            decodeCsf = true;
+            continue;
+        }
         rest.push(a);
     }
 
@@ -65,7 +71,7 @@ function parsePathEditionOut(args, command) {
     if (!out) {
         throw new Error(`${command}: --out is required`);
     }
-    return { path: gamePath, out, edition, namesFile, rest };
+    return { path: gamePath, out, edition, namesFile, decodeCsf, rest };
 }
 
 function parseExtractArgs(args) {
@@ -74,6 +80,7 @@ function parseExtractArgs(args) {
     let edition;
     let palette;
     let decodeShp = false;
+    let decodeCsf = false;
     const names = [];
     let afterSep = false;
 
@@ -119,6 +126,10 @@ function parseExtractArgs(args) {
             decodeShp = true;
             continue;
         }
+        if (!afterSep && a === '--decode-csf') {
+            decodeCsf = true;
+            continue;
+        }
         if (!afterSep && a.startsWith('-')) {
             throw new Error(`extract: unknown argument ${a}`);
         }
@@ -135,7 +146,7 @@ function parseExtractArgs(args) {
         throw new Error('extract: at least one logical name is required');
     }
 
-    return { path: gamePath, out, edition, palette, decodeShp, names };
+    return { path: gamePath, out, edition, palette, decodeShp, decodeCsf, names };
 }
 
 async function main() {
@@ -202,6 +213,7 @@ async function main() {
             edition: opts.edition,
             palette: opts.palette,
             decodeShp: opts.decodeShp,
+            decodeCsf: opts.decodeCsf,
             names: opts.names,
         });
         console.log(
@@ -209,7 +221,8 @@ async function main() {
         );
         for (const f of result.written) {
             const frames = f.shpFrames != null ? ` frames=${f.shpFrames}` : '';
-            console.log(`OK ${f.name} -> ${f.path} (${f.bytes} bytes, ${f.origin})${frames}`);
+            const csf = f.csfEntries != null ? ` csf=${f.csfEntries}` : '';
+            console.log(`OK ${f.name} -> ${f.path} (${f.bytes} bytes, ${f.origin})${frames}${csf}`);
         }
         for (const name of result.missing) {
             console.log(`MISSING ${name}`);
@@ -238,6 +251,7 @@ async function main() {
             out: opts.out,
             edition: opts.edition,
             namesFile: opts.namesFile,
+            decodeCsf: opts.decodeCsf,
         });
         console.log(
             `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} archives=${result.archives} files=${result.filesWritten} named=${result.namedWritten} unnamed=${result.unnamedWritten} names=${result.nameTableSize} bytes=${result.bytesWritten} out=${result.outDir}`,
