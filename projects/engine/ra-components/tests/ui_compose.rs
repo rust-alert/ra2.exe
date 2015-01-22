@@ -414,7 +414,8 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         None,
-        LoadScreenPaint { status: "装载中", allow_retry: false, progress: 0.5 },
+        None,
+        LoadScreenPaint { side: "Americans", status: "装载中", allow_retry: false, progress: 0.5 },
     )
     .unwrap();
     // 国家艺术铺满画布左上。
@@ -430,7 +431,8 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         None,
-        LoadScreenPaint { status: "装载失败 · test", allow_retry: true, progress: 1.0 },
+        None,
+        LoadScreenPaint { side: "Americans", status: "装载失败 · test", allow_retry: true, progress: 1.0 },
     )
     .unwrap();
     assert_eq!(failed.width(), 800);

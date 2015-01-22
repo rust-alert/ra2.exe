@@ -1335,7 +1335,9 @@ impl AppShell {
                         self.menu_pressed_entry,
                         self.menu_hovered_entry,
                         self.menu_font.as_ref(),
+                        self.menu_csf.as_ref(),
                         ui_compose::LoadScreenPaint {
+                            side: self.skirmish.side.as_str(),
                             status: load_status.as_deref().unwrap_or(""),
                             allow_retry: load_allow_retry,
                             progress: load_progress,
@@ -1371,7 +1373,9 @@ impl AppShell {
                     self.menu_pressed_entry,
                     self.menu_hovered_entry,
                     self.menu_font.as_ref(),
+                    self.menu_csf.as_ref(),
                     ui_compose::LoadScreenPaint {
+                        side: self.skirmish.side.as_str(),
                         status: load_status.as_deref().unwrap_or(self.banner.as_str()),
                         allow_retry: load_allow_retry,
                         progress: load_progress,

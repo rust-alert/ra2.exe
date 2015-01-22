@@ -48,11 +48,27 @@ pub fn load_screen_art_suffix(side: &str) -> &'static str {
         "Russians" => "russia",
         "Alliance" | "Korea" | "Koreans" => "korea",
         "Confederation" | "Cuba" | "Cubans" => "cuba",
-        "Iraq" | "Iraqis" => "iraq",
-        "Libya" | "Libyans" => "libya",
+        "Arabs" | "Iraq" | "Iraqis" => "iraq",
+        "Africans" | "Libya" | "Libyans" => "libya",
         "YuriCountry" | "Yuri" => "yuri",
         "Observer" | "Observers" => "obs",
         _ => "ustates",
+    }
+}
+
+/// 阵营 → CSF `LOADBRIEF:*` / `LOADBRIEFSHORT:*` 后缀（与 `ra2.csf` 键一致）。
+pub fn load_screen_brief_suffix(side: &str) -> &'static str {
+    match side {
+        "Americans" => "USA",
+        "French" => "FRENCH",
+        "Germans" => "GERMANS",
+        "British" => "BRITISH",
+        "Russians" => "RUSSIA",
+        "Alliance" | "Korea" | "Koreans" => "KOREA",
+        "Confederation" | "Cuba" | "Cubans" => "CUBA",
+        "Arabs" | "Iraq" | "Iraqis" => "IRAQ",
+        "Africans" | "Libya" | "Libyans" => "LYBIA",
+        _ => "USA",
     }
 }
 

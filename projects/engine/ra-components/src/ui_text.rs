@@ -205,7 +205,28 @@ pub fn resolve_caption<'a>(csf: Option<&'a CsfFile>, entry_id: &str, csf_key: Op
 /// 仅当 CSF 有非空文案时返回；缺省不回退。
 pub fn resolve_csf_text(csf: Option<&CsfFile>, key: &str) -> Option<String> {
     let text = csf?.get(key)?;
-    if text.is_empty() { None } else { Some(text.to_string()) }
+    let cleaned = sanitize_csf_display(text);
+    if cleaned.is_empty() { None } else { Some(cleaned) }
+}
+
+/// 去掉 CSF 脏字节（模组截断留下的 U+FFFD / NUL）。
+pub fn sanitize_csf_display(text: &str) -> String {
+    text.chars().filter(|c| *c != '\0' && *c != '\u{FFFD}').collect::<String>().trim().to_string()
+}
+
+/// 装载页国家名 CSF：`NAME:{side}`（如 `NAME:AMERICANS`）。
+pub fn load_screen_name_csf_key(side: &str) -> String {
+    format!("NAME:{}", side.to_ascii_uppercase())
+}
+
+/// 装载页国家介绍 CSF：`LOADBRIEF:{suffix}`。
+pub fn load_screen_brief_csf_key(side: &str) -> String {
+    format!("LOADBRIEF:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
+}
+
+/// 装载页特色短句 CSF：`LOADBRIEFSHORT:{suffix}`。
+pub fn load_screen_brief_short_csf_key(side: &str) -> String {
+    format!("LOADBRIEFSHORT:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
 }
 
 /// 启用按钮常用黄字（近似原版壳层）。
@@ -216,6 +237,10 @@ pub const MENU_TEXT_DISABLED: [u8; 4] = [0x9F, 0x00, 0x00, 255];
 pub const MENU_TEXT_SECTION: [u8; 4] = [255, 214, 0, 255];
 /// 选项控件说明（偏红）。
 pub const MENU_TEXT_ACCENT: [u8; 4] = [220, 48, 48, 255];
+/// 装载页正文（浅色，压在深蓝国家艺术上）。
+pub const LOAD_SCREEN_TEXT: [u8; 4] = [220, 230, 255, 255];
+/// 装载页特色短句强调色。
+pub const LOAD_SCREEN_TEXT_ACCENT: [u8; 4] = [255, 214, 0, 255];
 
 /// 选项左栏文案键。
 pub fn options_dialog_csf_key(kind: &str) -> Option<&'static str> {
@@ -347,6 +372,59 @@ pub fn blit_caption_top_left_clipped(
         first = false;
         blit_text_colored(dst, fnt, &ch.to_string(), pen_x, cell_y, rgba);
         pen_x += glyph.width as i32;
+    }
+}
+
+/// 在矩形内左上锚点逐行绘制（按字宽折行；显式 `\n` 换行）。
+pub fn blit_caption_wrapped(
+    dst: &mut RgbaImage,
+    fnt: &FntFile,
+    text: &str,
+    cell_x: i32,
+    cell_y: i32,
+    cell_w: i32,
+    cell_h: i32,
+    rgba: [u8; 4],
+) {
+    if cell_w <= 0 || cell_h <= 0 || text.is_empty() {
+        return;
+    }
+    let line_h = (fnt.bitmap_rows as i32).max(1) + 2;
+    let mut y = cell_y;
+    for paragraph in text.split('\n') {
+        let mut line = String::new();
+        for ch in paragraph.chars() {
+            let candidate = {
+                let mut t = line.clone();
+                t.push(ch);
+                t
+            };
+            if fnt.text_width(&candidate) as i32 <= cell_w || line.is_empty() {
+                line.push(ch);
+                continue;
+            }
+            if y + line_h > cell_y + cell_h {
+                return;
+            }
+            blit_caption_top_left_clipped(dst, fnt, &line, cell_x, y, cell_w, line_h, rgba);
+            y += line_h;
+            line.clear();
+            line.push(ch);
+        }
+        if !line.is_empty() {
+            if y + line_h > cell_y + cell_h {
+                return;
+            }
+            blit_caption_top_left_clipped(dst, fnt, &line, cell_x, y, cell_w, line_h, rgba);
+            y += line_h;
+        }
+        else {
+            // 空段仍推进一行，保留段落间距。
+            y += line_h;
+        }
+        if y >= cell_y + cell_h {
+            return;
+        }
     }
 }
 

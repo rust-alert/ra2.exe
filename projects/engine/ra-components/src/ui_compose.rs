@@ -10,10 +10,11 @@ use crate::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_caption_top_left_clipped,
-        blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
-        choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, main_menu_csf_label,
-        options_csf_label, options_dialog_csf_key, resolve_caption, single_player_csf_label, single_player_title_csf_key,
-        skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key,
+        blit_caption_wrapped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
+        choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
+        load_screen_brief_short_csf_key, load_screen_name_csf_key, main_menu_csf_label, options_csf_label, options_dialog_csf_key, resolve_caption,
+        resolve_csf_text, single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
+        skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_ACCENT,
     },
 };
 use ra_layout::{
@@ -1354,9 +1355,11 @@ pub fn compose_choose_map_page(
     Some(page)
 }
 
-/// 装载页绘制输入（国家艺术 + 进度 + 失败操作）。
+/// 装载页绘制输入（国家艺术 + 进度 + CSF 介绍 + 失败操作）。
 #[derive(Debug, Clone, Copy)]
 pub struct LoadScreenPaint<'a> {
+    /// 本地阵营短名（驱动 `NAME:` / `LOADBRIEF:` CSF 键）。
+    pub side: &'a str,
     /// 底栏状态（装载中或失败说明；失败时才强调）。
     pub status: &'a str,
     /// 是否允许「重试」（装载线程进行中为 false；失败后为 true）。
@@ -1368,8 +1371,23 @@ pub struct LoadScreenPaint<'a> {
 /// 800×600 基准上的进度条原点（贴国家艺术图预留槽）。
 const LOAD_PROG_X_800: i32 = 48;
 const LOAD_PROG_Y_800: i32 = 101;
+/// 国家名（进度槽下方）。
+const LOAD_NAME_X_800: i32 = 48;
+const LOAD_NAME_Y_800: i32 = 128;
+const LOAD_NAME_W_800: i32 = 360;
+const LOAD_NAME_H_800: i32 = 28;
+/// 特色短句。
+const LOAD_SHORT_X_800: i32 = 48;
+const LOAD_SHORT_Y_800: i32 = 158;
+const LOAD_SHORT_W_800: i32 = 360;
+const LOAD_SHORT_H_800: i32 = 48;
+/// 国家介绍正文（左侧空白区）。
+const LOAD_BRIEF_X_800: i32 = 48;
+const LOAD_BRIEF_Y_800: i32 = 220;
+const LOAD_BRIEF_W_800: i32 = 360;
+const LOAD_BRIEF_H_800: i32 = 260;
 
-/// 合成遭遇战装载页：国家 `ls*` 全幅 + `progbarm` 裁剪填充；失败时重试/取消。
+/// 合成遭遇战装载页：国家 `ls*` 全幅 + `progbarm` 裁剪填充 + CSF 介绍；失败时重试/取消。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -1377,6 +1395,7 @@ pub fn compose_load_screen_page(
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
     fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
     paint: LoadScreenPaint<'_>,
 ) -> Option<RgbaImage> {
     let layout = main_menu_layout(viewport_w, viewport_h);
@@ -1398,6 +1417,37 @@ pub fn compose_load_screen_page(
         let y = layout.canvas.y + (LOAD_PROG_Y_800 as f32 * sy) as i32;
         let clip_w = ((bar.image.width() as f32) * ratio).round() as u32;
         blit_rgba_clipped_width(&mut page, &bar.image, x, y, clip_w);
+    }
+
+    if let Some(fnt) = fnt {
+        let sx = layout.canvas.w as f32 / 800.0;
+        let sy = layout.canvas.h as f32 / 600.0;
+        let scale_box = |x: i32, y: i32, w: i32, h: i32| {
+            (
+                layout.canvas.x + (x as f32 * sx) as i32,
+                layout.canvas.y + (y as f32 * sy) as i32,
+                ((w as f32 * sx) as i32).max(1),
+                ((h as f32 * sy) as i32).max(1),
+            )
+        };
+
+        let name_key = load_screen_name_csf_key(paint.side);
+        if let Some(name) = resolve_csf_text(csf, &name_key) {
+            let (x, y, w, h) = scale_box(LOAD_NAME_X_800, LOAD_NAME_Y_800, LOAD_NAME_W_800, LOAD_NAME_H_800);
+            blit_caption_top_left_clipped(&mut page, fnt, &name, x, y, w, h, LOAD_SCREEN_TEXT_ACCENT);
+        }
+
+        let short_key = load_screen_brief_short_csf_key(paint.side);
+        if let Some(short) = resolve_csf_text(csf, &short_key) {
+            let (x, y, w, h) = scale_box(LOAD_SHORT_X_800, LOAD_SHORT_Y_800, LOAD_SHORT_W_800, LOAD_SHORT_H_800);
+            blit_caption_wrapped(&mut page, fnt, &short, x, y, w, h, LOAD_SCREEN_TEXT_ACCENT);
+        }
+
+        let brief_key = load_screen_brief_csf_key(paint.side);
+        if let Some(brief) = resolve_csf_text(csf, &brief_key) {
+            let (x, y, w, h) = scale_box(LOAD_BRIEF_X_800, LOAD_BRIEF_Y_800, LOAD_BRIEF_W_800, LOAD_BRIEF_H_800);
+            blit_caption_wrapped(&mut page, fnt, &brief, x, y, w, h, LOAD_SCREEN_TEXT);
+        }
     }
 
     // 失败时只露操作钮；不再叠中区假对话框（状态在窗口标题）。
