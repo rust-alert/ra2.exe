@@ -209,9 +209,11 @@ const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 
-/// 遭遇战右栏：有 `sdtp` 外壳与按钮底，但不画 WARNING 动画与底条。
+/// 遭遇战右栏：`sdtp` 外壳 + `sdmpbtn` 地图名底板；合成时再叠 `sdtp` 帧 1 作顶栏高亮牌。
+/// 不画 WARNING 动画与底条。
 const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "minimap_plate", shp: "sdmpbtn.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
 ];
@@ -322,7 +324,8 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
         }),
         OriginalScreen::SkirmishLobby => Some(UiPageSlots {
             screen,
-            // 背景仍用已证实的 `mnscrnl`；右栏去掉 WARNING / 底条，预览叠在 `sdtp` 窗内。
+            // 背景仍用已证实的 `mnscrnl`；右栏去掉 WARNING / 底条。
+            // 合成时叠 `sdtp` 帧 1 顶栏牌 + `sdmpbtn` 地图名底板，预览落在黑窗内。
             background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
             background_pal: Some("shell.pal"),

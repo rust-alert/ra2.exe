@@ -51,6 +51,10 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
     assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
     // 预览 `0x468` DLU (324,23,96,69) → right_anchor。
     assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
+    // 标题 `0x694` DLU (318,1,108,10) → right_anchor。
+    assert_eq!(layout.title, RectPx::new(635, 2, 162, 16));
+    // 地图名底板 `sdmpbtn`：贴右缘，底边落在第一根 tile 下沿。
+    assert_eq!(layout.map_name_plate, RectPx::new(644, 157, 156, 84));
     // 玩家名 `0x6A0` DLU (35,11,100,12)。
     assert_eq!(layout.player_name, RectPx::new(53, 18, 150, 20));
     // 快速游戏 `0x54E` DLU (35,145,100,10)。
@@ -71,6 +75,7 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
     assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
     assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
     assert_eq!(layout.title, RectPx::new(635, 2, 162, 16));
+    assert_eq!(layout.map_name_plate, RectPx::new(644, 157, 156, 84));
     assert_eq!(layout.game_type_list, RectPx::new(30, 127, 195, 260));
     assert_eq!(layout.map_list, RectPx::new(252, 127, 195, 260));
     assert_eq!(layout.label_engagement, RectPx::new(35, 33, 386, 20));

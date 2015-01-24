@@ -111,6 +111,7 @@ fn skirmish_lobby_exposes_start_choose_map_back() {
     assert_eq!(page.buttons[0].normal_frame, Some(2));
     assert_eq!(page.buttons[0].pressed_frame, Some(4));
     assert!(page.panels.iter().any(|p| p.shp == "sdtp.shp"));
+    assert!(page.panels.iter().any(|p| p.shp == "sdmpbtn.shp"));
     assert!(!page.panels.iter().any(|p| p.shp == "sdwrnanm.shp"));
     assert_eq!(page.fonts, &["game.fnt"]);
 }

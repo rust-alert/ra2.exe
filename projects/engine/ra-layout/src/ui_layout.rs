@@ -20,6 +20,10 @@ pub const SDWRNANM_H: i32 = 53;
 pub const SDWRNANM_OFFSET_X: i32 = 38;
 /// `sdwrnanm` 相对 `sdtp` 左上角的 Y 偏移（窗内可视区）。
 pub const SDWRNANM_OFFSET_Y: i32 = 48;
+/// 遭遇战地图名底板宽（`sdmpbtn`）。
+pub const SDMPBTN_W: i32 = 156;
+/// 遭遇战地图名底板高（`sdmpbtn`）。
+pub const SDMPBTN_H: i32 = 84;
 /// 右侧平铺条高（`sdbtnbkgd`）。
 pub const RIGHT_PANEL_TILE_H: i32 = 42;
 /// 按钮格宽（窄列）。
@@ -231,6 +235,13 @@ fn skirmish_right_anchor(base: RectPx) -> RectPx {
     RectPx::new(SHELL_BASE_W - base.w - inset, base.y, base.w, base.h)
 }
 
+/// 遭遇战 / 选图右栏地图名底板（`sdmpbtn`）。
+///
+/// 几何对齐壳层布局：贴右缘，底边落在第一根 `sdbtnbkgd` 格下沿。
+pub fn sdmpbtn_rect() -> RectPx {
+    RectPx::new(SHELL_BASE_W - SDMPBTN_W, RIGHT_PANEL_TOP_H + RIGHT_PANEL_TILE_H - SDMPBTN_H, SDMPBTN_W, SDMPBTN_H)
+}
+
 fn combo_face(dlu: RectPx) -> RectPx {
     RectPx::new(dlu.x, dlu.y, dlu.w, SKIRMISH_COMBO_FACE_H)
 }
@@ -247,6 +258,8 @@ pub struct SkirmishLobbyLayout {
     pub map_preview: RectPx,
     /// 右栏标题（`0x694` / `GUI:SkirmishGame`）。
     pub title: RectPx,
+    /// 右栏地图名底板（`sdmpbtn`）。
+    pub map_name_plate: RectPx,
     /// 右栏游戏类型（`0x6EC`）。
     pub game_type: RectPx,
     /// 右栏地图名（`0x5A8`）。
@@ -311,6 +324,7 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
         shell,
         map_preview: skirmish_right_anchor(dlu_rect(324, 23, 96, 69)),
         title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
+        map_name_plate: sdmpbtn_rect(),
         game_type: skirmish_right_anchor(dlu_rect(327, 103, 90, 10)),
         map_label: skirmish_right_anchor(dlu_rect(327, 116, 90, 20)),
         player_name: dlu_rect(35, 11, 100, 12),
@@ -484,6 +498,8 @@ pub struct ChooseMapLayout {
     pub title: RectPx,
     /// 右栏小地图预览（`0x468`）。
     pub map_preview: RectPx,
+    /// 右栏地图名底板（`sdmpbtn`）。
+    pub map_name_plate: RectPx,
     /// 「选择交战」说明（`GUI:SelectEngagement`）。
     pub label_engagement: RectPx,
     /// 「游戏类型」列标题（`GUI:GameType`）。
@@ -510,6 +526,7 @@ pub fn choose_map_layout(viewport_w: u32, viewport_h: u32) -> ChooseMapLayout {
         shell,
         title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
         map_preview: skirmish_right_anchor(dlu_rect(324, 23, 96, 69)),
+        map_name_plate: sdmpbtn_rect(),
         label_engagement: dlu_rect(23, 20, 257, 12),
         label_game_type: dlu_rect(20, 60, 130, 10),
         label_game_map: dlu_rect(168, 60, 130, 10),
