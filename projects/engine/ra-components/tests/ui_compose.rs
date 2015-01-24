@@ -310,6 +310,61 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
     assert_eq!(&page.as_raw()[ei..ei + 4], &[40, 40, 40, 40]);
 }
 
+#[test]
+fn compose_skirmish_overlays_sdtp_frame1_and_sdmpbtn() {
+    let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
+    let sdtp0 = DecodedUiSprite {
+        label: "sdtp.shp#0".into(),
+        image: RgbaImage::from_raw(168, 199, vec![40u8; 168 * 199 * 4]).unwrap(),
+        origin: "test".into(),
+        frame: 0,
+        canvas: (168, 199),
+        frame_rect: (0, 0, 168, 199),
+    };
+    let mut top1_px = vec![0u8; 168 * 199 * 4];
+    for px in top1_px.chunks_exact_mut(4) {
+        px.copy_from_slice(&[20, 80, 120, 255]);
+    }
+    let sdtp1 = DecodedUiSprite {
+        label: "sdtp.shp#1".into(),
+        image: RgbaImage::from_raw(168, 199, top1_px).unwrap(),
+        origin: "test".into(),
+        frame: 1,
+        canvas: (168, 199),
+        frame_rect: (0, 0, 168, 199),
+    };
+    let mut plate_px = vec![0u8; 156 * 84 * 4];
+    for px in plate_px.chunks_exact_mut(4) {
+        px.copy_from_slice(&[200, 40, 40, 255]);
+    }
+    let sdmpbtn = DecodedUiSprite {
+        label: "sdmpbtn.shp#0".into(),
+        image: RgbaImage::from_raw(156, 84, plate_px).unwrap(),
+        origin: "test".into(),
+        frame: 0,
+        canvas: (156, 84),
+        frame_rect: (0, 0, 156, 84),
+    };
+    let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
+    let decoded = PageDecodeReport {
+        background: Some(bg),
+        panels: vec![sdtp0, sdtp1, sdmpbtn],
+        button_normals: SKIRMISH_LOBBY_BUTTON_IDS.iter().map(|id| (*id, normal.clone())).collect(),
+        button_hovers: Vec::new(),
+        button_presseds: Vec::new(),
+        sdbtnanm_frames: Vec::new(),
+        errors: Vec::new(),
+    };
+    let paint = SkirmishLobbyPaint::default();
+    let page = compose_skirmish_lobby_page(&decoded, 800, 600, None, None, None, None, None, None, &paint, None, 0).unwrap();
+    let layout = skirmish_lobby_layout(800, 600);
+    // 顶盖被帧 1 覆盖。
+    let ti = ((layout.shell.panel_top.y as u32 * page.width() + (layout.shell.panel_top.x as u32 + 2)) * 4) as usize;
+    assert_eq!(&page.as_raw()[ti..ti + 4], &[20, 80, 120, 255]);
+    // 地图名底板贴到 `sdmpbtn` 格。
+    let pi = ((layout.map_name_plate.y as u32 * page.width() + layout.map_name_plate.x as u32) * 4) as usize;
+    assert_eq!(&page.as_raw()[pi..pi + 4], &[200, 40, 40, 255]);
+}
 
 #[test]
 fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
@@ -420,8 +475,8 @@ fn compose_load_screen_paints_country_art_and_progress() {
     .unwrap();
     // 国家艺术铺满画布左上。
     assert_eq!(&loading.as_raw()[0..4], &[1, 2, 3, 255]);
-    // 进度条原点附近应有填充。
-    let px = ((101u32 * loading.width() + 48) * 4) as usize;
+    // 进度条在左下（原版位置，非顶槽）。
+    let px = ((528u32 * loading.width() + 48) * 4) as usize;
     assert_eq!(&loading.as_raw()[px..px + 4], &[200, 40, 40, 255]);
 
     let failed = compose_load_screen_page(

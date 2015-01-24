@@ -12,9 +12,9 @@ use crate::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell, blit_caption_top_left_clipped,
         blit_caption_wrapped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
         choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
-        load_screen_brief_short_csf_key, load_screen_name_csf_key, main_menu_csf_label, options_csf_label, options_dialog_csf_key, resolve_caption,
-        resolve_csf_text, single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
-        skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_ACCENT,
+        load_screen_loading_csf_key, load_screen_name_csf_key, load_screen_special_unit_csf_key, main_menu_csf_label, options_csf_label,
+        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label,
+        skirmish_lobby_static_csf_key, skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
     },
 };
 use ra_layout::{
@@ -399,6 +399,24 @@ fn blit_right_panel_top(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_
     if let Some(warn) = find_panel(decoded, "sdwrnanm.shp", warn_anim_frame) {
         blit_rgba(page, &warn.image, panel_top.x + SDWRNANM_OFFSET_X, panel_top.y + SDWRNANM_OFFSET_Y);
     }
+}
+
+/// 遭遇战 / 选图：在壳层 `sdtp` 帧 0 之上叠帧 1 顶栏高亮牌，再贴 `sdmpbtn` 地图名底板。
+fn blit_skirmish_preview_chrome(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_top: RectPx, map_name_plate: RectPx) {
+    if let Some(top1) = find_panel(decoded, "sdtp.shp", 1) {
+        blit_stretched(page, &top1.image, panel_top);
+    }
+    if let Some(plate) = find_panel(decoded, "sdmpbtn.shp", 0) {
+        // 与壳层钮面一致：1:1 贴右缘，不拉伸。
+        blit_rgba(page, &plate.image, map_name_plate.x, map_name_plate.y);
+    }
+}
+
+/// 右栏静态标题：对话框静态控件左对齐，垂直在格内居中（勿按按钮格水平居中）。
+fn blit_shell_static_title(page: &mut RgbaImage, fnt: &FntFile, text: &str, cell: RectPx) {
+    let th = fnt.bitmap_rows as i32;
+    let y = cell.y + ((cell.h - th).max(0) / 2);
+    blit_text_colored(page, fnt, text, cell.x, y, MENU_TEXT_ENABLED);
 }
 
 fn find_button_normal<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {
@@ -1242,7 +1260,8 @@ pub fn compose_skirmish_lobby_page(
         warn_anim_frame,
     )?;
 
-    // 右栏：小地图预览盖住 WARNING 区；标题 / 作战 / 地图名。
+    // 右栏：`sdtp` 帧 1 标题牌 + `sdmpbtn` 地图名底板；小地图盖住黑窗；标题左对齐。
+    blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
     fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);
     stroke_rect(&mut page, layout.map_preview, [180, 24, 24, 255]);
     if let Some(preview) = map_preview {
@@ -1250,7 +1269,7 @@ pub fn compose_skirmish_lobby_page(
     }
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
-        blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
+        blit_shell_static_title(&mut page, fnt, &title, layout.title);
         let battle = resolve_caption(csf, "battle", skirmish_lobby_static_csf_key("battle"));
         blit_text_colored(&mut page, fnt, &battle, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
         if !paint.map_name.is_empty() {
@@ -1312,6 +1331,7 @@ pub fn compose_choose_map_page(
         warn_anim_frame,
     )?;
 
+    blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
     fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);
     stroke_rect(&mut page, layout.map_preview, [180, 24, 24, 255]);
     if let Some(preview) = map_preview {
@@ -1341,7 +1361,7 @@ pub fn compose_choose_map_page(
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
-        blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
+        blit_shell_static_title(&mut page, fnt, &title, layout.title);
         let engagement = resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
         blit_text_colored(&mut page, fnt, &engagement, layout.label_engagement.x, layout.label_engagement.y, MENU_TEXT_ENABLED);
         let game_type = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
@@ -1368,26 +1388,30 @@ pub struct LoadScreenPaint<'a> {
     pub progress: f32,
 }
 
-/// 800×600 基准上的进度条原点（贴国家艺术图预留槽）。
-const LOAD_PROG_X_800: i32 = 48;
-const LOAD_PROG_Y_800: i32 = 101;
-/// 国家名（进度槽下方）。
-const LOAD_NAME_X_800: i32 = 48;
-const LOAD_NAME_Y_800: i32 = 128;
-const LOAD_NAME_W_800: i32 = 360;
-const LOAD_NAME_H_800: i32 = 28;
-/// 特色短句。
-const LOAD_SHORT_X_800: i32 = 48;
-const LOAD_SHORT_Y_800: i32 = 158;
-const LOAD_SHORT_W_800: i32 = 360;
-const LOAD_SHORT_H_800: i32 = 48;
-/// 国家介绍正文（左侧空白区）。
+/// 800×600 基准：左上槽画特色兵种名（原版此处不是进度条）。
+const LOAD_SPECIAL_X_800: i32 = 56;
+const LOAD_SPECIAL_Y_800: i32 = 98;
+const LOAD_SPECIAL_W_800: i32 = 200;
+const LOAD_SPECIAL_H_800: i32 = 26;
+/// 特色名下方：国家介绍 `LOADBRIEF`。
 const LOAD_BRIEF_X_800: i32 = 48;
-const LOAD_BRIEF_Y_800: i32 = 220;
-const LOAD_BRIEF_W_800: i32 = 360;
-const LOAD_BRIEF_H_800: i32 = 260;
+const LOAD_BRIEF_Y_800: i32 = 140;
+const LOAD_BRIEF_W_800: i32 = 340;
+const LOAD_BRIEF_H_800: i32 = 240;
+/// 右下旗标下方：国名 `NAME:{side}`。
+const LOAD_NAME_X_800: i32 = 540;
+const LOAD_NAME_Y_800: i32 = 518;
+const LOAD_NAME_W_800: i32 = 200;
+const LOAD_NAME_H_800: i32 = 28;
+/// 左下「载入中」+ 进度条。
+const LOAD_STATUS_X_800: i32 = 48;
+const LOAD_STATUS_Y_800: i32 = 500;
+const LOAD_STATUS_W_800: i32 = 200;
+const LOAD_STATUS_H_800: i32 = 24;
+const LOAD_PROG_X_800: i32 = 48;
+const LOAD_PROG_Y_800: i32 = 528;
 
-/// 合成遭遇战装载页：国家 `ls*` 全幅 + `progbarm` 裁剪填充 + CSF 介绍；失败时重试/取消。
+/// 合成遭遇战装载页：国家 `ls*` 全幅 + CSF 文案 + 左下 `progbarm`；失败时重试/取消。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -1409,38 +1433,22 @@ pub fn compose_load_screen_page(
         blit_stretched(&mut page, &bg.image, layout.canvas);
     }
 
-    let ratio = paint.progress.clamp(0.0, 1.0);
-    if let Some(bar) = find_panel(decoded, "progbarm.shp", 0) {
-        let sx = layout.canvas.w as f32 / 800.0;
-        let sy = layout.canvas.h as f32 / 600.0;
-        let x = layout.canvas.x + (LOAD_PROG_X_800 as f32 * sx) as i32;
-        let y = layout.canvas.y + (LOAD_PROG_Y_800 as f32 * sy) as i32;
-        let clip_w = ((bar.image.width() as f32) * ratio).round() as u32;
-        blit_rgba_clipped_width(&mut page, &bar.image, x, y, clip_w);
-    }
+    let sx = layout.canvas.w as f32 / 800.0;
+    let sy = layout.canvas.h as f32 / 600.0;
+    let scale_box = |x: i32, y: i32, w: i32, h: i32| {
+        (
+            layout.canvas.x + (x as f32 * sx) as i32,
+            layout.canvas.y + (y as f32 * sy) as i32,
+            ((w as f32 * sx) as i32).max(1),
+            ((h as f32 * sy) as i32).max(1),
+        )
+    };
 
     if let Some(fnt) = fnt {
-        let sx = layout.canvas.w as f32 / 800.0;
-        let sy = layout.canvas.h as f32 / 600.0;
-        let scale_box = |x: i32, y: i32, w: i32, h: i32| {
-            (
-                layout.canvas.x + (x as f32 * sx) as i32,
-                layout.canvas.y + (y as f32 * sy) as i32,
-                ((w as f32 * sx) as i32).max(1),
-                ((h as f32 * sy) as i32).max(1),
-            )
-        };
-
-        let name_key = load_screen_name_csf_key(paint.side);
-        if let Some(name) = resolve_csf_text(csf, &name_key) {
-            let (x, y, w, h) = scale_box(LOAD_NAME_X_800, LOAD_NAME_Y_800, LOAD_NAME_W_800, LOAD_NAME_H_800);
-            blit_caption_top_left_clipped(&mut page, fnt, &name, x, y, w, h, LOAD_SCREEN_TEXT_ACCENT);
-        }
-
-        let short_key = load_screen_brief_short_csf_key(paint.side);
-        if let Some(short) = resolve_csf_text(csf, &short_key) {
-            let (x, y, w, h) = scale_box(LOAD_SHORT_X_800, LOAD_SHORT_Y_800, LOAD_SHORT_W_800, LOAD_SHORT_H_800);
-            blit_caption_wrapped(&mut page, fnt, &short, x, y, w, h, LOAD_SCREEN_TEXT_ACCENT);
+        let special_key = load_screen_special_unit_csf_key(paint.side);
+        if let Some(special) = resolve_csf_text(csf, special_key) {
+            let (x, y, w, h) = scale_box(LOAD_SPECIAL_X_800, LOAD_SPECIAL_Y_800, LOAD_SPECIAL_W_800, LOAD_SPECIAL_H_800);
+            blit_caption_top_left_clipped(&mut page, fnt, &special, x, y, w, h, LOAD_SCREEN_TEXT_TITLE);
         }
 
         let brief_key = load_screen_brief_csf_key(paint.side);
@@ -1448,6 +1456,26 @@ pub fn compose_load_screen_page(
             let (x, y, w, h) = scale_box(LOAD_BRIEF_X_800, LOAD_BRIEF_Y_800, LOAD_BRIEF_W_800, LOAD_BRIEF_H_800);
             blit_caption_wrapped(&mut page, fnt, &brief, x, y, w, h, LOAD_SCREEN_TEXT);
         }
+
+        let name_key = load_screen_name_csf_key(paint.side);
+        if let Some(name) = resolve_csf_text(csf, &name_key) {
+            let (x, y, w, h) = scale_box(LOAD_NAME_X_800, LOAD_NAME_Y_800, LOAD_NAME_W_800, LOAD_NAME_H_800);
+            blit_caption_top_left_clipped(&mut page, fnt, &name, x, y, w, h, LOAD_SCREEN_TEXT_TITLE);
+        }
+
+        if !paint.allow_retry {
+            let loading = resolve_csf_text(csf, load_screen_loading_csf_key()).unwrap_or_else(|| "Loading..".into());
+            let (x, y, w, h) = scale_box(LOAD_STATUS_X_800, LOAD_STATUS_Y_800, LOAD_STATUS_W_800, LOAD_STATUS_H_800);
+            blit_caption_top_left_clipped(&mut page, fnt, &loading, x, y, w, h, LOAD_SCREEN_TEXT);
+        }
+    }
+
+    let ratio = paint.progress.clamp(0.0, 1.0);
+    if let Some(bar) = find_panel(decoded, "progbarm.shp", 0) {
+        let x = layout.canvas.x + (LOAD_PROG_X_800 as f32 * sx) as i32;
+        let y = layout.canvas.y + (LOAD_PROG_Y_800 as f32 * sy) as i32;
+        let clip_w = ((bar.image.width() as f32) * ratio).round() as u32;
+        blit_rgba_clipped_width(&mut page, &bar.image, x, y, clip_w);
     }
 
     // 失败时只露操作钮；不再叠中区假对话框（状态在窗口标题）。

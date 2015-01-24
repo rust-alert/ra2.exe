@@ -224,9 +224,25 @@ pub fn load_screen_brief_csf_key(side: &str) -> String {
     format!("LOADBRIEF:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
 }
 
-/// 装载页特色短句 CSF：`LOADBRIEFSHORT:{suffix}`。
-pub fn load_screen_brief_short_csf_key(side: &str) -> String {
-    format!("LOADBRIEFSHORT:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
+/// 装载页特色兵种名 CSF（如美国 `NAME:PARA`＝伞兵）。
+pub fn load_screen_special_unit_csf_key(side: &str) -> &'static str {
+    match crate::skirmish_setup::load_screen_brief_suffix(side) {
+        "USA" => "NAME:PARA",
+        "FRENCH" => "NAME:GTGCAN",
+        "GERMANS" => "NAME:TNKD",
+        "BRITISH" => "NAME:SNIPE",
+        "RUSSIA" => "NAME:TTNK",
+        "KOREA" => "NAME:BEAGLE",
+        "CUBA" => "NAME:TERROR",
+        "IRAQ" => "NAME:DESO",
+        "LYBIA" => "NAME:DTRUCK",
+        _ => "NAME:PARA",
+    }
+}
+
+/// 装载页「载入中」CSF。
+pub fn load_screen_loading_csf_key() -> &'static str {
+    "GUI:LOADINGEX"
 }
 
 /// 启用按钮常用黄字（近似原版壳层）。
@@ -237,10 +253,10 @@ pub const MENU_TEXT_DISABLED: [u8; 4] = [0x9F, 0x00, 0x00, 255];
 pub const MENU_TEXT_SECTION: [u8; 4] = [255, 214, 0, 255];
 /// 选项控件说明（偏红）。
 pub const MENU_TEXT_ACCENT: [u8; 4] = [220, 48, 48, 255];
-/// 装载页正文（浅色，压在深蓝国家艺术上）。
-pub const LOAD_SCREEN_TEXT: [u8; 4] = [220, 230, 255, 255];
-/// 装载页特色短句强调色。
-pub const LOAD_SCREEN_TEXT_ACCENT: [u8; 4] = [255, 214, 0, 255];
+/// 装载页正文（盟约青蓝，对齐原版国家艺术上的字色）。
+pub const LOAD_SCREEN_TEXT: [u8; 4] = [96, 200, 255, 255];
+/// 装载页标题字（特色名 / 国名）。
+pub const LOAD_SCREEN_TEXT_TITLE: [u8; 4] = [120, 220, 255, 255];
 
 /// 选项左栏文案键。
 pub fn options_dialog_csf_key(kind: &str) -> Option<&'static str> {
