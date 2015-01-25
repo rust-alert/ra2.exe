@@ -502,7 +502,11 @@ impl AppShell {
             .collect::<Vec<_>>()
             .join(",");
         let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
-        let need_base = self.skirmish_chrome.as_ref().map(|c| c.checkbox_off.is_none()).unwrap_or(true);
+        let need_base = self
+            .skirmish_chrome
+            .as_ref()
+            .map(|c| c.checkbox_off.is_none() || c.track_cap_l.is_none())
+            .unwrap_or(true);
         if !need_base && !need_flag {
             return;
         }

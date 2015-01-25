@@ -78,6 +78,12 @@ pub const SKIRMISH_COMBO_FACE_H: i32 = 24;
 pub const SKIRMISH_CHECK_W: i32 = 18;
 /// 勾选图标高。
 pub const SKIRMISH_CHECK_H: i32 = 18;
+/// 滑条右侧数值底板宽（`trofl`/`trofm`/`trofr`）。
+pub const SKIRMISH_TRACK_PLAQUE_W: i32 = 50;
+/// 滑条活跃轨宽公式附加扣除（与数值底板一起得到 65）。
+pub const SKIRMISH_TRACK_ACTIVE_PAD: i32 = 13;
+/// 滑条拇指宽（`trakgrip.pcx`）。
+pub const SKIRMISH_TRACK_THUMB_W: i32 = 12;
 
 /// 轴对齐矩形（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

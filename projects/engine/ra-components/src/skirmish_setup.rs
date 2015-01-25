@@ -2,7 +2,10 @@
 //!
 //! 控件几何在 [`ra_layout::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
-use ra_layout::ui_layout::{RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SkirmishLobbyLayout};
+use ra_layout::ui_layout::{
+    RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
+    SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
+};
 
 /// 大厅可选阵营短名（写入装载请求；遭遇战会登记进玩家表，不要求地图实体已有同名 owner）。
 /// 旗标 PCX 取自 `local.mix` 已证实文件名。
@@ -643,9 +646,10 @@ fn track_rect(layout: &SkirmishLobbyLayout, id: SkirmishTrackbar) -> RectPx {
 
 fn track_pos_from_mouse(rect: RectPx, mouse_x: i32, id: SkirmishTrackbar) -> i32 {
     let max = id.max().max(1);
-    let travel = (rect.w - 12).max(1);
-    let rel = (mouse_x - rect.x - 6).clamp(0, travel);
-    (rel * max + travel / 2) / travel
+    // 活跃轨宽 = client_w - 50 - 13；鼠标 x 相对左缘偏 6 后映射。
+    let active_w = (rect.w - SKIRMISH_TRACK_PLAQUE_W - SKIRMISH_TRACK_ACTIVE_PAD).max(1);
+    let rel = (mouse_x - rect.x - 6).clamp(0, active_w);
+    (rel * max + active_w / 2) / active_w
 }
 
 fn is_player_name_char(ch: char) -> bool {

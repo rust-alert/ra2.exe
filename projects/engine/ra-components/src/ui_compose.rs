@@ -20,8 +20,9 @@ use crate::{
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
     OPTIONS_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SkirmishLobbyLayout, campaign_layout, choose_map_layout,
-    exit_confirm_layout, main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
+    SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
+    SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
+    options_layout, single_player_layout, skirmish_lobby_layout,
 };
 
 /// 切页波浪帧：有字钮进出；空格仅在出去时叠 `SDBTNANM`（进来不叠满钮，避免收束后消失）。
@@ -880,6 +881,25 @@ fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     fill_rect(dst, RectPx::new(rect.x + rect.w - 1, rect.y, 1, rect.h), rgba);
 }
 
+/// 壳层 owner-draw 双环斜角框（对齐 `FUN_006208F0` border=2 固定色）。
+fn draw_bevel_frame(dst: &mut RgbaImage, rect: RectPx, inset_fill: Option<[u8; 4]>) {
+    if rect.w <= 0 || rect.h <= 0 {
+        return;
+    }
+    // 0xC5BEA7 / 0x807A68 → RGB。
+    const LIGHT: [u8; 4] = [197, 190, 167, 255];
+    const DARK: [u8; 4] = [128, 122, 104, 255];
+    stroke_rect(dst, rect, LIGHT);
+    if rect.w > 2 && rect.h > 2 {
+        stroke_rect(dst, RectPx::new(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2), DARK);
+    }
+    if let Some(fill) = inset_fill {
+        if rect.w > 4 && rect.h > 4 {
+            fill_rect(dst, RectPx::new(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4), fill);
+        }
+    }
+}
+
 fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4]) {
     fill_rect(dst, rect, [8, 8, 12, 255]);
     stroke_rect(dst, rect, [180, 24, 24, 255]);
@@ -900,35 +920,49 @@ fn draw_skirmish_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool, chro
     }
 }
 
-fn draw_skirmish_trackbar(dst: &mut RgbaImage, track: RectPx, pos: i32, max: i32, chrome: Option<&SkirmishChromeSprites>) {
-    let caps = chrome.and_then(|c| Some((c.track_cap_l.as_ref()?, c.track_cap_m.as_ref()?, c.track_cap_r.as_ref()?)));
-    if let Some((cap_l, cap_m, cap_r)) = caps {
-        let h = cap_l.height() as i32;
-        let ty = track.y + (track.h - h) / 2;
-        let lw = cap_l.width() as i32;
-        let rw = cap_r.width() as i32;
-        blit_rgba(dst, cap_l, track.x, ty);
-        blit_rgba(dst, cap_r, track.x + track.w - rw, ty);
-        let mid_w = (track.w - lw - rw).max(1);
-        blit_stretched(dst, cap_m, RectPx::new(track.x + lw, ty, mid_w, h));
-    }
+fn track_active_width(track_w: i32) -> i32 {
+    (track_w - SKIRMISH_TRACK_PLAQUE_W - SKIRMISH_TRACK_ACTIVE_PAD).max(1)
+}
+
+fn track_plaque_rect(track: RectPx) -> RectPx {
+    // 底板：本地 x = client_w - 50 + 1，y = -1。
+    RectPx::new(track.x + track.w - SKIRMISH_TRACK_PLAQUE_W + 1, track.y - 1, SKIRMISH_TRACK_PLAQUE_W, 24)
+}
+
+fn blit_track_plaque(dst: &mut RgbaImage, plaque: RectPx, chrome: Option<&SkirmishChromeSprites>) {
+    let Some((cap_l, cap_m, cap_r)) =
+        chrome.and_then(|c| Some((c.track_cap_l.as_ref()?, c.track_cap_m.as_ref()?, c.track_cap_r.as_ref()?)))
     else {
-        fill_rect(dst, track, [64, 16, 16, 255]);
-        let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
-        fill_rect(dst, inner, [12, 12, 16, 255]);
-    }
+        fill_rect(dst, RectPx::new(plaque.x, plaque.y + 1, plaque.w, (plaque.h - 2).max(1)), [40, 12, 12, 255]);
+        stroke_rect(dst, RectPx::new(plaque.x, plaque.y + 1, plaque.w, (plaque.h - 2).max(1)), [180, 40, 40, 255]);
+        return;
+    };
+    let lw = cap_l.width() as i32;
+    let rw = cap_r.width() as i32;
+    blit_rgba(dst, cap_l, plaque.x, plaque.y);
+    blit_rgba(dst, cap_r, plaque.x + plaque.w - rw, plaque.y);
+    let mid_w = (plaque.w - lw - rw).max(1);
+    blit_stretched(dst, cap_m, RectPx::new(plaque.x + lw, plaque.y, mid_w, cap_m.height() as i32));
+}
+
+/// 滑条：左轨斜角 + `trakgrip` 拇指 + 右侧 `trofl/m/r` 数值底板（`trof*` 不是轨道）。
+fn draw_skirmish_trackbar(dst: &mut RgbaImage, track: RectPx, pos: i32, max: i32, chrome: Option<&SkirmishChromeSprites>) {
+    let plaque = track_plaque_rect(track);
+    let rail_w = (track.w - SKIRMISH_TRACK_PLAQUE_W).max(1);
+    let rail = RectPx::new(track.x, track.y, rail_w, track.h);
+    blit_track_plaque(dst, plaque, chrome);
+    draw_bevel_frame(dst, rail, Some([24, 10, 10, 255]));
 
     let max = max.max(1);
-    let thumb_w = chrome.and_then(|c| c.track_thumb.as_ref()).map(|t| t.width() as i32).unwrap_or(10);
-    let travel = (track.w - thumb_w).max(1);
-    let thumb_x = track.x + (pos.clamp(0, max) * travel) / max;
+    let active_w = track_active_width(track.w);
+    let offset = (pos.clamp(0, max) * active_w) / max;
+    let thumb_x = track.x + 1 + offset;
     if let Some(thumb) = chrome.and_then(|c| c.track_thumb.as_ref()) {
         let ty = track.y + (track.h - thumb.height() as i32) / 2;
         blit_rgba(dst, thumb, thumb_x, ty);
     }
     else {
-        let inner = RectPx::new(track.x + 2, track.y + 2, (track.w - 4).max(1), (track.h - 4).max(1));
-        fill_rect(dst, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
+        fill_rect(dst, RectPx::new(thumb_x, track.y + 1, SKIRMISH_TRACK_THUMB_W, (track.h - 2).max(1)), [220, 40, 40, 255]);
     }
 }
 
@@ -967,11 +1001,11 @@ pub struct SkirmishChromeSprites {
     pub checkbox_on: Option<RgbaImage>,
     /// 滑条拇指 `trakgrip.pcx`（12×22）。
     pub track_thumb: Option<RgbaImage>,
-    /// 滑条左帽 `trofl.pcx`。
+    /// 数值底板左帽 `trofl.pcx`（非轨道）。
     pub track_cap_l: Option<RgbaImage>,
-    /// 滑条中段 `trofm.pcx`（按轨宽拉伸）。
+    /// 数值底板中段 `trofm.pcx`。
     pub track_cap_m: Option<RgbaImage>,
-    /// 滑条右帽 `trofr.pcx`。
+    /// 数值底板右帽 `trofr.pcx`。
     pub track_cap_r: Option<RgbaImage>,
     /// 本地玩家旗标。
     pub flag: Option<RgbaImage>,
@@ -1153,30 +1187,12 @@ fn paint_skirmish_lobby_controls(
         blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), layout.label_speed.x, layout.label_speed.y, MENU_TEXT_ENABLED);
         blit_text_colored(page, fnt, &label("credits", "Credits"), layout.label_credits.x, layout.label_credits.y, MENU_TEXT_ENABLED);
         blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), layout.label_units.x, layout.label_units.y, MENU_TEXT_ENABLED);
-        blit_text_colored(
-            page,
-            fnt,
-            &paint.game_speed.to_string(),
-            layout.track_speed.x + layout.track_speed.w - 28,
-            layout.track_speed.y + 2,
-            MENU_TEXT_ENABLED,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &paint.credits.to_string(),
-            layout.track_credits.x + layout.track_credits.w - 48,
-            layout.track_credits.y + 2,
-            MENU_TEXT_ENABLED,
-        );
-        blit_text_colored(
-            page,
-            fnt,
-            &paint.unit_count.to_string(),
-            layout.track_units.x + layout.track_units.w - 28,
-            layout.track_units.y + 2,
-            MENU_TEXT_ENABLED,
-        );
+        // 数值画在右侧底板内；源色 0x00000C05 → RGB(5,12,0)。
+        const TRACK_VALUE: [u8; 4] = [5, 12, 0, 255];
+        let value_x = |track: RectPx| track.x + track.w - 0x31;
+        blit_text_colored(page, fnt, &paint.game_speed.to_string(), value_x(layout.track_speed), layout.track_speed.y + 2, TRACK_VALUE);
+        blit_text_colored(page, fnt, &paint.credits.to_string(), value_x(layout.track_credits), layout.track_credits.y + 2, TRACK_VALUE);
+        blit_text_colored(page, fnt, &paint.unit_count.to_string(), value_x(layout.track_units), layout.track_units.y + 2, TRACK_VALUE);
     }
 
     if paint.country_combo_open {
