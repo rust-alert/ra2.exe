@@ -1342,6 +1342,8 @@ impl AppShell {
                         self.menu_csf.as_ref(),
                         ui_compose::LoadScreenPaint {
                             side: self.skirmish.side.as_str(),
+                            player_name: self.skirmish.player_name.as_str(),
+                            side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
                             status: load_status.as_deref().unwrap_or(""),
                             allow_retry: load_allow_retry,
                             progress: load_progress,
@@ -1380,6 +1382,8 @@ impl AppShell {
                     self.menu_csf.as_ref(),
                     ui_compose::LoadScreenPaint {
                         side: self.skirmish.side.as_str(),
+                        player_name: self.skirmish.player_name.as_str(),
+                        side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
                         status: load_status.as_deref().unwrap_or(self.banner.as_str()),
                         allow_retry: load_allow_retry,
                         progress: load_progress,

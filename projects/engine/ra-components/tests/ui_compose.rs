@@ -470,13 +470,20 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         None,
-        LoadScreenPaint { side: "Americans", status: "装载中", allow_retry: false, progress: 0.5 },
+        LoadScreenPaint {
+            side: "Americans",
+            player_name: "Player",
+            side_flag: None,
+            status: "装载中",
+            allow_retry: false,
+            progress: 0.5,
+        },
     )
     .unwrap();
     // 国家艺术铺满画布左上。
     assert_eq!(&loading.as_raw()[0..4], &[1, 2, 3, 255]);
-    // 进度条在左下（原版位置，非顶槽）。
-    let px = ((528u32 * loading.width() + 48) * 4) as usize;
+    // 进度条在中下偏左（原版约 y=332）。
+    let px = ((332u32 * loading.width() + 56) * 4) as usize;
     assert_eq!(&loading.as_raw()[px..px + 4], &[200, 40, 40, 255]);
 
     let failed = compose_load_screen_page(
@@ -487,7 +494,14 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         None,
-        LoadScreenPaint { side: "Americans", status: "装载失败 · test", allow_retry: true, progress: 1.0 },
+        LoadScreenPaint {
+            side: "Americans",
+            player_name: "Player",
+            side_flag: None,
+            status: "装载失败 · test",
+            allow_retry: true,
+            progress: 1.0,
+        },
     )
     .unwrap();
     assert_eq!(failed.width(), 800);

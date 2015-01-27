@@ -1396,6 +1396,10 @@ pub fn compose_choose_map_page(
 pub struct LoadScreenPaint<'a> {
     /// 本地阵营短名（驱动 `NAME:` / `LOADBRIEF:` CSF 键）。
     pub side: &'a str,
+    /// 本地玩家名（进度条右侧槽）。
+    pub player_name: &'a str,
+    /// 阵营小旗（`usai.pcx` 等，进度条右侧）。
+    pub side_flag: Option<&'a RgbaImage>,
     /// 底栏状态（装载中或失败说明；失败时才强调）。
     pub status: &'a str,
     /// 是否允许「重试」（装载线程进行中为 false；失败后为 true）。
@@ -1404,30 +1408,33 @@ pub struct LoadScreenPaint<'a> {
     pub progress: f32,
 }
 
-/// 800×600 基准：左上槽画特色兵种名（原版此处不是进度条）。
-const LOAD_SPECIAL_X_800: i32 = 56;
-const LOAD_SPECIAL_Y_800: i32 = 98;
-const LOAD_SPECIAL_W_800: i32 = 200;
-const LOAD_SPECIAL_H_800: i32 = 26;
-/// 特色名下方：国家介绍 `LOADBRIEF`。
+/// 800×600 基准：对照原版截图像素映射。
+const LOAD_SPECIAL_X_800: i32 = 54;
+const LOAD_SPECIAL_Y_800: i32 = 106;
+const LOAD_SPECIAL_W_800: i32 = 190;
+const LOAD_SPECIAL_H_800: i32 = 22;
 const LOAD_BRIEF_X_800: i32 = 48;
-const LOAD_BRIEF_Y_800: i32 = 140;
+const LOAD_BRIEF_Y_800: i32 = 134;
 const LOAD_BRIEF_W_800: i32 = 340;
-const LOAD_BRIEF_H_800: i32 = 240;
-/// 右下旗标下方：国名 `NAME:{side}`。
-const LOAD_NAME_X_800: i32 = 540;
-const LOAD_NAME_Y_800: i32 = 518;
-const LOAD_NAME_W_800: i32 = 200;
-const LOAD_NAME_H_800: i32 = 28;
-/// 左下「载入中」+ 进度条。
-const LOAD_STATUS_X_800: i32 = 48;
-const LOAD_STATUS_Y_800: i32 = 500;
-const LOAD_STATUS_W_800: i32 = 200;
-const LOAD_STATUS_H_800: i32 = 24;
-const LOAD_PROG_X_800: i32 = 48;
-const LOAD_PROG_Y_800: i32 = 528;
+const LOAD_BRIEF_H_800: i32 = 200;
+const LOAD_NAME_X_800: i32 = 648;
+const LOAD_NAME_Y_800: i32 = 538;
+const LOAD_NAME_W_800: i32 = 120;
+const LOAD_NAME_H_800: i32 = 24;
+const LOAD_STATUS_X_800: i32 = 56;
+const LOAD_STATUS_Y_800: i32 = 310;
+const LOAD_STATUS_W_800: i32 = 160;
+const LOAD_STATUS_H_800: i32 = 20;
+const LOAD_PROG_X_800: i32 = 56;
+const LOAD_PROG_Y_800: i32 = 332;
+const LOAD_PLAYER_FLAG_X_800: i32 = 150;
+const LOAD_PLAYER_FLAG_Y_800: i32 = 324;
+const LOAD_PLAYER_NAME_X_800: i32 = 202;
+const LOAD_PLAYER_NAME_Y_800: i32 = 328;
+const LOAD_PLAYER_NAME_W_800: i32 = 120;
+const LOAD_PLAYER_NAME_H_800: i32 = 20;
 
-/// 合成遭遇战装载页：国家 `ls*` 全幅 + CSF 文案 + 左下 `progbarm`；失败时重试/取消。
+/// 合成遭遇战装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -1483,6 +1490,17 @@ pub fn compose_load_screen_page(
             let loading = resolve_csf_text(csf, load_screen_loading_csf_key()).unwrap_or_else(|| "Loading..".into());
             let (x, y, w, h) = scale_box(LOAD_STATUS_X_800, LOAD_STATUS_Y_800, LOAD_STATUS_W_800, LOAD_STATUS_H_800);
             blit_caption_top_left_clipped(&mut page, fnt, &loading, x, y, w, h, LOAD_SCREEN_TEXT);
+            let (nx, ny, nw, nh) =
+                scale_box(LOAD_PLAYER_NAME_X_800, LOAD_PLAYER_NAME_Y_800, LOAD_PLAYER_NAME_W_800, LOAD_PLAYER_NAME_H_800);
+            blit_caption_top_left_clipped(&mut page, fnt, paint.player_name, nx, ny, nw, nh, [80, 220, 80, 255]);
+        }
+    }
+
+    if !paint.allow_retry {
+        if let Some(flag) = paint.side_flag {
+            let fx = layout.canvas.x + (LOAD_PLAYER_FLAG_X_800 as f32 * sx) as i32;
+            let fy = layout.canvas.y + (LOAD_PLAYER_FLAG_Y_800 as f32 * sy) as i32;
+            blit_rgba(&mut page, flag, fx, fy);
         }
     }
 
