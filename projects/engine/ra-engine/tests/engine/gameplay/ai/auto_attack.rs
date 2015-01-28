@@ -3,7 +3,7 @@
 use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{MatchState, Session};
+use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -49,7 +49,7 @@ fn duel_session() -> Session {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "ai");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai");
     session.expect_game_mut().ai_enabled = true;
     session
 }

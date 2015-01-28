@@ -1,7 +1,7 @@
 //! 可跨帧复用的渲染世界（R1）。
 //!
 //! 由 [`crate::frame::FrameBuilder`] 根据引擎只读投影 / 脏集增量更新。
-//! 不持有权威 `MatchState`，不在此解码 MIX/INI。
+//! 不持有权威 `BattleState`，不在此解码 MIX/INI。
 
 use std::collections::HashMap;
 

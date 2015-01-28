@@ -210,7 +210,7 @@ pub fn decode_scheduled(bytes: &[u8]) -> Option<ScheduledCommand> {
     Some(ScheduledCommand::new(id, player, tick, body))
 }
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
         use ra_assets::TechnoKind;
         use ra_map::MapEntityKind;

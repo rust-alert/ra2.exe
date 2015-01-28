@@ -1,4 +1,4 @@
-//! 遭遇战装载：规则 → MatchState → Game → Session。
+//! 遭遇战装载：规则 → BattleState → Game → Session。
 
 use std::sync::Arc;
 
@@ -10,7 +10,7 @@ use crate::{
     engine::{Engine, EngineConfig},
     game::Game,
     session::Session,
-    state::MatchState,
+    state::BattleState,
 };
 
 /// `open_skirmish_session` 的成功结果。
@@ -43,7 +43,7 @@ pub fn open_skirmish_session(
         rules.techno_types.len()
     );
 
-    let mut state = MatchState::new(chain.edition, rules, map);
+    let mut state = BattleState::new(chain.edition, rules, map);
     if let Some(house) = preferred_house {
         state.ensure_house(house);
         if !state.prefer_local_house(house) {

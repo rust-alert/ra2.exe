@@ -1,7 +1,7 @@
 //! 会话 tick、命令、快照与联机摘要集成测试。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, MatchOutcome, MatchState, Session};
+use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, BattleOutcome, BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
@@ -23,7 +23,7 @@ fn session_tick_and_snapshot() {
         facing: 0,
         sub_cell: 0,
     });
-    let world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let mut session = Session::from_state(world, "test");
     session.expect_game_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });
     session.tick(&engine.runtime());
@@ -60,7 +60,7 @@ fn order_attack_and_detects_victor() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     {
         let world = &mut session.expect_game_mut().world;
         let a = world.entity_id_at(0).expect("entity");
@@ -80,7 +80,7 @@ fn order_attack_and_detects_victor() {
     }
     assert_eq!(session.expect_game().sole_victor(), Some("Americans"));
     assert!(session.expect_game().world.ecs_health(session.expect_game().world.entity_id_at(1).expect("entity")).expect("health").2);
-    assert_eq!(session.expect_game().outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_game().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
     assert!(session.expect_game().paused);
     assert_eq!(session.pump(&engine.runtime(), 1.0), 0);
 }
@@ -91,7 +91,7 @@ fn image_to_cell_uses_preview_origin() {
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     session.expect_game_mut().set_preview_origin(-100, -50);
     let (sx, sy) = ra_map::iso_to_screen(5, 4, 0);
     let cx = (sx + ra_map::TILE_WIDTH / 2) as f32;
@@ -117,7 +117,7 @@ fn snapshot_includes_screen_coords_and_selection() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     session.expect_game_mut().set_preview_origin(-100, -50);
     let snap = session.expect_game().snapshot(&[EntityId(1)]);
     assert_eq!(snap.selected, vec![EntityId(1)]);
@@ -135,7 +135,7 @@ fn pump_advances_fixed_hz_ticks() {
     let engine = test_engine();
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     session.tick_hz = 10;
     assert_eq!(session.pump(&engine.runtime(), 0.05), 0);
     assert_eq!(session.expect_game().world.tick, 0);
@@ -149,7 +149,7 @@ fn remote_digest_mismatch_pauses() {
     let engine = test_engine();
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     session.tick(&engine.runtime());
     let mut bad = session.expect_game().local_digest();
     bad.hash ^= 0xff;
@@ -166,7 +166,7 @@ fn remote_digest_mismatch_pauses() {
 fn remote_digest_tick_mismatch_is_not_success() {
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "t");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     let local = session.expect_game().local_digest();
     let remote = ra_net::StateDigest { tick: local.tick.wrapping_add(1), hash: local.hash };
     assert!(!session.expect_game_mut().apply_remote_digest(&remote));

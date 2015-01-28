@@ -40,7 +40,7 @@ pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u
     }
 }
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     /// 其它存活移动单位是否占用该格（读 ECS）。
     pub(crate) fn cell_occupied_by_other(&self, self_i: usize, x: u16, y: u16) -> bool {
         self.entities.iter().enumerate().any(|(j, o)| {
@@ -139,7 +139,7 @@ pub(crate) fn take_path_step(path: &mut Vec<(u16, u16)>, from_x: u16, from_y: u1
     Some((x, y, facing))
 }
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     pub(crate) fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {

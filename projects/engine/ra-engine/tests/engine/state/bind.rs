@@ -2,7 +2,7 @@
 
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_assets::TechnoKind;
-use ra_engine::{ATTACK_COOLDOWN_TICKS, MatchState};
+use ra_engine::{ATTACK_COOLDOWN_TICKS, BattleState};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;
 
@@ -20,7 +20,7 @@ fn binds_strength_and_speed() {
         facing: 64,
         sub_cell: 0,
     });
-    let world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entity_count(), 1);
     let id = world.entity_id_at(0).expect("entity");
     let health = world.ecs_health(id).expect("health");
@@ -49,7 +49,7 @@ fn unbound_techno_gets_zero_combat_stats() {
         facing: 0,
         sub_cell: 0,
     });
-    let world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let id = world.entity_id_at(0).expect("entity");
     let combat = world.ecs_combat_view(id).expect("combat");
     assert_eq!(combat.attack_range, 0);

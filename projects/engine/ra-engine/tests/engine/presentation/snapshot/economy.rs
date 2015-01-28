@@ -3,7 +3,7 @@
 use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, MatchState, Session};
+use ra_engine::{CommandRejectReason, GameCommand, BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -37,7 +37,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 5_000));
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;

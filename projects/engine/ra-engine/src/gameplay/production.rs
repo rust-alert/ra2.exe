@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     pub(crate) fn advance_production(&mut self) {
         let mut spawns: Vec<(usize, Arc<str>)> = Vec::new();
         let n = self.entities.len();

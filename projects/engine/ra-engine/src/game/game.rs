@@ -6,7 +6,7 @@ use crate::{
     engine::EngineRuntime,
     game::{commands::GameCommand, reject::CommandReject},
     state::{
-        MatchState,
+        BattleState,
         components::{AttackState, AnimationState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
     },
 };
@@ -40,13 +40,13 @@ pub struct RenderSnapshot {
     /// 当前选中实体的稳定 ID（与 `units[].id` 对齐）。
     pub selected: Vec<EntityId>,
     /// 对局结束结果；未结束时为 `None`。
-    pub outcome: Option<MatchOutcome>,
+    pub outcome: Option<BattleOutcome>,
     /// 是否暂停（`pump` 不推进）。
     pub paused: bool,
     /// 暂停原因文案（胜负、手动暂停、摘要不一致等）。
     pub pause_reason: Option<String>,
     /// 结算统计；未结束时为 `None`。
-    pub match_stats: Option<MatchStats>,
+    pub battle_stats: Option<BattleStats>,
     /// 当前会话画面（设置 / 对局中 / 结算）。
     pub screen: SessionScreen,
 }
@@ -63,20 +63,20 @@ pub struct HudSnapshot {
     /// 上一 tick 的命令拒绝。
     pub last_rejects: Vec<CommandReject>,
     /// 对局结束结果。
-    pub outcome: Option<MatchOutcome>,
+    pub outcome: Option<BattleOutcome>,
     /// 是否暂停。
     pub paused: bool,
     /// 暂停原因。
     pub pause_reason: Option<String>,
     /// 结算统计。
-    pub match_stats: Option<MatchStats>,
+    pub battle_stats: Option<BattleStats>,
 }
 
-/// 会话画面（供桌面流程切换，不进入 MatchState tick）。
+/// 会话画面（供桌面流程切换，不进入 BattleState tick）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionScreen {
     /// 对局进行中（含暂停）。
-    InMatch,
+    InBattle,
     /// 结算画面。
     Results,
 }
@@ -136,7 +136,7 @@ pub struct SnapshotUnit {
     pub turret_facing: u8,
     /// 当前 HVA 动画帧。
     pub hva_frame: u16,
-    /// 呈现用动画状态（由仿真快照派生，不推进 MatchState tick）。
+    /// 呈现用动画状态（由仿真快照派生，不推进 BattleState tick）。
     pub anim_state: AnimState,
     /// 当前生命值。
     pub health: u32,
@@ -172,7 +172,7 @@ pub enum AnimState {
 
 /// 对局结束结果（Alpha：唯一存活阵营胜）。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MatchOutcome {
+pub enum BattleOutcome {
     /// 指定阵营获胜。
     Victory {
         /// 获胜阵营 owner 字符串。
@@ -182,7 +182,7 @@ pub enum MatchOutcome {
 
 /// 结算用统计（对局结束时锁定）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct MatchStats {
+pub struct BattleStats {
     /// 对局持续 tick。
     pub duration_ticks: u64,
     /// 已死亡移动单位数。
@@ -197,7 +197,7 @@ pub struct MatchStats {
 #[derive(Debug)]
 pub struct Game {
     /// 仿真世界（规则、地图、实体、通行格）。
-    pub world: MatchState,
+    pub world: BattleState,
     /// 装载或启动时的备注（规则统计、实体数等）。
     pub boot_note: String,
     /// 预览图画布原点 X（等距屏幕坐标），用于点选逆变换。
@@ -209,9 +209,9 @@ pub struct Game {
     /// 暂停原因（如摘要不一致或胜负已定）。
     pub pause_reason: Option<String>,
     /// 对局结果；一旦设定则停止推进并拒绝新命令。
-    pub outcome: Option<MatchOutcome>,
+    pub outcome: Option<BattleOutcome>,
     /// 结算统计；对局结束时填充。
-    pub match_stats: Option<MatchStats>,
+    pub battle_stats: Option<BattleStats>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
     /// 是否为非本地阵营自动下发 AI 命令。
@@ -222,7 +222,7 @@ pub struct Game {
 
 impl Game {
     /// 用已有世界与装载备注创建会话（默认 tick 频率与空指纹）。
-    pub fn new(world: MatchState, boot_note: impl Into<String>) -> Self {
+    pub fn new(world: BattleState, boot_note: impl Into<String>) -> Self {
         Self {
             world,
             boot_note: boot_note.into(),
@@ -231,7 +231,7 @@ impl Game {
             paused: false,
             pause_reason: None,
             outcome: None,
-            match_stats: None,
+            battle_stats: None,
             fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
             ai_enabled: false,
             difficulty: "Normal".into(),
@@ -244,7 +244,7 @@ impl Game {
     }
 
     /// 由世界与装载备注打开一局（设置预览原点与指纹）。
-    pub fn open_skirmish(world: MatchState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
+    pub fn open_skirmish(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
@@ -452,13 +452,13 @@ impl Game {
         else {
             return;
         };
-        self.match_stats = Some(self.compute_match_stats());
-        self.outcome = Some(MatchOutcome::Victory { owner: owner.clone() });
+        self.battle_stats = Some(self.compute_battle_stats());
+        self.outcome = Some(BattleOutcome::Victory { owner: owner.clone() });
         self.paused = true;
         self.pause_reason = Some(format!("胜负已定 · {owner}"));
     }
 
-    fn compute_match_stats(&self) -> MatchStats {
+    fn compute_battle_stats(&self) -> BattleStats {
         let mut units_lost = 0u32;
         let mut buildings_lost = 0u32;
         for e in &self.world.entities {
@@ -475,7 +475,7 @@ impl Game {
             }
         }
         let funds_spent = self.world.players.iter().map(|p| p.funds_spent).sum();
-        MatchStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent }
+        BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent }
     }
 
     /// 指定实体移动到目标格。
@@ -740,8 +740,8 @@ impl Game {
             outcome: hud.outcome,
             paused: hud.paused,
             pause_reason: hud.pause_reason,
-            match_stats: hud.match_stats,
-            screen: if self.outcome.is_some() { SessionScreen::Results } else { SessionScreen::InMatch },
+            battle_stats: hud.battle_stats,
+            screen: if self.outcome.is_some() { SessionScreen::Results } else { SessionScreen::InBattle },
         }
     }
 
@@ -784,12 +784,12 @@ impl Game {
             outcome: self.outcome.clone(),
             paused: self.paused,
             pause_reason: self.pause_reason.clone(),
-            match_stats: self.match_stats.clone(),
+            battle_stats: self.battle_stats.clone(),
         }
     }
 }
 
-fn derive_anim_state(world: &MatchState, id: EntityId) -> AnimState {
+fn derive_anim_state(world: &BattleState, id: EntityId) -> AnimState {
     if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
         return AnimState::Die;
     }
@@ -831,7 +831,7 @@ pub fn difficulty_extra_produce(difficulty: &str) -> bool {
 }
 
 /// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
-fn is_combat_force(world: &MatchState, id: EntityId) -> bool {
+fn is_combat_force(world: &BattleState, id: EntityId) -> bool {
     if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
         return false;
     }

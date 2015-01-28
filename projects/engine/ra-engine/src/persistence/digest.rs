@@ -3,7 +3,7 @@
 use crate::{
     game::GameCommand,
     state::{
-        MatchState,
+        BattleState,
         components::{
             AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, Owner,
             ProductionQueue, Transform,
@@ -12,7 +12,7 @@ use crate::{
 };
 use ra_types::ScheduledCommand;
 
-impl MatchState {
+impl BattleState {
     pub(crate) fn rehash(&mut self) {
         let mut h = self.tick;
         h = h.wrapping_mul(1099511628211).wrapping_add(self.edition.as_str().len() as u64);

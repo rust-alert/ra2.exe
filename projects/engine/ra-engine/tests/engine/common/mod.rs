@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{Engine, EngineConfig, MatchState};
+use ra_engine::{Engine, EngineConfig, BattleState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
@@ -42,7 +42,7 @@ pub fn map_with_size() -> MapInfo {
 }
 
 /// 美俄各一辆 MTNK 的对决世界（Strength=200，供身份 / 拒绝测例）。
-pub fn duel_mtnk_world() -> MatchState {
+pub fn duel_mtnk_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
@@ -80,5 +80,5 @@ pub fn duel_mtnk_world() -> MatchState {
             sub_cell: 0,
         },
     ];
-    MatchState::new(GameEdition::Ra2, &rules_db, map)
+    BattleState::new(GameEdition::Ra2, &rules_db, map)
 }

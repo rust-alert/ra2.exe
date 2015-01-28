@@ -3,7 +3,7 @@
 //! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
 
 use crate::{
-    GameCommand, MatchState,
+    GameCommand, BattleState,
     gameplay::{deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, owner_allows},
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
@@ -11,7 +11,7 @@ use ra_map::MapEntityKind;
 use ra_types::{PlayerId, ProductionCategory};
 
 /// 为本阵营未部署的可部署单位生成 `Deploy`（已有建造场则跳过）。
-pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> {
+pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand> {
     if house_has_yard(world, house) {
         return Vec::new();
     }
@@ -40,7 +40,7 @@ pub fn deploy_mcv_commands(world: &MatchState, house: &str) -> Vec<GameCommand> 
 }
 
 /// 有建造场且无供电时，在建造场邻格放置一座电厂。
-pub fn place_power_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn place_power_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_yard(world, house) || house_has_power(world, house) {
         return Vec::new();
     }
@@ -52,7 +52,7 @@ pub fn place_power_commands(world: &MatchState, house: &str, player: PlayerId) -
 }
 
 /// 有供电且无兵营时，在建造场邻格放置一座兵营。
-pub fn place_barracks_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn place_barracks_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
@@ -64,7 +64,7 @@ pub fn place_barracks_commands(world: &MatchState, house: &str, player: PlayerId
 }
 
 /// 有供电且无战车工厂时，在建造场邻格放置一座战车工厂。
-pub fn place_war_factory_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn place_war_factory_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
@@ -76,7 +76,7 @@ pub fn place_war_factory_commands(world: &MatchState, house: &str, player: Playe
 }
 
 /// 有供电且无矿场时，在建造场邻格放置一座矿场。
-pub fn place_refinery_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn place_refinery_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_refinery(world, house) {
         return Vec::new();
     }
@@ -88,7 +88,7 @@ pub fn place_refinery_commands(world: &MatchState, house: &str, player: PlayerId
 }
 
 /// 有空闲兵营时生产一名步兵。
-pub fn produce_infantry_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn produce_infantry_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_idle_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
@@ -100,7 +100,7 @@ pub fn produce_infantry_commands(world: &MatchState, house: &str, player: Player
 }
 
 /// 有空闲战车工厂时生产一辆载具。
-pub fn produce_vehicle_commands(world: &MatchState, house: &str, player: PlayerId) -> Vec<GameCommand> {
+pub fn produce_vehicle_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_idle_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
@@ -111,7 +111,7 @@ pub fn produce_vehicle_commands(world: &MatchState, house: &str, player: PlayerI
     produce_unit(world, house, player, unit_id)
 }
 
-fn produce_unit(world: &MatchState, house: &str, player: PlayerId, unit_id: &str) -> Vec<GameCommand> {
+fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit_id: &str) -> Vec<GameCommand> {
     let Some(cost) = world.techno_cost(unit_id)
     else {
         return Vec::new();
@@ -126,7 +126,7 @@ fn produce_unit(world: &MatchState, house: &str, player: PlayerId, unit_id: &str
     vec![GameCommand::Produce { player, type_id: unit_id.to_string() }]
 }
 
-fn place_near_yard(world: &MatchState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
+fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
     let Some(cost) = world.techno_cost(type_id)
     else {
         return Vec::new();
@@ -150,7 +150,7 @@ fn place_near_yard(world: &MatchState, house: &str, player: PlayerId, type_id: &
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。
-pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand> {
+pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand> {
     let mut out = Vec::new();
     for (attacker_index, attacker) in world.entities.iter().enumerate() {
         let id = attacker.id;
@@ -182,7 +182,7 @@ pub fn auto_attack_commands(world: &MatchState, house: &str) -> Vec<GameCommand>
     out
 }
 
-fn pick_structure<'a, F>(world: &'a MatchState, house: &str, pred: F) -> Option<&'a str>
+fn pick_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> Option<&'a str>
 where
     F: Fn(&ra_types::StructureDefinition) -> bool,
 {
@@ -195,7 +195,7 @@ where
         .next()
 }
 
-fn pick_techno<'a>(world: &'a MatchState, house: &str, category: ProductionCategory) -> Option<&'a str> {
+fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a str> {
     world
         .definitions
         .techno
@@ -207,9 +207,9 @@ fn pick_techno<'a>(world: &'a MatchState, house: &str, category: ProductionCateg
         .next()
 }
 
-fn living_house_structure<'a, F>(world: &'a MatchState, house: &str, pred: F) -> bool
+fn living_house_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> bool
 where
-    F: Fn(&MatchState, &Identity) -> bool,
+    F: Fn(&BattleState, &Identity) -> bool,
 {
     world.entities.iter().any(|e| {
         let id = e.id;
@@ -219,19 +219,19 @@ where
     })
 }
 
-fn house_has_yard(world: &MatchState, house: &str) -> bool {
+fn house_has_yard(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_construction_yard(&w.definitions, &i.type_id))
 }
 
-fn house_has_power(world: &MatchState, house: &str) -> bool {
+fn house_has_power(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_power_plant(&w.definitions, &i.type_id))
 }
 
-fn house_has_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
+fn house_has_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
     living_house_structure(world, house, |w, i| factory_matches_category(&w.definitions, &i.type_id, category))
 }
 
-fn house_has_idle_factory(world: &MatchState, house: &str, category: ProductionCategory) -> bool {
+fn house_has_idle_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
     world.entities.iter().any(|e| {
         let id = e.id;
         !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
@@ -245,11 +245,11 @@ fn house_has_idle_factory(world: &MatchState, house: &str, category: ProductionC
     })
 }
 
-fn house_has_refinery(world: &MatchState, house: &str) -> bool {
+fn house_has_refinery(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_refinery(&w.definitions, &i.type_id))
 }
 
-fn yard_cell(world: &MatchState, house: &str) -> Option<(u16, u16)> {
+fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
     world.entities.iter().find_map(|e| {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -266,7 +266,7 @@ fn yard_cell(world: &MatchState, house: &str) -> Option<(u16, u16)> {
     })
 }
 
-fn find_open_near(world: &MatchState, fx: u16, fy: u16) -> Option<(u16, u16)> {
+fn find_open_near(world: &BattleState, fx: u16, fy: u16) -> Option<(u16, u16)> {
     const DELTAS: [(i32, i32); 16] = [
         (1, 0),
         (0, 1),
@@ -299,7 +299,7 @@ fn find_open_near(world: &MatchState, fx: u16, fy: u16) -> Option<(u16, u16)> {
     None
 }
 
-fn nearest_enemy(world: &MatchState, from: usize, house: &str) -> Option<usize> {
+fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize> {
     let from_id = world.entities[from].id;
     let from_xf = world.ecs_get::<Transform>(from_id)?;
     let mut best: Option<(u32, usize)> = None;

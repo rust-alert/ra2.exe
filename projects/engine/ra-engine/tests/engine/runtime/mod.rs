@@ -5,7 +5,7 @@ mod duplicate_command;
 mod economy_orders;
 mod future_tick;
 mod input_frame;
-mod match_stats;
+mod battle_stats;
 mod pause;
 mod reject;
 mod schedule;

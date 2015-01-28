@@ -25,8 +25,8 @@ pub enum CommandRejectReason {
     WrongOwner,
     /// 生产或建造队列已满。
     QueueFull,
-    /// 对局已结束。
-    MatchEnded,
+    /// 战斗已结束。
+    BattleEnded,
     /// 同一 `CommandId` 已处理过（重复调度）。
     DuplicateCommand,
 }
@@ -46,7 +46,7 @@ impl CommandRejectReason {
             Self::InvalidPlacement => "无法放置",
             Self::WrongOwner => "非己方单位",
             Self::QueueFull => "队列已满",
-            Self::MatchEnded => "对局已结束",
+            Self::BattleEnded => "战斗已结束",
             Self::DuplicateCommand => "重复命令",
         }
     }

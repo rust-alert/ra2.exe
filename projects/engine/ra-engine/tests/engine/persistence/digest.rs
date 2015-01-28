@@ -1,7 +1,7 @@
 //! 同命令流下状态摘要一致。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, MatchState};
+use ra_engine::{GameCommand, BattleState};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 
@@ -30,7 +30,7 @@ fn twin_worlds_same_command_stream_match_hash() {
         sub_cell: 0,
     });
     let mk = || {
-        let mut w = MatchState::new(GameEdition::Ra2, &rules, map.clone());
+        let mut w = BattleState::new(GameEdition::Ra2, &rules, map.clone());
         let a = w.entity_id_at(0).expect("entity");
         let b = w.entity_id_at(1).expect("entity");
         assert!(w.clear_ecs_movement(a));

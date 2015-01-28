@@ -1,7 +1,7 @@
 //! 手动暂停与快照字段。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{MatchState, Session};
+use ra_engine::{BattleState, Session};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 
@@ -10,7 +10,7 @@ fn toggle_pause_stops_pump_and_exposes_snapshot() {
     let engine = test_engine();
     let rules = rules_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "pause");
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "pause");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "pause");
     session.tick_hz = 10;
     assert!(!session.expect_game().snapshot(&[]).paused);
     session.expect_game_mut().toggle_pause();

@@ -1,14 +1,14 @@
 //! 每 tick 记录输入帧（含空帧）。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, MatchState};
+use ra_engine::{GameCommand, BattleState};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn every_tick_records_input_frame_including_empty() {
     let rules = rules_with_mtnk();
     let map = map_with_size();
-    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     world.advance_tick();
     assert_eq!(world.last_input_frame().tick, 1);
     assert!(world.last_input_frame().is_empty());

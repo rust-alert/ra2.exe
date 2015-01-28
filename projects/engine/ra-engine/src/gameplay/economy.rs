@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     pub(crate) fn advance_refinery_income(&mut self) {
         let defs = Arc::clone(&self.definitions);
         let mut credits: Vec<(Arc<str>, i32)> = Vec::new();

@@ -1,7 +1,7 @@
 //! `SystemSchedule` 驱动 tick 阶段。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, MatchState, SystemPhase, SystemSchedule};
+use ra_engine::{GameCommand, BattleState, SystemPhase, SystemSchedule};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 
@@ -29,7 +29,7 @@ fn omitting_combat_phase_skips_damage() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     let a = world.entity_id_at(0).expect("entity");
     let b = world.entity_id_at(1).expect("entity");
     assert!(world.clear_ecs_movement(a));

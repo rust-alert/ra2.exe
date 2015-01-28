@@ -3,7 +3,7 @@
 use crate::common::test_engine;
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{MatchState, Session};
+use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -51,7 +51,7 @@ fn ai_deploys_mcv_via_command() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
     session.expect_game_mut().ai_enabled = true;
     session.tick(&engine.runtime());
     let mcv = session.expect_game().world.entity_id_at(1).expect("entity");

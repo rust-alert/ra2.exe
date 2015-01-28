@@ -1,12 +1,12 @@
-//! 胜负时锁定 MatchStats。
+//! 胜负时锁定 BattleStats。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{GameCommand, MatchOutcome, MatchState, Session};
+use ra_engine::{GameCommand, BattleOutcome, BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
-fn victory_locks_match_stats() {
+fn victory_locks_battle_stats() {
     let engine = test_engine();
     let rules = rules_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "stats");
@@ -32,7 +32,7 @@ fn victory_locks_match_stats() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "stats");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "stats");
     let attacker = session.expect_game().world.entity_id_at(0).expect("entity");
     let target = session.expect_game().world.entity_id_at(1).expect("entity");
     assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
@@ -45,11 +45,11 @@ fn victory_locks_match_stats() {
             break;
         }
     }
-    assert_eq!(session.expect_game().outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
-    let stats = session.expect_game().match_stats.as_ref().expect("stats");
+    assert_eq!(session.expect_game().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    let stats = session.expect_game().battle_stats.as_ref().expect("stats");
     assert!(stats.duration_ticks > 0);
     assert_eq!(stats.units_lost, 1);
     assert_eq!(stats.buildings_lost, 0);
     assert_eq!(stats.funds_spent, 1200);
-    assert_eq!(session.expect_game().snapshot(&[]).match_stats.as_ref().map(|s| s.funds_spent), Some(1200));
+    assert_eq!(session.expect_game().snapshot(&[]).battle_stats.as_ref().map(|s| s.funds_spent), Some(1200));
 }

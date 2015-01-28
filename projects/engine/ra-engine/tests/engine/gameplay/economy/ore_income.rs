@@ -2,11 +2,11 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{MatchState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
+use ra_engine::{BattleState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
-fn refinery_world() -> MatchState {
+fn refinery_world() -> BattleState {
     let rules_text = b"[BuildingTypes]\n0=GAREFN\n\
 [GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
@@ -32,7 +32,7 @@ fn refinery_world() -> MatchState {
         facing: 0,
         sub_cell: 0,
     }];
-    let mut world = MatchState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 1_000));
     world
 }

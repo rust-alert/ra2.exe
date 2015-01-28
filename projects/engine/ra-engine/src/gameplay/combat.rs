@@ -12,7 +12,7 @@ use crate::{
 };
 use ra_assets::armor_index;
 
-impl crate::state::MatchState {
+impl crate::state::BattleState {
     pub(crate) fn resolve_combat(&mut self) {
         let n = self.entities.len();
         let mut damage_events: Vec<(usize, u32)> = Vec::new();

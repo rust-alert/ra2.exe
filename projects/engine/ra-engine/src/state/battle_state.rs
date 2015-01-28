@@ -69,7 +69,7 @@ pub const PRODUCE_TICKS: u32 = 20;
 
 /// 确定性仿真世界：实体、通行格与按 tick 消费的命令。
 #[derive(Debug, Clone)]
-pub struct MatchState {
+pub struct BattleState {
     /// 当前游戏版本。
     pub edition: GameEdition,
     /// 已推进的逻辑 tick 计数。
@@ -105,7 +105,7 @@ pub struct MatchState {
     pub(crate) ecs: EcsRegistry,
 }
 
-impl MatchState {
+impl BattleState {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
     pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);

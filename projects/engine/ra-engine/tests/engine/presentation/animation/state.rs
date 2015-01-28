@@ -1,7 +1,7 @@
 //! 快照动画状态派生。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{AnimState, GameCommand, MatchState, Session};
+use ra_engine::{AnimState, GameCommand, BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -22,7 +22,7 @@ fn snapshot_anim_state_moves_when_ordered() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "anim");
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "anim");
     assert_eq!(session.expect_game().snapshot(&[]).units[0].anim_state, AnimState::Idle);
     session.expect_game_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 10, y: 4 });
     session.tick(&engine.runtime());

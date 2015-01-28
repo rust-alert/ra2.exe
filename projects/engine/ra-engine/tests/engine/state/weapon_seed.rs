@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesDb;
 use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::MatchState;
+use ra_engine::BattleState;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -36,7 +36,7 @@ fn seeds_attack_stats_from_primary_weapon() {
         facing: 0,
         sub_cell: 0,
     });
-    let world = MatchState::new(GameEdition::Ra2, &rules, map);
+    let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
     assert_eq!(combat.attack_damage, 75);
     assert_eq!(combat.attack_range, 5);

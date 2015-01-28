@@ -1,7 +1,7 @@
 //! 快照画面：对局中 / 结算。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{GameCommand, MatchOutcome, MatchState, Session, SessionScreen};
+use ra_engine::{GameCommand, BattleOutcome, BattleState, Session, SessionScreen};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -32,8 +32,8 @@ fn snapshot_screen_moves_to_results_on_victory() {
         facing: 0,
         sub_cell: 0,
     });
-    let mut session = Session::from_state(MatchState::new(GameEdition::Ra2, &rules, map), "screen");
-    assert_eq!(session.expect_game().snapshot(&[]).screen, SessionScreen::InMatch);
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "screen");
+    assert_eq!(session.expect_game().snapshot(&[]).screen, SessionScreen::InBattle);
     let attacker = session.expect_game().world.entity_id_at(0).expect("entity");
     let target = session.expect_game().world.entity_id_at(1).expect("entity");
     assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
@@ -45,6 +45,6 @@ fn snapshot_screen_moves_to_results_on_victory() {
             break;
         }
     }
-    assert!(matches!(session.expect_game().outcome, Some(MatchOutcome::Victory { .. })));
+    assert!(matches!(session.expect_game().outcome, Some(BattleOutcome::Victory { .. })));
     assert_eq!(session.expect_game().snapshot(&[]).screen, SessionScreen::Results);
 }

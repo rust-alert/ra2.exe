@@ -19,7 +19,7 @@ use ra_types::RuntimeDefinitions;
 use crate::{
     game::Game,
     session::{Session, SessionSpec},
-    state::MatchState,
+    state::BattleState,
 };
 
 /// 引擎错误（骨架）。
@@ -128,7 +128,7 @@ impl Engine {
     }
 
     /// 由已装载的权威状态直接打开带一局游戏的会话（boot / 测试便利）。
-    pub fn open_game_session(&self, state: MatchState, boot_note: impl Into<String>) -> Result<Session, EngineError> {
+    pub fn open_game_session(&self, state: BattleState, boot_note: impl Into<String>) -> Result<Session, EngineError> {
         let mut session = self.create_session(SessionSpec::default())?;
         let game = Game::new(state, boot_note);
         session.attach_game(game);
