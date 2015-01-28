@@ -119,6 +119,23 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
+/// 地图预览：在 `0x468` 槽内等比适配（整数 `*1000` 缩放），不拉满、不描边。
+fn blit_map_preview_fit(dst: &mut RgbaImage, src: &RgbaImage, slot: RectPx) {
+    let sw = src.width() as i32;
+    let sh = src.height() as i32;
+    if sw <= 0 || sh <= 0 || slot.w <= 0 || slot.h <= 0 {
+        return;
+    }
+    let scale_w = (slot.w * 1000) / sw;
+    let scale_h = (slot.h * 1000) / sh;
+    let scale = scale_w.min(scale_h).max(1);
+    let fit_w = (sw * scale) / 1000;
+    let fit_h = (sh * scale) / 1000;
+    let fit_x = slot.x + slot.w / 2 - (sw * scale) / 2000;
+    let fit_y = slot.y + slot.h / 2 - (sh * scale) / 2000;
+    blit_stretched(dst, src, RectPx::new(fit_x, fit_y, fit_w.max(1), fit_h.max(1)));
+}
+
 /// 1:1 贴图，跳过透明与近黑（`fsscrn` 空区约 (8,8,8)，非索引 0）。
 fn blit_rgba_skip_near_black(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32, max_rgb_sum: u16) {
     let raw = src.as_raw();
@@ -1317,12 +1334,10 @@ pub fn compose_skirmish_lobby_page(
         warn_anim_frame,
     )?;
 
-    // 右栏：`sdtp` 帧 1 标题牌 + `sdmpbtn` 地图名底板；小地图盖住黑窗；标题左对齐。
+    // 右栏：`sdtp` 帧 1 标题牌 + `sdmpbtn` 地图名底板；预览等比落入 `0x468` 黑窗（无红描边）。
     blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
-    fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);
-    stroke_rect(&mut page, layout.map_preview, [180, 24, 24, 255]);
     if let Some(preview) = map_preview {
-        blit_stretched(&mut page, preview, layout.map_preview);
+        blit_map_preview_fit(&mut page, preview, layout.map_preview);
     }
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
@@ -1389,10 +1404,8 @@ pub fn compose_choose_map_page(
     )?;
 
     blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
-    fill_rect(&mut page, layout.map_preview, [8, 10, 16, 255]);
-    stroke_rect(&mut page, layout.map_preview, [180, 24, 24, 255]);
     if let Some(preview) = map_preview {
-        blit_stretched(&mut page, preview, layout.map_preview);
+        blit_map_preview_fit(&mut page, preview, layout.map_preview);
     }
 
     fill_rect(&mut page, layout.game_type_list, [12, 12, 18, 255]);
