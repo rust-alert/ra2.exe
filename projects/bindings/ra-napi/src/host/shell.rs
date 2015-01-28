@@ -505,7 +505,7 @@ impl AppShell {
         let need_base = self
             .skirmish_chrome
             .as_ref()
-            .map(|c| c.checkbox_off.is_none() || c.track_cap_l.is_none())
+            .map(|c| c.checkbox_off.is_none() || c.track_cap_l.is_none() || c.combo_arrow.is_none())
             .unwrap_or(true);
         if !need_base && !need_flag {
             return;
@@ -522,6 +522,8 @@ impl AppShell {
             chrome.track_cap_l = Self::load_pcx_rgba(source, "trofl.pcx");
             chrome.track_cap_m = Self::load_pcx_rgba(source, "trofm.pcx");
             chrome.track_cap_r = Self::load_pcx_rgba(source, "trofr.pcx");
+            chrome.combo_arrow = Self::load_pcx_rgba(source, "dnarrowr.pcx");
+            chrome.combo_arrow_pressed = Self::load_pcx_rgba(source, "dnarrowp.pcx");
         }
         if need_flag {
             for i in 0..ui_layout::SKIRMISH_ROW_COUNT {

@@ -20,9 +20,9 @@ use crate::{
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
     OPTIONS_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
-    SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
-    options_layout, single_player_layout, skirmish_lobby_layout,
+    SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD,
+    SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout,
+    main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
 };
 
 /// 切页波浪帧：有字钮进出；空格仅在出去时叠 `SDBTNANM`（进来不叠满钮，避免收束后消失）。
@@ -900,10 +900,35 @@ fn draw_bevel_frame(dst: &mut RgbaImage, rect: RectPx, inset_fill: Option<[u8; 4
     }
 }
 
-fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4]) {
-    fill_rect(dst, rect, [8, 8, 12, 255]);
-    stroke_rect(dst, rect, [180, 24, 24, 255]);
-    fill_rect(dst, RectPx::new(rect.x + 2, rect.y + 2, (rect.w - 4).max(1), (rect.h - 4).max(1)), fill);
+/// 编辑框面（玩家名）：斜角框，无下拉箭头。
+fn draw_edit_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4]) {
+    draw_bevel_frame(dst, rect, Some(fill));
+}
+
+/// 下拉塌陷面：斜角框 + 右侧 `dnarrow*.pcx` 箭头。
+fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4], chrome: Option<&SkirmishChromeSprites>, arrow_pressed: bool) {
+    let body_w = (rect.w - SKIRMISH_COMBO_ARROW_RESERVE).max(1);
+    draw_bevel_frame(dst, rect, Some([8, 8, 12, 255]));
+    if body_w > 4 && rect.h > 4 {
+        fill_rect(dst, RectPx::new(rect.x + 2, rect.y + 2, body_w - 2, rect.h - 4), fill);
+    }
+    let arrow = chrome.and_then(|c| if arrow_pressed { c.combo_arrow_pressed.as_ref() } else { c.combo_arrow.as_ref() });
+    if let Some(img) = arrow {
+        // 箭头原点：client_width - 19, y + 1。
+        blit_rgba(dst, img, rect.x + rect.w - 19, rect.y + 1);
+    }
+}
+
+/// 颜色下拉塌陷面：非箭头区色块 + 箭头。
+fn draw_color_combo_face(dst: &mut RgbaImage, rect: RectPx, rgb: [u8; 3], chrome: Option<&SkirmishChromeSprites>, arrow_pressed: bool) {
+    let body_w = (rect.w - SKIRMISH_COMBO_ARROW_RESERVE).max(1);
+    draw_bevel_frame(dst, rect, Some([8, 8, 12, 255]));
+    let swatch = RectPx::new(rect.x + 2, rect.y + 2, (body_w - 2).max(1), (rect.h - 4).max(1));
+    fill_rect(dst, swatch, [rgb[0], rgb[1], rgb[2], 255]);
+    let arrow = chrome.and_then(|c| if arrow_pressed { c.combo_arrow_pressed.as_ref() } else { c.combo_arrow.as_ref() });
+    if let Some(img) = arrow {
+        blit_rgba(dst, img, rect.x + rect.w - 19, rect.y + 1);
+    }
 }
 
 fn draw_skirmish_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool, chrome: Option<&SkirmishChromeSprites>) {
@@ -1007,6 +1032,10 @@ pub struct SkirmishChromeSprites {
     pub track_cap_m: Option<RgbaImage>,
     /// 数值底板右帽 `trofr.pcx`。
     pub track_cap_r: Option<RgbaImage>,
+    /// 下拉箭头常态 `dnarrowr.pcx`。
+    pub combo_arrow: Option<RgbaImage>,
+    /// 下拉箭头按下 `dnarrowp.pcx`。
+    pub combo_arrow_pressed: Option<RgbaImage>,
     /// 本地玩家旗标。
     pub flag: Option<RgbaImage>,
     /// AI 行旗标（可与本地相同资源）。
@@ -1111,22 +1140,34 @@ fn paint_skirmish_lobby_controls(
 
     // 玩家名 / 下拉面 / 色块（本地 + 可选 AI 行）。
     let name_face = if paint.player_name_editing { [40, 40, 56, 255] } else { [16, 16, 20, 255] };
-    draw_combo_face(page, layout.player_name, name_face);
+    draw_edit_face(page, layout.player_name, name_face);
     let local_rgb = row_color_rgb(paint, 0);
-    draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255]);
-    draw_combo_face(page, layout.color_faces[0], [local_rgb[0], local_rgb[1], local_rgb[2], 255]);
+    draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255], chrome, paint.country_combo_open && paint.combo_row == 0);
+    draw_color_combo_face(page, layout.color_faces[0], local_rgb, chrome, paint.color_combo_open && paint.combo_row == 0);
     blit_flag(page, row_flag(chrome, 0), layout.flags[0]);
 
     let ai_rows = paint.ai_rows.min(layout.ai_faces.len());
     for i in 0..ai_rows {
-        draw_combo_face(page, layout.ai_faces[i], [16, 16, 20, 255]);
+        draw_combo_face(page, layout.ai_faces[i], [16, 16, 20, 255], chrome, paint.ai_combo_open && i == 0);
         let human_row = i + 1;
         if human_row < layout.side_faces.len() {
-            draw_combo_face(page, layout.side_faces[human_row], [16, 16, 20, 255]);
+            draw_combo_face(
+                page,
+                layout.side_faces[human_row],
+                [16, 16, 20, 255],
+                chrome,
+                paint.country_combo_open && paint.combo_row == human_row,
+            );
         }
         if human_row < layout.color_faces.len() {
             let rgb = row_color_rgb(paint, human_row);
-            draw_combo_face(page, layout.color_faces[human_row], [rgb[0], rgb[1], rgb[2], 255]);
+            draw_color_combo_face(
+                page,
+                layout.color_faces[human_row],
+                rgb,
+                chrome,
+                paint.color_combo_open && paint.combo_row == human_row,
+            );
         }
         if human_row < layout.flags.len() {
             blit_flag(page, row_flag(chrome, human_row), layout.flags[human_row]);
@@ -1634,6 +1675,7 @@ pub struct MatchHudPaint<'a> {
     /// 结算文案（可空）。
     pub outcome: Option<&'a str>,
 }
+
 
 /// 合成对局 HUD 叠加层：左透明、右 `RIGHT_PANEL_W` 实心栏。
 pub fn compose_match_hud_overlay(viewport_w: u32, viewport_h: u32, fnt: Option<&FntFile>, paint: MatchHudPaint<'_>) -> Option<RgbaImage> {

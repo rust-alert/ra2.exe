@@ -3,8 +3,8 @@
 //! 控件几何在 [`ra_layout::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
 use ra_layout::ui_layout::{
-    RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
-    SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
+    RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
+    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
 };
 
 /// 大厅可选阵营短名（写入装载请求；遭遇战会登记进玩家表，不要求地图实体已有同名 owner）。
@@ -28,6 +28,7 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
 
 /// 玩家名最大字符数（零售 Handle 常见上限）。
 pub const PLAYER_NAME_MAX_CHARS: usize = 12;
+
 
 /// 阵营 → 安装内旗标 PCX（`local.mix` 证据）。
 pub fn side_flag_pcx(side: &str) -> &'static str {
@@ -541,22 +542,29 @@ impl SkirmishBootRequest {
                 return Some(SkirmishLobbyHit::Track(id));
             }
         }
-        // 各行国家 / 颜色面：展开该行自己的列表。
+        // 各行国家 / 颜色面：仅右侧箭头区展开（对齐原版 owner-draw）。
         for row in 0..human_rows {
-            if layout.side_faces[row].contains(x, y) {
+            if combo_arrow_hit(layout.side_faces[row]).contains(x, y) {
+                let same = self.open_combo == Some(SkirmishComboKind::Country) && self.combo_row == row;
                 self.combo_row = row;
-                self.open_combo = Some(SkirmishComboKind::Country);
+                self.open_combo = if same { None } else { Some(SkirmishComboKind::Country) };
                 return Some(SkirmishLobbyHit::ToggleCountryCombo);
             }
-            if layout.color_faces[row].contains(x, y) {
+            if combo_arrow_hit(layout.color_faces[row]).contains(x, y) {
+                let same = self.open_combo == Some(SkirmishComboKind::Color) && self.combo_row == row;
                 self.combo_row = row;
-                self.open_combo = Some(SkirmishComboKind::Color);
+                self.open_combo = if same { None } else { Some(SkirmishComboKind::Color) };
                 return Some(SkirmishLobbyHit::ToggleColorCombo);
             }
         }
         // 仅当地图有 AI 席位时展开难度下拉（行 0 代表共用难度）。
-        if ai_rows > 0 && layout.ai_faces[0].contains(x, y) {
-            self.open_combo = Some(SkirmishComboKind::Ai);
+        if ai_rows > 0 && combo_arrow_hit(layout.ai_faces[0]).contains(x, y) {
+            self.open_combo = if self.open_combo == Some(SkirmishComboKind::Ai) {
+                None
+            }
+            else {
+                Some(SkirmishComboKind::Ai)
+            };
             return Some(SkirmishLobbyHit::ToggleAiCombo);
         }
         None
@@ -642,6 +650,11 @@ fn track_rect(layout: &SkirmishLobbyLayout, id: SkirmishTrackbar) -> RectPx {
         SkirmishTrackbar::Credits => layout.track_credits,
         SkirmishTrackbar::UnitCount => layout.track_units,
     }
+}
+
+fn combo_arrow_hit(face: RectPx) -> RectPx {
+    let w = SKIRMISH_COMBO_ARROW_RESERVE.min(face.w.max(0));
+    RectPx::new(face.x + face.w - w, face.y, w, face.h)
 }
 
 fn track_pos_from_mouse(rect: RectPx, mouse_x: i32, id: SkirmishTrackbar) -> i32 {

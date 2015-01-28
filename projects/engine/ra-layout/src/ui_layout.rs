@@ -74,6 +74,8 @@ pub const SKIRMISH_ROW_COUNT: usize = 8;
 pub const SKIRMISH_AI_ROW_COUNT: usize = 7;
 /// 下拉面高度（像素）。
 pub const SKIRMISH_COMBO_FACE_H: i32 = 24;
+/// 下拉右侧箭头保留宽（像素）。
+pub const SKIRMISH_COMBO_ARROW_RESERVE: i32 = 20;
 /// 勾选图标宽。
 pub const SKIRMISH_CHECK_W: i32 = 18;
 /// 勾选图标高。
