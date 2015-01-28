@@ -8,6 +8,7 @@ pub mod fs_source;
 pub mod menu_action;
 pub mod options_dialog;
 pub mod original_screen;
+pub mod pause_menu;
 pub mod shell_slide;
 pub mod skirmish_setup;
 pub mod startup_splash;

@@ -294,6 +294,19 @@ pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 对局暂停菜单钮 → CSF。
+pub fn pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "options" => Some("GUI:Options"),
+        "load" => Some("GUI:LoadMission"),
+        "save" => Some("GUI:SaveMission"),
+        "restart" => Some("GUI:AbortRestart"),
+        "abort" => Some("GUI:AbortMission"),
+        "resume" => Some("GUI:ResumeMission"),
+        _ => None,
+    }
+}
+
 /// 退出确认提示 CSF 键。
 pub fn exit_confirm_prompt_csf_key() -> &'static str {
     "GUI:ExitAreYouSure"

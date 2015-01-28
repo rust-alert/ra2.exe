@@ -13,16 +13,16 @@ use crate::{
         blit_caption_wrapped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
         choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
         load_screen_loading_csf_key, load_screen_name_csf_key, load_screen_special_unit_csf_key, main_menu_csf_label, options_csf_label,
-        options_dialog_csf_key, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label,
-        skirmish_lobby_static_csf_key, skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
+        options_dialog_csf_key, pause_menu_csf_label, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key,
+        skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
     },
 };
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
-    OPTIONS_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD,
-    SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout, exit_confirm_layout,
-    main_menu_layout, options_layout, single_player_layout, skirmish_lobby_layout,
+    OPTIONS_BUTTON_IDS, PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
+    SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS,
+    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout,
+    exit_confirm_layout, main_menu_layout, options_layout, pause_menu_layout, single_player_layout, skirmish_lobby_layout,
 };
 
 /// 切页波浪帧：有字钮进出；空格仅在出去时叠 `SDBTNANM`（进来不叠满钮，避免收束后消失）。
@@ -1761,6 +1761,65 @@ pub fn compose_match_hud_overlay(viewport_w: u32, viewport_h: u32, fnt: Option<&
         let r = RectPx::new(cx, cy, cell, cell);
         fill_rect(&mut page, r, [20, 22, 28, 255]);
         stroke_rect(&mut page, r, [90, 30, 30, 255]);
+    }
+
+    Some(page)
+}
+
+/// 合成对局暂停菜单叠加层：左战术区压暗，右栏六钮（选项 / 载入 / 保存 / 重开 / 放弃 / 回到游戏）。
+///
+/// `decoded` 若带 `sdbtnanm` 则贴壳层钮面；否则用纯色格占位。不改宿主导航。
+pub fn compose_pause_menu_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    decoded: Option<&PageDecodeReport>,
+) -> Option<RgbaImage> {
+    let layout = pause_menu_layout(viewport_w, viewport_h);
+    let w = layout.canvas.w.max(1) as u32;
+    let h = layout.canvas.h.max(1) as u32;
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+
+    // 左战术区压暗罩（半透明黑）。
+    fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
+    // 右栏实心底，盖住对局 cameo。
+    fill_rect(&mut page, layout.sidebar, [28, 16, 16, 240]);
+    stroke_rect(&mut page, layout.sidebar, [140, 32, 32, 255]);
+
+    for (i, entry_id) in PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
+        let cell = layout.buttons[i];
+        let pressed = pressed_entry_id == Some(*entry_id);
+        let hovered = hovered_entry_id == Some(*entry_id);
+        let sprite = decoded.and_then(|d| {
+            if pressed {
+                find_button_pressed(d, entry_id).or_else(|| find_button_normal(d, entry_id))
+            } else if hovered {
+                find_button_hover(d, entry_id).or_else(|| find_button_normal(d, entry_id))
+            } else {
+                find_button_normal(d, entry_id)
+            }
+        });
+        if let Some(sprite) = sprite {
+            blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
+        } else {
+            let fill = if pressed {
+                [120, 24, 24, 255]
+            } else if hovered {
+                [90, 20, 20, 255]
+            } else {
+                [64, 12, 12, 255]
+            };
+            fill_rect(&mut page, cell, fill);
+            stroke_rect(&mut page, cell, [200, 40, 40, 255]);
+        }
+        if let Some(fnt) = fnt {
+            let caption = resolve_caption(csf, entry_id, pause_menu_csf_label(entry_id));
+            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
+        }
     }
 
     Some(page)
