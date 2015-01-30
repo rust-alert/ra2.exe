@@ -156,6 +156,43 @@ impl MixVfs {
         })
     }
 
+    /// 优先从档案名匹配 `prefer_archive`（大小写不敏感）的挂载读取；无命中再回退 [`Self::resolve_hit`]。
+    ///
+    /// 用于对局侧栏：同名 `SIDE1.SHP` 等在 `sidec01` / `sidec02` 各有一份，需按阵营选档。
+    pub fn resolve_hit_preferring(&self, name: &str, prefer_archive: &str) -> Option<MixResolveHit<'_>> {
+        let prefer = prefer_archive.trim();
+        if !prefer.is_empty() {
+            let mut best: Option<(i32, u32, usize)> = None;
+            for (idx, mounted) in self.archives.iter().enumerate() {
+                if !mounted.name.eq_ignore_ascii_case(prefer) {
+                    continue;
+                }
+                if mounted.archive.get_by_name(name).is_none() {
+                    continue;
+                }
+                let key = (mounted.priority, mounted.seq);
+                match best {
+                    None => best = Some((key.0, key.1, idx)),
+                    Some((bp, bs, _)) if key > (bp, bs) => best = Some((key.0, key.1, idx)),
+                    _ => {}
+                }
+            }
+            if let Some((_, _, idx)) = best {
+                let mounted = &self.archives[idx];
+                if let Some(bytes) = mounted.archive.get_by_name(name) {
+                    return Some(MixResolveHit {
+                        archive_name: mounted.name.as_str(),
+                        parent: mounted.parent.as_deref(),
+                        layer_id: mounted.layer_id.as_deref(),
+                        priority: mounted.priority,
+                        bytes,
+                    });
+                }
+            }
+        }
+        self.resolve_hit(name)
+    }
+
     /// 若某已挂载档案含嵌套 MIX，则解析并挂上（继承该父档优先级）。
     ///
     /// 仅打开**当前全局胜出**的那一份嵌套字节。需要多来源文件覆盖时用

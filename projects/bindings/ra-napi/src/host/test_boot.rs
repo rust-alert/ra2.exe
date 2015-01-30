@@ -66,7 +66,7 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
     let game = session.expect_game();
     let snap = game.snapshot(selected);
     let outcome = match &snap.outcome {
-        Some(ra_engine::MatchOutcome::Victory { owner }) => format!("victory:{owner}"),
+        Some(ra_engine::BattleOutcome::Victory { owner }) => format!("victory:{owner}"),
         None => "none".into(),
     };
     let selected_s = selected.iter().map(|id| id.0.to_string()).collect::<Vec<_>>().join(",");

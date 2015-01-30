@@ -3,8 +3,12 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_assets::FntFile;
-use ra_components::ui_compose::{MatchHudPaint, compose_match_hud_overlay};
-use ra_engine::{Engine, HudSnapshot, MatchOutcome, Session, SessionPhase};
+use ra_components::{
+    fs_source::GameAssetSource,
+    battle_hud::{BattleHudChrome, decode_battle_hud_chrome},
+    ui_compose::{BattleHudModel, compose_battle_hud_overlay},
+};
+use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::ui_layout::{SHELL_BASE_H, SHELL_BASE_W};
 use ra_map::MapEntityKind;
 use ra_renderer::Renderer;
@@ -18,7 +22,7 @@ use super::{boot::BootResult, local_player::LocalPlayerController};
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MatchNav {
+pub enum BattleNav {
     /// 无导航。
     None,
     /// 请求重开（外壳进入 Loading 再装载）。
@@ -30,7 +34,7 @@ pub enum MatchNav {
 }
 
 /// 对局页专用状态（与菜单 / 加载页隔离）。
-pub struct MatchController {
+pub struct BattleController {
     /// 长期引擎。
     pub engine: Option<Engine>,
     /// 当前会话。
@@ -66,9 +70,11 @@ pub struct MatchController {
     /// 测试场景名（重开用；当前由外壳 `LoadJob` 持有同名副本）。
     #[allow(dead_code)]
     test_scene: Option<String>,
+    /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
+    hud_chrome: Option<BattleHudChrome>,
 }
 
-impl MatchController {
+impl BattleController {
     /// 由装载结果构造；可无会话（装载失败时仍占位）。
     pub fn from_boot(boot: BootResult, status_path: Option<PathBuf>, test_scene: Option<String>) -> Self {
         let edition = boot.session.as_ref().and_then(|s| s.game()).map(|g| g.world.edition.as_str()).unwrap_or("—");
@@ -90,6 +96,7 @@ impl MatchController {
             title_base: format!("ra2 ({edition})"),
             status_path,
             test_scene,
+            hud_chrome: None,
         }
     }
 
@@ -112,6 +119,7 @@ impl MatchController {
         self.place_mode = None;
         self.leave_armed = false;
         self.last_pump = Instant::now();
+        self.hud_chrome = None;
         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
             tracing::info!("重开完成 · {}", boot.note);
@@ -228,12 +236,12 @@ impl MatchController {
     }
 
     /// 对局页输入。`accept_commands=false` 时仅允许相机与重开 / 回菜单。
-    pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> MatchNav {
+    pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         match event {
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
                 self.ctrl_down = mods.state().control_key();
-                MatchNav::None
+                BattleNav::None
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
                 match state {
@@ -251,12 +259,12 @@ impl MatchController {
                         }
                     }
                 }
-                MatchNav::None
+                BattleNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => MatchNav::None,
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => BattleNav::None,
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
                 self.handle_right_click(renderer, window);
-                MatchNav::None
+                BattleNav::None
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x, position.y);
@@ -269,7 +277,7 @@ impl MatchController {
                     }
                     self.drag_last = Some((position.x, position.y));
                 }
-                MatchNav::None
+                BattleNav::None
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let steps = match delta {
@@ -280,32 +288,32 @@ impl MatchController {
                     let factor = if steps > 0.0 { 1.1_f32 } else { 1.0 / 1.1 };
                     renderer.zoom_by(factor.powf(steps.abs()));
                 }
-                MatchNav::None
+                BattleNav::None
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state != ElementState::Pressed {
-                    return MatchNav::None;
+                    return BattleNav::None;
                 }
                 match event.physical_key {
                     PhysicalKey::Code(KeyCode::KeyR) => {
                         tracing::info!("重开对局…");
-                        MatchNav::Rematch
+                        BattleNav::Rematch
                     }
                     PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
                         tracing::info!("重开对局…");
-                        MatchNav::Rematch
+                        BattleNav::Rematch
                     }
                     PhysicalKey::Code(KeyCode::KeyL) if !accept_commands => {
                         tracing::info!("结算 · 返回大厅");
-                        MatchNav::ToMainMenu
+                        BattleNav::ToMainMenu
                     }
-                    PhysicalKey::Code(KeyCode::Escape) if !accept_commands => MatchNav::ToMainMenu,
+                    PhysicalKey::Code(KeyCode::Escape) if !accept_commands => BattleNav::ToMainMenu,
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
                             self.leave_armed = false;
                             tracing::info!("建造模式 · 已关闭");
-                            MatchNav::None
+                            BattleNav::None
                         }
                         else if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             // 对局中 Esc 先暂停；暂停后再 Esc 武装离开，再按一次确认回大厅。
@@ -313,26 +321,26 @@ impl MatchController {
                             if game.paused {
                                 if self.leave_armed {
                                     self.leave_armed = false;
-                                    MatchNav::ToMainMenu
+                                    BattleNav::ToMainMenu
                                 }
                                 else {
                                     self.leave_armed = true;
                                     tracing::info!("再按 Esc 确认返回大厅");
-                                    MatchNav::None
+                                    BattleNav::None
                                 }
                             }
                             else {
                                 self.leave_armed = false;
                                 game.toggle_pause();
                                 tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
-                                MatchNav::None
+                                BattleNav::None
                             }
                         }
                         else {
-                            MatchNav::ToMainMenu
+                            BattleNav::ToMainMenu
                         }
                     }
-                    _ if !accept_commands => MatchNav::None,
+                    _ if !accept_commands => BattleNav::None,
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
                             let seed = self.local.selected.first().copied().or_else(|| {
@@ -348,37 +356,37 @@ impl MatchController {
                                 tracing::info!("全选同阵营 · {} 个", self.local.selected.len());
                             }
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
                         renderer.pan_screen(48.0, 0.0);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => {
                         renderer.pan_screen(-48.0, 0.0);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => {
                         renderer.pan_screen(0.0, 48.0);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => {
                         renderer.pan_screen(0.0, -48.0);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => {
                         renderer.zoom_by(1.1);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => {
                         renderer.zoom_by(1.0 / 1.1);
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Tab) => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
                             self.local.cycle_selection(game);
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyF) => {
                         let selected = self.local.selected.clone();
@@ -389,7 +397,7 @@ impl MatchController {
                                 }
                             }
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
                         let selected = self.local.selected.clone();
@@ -397,11 +405,11 @@ impl MatchController {
                             tracing::info!("部署选中 · {:?}", selected);
                             game.order_deploy(&selected);
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyB) => {
                         self.cycle_place_mode();
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
@@ -414,21 +422,21 @@ impl MatchController {
                                 tracing::info!("继续");
                             }
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             tracing::info!("生产 · E1");
                             game.order_produce("E1");
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyO) => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
                             tracing::info!("生产 · MTNK");
                             game.order_produce("MTNK");
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyY) => {
                         if let Some(cell) = self.cursor_cell(renderer, window) {
@@ -438,17 +446,17 @@ impl MatchController {
                                 game.order_rally(&selected, cell.0, cell.1);
                             }
                         }
-                        MatchNav::None
+                        BattleNav::None
                     }
-                    _ => MatchNav::None,
+                    _ => BattleNav::None,
                 }
             }
-            _ => MatchNav::None,
+            _ => BattleNav::None,
         }
     }
 
     /// 推进仿真（仅对局页调用）并检测是否应进入结算。返回导航与本段耗时。
-    pub fn pump(&mut self, dt: f64) -> (MatchNav, std::time::Duration) {
+    pub fn pump(&mut self, dt: f64) -> (BattleNav, std::time::Duration) {
         let started = Instant::now();
         let nav = if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
             let _ = session.pump(&engine.runtime(), dt);
@@ -459,14 +467,14 @@ impl MatchController {
                 session.phase = SessionPhase::Finished;
                 self.leave_armed = false;
                 self.note_outcome_once();
-                MatchNav::ToResults
+                BattleNav::ToResults
             }
             else {
-                MatchNav::None
+                BattleNav::None
             }
         }
         else {
-            MatchNav::None
+            BattleNav::None
         };
         (nav, started.elapsed())
     }
@@ -476,7 +484,7 @@ impl MatchController {
         else {
             return;
         };
-        let Some(MatchOutcome::Victory { owner }) = game.outcome.as_ref()
+        let Some(BattleOutcome::Victory { owner }) = game.outcome.as_ref()
         else {
             return;
         };
@@ -485,7 +493,7 @@ impl MatchController {
         }
         self.logged_outcome = Some(owner.clone());
         let stats = game
-            .match_stats
+            .battle_stats
             .as_ref()
             .map(|s| format!(" · {}tick · 损单位{} · 损建筑{} · 花费{}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
             .unwrap_or_default();
@@ -493,7 +501,14 @@ impl MatchController {
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
-    pub fn draw_frame(&mut self, renderer: &mut Renderer, window: Option<&Arc<Window>>, screen_label: &str, fnt: Option<&FntFile>) {
+    pub fn draw_frame(
+        &mut self,
+        renderer: &mut Renderer,
+        window: Option<&Arc<Window>>,
+        screen_label: &str,
+        fnt: Option<&FntFile>,
+        assets: Option<&GameAssetSource>,
+    ) {
         enum PendingDraw {
             Full(ra_engine::RenderSnapshot),
             Incremental { tick: u64, dirty: Vec<ra_types::EntityId>, units: Vec<ra_engine::SnapshotUnit> },
@@ -532,7 +547,8 @@ impl MatchController {
             }
         };
         let (hud, pending) = prepared;
-        self.upload_match_hud(renderer, &hud, fnt);
+        self.ensure_battle_hud_chrome(assets);
+        self.upload_battle_hud(renderer, &hud, fnt);
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
@@ -540,14 +556,50 @@ impl MatchController {
         self.refresh_title(renderer, window, screen_label, Some(&hud));
     }
 
-    fn upload_match_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>) {
-        let local_house = self
-            .session
+    fn local_house_name(&self) -> Option<String> {
+        self.session
             .as_ref()
             .and_then(|s| s.game())
             .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
-            .map(|p| p.house.clone());
-        let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_ref()));
+            .map(|p| p.house.to_string())
+    }
+
+    /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
+    fn ensure_battle_hud_chrome(&mut self, assets: Option<&GameAssetSource>) {
+        let Some(source) = assets
+        else {
+            return;
+        };
+        let Some(side) = self.local_house_name()
+        else {
+            return;
+        };
+        if self.hud_chrome.as_ref().is_some_and(|c| c.side == side) {
+            return;
+        }
+        let chrome = decode_battle_hud_chrome(source, &side);
+        if chrome.has_sidebar_body() {
+            tracing::info!(
+                side = %chrome.side,
+                mix = %chrome.mix,
+                errors = chrome.errors.len(),
+                "对局 HUD chrome 已解码"
+            );
+        }
+        else {
+            tracing::warn!(
+                side = %side,
+                mix = %chrome.mix,
+                errors = ?chrome.errors,
+                "对局 HUD chrome 未解出侧栏主体，回退占位条"
+            );
+        }
+        self.hud_chrome = Some(chrome);
+    }
+
+    fn upload_battle_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>) {
+        let local_house = self.local_house_name();
+        let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
         let selected_summary = match (self.local.selected.first().copied(), nsel) {
             (Some(id), n) if n > 1 => format!("#{}+{}", id.0, n - 1),
@@ -557,9 +609,9 @@ impl MatchController {
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let outcome_owned = hud.outcome.as_ref().map(|o| match o {
-            MatchOutcome::Victory { owner } => format!("胜 {owner}"),
+            BattleOutcome::Victory { owner } => format!("胜 {owner}"),
         });
-        let paint = MatchHudPaint {
+        let paint = BattleHudModel {
             tick: hud.tick,
             funds: local.map(|p| p.funds).unwrap_or(0),
             power_output: local.map(|p| p.power_output).unwrap_or(0),
@@ -572,7 +624,7 @@ impl MatchController {
             pause_reason: hud.pause_reason.as_deref(),
             outcome: outcome_owned.as_deref(),
         };
-        if let Some(page) = compose_match_hud_overlay(SHELL_BASE_W as u32, SHELL_BASE_H as u32, fnt, paint) {
+        if let Some(page) = compose_battle_hud_overlay(SHELL_BASE_W as u32, SHELL_BASE_H as u32, fnt, paint, self.hud_chrome.as_ref()) {
             renderer.set_ui_overlay(page);
         }
     }
@@ -600,19 +652,19 @@ impl MatchController {
                 let place = self.place_mode.unwrap_or("-");
                 if screen_label == "results" {
                     let outcome = match hud.outcome.as_ref() {
-                        Some(MatchOutcome::Victory { owner }) => format!("胜 {owner}"),
+                        Some(BattleOutcome::Victory { owner }) => format!("胜 {owner}"),
                         _ => "结算".into(),
                     };
                     let stats = hud
-                        .match_stats
+                        .battle_stats
                         .as_ref()
                         .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
                     format!("{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
-                else if let Some(MatchOutcome::Victory { owner }) = hud.outcome.as_ref() {
+                else if let Some(BattleOutcome::Victory { owner }) = hud.outcome.as_ref() {
                     let stats = hud
-                        .match_stats
+                        .battle_stats
                         .as_ref()
                         .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();

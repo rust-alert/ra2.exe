@@ -1,4 +1,4 @@
-//! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `MatchController`）。
+//! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `BattleController`）。
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_engine::{Engine, Session, open_skirmish_session};

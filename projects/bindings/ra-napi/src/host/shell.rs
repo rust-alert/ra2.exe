@@ -1,4 +1,4 @@
-//! 单窗口应用外壳：页面导航、窗口生命周期；对局逻辑委托 `MatchController`。
+//! 单窗口应用外壳：页面导航、窗口生命周期；对局逻辑委托 `BattleController`。
 
 use std::{path::PathBuf, sync::Arc, time::{Duration, Instant}};
 
@@ -16,7 +16,7 @@ use winit::{
 use super::{
     boot::BootResult,
     load_job::LoadJob,
-    match_ctrl::{MatchController, MatchNav},
+    battle_controller::{BattleController, BattleNav},
     preview_job::PreviewJob,
 };
 use ra_components::{
@@ -44,7 +44,7 @@ pub struct AppShell {
     window: Option<Arc<Window>>,
     screen: OriginalScreen,
     /// 对局 / 结算页控制器；菜单页可为空。
-    match_ctrl: Option<MatchController>,
+    battle_controller: Option<BattleController>,
     renderer: Renderer,
     /// 菜单或装载说明。
     banner: String,
@@ -201,12 +201,12 @@ impl AppShell {
         if let Some(image) = boot.preview.as_ref() {
             renderer.set_map_preview(image.clone());
         }
-        let ctrl = MatchController::from_boot(boot, status_path.clone(), test_scene.clone());
-        let screen = if ctrl.has_session() { OriginalScreen::Match } else { OriginalScreen::MainMenu };
+        let ctrl = BattleController::from_boot(boot, status_path.clone(), test_scene.clone());
+        let screen = if ctrl.has_session() { OriginalScreen::Battle } else { OriginalScreen::MainMenu };
         Self {
             window: None,
             screen,
-            match_ctrl: Some(ctrl),
+            battle_controller: Some(ctrl),
             renderer,
             banner: String::new(),
             window_width,
@@ -292,7 +292,7 @@ impl AppShell {
         Self {
             window: None,
             screen: OriginalScreen::Splash,
-            match_ctrl: None,
+            battle_controller: None,
             renderer: Renderer::new(),
             banner: "闪屏 · 预处理中".into(),
             window_width,
@@ -1140,8 +1140,8 @@ impl AppShell {
 
     /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅 / 装载页上传合成 chrome；启动闪屏由独立 owner 保持。
     fn refresh_menu_backdrop(&mut self) {
-        if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
-            // 对局 HUD 由 `MatchController::draw_frame` 维护，勿在此清空；仍预热字体。
+        if matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
+            // 对局 HUD 由 `BattleController::draw_frame` 维护，勿在此清空；仍预热字体。
             self.ensure_menu_assets();
             self.ensure_menu_text_assets();
             return;
@@ -2239,7 +2239,7 @@ impl AppShell {
         else {
             return;
         };
-        if matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+        if matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
             return;
         }
         let title = match self.screen {
@@ -2283,7 +2283,7 @@ impl AppShell {
             OriginalScreen::ExitConfirm => {
                 format!("ra2 · 确认退出 · {} · Enter 退出 · Esc 取消 · F12 截图", self.banner)
             }
-            OriginalScreen::Match | OriginalScreen::Results => unreachable!(),
+            OriginalScreen::Battle | OriginalScreen::Results => unreachable!(),
         };
         if title != self.last_shell_title {
             window.set_title(&title);
@@ -2299,7 +2299,7 @@ impl AppShell {
         self.ensure_lobby_maps();
         self.banner =
             format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
-        self.pending_after_load = Some(OriginalScreen::Match);
+        self.pending_after_load = Some(OriginalScreen::Battle);
         self.pending_load_boot = None;
         self.set_screen(OriginalScreen::LoadScreen);
         self.load_started = Some(Instant::now());
@@ -2400,14 +2400,14 @@ impl AppShell {
         if let Some(preview) = &boot.preview {
             self.renderer.set_map_preview(preview.clone());
         }
-        match self.match_ctrl.as_mut() {
+        match self.battle_controller.as_mut() {
             Some(ctrl) => ctrl.apply_boot(boot, &mut self.renderer),
             None => {
-                self.match_ctrl = Some(MatchController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
+                self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
             }
         }
-        let ok = self.match_ctrl.as_ref().is_some_and(|c| c.has_session());
-        let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Match);
+        let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
+        let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);
         if ok {
             self.set_screen(target);
         }
@@ -2420,15 +2420,15 @@ impl AppShell {
         }
     }
 
-    fn apply_nav(&mut self, nav: MatchNav) {
+    fn apply_nav(&mut self, nav: BattleNav) {
         match nav {
-            MatchNav::None => {}
-            MatchNav::Rematch => {
+            BattleNav::None => {}
+            BattleNav::Rematch => {
                 self.banner = "重开…".into();
                 self.begin_skirmish_load();
             }
-            MatchNav::ToResults => self.set_screen(OriginalScreen::Results),
-            MatchNav::ToMainMenu => {
+            BattleNav::ToResults => self.set_screen(OriginalScreen::Results),
+            BattleNav::ToMainMenu => {
                 // Pre-Alpha：从对局/结算回到遭遇战大厅，保留已选地图。
                 self.ensure_lobby_maps();
                 self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
@@ -2539,26 +2539,28 @@ impl AppShell {
                 PhysicalKey::Code(KeyCode::Escape) => self.cancel_skirmish_load(),
                 _ => {}
             },
-            OriginalScreen::Match | OriginalScreen::Results => {}
+            OriginalScreen::Battle | OriginalScreen::Results => {}
         }
     }
 
     fn redraw(&mut self) {
         if self.screen.pumps_session() {
-            if let Some(ctrl) = self.match_ctrl.as_mut() {
+            if let Some(ctrl) = self.battle_controller.as_mut() {
                 let prev = ctrl.take_pump_clock();
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
                 let (nav, sim_dt) = ctrl.pump(dt);
                 self.renderer.timings.simulation = Some(sim_dt);
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref());
+                let assets = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
+                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref(), assets);
                 self.apply_nav(nav);
             }
         }
         else if self.screen.requires_session() {
-            if let Some(ctrl) = self.match_ctrl.as_mut() {
+            if let Some(ctrl) = self.battle_controller.as_mut() {
                 let _ = ctrl.take_pump_clock();
                 self.renderer.timings.simulation = None;
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref());
+                let assets = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
+                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref(), assets);
             }
         }
         else {
@@ -2712,7 +2714,7 @@ impl ApplicationHandler for AppShell {
             WindowEvent::CloseRequested => {
                 // 前置壳层页先进入退出确认；已在确认页或对局中则直接退出。
                 if self.screen == OriginalScreen::ExitConfirm
-                    || matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results | OriginalScreen::Splash)
+                    || matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results | OriginalScreen::Splash)
                 {
                     event_loop.exit();
                 }
@@ -2742,7 +2744,7 @@ impl ApplicationHandler for AppShell {
                 let (w, h) = self.display_mode.size();
                 self.window_width = w as f64;
                 self.window_height = h as f64;
-                if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+                if !matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
                     self.refresh_menu_backdrop();
                 }
             }
@@ -2750,7 +2752,7 @@ impl ApplicationHandler for AppShell {
                 let (w, h) = self.display_mode.size();
                 self.window_width = w as f64;
                 self.window_height = h as f64;
-                if !matches!(self.screen, OriginalScreen::Match | OriginalScreen::Results) {
+                if !matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
                     self.refresh_menu_backdrop();
                 }
             }
@@ -2762,7 +2764,7 @@ impl ApplicationHandler for AppShell {
             WindowEvent::KeyboardInput { event: key_ev, .. }
                 if key_ev.state == ElementState::Pressed && matches!(key_ev.physical_key, PhysicalKey::Code(KeyCode::F12)) =>
             {
-                // 对局页也走同一截图路径（不交给 MatchController）。
+                // 对局页也走同一截图路径（不交给 BattleController）。
                 self.queue_screenshot(self.screen.as_str());
                 return;
             }
@@ -2770,13 +2772,13 @@ impl ApplicationHandler for AppShell {
         }
 
         match self.screen {
-            OriginalScreen::Match | OriginalScreen::Results => {
-                let accept = self.screen.accepts_match_commands();
+            OriginalScreen::Battle | OriginalScreen::Results => {
+                let accept = self.screen.accepts_battle_commands();
                 let Some(window) = self.window.clone()
                 else {
                     return;
                 };
-                if let Some(ctrl) = self.match_ctrl.as_mut() {
+                if let Some(ctrl) = self.battle_controller.as_mut() {
                     let nav = ctrl.handle_event(&event, &mut self.renderer, &window, accept);
                     self.apply_nav(nav);
                 }
@@ -3010,7 +3012,7 @@ pub fn run_shell() -> RaResult<()> {
 
     let mut app = match mode {
         #[cfg(feature = "test-harness")]
-        LaunchMode::DirectMatch(boot) => {
+        LaunchMode::DirectBattle(boot) => {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
                 tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
@@ -3033,7 +3035,7 @@ pub fn run_shell() -> RaResult<()> {
 
 enum LaunchMode {
     #[cfg(feature = "test-harness")]
-    DirectMatch(BootResult),
+    DirectBattle(BootResult),
     MainMenu,
 }
 
@@ -3053,7 +3055,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
             let t = super::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
-                LaunchMode::DirectMatch(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
+                LaunchMode::DirectBattle(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
                 DisplayMode::DEFAULT,
                 0.4,
                 0.7,
@@ -3066,7 +3068,7 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         }
     }
 
-    // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectMatch 场景）。
+    // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectBattle 场景）。
     let (settings, diagnostics) = super::config::load_desktop_config_with_diagnostics();
     for d in &diagnostics {
         tracing::info!(source = %d.source, "{}", d.message);

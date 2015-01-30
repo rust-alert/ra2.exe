@@ -44,7 +44,7 @@ pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], load_allow_re
         OriginalScreen::Options => hits_options(),
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
-        OriginalScreen::Match | OriginalScreen::Results => Vec::new(),
+        OriginalScreen::Battle | OriginalScreen::Results => Vec::new(),
         other => hits_from_slots(other),
     }
 }

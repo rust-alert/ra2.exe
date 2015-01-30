@@ -13,17 +13,20 @@ use crate::{
         blit_caption_wrapped, blit_text_colored, campaign_csf_label, campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label,
         choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
         load_screen_loading_csf_key, load_screen_name_csf_key, load_screen_special_unit_csf_key, main_menu_csf_label, options_csf_label,
-        options_dialog_csf_key, pause_menu_csf_label, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key,
+        options_dialog_csf_key, battle_pause_menu_csf_label, resolve_caption, resolve_csf_text, single_player_csf_label, single_player_title_csf_key,
         skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
     },
 };
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout,
-    OPTIONS_BUTTON_IDS, PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
+    OPTIONS_BUTTON_IDS, BATTLE_PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
     SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS,
-    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, campaign_layout, choose_map_layout,
-    exit_confirm_layout, main_menu_layout, options_layout, pause_menu_layout, single_player_layout, skirmish_lobby_layout,
+    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, battle_hud_layout, campaign_layout,
+    choose_map_layout, exit_confirm_layout, main_menu_layout, options_layout, battle_pause_menu_layout, single_player_layout,
+    skirmish_lobby_layout,
 };
+
+use crate::battle_hud::{BattleHudChrome, blit_battle_hud_chrome};
 
 /// 切页波浪帧：有字钮进出；空格仅在出去时叠 `SDBTNANM`（进来不叠满钮，避免收束后消失）。
 #[derive(Debug, Clone, Copy)]
@@ -1662,9 +1665,9 @@ fn hit_to_rect(canvas: RectPx, hit: (f32, f32, f32, f32)) -> RectPx {
     RectPx::new(x0, y0, (x1 - x0).max(1), (y1 - y0).max(1))
 }
 
-/// 对局 HUD 侧栏绘制输入（由宿主从 `HudSnapshot` 投影，组件不依赖 `ra-engine`）。
+/// 战斗 HUD 侧栏绘制输入（由宿主从 `HudSnapshot` 投影，组件不依赖 `ra-engine`）。
 #[derive(Debug, Clone, Copy)]
-pub struct MatchHudPaint<'a> {
+pub struct BattleHudModel<'a> {
     /// 仿真 tick。
     pub tick: u64,
     /// 本地资金。
@@ -1689,78 +1692,113 @@ pub struct MatchHudPaint<'a> {
     pub outcome: Option<&'a str>,
 }
 
-
-/// 合成对局 HUD 叠加层：左透明、右 `RIGHT_PANEL_W` 实心栏。
-pub fn compose_match_hud_overlay(viewport_w: u32, viewport_h: u32, fnt: Option<&FntFile>, paint: MatchHudPaint<'_>) -> Option<RgbaImage> {
+/// 合成战斗 HUD 叠加层：右栏 + 底栏。
+///
+/// 有 [`BattleHudChrome`] 时贴阵营侧栏素材；否则回退占位灰条（资源未挂载时的诊断态）。
+/// 仍为像素合成；`build_battle_hud_plan` 待视图模型契约落地后再替换。
+pub fn compose_battle_hud_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    fnt: Option<&FntFile>,
+    paint: BattleHudModel<'_>,
+    chrome: Option<&BattleHudChrome>,
+) -> Option<RgbaImage> {
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let panel_w = RIGHT_PANEL_W.min(w as i32).max(1);
-    let panel_x = (w as i32 - panel_w).max(0);
-    let panel = RectPx::new(panel_x, 0, panel_w, h as i32);
-    fill_rect(&mut page, panel, [28, 32, 40, 230]);
-    stroke_rect(&mut page, panel, [180, 40, 40, 255]);
+    let layout = battle_hud_layout(w, h);
 
-    // 顶部资金 / 电力。
-    let econ = RectPx::new(panel.x + 8, 12, panel.w - 16, 48);
-    fill_rect(&mut page, econ, [16, 18, 24, 255]);
-    stroke_rect(&mut page, econ, [120, 28, 28, 255]);
+    let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
+    if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
+        blit_battle_hud_chrome(&mut page, chrome, layout);
+    }
+    else {
+        fill_rect(&mut page, layout.sidebar, [28, 32, 40, 230]);
+        stroke_rect(&mut page, layout.sidebar, [180, 40, 40, 255]);
+        fill_rect(&mut page, layout.bottom_strip, [28, 32, 40, 230]);
+        stroke_rect(&mut page, layout.bottom_strip, [180, 40, 40, 255]);
+        let cell = 48;
+        let gap = 4;
+        let cols = ((layout.sidebar.w - 16) / (cell + gap)).max(1);
+        let grid_top = layout.cameo_band.y.max(layout.sidebar.y + 160);
+        for i in 0..8 {
+            let col = i % cols;
+            let row = i / cols;
+            let cx = layout.sidebar.x + 8 + col * (cell + gap);
+            let cy = grid_top + row * (cell + gap);
+            if cy + cell > layout.side3.y {
+                break;
+            }
+            let r = RectPx::new(cx, cy, cell, cell);
+            fill_rect(&mut page, r, [20, 22, 28, 255]);
+            stroke_rect(&mut page, r, [90, 30, 30, 255]);
+        }
+    }
+
     let funds_line = format!("$ {}", paint.funds);
     let power_mark = if paint.low_power { "!" } else { "" };
     let power_line = format!("电 {}/{}{power_mark}", paint.power_output, paint.power_drain);
     if let Some(fnt) = fnt {
-        blit_text_colored(&mut page, fnt, &funds_line, econ.x + 6, econ.y + 6, MENU_TEXT_ACCENT);
-        let power_color = if paint.low_power { [255, 80, 80, 255] } else { MENU_TEXT_ENABLED };
-        blit_text_colored(&mut page, fnt, &power_line, econ.x + 6, econ.y + 26, power_color);
-    }
-
-    // 选中 / 队列 / 拒绝。
-    let mut y = econ.y + econ.h + 12;
-    let line_h = 18;
-    let text_x = panel.x + 8;
-    let text_w = panel.w - 16;
-    if let Some(fnt) = fnt {
-        blit_caption_top_left_clipped(&mut page, fnt, &format!("选中 {}", paint.selected_summary), text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
-        y += line_h + 4;
-        let queue = paint.produce_queue.unwrap_or("队列 —");
-        blit_caption_top_left_clipped(&mut page, fnt, queue, text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
-        y += line_h + 4;
-        if let Some(reject) = paint.reject {
-            blit_caption_top_left_clipped(&mut page, fnt, reject, text_x, y, text_w, line_h, [255, 120, 80, 255]);
+        let credit_color = [0, 255, 255, 255];
+        blit_caption_in_cell(
+            &mut page,
+            fnt,
+            &funds_line,
+            layout.credits.x,
+            layout.credits.y,
+            layout.credits.w,
+            layout.credits.h,
+            credit_color,
+        );
+        if !used_chrome {
+            blit_text_colored(&mut page, fnt, &power_line, layout.sidebar.x + 8, layout.credits.y + layout.credits.h + 8, {
+                if paint.low_power {
+                    [255, 80, 80, 255]
+                }
+                else {
+                    MENU_TEXT_ENABLED
+                }
+            });
+            let mut y = layout.radar.y + 8;
+            let line_h = 18;
+            let text_x = layout.sidebar.x + 8;
+            let text_w = layout.sidebar.w - 16;
+            blit_caption_top_left_clipped(&mut page, fnt, &format!("选中 {}", paint.selected_summary), text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
+            y += line_h + 4;
+            let queue = paint.produce_queue.unwrap_or("队列 —");
+            blit_caption_top_left_clipped(&mut page, fnt, queue, text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
+            y += line_h + 4;
+            if let Some(reject) = paint.reject {
+                blit_caption_top_left_clipped(&mut page, fnt, reject, text_x, y, text_w, line_h, [255, 120, 80, 255]);
+                y += line_h + 8;
+            }
+            blit_caption_top_left_clipped(&mut page, fnt, &format!("t{}", paint.tick), text_x, y, text_w, line_h, MENU_TEXT_SECTION);
             y += line_h + 8;
+            if paint.paused {
+                let reason = paint.pause_reason.unwrap_or("已暂停");
+                blit_caption_top_left_clipped(&mut page, fnt, reason, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
+                y += line_h + 8;
+            }
+            if let Some(outcome) = paint.outcome {
+                blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
+            }
         }
-        else {
-            y += 8;
+        else if paint.paused || paint.outcome.is_some() || paint.reject.is_some() {
+            let mut x = layout.bottom_strip.x + 72;
+            let y = layout.bottom_strip.y + 8;
+            if let Some(reject) = paint.reject {
+                blit_text_colored(&mut page, fnt, reject, x, y, [255, 120, 80, 255]);
+                x += 120;
+            }
+            if paint.paused {
+                let reason = paint.pause_reason.unwrap_or("已暂停");
+                blit_text_colored(&mut page, fnt, reason, x, y, MENU_TEXT_ACCENT);
+                x += 80;
+            }
+            if let Some(outcome) = paint.outcome {
+                blit_text_colored(&mut page, fnt, outcome, x, y, MENU_TEXT_ACCENT);
+            }
         }
-        blit_caption_top_left_clipped(&mut page, fnt, &format!("t{}", paint.tick), text_x, y, text_w, line_h, MENU_TEXT_SECTION);
-        y += line_h + 8;
-        if paint.paused {
-            let reason = paint.pause_reason.unwrap_or("已暂停");
-            blit_caption_top_left_clipped(&mut page, fnt, reason, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
-            y += line_h + 8;
-        }
-        if let Some(outcome) = paint.outcome {
-            blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
-            y += line_h + 8;
-        }
-    }
-
-    // 建造 cameo 占位格（本轮不接线建造命令）。
-    let grid_top = y.max(panel.y + 160);
-    let cell = 48;
-    let gap = 4;
-    let cols = ((panel.w - 16) / (cell + gap)).max(1);
-    for i in 0..8 {
-        let col = i % cols;
-        let row = i / cols;
-        let cx = panel.x + 8 + col * (cell + gap);
-        let cy = grid_top + row * (cell + gap);
-        if cy + cell > panel.y + panel.h - 8 {
-            break;
-        }
-        let r = RectPx::new(cx, cy, cell, cell);
-        fill_rect(&mut page, r, [20, 22, 28, 255]);
-        stroke_rect(&mut page, r, [90, 30, 30, 255]);
     }
 
     Some(page)
@@ -1769,7 +1807,7 @@ pub fn compose_match_hud_overlay(viewport_w: u32, viewport_h: u32, fnt: Option<&
 /// 合成对局暂停菜单叠加层：左战术区压暗，右栏六钮（选项 / 载入 / 保存 / 重开 / 放弃 / 回到游戏）。
 ///
 /// `decoded` 若带 `sdbtnanm` 则贴壳层钮面；否则用纯色格占位。不改宿主导航。
-pub fn compose_pause_menu_overlay(
+pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
     pressed_entry_id: Option<&str>,
@@ -1778,7 +1816,7 @@ pub fn compose_pause_menu_overlay(
     csf: Option<&CsfFile>,
     decoded: Option<&PageDecodeReport>,
 ) -> Option<RgbaImage> {
-    let layout = pause_menu_layout(viewport_w, viewport_h);
+    let layout = battle_pause_menu_layout(viewport_w, viewport_h);
     let w = layout.canvas.w.max(1) as u32;
     let h = layout.canvas.h.max(1) as u32;
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
@@ -1789,7 +1827,7 @@ pub fn compose_pause_menu_overlay(
     fill_rect(&mut page, layout.sidebar, [28, 16, 16, 240]);
     stroke_rect(&mut page, layout.sidebar, [140, 32, 32, 255]);
 
-    for (i, entry_id) in PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
+    for (i, entry_id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
         let cell = layout.buttons[i];
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);
@@ -1816,7 +1854,7 @@ pub fn compose_pause_menu_overlay(
             stroke_rect(&mut page, cell, [200, 40, 40, 255]);
         }
         if let Some(fnt) = fnt {
-            let caption = resolve_caption(csf, entry_id, pause_menu_csf_label(entry_id));
+            let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
         }

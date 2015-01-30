@@ -134,12 +134,25 @@ impl GameAssetSource {
 
     /// 统一解析：松散层与 MIX 比较优先级后得出唯一胜出。
     pub fn resolve(&self, relative: &str) -> Option<AssetHit> {
+        self.resolve_with_prefer(relative, None)
+    }
+
+    /// 同 [`Self::resolve`]，但 MIX 侧可优先指定档案名（如 `sidec02.mix`）。
+    pub fn resolve_preferring(&self, relative: &str, prefer_archive: &str) -> Option<AssetHit> {
+        self.resolve_with_prefer(relative, Some(prefer_archive))
+    }
+
+    fn resolve_with_prefer(&self, relative: &str, prefer_archive: Option<&str>) -> Option<AssetHit> {
         let loose = find_ci_file(&self.root, relative).and_then(|path| {
             let bytes = std::fs::read(&path).ok()?;
             Some((PRIORITY_USER_OVERRIDE, AssetHit { origin: AssetOrigin::Loose { path }, bytes }))
         });
 
-        let mix = self.vfs.resolve_hit(relative).map(|h: MixResolveHit<'_>| {
+        let mix_hit = match prefer_archive {
+            Some(pref) => self.vfs.resolve_hit_preferring(relative, pref),
+            None => self.vfs.resolve_hit(relative),
+        };
+        let mix = mix_hit.map(|h: MixResolveHit<'_>| {
             (
                 h.priority,
                 AssetHit {

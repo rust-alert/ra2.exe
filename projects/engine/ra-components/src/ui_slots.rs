@@ -393,6 +393,6 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: &[],
             buttons: NETWORK_BUTTONS,
         }),
-        OriginalScreen::Match | OriginalScreen::Results => None,
+        OriginalScreen::Battle | OriginalScreen::Results => None,
     }
 }

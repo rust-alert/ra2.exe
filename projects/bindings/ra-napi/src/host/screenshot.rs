@@ -41,7 +41,7 @@ pub fn is_key_screen(screen: OriginalScreen) -> bool {
             | OriginalScreen::Campaign
             | OriginalScreen::SkirmishLobby
             | OriginalScreen::LoadScreen
-            | OriginalScreen::Match
+            | OriginalScreen::Battle
             | OriginalScreen::Results
             | OriginalScreen::Options
             | OriginalScreen::Network

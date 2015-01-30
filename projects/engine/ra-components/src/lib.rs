@@ -5,10 +5,11 @@
 #![allow(missing_docs)]
 
 pub mod fs_source;
+pub mod battle_hud;
 pub mod menu_action;
 pub mod options_dialog;
 pub mod original_screen;
-pub mod pause_menu;
+pub mod battle_pause_menu;
 pub mod shell_slide;
 pub mod skirmish_setup;
 pub mod startup_splash;

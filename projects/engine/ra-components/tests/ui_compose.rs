@@ -509,12 +509,12 @@ fn compose_load_screen_paints_country_art_and_progress() {
 }
 
 #[test]
-fn compose_match_hud_overlay_right_strip_opaque() {
-    let page = compose_match_hud_overlay(
+fn compose_battle_hud_overlay_right_strip_opaque() {
+    let page = compose_battle_hud_overlay(
         800,
         600,
         None,
-        MatchHudPaint {
+        BattleHudModel {
             tick: 12,
             funds: 1000,
             power_output: 100,
@@ -527,6 +527,7 @@ fn compose_match_hud_overlay_right_strip_opaque() {
             pause_reason: None,
             outcome: None,
         },
+        None,
     )
     .unwrap();
     // 左侧透明。

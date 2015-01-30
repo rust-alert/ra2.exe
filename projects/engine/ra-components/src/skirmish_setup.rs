@@ -29,6 +29,14 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
 /// 玩家名最大字符数（零售 Handle 常见上限）。
 pub const PLAYER_NAME_MAX_CHARS: usize = 12;
 
+/// 阵营 → 对局侧栏嵌套包（盟军 `sidec01` / 苏军 `sidec02`）。
+pub fn sidebar_chrome_mix(side: &str) -> &'static str {
+    match side {
+        "Russians" | "Confederation" | "Cuba" | "Cubans" | "Arabs" | "Iraq" | "Iraqis" | "Africans" | "Libya"
+        | "Libyans" | "YuriCountry" | "Yuri" => "sidec02.mix",
+        _ => "sidec01.mix",
+    }
+}
 
 /// 阵营 → 安装内旗标 PCX（`local.mix` 证据）。
 pub fn side_flag_pcx(side: &str) -> &'static str {

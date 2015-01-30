@@ -2,13 +2,13 @@
 //!
 //! 本模块只持入口 id、命中与布局入口；壳层导航 / 暂停仿真由宿主另接。
 
-use ra_layout::ui_layout::{PAUSE_MENU_BUTTON_IDS, pause_menu_layout};
+use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS, battle_pause_menu_layout};
 
-pub use ra_layout::ui_layout::{PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, PauseMenuLayout};
+pub use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, BattlePauseMenuLayout};
 
 /// 暂停菜单命中结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PauseMenuHit {
+pub enum BattlePauseMenuHit {
     /// 打开选项。
     Options,
     /// 载入游戏。
@@ -23,7 +23,7 @@ pub enum PauseMenuHit {
     Resume,
 }
 
-impl PauseMenuHit {
+impl BattlePauseMenuHit {
     /// 由入口 id 解析。
     pub fn from_entry_id(id: &str) -> Option<Self> {
         match id {
@@ -51,16 +51,16 @@ impl PauseMenuHit {
 }
 
 /// 构造 800×600 内容坐标下的暂停菜单布局。
-pub fn layout() -> PauseMenuLayout {
-    pause_menu_layout(0, 0)
+pub fn layout() -> BattlePauseMenuLayout {
+    battle_pause_menu_layout(0, 0)
 }
 
 /// 在布局上命中。
-pub fn hit_at(layout: PauseMenuLayout, x: i32, y: i32) -> Option<PauseMenuHit> {
-    PauseMenuHit::from_entry_id(layout.hit_entry_id(x, y)?)
+pub fn hit_at(layout: BattlePauseMenuLayout, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
+    BattlePauseMenuHit::from_entry_id(layout.hit_entry_id(x, y)?)
 }
 
 /// 入口表（测试 / 诊断用）。
 pub fn button_ids() -> &'static [&'static str; 6] {
-    &PAUSE_MENU_BUTTON_IDS
+    &BATTLE_PAUSE_MENU_BUTTON_IDS
 }

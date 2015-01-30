@@ -8,7 +8,7 @@ pub mod config;
 pub mod extract;
 pub mod load_job;
 pub mod local_player;
-pub mod match_ctrl;
+pub mod battle_controller;
 pub mod preview_job;
 pub mod screenshot;
 pub mod shell;

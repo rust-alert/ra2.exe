@@ -24,10 +24,10 @@ pub enum OriginalScreen {
     ChooseMap,
     /// 网络游戏入口（Alpha 可见禁用）。
     Network,
-    /// 进对局前装载页（Alpha 要求；与启动闪屏无关）。
+    /// 进战斗前装载页（Alpha 要求；与启动闪屏无关）。
     LoadScreen,
-    /// 对局中（含 HUD；输入 → 命令 → tick → 渲染）。
-    Match,
+    /// 战斗中（含 HUD；输入 → 命令 → tick → 渲染）。不含大厅 / 装载 / 结算。
+    Battle,
     /// 结果 / 战报（不再推进 tick）。
     Results,
     /// 选项。
@@ -48,25 +48,25 @@ impl OriginalScreen {
             Self::ChooseMap => "choose_map",
             Self::Network => "network",
             Self::LoadScreen => "load_screen",
-            Self::Match => "match",
+            Self::Battle => "battle",
             Self::Results => "results",
             Self::Options => "options",
             Self::ExitConfirm => "exit_confirm",
         }
     }
 
-    /// 是否应对局输入生成 `GameCommand`。
-    pub fn accepts_match_commands(self) -> bool {
-        matches!(self, Self::Match)
+    /// 是否对战斗输入生成 `GameCommand`。
+    pub fn accepts_battle_commands(self) -> bool {
+        matches!(self, Self::Battle)
     }
 
     /// 是否推进会话仿真时钟。
     pub fn pumps_session(self) -> bool {
-        matches!(self, Self::Match)
+        matches!(self, Self::Battle)
     }
 
     /// 绘制是否依赖已创建的 `Session`。
     pub fn requires_session(self) -> bool {
-        matches!(self, Self::Match | Self::Results)
+        matches!(self, Self::Battle | Self::Results)
     }
 }
