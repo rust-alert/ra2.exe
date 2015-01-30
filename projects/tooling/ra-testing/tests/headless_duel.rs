@@ -1,4 +1,4 @@
-use ra_engine::{GameCommand, MatchOutcome};
+use ra_engine::{GameCommand, BattleOutcome};
 use ra_testing::standard_duel;
 use ra_types::EntityId;
 
@@ -8,7 +8,7 @@ fn standard_duel_reaches_a_repeatable_victory() {
     case.command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     case.advance(64);
     let result = case.observe();
-    assert_eq!(result.outcome, Some(MatchOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(result.outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
     assert!(result.tick > 0);
     assert!(result.snapshot.units.iter().any(|unit| unit.dead));
 }

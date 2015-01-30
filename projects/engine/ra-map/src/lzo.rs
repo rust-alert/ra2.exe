@@ -122,7 +122,7 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
         }
 
         // --- Match instructions (cmd >= 16) ---
-        let (match_len, dist): (usize, usize);
+        let (lzo_length, dist): (usize, usize);
 
         if cmd >= 64 {
             // M2: short match, 1..2048 distance, 3..8 length.
@@ -130,7 +130,7 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             let dist_lo: usize = ((cmd >> 2) & 7) as usize;
             let dist_hi: usize = read_byte(src, &mut ip)? as usize;
             dist = (dist_hi << 3) + dist_lo + 1;
-            match_len = len_part + 1; // 3..8
+            lzo_length = len_part + 1; // 3..8
         }
         else if cmd >= 32 {
             // M3: medium match, 1..16384 distance.
@@ -139,12 +139,12 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
                 length = 31;
                 length += read_vle(src, &mut ip)?;
             }
-            match_len = length + 2;
+            lzo_length = length + 2;
             let word: u16 = read_u16_le_lzo(src, &mut ip)?;
             dist = ((word >> 2) as usize) + 1;
             state = (word & 3) as usize;
-            copy_match(dst, op, dist, match_len)?;
-            op += match_len;
+            copy_match(dst, op, dist, lzo_length)?;
+            op += lzo_length;
             if state > 0 {
                 copy_literals(src, &mut ip, dst, &mut op, state)?;
             }
@@ -158,7 +158,7 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
                 length = 7;
                 length += read_vle(src, &mut ip)?;
             }
-            match_len = length + 2;
+            lzo_length = length + 2;
             let high_dist: usize = ((cmd as usize) & 8) << 11;
             let word: u16 = read_u16_le_lzo(src, &mut ip)?;
             let low_dist: usize = (word >> 2) as usize;
@@ -169,8 +169,8 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
             }
             dist = high_dist + low_dist + 16384;
             state = (word & 3) as usize;
-            copy_match(dst, op, dist, match_len)?;
-            op += match_len;
+            copy_match(dst, op, dist, lzo_length)?;
+            op += lzo_length;
             if state > 0 {
                 copy_literals(src, &mut ip, dst, &mut op, state)?;
             }
@@ -182,8 +182,8 @@ pub fn lzo1x_decompress(src: &[u8], dst: &mut [u8]) -> Result<usize, LzoError> {
         // low 2 bits, NOT the distance byte. M2 format: [LLL][DDD][SS] where
         // SS = state, DDD = dist_lo, LLL = length.
         state = (cmd & 3) as usize;
-        copy_match(dst, op, dist, match_len)?;
-        op += match_len;
+        copy_match(dst, op, dist, lzo_length)?;
+        op += lzo_length;
         if state > 0 {
             copy_literals(src, &mut ip, dst, &mut op, state)?;
         }
