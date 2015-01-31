@@ -22,6 +22,13 @@ fn main_menu_and_single_player_are_declared_complete() {
                 assert!(!page.panels.is_empty());
                 assert!(page.movie.is_none());
             }
+            OriginalScreen::LoadScreen => {
+                // 背景 / 重试 / 取消已声明；无影片；实际装载页仍按阵营重选资源。
+                assert!(page.declared_refs_complete(), "{} 应已声明背景与可点按钮资源名", page.screen.as_str());
+                assert!(page.buttons.iter().any(|b| b.enabled && b.normal.is_some()));
+                assert_eq!(page.fonts, vec!["game.fnt".to_string()]);
+                assert!(page.movie.is_none());
+            }
             _ => {
                 assert!(!page.declared_refs_complete(), "{} 仍无完整背景/按钮资源名", page.screen.as_str());
             }

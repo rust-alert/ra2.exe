@@ -30,7 +30,8 @@ fn cycle_difficulty_advances() {
 fn load_screen_maps_lobby_sides_to_country_art() {
     assert_eq!(load_screen_art_suffix("Americans"), "ustates");
     assert_eq!(load_screen_art_suffix("French"), "france");
-    assert_eq!(load_screen_preferred_pal("French"), "mplsf.pal");
+    // 原版装载页共用 `mpls.pal`，不按国家换 `mplsf` 等。
+    assert_eq!(load_screen_preferred_pal("French"), "mpls.pal");
     assert_eq!(load_screen_background_shp("Americans", 1024), "ls800ustates.shp");
     assert_eq!(load_screen_background_shp("British", 640), "ls640ukingdom.shp");
 }
