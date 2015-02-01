@@ -47,7 +47,7 @@ pub fn boot_scene(scene: &str) -> RaResult<TestBoot> {
 fn boot_duel() -> RaResult<TestBoot> {
     let mut case = standard_duel();
     // 预览原点使等距坐标落入正半幅画布，便于点选与标记对齐。
-    case.session.expect_game_mut().set_preview_origin(-240, -40);
+    case.session.expect_battle_mut().set_preview_origin(-240, -40);
     let preview = solid_preview(960, 720, [24, 32, 48, 255]).ok_or_else(|| RaError::Msg("测试预览图分配失败".into()))?;
     Ok(TestBoot { note: "test-harness · scene=duel · synthetic".into(), engine: case.engine, session: case.session, preview: Some(preview) })
 }
@@ -63,7 +63,7 @@ fn solid_preview(width: u32, height: u32, rgba: [u8; 4]) -> Option<RgbaImage> {
 
 /// 写出机器可读会话旁路（给 GUI 自动化轮询）。
 pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_types::EntityId], screen: &str, leave_armed: bool) {
-    let game = session.expect_game();
+    let game = session.expect_battle();
     let snap = game.snapshot(selected);
     let outcome = match &snap.outcome {
         Some(ra_engine::BattleOutcome::Victory { owner }) => format!("victory:{owner}"),

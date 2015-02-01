@@ -52,10 +52,10 @@ fn ai_deploys_mcv_via_command() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
-    session.expect_game_mut().ai_enabled = true;
+    session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    let mcv = session.expect_game().world.entity_id_at(1).expect("entity");
-    let identity = session.expect_game().world.ecs_identity(mcv).expect("id");
+    let mcv = session.expect_battle().world.entity_id_at(1).expect("entity");
+    let identity = session.expect_battle().world.ecs_identity(mcv).expect("id");
     assert_eq!(identity.1, MapEntityKind::Structure);
     assert_eq!(identity.0.as_ref(), "NACNST");
 }

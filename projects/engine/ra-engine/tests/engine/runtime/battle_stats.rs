@@ -33,23 +33,23 @@ fn victory_locks_battle_stats() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "stats");
-    let attacker = session.expect_game().world.entity_id_at(0).expect("entity");
-    let target = session.expect_game().world.entity_id_at(1).expect("entity");
-    assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
-    assert!(session.expect_game_mut().world.set_ecs_health(target, 50, 50, false));
-    session.expect_game_mut().world.players[0].funds_spent = 1200;
-    session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
+    let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
+    let target = session.expect_battle().world.entity_id_at(1).expect("entity");
+    assert!(session.expect_battle_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
+    assert!(session.expect_battle_mut().world.set_ecs_health(target, 50, 50, false));
+    session.expect_battle_mut().world.players[0].funds_spent = 1200;
+    session.expect_battle_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..20 {
         session.tick(&engine.runtime());
-        if session.expect_game().outcome.is_some() {
+        if session.expect_battle().outcome.is_some() {
             break;
         }
     }
-    assert_eq!(session.expect_game().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
-    let stats = session.expect_game().battle_stats.as_ref().expect("stats");
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    let stats = session.expect_battle().battle_stats.as_ref().expect("stats");
     assert!(stats.duration_ticks > 0);
     assert_eq!(stats.units_lost, 1);
     assert_eq!(stats.buildings_lost, 0);
     assert_eq!(stats.funds_spent, 1200);
-    assert_eq!(session.expect_game().snapshot(&[]).battle_stats.as_ref().map(|s| s.funds_spent), Some(1200));
+    assert_eq!(session.expect_battle().snapshot(&[]).battle_stats.as_ref().map(|s| s.funds_spent), Some(1200));
 }

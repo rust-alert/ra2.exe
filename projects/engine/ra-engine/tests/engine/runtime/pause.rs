@@ -12,14 +12,14 @@ fn toggle_pause_stops_pump_and_exposes_snapshot() {
     let map = MapInfo::empty(GameEdition::Ra2, "pause");
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "pause");
     session.tick_hz = 10;
-    assert!(!session.expect_game().snapshot(&[]).paused);
-    session.expect_game_mut().toggle_pause();
-    assert!(session.expect_game().paused);
-    assert_eq!(session.expect_game().pause_reason.as_deref(), Some("已暂停"));
-    assert!(session.expect_game().snapshot(&[]).paused);
+    assert!(!session.expect_battle().snapshot(&[]).paused);
+    session.expect_battle_mut().toggle_pause();
+    assert!(session.expect_battle().paused);
+    assert_eq!(session.expect_battle().pause_reason.as_deref(), Some("已暂停"));
+    assert!(session.expect_battle().snapshot(&[]).paused);
     assert_eq!(session.pump(&engine.runtime(), 1.0), 0);
-    session.expect_game_mut().toggle_pause();
-    assert!(!session.expect_game().paused);
-    assert!(session.expect_game().pause_reason.is_none());
+    session.expect_battle_mut().toggle_pause();
+    assert!(!session.expect_battle().paused);
+    assert!(session.expect_battle().pause_reason.is_none());
     assert_eq!(session.pump(&engine.runtime(), 0.1), 1);
 }

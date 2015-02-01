@@ -1,10 +1,10 @@
-//! 一次运行会话：生命周期与时钟边界；内含可选的一局 Game。
+//! 一次运行会话：生命周期与时钟边界；内含可选的一场 `BattleSession`。
 
 use ra_types::BuiltinCapability;
 
 use crate::{
     engine::EngineRuntime,
-    game::{DEFAULT_TICK_HZ, Game, MAX_TICKS_PER_PUMP},
+    game::{DEFAULT_TICK_HZ, BattleSession, MAX_TICKS_PER_PUMP},
     state::BattleState,
 };
 
@@ -25,8 +25,8 @@ pub enum SessionPhase {
     /// 尚未开始一局。
     #[default]
     Idle,
-    /// 对局进行中。
-    Playing,
+    /// 战斗进行中。
+    InBattle,
     /// 已结束（可重开）。
     Finished,
 }
@@ -38,80 +38,78 @@ pub struct Session {
     pub spec: SessionSpec,
     /// 阶段。
     pub phase: SessionPhase,
-    /// 仿真频率（Hz）；由会话时钟驱动 `Game::advance_one_tick`。
+    /// 仿真频率（Hz）；由会话时钟驱动 `BattleSession::advance_one_tick`。
     pub tick_hz: u32,
     /// 已累计、尚未消耗的毫秒（固定步长积分）。
     tick_accum_ms: f64,
-    /// 当前一局游戏。
-    game: Option<Game>,
+    /// 当前一场战斗。
+    battle: Option<BattleSession>,
 }
 
 impl Session {
     /// 空会话。
     pub fn new(spec: SessionSpec) -> Self {
-        Self { spec, phase: SessionPhase::Idle, tick_hz: DEFAULT_TICK_HZ, tick_accum_ms: 0.0, game: None }
+        Self { spec, phase: SessionPhase::Idle, tick_hz: DEFAULT_TICK_HZ, tick_accum_ms: 0.0, battle: None }
     }
 
-    /// 测试 / 便利：由权威状态直接挂上一局 `Game` 并进入 Playing。
+    /// 测试 / 便利：由权威状态直接挂上一场 `BattleSession` 并进入 `InBattle`。
     pub fn from_state(state: BattleState, boot_note: impl Into<String>) -> Self {
         let note = boot_note.into();
         let mut session = Self::new(SessionSpec { label: note.clone(), required_capabilities: Vec::new() });
-        session.attach_game(Game::new(state, note));
+        session.attach_battle(BattleSession::new(state, note));
         session
     }
 
-    /// 挂入已构造的一局游戏并进入 Playing。
-    pub fn attach_game(&mut self, game: Game) {
-        self.game = Some(game);
-        self.phase = SessionPhase::Playing;
+    /// 挂入已构造的一场战斗并进入 `InBattle`。
+    pub fn attach_battle(&mut self, battle: BattleSession) {
+        self.battle = Some(battle);
+        self.phase = SessionPhase::InBattle;
         self.tick_accum_ms = 0.0;
     }
 
-    /// 当前游戏（只读）。
-    pub fn game(&self) -> Option<&Game> {
-        self.game.as_ref()
+    /// 当前战斗会话（只读）。
+    pub fn battle(&self) -> Option<&BattleSession> {
+        self.battle.as_ref()
     }
 
-    /// 当前游戏（可变）。
-    pub fn game_mut(&mut self) -> Option<&mut Game> {
-        self.game.as_mut()
+    /// 当前战斗会话（可变）。
+    pub fn battle_mut(&mut self) -> Option<&mut BattleSession> {
+        self.battle.as_mut()
     }
 
     /// 已挂载一局时返回引用（测试 / 调用方在 boot 后使用）。
-    pub fn expect_game(&self) -> &Game {
-        self.game.as_ref().expect("Session 尚无 Game：先 boot / attach_game / from_state")
+    pub fn expect_battle(&self) -> &BattleSession {
+        self.battle.as_ref().expect("Session 尚无 BattleSession：先 boot / attach_battle / from_state")
     }
 
     /// 已挂载一局时返回可变引用。
-    pub fn expect_game_mut(&mut self) -> &mut Game {
-        self.game.as_mut().expect("Session 尚无 Game：先 boot / attach_game / from_state")
+    pub fn expect_battle_mut(&mut self) -> &mut BattleSession {
+        self.battle.as_mut().expect("Session 尚无 BattleSession：先 boot / attach_battle / from_state")
     }
 
-    /// 取出游戏（结束 / 重开前）。
-    pub fn take_game(&mut self) -> Option<Game> {
+    /// 取出战斗会话（结束 / 重开前）。
+    pub fn take_battle(&mut self) -> Option<BattleSession> {
         self.phase = SessionPhase::Finished;
-        self.game.take()
+        self.battle.take()
     }
 
     /// 强制推进恰好一个仿真 tick（测试 / 单步）。
     pub fn tick(&mut self, runtime: &EngineRuntime<'_>) {
-        let Some(game) = self.game.as_mut()
-        else {
+        let Some(battle) = self.battle.as_mut() else {
             return;
         };
-        if game.outcome.is_some() {
+        if battle.outcome.is_some() {
             return;
         }
-        game.advance_one_tick(runtime);
+        battle.advance_one_tick(runtime);
     }
 
     /// 按真实时间推进 0..=`MAX_TICKS_PER_PUMP` 个仿真 tick。
     pub fn pump(&mut self, runtime: &EngineRuntime<'_>, dt_secs: f64) -> u32 {
-        let Some(game) = self.game.as_mut()
-        else {
+        let Some(battle) = self.battle.as_mut() else {
             return 0;
         };
-        if game.paused || game.outcome.is_some() || self.tick_hz == 0 {
+        if battle.paused || battle.outcome.is_some() || self.tick_hz == 0 {
             return 0;
         }
         let step_ms = 1000.0 / f64::from(self.tick_hz);
@@ -119,9 +117,9 @@ impl Session {
         let mut n = 0u32;
         while self.tick_accum_ms >= step_ms && n < MAX_TICKS_PER_PUMP {
             self.tick_accum_ms -= step_ms;
-            game.advance_one_tick(runtime);
+            battle.advance_one_tick(runtime);
             n += 1;
-            if game.outcome.is_some() {
+            if battle.outcome.is_some() {
                 break;
             }
         }

@@ -48,45 +48,45 @@ fn economy_session() -> Session {
 fn order_deploy_and_place_power() {
     let engine = test_engine();
     let mut session = economy_session();
-    let mcv = session.expect_game().world.entity_id_at(0).expect("entity");
-    session.expect_game_mut().order_deploy(&[mcv]);
+    let mcv = session.expect_battle().world.entity_id_at(0).expect("entity");
+    session.expect_battle_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game().world.ecs_identity(session.expect_game().world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "GACNST");
-    assert_eq!(session.expect_game().world.ecs_identity(session.expect_game().world.entity_id_at(0).expect("entity")).expect("id").1, MapEntityKind::Structure);
-    session.expect_game_mut().order_place_building("GAPOWR", 6, 4);
+    assert_eq!(session.expect_battle().world.ecs_identity(session.expect_battle().world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "GACNST");
+    assert_eq!(session.expect_battle().world.ecs_identity(session.expect_battle().world.entity_id_at(0).expect("entity")).expect("id").1, MapEntityKind::Structure);
+    session.expect_battle_mut().order_place_building("GAPOWR", 6, 4);
     session.tick(&engine.runtime());
-    assert!(session.expect_game().world.last_rejects().is_empty());
-    assert_eq!(session.expect_game().world.ecs_identity(session.expect_game().world.entity_id_at(1).expect("entity")).expect("id").0.as_ref(), "GAPOWR");
-    assert_eq!(session.expect_game().world.house_funds("Americans"), Some(10_000 - 600));
+    assert!(session.expect_battle().world.last_rejects().is_empty());
+    assert_eq!(session.expect_battle().world.ecs_identity(session.expect_battle().world.entity_id_at(1).expect("entity")).expect("id").0.as_ref(), "GAPOWR");
+    assert_eq!(session.expect_battle().world.house_funds("Americans"), Some(10_000 - 600));
 }
 
 #[test]
 fn pick_entity_at_finds_structure() {
     let engine = test_engine();
     let mut session = economy_session();
-    let mcv = session.expect_game().world.entity_id_at(0).expect("entity");
-    session.expect_game_mut().order_deploy(&[mcv]);
+    let mcv = session.expect_battle().world.entity_id_at(0).expect("entity");
+    session.expect_battle_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game().pick_entity_at(4, 4), Some(EntityId(1)));
-    assert_eq!(session.expect_game().pick_structure_at(4, 4), Some(EntityId(1)));
+    assert_eq!(session.expect_battle().pick_entity_at(4, 4), Some(EntityId(1)));
+    assert_eq!(session.expect_battle().pick_structure_at(4, 4), Some(EntityId(1)));
 }
 
 #[test]
 fn order_rally_on_barracks() {
     let engine = test_engine();
     let mut session = economy_session();
-    let mcv = session.expect_game().world.entity_id_at(0).expect("entity");
-    session.expect_game_mut().order_deploy(&[mcv]);
+    let mcv = session.expect_battle().world.entity_id_at(0).expect("entity");
+    session.expect_battle_mut().order_deploy(&[mcv]);
     session.tick(&engine.runtime());
-    session.expect_game_mut().order_place_building("GAPOWR", 6, 4);
+    session.expect_battle_mut().order_place_building("GAPOWR", 6, 4);
     session.tick(&engine.runtime());
-    session.expect_game_mut().order_place_building("GAPILE", 8, 4);
+    session.expect_battle_mut().order_place_building("GAPILE", 8, 4);
     session.tick(&engine.runtime());
-    let barracks = session.expect_game().world.find_entity_id_by_type("GAPILE").expect("应有兵营");
-    assert!(session.expect_game().selection_has_structure(&[barracks]));
-    session.expect_game_mut().order_rally(&[barracks], 12, 8);
+    let barracks = session.expect_battle().world.find_entity_id_by_type("GAPILE").expect("应有兵营");
+    assert!(session.expect_battle().selection_has_structure(&[barracks]));
+    session.expect_battle_mut().order_rally(&[barracks], 12, 8);
     session.tick(&engine.runtime());
-    assert!(session.expect_game().world.last_rejects().is_empty());
-    assert_eq!(session.expect_game().world.ecs_rally(barracks).expect("rally").0, Some(12));
-    assert_eq!(session.expect_game().world.ecs_rally(barracks).expect("rally").1, Some(8));
+    assert!(session.expect_battle().world.last_rejects().is_empty());
+    assert_eq!(session.expect_battle().world.ecs_rally(barracks).expect("rally").0, Some(12));
+    assert_eq!(session.expect_battle().world.ecs_rally(barracks).expect("rally").1, Some(8));
 }

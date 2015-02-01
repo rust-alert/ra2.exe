@@ -65,13 +65,13 @@ fn ai_places_war_factory_and_produces_tank() {
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-weap");
-    session.expect_game_mut().ai_enabled = true;
+    session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
-    assert!(session.expect_game_mut().world.find_entity_id_by_owner_type("Soviets", "NAWEAP").is_some());
+    assert!(session.expect_battle_mut().world.find_entity_id_by_owner_type("Soviets", "NAWEAP").is_some());
     session.tick(&engine.runtime());
-    let weap = session.expect_game().world.find_entity_id_by_owner_type("Soviets", "NAWEAP").expect("war factory");
+    let weap = session.expect_battle().world.find_entity_id_by_owner_type("Soviets", "NAWEAP").expect("war factory");
     assert_eq!(
-        session.expect_game().world.ecs_produce_item(weap).expect("queue").as_ref().map(|(id, _)| id.as_ref()),
+        session.expect_battle().world.ecs_produce_item(weap).expect("queue").as_ref().map(|(id, _)| id.as_ref()),
         Some("HTNK")
     );
 }

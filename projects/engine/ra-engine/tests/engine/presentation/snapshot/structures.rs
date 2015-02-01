@@ -22,7 +22,7 @@ fn snapshot_includes_structures() {
         sub_cell: 0,
     });
     let session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "struct");
-    let snap = session.expect_game().snapshot(&[]);
+    let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.units.len(), 1);
     assert_eq!(snap.units[0].kind, MapEntityKind::Structure);
     assert_eq!(snap.units[0].type_id.as_ref(), "GACNST");

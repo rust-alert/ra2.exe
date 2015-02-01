@@ -1,6 +1,6 @@
-//! 一局游戏运行时入口。
+//! 战斗运行时入口。
 //!
-//! 三个独立对象：[`Engine`]（长期）、[`Session`]（一次运行）、[`Game`]（一局 RTS）。
+//! 三个独立对象：[`Engine`]（长期）、[`Session`]（一次运行）、[`BattleSession`]（一场战斗仿真）。
 //! 不创建窗口、不初始化 GPU。
 
 #![deny(missing_docs)]
@@ -19,7 +19,7 @@ pub use engine::{
     CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError, SystemPhase, SystemSchedule,
 };
 pub use game::{
-    AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, Game, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
+    AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, BattleSession, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
     BattleOutcome, BattleStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command,
     decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands, encode_scheduled,
 };

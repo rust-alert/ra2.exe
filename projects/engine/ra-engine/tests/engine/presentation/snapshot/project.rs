@@ -8,7 +8,7 @@ use ra_types::EntityId;
 fn project_units_returns_only_requested_ids() {
     let world = duel_mtnk_world();
     let session = Session::from_state(world, "project");
-    let game = session.expect_game();
+    let game = session.expect_battle();
     let id0 = game.world.entity_id_at(0).expect("entity");
     let id1 = game.world.entity_id_at(1).expect("entity");
     let units = game.project_units(&[id1, EntityId(999_999), id0]);

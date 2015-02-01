@@ -61,5 +61,5 @@ fn victory_pauses_further_ticks() {
     let tick_at_win = after_win.tick;
     case.advance(8);
     assert_eq!(case.observe().tick, tick_at_win);
-    assert!(case.session.expect_game().paused);
+    assert!(case.session.expect_battle().paused);
 }

@@ -23,8 +23,8 @@ fn snapshot_anim_state_moves_when_ordered() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "anim");
-    assert_eq!(session.expect_game().snapshot(&[]).units[0].anim_state, AnimState::Idle);
-    session.expect_game_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 10, y: 4 });
+    assert_eq!(session.expect_battle().snapshot(&[]).units[0].anim_state, AnimState::Idle);
+    session.expect_battle_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 10, y: 4 });
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_game().snapshot(&[]).units[0].anim_state, AnimState::Move);
+    assert_eq!(session.expect_battle().snapshot(&[]).units[0].anim_state, AnimState::Move);
 }

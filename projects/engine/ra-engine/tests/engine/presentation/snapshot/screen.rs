@@ -33,18 +33,18 @@ fn snapshot_screen_moves_to_results_on_victory() {
         sub_cell: 0,
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "screen");
-    assert_eq!(session.expect_game().snapshot(&[]).screen, SessionScreen::InBattle);
-    let attacker = session.expect_game().world.entity_id_at(0).expect("entity");
-    let target = session.expect_game().world.entity_id_at(1).expect("entity");
-    assert!(session.expect_game_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
-    assert!(session.expect_game_mut().world.set_ecs_health(target, 40, 40, false));
-    session.expect_game_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
+    assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::InBattle);
+    let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
+    let target = session.expect_battle().world.entity_id_at(1).expect("entity");
+    assert!(session.expect_battle_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));
+    assert!(session.expect_battle_mut().world.set_ecs_health(target, 40, 40, false));
+    session.expect_battle_mut().push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..20 {
         session.tick(&engine.runtime());
-        if session.expect_game().outcome.is_some() {
+        if session.expect_battle().outcome.is_some() {
             break;
         }
     }
-    assert!(matches!(session.expect_game().outcome, Some(BattleOutcome::Victory { .. })));
-    assert_eq!(session.expect_game().snapshot(&[]).screen, SessionScreen::Results);
+    assert!(matches!(session.expect_battle().outcome, Some(BattleOutcome::Victory { .. })));
+    assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::Results);
 }

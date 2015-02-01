@@ -77,7 +77,7 @@ pub struct BattleController {
 impl BattleController {
     /// 由装载结果构造；可无会话（装载失败时仍占位）。
     pub fn from_boot(boot: BootResult, status_path: Option<PathBuf>, test_scene: Option<String>) -> Self {
-        let edition = boot.session.as_ref().and_then(|s| s.game()).map(|g| g.world.edition.as_str()).unwrap_or("—");
+        let edition = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.edition.as_str()).unwrap_or("—");
         Self {
             engine: boot.engine,
             session: boot.session,
@@ -102,7 +102,7 @@ impl BattleController {
 
     /// 是否已有可玩会话。
     pub fn has_session(&self) -> bool {
-        self.session.as_ref().and_then(|s| s.game()).is_some()
+        self.session.as_ref().and_then(|s| s.battle()).is_some()
     }
 
     /// 应用新的装载结果（重开）。
@@ -120,7 +120,7 @@ impl BattleController {
         self.leave_armed = false;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
-        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
             tracing::info!("重开完成 · {}", boot.note);
         }
@@ -146,7 +146,7 @@ impl BattleController {
     }
 
     fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
-        let game = self.session.as_ref()?.game()?;
+        let game = self.session.as_ref()?.battle()?;
         let size = window.inner_size();
         let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
         game.image_to_cell(wx, wy)
@@ -162,13 +162,13 @@ impl BattleController {
             return;
         };
         if let Some(type_id) = self.place_mode {
-            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
                 game.order_place_building(type_id, cell.0, cell.1);
             }
             return;
         }
-        let Some(game) = self.session.as_ref().and_then(|s| s.game())
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return;
         };
@@ -207,7 +207,7 @@ impl BattleController {
             return;
         }
         let selected = self.local.selected.clone();
-        let Some(game) = self.session.as_mut().and_then(|s| s.game_mut())
+        let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut())
         else {
             return;
         };
@@ -315,7 +315,7 @@ impl BattleController {
                             tracing::info!("建造模式 · 已关闭");
                             BattleNav::None
                         }
-                        else if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                        else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             // 对局中 Esc 先暂停；暂停后再 Esc 武装离开，再按一次确认回大厅。
                             // 空格仍可切换暂停并解除武装。
                             if game.paused {
@@ -342,7 +342,7 @@ impl BattleController {
                     }
                     _ if !accept_commands => BattleNav::None,
                     PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
-                        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             let seed = self.local.selected.first().copied().or_else(|| {
                                 game.world.entity_ids().into_iter().find(|&eid| {
                                     game.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
@@ -383,7 +383,7 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Tab) => {
-                        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             self.local.cycle_selection(game);
                         }
                         BattleNav::None
@@ -391,7 +391,7 @@ impl BattleController {
                     PhysicalKey::Code(KeyCode::KeyF) => {
                         let selected = self.local.selected.clone();
                         if let Some(&atk) = selected.first() {
-                            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                                 if let Some(tgt) = game.nearest_hostile(atk) {
                                     game.order_attack(&selected, tgt);
                                 }
@@ -401,7 +401,7 @@ impl BattleController {
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
                         let selected = self.local.selected.clone();
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("部署选中 · {:?}", selected);
                             game.order_deploy(&selected);
                         }
@@ -412,7 +412,7 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
                             self.leave_armed = false;
                             if game.paused {
@@ -425,14 +425,14 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyP) => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("生产 · E1");
                             game.order_produce("E1");
                         }
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyO) => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("生产 · MTNK");
                             game.order_produce("MTNK");
                         }
@@ -441,7 +441,7 @@ impl BattleController {
                     PhysicalKey::Code(KeyCode::KeyY) => {
                         if let Some(cell) = self.cursor_cell(renderer, window) {
                             let selected = self.local.selected.clone();
-                            if let Some(game) = self.session.as_mut().and_then(|s| s.game_mut()) {
+                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                                 tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
                                 game.order_rally(&selected, cell.0, cell.1);
                             }
@@ -460,10 +460,10 @@ impl BattleController {
         let started = Instant::now();
         let nav = if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
             let _ = session.pump(&engine.runtime(), dt);
-            if let Some(game) = session.game() {
+            if let Some(game) = session.battle() {
                 self.local.prune_dead(game);
             }
-            if session.game().and_then(|g| g.outcome.as_ref()).is_some() {
+            if session.battle().and_then(|g| g.outcome.as_ref()).is_some() {
                 session.phase = SessionPhase::Finished;
                 self.leave_armed = false;
                 self.note_outcome_once();
@@ -480,7 +480,7 @@ impl BattleController {
     }
 
     fn note_outcome_once(&mut self) {
-        let Some(game) = self.session.as_ref().and_then(|s| s.game())
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return;
         };
@@ -523,7 +523,7 @@ impl BattleController {
                 self.refresh_title(renderer, window, screen_label, None);
                 return;
             };
-            let Some(game) = session.game_mut()
+            let Some(game) = session.battle_mut()
             else {
                 renderer.draw_frame(None);
                 self.refresh_title(renderer, window, screen_label, None);
@@ -559,7 +559,7 @@ impl BattleController {
     fn local_house_name(&self) -> Option<String> {
         self.session
             .as_ref()
-            .and_then(|s| s.game())
+            .and_then(|s| s.battle())
             .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
             .map(|p| p.house.to_string())
     }
@@ -636,7 +636,7 @@ impl BattleController {
                 let local_house = self
                     .session
                     .as_ref()
-                    .and_then(|s| s.game())
+                    .and_then(|s| s.battle())
                     .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
                     .map(|p| p.house.clone());
                 let local = local_house.and_then(|house| hud.players.iter().find(|p| p.house == house));
@@ -687,7 +687,7 @@ impl BattleController {
                         (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
-                    let diff = self.session.as_ref().and_then(|s| s.game()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
+                    let diff = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
                     format!(
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
                         self.title_base, hud.tick, zoom
@@ -701,7 +701,7 @@ impl BattleController {
                         (Some(id), _) => format!("#{}", id.0),
                         (None, _) => "#-".into(),
                     };
-                    let diff = self.session.as_ref().and_then(|s| s.game()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
+                    let diff = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.difficulty.as_str()).unwrap_or("Normal");
                     format!(
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc暂停 · z{:.2}",
                         self.title_base, hud.tick, zoom
@@ -713,7 +713,7 @@ impl BattleController {
             };
             window.set_title(&title);
         }
-        if let Some(game) = self.session.as_ref().and_then(|s| s.game()) {
+        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             if let Some(reject) = game.world.last_rejects().first() {
                 let label = reject.reason.as_hud_label().to_string();
                 if self.logged_reject.as_deref() != Some(label.as_str()) {

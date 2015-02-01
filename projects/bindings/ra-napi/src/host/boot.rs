@@ -29,7 +29,7 @@ pub struct BootResult {
 impl BootResult {
     /// 是否已打开可玩会话（进度「完成」与进对局的唯一判据）。
     pub fn is_ready(&self) -> bool {
-        self.session.as_ref().and_then(|s| s.game()).is_some()
+        self.session.as_ref().and_then(|s| s.battle()).is_some()
     }
 }
 
@@ -197,14 +197,14 @@ pub fn boot_world_with_progress(
             Some(Ok(mut opened)) => {
                 note = opened.note;
                 note = format!("{note} · player={} · difficulty={} · credits={}", request.player_name, request.difficulty, request.credits);
-                let game = opened.session.expect_game_mut();
+                let game = opened.session.expect_battle_mut();
                 game.set_difficulty(request.difficulty.clone());
                 game.world.set_all_players_funds(request.credits);
                 tracing::info!(
                     "fingerprint edition={} map={} rules_hash={:#x}",
-                    opened.session.expect_game().fingerprint.edition,
-                    opened.session.expect_game().fingerprint.map,
-                    opened.session.expect_game().fingerprint.rules_hash
+                    opened.session.expect_battle().fingerprint.edition,
+                    opened.session.expect_battle().fingerprint.map,
+                    opened.session.expect_battle().fingerprint.rules_hash
                 );
                 (Some(opened.engine), Some(opened.session))
             }
@@ -215,7 +215,7 @@ pub fn boot_world_with_progress(
             None => (None, None),
         };
 
-    if session.as_ref().and_then(|s| s.game()).is_some() {
+    if session.as_ref().and_then(|s| s.battle()).is_some() {
         report(1.0, "完成");
     }
     else {

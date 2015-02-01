@@ -13,14 +13,14 @@ fn produce_infantry_through_session_after_barracks() {
     case.advance(1);
     case.command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPILE".into(), x: 8, y: 4 });
     case.advance(1);
-    let before = case.session.expect_game().world.house_funds(slice.human_house).expect("应有资金");
+    let before = case.session.expect_battle().world.house_funds(slice.human_house).expect("应有资金");
     case.command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     case.advance(1);
-    assert_eq!(case.session.expect_game().world.house_funds(slice.human_house), Some(before - 200));
+    assert_eq!(case.session.expect_battle().world.house_funds(slice.human_house), Some(before - 200));
     case.advance(u64::from(PRODUCE_TICKS - 1));
-    assert_eq!(case.session.expect_game().world.entity_count(), 4);
-    let id = case.session.expect_game().world.entity_ids().last().copied().expect("应产出单位");
-    let (type_id, kind) = case.session.expect_game().world.ecs_identity(id).expect("unit identity");
+    assert_eq!(case.session.expect_battle().world.entity_count(), 4);
+    let id = case.session.expect_battle().world.entity_ids().last().copied().expect("应产出单位");
+    let (type_id, kind) = case.session.expect_battle().world.ecs_identity(id).expect("unit identity");
     assert_eq!(kind, MapEntityKind::Infantry);
     assert_eq!(type_id.as_ref(), "E1");
 }

@@ -44,14 +44,14 @@ impl HeadlessCase {
 
     /// 在指定 tick 之前入队命令；下一次 `tick` 会按产品路径消费。
     pub fn command(&mut self, command: GameCommand) {
-        self.session.expect_game_mut().push_command(command);
+        self.session.expect_battle_mut().push_command(command);
     }
 
     /// 精确推进指定次数，不依赖墙钟、窗口事件或 GPU。
     pub fn advance(&mut self, ticks: u64) {
         for _ in 0..ticks {
             self.session.tick(&self.engine.runtime());
-            if self.session.expect_game().outcome.is_some() {
+            if self.session.expect_battle().outcome.is_some() {
                 break;
             }
         }
@@ -59,7 +59,7 @@ impl HeadlessCase {
 
     /// 采集当前观测。
     pub fn observe(&self) -> HeadlessObservation {
-        let game = self.session.expect_game();
+        let game = self.session.expect_battle();
         HeadlessObservation {
             tick: game.world.tick,
             state_hash: game.world.state_hash(),
@@ -260,6 +260,6 @@ pub fn ai_skirmish_open() -> HeadlessCase {
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
     let mut session = Session::from_state(world, "ra-testing ai skirmish open");
-    session.expect_game_mut().ai_enabled = true;
+    session.expect_battle_mut().ai_enabled = true;
     HeadlessCase::new(session)
 }

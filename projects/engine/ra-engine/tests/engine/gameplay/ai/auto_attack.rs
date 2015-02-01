@@ -50,7 +50,7 @@ fn duel_session() -> Session {
         sub_cell: 0,
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai");
-    session.expect_game_mut().ai_enabled = true;
+    session.expect_battle_mut().ai_enabled = true;
     session
 }
 
@@ -58,13 +58,13 @@ fn duel_session() -> Session {
 fn ai_issues_attack_via_commands() {
     let engine = test_engine();
     let mut session = duel_session();
-    let ally = session.expect_game().world.entity_id_at(0).expect("entity");
-    let enemy = session.expect_game().world.entity_id_at(1).expect("entity");
-    let before = session.expect_game().world.ecs_health(ally).expect("health").0;
+    let ally = session.expect_battle().world.entity_id_at(0).expect("entity");
+    let enemy = session.expect_battle().world.entity_id_at(1).expect("entity");
+    let before = session.expect_battle().world.ecs_health(ally).expect("health").0;
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
-    let game = session.expect_game();
+    let game = session.expect_battle();
     assert!(
         game.world.ecs_attack_state(enemy).expect("atk").0 == Some(EntityId(1))
             || game.world.ecs_health(ally).expect("health").0 < before

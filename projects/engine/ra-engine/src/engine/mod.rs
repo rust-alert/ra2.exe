@@ -17,7 +17,7 @@ use std::sync::Arc;
 use ra_types::RuntimeDefinitions;
 
 use crate::{
-    game::Game,
+    game::BattleSession,
     session::{Session, SessionSpec},
     state::BattleState,
 };
@@ -121,17 +121,17 @@ impl Engine {
         Ok(())
     }
 
-    /// 创建空会话（尚未 `start` 一局 `Game`）。
+    /// 创建空会话（尚未挂入一场 `BattleSession`）。
     pub fn create_session(&self, spec: SessionSpec) -> Result<Session, EngineError> {
         self.validate_session_spec(&spec).map_err(|e| EngineError::Msg(e.to_string()))?;
         Ok(Session::new(spec))
     }
 
-    /// 由已装载的权威状态直接打开带一局游戏的会话（boot / 测试便利）。
-    pub fn open_game_session(&self, state: BattleState, boot_note: impl Into<String>) -> Result<Session, EngineError> {
+    /// 由已装载的权威状态直接打开带一场战斗的会话（boot / 测试便利）。
+    pub fn open_battle_session(&self, state: BattleState, boot_note: impl Into<String>) -> Result<Session, EngineError> {
         let mut session = self.create_session(SessionSpec::default())?;
-        let game = Game::new(state, boot_note);
-        session.attach_game(game);
+        let battle = BattleSession::new(state, boot_note);
+        session.attach_battle(battle);
         Ok(session)
     }
 }

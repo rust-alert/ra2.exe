@@ -3013,7 +3013,7 @@ pub fn run_shell() -> RaResult<()> {
     let mut app = match mode {
         #[cfg(feature = "test-harness")]
         LaunchMode::DirectBattle(boot) => {
-            if let Some(game) = boot.session.as_ref().and_then(|s| s.game()) {
+            if let Some(game) = boot.session.as_ref().and_then(|s| s.battle()) {
                 tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
             AppShell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)

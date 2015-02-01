@@ -65,17 +65,17 @@ fn ai_places_barracks_and_produces_infantry() {
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-barracks");
-    session.expect_game_mut().ai_enabled = true;
+    session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
     assert!(
-        session.expect_game_mut().world.find_entity_id_by_owner_type("Soviets", "NAHAND").is_some(),
+        session.expect_battle_mut().world.find_entity_id_by_owner_type("Soviets", "NAHAND").is_some(),
         "AI should place barracks"
     );
     // 下一 tick 兵营空闲后排队生产。
     session.tick(&engine.runtime());
-    let hand = session.expect_game().world.find_entity_id_by_owner_type("Soviets", "NAHAND").expect("barracks");
+    let hand = session.expect_battle().world.find_entity_id_by_owner_type("Soviets", "NAHAND").expect("barracks");
     assert_eq!(
-        session.expect_game().world.ecs_produce_item(hand).expect("queue").as_ref().map(|(id, _)| id.as_ref()),
+        session.expect_battle().world.ecs_produce_item(hand).expect("queue").as_ref().map(|(id, _)| id.as_ref()),
         Some("E2")
     );
 }

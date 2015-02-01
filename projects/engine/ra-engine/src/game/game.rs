@@ -193,9 +193,9 @@ pub struct BattleStats {
     pub funds_spent: i32,
 }
 
-/// 一局 RTS 权威游戏。
+/// 一场 RTS 权威战斗会话。
 #[derive(Debug)]
-pub struct Game {
+pub struct BattleSession {
     /// 仿真世界（规则、地图、实体、通行格）。
     pub world: BattleState,
     /// 装载或启动时的备注（规则统计、实体数等）。
@@ -220,8 +220,8 @@ pub struct Game {
     pub difficulty: String,
 }
 
-impl Game {
-    /// 用已有世界与装载备注创建会话（默认 tick 频率与空指纹）。
+impl BattleSession {
+    /// 用已有世界与装载备注创建战斗会话（默认 tick 频率与空指纹）。
     pub fn new(world: BattleState, boot_note: impl Into<String>) -> Self {
         Self {
             world,

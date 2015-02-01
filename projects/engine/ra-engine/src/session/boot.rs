@@ -1,4 +1,4 @@
-//! 遭遇战装载：规则 → BattleState → Game → Session。
+//! 遭遇战装载：规则 → `BattleState` → `BattleSession` → `Session`。
 
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ use ra_types::{AssetSource, RaResult};
 
 use crate::{
     engine::{Engine, EngineConfig},
-    game::Game,
+    game::BattleSession,
     session::Session,
     state::BattleState,
 };
@@ -18,7 +18,7 @@ use crate::{
 pub struct SkirmishOpenResult {
     /// 长期引擎（共享定义；本便利 API 每次新建一份默认定义）。
     pub engine: Engine,
-    /// 已装载规则、地图与指纹的遭遇战会话（内含一局 Game）。
+    /// 已装载规则、地图与指纹的遭遇战会话（内含一场 `BattleSession`）。
     pub session: Session,
     /// 追加了规则 / 世界统计后的 boot 注记。
     pub note: String,
@@ -72,7 +72,7 @@ pub fn open_skirmish_session(
     if rules_bytes.is_empty() {
         return Err(ra_types::RaError::Msg(format!("规则文件 {} 为空，拒绝用空字节生成对局指纹", chain.rules_ini)));
     }
-    let fingerprint = Game::build_skirmish_fingerprint(
+    let fingerprint = BattleSession::build_skirmish_fingerprint(
         chain.edition.as_str(),
         &state.map.name,
         &rules_bytes,
@@ -82,10 +82,10 @@ pub fn open_skirmish_session(
     );
 
     let defs_for_engine = Arc::clone(&state.definitions);
-    let game = Game::open_skirmish(state, note.clone(), preview_origin, fingerprint);
+    let game = BattleSession::open_skirmish(state, note.clone(), preview_origin, fingerprint);
     let engine = Engine::new(defs_for_engine, EngineConfig::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     let mut session = engine.create_session(crate::session::SessionSpec::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
-    session.attach_game(game);
+    session.attach_battle(game);
 
     Ok(SkirmishOpenResult { engine, session, note })
 }
