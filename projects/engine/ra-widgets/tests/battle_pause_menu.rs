@@ -1,7 +1,7 @@
 //! 暂停菜单布局与命中。
 
-use ra_components::battle_pause_menu::{BattlePauseMenuHit, hit_at, layout};
-use ra_components::ui_compose::compose_battle_pause_menu_overlay;
+use ra_widgets::battle_pause_menu::{BattlePauseMenuHit, hit_at, layout};
+use ra_widgets::ui_compose::compose_battle_pause_menu_overlay;
 use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS;
 
 #[test]

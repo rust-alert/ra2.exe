@@ -13,7 +13,7 @@ use std::{
 use ra_renderer::{RgbaImage, write_png_file};
 use ra_types::RaResult;
 
-use ra_components::original_screen::OriginalScreen;
+use ra_widgets::original_screen::OriginalScreen;
 
 /// 截图输出根目录。
 pub fn screenshot_dir() -> PathBuf {

@@ -2,14 +2,14 @@
 
 N-API 绑定 + 原生宿主（`projects/bindings/ra-napi`）。供 npm 包 **`@game-gpt/red-alert2`** 在 Node 侧加载，对外暴露 `version` / `launch` / `extract` / `unpack`。
 
-本 crate 产出 `cdylib` + `rlib`。原生窗口、输入与事件循环在 `host/`；UI 布局与组件分别在 `ra-layout` / `ra-components`。
+本 crate 产出 `cdylib` + `rlib`。原生窗口、输入与事件循环在 `host/`；UI 布局与组件分别在 `ra-layout` / `ra-widgets`。
 
 ```mermaid
 flowchart LR
     A["ra2 launch --path"] --> B[ra-napi]
     B --> C["host::run"]
     B --> D[extract / unpack]
-    C --> E[ra-components]
+    C --> E[ra-widgets]
     C --> F[ra-layout]
 ```
 

@@ -1,6 +1,6 @@
 //! 集成测试：遭遇战大厅配置循环。
 
-use ra_components::skirmish_setup::{
+use ra_widgets::skirmish_setup::{
     LOBBY_DIFFICULTIES, LOBBY_SIDES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp, load_screen_preferred_pal,
 };
 

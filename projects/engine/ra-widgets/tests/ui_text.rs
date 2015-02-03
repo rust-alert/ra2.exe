@@ -1,7 +1,7 @@
 //! 集成测试：原 `src/ui_text.rs` 内联测试迁出。
 
 use ra_assets::FntFile;
-use ra_components::ui_text::*;
+use ra_widgets::ui_text::*;
 use ra_renderer::RgbaImage;
 
 fn tiny_fnt() -> FntFile {

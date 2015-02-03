@@ -9,7 +9,7 @@ use std::{
 };
 
 use super::boot::{BootResult, boot_from_install_with_progress};
-use ra_components::skirmish_setup::SkirmishBootRequest;
+use ra_widgets::skirmish_setup::SkirmishBootRequest;
 
 /// 装载阶段可见进度（主线程只读最新快照）。
 #[derive(Debug, Clone)]

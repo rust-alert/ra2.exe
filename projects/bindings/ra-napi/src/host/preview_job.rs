@@ -8,7 +8,7 @@ use std::{
 use ra_renderer::RgbaImage;
 
 use super::boot::preview_install_boot_map;
-use ra_components::ui_assets::downscale_to_fit;
+use ra_widgets::ui_assets::downscale_to_fit;
 
 /// 一张地图预览任务的结果。
 pub struct MapPreviewResult {

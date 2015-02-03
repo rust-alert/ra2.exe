@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_present.rs` 内联测试迁出。
 
-use ra_components::ui_present::*;
+use ra_widgets::ui_present::*;
 use ra_renderer::RgbaImage;
 use ra_types::{PresentFeel, PresentMode};
 

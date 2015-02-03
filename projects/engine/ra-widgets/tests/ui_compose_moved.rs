@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_compose.rs` 内联测试迁出。
 
-use ra_components::{
+use ra_widgets::{
     options_dialog::{OptionsDialogLayout, OptionsDialogState},
     ui_compose::*,
 };

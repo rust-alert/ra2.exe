@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_compose.rs` 内联测试迁出。
 
-use ra_components::{
+use ra_widgets::{
     ui_compose::*,
     ui_decode::{DecodedUiSprite, PageDecodeReport},
 };
@@ -226,7 +226,7 @@ fn compose_options_uses_main_menu_id() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let state = ra_components::options_dialog::OptionsDialogState::from_shell(
+    let state = ra_widgets::options_dialog::OptionsDialogState::from_shell(
         ra_types::DisplayMode::W800H600,
         0.4,
         0.7,

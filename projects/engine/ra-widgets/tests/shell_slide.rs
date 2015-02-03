@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/shell_slide.rs` 内联测试迁出。
 
-use ra_components::shell_slide::*;
+use ra_widgets::shell_slide::*;
 use std::time::{Duration, Instant};
 
 #[test]

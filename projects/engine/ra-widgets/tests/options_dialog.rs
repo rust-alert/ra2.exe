@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/options_dialog.rs` 内联测试迁出。
 
-use ra_components::options_dialog::*;
+use ra_widgets::options_dialog::*;
 use ra_layout::ui_layout::main_menu_layout;
 use ra_types::{DisplayMode, PresentFeel};
 

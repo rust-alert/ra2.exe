@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/startup_splash.rs` 内联测试迁出。
 
-use ra_components::startup_splash::*;
+use ra_widgets::startup_splash::*;
 use ra_renderer::RgbaImage;
 use ra_types::GameEdition;
 use std::time::{Duration, Instant};

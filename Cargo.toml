@@ -28,7 +28,7 @@ ra-testing = { path = "projects/tooling/ra-testing" }
 ra-net = { path = "projects/engine/ra-net" }
 ra-renderer = { path = "projects/engine/ra-renderer" }
 ra-layout = { path = "projects/engine/ra-layout" }
-ra-components = { path = "projects/engine/ra-components" }
+ra-widgets = { path = "projects/engine/ra-widgets" }
 ra-adaptor = { path = "projects/adapters/ra-adaptor" }
 ra-adaptor-ra2 = { path = "projects/adapters/ra-adaptor-ra2" }
 ra-adaptor-yuri = { path = "projects/adapters/ra-adaptor-yuri" }

@@ -1,4 +1,4 @@
-# ra-components
+# ra-widgets
 
 UI **组件语义与画面组合**骨架：视觉组件、语义组合、`screen/` 画面装配。
 

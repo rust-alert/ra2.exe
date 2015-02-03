@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_assets.rs` 内联测试迁出。
 
-use ra_components::ui_assets::*;
+use ra_widgets::ui_assets::*;
 use ra_renderer::RgbaImage;
 #[test]
 fn downscale_halves_dimensions() {

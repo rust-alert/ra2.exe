@@ -134,7 +134,7 @@ flowchart TB
 
     subgraph present["呈现"]
         layout["ra-layout"]
-        components["ra-components"]
+        components["ra-widgets"]
         renderer["ra-renderer"]
     end
 
@@ -190,7 +190,7 @@ flowchart TB
 
 `ra-engine` 内部按 runtime / state / spatial / gameplay / lifecycle / presentation / persistence 划分，详见引擎 README。
 
-虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-layout` / `ra-components` 已落骨架，壳层 UI 尚未迁入。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
+虚线表示下游尚未完全接线：`ra-wasm` → 引擎 / 渲染仍是占位；`ra-layout` / `ra-widgets` 已落骨架，壳层 UI 尚未迁入。`ra-testing` 只服务测试，不被产品 crate 默认依赖。
 
 ### Crate / 包依赖关系（简化）
 
@@ -207,7 +207,7 @@ flowchart LR
     mp[ra-map]
     eng[ra-engine]
     lay[ra-layout]
-    comp[ra-components]
+    comp[ra-widgets]
     re[ra-renderer]
     de[ra-napi]
     napi[ra-napi]
@@ -267,7 +267,7 @@ ra2.exe/                 工作区根（本 README）
 ├── License.md           Apache-2.0
 ├── scripts/             构建 / 发布脚本
 └── projects/
-    ├── engine/          ra-types … ra-layout / ra-components / ra-renderer / ra-net
+    ├── engine/          ra-types … ra-layout / ra-widgets / ra-renderer / ra-net
     ├── adapters/        ra-adaptor*
     ├── bindings/        ra-napi · ra-napi · ra-wasm
     ├── tooling/         ra-testing（后续 ra-modder）
@@ -300,7 +300,7 @@ map / assets / renderer。
 | `ra-adaptor-phobos` | Phobos / MO 布局资源表                               | [readme](projects/adapters/ra-adaptor-phobos/readme.md)        |
 | `ra-engine`         | **一局对局：命令、固定 tick、权威状态、呈现快照**    | [readme](projects/engine/ra-engine/readme.md)                  |
 | `ra-layout`         | UI 空间求解（约束 → `LayoutSnapshot`；骨架）         | [readme](projects/engine/ra-layout/readme.md)                  |
-| `ra-components`     | UI 组件与画面组合（骨架；不直调 wgpu）               | [readme](projects/engine/ra-components/readme.md)              |
+| `ra-widgets`     | UI 组件与画面组合（骨架；不直调 wgpu）               | [readme](projects/engine/ra-widgets/readme.md)              |
 | `ra-net`            | 联机协议无关基础类型（Beta 接入点）                  | [readme](projects/engine/ra-net/readme.md)                     |
 | `ra-testing`        | headless 夹具与 GUI 自动化计划（非运行时）           | [readme](projects/tooling/ra-testing/readme.md)                |
 | `ra-renderer`       | 呈现（只消费引擎快照）                               | [readme](projects/engine/ra-renderer/readme.md)                |
@@ -309,7 +309,7 @@ map / assets / renderer。
 
 ## 设计要点
 
-- **共享内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`；菜单布局与组件为 `ra-layout` / `ra-components`（壳层逐步迁入）。
+- **共享内核**：版本与扩展差异尽量落在 adaptor 与数据；仿真与呈现共用 `ra-engine` / `ra-renderer`；菜单布局与组件为 `ra-layout` / `ra-widgets`（壳层逐步迁入）。
 - **I/O 边界**：解析器只吃字节（`AssetSource` / 资源挂载）；文件系统与窗口留在壳层。
 - **现代 GPU**：呈现路径基于现代图形 API；不把 DirectDraw / 原版 exe 注入作为主路径。
 - **可测运行时**：`ra-testing` 经 `ra-engine` 做无窗口确定性回归；完整启动验证需自备游戏目录。

@@ -1,5 +1,5 @@
 [package]
-name = "ra-components"
+name = "ra-widgets"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

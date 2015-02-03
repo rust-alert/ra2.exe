@@ -33,7 +33,7 @@ ra-engine = { workspace = true }
 ra-net = { workspace = true }
 ra-renderer = { workspace = true }
 ra-layout = { workspace = true }
-ra-components = { workspace = true }
+ra-widgets = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }

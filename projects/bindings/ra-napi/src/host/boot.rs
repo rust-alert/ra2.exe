@@ -7,7 +7,7 @@ use ra_renderer::RgbaImage;
 use ra_types::{GameEdition, RaResult};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
-use ra_components::fs_source::GameAssetSource;
+use ra_widgets::fs_source::GameAssetSource;
 
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
@@ -97,14 +97,14 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
 }
 
 /// 按桌面配置探测安装并打开一局遭遇战会话。
-pub fn boot_world(cfg: &DesktopConfig, request: &ra_components::skirmish_setup::SkirmishBootRequest) -> RaResult<BootResult> {
+pub fn boot_world(cfg: &DesktopConfig, request: &ra_widgets::skirmish_setup::SkirmishBootRequest) -> RaResult<BootResult> {
     boot_world_with_progress(cfg, request, |_, _| {})
 }
 
 /// 与 [`boot_world`] 相同，并按装载阶段回调进度（`ratio` 为 0..1）。
 pub fn boot_world_with_progress(
     cfg: &DesktopConfig,
-    request: &ra_components::skirmish_setup::SkirmishBootRequest,
+    request: &ra_widgets::skirmish_setup::SkirmishBootRequest,
     mut report: impl FnMut(f32, &str),
 ) -> RaResult<BootResult> {
     report(0.08, "探测安装");
@@ -226,19 +226,19 @@ pub fn boot_world_with_progress(
 
 /// 读取 `RustAlert.toml`（可选）并尝试装载（失败时仍返回带 note 的 `BootResult`）。
 pub fn boot_from_install() -> BootResult {
-    boot_from_install_with_request(ra_components::skirmish_setup::SkirmishBootRequest::default_lobby())
+    boot_from_install_with_request(ra_widgets::skirmish_setup::SkirmishBootRequest::default_lobby())
 }
 
 /// 指定地图文件名后装载（找不到则失败，不换图）。
 #[allow(dead_code)]
 pub fn boot_from_install_with_map(preferred_map: Option<String>) -> BootResult {
-    let mut req = ra_components::skirmish_setup::SkirmishBootRequest::default_lobby();
+    let mut req = ra_widgets::skirmish_setup::SkirmishBootRequest::default_lobby();
     req.preferred_map = preferred_map;
     boot_from_install_with_request(req)
 }
 
 /// 按大厅遭遇战请求装载。
-pub fn boot_from_install_with_request(request: ra_components::skirmish_setup::SkirmishBootRequest) -> BootResult {
+pub fn boot_from_install_with_request(request: ra_widgets::skirmish_setup::SkirmishBootRequest) -> BootResult {
     let (cfg, cfg_diags) = load_desktop_config_with_diagnostics();
     for d in &cfg_diags {
         tracing::warn!("配置诊断 {} · {}", d.source, d.message);
@@ -262,7 +262,7 @@ pub fn boot_from_install_with_request(request: ra_components::skirmish_setup::Sk
 
 /// 按大厅遭遇战请求装载，并向回调报告阶段进度。
 pub fn boot_from_install_with_progress(
-    request: ra_components::skirmish_setup::SkirmishBootRequest,
+    request: ra_widgets::skirmish_setup::SkirmishBootRequest,
     mut report: impl FnMut(f32, &str),
 ) -> BootResult {
     report(0.04, "读取配置");

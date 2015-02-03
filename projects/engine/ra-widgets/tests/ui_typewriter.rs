@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_typewriter.rs` 内联测试迁出。
 
-use ra_components::ui_typewriter::*;
+use ra_widgets::ui_typewriter::*;
 
 #[test]
 fn zero_duration_is_instant() {

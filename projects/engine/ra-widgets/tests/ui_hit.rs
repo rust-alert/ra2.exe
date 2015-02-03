@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/ui_hit.rs` 内联测试迁出。
 
-use ra_components::{menu_action::MenuAction, original_screen::OriginalScreen, ui_hit::*};
+use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, ui_hit::*};
 use ra_layout::ui_layout::skirmish_lobby_layout;
 use ra_map::{BootMapCandidate, Theater};
 

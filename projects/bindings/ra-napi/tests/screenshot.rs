@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use ra_components::original_screen::OriginalScreen;
+use ra_widgets::original_screen::OriginalScreen;
 use ra_napi::host::screenshot::{AutoScreenshotTracker, is_key_screen, planned_path};
 
 #[test]

@@ -1,6 +1,6 @@
 //! 集成测试：原 `src/skirmish_setup.rs` 内联测试迁出。
 
-use ra_components::skirmish_setup::*;
+use ra_widgets::skirmish_setup::*;
 use ra_layout::ui_layout::{RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, skirmish_lobby_layout};
 
 /// 下拉仅右侧箭头可切换（与壳层 `dnarrow` 命中一致）。

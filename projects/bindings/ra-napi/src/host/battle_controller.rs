@@ -3,7 +3,7 @@
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use ra_assets::FntFile;
-use ra_components::{
+use ra_widgets::{
     fs_source::GameAssetSource,
     battle_hud::{BattleHudChrome, decode_battle_hud_chrome},
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},

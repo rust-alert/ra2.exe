@@ -14,7 +14,7 @@ use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
-use ra_components::fs_source::{AssetOrigin, GameAssetSource};
+use ra_widgets::fs_source::{AssetOrigin, GameAssetSource};
 
 /// 一次导出请求。
 #[derive(Debug, Clone)]

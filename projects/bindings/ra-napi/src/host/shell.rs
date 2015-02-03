@@ -19,7 +19,7 @@ use super::{
     battle_controller::{BattleController, BattleNav},
     preview_job::PreviewJob,
 };
-use ra_components::{
+use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     shell_slide::{
@@ -40,7 +40,7 @@ use ra_components::{
 use ra_layout::ui_layout;
 
 /// 外壳持有的可导航应用状态。
-pub struct AppShell {
+pub struct Shell {
     window: Option<Arc<Window>>,
     screen: OriginalScreen,
     /// 对局 / 结算页控制器；菜单页可为空。
@@ -176,7 +176,7 @@ pub struct AppShell {
     /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
     audio_bag_tried: bool,
     /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
-    options_state: Option<ra_components::options_dialog::OptionsDialogState>,
+    options_state: Option<ra_widgets::options_dialog::OptionsDialogState>,
     /// 进入选项页时的音量快照（取消时还原实时预览）。
     options_volume_baseline: Option<(f32, f32)>,
     /// 进入选项页时的质感快照（取消时还原实时预览）。
@@ -187,7 +187,7 @@ pub struct AppShell {
     last_shell_title: String,
 }
 
-impl AppShell {
+impl Shell {
     /// 测试 / 已装载路径：直接进入对局页。
     #[cfg_attr(not(feature = "test-harness"), allow(dead_code))]
     pub fn with_match(
@@ -427,13 +427,13 @@ impl AppShell {
 
     /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
     fn handle_options_press(&mut self) -> bool {
-        let layout = ra_components::options_dialog::OptionsDialogLayout::new();
+        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
         let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(&layout, x, y))
         else {
             return false;
         };
-        use ra_components::options_dialog::OptionsHit;
+        use ra_widgets::options_dialog::OptionsHit;
         match hit {
             OptionsHit::Accept => {
                 self.menu_pressed_entry = Some("accept");
@@ -466,7 +466,7 @@ impl AppShell {
 
     /// 选项页拖动滑条。
     fn handle_options_drag(&mut self) -> bool {
-        let layout = ra_components::options_dialog::OptionsDialogLayout::new();
+        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
         let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y)).unwrap_or(false);
         if !dragged {
@@ -479,7 +479,7 @@ impl AppShell {
     }
 
     /// 从挂载源解码 PCX → RGBA；品红 `(255,0,255)` 作色键透明（旗标索引未必为 0）。
-    fn load_pcx_rgba(source: &ra_components::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
+    fn load_pcx_rgba(source: &ra_widgets::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
         let bytes = source.read(name).ok()?;
         let pcx = ra_assets::parse_pcx(&bytes).ok()?;
         let mut rgba = pcx.rgba;
@@ -498,7 +498,7 @@ impl AppShell {
             .skirmish
             .row_sides
             .iter()
-            .map(|i| ra_components::skirmish_setup::LOBBY_SIDES[(*i as usize) % ra_components::skirmish_setup::LOBBY_SIDES.len()])
+            .map(|i| ra_widgets::skirmish_setup::LOBBY_SIDES[(*i as usize) % ra_widgets::skirmish_setup::LOBBY_SIDES.len()])
             .collect::<Vec<_>>()
             .join(",");
         let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
@@ -1265,7 +1265,7 @@ impl AppShell {
                         let map_name =
                             self.selected_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone())).unwrap_or_default();
                         let country = self.skirmish.side.clone();
-                        let ai_csf = ra_components::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
+                        let ai_csf = ra_widgets::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
                             .as_ref()
@@ -1291,9 +1291,9 @@ impl AppShell {
                             credits: self.skirmish.credits,
                             unit_count: self.skirmish.unit_count,
                             player_name_editing: self.skirmish.player_name_editing,
-                            country_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Country),
-                            color_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Color),
-                            ai_combo_open: self.skirmish.open_combo == Some(ra_components::skirmish_setup::SkirmishComboKind::Ai),
+                            country_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Country),
+                            color_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Color),
+                            ai_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
@@ -2160,7 +2160,7 @@ impl AppShell {
         self.options_volume_baseline = Some((music, sound));
         self.options_present_baseline = Some(self.present);
         self.options_pointer_consumed = false;
-        self.options_state = Some(ra_components::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
+        self.options_state = Some(ra_widgets::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
         self.set_screen(OriginalScreen::Options);
     }
 
@@ -2659,7 +2659,7 @@ impl AppShell {
     }
 }
 
-impl ApplicationHandler for AppShell {
+impl ApplicationHandler for Shell {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -3016,11 +3016,11 @@ pub fn run_shell() -> RaResult<()> {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.battle()) {
                 tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
-            AppShell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
+            Shell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
         }
         LaunchMode::MainMenu => {
             let _ = (status_path, test_scene);
-            AppShell::with_main_menu(display_mode)
+            Shell::with_main_menu(display_mode)
         }
     };
     app.apply_audio_volumes(music_volume, sound_volume);

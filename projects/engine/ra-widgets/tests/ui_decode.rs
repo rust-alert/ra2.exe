@@ -1,7 +1,7 @@
 //! 集成测试：原 `src/ui_decode.rs` 内联测试迁出。
 
 use ra_assets::{Palette, ShpFile, mix_hash};
-use ra_components::ui_decode::*;
+use ra_widgets::ui_decode::*;
 
 fn tiny_pal() -> Vec<u8> {
     let mut pal = vec![0u8; 768];
