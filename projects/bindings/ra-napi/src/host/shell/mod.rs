@@ -3096,3 +3096,19 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         None,
     ))
 }
+
+mod construct;
+mod host;
+mod audio;
+mod splash;
+mod options;
+mod lobby;
+mod campaign;
+mod assets;
+mod diagnostics;
+mod navigation;
+mod loading;
+mod input;
+mod redraw;
+mod event_loop;
+mod launch;
