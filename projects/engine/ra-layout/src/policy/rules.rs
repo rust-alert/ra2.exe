@@ -3,7 +3,7 @@
 
 use crate::{
     geometry::{Insets, Size2},
-    legacy::LegacyReference,
+    reference::LegacyReference,
 };
 
 /// 尺寸策略。

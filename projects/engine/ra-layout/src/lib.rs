@@ -2,23 +2,21 @@
 
 #![allow(missing_docs)]
 
-mod engine;
 mod geometry;
-mod hit;
-mod legacy;
-mod node;
-mod rules;
-mod snapshot;
 mod viewport;
+mod snapshot;
+mod solver;
+mod spec;
+mod policy;
+mod reference;
 
 pub mod ui_layout;
 
-pub use engine::LayoutEngine;
+pub use solver::LayoutEngine;
 pub use geometry::{Insets, Point2, Rect, Size2};
-pub use hit::{HitRegion, HitTestMode};
-pub use legacy::{LegacyReference, LegacyRole, LegacySource};
-pub use node::{LayoutId, LayoutNode};
-pub use rules::{HorizontalRule, LayoutRules, SizeRule, VerticalRule};
-pub use snapshot::{LayoutBox, LayoutElement, LayoutSnapshot};
+pub use snapshot::{HitRegion, HitTestMode, LayoutBox, LayoutElement, LayoutSnapshot};
+pub use reference::{LegacyReference, LegacyRole, LegacySource};
+pub use spec::{LayoutId, LayoutNode};
+pub use policy::{HorizontalRule, LayoutRules, SizeRule, VerticalRule};
 pub use ui_layout::*;
 pub use viewport::Viewport;

@@ -1,7 +1,7 @@
 // reshape-layout-components:skeleton
 //! 布局引擎（骨架：尚未实现完整约束求解）。
 
-use crate::{node::LayoutNode, snapshot::LayoutSnapshot, viewport::Viewport};
+use crate::{spec::LayoutNode, snapshot::LayoutSnapshot, viewport::Viewport};
 
 /// 布局求解器。
 #[derive(Debug, Default)]

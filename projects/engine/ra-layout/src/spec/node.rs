@@ -1,7 +1,7 @@
 // reshape-layout-components:skeleton
 //! 布局树节点。
 
-use crate::rules::LayoutRules;
+use crate::policy::LayoutRules;
 
 /// 布局节点标识（稳定字符串标签，后续可换成数值 Id）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

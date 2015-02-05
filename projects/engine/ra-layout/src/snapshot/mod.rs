@@ -1,11 +1,9 @@
-// reshape-layout-components:skeleton
-//! 布局求解结果（绘制与命中共用）。
+//! 布局快照。
 
-use crate::{
-    geometry::Rect,
-    hit::{HitRegion, HitTestMode},
-    node::LayoutId,
-};
+mod hit;
+
+use crate::geometry::Rect;
+use crate::spec::LayoutId;
 
 /// 单节点布局盒。
 #[derive(Debug, Clone, PartialEq)]
@@ -39,3 +37,5 @@ pub struct LayoutSnapshot {
     /// 扁平元素表（绘制与命中同序消费）。
     pub elements: Vec<LayoutElement>,
 }
+
+pub use hit::{HitRegion, HitTestMode};
