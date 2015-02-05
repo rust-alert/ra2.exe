@@ -4,26 +4,34 @@
 
 #![allow(missing_docs)]
 
-pub mod fs_source;
-pub mod battle_hud;
-pub mod menu_action;
-pub mod options_dialog;
-pub mod original_screen;
-pub mod battle_pause_menu;
-pub mod shell_slide;
-pub mod skirmish_setup;
-pub mod startup_splash;
-pub mod ui_assets;
+pub mod core;
+pub mod input;
+pub mod animation;
+pub mod chrome;
+pub mod skin;
+pub mod render;
+pub mod screens;
 pub mod ui_compose;
-pub mod ui_decode;
-pub mod ui_hit;
-pub mod ui_movie;
-pub mod ui_page;
-pub mod ui_present;
-pub mod ui_resolve;
-pub mod ui_slots;
-pub mod ui_text;
-pub mod ui_typewriter;
 
-pub use menu_action::*;
-pub use original_screen::*;
+pub use core::*;
+
+// 过渡期路径别名：保持旧 `ra_widgets::ui_*` 引用可编译。
+pub use skin::fs_source;
+pub use skin::assets as ui_assets;
+pub use skin::text as ui_text;
+pub use skin::slots as ui_slots;
+pub use skin::decode as ui_decode;
+pub use skin::resolve as ui_resolve;
+pub use input::hit as ui_hit;
+pub use animation::typewriter as ui_typewriter;
+pub use animation::shell_slide;
+pub use chrome::movie as ui_movie;
+pub use render::present as ui_present;
+pub use screens::page as ui_page;
+pub use screens::options_dialog;
+pub use screens::skirmish_setup;
+pub use screens::startup_splash;
+pub use screens::battle_hud;
+pub use screens::battle_pause_menu;
+pub use core::menu_action;
+pub use core::original_screen;
