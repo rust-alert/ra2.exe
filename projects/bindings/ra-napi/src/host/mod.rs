@@ -34,5 +34,5 @@ fn init_tracing() -> WorkerGuard {
 pub fn run() -> RaResult<()> {
     let _log_guard = init_tracing();
     tracing::info!("ra-napi host 启动");
-    shell::run_shell()
+    shell::Host::run()
 }

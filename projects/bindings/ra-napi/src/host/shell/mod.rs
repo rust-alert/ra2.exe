@@ -1,4 +1,4 @@
-//! 单窗口应用外壳：页面导航、窗口生命周期；对局逻辑委托 `BattleController`。
+//! 壳层会话与平台宿主：页面导航、窗口生命周期；对局逻辑委托 `BattleController`。
 
 use std::{path::PathBuf, sync::Arc, time::{Duration, Instant}};
 
@@ -39,152 +39,152 @@ use ra_widgets::{
 };
 use ra_layout::ui_layout;
 
-/// 外壳持有的可导航应用状态。
+/// 外壳持有的可导航壳层会话状态。
 pub struct Shell {
-    window: Option<Arc<Window>>,
-    screen: OriginalScreen,
+    pub(super) window: Option<Arc<Window>>,
+    pub(super) screen: OriginalScreen,
     /// 对局 / 结算页控制器；菜单页可为空。
-    battle_controller: Option<BattleController>,
-    renderer: Renderer,
+    pub(super) battle_controller: Option<BattleController>,
+    pub(super) renderer: Renderer,
     /// 菜单或装载说明。
-    banner: String,
-    window_width: f64,
-    window_height: f64,
+    pub(super) banner: String,
+    pub(super) window_width: f64,
+    pub(super) window_height: f64,
     /// 客户区分辨率档（布局与缓冲基准，非自由拉伸）。
-    display_mode: DisplayMode,
+    pub(super) display_mode: DisplayMode,
     /// 壳层质感呈现（来自 `RustAlert.toml` `[present]`）。
-    present: PresentFeel,
-    status_path: Option<PathBuf>,
-    test_scene: Option<String>,
+    pub(super) present: PresentFeel,
+    pub(super) status_path: Option<PathBuf>,
+    pub(super) test_scene: Option<String>,
     /// 进程启动闪屏 presentation（独立 owner；非菜单槽）。
-    startup_splash: Option<StartupSplashPresentation>,
+    pub(super) startup_splash: Option<StartupSplashPresentation>,
     /// 闪屏最短展示秒数（首次成功 present 后起算；可调，默认 3）。
-    splash_min_secs: f64,
+    pub(super) splash_min_secs: f64,
     /// 遭遇战装载页最短展示秒数（`RustAlert.toml` 的 `load_min_secs`，默认 3；`0` 关闭）。
-    load_min_secs: f64,
+    pub(super) load_min_secs: f64,
     /// 壳层切页出去→进来之间的停顿秒数（模拟原版重型机械卡顿；`0` 关闭）。
-    shell_slide_gap_secs: f64,
+    pub(super) shell_slide_gap_secs: f64,
     /// 闪屏预处理是否完成。
-    splash_preload_done: bool,
+    pub(super) splash_preload_done: bool,
     /// 用户请求跳过闪屏（仍须预处理完成才进主菜单）。
-    splash_skip: bool,
+    pub(super) splash_skip: bool,
     /// 装载完成后待切到的目标页。
-    pending_after_load: Option<OriginalScreen>,
+    pub(super) pending_after_load: Option<OriginalScreen>,
     /// 光标位置（逻辑像素，与 `window_width` / `window_height` 同单位）。
-    cursor: (f64, f64),
+    pub(super) cursor: (f64, f64),
     /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
-    load_job: Option<LoadJob>,
+    pub(super) load_job: Option<LoadJob>,
     /// 当前装载开始时刻。
-    load_started: Option<Instant>,
+    pub(super) load_started: Option<Instant>,
     /// 后台已完成、等待最短展示时间后再 `finish_load` 的结果。
-    pending_load_boot: Option<BootResult>,
+    pub(super) pending_load_boot: Option<BootResult>,
     /// 遭遇战大厅可选地图。
-    lobby_maps: Vec<super::boot::BootMapCandidate>,
+    pub(super) lobby_maps: Vec<super::boot::BootMapCandidate>,
     /// 当前选中的地图文件名。
-    selected_map: Option<String>,
+    pub(super) selected_map: Option<String>,
     /// 大厅缩略图对应的地图名（与 `lobby_preview` 配对）。
-    lobby_preview_for: Option<String>,
+    pub(super) lobby_preview_for: Option<String>,
     /// 已缩小的选中地图预览。
-    lobby_preview: Option<RgbaImage>,
+    pub(super) lobby_preview: Option<RgbaImage>,
     /// 后台地图预览任务。
-    lobby_preview_job: Option<PreviewJob>,
+    pub(super) lobby_preview_job: Option<PreviewJob>,
     /// 遭遇战控件 PCX 缓存（勾选/滑条拇指/旗标）。
-    skirmish_chrome: Option<SkirmishChromeSprites>,
+    pub(super) skirmish_chrome: Option<SkirmishChromeSprites>,
     /// 旗标缓存对应的阵营名（换边时重载）。
-    skirmish_chrome_side: Option<String>,
+    pub(super) skirmish_chrome_side: Option<String>,
     /// 遭遇战左栏按下是否已消费（勾选/滑条，勿再走右栏按钮命中）。
-    skirmish_pointer_consumed: bool,
+    pub(super) skirmish_pointer_consumed: bool,
     /// 主菜单阶段已挂载资源（惰性一次）。
-    menu_assets: Option<MenuUiAssets>,
+    pub(super) menu_assets: Option<MenuUiAssets>,
     /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
-    ui_decode_cache: Option<ui_decode::PageDecodeReport>,
+    pub(super) ui_decode_cache: Option<ui_decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
-    menu_pressed_entry: Option<&'static str>,
+    pub(super) menu_pressed_entry: Option<&'static str>,
     /// 切页排队：`SlideOut` 完成后提交的 `MenuAction`。
-    menu_pending_commit: Option<MenuAction>,
+    pub(super) menu_pending_commit: Option<MenuAction>,
     /// 进行中的右栏 `SDBTNANM` 帧波浪（出去 / 进来）。
-    menu_frame_wave: Option<ShellFrameWave>,
+    pub(super) menu_frame_wave: Option<ShellFrameWave>,
     /// 出去结束后、进来开始前的卡顿截止时刻（无字、钮面收起）。
-    menu_slide_gap_until: Option<Instant>,
+    pub(super) menu_slide_gap_until: Option<Instant>,
     /// 主菜单当前悬停的按钮入口 id（悬停帧合成）。
-    menu_hovered_entry: Option<&'static str>,
+    pub(super) menu_hovered_entry: Option<&'static str>,
     /// 底栏状态提示打字机（与按钮 hover 图解耦；亦可复用于局内右上消息）。
-    status_line: TypewriterText,
+    pub(super) status_line: TypewriterText,
     /// 菜单字体（`game.fnt`）。
-    menu_font: Option<FntFile>,
+    pub(super) menu_font: Option<FntFile>,
     /// 是否已尝试装载菜单字体（失败后不再每帧读盘/打日志）。
-    menu_font_tried: bool,
+    pub(super) menu_font_tried: bool,
     /// 菜单文案表（`ra2.csf` / `ra2md.csf`）。
-    menu_csf: Option<CsfFile>,
+    pub(super) menu_csf: Option<CsfFile>,
     /// 是否已尝试装载菜单文案表。
-    menu_csf_tried: bool,
+    pub(super) menu_csf_tried: bool,
     /// 主菜单 / 单人页循环影片。
-    menu_movie: Option<MenuMoviePlayer>,
+    pub(super) menu_movie: Option<MenuMoviePlayer>,
     /// 影片时钟（`tick` 用）。
-    menu_movie_clock: Option<Instant>,
+    pub(super) menu_movie_clock: Option<Instant>,
     /// WARNING 窗内 `sdwrnanm` 动画时钟（与侧图箭头分离）。
-    menu_panel_anim_clock: Option<Instant>,
+    pub(super) menu_panel_anim_clock: Option<Instant>,
     /// WARNING 动画未消耗的累计秒。
-    menu_panel_anim_accum: f64,
+    pub(super) menu_panel_anim_accum: f64,
     /// `sdwrnanm` 帧序号（对解码帧数取模）。
-    menu_panel_anim_frame: usize,
+    pub(super) menu_panel_anim_frame: usize,
     /// 战役侧图箭头动画时钟。
-    campaign_side_anim_clock: Option<Instant>,
+    pub(super) campaign_side_anim_clock: Option<Instant>,
     /// 侧图动画累计秒。
-    campaign_side_anim_accum: f64,
+    pub(super) campaign_side_anim_accum: f64,
     /// 侧图箭头帧序号。
-    campaign_side_anim_frame: usize,
+    pub(super) campaign_side_anim_frame: usize,
     /// 战役选边悬停语音（`AlliedCampaignSelect` 等，惰性）。
-    campaign_side_sfx: [Option<PcmAudio>; 3],
+    pub(super) campaign_side_sfx: [Option<PcmAudio>; 3],
     /// 下一帧回读后落盘的截图短名（`OriginalScreen::as_str`）；F12 手动截图用。
-    pending_screenshot: Option<&'static str>,
+    pub(super) pending_screenshot: Option<&'static str>,
     /// 自动关键页截图去重（仅 `test-harness`）。
     #[cfg(feature = "test-harness")]
-    auto_screenshots: super::screenshot::AutoScreenshotTracker,
+    pub(super) auto_screenshots: super::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
-    skirmish: SkirmishBootRequest,
+    pub(super) skirmish: SkirmishBootRequest,
     /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
-    choose_map_revert: Option<Option<String>>,
+    pub(super) choose_map_revert: Option<Option<String>>,
     /// 战役选边：`allied` / `tutorial` / `soviet`。
-    campaign_side: Option<&'static str>,
+    pub(super) campaign_side: Option<&'static str>,
     /// 战役难度档：0 易 / 1 中 / 2 难。
-    campaign_difficulty: u8,
+    pub(super) campaign_difficulty: u8,
     /// 战役难度滑条是否正在拖动。
-    campaign_dragging: bool,
+    pub(super) campaign_dragging: bool,
     /// 战役左栏按下是否已消费（难度滑条，勿再走点击轮换）。
-    campaign_pointer_consumed: bool,
+    pub(super) campaign_pointer_consumed: bool,
     /// 桌面音频输出（设备不可用则为 `None`）。
-    audio: Option<super::audio::ShellAudio>,
+    pub(super) audio: Option<super::audio::ShellAudio>,
     /// 主菜单 BGM PCM（`theme.ini` `[INTRO]` → `{Sound}.wav`）。
-    menu_bgm: Option<PcmAudio>,
+    pub(super) menu_bgm: Option<PcmAudio>,
     /// 是否已尝试装载菜单 BGM（失败后不再每帧重试）。
-    menu_bgm_tried: bool,
+    pub(super) menu_bgm_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
-    menu_click: Option<PcmAudio>,
+    pub(super) menu_click: Option<PcmAudio>,
     /// 壳层出去音效（`GUIMoveOutSound` → 默认 `MenuSlideOut` / `uslide2`）。
-    menu_move_out: Option<PcmAudio>,
+    pub(super) menu_move_out: Option<PcmAudio>,
     /// 是否已尝试装载出去音效。
-    menu_move_out_tried: bool,
+    pub(super) menu_move_out_tried: bool,
     /// 壳层进来音效（`GUIMoveInSound` → 默认 `MenuSlideIn` / `uslide1`）。
-    menu_move_in: Option<PcmAudio>,
+    pub(super) menu_move_in: Option<PcmAudio>,
     /// 是否已尝试装载进来音效。
-    menu_move_in_tried: bool,
+    pub(super) menu_move_in_tried: bool,
     /// 当前是否已在播壳层 BGM。
-    menu_bgm_playing: bool,
+    pub(super) menu_bgm_playing: bool,
     /// 已解析的 `audio.bag` 索引（惰性）。
-    audio_bag: Option<AudioIndex>,
+    pub(super) audio_bag: Option<AudioIndex>,
     /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
-    audio_bag_tried: bool,
+    pub(super) audio_bag_tried: bool,
     /// 选项页草稿（进入 Options 时创建，接受/取消后清空）。
-    options_state: Option<ra_widgets::options_dialog::OptionsDialogState>,
+    pub(super) options_state: Option<ra_widgets::options_dialog::OptionsDialogState>,
     /// 进入选项页时的音量快照（取消时还原实时预览）。
-    options_volume_baseline: Option<(f32, f32)>,
+    pub(super) options_volume_baseline: Option<(f32, f32)>,
     /// 进入选项页时的质感快照（取消时还原实时预览）。
-    options_present_baseline: Option<PresentFeel>,
+    pub(super) options_present_baseline: Option<PresentFeel>,
     /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
-    options_pointer_consumed: bool,
+    pub(super) options_pointer_consumed: bool,
     /// 上次已写入的窗口标题（避免每帧 `set_title` 卡顿）。
-    last_shell_title: String,
+    pub(super) last_shell_title: String,
 }
 
 impl Shell {
@@ -369,26 +369,6 @@ impl Shell {
         }
     }
 
-    /// 按配置应用壳层 BGM / 短音效音量（设备缺失时无操作）。
-    pub fn apply_audio_volumes(&mut self, music_volume: f32, sound_volume: f32) {
-        if let Some(audio) = self.audio.as_mut() {
-            audio.set_music_volume(music_volume);
-            audio.set_sfx_volume(sound_volume);
-            tracing::info!(music_volume = audio.music_volume(), sound_volume = audio.sfx_volume(), "已应用壳层音量");
-        }
-    }
-
-    /// 应用壳层质感呈现配置（上传 UI 页前生效）。
-    pub fn apply_present_feel(&mut self, present: PresentFeel) {
-        self.present = present.sanitized();
-        tracing::info!(
-            mode = self.present.mode.as_str(),
-            quantize = self.present.quantize.as_str(),
-            dither = self.present.dither,
-            "已应用壳层质感呈现"
-        );
-    }
-
     /// 上传 UI 页：先按 `[present]` 做质感变换再进 GPU。
     fn upload_ui_page(&mut self, page: RgbaImage) {
         let page = ui_present::present_ui_page(page, self.present);
@@ -397,609 +377,6 @@ impl Shell {
 
     fn shell_cursor_px(&self) -> (i32, i32) {
         ui_layout::window_to_shell_px(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
-    }
-
-    /// 用选项草稿中的音乐/音效滑条即时推到设备（不落盘）。
-    fn sync_options_live_volumes(&mut self) {
-        let Some(state) = self.options_state.as_ref()
-        else {
-            return;
-        };
-        let music = state.music_volume_f32();
-        let sound = state.sound_volume_f32();
-        if let Some(audio) = self.audio.as_mut() {
-            audio.set_music_volume(music);
-            audio.set_sfx_volume(sound);
-        }
-    }
-
-    /// 用选项草稿中的质感即时推到壳层（不落盘，避免拖动时刷日志）。
-    fn sync_options_live_present(&mut self) {
-        let Some(state) = self.options_state.as_ref()
-        else {
-            return;
-        };
-        let next = state.present.sanitized();
-        if next != self.present {
-            self.present = next;
-        }
-    }
-
-    /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
-    fn handle_options_press(&mut self) -> bool {
-        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
-        let (x, y) = self.shell_cursor_px();
-        let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(&layout, x, y))
-        else {
-            return false;
-        };
-        use ra_widgets::options_dialog::OptionsHit;
-        match hit {
-            OptionsHit::Accept => {
-                self.menu_pressed_entry = Some("accept");
-                self.play_menu_click();
-                self.refresh_menu_backdrop();
-                true
-            }
-            OptionsHit::Cancel => {
-                self.menu_pressed_entry = Some("cancel");
-                self.play_menu_click();
-                self.refresh_menu_backdrop();
-                true
-            }
-            OptionsHit::MainMenu => {
-                self.menu_pressed_entry = Some("main_menu");
-                self.play_menu_click();
-                self.refresh_menu_backdrop();
-                true
-            }
-            OptionsHit::Track(_) | OptionsHit::Toggle(_) | OptionsHit::ResolutionCombo | OptionsHit::ResolutionRow(_) => {
-                self.options_pointer_consumed = true;
-                self.play_menu_click();
-                self.sync_options_live_volumes();
-                self.sync_options_live_present();
-                self.refresh_menu_backdrop();
-                true
-            }
-        }
-    }
-
-    /// 选项页拖动滑条。
-    fn handle_options_drag(&mut self) -> bool {
-        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
-        let (x, y) = self.shell_cursor_px();
-        let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y)).unwrap_or(false);
-        if !dragged {
-            return false;
-        }
-        self.sync_options_live_volumes();
-        self.sync_options_live_present();
-        self.refresh_menu_backdrop();
-        true
-    }
-
-    /// 从挂载源解码 PCX → RGBA；品红 `(255,0,255)` 作色键透明（旗标索引未必为 0）。
-    fn load_pcx_rgba(source: &ra_widgets::fs_source::GameAssetSource, name: &str) -> Option<RgbaImage> {
-        let bytes = source.read(name).ok()?;
-        let pcx = ra_assets::parse_pcx(&bytes).ok()?;
-        let mut rgba = pcx.rgba;
-        for px in rgba.chunks_exact_mut(4) {
-            if px[0] == 255 && px[1] == 0 && px[2] == 255 {
-                px[3] = 0;
-            }
-        }
-        RgbaImage::from_raw(pcx.width, pcx.height, rgba)
-    }
-
-    /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
-    fn ensure_skirmish_chrome(&mut self) {
-        self.ensure_menu_assets();
-        let flag_key = self
-            .skirmish
-            .row_sides
-            .iter()
-            .map(|i| ra_widgets::skirmish_setup::LOBBY_SIDES[(*i as usize) % ra_widgets::skirmish_setup::LOBBY_SIDES.len()])
-            .collect::<Vec<_>>()
-            .join(",");
-        let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
-        let need_base = self
-            .skirmish_chrome
-            .as_ref()
-            .map(|c| c.checkbox_off.is_none() || c.track_cap_l.is_none() || c.combo_arrow.is_none())
-            .unwrap_or(true);
-        if !need_base && !need_flag {
-            return;
-        }
-        let Some(source) = self.menu_assets.as_ref().and_then(|a| a.source.as_ref())
-        else {
-            return;
-        };
-        let mut chrome = self.skirmish_chrome.take().unwrap_or_default();
-        if need_base {
-            chrome.checkbox_off = Self::load_pcx_rgba(source, "cue_i.pcx");
-            chrome.checkbox_on = Self::load_pcx_rgba(source, "cce_i.pcx");
-            chrome.track_thumb = Self::load_pcx_rgba(source, "trakgrip.pcx");
-            chrome.track_cap_l = Self::load_pcx_rgba(source, "trofl.pcx");
-            chrome.track_cap_m = Self::load_pcx_rgba(source, "trofm.pcx");
-            chrome.track_cap_r = Self::load_pcx_rgba(source, "trofr.pcx");
-            chrome.combo_arrow = Self::load_pcx_rgba(source, "dnarrowr.pcx");
-            chrome.combo_arrow_pressed = Self::load_pcx_rgba(source, "dnarrowp.pcx");
-        }
-        if need_flag {
-            for i in 0..ui_layout::SKIRMISH_ROW_COUNT {
-                let side = self.skirmish.row_side(i);
-                chrome.row_flags[i] = Self::load_pcx_rgba(source, side_flag_pcx(side));
-            }
-            chrome.flag = chrome.row_flags[0].clone();
-            chrome.ai_flag = chrome.row_flags[1].clone();
-            self.skirmish_chrome_side = Some(flag_key);
-        }
-        self.skirmish_chrome = Some(chrome);
-    }
-
-    /// 遭遇战左栏按下：勾选 / 滑条优先于右栏按钮。
-    fn handle_skirmish_press(&mut self) -> bool {
-        let layout = ui_layout::skirmish_lobby_layout(0, 0);
-        let (x, y) = self.shell_cursor_px();
-        let ai_rows = self.lobby_ai_rows();
-        if self.skirmish.on_press(&layout, x, y, ai_rows).is_none() {
-            return false;
-        }
-        self.skirmish_pointer_consumed = true;
-        self.play_menu_click();
-        self.refresh_menu_backdrop();
-        true
-    }
-
-    /// 当前选中地图对应的 AI 行数。
-    fn lobby_ai_rows(&self) -> usize {
-        let slots = self
-            .selected_map
-            .as_ref()
-            .and_then(|sel| self.lobby_maps.iter().find(|m| &m.file_name == sel))
-            .or_else(|| self.lobby_maps.first())
-            .map(|m| m.start_slots)
-            .unwrap_or(4);
-        super::boot::skirmish_ai_row_count(slots)
-    }
-
-    /// 遭遇战滑条拖动。
-    fn handle_skirmish_drag(&mut self) -> bool {
-        if self.skirmish.dragging.is_none() {
-            return false;
-        }
-        let layout = ui_layout::skirmish_lobby_layout(0, 0);
-        let (x, y) = self.shell_cursor_px();
-        if !self.skirmish.on_drag(&layout, x, y) {
-            return false;
-        }
-        self.refresh_menu_backdrop();
-        true
-    }
-
-    /// 玩家名编辑中的键盘输入。返回 `true` 表示已消费（勿再走大厅快捷键）。
-    fn handle_skirmish_name_key(&mut self, key_ev: &winit::event::KeyEvent) -> bool {
-        if self.screen != OriginalScreen::SkirmishLobby || !self.skirmish.player_name_editing {
-            return false;
-        }
-        match key_ev.physical_key {
-            PhysicalKey::Code(KeyCode::Backspace) => {
-                if self.skirmish.backspace_name() {
-                    self.refresh_menu_backdrop();
-                }
-            }
-            PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                self.skirmish.end_name_edit();
-                self.refresh_menu_backdrop();
-            }
-            _ => {
-                if let Some(text) = key_ev.text.as_deref() {
-                    if self.skirmish.append_name_text(text) {
-                        self.refresh_menu_backdrop();
-                    }
-                }
-            }
-        }
-        true
-    }
-
-    /// 战役难度滑条按下：按轨坐标落档并开始拖动。
-    fn handle_campaign_press(&mut self) -> bool {
-        let layout = ui_layout::campaign_layout(0, 0);
-        let (x, y) = self.shell_cursor_px();
-        if !(layout.difficulty_track.contains(x, y) || layout.difficulty_label.contains(x, y) || layout.difficulty_value.contains(x, y)) {
-            return false;
-        }
-        self.campaign_dragging = true;
-        self.campaign_pointer_consumed = true;
-        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
-        self.play_menu_click();
-        true
-    }
-
-    /// 战役难度滑条拖动。
-    fn handle_campaign_drag(&mut self) -> bool {
-        if !self.campaign_dragging {
-            return false;
-        }
-        let layout = ui_layout::campaign_layout(0, 0);
-        let (x, _) = self.shell_cursor_px();
-        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
-        true
-    }
-
-    /// 按轨道 X 映射难度 0..=2，档位变化时刷新。
-    fn set_campaign_difficulty_from_x(&mut self, track: ui_layout::RectPx, x: i32) {
-        let next = campaign_difficulty_from_track_x(track, x);
-        if next == self.campaign_difficulty {
-            return;
-        }
-        self.campaign_difficulty = next;
-        let label = match next {
-            0 => "易",
-            2 => "难",
-            _ => "中",
-        };
-        self.banner = format!("战役难度 · {label}");
-        self.refresh_menu_backdrop();
-        self.refresh_shell_title();
-    }
-
-    /// 用户请求跳过闪屏；预处理完成后才进主菜单。
-    fn request_splash_skip(&mut self) {
-        if self.screen != OriginalScreen::Splash {
-            return;
-        }
-        self.splash_skip = true;
-        tracing::info!("闪屏跳过已请求");
-    }
-
-    /// 闪屏每帧：保证启动画面在屏、推进预处理；期限结束或跳过后切主菜单。
-    fn tick_splash(&mut self) {
-        if self.screen != OriginalScreen::Splash {
-            return;
-        }
-        // 先保证启动画面在屏，再做菜单资源预热（预热不得切换页面、不得清空 UI 页）。
-        self.ensure_startup_splash_presented();
-        if !self.splash_preload_done {
-            self.ensure_menu_assets();
-            self.ensure_menu_text_assets();
-            self.ensure_menu_audio_assets();
-            // 预热主菜单 chrome：不切入 MainMenu，避免合成/清屏打穿闪屏。
-            self.warm_main_menu_chrome();
-            self.splash_preload_done = true;
-            if !self.banner.contains("预处理完成") {
-                self.banner = format!("{} · 预处理完成", self.banner);
-            }
-            self.refresh_shell_title();
-        }
-        let now = Instant::now();
-        let hold_active = self.startup_splash.as_ref().is_some_and(|splash| splash.is_active(now));
-        let min_ok = !hold_active;
-        if self.splash_preload_done && (min_ok || self.splash_skip) {
-            tracing::info!(hold_active, min = self.splash_min_secs, skip = self.splash_skip, "启动闪屏结束 → 主菜单");
-            self.startup_splash = None;
-            self.set_screen(OriginalScreen::MainMenu);
-            self.maybe_start_slide_in();
-        }
-    }
-
-    /// 在闪屏状态下预热主菜单资源缓存（不改 `screen`、不上传菜单合成页）。
-    fn warm_main_menu_chrome(&mut self) {
-        let Some(assets) = self.menu_assets.as_ref()
-        else {
-            return;
-        };
-        let Some(source) = assets.source.as_ref()
-        else {
-            return;
-        };
-        let edition = assets.edition;
-        let Some(page) = page_resources_from_slots_with_edition(OriginalScreen::MainMenu, edition)
-        else {
-            return;
-        };
-        let report = ui_resolve::resolve_page(source, &page);
-        let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
-        if report.named > 0 && only_movie_gaps {
-            let decoded = ui_decode::decode_page_chrome(source, &page);
-            tracing::info!(
-                errors = decoded.errors.len(),
-                chrome_ready = decoded.chrome_ready_for_enabled_buttons(&page),
-                "闪屏预热主菜单 chrome · {}",
-                decoded.banner_note()
-            );
-            self.ui_decode_cache = Some(decoded);
-        }
-    }
-
-    /// 构造或复用启动闪屏 presentation，并上传到 UI 页；首次成功上传时武装最短展示期限。
-    fn ensure_startup_splash_presented(&mut self) {
-        if self.startup_splash.is_none() {
-            self.ensure_menu_assets();
-            self.ensure_menu_text_assets();
-            let client_w = self.window_width.round().max(1.0) as u32;
-            let client_h = self.window_height.round().max(1.0) as u32;
-            let minimum = std::time::Duration::from_secs_f64(self.splash_min_secs.max(0.0));
-            let prefer_md = self.menu_assets.as_ref().and_then(|a| a.edition).is_some_and(startup_splash::prefer_md_splash);
-            let built = match self.menu_assets.as_ref().and_then(|a| a.source.as_ref()) {
-                None => {
-                    tracing::warn!("启动闪屏 · 安装资源源未挂载，使用黑底占位");
-                    StartupSplashPresentation::placeholder(client_w, client_h, prefer_md, minimum).ok()
-                }
-                Some(source) => {
-                    match StartupSplashPresentation::build(
-                        source,
-                        self.menu_csf.as_ref(),
-                        self.menu_font.as_ref(),
-                        client_w,
-                        client_h,
-                        prefer_md,
-                        minimum,
-                    ) {
-                        Ok(splash) => Some(splash),
-                        Err(e) => {
-                            tracing::warn!("启动闪屏构造失败 · {e} · 回退黑底占位");
-                            StartupSplashPresentation::placeholder(client_w, client_h, prefer_md, minimum).ok()
-                        }
-                    }
-                }
-            };
-            if let Some(splash) = built {
-                let shp = splash.shp_name();
-                let w = splash.image().width();
-                let h = splash.image().height();
-                tracing::info!(shp, pal = splash.pal_name(), prefer_md, w, h, "启动闪屏已合成");
-                if !self.banner.contains(shp) {
-                    self.banner = format!("{} · {shp} {w}×{h}", self.banner);
-                    self.refresh_shell_title();
-                }
-                self.startup_splash = Some(splash);
-            }
-            else if !self.banner.contains("闪屏缺图") {
-                self.banner = format!("{} · 闪屏缺图", self.banner);
-                self.refresh_shell_title();
-            }
-        }
-
-        let Some(splash) = self.startup_splash.as_ref()
-        else {
-            return;
-        };
-        if !self.renderer.has_ui_page() {
-            let page = splash.image().clone();
-            self.renderer.clear_preview();
-            self.upload_ui_page(page);
-        }
-        if let Some(splash) = self.startup_splash.as_mut() {
-            splash.mark_presented(Instant::now());
-        }
-    }
-
-    fn ensure_lobby_maps(&mut self) {
-        if !self.lobby_maps.is_empty() {
-            return;
-        }
-        self.lobby_maps = super::boot::list_install_boot_maps();
-        if self.selected_map.is_none() {
-            self.selected_map = self.lobby_maps.first().map(|m| m.file_name.clone());
-        }
-        if self.skirmish.preferred_map.is_none() {
-            self.skirmish.preferred_map = self.selected_map.clone();
-        }
-        tracing::info!(
-            count = self.lobby_maps.len(),
-            selected = ?self.selected_map,
-            "遭遇战地图列表已刷新"
-        );
-    }
-
-    fn ensure_lobby_preview(&mut self) {
-        let Some(name) = self.selected_map.clone()
-        else {
-            self.lobby_preview = None;
-            self.lobby_preview_for = None;
-            self.lobby_preview_job = None;
-            return;
-        };
-        if self.lobby_preview_for.as_deref() == Some(name.as_str()) {
-            return;
-        }
-        if self.lobby_preview_job.as_ref().is_some_and(|j| j.map_name() == name) {
-            return;
-        }
-        self.lobby_preview_job = Some(PreviewJob::start(name));
-    }
-
-    fn poll_lobby_preview(&mut self) -> bool {
-        let Some(job) = self.lobby_preview_job.as_ref()
-        else {
-            return false;
-        };
-        match job.try_take() {
-            Ok(Some(result)) => {
-                self.lobby_preview_job = None;
-                let still_selected = self.selected_map.as_deref() == Some(result.map_name.as_str());
-                if !still_selected {
-                    return false;
-                }
-                match result.image {
-                    Some(thumb) => {
-                        tracing::info!(
-                            map = %result.map_name,
-                            w = thumb.width(),
-                            h = thumb.height(),
-                            "{}",
-                            result.note
-                        );
-                        self.lobby_preview = Some(thumb);
-                        self.lobby_preview_for = Some(result.map_name);
-                    }
-                    None => {
-                        tracing::warn!(map = %result.map_name, "遭遇战大厅地图预览失败");
-                        self.lobby_preview = None;
-                        self.lobby_preview_for = Some(result.map_name);
-                    }
-                }
-                true
-            }
-            Ok(None) => false,
-            Err(()) => {
-                self.lobby_preview_job = None;
-                false
-            }
-        }
-    }
-
-    fn cycle_lobby_map(&mut self, delta: isize) {
-        self.ensure_lobby_maps();
-        if self.lobby_maps.is_empty() {
-            self.selected_map = None;
-            self.skirmish.preferred_map = None;
-            return;
-        }
-        let cur = self.selected_map.as_ref().and_then(|name| self.lobby_maps.iter().position(|m| &m.file_name == name)).unwrap_or(0);
-        let n = self.lobby_maps.len() as isize;
-        let next = ((cur as isize + delta).rem_euclid(n)) as usize;
-        self.select_lobby_map_index(next);
-    }
-
-    /// 跳到大厅地图列表首项或末项（空列表时清空选中）。
-    fn jump_lobby_map_edge(&mut self, to_end: bool) {
-        self.ensure_lobby_maps();
-        if self.lobby_maps.is_empty() {
-            self.selected_map = None;
-            self.skirmish.preferred_map = None;
-            return;
-        }
-        let idx = if to_end { self.lobby_maps.len() - 1 } else { 0 };
-        self.select_lobby_map_index(idx);
-    }
-
-    fn select_lobby_map_index(&mut self, index: usize) {
-        let Some(map) = self.lobby_maps.get(index)
-        else {
-            return;
-        };
-        self.selected_map = Some(map.file_name.clone());
-        self.skirmish.preferred_map = self.selected_map.clone();
-        self.refresh_menu_backdrop();
-        self.refresh_shell_title();
-    }
-
-    fn ensure_menu_assets(&mut self) {
-        if self.menu_assets.is_some() {
-            return;
-        }
-        let assets = load_menu_ui_assets();
-        tracing::info!(
-            ui_ini = ?assets.ui_ini_name,
-            ui_ini_ok = assets.ui_ini_readable,
-            ui_sections = assets.ui_ini.as_ref().map(|d| d.sections.len()),
-            ui_shp_refs = assets.ui_ini_shp_refs.len(),
-            has_source = assets.source.is_some(),
-            "{}",
-            assets.note
-        );
-        self.banner = assets.note.clone();
-        self.menu_assets = Some(assets);
-        self.refresh_ui_resolve_note();
-    }
-
-    /// 对当前页已声明资源名做可读性检查，并尝试解码 chrome（不绘制）。
-    fn refresh_ui_resolve_note(&mut self) {
-        let Some(assets) = self.menu_assets.as_ref()
-        else {
-            return;
-        };
-        let Some(source) = assets.source.as_ref()
-        else {
-            return;
-        };
-        let edition = assets.edition;
-        let page = if self.screen == OriginalScreen::LoadScreen {
-            page_resources_for_load_screen(&self.skirmish.side, self.window_width as u32, |name| source.resolve(name).is_some())
-        }
-        else {
-            page_resources_from_slots_with_edition(self.screen, edition)
-        };
-        let Some(page) = page
-        else {
-            return;
-        };
-        let report = ui_resolve::resolve_page(source, &page);
-        tracing::info!(
-            screen = self.screen.as_str(),
-            named = report.named,
-            readable = report.readable,
-            missing = report.missing.len(),
-            "{}",
-            report.banner_note()
-        );
-        let mut banner = if report.named == 0 {
-            if assets.note.contains("槽位未填") { assets.note.clone() } else { format!("{} · {}", assets.note, report.banner_note()) }
-        }
-        else {
-            format!("{} · {}", assets.note, report.banner_note())
-        };
-
-        // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
-        // 装载页：只要国家背景可读就解码（进度条 / 失败钮可缺）。
-        let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
-        let load_bg_name = page.background.as_ref().map(|b| b.name.to_ascii_lowercase());
-        let load_bg_ok = self.screen == OriginalScreen::LoadScreen
-            && load_bg_name.as_ref().is_some_and(|bg| !report.missing.iter().any(|m| m.eq_ignore_ascii_case(bg)));
-        if report.named > 0 && (only_movie_gaps || load_bg_ok) {
-            let decoded = ui_decode::decode_page_chrome(source, &page);
-            tracing::info!(
-                screen = self.screen.as_str(),
-                errors = decoded.errors.len(),
-                chrome_ready = decoded.chrome_ready_for_enabled_buttons(&page),
-                "{}",
-                decoded.banner_note()
-            );
-            for err in &decoded.errors {
-                tracing::warn!(screen = self.screen.as_str(), "UI 解码失败 · {err}");
-            }
-            banner = format!("{banner} · {}", decoded.banner_note());
-            self.ui_decode_cache = Some(decoded);
-        }
-        else {
-            self.ui_decode_cache = None;
-        }
-
-        if let Some(movie) = page.movie.as_ref() {
-            match source.read(&movie.name) {
-                Ok(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
-                    Ok(player) => {
-                        tracing::info!(
-                            name = %player.name(),
-                            "主菜单影片播放器已就绪（自研 Bink）"
-                        );
-                        banner = format!("{banner} · {} 已解首帧", movie.name);
-                        self.menu_movie = Some(player);
-                        self.menu_movie_clock = Some(Instant::now());
-                    }
-                    Err(e) => {
-                        tracing::warn!(name = %movie.name, "影片播放器启动失败 · {e}");
-                        banner = format!("{banner} · {} 解码失败", movie.name);
-                        self.menu_movie = None;
-                        self.menu_movie_clock = None;
-                    }
-                },
-                Err(_) => {
-                    tracing::warn!(name = %movie.name, "影片不可读");
-                    self.menu_movie = None;
-                    self.menu_movie_clock = None;
-                }
-            }
-        }
-        else {
-            self.menu_movie = None;
-            self.menu_movie_clock = None;
-        }
-
-        self.banner = banner;
     }
 
     fn set_screen(&mut self, next: OriginalScreen) {
@@ -1030,111 +407,6 @@ impl Shell {
             if self.auto_screenshots.should_capture(next) {
                 self.queue_screenshot(next.as_str());
             }
-        }
-    }
-
-    /// 请求下一帧 GPU 回读并落盘为 `{name}_*.png`。
-    fn queue_screenshot(&mut self, name: &'static str) {
-        self.renderer.request_capture();
-        self.pending_screenshot = Some(name);
-    }
-
-    fn flush_pending_screenshot(&mut self) {
-        let Some(name) = self.pending_screenshot.take()
-        else {
-            return;
-        };
-        if let Some(err) = self.renderer.take_capture_error() {
-            tracing::error!("截图回读失败 · screen={name} · {err}");
-            self.banner = format!("截图失败 · {err}");
-            return;
-        }
-        let Some(image) = self.renderer.take_capture()
-        else {
-            tracing::warn!("截图尚未就绪 · screen={name}");
-            return;
-        };
-        match super::screenshot::save_screenshot(name, &image) {
-            Ok(path) => {
-                tracing::info!(%name, path = %path.display(), "关键页截图已保存");
-                self.banner = format!("截图已保存 · {}", path.display());
-            }
-            Err(e) => tracing::error!("截图保存失败 · {e}"),
-        }
-    }
-
-    fn ensure_menu_text_assets(&mut self) {
-        if (self.menu_font.is_some() || self.menu_font_tried) && (self.menu_csf.is_some() || self.menu_csf_tried) {
-            return;
-        }
-        let source = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
-
-        if self.menu_font.is_none() && !self.menu_font_tried {
-            self.menu_font_tried = true;
-            match source.and_then(|s| s.read("game.fnt").ok()) {
-                Some(bytes) => match FntFile::parse(&bytes) {
-                    Ok(fnt) => {
-                        tracing::info!(glyphs = fnt.glyph_count(), "菜单字体已解析 · game.fnt");
-                        self.menu_font = Some(fnt);
-                    }
-                    Err(e) => tracing::warn!("game.fnt 解析失败 · {e}"),
-                },
-                None => tracing::warn!("game.fnt 不可读"),
-            }
-        }
-        if self.menu_csf.is_none() && !self.menu_csf_tried {
-            self.menu_csf_tried = true;
-            let csf_bytes = source.and_then(|s| {
-                // 资料片优先 `ra2md.csf`，再回退原版 `ra2.csf`。
-                for name in ["ra2md.csf", "ra2.csf"] {
-                    if let Ok(bytes) = s.read(name) {
-                        return Some((name, bytes));
-                    }
-                }
-                None
-            });
-            match csf_bytes {
-                Some((name, bytes)) => match CsfFile::parse(&bytes) {
-                    Ok(csf) => {
-                        tracing::info!(entries = csf.len(), file = name, "菜单文案表已解析");
-                        self.menu_csf = Some(csf);
-                    }
-                    Err(e) => tracing::warn!("{name} 解析失败 · {e}"),
-                },
-                None => tracing::warn!("未找到可读的 ra2.csf / ra2md.csf"),
-            }
-        }
-    }
-
-    /// 当前底栏可见切片；空串或切页进出/卡顿中视为无提示。
-    fn status_line_visible(&self) -> Option<&str> {
-        if self.shell_slide_busy() {
-            return None;
-        }
-        let text = self.status_line.visible();
-        if text.is_empty() { None } else { Some(text) }
-    }
-
-    /// 按当前页面与悬停入口解析 CSF 提示，提交给打字机。
-    fn sync_status_line_from_hover(&mut self) {
-        let Some(entry) = self.menu_hovered_entry
-        else {
-            self.status_line.clear();
-            return;
-        };
-        let key = match self.screen {
-            OriginalScreen::MainMenu => main_menu_csf_tooltip(entry),
-            OriginalScreen::SinglePlayerMenu => single_player_csf_tooltip(entry),
-            OriginalScreen::Campaign => campaign_csf_tooltip(entry),
-            OriginalScreen::SkirmishLobby => skirmish_lobby_csf_tooltip(entry),
-            _ => None,
-        };
-        let text = key.and_then(|k| resolve_csf_text(self.menu_csf.as_ref(), k)).unwrap_or_default();
-        if text.is_empty() {
-            self.status_line.clear();
-        }
-        else {
-            self.status_line.set_text(text);
         }
     }
 
@@ -1419,351 +691,6 @@ impl Shell {
             return 1.0;
         }
         0.0
-    }
-
-    /// 惰性解析 `audio.idx` / `audio.bag`，结果缓存在壳层。
-    fn ensure_audio_bag(&mut self) {
-        if self.audio_bag_tried {
-            return;
-        }
-        self.audio_bag_tried = true;
-        self.ensure_menu_assets();
-        let idx_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("audio.idx").ok());
-        let bag_bytes = self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read("audio.bag").ok());
-        let Some((idx, bag)) = idx_bytes.zip(bag_bytes)
-        else {
-            tracing::debug!("audio.idx/audio.bag 不可读");
-            return;
-        };
-        match AudioIndex::parse(&idx, bag) {
-            Some(index) => {
-                tracing::info!(entries = index.len(), "已缓存 audio.bag 索引");
-                self.audio_bag = Some(index);
-            }
-            None => tracing::warn!("audio.idx 解析失败"),
-        }
-    }
-
-    /// 从缓存的 bag 按候选名解码首个命中采样。
-    fn decode_bag_named(&mut self, names: &[&str]) -> Option<PcmAudio> {
-        self.ensure_audio_bag();
-        let index = self.audio_bag.as_ref()?;
-        for name in names {
-            if let Some(pcm) = index.decode(name) {
-                tracing::info!(%name, frames = pcm.samples.len(), "已从 audio.bag 解码采样");
-                return Some(pcm);
-            }
-        }
-        tracing::debug!(entries = index.len(), "audio.bag 未命中候选名");
-        None
-    }
-
-    /// 从挂载源读逻辑文件名。
-    fn read_asset_bytes(&self, name: &str) -> Option<Vec<u8>> {
-        self.menu_assets.as_ref().and_then(|a| a.source.as_ref()).and_then(|s| s.read(name).ok())
-    }
-
-    /// 解析 INI；失败时仍可用 `soft_ini_get`。
-    fn read_ini_doc(&self, name: &str) -> Option<IniDocument> {
-        let bytes = self.read_asset_bytes(name)?;
-        match IniDocument::parse(&bytes) {
-            Ok(doc) => Some(doc),
-            Err(e) => {
-                tracing::debug!(%name, error = %e, "INI 严格解析失败，改用宽松扫描");
-                None
-            }
-        }
-    }
-
-    /// `theme.ini` `[INTRO]` 的 `Sound=` 词干（缺省 `Grinder`）。
-    fn menu_theme_sound_stem(&self) -> String {
-        let from_doc = self
-            .read_ini_doc("theme.ini")
-            .as_ref()
-            .and_then(|d| d.get("INTRO", "Sound"))
-            .map(super::audio::theme_sound_stem)
-            .map(str::to_string)
-            .filter(|s| !s.is_empty());
-        if let Some(s) = from_doc {
-            return s;
-        }
-        self.read_asset_bytes("theme.ini")
-            .and_then(|b| super::audio::soft_ini_get(&b, "INTRO", "Sound"))
-            .map(|s| super::audio::theme_sound_stem(&s).to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "Grinder".into())
-    }
-
-    /// 规则里的主菜单点击事件 id（缺省 `MenuClick`）。
-    fn menu_click_sound_id(&self) -> String {
-        let from_doc = self
-            .read_ini_doc("rules.ini")
-            .as_ref()
-            .and_then(|d| d.get("AudioVisual", "GUIMainButtonSound"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        if let Some(s) = from_doc {
-            return s;
-        }
-        self.read_asset_bytes("rules.ini")
-            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMainButtonSound"))
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "MenuClick".into())
-    }
-
-    /// 规则里的壳层出去事件 id（缺省 `MenuSlideOut`）。
-    fn menu_move_out_sound_id(&self) -> String {
-        let from_doc = self
-            .read_ini_doc("rules.ini")
-            .as_ref()
-            .and_then(|d| d.get("AudioVisual", "GUIMoveOutSound"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        if let Some(s) = from_doc {
-            return s;
-        }
-        self.read_asset_bytes("rules.ini")
-            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveOutSound"))
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "MenuSlideOut".into())
-    }
-
-    /// 规则里的壳层进来事件 id（缺省 `MenuSlideIn`）。
-    fn menu_move_in_sound_id(&self) -> String {
-        let from_doc = self
-            .read_ini_doc("rules.ini")
-            .as_ref()
-            .and_then(|d| d.get("AudioVisual", "GUIMoveInSound"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        if let Some(s) = from_doc {
-            return s;
-        }
-        self.read_asset_bytes("rules.ini")
-            .and_then(|b| super::audio::soft_ini_get(&b, "AudioVisual", "GUIMoveInSound"))
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "MenuSlideIn".into())
-    }
-
-    /// `sound.ini` 事件 → `Sounds=` 采样名列表。
-    fn sound_event_sample_names(&self, event_id: &str) -> Vec<String> {
-        let line = self
-            .read_ini_doc("sound.ini")
-            .as_ref()
-            .and_then(|d| d.get(event_id, "Sounds"))
-            .map(str::to_string)
-            .or_else(|| self.read_asset_bytes("sound.ini").and_then(|b| super::audio::soft_ini_get(&b, event_id, "Sounds")))
-            .unwrap_or_default();
-        line.split_whitespace().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
-    }
-
-    /// 按 `theme.ini` 词干尝试 `{stem}.wav` / `{stem}.aud`（通常来自 `THEME.MIX`）。
-    ///
-    /// 不回退 `intro.aud`：那是别的曲目，不是主菜单 `Grinder`。
-    fn decode_theme_track(&self, stem: &str) -> Option<PcmAudio> {
-        let mut names: Vec<String> = Vec::new();
-        for ext in ["wav", "aud"] {
-            names.push(format!("{stem}.{ext}"));
-        }
-        for name in &names {
-            let Some(bytes) = self.read_asset_bytes(name)
-            else {
-                continue;
-            };
-            let ext = name.rsplit_once('.').map(|(_, e)| e);
-            match decode_audio_bytes(&bytes, ext) {
-                Ok(pcm) => {
-                    tracing::info!(
-                        %name,
-                        frames = pcm.samples.len() / pcm.channels.max(1) as usize,
-                        rate = pcm.sample_rate,
-                        "已加载菜单 BGM"
-                    );
-                    return Some(pcm);
-                }
-                Err(e) => {
-                    tracing::warn!(%name, error = %e, "主题曲解码失败");
-                }
-            }
-        }
-        None
-    }
-
-    /// 主题曲缺失诊断（仅当前 `--path` 安装根）。
-    fn warn_theme_unavailable(&self, stem: &str) {
-        let theme_note = match self.read_asset_bytes("theme.mix").or_else(|| self.read_asset_bytes("Theme.mix")) {
-            Some(bytes) if bytes.as_slice() == b"CLASS" || bytes.len() < 64 => {
-                format!("theme.mix 为占位（{} 字节），无法读取 {stem}.wav", bytes.len())
-            }
-            Some(bytes) => format!("theme.mix 可读（{} 字节）但未解出 {stem}.wav/.aud", bytes.len()),
-            None => format!("无 theme.mix，且未解出 {stem}.wav/.aud"),
-        };
-        tracing::warn!(%stem, %theme_note, "菜单主题曲不可用，BGM 静音");
-    }
-
-    /// 惰性装载菜单 BGM / 点击 / 切页进出采样。
-    fn ensure_menu_audio_assets(&mut self) {
-        if (self.menu_bgm.is_some() || self.menu_bgm_tried) && self.menu_click.is_some() && self.menu_move_out_tried && self.menu_move_in_tried
-        {
-            return;
-        }
-        self.ensure_menu_assets();
-        if self.menu_bgm.is_none() && !self.menu_bgm_tried {
-            self.menu_bgm_tried = true;
-            let stem = self.menu_theme_sound_stem();
-            if let Some(pcm) = self.decode_theme_track(&stem) {
-                self.menu_bgm = Some(pcm);
-            }
-            else {
-                self.warn_theme_unavailable(&stem);
-            }
-        }
-        if self.menu_click.is_none() {
-            let event_id = self.menu_click_sound_id();
-            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
-            // 零售 `[MenuClick] Sounds=umenucl1`；sound.ini 解析失败时仍走 bag 名。
-            for fallback in ["umenucl1", "UMENUCL1", "MenuClick"] {
-                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
-                    candidates.push(fallback.into());
-                }
-            }
-            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
-            let loaded = self.decode_bag_named(&refs);
-            self.menu_click = Some(loaded.unwrap_or_else(|| {
-                tracing::warn!(%event_id, "菜单点击采样未命中，使用合成占位");
-                super::audio::synthetic_ui_click()
-            }));
-        }
-        if !self.menu_move_out_tried {
-            self.menu_move_out_tried = true;
-            let event_id = self.menu_move_out_sound_id();
-            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
-            for fallback in ["uslide2", "USLIDE2", "MenuSlideOut"] {
-                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
-                    candidates.push(fallback.into());
-                }
-            }
-            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
-            self.menu_move_out = self.decode_bag_named(&refs);
-            if self.menu_move_out.is_none() {
-                tracing::warn!(%event_id, "壳层出去采样未命中");
-            }
-        }
-        if !self.menu_move_in_tried {
-            self.menu_move_in_tried = true;
-            let event_id = self.menu_move_in_sound_id();
-            let mut candidates: Vec<String> = self.sound_event_sample_names(&event_id);
-            for fallback in ["uslide1", "USLIDE1", "MenuSlideIn"] {
-                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
-                    candidates.push(fallback.into());
-                }
-            }
-            let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
-            self.menu_move_in = self.decode_bag_named(&refs);
-            if self.menu_move_in.is_none() {
-                tracing::warn!(%event_id, "壳层进来采样未命中");
-            }
-        }
-    }
-
-    /// 前置壳层页播 BGM；离开壳层则停。
-    fn sync_shell_audio(&mut self) {
-        self.ensure_menu_audio_assets();
-        let wants_bgm = matches!(
-            self.screen,
-            OriginalScreen::MainMenu
-                | OriginalScreen::SinglePlayerMenu
-                | OriginalScreen::Campaign
-                | OriginalScreen::Options
-                | OriginalScreen::ExitConfirm
-                | OriginalScreen::SkirmishLobby
-                | OriginalScreen::ChooseMap
-                | OriginalScreen::Network
-        );
-        if wants_bgm {
-            if !self.menu_bgm_playing {
-                if let (Some(audio), Some(bgm)) = (self.audio.as_mut(), self.menu_bgm.as_ref()) {
-                    audio.play_music_loop(bgm);
-                    self.menu_bgm_playing = true;
-                }
-            }
-        }
-        else if self.menu_bgm_playing {
-            if let Some(audio) = self.audio.as_mut() {
-                audio.stop_music();
-            }
-            self.menu_bgm_playing = false;
-        }
-    }
-
-    /// 菜单按钮按下时播一次点击音。
-    fn play_menu_click(&mut self) {
-        self.ensure_menu_audio_assets();
-        if let (Some(audio), Some(click)) = (self.audio.as_mut(), self.menu_click.as_ref()) {
-            audio.play_sfx(click);
-        }
-    }
-
-    /// 壳层出去波浪开始时播一次（`GUIMoveOutSound`）。
-    fn play_menu_move_out(&mut self) {
-        self.ensure_menu_audio_assets();
-        if let (Some(audio), Some(sfx)) = (self.audio.as_mut(), self.menu_move_out.as_ref()) {
-            audio.play_sfx(sfx);
-        }
-    }
-
-    /// 壳层进来波浪开始时播一次（`GUIMoveInSound`）。
-    fn play_menu_move_in(&mut self) {
-        self.ensure_menu_audio_assets();
-        if let (Some(audio), Some(sfx)) = (self.audio.as_mut(), self.menu_move_in.as_ref()) {
-            audio.play_sfx(sfx);
-        }
-    }
-
-    /// 战役选边悬停切入语音（`sound.ini` Allied/BootCamp/SovietCampaignSelect）。
-    fn play_campaign_side_hover(&mut self, side: &str) {
-        let slot = match side {
-            "allied" => 0,
-            "tutorial" => 1,
-            "soviet" => 2,
-            _ => return,
-        };
-        let event_id = match side {
-            "allied" => "AlliedCampaignSelect",
-            "tutorial" => "BootCampSelect",
-            "soviet" => "SovietCampaignSelect",
-            _ => return,
-        };
-        if self.campaign_side_sfx[slot].is_none() {
-            self.ensure_menu_assets();
-            let mut names: Vec<String> = self
-                .sound_event_sample_names(event_id)
-                .into_iter()
-                .map(|s| s.trim().trim_start_matches(['$', '#']).to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-            // 零售缺省采样名（sound.ini 解析失败时仍可从 bag 取）。
-            for fallback in match side {
-                "allied" => ["itanatc", "ITANATC"],
-                "tutorial" => ["igisea", "IGISEA"],
-                _ => ["vgrsatc", "VGRSATC"],
-            } {
-                if !names.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
-                    names.push(fallback.into());
-                }
-            }
-            let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-            self.campaign_side_sfx[slot] = self.decode_bag_named(&refs);
-            if self.campaign_side_sfx[slot].is_none() {
-                tracing::warn!(%event_id, "战役选边悬停采样未命中");
-            }
-        }
-        if let (Some(audio), Some(pcm)) = (self.audio.as_mut(), self.campaign_side_sfx[slot].as_ref()) {
-            audio.play_sfx(pcm);
-        }
     }
 
     /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
@@ -2117,121 +1044,6 @@ impl Shell {
             MenuAction::ChooseMap => self.open_choose_map_page(),
             MenuAction::UseMap => self.confirm_choose_map(),
         }
-    }
-
-    /// 进入选图页并快照当前优选地图（取消时还原）。
-    fn open_choose_map_page(&mut self) {
-        self.ensure_lobby_maps();
-        self.choose_map_revert = Some(self.skirmish.preferred_map.clone());
-        if self.selected_map.is_none() {
-            self.selected_map = self.skirmish.preferred_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
-        }
-        self.set_screen(OriginalScreen::ChooseMap);
-        self.banner = "选图".into();
-        self.refresh_shell_title();
-    }
-
-    /// 使用当前选中地图并返回遭遇战大厅。
-    fn confirm_choose_map(&mut self) {
-        self.choose_map_revert = None;
-        if let Some(name) = self.selected_map.clone() {
-            self.skirmish.preferred_map = Some(name);
-        }
-        self.set_screen(OriginalScreen::SkirmishLobby);
-        self.banner = "已选用地图".into();
-        self.refresh_shell_title();
-    }
-
-    /// 取消选图：还原进入页前的优选地图并回大厅。
-    fn cancel_choose_map(&mut self) {
-        if let Some(prev) = self.choose_map_revert.take() {
-            self.skirmish.preferred_map = prev.clone();
-            self.selected_map = prev.or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
-            self.ensure_lobby_preview();
-        }
-        self.set_screen(OriginalScreen::SkirmishLobby);
-        self.banner = "已取消选图".into();
-        self.refresh_shell_title();
-    }
-
-    /// 进入选项页并快照当前显示档 / 音量 / 质感草稿。
-    fn open_options_page(&mut self) {
-        let (music, sound) = self.audio.as_ref().map(|a| (a.music_volume(), a.sfx_volume())).unwrap_or((0.4, 0.7));
-        self.options_volume_baseline = Some((music, sound));
-        self.options_present_baseline = Some(self.present);
-        self.options_pointer_consumed = false;
-        self.options_state = Some(ra_widgets::options_dialog::OptionsDialogState::from_shell(self.display_mode, music, sound, self.present));
-        self.set_screen(OriginalScreen::Options);
-    }
-
-    /// 丢弃选项草稿并还原进入页前的音量 / 质感预览。
-    fn discard_options_draft(&mut self) {
-        if let Some((music, sound)) = self.options_volume_baseline.take() {
-            if let Some(audio) = self.audio.as_mut() {
-                audio.set_music_volume(music);
-                audio.set_sfx_volume(sound);
-            }
-        }
-        if let Some(present) = self.options_present_baseline.take() {
-            self.present = present.sanitized();
-        }
-        self.options_state = None;
-        self.options_pointer_consumed = false;
-    }
-
-    /// 接受选项草稿：音量与质感立刻生效并落盘，分辨率变更则改窗。
-    fn apply_options_accept(&mut self) {
-        let Some(state) = self.options_state.take()
-        else {
-            self.options_volume_baseline = None;
-            self.options_present_baseline = None;
-            self.set_screen(OriginalScreen::MainMenu);
-            return;
-        };
-        self.options_volume_baseline = None;
-        self.options_present_baseline = None;
-        self.options_pointer_consumed = false;
-        let music = state.music_volume_f32();
-        let sound = state.sound_volume_f32();
-        self.apply_audio_volumes(music, sound);
-        match ra_config::DesktopSettings::persist_audio_volumes(music, sound) {
-            Ok(()) => tracing::info!(music, sound, "已写入壳层音量"),
-            Err(e) => tracing::warn!(error = %e, "写入壳层音量失败"),
-        }
-        self.apply_present_feel(state.present);
-        match ra_config::DesktopSettings::persist_present_feel(self.present) {
-            Ok(()) => tracing::info!(mode = self.present.mode.as_str(), dither = self.present.dither, "已写入 [present]"),
-            Err(e) => tracing::warn!(error = %e, "写入 [present] 失败"),
-        }
-        if state.display_mode != self.display_mode {
-            self.apply_display_mode(state.display_mode);
-        }
-        self.banner = "选项已保存".into();
-        self.set_screen(OriginalScreen::MainMenu);
-        self.refresh_shell_title();
-    }
-
-    /// 应用指定 `DisplayMode`（改窗、落盘、刷新）。
-    fn apply_display_mode(&mut self, mode: DisplayMode) {
-        self.display_mode = mode;
-        let (w, h) = self.display_mode.size();
-        self.window_width = w as f64;
-        self.window_height = h as f64;
-        if let Some(window) = self.window.as_ref() {
-            let _ = window.request_inner_size(winit::dpi::LogicalSize::new(self.window_width, self.window_height));
-        }
-        match ra_config::DesktopSettings::persist_display_mode(self.display_mode) {
-            Ok(()) => {
-                tracing::info!(display_mode = self.display_mode.as_str(), "已写入 display_mode");
-                self.banner = format!("分辨率 · {}", self.display_mode.as_str());
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "写入 display_mode 失败");
-                self.banner = format!("分辨率 · {} · 写入失败", self.display_mode.as_str());
-            }
-        }
-        self.refresh_menu_backdrop();
-        self.refresh_shell_title();
     }
 
     fn refresh_shell_title(&mut self) {
@@ -2995,108 +1807,6 @@ impl ApplicationHandler for Shell {
     }
 }
 
-/// 战役难度轨鼠标 X → 档位 0..=2（与遭遇战滑条同一套整数映射）。
-pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) -> u8 {
-    let travel = (track.w - 12).max(1);
-    let rel = (mouse_x - track.x - 6).clamp(0, travel);
-    ((rel * 2 + travel / 2) / travel).clamp(0, 2) as u8
-}
-
-/// 解析启动参数并进入事件循环。
-pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, shell_slide_gap_secs, status_path, test_scene) =
-        resolve_launch()?;
-
-    let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
-    event_loop.set_control_flow(ControlFlow::Poll);
-
-    let mut app = match mode {
-        #[cfg(feature = "test-harness")]
-        LaunchMode::DirectBattle(boot) => {
-            if let Some(game) = boot.session.as_ref().and_then(|s| s.battle()) {
-                tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
-            }
-            Shell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
-        }
-        LaunchMode::MainMenu => {
-            let _ = (status_path, test_scene);
-            Shell::with_main_menu(display_mode)
-        }
-    };
-    app.apply_audio_volumes(music_volume, sound_volume);
-    app.apply_present_feel(present);
-    app.load_min_secs = load_min_secs;
-    app.shell_slide_gap_secs = shell_slide_gap_secs;
-
-    event_loop.run_app(&mut app).map_err(|e| RaError::Msg(e.to_string()))?;
-    tracing::info!("事件循环结束");
-    Ok(())
-}
-
-enum LaunchMode {
-    #[cfg(feature = "test-harness")]
-    DirectBattle(BootResult),
-    MainMenu,
-}
-
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, f64, f64, Option<PathBuf>, Option<String>)> {
-    #[cfg(feature = "test-harness")]
-    {
-        if let Some(scene) = super::test_boot::requested_scene() {
-            let status_path = super::test_boot::status_path();
-            let window_width = super::test_boot::TEST_WINDOW_WIDTH;
-            let window_height = super::test_boot::TEST_WINDOW_HEIGHT;
-            tracing::info!(
-                "test-harness scene={scene} window={}x{} status={}",
-                window_width,
-                window_height,
-                status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
-            );
-            let t = super::test_boot::boot_scene(&scene)?;
-            tracing::info!("boot: {} · session=ok", t.note);
-            return Ok((
-                LaunchMode::DirectBattle(BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview }),
-                DisplayMode::DEFAULT,
-                0.4,
-                0.7,
-                PresentFeel::DEFAULT,
-                0.0,
-                0.0,
-                status_path,
-                Some(scene),
-            ));
-        }
-    }
-
-    // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectBattle 场景）。
-    let (settings, diagnostics) = super::config::load_desktop_config_with_diagnostics();
-    for d in &diagnostics {
-        tracing::info!(source = %d.source, "{}", d.message);
-    }
-    let display_mode = settings.display_mode;
-    tracing::info!(
-        display_mode = display_mode.as_str(),
-        music_volume = settings.music_volume,
-        sound_volume = settings.sound_volume,
-        load_min_secs = settings.load_min_secs,
-        shell_slide_gap_secs = settings.shell_slide_gap_secs,
-        present_mode = settings.present.mode.as_str(),
-        ra2_dir = %settings.ra2_dir.display(),
-        "desktop launch settings"
-    );
-    Ok((
-        LaunchMode::MainMenu,
-        display_mode,
-        settings.music_volume,
-        settings.sound_volume,
-        settings.present,
-        settings.load_min_secs,
-        settings.shell_slide_gap_secs,
-        None,
-        None,
-    ))
-}
-
 mod construct;
 mod host;
 mod audio;
@@ -3112,3 +1822,6 @@ mod input;
 mod redraw;
 mod event_loop;
 mod launch;
+
+pub use host::Host;
+pub use launch::{campaign_difficulty_from_track_x, run_shell};

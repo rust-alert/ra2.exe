@@ -1,1 +1,49 @@
-//! `campaign` — 强制塑形占位，待从 `mod.rs` 迁入。
+//! 战役页交互。
+
+use ra_layout::ui_layout;
+
+use super::{campaign_difficulty_from_track_x, Shell};
+
+impl Shell {
+    /// 战役难度滑条按下：按轨坐标落档并开始拖动。
+    pub(super) fn handle_campaign_press(&mut self) -> bool {
+        let layout = ui_layout::campaign_layout(0, 0);
+        let (x, y) = self.shell_cursor_px();
+        if !(layout.difficulty_track.contains(x, y) || layout.difficulty_label.contains(x, y) || layout.difficulty_value.contains(x, y)) {
+            return false;
+        }
+        self.campaign_dragging = true;
+        self.campaign_pointer_consumed = true;
+        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        self.play_menu_click();
+        true
+    }
+
+    /// 战役难度滑条拖动。
+    pub(super) fn handle_campaign_drag(&mut self) -> bool {
+        if !self.campaign_dragging {
+            return false;
+        }
+        let layout = ui_layout::campaign_layout(0, 0);
+        let (x, _) = self.shell_cursor_px();
+        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        true
+    }
+
+    /// 按轨道 X 映射难度 0..=2，档位变化时刷新。
+    pub(super) fn set_campaign_difficulty_from_x(&mut self, track: ui_layout::RectPx, x: i32) {
+        let next = campaign_difficulty_from_track_x(track, x);
+        if next == self.campaign_difficulty {
+            return;
+        }
+        self.campaign_difficulty = next;
+        let label = match next {
+            0 => "易",
+            2 => "难",
+            _ => "中",
+        };
+        self.banner = format!("战役难度 · {label}");
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
+    }
+}
