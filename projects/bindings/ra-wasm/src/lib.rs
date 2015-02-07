@@ -6,6 +6,8 @@
 
 pub mod host;
 
+pub use host::install::InstallSession;
+
 use wasm_bindgen::prelude::*;
 
 /// Wasm 模块加载后的入口钩子。

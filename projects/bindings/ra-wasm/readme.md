@@ -4,6 +4,6 @@ Rust → 浏览器绑定 + 宿主胶水（`projects/bindings/ra-wasm`）。职�
 
 `scripts/build/wasm.mjs` 产出到 `platforms/wasm/red-alert2-unknown-wasm32/pkg`，再由 `@game-gpt/red-alert2` 整合。浏览器产品对标面是 `sites/playground`，不是本 crate。
 
-当前导出 `version` / `engine_name` / `supports_webgl2`（恒 `false`）。`host/` 为同构骨架，安装包导入与引擎接线按切片推进。
+当前导出 `version` / `engine_name` / `supports_webgl2`，以及 `InstallSession`（`ingestFile` / `prepareEdition`）：用户自备安装文件 → 内存袋 → `MixVfs`。画布与 WebGL2 仍未接线。
 
 站点（homepage / playground）只依赖已发布的 `@game-gpt/red-alert2`，不要直接依赖本平台包。
