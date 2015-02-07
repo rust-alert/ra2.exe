@@ -1,7 +1,9 @@
 # ra-wasm
 
-Rust → 浏览器绑定。`scripts/build/wasm.mjs` 产出到 `platforms/wasm/red-alert2-unknown-wasm32/pkg`，再由 `@game-gpt/red-alert2` 对外整合。
+Rust → 浏览器绑定 + 宿主胶水（`projects/bindings/ra-wasm`）。职责与 `ra-napi` 同构：画布 / 输入 / 装载 / 音频副作用；**不**承载页面组合（页面在 `ra-widgets`）。
 
-当前 `0.0.0` 占位只导出 `engine_name` / `supports_webgl2`（恒 `false`），保证 CI 能编过真实 `.wasm`。引擎接线后续再加。
+`scripts/build/wasm.mjs` 产出到 `platforms/wasm/red-alert2-unknown-wasm32/pkg`，再由 `@game-gpt/red-alert2` 整合。浏览器产品对标面是 `sites/playground`，不是本 crate。
+
+当前导出 `version` / `engine_name` / `supports_webgl2`（恒 `false`）。`host/` 为同构骨架，安装包导入与引擎接线按切片推进。
 
 站点（homepage / playground）只依赖已发布的 `@game-gpt/red-alert2`，不要直接依赖本平台包。
