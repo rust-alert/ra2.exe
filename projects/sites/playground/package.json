@@ -3,7 +3,7 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
-    "description": "Browser playground for `@game-gpt/red-alert2` Wasm face. Depends on the published registry package, not the workspace link.",
+    "description": "Browser product face for `@game-gpt/red-alert2` Wasm: import a legal install, mount mixes, later play. Depends on the published registry package, not the workspace link.",
     "repository": {
         "type": "git",
         "url": "https://github.com/rust-alert/ra2.exe.git",

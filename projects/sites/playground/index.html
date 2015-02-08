@@ -5,43 +5,189 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>ra2 playground</title>
         <style>
+            :root {
+                color-scheme: dark;
+                --bg: #0c121a;
+                --panel: #101820;
+                --line: #2a3b52;
+                --text: #e7eef8;
+                --muted: #8fa3bd;
+                --accent: #3d8bfd;
+            }
+            * {
+                box-sizing: border-box;
+            }
             body {
                 margin: 0;
-                font-family: "Segoe UI", "PingFang SC", sans-serif;
-                background: #101820;
-                color: #e7eef8;
                 min-height: 100vh;
+                font-family: "Segoe UI", "PingFang SC", sans-serif;
+                background:
+                    radial-gradient(1200px 600px at 20% -10%, #1a2a40 0%, transparent 55%),
+                    var(--bg);
+                color: var(--text);
+            }
+            main {
+                width: min(44rem, 94vw);
+                margin: 0 auto;
+                padding: 2.5rem 0 3rem;
                 display: grid;
-                place-items: center;
+                gap: 1rem;
+            }
+            h1 {
+                margin: 0;
+                font-size: 1.35rem;
+                letter-spacing: 0.02em;
+            }
+            p {
+                margin: 0;
+                color: var(--muted);
+                line-height: 1.5;
+            }
+            .row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+                align-items: center;
+            }
+            label.btn,
+            button {
+                appearance: none;
+                border: 1px solid var(--line);
+                background: var(--panel);
+                color: var(--text);
+                padding: 0.55rem 0.9rem;
+                border-radius: 0.35rem;
+                cursor: pointer;
+                font: inherit;
+            }
+            label.btn:hover,
+            button:hover {
+                border-color: var(--accent);
+            }
+            input[type="file"] {
+                display: none;
+            }
+            select {
+                background: var(--panel);
+                color: var(--text);
+                border: 1px solid var(--line);
+                border-radius: 0.35rem;
+                padding: 0.45rem 0.6rem;
+                font: inherit;
             }
             #log {
-                width: min(40rem, 92vw);
-                padding: 1rem 1.25rem;
-                border: 1px solid #2a3b52;
-                background: #0c121a;
+                margin: 0;
+                padding: 1rem 1.1rem;
+                border: 1px solid var(--line);
+                background: #070b10;
                 white-space: pre-wrap;
+                min-height: 12rem;
+                overflow: auto;
             }
         </style>
     </head>
     <body>
-        <pre id="log">boot…</pre>
+        <main>
+            <h1>ra2 playground</h1>
+            <p>
+                浏览器产品面：自备正版安装文件，经
+                <code>@game-gpt/red-alert2/wasm</code>
+                摄入并挂载。画布与对局环尚未接线。
+            </p>
+            <div class="row">
+                <label class="btn">
+                    选择文件
+                    <input id="files" type="file" multiple />
+                </label>
+                <label class="btn">
+                    选择安装目录
+                    <input id="dir" type="file" webkitdirectory multiple />
+                </label>
+                <label>
+                    edition
+                    <select id="edition">
+                        <option value="">auto</option>
+                        <option value="ra2">ra2</option>
+                        <option value="yr">yr</option>
+                        <option value="mo3">mo3</option>
+                    </select>
+                </label>
+                <button id="prepare" type="button">prepare</button>
+                <button id="clear" type="button">clear</button>
+            </div>
+            <pre id="log">boot…</pre>
+        </main>
         <script type="module">
-            import { init, engineName, supportsWebgl2 } from "@game-gpt/red-alert2/wasm";
-            const log = document.getElementById("log");
+            import { init, version, engineName, supportsWebgl2, InstallSession } from "@game-gpt/red-alert2/wasm";
+
+            const logEl = document.getElementById("log");
+            const filesEl = document.getElementById("files");
+            const dirEl = document.getElementById("dir");
+            const editionEl = document.getElementById("edition");
+            const prepareEl = document.getElementById("prepare");
+            const clearEl = document.getElementById("clear");
+
             const lines = [];
             const say = (s) => {
                 lines.push(s);
-                log.textContent = lines.join("\n");
+                logEl.textContent = lines.join("\n");
             };
+
+            /** @type {InstallSession | null} */
+            let session = null;
+
+            async function ingestList(fileList) {
+                if (!session) return;
+                const list = Array.from(fileList || []);
+                for (const file of list) {
+                    const name = file.webkitRelativePath || file.name;
+                    const buf = new Uint8Array(await file.arrayBuffer());
+                    session.ingestFile(name, buf);
+                    say(`ingest ${name} (${buf.byteLength} bytes)`);
+                }
+                say(`fileCount=${session.fileCount()}`);
+            }
+
             try {
-                say("init @game-gpt/red-alert2@0.0.0 /wasm …");
+                say("init @game-gpt/red-alert2/wasm …");
                 await init();
+                say(`version=${version()}`);
                 say(`engineName=${engineName()}`);
                 say(`supportsWebgl2=${supportsWebgl2()}`);
-                say("placeholder playground ready");
+                session = new InstallSession();
+                say("InstallSession ready — pick install files or folder, then prepare");
             } catch (err) {
                 say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
             }
+
+            filesEl.addEventListener("change", async () => {
+                await ingestList(filesEl.files);
+                filesEl.value = "";
+            });
+
+            dirEl.addEventListener("change", async () => {
+                await ingestList(dirEl.files);
+                dirEl.value = "";
+            });
+
+            prepareEl.addEventListener("click", () => {
+                if (!session) return;
+                try {
+                    const edition = editionEl.value || null;
+                    const report = session.prepareEdition(edition);
+                    say("--- prepare ---");
+                    say(report);
+                } catch (err) {
+                    say(`prepare ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
+            });
+
+            clearEl.addEventListener("click", () => {
+                if (!session) return;
+                session.clear();
+                say("cleared");
+                say(`fileCount=${session.fileCount()}`);
+            });
         </script>
     </body>
 </html>
