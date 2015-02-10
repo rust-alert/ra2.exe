@@ -2,7 +2,7 @@
 
 mod hit;
 
-use crate::geometry::Rect;
+use crate::geometry::{Point2, Rect};
 use crate::spec::LayoutId;
 
 /// 单节点布局盒。
@@ -36,6 +36,22 @@ pub struct LayoutElement {
 pub struct LayoutSnapshot {
     /// 扁平元素表（绘制与命中同序消费）。
     pub elements: Vec<LayoutElement>,
+}
+
+impl LayoutSnapshot {
+    /// 按标识查找元素。
+    pub fn get(&self, id: &str) -> Option<&LayoutElement> {
+        self.elements.iter().find(|e| e.id.0 == id)
+    }
+
+    /// 自上而下命中（`z_index` 高者优先；同序时后写入者优先）。
+    pub fn hit_test(&self, point: Point2) -> Option<&LayoutElement> {
+        self.elements
+            .iter()
+            .rev()
+            .filter(|e| e.hit_test == HitTestMode::Rect)
+            .find(|e| e.hit_region.rect.contains(point))
+    }
 }
 
 pub use hit::{HitRegion, HitTestMode};
