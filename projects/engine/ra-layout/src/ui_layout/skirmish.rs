@@ -4,12 +4,9 @@ use super::*;
 
 
 pub(super) fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
-    // MS Sans Serif 8pt：x×6/4、y×13/8，四舍五入。
-    fn mul_div_round(n: i32, numer: i32, denom: i32) -> i32 {
-        let value = n * numer;
-        if value >= 0 { (value + denom / 2) / denom } else { (value - denom / 2) / denom }
-    }
-    RectPx::new(mul_div_round(x, 6, 4), mul_div_round(y, 13, 8), mul_div_round(w, 6, 4), mul_div_round(h, 13, 8))
+    let r = crate::reference::DluRect::new(x, y, w, h)
+        .to_design_px(crate::reference::MS_SANS_SERIF_8PT);
+    RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
 }
 
 pub(super) fn skirmish_snap_button(source: RectPx, panel_tile_y: i32) -> RectPx {
