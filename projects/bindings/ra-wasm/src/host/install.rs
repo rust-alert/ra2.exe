@@ -197,14 +197,65 @@ fn detect_edition_from_names(bag: &InstallBag) -> RaResult<GameEdition> {
 
 /// 一次 `prepare` 的摘要（供 JS 展示）。
 #[derive(Debug, Clone)]
+#[wasm_bindgen(js_name = PrepareReport)]
 pub struct PrepareReport {
-    pub edition: String,
-    pub file_count: u32,
-    pub mounted_root: u32,
-    pub skipped_root: u32,
-    pub nested_mounted: u32,
-    pub present_root: Vec<String>,
-    pub missing_base: Vec<String>,
+    edition: String,
+    file_count: u32,
+    mounted_root: u32,
+    skipped_root: u32,
+    nested_mounted: u32,
+    present_root: Vec<String>,
+    missing_base: Vec<String>,
+}
+
+#[wasm_bindgen]
+impl PrepareReport {
+    /// 探测或显式指定的 edition（`ra2` / `yr` / `mo3`）。
+    #[wasm_bindgen(getter)]
+    pub fn edition(&self) -> String {
+        self.edition.clone()
+    }
+
+    /// 已摄入文件数。
+    #[wasm_bindgen(getter, js_name = fileCount)]
+    pub fn file_count(&self) -> u32 {
+        self.file_count
+    }
+
+    /// 成功挂载的根 MIX 数量。
+    #[wasm_bindgen(getter, js_name = mountedRoot)]
+    pub fn mounted_root(&self) -> u32 {
+        self.mounted_root
+    }
+
+    /// 存在但未能挂载的根 MIX 数量。
+    #[wasm_bindgen(getter, js_name = skippedRoot)]
+    pub fn skipped_root(&self) -> u32 {
+        self.skipped_root
+    }
+
+    /// 从父档展开的嵌套 MIX 份数。
+    #[wasm_bindgen(getter, js_name = nestedMounted)]
+    pub fn nested_mounted(&self) -> u32 {
+        self.nested_mounted
+    }
+
+    /// 已挂载根包显示名列表。
+    #[wasm_bindgen(getter, js_name = presentRoot)]
+    pub fn present_root(&self) -> Vec<String> {
+        self.present_root.clone()
+    }
+
+    /// 资源表要求但袋中缺失的基座包名。
+    #[wasm_bindgen(getter, js_name = missingBase)]
+    pub fn missing_base(&self) -> Vec<String> {
+        self.missing_base.clone()
+    }
+
+    /// 多行文本摘要（调试 / 日志）。
+    pub fn summary(&self) -> String {
+        format_report(self)
+    }
 }
 
 /// Wasm 侧安装会话：摄入文件 → 按 edition 挂载。
@@ -238,15 +289,14 @@ impl InstallSession {
         self.bag.ingest(name, data.to_vec());
     }
 
-    /// 按 edition 挂载；`edition` 为空则自动探测。成功返回多行摘要。
+    /// 按 edition 挂载；`edition` 为空则自动探测。
     #[wasm_bindgen(js_name = prepareEdition)]
-    pub fn prepare_edition(&mut self, edition: Option<String>) -> Result<String, JsValue> {
+    pub fn prepare_edition(&mut self, edition: Option<String>) -> Result<PrepareReport, JsValue> {
         let explicit = match edition.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             Some(s) => Some(GameEdition::parse(s).map_err(|e| JsValue::from_str(&e.to_string()))?),
             None => None,
         };
-        let report = self.bag.prepare(explicit).map_err(|e| JsValue::from_str(&e.to_string()))?;
-        Ok(format_report(&report))
+        self.bag.prepare(explicit).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 
@@ -312,8 +362,9 @@ mod tests {
     fn prepare_explicit_edition_reports_missing_base() {
         let mut bag = bag_named(&["expand01.mix"]);
         let report = bag.prepare(Some(GameEdition::Ra2)).unwrap();
-        assert_eq!(report.edition, "ra2");
-        assert!(report.missing_base.iter().any(|n| n.eq_ignore_ascii_case("ra2.mix")));
-        assert!(report.missing_base.iter().any(|n| n.eq_ignore_ascii_case("language.mix")));
+        assert_eq!(report.edition(), "ra2");
+        assert!(report.missing_base().iter().any(|n| n.eq_ignore_ascii_case("ra2.mix")));
+        assert!(report.missing_base().iter().any(|n| n.eq_ignore_ascii_case("language.mix")));
+        assert!(report.summary().contains("edition=ra2"));
     }
 }
