@@ -3,6 +3,7 @@
 export type { InitInput } from '@game-gpt/red-alert2-unknown-wasm32';
 export {
     InstallSession,
+    PrepareReport,
     engineName,
     init,
     supportsWebgl2,

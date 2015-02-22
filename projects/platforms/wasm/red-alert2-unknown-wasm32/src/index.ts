@@ -2,6 +2,7 @@
 
 import initWasm, {
     InstallSession,
+    PrepareReport,
     engine_name,
     supports_webgl2,
     version as wasmVersion,
@@ -9,7 +10,7 @@ import initWasm, {
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
-export { InstallSession };
+export { InstallSession, PrepareReport };
 
 /** 加载 `.wasm`（页面入口先 `await init()`）。 */
 export async function init(moduleOrPath?: InitInput): Promise<void> {
@@ -26,7 +27,10 @@ export function engineName(): string {
     return engine_name();
 }
 
-/** WebGL2 呈现路径是否已接线（须先 `init`）。 */
+/**
+ * wgpu 浏览器呈现路径是否已接线（须先 `init`）。
+ * 名称保留 WebGL2：当前 wgpu web 后端多为 WebGL2，不是手写 GL 绑定。
+ */
 export function supportsWebgl2(): boolean {
     return supports_webgl2();
 }
