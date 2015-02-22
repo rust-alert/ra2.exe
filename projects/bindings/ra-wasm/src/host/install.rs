@@ -298,6 +298,12 @@ impl InstallSession {
         };
         self.bag.prepare(explicit).map_err(|e| JsValue::from_str(&e.to_string()))
     }
+
+    /// 从已挂载 VFS 按逻辑名读取字节（未挂载或缺失则空）。
+    #[wasm_bindgen(js_name = readLogical)]
+    pub fn read_logical(&self, name: &str) -> Option<Vec<u8>> {
+        self.bag.vfs().read(name)
+    }
 }
 
 impl Default for InstallSession {
