@@ -176,7 +176,13 @@
                     const edition = editionEl.value || null;
                     const report = session.prepareEdition(edition);
                     say("--- prepare ---");
-                    say(report);
+                    say(`edition=${report.edition}`);
+                    say(`fileCount=${report.fileCount}`);
+                    say(`mountedRoot=${report.mountedRoot}`);
+                    say(`skippedRoot=${report.skippedRoot}`);
+                    say(`nestedMounted=${report.nestedMounted}`);
+                    say(`presentRoot=${report.presentRoot.join(", ") || "(none)"}`);
+                    say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
                 } catch (err) {
                     say(`prepare ERROR ${err instanceof Error ? err.message : String(err)}`);
                 }
