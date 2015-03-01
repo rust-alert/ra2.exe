@@ -183,6 +183,10 @@
                     say(`nestedMounted=${report.nestedMounted}`);
                     say(`presentRoot=${report.presentRoot.join(", ") || "(none)"}`);
                     say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
+                    for (const name of ["rules.ini", "art.ini", "ui.ini"]) {
+                        const bytes = session.readLogical(name);
+                        say(bytes ? `readLogical ${name}: ${bytes.length} bytes` : `readLogical ${name}: missing`);
+                    }
                 } catch (err) {
                     say(`prepare ERROR ${err instanceof Error ? err.message : String(err)}`);
                 }
