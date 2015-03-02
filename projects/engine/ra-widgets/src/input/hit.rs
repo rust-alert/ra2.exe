@@ -5,9 +5,10 @@
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
 use ra_layout::{
-    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, campaign_layout, choose_map_layout, exit_confirm_layout, main_menu_layout,
-    options_layout, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
+    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
+    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
+    RightPanelChrome, Viewport, campaign_layout, dialog_0x6b_layout_tree, exit_confirm_layout, main_menu_layout,
+    options_layout, shell_design_size, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -582,41 +583,73 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
 
 const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
 
+/// 选图页几何权威：`RT_DIALOG` `0x6B` → `LayoutEngine` → `LayoutSnapshot`。
+fn choose_map_snapshot() -> LayoutSnapshot {
+    let chrome = RightPanelChrome::shell_defaults();
+    LayoutEngine.solve(
+        Viewport {
+            size: shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &dialog_0x6b_layout_tree(chrome),
+    )
+}
+
+fn menu_hit_from_rect(
+    entry_id: &'static str,
+    action: MenuAction,
+    rect: Rect,
+    canvas_w: f32,
+    canvas_h: f32,
+    enabled: bool,
+) -> MenuHit {
+    MenuHit {
+        entry_id,
+        action,
+        x0: rect.x / canvas_w,
+        y0: rect.y / canvas_h,
+        x1: (rect.x + rect.width) / canvas_w,
+        y1: (rect.y + rect.height) / canvas_h,
+        enabled,
+    }
+}
+
 fn hits_choose_map(maps: &[BootMapCandidate]) -> Vec<MenuHit> {
-    let layout = choose_map_layout(0, 0);
-    let bw = layout.shell.canvas.w as f32;
-    let bh = layout.shell.canvas.h as f32;
+    let snap = choose_map_snapshot();
+    let chrome = RightPanelChrome::shell_defaults();
+    let bw = chrome.shell_w;
+    let bh = chrome.shell_h;
     let mut hits = Vec::new();
     if let Some(page) = slots_for(OriginalScreen::ChooseMap) {
-        for (i, id) in CHOOSE_MAP_BUTTON_IDS.iter().enumerate() {
+        for id in CHOOSE_MAP_BUTTON_IDS.iter() {
             let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
             else {
                 continue;
             };
-            let cell = layout.shell.buttons[i];
-            hits.push(MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0: cell.x as f32 / bw,
-                y0: cell.y as f32 / bh,
-                x1: (cell.x + cell.w) as f32 / bw,
-                y1: (cell.y + cell.h) as f32 / bh,
-                enabled: btn.enabled,
-            });
+            let Some(el) = snap.get(id)
+            else {
+                continue;
+            };
+            hits.push(menu_hit_from_rect(
+                btn.entry_id,
+                btn.action,
+                el.layout.rect,
+                bw,
+                bh,
+                btn.enabled,
+            ));
         }
     }
-    let visible = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+    let Some(list) = snap.get("map_list")
+    else {
+        return hits;
+    };
+    let list = list.layout.rect;
+    let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
     for (i, _) in maps.iter().take(visible).enumerate() {
-        let row_y = layout.map_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H;
-        hits.push(MenuHit {
-            entry_id: "map_row",
-            action: MenuAction::SelectMap(i),
-            x0: layout.map_list.x as f32 / bw,
-            y0: row_y as f32 / bh,
-            x1: (layout.map_list.x + layout.map_list.w) as f32 / bw,
-            y1: (row_y + CHOOSE_MAP_LIST_ROW_H) as f32 / bh,
-            enabled: true,
-        });
+        let row_y = list.y + (i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
+        let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
+        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(i), row, bw, bh, true));
     }
     hits
 }
@@ -626,7 +659,11 @@ fn hit_choose_map_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, wi
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let layout = choose_map_layout(0, 0);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = choose_map_snapshot();
     let page = slots_for(OriginalScreen::ChooseMap)?;
     for (i, id) in CHOOSE_MAP_BUTTON_IDS.iter().enumerate() {
         let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
@@ -636,13 +673,18 @@ fn hit_choose_map_at(maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, wi
         if !btn.enabled {
             continue;
         }
-        if layout.shell.buttons[i].contains(sx, sy) {
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
             return Some((i, btn.action));
         }
     }
-    if layout.map_list.contains(sx, sy) {
-        let row = ((sy - layout.map_list.y) / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
-        let visible = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+    let list = snap.get("map_list")?.layout.rect;
+    if list.contains(point) {
+        let row = ((sy as f32 - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+        let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
         if row < maps.len().min(visible) {
             // 按钮之后的列表下标，供悬停映射用。
             return Some((CHOOSE_MAP_BUTTON_IDS.len() + row, MenuAction::SelectMap(row)));
