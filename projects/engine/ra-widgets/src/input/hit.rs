@@ -7,8 +7,8 @@ use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, campaign_layout, dialog_0x6b_layout_tree, exit_confirm_layout, main_menu_layout,
-    options_layout, shell_design_size, single_player_layout, skirmish_lobby_layout, window_to_shell_px,
+    RightPanelChrome, Viewport, campaign_layout, dialog_0x102_layout_tree, dialog_0x6b_layout_tree, exit_confirm_layout,
+    main_menu_layout, options_layout, shell_design_size, single_player_layout, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -533,27 +533,30 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
 }
 
 fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
-    let layout = skirmish_lobby_layout(0, 0);
-    let bw = layout.shell.canvas.w as f32;
-    let bh = layout.shell.canvas.h as f32;
+    let snap = skirmish_lobby_snapshot();
+    let chrome = RightPanelChrome::shell_defaults();
+    let bw = chrome.shell_w;
+    let bh = chrome.shell_h;
     let mut hits = Vec::new();
     // 地图列表不在本页左侧；选图走右栏 `choose_map`（完整模态后续接）。
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
-        for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
+        for id in SKIRMISH_LOBBY_BUTTON_IDS.iter() {
             let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
             else {
                 continue;
             };
-            let cell = layout.shell.buttons[i];
-            hits.push(MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0: cell.x as f32 / bw,
-                y0: cell.y as f32 / bh,
-                x1: (cell.x + cell.w) as f32 / bw,
-                y1: (cell.y + cell.h) as f32 / bh,
-                enabled: btn.enabled,
-            });
+            let Some(el) = snap.get(id)
+            else {
+                continue;
+            };
+            hits.push(menu_hit_from_rect(
+                btn.entry_id,
+                btn.action,
+                el.layout.rect,
+                bw,
+                bh,
+                btn.enabled,
+            ));
         }
     }
     hits
@@ -564,7 +567,11 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let layout = skirmish_lobby_layout(0, 0);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = skirmish_lobby_snapshot();
     let page = slots_for(OriginalScreen::SkirmishLobby)?;
     for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
         let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
@@ -574,11 +581,27 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
         if !btn.enabled {
             continue;
         }
-        if layout.shell.buttons[i].contains(sx, sy) {
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
             return Some((i, btn.action));
         }
     }
     None
+}
+
+/// 遭遇战大厅几何权威：`RT_DIALOG` `0x102` → `LayoutEngine` → `LayoutSnapshot`。
+fn skirmish_lobby_snapshot() -> LayoutSnapshot {
+    let chrome = RightPanelChrome::shell_defaults();
+    LayoutEngine.solve(
+        Viewport {
+            size: shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &dialog_0x102_layout_tree(chrome),
+    )
 }
 
 const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
