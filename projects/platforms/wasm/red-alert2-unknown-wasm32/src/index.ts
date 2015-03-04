@@ -4,7 +4,7 @@ import initWasm, {
     InstallSession,
     PrepareReport,
     engine_name,
-    supports_webgl2,
+    supports_present,
     version as wasmVersion,
 } from '../pkg/ra_wasm.js';
 
@@ -27,10 +27,7 @@ export function engineName(): string {
     return engine_name();
 }
 
-/**
- * wgpu 浏览器呈现路径是否已接线（须先 `init`）。
- * 名称保留 WebGL2：当前 wgpu web 后端多为 WebGL2，不是手写 GL 绑定。
- */
-export function supportsWebgl2(): boolean {
-    return supports_webgl2();
+/** wgpu 呈现路径是否已接线（须先 `init`）。 */
+export function supportsPresent(): boolean {
+    return supports_present();
 }

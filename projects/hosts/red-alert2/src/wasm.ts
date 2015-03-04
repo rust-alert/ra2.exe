@@ -6,6 +6,6 @@ export {
     PrepareReport,
     engineName,
     init,
-    supportsWebgl2,
+    supportsPresent,
     version,
 } from '@game-gpt/red-alert2-unknown-wasm32';

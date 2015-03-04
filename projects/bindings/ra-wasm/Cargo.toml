@@ -7,8 +7,8 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
-description = "Wasm / WebGL2 绑定与浏览器宿主（画布 / 输入 / 装载），产出 `@game-gpt/red-alert2-unknown-wasm32`"
-keywords = ["red-alert-2", "wasm", "webgl2", "wasm-bindgen"]
+description = "Wasm 绑定与浏览器宿主（画布 / 输入 / 装载）；经 wgpu 呈现，产出 `@game-gpt/red-alert2-unknown-wasm32`"
+keywords = ["red-alert-2", "wasm", "wgpu", "wasm-bindgen"]
 categories = ["game-development", "wasm", "api-bindings"]
 publish = false
 

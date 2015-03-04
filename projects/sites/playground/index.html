@@ -118,7 +118,7 @@
             <pre id="log">boot…</pre>
         </main>
         <script type="module">
-            import { init, version, engineName, supportsWebgl2, InstallSession } from "@game-gpt/red-alert2/wasm";
+            import { init, version, engineName, supportsPresent, InstallSession } from "@game-gpt/red-alert2/wasm";
 
             const logEl = document.getElementById("log");
             const filesEl = document.getElementById("files");
@@ -153,7 +153,7 @@
                 await init();
                 say(`version=${version()}`);
                 say(`engineName=${engineName()}`);
-                say(`supportsWebgl2=${supportsWebgl2()}`);
+                say(`supportsPresent=${supportsPresent()}`);
                 session = new InstallSession();
                 say("InstallSession ready — pick install files or folder, then prepare");
             } catch (err) {

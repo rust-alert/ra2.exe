@@ -28,11 +28,10 @@ pub fn engine_name() -> String {
     "ra2".into()
 }
 
-/// 运行时是否已具备可用的 wgpu 浏览器呈现路径。
+/// 运行时是否已具备可用的 wgpu 呈现路径（画布 / surface / adapter）。
 ///
-/// 画布与 adapter 未接线前恒为 `false`。名称保留 `supports_webgl2` 以兼容既有 JS 面；
-/// 语义是「wgpu 在浏览器后端（当前多为 WebGL2）是否可用」，不是手写 WebGL2 绑定。
+/// 未接线前恒为 `false`。浏览器后端当前多为 WebGL2，但这是 wgpu 的呈现能力探测，不是手写 GL 绑定。
 #[wasm_bindgen]
-pub fn supports_webgl2() -> bool {
+pub fn supports_present() -> bool {
     false
 }
