@@ -15,6 +15,7 @@ mod id;
 mod math;
 mod present_feel;
 mod time;
+mod ui_profile;
 mod vga_expand;
 
 pub use asset_source::AssetSource;
@@ -32,4 +33,7 @@ pub use id::{EntityId, HouseId, LocomotorId, PlayerId, SessionId, TypeId, Warhea
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};
+pub use ui_profile::{
+    AssetRole, ControlId, DialogControlDesc, DialogTemplate, RuntimeUiProfile, TextKey, UiCapabilities,
+};
 pub use vga_expand::VgaExpandMode;
