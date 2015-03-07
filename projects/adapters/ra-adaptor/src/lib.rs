@@ -8,6 +8,7 @@ mod compose;
 mod definitions;
 mod layers;
 mod rules;
+mod ui_profile;
 
 use std::path::{Path, PathBuf};
 
@@ -22,6 +23,7 @@ pub use layers::{
     ResourceLayerKind, compose_resource_layers, discover_expansions, is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesDb, load_rules, load_rules_chain};
+pub use ui_profile::{dialog_template_0x102, dialog_template_0x6b, shell_runtime_ui_profile};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。
 #[derive(Debug, Clone)]
