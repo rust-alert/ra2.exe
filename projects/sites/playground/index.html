@@ -92,7 +92,7 @@
             <p>
                 浏览器产品面：自备正版安装文件，经
                 <code>@game-gpt/red-alert2/wasm</code>
-                摄入并挂载。画布与对局环尚未接线。
+                摄入并挂载（支持散文件、安装目录或 zip 包）。画布与对局环尚未接线。
             </p>
             <div class="row">
                 <label class="btn">
@@ -102,6 +102,10 @@
                 <label class="btn">
                     选择安装目录
                     <input id="dir" type="file" webkitdirectory multiple />
+                </label>
+                <label class="btn">
+                    选择 zip 安装包
+                    <input id="zip" type="file" accept=".zip,application/zip" />
                 </label>
                 <label>
                     edition
@@ -119,10 +123,12 @@
         </main>
         <script type="module">
             import { init, version, engineName, supportsPresent, InstallSession } from "@game-gpt/red-alert2/wasm";
+            import { unzipSync } from "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js";
 
             const logEl = document.getElementById("log");
             const filesEl = document.getElementById("files");
             const dirEl = document.getElementById("dir");
+            const zipEl = document.getElementById("zip");
             const editionEl = document.getElementById("edition");
             const prepareEl = document.getElementById("prepare");
             const clearEl = document.getElementById("clear");
@@ -136,12 +142,34 @@
             /** @type {InstallSession | null} */
             let session = null;
 
+            function isZipName(name) {
+                return /\.zip$/i.test(name);
+            }
+
+            async function ingestZipBuffer(label, bytes) {
+                if (!session) return;
+                say(`unzip ${label} (${bytes.byteLength} bytes) …`);
+                const entries = unzipSync(bytes);
+                let n = 0;
+                for (const [path, data] of Object.entries(entries)) {
+                    if (!data || path.endsWith("/")) continue;
+                    session.ingestFile(path, data);
+                    n += 1;
+                }
+                say(`unzip ${label}: ingested ${n} entries`);
+                say(`fileCount=${session.fileCount()}`);
+            }
+
             async function ingestList(fileList) {
                 if (!session) return;
                 const list = Array.from(fileList || []);
                 for (const file of list) {
                     const name = file.webkitRelativePath || file.name;
                     const buf = new Uint8Array(await file.arrayBuffer());
+                    if (isZipName(name)) {
+                        await ingestZipBuffer(name, buf);
+                        continue;
+                    }
                     session.ingestFile(name, buf);
                     say(`ingest ${name} (${buf.byteLength} bytes)`);
                 }
@@ -155,7 +183,7 @@
                 say(`engineName=${engineName()}`);
                 say(`supportsPresent=${supportsPresent()}`);
                 session = new InstallSession();
-                say("InstallSession ready — pick install files or folder, then prepare");
+                say("InstallSession ready — pick files, folder, or zip, then prepare");
             } catch (err) {
                 say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
             }
@@ -168,6 +196,18 @@
             dirEl.addEventListener("change", async () => {
                 await ingestList(dirEl.files);
                 dirEl.value = "";
+            });
+
+            zipEl.addEventListener("change", async () => {
+                const file = zipEl.files && zipEl.files[0];
+                zipEl.value = "";
+                if (!file || !session) return;
+                try {
+                    const buf = new Uint8Array(await file.arrayBuffer());
+                    await ingestZipBuffer(file.name, buf);
+                } catch (err) {
+                    say(`unzip ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
             });
 
             prepareEl.addEventListener("click", () => {
