@@ -1,17 +1,9 @@
 //! 壳层 `RuntimeUiProfile` 工厂（骨架：先填对话框 DLU 表）。
 
-use ra_types::{
-    ControlId, DialogControlDesc, DialogTemplate, RuntimeUiProfile, UiCapabilities,
-};
+use ra_types::{DialogControlDesc, DialogTemplate, RuntimeUiProfile, UiCapabilities};
 
 fn ctrl(id: &str, x: i32, y: i32, w: i32, h: i32) -> DialogControlDesc {
-    DialogControlDesc {
-        id: ControlId(id.into()),
-        dlu_x: x,
-        dlu_y: y,
-        dlu_w: w,
-        dlu_h: h,
-    }
+    DialogControlDesc::preserve(id, x, y, w, h)
 }
 
 /// 选图对话框 `0x6B` 控件 DLU（与 `ra-layout` 金标一致）。
