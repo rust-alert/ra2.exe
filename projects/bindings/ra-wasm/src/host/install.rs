@@ -292,11 +292,28 @@ impl InstallSession {
     /// 按 edition 挂载；`edition` 为空则自动探测。
     #[wasm_bindgen(js_name = prepareEdition)]
     pub fn prepare_edition(&mut self, edition: Option<String>) -> Result<PrepareReport, JsValue> {
+        super::load_job::begin("探测 edition");
         let explicit = match edition.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            Some(s) => Some(GameEdition::parse(s).map_err(|e| JsValue::from_str(&e.to_string()))?),
+            Some(s) => match GameEdition::parse(s) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    super::load_job::finish_err();
+                    return Err(JsValue::from_str(&e.to_string()));
+                }
+            },
             None => None,
         };
-        self.bag.prepare(explicit).map_err(|e| JsValue::from_str(&e.to_string()))
+        super::load_job::report(0.25, "挂载 MIX");
+        match self.bag.prepare(explicit) {
+            Ok(report) => {
+                super::load_job::finish_ok();
+                Ok(report)
+            }
+            Err(e) => {
+                super::load_job::finish_err();
+                Err(JsValue::from_str(&e.to_string()))
+            }
+        }
     }
 
     /// 从已挂载 VFS 按逻辑名读取字节（未挂载或缺失则空）。
