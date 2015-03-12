@@ -15,6 +15,22 @@ pub struct TextKey(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetRole(pub String);
 
+/// 控件相对壳层 chrome 的放置策略（求解器解释，页面不写像素公式）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ControlPlacement {
+    /// DLU 直接换算为设计像素。
+    #[default]
+    PreserveDlu,
+    /// 右栏按钮列按 tile 格吸附。
+    TileSnap,
+    /// 相对右栏宽度水平居中并锚到右缘。
+    RightPanelAnchor,
+    /// 贴底盖上沿的一行按钮格（忽略模板 y）。
+    BottomCoverButton,
+    /// 地图名底板（贴右缘，底边落在第一根 tile 下沿）。
+    MapNamePlate,
+}
+
 /// 对话框模板中的单个控件描述（DLU，尚未求解）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DialogControlDesc {
@@ -28,6 +44,41 @@ pub struct DialogControlDesc {
     pub dlu_w: i32,
     /// DLU 高。
     pub dlu_h: i32,
+    /// 放置策略。
+    pub placement: ControlPlacement,
+}
+
+impl DialogControlDesc {
+    /// 构造保留 DLU 的控件。
+    pub fn preserve(id: impl Into<String>, x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self {
+            id: ControlId(id.into()),
+            dlu_x: x,
+            dlu_y: y,
+            dlu_w: w,
+            dlu_h: h,
+            placement: ControlPlacement::PreserveDlu,
+        }
+    }
+
+    /// 构造带放置策略的控件。
+    pub fn with_placement(
+        id: impl Into<String>,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        placement: ControlPlacement,
+    ) -> Self {
+        Self {
+            id: ControlId(id.into()),
+            dlu_x: x,
+            dlu_y: y,
+            dlu_w: w,
+            dlu_h: h,
+            placement,
+        }
+    }
 }
 
 /// 一份 `RT_DIALOG` 模板摘要。
@@ -89,16 +140,21 @@ mod tests {
         let profile = RuntimeUiProfile {
             dialog_templates: vec![DialogTemplate {
                 dialog_id: 0x6B,
-                controls: vec![DialogControlDesc {
-                    id: ControlId("use_map".into()),
-                    dlu_x: 318,
-                    dlu_y: 122,
-                    dlu_w: 108,
-                    dlu_h: 23,
-                }],
+                controls: vec![DialogControlDesc::with_placement(
+                    "use_map",
+                    318,
+                    122,
+                    108,
+                    23,
+                    ControlPlacement::TileSnap,
+                )],
             }],
             ..RuntimeUiProfile::default()
         };
         assert_eq!(profile.dialog(0x6B).map(|t| t.controls.len()), Some(1));
+        assert_eq!(
+            profile.dialog(0x6B).unwrap().controls[0].placement,
+            ControlPlacement::TileSnap
+        );
     }
 }

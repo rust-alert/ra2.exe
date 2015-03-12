@@ -34,6 +34,7 @@ pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};
 pub use ui_profile::{
-    AssetRole, ControlId, DialogControlDesc, DialogTemplate, RuntimeUiProfile, TextKey, UiCapabilities,
+    AssetRole, ControlId, ControlPlacement, DialogControlDesc, DialogTemplate, RuntimeUiProfile, TextKey,
+    UiCapabilities,
 };
 pub use vga_expand::VgaExpandMode;
