@@ -122,7 +122,7 @@
             <pre id="log">boot…</pre>
         </main>
         <script type="module">
-            import { init, version, engineName, supportsPresent, InstallSession } from "@game-gpt/red-alert2/wasm";
+            import { init, version, engineName, supportsPresent, InstallSession, loadJobBusy, loadJobProgress } from "@game-gpt/red-alert2/wasm";
             import { unzipSync } from "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js";
 
             const logEl = document.getElementById("log");
@@ -223,6 +223,8 @@
                     say(`nestedMounted=${report.nestedMounted}`);
                     say(`presentRoot=${report.presentRoot.join(", ") || "(none)"}`);
                     say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
+                    const progress = loadJobProgress();
+                    say(`loadJob busy=${loadJobBusy()} ratio=${progress.ratio.toFixed(2)} stage=${progress.stage}`);
                     for (const name of ["rules.ini", "art.ini", "ui.ini"]) {
                         const bytes = session.readLogical(name);
                         say(bytes ? `readLogical ${name}: ${bytes.length} bytes` : `readLogical ${name}: missing`);
