@@ -3,9 +3,12 @@
 export type { InitInput } from '@game-gpt/red-alert2-unknown-wasm32';
 export {
     InstallSession,
+    LoadProgress,
     PrepareReport,
     engineName,
     init,
+    loadJobBusy,
+    loadJobProgress,
     supportsPresent,
     version,
 } from '@game-gpt/red-alert2-unknown-wasm32';

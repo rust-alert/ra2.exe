@@ -2,15 +2,18 @@
 
 import initWasm, {
     InstallSession,
+    LoadProgress,
     PrepareReport,
     engine_name,
+    loadJobBusy,
+    loadJobProgress,
     supports_present,
     version as wasmVersion,
 } from '../pkg/ra_wasm.js';
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
-export { InstallSession, PrepareReport };
+export { InstallSession, LoadProgress, PrepareReport, loadJobBusy, loadJobProgress };
 
 /** 加载 `.wasm`（页面入口先 `await init()`）。 */
 export async function init(moduleOrPath?: InitInput): Promise<void> {
