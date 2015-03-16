@@ -3,9 +3,13 @@
 mod dialog_0x102;
 mod dialog_0x6b;
 mod dlu;
+mod from_template;
 mod legacy;
 
-pub use dialog_0x102::{dialog_0x102_layout_tree, resolve_dialog_0x102};
-pub use dialog_0x6b::{dialog_0x6b_layout_tree, resolve_dialog_0x6b, shell_design_size};
+pub use dialog_0x102::{dialog_0x102_layout_tree, dialog_template_0x102, resolve_dialog_0x102};
+pub use dialog_0x6b::{dialog_0x6b_layout_tree, dialog_template_0x6b, resolve_dialog_0x6b};
 pub use dlu::{mul_div_round, DluRect, FontBaseUnits, MS_SANS_SERIF_8PT};
+pub use from_template::{
+    dialog_layout_tree, resolve_control_desc, resolve_dialog_template, shell_design_size,
+};
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
