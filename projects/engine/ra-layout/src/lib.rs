@@ -18,8 +18,8 @@ pub use snapshot::{HitRegion, HitTestMode, LayoutBox, LayoutElement, LayoutSnaps
 pub use reference::{
     dialog_0x102_layout_tree, dialog_0x6b_layout_tree, dialog_layout_tree, dialog_template_0x102,
     dialog_template_0x6b, mul_div_round, resolve_control_desc, resolve_dialog_0x102,
-    resolve_dialog_0x6b, resolve_dialog_template, shell_design_size, DluRect, FontBaseUnits,
-    LegacyReference, LegacyRole, LegacySource, MS_SANS_SERIF_8PT,
+    resolve_dialog_0x6b, resolve_dialog_template, right_rail_buttons_layout_tree, shell_design_size,
+    DluRect, FontBaseUnits, LegacyReference, LegacyRole, LegacySource, MS_SANS_SERIF_8PT,
 };
 pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
 pub use policy::{

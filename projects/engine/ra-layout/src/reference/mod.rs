@@ -5,6 +5,7 @@ mod dialog_0x6b;
 mod dlu;
 mod from_template;
 mod legacy;
+mod shell_chrome;
 
 pub use dialog_0x102::{dialog_0x102_layout_tree, dialog_template_0x102, resolve_dialog_0x102};
 pub use dialog_0x6b::{dialog_0x6b_layout_tree, dialog_template_0x6b, resolve_dialog_0x6b};
@@ -13,3 +14,4 @@ pub use from_template::{
     dialog_layout_tree, resolve_control_desc, resolve_dialog_template, shell_design_size,
 };
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
+pub use shell_chrome::right_rail_buttons_layout_tree;
