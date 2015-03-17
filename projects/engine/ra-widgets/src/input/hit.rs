@@ -1,14 +1,15 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
-//! 主菜单 / 单人页 / 遭遇战大厅命中对齐 [`ra_layout::ui_layout`] 像素格（经 fit 相机）；
-//! 其余页仍用 [`crate::ui_slots`] 归一化框。
+//! 选图 / 遭遇战大厅几何来自壳层 `RuntimeUiProfile` 对话框模板经 `LayoutEngine` 求解；
+//! 主菜单等页仍对齐 [`ra_layout::ui_layout`] 像素格（经 fit 相机）；其余页用 [`crate::ui_slots`]。
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
+use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, campaign_layout, dialog_0x102_layout_tree, dialog_0x6b_layout_tree, exit_confirm_layout,
-    main_menu_layout, options_layout, shell_design_size, single_player_layout, window_to_shell_px,
+    RightPanelChrome, Viewport, campaign_layout, dialog_layout_tree, exit_confirm_layout, main_menu_layout,
+    options_layout, shell_design_size, single_player_layout, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -592,29 +593,30 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
     None
 }
 
-/// 遭遇战大厅几何权威：`RT_DIALOG` `0x102` → `LayoutEngine` → `LayoutSnapshot`。
+/// 遭遇战大厅几何权威：壳层 profile `0x102` → `LayoutEngine` → `LayoutSnapshot`。
 fn skirmish_lobby_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &dialog_0x102_layout_tree(chrome),
-    )
+    shell_dialog_snapshot(0x102, "dialog_0x102")
 }
 
 const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
 
-/// 选图页几何权威：`RT_DIALOG` `0x6B` → `LayoutEngine` → `LayoutSnapshot`。
+/// 选图页几何权威：壳层 profile `0x6B` → `LayoutEngine` → `LayoutSnapshot`。
 fn choose_map_snapshot() -> LayoutSnapshot {
+    shell_dialog_snapshot(0x6B, "dialog_0x6b")
+}
+
+fn shell_dialog_snapshot(dialog_id: u16, root_id: &str) -> LayoutSnapshot {
     let chrome = RightPanelChrome::shell_defaults();
+    let profile = shell_runtime_ui_profile();
+    let template = profile
+        .dialog(dialog_id)
+        .unwrap_or_else(|| panic!("shell profile missing dialog {dialog_id:#x}"));
     LayoutEngine.solve(
         Viewport {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &dialog_0x6b_layout_tree(chrome),
+        &dialog_layout_tree(root_id, template, chrome),
     )
 }
 
