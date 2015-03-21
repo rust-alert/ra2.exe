@@ -24,11 +24,14 @@ mod sprite;
 mod timings;
 mod world;
 
-use std::sync::Arc;
-
 use ra_engine::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
 use winit::window::Window;
+#[cfg(target_arch = "wasm32")]
+use web_sys::HtmlCanvasElement;
 
 use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteGpu};
 
@@ -231,11 +234,30 @@ impl Renderer {
     }
 
     /// 窗口就绪后绑定表面。可重复调用（忽略已绑定）。
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn attach_window(&mut self, window: Arc<Window>) -> RaResult<()> {
         if self.gpu.is_some() {
             return Ok(());
         }
         let gpu = GpuContext::new(window)?;
+        self.bind_gpu(gpu);
+        Ok(())
+    }
+
+    /// 画布就绪后绑定表面（Wasm）。可重复调用（忽略已绑定）。
+    #[cfg(target_arch = "wasm32")]
+    pub async fn attach_canvas(&mut self, canvas: HtmlCanvasElement) -> RaResult<()> {
+        if self.gpu.is_some() {
+            return Ok(());
+        }
+        let width = canvas.width().max(1);
+        let height = canvas.height().max(1);
+        let gpu = GpuContext::from_canvas(canvas, width, height).await?;
+        self.bind_gpu(gpu);
+        Ok(())
+    }
+
+    fn bind_gpu(&mut self, gpu: GpuContext) {
         if let Some(image) = self.ui_page.as_ref() {
             self.ui_sprite = Some(SpriteGpu::create_with_color_space(
                 &gpu.device,
@@ -252,7 +274,11 @@ impl Renderer {
         }
         self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
         self.gpu = Some(gpu);
-        Ok(())
+    }
+
+    /// 当前 GPU 后端标签（未附着时为 `None`）。
+    pub fn backend_label(&self) -> Option<&'static str> {
+        self.gpu.as_ref().map(GpuContext::backend_label)
     }
 
     /// 通知交换链表面尺寸变化（像素宽高），并按当前活动底图重算 letterbox 相机。
