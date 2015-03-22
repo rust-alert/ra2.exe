@@ -30,8 +30,8 @@ pub fn engine_name() -> String {
 
 /// 运行时是否已具备可用的 wgpu 呈现路径（画布 / surface / adapter）。
 ///
-/// 未接线前恒为 `false`。浏览器后端当前多为 WebGL2，但这是 wgpu 的呈现能力探测，不是手写 GL 绑定。
+/// 须先成功调用 `attachCanvas`。浏览器后端当前多为 WebGL2，这是 wgpu 呈现能力探测。
 #[wasm_bindgen]
 pub fn supports_present() -> bool {
-    false
+    host::present::is_ready()
 }

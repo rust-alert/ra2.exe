@@ -18,12 +18,14 @@ name = "ra_wasm"
 path = "src/lib.rs"
 
 [dependencies]
-# 宿主与引擎接线按切片推进：先装载安装字节 → MixVfs；画布 / 音频后续再接。
 wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
 console_error_panic_hook = { workspace = true }
+web-sys = { workspace = true }
 ra-types = { workspace = true }
 ra-assets = { workspace = true }
 ra-adaptor = { workspace = true }
+ra-renderer = { workspace = true }
 
 [package.metadata.wasm-pack.profile.dev]
 wasm-opt = false
