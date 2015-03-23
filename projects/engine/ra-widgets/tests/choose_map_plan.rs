@@ -1,14 +1,15 @@
-//! 选图闭环：template → snapshot → hit → `RenderPlan`。
+//! 选图闭环：profile 模板 → snapshot → hit → `RenderPlan`。
 
+use ra_adaptor::dialog_template_0x6b;
 use ra_layout::{
-    dialog_0x6b_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
+    dialog_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
 };
 use ra_widgets::RenderPlan;
 
 #[test]
 fn choose_map_render_plan_rects_match_snapshot_hits() {
     let chrome = RightPanelChrome::shell_defaults();
-    let root = dialog_0x6b_layout_tree(chrome);
+    let root = dialog_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome);
     let snap = LayoutEngine.solve(
         Viewport {
             size: ra_layout::shell_design_size(chrome),

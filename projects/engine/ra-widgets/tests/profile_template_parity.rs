@@ -1,23 +1,28 @@
-//! adaptor 壳层 profile 与 `ra-layout` 模板解析对齐。
+//! 壳层 profile 对话框经 layout 策略解析到金标矩形。
 
-use ra_adaptor::{dialog_template_0x102, dialog_template_0x6b};
-use ra_layout::{
-    dialog_template_0x102 as layout_dialog_0x102, dialog_template_0x6b as layout_dialog_0x6b,
-    resolve_dialog_template, RightPanelChrome,
-};
+use ra_adaptor::shell_runtime_ui_profile;
+use ra_layout::{resolve_dialog_template, Rect, RightPanelChrome};
 
 #[test]
-fn adaptor_and_layout_templates_resolve_identically_for_0x6b() {
+fn shell_profile_0x6b_resolves_choose_map_buttons() {
     let chrome = RightPanelChrome::shell_defaults();
-    let from_adaptor = resolve_dialog_template(&dialog_template_0x6b(), chrome);
-    let from_layout = resolve_dialog_template(&layout_dialog_0x6b(), chrome);
-    assert_eq!(from_adaptor, from_layout);
+    let profile = shell_runtime_ui_profile();
+    let template = profile.dialog(0x6B).expect("0x6B");
+    let rects = resolve_dialog_template(template, chrome);
+    let use_map = rects.iter().find(|(id, _)| id == "use_map").map(|(_, r)| *r);
+    let cancel = rects.iter().find(|(id, _)| id == "cancel").map(|(_, r)| *r);
+    assert_eq!(use_map, Some(Rect::from_xywh(644.0, 199.0, 156.0, 42.0)));
+    assert_eq!(cancel, Some(Rect::from_xywh(644.0, 535.0, 156.0, 42.0)));
 }
 
 #[test]
-fn adaptor_and_layout_templates_resolve_identically_for_0x102() {
+fn shell_profile_0x102_resolves_skirmish_buttons() {
     let chrome = RightPanelChrome::shell_defaults();
-    let from_adaptor = resolve_dialog_template(&dialog_template_0x102(), chrome);
-    let from_layout = resolve_dialog_template(&layout_dialog_0x102(), chrome);
-    assert_eq!(from_adaptor, from_layout);
+    let profile = shell_runtime_ui_profile();
+    let template = profile.dialog(0x102).expect("0x102");
+    let rects = resolve_dialog_template(template, chrome);
+    let start = rects.iter().find(|(id, _)| id == "start").map(|(_, r)| *r);
+    let back = rects.iter().find(|(id, _)| id == "back").map(|(_, r)| *r);
+    assert_eq!(start, Some(Rect::from_xywh(644.0, 241.0, 156.0, 42.0)));
+    assert_eq!(back, Some(Rect::from_xywh(644.0, 535.0, 156.0, 42.0)));
 }

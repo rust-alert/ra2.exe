@@ -15,3 +15,6 @@ publish = false
 [dependencies]
 ra-types = { workspace = true }
 ra-renderer = { workspace = true }
+
+[dev-dependencies]
+ra-adaptor = { workspace = true }

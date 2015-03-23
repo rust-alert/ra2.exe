@@ -1,13 +1,14 @@
-//! `RT_DIALOG` `0x102`：模板 → `LayoutEngine` → snapshot / hit。
+//! `RT_DIALOG` `0x102`：adaptor 模板 → `LayoutEngine` → snapshot / hit。
 
+use ra_adaptor::dialog_template_0x102;
 use ra_layout::{
-    dialog_0x102_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
+    dialog_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
 };
 
 #[test]
 fn dialog_0x102_snapshot_matches_skirmish_golden_rects() {
     let chrome = RightPanelChrome::shell_defaults();
-    let root = dialog_0x102_layout_tree(chrome);
+    let root = dialog_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome);
     let snap = LayoutEngine.solve(
         Viewport {
             size: ra_layout::shell_design_size(chrome),
