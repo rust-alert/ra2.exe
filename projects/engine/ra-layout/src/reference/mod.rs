@@ -1,10 +1,12 @@
 //! 模板与遗留参照。
 
+mod campaign_page;
 mod dlu;
 mod from_template;
 mod legacy;
 mod shell_chrome;
 
+pub use campaign_page::campaign_content_layout_tree;
 pub use dlu::{mul_div_round, DluRect, FontBaseUnits, MS_SANS_SERIF_8PT};
 pub use from_template::{
     dialog_layout_tree, resolve_control_desc, resolve_dialog_template, shell_design_size,
