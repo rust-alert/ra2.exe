@@ -1,4 +1,4 @@
-//! 战役页右栏「上一页」命中改读 chrome snapshot。
+//! 战役页命中改为消费完整 content snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,
@@ -7,7 +7,7 @@ use ra_widgets::{
 };
 
 #[test]
-fn campaign_back_hit_uses_right_rail_snapshot() {
+fn campaign_hits_use_content_snapshot() {
     let maps = [];
     assert_eq!(
         hit_action(
@@ -20,5 +20,31 @@ fn campaign_back_hit_uses_right_rail_snapshot() {
             false,
         ),
         Some(MenuAction::Back)
+    );
+    // 盟军侧图中心附近。
+    assert_eq!(
+        hit_action(
+            OriginalScreen::Campaign,
+            &maps,
+            None,
+            (315.0, 90.0),
+            800.0,
+            600.0,
+            false,
+        ),
+        Some(MenuAction::SelectCampaignAllied)
+    );
+    // 难度轨中心。
+    assert_eq!(
+        hit_action(
+            OriginalScreen::Campaign,
+            &maps,
+            None,
+            (314.0, 489.0),
+            800.0,
+            600.0,
+            false,
+        ),
+        Some(MenuAction::CycleCampaignDifficulty)
     );
 }

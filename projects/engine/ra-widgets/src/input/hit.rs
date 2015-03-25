@@ -8,8 +8,8 @@ use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, campaign_layout, dialog_layout_tree, exit_confirm_layout, main_menu_layout,
-    right_rail_buttons_layout_tree, shell_design_size, window_to_shell_px,
+    RightPanelChrome, Viewport, campaign_content_layout_tree, campaign_layout, dialog_layout_tree, exit_confirm_layout,
+    main_menu_layout, right_rail_buttons_layout_tree, shell_design_size, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -344,38 +344,33 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
 }
 
 fn hits_campaign() -> Vec<MenuHit> {
-    let layout = campaign_layout(0, 0);
+    let snap = campaign_snapshot();
     let chrome = RightPanelChrome::shell_defaults();
     let bw = chrome.shell_w;
     let bh = chrome.shell_h;
     let mut out = Vec::new();
-    let sides = [
-        (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied, layout.allied),
-        (CAMPAIGN_SIDE_IDS[1], MenuAction::SelectCampaignTutorial, layout.tutorial),
-        (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet, layout.soviet),
+    let side_actions = [
+        (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied),
+        (CAMPAIGN_SIDE_IDS[1], MenuAction::SelectCampaignTutorial),
+        (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet),
     ];
-    for (id, action, cell) in sides {
-        out.push(MenuHit {
-            entry_id: id,
-            action,
-            x0: cell.x as f32 / bw,
-            y0: cell.y as f32 / bh,
-            x1: (cell.x + cell.w) as f32 / bw,
-            y1: (cell.y + cell.h) as f32 / bh,
-            enabled: true,
-        });
+    for (id, action) in side_actions {
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        out.push(menu_hit_from_rect(id, action, el.layout.rect, bw, bh, true));
     }
-    let track = layout.difficulty_track;
-    out.push(MenuHit {
-        entry_id: "difficulty",
-        action: MenuAction::CycleCampaignDifficulty,
-        x0: track.x as f32 / bw,
-        y0: track.y as f32 / bh,
-        x1: (track.x + track.w) as f32 / bw,
-        y1: (track.y + track.h) as f32 / bh,
-        enabled: true,
-    });
-    let snap = campaign_rail_snapshot();
+    if let Some(el) = snap.get("difficulty") {
+        out.push(menu_hit_from_rect(
+            "difficulty",
+            MenuAction::CycleCampaignDifficulty,
+            el.layout.rect,
+            bw,
+            bh,
+            true,
+        ));
+    }
     if let Some(page) = slots_for(OriginalScreen::Campaign) {
         for id in CAMPAIGN_BUTTON_IDS.iter() {
             let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
@@ -413,36 +408,30 @@ fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Op
         x: sx as f32,
         y: sy as f32,
     };
-    let layout = campaign_layout(0, 0);
-    let side_rects = [
-        layout.allied,
-        layout.tutorial,
-        layout.soviet,
-        layout.difficulty_track,
+    let snap = campaign_snapshot();
+    let order = [
+        CAMPAIGN_SIDE_IDS[0],
+        CAMPAIGN_SIDE_IDS[1],
+        CAMPAIGN_SIDE_IDS[2],
+        "difficulty",
+        CAMPAIGN_BUTTON_IDS[0],
     ];
-    for (i, rect) in side_rects.iter().enumerate() {
-        if rect.contains(sx, sy) {
+    for (i, id) in order.iter().enumerate() {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
             return Some(i);
         }
-    }
-    // 右栏「上一页」：下标接在难度轨之后（与 `hits_campaign` 顺序一致）。
-    if campaign_rail_snapshot()
-        .get(CAMPAIGN_BUTTON_IDS[0])
-        .is_some_and(|el| el.layout.rect.contains(point))
-    {
-        return Some(side_rects.len());
     }
     None
 }
 
-fn campaign_rail_snapshot() -> LayoutSnapshot {
+fn campaign_snapshot() -> LayoutSnapshot {
     let chrome = RightPanelChrome::shell_defaults();
     LayoutEngine.solve(
         Viewport {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &right_rail_buttons_layout_tree("campaign", &[], Some(CAMPAIGN_BUTTON_IDS[0]), chrome),
+        &campaign_content_layout_tree(chrome),
     )
 }
 
