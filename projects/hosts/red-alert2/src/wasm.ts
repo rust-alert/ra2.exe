@@ -5,10 +5,13 @@ export {
     InstallSession,
     LoadProgress,
     PrepareReport,
+    attachCanvas,
     engineName,
     init,
     loadJobBusy,
     loadJobProgress,
+    presentBackend,
+    resizePresent,
     supportsPresent,
     version,
 } from '@game-gpt/red-alert2-unknown-wasm32';
