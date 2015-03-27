@@ -84,6 +84,13 @@
                 min-height: 12rem;
                 overflow: auto;
             }
+            #game {
+                width: min(40rem, 100%);
+                height: auto;
+                border: 1px solid var(--line);
+                background: #000;
+                display: block;
+            }
         </style>
     </head>
     <body>
@@ -92,8 +99,11 @@
             <p>
                 浏览器产品面：自备正版安装文件，经
                 <code>@game-gpt/red-alert2/wasm</code>
-                摄入并挂载（支持散文件、安装目录或 zip 包）。画布与对局环尚未接线。
+                摄入并挂载（支持散文件、安装目录或 zip 包）。画布经
+                <code>attachCanvas</code>
+                接 wgpu；对局环尚未接线。
             </p>
+            <canvas id="game" width="640" height="360" aria-label="wgpu present"></canvas>
             <div class="row">
                 <label class="btn">
                     选择文件
@@ -122,10 +132,21 @@
             <pre id="log">boot…</pre>
         </main>
         <script type="module">
-            import { init, version, engineName, supportsPresent, InstallSession, loadJobBusy, loadJobProgress } from "@game-gpt/red-alert2/wasm";
+            import {
+                init,
+                version,
+                engineName,
+                supportsPresent,
+                attachCanvas,
+                presentBackend,
+                InstallSession,
+                loadJobBusy,
+                loadJobProgress,
+            } from "@game-gpt/red-alert2/wasm";
             import { unzipSync } from "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js";
 
             const logEl = document.getElementById("log");
+            const canvasEl = document.getElementById("game");
             const filesEl = document.getElementById("files");
             const dirEl = document.getElementById("dir");
             const zipEl = document.getElementById("zip");
@@ -181,7 +202,11 @@
                 await init();
                 say(`version=${version()}`);
                 say(`engineName=${engineName()}`);
-                say(`supportsPresent=${supportsPresent()}`);
+                say(`supportsPresent(before)=${supportsPresent()}`);
+                say("attachCanvas …");
+                await attachCanvas(canvasEl);
+                say(`supportsPresent(after)=${supportsPresent()}`);
+                say(`presentBackend=${presentBackend()}`);
                 session = new InstallSession();
                 say("InstallSession ready — pick files, folder, or zip, then prepare");
             } catch (err) {
