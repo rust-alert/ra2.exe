@@ -125,6 +125,50 @@ impl RuntimeUiProfile {
     }
 }
 
+fn ctrl(id: &str, x: i32, y: i32, w: i32, h: i32, placement: ControlPlacement) -> DialogControlDesc {
+    DialogControlDesc::with_placement(id, x, y, w, h, placement)
+}
+
+/// 选图对话框 `0x6B` 控件表（壳层共用数据）。
+pub fn dialog_template_0x6b() -> DialogTemplate {
+    DialogTemplate {
+        dialog_id: 0x6B,
+        controls: vec![
+            ctrl("use_map", 318, 122, 108, 23, ControlPlacement::TileSnap),
+            ctrl("create_random", 318, 149, 108, 23, ControlPlacement::TileSnap),
+            ctrl("cancel", 318, 269, 108, 23, ControlPlacement::BottomCoverButton),
+            ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
+            ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
+            ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
+            ctrl("label_engagement", 23, 20, 257, 12, ControlPlacement::PreserveDlu),
+            ctrl("label_game_type", 20, 60, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("label_game_map", 168, 60, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("game_type_list", 20, 78, 130, 160, ControlPlacement::PreserveDlu),
+            ctrl("map_list", 168, 78, 130, 160, ControlPlacement::PreserveDlu),
+            ctrl("status_help", 10, 282, 303, 12, ControlPlacement::PreserveDlu),
+        ],
+    }
+}
+
+/// 遭遇战大厅对话框 `0x102` 关键控件表（壳层共用数据）。
+pub fn dialog_template_0x102() -> DialogTemplate {
+    DialogTemplate {
+        dialog_id: 0x102,
+        controls: vec![
+            ctrl("start", 318, 149, 108, 23, ControlPlacement::TileSnap),
+            ctrl("choose_map", 318, 176, 108, 23, ControlPlacement::TileSnap),
+            ctrl("back", 318, 269, 108, 23, ControlPlacement::BottomCoverButton),
+            ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
+            ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
+            ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
+            ctrl("player_name", 35, 11, 100, 12, ControlPlacement::PreserveDlu),
+            ctrl("checkbox_quick", 35, 145, 100, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_speed", 214, 145, 85, 13, ControlPlacement::PreserveDlu),
+            ctrl("label_speed", 146, 145, 60, 10, ControlPlacement::PreserveDlu),
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +200,11 @@ mod tests {
             profile.dialog(0x6B).unwrap().controls[0].placement,
             ControlPlacement::TileSnap
         );
+    }
+
+    #[test]
+    fn shell_dialog_templates_expose_expected_ids() {
+        assert!(dialog_template_0x6b().controls.iter().any(|c| c.id.0 == "map_list"));
+        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "start"));
     }
 }
