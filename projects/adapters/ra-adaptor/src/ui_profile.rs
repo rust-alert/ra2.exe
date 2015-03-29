@@ -1,6 +1,6 @@
 //! 壳层 `RuntimeUiProfile` 工厂。
 
-use ra_types::{ControlPlacement, RuntimeUiProfile, UiCapabilities};
+use ra_types::{RuntimeUiProfile, UiCapabilities};
 
 pub use ra_types::{dialog_template_0x102, dialog_template_0x6b};
 
@@ -19,6 +19,7 @@ pub fn shell_runtime_ui_profile() -> RuntimeUiProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ra_types::ControlPlacement;
 
     #[test]
     fn shell_profile_exposes_choose_map_and_skirmish_dialogs() {

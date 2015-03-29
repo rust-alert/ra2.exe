@@ -1,7 +1,10 @@
 //! 选图页布局。
 
 use super::*;
-
+use crate::{
+    dialog_layout_tree, LayoutEngine, LayoutSnapshot, Rect, RightPanelChrome, Viewport,
+};
+use ra_types::dialog_template_0x6b;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChooseMapLayout {
@@ -27,24 +30,49 @@ pub struct ChooseMapLayout {
     pub status_help: RectPx,
 }
 
-/// 选图页布局（800×600 内容坐标；DLU→px 用 MS Sans Serif 8pt）。
+fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
+    let Rect {
+        x,
+        y,
+        width,
+        height,
+    } = snap
+        .get(id)
+        .map(|e| e.layout.rect)
+        .unwrap_or_default();
+    RectPx::new(x as i32, y as i32, width as i32, height as i32)
+}
+
+/// 选图页布局（800×600 内容坐标；几何权威来自 `0x6B` snapshot）。
 pub fn choose_map_layout(viewport_w: u32, viewport_h: u32) -> ChooseMapLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
-    let use_map = skirmish_snap_button(dlu_rect(318, 122, 108, 23), shell.panel_tile.y);
-    let create_random = skirmish_snap_button(dlu_rect(318, 149, 108, 23), shell.panel_tile.y);
-    let cancel = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons = [use_map, create_random, cancel, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &dialog_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome),
+    );
+    shell.buttons = [
+        rect_px(&snap, "use_map"),
+        rect_px(&snap, "create_random"),
+        rect_px(&snap, "cancel"),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
     ChooseMapLayout {
         shell,
-        title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
-        map_preview: skirmish_right_anchor(dlu_rect(324, 23, 96, 69)),
-        map_name_plate: sdmpbtn_rect(),
-        label_engagement: dlu_rect(23, 20, 257, 12),
-        label_game_type: dlu_rect(20, 60, 130, 10),
-        label_game_map: dlu_rect(168, 60, 130, 10),
-        game_type_list: dlu_rect(20, 78, 130, 160),
-        map_list: dlu_rect(168, 78, 130, 160),
-        status_help: dlu_rect(10, 282, 303, 12),
+        title: rect_px(&snap, "title"),
+        map_preview: rect_px(&snap, "map_preview"),
+        map_name_plate: rect_px(&snap, "map_name_plate"),
+        label_engagement: rect_px(&snap, "label_engagement"),
+        label_game_type: rect_px(&snap, "label_game_type"),
+        label_game_map: rect_px(&snap, "label_game_map"),
+        game_type_list: rect_px(&snap, "game_type_list"),
+        map_list: rect_px(&snap, "map_list"),
+        status_help: rect_px(&snap, "status_help"),
     }
 }
