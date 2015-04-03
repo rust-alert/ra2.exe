@@ -14,6 +14,24 @@ pub const LOBBY_SIDES: &[&str] = &["Americans", "French", "Germans", "British", 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
+/// Alpha 可玩闭环固定地图文件名（装载时不得静默换成其它候选图）。
+pub const ALPHA_BOOT_MAP: &str = "mp03t4.map";
+
+/// Alpha 可玩闭环固定随机种子（写入装载请求与对局指纹）。
+pub const ALPHA_MATCH_SEED: u64 = 0xA1_0A_5EED_0000_0001;
+
+/// Alpha 本地玩家 house（`LOBBY_SIDES` 下标 0）。
+pub const ALPHA_HUMAN_HOUSE: &str = "Americans";
+
+/// Alpha 对手 house（`LOBBY_SIDES` 下标 4）。
+pub const ALPHA_AI_HOUSE: &str = "Russians";
+
+/// Alpha 开局资金。
+pub const ALPHA_STARTING_CREDITS: i32 = 10_000;
+
+/// `LOBBY_SIDES` 中 `ALPHA_AI_HOUSE` 的下标。
+pub const ALPHA_AI_SIDE_INDEX: u8 = 4;
+
 /// 大厅可选玩家色块（RGB；点击颜色面循环）。
 pub const LOBBY_COLORS: &[[u8; 3]] = &[
     [255, 214, 0],  // 金黄
@@ -227,6 +245,8 @@ pub struct SkirmishBootRequest {
     pub credits: i32,
     /// 起始部队数。
     pub unit_count: i32,
+    /// 对局随机种子（Alpha 固定；后续混入指纹与确定性 RNG）。
+    pub match_seed: u64,
     /// 正在拖动的滑条。
     pub dragging: Option<SkirmishTrackbar>,
     /// 玩家名编辑框是否聚焦。
@@ -238,13 +258,16 @@ pub struct SkirmishBootRequest {
 }
 
 impl SkirmishBootRequest {
-    /// 默认：玩家名 `Player`、无指定图、盟军、普通难度；勾选对齐零售默认（盟友旁建造关）。
-    pub fn default_lobby() -> Self {
+    /// Alpha 可玩闭环固定装载请求：`mp03t4`、盟军对苏军、固定种子与资金。
+    pub fn alpha_fixed() -> Self {
+        let mut row_sides = default_row_sides();
+        row_sides[0] = 0;
+        row_sides[1] = ALPHA_AI_SIDE_INDEX;
         Self {
             player_name: "Player".to_string(),
-            preferred_map: None,
-            side: LOBBY_SIDES[0].to_string(),
-            row_sides: default_row_sides(),
+            preferred_map: Some(ALPHA_BOOT_MAP.to_string()),
+            side: ALPHA_HUMAN_HOUSE.to_string(),
+            row_sides,
             difficulty: LOBBY_DIFFICULTIES[1].to_string(),
             color_index: 0,
             row_colors: default_row_colors(),
@@ -254,13 +277,24 @@ impl SkirmishBootRequest {
             superweapons: true,
             build_off_ally: false,
             game_speed: 6,
-            credits: 10_000,
+            credits: ALPHA_STARTING_CREDITS,
             unit_count: 10,
+            match_seed: ALPHA_MATCH_SEED,
             dragging: None,
             player_name_editing: false,
             open_combo: None,
             combo_row: 0,
         }
+    }
+
+    /// 默认大厅：与 [`Self::alpha_fixed`] 相同（Alpha 阶段禁止无图自动换候选）。
+    pub fn default_lobby() -> Self {
+        Self::alpha_fixed()
+    }
+
+    /// 本地与第一对手 house 名（Alpha 双人开局登记用）。
+    pub fn alpha_houses(&self) -> (&str, &str) {
+        (self.row_side(0), self.row_side(1))
     }
 
     /// 循环下一阵营（仅本地行）。
@@ -417,11 +451,13 @@ impl SkirmishBootRequest {
     /// 装载笔记片段。
     pub fn note_fragment(&self) -> String {
         format!(
-            "player={} side={} diff={} map={} speed={} credits={} units={} short={}",
+            "player={} side={} ai={} diff={} map={} seed={:#x} speed={} credits={} units={} short={}",
             self.player_name,
             self.side,
+            self.row_side(1),
             self.difficulty,
             self.preferred_map.as_deref().unwrap_or("(auto)"),
+            self.match_seed,
             self.game_speed,
             self.credits,
             self.unit_count,
