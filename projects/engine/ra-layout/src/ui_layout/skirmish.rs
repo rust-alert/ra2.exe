@@ -1,7 +1,10 @@
 //! 遭遇战大厅布局。
 
 use super::*;
-
+use crate::{
+    dialog_layout_tree, LayoutEngine, LayoutSnapshot, Rect, RightPanelChrome, Viewport,
+};
+use ra_types::dialog_template_0x102;
 
 pub(super) fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
     let r = crate::reference::DluRect::new(x, y, w, h)
@@ -26,11 +29,26 @@ pub(super) fn skirmish_right_anchor(base: RectPx) -> RectPx {
 ///
 /// 几何对齐壳层布局：贴右缘，底边落在第一根 `sdbtnbkgd` 格下沿。
 pub fn sdmpbtn_rect() -> RectPx {
-    RectPx::new(SHELL_BASE_W - SDMPBTN_W, RIGHT_PANEL_TOP_H + RIGHT_PANEL_TILE_H - SDMPBTN_H, SDMPBTN_W, SDMPBTN_H)
+    RectPx::new(
+        SHELL_BASE_W - SDMPBTN_W,
+        RIGHT_PANEL_TOP_H + RIGHT_PANEL_TILE_H - SDMPBTN_H,
+        SDMPBTN_W,
+        SDMPBTN_H,
+    )
 }
 
 pub(super) fn combo_face(dlu: RectPx) -> RectPx {
     RectPx::new(dlu.x, dlu.y, dlu.w, SKIRMISH_COMBO_FACE_H)
+}
+
+fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
+    let Rect {
+        x,
+        y,
+        width,
+        height,
+    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
+    RectPx::new(x as i32, y as i32, width as i32, height as i32)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,16 +93,26 @@ pub struct SkirmishLobbyLayout {
     pub status_help: RectPx,
 }
 
-/// 遭遇战大厅布局（800×600 内容坐标；DLU→px 用 MS Sans Serif 8pt）。
+/// 遭遇战大厅布局（800×600；标量几何来自 `0x102` snapshot，行网格仍用 DLU）。
 pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
-    // 遭遇战无 `lwscrnl` 底条；右栏三钮：开始 / 选图 / 返回（贴底盖格）。
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
-    let start = skirmish_snap_button(dlu_rect(318, 149, 108, 23), shell.panel_tile.y);
-    let choose = skirmish_snap_button(dlu_rect(318, 176, 108, 23), shell.panel_tile.y);
-    // 返回：壳层贴底盖上沿一行（owner-draw 底行惯例），不用对话框里偏上的 `0x5C0` y。
-    let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons = [start, choose, back, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &dialog_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome),
+    );
+    shell.buttons = [
+        rect_px(&snap, "start"),
+        rect_px(&snap, "choose_map"),
+        rect_px(&snap, "back"),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
 
     // 行 y DLU：本地 11，其后每行 +16（与模板旗标/下拉一致）。
     let row_y = |i: usize| 11 + (i as i32) * 16;
@@ -105,29 +133,29 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
 
     SkirmishLobbyLayout {
         shell,
-        map_preview: skirmish_right_anchor(dlu_rect(324, 23, 96, 69)),
-        title: skirmish_right_anchor(dlu_rect(318, 1, 108, 10)),
-        map_name_plate: sdmpbtn_rect(),
-        game_type: skirmish_right_anchor(dlu_rect(327, 103, 90, 10)),
-        map_label: skirmish_right_anchor(dlu_rect(327, 116, 90, 20)),
-        player_name: dlu_rect(35, 11, 100, 12),
+        map_preview: rect_px(&snap, "map_preview"),
+        title: rect_px(&snap, "title"),
+        map_name_plate: rect_px(&snap, "map_name_plate"),
+        game_type: rect_px(&snap, "game_type"),
+        map_label: rect_px(&snap, "map_label"),
+        player_name: rect_px(&snap, "player_name"),
         flags,
         side_faces,
         color_faces,
         ai_faces,
         checkboxes: [
-            dlu_rect(35, 145, 100, 10),
-            dlu_rect(35, 162, 100, 10),
-            dlu_rect(35, 179, 100, 10),
-            dlu_rect(35, 197, 103, 10),
-            dlu_rect(146, 196, 166, 11),
+            rect_px(&snap, "checkbox_quick"),
+            rect_px(&snap, "checkbox_1"),
+            rect_px(&snap, "checkbox_2"),
+            rect_px(&snap, "checkbox_3"),
+            rect_px(&snap, "checkbox_4"),
         ],
-        track_speed: dlu_rect(214, 145, 85, 13),
-        track_credits: dlu_rect(214, 162, 85, 13),
-        track_units: dlu_rect(214, 179, 85, 13),
-        label_speed: dlu_rect(146, 145, 60, 10),
-        label_credits: dlu_rect(146, 162, 60, 10),
-        label_units: dlu_rect(146, 179, 60, 10),
-        status_help: dlu_rect(10, 282, 303, 12),
+        track_speed: rect_px(&snap, "track_speed"),
+        track_credits: rect_px(&snap, "track_credits"),
+        track_units: rect_px(&snap, "track_units"),
+        label_speed: rect_px(&snap, "label_speed"),
+        label_credits: rect_px(&snap, "label_credits"),
+        label_units: rect_px(&snap, "label_units"),
+        status_help: rect_px(&snap, "status_help"),
     }
 }
