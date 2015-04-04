@@ -1,7 +1,9 @@
 //! 战役页布局。
 
 use super::*;
-
+use crate::{
+    campaign_content_layout_tree, LayoutEngine, LayoutSnapshot, Rect, RightPanelChrome, Viewport,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CampaignLayout {
@@ -25,17 +27,37 @@ pub struct CampaignLayout {
     pub status_help: RectPx,
 }
 
-/// 战役页布局（800×600 内容坐标）。
+fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
+    let Rect {
+        x,
+        y,
+        width,
+        height,
+    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
+    RectPx::new(x as i32, y as i32, width as i32, height as i32)
+}
+
+/// 战役页布局（800×600；交互几何来自 `campaign_content_layout_tree`）。
 pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
-    // 仅「上一页」贴底盖；右栏其余为部队 cameo 格（后续接线，勿再放载入钮）。
-    let back = button_cell(shell.panel_top.x, shell.panel_bottom.y - BUTTON_CELL_H);
-    shell.buttons =
-        [back, RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
-    let allied = RectPx::new(CAMPAIGN_ALLIED_ORIGIN.0, CAMPAIGN_ALLIED_ORIGIN.1, CAMPAIGN_ALLIED_SIZE.0, CAMPAIGN_ALLIED_SIZE.1);
-    let tutorial = RectPx::new(CAMPAIGN_TUTORIAL_ORIGIN.0, CAMPAIGN_TUTORIAL_ORIGIN.1, CAMPAIGN_TUTORIAL_SIZE.0, CAMPAIGN_TUTORIAL_SIZE.1);
-    let soviet = RectPx::new(CAMPAIGN_SOVIET_ORIGIN.0, CAMPAIGN_SOVIET_ORIGIN.1, CAMPAIGN_SOVIET_SIZE.0, CAMPAIGN_SOVIET_SIZE.1);
-    // 难度：原版截图映到 800×600 — 标签 y≈454、轨 y≈483、x≈191、轨宽≈247。
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &campaign_content_layout_tree(chrome),
+    );
+    let back = rect_px(&snap, CAMPAIGN_BUTTON_IDS[0]);
+    shell.buttons = [
+        back,
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
+    // 难度标签/数值仍为过渡期固定设计坐标（尚未进 content tree）。
     let diff_label_y = 454;
     let diff_x = 191;
     let diff_track_w = 247;
@@ -43,12 +65,12 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     CampaignLayout {
         shell,
         title: shell.title,
-        allied,
-        tutorial,
-        soviet,
+        allied: rect_px(&snap, CAMPAIGN_SIDE_IDS[0]),
+        tutorial: rect_px(&snap, CAMPAIGN_SIDE_IDS[1]),
+        soviet: rect_px(&snap, CAMPAIGN_SIDE_IDS[2]),
         difficulty_label: RectPx::new(diff_x, diff_label_y, diff_label_w, 20),
         difficulty_value: RectPx::new(diff_x + diff_track_w - diff_label_w, diff_label_y, diff_label_w, 20),
-        difficulty_track: RectPx::new(diff_x, 483, diff_track_w, 13),
+        difficulty_track: rect_px(&snap, "difficulty"),
         status_help: shell.tooltip,
     }
 }
