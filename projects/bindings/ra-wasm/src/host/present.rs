@@ -63,6 +63,20 @@ pub fn resize_present(width: u32, height: u32) -> Result<(), JsValue> {
     })
 }
 
+/// 提交一帧（当前为清屏 / 已上传纹理的合成；无对局环）。
+#[wasm_bindgen(js_name = presentFrame)]
+pub fn present_frame() -> Result<(), JsValue> {
+    PRESENT.with(|slot| {
+        let mut guard = slot.borrow_mut();
+        let Some(state) = guard.as_mut()
+        else {
+            return Err(JsValue::from_str("present surface not attached"));
+        };
+        state.renderer.draw_frame(None);
+        Ok(())
+    })
+}
+
 /// 当前 wgpu 后端标签字符串。
 #[wasm_bindgen(js_name = presentBackend)]
 pub fn present_backend() -> String {
