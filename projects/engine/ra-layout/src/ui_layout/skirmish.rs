@@ -12,19 +12,6 @@ pub(super) fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
     RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
 }
 
-pub(super) fn skirmish_snap_button(source: RectPx, panel_tile_y: i32) -> RectPx {
-    // 偏置截断：相对 `sdbtnbkgd` 列顶，按 42px 格吸附（壳层 chrome，非截图估）。
-    let tile_h = RIGHT_PANEL_TILE_H.max(1);
-    let tile_index = ((source.y - panel_tile_y + tile_h / 2) / tile_h).max(0);
-    button_cell(SHELL_BASE_W - RIGHT_PANEL_W, panel_tile_y + tile_index * tile_h)
-}
-
-pub(super) fn skirmish_right_anchor(base: RectPx) -> RectPx {
-    // 右栏静态/预览：相对 `RIGHT_PANEL_W` 水平居中锚到右缘。
-    let inset = (RIGHT_PANEL_W - base.w) / 2;
-    RectPx::new(SHELL_BASE_W - base.w - inset, base.y, base.w, base.h)
-}
-
 /// 遭遇战 / 选图右栏地图名底板（`sdmpbtn`）。
 ///
 /// 几何对齐壳层布局：贴右缘，底边落在第一根 `sdbtnbkgd` 格下沿。
