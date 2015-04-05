@@ -11,6 +11,7 @@ export {
     loadJobBusy,
     loadJobProgress,
     presentBackend,
+    presentFrame,
     resizePresent,
     supportsPresent,
     version,

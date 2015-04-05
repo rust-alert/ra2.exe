@@ -9,6 +9,7 @@ import initWasm, {
     loadJobBusy,
     loadJobProgress,
     presentBackend,
+    presentFrame,
     resizePresent,
     supports_present,
     version as wasmVersion,
@@ -24,6 +25,7 @@ export {
     loadJobBusy,
     loadJobProgress,
     presentBackend,
+    presentFrame,
     resizePresent,
 };
 
