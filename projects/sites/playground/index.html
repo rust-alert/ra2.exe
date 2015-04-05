@@ -140,6 +140,7 @@
                 supportsPresent,
                 attachCanvas,
                 resizePresent,
+                presentFrame,
                 presentBackend,
                 InstallSession,
                 loadJobBusy,
@@ -166,6 +167,7 @@
             let session = null;
             let presentReady = false;
             let resizeQueued = false;
+            let rafId = 0;
 
             function syncPresentSize(log = false) {
                 if (!presentReady || !supportsPresent()) return;
@@ -192,6 +194,18 @@
                         say(`resizePresent ERROR ${err instanceof Error ? err.message : String(err)}`);
                     }
                 });
+            }
+
+            function tickPresent() {
+                rafId = requestAnimationFrame(tickPresent);
+                if (!presentReady || !supportsPresent()) return;
+                try {
+                    presentFrame();
+                } catch (err) {
+                    cancelAnimationFrame(rafId);
+                    rafId = 0;
+                    say(`presentFrame ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
             }
 
             function isZipName(name) {
@@ -238,8 +252,10 @@
                 await attachCanvas(canvasEl);
                 presentReady = true;
                 syncPresentSize(true);
+                tickPresent();
                 say(`supportsPresent(after)=${supportsPresent()}`);
                 say(`presentBackend=${presentBackend()}`);
+                say("presentFrame rAF loop running");
                 session = new InstallSession();
                 say("InstallSession ready — pick files, folder, or zip, then prepare");
             } catch (err) {
