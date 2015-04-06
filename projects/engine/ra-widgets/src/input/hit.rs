@@ -325,19 +325,30 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let layout = campaign_layout(0, 0);
-    let sides = [(CAMPAIGN_SIDE_IDS[0], layout.allied), (CAMPAIGN_SIDE_IDS[1], layout.tutorial), (CAMPAIGN_SIDE_IDS[2], layout.soviet)];
-    for (id, rect) in sides {
-        if rect.contains(sx, sy) {
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = campaign_snapshot();
+    for id in CAMPAIGN_SIDE_IDS {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
             return Some(id);
         }
     }
-    if layout.difficulty_track.contains(sx, sy) || layout.difficulty_label.contains(sx, sy) || layout.difficulty_value.contains(sx, sy) {
+    if snap
+        .get("difficulty")
+        .is_some_and(|el| el.layout.rect.contains(point))
+    {
         return Some("difficulty");
     }
-    for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
-        if layout.shell.buttons[i].contains(sx, sy) {
-            return Some(*id);
+    // 难度标签/数值仍为过渡期固定设计坐标。
+    let layout = campaign_layout(0, 0);
+    if layout.difficulty_label.contains(sx, sy) || layout.difficulty_value.contains(sx, sy) {
+        return Some("difficulty");
+    }
+    for id in CAMPAIGN_BUTTON_IDS {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
+            return Some(id);
         }
     }
     None
