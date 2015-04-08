@@ -29,6 +29,8 @@ pub enum ControlPlacement {
     BottomCoverButton,
     /// 地图名底板（贴右缘，底边落在第一根 tile 下沿）。
     MapNamePlate,
+    /// DLU 换算后强制下拉面高度（壳层 combo face）。
+    ComboFace,
 }
 
 /// 对话框模板中的单个控件描述（DLU，尚未求解）。

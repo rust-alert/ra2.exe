@@ -32,6 +32,12 @@ pub fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelChrome) 
         ControlPlacement::RightPanelAnchor => right_panel_anchor(dlu_of(desc), chrome),
         ControlPlacement::BottomCoverButton => bottom_cover_button(chrome),
         ControlPlacement::MapNamePlate => map_name_plate(chrome),
+        ControlPlacement::ComboFace => {
+            let mut rect = dlu_of(desc);
+            // 与壳层 `SKIRMISH_COMBO_FACE_H` 一致。
+            rect.height = 24.0;
+            rect
+        }
     }
 }
 
