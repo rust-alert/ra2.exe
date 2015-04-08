@@ -8,7 +8,7 @@ use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, campaign_content_layout_tree, campaign_layout, dialog_layout_tree, exit_confirm_layout,
+    RightPanelChrome, Viewport, campaign_content_layout_tree, dialog_layout_tree, exit_confirm_layout,
     main_menu_layout, right_rail_buttons_layout_tree, shell_design_size, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
@@ -338,12 +338,13 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
     if snap
         .get("difficulty")
         .is_some_and(|el| el.layout.rect.contains(point))
+        || snap
+            .get("difficulty_label")
+            .is_some_and(|el| el.layout.rect.contains(point))
+        || snap
+            .get("difficulty_value")
+            .is_some_and(|el| el.layout.rect.contains(point))
     {
-        return Some("difficulty");
-    }
-    // 难度标签/数值仍为过渡期固定设计坐标。
-    let layout = campaign_layout(0, 0);
-    if layout.difficulty_label.contains(sx, sy) || layout.difficulty_value.contains(sx, sy) {
         return Some("difficulty");
     }
     for id in CAMPAIGN_BUTTON_IDS {

@@ -57,19 +57,14 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
     ];
-    // 难度标签/数值仍为过渡期固定设计坐标（尚未进 content tree）。
-    let diff_label_y = 454;
-    let diff_x = 191;
-    let diff_track_w = 247;
-    let diff_label_w = 100;
     CampaignLayout {
         shell,
         title: shell.title,
         allied: rect_px(&snap, CAMPAIGN_SIDE_IDS[0]),
         tutorial: rect_px(&snap, CAMPAIGN_SIDE_IDS[1]),
         soviet: rect_px(&snap, CAMPAIGN_SIDE_IDS[2]),
-        difficulty_label: RectPx::new(diff_x, diff_label_y, diff_label_w, 20),
-        difficulty_value: RectPx::new(diff_x + diff_track_w - diff_label_w, diff_label_y, diff_label_w, 20),
+        difficulty_label: rect_px(&snap, "difficulty_label"),
+        difficulty_value: rect_px(&snap, "difficulty_value"),
         difficulty_track: rect_px(&snap, "difficulty"),
         status_help: shell.tooltip,
     }

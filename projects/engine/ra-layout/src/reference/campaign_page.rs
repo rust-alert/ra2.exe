@@ -15,7 +15,7 @@ fn side_rect(origin: (i32, i32), size: (i32, i32)) -> Rect {
     Rect::from_xywh(origin.0 as f32, origin.1 as f32, size.0 as f32, size.1 as f32)
 }
 
-/// 战役页：三侧入口 + 难度轨 + 右栏「上一页」。
+/// 战役页：三侧入口 + 难度标签/数值/轨 + 右栏「上一页」。
 pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
         fixed_rect_leaf(
@@ -30,7 +30,9 @@ pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
             CAMPAIGN_SIDE_IDS[2],
             side_rect(CAMPAIGN_SOVIET_ORIGIN, CAMPAIGN_SOVIET_SIZE),
         ),
-        // 难度滑条：与过渡期 `campaign_layout` 金标一致。
+        // 难度区：与过渡期 `campaign_layout` 金标一致。
+        fixed_rect_leaf("difficulty_label", Rect::from_xywh(191.0, 454.0, 100.0, 20.0)),
+        fixed_rect_leaf("difficulty_value", Rect::from_xywh(338.0, 454.0, 100.0, 20.0)),
         fixed_rect_leaf("difficulty", Rect::from_xywh(191.0, 483.0, 247.0, 13.0)),
         fixed_rect_leaf(CAMPAIGN_BUTTON_IDS[0], bottom_cover_button(chrome)),
     ];
@@ -57,6 +59,8 @@ mod tests {
             ("allied", legacy.allied),
             ("tutorial", legacy.tutorial),
             ("soviet", legacy.soviet),
+            ("difficulty_label", legacy.difficulty_label),
+            ("difficulty_value", legacy.difficulty_value),
             ("difficulty", legacy.difficulty_track),
             ("back", legacy.shell.buttons[0]),
         ] {
