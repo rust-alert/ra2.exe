@@ -154,31 +154,71 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
 
 /// 遭遇战大厅对话框 `0x102` 关键控件表（壳层共用数据）。
 pub fn dialog_template_0x102() -> DialogTemplate {
+    let mut controls = vec![
+        ctrl("start", 318, 149, 108, 23, ControlPlacement::TileSnap),
+        ctrl("choose_map", 318, 176, 108, 23, ControlPlacement::TileSnap),
+        ctrl("back", 318, 269, 108, 23, ControlPlacement::BottomCoverButton),
+        ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
+        ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
+        ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
+        ctrl("game_type", 327, 103, 90, 10, ControlPlacement::RightPanelAnchor),
+        ctrl("map_label", 327, 116, 90, 20, ControlPlacement::RightPanelAnchor),
+        ctrl("player_name", 35, 11, 100, 12, ControlPlacement::PreserveDlu),
+        ctrl("checkbox_quick", 35, 145, 100, 10, ControlPlacement::PreserveDlu),
+        ctrl("checkbox_1", 35, 162, 100, 10, ControlPlacement::PreserveDlu),
+        ctrl("checkbox_2", 35, 179, 100, 10, ControlPlacement::PreserveDlu),
+        ctrl("checkbox_3", 35, 197, 103, 10, ControlPlacement::PreserveDlu),
+        ctrl("checkbox_4", 146, 196, 166, 11, ControlPlacement::PreserveDlu),
+        ctrl("track_speed", 214, 145, 85, 13, ControlPlacement::PreserveDlu),
+        ctrl("track_credits", 214, 162, 85, 13, ControlPlacement::PreserveDlu),
+        ctrl("track_units", 214, 179, 85, 13, ControlPlacement::PreserveDlu),
+        ctrl("label_speed", 146, 145, 60, 10, ControlPlacement::PreserveDlu),
+        ctrl("label_credits", 146, 162, 60, 10, ControlPlacement::PreserveDlu),
+        ctrl("label_units", 146, 179, 60, 10, ControlPlacement::PreserveDlu),
+        ctrl("status_help", 10, 282, 303, 12, ControlPlacement::PreserveDlu),
+    ];
+    // 行 y DLU：本地 11，其后每行 +16。
+    for i in 0..8 {
+        let y = 11 + (i as i32) * 16;
+        controls.push(ctrl(
+            &format!("flag_{i}"),
+            143,
+            y,
+            32,
+            12,
+            ControlPlacement::PreserveDlu,
+        ));
+        controls.push(ctrl(
+            &format!("side_face_{i}"),
+            180,
+            y,
+            78,
+            74,
+            ControlPlacement::ComboFace,
+        ));
+        controls.push(ctrl(
+            &format!("color_face_{i}"),
+            264,
+            y,
+            35,
+            73,
+            ControlPlacement::ComboFace,
+        ));
+    }
+    for i in 0..7 {
+        let y = 11 + ((i + 1) as i32) * 16;
+        controls.push(ctrl(
+            &format!("ai_face_{i}"),
+            35,
+            y,
+            100,
+            74,
+            ControlPlacement::ComboFace,
+        ));
+    }
     DialogTemplate {
         dialog_id: 0x102,
-        controls: vec![
-            ctrl("start", 318, 149, 108, 23, ControlPlacement::TileSnap),
-            ctrl("choose_map", 318, 176, 108, 23, ControlPlacement::TileSnap),
-            ctrl("back", 318, 269, 108, 23, ControlPlacement::BottomCoverButton),
-            ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
-            ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
-            ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
-            ctrl("game_type", 327, 103, 90, 10, ControlPlacement::RightPanelAnchor),
-            ctrl("map_label", 327, 116, 90, 20, ControlPlacement::RightPanelAnchor),
-            ctrl("player_name", 35, 11, 100, 12, ControlPlacement::PreserveDlu),
-            ctrl("checkbox_quick", 35, 145, 100, 10, ControlPlacement::PreserveDlu),
-            ctrl("checkbox_1", 35, 162, 100, 10, ControlPlacement::PreserveDlu),
-            ctrl("checkbox_2", 35, 179, 100, 10, ControlPlacement::PreserveDlu),
-            ctrl("checkbox_3", 35, 197, 103, 10, ControlPlacement::PreserveDlu),
-            ctrl("checkbox_4", 146, 196, 166, 11, ControlPlacement::PreserveDlu),
-            ctrl("track_speed", 214, 145, 85, 13, ControlPlacement::PreserveDlu),
-            ctrl("track_credits", 214, 162, 85, 13, ControlPlacement::PreserveDlu),
-            ctrl("track_units", 214, 179, 85, 13, ControlPlacement::PreserveDlu),
-            ctrl("label_speed", 146, 145, 60, 10, ControlPlacement::PreserveDlu),
-            ctrl("label_credits", 146, 162, 60, 10, ControlPlacement::PreserveDlu),
-            ctrl("label_units", 146, 179, 60, 10, ControlPlacement::PreserveDlu),
-            ctrl("status_help", 10, 282, 303, 12, ControlPlacement::PreserveDlu),
-        ],
+        controls,
     }
 }
 
@@ -219,5 +259,7 @@ mod tests {
     fn shell_dialog_templates_expose_expected_ids() {
         assert!(dialog_template_0x6b().controls.iter().any(|c| c.id.0 == "map_list"));
         assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "start"));
+        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "flag_0"));
+        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "ai_face_6"));
     }
 }
