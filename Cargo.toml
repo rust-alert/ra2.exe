@@ -48,7 +48,15 @@ pollster = "1.0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
-web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "console"] }
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Document",
+    "HtmlCanvasElement",
+    "console",
+    "AudioContext",
+    "BaseAudioContext",
+    "AudioContextState",
+] }
 blowfish = "0.10.0"
 byteorder = "1"
 num-bigint = "0.5"
