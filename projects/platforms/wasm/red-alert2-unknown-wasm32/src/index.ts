@@ -5,12 +5,15 @@ import initWasm, {
     LoadProgress,
     PrepareReport,
     attachCanvas,
+    audioReady,
+    audioState,
     engine_name,
     loadJobBusy,
     loadJobProgress,
     presentBackend,
     presentFrame,
     resizePresent,
+    resumeAudio,
     supports_present,
     version as wasmVersion,
 } from '../pkg/ra_wasm.js';
@@ -22,11 +25,14 @@ export {
     LoadProgress,
     PrepareReport,
     attachCanvas,
+    audioReady,
+    audioState,
     loadJobBusy,
     loadJobProgress,
     presentBackend,
     presentFrame,
     resizePresent,
+    resumeAudio,
 };
 
 /** 加载 `.wasm`（页面入口先 `await init()`）。 */

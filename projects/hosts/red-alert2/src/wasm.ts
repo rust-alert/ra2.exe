@@ -6,6 +6,8 @@ export {
     LoadProgress,
     PrepareReport,
     attachCanvas,
+    audioReady,
+    audioState,
     engineName,
     init,
     loadJobBusy,
@@ -13,6 +15,7 @@ export {
     presentBackend,
     presentFrame,
     resizePresent,
+    resumeAudio,
     supportsPresent,
     version,
 } from '@game-gpt/red-alert2-unknown-wasm32';
