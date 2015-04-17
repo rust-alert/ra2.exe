@@ -129,6 +129,7 @@
                 </label>
                 <button id="prepare" type="button">prepare</button>
                 <button id="clear" type="button">clear</button>
+                <button id="audio" type="button">resume audio</button>
             </div>
             <pre id="log">boot…</pre>
         </main>
@@ -142,6 +143,9 @@
                 resizePresent,
                 presentFrame,
                 presentBackend,
+                resumeAudio,
+                audioReady,
+                audioState,
                 InstallSession,
                 loadJobBusy,
                 loadJobProgress,
@@ -156,6 +160,7 @@
             const editionEl = document.getElementById("edition");
             const prepareEl = document.getElementById("prepare");
             const clearEl = document.getElementById("clear");
+            const audioEl = document.getElementById("audio");
 
             const lines = [];
             const say = (s) => {
@@ -256,6 +261,7 @@
                 say(`supportsPresent(after)=${supportsPresent()}`);
                 say(`presentBackend=${presentBackend()}`);
                 say("presentFrame rAF loop running");
+                say(`audioReady=${audioReady()} state=${audioState()}`);
                 session = new InstallSession();
                 say("InstallSession ready — pick files, folder, or zip, then prepare");
             } catch (err) {
@@ -318,6 +324,15 @@
                 session.clear();
                 say("cleared");
                 say(`fileCount=${session.fileCount()}`);
+            });
+
+            audioEl.addEventListener("click", async () => {
+                try {
+                    const state = await resumeAudio();
+                    say(`resumeAudio → ${state} ready=${audioReady()}`);
+                } catch (err) {
+                    say(`resumeAudio ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
             });
         </script>
     </body>
