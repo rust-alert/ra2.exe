@@ -12,22 +12,6 @@ pub(super) fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
     RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
 }
 
-/// 遭遇战 / 选图右栏地图名底板（`sdmpbtn`）。
-///
-/// 几何对齐壳层布局：贴右缘，底边落在第一根 `sdbtnbkgd` 格下沿。
-pub fn sdmpbtn_rect() -> RectPx {
-    RectPx::new(
-        SHELL_BASE_W - SDMPBTN_W,
-        RIGHT_PANEL_TOP_H + RIGHT_PANEL_TILE_H - SDMPBTN_H,
-        SDMPBTN_W,
-        SDMPBTN_H,
-    )
-}
-
-pub(super) fn combo_face(dlu: RectPx) -> RectPx {
-    RectPx::new(dlu.x, dlu.y, dlu.w, SKIRMISH_COMBO_FACE_H)
-}
-
 fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
     let Rect {
         x,
@@ -80,7 +64,7 @@ pub struct SkirmishLobbyLayout {
     pub status_help: RectPx,
 }
 
-/// 遭遇战大厅布局（800×600；标量几何来自 `0x102` snapshot，行网格仍用 DLU）。
+/// 遭遇战大厅布局（800×600；几何权威来自 `0x102` snapshot）。
 pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
@@ -101,21 +85,17 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
         RectPx::new(0, 0, 0, 0),
     ];
 
-    // 行 y DLU：本地 11，其后每行 +16（与模板旗标/下拉一致）。
-    let row_y = |i: usize| 11 + (i as i32) * 16;
     let mut flags = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
     let mut side_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
     let mut color_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
     let mut ai_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_AI_ROW_COUNT];
     for i in 0..SKIRMISH_ROW_COUNT {
-        let y = row_y(i);
-        flags[i] = dlu_rect(143, y, 32, 12);
-        side_faces[i] = combo_face(dlu_rect(180, y, 78, 74));
-        color_faces[i] = combo_face(dlu_rect(264, y, 35, 73));
+        flags[i] = rect_px(&snap, &format!("flag_{i}"));
+        side_faces[i] = rect_px(&snap, &format!("side_face_{i}"));
+        color_faces[i] = rect_px(&snap, &format!("color_face_{i}"));
     }
     for i in 0..SKIRMISH_AI_ROW_COUNT {
-        let y = row_y(i + 1);
-        ai_faces[i] = combo_face(dlu_rect(35, y, 100, 74));
+        ai_faces[i] = rect_px(&snap, &format!("ai_face_{i}"));
     }
 
     SkirmishLobbyLayout {
