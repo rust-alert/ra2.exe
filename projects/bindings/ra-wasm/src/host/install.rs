@@ -262,6 +262,7 @@ impl PrepareReport {
 #[wasm_bindgen]
 pub struct InstallSession {
     bag: InstallBag,
+    last_report: Option<PrepareReport>,
 }
 
 #[wasm_bindgen]
@@ -269,7 +270,7 @@ impl InstallSession {
     /// 新建空会话。
     #[wasm_bindgen(constructor)]
     pub fn new() -> InstallSession {
-        InstallSession { bag: InstallBag::new() }
+        InstallSession { bag: InstallBag::new(), last_report: None }
     }
 
     /// 已摄入文件数。
@@ -278,9 +279,25 @@ impl InstallSession {
         self.bag.file_count() as u32
     }
 
+    /// 是否已有可尝试装载的安装输入。
+    #[wasm_bindgen(js_name = hasInstallInput)]
+    pub fn has_install_input(&self) -> bool {
+        super::boot::has_install_input(self.bag.file_count())
+    }
+
+    /// 最近一次 `prepareEdition` 是否足以继续 boot（根包齐全）。
+    #[wasm_bindgen(js_name = canBoot)]
+    pub fn can_boot(&self) -> bool {
+        match &self.last_report {
+            Some(r) => super::boot::can_boot(r.mounted_root(), r.missing_base().len()),
+            None => false,
+        }
+    }
+
     /// 清空已摄入文件与 VFS。
     pub fn clear(&mut self) {
         self.bag.clear();
+        self.last_report = None;
     }
 
     /// 摄入单个安装文件（`name` 可为路径，仅取末段文件名）。
@@ -306,10 +323,12 @@ impl InstallSession {
         super::load_job::report(0.25, "挂载 MIX");
         match self.bag.prepare(explicit) {
             Ok(report) => {
+                self.last_report = Some(report.clone());
                 super::load_job::finish_ok();
                 Ok(report)
             }
             Err(e) => {
+                self.last_report = None;
                 super::load_job::finish_err();
                 Err(JsValue::from_str(&e.to_string()))
             }
@@ -389,5 +408,15 @@ mod tests {
         assert!(report.missing_base().iter().any(|n| n.eq_ignore_ascii_case("ra2.mix")));
         assert!(report.missing_base().iter().any(|n| n.eq_ignore_ascii_case("language.mix")));
         assert!(report.summary().contains("edition=ra2"));
+        assert!(!crate::host::boot::can_boot(report.mounted_root(), report.missing_base().len()));
+    }
+
+    #[test]
+    fn boot_helpers_match_counts() {
+        assert!(crate::host::boot::has_install_input(1));
+        assert!(!crate::host::boot::has_install_input(0));
+        assert!(crate::host::boot::can_boot(3, 0));
+        assert!(!crate::host::boot::can_boot(0, 0));
+        assert!(!crate::host::boot::can_boot(2, 1));
     }
 }
