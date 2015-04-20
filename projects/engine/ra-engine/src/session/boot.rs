@@ -26,7 +26,9 @@ pub struct SkirmishOpenResult {
 
 /// 从已装载的 `RulesDb` 与地图打开一局遭遇战会话。
 ///
-/// `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
+/// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
+/// - `ensure_houses` 中的阵营一律登记进玩家表（遭遇战对手不一定出现在地图放置段）。
+/// - `match_seed` 混入对局指纹，供后续确定性 RNG 使用。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
@@ -35,15 +37,23 @@ pub fn open_skirmish_session(
     mut note: String,
     preview_origin: (i32, i32),
     preferred_house: Option<&str>,
+    ensure_houses: &[&str],
+    match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
     note = format!(
-        "{note} · rules#{} · overlay_types#{} · techno_types#{}",
+        "{note} · rules#{} · overlay_types#{} · techno_types#{} · seed={:#x}",
         rules.rules.sections.len(),
         rules.overlay_types.len(),
-        rules.techno_types.len()
+        rules.techno_types.len(),
+        match_seed
     );
 
     let mut state = BattleState::new(chain.edition, rules, map);
+    for house in ensure_houses {
+        if !house.is_empty() {
+            state.ensure_house(house);
+        }
+    }
     if let Some(house) = preferred_house {
         state.ensure_house(house);
         if !state.prefer_local_house(house) {
@@ -79,10 +89,12 @@ pub fn open_skirmish_session(
         state.map.width,
         state.map.height,
         state.entities.len(),
+        match_seed,
     );
 
     let defs_for_engine = Arc::clone(&state.definitions);
-    let game = BattleSession::open_skirmish(state, note.clone(), preview_origin, fingerprint);
+    let mut game = BattleSession::open_skirmish(state, note.clone(), preview_origin, fingerprint);
+    game.set_match_seed(match_seed);
     let engine = Engine::new(defs_for_engine, EngineConfig::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     let mut session = engine.create_session(crate::session::SessionSpec::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     session.attach_battle(game);

@@ -1,25 +1,23 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    ALPHA_AI_HOUSE, ALPHA_BOOT_MAP, ALPHA_HUMAN_HOUSE, ALPHA_MATCH_SEED, ALPHA_STARTING_CREDITS, LOBBY_DIFFICULTIES, LOBBY_SIDES,
-    SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp, load_screen_preferred_pal,
+    LOBBY_DIFFICULTIES, LOBBY_SIDES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp, load_screen_preferred_pal,
 };
 
 #[test]
-fn alpha_fixed_pins_map_houses_seed_and_credits() {
-    let req = SkirmishBootRequest::alpha_fixed();
-    assert_eq!(req.preferred_map.as_deref(), Some(ALPHA_BOOT_MAP));
-    assert_eq!(req.side, ALPHA_HUMAN_HOUSE);
-    assert_eq!(req.row_side(0), ALPHA_HUMAN_HOUSE);
-    assert_eq!(req.row_side(1), ALPHA_AI_HOUSE);
-    assert_eq!(req.match_seed, ALPHA_MATCH_SEED);
-    assert_eq!(req.credits, ALPHA_STARTING_CREDITS);
-    assert_eq!(req.alpha_houses(), (ALPHA_HUMAN_HOUSE, ALPHA_AI_HOUSE));
+fn default_lobby_leaves_map_and_seed_open() {
+    let lobby = SkirmishBootRequest::default_lobby();
+    assert!(lobby.preferred_map.is_none());
+    assert_eq!(lobby.match_seed, 0);
+    assert_eq!(lobby.side, LOBBY_SIDES[0]);
+    assert_eq!(lobby.row_side(1), "French");
 }
 
 #[test]
-fn default_lobby_matches_alpha_fixed() {
-    assert_eq!(SkirmishBootRequest::default_lobby(), SkirmishBootRequest::alpha_fixed());
+fn houses_to_ensure_follows_lobby_rows() {
+    let req = SkirmishBootRequest::default_lobby();
+    assert_eq!(req.houses_to_ensure(0), vec!["Americans"]);
+    assert_eq!(req.houses_to_ensure(1), vec!["Americans", "French"]);
 }
 
 #[test]

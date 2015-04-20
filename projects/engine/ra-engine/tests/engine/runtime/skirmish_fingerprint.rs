@@ -44,7 +44,7 @@ impl AssetSource for EmptyRulesSource {
 #[test]
 fn open_skirmish_rejects_missing_rules_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(&MissingRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None).unwrap_err();
+    let err = open_skirmish_session(&MissingRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains(chain.rules_ini), "{msg}");
     assert!(msg.contains("指纹") || msg.contains("规则"), "{msg}");
@@ -53,7 +53,7 @@ fn open_skirmish_rejects_missing_rules_for_fingerprint() {
 #[test]
 fn open_skirmish_rejects_empty_rules_bytes_for_fingerprint() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let err = open_skirmish_session(&EmptyRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None).unwrap_err();
+    let err = open_skirmish_session(&EmptyRulesSource, &chain, &minimal_rules(), tiny_map(), "t".into(), (0, 0), None, &[], 0).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("空"), "{msg}");
 }

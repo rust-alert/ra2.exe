@@ -214,6 +214,8 @@ pub struct BattleSession {
     pub battle_stats: Option<BattleStats>,
     /// 对局内容指纹（握手用；未设置时为空默认）。
     pub fingerprint: MatchFingerprint,
+    /// 对局随机种子（装载时写入；混入指纹）。
+    pub match_seed: u64,
     /// 是否为非本地阵营自动下发 AI 命令。
     pub ai_enabled: bool,
     /// 遭遇战难度标签（大厅选择；影响 AI 进攻/生产节奏）。
@@ -233,6 +235,7 @@ impl BattleSession {
             outcome: None,
             battle_stats: None,
             fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
+            match_seed: 0,
             ai_enabled: false,
             difficulty: "Normal".into(),
         }
@@ -241,6 +244,11 @@ impl BattleSession {
     /// 设置对局内容指纹（联机握手）。
     pub fn set_fingerprint(&mut self, fingerprint: MatchFingerprint) {
         self.fingerprint = fingerprint;
+    }
+
+    /// 写入装载时的对局随机种子。
+    pub fn set_match_seed(&mut self, match_seed: u64) {
+        self.match_seed = match_seed;
     }
 
     /// 由世界与装载备注打开一局（设置预览原点与指纹）。
@@ -257,7 +265,7 @@ impl BattleSession {
         self.difficulty = difficulty.into();
     }
 
-    /// 构建对局指纹：规则字节 + 地图尺寸与实体数混入。
+    /// 构建对局指纹：规则字节 + 地图尺寸、实体数与随机种子混入。
     pub fn build_skirmish_fingerprint(
         edition: &str,
         map_name: &str,
@@ -265,9 +273,10 @@ impl BattleSession {
         map_width: u32,
         map_height: u32,
         entity_count: usize,
+        match_seed: u64,
     ) -> MatchFingerprint {
         let fp = MatchFingerprint::build(edition, map_name, rules_bytes);
-        let mix = format!("{map_width}x{map_height}#{entity_count}");
+        let mix = format!("{map_width}x{map_height}#{entity_count}#seed={match_seed:#x}");
         fp.mix_bytes(mix.as_bytes())
     }
 

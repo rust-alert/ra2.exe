@@ -2,7 +2,7 @@
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_engine::{Engine, Session, open_skirmish_session};
-use ra_map::{MapInfo, compose_boot_preview, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes};
+use ra_map::{MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes};
 use ra_renderer::RgbaImage;
 use ra_types::{GameEdition, RaResult};
 
@@ -192,28 +192,49 @@ pub fn boot_world_with_progress(
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());
-    let (engine, session) =
-        match rules.as_ref().map(|rules| open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house)) {
-            Some(Ok(mut opened)) => {
-                note = opened.note;
-                note = format!("{note} · player={} · difficulty={} · credits={}", request.player_name, request.difficulty, request.credits);
-                let game = opened.session.expect_battle_mut();
-                game.set_difficulty(request.difficulty.clone());
-                game.world.set_all_players_funds(request.credits);
-                tracing::info!(
-                    "fingerprint edition={} map={} rules_hash={:#x}",
-                    opened.session.expect_battle().fingerprint.edition,
-                    opened.session.expect_battle().fingerprint.map,
-                    opened.session.expect_battle().fingerprint.rules_hash
-                );
-                (Some(opened.engine), Some(opened.session))
-            }
-            Some(Err(e)) => {
-                note = format!("{note} · 会话未打开（{e}）");
-                (None, None)
-            }
-            None => (None, None),
-        };
+    let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
+    let ensure_houses = request.houses_to_ensure(ai_rows);
+    let (engine, session) = match rules.as_ref().map(|rules| {
+        open_skirmish_session(
+            &source,
+            chain,
+            rules,
+            map,
+            note.clone(),
+            preview_origin,
+            preferred_house,
+            &ensure_houses,
+            request.match_seed,
+        )
+    }) {
+        Some(Ok(mut opened)) => {
+            note = opened.note;
+            note = format!(
+                "{note} · player={} · difficulty={} · credits={} · seed={:#x} · houses={}",
+                request.player_name,
+                request.difficulty,
+                request.credits,
+                request.match_seed,
+                ensure_houses.join("+")
+            );
+            let game = opened.session.expect_battle_mut();
+            game.set_difficulty(request.difficulty.clone());
+            game.world.set_all_players_funds(request.credits);
+            tracing::info!(
+                "fingerprint edition={} map={} rules_hash={:#x} seed={:#x}",
+                opened.session.expect_battle().fingerprint.edition,
+                opened.session.expect_battle().fingerprint.map,
+                opened.session.expect_battle().fingerprint.rules_hash,
+                opened.session.expect_battle().match_seed
+            );
+            (Some(opened.engine), Some(opened.session))
+        }
+        Some(Err(e)) => {
+            note = format!("{note} · 会话未打开（{e}）");
+            (None, None)
+        }
+        None => (None, None),
+    };
 
     if session.as_ref().and_then(|s| s.battle()).is_some() {
         report(1.0, "完成");

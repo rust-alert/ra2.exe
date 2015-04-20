@@ -72,6 +72,8 @@ pub struct AlphaSkirmishSlice {
     pub ai_house: &'static str,
     /// 开局资金。
     pub starting_funds: i32,
+    /// 冻结随机种子（仅 headless / 自动化复现；产品大厅不钉死）。
+    pub match_seed: u64,
     /// 矿场每趟采矿入账。
     pub ore_income_per_trip: i32,
     /// 盟军 MCV 类型。
@@ -93,6 +95,7 @@ pub fn alpha_skirmish_v1() -> AlphaSkirmishSlice {
         human_house: "Americans",
         ai_house: "Russians",
         starting_funds: 10_000,
+        match_seed: 0xA1_0A_5EED_0000_0001,
         ore_income_per_trip: 700,
         allied_mcv: "AMCV",
         soviet_mcv: "SMCV",

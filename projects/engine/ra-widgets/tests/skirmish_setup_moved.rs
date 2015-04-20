@@ -44,12 +44,12 @@ fn side_face_click_opens_country_combo() {
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
     let list = SkirmishBootRequest::country_list_rect(&layout, 0);
-    // 第三项 Germans，避免与默认行 1（Russians）撞名。
+    // 第三项 Germans，避免与默认行 1（French）撞名。
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
     assert_eq!(s.side, "Germans");
     assert_eq!(s.row_side(0), "Germans");
-    assert_eq!(s.row_side(1), "Russians");
+    assert_eq!(s.row_side(1), "French");
     assert!(s.open_combo.is_none());
 }
 
@@ -75,7 +75,7 @@ fn ai_row_country_pick_does_not_change_local_side() {
     let layout = skirmish_lobby_layout(800, 600);
     let mut s = SkirmishBootRequest::default_lobby();
     assert_eq!(s.row_side(0), "Americans");
-    assert_eq!(s.row_side(1), "Russians");
+    assert_eq!(s.row_side(1), "French");
     let (ax, ay) = combo_arrow_point(layout.side_faces[1]);
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.combo_row, 1);
