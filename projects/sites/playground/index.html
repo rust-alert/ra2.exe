@@ -100,7 +100,7 @@
             <p>
                 浏览器产品面：自备正版安装文件，经
                 <code>@game-gpt/red-alert2/wasm</code>
-                摄入并挂载（支持散文件、安装目录或 zip 包）。画布经
+                摄入并挂载（支持散文件、安装目录或 zip 包；可用 OPFS 缓存）。画布经
                 <code>attachCanvas</code>
                 接 wgpu；对局环尚未接线。
             </p>
@@ -130,6 +130,9 @@
                 <button id="prepare" type="button">prepare</button>
                 <button id="clear" type="button">clear</button>
                 <button id="audio" type="button">resume audio</button>
+                <button id="saveCache" type="button">save OPFS</button>
+                <button id="restoreCache" type="button">restore OPFS</button>
+                <button id="clearCache" type="button">clear OPFS</button>
             </div>
             <pre id="log">boot…</pre>
         </main>
@@ -161,6 +164,9 @@
             const prepareEl = document.getElementById("prepare");
             const clearEl = document.getElementById("clear");
             const audioEl = document.getElementById("audio");
+            const saveCacheEl = document.getElementById("saveCache");
+            const restoreCacheEl = document.getElementById("restoreCache");
+            const clearCacheEl = document.getElementById("clearCache");
 
             const lines = [];
             const say = (s) => {
@@ -170,9 +176,74 @@
 
             /** @type {InstallSession | null} */
             let session = null;
+            /** @type {Map<string, { name: string, bytes: Uint8Array }>} */
+            const installBag = new Map();
             let presentReady = false;
             let resizeQueued = false;
             let rafId = 0;
+
+            function baseName(path) {
+                return String(path).split(/[/\\]/).pop() || String(path);
+            }
+
+            function rememberFile(path, bytes) {
+                const name = baseName(path);
+                installBag.set(name.toLowerCase(), { name, bytes });
+            }
+
+            function ingestTracked(path, bytes) {
+                if (!session) return;
+                session.ingestFile(path, bytes);
+                rememberFile(path, bytes);
+            }
+
+            async function opfsInstallDir(create = true) {
+                if (!navigator.storage || !navigator.storage.getDirectory) {
+                    throw new Error("OPFS unavailable in this browser");
+                }
+                const root = await navigator.storage.getDirectory();
+                return root.getDirectoryHandle("ra2-install", { create });
+            }
+
+            async function saveInstallToOpfs() {
+                const dir = await opfsInstallDir(true);
+                let n = 0;
+                for (const { name, bytes } of installBag.values()) {
+                    const handle = await dir.getFileHandle(name, { create: true });
+                    const writable = await handle.createWritable();
+                    await writable.write(bytes);
+                    await writable.close();
+                    n += 1;
+                }
+                return n;
+            }
+
+            async function restoreInstallFromOpfs() {
+                if (!session) return 0;
+                const dir = await opfsInstallDir(false);
+                let n = 0;
+                for await (const [name, handle] of dir.entries()) {
+                    if (handle.kind !== "file") continue;
+                    const file = await handle.getFile();
+                    const bytes = new Uint8Array(await file.arrayBuffer());
+                    ingestTracked(name, bytes);
+                    n += 1;
+                }
+                return n;
+            }
+
+            async function clearInstallOpfs() {
+                if (!navigator.storage || !navigator.storage.getDirectory) {
+                    throw new Error("OPFS unavailable in this browser");
+                }
+                const root = await navigator.storage.getDirectory();
+                try {
+                    await root.removeEntry("ra2-install", { recursive: true });
+                } catch (err) {
+                    if (err && err.name === "NotFoundError") return;
+                    throw err;
+                }
+            }
 
             function syncPresentSize(log = false) {
                 if (!presentReady || !supportsPresent()) return;
@@ -224,7 +295,7 @@
                 let n = 0;
                 for (const [path, data] of Object.entries(entries)) {
                     if (!data || path.endsWith("/")) continue;
-                    session.ingestFile(path, data);
+                    ingestTracked(path, data);
                     n += 1;
                 }
                 say(`unzip ${label}: ingested ${n} entries`);
@@ -241,7 +312,7 @@
                         await ingestZipBuffer(name, buf);
                         continue;
                     }
-                    session.ingestFile(name, buf);
+                    ingestTracked(name, buf);
                     say(`ingest ${name} (${buf.byteLength} bytes)`);
                 }
                 say(`fileCount=${session.fileCount()}`);
@@ -264,6 +335,13 @@
                 say(`audioReady=${audioReady()} state=${audioState()}`);
                 session = new InstallSession();
                 say("InstallSession ready — pick files, folder, or zip, then prepare");
+                try {
+                    const n = await restoreInstallFromOpfs();
+                    if (n > 0) say(`OPFS restored ${n} files → fileCount=${session.fileCount()}`);
+                    else say("OPFS install cache empty");
+                } catch (err) {
+                    say(`OPFS restore skipped: ${err instanceof Error ? err.message : String(err)}`);
+                }
             } catch (err) {
                 say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
             }
@@ -322,7 +400,8 @@
             clearEl.addEventListener("click", () => {
                 if (!session) return;
                 session.clear();
-                say("cleared");
+                installBag.clear();
+                say("cleared session bag");
                 say(`fileCount=${session.fileCount()}`);
             });
 
@@ -332,6 +411,38 @@
                     say(`resumeAudio → ${state} ready=${audioReady()}`);
                 } catch (err) {
                     say(`resumeAudio ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
+            });
+
+            saveCacheEl.addEventListener("click", async () => {
+                try {
+                    if (installBag.size === 0) {
+                        say("OPFS save skipped: bag empty");
+                        return;
+                    }
+                    const n = await saveInstallToOpfs();
+                    say(`OPFS saved ${n} files`);
+                } catch (err) {
+                    say(`OPFS save ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
+            });
+
+            restoreCacheEl.addEventListener("click", async () => {
+                if (!session) return;
+                try {
+                    const n = await restoreInstallFromOpfs();
+                    say(`OPFS restored ${n} files → fileCount=${session.fileCount()}`);
+                } catch (err) {
+                    say(`OPFS restore ERROR ${err instanceof Error ? err.message : String(err)}`);
+                }
+            });
+
+            clearCacheEl.addEventListener("click", async () => {
+                try {
+                    await clearInstallOpfs();
+                    say("OPFS install cache cleared");
+                } catch (err) {
+                    say(`OPFS clear ERROR ${err instanceof Error ? err.message : String(err)}`);
                 }
             });
         </script>
