@@ -337,7 +337,7 @@
                 say("InstallSession ready — pick files, folder, or zip, then prepare");
                 try {
                     const n = await restoreInstallFromOpfs();
-                    if (n > 0) say(`OPFS restored ${n} files → fileCount=${session.fileCount()}`);
+                    if (n > 0) say(`OPFS restored ${n} files → fileCount=${session.fileCount()} hasInstallInput=${session.hasInstallInput()}`);
                     else say("OPFS install cache empty");
                 } catch (err) {
                     say(`OPFS restore skipped: ${err instanceof Error ? err.message : String(err)}`);
@@ -388,6 +388,7 @@
                     say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
                     const progress = loadJobProgress();
                     say(`loadJob busy=${loadJobBusy()} ratio=${progress.ratio.toFixed(2)} stage=${progress.stage}`);
+                    say(`hasInstallInput=${session.hasInstallInput()} canBoot=${session.canBoot()}`);
                     for (const name of ["rules.ini", "art.ini", "ui.ini"]) {
                         const bytes = session.readLogical(name);
                         say(bytes ? `readLogical ${name}: ${bytes.length} bytes` : `readLogical ${name}: missing`);
