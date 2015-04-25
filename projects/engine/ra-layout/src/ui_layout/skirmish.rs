@@ -6,12 +6,6 @@ use crate::{
 };
 use ra_types::dialog_template_0x102;
 
-pub(super) fn dlu_rect(x: i32, y: i32, w: i32, h: i32) -> RectPx {
-    let r = crate::reference::DluRect::new(x, y, w, h)
-        .to_design_px(crate::reference::MS_SANS_SERIF_8PT);
-    RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
-}
-
 fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
     let Rect {
         x,
