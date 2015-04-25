@@ -8,8 +8,9 @@ use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, campaign_content_layout_tree, dialog_layout_tree, exit_confirm_layout,
-    main_menu_layout, right_rail_buttons_layout_tree, shell_design_size, window_to_shell_px,
+    RightPanelChrome, Viewport, campaign_content_layout_tree, dialog_layout_tree,
+    exit_confirm_content_layout_tree, right_rail_buttons_layout_tree, shell_design_size,
+    window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -543,25 +544,23 @@ fn hits_exit_confirm() -> Vec<MenuHit> {
     else {
         return Vec::new();
     };
-    let shell = main_menu_layout(0, 0);
-    let dlg = exit_confirm_layout(0, 0);
-    let bw = shell.canvas.w as f32;
-    let bh = shell.canvas.h as f32;
+    let snap = exit_confirm_snapshot();
+    let chrome = RightPanelChrome::shell_defaults();
+    let bw = chrome.shell_w;
+    let bh = chrome.shell_h;
     EXIT_CONFIRM_BUTTON_IDS
         .iter()
-        .enumerate()
-        .filter_map(|(i, id)| {
+        .filter_map(|id| {
             let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let cell = dlg.buttons[i];
-            Some(MenuHit {
-                entry_id: btn.entry_id,
-                action: btn.action,
-                x0: cell.x as f32 / bw,
-                y0: cell.y as f32 / bh,
-                x1: (cell.x + cell.w) as f32 / bw,
-                y1: (cell.y + cell.h) as f32 / bh,
-                enabled: btn.enabled,
-            })
+            let el = snap.get(id)?;
+            Some(menu_hit_from_rect(
+                btn.entry_id,
+                btn.action,
+                el.layout.rect,
+                bw,
+                bh,
+                btn.enabled,
+            ))
         })
         .collect()
 }
@@ -571,11 +570,12 @@ fn hit_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> 
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let dlg = exit_confirm_layout(0, 0);
-    let Some(page) = slots_for(OriginalScreen::ExitConfirm)
-    else {
-        return None;
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
     };
+    let snap = exit_confirm_snapshot();
+    let page = slots_for(OriginalScreen::ExitConfirm)?;
     for (i, id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
         let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
         else {
@@ -584,7 +584,11 @@ fn hit_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> 
         if !btn.enabled {
             continue;
         }
-        if dlg.buttons[i].contains(sx, sy) {
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
             return Some((i, btn.action));
         }
     }
@@ -596,13 +600,28 @@ fn hover_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let dlg = exit_confirm_layout(0, 0);
-    for (i, _) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
-        if dlg.buttons[i].contains(sx, sy) {
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = exit_confirm_snapshot();
+    for (i, id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
             return Some(i);
         }
     }
     None
+}
+
+fn exit_confirm_snapshot() -> LayoutSnapshot {
+    let chrome = RightPanelChrome::shell_defaults();
+    LayoutEngine.solve(
+        Viewport {
+            size: shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &exit_confirm_content_layout_tree(chrome),
+    )
 }
 
 fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
