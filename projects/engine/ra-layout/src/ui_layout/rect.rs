@@ -1,6 +1,8 @@
 //! 壳层像素矩形。
 
+use crate::{geometry::Rect, snapshot::LayoutSnapshot};
 
+/// 壳层像素矩形。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RectPx {
     /// 左。
@@ -23,4 +25,15 @@ impl RectPx {
     pub fn contains(self, px: i32, py: i32) -> bool {
         px >= self.x && py >= self.y && px < self.x + self.w && py < self.y + self.h
     }
+}
+
+/// 从 `LayoutSnapshot` 取整数像素矩形（缺省为零矩形）。
+pub(super) fn rect_px_from_snapshot(snap: &LayoutSnapshot, id: &str) -> RectPx {
+    let Rect {
+        x,
+        y,
+        width,
+        height,
+    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
+    RectPx::new(x as i32, y as i32, width as i32, height as i32)
 }

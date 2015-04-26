@@ -1,20 +1,8 @@
 //! 遭遇战大厅布局。
 
 use super::*;
-use crate::{
-    dialog_layout_tree, LayoutEngine, LayoutSnapshot, Rect, RightPanelChrome, Viewport,
-};
+use crate::{dialog_layout_tree, LayoutEngine, RightPanelChrome, Viewport};
 use ra_types::dialog_template_0x102;
-
-fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
-    let Rect {
-        x,
-        y,
-        width,
-        height,
-    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
-    RectPx::new(x as i32, y as i32, width as i32, height as i32)
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SkirmishLobbyLayout {
@@ -71,9 +59,9 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
         &dialog_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome),
     );
     shell.buttons = [
-        rect_px(&snap, "start"),
-        rect_px(&snap, "choose_map"),
-        rect_px(&snap, "back"),
+        rect_px_from_snapshot(&snap, "start"),
+        rect_px_from_snapshot(&snap, "choose_map"),
+        rect_px_from_snapshot(&snap, "back"),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
@@ -84,39 +72,39 @@ pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyL
     let mut color_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
     let mut ai_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_AI_ROW_COUNT];
     for i in 0..SKIRMISH_ROW_COUNT {
-        flags[i] = rect_px(&snap, &format!("flag_{i}"));
-        side_faces[i] = rect_px(&snap, &format!("side_face_{i}"));
-        color_faces[i] = rect_px(&snap, &format!("color_face_{i}"));
+        flags[i] = rect_px_from_snapshot(&snap, &format!("flag_{i}"));
+        side_faces[i] = rect_px_from_snapshot(&snap, &format!("side_face_{i}"));
+        color_faces[i] = rect_px_from_snapshot(&snap, &format!("color_face_{i}"));
     }
     for i in 0..SKIRMISH_AI_ROW_COUNT {
-        ai_faces[i] = rect_px(&snap, &format!("ai_face_{i}"));
+        ai_faces[i] = rect_px_from_snapshot(&snap, &format!("ai_face_{i}"));
     }
 
     SkirmishLobbyLayout {
         shell,
-        map_preview: rect_px(&snap, "map_preview"),
-        title: rect_px(&snap, "title"),
-        map_name_plate: rect_px(&snap, "map_name_plate"),
-        game_type: rect_px(&snap, "game_type"),
-        map_label: rect_px(&snap, "map_label"),
-        player_name: rect_px(&snap, "player_name"),
+        map_preview: rect_px_from_snapshot(&snap, "map_preview"),
+        title: rect_px_from_snapshot(&snap, "title"),
+        map_name_plate: rect_px_from_snapshot(&snap, "map_name_plate"),
+        game_type: rect_px_from_snapshot(&snap, "game_type"),
+        map_label: rect_px_from_snapshot(&snap, "map_label"),
+        player_name: rect_px_from_snapshot(&snap, "player_name"),
         flags,
         side_faces,
         color_faces,
         ai_faces,
         checkboxes: [
-            rect_px(&snap, "checkbox_quick"),
-            rect_px(&snap, "checkbox_1"),
-            rect_px(&snap, "checkbox_2"),
-            rect_px(&snap, "checkbox_3"),
-            rect_px(&snap, "checkbox_4"),
+            rect_px_from_snapshot(&snap, "checkbox_quick"),
+            rect_px_from_snapshot(&snap, "checkbox_1"),
+            rect_px_from_snapshot(&snap, "checkbox_2"),
+            rect_px_from_snapshot(&snap, "checkbox_3"),
+            rect_px_from_snapshot(&snap, "checkbox_4"),
         ],
-        track_speed: rect_px(&snap, "track_speed"),
-        track_credits: rect_px(&snap, "track_credits"),
-        track_units: rect_px(&snap, "track_units"),
-        label_speed: rect_px(&snap, "label_speed"),
-        label_credits: rect_px(&snap, "label_credits"),
-        label_units: rect_px(&snap, "label_units"),
-        status_help: rect_px(&snap, "status_help"),
+        track_speed: rect_px_from_snapshot(&snap, "track_speed"),
+        track_credits: rect_px_from_snapshot(&snap, "track_credits"),
+        track_units: rect_px_from_snapshot(&snap, "track_units"),
+        label_speed: rect_px_from_snapshot(&snap, "label_speed"),
+        label_credits: rect_px_from_snapshot(&snap, "label_credits"),
+        label_units: rect_px_from_snapshot(&snap, "label_units"),
+        status_help: rect_px_from_snapshot(&snap, "status_help"),
     }
 }

@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::{
-    campaign_content_layout_tree, LayoutEngine, LayoutSnapshot, Rect, RightPanelChrome, Viewport,
+    campaign_content_layout_tree, LayoutEngine, RightPanelChrome, Viewport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,16 +27,6 @@ pub struct CampaignLayout {
     pub status_help: RectPx,
 }
 
-fn rect_px(snap: &LayoutSnapshot, id: &str) -> RectPx {
-    let Rect {
-        x,
-        y,
-        width,
-        height,
-    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
-    RectPx::new(x as i32, y as i32, width as i32, height as i32)
-}
-
 /// 战役页布局（800×600；交互几何来自 `campaign_content_layout_tree`）。
 pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     let mut shell = main_menu_layout(viewport_w, viewport_h);
@@ -48,7 +38,7 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
         },
         &campaign_content_layout_tree(chrome),
     );
-    let back = rect_px(&snap, CAMPAIGN_BUTTON_IDS[0]);
+    let back = rect_px_from_snapshot(&snap, CAMPAIGN_BUTTON_IDS[0]);
     shell.buttons = [
         back,
         RectPx::new(0, 0, 0, 0),
@@ -60,12 +50,12 @@ pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
     CampaignLayout {
         shell,
         title: shell.title,
-        allied: rect_px(&snap, CAMPAIGN_SIDE_IDS[0]),
-        tutorial: rect_px(&snap, CAMPAIGN_SIDE_IDS[1]),
-        soviet: rect_px(&snap, CAMPAIGN_SIDE_IDS[2]),
-        difficulty_label: rect_px(&snap, "difficulty_label"),
-        difficulty_value: rect_px(&snap, "difficulty_value"),
-        difficulty_track: rect_px(&snap, "difficulty"),
+        allied: rect_px_from_snapshot(&snap, CAMPAIGN_SIDE_IDS[0]),
+        tutorial: rect_px_from_snapshot(&snap, CAMPAIGN_SIDE_IDS[1]),
+        soviet: rect_px_from_snapshot(&snap, CAMPAIGN_SIDE_IDS[2]),
+        difficulty_label: rect_px_from_snapshot(&snap, "difficulty_label"),
+        difficulty_value: rect_px_from_snapshot(&snap, "difficulty_value"),
+        difficulty_track: rect_px_from_snapshot(&snap, "difficulty"),
         status_help: shell.tooltip,
     }
 }
