@@ -1,7 +1,9 @@
 //! 主菜单 / 单人 / 选项右栏布局。
 
 use super::*;
-
+use crate::{
+    right_rail_buttons_layout_tree, LayoutEngine, RightPanelChrome, Viewport,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MainMenuLayout {
@@ -34,10 +36,34 @@ pub(super) fn button_cell(panel_x: i32, y: i32) -> RectPx {
     RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
 }
 
+fn right_rail_buttons(
+    root_id: &str,
+    stacked_ids: &[&str],
+    bottom_id: Option<&str>,
+) -> Vec<RectPx> {
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &right_rail_buttons_layout_tree(root_id, stacked_ids, bottom_id, chrome),
+    );
+    let mut out = Vec::with_capacity(stacked_ids.len() + bottom_id.is_some() as usize);
+    for id in stacked_ids {
+        out.push(rect_px_from_snapshot(&snap, id));
+    }
+    if let Some(id) = bottom_id {
+        out.push(rect_px_from_snapshot(&snap, id));
+    }
+    out
+}
+
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
 /// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，Exit 贴底盖上沿一行
 /// （对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前五项占连续平铺格。
+/// 右栏按钮几何来自 `right_rail_buttons_layout_tree`。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
@@ -51,15 +77,12 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let movie_w = panel_x;
     let movie_h = 570;
     let lower_strip = RectPx::new(0, SHELL_BASE_H - LOWER_STRIP_H, movie_w, LOWER_STRIP_H);
-    let exit_y = panel_bottom.y - BUTTON_CELL_H;
-    let buttons = [
-        button_cell(panel_x, tile.y),
-        button_cell(panel_x, tile.y + BUTTON_CELL_H),
-        button_cell(panel_x, tile.y + 2 * BUTTON_CELL_H),
-        button_cell(panel_x, tile.y + 3 * BUTTON_CELL_H),
-        button_cell(panel_x, tile.y + 4 * BUTTON_CELL_H),
-        button_cell(panel_x, exit_y),
-    ];
+    let rail = right_rail_buttons(
+        "main_menu",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
+    );
+    let buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
     // 原版标题：兼容宽 163×18，侧栏内 inset，顶盖下 y=9。
     let title = RectPx::new(panel_x + 3, 9, 163, 18);
     // 原版提示：底边上方 1px，左 inset 10，宽 455、高 20。
@@ -80,35 +103,38 @@ pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     }
 }
 
-pub(super) fn four_stack_plus_exit(panel_x: i32, tile_y: i32, exit_y: i32) -> [RectPx; 4] {
-    [
-        button_cell(panel_x, tile_y),
-        button_cell(panel_x, tile_y + BUTTON_CELL_H),
-        button_cell(panel_x, tile_y + 2 * BUTTON_CELL_H),
-        button_cell(panel_x, exit_y),
-    ]
-}
-
 /// 单人页：前三连格 + 返回贴底盖（与主菜单 Exit 同锚点）。
 pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
     let mut layout = main_menu_layout(viewport_w, viewport_h);
-    let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
-    let four = four_stack_plus_exit(layout.panel_top.x, layout.panel_tile.y, exit_y);
+    let rail = right_rail_buttons(
+        "single_player",
+        &SINGLE_PLAYER_BUTTON_IDS[..3],
+        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
+    );
     // 合成/命中仍读 `buttons[0..4]`；多出的两格不参与单人页。
-    layout.buttons = [four[0], four[1], four[2], four[3], RectPx::new(0, 0, 0, 0), RectPx::new(0, 0, 0, 0)];
+    layout.buttons = [
+        rail[0],
+        rail[1],
+        rail[2],
+        rail[3],
+        RectPx::new(0, 0, 0, 0),
+        RectPx::new(0, 0, 0, 0),
+    ];
     layout
 }
 
 /// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
 pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
     let mut layout = main_menu_layout(viewport_w, viewport_h);
-    let exit_y = layout.panel_bottom.y - BUTTON_CELL_H;
-    let panel_x = layout.panel_top.x;
-    let tile_y = layout.panel_tile.y;
+    let rail = right_rail_buttons(
+        "options",
+        &OPTIONS_BUTTON_IDS[..2],
+        Some(OPTIONS_BUTTON_IDS[2]),
+    );
     layout.buttons = [
-        button_cell(panel_x, tile_y),
-        button_cell(panel_x, tile_y + BUTTON_CELL_H),
-        button_cell(panel_x, exit_y),
+        rail[0],
+        rail[1],
+        rail[2],
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
         RectPx::new(0, 0, 0, 0),
