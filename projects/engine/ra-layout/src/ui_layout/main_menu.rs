@@ -31,12 +31,7 @@ pub struct MainMenuLayout {
     pub buttons: [RectPx; 6],
 }
 
-pub(super) fn button_cell(panel_x: i32, y: i32) -> RectPx {
-    let x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-    RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
-}
-
-fn right_rail_buttons(
+pub(super) fn right_rail_buttons(
     root_id: &str,
     stacked_ids: &[&str],
     bottom_id: Option<&str>,
