@@ -1,0 +1,98 @@
+//! 遭遇战开局：席位航点放置 MCV。
+
+use ra_adaptor::{ResourceChain, RulesDb};
+use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::open_skirmish_session;
+use ra_map::{MapInfo, Waypoint};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+
+fn mcv_rules() -> RulesDb {
+    let rules = IniDocument::parse(
+        b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
+[BuildingTypes]\n0=GACNST\n1=NACNST\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",
+    )
+    .expect("测试 INI 必须有效");
+    RulesDb {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    }
+}
+
+fn map_with_starts() -> MapInfo {
+    let mut map = MapInfo::empty(GameEdition::Ra2, "starts");
+    map.width = 32;
+    map.height = 32;
+    map.waypoints = vec![
+        Waypoint { index: 0, x: 4, y: 4 },
+        Waypoint { index: 1, x: 20, y: 20 },
+    ];
+    map
+}
+
+struct RulesBytesSource;
+impl AssetSource for RulesBytesSource {
+    fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
+        let chain = ResourceChain::for_edition(GameEdition::Ra2);
+        if relative.eq_ignore_ascii_case(chain.rules_ini) {
+            Ok(b"[General]\n".to_vec())
+        } else {
+            Err(RaError::MissingFile(relative.to_string()))
+        }
+    }
+}
+
+#[test]
+fn open_skirmish_places_mcv_at_seat_waypoints() {
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let opened = open_skirmish_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map_with_starts(),
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans", "Russians"],
+        0,
+    )
+    .expect("应成功开局");
+    let snap = opened.session.expect_battle().snapshot(&[]);
+    let units: Vec<_> = snap
+        .units
+        .iter()
+        .filter(|u| matches!(u.type_id.as_ref(), "AMCV" | "SMCV"))
+        .map(|u| (u.owner.as_ref().to_string(), u.type_id.as_ref().to_string(), u.x, u.y))
+        .collect();
+    assert!(units.contains(&("Americans".into(), "AMCV".into(), 4, 4)), "{units:?}");
+    assert!(units.contains(&("Russians".into(), "SMCV".into(), 20, 20)), "{units:?}");
+}
+
+#[test]
+fn open_skirmish_fails_when_start_waypoint_missing() {
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let mut map = map_with_starts();
+    map.waypoints.retain(|w| w.index == 0);
+    let err = open_skirmish_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans", "Russians"],
+        0,
+    )
+    .unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("航点") || msg.contains("席位"), "{msg}");
+}

@@ -12,4 +12,5 @@ mod schedule;
 mod session;
 mod session_validate;
 mod skirmish_fingerprint;
+mod skirmish_starts;
 mod victory_structures;

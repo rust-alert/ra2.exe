@@ -68,3 +68,28 @@ pub(crate) fn owner_allows(owner_field: &str, house: &str) -> bool {
     }
     owner_field.split(|c| c == ',' || c == ';' || c == '|').map(str::trim).any(|p| p.eq_ignore_ascii_case(house))
 }
+
+/// 为遭遇战开局席位挑选该 house 可用的 MCV 类型键。
+///
+/// 条件：`Vehicle` + `DeploysInto` 建造场 + `Owner` 允许该 house。多候选时按类型键排序取稳定第一项。
+pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, house: &str) -> Option<&'a str> {
+    let mut keys: Vec<&str> = defs
+        .deployables
+        .iter()
+        .filter_map(|d| {
+            let techno = defs.techno.get(&d.source_key)?;
+            if techno.class != TechnoClass::Vehicle {
+                return None;
+            }
+            if !is_construction_yard(defs, &d.target_key) {
+                return None;
+            }
+            if !owner_allows(&techno.owner, house) {
+                return None;
+            }
+            Some(d.source_key.as_str())
+        })
+        .collect();
+    keys.sort_unstable();
+    keys.first().copied()
+}

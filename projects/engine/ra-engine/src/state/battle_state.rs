@@ -4,7 +4,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use ra_adaptor::{RulesDb, build_runtime_definitions};
 use ra_assets::TechnoKind;
-use ra_map::{MapInfo, PassGrid};
+use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass, Tick};
 
 use super::{
@@ -801,6 +801,90 @@ impl BattleState {
             }
         }
         self.rehash();
+    }
+
+    /// 在指定格生成单位（遭遇战开局等）。格子越界、不可走或已被存活实体占用时失败。
+    pub fn spawn_unit_at(&mut self, house: &str, type_id: &str, x: u16, y: u16) -> Result<EntityId, String> {
+        if !self.pass_grid.in_bounds(x, y) {
+            return Err(format!("生成格越界: ({x},{y}) type={type_id} house={house}"));
+        }
+        if !self.pass_grid.is_passable(x, y) {
+            return Err(format!("生成格不可走: ({x},{y}) type={type_id} house={house}"));
+        }
+        if self.living_at_cell(x, y) {
+            return Err(format!("生成格已被占用: ({x},{y}) type={type_id} house={house}"));
+        }
+        let type_key = type_id.to_ascii_uppercase();
+        let Some(tt) = self.definitions.techno.get(&type_key)
+        else {
+            return Err(format!("未知单位类型: {type_key}"));
+        };
+        if tt.class == TechnoClass::Building {
+            return Err(format!("spawn_unit_at 不接受建筑类型: {type_key}"));
+        }
+        let max_health = tt.strength.max(1);
+        let speed = tt.speed;
+        let armor = tt.armor.clone();
+        let warhead = tt.warhead.clone();
+        let class = tt.class;
+        let attack_range = if tt.range > 0 { tt.range } else { tt.sight.max(1) };
+        let attack_damage = if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) };
+        let attack_cooldown_max = if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS };
+        let attack_verses = verses_for(&self.definitions, &warhead);
+        let id = self.alloc_entity_id();
+        let kind = match class {
+            TechnoClass::Infantry => MapEntityKind::Infantry,
+            TechnoClass::Vehicle => MapEntityKind::Unit,
+            TechnoClass::Aircraft => MapEntityKind::Aircraft,
+            TechnoClass::Building => MapEntityKind::Structure,
+        };
+        self.spawn_from_bundle(EntitySpawnBundle {
+            identity: Identity {
+                entity_id: id,
+                type_id: Arc::<str>::from(type_key),
+                kind,
+            },
+            owner: Owner { house: Arc::<str>::from(house) },
+            transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
+            health: Health { current: max_health, maximum: max_health, dead: false },
+            locomotor: Locomotor { speed },
+            movement: MovementState {
+                destination_x: None,
+                destination_y: None,
+                path: Vec::new(),
+                move_accum: 0,
+            },
+            combat: CombatStats {
+                armor,
+                attack_range,
+                attack_damage,
+                attack_cooldown_max,
+                attack_verses,
+                techno_kind: Some(techno_class_to_kind(class)),
+            },
+            attack: AttackState { target: None, cooldown: 0 },
+            production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+            harvester: HarvesterState { ore_trip_accum: 0 },
+            animation: AnimationState { hva_frame: 0, hit_flash: 0 },
+        });
+        self.mark_entity_dirty(id);
+        if let Some(index) = self.entity_index(id) {
+            self.repath_entity_at(index);
+        }
+        self.rehash();
+        Ok(id)
+    }
+
+    fn living_at_cell(&self, x: u16, y: u16) -> bool {
+        use crate::state::components::{Health, Transform};
+
+        self.entities.iter().any(|e| {
+            let dead = self.ecs_get::<Health>(e.id).map(|h| h.dead).unwrap_or(true);
+            if dead {
+                return false;
+            }
+            self.ecs_get::<Transform>(e.id).is_some_and(|t| t.x == x && t.y == y)
+        })
     }
 }
 

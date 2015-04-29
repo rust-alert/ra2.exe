@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesDb};
-use ra_map::{MapInfo, seal_pass_grid_from_tmp};
+use ra_map::{MapInfo, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
 use crate::{
     engine::{Engine, EngineConfig},
     game::BattleSession,
+    gameplay::starting_mcv_type_for_house,
     session::Session,
     state::BattleState,
 };
@@ -28,6 +29,7 @@ pub struct SkirmishOpenResult {
 ///
 /// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
 /// - `ensure_houses` 中的阵营一律登记进玩家表（遭遇战对手不一定出现在地图放置段）。
+/// - 每个 `ensure_houses[slot]` 在地图航点 `slot` 放置该 house 的开局 MCV；航点缺失或格子非法时失败。
 /// - `match_seed` 混入对局指纹，供后续确定性 RNG 使用。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
@@ -66,6 +68,12 @@ pub fn open_skirmish_session(
     if land_sealed > 0 {
         state.repath_mobiles();
     }
+
+    let starts = seed_skirmish_starts_at_waypoints(&mut state, ensure_houses)?;
+    if !starts.is_empty() {
+        note = format!("{note} · starts=[{starts}]");
+    }
+
     note = format!(
         "{note} · world_entities#{} bound#{} blocked#{} land#{} defs_struct#{} deploy#{}",
         state.entities.len(),
@@ -100,4 +108,28 @@ pub fn open_skirmish_session(
     session.attach_battle(game);
 
     Ok(SkirmishOpenResult { engine, session, note })
+}
+
+/// 按大厅席位顺序，在地图航点放置各 house 的开局 MCV。
+fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -> RaResult<String> {
+    let mut parts = Vec::new();
+    for (slot, house) in houses.iter().enumerate() {
+        if house.is_empty() {
+            continue;
+        }
+        let slot = slot as u32;
+        let Some(wp) = skirmish_start_waypoint(&state.map.waypoints, slot)
+        else {
+            return Err(ra_types::RaError::Msg(format!("开局席位 {slot} 缺少地图航点（house={house}）")));
+        };
+        let Some(mcv) = starting_mcv_type_for_house(&state.definitions, house).map(str::to_owned)
+        else {
+            return Err(ra_types::RaError::Msg(format!(
+                "阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）"
+            )));
+        };
+        let id = state.spawn_unit_at(house, &mcv, wp.x, wp.y).map_err(ra_types::RaError::Msg)?;
+        parts.push(format!("{house}@{slot}:({},{})={mcv}#{:?}", wp.x, wp.y, id));
+    }
+    Ok(parts.join(" "))
 }
