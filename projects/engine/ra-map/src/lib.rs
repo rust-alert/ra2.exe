@@ -58,7 +58,7 @@ pub use theater::{
 };
 pub use tileset::{TilesetLookup, parse_tileset_ini};
 pub use tmp_pass::seal_pass_grid_from_tmp;
-pub use waypoints::{Waypoint, parse_waypoints};
+pub use waypoints::{Waypoint, parse_waypoints, skirmish_start_waypoint};
 
 /// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置 / 航点）。
 #[derive(Debug, Clone)]
