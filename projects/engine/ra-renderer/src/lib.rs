@@ -37,6 +37,8 @@ use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteG
 
 /// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
+/// 相机中心夹紧边界。
+pub use crate::camera::CameraBounds;
 /// 帧构建器（投影 → `RenderWorld`）。
 pub use crate::frame::FrameBuilder;
 /// 表面 sRGB → unorm 视图格式列表。
@@ -319,9 +321,35 @@ impl Renderer {
         self.camera.pan_screen(dx, dy);
     }
 
+    /// 平移视口并夹到当前地图预览边界（小图居中，大图不可拖出黑边）。
+    pub fn pan_clamped(&mut self, dx: f32, dy: f32) {
+        let Some(bounds) = self.camera_bounds()
+        else {
+            self.camera.pan_screen(dx, dy);
+            return;
+        };
+        self.camera.pan_clamped(dx, dy, &bounds);
+    }
+
     /// 相对缩放视口，`factor` 大于 1 为放大。
     pub fn zoom_by(&mut self, factor: f32) {
         self.camera.zoom_by(factor);
+        if let Some(bounds) = self.camera_bounds() {
+            self.camera.clamp_to_bounds(&bounds);
+        }
+    }
+
+    /// 当前预览世界与表面尺寸下的相机边界；无预览或未绑定 GPU 时为 `None`。
+    pub fn camera_bounds(&self) -> Option<CameraBounds> {
+        let preview = self.preview.as_ref()?;
+        let gpu = self.gpu.as_ref()?;
+        Some(crate::camera::CameraBounds::from_world_and_viewport(
+            preview.width() as f32,
+            preview.height() as f32,
+            gpu.config.width.max(1) as f32,
+            gpu.config.height.max(1) as f32,
+            self.camera.zoom,
+        ))
     }
 
     fn reset_camera_to_fit(&mut self, screen_w: u32, screen_h: u32, image_w: u32, image_h: u32) {
