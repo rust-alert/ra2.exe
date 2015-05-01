@@ -273,21 +273,14 @@ impl BattleController {
                         let dx = (position.x - lx) as f32;
                         let dy = (position.y - ly) as f32;
                         self.drag_distance += (dx * dx + dy * dy).sqrt();
-                        renderer.pan_screen(dx, dy);
+                        renderer.pan_clamped(dx, dy);
                     }
                     self.drag_last = Some((position.x, position.y));
                 }
                 BattleNav::None
             }
-            WindowEvent::MouseWheel { delta, .. } => {
-                let steps = match delta {
-                    MouseScrollDelta::LineDelta(_, y) => *y,
-                    MouseScrollDelta::PixelDelta(p) => p.y as f32 / 40.0,
-                };
-                if steps != 0.0 {
-                    let factor = if steps > 0.0 { 1.1_f32 } else { 1.0 / 1.1 };
-                    renderer.zoom_by(factor.powf(steps.abs()));
-                }
+            WindowEvent::MouseWheel { .. } => {
+                // 可玩阶段关闭滚轮缩放，避免越界黑边与选点变换漂移。
                 BattleNav::None
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -359,29 +352,23 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
-                        renderer.pan_screen(48.0, 0.0);
+                        renderer.pan_clamped(48.0, 0.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => {
-                        renderer.pan_screen(-48.0, 0.0);
+                        renderer.pan_clamped(-48.0, 0.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => {
-                        renderer.pan_screen(0.0, 48.0);
+                        renderer.pan_clamped(0.0, 48.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => {
-                        renderer.pan_screen(0.0, -48.0);
+                        renderer.pan_clamped(0.0, -48.0);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => {
-                        renderer.zoom_by(1.1);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => {
-                        renderer.zoom_by(1.0 / 1.1);
-                        BattleNav::None
-                    }
+                    PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,
+                    PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Tab) => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             self.local.cycle_selection(game);
