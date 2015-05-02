@@ -50,11 +50,15 @@ impl RightPanelChrome {
         self.panel_x() + (self.panel_w - self.button_w)
     }
 
+    /// 平铺条数（顶盖以下按 `tile_h` 整除，上限 9）。
+    pub fn tile_count(self) -> i32 {
+        let remaining = (self.shell_h - self.panel_top_h).max(0.0);
+        (remaining / self.tile_h).floor().clamp(0.0, 9.0) as i32
+    }
+
     /// 底盖顶边 Y（顶盖以下按 tile 整除后的余数区上沿）。
     pub fn panel_bottom_y(self) -> f32 {
-        let remaining = (self.shell_h - self.panel_top_h).max(0.0);
-        let tile_count = (remaining / self.tile_h).floor().clamp(0.0, 9.0);
-        self.tile_y() + tile_count * self.tile_h
+        self.tile_y() + self.tile_count() as f32 * self.tile_h
     }
 }
 

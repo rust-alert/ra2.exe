@@ -7,6 +7,65 @@ use crate::{
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
 
+/// 壳层底装饰条高（`lwscrnl`）。
+const LOWER_STRIP_H: f32 = 32.0;
+/// 影片 / 背景区高（原版 `ra2ts_l` 可视高）。
+const MOVIE_H: f32 = 570.0;
+/// 右栏顶盖内页标题（兼容宽）。
+const TITLE_W: f32 = 163.0;
+const TITLE_H: f32 = 18.0;
+const TITLE_INSET_X: f32 = 3.0;
+const TITLE_Y: f32 = 9.0;
+/// 左下角悬停提示行。
+const TOOLTIP_X: f32 = 10.0;
+const TOOLTIP_W: f32 = 455.0;
+const TOOLTIP_H: f32 = 20.0;
+const TOOLTIP_BOTTOM_GAP: f32 = 1.0;
+
+/// 壳层共享 chrome（面板条带、影片区、标题、提示），不含页面按钮。
+pub fn shell_chrome_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+    let panel_x = chrome.panel_x();
+    let movie_w = panel_x;
+    let bottom_y = chrome.panel_bottom_y();
+    let children = vec![
+        fixed_rect_leaf(
+            "panel_top",
+            Rect::from_xywh(panel_x, 0.0, chrome.panel_w, chrome.panel_top_h),
+        ),
+        fixed_rect_leaf(
+            "panel_tile",
+            Rect::from_xywh(panel_x, chrome.tile_y(), chrome.panel_w, chrome.tile_h),
+        ),
+        fixed_rect_leaf(
+            "panel_bottom",
+            Rect::from_xywh(panel_x, bottom_y, chrome.panel_w, chrome.shell_h - bottom_y),
+        ),
+        fixed_rect_leaf(
+            "background",
+            Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H),
+        ),
+        fixed_rect_leaf("movie", Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H)),
+        fixed_rect_leaf(
+            "lower_strip",
+            Rect::from_xywh(0.0, chrome.shell_h - LOWER_STRIP_H, movie_w, LOWER_STRIP_H),
+        ),
+        fixed_rect_leaf(
+            "title",
+            Rect::from_xywh(panel_x + TITLE_INSET_X, TITLE_Y, TITLE_W, TITLE_H),
+        ),
+        fixed_rect_leaf(
+            "tooltip",
+            Rect::from_xywh(
+                TOOLTIP_X,
+                chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP,
+                TOOLTIP_W,
+                TOOLTIP_H,
+            ),
+        ),
+    ];
+    root_with_fixed_children("shell_chrome", shell_design_size(chrome), children)
+}
+
 /// 右栏连续平铺格 + 可选贴底盖按钮。
 ///
 /// `stacked_ids` 从 tile 0 起依次占格；`bottom_id` 若有则贴底盖上沿。
@@ -36,6 +95,36 @@ pub fn right_rail_buttons_layout_tree(
 mod tests {
     use super::*;
     use crate::{LayoutEngine, Viewport};
+
+    #[test]
+    fn shell_chrome_matches_ui_layout_main_menu_chrome() {
+        let chrome = RightPanelChrome::shell_defaults();
+        let snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &shell_chrome_layout_tree(chrome),
+        );
+        let legacy = crate::ui_layout::main_menu_layout(800, 600);
+        for (id, cell) in [
+            ("panel_top", legacy.panel_top),
+            ("panel_tile", legacy.panel_tile),
+            ("panel_bottom", legacy.panel_bottom),
+            ("background", legacy.background),
+            ("movie", legacy.movie),
+            ("lower_strip", legacy.lower_strip),
+            ("title", legacy.title),
+            ("tooltip", legacy.tooltip),
+        ] {
+            let got = snap.get(id).expect(id).layout.rect;
+            assert_eq!(got.x as i32, cell.x, "{id} x");
+            assert_eq!(got.y as i32, cell.y, "{id} y");
+            assert_eq!(got.width as i32, cell.w, "{id} w");
+            assert_eq!(got.height as i32, cell.h, "{id} h");
+        }
+        assert_eq!(chrome.tile_count(), legacy.panel_tile_count);
+    }
 
     #[test]
     fn main_menu_style_stack_matches_ui_layout_buttons() {
