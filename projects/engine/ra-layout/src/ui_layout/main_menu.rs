@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::{
-    right_rail_buttons_layout_tree, LayoutEngine, RightPanelChrome, Viewport,
+    right_rail_buttons_layout_tree, shell_chrome_layout_tree, LayoutEngine, LayoutSnapshot,
+    RightPanelChrome, Viewport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +32,18 @@ pub struct MainMenuLayout {
     pub buttons: [RectPx; 6],
 }
 
+fn shell_chrome_snapshot() -> (RightPanelChrome, LayoutSnapshot) {
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &shell_chrome_layout_tree(chrome),
+    );
+    (chrome, snap)
+}
+
 pub(super) fn right_rail_buttons(
     root_id: &str,
     stacked_ids: &[&str],
@@ -56,44 +69,27 @@ pub(super) fn right_rail_buttons(
 
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
-/// 右侧底盖高度取「顶盖以下剩余高度按 42 整除后的余数」，Exit 贴底盖上沿一行
-/// （对齐原版 0xE2 `OwnerDrawButtonBottomRow`），前五项占连续平铺格。
-/// 右栏按钮几何来自 `right_rail_buttons_layout_tree`。
+/// chrome 与右栏按钮均投影自 `LayoutSnapshot`（`shell_chrome_layout_tree` /
+/// `right_rail_buttons_layout_tree`）。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
-    let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
-    let panel_top = RectPx::new(panel_x, 0, RIGHT_PANEL_W, RIGHT_PANEL_TOP_H);
-    let tile = RectPx::new(panel_x, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, RIGHT_PANEL_TILE_H);
-    let remaining = (SHELL_BASE_H - RIGHT_PANEL_TOP_H).max(0);
-    let tile_count = (remaining / RIGHT_PANEL_TILE_H).clamp(0, 9);
-    let bottom_y = tile.y + tile_count * RIGHT_PANEL_TILE_H;
-    let panel_bottom = RectPx::new(panel_x, bottom_y, RIGHT_PANEL_W, SHELL_BASE_H - bottom_y);
-    // 原版 `ra2ts_l` 为 632×570；底条 `lwscrnl` 高 32 贴底，与影片下沿重叠 2px。
-    let movie_w = panel_x;
-    let movie_h = 570;
-    let lower_strip = RectPx::new(0, SHELL_BASE_H - LOWER_STRIP_H, movie_w, LOWER_STRIP_H);
+    let (chrome, chrome_snap) = shell_chrome_snapshot();
     let rail = right_rail_buttons(
         "main_menu",
         &MAIN_MENU_BUTTON_IDS[..5],
         Some(MAIN_MENU_BUTTON_IDS[5]),
     );
     let buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
-    // 原版标题：兼容宽 163×18，侧栏内 inset，顶盖下 y=9。
-    let title = RectPx::new(panel_x + 3, 9, 163, 18);
-    // 原版提示：底边上方 1px，左 inset 10，宽 455、高 20。
-    let tooltip = RectPx::new(10, SHELL_BASE_H - 20 - 1, 455, 20);
     MainMenuLayout {
-        canvas,
-        // `mnscrnl` / 影片区：632×570，底边留给 `lwscrnl`。
-        background: RectPx::new(0, 0, movie_w, movie_h),
-        movie: RectPx::new(0, 0, movie_w, movie_h),
-        panel_top,
-        panel_tile: tile,
-        panel_tile_count: tile_count,
-        panel_bottom,
-        lower_strip,
-        title,
-        tooltip,
+        canvas: RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32),
+        background: rect_px_from_snapshot(&chrome_snap, "background"),
+        movie: rect_px_from_snapshot(&chrome_snap, "movie"),
+        panel_top: rect_px_from_snapshot(&chrome_snap, "panel_top"),
+        panel_tile: rect_px_from_snapshot(&chrome_snap, "panel_tile"),
+        panel_tile_count: chrome.tile_count(),
+        panel_bottom: rect_px_from_snapshot(&chrome_snap, "panel_bottom"),
+        lower_strip: rect_px_from_snapshot(&chrome_snap, "lower_strip"),
+        title: rect_px_from_snapshot(&chrome_snap, "title"),
+        tooltip: rect_px_from_snapshot(&chrome_snap, "tooltip"),
         buttons,
     }
 }
