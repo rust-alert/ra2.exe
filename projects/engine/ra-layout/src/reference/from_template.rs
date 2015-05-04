@@ -62,14 +62,22 @@ pub fn shell_design_size(chrome: RightPanelChrome) -> Size2 {
 }
 
 /// 由模板组装 `LayoutNode` 树。
+///
+/// 可交互右栏按钮（平铺格 / 贴底盖）排在装饰控件之后，保证更高 `z_index`，
+/// 避免 `map_name_plate` 等与第一格按钮重叠时挡住命中。
 pub fn dialog_layout_tree(
     root_id: impl Into<String>,
     template: &DialogTemplate,
     chrome: RightPanelChrome,
 ) -> LayoutNode {
-    let children = resolve_dialog_template(template, chrome)
+    let mut controls: Vec<&DialogControlDesc> = template.controls.iter().collect();
+    controls.sort_by_key(|c| match c.placement {
+        ControlPlacement::TileSnap | ControlPlacement::BottomCoverButton => 1_u8,
+        _ => 0,
+    });
+    let children = controls
         .into_iter()
-        .map(|(id, rect)| fixed_rect_leaf(id, rect))
+        .map(|c| fixed_rect_leaf(c.id.0.clone(), resolve_control_desc(c, chrome)))
         .collect();
     root_with_fixed_children(root_id, shell_design_size(chrome), children)
 }

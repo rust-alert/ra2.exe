@@ -48,9 +48,11 @@ impl LayoutSnapshot {
     pub fn hit_test(&self, point: Point2) -> Option<&LayoutElement> {
         self.elements
             .iter()
-            .rev()
-            .filter(|e| e.hit_test == HitTestMode::Rect)
-            .find(|e| e.hit_region.rect.contains(point))
+            .enumerate()
+            .filter(|(_, e)| e.hit_test == HitTestMode::Rect)
+            .filter(|(_, e)| e.hit_region.rect.contains(point))
+            .max_by_key(|(i, e)| (e.z_index, *i))
+            .map(|(_, e)| e)
     }
 }
 
