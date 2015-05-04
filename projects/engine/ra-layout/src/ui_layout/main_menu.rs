@@ -44,6 +44,24 @@ fn shell_chrome_snapshot() -> (RightPanelChrome, LayoutSnapshot) {
     (chrome, snap)
 }
 
+/// 壳层 chrome（无页面按钮）；选图 / 遭遇战等页在此基础上覆写按钮与底条。
+pub(super) fn shell_chrome_base_layout() -> MainMenuLayout {
+    let (chrome, chrome_snap) = shell_chrome_snapshot();
+    MainMenuLayout {
+        canvas: RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32),
+        background: rect_px_from_snapshot(&chrome_snap, "background"),
+        movie: rect_px_from_snapshot(&chrome_snap, "movie"),
+        panel_top: rect_px_from_snapshot(&chrome_snap, "panel_top"),
+        panel_tile: rect_px_from_snapshot(&chrome_snap, "panel_tile"),
+        panel_tile_count: chrome.tile_count(),
+        panel_bottom: rect_px_from_snapshot(&chrome_snap, "panel_bottom"),
+        lower_strip: rect_px_from_snapshot(&chrome_snap, "lower_strip"),
+        title: rect_px_from_snapshot(&chrome_snap, "title"),
+        tooltip: rect_px_from_snapshot(&chrome_snap, "tooltip"),
+        buttons: [RectPx::new(0, 0, 0, 0); 6],
+    }
+}
+
 pub(super) fn right_rail_buttons(
     root_id: &str,
     stacked_ids: &[&str],
@@ -72,31 +90,19 @@ pub(super) fn right_rail_buttons(
 /// chrome 与右栏按钮均投影自 `LayoutSnapshot`（`shell_chrome_layout_tree` /
 /// `right_rail_buttons_layout_tree`）。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let (chrome, chrome_snap) = shell_chrome_snapshot();
+    let mut layout = shell_chrome_base_layout();
     let rail = right_rail_buttons(
         "main_menu",
         &MAIN_MENU_BUTTON_IDS[..5],
         Some(MAIN_MENU_BUTTON_IDS[5]),
     );
-    let buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
-    MainMenuLayout {
-        canvas: RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32),
-        background: rect_px_from_snapshot(&chrome_snap, "background"),
-        movie: rect_px_from_snapshot(&chrome_snap, "movie"),
-        panel_top: rect_px_from_snapshot(&chrome_snap, "panel_top"),
-        panel_tile: rect_px_from_snapshot(&chrome_snap, "panel_tile"),
-        panel_tile_count: chrome.tile_count(),
-        panel_bottom: rect_px_from_snapshot(&chrome_snap, "panel_bottom"),
-        lower_strip: rect_px_from_snapshot(&chrome_snap, "lower_strip"),
-        title: rect_px_from_snapshot(&chrome_snap, "title"),
-        tooltip: rect_px_from_snapshot(&chrome_snap, "tooltip"),
-        buttons,
-    }
+    layout.buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
+    layout
 }
 
 /// 单人页：前三连格 + 返回贴底盖（与主菜单 Exit 同锚点）。
-pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
-    let mut layout = main_menu_layout(viewport_w, viewport_h);
+pub fn single_player_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
+    let mut layout = shell_chrome_base_layout();
     let rail = right_rail_buttons(
         "single_player",
         &SINGLE_PLAYER_BUTTON_IDS[..3],
@@ -115,8 +121,8 @@ pub fn single_player_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout 
 }
 
 /// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
-pub fn options_layout(viewport_w: u32, viewport_h: u32) -> MainMenuLayout {
-    let mut layout = main_menu_layout(viewport_w, viewport_h);
+pub fn options_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
+    let mut layout = shell_chrome_base_layout();
     let rail = right_rail_buttons(
         "options",
         &OPTIONS_BUTTON_IDS[..2],
