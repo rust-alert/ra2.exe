@@ -10,6 +10,7 @@ pub mod audio;
 pub mod image;
 pub mod ini;
 pub mod mix;
+pub mod mpmodes;
 pub mod rules;
 pub mod voxel;
 
@@ -41,6 +42,7 @@ pub use image::{
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
 pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
+pub use mpmodes::{MpMode, parse_mpmodes};
 pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,
