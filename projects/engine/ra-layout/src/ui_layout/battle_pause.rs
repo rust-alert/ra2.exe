@@ -18,8 +18,8 @@ pub struct BattlePauseMenuLayout {
 /// 对局暂停菜单布局（右栏几何与壳层主菜单钮格同构）。
 ///
 /// 按钮几何来自 `right_rail_buttons_layout_tree`；侧栏/压暗仍投影自壳层 chrome。
-pub fn battle_pause_menu_layout(viewport_w: u32, viewport_h: u32) -> BattlePauseMenuLayout {
-    let shell = main_menu_layout(viewport_w, viewport_h);
+pub fn battle_pause_menu_layout(_viewport_w: u32, _viewport_h: u32) -> BattlePauseMenuLayout {
+    let shell = shell_chrome_base_layout();
     let panel_x = shell.panel_top.x;
     let rail = right_rail_buttons(
         "battle_pause",

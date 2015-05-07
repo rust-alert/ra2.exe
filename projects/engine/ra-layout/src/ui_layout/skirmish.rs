@@ -47,8 +47,8 @@ pub struct SkirmishLobbyLayout {
 }
 
 /// 遭遇战大厅布局（800×600；几何权威来自 `0x102` snapshot）。
-pub fn skirmish_lobby_layout(viewport_w: u32, viewport_h: u32) -> SkirmishLobbyLayout {
-    let mut shell = main_menu_layout(viewport_w, viewport_h);
+pub fn skirmish_lobby_layout(_viewport_w: u32, _viewport_h: u32) -> SkirmishLobbyLayout {
+    let mut shell = shell_chrome_base_layout();
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
     let chrome = RightPanelChrome::shell_defaults();
     let snap = LayoutEngine.solve(

@@ -29,8 +29,8 @@ pub struct ChooseMapLayout {
 }
 
 /// 选图页布局（800×600 内容坐标；几何权威来自 `0x6B` snapshot）。
-pub fn choose_map_layout(viewport_w: u32, viewport_h: u32) -> ChooseMapLayout {
-    let mut shell = main_menu_layout(viewport_w, viewport_h);
+pub fn choose_map_layout(_viewport_w: u32, _viewport_h: u32) -> ChooseMapLayout {
+    let mut shell = shell_chrome_base_layout();
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
     let chrome = RightPanelChrome::shell_defaults();
     let snap = LayoutEngine.solve(

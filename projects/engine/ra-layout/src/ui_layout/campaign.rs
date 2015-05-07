@@ -28,8 +28,8 @@ pub struct CampaignLayout {
 }
 
 /// 战役页布局（800×600；交互几何来自 `campaign_content_layout_tree`）。
-pub fn campaign_layout(viewport_w: u32, viewport_h: u32) -> CampaignLayout {
-    let mut shell = main_menu_layout(viewport_w, viewport_h);
+pub fn campaign_layout(_viewport_w: u32, _viewport_h: u32) -> CampaignLayout {
+    let mut shell = shell_chrome_base_layout();
     let chrome = RightPanelChrome::shell_defaults();
     let snap = LayoutEngine.solve(
         Viewport {
