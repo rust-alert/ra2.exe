@@ -42,6 +42,8 @@ pub struct ResourceChain {
     pub ui_ini: &'static str,
     /// 音效 INI 在资源链中的逻辑路径。
     pub sound_ini: &'static str,
+    /// 多人模式表 INI 在资源链中的逻辑路径。
+    pub mpmodes_ini: &'static str,
     /// 可执行文件名（用于布局校验）。
     pub exe_name: &'static str,
 }
@@ -67,6 +69,7 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        mpmodes_ini: p.mpmodes_ini,
         exe_name: p.exe_name,
     }
 }
@@ -80,6 +83,7 @@ fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        mpmodes_ini: p.mpmodes_ini,
         exe_name: p.exe_name,
     }
 }
@@ -93,6 +97,7 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        mpmodes_ini: p.mpmodes_ini,
         exe_name: p.exe_name,
     }
 }

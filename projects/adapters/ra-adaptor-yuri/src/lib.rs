@@ -21,6 +21,8 @@ pub struct ResourceProfile {
     pub ui_ini: &'static str,
     /// 音效 INI 文件名。
     pub sound_ini: &'static str,
+    /// 多人模式表 INI 文件名（`mpmodesmd.ini`）。
+    pub mpmodes_ini: &'static str,
     /// 布局特征用的主程序名。
     pub exe_name: &'static str,
 }
@@ -80,6 +82,7 @@ pub fn profile() -> ResourceProfile {
         art_ini: "artmd.ini",
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
+        mpmodes_ini: "mpmodesmd.ini",
         exe_name: "gamemd.exe",
     }
 }
