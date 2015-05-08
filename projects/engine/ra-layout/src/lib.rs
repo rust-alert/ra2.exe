@@ -16,10 +16,10 @@ pub use solver::LayoutEngine;
 pub use geometry::{Insets, Point2, Rect, Size2};
 pub use snapshot::{HitRegion, HitTestMode, LayoutBox, LayoutElement, LayoutSnapshot};
 pub use reference::{
-    campaign_content_layout_tree, dialog_layout_tree, exit_confirm_content_layout_tree,
-    mul_div_round, resolve_control_desc, resolve_dialog_template, right_rail_buttons_layout_tree,
-    shell_chrome_layout_tree, shell_design_size, DluRect, FontBaseUnits, LegacyReference,
-    LegacyRole, LegacySource, MS_SANS_SERIF_8PT,
+    battle_hud_layout_tree, campaign_content_layout_tree, dialog_layout_tree,
+    exit_confirm_content_layout_tree, mul_div_round, resolve_control_desc, resolve_dialog_template,
+    right_rail_buttons_layout_tree, shell_chrome_layout_tree, shell_design_size, DluRect,
+    FontBaseUnits, LegacyReference, LegacyRole, LegacySource, MS_SANS_SERIF_8PT,
 };
 pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
 pub use policy::{
