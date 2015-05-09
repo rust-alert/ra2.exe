@@ -91,8 +91,8 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
         };
         out.push(BootMapCandidate {
             file_name: (*name).to_string(),
-            width: map.width,
-            height: map.height,
+            width: map.size_width,
+            height: map.size_height,
             theater: map.theater,
             start_slots: count_skirmish_start_slots(&map.waypoints, name),
         });
@@ -104,7 +104,14 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
 pub fn find_boot_map_named(edition: GameEdition, source: &dyn AssetSource, name: &str) -> Option<BootMapResult> {
     let bytes = source.read(name).ok()?;
     let map = try_parse_boot_map(edition, name, &bytes).ok()?;
-    let mut note = format!("map:{name} {}x{} {}", map.width, map.height, map.theater.as_str());
+    let mut note = format!(
+        "map:{name} size={}x{} grid={}x{} {}",
+        map.size_width,
+        map.size_height,
+        map.width,
+        map.height,
+        map.theater.as_str()
+    );
     note.push_str(&map_content_note(&map));
     Some(BootMapResult { map, note })
 }
@@ -120,7 +127,14 @@ pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Op
         };
         match try_parse_boot_map(edition, name, &bytes) {
             Ok(map) => {
-                let mut note = format!("map:{name} {}x{} {}", map.width, map.height, map.theater.as_str());
+                let mut note = format!(
+        "map:{name} size={}x{} grid={}x{} {}",
+        map.size_width,
+        map.size_height,
+        map.width,
+        map.height,
+        map.theater.as_str()
+    );
                 note.push_str(&map_content_note(&map));
                 return Some(BootMapResult { map, note });
             }

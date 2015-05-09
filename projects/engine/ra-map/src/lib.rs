@@ -67,9 +67,13 @@ pub struct MapInfo {
     pub edition: GameEdition,
     /// 地图名（通常为文件名）。
     pub name: String,
-    /// 地图宽（格）。
+    /// `[Map] Size` 宽（菱形参数，不是通行格网宽）。
+    pub size_width: u32,
+    /// `[Map] Size` 高（菱形参数，不是通行格网高）。
+    pub size_height: u32,
+    /// 游戏格网宽（与 iso / 航点 / 覆盖层同一坐标系）。
     pub width: u32,
-    /// 地图高（格）。
+    /// 游戏格网高（与 iso / 航点 / 覆盖层同一坐标系）。
     pub height: u32,
     /// 剧院。
     pub theater: Theater,
@@ -91,6 +95,8 @@ impl MapInfo {
         Self {
             edition,
             name: name.into(),
+            size_width: 0,
+            size_height: 0,
             width: 0,
             height: 0,
             theater: Theater::Temperate,
@@ -106,7 +112,9 @@ impl MapInfo {
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
         let size = doc.get("Map", "Size").ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
-        let (width, height) = parse_size(size)?;
+        let (size_width, size_height) = parse_size(size)?;
+        // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
+        let side = game_cell_grid_side(size_width, size_height);
         let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
         let theater = Theater::parse(theater_raw)?;
         let cells = match decode_iso_map_pack(&doc) {
@@ -120,8 +128,29 @@ impl MapInfo {
         let terrain_objects = parse_terrain_objects(&doc);
         let entities = parse_map_entities(&doc);
         let waypoints = parse_waypoints(&doc);
-        Ok(Self { edition, name: name.into(), width, height, theater, cells, overlays, terrain_objects, entities, waypoints })
+        Ok(Self {
+            edition,
+            name: name.into(),
+            size_width,
+            size_height,
+            width: side,
+            height: side,
+            theater,
+            cells,
+            overlays,
+            terrain_objects,
+            entities,
+            waypoints,
+        })
     }
+}
+
+/// 由 `[Map] Size` 宽高得到方形游戏格网边长。
+///
+/// Iso 坐标与航点落在同一空间；iso X/Y 上界约为 `Width+Height`，边长取
+/// `height + max(width, height)`，保证菱形外包完整且不小于常见的 `2*height` 垫法。
+pub fn game_cell_grid_side(size_width: u32, size_height: u32) -> u32 {
+    size_height.saturating_add(size_width.max(size_height))
 }
 
 /// 解析 `Size=x,y,width,height` 中的宽高。
