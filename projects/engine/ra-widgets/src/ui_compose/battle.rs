@@ -30,7 +30,7 @@ pub struct BattleHudModel<'a> {
 /// 合成战斗 HUD 叠加层：右栏 + 底栏。
 ///
 /// 有 [`BattleHudChrome`] 时贴阵营侧栏素材；否则回退占位灰条（资源未挂载时的诊断态）。
-/// 仍为像素合成；`build_battle_hud_plan` 待视图模型契约落地后再替换。
+/// 仍为像素合成；占位计划见 `RenderPlan::battle_hud_placeholders`，真资源计划待替换。
 pub fn compose_battle_hud_overlay(
     viewport_w: u32,
     viewport_h: u32,
