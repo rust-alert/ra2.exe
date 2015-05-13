@@ -47,6 +47,7 @@ impl Shell {
         ) {
             if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 self.ensure_lobby_maps();
+                self.ensure_lobby_modes();
                 self.ensure_lobby_preview();
             }
             if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby) {

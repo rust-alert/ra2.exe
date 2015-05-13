@@ -1,14 +1,16 @@
 //! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `BattleController`）。
 
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
+use ra_assets::parse_mpmodes;
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes};
 use ra_renderer::RgbaImage;
-use ra_types::{GameEdition, RaResult};
+use ra_types::{AssetSource, GameEdition, RaResult};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 use ra_widgets::fs_source::GameAssetSource;
 
+pub use ra_assets::MpMode;
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
@@ -74,6 +76,36 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
     list_parseable_boot_maps(manifest.chain.edition, &source)
+}
+
+/// 列出安装资源链中离线遭遇战可选多人模式（来自 `mpmodes.ini` / `mpmodesmd.ini`）。
+///
+/// 失败或缺文件时返回空表；调用方应回退到空列表 UI，勿写死模式名。
+pub fn list_install_skirmish_modes() -> Vec<MpMode> {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
+    else {
+        return Vec::new();
+    };
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let Some(bytes) = source.vfs.read(manifest.chain.mpmodes_ini)
+    else {
+        tracing::warn!(file = %manifest.chain.mpmodes_ini, "多人模式表不可读");
+        return Vec::new();
+    };
+    match parse_mpmodes(&bytes) {
+        Ok(modes) => modes.into_iter().filter(|m| m.visible_in_offline_skirmish()).collect(),
+        Err(e) => {
+            tracing::warn!(file = %manifest.chain.mpmodes_ini, error = %e, "多人模式表解析失败");
+            Vec::new()
+        }
+    }
 }
 
 /// 为遭遇战大厅生成指定地图的地形预览（未缩小）。

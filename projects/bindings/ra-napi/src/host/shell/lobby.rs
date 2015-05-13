@@ -146,6 +146,26 @@ impl Shell {
         );
     }
 
+    /// 惰性装载离线遭遇战可选模式（`mpmodes.ini` 可见子集）。
+    pub(super) fn ensure_lobby_modes(&mut self) {
+        if !self.lobby_modes.is_empty() {
+            return;
+        }
+        self.lobby_modes = boot::list_install_skirmish_modes();
+        if self.selected_mode_id.is_none() {
+            self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
+        } else if let Some(id) = self.selected_mode_id {
+            if !self.lobby_modes.iter().any(|m| m.id == id) {
+                self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
+            }
+        }
+        tracing::info!(
+            count = self.lobby_modes.len(),
+            selected = ?self.selected_mode_id,
+            "遭遇战模式列表已刷新"
+        );
+    }
+
     pub(super) fn ensure_lobby_preview(&mut self) {
         let Some(name) = self.selected_map.clone()
         else {
@@ -242,6 +262,7 @@ impl Shell {
     /// 进入选图页并快照当前优选地图（取消时还原）。
     pub(super) fn open_choose_map_page(&mut self) {
         self.ensure_lobby_maps();
+        self.ensure_lobby_modes();
         self.choose_map_revert = Some(self.skirmish.preferred_map.clone());
         if self.selected_map.is_none() {
             self.selected_map = self.skirmish.preferred_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));

@@ -82,6 +82,10 @@ pub struct Shell {
     pub(super) lobby_maps: Vec<super::boot::BootMapCandidate>,
     /// 当前选中的地图文件名。
     pub(super) selected_map: Option<String>,
+    /// 选图页可选多人模式（离线遭遇战可见子集）。
+    pub(super) lobby_modes: Vec<super::boot::MpMode>,
+    /// 当前选中的多人模式 id（`MpMode::id`）。
+    pub(super) selected_mode_id: Option<u32>,
     /// 大厅缩略图对应的地图名（与 `lobby_preview` 配对）。
     pub(super) lobby_preview_for: Option<String>,
     /// 已缩小的选中地图预览。
