@@ -15,6 +15,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
         hit_action(
             OriginalScreen::SkirmishLobby,
             &maps,
+            0,
             None,
             (722.0, 262.0),
             800.0,
@@ -27,6 +28,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
         hit_action(
             OriginalScreen::SkirmishLobby,
             &maps,
+            0,
             None,
             (722.0, 304.0),
             800.0,
@@ -39,6 +41,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
         hit_action(
             OriginalScreen::SkirmishLobby,
             &maps,
+            0,
             None,
             (722.0, 556.0),
             800.0,

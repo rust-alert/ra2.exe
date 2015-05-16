@@ -13,6 +13,7 @@ fn single_player_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::SinglePlayerMenu,
             &maps,
+            0,
             None,
             (722.0, 220.0),
             800.0,
@@ -25,6 +26,7 @@ fn single_player_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::SinglePlayerMenu,
             &maps,
+            0,
             None,
             (722.0, 304.0),
             800.0,
@@ -37,6 +39,7 @@ fn single_player_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::SinglePlayerMenu,
             &maps,
+            0,
             None,
             (722.0, 556.0),
             800.0,

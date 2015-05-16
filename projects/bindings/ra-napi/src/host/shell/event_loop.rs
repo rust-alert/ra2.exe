@@ -253,6 +253,7 @@ impl ApplicationHandler for Shell {
                             else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
+                                self.lobby_modes.len(),
                                 self.selected_map.as_deref(),
                                 self.cursor,
                                 self.window_width,
@@ -276,6 +277,7 @@ impl ApplicationHandler for Shell {
                             else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
+                                self.lobby_modes.len(),
                                 self.selected_map.as_deref(),
                                 self.cursor,
                                 self.window_width,
@@ -299,6 +301,7 @@ impl ApplicationHandler for Shell {
                             else if let Some(action) = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
+                                self.lobby_modes.len(),
                                 self.selected_map.as_deref(),
                                 self.cursor,
                                 self.window_width,
@@ -316,6 +319,7 @@ impl ApplicationHandler for Shell {
                             let action = ui_hit::hit_action(
                                 self.screen,
                                 &self.lobby_maps,
+                                self.lobby_modes.len(),
                                 self.selected_map.as_deref(),
                                 self.cursor,
                                 self.window_width,

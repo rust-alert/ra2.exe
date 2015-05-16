@@ -25,6 +25,7 @@ impl Shell {
             if let Some(id) = ui_hit::hover_index(
                 self.screen,
                 &self.lobby_maps,
+                self.lobby_modes.len(),
                 self.selected_map.as_deref(),
                 self.cursor,
                 self.window_width,
@@ -42,6 +43,7 @@ impl Shell {
         let idx = ui_hit::hover_index(
             self.screen,
             &self.lobby_maps,
+            self.lobby_modes.len(),
             self.selected_map.as_deref(),
             self.cursor,
             self.window_width,

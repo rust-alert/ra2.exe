@@ -15,6 +15,8 @@ pub fn compose_choose_map_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
+    mode_names: &[&str],
+    selected_mode_index: Option<usize>,
     map_names: &[&str],
     selected_map_index: Option<usize>,
     wave: Option<ShellWaveFrames<'_>>,
@@ -46,9 +48,21 @@ pub fn compose_choose_map_page(
     fill_rect(&mut page, layout.map_list, [12, 12, 18, 255]);
     stroke_rect(&mut page, layout.map_list, [180, 24, 24, 255]);
 
-    // 游戏类型：Pre-Alpha 仅「作战」一项。
-    let type_row = RectPx::new(layout.game_type_list.x, layout.game_type_list.y, layout.game_type_list.w, CHOOSE_MAP_LIST_ROW_H);
-    fill_rect(&mut page, type_row, [48, 28, 8, 255]);
+    let visible_modes = (layout.game_type_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+    for (i, name) in mode_names.iter().take(visible_modes).enumerate() {
+        let row = RectPx::new(
+            layout.game_type_list.x,
+            layout.game_type_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H,
+            layout.game_type_list.w,
+            CHOOSE_MAP_LIST_ROW_H,
+        );
+        if Some(i) == selected_mode_index {
+            fill_rect(&mut page, row, [48, 28, 8, 255]);
+        }
+        if let Some(fnt) = fnt {
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y + 1, row.w - 8, row.h - 2, MENU_TEXT_ENABLED);
+        }
+    }
 
     let visible_rows = (layout.map_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
     for (i, name) in map_names.iter().take(visible_rows).enumerate() {
@@ -71,8 +85,6 @@ pub fn compose_choose_map_page(
         blit_text_colored(&mut page, fnt, &game_type, layout.label_game_type.x, layout.label_game_type.y, MENU_TEXT_ENABLED);
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
         blit_text_colored(&mut page, fnt, &game_map, layout.label_game_map.x, layout.label_game_map.y, MENU_TEXT_ENABLED);
-        let battle = resolve_caption(csf, "battle", choose_map_static_csf_key("battle"));
-        blit_text_colored(&mut page, fnt, &battle, type_row.x + 4, type_row.y + 1, MENU_TEXT_ENABLED);
     }
 
     Some(page)

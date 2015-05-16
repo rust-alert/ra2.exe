@@ -9,6 +9,7 @@ use ra_widgets::shell_slide::WaveDirection;
 use ra_widgets::ui_compose::{self, ShellWaveFrames};
 use ra_widgets::ui_decode;
 use ra_widgets::ui_present;
+use ra_widgets::ui_text::resolve_caption;
 
 use super::Shell;
 
@@ -197,6 +198,15 @@ impl Shell {
                         )
                     }
                     OriginalScreen::ChooseMap => {
+                        let mode_labels: Vec<String> = self
+                            .lobby_modes
+                            .iter()
+                            .map(|m| resolve_caption(self.menu_csf.as_ref(), &m.name_csf, Some(&m.name_csf)))
+                            .collect();
+                        let mode_names: Vec<&str> = mode_labels.iter().map(|s| s.as_str()).collect();
+                        let selected_mode_index = self
+                            .selected_mode_id
+                            .and_then(|id| self.lobby_modes.iter().position(|m| m.id == id));
                         let map_names: Vec<&str> = self.lobby_maps.iter().map(|m| m.file_name.as_str()).collect();
                         let selected_map_index =
                             self.selected_map.as_ref().and_then(|sel| self.lobby_maps.iter().position(|m| &m.file_name == sel));
@@ -210,6 +220,8 @@ impl Shell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
+                            &mode_names,
+                            selected_mode_index,
                             &map_names,
                             selected_map_index,
                             wave,

@@ -345,6 +345,7 @@ impl Shell {
                 self.banner = "选项已取消".into();
                 self.refresh_shell_title();
             }
+            MenuAction::SelectMode(i) => self.select_lobby_mode_index(i),
             MenuAction::SelectMap(i) => {
                 if let Some(map) = self.lobby_maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());

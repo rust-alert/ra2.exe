@@ -47,6 +47,8 @@ pub enum MenuAction {
     ChooseMap,
     /// 选图页：使用当前选中地图并返回大厅。
     UseMap,
+    /// 选中选图页游戏类型列表中的一项。
+    SelectMode(usize),
     /// 选中选图页地图列表中的一项。
     SelectMap(usize),
 }

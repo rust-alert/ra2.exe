@@ -13,6 +13,7 @@ fn campaign_hits_use_content_snapshot() {
         hit_action(
             OriginalScreen::Campaign,
             &maps,
+            0,
             None,
             (722.0, 556.0),
             800.0,
@@ -26,6 +27,7 @@ fn campaign_hits_use_content_snapshot() {
         hit_action(
             OriginalScreen::Campaign,
             &maps,
+            0,
             None,
             (315.0, 90.0),
             800.0,
@@ -39,6 +41,7 @@ fn campaign_hits_use_content_snapshot() {
         hit_action(
             OriginalScreen::Campaign,
             &maps,
+            0,
             None,
             (314.0, 489.0),
             800.0,

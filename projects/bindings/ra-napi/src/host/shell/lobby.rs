@@ -259,6 +259,17 @@ impl Shell {
         self.refresh_shell_title();
     }
 
+    /// 选中选图页游戏类型列表中的一项。
+    pub(super) fn select_lobby_mode_index(&mut self, index: usize) {
+        let Some(mode) = self.lobby_modes.get(index)
+        else {
+            return;
+        };
+        self.selected_mode_id = Some(mode.id);
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
+    }
+
     /// 进入选图页并快照当前优选地图（取消时还原）。
     pub(super) fn open_choose_map_page(&mut self) {
         self.ensure_lobby_maps();

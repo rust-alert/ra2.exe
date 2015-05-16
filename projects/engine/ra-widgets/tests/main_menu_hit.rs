@@ -13,6 +13,7 @@ fn main_menu_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::MainMenu,
             &maps,
+            0,
             None,
             (722.0, 220.0),
             800.0,
@@ -25,6 +26,7 @@ fn main_menu_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::MainMenu,
             &maps,
+            0,
             None,
             (722.0, 556.0),
             800.0,
@@ -38,6 +40,7 @@ fn main_menu_hits_use_right_rail_snapshot() {
         hover_index(
             OriginalScreen::MainMenu,
             &maps,
+            0,
             None,
             (722.0, 304.0),
             800.0,
@@ -50,6 +53,7 @@ fn main_menu_hits_use_right_rail_snapshot() {
         hit_action(
             OriginalScreen::MainMenu,
             &maps,
+            0,
             None,
             (722.0, 304.0),
             800.0,

@@ -10,7 +10,7 @@ use ra_widgets::{
 #[test]
 fn choose_map_hits_use_snapshot_button_rects() {
     let maps: Vec<BootMapCandidate> = Vec::new();
-    let hits = hits_for(OriginalScreen::ChooseMap, &maps, false);
+    let hits = hits_for(OriginalScreen::ChooseMap, &maps, 0, false);
     assert!(hits.iter().any(|h| h.entry_id == "use_map"));
     assert!(hits.iter().any(|h| h.entry_id == "cancel"));
 
@@ -18,6 +18,7 @@ fn choose_map_hits_use_snapshot_button_rects() {
     let action = hit_action(
         OriginalScreen::ChooseMap,
         &maps,
+        0,
         None,
         (722.0, 220.0),
         800.0,
@@ -29,6 +30,7 @@ fn choose_map_hits_use_snapshot_button_rects() {
     let cancel = hit_action(
         OriginalScreen::ChooseMap,
         &maps,
+        0,
         None,
         (722.0, 556.0),
         800.0,
