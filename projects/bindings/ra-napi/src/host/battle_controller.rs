@@ -9,8 +9,8 @@ use ra_widgets::{
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::ui_layout::{SHELL_BASE_H, SHELL_BASE_W};
-use ra_map::MapEntityKind;
+use ra_layout::ui_layout::{SHELL_BASE_H, SHELL_BASE_W, battle_hud_layout};
+use ra_map::{MapEntityKind, iso_to_screen};
 use ra_renderer::Renderer;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
@@ -19,6 +19,9 @@ use winit::{
 };
 
 use super::{boot::BootResult, local_player::LocalPlayerController};
+
+/// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
+const BATTLE_START_ZOOM: f32 = 1.0;
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,8 +151,22 @@ impl BattleController {
     fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
         let game = self.session.as_ref()?.battle()?;
         let size = window.inner_size();
+        let world = battle_hud_layout(size.width, size.height).world_viewport();
+        if world.w <= 0 || world.h <= 0 || !world.contains(self.cursor.0 as i32, self.cursor.1 as i32) {
+            return None;
+        }
         let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
         game.image_to_cell(wx, wy)
+    }
+
+    fn pan_world(&self, renderer: &mut Renderer, window: &Window, dx: f32, dy: f32) {
+        let size = window.inner_size();
+        let world = battle_hud_layout(size.width, size.height).world_viewport();
+        if world.w <= 0 || world.h <= 0 {
+            renderer.pan_clamped(dx, dy);
+            return;
+        }
+        renderer.pan_clamped_in_viewport(dx, dy, world.w as f32, world.h as f32);
     }
 
     fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
@@ -273,7 +290,7 @@ impl BattleController {
                         let dx = (position.x - lx) as f32;
                         let dy = (position.y - ly) as f32;
                         self.drag_distance += (dx * dx + dy * dy).sqrt();
-                        renderer.pan_clamped(dx, dy);
+                        self.pan_world(renderer, window, dx, dy);
                     }
                     self.drag_last = Some((position.x, position.y));
                 }
@@ -352,19 +369,19 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
-                        renderer.pan_clamped(48.0, 0.0);
+                        self.pan_world(renderer, window, 48.0, 0.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => {
-                        renderer.pan_clamped(-48.0, 0.0);
+                        self.pan_world(renderer, window, -48.0, 0.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => {
-                        renderer.pan_clamped(0.0, 48.0);
+                        self.pan_world(renderer, window, 0.0, 48.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => {
-                        renderer.pan_clamped(0.0, -48.0);
+                        self.pan_world(renderer, window, 0.0, -48.0);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,

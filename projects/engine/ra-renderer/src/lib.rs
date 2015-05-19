@@ -289,12 +289,12 @@ impl Renderer {
             gpu.resize(width, height);
         }
         let (sw, sh) = self.gpu.as_ref().map(|g| (g.config.width, g.config.height)).unwrap_or((width.max(1), height.max(1)));
-        // 对局叠加 HUD 不劫持世界相机；优先按地图预览适配。
+        // 对局叠加 HUD：保留世界相机中心与缩放，仅按新视口重夹边界（禁止再次整图 fit）。
         if self.ui_overlay {
-            if let Some(sprite) = self.sprite.as_ref() {
-                let (iw, ih) = sprite.size();
-                self.reset_camera_to_fit(sw, sh, iw, ih);
+            if let Some(bounds) = self.camera_bounds_for_viewport(sw as f32, sh as f32) {
+                self.camera.clamp_to_bounds(&bounds);
             }
+            return;
         }
         else if let Some(ui) = self.ui_sprite.as_ref() {
             let (iw, ih) = ui.size();
@@ -304,6 +304,20 @@ impl Renderer {
             let (iw, ih) = sprite.size();
             self.reset_camera_to_fit(sw, sh, iw, ih);
         }
+    }
+
+    /// 将视口对准世界坐标（预览图像素），并设为指定缩放（会夹到地图边界）。
+    pub fn focus_camera(&mut self, world_x: f32, world_y: f32, zoom: f32) {
+        self.camera.zoom = zoom.clamp(Camera::ZOOM_MIN, Camera::ZOOM_MAX);
+        self.camera.center_x = world_x;
+        self.camera.center_y = world_y;
+        let (vw, vh) = self.surface_size();
+        if vw > 0.0 && vh > 0.0 {
+            if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
+                self.camera.clamp_to_bounds(&bounds);
+            }
+        }
+        self.camera_ready = true;
     }
 
     /// 只读访问当前视口相机。
@@ -323,7 +337,13 @@ impl Renderer {
 
     /// 平移视口并夹到当前地图预览边界（小图居中，大图不可拖出黑边）。
     pub fn pan_clamped(&mut self, dx: f32, dy: f32) {
-        let Some(bounds) = self.camera_bounds()
+        let (vw, vh) = self.surface_size();
+        self.pan_clamped_in_viewport(dx, dy, vw, vh);
+    }
+
+    /// 在指定可视矩形（屏幕像素）内平移并夹紧；用于排除 HUD 侧栏后的世界视口。
+    pub fn pan_clamped_in_viewport(&mut self, dx: f32, dy: f32, viewport_w: f32, viewport_h: f32) {
+        let Some(bounds) = self.camera_bounds_for_viewport(viewport_w, viewport_h)
         else {
             self.camera.pan_screen(dx, dy);
             return;
@@ -334,22 +354,39 @@ impl Renderer {
     /// 相对缩放视口，`factor` 大于 1 为放大。
     pub fn zoom_by(&mut self, factor: f32) {
         self.camera.zoom_by(factor);
-        if let Some(bounds) = self.camera_bounds() {
+        let (vw, vh) = self.surface_size();
+        if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
             self.camera.clamp_to_bounds(&bounds);
         }
     }
 
-    /// 当前预览世界与表面尺寸下的相机边界；无预览或未绑定 GPU 时为 `None`。
-    pub fn camera_bounds(&self) -> Option<CameraBounds> {
+    /// 当前预览世界与给定 viewport 下的相机边界；无预览时为 `None`。
+    pub fn camera_bounds_for_viewport(&self, viewport_w: f32, viewport_h: f32) -> Option<CameraBounds> {
         let preview = self.preview.as_ref()?;
-        let gpu = self.gpu.as_ref()?;
         Some(crate::camera::CameraBounds::from_world_and_viewport(
             preview.width() as f32,
             preview.height() as f32,
-            gpu.config.width.max(1) as f32,
-            gpu.config.height.max(1) as f32,
+            viewport_w.max(1.0),
+            viewport_h.max(1.0),
             self.camera.zoom,
         ))
+    }
+
+    /// 当前预览世界与表面尺寸下的相机边界；无预览或未绑定 GPU 时为 `None`。
+    pub fn camera_bounds(&self) -> Option<CameraBounds> {
+        let (vw, vh) = self.surface_size();
+        if vw <= 0.0 || vh <= 0.0 {
+            return None;
+        }
+        self.camera_bounds_for_viewport(vw, vh)
+    }
+
+    fn surface_size(&self) -> (f32, f32) {
+        let Some(gpu) = self.gpu.as_ref()
+        else {
+            return (0.0, 0.0);
+        };
+        (gpu.config.width.max(1) as f32, gpu.config.height.max(1) as f32)
     }
 
     fn reset_camera_to_fit(&mut self, screen_w: u32, screen_h: u32, image_w: u32, image_h: u32) {
