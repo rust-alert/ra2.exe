@@ -1,7 +1,7 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
 //! 选图 / 遭遇战大厅几何来自壳层 `RuntimeUiProfile` 对话框模板经 `LayoutEngine` 求解；
-//! 主菜单等页仍对齐 [`ra_layout::ui_layout`] 像素格（经 fit 相机）；其余页用 [`crate::ui_slots`]。
+//! 主菜单 / 单人 / 选项右栏页来自 `shell_page_layout_tree`；其余页用 [`crate::ui_slots`]。
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
 use ra_adaptor::shell_runtime_ui_profile;
@@ -9,8 +9,7 @@ use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
     RightPanelChrome, Viewport, campaign_content_layout_tree, dialog_layout_tree,
-    exit_confirm_content_layout_tree, right_rail_buttons_layout_tree, shell_design_size,
-    window_to_shell_px,
+    exit_confirm_content_layout_tree, shell_design_size, shell_page_layout_tree, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -223,7 +222,7 @@ fn main_menu_snapshot() -> LayoutSnapshot {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &right_rail_buttons_layout_tree(
+        &shell_page_layout_tree(
             "main_menu",
             &MAIN_MENU_BUTTON_IDS[..5],
             Some(MAIN_MENU_BUTTON_IDS[5]),
@@ -314,7 +313,7 @@ fn single_player_snapshot() -> LayoutSnapshot {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &right_rail_buttons_layout_tree(
+        &shell_page_layout_tree(
             "single_player",
             &SINGLE_PLAYER_BUTTON_IDS[..3],
             Some(SINGLE_PLAYER_BUTTON_IDS[3]),
@@ -533,7 +532,7 @@ fn options_snapshot() -> LayoutSnapshot {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &right_rail_buttons_layout_tree(
+        &shell_page_layout_tree(
             "options",
             &OPTIONS_BUTTON_IDS[..2],
             Some(OPTIONS_BUTTON_IDS[2]),

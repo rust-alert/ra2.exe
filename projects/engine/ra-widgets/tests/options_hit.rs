@@ -1,4 +1,4 @@
-//! 选项页右栏命中改为消费 chrome snapshot。
+//! 选项页右栏命中消费 `shell_page_layout_tree` snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,
@@ -7,7 +7,7 @@ use ra_widgets::{
 };
 
 #[test]
-fn options_hits_use_right_rail_snapshot() {
+fn options_hits_use_shell_page_snapshot() {
     let maps = [];
     assert_eq!(
         hit_action(

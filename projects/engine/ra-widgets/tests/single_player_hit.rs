@@ -1,4 +1,4 @@
-//! 单人页命中改为消费右栏 chrome snapshot。
+//! 单人页命中消费 `shell_page_layout_tree` snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,
@@ -7,7 +7,7 @@ use ra_widgets::{
 };
 
 #[test]
-fn single_player_hits_use_right_rail_snapshot() {
+fn single_player_hits_use_shell_page_snapshot() {
     let maps = [];
     assert_eq!(
         hit_action(
