@@ -1,7 +1,8 @@
 //! 与后端无关的渲染计划（几何来自 `LayoutSnapshot`）。
 
 use ra_layout::{
-    battle_hud_layout_tree, LayoutEngine, LayoutId, LayoutSnapshot, Rect, Size2, Viewport,
+    battle_hud_layout_tree, shell_design_size, shell_page_layout_tree, LayoutEngine, LayoutId,
+    LayoutSnapshot, Rect, RightPanelChrome, Size2, Viewport,
 };
 
 /// 单条可绘制命令。
@@ -62,5 +63,22 @@ impl RenderPlan {
             &battle_hud_layout_tree(viewport_w, viewport_h),
         );
         Self::solid_placeholders_from_snapshot(&snap, "battle_hud")
+    }
+
+    /// 壳层页：`shell_page_layout_tree` → snapshot → 占位 `RenderPlan`。
+    pub fn shell_page_placeholders(
+        root_id: &str,
+        stacked_ids: &[&str],
+        bottom_id: Option<&str>,
+    ) -> Self {
+        let chrome = RightPanelChrome::shell_defaults();
+        let snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome),
+        );
+        Self::solid_placeholders_from_snapshot(&snap, root_id)
     }
 }
