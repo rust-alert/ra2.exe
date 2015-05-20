@@ -22,11 +22,13 @@ pub fn paint_map_terrain_objects(source: &dyn AssetSource, map: &MapInfo, image:
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    // `[Terrain]` 物件多为剧院扩展名 SHP（如 `.tem`），须用剧院调色板；
+    // `unittem.pal` 仅作缺剧院 pal 时的回退（错用会导致树等呈噪点色）。
     let obj_pal = source
-        .read("unittem.pal")
+        .read(theater_palette(map.theater))
         .ok()
         .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok()));
+        .or_else(|| source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok()));
     let Some(obj_pal) = obj_pal
     else {
         return 0;
