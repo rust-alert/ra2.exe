@@ -1,4 +1,4 @@
-use ra_map::{MapInfo, Theater, game_cell_grid_side};
+use ra_map::{MapInfo, Theater, game_cell_grid_side, map_matches_game_mode_filter};
 use ra_types::GameEdition;
 
 #[test]
@@ -12,6 +12,30 @@ fn parse_basic_map_ini() {
     assert_eq!(info.height, 90);
     assert_eq!(info.theater, Theater::Snow);
     assert!(info.cells.is_empty());
+    assert!(info.game_modes.is_empty());
+}
+
+#[test]
+fn parse_basic_game_modes_list() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nGameModes=standard, MeatGrind\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.game_modes, vec!["standard".to_string(), "MeatGrind".to_string()]);
+}
+
+#[test]
+fn empty_game_modes_match_standard_only() {
+    assert!(map_matches_game_mode_filter(&[], "standard"));
+    assert!(map_matches_game_mode_filter(&[], "STANDARD"));
+    assert!(!map_matches_game_mode_filter(&[], "meatgrind"));
+    assert!(!map_matches_game_mode_filter(&[], ""));
+}
+
+#[test]
+fn listed_game_modes_match_filter_case_insensitively() {
+    let modes = vec!["standard".into(), "MeatGrind".into()];
+    assert!(map_matches_game_mode_filter(&modes, "meatgrind"));
+    assert!(map_matches_game_mode_filter(&modes, "standard"));
+    assert!(!map_matches_game_mode_filter(&modes, "duel"));
 }
 
 #[test]

@@ -29,6 +29,8 @@ pub struct BootMapCandidate {
     pub theater: Theater,
     /// 遭遇战开局席位数（2..=8；来自航点 0..7 或文件名 `tN`）。
     pub start_slots: u8,
+    /// `[Basic] GameModes` 标签（空表示仅匹配 `standard`）。
+    pub game_modes: Vec<String>,
 }
 
 /// 统计遭遇战开局席位：优先航点编号 `< 8`，否则从文件名 `tN` 推断，再否则 4。
@@ -95,6 +97,7 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
             height: map.size_height,
             theater: map.theater,
             start_slots: count_skirmish_start_slots(&map.waypoints, name),
+            game_modes: map.game_modes,
         });
     }
     out

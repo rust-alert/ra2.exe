@@ -77,6 +77,8 @@ pub struct MapInfo {
     pub height: u32,
     /// 剧院。
     pub theater: Theater,
+    /// `[Basic] GameModes` 标签（逗号分隔解析；空表示仅匹配 `standard`）。
+    pub game_modes: Vec<String>,
     /// 等距地形单元。
     pub cells: Vec<IsoCell>,
     /// 覆盖层格。
@@ -100,6 +102,7 @@ impl MapInfo {
             width: 0,
             height: 0,
             theater: Theater::Temperate,
+            game_modes: Vec::new(),
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
@@ -117,6 +120,7 @@ impl MapInfo {
         let side = game_cell_grid_side(size_width, size_height);
         let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
         let theater = Theater::parse(theater_raw)?;
+        let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
             Err(_) => Vec::new(),
@@ -136,6 +140,7 @@ impl MapInfo {
             width: side,
             height: side,
             theater,
+            game_modes,
             cells,
             overlays,
             terrain_objects,
@@ -143,6 +148,33 @@ impl MapInfo {
             waypoints,
         })
     }
+}
+
+/// 解析 `[Basic] GameModes` 逗号列表（去空白、丢空段）。
+pub fn parse_game_modes(raw: Option<&str>) -> Vec<String> {
+    let Some(raw) = raw
+    else {
+        return Vec::new();
+    };
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// 地图是否匹配模式表中的 `map_filter`。
+///
+/// 空 `game_modes` 只接受过滤标签 `standard`（大小写不敏感）。
+pub fn map_matches_game_mode_filter(game_modes: &[String], filter: &str) -> bool {
+    let filter = filter.trim();
+    if filter.is_empty() {
+        return false;
+    }
+    if game_modes.is_empty() {
+        return filter.eq_ignore_ascii_case("standard");
+    }
+    game_modes.iter().any(|m| m.eq_ignore_ascii_case(filter))
 }
 
 /// 由 `[Map] Size` 宽高得到方形游戏格网边长。

@@ -63,7 +63,14 @@ fn disabled_network_not_hit() {
 
 #[test]
 fn lobby_start_button_is_hit() {
-    let maps = vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate, start_slots: 4 }];
+    let maps = vec![BootMapCandidate {
+        file_name: "mp03t4.map".into(),
+        width: 50,
+        height: 50,
+        theater: Theater::Temperate,
+        start_slots: 4,
+        game_modes: Vec::new(),
+    }];
     let layout = skirmish_lobby_layout(0, 0);
     let cell = layout.shell.buttons[0];
     let cx = cell.x + cell.w / 2;
@@ -116,7 +123,14 @@ fn campaign_side_and_difficulty_are_hit() {
 
 #[test]
 fn choose_map_use_and_list_row_are_hit() {
-    let maps = vec![BootMapCandidate { file_name: "mp03t4.map".into(), width: 50, height: 50, theater: Theater::Temperate, start_slots: 4 }];
+    let maps = vec![BootMapCandidate {
+        file_name: "mp03t4.map".into(),
+        width: 50,
+        height: 50,
+        theater: Theater::Temperate,
+        start_slots: 4,
+        game_modes: Vec::new(),
+    }];
     let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
