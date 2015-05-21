@@ -33,20 +33,18 @@ pub fn paint_map_overlays(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let obj_pal = source
-        .read("unittem.pal")
-        .ok()
-        .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok()));
-    let Some(obj_pal) = obj_pal
-    else {
+    // `Theater=yes`（桥 / 矿 / 栏等 `.tem`）用剧院调色板；
+    // `NewTheater=yes` 墙体等单位向 SHP 用 `unittem.pal`。二者缺一时互相回退。
+    let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
+    let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
+    if unit_pal.is_none() && theater_pal.is_none() {
         let mark = paint_overlay_markers(image, &map.overlays, z_at);
         return (0, mark);
-    };
+    }
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u8), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u8, bool), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
     let mut unresolved = Vec::new();
 
@@ -58,14 +56,16 @@ pub fn paint_map_overlays(
         };
         let image_key = art.as_ref().and_then(|a| a.get(&type_name, "Image")).unwrap_or(type_name.as_str()).to_ascii_uppercase();
         let frame_idx = cell.data;
-        let cache_key = (image_key.clone(), frame_idx);
+        let new_theater = art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let theater_yes = art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        // 剧院扩展名资源走剧院 pal；其余（含 NewTheater 墙）走单位 pal。
+        let prefer_theater_pal = theater_yes && !new_theater;
+        let cache_key = (image_key.clone(), frame_idx, prefer_theater_pal);
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((cell.x, cell.y, blit.clone()));
             continue;
         }
 
-        let new_theater = art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let theater_yes = art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let mut candidates = Vec::new();
         if theater_yes {
             candidates.push(format!("{}.{ext}", image_key.to_ascii_lowercase()));
@@ -115,12 +115,21 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         }
+        let Some(pal) = (if prefer_theater_pal {
+            theater_pal.as_ref().or(unit_pal.as_ref())
+        } else {
+            unit_pal.as_ref().or(theater_pal.as_ref())
+        })
+        else {
+            unresolved.push(*cell);
+            continue;
+        };
         let blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
             offset_x: i32::from(frame.frame_x),
             offset_y: i32::from(frame.frame_y),
-            rgba: frame.to_rgba(&obj_pal),
+            rgba: frame.to_rgba(pal),
         };
         blit_cache.insert(cache_key, blit.clone());
         items.push((cell.x, cell.y, blit));
