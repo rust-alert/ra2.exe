@@ -347,7 +347,8 @@ impl Shell {
             }
             MenuAction::SelectMode(i) => self.select_lobby_mode_index(i),
             MenuAction::SelectMap(i) => {
-                if let Some(map) = self.lobby_maps.get(i) {
+                let maps = self.maps_for_menu_hit();
+                if let Some(map) = maps.get(i) {
                     self.selected_map = Some(map.file_name.clone());
                     self.skirmish.preferred_map = Some(map.file_name.clone());
                     self.ensure_lobby_preview();

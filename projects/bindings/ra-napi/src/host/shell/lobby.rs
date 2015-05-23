@@ -1,6 +1,7 @@
 //! 遭遇战大厅与选图。
 
 use ra_layout::ui_layout;
+use ra_map::map_matches_game_mode_filter;
 use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
@@ -10,7 +11,7 @@ use ra_widgets::ui_compose::SkirmishChromeSprites;
 use winit::event::KeyEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use crate::host::boot;
+use crate::host::boot::{self, BootMapCandidate};
 use crate::host::preview_job::PreviewJob;
 
 use super::Shell;
@@ -166,6 +167,54 @@ impl Shell {
         );
     }
 
+    /// 当前选中模式的地图过滤标签；无选中时回退 `standard`。
+    pub(super) fn selected_mode_map_filter(&self) -> &str {
+        self.selected_mode_id
+            .and_then(|id| self.lobby_modes.iter().find(|m| m.id == id))
+            .map(|m| m.map_filter.as_str())
+            .unwrap_or("standard")
+    }
+
+    /// 匹配当前模式 `map_filter` 的大厅地图（保序）。
+    pub(super) fn maps_matching_selected_mode(&self) -> Vec<BootMapCandidate> {
+        let filter = self.selected_mode_map_filter();
+        self.lobby_maps
+            .iter()
+            .filter(|m| map_matches_game_mode_filter(&m.game_modes, filter))
+            .cloned()
+            .collect()
+    }
+
+    /// 菜单命中用的地图列表：选图页按模式过滤，其它页用完整大厅表。
+    pub(super) fn maps_for_menu_hit(&self) -> Vec<BootMapCandidate> {
+        if self.screen == OriginalScreen::ChooseMap {
+            self.maps_matching_selected_mode()
+        } else {
+            self.lobby_maps.clone()
+        }
+    }
+
+    /// 若当前选中地图不匹配模式过滤，改选第一张匹配图（可能清空）。
+    pub(super) fn clamp_selected_map_to_mode_filter(&mut self) {
+        let filter = self.selected_mode_map_filter().to_string();
+        let still_ok = self
+            .selected_map
+            .as_ref()
+            .and_then(|sel| self.lobby_maps.iter().find(|m| &m.file_name == sel))
+            .is_some_and(|m| map_matches_game_mode_filter(&m.game_modes, &filter));
+        if still_ok {
+            return;
+        }
+        self.selected_map = self
+            .lobby_maps
+            .iter()
+            .find(|m| map_matches_game_mode_filter(&m.game_modes, &filter))
+            .map(|m| m.file_name.clone());
+        if self.screen == OriginalScreen::ChooseMap {
+            self.ensure_lobby_preview();
+        }
+    }
+
     pub(super) fn ensure_lobby_preview(&mut self) {
         let Some(name) = self.selected_map.clone()
         else {
@@ -266,6 +315,7 @@ impl Shell {
             return;
         };
         self.selected_mode_id = Some(mode.id);
+        self.clamp_selected_map_to_mode_filter();
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
@@ -278,6 +328,7 @@ impl Shell {
         if self.selected_map.is_none() {
             self.selected_map = self.skirmish.preferred_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
         }
+        self.clamp_selected_map_to_mode_filter();
         self.set_screen(OriginalScreen::ChooseMap);
         self.banner = "选图".into();
         self.refresh_shell_title();

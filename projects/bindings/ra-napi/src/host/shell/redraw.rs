@@ -207,9 +207,10 @@ impl Shell {
                         let selected_mode_index = self
                             .selected_mode_id
                             .and_then(|id| self.lobby_modes.iter().position(|m| m.id == id));
-                        let map_names: Vec<&str> = self.lobby_maps.iter().map(|m| m.file_name.as_str()).collect();
+                        let visible_maps = self.maps_matching_selected_mode();
+                        let map_names: Vec<&str> = visible_maps.iter().map(|m| m.file_name.as_str()).collect();
                         let selected_map_index =
-                            self.selected_map.as_ref().and_then(|sel| self.lobby_maps.iter().position(|m| &m.file_name == sel));
+                            self.selected_map.as_ref().and_then(|sel| visible_maps.iter().position(|m| &m.file_name == sel));
                         ui_compose::compose_choose_map_page(
                             decoded,
                             self.window_width as u32,

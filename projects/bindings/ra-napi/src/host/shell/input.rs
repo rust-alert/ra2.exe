@@ -21,10 +21,11 @@ impl Shell {
         if self.screen == OriginalScreen::Campaign {
             return ui_hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
         }
+        let hit_maps = self.maps_for_menu_hit();
         if self.screen == OriginalScreen::SkirmishLobby {
             if let Some(id) = ui_hit::hover_index(
                 self.screen,
-                &self.lobby_maps,
+                &hit_maps,
                 self.lobby_modes.len(),
                 self.selected_map.as_deref(),
                 self.cursor,
@@ -42,7 +43,7 @@ impl Shell {
         }
         let idx = ui_hit::hover_index(
             self.screen,
-            &self.lobby_maps,
+            &hit_maps,
             self.lobby_modes.len(),
             self.selected_map.as_deref(),
             self.cursor,
