@@ -156,8 +156,15 @@ impl Shell {
                             .filter(|s| !s.is_empty())
                             .unwrap_or_else(|| self.skirmish.difficulty.clone());
                         let ai_rows = self.lobby_ai_rows();
+                        let mode_csf = self
+                            .selected_mode_id
+                            .and_then(|id| self.lobby_modes.iter().find(|m| m.id == id))
+                            .map(|m| m.name_csf.as_str())
+                            .unwrap_or("GUI:Battle");
+                        let game_type_name = resolve_caption(self.menu_csf.as_ref(), mode_csf, Some(mode_csf));
                         let paint = ui_compose::SkirmishLobbyPaint {
                             map_name: map_name.as_str(),
+                            game_type_name: game_type_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
                             country_name: country.as_str(),
                             color_rgb: self.skirmish.color_rgb(),

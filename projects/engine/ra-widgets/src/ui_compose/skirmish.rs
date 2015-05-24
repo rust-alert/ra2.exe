@@ -60,6 +60,8 @@ pub struct SkirmishChromeSprites {
 pub struct SkirmishLobbyPaint<'a> {
     /// 当前地图显示名。
     pub map_name: &'a str,
+    /// 右栏游戏类型显示名（来自选中 `mpmodes` 的 CSF）。
+    pub game_type_name: &'a str,
     /// 本地玩家名。
     pub player_name: &'a str,
     /// 本地国家显示名。
@@ -112,6 +114,7 @@ impl Default for SkirmishLobbyPaint<'_> {
     fn default() -> Self {
         Self {
             map_name: "",
+            game_type_name: "",
             player_name: "Player",
             country_name: "",
             color_rgb: crate::skirmish_setup::LOBBY_COLORS[0],
@@ -336,8 +339,9 @@ pub fn compose_skirmish_lobby_page(
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title, layout.title);
-        let battle = resolve_caption(csf, "battle", skirmish_lobby_static_csf_key("battle"));
-        blit_text_colored(&mut page, fnt, &battle, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
+        if !paint.game_type_name.is_empty() {
+            blit_text_colored(&mut page, fnt, paint.game_type_name, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
+        }
         if !paint.map_name.is_empty() {
             blit_caption_top_left_clipped(
                 &mut page,
