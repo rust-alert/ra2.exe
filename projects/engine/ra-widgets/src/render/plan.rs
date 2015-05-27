@@ -2,9 +2,9 @@
 
 use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
-    battle_hud_layout_tree, dialog_layout_tree, exit_confirm_content_layout_tree, shell_design_size,
-    shell_page_layout_tree, LayoutEngine, LayoutId, LayoutSnapshot, Rect, RightPanelChrome, Size2,
-    Viewport,
+    battle_hud_layout_tree, campaign_content_layout_tree, dialog_layout_tree,
+    exit_confirm_content_layout_tree, shell_design_size, shell_page_layout_tree, LayoutEngine,
+    LayoutId, LayoutSnapshot, Rect, RightPanelChrome, Size2, Viewport,
 };
 
 /// 单条可绘制命令。
@@ -112,5 +112,18 @@ impl RenderPlan {
             &dialog_layout_tree(root_id, template, chrome),
         );
         Self::solid_placeholders_from_snapshot(&snap, root_id)
+    }
+
+    /// 战役页：`campaign_content_layout_tree` → snapshot → 占位 `RenderPlan`。
+    pub fn campaign_placeholders() -> Self {
+        let chrome = RightPanelChrome::shell_defaults();
+        let snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &campaign_content_layout_tree(chrome),
+        );
+        Self::solid_placeholders_from_snapshot(&snap, "campaign")
     }
 }
