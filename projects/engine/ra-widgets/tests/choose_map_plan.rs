@@ -1,23 +1,24 @@
-//! 选图闭环：profile 模板 → snapshot → hit → `RenderPlan`。
+//! 选图闭环：profile `0x6B` → snapshot → hit → `RenderPlan`。
 
-use ra_adaptor::dialog_template_0x6b;
 use ra_layout::{
-    dialog_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
+    dialog_layout_tree, shell_design_size, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
 };
+use ra_adaptor::shell_runtime_ui_profile;
 use ra_widgets::RenderPlan;
 
 #[test]
 fn choose_map_render_plan_rects_match_snapshot_hits() {
     let chrome = RightPanelChrome::shell_defaults();
-    let root = dialog_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome);
+    let profile = shell_runtime_ui_profile();
+    let template = profile.dialog(0x6B).expect("dialog 0x6B");
     let snap = LayoutEngine.solve(
         Viewport {
-            size: ra_layout::shell_design_size(chrome),
+            size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &root,
+        &dialog_layout_tree("dialog_0x6b", template, chrome),
     );
-    let plan = RenderPlan::solid_placeholders_from_snapshot(&snap, "dialog_0x6b");
+    let plan = RenderPlan::shell_dialog_placeholders(0x6B, "dialog_0x6b");
 
     assert_eq!(
         plan.rect_of("use_map"),
