@@ -6,6 +6,7 @@ mod dlu;
 mod exit_confirm_page;
 mod from_template;
 mod legacy;
+mod load_screen;
 mod shell_chrome;
 
 pub use battle_hud::battle_hud_layout_tree;
@@ -16,6 +17,7 @@ pub use from_template::{
     dialog_layout_tree, resolve_control_desc, resolve_dialog_template, shell_design_size,
 };
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
+pub use load_screen::{load_screen_layout_tree, LOAD_SCREEN_BUTTON_IDS};
 pub use shell_chrome::{
     right_rail_buttons_layout_tree, shell_chrome_layout_tree, shell_page_layout_tree,
 };
