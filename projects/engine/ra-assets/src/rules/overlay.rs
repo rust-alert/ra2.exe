@@ -2,55 +2,46 @@
 
 use crate::ini::IniDocument;
 
-/// Overlay 类型注册表（按规则编号键）。
+/// Overlay 类型注册表。
+///
+/// 内部 id 按 `[OverlayTypes]` **声明顺序**（值序列）编号，不按数字键留空洞。
+/// 零售 `rules.ini` 常缺 `0=` / `40=` 等键；若按键号建表，矿/宝石会错位到桥/墙。
 #[derive(Debug, Clone, Default)]
 pub struct OverlayTypeRegistry {
-    /// `overlay_id` → 类型名（大写）。
-    names: Vec<Option<String>>,
+    /// `overlay_id` → 类型名（大写）；下标即 OverlayPack 字节。
+    names: Vec<String>,
 }
 
 impl OverlayTypeRegistry {
-    /// 解析 `[OverlayTypes]`；键为十进制 id。
+    /// 解析 `[OverlayTypes]`：按节内条目顺序赋 id `0..n`，忽略键的数字字面量。
     pub fn from_rules(rules: &IniDocument) -> Self {
         let Some(section) = rules.section("OverlayTypes")
         else {
             return Self::default();
         };
-        let mut max_id = 0usize;
-        let mut pairs: Vec<(usize, String)> = Vec::new();
-        for (key, value) in section.pairs() {
-            let Ok(id) = key.parse::<usize>()
-            else {
-                continue;
-            };
+        let mut names = Vec::new();
+        for (_key, value) in section.pairs() {
             let name = value.trim();
             if name.is_empty() {
                 continue;
             }
-            max_id = max_id.max(id);
-            pairs.push((id, name.to_ascii_uppercase()));
-        }
-        let mut names = vec![None; max_id.saturating_add(1)];
-        for (id, name) in pairs {
-            if id < names.len() {
-                names[id] = Some(name);
-            }
+            names.push(name.to_ascii_uppercase());
         }
         Self { names }
     }
 
-    /// 已登记的类型数量（跳过空槽）。
+    /// 已登记的类型数量。
     pub fn len(&self) -> usize {
-        self.names.iter().filter(|n| n.is_some()).count()
+        self.names.len()
     }
 
     /// 是否没有任何类型。
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.names.is_empty()
     }
 
     /// 按 overlay id 取类型名。
     pub fn name(&self, id: u8) -> Option<&str> {
-        self.names.get(usize::from(id)).and_then(|n| n.as_deref())
+        self.names.get(usize::from(id)).map(String::as_str)
     }
 }
