@@ -10,6 +10,7 @@ mod exit_confirm;
 mod choose_map;
 mod battle_hud;
 mod battle_pause;
+mod load_screen;
 
 pub use rect::*;
 pub use constants::*;
@@ -21,3 +22,4 @@ pub use exit_confirm::*;
 pub use choose_map::*;
 pub use battle_hud::*;
 pub use battle_pause::*;
+pub use load_screen::*;
