@@ -60,7 +60,7 @@ pub fn compose_choose_map_page(
             fill_rect(&mut page, row, [48, 28, 8, 255]);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y + 1, row.w - 8, row.h - 2, MENU_TEXT_ENABLED);
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y, row.w - 8, row.h, MENU_TEXT_ENABLED);
         }
     }
 
@@ -72,7 +72,7 @@ pub fn compose_choose_map_page(
             fill_rect(&mut page, row, [48, 28, 8, 255]);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y + 1, row.w - 8, row.h - 2, MENU_TEXT_ENABLED);
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y, row.w - 8, row.h, MENU_TEXT_ENABLED);
         }
     }
 

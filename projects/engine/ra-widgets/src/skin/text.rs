@@ -375,11 +375,8 @@ pub fn blit_caption_top_left_clipped(
     if cell_w <= 0 || cell_h <= 0 {
         return;
     }
-    let th = fnt.bitmap_rows as i32;
-    if th > cell_h {
-        return;
-    }
-    // 逐字绘制并在右边界截断。
+    // 行高略小于字高时仍绘制（选图列表行高 16，部分 FNT 的 bitmap_rows 亦为 16；
+    // 旧逻辑 `th > cell_h` 直接 return，会导致有高亮无文字）。
     let mut pen_x = cell_x;
     let mut first = true;
     for ch in text.chars() {
