@@ -1,13 +1,16 @@
 //! 集成测试：原 `src/options_dialog.rs` 内联测试迁出。
 
 use ra_widgets::options_dialog::*;
-use ra_layout::ui_layout::main_menu_layout;
+use ra_layout::ui_layout::options_layout;
 use ra_types::{DisplayMode, PresentFeel};
 
 #[test]
 fn rail_accept_is_top_tile_cell() {
     let layout = OptionsDialogLayout::new();
-    let shell = main_menu_layout(0, 0);
+    let shell = options_layout(0, 0);
+    assert_eq!(layout.rail[0], shell.buttons[0]);
+    assert_eq!(layout.rail[1], shell.buttons[1]);
+    assert_eq!(layout.rail[2], shell.buttons[2]);
     assert_eq!(layout.rail[0].y, shell.panel_tile.y);
     assert!(layout.rail[2].y < shell.panel_bottom.y);
 }

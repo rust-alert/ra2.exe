@@ -5,7 +5,7 @@
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
-use ra_layout::ui_layout::{BUTTON_CELL_H, BUTTON_CELL_W, RIGHT_PANEL_W, RectPx, SHELL_BASE_H, SHELL_BASE_W, main_menu_layout};
+use ra_layout::ui_layout::{RectPx, SHELL_BASE_H, SHELL_BASE_W, options_layout};
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -274,15 +274,13 @@ pub struct OptionsDialogLayout {
 
 impl OptionsDialogLayout {
     /// 构造与主菜单同右栏几何的选项板。
+    ///
+    /// 右栏 chrome / 三钮投影自 `options_layout`（`shell_page_layout_tree`）。
     pub fn new() -> Self {
-        let shell = main_menu_layout(0, 0);
-        let panel_x = SHELL_BASE_W - RIGHT_PANEL_W;
+        let shell = options_layout(0, 0);
+        let panel_x = shell.panel_top.x;
         let content = RectPx::new(16, 16, panel_x - 24, SHELL_BASE_H - 32);
-        let rail = [
-            button_cell(panel_x, shell.panel_tile.y),
-            button_cell(panel_x, shell.panel_tile.y + BUTTON_CELL_H),
-            button_cell(panel_x, shell.panel_bottom.y - BUTTON_CELL_H),
-        ];
+        let rail = [shell.buttons[0], shell.buttons[1], shell.buttons[2]];
         let left = content.x + 16;
         let usable_w = content.w - 32;
         let col_w = usable_w / 2 - 8;
@@ -383,11 +381,6 @@ impl OptionsDialogLayout {
     pub fn hover_rail_index(self, x: i32, y: i32) -> Option<usize> {
         self.rail.iter().position(|r| r.contains(x, y))
     }
-}
-
-fn button_cell(panel_x: i32, y: i32) -> RectPx {
-    let x = panel_x + (RIGHT_PANEL_W - BUTTON_CELL_W);
-    RectPx::new(x, y, BUTTON_CELL_W, BUTTON_CELL_H)
 }
 
 impl Default for OptionsDialogLayout {
