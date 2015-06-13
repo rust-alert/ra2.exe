@@ -24,7 +24,7 @@ pub enum OriginalScreen {
     ChooseMap,
     /// 网络游戏入口（Alpha 可见禁用）。
     Network,
-    /// 进战斗前装载页（Alpha 要求；与启动闪屏无关）。
+    /// 进战斗前装载页（遭遇战 / 战役共用；内容由 [`crate::LoadKind`] 区分；与启动闪屏无关）。
     LoadScreen,
     /// 战斗中（含 HUD；输入 → 命令 → tick → 渲染）。不含大厅 / 装载 / 结算。
     Battle,
