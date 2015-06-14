@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use ra_renderer::Renderer;
 use ra_types::{DisplayMode, PresentFeel};
+use ra_widgets::load_kind::LoadKind;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::SkirmishBootRequest;
 use ra_widgets::startup_splash;
@@ -53,6 +54,7 @@ impl Shell {
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            load_kind: LoadKind::Skirmish,
             load_started: None,
             pending_load_boot: None,
             lobby_maps: Vec::new(),
@@ -141,6 +143,7 @@ impl Shell {
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,
+            load_kind: LoadKind::Skirmish,
             load_started: None,
             pending_load_boot: None,
             lobby_maps: Vec::new(),

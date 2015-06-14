@@ -1,7 +1,8 @@
-//! 遭遇战装载任务。
+//! 进战斗前装载任务（遭遇战 / 战役共用 `LoadScreen`，由 `LoadKind` 区分）。
 
 use std::time::Instant;
 
+use ra_widgets::load_kind::LoadKind;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::SkirmishBootRequest;
 
@@ -30,11 +31,21 @@ impl Shell {
         0.0
     }
 
+    /// 取消 / 失败提示里的回退去向文案。
+    fn load_cancel_hint(&self) -> &'static str {
+        match self.load_kind {
+            LoadKind::Skirmish => "回大厅",
+            LoadKind::Campaign => "回选边",
+        }
+    }
+
+    /// 开始遭遇战装载（国家 `ls*` 装载图 + 安装目录 boot）。
     pub(super) fn begin_skirmish_load(&mut self) {
         if self.load_job.is_some() || self.pending_load_boot.is_some() {
             tracing::warn!("装载已在进行，忽略重复开始");
             return;
         }
+        self.load_kind = LoadKind::Skirmish;
         self.ensure_lobby_maps();
         self.banner =
             format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
@@ -61,18 +72,35 @@ impl Shell {
         self.refresh_shell_title();
     }
 
-    /// 放弃进行中的装载并回到遭遇战大厅（工作线程结果会被丢弃）。
-    pub(super) fn cancel_skirmish_load(&mut self) {
+    /// 按当前 `LoadKind` 重试；战役开局尚未接线时只提示。
+    pub(super) fn retry_load(&mut self) {
+        if self.load_job.is_some() {
+            tracing::info!("装载进行中，忽略重试");
+            return;
+        }
+        match self.load_kind {
+            LoadKind::Skirmish => self.begin_skirmish_load(),
+            LoadKind::Campaign => {
+                self.banner = "战役开局尚未接线 · Esc 回选边".into();
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
+        }
+    }
+
+    /// 放弃进行中的装载并回到 `LoadKind::cancel_screen`（工作线程结果会被丢弃）。
+    pub(super) fn cancel_load(&mut self) {
         if self.load_job.is_none() && self.pending_load_boot.is_none() && self.screen != OriginalScreen::LoadScreen {
             return;
         }
+        let back = self.load_kind.cancel_screen();
         self.load_job = None;
         self.pending_load_boot = None;
         self.load_started = None;
         self.pending_after_load = None;
         self.banner = "已取消装载".into();
-        tracing::info!("用户取消遭遇战装载");
-        self.set_screen(OriginalScreen::SkirmishLobby);
+        tracing::info!(kind = self.load_kind.as_str(), back = back.as_str(), "用户取消装载");
+        self.set_screen(back);
     }
 
     pub(super) fn poll_load_job(&mut self) {
@@ -88,8 +116,9 @@ impl Shell {
                     self.pending_load_boot = None;
                     self.load_started = None;
                     self.pending_after_load = None;
-                    self.banner = "装载线程异常断开 · Enter/点重试 · Esc 回大厅".into();
-                    tracing::error!("遭遇战装载线程异常断开");
+                    let hint = self.load_cancel_hint();
+                    self.banner = format!("装载线程异常断开 · Enter/点重试 · Esc {hint}");
+                    tracing::error!(kind = self.load_kind.as_str(), "装载线程异常断开");
                     self.set_screen(OriginalScreen::LoadScreen);
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
@@ -119,8 +148,7 @@ impl Shell {
                 };
                 let stage = if self.pending_load_boot.is_some() {
                     "装载完成，准备进入".into()
-                }
-                else {
+                } else {
                     self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into())
                 };
                 let pct = (self.load_screen_progress() * 100.0).round() as i32;
@@ -141,18 +169,16 @@ impl Shell {
         }
         match self.battle_controller.as_mut() {
             Some(ctrl) => ctrl.apply_boot(boot, &mut self.renderer),
-            None => {
-                self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
-            }
+            None => self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone())),
         }
         let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
         let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);
         if ok {
             self.set_screen(target);
-        }
-        else {
-            self.banner = format!("装载失败 · {} · Enter/点重试 · Esc 回大厅", self.banner);
-            tracing::warn!("遭遇战装载失败，停留加载页待重试");
+        } else {
+            let hint = self.load_cancel_hint();
+            self.banner = format!("装载失败 · {} · Enter/点重试 · Esc {hint}", self.banner);
+            tracing::warn!(kind = self.load_kind.as_str(), "装载失败，停留加载页待重试");
             self.set_screen(OriginalScreen::LoadScreen);
             self.refresh_menu_backdrop();
             self.refresh_shell_title();

@@ -17,8 +17,9 @@ pub struct LoadScreenPaint<'a> {
     pub progress: f32,
 }
 
-/// 合成遭遇战装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
+/// 合成进战斗装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
 ///
+/// 遭遇战与战役共用本合成入口；战役简报外观后续按 [`crate::LoadKind`] 分支。
 /// 文案与按钮几何来自 `load_screen_layout`（`load_screen_layout_tree` 投影）。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,

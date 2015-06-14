@@ -153,14 +153,9 @@ impl Shell {
             },
             OriginalScreen::LoadScreen => match key {
                 PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                    if self.load_job.is_some() {
-                        tracing::info!("装载进行中，忽略 Enter 重试");
-                    }
-                    else {
-                        self.begin_skirmish_load();
-                    }
+                    self.retry_load();
                 }
-                PhysicalKey::Code(KeyCode::Escape) => self.cancel_skirmish_load(),
+                PhysicalKey::Code(KeyCode::Escape) => self.cancel_load(),
                 _ => {}
             },
             OriginalScreen::Battle | OriginalScreen::Results => {}

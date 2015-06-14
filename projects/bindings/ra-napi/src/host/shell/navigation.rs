@@ -316,15 +316,8 @@ impl Shell {
                 _ => self.set_screen(OriginalScreen::MainMenu),
             },
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
-            MenuAction::CancelLoad => self.cancel_skirmish_load(),
-            MenuAction::RetryLoad => {
-                if self.load_job.is_some() {
-                    tracing::info!("装载进行中，忽略重试点击");
-                }
-                else {
-                    self.begin_skirmish_load();
-                }
-            }
+            MenuAction::CancelLoad => self.cancel_load(),
+            MenuAction::RetryLoad => self.retry_load(),
             MenuAction::Noop => {}
             MenuAction::CycleSide => {
                 self.skirmish.cycle_side();

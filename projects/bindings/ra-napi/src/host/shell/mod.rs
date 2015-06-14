@@ -22,6 +22,7 @@ use super::{
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
+    load_kind::LoadKind,
     shell_slide::{
         CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
         WAVE_STOWED_FRAME, WaveDirection,
@@ -72,8 +73,10 @@ pub struct Shell {
     pub(super) pending_after_load: Option<OriginalScreen>,
     /// 光标位置（逻辑像素，与 `window_width` / `window_height` 同单位）。
     pub(super) cursor: (f64, f64),
-    /// 后台遭遇战装载（`LoadScreen` 期间轮询）。
+    /// 后台进战斗装载（`LoadScreen` 期间轮询；遭遇战 / 战役共用）。
     pub(super) load_job: Option<LoadJob>,
+    /// 当前装载种类（决定合成内容与取消回退页）。
+    pub(super) load_kind: LoadKind,
     /// 当前装载开始时刻。
     pub(super) load_started: Option<Instant>,
     /// 后台已完成、等待最短展示时间后再 `finish_load` 的结果。
