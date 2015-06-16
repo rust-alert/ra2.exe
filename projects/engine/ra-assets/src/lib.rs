@@ -7,6 +7,7 @@
 #![deny(missing_docs)]
 
 pub mod audio;
+pub mod battle;
 pub mod image;
 pub mod ini;
 pub mod mix;
@@ -15,6 +16,7 @@ pub mod rules;
 pub mod voxel;
 
 pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
+pub use battle::{BattleCampaign, find_battle_campaign, parse_battle_campaigns};
 
 pub use image::{
     bink::{
