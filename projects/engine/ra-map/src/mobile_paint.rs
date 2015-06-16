@@ -1,4 +1,4 @@
-//! 地图移动单位叠画：优先 SHP，否则 VXL（含炮塔层）正交投影。
+//! 地图移动单位叠画：按 rules/art 的 `Image` 解析资源；`Voxel=yes` 优先 VXL，否则 SHP。
 
 use std::collections::HashMap;
 
@@ -13,11 +13,15 @@ use crate::{
 };
 
 /// 叠画单位 / 步兵 / 飞行器。`remap_owner` 提供房屋色调色板。
+///
+/// 图像键解析顺序：`rules.ini` 的 `Image` → `art.ini` 的 `Image` → 类型 id 本身。
+/// （例如 `AMCV` 的 rules `Image=MCV` → `mcv.vxl`，不可误读成不存在的 `amcv.vxl`。）
 pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
     art_ini: &str,
+    rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mobiles: Vec<_> =
@@ -31,6 +35,7 @@ pub fn paint_map_mobiles(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let rules = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
     let obj_pal = source
         .read("unittem.pal")
         .ok()
@@ -47,7 +52,8 @@ pub fn paint_map_mobiles(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
-        let image_key = art.as_ref().and_then(|a| a.get(&ent.type_id, "Image")).unwrap_or(ent.type_id.as_str()).to_ascii_uppercase();
+        let image_key = resolve_mobile_image_key(rules.as_ref(), art.as_ref(), &ent.type_id);
+        let prefer_voxel = art.as_ref().and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let frame_hint = ent.facing / 32;
         let cache_key = (image_key.clone(), frame_hint, ent.owner.clone());
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -56,21 +62,29 @@ pub fn paint_map_mobiles(
         }
 
         let pal = remap_owner(&obj_pal, &ent.owner);
-
-        if let Some(blit) = load_mobile_shp(source, &art, &image_key, map, &pal, frame_hint, &mut shp_cache) {
-            blit_cache.insert(cache_key, blit.clone());
-            items.push((ent.x, ent.y, blit));
-            continue;
+        let blit = if prefer_voxel {
+            load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
+                .or_else(|| load_mobile_shp(source, &art, &image_key, map, &pal, frame_hint, &mut shp_cache))
         }
-
-        let stem = image_key.to_ascii_lowercase();
-        if let Some(blit) = load_mobile_vxl_layers(source, &stem, &pal, vpl.as_ref(), ent.facing, ent.facing) {
+        else {
+            load_mobile_shp(source, &art, &image_key, map, &pal, frame_hint, &mut shp_cache)
+                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
+        };
+        if let Some(blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
             items.push((ent.x, ent.y, blit));
         }
     }
 
     paint_cell_sprites(image, &items, z_at)
+}
+
+fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+    rules
+        .and_then(|r| r.get(type_id, "Image"))
+        .or_else(|| art.and_then(|a| a.get(type_id, "Image")))
+        .unwrap_or(type_id)
+        .to_ascii_uppercase()
 }
 
 fn load_mobile_vxl_layers(

@@ -1,11 +1,12 @@
-//! 遭遇战启动预览：地形 + overlay + 物件 + 建筑（移动单位走动态标记）。
+//! 遭遇战启动预览：地形 + overlay + 物件 + 建筑；会话播种后可再叠移动单位 SHP。
 
+use image::RgbaImage;
 use ra_assets::Palette;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, overlay_paint::paint_map_overlays, structure_paint::paint_map_structures,
-    terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
+    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles, overlay_paint::paint_map_overlays,
+    structure_paint::paint_map_structures, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -19,7 +20,7 @@ pub struct SkirmishPreviewStats {
     pub terrain_objects: usize,
     /// 建筑叠画数。
     pub structures: usize,
-    /// 移动单位叠画数（启动预览常为 0）。
+    /// 移动单位叠画数。
     pub mobiles: usize,
 }
 
@@ -38,11 +39,12 @@ pub struct BootPreviewResult {
     pub stats: SkirmishPreviewStats,
 }
 
-/// 合成启动预览图（地形 / overlay / 物件 / 建筑；移动单位由渲染层动态标记）。
+/// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_ini: &str,
+    rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<(TerrainImage, SkirmishPreviewStats)> {
@@ -50,7 +52,27 @@ pub fn compose_skirmish_preview(
     let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner);
-    Some((image, SkirmishPreviewStats { overlay_shp, overlay_mark, terrain_objects, structures, mobiles: 0 }))
+    let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner);
+    Some((image, SkirmishPreviewStats { overlay_shp, overlay_mark, terrain_objects, structures, mobiles }))
+}
+
+/// 把额外实体（如航点播种的 MCV）叠画到已有预览 RGBA 上，保留原点。
+///
+/// `entities_map` 需带齐 `entities` / `cells` / `theater`；用于遭遇战开局后再画动态生成的载具。
+pub fn paint_mobiles_onto_preview_rgba(
+    source: &dyn AssetSource,
+    entities_map: &MapInfo,
+    image: &mut RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    art_ini: &str,
+    rules_ini: &str,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+) -> usize {
+    let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
+    let n = paint_map_mobiles(source, entities_map, &mut terrain, art_ini, rules_ini, remap_owner);
+    *image = terrain.image;
+    n
 }
 
 /// 合成启动预览。
@@ -61,10 +83,11 @@ pub fn compose_boot_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_ini: &str,
+    rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, stats) = compose_skirmish_preview(source, map, art_ini, overlay_type_name, remap_owner)?;
+    let (image, stats) = compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, remap_owner)?;
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
         map.name,

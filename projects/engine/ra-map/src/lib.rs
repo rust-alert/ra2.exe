@@ -48,7 +48,9 @@ pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_o
 pub use overlay_paint::paint_map_overlays;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
-pub use skirmish_preview::{BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview};
+pub use skirmish_preview::{
+    BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
+};
 pub use structure_paint::paint_map_structures;
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::paint_map_terrain_objects;

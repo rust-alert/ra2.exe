@@ -18,6 +18,6 @@ fn compose_boot_preview_returns_none_without_silent_fallback() {
     map.height = 8;
     map.theater = Theater::Temperate;
     let identity = |pal: &Palette, _owner: &str| pal.clone();
-    let out = compose_boot_preview(&EmptySource, &map, "art.ini", &|_| None, &identity);
+    let out = compose_boot_preview(&EmptySource, &map, "art.ini", "rules.ini", &|_| None, &identity);
     assert!(out.is_none(), "不得在地形合成失败后仍返回 Some");
 }
