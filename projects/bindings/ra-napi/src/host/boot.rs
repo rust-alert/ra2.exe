@@ -3,7 +3,10 @@
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_assets::parse_mpmodes;
 use ra_engine::{Engine, Session, open_skirmish_session};
-use ra_map::{MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named, list_parseable_boot_maps, mount_theater_mixes};
+use ra_map::{
+    MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named,
+    list_parseable_boot_maps, mount_theater_mixes, paint_mobiles_onto_preview_rgba,
+};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
 
@@ -41,11 +44,76 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesDb,
 ) -> Option<(String, RgbaImage, i32, i32)> {
-    let preview = compose_boot_preview(source, map, chain.art_ini, &|id| rules.overlay_types.name(id).map(str::to_owned), &|base, owner| {
-        rules.color_schemes.palette_for_house(&rules.rules, base, owner)
-    })?;
+    let preview = compose_boot_preview(
+        source,
+        map,
+        chain.art_ini,
+        chain.rules_ini,
+        &|id| rules.overlay_types.name(id).map(str::to_owned),
+        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
+    )?;
     let rgba = preview.image.image;
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
+}
+
+/// 将会话里已有的移动单位（含航点播种 MCV）叠画到启动预览底图。
+fn paint_session_mobiles_onto_preview(
+    source: &GameAssetSource,
+    chain: &ResourceChain,
+    rules: &RulesDb,
+    session: &Session,
+    image: &mut RgbaImage,
+    origin: (i32, i32),
+) -> usize {
+    let Some(game) = session.battle()
+    else {
+        return 0;
+    };
+    let mut paint_map = game.world.map.clone();
+    paint_map.entities.clear();
+    for id in game.world.entity_ids() {
+        let Some((type_id, kind)) = game.world.ecs_identity(id)
+        else {
+            continue;
+        };
+        if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+            continue;
+        }
+        let Some(owner) = game.world.ecs_owner(id)
+        else {
+            continue;
+        };
+        let Some((x, y, facing)) = game.world.ecs_transform(id)
+        else {
+            continue;
+        };
+        if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
+            continue;
+        }
+        paint_map.entities.push(MapEntity {
+            kind,
+            owner: owner.to_string(),
+            type_id: type_id.to_string(),
+            health: 256,
+            x,
+            y,
+            facing,
+            sub_cell: 0,
+        });
+    }
+    if paint_map.entities.is_empty() {
+        return 0;
+    }
+    paint_mobiles_onto_preview_rgba(
+        source,
+        &paint_map,
+        image,
+        origin.0,
+        origin.1,
+        chain.art_ini,
+        chain.rules_ini,
+        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
+    )
 }
 
 fn load_boot_map(
@@ -210,7 +278,7 @@ pub fn boot_world_with_progress(
     };
 
     report(0.70, "地形预览");
-    let preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules)) {
+    let mut preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules)) {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -259,6 +327,16 @@ pub fn boot_world_with_progress(
                 opened.session.expect_battle().fingerprint.rules_hash,
                 opened.session.expect_battle().match_seed
             );
+            // 航点播种的 MCV 不在地图放置段：预览合成后再叠 VXL/SHP，否则对局底图上看不见开局载具。
+            if let (Some(image), Some(rules)) = (preview.as_mut(), rules.as_ref()) {
+                let painted = paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, image, preview_origin);
+                if painted > 0 {
+                    note = format!("{note} · start_mobile_shp#{painted}");
+                }
+                else {
+                    tracing::warn!("开局移动单位未能叠画到预览（VXL/SHP 可能未解析）");
+                }
+            }
             (Some(opened.engine), Some(opened.session))
         }
         Some(Err(e)) => {
