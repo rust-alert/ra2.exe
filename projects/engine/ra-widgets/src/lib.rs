@@ -31,6 +31,7 @@ pub use render::{RenderCommand, RenderPlan};
 pub use screens::page as ui_page;
 pub use screens::options_dialog;
 pub use screens::skirmish_setup;
+pub use screens::campaign_setup;
 pub use screens::startup_splash;
 pub use screens::battle_hud;
 pub use screens::battle_pause_menu;
