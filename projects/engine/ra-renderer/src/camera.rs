@@ -135,6 +135,23 @@ mod tests {
     }
 
     #[test]
+    fn smaller_clamp_viewport_than_projection_exposes_void() {
+        // 投影按整窗 200，夹紧若误用更窄的 120（如侧栏内 world 视口），
+        // 中心可落到 60，整窗可见左缘为 60-100=-40，露出地图外。
+        let world_w = 400.0;
+        let projection_w = 200.0;
+        let hud_world_w = 120.0;
+        let zoom = 1.0;
+        let loose = CameraBounds::from_world_and_viewport(world_w, world_w, hud_world_w, hud_world_w, zoom);
+        let tight = CameraBounds::from_world_and_viewport(world_w, world_w, projection_w, projection_w, zoom);
+        assert!(loose.min_center_x < tight.min_center_x);
+        let visible_left_if_loose = loose.min_center_x - projection_w * 0.5 / zoom;
+        assert!(visible_left_if_loose < 0.0);
+        let visible_left_if_tight = tight.min_center_x - projection_w * 0.5 / zoom;
+        assert!((visible_left_if_tight - 0.0).abs() < 1e-5);
+    }
+
+    #[test]
     fn small_world_locks_center() {
         let mut cam = Camera { center_x: 0.0, center_y: 0.0, zoom: 1.0 };
         let bounds = CameraBounds::from_world_and_viewport(50.0, 50.0, 200.0, 200.0, 1.0);

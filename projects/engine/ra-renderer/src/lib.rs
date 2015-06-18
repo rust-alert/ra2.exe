@@ -283,20 +283,22 @@ impl Renderer {
         self.gpu.as_ref().map(GpuContext::backend_label)
     }
 
-    /// 通知交换链表面尺寸变化（像素宽高），并按当前活动底图重算 letterbox 相机。
+    /// 通知交换链表面尺寸变化（像素宽高）。
+    ///
+    /// 相机已就绪时只按新视口重夹边界（保留中心与缩放，避免对局开局对焦后再被整图 fit 冲掉）。
+    /// 尚未就绪时才按当前活动底图 letterbox fit。
     pub fn resize(&mut self, width: u32, height: u32) {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.resize(width, height);
         }
         let (sw, sh) = self.gpu.as_ref().map(|g| (g.config.width, g.config.height)).unwrap_or((width.max(1), height.max(1)));
-        // 对局叠加 HUD：保留世界相机中心与缩放，仅按新视口重夹边界（禁止再次整图 fit）。
-        if self.ui_overlay {
+        if self.camera_ready {
             if let Some(bounds) = self.camera_bounds_for_viewport(sw as f32, sh as f32) {
                 self.camera.clamp_to_bounds(&bounds);
             }
             return;
         }
-        else if let Some(ui) = self.ui_sprite.as_ref() {
+        if let Some(ui) = self.ui_sprite.as_ref() {
             let (iw, ih) = ui.size();
             self.reset_camera_to_fit(sw, sh, iw, ih);
         }
@@ -341,7 +343,11 @@ impl Renderer {
         self.pan_clamped_in_viewport(dx, dy, vw, vh);
     }
 
-    /// 在指定可视矩形（屏幕像素）内平移并夹紧；用于排除 HUD 侧栏后的世界视口。
+    /// 在指定可视矩形（屏幕像素）内平移并夹紧。
+    ///
+    /// `viewport_w` / `viewport_h` 必须与当前帧投影用的屏尺寸一致（对局热路径为
+    /// 整窗表面，与 [`SpriteGpu::write_vertices`] 的 `surf_w`/`surf_h` 相同）。
+    /// 传入比投影更小的矩形会使 `CameraBounds` 过松，拖出预览外的 void。
     pub fn pan_clamped_in_viewport(&mut self, dx: f32, dy: f32, viewport_w: f32, viewport_h: f32) {
         let Some(bounds) = self.camera_bounds_for_viewport(viewport_w, viewport_h)
         else {
