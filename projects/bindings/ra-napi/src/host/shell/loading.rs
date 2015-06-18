@@ -169,7 +169,17 @@ impl Shell {
         }
         match self.battle_controller.as_mut() {
             Some(ctrl) => ctrl.apply_boot(boot, &mut self.renderer),
-            None => self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone())),
+            None => {
+                self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
+                if let Some(ctrl) = self.battle_controller.as_mut() {
+                    ctrl.focus_camera_on_local_start(&mut self.renderer);
+                    if let Some(game) = ctrl.session.as_ref().and_then(|s| s.battle()) {
+                        if let Some(id) = ctrl.local.select_local_start(game) {
+                            tracing::info!("开局已选中本方单位 #{}", id.0);
+                        }
+                    }
+                }
+            }
         }
         let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
         let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);

@@ -126,10 +126,73 @@ impl BattleController {
         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
             tracing::info!("重开完成 · {}", boot.note);
+            self.focus_camera_on_local_start(renderer);
+            if let Some(id) = self.local.select_local_start(game) {
+                tracing::info!("开局已选中本方单位 #{}", id.0);
+            }
         }
         else {
             tracing::error!("重开失败 · {}", boot.note);
         }
+    }
+
+    /// 将镜头对准本地玩家开局单位（遭遇战优先 MCV 出生点附近）。
+    pub fn focus_camera_on_local_start(&self, renderer: &mut Renderer) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let Some(local_house) = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.clone())
+        else {
+            return;
+        };
+        let mut fallback: Option<(u16, u16)> = None;
+        let mut mcv: Option<(u16, u16)> = None;
+        for id in game.world.entity_ids() {
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            if owner.as_ref() != local_house.as_ref() {
+                continue;
+            }
+            let Some((_, _, dead)) = game.world.ecs_health(id)
+            else {
+                continue;
+            };
+            if dead {
+                continue;
+            }
+            let Some((type_id, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some((x, y, _)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            if type_id.to_ascii_uppercase().contains("MCV") {
+                mcv = Some((x, y));
+                break;
+            }
+            if fallback.is_none() {
+                fallback = Some((x, y));
+            }
+        }
+        let Some((x, y)) = mcv.or(fallback)
+        else {
+            tracing::warn!("本地阵营 {} 无可用开局单位，镜头保持预览 fit", local_house);
+            return;
+        };
+        let z = game.world.pass_grid.cell_height(x, y);
+        let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
+        let wx = (sx - game.preview_origin_x) as f32;
+        let wy = (sy - game.preview_origin_y) as f32;
+        renderer.focus_camera(wx, wy, BATTLE_START_ZOOM);
+        tracing::info!("开局镜头对准 {} @({},{}) zoom={}", local_house, x, y, BATTLE_START_ZOOM);
     }
 
     /// 按当前路径再装载一局（同步；事件循环内请改走 `LoadJob`）。
@@ -161,27 +224,18 @@ impl BattleController {
 
     fn pan_world(&self, renderer: &mut Renderer, window: &Window, dx: f32, dy: f32) {
         let size = window.inner_size();
-        let world = battle_hud_layout(size.width, size.height).world_viewport();
-        if world.w <= 0 || world.h <= 0 {
-            renderer.pan_clamped(dx, dy);
-            return;
-        }
-        renderer.pan_clamped_in_viewport(dx, dy, world.w as f32, world.h as f32);
+        // 夹紧必须与投影同口径：`write_vertices` / `screen_to_world` 用整窗表面。
+        // 若改用更小的 `world_viewport`，half 偏小，中心可越过预览边缘露出 void。
+        renderer.pan_clamped_in_viewport(dx, dy, size.width.max(1) as f32, size.height.max(1) as f32);
     }
 
     fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
         let add = self.shift_down;
-        let Some(cell) = self.cursor_cell(renderer, window)
-        else {
+        let size = window.inner_size();
+        let world = battle_hud_layout(size.width, size.height).world_viewport();
+        if world.w <= 0 || world.h <= 0 || !world.contains(self.cursor.0 as i32, self.cursor.1 as i32) {
             if !add {
                 self.local.clear();
-            }
-            return;
-        };
-        if let Some(type_id) = self.place_mode {
-            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
-                game.order_place_building(type_id, cell.0, cell.1);
             }
             return;
         }
@@ -189,7 +243,33 @@ impl BattleController {
         else {
             return;
         };
-        if let Some(id) = game.pick_entity_at(cell.0, cell.1) {
+        let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
+        if let Some(type_id) = self.place_mode {
+            let Some(cell) = game.image_to_cell(wx, wy)
+            else {
+                return;
+            };
+            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
+                game.order_place_building(type_id, cell.0, cell.1);
+            }
+            return;
+        }
+        let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
+        // 先按屏幕锚点点本方单位（VXL 车身常偏离逻辑格），再回退格点选。
+        let picked = game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| {
+            let cell = game.image_to_cell(wx, wy)?;
+            if let Some(house) = local_house.as_deref() {
+                game.pick_mobile_at_owned(cell.0, cell.1, Some(house)).or_else(|| {
+                    game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+                })
+            }
+            else {
+                game.pick_entity_at(cell.0, cell.1)
+            }
+        });
+        if let Some(id) = picked {
+            let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -201,7 +281,9 @@ impl BattleController {
         }
         else if !add {
             self.local.clear();
-            tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
+            if let Some(cell) = game.image_to_cell(wx, wy) {
+                tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
+            }
         }
     }
 
@@ -389,6 +471,14 @@ impl BattleController {
                     PhysicalKey::Code(KeyCode::Tab) => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             self.local.cycle_selection(game);
+                            tracing::info!("Tab 循环选中 · {:?}", self.local.selected);
+                        }
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyT) => {
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                            self.local.select_same_type(game);
+                            tracing::info!("同类型选中 · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
                         }
                         BattleNav::None
                     }

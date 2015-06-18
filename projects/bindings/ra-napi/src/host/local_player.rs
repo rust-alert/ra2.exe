@@ -101,14 +101,61 @@ impl LocalPlayerController {
         }
     }
 
-    /// 在存活移动单位间循环选中。
+    /// 选中与当前首个选中项同类型、同阵营的全部存活移动单位（原版 `T`）。
+    ///
+    /// 无选中时不改变选中集。
+    pub fn select_same_type(&mut self, battle: &BattleSession) {
+        let Some(&seed) = self.selected.first()
+        else {
+            return;
+        };
+        let Some(owner) = battle.world.ecs_owner(seed)
+        else {
+            return;
+        };
+        let Some((type_id, kind)) = battle.world.ecs_identity(seed)
+        else {
+            return;
+        };
+        if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+            return;
+        }
+        self.selected.clear();
+        for eid in battle.world.entity_ids() {
+            if battle.world.ecs_health(eid).is_none_or(|(_, _, dead)| dead) {
+                continue;
+            }
+            if battle.world.ecs_owner(eid).is_none_or(|o| o != owner) {
+                continue;
+            }
+            let Some((tid, k)) = battle.world.ecs_identity(eid)
+            else {
+                continue;
+            };
+            if k != kind {
+                continue;
+            }
+            if tid.as_ref() != type_id.as_ref() {
+                continue;
+            }
+            self.selected.push(eid);
+        }
+    }
+
+    /// 在本地玩家存活移动单位间循环选中（`Tab`）。
     pub fn cycle_selection(&mut self, battle: &BattleSession) {
+        let Some(local_house) = battle.world.players.iter().find(|p| p.id == battle.world.local_player).map(|p| p.house.clone())
+        else {
+            self.selected.clear();
+            return;
+        };
         let mobiles: Vec<EntityId> = battle
             .world
             .entity_ids()
             .into_iter()
             .filter(|&eid| {
                 battle.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
+                    && battle.world.ecs_owner(eid).is_some_and(|o| o.as_ref() == local_house.as_ref())
                     && battle
                         .world
                         .ecs_identity(eid)
@@ -124,6 +171,13 @@ impl LocalPlayerController {
             None => mobiles[0],
         };
         self.select_only(battle, next);
+    }
+
+    /// 选中本地开局单位（优先 MCV）。
+    pub fn select_local_start(&mut self, battle: &BattleSession) -> Option<EntityId> {
+        let id = battle.local_start_mobile()?;
+        self.select_only(battle, id);
+        Some(id)
     }
 
     /// 清空选中。
