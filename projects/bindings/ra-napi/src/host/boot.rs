@@ -1,7 +1,9 @@
 //! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `BattleController`）。
 
+use std::collections::HashMap;
+
 use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
-use ra_assets::parse_mpmodes;
+use ra_assets::{Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes};
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named,
@@ -9,11 +11,13 @@ use ra_map::{
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
+use ra_widgets::campaign_setup::campaign_side_battle_id;
+use ra_widgets::fs_source::GameAssetSource;
+use ra_widgets::skirmish_setup::{LOBBY_COLORS, LOBBY_SIDES, SkirmishBootRequest};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
-use ra_widgets::fs_source::GameAssetSource;
 
-pub use ra_assets::MpMode;
+pub use ra_assets::{BattleCampaign, MpMode};
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
@@ -43,6 +47,7 @@ fn load_map_terrain_preview(
     map: &MapInfo,
     chain: &ResourceChain,
     rules: &RulesDb,
+    lobby_primaries: Option<&HashMap<String, Rgba>>,
 ) -> Option<(String, RgbaImage, i32, i32)> {
     let preview = compose_boot_preview(
         source,
@@ -50,10 +55,39 @@ fn load_map_terrain_preview(
         chain.art_ini,
         chain.rules_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
-        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
+        &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
     let rgba = preview.image.image;
     Some((preview.note, rgba, preview.origin_x, preview.origin_y))
+}
+
+/// 大厅行色 → house 主色（遭遇战阵营色以大厅为准，不用国家默认 `Color=Gold`）。
+fn lobby_house_primaries(request: &SkirmishBootRequest) -> HashMap<String, Rgba> {
+    let mut out = HashMap::new();
+    for (row, &side_i) in request.row_sides.iter().enumerate() {
+        let Some(side) = LOBBY_SIDES.get(usize::from(side_i)).copied()
+        else {
+            continue;
+        };
+        let ci = usize::from(request.row_colors[row]) % LOBBY_COLORS.len();
+        let [r, g, b] = LOBBY_COLORS[ci];
+        out.insert(side.to_ascii_uppercase(), Rgba::rgb(r, g, b));
+    }
+    let ci = usize::from(request.color_index) % LOBBY_COLORS.len();
+    let [r, g, b] = LOBBY_COLORS[ci];
+    out.insert(request.side.to_ascii_uppercase(), Rgba::rgb(r, g, b));
+    out
+}
+
+fn remap_owner_palette(rules: &RulesDb, lobby_primaries: Option<&HashMap<String, Rgba>>, base: &Palette, owner: &str) -> Palette {
+    let up = owner.to_ascii_uppercase();
+    if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
+        return rules.color_schemes.palette_for_house(&rules.rules, base, owner);
+    }
+    if let Some(primary) = lobby_primaries.and_then(|m| m.get(&up)) {
+        return base.with_house_remap(*primary);
+    }
+    rules.color_schemes.palette_for_house(&rules.rules, base, owner)
 }
 
 /// 将会话里已有的移动单位（含航点播种 MCV）叠画到启动预览底图。
@@ -64,6 +98,7 @@ fn paint_session_mobiles_onto_preview(
     session: &Session,
     image: &mut RgbaImage,
     origin: (i32, i32),
+    lobby_primaries: &HashMap<String, Rgba>,
 ) -> usize {
     let Some(game) = session.battle()
     else {
@@ -112,7 +147,7 @@ fn paint_session_mobiles_onto_preview(
         origin.1,
         chain.art_ini,
         chain.rules_ini,
-        &|base, owner| rules.color_schemes.palette_for_house(&rules.rules, base, owner),
+        &|base, owner| remap_owner_palette(rules, Some(lobby_primaries), base, owner),
     )
 }
 
@@ -176,6 +211,43 @@ pub fn list_install_skirmish_modes() -> Vec<MpMode> {
     }
 }
 
+/// 列出安装资源链中的战役表（来自 `battle.ini` / `battlemd.ini`）。
+///
+/// 失败或缺文件时返回空表。
+pub fn list_install_battle_campaigns() -> Vec<BattleCampaign> {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
+    else {
+        return Vec::new();
+    };
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let Some(bytes) = source.vfs.read(manifest.chain.battle_ini)
+    else {
+        tracing::warn!(file = %manifest.chain.battle_ini, "战役表不可读");
+        return Vec::new();
+    };
+    match parse_battle_campaigns(&bytes) {
+        Ok(camps) => camps,
+        Err(e) => {
+            tracing::warn!(file = %manifest.chain.battle_ini, error = %e, "战役表解析失败");
+            Vec::new()
+        }
+    }
+}
+
+/// 按选边入口（`allied` / `tutorial` / `soviet`）解析首关战役定义。
+pub fn resolve_install_campaign_for_side(side: &str) -> Option<BattleCampaign> {
+    let battle_id = campaign_side_battle_id(side)?;
+    let camps = list_install_battle_campaigns();
+    find_battle_campaign(&camps, battle_id).cloned()
+}
+
 /// 为遭遇战大厅生成指定地图的地形预览（未缩小）。
 ///
 /// 失败时返回 `None`（缺图、缺剧院资源或规则不可读）。
@@ -192,7 +264,7 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
     let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0));
     let rules = load_rules_chain(&source, &manifest.chain).ok()?;
-    let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules)?;
+    let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules, None)?;
     Some((format!("{} · {}", loaded.note, note), image))
 }
 
@@ -278,7 +350,11 @@ pub fn boot_world_with_progress(
     };
 
     report(0.70, "地形预览");
-    let mut preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules)) {
+    let lobby_primaries = lobby_house_primaries(request);
+    let mut preview = match rules
+        .as_ref()
+        .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
+    {
         Some((name, image, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -329,7 +405,8 @@ pub fn boot_world_with_progress(
             );
             // 航点播种的 MCV 不在地图放置段：预览合成后再叠 VXL/SHP，否则对局底图上看不见开局载具。
             if let (Some(image), Some(rules)) = (preview.as_mut(), rules.as_ref()) {
-                let painted = paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, image, preview_origin);
+                let painted =
+                    paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, image, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 }
