@@ -2,11 +2,12 @@
 
 use std::time::Instant;
 
+use ra_widgets::campaign_setup::{campaign_difficulty_label, campaign_side_lobby_house};
 use ra_widgets::load_kind::LoadKind;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::SkirmishBootRequest;
 
-use crate::host::boot::BootResult;
+use crate::host::boot::{self, BootResult};
 use crate::host::load_job::LoadJob;
 use crate::host::battle_controller::BattleController;
 
@@ -72,7 +73,72 @@ impl Shell {
         self.refresh_shell_title();
     }
 
-    /// 按当前 `LoadKind` 重试；战役开局尚未接线时只提示。
+    /// 开始战役装载：按选边解析 `battle.ini` 首关并走共用 `LoadScreen`。
+    pub(super) fn begin_campaign_load(&mut self, side: &'static str) {
+        if self.load_job.is_some() || self.pending_load_boot.is_some() {
+            tracing::warn!("装载已在进行，忽略重复开始");
+            return;
+        }
+        let Some(house) = campaign_side_lobby_house(side)
+        else {
+            self.banner = format!("未知战役选边 · {side}");
+            self.refresh_shell_title();
+            return;
+        };
+        let Some(camp) = boot::resolve_install_campaign_for_side(side)
+        else {
+            self.campaign_side = Some(side);
+            self.banner = format!("战役表缺少 {side} 首关 · 检查 battle.ini");
+            tracing::warn!(side, "战役首关不可解析");
+            self.refresh_menu_backdrop();
+            self.refresh_shell_title();
+            return;
+        };
+
+        self.campaign_side = Some(side);
+        self.load_kind = LoadKind::Campaign;
+        self.skirmish.side = house.to_string();
+        self.skirmish.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
+        self.selected_map = Some(camp.scenario.clone());
+        self.banner = format!("正在装载战役 {} · {} · {}…", camp.id, camp.scenario, house);
+        self.pending_after_load = Some(OriginalScreen::Battle);
+        self.pending_load_boot = None;
+        self.set_screen(OriginalScreen::LoadScreen);
+        self.load_started = Some(Instant::now());
+        #[cfg(feature = "test-harness")]
+        {
+            if let Some(scene) = self.test_scene.clone() {
+                self.load_job = Some(LoadJob::start_test_scene(scene));
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+                return;
+            }
+        }
+        self.load_job = Some(LoadJob::start_install_boot({
+            let house_index = ra_widgets::skirmish_setup::LOBBY_SIDES
+                .iter()
+                .position(|s| *s == house)
+                .unwrap_or(0) as u8;
+            let mut req = self.skirmish.clone();
+            req.preferred_map = Some(camp.scenario.clone());
+            req.side = house.to_string();
+            req.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
+            // 战役首关先只保留本方 house（各行同阵营，装载侧去重后仅一席）。
+            req.row_sides = [house_index; ra_layout::ui_layout::SKIRMISH_ROW_COUNT];
+            req
+        }));
+        tracing::info!(
+            side,
+            battle = %camp.id,
+            scenario = %camp.scenario,
+            house,
+            "开始战役装载"
+        );
+        self.refresh_menu_backdrop();
+        self.refresh_shell_title();
+    }
+
+    /// 按当前 `LoadKind` 重试。
     pub(super) fn retry_load(&mut self) {
         if self.load_job.is_some() {
             tracing::info!("装载进行中，忽略重试");
@@ -81,9 +147,13 @@ impl Shell {
         match self.load_kind {
             LoadKind::Skirmish => self.begin_skirmish_load(),
             LoadKind::Campaign => {
-                self.banner = "战役开局尚未接线 · Esc 回选边".into();
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
+                if let Some(side) = self.campaign_side {
+                    self.begin_campaign_load(side);
+                } else {
+                    self.banner = "无战役选边可重试 · Esc 回选边".into();
+                    self.refresh_menu_backdrop();
+                    self.refresh_shell_title();
+                }
             }
         }
     }

@@ -274,22 +274,13 @@ impl Shell {
                 self.refresh_shell_title();
             }
             MenuAction::SelectCampaignAllied => {
-                self.campaign_side = Some("allied");
-                self.banner = "盟军战役（开局未接线）".into();
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
+                self.begin_campaign_load("allied");
             }
             MenuAction::SelectCampaignTutorial => {
-                self.campaign_side = Some("tutorial");
-                self.banner = "新兵训练营（开局未接线）".into();
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
+                self.begin_campaign_load("tutorial");
             }
             MenuAction::SelectCampaignSoviet => {
-                self.campaign_side = Some("soviet");
-                self.banner = "苏军战役（开局未接线）".into();
-                self.refresh_menu_backdrop();
-                self.refresh_shell_title();
+                self.begin_campaign_load("soviet");
             }
             MenuAction::CycleCampaignDifficulty => {
                 self.campaign_difficulty = (self.campaign_difficulty + 1) % 3;
