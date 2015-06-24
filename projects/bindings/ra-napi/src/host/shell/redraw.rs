@@ -251,6 +251,7 @@ impl Shell {
                             status: load_status.as_deref().unwrap_or(""),
                             allow_retry: load_allow_retry,
                             progress: load_progress,
+                            brief_csf_override: self.load_brief_csf.as_deref(),
                         },
                     ),
                     _ => None,
@@ -291,6 +292,7 @@ impl Shell {
                         status: load_status.as_deref().unwrap_or(self.banner.as_str()),
                         allow_retry: load_allow_retry,
                         progress: load_progress,
+                        brief_csf_override: self.load_brief_csf.as_deref(),
                     },
                 ) {
                     self.upload_ui_page(page);

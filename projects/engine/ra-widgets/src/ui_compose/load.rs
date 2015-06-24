@@ -15,6 +15,8 @@ pub struct LoadScreenPaint<'a> {
     pub allow_retry: bool,
     /// 装载进度 0..=1（驱动 `progbarm` 横向裁剪）。
     pub progress: f32,
+    /// 简报 CSF 覆盖（战役 `DESC:*`）；`None` 时按 `side` 走国家 `LOADBRIEF`。
+    pub brief_csf_override: Option<&'a str>,
 }
 
 /// 合成进战斗装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
@@ -57,7 +59,10 @@ pub fn compose_load_screen_page(
             );
         }
 
-        let brief_key = load_screen_brief_csf_key(paint.side);
+        let brief_key = paint
+            .brief_csf_override
+            .map(str::to_string)
+            .unwrap_or_else(|| load_screen_brief_csf_key(paint.side));
         if let Some(brief) = resolve_csf_text(csf, &brief_key) {
             blit_caption_wrapped(
                 &mut page,

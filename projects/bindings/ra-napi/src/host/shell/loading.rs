@@ -47,6 +47,7 @@ impl Shell {
             return;
         }
         self.load_kind = LoadKind::Skirmish;
+        self.load_brief_csf = None;
         self.ensure_lobby_maps();
         self.banner =
             format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
@@ -97,6 +98,11 @@ impl Shell {
 
         self.campaign_side = Some(side);
         self.load_kind = LoadKind::Campaign;
+        self.load_brief_csf = if camp.description_csf.is_empty() {
+            None
+        } else {
+            Some(camp.description_csf.clone())
+        };
         self.skirmish.side = house.to_string();
         self.skirmish.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
         self.selected_map = Some(camp.scenario.clone());
@@ -168,6 +174,7 @@ impl Shell {
         self.pending_load_boot = None;
         self.load_started = None;
         self.pending_after_load = None;
+        self.load_brief_csf = None;
         self.banner = "已取消装载".into();
         tracing::info!(kind = self.load_kind.as_str(), back = back.as_str(), "用户取消装载");
         self.set_screen(back);

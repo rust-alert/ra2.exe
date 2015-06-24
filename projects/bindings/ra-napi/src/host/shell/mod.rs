@@ -77,6 +77,8 @@ pub struct Shell {
     pub(super) load_job: Option<LoadJob>,
     /// 当前装载种类（决定合成内容与取消回退页）。
     pub(super) load_kind: LoadKind,
+    /// 装载页简报 CSF 覆盖（战役用 `DESC:*`；遭遇战为 `None` 走国家 `LOADBRIEF`）。
+    pub(super) load_brief_csf: Option<String>,
     /// 当前装载开始时刻。
     pub(super) load_started: Option<Instant>,
     /// 后台已完成、等待最短展示时间后再 `finish_load` 的结果。

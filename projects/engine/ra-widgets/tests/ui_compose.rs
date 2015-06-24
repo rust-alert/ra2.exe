@@ -477,6 +477,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             status: "装载中",
             allow_retry: false,
             progress: 0.5,
+            brief_csf_override: None,
         },
     )
     .unwrap();
@@ -501,6 +502,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             status: "装载失败 · test",
             allow_retry: true,
             progress: 1.0,
+            brief_csf_override: None,
         },
     )
     .unwrap();
