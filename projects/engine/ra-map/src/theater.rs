@@ -86,6 +86,17 @@ pub fn theater_palette(theater: Theater) -> &'static str {
     }
 }
 
+/// 矿石 / 宝石等 `Tiberium=yes` overlay 用的剧院地表调色板（非 `isotem`）。
+pub fn theater_tiberium_palette(theater: Theater) -> &'static str {
+    match theater {
+        Theater::Temperate => "temperat.pal",
+        Theater::Snow => "snow.pal",
+        Theater::Urban => "urban.pal",
+        Theater::Lunar => "lunar.pal",
+        Theater::Desert => "desert.pal",
+    }
+}
+
 /// `NewTheater=yes` 时替换文件名第二字母所用的剧院字符。
 pub fn theater_new_letter(theater: Theater) -> char {
     match theater {

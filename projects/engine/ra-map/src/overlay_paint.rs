@@ -8,12 +8,14 @@ use ra_types::AssetSource;
 use crate::{
     MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
-    theater::{new_theater_shp_name, theater_palette, theater_tmp_extension},
+    theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
 /// 将 overlay 叠到地形图上：优先 SHP，失败格回退色块。
 ///
 /// `overlay_type_name`：由 rules `[OverlayTypes]` 解析得到的 id→名。
+/// `is_tiberium`：该 id 是否 `Tiberium=yes`（矿/宝石须用剧院地表 pal，如 `temperat.pal`，
+/// 不能用 `isotem.pal`，否则呈灰黑底块）。
 /// `art_ini`：art 文件名（如 `art.ini` / `artmd.ini`）。
 ///
 /// 返回 `(shp 画上的格子数, 色块标记数)`。
@@ -23,6 +25,7 @@ pub fn paint_map_overlays(
     image: &mut TerrainImage,
     art_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
+    is_tiberium: &dyn Fn(u8) -> bool,
 ) -> (usize, usize) {
     if map.overlays.is_empty() {
         return (0, 0);
@@ -33,18 +36,18 @@ pub fn paint_map_overlays(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    // `Theater=yes`（桥 / 矿 / 栏等 `.tem`）用剧院调色板；
-    // `NewTheater=yes` 墙体等单位向 SHP 用 `unittem.pal`。二者缺一时互相回退。
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
-    if unit_pal.is_none() && theater_pal.is_none() {
+    let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
+    if unit_pal.is_none() && theater_pal.is_none() && tib_pal.is_none() {
         let mark = paint_overlay_markers(image, &map.overlays, z_at);
         return (0, mark);
     }
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u8, bool), TileBlit> = HashMap::new();
+    // (image_key, frame, pal_kind): 0=unit 1=theater_iso 2=tiberium
+    let mut blit_cache: HashMap<(String, u8, u8), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
     let mut unresolved = Vec::new();
 
@@ -58,9 +61,15 @@ pub fn paint_map_overlays(
         let frame_idx = cell.data;
         let new_theater = art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let theater_yes = art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        // 剧院扩展名资源走剧院 pal；其余（含 NewTheater 墙）走单位 pal。
-        let prefer_theater_pal = theater_yes && !new_theater;
-        let cache_key = (image_key.clone(), frame_idx, prefer_theater_pal);
+        let tib = is_tiberium(cell.overlay_id);
+        let pal_kind: u8 = if tib {
+            2
+        } else if theater_yes && !new_theater {
+            1
+        } else {
+            0
+        };
+        let cache_key = (image_key.clone(), frame_idx, pal_kind);
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((cell.x, cell.y, blit.clone()));
             continue;
@@ -105,20 +114,16 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        let frame = shp.frames.get(usize::from(frame_idx)).or_else(|| shp.frames.first());
-        let Some(frame) = frame
+        // 空帧必须不画：低桥侧柱等 data 指向空帧时回退会造出幽灵板。
+        let Some(frame) = drawable_frame(shp, frame_idx)
         else {
             unresolved.push(*cell);
             continue;
         };
-        if frame.frame_width == 0 || frame.frame_height == 0 {
-            unresolved.push(*cell);
-            continue;
-        }
-        let Some(pal) = (if prefer_theater_pal {
-            theater_pal.as_ref().or(unit_pal.as_ref())
-        } else {
-            unit_pal.as_ref().or(theater_pal.as_ref())
+        let Some(pal) = (match pal_kind {
+            2 => tib_pal.as_ref().or(theater_pal.as_ref()).or(unit_pal.as_ref()),
+            1 => theater_pal.as_ref().or(tib_pal.as_ref()).or(unit_pal.as_ref()),
+            _ => unit_pal.as_ref().or(theater_pal.as_ref()).or(tib_pal.as_ref()),
         })
         else {
             unresolved.push(*cell);
@@ -127,8 +132,8 @@ pub fn paint_map_overlays(
         let blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
-            offset_x: i32::from(frame.frame_x),
-            offset_y: i32::from(frame.frame_y),
+            offset_x: i32::from(frame.frame_x as i16),
+            offset_y: i32::from(frame.frame_y as i16),
             rgba: frame.to_rgba(pal),
         };
         blit_cache.insert(cache_key, blit.clone());
@@ -138,4 +143,10 @@ pub fn paint_map_overlays(
     let shp_n = paint_cell_sprites(image, &items, z_at);
     let mark_n = if unresolved.is_empty() { 0 } else { paint_overlay_markers(image, &unresolved, z_at) };
     (shp_n, mark_n)
+}
+
+/// 选取可画帧：仅当 `preferred` 宽高非 0；空帧不回退。
+fn drawable_frame(shp: &ShpFile, preferred: u8) -> Option<&ra_assets::ShpFrame> {
+    let frame = shp.frames.get(usize::from(preferred))?;
+    (frame.frame_width > 0 && frame.frame_height > 0).then_some(frame)
 }

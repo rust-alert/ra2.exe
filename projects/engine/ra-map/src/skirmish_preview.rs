@@ -46,10 +46,11 @@ pub fn compose_skirmish_preview(
     art_ini: &str,
     rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
+    is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<(TerrainImage, SkirmishPreviewStats)> {
     let mut image = compose_terrain_preview(source, map)?;
-    let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name);
+    let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name, is_tiberium);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner);
@@ -85,9 +86,10 @@ pub fn compose_boot_preview(
     art_ini: &str,
     rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
+    is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, stats) = compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, remap_owner)?;
+    let (image, stats) = compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, remap_owner)?;
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
         map.name,

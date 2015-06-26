@@ -56,7 +56,8 @@ pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::paint_map_terrain_objects;
 pub use terrain_preview::compose_terrain_preview;
 pub use theater::{
-    Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette, theater_tmp_extension,
+    Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette, theater_tiberium_palette,
+    theater_tmp_extension,
 };
 pub use tileset::{TilesetLookup, parse_tileset_ini};
 pub use tmp_pass::seal_pass_grid_from_tmp;

@@ -55,6 +55,13 @@ fn load_map_terrain_preview(
         chain.art_ini,
         chain.rules_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
+        &|id| {
+            rules
+                .overlay_types
+                .name(id)
+                .and_then(|n| rules.rules.get(n, "Tiberium"))
+                .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
+        },
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
     let rgba = preview.image.image;
