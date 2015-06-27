@@ -145,8 +145,14 @@ impl Shell {
                         self.menu_panel_anim_frame,
                     ),
                     OriginalScreen::SkirmishLobby => {
-                        let map_name =
-                            self.selected_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone())).unwrap_or_default();
+                        let selected = self
+                            .selected_map
+                            .as_ref()
+                            .and_then(|name| self.lobby_maps.iter().find(|m| &m.file_name == name))
+                            .or_else(|| self.lobby_maps.first());
+                        let map_file = selected.map(|m| m.file_name.as_str()).unwrap_or("");
+                        let map_csf = selected.map(|m| m.name_csf.as_str());
+                        let map_name = resolve_caption(self.menu_csf.as_ref(), map_file, map_csf);
                         let country = self.skirmish.side.clone();
                         let ai_csf = ra_widgets::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
@@ -215,7 +221,11 @@ impl Shell {
                             .selected_mode_id
                             .and_then(|id| self.lobby_modes.iter().position(|m| m.id == id));
                         let visible_maps = self.maps_matching_selected_mode();
-                        let map_names: Vec<&str> = visible_maps.iter().map(|m| m.file_name.as_str()).collect();
+                        let map_labels: Vec<String> = visible_maps
+                            .iter()
+                            .map(|m| resolve_caption(self.menu_csf.as_ref(), &m.file_name, Some(&m.name_csf)))
+                            .collect();
+                        let map_names: Vec<&str> = map_labels.iter().map(|s| s.as_str()).collect();
                         let selected_map_index =
                             self.selected_map.as_ref().and_then(|sel| visible_maps.iter().position(|m| &m.file_name == sel));
                         ui_compose::compose_choose_map_page(
