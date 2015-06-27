@@ -28,6 +28,16 @@ fn find_boot_map_auto_errors_when_empty_source() {
 }
 
 #[test]
+fn boot_map_name_csf_from_file_stem() {
+    use ra_map::{boot_map_name_csf_key, resolve_boot_map_name_csf};
+    assert_eq!(boot_map_name_csf_key("mp03t4.map"), "DESC:MP03T4");
+    assert_eq!(boot_map_name_csf_key("MP01T4.MAP"), "DESC:MP01T4");
+    assert_eq!(resolve_boot_map_name_csf("mp03t4.map", ""), "DESC:MP03T4");
+    assert_eq!(resolve_boot_map_name_csf("custom.map", "DESC:CUSTOM"), "DESC:CUSTOM");
+    assert_eq!(resolve_boot_map_name_csf("custom.map", "  DESC:FOO  "), "DESC:FOO");
+}
+
+#[test]
 fn start_slots_from_filename_and_ai_rows() {
     use ra_map::{Waypoint, count_skirmish_start_slots, skirmish_ai_row_count};
     assert_eq!(count_skirmish_start_slots(&[], "mp03t4.map"), 4);

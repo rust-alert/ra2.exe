@@ -35,8 +35,9 @@ use ra_types::{GameEdition, RaError, RaResult};
 
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
-    BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, count_skirmish_start_slots, find_boot_map, find_boot_map_named, find_first_boot_map,
-    list_parseable_boot_maps, mount_theater_mixes, skirmish_ai_row_count, try_parse_boot_map,
+    BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
+    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, mount_theater_mixes, resolve_boot_map_name_csf,
+    skirmish_ai_row_count, try_parse_boot_map,
 };
 pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
@@ -82,6 +83,8 @@ pub struct MapInfo {
     pub theater: Theater,
     /// `[Basic] GameModes` 标签（逗号分隔解析；空表示仅匹配 `standard`）。
     pub game_modes: Vec<String>,
+    /// `[Basic] Description` CSF 键（可空；官方遭遇图常省略）。
+    pub description_csf: String,
     /// 等距地形单元。
     pub cells: Vec<IsoCell>,
     /// 覆盖层格。
@@ -106,6 +109,7 @@ impl MapInfo {
             height: 0,
             theater: Theater::Temperate,
             game_modes: Vec::new(),
+            description_csf: String::new(),
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
@@ -124,6 +128,7 @@ impl MapInfo {
         let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
         let theater = Theater::parse(theater_raw)?;
         let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
+        let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
             Err(_) => Vec::new(),
@@ -144,6 +149,7 @@ impl MapInfo {
             height: side,
             theater,
             game_modes,
+            description_csf,
             cells,
             overlays,
             terrain_objects,

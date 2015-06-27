@@ -21,6 +21,8 @@ pub struct BootMapResult {
 pub struct BootMapCandidate {
     /// 文件名（如 `mp03t4.map`）。
     pub file_name: String,
+    /// 显示名 CSF 键（如 `DESC:MP03T4`；来自 `[Basic] Description` 或文件名推导）。
+    pub name_csf: String,
     /// 地图宽（格）。
     pub width: u32,
     /// 地图高（格）。
@@ -31,6 +33,22 @@ pub struct BootMapCandidate {
     pub start_slots: u8,
     /// `[Basic] GameModes` 标签（空表示仅匹配 `standard`）。
     pub game_modes: Vec<String>,
+}
+
+/// 遭遇战地图名 CSF 键：`DESC:{STEM}`（如 `mp03t4.map` → `DESC:MP03T4`）。
+pub fn boot_map_name_csf_key(file_name: &str) -> String {
+    let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(file_name);
+    format!("DESC:{}", stem.to_ascii_uppercase())
+}
+
+/// 解析大厅显示用 CSF 键：优先 `[Basic] Description`，否则按文件名推导。
+pub fn resolve_boot_map_name_csf(file_name: &str, description_csf: &str) -> String {
+    let trimmed = description_csf.trim();
+    if trimmed.is_empty() {
+        boot_map_name_csf_key(file_name)
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// 统计遭遇战开局席位：优先航点编号 `< 8`，否则从文件名 `tN` 推断，再否则 4。
@@ -93,6 +111,7 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
         };
         out.push(BootMapCandidate {
             file_name: (*name).to_string(),
+            name_csf: resolve_boot_map_name_csf(name, &map.description_csf),
             width: map.size_width,
             height: map.size_height,
             theater: map.theater,

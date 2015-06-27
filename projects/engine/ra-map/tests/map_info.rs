@@ -2,6 +2,13 @@ use ra_map::{MapInfo, Theater, game_cell_grid_side, map_matches_game_mode_filter
 use ra_types::GameEdition;
 
 #[test]
+fn parse_basic_description_csf() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nDescription=DESC:MP03T4\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.description_csf, "DESC:MP03T4");
+}
+
+#[test]
 fn parse_basic_map_ini() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=SNOW\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
