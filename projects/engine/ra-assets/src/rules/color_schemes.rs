@@ -32,17 +32,15 @@ impl ColorSchemes {
         self.by_name.get(&name.to_ascii_uppercase()).copied()
     }
 
-    /// 阵营节 `Color=` → HSV；中立等跳过。
+    /// 阵营节 `Color=` → HSV（含 `Neutral` / `Special` / `Civilian` 的 Grey 等方案）。
     pub fn hsv_for_house(&self, rules: &IniDocument, house: &str) -> Option<Hsv> {
-        let up = house.to_ascii_uppercase();
-        if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
-            return None;
-        }
         let scheme = rules.get(house, "Color")?;
         self.get(scheme)
     }
 
     /// 阵营 HSV remap；无方案时回退 `Palette::for_owner`。
+    ///
+    /// 中立等必须走 `Color=Grey`：`unittem.pal` 默认 16..=31 色带偏红，跳过 remap 会把民房画成「有归属红」。
     pub fn palette_for_house(&self, rules: &IniDocument, base: &Palette, owner: &str) -> Palette {
         if let Some(hsv) = self.hsv_for_house(rules, owner) {
             return base.with_hsv_remap(hsv);
