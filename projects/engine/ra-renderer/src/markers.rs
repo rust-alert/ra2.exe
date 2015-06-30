@@ -1,6 +1,7 @@
-//! 纯色菱形/方块标记：叠在预览图之上，表达单位位置与选中。
+//! 选中反馈标记：叠在预览图之上（选中环与生命条）。
 //!
-//! 绘制数据来自 [`crate::world::RenderWorld`]，不再在 GPU 层扫描完整 `RenderSnapshot`。
+//! 单位本体由底图 VXL/SHP 表达，不再为每个实体画实心菱形/方块。
+//! 绘制数据来自 [`crate::world::RenderWorld`]。
 
 use bytemuck::{Pod, Zeroable};
 
@@ -72,37 +73,25 @@ impl MarkerGpu {
     }
 
     /// 从可复用 [`RenderWorld`] 写入标记顶点（屏外粗裁剪，避免上传不可见单位）。
+    ///
+    /// 底图已叠 VXL/SHP 时，不再为每个实体画实心菱形/方块（会叠出「一堆无意义色块」）。
+    /// 仅对**选中**实体画选中环与生命条。
     pub fn write_from_world(&mut self, queue: &wgpu::Queue, world: &RenderWorld, camera: &Camera, surface_w: u32, surface_h: u32) {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
         let sh = surface_h.max(1) as f32;
-        // 略放大可见窗，避免边缘单位闪烁。
         const MARGIN: f32 = 1.15;
-        for u in world.units.values().filter(|u| !u.dead) {
-            let color = u.color;
+        for u in world.units.values().filter(|u| !u.dead && u.selected) {
             let cx = u.screen_x as f32 + 30.0;
             let cy = u.screen_y as f32 + 15.0;
             let ndc = camera.world_to_ndc(cx, cy, sw, sh);
             if !ndc_visible(ndc, MARGIN) {
                 continue;
             }
-            let half = match (u.is_structure, u.selected) {
-                (true, true) => 12.0,
-                (true, false) => 9.0,
-                (false, true) => 10.0,
-                (false, false) => 7.0,
-            };
-            if u.is_structure {
-                push_rect(&mut verts, camera, sw, sh, cx - half, cy - half * 0.6, half * 2.0, half * 1.2, color);
-            }
-            else {
-                push_diamond(&mut verts, camera, sw, sh, cx, cy, half, color);
-            }
-            if u.selected {
-                let ring = [1.0, 1.0, 0.2, 0.95];
-                push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
-            }
-            if u.max_health > 0 && u.health < u.max_health {
+            let half = if u.is_structure { 12.0 } else { 10.0 };
+            let ring = [1.0, 1.0, 0.2, 0.95];
+            push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
+            if u.max_health > 0 {
                 let ratio = (u.health as f32 / u.max_health as f32).clamp(0.0, 1.0);
                 let bar_w = 18.0;
                 let bar_h = 3.0;
