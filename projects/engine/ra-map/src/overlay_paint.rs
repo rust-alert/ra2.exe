@@ -11,6 +11,35 @@ use crate::{
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
+/// 平地矿/宝石的显示用类型名（不改资源态 id / 密度帧）。
+///
+/// 原版在平地格用 `((i16)x * (i16)y) % 12` 在 12 个扁平外形间选图
+///（`TIB01`–`TIB12` / `GEM01`–`GEM12`），其中较高外形即矿柱。
+/// 地图坐标一般为正；负余数按原版再落到 `0..11`。
+pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> String {
+    const VARIANT_COUNT: i32 = 12;
+    let sx = i32::from(x as i16);
+    let sy = i32::from(y as i16);
+    let rem = sx.wrapping_mul(sy) % VARIANT_COUNT;
+    let variant = u8::try_from(rem.rem_euclid(VARIANT_COUNT)).unwrap_or(0) + 1;
+
+    let upper = type_name.to_ascii_uppercase();
+    if upper.starts_with("GEM") {
+        return format!("GEM{variant:02}");
+    }
+    if let Some(rest) = upper.strip_prefix("TIB") {
+        if let Some((family, _)) = rest.split_once('_') {
+            if !family.is_empty() && family.chars().all(|c| c.is_ascii_digit()) {
+                return format!("TIB{family}_{variant:02}");
+            }
+        }
+        if rest.chars().all(|c| c.is_ascii_digit()) && !rest.is_empty() {
+            return format!("TIB{variant:02}");
+        }
+    }
+    type_name.to_string()
+}
+
 /// 将 overlay 叠到地形图上：优先 SHP，失败格回退色块。
 ///
 /// `overlay_type_name`：由 rules `[OverlayTypes]` 解析得到的 id→名。
@@ -57,11 +86,34 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        let image_key = art.as_ref().and_then(|a| a.get(&type_name, "Image")).unwrap_or(type_name.as_str()).to_ascii_uppercase();
-        let frame_idx = cell.data;
-        let new_theater = art.as_ref().and_then(|a| a.get(&type_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let theater_yes = art.as_ref().and_then(|a| a.get(&type_name, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let tib = is_tiberium(cell.overlay_id);
+        // 平地矿：资源态仍用 pack 里的 id，画图换成坐标派生的 TIB/GEM 外形（含矿柱）。
+        let display_name = if tib {
+            flat_tiberium_display_type_name(&type_name, cell.x, cell.y)
+        } else {
+            type_name.clone()
+        };
+        let art_section = art
+            .as_ref()
+            .and_then(|a| {
+                if a.get(&display_name, "Theater").is_some()
+                    || a.get(&display_name, "NewTheater").is_some()
+                    || a.get(&display_name, "Image").is_some()
+                {
+                    Some(display_name.as_str())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(type_name.as_str());
+        let image_key = art
+            .as_ref()
+            .and_then(|a| a.get(art_section, "Image"))
+            .unwrap_or(display_name.as_str())
+            .to_ascii_uppercase();
+        let frame_idx = cell.data;
+        let new_theater = art.as_ref().and_then(|a| a.get(art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let theater_yes = art.as_ref().and_then(|a| a.get(art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let pal_kind: u8 = if tib {
             2
         } else if theater_yes && !new_theater {

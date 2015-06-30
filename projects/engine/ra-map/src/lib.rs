@@ -46,7 +46,7 @@ pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable};
 pub use mobile_paint::paint_map_mobiles;
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
-pub use overlay_paint::paint_map_overlays;
+pub use overlay_paint::{flat_tiberium_display_type_name, paint_map_overlays};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use skirmish_preview::{

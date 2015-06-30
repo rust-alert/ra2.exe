@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ra_map::{MapInfo, OverlayCell, TerrainImage, paint_map_overlays};
+use ra_map::{MapInfo, OverlayCell, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;
@@ -137,6 +137,32 @@ fn empty_frame_does_not_fallback_to_first_drawable() {
         paint_map_overlays(&source, &map, &mut image, "art.ini", &|id| (id == 1).then(|| "BRIDGE1".into()), &|_| false);
     assert_eq!(shp, 0, "empty preferred frame must not paint");
     assert_eq!(mark, 1);
+}
+
+#[test]
+fn flat_tiberium_display_picks_variant_from_cell_xy() {
+    // (7,1): 7*1 % 12 = 7 → TIB08 / GEM08
+    assert_eq!(flat_tiberium_display_type_name("TIB01", 7, 1), "TIB08");
+    assert_eq!(flat_tiberium_display_type_name("GEM03", 7, 1), "GEM08");
+    assert_eq!(flat_tiberium_display_type_name("TIB2_01", 7, 1), "TIB2_08");
+    // (5,0): 乘积为 0 → 仍为族首
+    assert_eq!(flat_tiberium_display_type_name("TIB01", 5, 0), "TIB01");
+}
+
+#[test]
+fn tiberium_paint_loads_coordinate_display_shp() {
+    // pack 身份仍是 TIB01，但 (7,1) 应画 TIB08；仅提供 tib08.tem 证伪。
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n".to_vec());
+    files.insert("temperat.pal".into(), solid_index_pal(5, 0, 0, 63));
+    files.insert("tib08.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.overlays = vec![OverlayCell { x: 7, y: 1, overlay_id: 102, data: 0 }];
+    let mut image = TerrainImage::blank(256, 256);
+    let (shp, mark) =
+        paint_map_overlays(&source, &map, &mut image, "art.ini", &|id| (id == 102).then(|| "TIB01".into()), &|id| id == 102);
+    assert_eq!((shp, mark), (1, 0), "must paint TIB08 from flat display remap");
 }
 
 #[test]
