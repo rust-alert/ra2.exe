@@ -7,6 +7,7 @@ mod exit_confirm_page;
 mod from_template;
 mod legacy;
 mod load_screen;
+mod options_page;
 mod shell_chrome;
 
 pub use battle_hud::battle_hud_layout_tree;
@@ -18,6 +19,7 @@ pub use from_template::{
 };
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
 pub use load_screen::{load_screen_layout_tree, LOAD_SCREEN_BUTTON_IDS};
+pub use options_page::{options_content_layout_tree, OPTIONS_CONTENT_IDS};
 pub use shell_chrome::{
     right_rail_buttons_layout_tree, shell_chrome_layout_tree, shell_page_layout_tree,
 };
