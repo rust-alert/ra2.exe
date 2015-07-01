@@ -7,7 +7,11 @@ npm i -g @game-gpt/red-alert2
 ra2 launch --path "C:/Games/RA2"
 ```
 
-可选：`--edition ra2|yr`。
+可选：`--edition ra2|yr`、`--screen skirmish`（跳过闪屏直达遭遇战大厅等）。
+
+```bash
+ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
+```
 
 按逻辑名导出资源：
 

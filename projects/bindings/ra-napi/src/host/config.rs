@@ -13,7 +13,7 @@ pub fn load_desktop_config_with_diagnostics() -> (DesktopConfig, Vec<ConfigDiagn
 
 /// 设置一次性启动覆盖（`ra2 launch --path` / N-API）。
 pub fn set_launch_override(ra2_dir: impl Into<std::path::PathBuf>, edition: Option<String>) {
-    ra_config::set_launch_override(LaunchOverride { ra2_dir: ra2_dir.into(), edition });
+    ra_config::set_launch_override(LaunchOverride { ra2_dir: ra2_dir.into(), edition, screen: None });
 }
 
 /// 清除启动覆盖。

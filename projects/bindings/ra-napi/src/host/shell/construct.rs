@@ -117,18 +117,23 @@ impl Shell {
         }
     }
 
-    /// 正常产品路径：闪屏 → 主菜单；进入对局须经菜单手动操作。
-    pub(super) fn with_main_menu(display_mode: DisplayMode) -> Self {
+    /// 正常产品路径：默认可闪屏 → 主菜单；`start_screen` 可直达遭遇战等前置页。
+    pub(super) fn with_main_menu(display_mode: DisplayMode, start_screen: OriginalScreen) -> Self {
         let (window_width, window_height) = {
             let (w, h) = display_mode.size();
             (w as f64, h as f64)
         };
+        let skip_splash = start_screen != OriginalScreen::Splash;
         Self {
             window: None,
-            screen: OriginalScreen::Splash,
+            screen: start_screen,
             battle_controller: None,
             renderer: Renderer::new(),
-            banner: "闪屏 · 预处理中".into(),
+            banner: if skip_splash {
+                format!("启动 · {}", start_screen.as_str())
+            } else {
+                "闪屏 · 预处理中".into()
+            },
             window_width,
             window_height,
             display_mode,
@@ -139,8 +144,8 @@ impl Shell {
             splash_min_secs: startup_splash::DEFAULT_MINIMUM_VISIBLE_SECS,
             load_min_secs: 3.0,
             shell_slide_gap_secs: 0.2,
-            splash_preload_done: false,
-            splash_skip: false,
+            splash_preload_done: skip_splash,
+            splash_skip: skip_splash,
             pending_after_load: None,
             cursor: (0.0, 0.0),
             load_job: None,

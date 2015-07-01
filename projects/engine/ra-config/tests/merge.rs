@@ -4,6 +4,16 @@ use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAle
 use ra_types::DisplayMode;
 
 #[test]
+fn screen_from_merged() {
+    let mut table = ConfigTable::new();
+    table.insert("ra2_dir", ".");
+    table.insert("screen", "skirmish");
+    let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
+    let s = DesktopSettings::from_merged(&merged);
+    assert_eq!(s.screen.as_deref(), Some("skirmish"));
+}
+
+#[test]
 fn later_layer_overrides() {
     let mut a = ConfigTable::new();
     a.insert("ra2_dir", ".");

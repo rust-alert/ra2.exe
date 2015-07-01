@@ -28,6 +28,8 @@ pub struct LaunchOptions {
     pub path: String,
     /// 可选版本：`ra2` / `yr` 等。
     pub edition: Option<String>,
+    /// 可选启动产品页：`skirmish` / `main` / `campaign` 等（跳过闪屏）。
+    pub screen: Option<String>,
 }
 
 /// 注入路径覆盖并阻塞进入 GUI 事件循环。
@@ -37,7 +39,11 @@ pub fn launch(options: LaunchOptions) -> Result<()> {
     if path.as_os_str().is_empty() {
         return Err(Error::from_reason("--path must not be empty"));
     }
-    ra_config::set_launch_override(LaunchOverride { ra2_dir: path, edition: options.edition.filter(|s| !s.trim().is_empty()) });
+    ra_config::set_launch_override(LaunchOverride {
+        ra2_dir: path,
+        edition: options.edition.filter(|s| !s.trim().is_empty()),
+        screen: options.screen.filter(|s| !s.trim().is_empty()),
+    });
     host::run().map_err(|e| Error::from_reason(format!("{e}")))
 }
 

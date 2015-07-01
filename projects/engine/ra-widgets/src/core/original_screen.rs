@@ -69,4 +69,36 @@ impl OriginalScreen {
     pub fn requires_session(self) -> bool {
         matches!(self, Self::Battle | Self::Results)
     }
+
+    /// 解析 `ra2 launch --screen` 别名（大小写不敏感；不含对局/装载/结算）。
+    ///
+    /// 接受稳定短名（[`Self::as_str`]）与常用缩写，例如 `skirmish` → [`Self::SkirmishLobby`]。
+    pub fn parse_launch_alias(raw: &str) -> Result<Self, String> {
+        let key = raw.trim().to_ascii_lowercase();
+        if key.is_empty() {
+            return Err("screen 不能为空".into());
+        }
+        let screen = match key.as_str() {
+            "splash" => Self::Splash,
+            "main" | "main_menu" | "menu" => Self::MainMenu,
+            "single" | "single_player" | "single_player_menu" => Self::SinglePlayerMenu,
+            "campaign" => Self::Campaign,
+            "skirmish" | "skirmish_lobby" | "lobby" => Self::SkirmishLobby,
+            "choose_map" | "map" | "maps" => Self::ChooseMap,
+            "network" => Self::Network,
+            "options" => Self::Options,
+            "exit" | "exit_confirm" => Self::ExitConfirm,
+            "battle" | "load" | "load_screen" | "results" => {
+                return Err(format!(
+                    "screen `{raw}` 需要对局会话，不能作为启动页（可用: splash, main, single, campaign, skirmish, choose_map, options）"
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "未知 screen `{other}`（可用: splash, main, single, campaign, skirmish, choose_map, options）"
+                ));
+            }
+        };
+        Ok(screen)
+    }
 }

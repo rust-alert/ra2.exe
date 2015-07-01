@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 export type LaunchOptions = {
     path: string;
     edition?: string;
+    /** 启动产品页别名，如 `skirmish` / `main`（跳过闪屏）。 */
+    screen?: string;
 };
 
 export type ExtractOptions = {

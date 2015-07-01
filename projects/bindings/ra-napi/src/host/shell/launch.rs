@@ -22,7 +22,7 @@ pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) 
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, shell_slide_gap_secs, status_path, test_scene) =
+    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, shell_slide_gap_secs, status_path, test_scene, start_screen) =
         resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
@@ -49,7 +49,7 @@ pub fn run_shell() -> RaResult<()> {
         }
         LaunchMode::MainMenu => {
             let _ = (status_path, test_scene);
-            Shell::with_main_menu(display_mode)
+            Shell::with_main_menu(display_mode, start_screen)
         }
     };
     app.apply_audio_volumes(music_volume, sound_volume);
@@ -68,7 +68,18 @@ enum LaunchMode {
     MainMenu,
 }
 
-fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel, f64, f64, Option<PathBuf>, Option<String>)> {
+fn resolve_launch() -> RaResult<(
+    LaunchMode,
+    DisplayMode,
+    f32,
+    f32,
+    PresentFeel,
+    f64,
+    f64,
+    Option<PathBuf>,
+    Option<String>,
+    ra_widgets::original_screen::OriginalScreen,
+)> {
     #[cfg(feature = "test-harness")]
     {
         if let Some(scene) = crate::host::test_boot::requested_scene() {
@@ -101,18 +112,24 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
                 0.0,
                 status_path,
                 Some(scene),
+                ra_widgets::original_screen::OriginalScreen::Battle,
             ));
         }
     }
 
-    // 产品路径：主菜单起；对局须手动经菜单进入（自动测试用 DirectBattle 场景）。
+    // 产品路径：默认可从闪屏起；`--screen` / 配置 `screen` 可直达遭遇战等前置页。
     let (settings, diagnostics) = config::load_desktop_config_with_diagnostics();
     for d in &diagnostics {
         tracing::info!(source = %d.source, "{}", d.message);
     }
     let display_mode = settings.display_mode;
+    let start_screen = match settings.screen.as_deref() {
+        None => ra_widgets::original_screen::OriginalScreen::Splash,
+        Some(raw) => ra_widgets::original_screen::OriginalScreen::parse_launch_alias(raw).map_err(RaError::Msg)?,
+    };
     tracing::info!(
         display_mode = display_mode.as_str(),
+        start_screen = start_screen.as_str(),
         music_volume = settings.music_volume,
         sound_volume = settings.sound_volume,
         load_min_secs = settings.load_min_secs,
@@ -131,5 +148,6 @@ fn resolve_launch() -> RaResult<(LaunchMode, DisplayMode, f32, f32, PresentFeel,
         settings.shell_slide_gap_secs,
         None,
         None,
+        start_screen,
     ))
 }
