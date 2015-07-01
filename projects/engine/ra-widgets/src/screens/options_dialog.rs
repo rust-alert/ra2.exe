@@ -6,6 +6,9 @@
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
 use ra_layout::ui_layout::{RectPx, SHELL_BASE_H, SHELL_BASE_W, options_layout};
+use ra_layout::{
+    options_content_layout_tree, shell_design_size, LayoutEngine, RightPanelChrome, Viewport,
+};
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -276,39 +279,49 @@ impl OptionsDialogLayout {
     /// 构造与主菜单同右栏几何的选项板。
     ///
     /// 右栏 chrome / 三钮投影自 `options_layout`（`shell_page_layout_tree`）。
+    /// 左侧内容板投影自 `options_content_layout_tree`。
     pub fn new() -> Self {
         let shell = options_layout(0, 0);
-        let panel_x = shell.panel_top.x;
-        let content = RectPx::new(16, 16, panel_x - 24, SHELL_BASE_H - 32);
+        let chrome = RightPanelChrome::shell_defaults();
+        let snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &options_content_layout_tree(chrome),
+        );
+        let rect = |id: &str| {
+            let r = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
+            RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
+        };
         let rail = [shell.buttons[0], shell.buttons[1], shell.buttons[2]];
-        let left = content.x + 16;
-        let usable_w = content.w - 32;
-        let col_w = usable_w / 2 - 8;
-        // 略压原版四区间距，腾出「质感」区（仍落在 800×600 内容板内）。
-        let y0 = content.y + 12;
         Self {
             canvas: RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H),
-            content,
+            content: rect("content"),
             panel_top: shell.panel_top,
             panel_tile: shell.panel_tile,
             panel_tile_count: shell.panel_tile_count,
             panel_bottom: shell.panel_bottom,
             title: shell.title,
             rail,
-            sec_display: RectPx::new(left, y0, usable_w, 18),
-            track_detail: RectPx::new(left, y0 + 32, col_w, 22),
-            resolution: RectPx::new(left + col_w + 16, y0 + 32, col_w, 28),
-            sec_game: RectPx::new(left, y0 + 80, usable_w, 18),
-            track_difficulty: RectPx::new(left, y0 + 112, usable_w - 40, 22),
-            sec_ui: RectPx::new(left, y0 + 168, usable_w, 18),
-            checks: [RectPx::new(left, y0 + 198, 220, 22), RectPx::new(left, y0 + 224, 220, 22), RectPx::new(left, y0 + 250, 220, 22)],
-            track_scroll: RectPx::new(left + col_w + 16, y0 + 198, col_w, 22),
-            sec_present: RectPx::new(left, y0 + 290, usable_w, 18),
-            check_present: RectPx::new(left, y0 + 318, 280, 22),
-            sec_audio: RectPx::new(left, y0 + 360, usable_w, 18),
-            track_music: RectPx::new(left, y0 + 388, usable_w - 40, 22),
-            track_sound: RectPx::new(left, y0 + 422, usable_w - 40, 22),
-            track_voice: RectPx::new(left, y0 + 456, usable_w - 40, 22),
+            sec_display: rect("sec_display"),
+            track_detail: rect("track_detail"),
+            resolution: rect("resolution"),
+            sec_game: rect("sec_game"),
+            track_difficulty: rect("track_difficulty"),
+            sec_ui: rect("sec_ui"),
+            checks: [
+                rect("check_tooltips"),
+                rect("check_scanlines"),
+                rect("check_damage"),
+            ],
+            track_scroll: rect("track_scroll"),
+            sec_present: rect("sec_present"),
+            check_present: rect("check_present"),
+            sec_audio: rect("sec_audio"),
+            track_music: rect("track_music"),
+            track_sound: rect("track_sound"),
+            track_voice: rect("track_voice"),
         }
     }
 
