@@ -117,13 +117,13 @@ fn resolve_launch() -> RaResult<(
         }
     }
 
-    // 产品路径：默认可从闪屏起；`--screen` / 配置 `screen` 可直达遭遇战等前置页。
+    // 产品路径：默认可从闪屏起；CLI `--screen` 可直达遭遇战等前置页（不进 TOML）。
     let (settings, diagnostics) = config::load_desktop_config_with_diagnostics();
     for d in &diagnostics {
         tracing::info!(source = %d.source, "{}", d.message);
     }
     let display_mode = settings.display_mode;
-    let start_screen = match settings.screen.as_deref() {
+    let start_screen = match ra_config::launch_override_screen().as_deref() {
         None => ra_widgets::original_screen::OriginalScreen::Splash,
         Some(raw) => ra_widgets::original_screen::OriginalScreen::parse_launch_alias(raw).map_err(RaError::Msg)?,
     };

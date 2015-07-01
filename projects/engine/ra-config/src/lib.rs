@@ -22,7 +22,7 @@ pub struct LaunchOverride {
     pub ra2_dir: PathBuf,
     /// 可选版本字符串。
     pub edition: Option<String>,
-    /// 可选启动产品页别名（如 `skirmish`；由壳层解析为 `OriginalScreen`）。
+    /// 可选启动产品页别名（如 `skirmish`；仅 CLI / N-API，不进 TOML）。
     pub screen: Option<String>,
 }
 
@@ -36,6 +36,17 @@ pub fn set_launch_override(override_: LaunchOverride) {
 /// 清除启动覆盖。
 pub fn clear_launch_override() {
     *LAUNCH_OVERRIDE.lock().expect("launch override lock") = None;
+}
+
+/// 读取 CLI / N-API 启动页覆盖（不消费；不进 TOML；无覆盖或空串时为 `None`）。
+pub fn launch_override_screen() -> Option<String> {
+    LAUNCH_OVERRIDE
+        .lock()
+        .expect("launch override lock")
+        .as_ref()
+        .and_then(|o| o.screen.as_ref())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn take_launch_override_snapshot() -> Option<LaunchOverride> {
@@ -203,7 +214,6 @@ pub fn default_rust_alert_toml_text(ra2_dir: &Path) -> String {
          # shell_slide_gap_secs = 0.2   # 出去→进来停顿，模拟原版重型机械卡顿（0 关闭）\n\
          # palette_vga_expand = \"full\" # full=*255/63 满幅 | shift2=左移二位（最高 252）\n\
          # edition = \"ra2\"   # 或 \"yr\"；省略则按目录特征自动探测\n\
-         # screen = \"skirmish\"  # 可选启动页：splash / main / single / campaign / skirmish / choose_map / options\n\
          # net_url = \"\"      # 预留战网地址\n\
          # net_room = \"\"     # 预留房间名\n\
          \n\
@@ -334,8 +344,6 @@ pub struct DesktopSettings {
     pub ra2_dir: PathBuf,
     /// 正式版本字符串（可选）。
     pub edition: Option<String>,
-    /// 启动产品页别名（可选；如 `skirmish`，跳过闪屏直达对应页）。
-    pub screen: Option<String>,
     /// 客户区显示分辨率档（离散，非自由宽高）。
     pub display_mode: DisplayMode,
     /// 壳层 BGM 音量（0..1）。
@@ -361,7 +369,6 @@ impl Default for DesktopSettings {
         Self {
             ra2_dir: exe_dir(),
             edition: None,
-            screen: None,
             display_mode: DisplayMode::DEFAULT,
             music_volume: 0.4,
             sound_volume: 0.7,
@@ -384,9 +391,6 @@ impl DesktopSettings {
         }
         if let Some(v) = merged.get("edition").filter(|v| !v.is_empty()) {
             s.edition = Some(v.to_string());
-        }
-        if let Some(v) = merged.get("screen").filter(|v| !v.is_empty()) {
-            s.screen = Some(v.to_string());
         }
         if let Some(v) = merged.get("display_mode").or_else(|| merged.get("resolution")).filter(|v| !v.is_empty()) {
             match DisplayMode::parse(v) {
@@ -467,9 +471,6 @@ impl DesktopSettings {
                         if over.edition.is_some() {
                             settings.edition = over.edition;
                         }
-                        if over.screen.is_some() {
-                            settings.screen = over.screen;
-                        }
                         merged.diagnostics.push(ConfigDiagnostic {
                             source: "launch-override".into(),
                             message: format!("CLI/N-API 覆盖 ra2_dir={}", settings.ra2_dir.display()),
@@ -487,9 +488,6 @@ impl DesktopSettings {
             settings.ra2_dir = over.ra2_dir;
             if over.edition.is_some() {
                 settings.edition = over.edition;
-            }
-            if over.screen.is_some() {
-                settings.screen = over.screen;
             }
             merged.diagnostics.push(ConfigDiagnostic {
                 source: "launch-override".into(),

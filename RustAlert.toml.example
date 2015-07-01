@@ -14,7 +14,6 @@
 # shell_slide_gap_secs = 0.2   # 出去→进来停顿，模拟原版重型机械卡顿（0 关闭）
 # palette_vga_expand = "full"  # full=*255/63 满幅 | shift2=左移二位（最高 252）
 # edition = "ra2"   # 或 "yr"。合集盘务必写明；省略则自动探测，可能落到 YR
-# screen = "skirmish"  # 可选启动页：splash / main / single / campaign / skirmish / choose_map / options
 # net_url = ""      # 预留战网地址
 # net_room = ""     # 预留房间名
 

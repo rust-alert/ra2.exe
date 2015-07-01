@@ -4,13 +4,22 @@ use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAle
 use ra_types::DisplayMode;
 
 #[test]
-fn screen_from_merged() {
+fn launch_override_screen_is_cli_only() {
+    ra_config::clear_launch_override();
+    assert_eq!(ra_config::launch_override_screen(), None);
+    ra_config::set_launch_override(ra_config::LaunchOverride {
+        ra2_dir: PathBuf::from("."),
+        edition: None,
+        screen: Some("skirmish".into()),
+    });
+    assert_eq!(ra_config::launch_override_screen().as_deref(), Some("skirmish"));
+    // TOML 键 `screen` 不得进入 DesktopSettings。
     let mut table = ConfigTable::new();
     table.insert("ra2_dir", ".");
     table.insert("screen", "skirmish");
     let merged = MergedConfig::merge_layers(&[ConfigLayer { label: "t".into(), table }]);
-    let s = DesktopSettings::from_merged(&merged);
-    assert_eq!(s.screen.as_deref(), Some("skirmish"));
+    let _ = DesktopSettings::from_merged(&merged);
+    ra_config::clear_launch_override();
 }
 
 #[test]

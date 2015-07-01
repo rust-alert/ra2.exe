@@ -26,7 +26,7 @@ ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
 
 `--path` 指向含零售 MIX/INI 的安装根目录。壳层 UI 当前以 **RA2** 资源链对照为主；混装安装请始终加 `--edition ra2`。
 
-`--screen` 可选启动产品页（大小写不敏感）：`splash`（默认）、`main`、`single`、`campaign`、`skirmish`（亦接受 `lobby`）、`choose_map`、`options`。不能用于需要已装载对局的 `battle` / `load_screen` / `results`。也可在 `RustAlert.toml` 写 `screen = "skirmish"`（CLI 覆盖 TOML）。
+`--screen` 为 **CLI / N-API 独有**启动页（大小写不敏感，不进 `RustAlert.toml`）：`splash`（默认）、`main`、`single`、`campaign`、`skirmish`（亦接受 `lobby`）、`choose_map`、`options`。不能用于需要已装载对局的 `battle` / `load_screen` / `results`。
 
 ---
 
@@ -45,7 +45,6 @@ edition = "ra2"
 |------------------------|--------------------------------------------------------------------------|
 | `ra2_dir` / `game_dir` | 含零售 MIX、INI 的游戏目录；CLI `--path` 覆盖此项                        |
 | `edition`              | `ra2` 或 `yr`（另支持若干别名，见 `ra-types`）；省略则按目录特征自动探测 |
-| `screen`               | 启动产品页别名（如 `skirmish`）；CLI `--screen` 覆盖此项                 |
 
 若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时须显式写明 `edition`（或 CLI `--edition`）。配置由 `toml_edit` 读写（可保留注释）。
 
