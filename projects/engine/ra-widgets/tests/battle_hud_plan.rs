@@ -37,5 +37,13 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
         })
         .expect("hit opt_btn");
     assert_eq!(hit.id.0, "opt_btn");
-    assert_eq!(plan.rect_of("opt_btn"), Some(hit.layout.rect));
+        assert_eq!(plan.rect_of("opt_btn"), Some(hit.layout.rect));
+
+    let world = legacy.world_viewport();
+    assert_eq!(world.x, 0);
+    assert_eq!(world.y, 0);
+    assert_eq!(world.w, legacy.sidebar.x);
+    assert_eq!(world.h, vh as i32, "tactical area reaches screen bottom");
+    assert_eq!(legacy.bottom_strip.x, legacy.sidebar.x);
+    assert_eq!(legacy.bottom_strip.w, legacy.sidebar.w);
 }

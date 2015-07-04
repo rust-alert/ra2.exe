@@ -534,6 +534,9 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
     .unwrap();
     // 左侧透明。
     assert_eq!(page.as_raw()[3], 0);
+    // 战术区左下也应透明（无全宽底栏）。
+    let bl = ((599u32 * 800 + 40) * 4) as usize;
+    assert_eq!(page.as_raw()[bl + 3], 0, "bottom-left must stay transparent");
     // 右侧栏内有可见像素（避开顶栏描边与资金框）。
     let x = (800 - 40) as u32;
     let y = 120u32;

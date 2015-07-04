@@ -50,7 +50,8 @@ pub fn compose_battle_hud_overlay(
     else {
         fill_rect(&mut page, layout.sidebar, [28, 32, 40, 230]);
         stroke_rect(&mut page, layout.sidebar, [180, 40, 40, 255]);
-        fill_rect(&mut page, layout.bottom_strip, [28, 32, 40, 230]);
+        // 占位态底脚仅在右栏内，避免假全宽底栏。
+        fill_rect(&mut page, layout.bottom_strip, [22, 26, 34, 230]);
         stroke_rect(&mut page, layout.bottom_strip, [180, 40, 40, 255]);
         let cell = 48;
         let gap = 4;
@@ -119,7 +120,8 @@ pub fn compose_battle_hud_overlay(
             }
         }
         else if paint.paused || paint.outcome.is_some() || paint.reject.is_some() {
-            let mut x = layout.bottom_strip.x + 72;
+            // 状态文案锚在右栏底脚内侧，不写到战术区。
+            let mut x = layout.bottom_strip.x + 8;
             let y = layout.bottom_strip.y + 8;
             if let Some(reject) = paint.reject {
                 blit_text_colored(&mut page, fnt, reject, x, y, [255, 120, 80, 255]);

@@ -9,7 +9,7 @@ use ra_widgets::{
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::ui_layout::{SHELL_BASE_H, SHELL_BASE_W, battle_hud_layout};
+use ra_layout::ui_layout::battle_hud_layout;
 use ra_map::{MapEntityKind, iso_to_screen};
 use ra_renderer::Renderer;
 use winit::{
@@ -642,7 +642,13 @@ impl BattleController {
         };
         let (hud, pending) = prepared;
         self.ensure_battle_hud_chrome(assets);
-        self.upload_battle_hud(renderer, &hud, fnt);
+        let (vw, vh) = window
+            .map(|w| {
+                let s = w.inner_size();
+                (s.width.max(1), s.height.max(1))
+            })
+            .unwrap_or((800, 600));
+        self.upload_battle_hud(renderer, &hud, fnt, vw, vh);
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
@@ -691,7 +697,7 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
-    fn upload_battle_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>) {
+    fn upload_battle_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>, viewport_w: u32, viewport_h: u32) {
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
@@ -718,7 +724,10 @@ impl BattleController {
             pause_reason: hud.pause_reason.as_deref(),
             outcome: outcome_owned.as_deref(),
         };
-        if let Some(page) = compose_battle_hud_overlay(SHELL_BASE_W as u32, SHELL_BASE_H as u32, fnt, paint, self.hud_chrome.as_ref()) {
+        // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
+        let w = viewport_w.max(1);
+        let h = viewport_h.max(1);
+        if let Some(page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
             renderer.set_ui_overlay(page);
         }
     }

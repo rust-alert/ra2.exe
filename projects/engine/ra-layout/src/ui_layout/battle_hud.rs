@@ -26,7 +26,7 @@ pub struct BattleHudLayout {
     pub repair: RectPx,
     /// 出售钮（`sell.shp`）。
     pub sell: RectPx,
-    /// 底栏条带。
+    /// 右栏底脚条带（仅侧栏内，不是全宽底栏）。
     pub bottom_strip: RectPx,
     /// 选项钮（`optbtn.shp`）。
     pub opt_btn: RectPx,
@@ -35,10 +35,10 @@ pub struct BattleHudLayout {
 }
 
 impl BattleHudLayout {
-    /// 世界层可视矩形：左起至侧栏左缘，上起至底栏上缘（不含右栏与底栏 chrome）。
+    /// 世界层可视矩形：左起至侧栏左缘，上起至屏底（右栏贴满高，无全宽底栏裁切）。
     pub fn world_viewport(&self) -> RectPx {
         let w = self.sidebar.x.max(0);
-        let h = self.bottom_strip.y.max(0);
+        let h = self.sidebar.h.max(0);
         RectPx::new(0, 0, w, h)
     }
 }

@@ -1,6 +1,7 @@
-//! 对局侧栏 / 底栏 chrome：按阵营从 `sidec01`/`sidec02` 解码并合成。
+//! 对局侧栏 chrome：按阵营从 `sidec01`/`sidec02` 解码并合成。
 //!
 //! 文件名与菜单壳层分离；同名 SHP 靠阵营嵌套包区分盟军 / 苏军外观。
+//! 战术区保持透明铺到屏底；chrome 仅占用右侧栏。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{BattleHudLayout, RectPx, battle_hud_layout};
@@ -273,6 +274,14 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
             y += th;
         }
     }
+    // 底脚只在右栏内铺色，禁止横贯战术区。
+    let bottom_fill = chrome
+        .addon
+        .as_ref()
+        .or(chrome.side3.as_ref())
+        .and_then(|s| sample_opaque_rgb(&s.image))
+        .unwrap_or(sidebar_fill);
+    fill_rect(page, layout.bottom_strip, bottom_fill);
     if let Some(s) = &chrome.side3 {
         blit_stretched(page, &s.image, layout.side3);
     }
@@ -295,14 +304,6 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
         blit_rgba(page, &tab.image, tab_x, tab_y);
         tab_x += tab.image.width() as i32 + 2;
     }
-
-    let bottom_fill = chrome
-        .addon
-        .as_ref()
-        .or(chrome.side3.as_ref())
-        .and_then(|s| sample_opaque_rgb(&s.image))
-        .unwrap_or(sidebar_fill);
-    fill_rect(page, layout.bottom_strip, bottom_fill);
     if let Some(s) = &chrome.optbtn {
         blit_stretched(page, &s.image, layout.opt_btn);
     }
