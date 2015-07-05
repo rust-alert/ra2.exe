@@ -1,5 +1,6 @@
-use ra_map::{find_boot_map, find_first_boot_map, list_parseable_boot_maps};
+use ra_map::{find_boot_map, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_names};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+use std::collections::HashMap;
 
 struct EmptySource;
 impl AssetSource for EmptySource {
@@ -8,10 +9,36 @@ impl AssetSource for EmptySource {
     }
 }
 
+struct MemSource {
+    files: HashMap<String, Vec<u8>>,
+}
+impl AssetSource for MemSource {
+    fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
+        self.files
+            .get(&relative.to_ascii_lowercase())
+            .cloned()
+            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+    }
+}
+
 #[test]
 fn empty_source_yields_no_boot_map() {
     assert!(find_first_boot_map(GameEdition::Ra2, &EmptySource).is_none());
     assert!(list_parseable_boot_maps(GameEdition::Ra2, &EmptySource).is_empty());
+}
+
+#[test]
+fn list_parseable_maps_from_names_keeps_order_and_skips_bad() {
+    let good = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Basic]\nName=t\n";
+    let source = MemSource {
+        files: HashMap::from([
+            ("a.map".into(), good.to_vec()),
+            ("bad.map".into(), b"not ini".to_vec()),
+            ("c.map".into(), good.to_vec()),
+        ]),
+    };
+    let listed = list_parseable_maps_from_names(GameEdition::Ra2, &source, ["missing.map", "a.map", "bad.map", "c.map"]);
+    assert_eq!(listed.iter().map(|m| m.file_name.as_str()).collect::<Vec<_>>(), vec!["a.map", "c.map"]);
 }
 
 #[test]

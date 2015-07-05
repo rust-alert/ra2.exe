@@ -97,10 +97,17 @@ pub fn mount_theater_mixes(theater: Theater, mount_nested: &mut dyn FnMut(&str) 
     n
 }
 
-/// 列出候选表中当前资源源可解析的遭遇图（保序）。
-pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) -> Vec<BootMapCandidate> {
+/// 按给定文件名列表解析可装载的遭遇图（保序；跳过不可读或解析失败项）。
+///
+/// 大厅选图应传入**动态扫描**得到的名字，而不是 [`BOOT_MAP_CANDIDATES`]。
+pub fn list_parseable_maps_from_names(
+    edition: GameEdition,
+    source: &dyn AssetSource,
+    names: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Vec<BootMapCandidate> {
     let mut out = Vec::new();
-    for name in BOOT_MAP_CANDIDATES {
+    for name in names {
+        let name = name.as_ref();
         let Ok(bytes) = source.read(name)
         else {
             continue;
@@ -110,7 +117,7 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
             continue;
         };
         out.push(BootMapCandidate {
-            file_name: (*name).to_string(),
+            file_name: name.to_string(),
             name_csf: resolve_boot_map_name_csf(name, &map.description_csf),
             width: map.size_width,
             height: map.size_height,
@@ -120,6 +127,13 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
         });
     }
     out
+}
+
+/// 列出启动候选表中当前资源源可解析的遭遇图（保序）。
+///
+/// 仅供自动选图 / 探测；大厅列表请用 [`list_parseable_maps_from_names`]。
+pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) -> Vec<BootMapCandidate> {
+    list_parseable_maps_from_names(edition, source, BOOT_MAP_CANDIDATES.iter().copied())
 }
 
 /// 按文件名解析一张启动地图；找不到或解析失败返回 `None`。

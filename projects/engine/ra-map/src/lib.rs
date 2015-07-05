@@ -36,8 +36,8 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
-    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, mount_theater_mixes, resolve_boot_map_name_csf,
-    skirmish_ai_row_count, try_parse_boot_map,
+    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_names, mount_theater_mixes,
+    resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
 pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
