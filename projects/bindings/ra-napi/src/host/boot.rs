@@ -7,7 +7,7 @@ use ra_assets::{Palette, Rgba, find_battle_campaign, parse_battle_campaigns, par
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named,
-    list_parseable_boot_maps, mount_theater_mixes, paint_mobiles_onto_preview_rgba,
+    list_parseable_maps_from_names, mount_theater_mixes, paint_mobiles_onto_preview_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
@@ -171,7 +171,7 @@ fn load_boot_map(
     Ok(loaded.map)
 }
 
-/// 列出安装目录中可解析的冻结启动候选图（供遭遇战大厅）。
+/// 列出安装资源中可解析的遭遇战地图（动态扫描松散文件与 `mp*.map`，供大厅选图）。
 pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
@@ -185,7 +185,8 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
-    list_parseable_boot_maps(manifest.chain.edition, &source)
+    let names = source.discover_skirmish_map_names();
+    list_parseable_maps_from_names(manifest.chain.edition, &source, names)
 }
 
 /// 列出安装资源链中离线遭遇战可选多人模式（来自 `mpmodes.ini` / `mpmodesmd.ini`）。
