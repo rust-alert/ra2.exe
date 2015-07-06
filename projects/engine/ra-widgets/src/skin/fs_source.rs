@@ -4,11 +4,19 @@
 //! [`ra_adaptor::PRIORITY_USER_OVERRIDE`]，与 `MixVfs` 胜出结果比较后再读字节，
 //! 避免「日志说来自 MIX、实际读了磁盘」的分裂。
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use ra_adaptor::{MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_USER_OVERRIDE, find_ci_file};
 use ra_assets::{MixResolveHit, MixVfs};
 use ra_types::{AssetSource, RaError, RaResult};
+
+/// 遭遇战官方图文件名里常见的剧院字母（`mpNNtS` 中的 `t`/`s`/`u`/`n`）。
+const SKIRMISH_MAP_THEATER_LETTERS: &[u8] = &[b't', b's', b'u', b'n'];
+/// 探测 `mp` 序号上界（含）。
+const SKIRMISH_MAP_INDEX_MAX: u32 = 99;
+/// 探测开局席位上界（含）；下界为 2。
+const SKIRMISH_MAP_SLOTS_MAX: u8 = 8;
 
 /// 统一解析胜出来源。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -180,10 +188,68 @@ impl GameAssetSource {
             (None, None) => None,
         }
     }
+
+    /// 逻辑名是否可解析（不拷贝正文，供扫图探测）。
+    pub fn logical_exists(&self, relative: &str) -> bool {
+        find_ci_file(&self.root, relative).is_some() || self.vfs.resolve_hit(relative).is_some()
+    }
+
+    /// 动态发现遭遇战可选地图文件名。
+    ///
+    /// - 安装根目录松散 `.map` / `.mpr`
+    /// - 对已挂载 MIX 探测 `mp{NN}{theater}{slots}.map`（不依赖启动候选表）
+    ///
+    /// 返回小写文件名，按字典序排序去重。大厅应再经 `list_parseable_maps_from_names` 过滤可解析项。
+    pub fn discover_skirmish_map_names(&self) -> Vec<String> {
+        let mut seen = HashSet::new();
+        let mut names = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir(&self.root) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let Some(fname) = path.file_name().and_then(|s| s.to_str())
+                else {
+                    continue;
+                };
+                let lower = fname.to_ascii_lowercase();
+                if !(lower.ends_with(".map") || lower.ends_with(".mpr")) {
+                    continue;
+                }
+                if seen.insert(lower.clone()) {
+                    names.push(lower);
+                }
+            }
+        }
+
+        for index in 1..=SKIRMISH_MAP_INDEX_MAX {
+            for &theater in SKIRMISH_MAP_THEATER_LETTERS {
+                for slots in 2..=SKIRMISH_MAP_SLOTS_MAX {
+                    let name = format!("mp{index:02}{}{slots}.map", theater as char);
+                    if seen.contains(&name) {
+                        continue;
+                    }
+                    if self.logical_exists(&name) {
+                        seen.insert(name.clone());
+                        names.push(name);
+                    }
+                }
+            }
+        }
+
+        names.sort();
+        names
+    }
 }
 
 impl AssetSource for GameAssetSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
         self.resolve(relative).map(|h| h.bytes).ok_or_else(|| RaError::MissingFile(relative.to_string()))
+    }
+
+    fn exists(&self, relative: &str) -> bool {
+        self.logical_exists(relative)
     }
 }
