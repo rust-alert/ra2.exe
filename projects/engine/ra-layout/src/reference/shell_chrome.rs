@@ -22,7 +22,7 @@ const TOOLTIP_W: f32 = 455.0;
 const TOOLTIP_H: f32 = 20.0;
 const TOOLTIP_BOTTOM_GAP: f32 = 1.0;
 
-fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
+pub(crate) fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let panel_x = chrome.panel_x();
     let movie_w = panel_x;
     let bottom_y = chrome.panel_bottom_y();
@@ -64,7 +64,7 @@ fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     ]
 }
 
-fn right_rail_button_children(
+pub(crate) fn right_rail_button_children(
     stacked_ids: &[&str],
     bottom_id: Option<&str>,
     chrome: RightPanelChrome,

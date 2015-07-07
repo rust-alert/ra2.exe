@@ -4,12 +4,17 @@ use crate::{
     geometry::Rect,
     policy::RightPanelChrome,
     reference::from_template::shell_design_size,
+    reference::shell_chrome::{right_rail_button_children, shell_chrome_children},
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
 
 fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
     Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
 }
+
+/// 选项页右栏钮（与 `OPTIONS_BUTTON_IDS` 同序：接受 / 取消 / 主菜单贴底）。
+const OPTIONS_RAIL_STACKED: &[&str] = &["accept", "cancel"];
+const OPTIONS_RAIL_BOTTOM: &str = "main_menu";
 
 /// 选项页内容控件 id（与过渡期 `OptionsDialogLayout` 字段同构）。
 pub const OPTIONS_CONTENT_IDS: &[&str] = &[
@@ -32,8 +37,7 @@ pub const OPTIONS_CONTENT_IDS: &[&str] = &[
     "track_voice",
 ];
 
-/// 选项页左侧内容板（不含右栏 chrome / 三钮）。
-pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+fn options_content_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let panel_x = chrome.panel_x() as i32;
     let shell_h = chrome.shell_h as i32;
     let content_x = 16;
@@ -44,7 +48,7 @@ pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let usable_w = content_w - 32;
     let col_w = usable_w / 2 - 8;
     let y0 = content_y + 12;
-    let children = vec![
+    vec![
         fixed_rect_leaf("content", rect_i(content_x, content_y, content_w, content_h)),
         fixed_rect_leaf("sec_display", rect_i(left, y0, usable_w, 18)),
         fixed_rect_leaf("track_detail", rect_i(left, y0 + 32, col_w, 22)),
@@ -71,8 +75,28 @@ pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         fixed_rect_leaf("track_music", rect_i(left, y0 + 388, usable_w - 40, 22)),
         fixed_rect_leaf("track_sound", rect_i(left, y0 + 422, usable_w - 40, 22)),
         fixed_rect_leaf("track_voice", rect_i(left, y0 + 456, usable_w - 40, 22)),
-    ];
-    root_with_fixed_children("options_content", shell_design_size(chrome), children)
+    ]
+}
+
+/// 选项页左侧内容板（不含右栏 chrome / 三钮）。
+pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+    root_with_fixed_children(
+        "options_content",
+        shell_design_size(chrome),
+        options_content_children(chrome),
+    )
+}
+
+/// 选项整页：壳层 chrome + 右栏三钮 + 左侧内容板，一次求解。
+pub fn options_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+    let mut children = shell_chrome_children(chrome);
+    children.extend(right_rail_button_children(
+        OPTIONS_RAIL_STACKED,
+        Some(OPTIONS_RAIL_BOTTOM),
+        chrome,
+    ));
+    children.extend(options_content_children(chrome));
+    root_with_fixed_children("options", shell_design_size(chrome), children)
 }
 
 #[cfg(test)]
@@ -118,5 +142,34 @@ mod tests {
             assert_eq!(got.height as i32, h, "{id} h");
         }
         assert_eq!(OPTIONS_CONTENT_IDS.len(), expect.len());
+    }
+
+    #[test]
+    fn options_page_tree_includes_rail_and_content() {
+        let chrome = RightPanelChrome::shell_defaults();
+        let snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &options_page_layout_tree(chrome),
+        );
+        assert!(snap.get("panel_top").is_some());
+        assert!(snap.get("accept").is_some());
+        assert!(snap.get("main_menu").is_some());
+        assert!(snap.get("content").is_some());
+        assert!(snap.get("track_voice").is_some());
+        let content = options_content_layout_tree(chrome);
+        let content_snap = LayoutEngine.solve(
+            Viewport {
+                size: shell_design_size(chrome),
+                ..Viewport::default()
+            },
+            &content,
+        );
+        assert_eq!(
+            snap.get("track_detail").map(|e| e.layout.rect),
+            content_snap.get("track_detail").map(|e| e.layout.rect)
+        );
     }
 }

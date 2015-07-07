@@ -19,7 +19,9 @@ pub use from_template::{
 };
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
 pub use load_screen::{load_screen_layout_tree, LOAD_SCREEN_BUTTON_IDS};
-pub use options_page::{options_content_layout_tree, OPTIONS_CONTENT_IDS};
+pub use options_page::{
+    options_content_layout_tree, options_page_layout_tree, OPTIONS_CONTENT_IDS,
+};
 pub use shell_chrome::{
     right_rail_buttons_layout_tree, shell_chrome_layout_tree, shell_page_layout_tree,
 };
