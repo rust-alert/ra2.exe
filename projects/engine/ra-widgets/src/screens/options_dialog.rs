@@ -5,9 +5,9 @@
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
-use ra_layout::ui_layout::{RectPx, SHELL_BASE_H, SHELL_BASE_W, options_layout};
 use ra_layout::{
-    options_content_layout_tree, shell_design_size, LayoutEngine, RightPanelChrome, Viewport,
+    options_page_layout_tree, shell_design_size, LayoutEngine, RectPx, RightPanelChrome, Viewport,
+    SHELL_BASE_H, SHELL_BASE_W,
 };
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
@@ -278,31 +278,29 @@ pub struct OptionsDialogLayout {
 impl OptionsDialogLayout {
     /// 构造与主菜单同右栏几何的选项板。
     ///
-    /// 右栏 chrome / 三钮投影自 `options_layout`（`shell_page_layout_tree`）。
-    /// 左侧内容板投影自 `options_content_layout_tree`。
+    /// 整页几何投影自同一次 `options_page_layout_tree` 求解（chrome、右栏三钮、内容板）。
     pub fn new() -> Self {
-        let shell = options_layout(0, 0);
         let chrome = RightPanelChrome::shell_defaults();
         let snap = LayoutEngine.solve(
             Viewport {
                 size: shell_design_size(chrome),
                 ..Viewport::default()
             },
-            &options_content_layout_tree(chrome),
+            &options_page_layout_tree(chrome),
         );
         let rect = |id: &str| {
             let r = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
             RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
         };
-        let rail = [shell.buttons[0], shell.buttons[1], shell.buttons[2]];
+        let rail = [rect("accept"), rect("cancel"), rect("main_menu")];
         Self {
             canvas: RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H),
             content: rect("content"),
-            panel_top: shell.panel_top,
-            panel_tile: shell.panel_tile,
-            panel_tile_count: shell.panel_tile_count,
-            panel_bottom: shell.panel_bottom,
-            title: shell.title,
+            panel_top: rect("panel_top"),
+            panel_tile: rect("panel_tile"),
+            panel_tile_count: chrome.tile_count(),
+            panel_bottom: rect("panel_bottom"),
+            title: rect("title"),
             rail,
             sec_display: rect("sec_display"),
             track_detail: rect("track_detail"),
