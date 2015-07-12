@@ -71,3 +71,20 @@ fn nested_expand_leaf_overlays_base_leaf() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn discover_finds_stock_mp_name_in_mounted_mix() {
+    let body = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n";
+    let mix = old_mix(mix_hash("mp05t4.map"), body);
+    let dir = scratch("discover-mp");
+    let mut src = GameAssetSource::new(dir.clone());
+    src.vfs
+        .mount_bytes_with_meta("maps01.mix", mix, 0, None, Some("maps".into()))
+        .unwrap();
+
+    let names = src.discover_skirmish_map_names();
+    assert!(names.iter().any(|n| n == "mp05t4.map"), "{names:?}");
+    assert!(src.logical_exists("mp05t4.map"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
