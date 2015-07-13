@@ -1,7 +1,7 @@
 //! 装载页内容区固定设计矩形 → `LayoutNode`（800×600）。
 
 use crate::{
-    geometry::{Rect, Size2},
+    geometry::Rect,
     policy::RightPanelChrome,
     reference::from_template::shell_design_size,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
