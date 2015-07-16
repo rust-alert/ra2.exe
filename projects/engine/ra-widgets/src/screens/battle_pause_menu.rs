@@ -2,7 +2,10 @@
 //!
 //! 本模块只持入口 id、命中与布局入口；壳层导航 / 暂停仿真由宿主另接。
 
-use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS, battle_pause_menu_layout};
+use ra_layout::{
+    battle_pause_menu_layout, shell_design_size, shell_page_layout_tree, LayoutEngine, Point2,
+    RightPanelChrome, Viewport, BATTLE_PAUSE_MENU_BUTTON_IDS,
+};
 
 pub use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, BattlePauseMenuLayout};
 
@@ -55,9 +58,38 @@ pub fn layout() -> BattlePauseMenuLayout {
     battle_pause_menu_layout(0, 0)
 }
 
-/// 在布局上命中。
-pub fn hit_at(layout: BattlePauseMenuLayout, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
-    BattlePauseMenuHit::from_entry_id(layout.hit_entry_id(x, y)?)
+fn battle_pause_snapshot() -> ra_layout::LayoutSnapshot {
+    let chrome = RightPanelChrome::shell_defaults();
+    LayoutEngine.solve(
+        Viewport {
+            size: shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &shell_page_layout_tree(
+            "battle_pause",
+            &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
+            Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
+            chrome,
+        ),
+    )
+}
+
+/// 在布局上命中（几何权威为 `shell_page_layout_tree` snapshot；`layout` 仅保留 API 兼容）。
+pub fn hit_at(_layout: BattlePauseMenuLayout, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
+    let snap = battle_pause_snapshot();
+    let point = Point2 {
+        x: x as f32,
+        y: y as f32,
+    };
+    for id in BATTLE_PAUSE_MENU_BUTTON_IDS {
+        if snap
+            .get(id)
+            .is_some_and(|el| el.layout.rect.contains(point))
+        {
+            return BattlePauseMenuHit::from_entry_id(id);
+        }
+    }
+    None
 }
 
 /// 入口表（测试 / 诊断用）。
