@@ -52,7 +52,7 @@ pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LayoutEngine, Viewport};
+    use crate::{LayoutEngine, Size2, Viewport};
 
     #[test]
     fn load_screen_tree_matches_compose_constants() {
