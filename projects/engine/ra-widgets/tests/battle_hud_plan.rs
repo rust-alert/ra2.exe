@@ -37,7 +37,7 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
         })
         .expect("hit opt_btn");
     assert_eq!(hit.id.0, "opt_btn");
-        assert_eq!(plan.rect_of("opt_btn"), Some(hit.layout.rect));
+    assert_eq!(plan.rect_of("opt_btn"), Some(hit.layout.rect));
 
     let world = legacy.world_viewport();
     assert_eq!(world.x, 0);
@@ -46,4 +46,9 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
     assert_eq!(world.h, vh as i32, "tactical area reaches screen bottom");
     assert_eq!(legacy.bottom_strip.x, legacy.sidebar.x);
     assert_eq!(legacy.bottom_strip.w, legacy.sidebar.w);
+    // 选项/外交命中格必须在右栏内，不能落到战术区。
+    assert!(legacy.opt_btn.x >= legacy.sidebar.x);
+    assert!(legacy.diplo_btn.x >= legacy.sidebar.x);
+    assert!(legacy.repair.y >= legacy.side1.y);
+    assert!(legacy.sell.y >= legacy.side1.y);
 }

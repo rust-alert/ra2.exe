@@ -17,7 +17,7 @@ use crate::{
 /// 对局侧栏调色板。
 pub const BATTLE_HUD_PAL: &str = "sidebar.pal";
 
-/// 已解码的对局 HUD chrome（右栏 + 底栏素材）。
+/// 已解码的对局 HUD chrome（仅右侧栏素材）。
 #[derive(Debug, Clone)]
 pub struct BattleHudChrome {
     /// 阵营短名（如 `Americans` / `Russians`）。
@@ -203,6 +203,22 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
+/// 钮面优先按 SHP 画布原尺寸居中贴入命中格；仅当源图大于格时才拉伸，避免变形。
+fn blit_button_in_cell(dst: &mut RgbaImage, src: &RgbaImage, cell: RectPx) {
+    if cell.w <= 0 || cell.h <= 0 || src.width() == 0 || src.height() == 0 {
+        return;
+    }
+    let sw = src.width() as i32;
+    let sh = src.height() as i32;
+    if sw <= cell.w && sh <= cell.h {
+        let x = cell.x + (cell.w - sw) / 2;
+        let y = cell.y + (cell.h - sh) / 2;
+        blit_rgba(dst, src, x, y);
+    } else {
+        blit_stretched(dst, src, cell);
+    }
+}
+
 fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
         return;
@@ -289,26 +305,28 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
         blit_stretched(page, &s.image, layout.addon);
     }
     if let Some(s) = &chrome.repair {
-        blit_stretched(page, &s.image, layout.repair);
+        blit_button_in_cell(page, &s.image, layout.repair);
     }
     if let Some(s) = &chrome.sell {
-        blit_stretched(page, &s.image, layout.sell);
+        blit_button_in_cell(page, &s.image, layout.sell);
     }
     if let Some(s) = &chrome.powerp {
         let meter = RectPx::new(layout.sidebar.x, layout.cameo_band.y, 16.min(layout.sidebar.w), layout.cameo_band.h.max(1));
         blit_stretched(page, &s.image, meter);
     }
-    let tab_y = layout.side1.y + layout.side1.h - 18;
+    // 分类页签贴在修理/出售行下方、cameo 带顶沿之上，避免压住钮面。
+    let tab_row_top = (layout.repair.y + layout.repair.h + 2).max(layout.side1.y);
+    let tab_y = tab_row_top.min((layout.cameo_band.y - 2).max(layout.side1.y));
     let mut tab_x = layout.sidebar.x + 20;
     for tab in chrome.tabs.iter().flatten() {
         blit_rgba(page, &tab.image, tab_x, tab_y);
         tab_x += tab.image.width() as i32 + 2;
     }
     if let Some(s) = &chrome.optbtn {
-        blit_stretched(page, &s.image, layout.opt_btn);
+        blit_button_in_cell(page, &s.image, layout.opt_btn);
     }
     if let Some(s) = &chrome.diplobtn {
-        blit_stretched(page, &s.image, layout.diplo_btn);
+        blit_button_in_cell(page, &s.image, layout.diplo_btn);
     }
 }
 
