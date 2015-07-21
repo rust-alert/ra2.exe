@@ -13,6 +13,7 @@ mod overlay;
 mod overlay_paint;
 mod pass_grid;
 mod placements;
+mod preview_pack;
 mod skirmish_preview;
 mod structure_paint;
 mod terrain_objects;
@@ -49,6 +50,9 @@ pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_o
 pub use overlay_paint::{flat_tiberium_display_type_name, paint_map_overlays};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
+pub use preview_pack::{
+    MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size,
+};
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
 };
