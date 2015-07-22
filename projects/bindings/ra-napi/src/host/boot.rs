@@ -6,7 +6,7 @@ use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_assets::{Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes};
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, find_boot_map, find_boot_map_named,
+    MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
     list_parseable_maps_from_names, mount_theater_mixes, paint_mobiles_onto_preview_rgba,
 };
 use ra_renderer::RgbaImage;
@@ -256,9 +256,10 @@ pub fn resolve_install_campaign_for_side(side: &str) -> Option<BattleCampaign> {
     find_battle_campaign(&camps, battle_id).cloned()
 }
 
-/// 为遭遇战大厅生成指定地图的地形预览（未缩小）。
+/// 为遭遇战大厅生成指定地图的烘焙缩略图（`[PreviewPack]`，未缩小）。
 ///
-/// 失败时返回 `None`（缺图、缺剧院资源或规则不可读）。
+/// 与原版大厅一致：只读地图内预烘焙预览，不做等距地形合成。
+/// 失败时返回 `None`（缺图、无 `[Preview]` / `[PreviewPack]` 或解码失败）。
 pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
@@ -269,11 +270,22 @@ pub fn preview_install_boot_map(map_name: &str) -> Option<(String, RgbaImage)> {
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
-    let loaded = find_boot_map_named(manifest.chain.edition, &source, map_name)?;
-    let _ = mount_theater_mixes(loaded.map.theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(n) if n > 0));
-    let rules = load_rules_chain(&source, &manifest.chain).ok()?;
-    let (note, image, _, _) = load_map_terrain_preview(&source, &loaded.map, &manifest.chain, &rules, None)?;
-    Some((format!("{} · {}", loaded.note, note), image))
+    let bytes = source.read(map_name).ok()?;
+    let preview = match decode_preview_from_map_bytes(&bytes) {
+        Ok(Some(img)) => img,
+        Ok(None) => {
+            tracing::warn!(map = %map_name, "地图无 [PreviewPack]");
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!(map = %map_name, error = %e, "PreviewPack 解码失败");
+            return None;
+        }
+    };
+    let width = preview.width;
+    let height = preview.height;
+    let image = preview.into_rgba_image()?;
+    Some((format!("map:{map_name} · PreviewPack {width}x{height}"), image))
 }
 
 /// 按桌面配置探测安装并打开一局遭遇战会话。

@@ -1,4 +1,4 @@
-//! 遭遇战大厅地图预览：后台合成缩略图，主线程轮询。
+//! 遭遇战大厅地图预览：后台解码 `[PreviewPack]` 缩略图，主线程轮询。
 
 use std::{
     sync::mpsc::{self, Receiver, TryRecvError},
@@ -27,7 +27,7 @@ pub struct PreviewJob {
 }
 
 impl PreviewJob {
-    /// 启动指定地图的预览合成（不阻塞）。
+    /// 启动指定地图的 PreviewPack 解码（不阻塞）。
     pub fn start(map_name: String) -> Self {
         let (tx, rx) = mpsc::channel();
         let name_for_thread = map_name.clone();
