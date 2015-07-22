@@ -679,9 +679,17 @@ impl BattleController {
         }
         let chrome = decode_battle_hud_chrome(source, &side);
         if chrome.has_sidebar_body() {
+            let pal_origin = chrome
+                .side1
+                .as_ref()
+                .or(chrome.side2.as_ref())
+                .or(chrome.credits.as_ref())
+                .map(|s| s.origin.as_str())
+                .unwrap_or("-");
             tracing::info!(
                 side = %chrome.side,
                 mix = %chrome.mix,
+                pal_origin,
                 errors = chrome.errors.len(),
                 "对局 HUD chrome 已解码"
             );

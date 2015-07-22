@@ -2,6 +2,7 @@
 
 use ra_widgets::skirmish_setup::{
     LOBBY_DIFFICULTIES, LOBBY_SIDES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp, load_screen_preferred_pal,
+    sidebar_chrome_mix,
 };
 
 #[test]
@@ -50,4 +51,15 @@ fn load_screen_maps_lobby_sides_to_country_art() {
     assert_eq!(load_screen_preferred_pal("French"), "mpls.pal");
     assert_eq!(load_screen_background_shp("Americans", 1024), "ls800ustates.shp");
     assert_eq!(load_screen_background_shp("British", 640), "ls640ukingdom.shp");
+}
+
+#[test]
+fn sidebar_chrome_mix_splits_allied_and_soviet() {
+    assert_eq!(sidebar_chrome_mix("Americans"), "sidec01.mix");
+    assert_eq!(sidebar_chrome_mix("French"), "sidec01.mix");
+    assert_eq!(sidebar_chrome_mix("Germans"), "sidec01.mix");
+    assert_eq!(sidebar_chrome_mix("British"), "sidec01.mix");
+    assert_eq!(sidebar_chrome_mix("Russians"), "sidec02.mix");
+    assert_eq!(sidebar_chrome_mix("Iraq"), "sidec02.mix");
+    assert_eq!(sidebar_chrome_mix("Yuri"), "sidec02.mix");
 }

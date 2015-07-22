@@ -74,9 +74,11 @@ fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, pre
         return Err(format!("{}: 帧 {} 越界 · 共 {} 帧", asset.name, frame_idx, shp.frames.len()));
     }
     let pal_name = asset.palette.as_deref().ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
+    // 必须与 SHP 同档案取 `sidebar.pal`：`sidec01`/`sidec02` 各有一份，
+    // 全局 `resolve` 常被后挂载的苏军包抢走，盟军 SHP + 苏军调色板会整栏发红。
     let pal_hit = source
-        .resolve(pal_name)
-        .or_else(|| source.resolve_preferring(pal_name, prefer_mix))
+        .resolve_preferring(pal_name, prefer_mix)
+        .or_else(|| source.resolve(pal_name))
         .ok_or_else(|| format!("{pal_name}: 调色板不可读"))?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("{pal_name}: 解析失败 · {e}"))?;
     let frame = &shp.frames[frame_idx];
@@ -84,7 +86,7 @@ fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, pre
     Ok(DecodedUiSprite {
         label: format!("{}#{}", asset.name, frame_idx),
         image,
-        origin: hit.explain(),
+        origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
         frame: frame_idx as u16,
         canvas: (shp.width, shp.height),
         frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
