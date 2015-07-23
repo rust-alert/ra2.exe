@@ -2,7 +2,37 @@
 
 use super::*;
 
-pub(super) const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
+/// 选图页列表行高（内容像素）。
+pub const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
+
+/// 列表框高度可容纳的行数。
+pub fn choose_map_visible_rows(list_h: i32) -> usize {
+    (list_h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize
+}
+
+/// 将滚动偏移钳在 `[0, total.saturating_sub(visible)]`。
+pub fn clamp_map_list_scroll(scroll: usize, total: usize, visible: usize) -> usize {
+    if total <= visible {
+        return 0;
+    }
+    scroll.min(total - visible)
+}
+
+/// 调整滚动使 `index` 落在可视窗内（尽量少动）。
+pub fn scroll_map_list_to_reveal(scroll: usize, index: usize, total: usize, visible: usize) -> usize {
+    if visible == 0 || total == 0 {
+        return 0;
+    }
+    let index = index.min(total - 1);
+    let scroll = clamp_map_list_scroll(scroll, total, visible);
+    if index < scroll {
+        return index;
+    }
+    if index >= scroll + visible {
+        return index + 1 - visible;
+    }
+    scroll
+}
 
 /// 合成选图页：双列表 + 右栏预览 / 使用地图 / 随机 / 取消。
 pub fn compose_choose_map_page(

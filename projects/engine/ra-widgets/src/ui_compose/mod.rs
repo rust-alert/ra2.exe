@@ -61,7 +61,9 @@ pub use campaign::{CampaignPaint, compose_campaign_page};
 pub use options::compose_options_page;
 pub use exit_confirm::compose_exit_confirm_page;
 pub use skirmish::{SkirmishChromeSprites, SkirmishLobbyPaint, compose_skirmish_lobby_page};
-pub use choose_map::compose_choose_map_page;
+pub use choose_map::{
+    CHOOSE_MAP_LIST_ROW_H, choose_map_visible_rows, clamp_map_list_scroll, compose_choose_map_page, scroll_map_list_to_reveal,
+};
 pub use load::{LoadScreenPaint, compose_load_screen_page};
 pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay};
 pub use controls::paint_options_dialog_controls;
