@@ -154,6 +154,8 @@ pub struct Shell {
     pub(super) skirmish: SkirmishBootRequest,
     /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
     pub(super) choose_map_revert: Option<Option<String>>,
+    /// 选图页地图列表滚动偏移（行）。
+    pub(super) map_list_scroll: usize,
     /// 战役选边：`allied` / `tutorial` / `soviet`。
     pub(super) campaign_side: Option<&'static str>,
     /// 战役难度档：0 易 / 1 中 / 2 难。

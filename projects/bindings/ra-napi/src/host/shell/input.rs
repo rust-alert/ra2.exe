@@ -31,6 +31,7 @@ impl Shell {
                 self.cursor,
                 self.window_width,
                 self.window_height,
+                self.map_list_scroll,
                 self.load_allow_retry(),
             )
             .and_then(|idx| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied())
@@ -49,6 +50,7 @@ impl Shell {
             self.cursor,
             self.window_width,
             self.window_height,
+            self.map_list_scroll,
             self.load_allow_retry(),
         )?;
         match self.screen {
@@ -56,7 +58,19 @@ impl Shell {
             OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::ChooseMap => ui_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::ChooseMap => {
+                let n_btn = ui_layout::CHOOSE_MAP_BUTTON_IDS.len();
+                if let Some(id) = ui_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied() {
+                    return Some(id);
+                }
+                let mode_base = n_btn;
+                let mode_count = self.lobby_modes.len();
+                if idx < mode_base + mode_count {
+                    Some("mode_row")
+                } else {
+                    Some("map_row")
+                }
+            }
             _ => None,
         }
     }
@@ -132,8 +146,15 @@ impl Shell {
                 _ => {}
             },
             OriginalScreen::ChooseMap => {
-                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
-                    self.cancel_choose_map();
+                match key {
+                    PhysicalKey::Code(KeyCode::Escape) => self.cancel_choose_map(),
+                    PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::PageUp) => {
+                        self.nudge_map_list_scroll(-1);
+                    }
+                    PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::PageDown) => {
+                        self.nudge_map_list_scroll(1);
+                    }
+                    _ => {}
                 }
             }
             OriginalScreen::Network | OriginalScreen::Options => {

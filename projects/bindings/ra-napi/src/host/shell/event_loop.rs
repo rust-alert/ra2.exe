@@ -190,6 +190,31 @@ impl ApplicationHandler for Shell {
                         }
                     }
                 }
+                WindowEvent::MouseWheel { delta, .. } if self.screen == OriginalScreen::ChooseMap => {
+                    let rows = match delta {
+                        winit::event::MouseScrollDelta::LineDelta(_, y) => {
+                            if *y > 0.0 {
+                                -1
+                            } else if *y < 0.0 {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                        winit::event::MouseScrollDelta::PixelDelta(p) => {
+                            if p.y > 0.0 {
+                                -1
+                            } else if p.y < 0.0 {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                    };
+                    if rows != 0 {
+                        self.nudge_map_list_scroll(rows);
+                    }
+                }
                 WindowEvent::MouseInput { state, button: winit::event::MouseButton::Left, .. } => match state {
                     ElementState::Pressed => {
                         if self.shell_slide_busy() {
@@ -224,7 +249,8 @@ impl ApplicationHandler for Shell {
                             }
                             if next != self.menu_pressed_entry {
                                 self.menu_pressed_entry = next;
-                                if next.is_some() {
+                                // 选图列表行在 `SelectMap` / `SelectMode` 提交时再播，避免连点同 entry 无声或按下+松开双响。
+                                if next.is_some_and(|id| !matches!(id, "mode_row" | "map_row")) {
                                     self.play_menu_click();
                                 }
                                 self.refresh_menu_backdrop();
@@ -258,6 +284,7 @@ impl ApplicationHandler for Shell {
                                 self.cursor,
                                 self.window_width,
                                 self.window_height,
+                                self.map_list_scroll,
                                 self.load_allow_retry(),
                             ) {
                                 tracing::debug!(?action, "菜单逻辑命中");
@@ -282,6 +309,7 @@ impl ApplicationHandler for Shell {
                                 self.cursor,
                                 self.window_width,
                                 self.window_height,
+                                self.map_list_scroll,
                                 self.load_allow_retry(),
                             ) {
                                 tracing::debug!(?action, "菜单逻辑命中");
@@ -306,6 +334,7 @@ impl ApplicationHandler for Shell {
                                 self.cursor,
                                 self.window_width,
                                 self.window_height,
+                                self.map_list_scroll,
                                 self.load_allow_retry(),
                             ) {
                                 tracing::debug!(?action, "菜单逻辑命中");
@@ -324,6 +353,7 @@ impl ApplicationHandler for Shell {
                                 self.cursor,
                                 self.window_width,
                                 self.window_height,
+                                self.map_list_scroll,
                                 self.load_allow_retry(),
                             );
                             if let Some(action) = action {

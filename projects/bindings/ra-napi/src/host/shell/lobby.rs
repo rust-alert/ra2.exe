@@ -7,7 +7,7 @@ use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::{self, hover_entry_at, side_flag_pcx};
-use ra_widgets::ui_compose::SkirmishChromeSprites;
+use ra_widgets::ui_compose::{self, SkirmishChromeSprites};
 use winit::event::KeyEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -316,6 +316,7 @@ impl Shell {
         };
         self.selected_mode_id = Some(mode.id);
         self.clamp_selected_map_to_mode_filter();
+        self.sync_map_list_scroll_to_selection();
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
@@ -329,6 +330,8 @@ impl Shell {
             self.selected_map = self.skirmish.preferred_map.clone().or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
         }
         self.clamp_selected_map_to_mode_filter();
+        self.map_list_scroll = 0;
+        self.sync_map_list_scroll_to_selection();
         self.set_screen(OriginalScreen::ChooseMap);
         self.banner = "选图".into();
         self.refresh_shell_title();
@@ -355,5 +358,35 @@ impl Shell {
         self.set_screen(OriginalScreen::SkirmishLobby);
         self.banner = "已取消选图".into();
         self.refresh_shell_title();
+    }
+
+    /// 选图页地图列表可视行数。
+    pub(super) fn choose_map_visible_row_count(&self) -> usize {
+        let layout = ui_layout::choose_map_layout(0, 0);
+        ui_compose::choose_map_visible_rows(layout.map_list.h)
+    }
+
+    /// 使当前选中地图落在选图列表可视窗内。
+    pub(super) fn sync_map_list_scroll_to_selection(&mut self) {
+        let maps = self.maps_matching_selected_mode();
+        let visible = self.choose_map_visible_row_count();
+        let index = self
+            .selected_map
+            .as_ref()
+            .and_then(|sel| maps.iter().position(|m| &m.file_name == sel))
+            .unwrap_or(0);
+        self.map_list_scroll = ui_compose::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
+    }
+
+    /// 选图页滚轮 / 快捷键微调列表偏移。
+    pub(super) fn nudge_map_list_scroll(&mut self, delta_rows: isize) {
+        let maps = self.maps_matching_selected_mode();
+        let visible = self.choose_map_visible_row_count();
+        let max = maps.len().saturating_sub(visible);
+        let next = (self.map_list_scroll as isize + delta_rows).clamp(0, max as isize) as usize;
+        if next != self.map_list_scroll {
+            self.map_list_scroll = next;
+            self.refresh_menu_backdrop();
+        }
     }
 }

@@ -218,10 +218,10 @@ const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
 ];
 
-/// 选图页：使用地图 / 创建随机地图（未实现）/ 取消。
+/// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。
 const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("use_map", MenuAction::UseMap, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("create_random", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
+    main_menu_button("create_random", MenuAction::Noop, true, (0.805, 0.4017, 1.0, 0.4717)),
     main_menu_button("cancel", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
 ];
 

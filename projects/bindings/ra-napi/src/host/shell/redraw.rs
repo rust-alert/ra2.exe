@@ -242,6 +242,7 @@ impl Shell {
                             selected_mode_index,
                             &map_names,
                             selected_map_index,
+                            self.map_list_scroll,
                             wave,
                             0,
                         )

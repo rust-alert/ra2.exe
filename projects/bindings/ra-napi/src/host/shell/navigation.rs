@@ -309,7 +309,12 @@ impl Shell {
             MenuAction::StartSkirmish => self.begin_skirmish_load(),
             MenuAction::CancelLoad => self.cancel_load(),
             MenuAction::RetryLoad => self.retry_load(),
-            MenuAction::Noop => {}
+            MenuAction::Noop => {
+                if self.screen == OriginalScreen::ChooseMap {
+                    self.banner = "随机地图尚未实现".into();
+                    self.refresh_shell_title();
+                }
+            }
             MenuAction::CycleSide => {
                 self.skirmish.cycle_side();
                 self.banner = format!("阵营 · {}", self.skirmish.side);
@@ -329,12 +334,18 @@ impl Shell {
                 self.banner = "选项已取消".into();
                 self.refresh_shell_title();
             }
-            MenuAction::SelectMode(i) => self.select_lobby_mode_index(i),
+            MenuAction::SelectMode(i) => {
+                // 列表行共用 entry_id，按下不一定会再播点击音，选中时补一次。
+                self.play_menu_click();
+                self.select_lobby_mode_index(i);
+            }
             MenuAction::SelectMap(i) => {
                 let maps = self.maps_for_menu_hit();
                 if let Some(map) = maps.get(i) {
+                    self.play_menu_click();
                     self.selected_map = Some(map.file_name.clone());
                     self.skirmish.preferred_map = Some(map.file_name.clone());
+                    self.sync_map_list_scroll_to_selection();
                     self.ensure_lobby_preview();
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
