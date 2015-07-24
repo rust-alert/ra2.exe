@@ -20,7 +20,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
             (722.0, 262.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::StartSkirmish)
     );
@@ -33,7 +33,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
             (722.0, 304.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::ChooseMap)
     );
@@ -46,7 +46,7 @@ fn skirmish_lobby_hits_use_snapshot_button_rects() {
             (722.0, 556.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::Back)
     );

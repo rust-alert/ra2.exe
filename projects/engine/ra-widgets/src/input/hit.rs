@@ -15,6 +15,8 @@ use ra_layout::{
 };
 use ra_map::BootMapCandidate;
 
+use crate::ui_compose::{CHOOSE_MAP_LIST_ROW_H, choose_map_visible_rows, clamp_map_list_scroll};
+
 /// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
 #[derive(Debug, Clone, Copy)]
 pub struct MenuHit {
@@ -38,14 +40,21 @@ pub struct MenuHit {
 ///
 /// 主菜单列表的归一化框是 **800×600 内容坐标**（非窗口坐标）；点击请走 [`hit_action`]。
 /// `mode_count`：选图页游戏类型行数（其它页忽略）。
+/// `map_list_scroll`：选图页地图列表滚动偏移（其它页忽略）。
 /// `load_allow_retry`：加载页「重试」是否可点（装载进行中为 `false`）。
-pub fn hits_for(screen: OriginalScreen, maps: &[BootMapCandidate], mode_count: usize, load_allow_retry: bool) -> Vec<MenuHit> {
+pub fn hits_for(
+    screen: OriginalScreen,
+    maps: &[BootMapCandidate],
+    mode_count: usize,
+    map_list_scroll: usize,
+    load_allow_retry: bool,
+) -> Vec<MenuHit> {
     match screen {
         OriginalScreen::MainMenu => hits_main_menu(),
         OriginalScreen::SinglePlayerMenu => hits_single_player(),
         OriginalScreen::Campaign => hits_campaign(),
         OriginalScreen::SkirmishLobby => hits_skirmish_lobby(maps),
-        OriginalScreen::ChooseMap => hits_choose_map(maps, mode_count),
+        OriginalScreen::ChooseMap => hits_choose_map(maps, mode_count, map_list_scroll),
         OriginalScreen::Options => hits_options(),
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
@@ -63,6 +72,7 @@ pub fn hit_action(
     cursor: (f64, f64),
     win_w: f64,
     win_h: f64,
+    map_list_scroll: usize,
     load_allow_retry: bool,
 ) -> Option<MenuAction> {
     if screen == OriginalScreen::MainMenu {
@@ -81,12 +91,19 @@ pub fn hit_action(
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
     if screen == OriginalScreen::ChooseMap {
-        return hit_choose_map_at(maps, mode_count, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+        return hit_choose_map_at(maps, mode_count, map_list_scroll, cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
     if screen == OriginalScreen::ExitConfirm {
         return hit_exit_confirm_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
-    hit_at(&hits_for(screen, maps, mode_count, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action)
+    hit_at(
+        &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
+        cursor.0,
+        cursor.1,
+        win_w,
+        win_h,
+    )
+    .map(|(_, action)| action)
 }
 
 /// 命中命中区下标。主菜单 / 单人页包含禁用项（用于悬停帧与底栏提示）；
@@ -99,6 +116,7 @@ pub fn hover_index(
     cursor: (f64, f64),
     win_w: f64,
     win_h: f64,
+    map_list_scroll: usize,
     load_allow_retry: bool,
 ) -> Option<usize> {
     if screen == OriginalScreen::MainMenu {
@@ -117,12 +135,19 @@ pub fn hover_index(
         return hit_skirmish_lobby_at(maps, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
     }
     if screen == OriginalScreen::ChooseMap {
-        return hit_choose_map_at(maps, mode_count, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+        return hit_choose_map_at(maps, mode_count, map_list_scroll, cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
     }
     if screen == OriginalScreen::ExitConfirm {
         return hover_exit_confirm_at(cursor.0, cursor.1, win_w, win_h);
     }
-    hit_at(&hits_for(screen, maps, mode_count, load_allow_retry), cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i)
+    hit_at(
+        &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
+        cursor.0,
+        cursor.1,
+        win_w,
+        win_h,
+    )
+    .map(|(i, _)| i)
 }
 
 fn hit_at(hits: &[MenuHit], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
@@ -748,8 +773,6 @@ fn skirmish_lobby_snapshot() -> LayoutSnapshot {
     shell_dialog_snapshot(0x102, "dialog_0x102")
 }
 
-const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
-
 /// 选图页几何权威：壳层 profile `0x6B` → `LayoutEngine` → `LayoutSnapshot`。
 fn choose_map_snapshot() -> LayoutSnapshot {
     shell_dialog_snapshot(0x6B, "dialog_0x6b")
@@ -789,7 +812,7 @@ fn menu_hit_from_rect(
     }
 }
 
-fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize) -> Vec<MenuHit> {
+fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll: usize) -> Vec<MenuHit> {
     let snap = choose_map_snapshot();
     let chrome = RightPanelChrome::shell_defaults();
     let bw = chrome.shell_w;
@@ -817,7 +840,7 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize) -> Vec<MenuHit>
     }
     if let Some(list) = snap.get("game_type_list") {
         let list = list.layout.rect;
-        let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+        let visible = choose_map_visible_rows(list.height as i32);
         for i in 0..mode_count.min(visible) {
             let row_y = list.y + (i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
             let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
@@ -829,11 +852,13 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize) -> Vec<MenuHit>
         return hits;
     };
     let list = list.layout.rect;
-    let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
-    for (i, _) in maps.iter().take(visible).enumerate() {
-        let row_y = list.y + (i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
+    let visible = choose_map_visible_rows(list.height as i32);
+    let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
+    for (row_i, _) in maps.iter().skip(scroll).take(visible).enumerate() {
+        let abs_i = scroll + row_i;
+        let row_y = list.y + (row_i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
         let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
-        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(i), row, bw, bh, true));
+        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(abs_i), row, bw, bh, true));
     }
     hits
 }
@@ -841,6 +866,7 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize) -> Vec<MenuHit>
 fn hit_choose_map_at(
     maps: &[BootMapCandidate],
     mode_count: usize,
+    map_list_scroll: usize,
     cursor_x: f64,
     cursor_y: f64,
     win_w: f64,
@@ -877,7 +903,7 @@ fn hit_choose_map_at(
         let list = list.layout.rect;
         if list.contains(point) {
             let row = ((sy as f32 - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
-            let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+            let visible = choose_map_visible_rows(list.height as i32);
             if row < mode_count.min(visible) {
                 return Some((mode_base + row, MenuAction::SelectMode(row)));
             }
@@ -887,9 +913,11 @@ fn hit_choose_map_at(
     let list = snap.get("map_list")?.layout.rect;
     if list.contains(point) {
         let row = ((sy as f32 - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
-        let visible = (list.height as i32 / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
-        if row < maps.len().min(visible) {
-            return Some((map_base + row, MenuAction::SelectMap(row)));
+        let visible = choose_map_visible_rows(list.height as i32);
+        let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
+        let window = maps.len().saturating_sub(scroll).min(visible);
+        if row < window {
+            return Some((map_base + row, MenuAction::SelectMap(scroll + row)));
         }
     }
     None

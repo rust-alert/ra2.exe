@@ -10,9 +10,9 @@ use ra_widgets::{
 #[test]
 fn load_screen_hits_use_content_snapshot() {
     let maps = [];
-    assert!(hits_for(OriginalScreen::LoadScreen, &maps, 0, false).is_empty());
+    assert!(hits_for(OriginalScreen::LoadScreen, &maps, 0, 0, false).is_empty());
 
-    let hits = hits_for(OriginalScreen::LoadScreen, &maps, 0, true);
+    let hits = hits_for(OriginalScreen::LoadScreen, &maps, 0, 0, true);
     assert!(hits.iter().any(|h| h.entry_id == "retry"));
     assert!(hits.iter().any(|h| h.entry_id == "cancel"));
 
@@ -28,6 +28,7 @@ fn load_screen_hits_use_content_snapshot() {
             ((retry.x + retry.w / 2) as f64, (retry.y + retry.h / 2) as f64),
             800.0,
             600.0,
+            0,
             true,
         ),
         Some(MenuAction::RetryLoad)
@@ -41,6 +42,7 @@ fn load_screen_hits_use_content_snapshot() {
             ((cancel.x + cancel.w / 2) as f64, (cancel.y + cancel.h / 2) as f64),
             800.0,
             600.0,
+            0,
             true,
         ),
         Some(MenuAction::CancelLoad)

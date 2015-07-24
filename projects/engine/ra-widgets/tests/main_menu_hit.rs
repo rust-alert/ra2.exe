@@ -18,7 +18,7 @@ fn main_menu_hits_use_shell_page_snapshot() {
             (722.0, 220.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::OpenSinglePlayer)
     );
@@ -31,7 +31,7 @@ fn main_menu_hits_use_shell_page_snapshot() {
             (722.0, 556.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::Exit)
     );
@@ -45,7 +45,7 @@ fn main_menu_hits_use_shell_page_snapshot() {
             (722.0, 304.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(2)
     );
@@ -58,7 +58,7 @@ fn main_menu_hits_use_shell_page_snapshot() {
             (722.0, 304.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         None
     );

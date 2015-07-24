@@ -18,7 +18,7 @@ fn campaign_hits_use_content_snapshot() {
             (722.0, 556.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::Back)
     );
@@ -32,7 +32,7 @@ fn campaign_hits_use_content_snapshot() {
             (315.0, 90.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::SelectCampaignAllied)
     );
@@ -46,7 +46,7 @@ fn campaign_hits_use_content_snapshot() {
             (314.0, 489.0),
             800.0,
             600.0,
-            false,
+            0, false,
         ),
         Some(MenuAction::CycleCampaignDifficulty)
     );
