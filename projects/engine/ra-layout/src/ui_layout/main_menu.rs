@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::{
-    shell_page_layout_tree, LayoutEngine, LayoutSnapshot, RightPanelChrome, Viewport,
+    options_page_layout_tree, shell_page_layout_tree, LayoutEngine, LayoutSnapshot,
+    RightPanelChrome, Viewport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,11 +112,16 @@ pub fn single_player_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayou
 }
 
 /// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
+///
+/// 几何与 `options_dialog` / hit 同源：一次 `options_page_layout_tree` 求解。
 pub fn options_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let (chrome, snap) = shell_page_snapshot(
-        "options",
-        &OPTIONS_BUTTON_IDS[..2],
-        Some(OPTIONS_BUTTON_IDS[2]),
+    let chrome = RightPanelChrome::shell_defaults();
+    let snap = LayoutEngine.solve(
+        Viewport {
+            size: crate::shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &options_page_layout_tree(chrome),
     );
     let mut layout = layout_from_shell_page_snap(chrome, &snap);
     let rail = buttons_from_snap(&snap, &OPTIONS_BUTTON_IDS);

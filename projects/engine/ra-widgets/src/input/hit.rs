@@ -11,7 +11,8 @@ use ra_layout::{
     LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
     SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect, RightPanelChrome,
     Viewport, campaign_content_layout_tree, dialog_layout_tree, exit_confirm_content_layout_tree,
-    load_screen_layout_tree, shell_design_size, shell_page_layout_tree, window_to_shell_px,
+    load_screen_layout_tree, options_page_layout_tree, shell_design_size, shell_page_layout_tree,
+    window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -559,12 +560,7 @@ fn options_snapshot() -> LayoutSnapshot {
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &shell_page_layout_tree(
-            "options",
-            &OPTIONS_BUTTON_IDS[..2],
-            Some(OPTIONS_BUTTON_IDS[2]),
-            chrome,
-        ),
+        &options_page_layout_tree(chrome),
     )
 }
 
