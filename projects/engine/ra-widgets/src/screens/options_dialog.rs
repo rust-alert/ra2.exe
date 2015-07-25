@@ -243,6 +243,8 @@ pub struct OptionsDialogLayout {
     pub panel_tile_count: i32,
     /// 右栏底盖。
     pub panel_bottom: RectPx,
+    /// 底部装饰条。
+    pub lower_strip: RectPx,
     /// 右栏标题。
     pub title: RectPx,
     /// 接受 / 取消 / 主菜单。
@@ -300,6 +302,7 @@ impl OptionsDialogLayout {
             panel_tile: rect("panel_tile"),
             panel_tile_count: chrome.tile_count(),
             panel_bottom: rect("panel_bottom"),
+            lower_strip: rect("lower_strip"),
             title: rect("title"),
             rail,
             sec_display: rect("sec_display"),
