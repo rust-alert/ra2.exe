@@ -98,12 +98,7 @@ fn resolve_launch() -> RaResult<(
             let t = crate::host::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);
             return Ok((
-                LaunchMode::DirectBattle(BootResult {
-                    note: t.note,
-                    engine: Some(t.engine),
-                    session: Some(t.session),
-                    preview: t.preview,
-                }),
+                LaunchMode::DirectBattle(BootResult::from_test(t)),
                 DisplayMode::DEFAULT,
                 0.4,
                 0.7,

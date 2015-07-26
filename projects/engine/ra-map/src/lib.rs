@@ -56,7 +56,10 @@ pub use preview_pack::{
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
 };
-pub use structure_paint::paint_map_structures;
+pub use structure_paint::{
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, collect_structure_anim_bank, paint_map_structures,
+    paint_structure_anim_bank, paint_structure_anims_onto_rgba, structure_anim_frame,
+};
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::paint_map_terrain_objects;
 pub use terrain_preview::compose_terrain_preview;

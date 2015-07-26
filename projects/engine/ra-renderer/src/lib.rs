@@ -169,6 +169,23 @@ impl Renderer {
         self.preview = Some(image);
     }
 
+    /// 更新地图预览像素，**不**重置相机（活动层逐帧刷新用）。
+    ///
+    /// 尺寸变化时回退为 [`Self::set_map_preview`]。
+    pub fn update_map_preview(&mut self, image: RgbaImage) {
+        let size_changed = self.preview.as_ref().is_none_or(|p| p.width() != image.width() || p.height() != image.height());
+        if size_changed || self.sprite.is_none() {
+            self.set_map_preview(image);
+            return;
+        }
+        if let Some(gpu) = self.gpu.as_ref() {
+            if let Some(sprite) = self.sprite.as_mut() {
+                sprite.replace_image(&gpu.device, &gpu.queue, &image);
+            }
+        }
+        self.preview = Some(image);
+    }
+
     /// 清空预览底图（CPU 缓存与 GPU sprite）。
     ///
     /// 前置菜单未接原版 UI 时用于诚实空屏，避免残留过期缩略图。

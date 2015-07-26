@@ -76,8 +76,8 @@ impl LoadJob {
                     slot.stage = "打开会话".into();
                 }
                 let boot = match super::test_boot::boot_scene(&scene) {
-                    Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
-                    Err(e) => BootResult { note: format!("装载失败: {e}"), engine: None, session: None, preview: None },
+                    Ok(t) => BootResult::from_test(t),
+                    Err(e) => BootResult::failed(format!("装载失败: {e}")),
                 };
                 if let Ok(mut slot) = progress_worker.lock() {
                     slot.ratio = 1.0;

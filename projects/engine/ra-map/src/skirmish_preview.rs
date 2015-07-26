@@ -5,8 +5,9 @@ use ra_assets::Palette;
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles, overlay_paint::paint_map_overlays,
-    structure_paint::paint_map_structures, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
+    MapInfo, StructureAnimBank, StructureAnimMode, compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles,
+    overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures,
+    structure_paint::paint_structure_anim_bank, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -27,8 +28,12 @@ pub struct SkirmishPreviewStats {
 /// 启动预览合成结果（含注记与原点）。
 #[derive(Debug, Clone)]
 pub struct BootPreviewResult {
-    /// 预览图像。
+    /// 预览图像（已叠当前时钟活动层）。
     pub image: RawRgbaImage,
+    /// 不含建筑活动层的底图（与 `image` 同尺寸，供对局刷新）。
+    pub base_without_anims: RgbaImage,
+    /// 建筑活动层银行。
+    pub anim_bank: StructureAnimBank,
     /// 画布原点世界 X。
     pub origin_x: i32,
     /// 画布原点世界 Y。
@@ -40,6 +45,9 @@ pub struct BootPreviewResult {
 }
 
 /// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
+///
+/// 顺序：主体与移动单位先入底图，再按 `anim_clock_ms` 叠活动层。
+/// 返回 `(合成图, 无活动层底图, 统计, 活动层银行)`。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -48,13 +56,28 @@ pub fn compose_skirmish_preview(
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
-) -> Option<(TerrainImage, SkirmishPreviewStats)> {
+    anim_clock_ms: u64,
+) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank)> {
     let mut image = compose_terrain_preview(source, map)?;
     let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name, is_tiberium);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
-    let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner);
+    let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let anim_bank = collect_structure_anim_bank(source, map, art_ini, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner);
-    Some((image, SkirmishPreviewStats { overlay_shp, overlay_mark, terrain_objects, structures, mobiles }))
+    let base_without_anims = image.image.clone();
+    let anim_n = paint_structure_anim_bank(&mut image, &anim_bank, anim_clock_ms);
+    Some((
+        image,
+        base_without_anims,
+        SkirmishPreviewStats {
+            overlay_shp,
+            overlay_mark,
+            terrain_objects,
+            structures: structures + anim_n,
+            mobiles,
+        },
+        anim_bank,
+    ))
 }
 
 /// 把额外实体（如航点播种的 MCV）叠画到已有预览 RGBA 上，保留原点。
@@ -89,9 +112,10 @@ pub fn compose_boot_preview(
     is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, stats) = compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, remap_owner)?;
+    let (image, base_without_anims, stats, anim_bank) =
+        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, remap_owner, 0)?;
     let note = format!(
-        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} {}x{}",
+        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} anim#{} {}x{}",
         map.name,
         map.cells.len(),
         image.drawn,
@@ -101,6 +125,7 @@ pub fn compose_boot_preview(
         stats.terrain_objects,
         stats.structures,
         stats.mobiles,
+        anim_bank.layers.len(),
         image.image.width(),
         image.image.height()
     );
@@ -108,6 +133,8 @@ pub fn compose_boot_preview(
         origin_x: image.origin_x,
         origin_y: image.origin_y,
         image: RawRgbaImage { label: note.clone(), image: image.image },
+        base_without_anims,
+        anim_bank,
         note,
         stats,
     })

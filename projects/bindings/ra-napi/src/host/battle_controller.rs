@@ -10,8 +10,8 @@ use ra_widgets::{
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::ui_layout::battle_hud_layout;
-use ra_map::{MapEntityKind, iso_to_screen};
-use ra_renderer::Renderer;
+use ra_map::{MapEntityKind, StructureAnimBank, iso_to_screen, paint_structure_anims_onto_rgba};
+use ra_renderer::{Renderer, RgbaImage};
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
@@ -75,6 +75,16 @@ pub struct BattleController {
     test_scene: Option<String>,
     /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
     hud_chrome: Option<BattleHudChrome>,
+    /// 不含建筑活动层的预览底图。
+    preview_base: Option<RgbaImage>,
+    /// 建筑活动层银行。
+    structure_anims: StructureAnimBank,
+    /// 预览原点。
+    preview_origin: (i32, i32),
+    /// 活动层呈现时钟起点。
+    anim_started: Instant,
+    /// 上一帧活动层签名（跳过无变化上传）。
+    last_anim_sig: u64,
 }
 
 impl BattleController {
@@ -100,6 +110,11 @@ impl BattleController {
             status_path,
             test_scene,
             hud_chrome: None,
+            preview_base: boot.preview_base,
+            structure_anims: boot.structure_anims,
+            preview_origin: boot.preview_origin,
+            anim_started: Instant::now(),
+            last_anim_sig: u64::MAX,
         }
     }
 
@@ -123,6 +138,11 @@ impl BattleController {
         self.leave_armed = false;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
+        self.preview_base = boot.preview_base;
+        self.structure_anims = boot.structure_anims;
+        self.preview_origin = boot.preview_origin;
+        self.anim_started = Instant::now();
+        self.last_anim_sig = u64::MAX;
         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
             tracing::info!("重开完成 · {}", boot.note);
@@ -202,8 +222,8 @@ impl BattleController {
         {
             if let Some(scene) = self.test_scene.as_ref() {
                 return match super::test_boot::boot_scene(scene) {
-                    Ok(t) => BootResult { note: t.note, engine: Some(t.engine), session: Some(t.session), preview: t.preview },
-                    Err(e) => BootResult { note: format!("重开失败: {e}"), engine: None, session: None, preview: None },
+                    Ok(t) => BootResult::from_test(t),
+                    Err(e) => BootResult::failed(format!("重开失败: {e}")),
                 };
             }
         }
@@ -648,12 +668,33 @@ impl BattleController {
                 (s.width.max(1), s.height.max(1))
             })
             .unwrap_or((800, 600));
+        self.refresh_structure_anims(renderer);
         self.upload_battle_hud(renderer, &hud, fnt, vw, vh);
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
         }
         self.refresh_title(renderer, window, screen_label, Some(&hud));
+    }
+
+    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机），不重置相机。
+    fn refresh_structure_anims(&mut self, renderer: &mut Renderer) {
+        if self.structure_anims.is_empty() {
+            return;
+        }
+        let Some(base) = self.preview_base.as_ref()
+        else {
+            return;
+        };
+        let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        let sig = self.structure_anims.frame_signature(clock_ms);
+        if sig == self.last_anim_sig {
+            return;
+        }
+        let mut composed = base.clone();
+        paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
+        renderer.update_map_preview(composed);
+        self.last_anim_sig = sig;
     }
 
     fn local_house_name(&self) -> Option<String> {

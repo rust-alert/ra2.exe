@@ -6,8 +6,8 @@ use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
 use ra_assets::{Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes};
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
-    list_parseable_maps_from_names, mount_theater_mixes, paint_mobiles_onto_preview_rgba,
+    MapEntity, MapEntityKind, MapInfo, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
+    find_boot_map, list_parseable_maps_from_names, mount_theater_mixes, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
@@ -31,14 +31,47 @@ pub struct BootResult {
     pub engine: Option<Engine>,
     /// 已打开的会话（若装载成功）。
     pub session: Option<Session>,
-    /// 可选地形预览图。
+    /// 可选地形预览图（含当前活动层）。
     pub preview: Option<RgbaImage>,
+    /// 不含建筑活动层的预览底图（对局时钟刷新用）。
+    pub preview_base: Option<RgbaImage>,
+    /// 建筑活动层银行。
+    pub structure_anims: StructureAnimBank,
+    /// 预览画布原点（世界像素）。
+    pub preview_origin: (i32, i32),
 }
 
 impl BootResult {
     /// 是否已打开可玩会话（进度「完成」与进对局的唯一判据）。
     pub fn is_ready(&self) -> bool {
         self.session.as_ref().and_then(|s| s.battle()).is_some()
+    }
+
+    /// 装载失败占位。
+    pub fn failed(note: impl Into<String>) -> Self {
+        Self {
+            note: note.into(),
+            engine: None,
+            session: None,
+            preview: None,
+            preview_base: None,
+            structure_anims: StructureAnimBank::default(),
+            preview_origin: (0, 0),
+        }
+    }
+
+    /// 由测试场景 [`super::test_boot::TestBoot`] 构造（无活动层银行）。
+    #[cfg(feature = "test-harness")]
+    pub fn from_test(t: super::test_boot::TestBoot) -> Self {
+        Self {
+            note: t.note,
+            engine: Some(t.engine),
+            session: Some(t.session),
+            preview: t.preview,
+            preview_base: None,
+            structure_anims: StructureAnimBank::default(),
+            preview_origin: (0, 0),
+        }
     }
 }
 
@@ -48,7 +81,7 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesDb,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(String, RgbaImage, i32, i32)> {
+) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -65,7 +98,14 @@ fn load_map_terrain_preview(
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
     let rgba = preview.image.image;
-    Some((preview.note, rgba, preview.origin_x, preview.origin_y))
+    Some((
+        preview.note,
+        rgba,
+        preview.base_without_anims,
+        preview.anim_bank,
+        preview.origin_x,
+        preview.origin_y,
+    ))
 }
 
 /// 大厅行色 → house 主色（遭遇战阵营色以大厅为准，不用国家默认 `Color=Gold`）。
@@ -353,7 +393,7 @@ pub fn boot_world_with_progress(
         Err(e) => {
             note = format!("{note} · {e}");
             report(1.0, "地图失败");
-            return Ok(BootResult { note, engine: None, session: None, preview: None });
+            return Ok(BootResult::failed(note));
         }
     };
 
@@ -371,13 +411,17 @@ pub fn boot_world_with_progress(
 
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
+    let mut preview_base: Option<RgbaImage> = None;
+    let mut structure_anims = StructureAnimBank::default();
     let mut preview = match rules
         .as_ref()
         .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
     {
-        Some((name, image, ox, oy)) => {
+        Some((name, image, base, bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
+            preview_base = Some(base);
+            structure_anims = bank;
             Some(image)
         }
         None => {
@@ -423,16 +467,19 @@ pub fn boot_world_with_progress(
                 opened.session.expect_battle().fingerprint.rules_hash,
                 opened.session.expect_battle().match_seed
             );
-            // 航点播种的 MCV 不在地图放置段：预览合成后再叠 VXL/SHP，否则对局底图上看不见开局载具。
-            if let (Some(image), Some(rules)) = (preview.as_mut(), rules.as_ref()) {
+            // 航点播种的 MCV 不在地图放置段：叠到无活动层底图后再按时钟叠活动层。
+            if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
                 let painted =
-                    paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, image, preview_origin, &lobby_primaries);
+                    paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 }
                 else {
                     tracing::warn!("开局移动单位未能叠画到预览（VXL/SHP 可能未解析）");
                 }
+                let mut composed = base.clone();
+                paint_structure_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &structure_anims, 0);
+                preview = Some(composed);
             }
             (Some(opened.engine), Some(opened.session))
         }
@@ -449,7 +496,15 @@ pub fn boot_world_with_progress(
     else {
         report(1.0, "装载失败");
     }
-    Ok(BootResult { note, engine, session, preview })
+    Ok(BootResult {
+        note,
+        engine,
+        session,
+        preview,
+        preview_base,
+        structure_anims,
+        preview_origin,
+    })
 }
 
 /// 读取 `RustAlert.toml`（可选）并尝试装载（失败时仍返回带 note 的 `BootResult`）。
@@ -481,7 +536,7 @@ pub fn boot_from_install_with_request(request: ra_widgets::skirmish_setup::Skirm
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
-            BootResult { note: format!("启动失败: {e}"), engine: None, session: None, preview: None }
+            BootResult::failed(format!("启动失败: {e}"))
         }
     };
     tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
@@ -508,7 +563,7 @@ pub fn boot_from_install_with_progress(
         Ok(v) => v,
         Err(e) => {
             tracing::error!("启动失败: {e}");
-            BootResult { note: format!("启动失败: {e}"), engine: None, session: None, preview: None }
+            BootResult::failed(format!("启动失败: {e}"))
         }
     };
     tracing::info!("boot: {} · session={}", boot.note, if boot.session.is_some() { "ok" } else { "none" });
