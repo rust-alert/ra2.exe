@@ -45,32 +45,38 @@ impl TerrainImage {
 /// 按等距顺序把单元画到画布上。
 ///
 /// `resolve` 返回 `(tile_num, sub_tile)` 对应砖块；缺砖则跳过该单元。
+///
+/// 排序按**格子**深度（`x+y`、`x`、高度），不用 blit 顶边。悬崖 TMP 的 extra
+/// 常 `offset_y < 0`（朝屏幕上方伸出）；若按 blit 顶边排序，会被更北的水面钻石盖住，
+/// 北向峡谷边就会出现锯齿缺口。
 pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) -> Option<TileBlit>) -> Option<TerrainImage> {
     if cells.is_empty() {
         return None;
     }
 
-    let mut prepared: Vec<(i32, i32, TileBlit)> = Vec::new();
+    // (blit_x, blit_y, depth=x+y, cell_x, z, blit)
+    let mut prepared: Vec<(i32, i32, i32, i16, u8, TileBlit)> = Vec::new();
     for cell in cells {
         let Some(blit) = resolve(cell.tile_num, cell.sub_tile)
         else {
             continue;
         };
         let (sx, sy) = iso_to_screen(i32::from(cell.x), i32::from(cell.y), cell.z);
-        prepared.push((sx + blit.offset_x, sy + blit.offset_y, blit));
+        let depth = i32::from(cell.x) + i32::from(cell.y);
+        prepared.push((sx + blit.offset_x, sy + blit.offset_y, depth, cell.x, cell.z, blit));
     }
     if prepared.is_empty() {
         return None;
     }
 
-    // 画家算法：先画靠上（小 y）的。
-    prepared.sort_by_key(|(x, y, _)| (*y, *x));
+    // 先远后近；同列先低后高，让高地悬崖面盖住低处水面。
+    prepared.sort_by_key(|(_, _, depth, x, z, _)| (*depth, *x, *z));
 
     let mut min_x = i32::MAX;
     let mut min_y = i32::MAX;
     let mut max_x = i32::MIN;
     let mut max_y = i32::MIN;
-    for (x, y, blit) in &prepared {
+    for (x, y, _, _, _, blit) in &prepared {
         min_x = min_x.min(*x);
         min_y = min_y.min(*y);
         max_x = max_x.max(*x + blit.width as i32);
@@ -85,7 +91,7 @@ pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) 
     let mut image = RgbaImage::new(width, height);
     let mut drawn = 0usize;
 
-    for (x, y, blit) in &prepared {
+    for (x, y, _, _, _, blit) in &prepared {
         let dx = *x - min_x;
         let dy = *y - min_y;
         if blit_over(image.as_mut(), width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
