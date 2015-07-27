@@ -10,7 +10,9 @@ mod load_screen;
 mod options_page;
 mod shell_chrome;
 
-pub use battle_hud::battle_hud_layout_tree;
+pub use battle_hud::{
+    battle_hud_layout_tree, battle_hud_layout_tree_with_metrics, BattleHudChromeMetrics,
+};
 pub use campaign_page::campaign_content_layout_tree;
 pub use exit_confirm_page::exit_confirm_content_layout_tree;
 pub use dlu::{mul_div_round, DluRect, FontBaseUnits, MS_SANS_SERIF_8PT};

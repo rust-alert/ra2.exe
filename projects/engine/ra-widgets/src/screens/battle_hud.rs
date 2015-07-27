@@ -4,7 +4,10 @@
 //! 战术区保持透明铺到屏底；chrome 仅占用右侧栏。
 
 use ra_assets::{Palette, ShpFile};
-use ra_layout::{BattleHudLayout, RectPx, battle_hud_layout};
+use ra_layout::{
+    battle_hud_layout_tree, battle_hud_layout_with_metrics, BattleHudChromeMetrics, BattleHudLayout,
+    LayoutEngine, Point2, RectPx, Size2, Viewport,
+};
 use ra_renderer::RgbaImage;
 
 use crate::{
@@ -104,16 +107,10 @@ fn try_decode(source: &GameAssetSource, mix: &str, name: &str, frame: u16, error
     }
 }
 
-fn radar_frame_index(source: &GameAssetSource, mix: &str) -> u16 {
-    let Some(hit) = source.resolve_preferring("radar.shp", mix)
-    else {
-        return 0;
-    };
-    let Ok(shp) = ShpFile::parse(&hit.bytes)
-    else {
-        return 0;
-    };
-    shp.frames.len().saturating_sub(1) as u16
+fn radar_frame_index(_source: &GameAssetSource, _mix: &str) -> u16 {
+    // 未建雷达时原版显示阵营徽（盟军鹰 / 苏军镰锤），在 `radar.shp` 首帧。
+    // 末帧多为关屏黑块，不能当默认态。
+    0
 }
 
 /// 按本地阵营解码对局 HUD chrome。
@@ -313,16 +310,26 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
         blit_button_in_cell(page, &s.image, layout.sell);
     }
     if let Some(s) = &chrome.powerp {
-        let meter = RectPx::new(layout.sidebar.x, layout.cameo_band.y, 16.min(layout.sidebar.w), layout.cameo_band.h.max(1));
-        blit_stretched(page, &s.image, meter);
+        // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
+        let meter_w = layout.power_meter_w.min(layout.sidebar.w).max(1);
+        let strip_h = s.image.height().max(1) as i32;
+        let mut y = layout.cameo_band.y;
+        let bottom = layout.cameo_band.y + layout.cameo_band.h;
+        while y < bottom {
+            let h = (bottom - y).min(strip_h);
+            blit_stretched(
+                page,
+                &s.image,
+                RectPx::new(layout.sidebar.x, y, meter_w, h),
+            );
+            y += strip_h;
+        }
     }
-    // 分类页签贴在修理/出售行下方、cameo 带顶沿之上，避免压住钮面。
-    let tab_row_top = (layout.repair.y + layout.repair.h + 2).max(layout.side1.y);
-    let tab_y = tab_row_top.min((layout.cameo_band.y - 2).max(layout.side1.y));
-    let mut tab_x = layout.sidebar.x + 20;
-    for tab in chrome.tabs.iter().flatten() {
-        blit_rgba(page, &tab.image, tab_x, tab_y);
-        tab_x += tab.image.width() as i32 + 2;
+    // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
+    for (i, tab) in chrome.tabs.iter().enumerate() {
+        if let Some(tab) = tab {
+            blit_button_in_cell(page, &tab.image, layout.tabs[i]);
+        }
     }
     if let Some(s) = &chrome.optbtn {
         blit_button_in_cell(page, &s.image, layout.opt_btn);
@@ -332,8 +339,82 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
     }
 }
 
-/// 便捷：按视口生成布局并绘制 chrome。
+/// 便捷：按视口与 chrome 嵌套包度量生成布局并绘制。
 pub fn paint_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome) {
-    let layout = battle_hud_layout(page.width(), page.height());
+    let metrics = BattleHudChromeMetrics::for_mix(&chrome.mix);
+    let layout = battle_hud_layout_with_metrics(page.width(), page.height(), metrics);
     blit_battle_hud_chrome(page, chrome, layout);
+}
+
+/// 对局 HUD 可点入口（几何权威为 `battle_hud_layout_tree` snapshot）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BattleHudHit {
+    /// 修理模式。
+    Repair,
+    /// 出售模式。
+    Sell,
+    /// 选项。
+    Options,
+    /// 外交。
+    Diplomacy,
+}
+
+impl BattleHudHit {
+    /// 由 snapshot / layout 控件 id 解析。
+    pub fn from_entry_id(id: &str) -> Option<Self> {
+        match id {
+            "repair" => Some(Self::Repair),
+            "sell" => Some(Self::Sell),
+            "opt_btn" => Some(Self::Options),
+            "diplo_btn" => Some(Self::Diplomacy),
+            _ => None,
+        }
+    }
+
+    /// 稳定入口 id（与 layout tree 叶节点一致）。
+    pub fn entry_id(self) -> &'static str {
+        match self {
+            Self::Repair => "repair",
+            Self::Sell => "sell",
+            Self::Options => "opt_btn",
+            Self::Diplomacy => "diplo_btn",
+        }
+    }
+}
+
+const BATTLE_HUD_HIT_IDS: [&str; 4] = ["repair", "sell", "opt_btn", "diplo_btn"];
+
+fn battle_hud_snapshot(viewport_w: u32, viewport_h: u32) -> ra_layout::LayoutSnapshot {
+    LayoutEngine.solve(
+        Viewport {
+            size: Size2 {
+                width: viewport_w.max(1) as f32,
+                height: viewport_h.max(1) as f32,
+            },
+            ..Viewport::default()
+        },
+        &battle_hud_layout_tree(viewport_w, viewport_h),
+    )
+}
+
+/// 视口像素命中（与 `battle_hud_layout` / `RenderPlan` 同源）。
+///
+/// `layout` 仅用于推断视口尺寸，保持与暂停菜单 `hit_at` 签名同构。
+pub fn hit_at(layout: BattleHudLayout, x: i32, y: i32) -> Option<BattleHudHit> {
+    let viewport_w = (layout.sidebar.x + layout.sidebar.w).max(1) as u32;
+    let viewport_h = layout.sidebar.h.max(1) as u32;
+    let snap = battle_hud_snapshot(viewport_w, viewport_h);
+    let point = Point2 {
+        x: x as f32,
+        y: y as f32,
+    };
+    for id in BATTLE_HUD_HIT_IDS {
+        if snap
+            .get(id)
+            .is_some_and(|el| el.layout.rect.contains(point))
+        {
+            return BattleHudHit::from_entry_id(id);
+        }
+    }
+    None
 }

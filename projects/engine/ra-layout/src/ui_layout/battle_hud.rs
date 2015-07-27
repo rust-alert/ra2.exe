@@ -1,8 +1,9 @@
 //! 对局 HUD 布局。
 
 use super::*;
-use crate::{battle_hud_layout_tree, LayoutEngine, Size2, Viewport};
-
+use crate::{
+    battle_hud_layout_tree_with_metrics, BattleHudChromeMetrics, LayoutEngine, Size2, Viewport,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattleHudLayout {
@@ -26,12 +27,16 @@ pub struct BattleHudLayout {
     pub repair: RectPx,
     /// 出售钮（`sell.shp`）。
     pub sell: RectPx,
+    /// 分类页签（`tab00`…`tab03`）。
+    pub tabs: [RectPx; 4],
     /// 右栏底脚条带（仅侧栏内，不是全宽底栏）。
     pub bottom_strip: RectPx,
     /// 选项钮（`optbtn.shp`）。
     pub opt_btn: RectPx,
     /// 外交钮（`diplobtn.shp`）。
     pub diplo_btn: RectPx,
+    /// 电表条带宽度（`powerp.shp`）。
+    pub power_meter_w: i32,
 }
 
 impl BattleHudLayout {
@@ -43,10 +48,19 @@ impl BattleHudLayout {
     }
 }
 
-/// 按视口计算对局 HUD 布局（右栏宽对齐壳层 `RIGHT_PANEL_W`）。
+/// 按视口计算对局 HUD 布局（右栏宽对齐壳层 `RIGHT_PANEL_W`；默认盟军度量）。
 ///
 /// 几何投影自 `battle_hud_layout_tree` → `LayoutSnapshot`。
 pub fn battle_hud_layout(viewport_w: u32, viewport_h: u32) -> BattleHudLayout {
+    battle_hud_layout_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::allied())
+}
+
+/// 按视口与阵营 chrome 度量计算对局 HUD 布局。
+pub fn battle_hud_layout_with_metrics(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> BattleHudLayout {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
     let snap = LayoutEngine.solve(
@@ -57,7 +71,7 @@ pub fn battle_hud_layout(viewport_w: u32, viewport_h: u32) -> BattleHudLayout {
             },
             ..Viewport::default()
         },
-        &battle_hud_layout_tree(viewport_w, viewport_h),
+        &battle_hud_layout_tree_with_metrics(viewport_w, viewport_h, metrics),
     );
     BattleHudLayout {
         sidebar: rect_px_from_snapshot(&snap, "sidebar"),
@@ -70,8 +84,15 @@ pub fn battle_hud_layout(viewport_w: u32, viewport_h: u32) -> BattleHudLayout {
         addon: rect_px_from_snapshot(&snap, "addon"),
         repair: rect_px_from_snapshot(&snap, "repair"),
         sell: rect_px_from_snapshot(&snap, "sell"),
+        tabs: [
+            rect_px_from_snapshot(&snap, "tab00"),
+            rect_px_from_snapshot(&snap, "tab01"),
+            rect_px_from_snapshot(&snap, "tab02"),
+            rect_px_from_snapshot(&snap, "tab03"),
+        ],
         bottom_strip: rect_px_from_snapshot(&snap, "bottom_strip"),
         opt_btn: rect_px_from_snapshot(&snap, "opt_btn"),
         diplo_btn: rect_px_from_snapshot(&snap, "diplo_btn"),
+        power_meter_w: metrics.power_w,
     }
 }

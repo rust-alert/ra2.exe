@@ -1,12 +1,111 @@
 //! 对局 HUD → `LayoutNode`（视口像素，非壳层 800×600）。
 //!
 //! 几何对齐零售对局侧栏：仅右侧栏贴满屏高，战术区铺到屏底，无全宽底栏。
+//! 盟军 `sidec01` 与苏军 `sidec02` 钮面画布尺寸不同，由 `BattleHudChromeMetrics` 区分。
 
 use crate::{
     geometry::{Rect, Size2},
     policy::RightPanelChrome,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
+
+/// 侧栏共用竖向槽位高度（两阵营一致）。
+const CREDITS_H: i32 = 16;
+const TOP_H: i32 = 32;
+const RADAR_H: i32 = 110;
+const SIDE1_H: i32 = 69;
+const SIDE3_H: i32 = 26;
+/// `addon.shp` 画布高（勿压成 48，否则底脚鹰标/双蓝板变形）。
+const ADDON_H: i32 = 63;
+
+/// 阵营侧栏 chrome 画布尺寸与槽位偏移（像素）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BattleHudChromeMetrics {
+    /// `repair`/`sell` 画布宽。
+    pub repair_sell_w: i32,
+    /// `repair`/`sell` 画布高。
+    pub repair_sell_h: i32,
+    /// 修理钮相对侧栏左缘的 x 偏移。
+    pub repair_x: i32,
+    /// 出售钮相对侧栏左缘的 x 偏移。
+    pub sell_x: i32,
+    /// 修理/出售钮相对 `side1` 顶边的 y 偏移。
+    pub repair_y: i32,
+    /// 分类页签画布宽。
+    pub tab_w: i32,
+    /// 分类页签画布高。
+    pub tab_h: i32,
+    /// 首个页签相对侧栏左缘的 x 偏移。
+    pub tab_x: i32,
+    /// 相邻页签间距。
+    pub tab_gap: i32,
+    /// `optbtn`/`diplobtn` 画布宽。
+    pub footer_btn_w: i32,
+    /// `optbtn`/`diplobtn` 画布高。
+    pub footer_btn_h: i32,
+    /// 底脚钮相对侧栏左缘的 x 偏移。
+    pub footer_x: i32,
+    /// 底脚双钮间距。
+    pub footer_btn_gap: i32,
+    /// 底脚钮距 `addon` 底边的内边距。
+    pub footer_bottom_pad: i32,
+    /// `powerp` 电表条带宽度。
+    pub power_w: i32,
+}
+
+impl BattleHudChromeMetrics {
+    /// 盟军 `sidec01` 画布度量。
+    pub const fn allied() -> Self {
+        Self {
+            repair_sell_w: 64,
+            repair_sell_h: 31,
+            repair_x: 20,
+            sell_x: 84,
+            repair_y: 8,
+            tab_w: 28,
+            tab_h: 27,
+            tab_x: 27,
+            tab_gap: 2,
+            footer_btn_w: 72,
+            footer_btn_h: 18,
+            footer_x: 12,
+            footer_btn_gap: 0,
+            footer_bottom_pad: 6,
+            power_w: 12,
+        }
+    }
+
+    /// 苏军 `sidec02` 画布度量。
+    pub const fn soviet() -> Self {
+        Self {
+            repair_sell_w: 52,
+            repair_sell_h: 32,
+            repair_x: 32,
+            sell_x: 84,
+            repair_y: 8,
+            tab_w: 32,
+            tab_h: 28,
+            tab_x: 20,
+            tab_gap: 2,
+            footer_btn_w: 72,
+            footer_btn_h: 22,
+            footer_x: 12,
+            footer_btn_gap: 0,
+            footer_bottom_pad: 6,
+            power_w: 16,
+        }
+    }
+
+    /// 按嵌套包名选择度量（`sidec02` → 苏军，其余默认盟军）。
+    pub fn for_mix(mix: &str) -> Self {
+        let lower = mix.to_ascii_lowercase();
+        if lower.contains("sidec02") {
+            Self::soviet()
+        } else {
+            Self::allied()
+        }
+    }
+}
 
 /// 对局 HUD 各槽位设计矩形（与过渡期 `battle_hud_layout` 同构）。
 #[derive(Debug, Clone, Copy)]
@@ -21,6 +120,7 @@ struct BattleHudRects {
     addon: Rect,
     repair: Rect,
     sell: Rect,
+    tabs: [Rect; 4],
     /// 右栏底脚条带（仅侧栏内，不是全宽底栏）。
     bottom_strip: Rect,
     opt_btn: Rect,
@@ -31,25 +131,16 @@ fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
     Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
 }
 
-/// 侧栏顶段固定高度（credits + top + radar + side1）。
-const CREDITS_H: i32 = 16;
-const TOP_H: i32 = 32;
-const RADAR_H: i32 = 110;
-const SIDE1_H: i32 = 69;
-const SIDE3_H: i32 = 26;
-const ADDON_H: i32 = 48;
-const REPAIR_SELL_W: i32 = 52;
-const REPAIR_SELL_H: i32 = 32;
-const REPAIR_X_OFF: i32 = 32;
-const SELL_X_OFF: i32 = 84;
-const REPAIR_SELL_Y_OFF: i32 = 8;
-const FOOTER_BTN_W: i32 = 60;
-const FOOTER_BTN_H: i32 = 24;
-
-fn compute_battle_hud_rects(viewport_w: u32, viewport_h: u32) -> BattleHudRects {
+fn compute_battle_hud_rects(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> BattleHudRects {
     let w = viewport_w.max(1) as i32;
     let h = viewport_h.max(1) as i32;
-    let panel_w = (RightPanelChrome::shell_defaults().panel_w as i32).min(w).max(1);
+    let panel_w = (RightPanelChrome::shell_defaults().panel_w as i32)
+        .min(w)
+        .max(1);
     let panel_x = (w - panel_w).max(0);
 
     let credits_h = CREDITS_H.min(h).max(1);
@@ -69,13 +160,38 @@ fn compute_battle_hud_rects(viewport_w: u32, viewport_h: u32) -> BattleHudRects 
     let cameo_bottom = side3_y.max(cameo_y);
     let cameo_h = (cameo_bottom - cameo_y).max(1);
 
-    let repair_w = REPAIR_SELL_W.min(panel_w / 2).max(1);
-    let repair_h = REPAIR_SELL_H.min(side1_h.saturating_sub(4)).max(1);
-    let sell_x = (panel_x + SELL_X_OFF).min(panel_x + panel_w - repair_w);
+    let repair_w = metrics.repair_sell_w.min(panel_w / 2).max(1);
+    let repair_h = metrics
+        .repair_sell_h
+        .min(side1_h.saturating_sub(4))
+        .max(1);
+    let sell_x = (panel_x + metrics.sell_x).min(panel_x + panel_w - repair_w);
+    let repair_sell_y =
+        side1_y + metrics.repair_y.min(side1_h.saturating_sub(repair_h));
 
-    let footer_btn_h = FOOTER_BTN_H.min(addon_h.saturating_sub(8)).max(1);
-    let footer_btn_w = FOOTER_BTN_W.min((panel_w - 20) / 2).max(1);
-    let footer_btn_y = addon_y + ((addon_h - footer_btn_h) / 2).max(0);
+    let tab_w = metrics.tab_w.min(panel_w).max(1);
+    let tab_h = metrics.tab_h.min(side1_h).max(1);
+    let tab_y = (side1_y + side1_h - tab_h).max(side1_y);
+    let mut tab_x = panel_x + metrics.tab_x.min(panel_w.saturating_sub(tab_w));
+    let mut tabs = [rect_i(0, 0, 1, 1); 4];
+    for slot in &mut tabs {
+        *slot = rect_i(tab_x, tab_y, tab_w, tab_h);
+        tab_x += tab_w + metrics.tab_gap;
+    }
+
+    let footer_btn_h = metrics
+        .footer_btn_h
+        .min(addon_h.saturating_sub(metrics.footer_bottom_pad))
+        .max(1);
+    let footer_btn_w = metrics
+        .footer_btn_w
+        .min((panel_w - metrics.footer_x).max(1))
+        .max(1);
+    let footer_btn_y =
+        (addon_y + addon_h - footer_btn_h - metrics.footer_bottom_pad).max(addon_y);
+    let opt_x = panel_x + metrics.footer_x.min(panel_w.saturating_sub(footer_btn_w));
+    let diplo_x =
+        (opt_x + footer_btn_w + metrics.footer_btn_gap).min(panel_x + panel_w - footer_btn_w);
 
     BattleHudRects {
         sidebar: rect_i(panel_x, 0, panel_w, h),
@@ -87,29 +203,23 @@ fn compute_battle_hud_rects(viewport_w: u32, viewport_h: u32) -> BattleHudRects 
         side3: rect_i(panel_x, side3_y, panel_w, side3_h),
         addon: rect_i(panel_x, addon_y, panel_w, addon_h),
         repair: rect_i(
-            panel_x + REPAIR_X_OFF.min(panel_w.saturating_sub(repair_w)),
-            side1_y + REPAIR_SELL_Y_OFF.min(side1_h.saturating_sub(repair_h)),
+            panel_x + metrics.repair_x.min(panel_w.saturating_sub(repair_w)),
+            repair_sell_y,
             repair_w,
             repair_h,
         ),
-        sell: rect_i(
-            sell_x,
-            side1_y + REPAIR_SELL_Y_OFF.min(side1_h.saturating_sub(repair_h)),
-            repair_w,
-            repair_h,
-        ),
+        sell: rect_i(sell_x, repair_sell_y, repair_w, repair_h),
+        tabs,
         // 仅右栏底脚，供 chrome / 文案锚点；不再横贯战术区。
         bottom_strip: rect_i(panel_x, side3_y, panel_w, (h - side3_y).max(1)),
-        opt_btn: rect_i(panel_x + 8, footer_btn_y, footer_btn_w, footer_btn_h),
-        diplo_btn: rect_i(panel_x + 12 + footer_btn_w, footer_btn_y, footer_btn_w, footer_btn_h),
+        opt_btn: rect_i(opt_x, footer_btn_y, footer_btn_w, footer_btn_h),
+        diplo_btn: rect_i(diplo_x, footer_btn_y, footer_btn_w, footer_btn_h),
     }
 }
 
-/// 对局 HUD 布局树：右栏 chrome 槽位（无全宽底栏）。
-pub fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
+fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRects) -> LayoutNode {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
-    let r = compute_battle_hud_rects(viewport_w, viewport_h);
     let children = vec![
         fixed_rect_leaf("sidebar", r.sidebar),
         fixed_rect_leaf("credits", r.credits),
@@ -121,6 +231,10 @@ pub fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
         fixed_rect_leaf("addon", r.addon),
         fixed_rect_leaf("repair", r.repair),
         fixed_rect_leaf("sell", r.sell),
+        fixed_rect_leaf("tab00", r.tabs[0]),
+        fixed_rect_leaf("tab01", r.tabs[1]),
+        fixed_rect_leaf("tab02", r.tabs[2]),
+        fixed_rect_leaf("tab03", r.tabs[3]),
         fixed_rect_leaf("bottom_strip", r.bottom_strip),
         fixed_rect_leaf("opt_btn", r.opt_btn),
         fixed_rect_leaf("diplo_btn", r.diplo_btn),
@@ -133,6 +247,25 @@ pub fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
         },
         children,
     )
+}
+
+/// 对局 HUD 布局树：右栏 chrome 槽位（无全宽底栏；默认盟军度量）。
+pub fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
+    battle_hud_layout_tree_with_metrics(
+        viewport_w,
+        viewport_h,
+        BattleHudChromeMetrics::allied(),
+    )
+}
+
+/// 对局 HUD 布局树：按阵营 chrome 度量计算槽位。
+pub fn battle_hud_layout_tree_with_metrics(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> LayoutNode {
+    let r = compute_battle_hud_rects(viewport_w, viewport_h, metrics);
+    battle_hud_tree_from_rects(viewport_w, viewport_h, r)
 }
 
 #[cfg(test)]
@@ -165,6 +298,10 @@ mod tests {
                 ("addon", legacy.addon),
                 ("repair", legacy.repair),
                 ("sell", legacy.sell),
+                ("tab00", legacy.tabs[0]),
+                ("tab01", legacy.tabs[1]),
+                ("tab02", legacy.tabs[2]),
+                ("tab03", legacy.tabs[3]),
                 ("bottom_strip", legacy.bottom_strip),
                 ("opt_btn", legacy.opt_btn),
                 ("diplo_btn", legacy.diplo_btn),
@@ -175,12 +312,14 @@ mod tests {
                 assert_eq!(got.width as i32, cell.w, "{vw}x{vh} {id} w");
                 assert_eq!(got.height as i32, cell.h, "{vw}x{vh} {id} h");
             }
+            assert_eq!(legacy.power_meter_w, BattleHudChromeMetrics::allied().power_w);
         }
     }
 
     #[test]
     fn battle_hud_has_no_full_width_bottom_strip() {
-        let r = compute_battle_hud_rects(800, 600);
+        let allied = BattleHudChromeMetrics::allied();
+        let r = compute_battle_hud_rects(800, 600, allied);
         assert_eq!(r.sidebar.x as i32, 800 - 168);
         assert_eq!(r.sidebar.width as i32, 168);
         assert_eq!(r.sidebar.height as i32, 600);
@@ -198,5 +337,76 @@ mod tests {
         assert_eq!(r.top.height as i32, TOP_H);
         assert_eq!(r.radar.height as i32, RADAR_H);
         assert_eq!(r.side1.height as i32, SIDE1_H);
+        assert_eq!(r.side3.height as i32, SIDE3_H);
+        assert_eq!(r.addon.height as i32, ADDON_H);
+        assert_eq!(r.opt_btn.width as i32, allied.footer_btn_w);
+        assert_eq!(r.opt_btn.height as i32, allied.footer_btn_h);
+        assert_eq!(r.diplo_btn.width as i32, allied.footer_btn_w);
+        // 底脚钮贴在 addon 下沿内侧。
+        assert!(
+            r.opt_btn.y as i32 + r.opt_btn.height as i32
+                <= r.addon.y as i32 + r.addon.height as i32
+        );
+        assert!(r.opt_btn.y as i32 >= r.addon.y as i32);
+        assert_eq!(r.repair.width as i32, allied.repair_sell_w);
+        assert_eq!(r.repair.height as i32, allied.repair_sell_h);
+        assert_eq!(r.tabs[0].width as i32, allied.tab_w);
+        assert_eq!(r.tabs[0].height as i32, allied.tab_h);
+    }
+
+    #[test]
+    fn allied_and_soviet_chrome_metrics_differ() {
+        let allied = BattleHudChromeMetrics::allied();
+        let soviet = BattleHudChromeMetrics::soviet();
+        assert_ne!(allied.repair_sell_w, soviet.repair_sell_w);
+        assert_ne!(allied.repair_sell_h, soviet.repair_sell_h);
+        assert_ne!(allied.repair_x, soviet.repair_x);
+        assert_ne!(allied.tab_w, soviet.tab_w);
+        assert_ne!(allied.tab_h, soviet.tab_h);
+        assert_ne!(allied.tab_x, soviet.tab_x);
+        assert_ne!(allied.footer_btn_h, soviet.footer_btn_h);
+        assert_ne!(allied.power_w, soviet.power_w);
+
+        let a = compute_battle_hud_rects(800, 600, allied);
+        let s = compute_battle_hud_rects(800, 600, soviet);
+        assert_eq!(a.repair.width as i32, 64);
+        assert_eq!(a.repair.height as i32, 31);
+        assert_eq!(s.repair.width as i32, 52);
+        assert_eq!(s.repair.height as i32, 32);
+        assert_eq!(
+            a.repair.x as i32 - a.sidebar.x as i32,
+            allied.repair_x
+        );
+        assert_eq!(
+            s.repair.x as i32 - s.sidebar.x as i32,
+            soviet.repair_x
+        );
+        assert_eq!(a.tabs[0].width as i32, 28);
+        assert_eq!(a.tabs[0].height as i32, 27);
+        assert_eq!(s.tabs[0].width as i32, 32);
+        assert_eq!(s.tabs[0].height as i32, 28);
+        assert_eq!(a.opt_btn.height as i32, 18);
+        assert_eq!(s.opt_btn.height as i32, 22);
+        assert_eq!(
+            a.tabs[0].x as i32 - a.sidebar.x as i32,
+            allied.tab_x
+        );
+        assert_eq!(
+            s.tabs[0].x as i32 - s.sidebar.x as i32,
+            soviet.tab_x
+        );
+
+        assert_eq!(
+            BattleHudChromeMetrics::for_mix("sidec01.mix"),
+            allied
+        );
+        assert_eq!(
+            BattleHudChromeMetrics::for_mix("sidec02.mix"),
+            soviet
+        );
+        assert_eq!(
+            BattleHudChromeMetrics::for_mix("SIDEC02.MIX"),
+            soviet
+        );
     }
 }

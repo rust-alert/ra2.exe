@@ -41,7 +41,14 @@ pub fn compose_battle_hud_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let layout = battle_hud_layout(w, h);
+    let layout = match chrome {
+        Some(c) => battle_hud_layout_with_metrics(
+            w,
+            h,
+            BattleHudChromeMetrics::for_mix(&c.mix),
+        ),
+        None => battle_hud_layout(w, h),
+    };
 
     let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
     if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
