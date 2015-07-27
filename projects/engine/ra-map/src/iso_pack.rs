@@ -14,7 +14,7 @@ pub struct IsoCell {
     pub x: i16,
     /// 格子 Y。
     pub y: i16,
-    /// 全局砖块编号（剧院 tileset）。
+    /// 全局砖块编号（剧院 tileset；`0xFFFF` 表示 Clear 哨兵，绘制侧会归一到 0）。
     pub tile_num: i32,
     /// TMP 内子砖索引。
     pub sub_tile: u8,

@@ -35,7 +35,8 @@ pub fn seal_pass_grid_from_tmp(source: &dyn AssetSource, map: &MapInfo, grid: &m
         }
         let x = cell.x as u16;
         let y = cell.y as u16;
-        let Some(name) = lookup.filename(cell.tile_num).map(str::to_string)
+        let (tile_num, sub_tile) = crate::tileset::normalize_tile_ref(cell.tile_num, cell.sub_tile);
+        let Some(name) = lookup.filename(tile_num).map(str::to_string)
         else {
             continue;
         };
@@ -54,7 +55,7 @@ pub fn seal_pass_grid_from_tmp(source: &dyn AssetSource, map: &MapInfo, grid: &m
         else {
             continue;
         };
-        let Some(tile) = tmp.tiles.get(usize::from(cell.sub_tile)).and_then(|t| t.as_ref())
+        let Some(tile) = tmp.tiles.get(usize::from(sub_tile)).and_then(|t| t.as_ref())
         else {
             continue;
         };

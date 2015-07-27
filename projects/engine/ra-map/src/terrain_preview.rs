@@ -26,6 +26,7 @@ pub fn compose_terrain_preview(source: &dyn AssetSource, map: &MapInfo) -> Optio
     let mut blit_cache: HashMap<(i32, u8), TileBlit> = HashMap::new();
 
     let mut resolve = |tile_num: i32, sub_tile: u8| -> Option<TileBlit> {
+        let (tile_num, sub_tile) = crate::tileset::normalize_tile_ref(tile_num, sub_tile);
         if let Some(blit) = blit_cache.get(&(tile_num, sub_tile)) {
             return Some(blit.clone());
         }

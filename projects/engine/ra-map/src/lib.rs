@@ -67,7 +67,7 @@ pub use theater::{
     Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette, theater_tiberium_palette,
     theater_tmp_extension,
 };
-pub use tileset::{TilesetLookup, parse_tileset_ini};
+pub use tileset::{CLEAR_TILE_SENTINEL, TilesetLookup, normalize_tile_ref, parse_tileset_ini};
 pub use tmp_pass::seal_pass_grid_from_tmp;
 pub use waypoints::{Waypoint, parse_waypoints, skirmish_start_waypoint};
 

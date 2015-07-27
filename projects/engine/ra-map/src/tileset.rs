@@ -3,6 +3,9 @@
 use ra_assets::IniDocument;
 use ra_types::{RaError, RaResult};
 
+/// IsoMapPack5 中「无砖」哨兵；装载时应换成 Clear（全局索引 0）。
+pub const CLEAR_TILE_SENTINEL: i32 = 0xFFFF;
+
 /// 累计索引表：`IsoCell.tile_num` 查 TMP 名。
 #[derive(Debug, Clone, Default)]
 pub struct TilesetLookup {
@@ -21,8 +24,9 @@ impl TilesetLookup {
         self.entries.is_empty()
     }
 
-    /// 按全局 `tile_num` 取 TMP 文件名。
+    /// 按全局 `tile_num` 取 TMP 文件名（已把 `0xFFFF` 归一到 Clear）。
     pub fn filename(&self, tile_num: i32) -> Option<&str> {
+        let (tile_num, _) = normalize_tile_ref(tile_num, 0);
         if tile_num < 0 {
             return None;
         }
@@ -30,10 +34,23 @@ impl TilesetLookup {
     }
 }
 
+/// 将 IsoMapPack 砖引用归一化：`0xFFFF` → Clear（`tile_num=0`，`sub_tile=0`）。
+pub fn normalize_tile_ref(tile_num: i32, sub_tile: u8) -> (i32, u8) {
+    if tile_num == CLEAR_TILE_SENTINEL {
+        (0, 0)
+    } else {
+        (tile_num, sub_tile)
+    }
+}
+
+fn is_blank_filename(filename: &str) -> bool {
+    filename.is_empty() || filename.eq_ignore_ascii_case("blank")
+}
+
 /// 解析剧院 INI 的 `[TileSetNNNN]` 序列。
 ///
 /// 文件名规则：`{FileName}{NN:02}.{extension}`，NN 从 1 起。
-/// 空 `FileName` 仍占用编号槽位。
+/// 空 `FileName` 或 `blank` 仍占用编号槽位，但不指向真实 TMP。
 pub fn parse_tileset_ini(ini_data: &[u8], extension: &str) -> RaResult<TilesetLookup> {
     let doc = IniDocument::parse(ini_data)?;
     let mut entries = Vec::new();
@@ -50,7 +67,7 @@ pub fn parse_tileset_ini(ini_data: &[u8], extension: &str) -> RaResult<TilesetLo
         }
         let filename = doc.get(&section, "FileName").unwrap_or("");
         let count = tiles_in_set as usize;
-        if filename.is_empty() {
+        if is_blank_filename(filename) {
             for _ in 0..count {
                 entries.push(None);
             }
