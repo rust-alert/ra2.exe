@@ -78,11 +78,12 @@ pub fn compose_battle_hud_overlay(
         }
     }
 
-    let funds_line = format!("$ {}", paint.funds);
+    let funds_line = paint.funds.to_string();
     let power_mark = if paint.low_power { "!" } else { "" };
     let power_line = format!("电 {}/{}{power_mark}", paint.power_output, paint.power_drain);
     if let Some(fnt) = fnt {
-        let credit_color = [0, 255, 255, 255];
+        // 零售资金条为亮青（非青绿青绿），且不带 `$ ` 前缀。
+        let credit_color = [0, 220, 255, 255];
         blit_caption_in_cell(
             &mut page,
             fnt,

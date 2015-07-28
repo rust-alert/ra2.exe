@@ -331,8 +331,13 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
             blit_button_in_cell(page, &tab.image, layout.tabs[i]);
         }
     }
-    // 底脚鹰标与双瓣蓝光已在 `side3.shp`；勿再贴 `optbtn`/`diplobtn`，
-    // 否则会盖住原版光晕、露出选项/外交几何图标。命中格仍保留在 layout。
+    // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。底脚鹰标/蓝光只靠 `side3`。
+    if let Some(s) = &chrome.diplobtn {
+        blit_button_in_cell(page, &s.image, layout.diplo_btn);
+    }
+    if let Some(s) = &chrome.optbtn {
+        blit_button_in_cell(page, &s.image, layout.opt_btn);
+    }
 }
 
 /// 便捷：按视口与 chrome 嵌套包度量生成布局并绘制。

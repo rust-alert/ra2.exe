@@ -39,16 +39,16 @@ pub struct BattleHudChromeMetrics {
     pub tab_x: i32,
     /// 相邻页签间距。
     pub tab_gap: i32,
-    /// `optbtn`/`diplobtn` 画布宽。
-    pub footer_btn_w: i32,
+    /// `optbtn`/`diplobtn` 画布宽（贴在 `top.shp` 双钮槽，不是底脚）。
+    pub top_btn_w: i32,
     /// `optbtn`/`diplobtn` 画布高。
-    pub footer_btn_h: i32,
-    /// 底脚钮相对侧栏左缘的 x 偏移。
-    pub footer_x: i32,
-    /// 底脚双钮间距。
-    pub footer_btn_gap: i32,
-    /// 底脚钮距 `addon` 底边的内边距。
-    pub footer_bottom_pad: i32,
+    pub top_btn_h: i32,
+    /// 顶栏左钮相对侧栏左缘的 x 偏移。
+    pub top_btn_x: i32,
+    /// 顶栏双钮间距。
+    pub top_btn_gap: i32,
+    /// 顶栏钮相对 `top` 顶边的 y 偏移。
+    pub top_btn_y: i32,
     /// `powerp` 电表条带宽度。
     pub power_w: i32,
 }
@@ -66,11 +66,11 @@ impl BattleHudChromeMetrics {
             tab_h: 27,
             tab_x: 27,
             tab_gap: 2,
-            footer_btn_w: 72,
-            footer_btn_h: 18,
-            footer_x: 12,
-            footer_btn_gap: 0,
-            footer_bottom_pad: 6,
+            top_btn_w: 72,
+            top_btn_h: 18,
+            top_btn_x: 12,
+            top_btn_gap: 0,
+            top_btn_y: 7,
             power_w: 12,
         }
     }
@@ -87,11 +87,11 @@ impl BattleHudChromeMetrics {
             tab_h: 28,
             tab_x: 20,
             tab_gap: 2,
-            footer_btn_w: 72,
-            footer_btn_h: 22,
-            footer_x: 12,
-            footer_btn_gap: 0,
-            footer_bottom_pad: 6,
+            top_btn_w: 72,
+            top_btn_h: 22,
+            top_btn_x: 12,
+            top_btn_gap: 0,
+            top_btn_y: 5,
             power_w: 16,
         }
     }
@@ -179,19 +179,17 @@ fn compute_battle_hud_rects(
         tab_x += tab_w + metrics.tab_gap;
     }
 
-    let footer_btn_h = metrics
-        .footer_btn_h
-        .min(addon_h.saturating_sub(metrics.footer_bottom_pad))
+    // 选项/外交贴在资金条下的 `top.shp` 双槽（原版顶栏），不是底脚。
+    // 左槽为外交（折线图标），右槽为选项（圆点条图标），与零售顶栏一致。
+    let top_btn_h = metrics.top_btn_h.min(top_h).max(1);
+    let top_btn_w = metrics
+        .top_btn_w
+        .min((panel_w - metrics.top_btn_x).max(1))
         .max(1);
-    let footer_btn_w = metrics
-        .footer_btn_w
-        .min((panel_w - metrics.footer_x).max(1))
-        .max(1);
-    let footer_btn_y =
-        (addon_y + addon_h - footer_btn_h - metrics.footer_bottom_pad).max(addon_y);
-    let opt_x = panel_x + metrics.footer_x.min(panel_w.saturating_sub(footer_btn_w));
-    let diplo_x =
-        (opt_x + footer_btn_w + metrics.footer_btn_gap).min(panel_x + panel_w - footer_btn_w);
+    let top_btn_y = credits_h + metrics.top_btn_y.min(top_h.saturating_sub(top_btn_h));
+    let diplo_x = panel_x + metrics.top_btn_x.min(panel_w.saturating_sub(top_btn_w));
+    let opt_x =
+        (diplo_x + top_btn_w + metrics.top_btn_gap).min(panel_x + panel_w - top_btn_w);
 
     BattleHudRects {
         sidebar: rect_i(panel_x, 0, panel_w, h),
@@ -212,8 +210,8 @@ fn compute_battle_hud_rects(
         tabs,
         // 仅右栏底脚，供 chrome / 文案锚点；不再横贯战术区。
         bottom_strip: rect_i(panel_x, side3_y, panel_w, (h - side3_y).max(1)),
-        opt_btn: rect_i(opt_x, footer_btn_y, footer_btn_w, footer_btn_h),
-        diplo_btn: rect_i(diplo_x, footer_btn_y, footer_btn_w, footer_btn_h),
+        diplo_btn: rect_i(diplo_x, top_btn_y, top_btn_w, top_btn_h),
+        opt_btn: rect_i(opt_x, top_btn_y, top_btn_w, top_btn_h),
     }
 }
 
@@ -327,9 +325,13 @@ mod tests {
         assert_eq!(r.bottom_strip.x as i32, r.sidebar.x as i32);
         assert_eq!(r.bottom_strip.width as i32, 168);
         assert!(r.bottom_strip.x as i32 > 0);
-        // 选项 / 外交在右栏底脚，不在战术区左下。
+        // 选项 / 外交在资金条下的顶栏双槽，不在战术区左下、也不在底脚。
         assert!(r.opt_btn.x as i32 >= r.sidebar.x as i32);
         assert!(r.diplo_btn.x as i32 >= r.sidebar.x as i32);
+        assert!(r.opt_btn.y as i32 >= r.top.y as i32);
+        assert!(r.diplo_btn.y as i32 >= r.top.y as i32);
+        assert!(r.opt_btn.y as i32 + r.opt_btn.height as i32 <= r.top.y as i32 + r.top.height as i32);
+        assert!(r.diplo_btn.y as i32 + r.diplo_btn.height as i32 <= r.top.y as i32 + r.top.height as i32);
         // 修理 / 出售在 side1 带内。
         assert!(r.repair.y as i32 >= r.side1.y as i32);
         assert!(r.sell.y as i32 >= r.side1.y as i32);
@@ -339,15 +341,9 @@ mod tests {
         assert_eq!(r.side1.height as i32, SIDE1_H);
         assert_eq!(r.side3.height as i32, SIDE3_H);
         assert_eq!(r.addon.height as i32, ADDON_H);
-        assert_eq!(r.opt_btn.width as i32, allied.footer_btn_w);
-        assert_eq!(r.opt_btn.height as i32, allied.footer_btn_h);
-        assert_eq!(r.diplo_btn.width as i32, allied.footer_btn_w);
-        // 底脚钮贴在 addon 下沿内侧。
-        assert!(
-            r.opt_btn.y as i32 + r.opt_btn.height as i32
-                <= r.addon.y as i32 + r.addon.height as i32
-        );
-        assert!(r.opt_btn.y as i32 >= r.addon.y as i32);
+        assert_eq!(r.opt_btn.width as i32, allied.top_btn_w);
+        assert_eq!(r.opt_btn.height as i32, allied.top_btn_h);
+        assert_eq!(r.diplo_btn.width as i32, allied.top_btn_w);
         assert_eq!(r.repair.width as i32, allied.repair_sell_w);
         assert_eq!(r.repair.height as i32, allied.repair_sell_h);
         assert_eq!(r.tabs[0].width as i32, allied.tab_w);
@@ -364,7 +360,7 @@ mod tests {
         assert_ne!(allied.tab_w, soviet.tab_w);
         assert_ne!(allied.tab_h, soviet.tab_h);
         assert_ne!(allied.tab_x, soviet.tab_x);
-        assert_ne!(allied.footer_btn_h, soviet.footer_btn_h);
+        assert_ne!(allied.top_btn_h, soviet.top_btn_h);
         assert_ne!(allied.power_w, soviet.power_w);
 
         let a = compute_battle_hud_rects(800, 600, allied);
