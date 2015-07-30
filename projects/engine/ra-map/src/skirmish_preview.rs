@@ -1,7 +1,7 @@
 //! 遭遇战启动预览：地形 + overlay + 物件 + 建筑；会话播种后可再叠移动单位 SHP。
 
 use image::RgbaImage;
-use ra_assets::Palette;
+use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
@@ -55,11 +55,13 @@ pub fn compose_skirmish_preview(
     rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
+    tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
 ) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank)> {
     let mut image = compose_terrain_preview(source, map)?;
-    let (overlay_shp, overlay_mark) = paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name, is_tiberium);
+    let (overlay_shp, overlay_mark) =
+        paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name, is_tiberium, tiberium_hsv);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, remap_owner, StructureAnimMode::BodyOnly);
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, remap_owner);
@@ -113,7 +115,7 @@ pub fn compose_boot_preview(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
     let (image, base_without_anims, stats, anim_bank) =
-        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, remap_owner, 0)?;
+        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, &|_| None, remap_owner, 0)?;
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} anim#{} {}x{}",
         map.name,
