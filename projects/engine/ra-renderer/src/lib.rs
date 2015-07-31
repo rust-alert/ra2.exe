@@ -83,6 +83,10 @@ pub struct Renderer {
     ui_sprite: Option<SpriteGpu>,
     /// 为真时 UI 为对局屏空间叠加层：不劫持世界相机，可与 preview/markers 同帧。
     ui_overlay: bool,
+    /// 世界 pass 的投影 / scissor 矩形（窗口像素）。`None` 表示整窗表面。
+    ///
+    /// 对局叠加时应为战术区（侧栏以左），与命中、`CameraBounds` 同口径。
+    world_view: Option<(u32, u32, u32, u32)>,
     markers: Option<MarkerGpu>,
     /// 下一帧 `submit_frame` 结束后做表面回读。
     capture_pending: bool,
@@ -113,6 +117,7 @@ impl Renderer {
             ui_page: None,
             ui_sprite: None,
             ui_overlay: false,
+            world_view: None,
             markers: None,
             capture_pending: false,
             last_capture: None,
@@ -204,6 +209,7 @@ impl Renderer {
     /// 菜单全页模式：相机会 letterbox 到该页。对局叠加请用 [`Self::set_ui_overlay`]。
     pub fn set_ui_page(&mut self, image: RgbaImage) {
         self.ui_overlay = false;
+        self.world_view = None;
         self.upload_ui_texture(image, true);
     }
 
@@ -211,6 +217,37 @@ impl Renderer {
     pub fn set_ui_overlay(&mut self, image: RgbaImage) {
         self.ui_overlay = true;
         self.upload_ui_texture(image, false);
+    }
+
+    /// 设置世界 pass 投影与裁切矩形（窗口像素，`x,y,w,h`）。
+    ///
+    /// 对局热路径应与 `MapViewport::clip_rect_u32` 一致。宽或高为 0 时清除。
+    pub fn set_world_view_rect(&mut self, x: u32, y: u32, w: u32, h: u32) {
+        if w == 0 || h == 0 {
+            self.world_view = None;
+            return;
+        }
+        self.world_view = Some((x, y, w, h));
+        let (pw, ph) = self.world_proj_size();
+        if let Some(bounds) = self.camera_bounds_for_viewport(pw, ph) {
+            self.camera.clamp_to_bounds(&bounds);
+        }
+    }
+
+    /// 清除世界 pass 专用视口，恢复整窗投影。
+    pub fn clear_world_view_rect(&mut self) {
+        self.world_view = None;
+        let (pw, ph) = self.world_proj_size();
+        if pw > 0.0 && ph > 0.0 {
+            if let Some(bounds) = self.camera_bounds_for_viewport(pw, ph) {
+                self.camera.clamp_to_bounds(&bounds);
+            }
+        }
+    }
+
+    /// 当前世界投影矩形；未设置时为整窗表面。
+    pub fn world_view_rect(&self) -> Option<(u32, u32, u32, u32)> {
+        self.world_view
     }
 
     fn upload_ui_texture(&mut self, image: RgbaImage, fit_camera: bool) {
@@ -242,6 +279,7 @@ impl Renderer {
         self.ui_page = None;
         self.ui_sprite = None;
         self.ui_overlay = false;
+        self.world_view = None;
         if self.preview.is_none() {
             self.camera_ready = false;
         }
@@ -310,7 +348,9 @@ impl Renderer {
         }
         let (sw, sh) = self.gpu.as_ref().map(|g| (g.config.width, g.config.height)).unwrap_or((width.max(1), height.max(1)));
         if self.camera_ready {
-            if let Some(bounds) = self.camera_bounds_for_viewport(sw as f32, sh as f32) {
+            let (pw, ph) = self.world_proj_size();
+            let (bw, bh) = if pw > 0.0 && ph > 0.0 { (pw, ph) } else { (sw as f32, sh as f32) };
+            if let Some(bounds) = self.camera_bounds_for_viewport(bw, bh) {
                 self.camera.clamp_to_bounds(&bounds);
             }
             return;
@@ -330,7 +370,7 @@ impl Renderer {
         self.camera.zoom = zoom.clamp(Camera::ZOOM_MIN, Camera::ZOOM_MAX);
         self.camera.center_x = world_x;
         self.camera.center_y = world_y;
-        let (vw, vh) = self.surface_size();
+        let (vw, vh) = self.world_proj_size();
         if vw > 0.0 && vh > 0.0 {
             if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
                 self.camera.clamp_to_bounds(&bounds);
@@ -356,14 +396,14 @@ impl Renderer {
 
     /// 平移视口并夹到当前地图预览边界（小图居中，大图不可拖出黑边）。
     pub fn pan_clamped(&mut self, dx: f32, dy: f32) {
-        let (vw, vh) = self.surface_size();
+        let (vw, vh) = self.world_proj_size();
         self.pan_clamped_in_viewport(dx, dy, vw, vh);
     }
 
     /// 在指定可视矩形（屏幕像素）内平移并夹紧。
     ///
-    /// `viewport_w` / `viewport_h` 必须与当前帧投影用的屏尺寸一致（对局热路径为
-    /// 整窗表面，与 [`SpriteGpu::write_vertices`] 的 `surf_w`/`surf_h` 相同）。
+    /// `viewport_w` / `viewport_h` 必须与当前帧投影用的屏尺寸一致。对局热路径为
+    /// 战术区宽高（与 [`Self::set_world_view_rect`] / `write_vertices` 同口径）。
     /// 传入比投影更小的矩形会使 `CameraBounds` 过松，拖出预览外的 void。
     pub fn pan_clamped_in_viewport(&mut self, dx: f32, dy: f32, viewport_w: f32, viewport_h: f32) {
         let Some(bounds) = self.camera_bounds_for_viewport(viewport_w, viewport_h)
@@ -377,7 +417,7 @@ impl Renderer {
     /// 相对缩放视口，`factor` 大于 1 为放大。
     pub fn zoom_by(&mut self, factor: f32) {
         self.camera.zoom_by(factor);
-        let (vw, vh) = self.surface_size();
+        let (vw, vh) = self.world_proj_size();
         if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
             self.camera.clamp_to_bounds(&bounds);
         }
@@ -397,7 +437,7 @@ impl Renderer {
 
     /// 当前预览世界与表面尺寸下的相机边界；无预览或未绑定 GPU 时为 `None`。
     pub fn camera_bounds(&self) -> Option<CameraBounds> {
-        let (vw, vh) = self.surface_size();
+        let (vw, vh) = self.world_proj_size();
         if vw <= 0.0 || vh <= 0.0 {
             return None;
         }
@@ -410,6 +450,19 @@ impl Renderer {
             return (0.0, 0.0);
         };
         (gpu.config.width.max(1) as f32, gpu.config.height.max(1) as f32)
+    }
+
+    /// 当前交换链表面尺寸（像素）；未绑定 GPU 时为 `None`。
+    pub fn surface_size_u32(&self) -> Option<(u32, u32)> {
+        self.gpu.as_ref().map(|g| (g.config.width.max(1), g.config.height.max(1)))
+    }
+
+    /// 世界投影用的宽高：已设 `world_view` 时用战术区，否则整窗。
+    fn world_proj_size(&self) -> (f32, f32) {
+        if let Some((_, _, w, h)) = self.world_view {
+            return (w.max(1) as f32, h.max(1) as f32);
+        }
+        self.surface_size()
     }
 
     fn reset_camera_to_fit(&mut self, screen_w: u32, screen_h: u32, image_w: u32, image_h: u32) {
@@ -495,6 +548,11 @@ impl Renderer {
         };
 
         let overlay = self.ui_overlay && self.ui_sprite.is_some();
+        let world_view = self.world_view;
+        let world_proj = match world_view {
+            Some((_, _, w, h)) if overlay => (w.max(1), h.max(1)),
+            _ => (gpu.config.width.max(1), gpu.config.height.max(1)),
+        };
         let world_sprite = if overlay { self.sprite.as_ref() } else { self.ui_sprite.as_ref().or(self.sprite.as_ref()) };
         let encoded_menu_ui = !overlay && self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
         let srgb_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -503,7 +561,7 @@ impl Renderer {
         });
 
         if let Some(sprite) = world_sprite {
-            sprite.write_vertices(&gpu.queue, &self.camera, gpu.config.width, gpu.config.height);
+            sprite.write_vertices(&gpu.queue, &self.camera, world_proj.0, world_proj.1);
         }
         let ui_cam = if overlay {
             self.ui_sprite.as_ref().map(|ui| {
@@ -526,7 +584,13 @@ impl Renderer {
         if let Some(markers) = self.markers.as_mut() {
             let draw_markers = self.render_world.unit_count() > 0 && (overlay || self.ui_sprite.is_none());
             if draw_markers {
-                markers.write_from_world(&gpu.queue, &self.render_world, &self.camera, gpu.config.width, gpu.config.height);
+                markers.write_from_world(
+                    &gpu.queue,
+                    &self.render_world,
+                    &self.camera,
+                    world_proj.0,
+                    world_proj.1,
+                );
             }
             else {
                 markers.clear();
@@ -538,7 +602,7 @@ impl Renderer {
         let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ra.frame") });
 
         if overlay {
-            // Pass 1：世界（预览 + markers），sRGB 视图。
+            // Pass 1：世界（预览 + markers），sRGB 视图；裁切到战术区。
             {
                 let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("ra.frame_pass.world"),
@@ -553,6 +617,12 @@ impl Renderer {
                     occlusion_query_set: None,
                     multiview_mask: None,
                 });
+                if let Some((vx, vy, vw, vh)) = world_view {
+                    let vw = vw.max(1);
+                    let vh = vh.max(1);
+                    pass.set_viewport(vx as f32, vy as f32, vw as f32, vh as f32, 0.0, 1.0);
+                    pass.set_scissor_rect(vx, vy, vw, vh);
+                }
                 if let Some(sprite) = self.sprite.as_ref() {
                     sprite.draw(&mut pass);
                 }

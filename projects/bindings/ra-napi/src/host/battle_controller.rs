@@ -9,7 +9,7 @@ use ra_widgets::{
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::ui_layout::battle_hud_layout;
+use ra_layout::ui_layout::MapViewport;
 use ra_map::{MapEntityKind, StructureAnimBank, iso_to_screen, paint_structure_anims_onto_rgba};
 use ra_renderer::{Renderer, RgbaImage};
 use winit::{
@@ -146,6 +146,10 @@ impl BattleController {
         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             self.title_base = format!("ra2 ({})", game.world.edition.as_str());
             tracing::info!("重开完成 · {}", boot.note);
+            // 先对齐战术区投影，再对焦，避免整窗夹紧与侧栏口径打架。
+            if let Some((vw, vh)) = renderer.surface_size_u32() {
+                self.sync_world_view(renderer, vw, vh);
+            }
             self.focus_camera_on_local_start(renderer);
             if let Some(id) = self.local.select_local_start(game) {
                 tracing::info!("开局已选中本方单位 #{}", id.0);
@@ -231,29 +235,39 @@ impl BattleController {
         super::boot::boot_from_install()
     }
 
+    /// 由窗口尺寸构造当前对局 `MapViewport`（命中 / 投影 / 裁切同一实例）。
+    fn map_viewport(&self, window: &Window) -> MapViewport {
+        let size = window.inner_size();
+        MapViewport::battle(size.width.max(1), size.height.max(1))
+    }
+
+    /// 将 renderer 世界 pass 与 `MapViewport` 对齐。
+    fn sync_world_view(&self, renderer: &mut Renderer, window_w: u32, window_h: u32) {
+        let vp = MapViewport::battle(window_w.max(1), window_h.max(1));
+        let (x, y, w, h) = vp.clip_rect_u32();
+        renderer.set_world_view_rect(x, y, w, h);
+    }
+
     fn cursor_cell(&self, renderer: &Renderer, window: &Window) -> Option<(u16, u16)> {
         let game = self.session.as_ref()?.battle()?;
-        let size = window.inner_size();
-        let world = battle_hud_layout(size.width, size.height).world_viewport();
-        if world.w <= 0 || world.h <= 0 || !world.contains(self.cursor.0 as i32, self.cursor.1 as i32) {
+        let vp = self.map_viewport(window);
+        if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
             return None;
         }
-        let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
+        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
         game.image_to_cell(wx, wy)
     }
 
     fn pan_world(&self, renderer: &mut Renderer, window: &Window, dx: f32, dy: f32) {
-        let size = window.inner_size();
-        // 夹紧必须与投影同口径：`write_vertices` / `screen_to_world` 用整窗表面。
-        // 若改用更小的 `world_viewport`，half 偏小，中心可越过预览边缘露出 void。
-        renderer.pan_clamped_in_viewport(dx, dy, size.width.max(1) as f32, size.height.max(1) as f32);
+        let vp = self.map_viewport(window);
+        // 夹紧与投影同口径：战术区宽高（与 `set_world_view_rect` / write_vertices 一致）。
+        renderer.pan_clamped_in_viewport(dx, dy, vp.proj_w(), vp.proj_h());
     }
 
     fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
         let add = self.shift_down;
-        let size = window.inner_size();
-        let world = battle_hud_layout(size.width, size.height).world_viewport();
-        if world.w <= 0 || world.h <= 0 || !world.contains(self.cursor.0 as i32, self.cursor.1 as i32) {
+        let vp = self.map_viewport(window);
+        if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
             if !add {
                 self.local.clear();
             }
@@ -263,7 +277,7 @@ impl BattleController {
         else {
             return;
         };
-        let (wx, wy) = renderer.camera().screen_to_world(self.cursor.0 as f32, self.cursor.1 as f32, size.width as f32, size.height as f32);
+        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
         if let Some(type_id) = self.place_mode {
             let Some(cell) = game.image_to_cell(wx, wy)
             else {
@@ -668,6 +682,7 @@ impl BattleController {
                 (s.width.max(1), s.height.max(1))
             })
             .unwrap_or((800, 600));
+        self.sync_world_view(renderer, vw, vh);
         self.refresh_structure_anims(renderer);
         self.upload_battle_hud(renderer, &hud, fnt, vw, vh);
         match pending {

@@ -84,22 +84,41 @@ impl Camera {
         self.zoom = (self.zoom * factor).clamp(Self::ZOOM_MIN, Self::ZOOM_MAX);
     }
 
-    /// 屏幕像素 → 世界（预览图像素）。
+    /// 屏幕像素 → 世界（预览图像素）；投影原点为 `(0,0)`、尺寸为整窗。
     pub fn screen_to_world(&self, sx: f32, sy: f32, screen_w: f32, screen_h: f32) -> (f32, f32) {
+        self.screen_to_world_in(sx, sy, 0.0, 0.0, screen_w, screen_h)
+    }
+
+    /// 世界像素 → 屏幕像素；投影原点为 `(0,0)`、尺寸为整窗。
+    pub fn world_to_screen(&self, wx: f32, wy: f32, screen_w: f32, screen_h: f32) -> (f32, f32) {
+        self.world_to_screen_in(wx, wy, 0.0, 0.0, screen_w, screen_h)
+    }
+
+    /// 屏幕像素 → 世界，投影中心为矩形 `(ox,oy,vw,vh)` 的几何中心。
+    ///
+    /// 对局战术区与整窗投影必须共用此口径，避免侧栏偏移造成命中漂移。
+    pub fn screen_to_world_in(&self, sx: f32, sy: f32, ox: f32, oy: f32, vw: f32, vh: f32) -> (f32, f32) {
         let z = self.zoom.max(0.0001);
-        let wx = (sx - screen_w * 0.5) / z + self.center_x;
-        let wy = (sy - screen_h * 0.5) / z + self.center_y;
+        let vw = vw.max(1.0);
+        let vh = vh.max(1.0);
+        let wx = (sx - ox - vw * 0.5) / z + self.center_x;
+        let wy = (sy - oy - vh * 0.5) / z + self.center_y;
         (wx, wy)
     }
 
-    /// 世界像素 → 屏幕像素。
-    pub fn world_to_screen(&self, wx: f32, wy: f32, screen_w: f32, screen_h: f32) -> (f32, f32) {
-        let sx = (wx - self.center_x) * self.zoom + screen_w * 0.5;
-        let sy = (wy - self.center_y) * self.zoom + screen_h * 0.5;
+    /// 世界像素 → 屏幕像素，投影中心为矩形 `(ox,oy,vw,vh)` 的几何中心。
+    pub fn world_to_screen_in(&self, wx: f32, wy: f32, ox: f32, oy: f32, vw: f32, vh: f32) -> (f32, f32) {
+        let vw = vw.max(1.0);
+        let vh = vh.max(1.0);
+        let sx = (wx - self.center_x) * self.zoom + ox + vw * 0.5;
+        let sy = (wy - self.center_y) * self.zoom + oy + vh * 0.5;
         (sx, sy)
     }
 
     /// 世界像素 → 裁剪空间（NDC，Y 向上）。
+    ///
+    /// `screen_w`/`screen_h` 为**投影矩形**尺寸。若 GPU pass 已 `set_viewport` 到同一矩形，
+    /// NDC `[-1,1]` 会映射到该 viewport，无需再乘表面偏移。
     pub fn world_to_ndc(&self, wx: f32, wy: f32, screen_w: f32, screen_h: f32) -> [f32; 2] {
         let sw = screen_w.max(1.0);
         let sh = screen_h.max(1.0);
@@ -168,5 +187,30 @@ mod tests {
         let (wx, wy) = cam.screen_to_world(sx, sy, 200.0, 100.0);
         assert!((wx - 90.0).abs() < 1e-4);
         assert!((wy - 50.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn world_screen_roundtrip_in_offset_rect() {
+        let cam = Camera { center_x: 80.0, center_y: 40.0, zoom: 2.0 };
+        let (ox, oy, vw, vh) = (0.0, 0.0, 160.0, 100.0);
+        let (sx, sy) = cam.world_to_screen_in(90.0, 50.0, ox, oy, vw, vh);
+        let (wx, wy) = cam.screen_to_world_in(sx, sy, ox, oy, vw, vh);
+        assert!((wx - 90.0).abs() < 1e-4);
+        assert!((wy - 50.0).abs() < 1e-4);
+        // 战术区中心应对准相机中心。
+        let (cx, cy) = cam.screen_to_world_in(ox + vw * 0.5, oy + vh * 0.5, ox, oy, vw, vh);
+        assert!((cx - 80.0).abs() < 1e-4);
+        assert!((cy - 40.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn matching_proj_and_clamp_keeps_map_edge() {
+        // 投影与夹紧同用战术区宽高时，可见左缘贴齐地图，不露出 void。
+        let world_w = 400.0;
+        let tactical_w = 160.0;
+        let zoom = 1.0;
+        let bounds = CameraBounds::from_world_and_viewport(world_w, world_w, tactical_w, tactical_w, zoom);
+        let visible_left = bounds.min_center_x - tactical_w * 0.5 / zoom;
+        assert!((visible_left - 0.0).abs() < 1e-5);
     }
 }
