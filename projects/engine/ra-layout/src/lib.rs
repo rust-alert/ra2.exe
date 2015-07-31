@@ -22,7 +22,7 @@ pub use reference::{
     resolve_dialog_template, right_rail_buttons_layout_tree, shell_chrome_layout_tree,
     shell_design_size, shell_page_layout_tree, BattleHudChromeMetrics, DluRect, FontBaseUnits,
     LegacyReference, LegacyRole, LegacySource, LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT,
-    OPTIONS_CONTENT_IDS,
+    OPTIONS_CONTENT_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
 pub use policy::{

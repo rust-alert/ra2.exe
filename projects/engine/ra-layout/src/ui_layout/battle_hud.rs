@@ -29,8 +29,10 @@ pub struct BattleHudLayout {
     pub sell: RectPx,
     /// 分类页签（`tab00`…`tab03`）。
     pub tabs: [RectPx; 4],
-    /// 右栏底脚条带（仅侧栏内，不是全宽底栏）。
+    /// 右栏底脚条带（仅侧栏内，不是命令条）。
     pub bottom_strip: RectPx,
+    /// 战术区底边命令条（`lendcap` / `buttonNN` / `rendcap`）。
+    pub command_bar: RectPx,
     /// 选项钮（`optbtn.shp`）。
     pub opt_btn: RectPx,
     /// 外交钮（`diplobtn.shp`）。
@@ -40,10 +42,10 @@ pub struct BattleHudLayout {
 }
 
 impl BattleHudLayout {
-    /// 世界层可视矩形：左起至侧栏左缘，上起至屏底（右栏贴满高，无全宽底栏裁切）。
+    /// 世界层可视矩形：左起至侧栏左缘，上起至命令条顶边。
     pub fn world_viewport(&self) -> RectPx {
         let w = self.sidebar.x.max(0);
-        let h = self.sidebar.h.max(0);
+        let h = self.command_bar.y.max(0);
         RectPx::new(0, 0, w, h)
     }
 }
@@ -91,6 +93,7 @@ pub fn battle_hud_layout_with_metrics(
             rect_px_from_snapshot(&snap, "tab03"),
         ],
         bottom_strip: rect_px_from_snapshot(&snap, "bottom_strip"),
+        command_bar: rect_px_from_snapshot(&snap, "command_bar"),
         opt_btn: rect_px_from_snapshot(&snap, "opt_btn"),
         diplo_btn: rect_px_from_snapshot(&snap, "diplo_btn"),
         power_meter_w: metrics.power_w,

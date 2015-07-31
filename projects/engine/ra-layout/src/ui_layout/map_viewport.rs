@@ -7,7 +7,7 @@ use super::{battle_hud_layout, RectPx};
 /// 对局地图视口：世界绘制、marker、命中与相机边界必须使用同一实例。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MapViewport {
-    /// 战术区屏幕矩形（左起至侧栏左缘，全高）。
+    /// 战术区屏幕矩形（左起至侧栏左缘，下至命令条顶边）。
     pub tactical: RectPx,
     /// 整窗表面宽（HUD 等非世界 pass 仍按整窗）。
     pub surface_w: u32,
@@ -96,7 +96,7 @@ mod tests {
         assert_eq!(vp.surface_w, 1280);
         assert_eq!(vp.surface_h, 720);
         assert!(vp.proj_w() < 1280.0);
-        assert!((vp.proj_h() - 720.0).abs() < 1e-3);
+        assert!((vp.proj_h() - (720.0 - crate::COMMAND_BAR_H as f32)).abs() < 1e-3);
     }
 
     #[test]

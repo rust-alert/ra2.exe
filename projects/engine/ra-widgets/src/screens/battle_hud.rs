@@ -1,12 +1,13 @@
 //! 对局侧栏 chrome：按阵营从 `sidec01`/`sidec02` 解码并合成。
 //!
 //! 文件名与菜单壳层分离；同名 SHP 靠阵营嵌套包区分盟军 / 苏军外观。
-//! 战术区保持透明铺到屏底；chrome 仅占用右侧栏。
+//! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
     battle_hud_layout_tree, battle_hud_layout_with_metrics, BattleHudChromeMetrics, BattleHudLayout,
-    LayoutEngine, Point2, RectPx, Size2, Viewport,
+    LayoutEngine, Point2, RectPx, Size2, Viewport, COMMAND_BUTTON_W, COMMAND_LENDCAP_W,
+    COMMAND_RENDCAP_W,
 };
 use ra_renderer::RgbaImage;
 
@@ -20,7 +21,10 @@ use crate::{
 /// 对局侧栏调色板。
 pub const BATTLE_HUD_PAL: &str = "sidebar.pal";
 
-/// 已解码的对局 HUD chrome（仅右侧栏素材）。
+/// 命令条按钮槽位数（`button00`…`button11`；更高编号在零售包中常缺）。
+pub const COMMAND_BUTTON_SLOTS: usize = 12;
+
+/// 已解码的对局 HUD chrome（右侧栏 + 底边命令条）。
 #[derive(Debug, Clone)]
 pub struct BattleHudChrome {
     /// 阵营短名（如 `Americans` / `Russians`）。
@@ -53,6 +57,14 @@ pub struct BattleHudChrome {
     pub optbtn: Option<DecodedUiSprite>,
     /// `diplobtn.shp`。
     pub diplobtn: Option<DecodedUiSprite>,
+    /// `lendcap.shp`（命令条左端盖）。
+    pub lendcap: Option<DecodedUiSprite>,
+    /// `rendcap.shp`（命令条右端盖）。
+    pub rendcap: Option<DecodedUiSprite>,
+    /// `lspacer.shp`（命令条底板，可裁剪）。
+    pub lspacer: Option<DecodedUiSprite>,
+    /// `button00`…`button11`。
+    pub command_buttons: [Option<DecodedUiSprite>; COMMAND_BUTTON_SLOTS],
     /// 解码失败说明。
     pub errors: Vec<String>,
 }
@@ -123,6 +135,15 @@ pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleH
         let name = format!("tab{i:02}.shp");
         *slot = try_decode(source, &mix, &name, 0, &mut errors);
     }
+    let mut command_buttons = std::array::from_fn(|_| None);
+    for (i, slot) in command_buttons.iter_mut().enumerate() {
+        let name = format!("button{i:02}.shp");
+        // 缺钮不记入 errors：零售包常只有 button00…11。
+        let asset = UiAssetRef::with_palette_frame(&name, BATTLE_HUD_PAL, 0);
+        if let Ok(s) = decode_asset_ref_preferring(source, &asset, &mix) {
+            *slot = Some(s);
+        }
+    }
     BattleHudChrome {
         side: side.to_string(),
         mix: mix.clone(),
@@ -139,6 +160,10 @@ pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleH
         tabs,
         optbtn: try_decode(source, &mix, "optbtn.shp", 0, &mut errors),
         diplobtn: try_decode(source, &mix, "diplobtn.shp", 0, &mut errors),
+        lendcap: try_decode(source, &mix, "lendcap.shp", 0, &mut errors),
+        rendcap: try_decode(source, &mix, "rendcap.shp", 0, &mut errors),
+        lspacer: try_decode(source, &mix, "lspacer.shp", 0, &mut errors),
+        command_buttons,
         errors,
     }
 }
@@ -337,6 +362,60 @@ pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, la
     }
     if let Some(s) = &chrome.optbtn {
         blit_button_in_cell(page, &s.image, layout.opt_btn);
+    }
+
+    blit_command_bar(page, chrome, layout.command_bar);
+}
+
+fn blit_command_bar(page: &mut RgbaImage, chrome: &BattleHudChrome, bar: RectPx) {
+    if bar.w <= 0 || bar.h <= 0 {
+        return;
+    }
+    fill_rect(page, bar, [0, 0, 0, 255]);
+
+    let lend_w = chrome
+        .lendcap
+        .as_ref()
+        .map(|s| s.image.width() as i32)
+        .unwrap_or(COMMAND_LENDCAP_W)
+        .clamp(1, bar.w);
+    let rend_w = chrome
+        .rendcap
+        .as_ref()
+        .map(|s| s.image.width() as i32)
+        .unwrap_or(COMMAND_RENDCAP_W)
+        .clamp(1, bar.w);
+    let btn_w = chrome
+        .command_buttons
+        .iter()
+        .find_map(|b| b.as_ref())
+        .map(|s| s.image.width() as i32)
+        .unwrap_or(COMMAND_BUTTON_W)
+        .max(1);
+
+    // `lspacer` 为金属轨底板，零售命令钮自带黑底；此处只铺黑以免盖住图标。
+    let _ = &chrome.lspacer;
+
+    if let Some(s) = &chrome.lendcap {
+        blit_button_in_cell(page, &s.image, RectPx::new(bar.x, bar.y, lend_w, bar.h));
+    }
+
+    let buttons_left = bar.x + lend_w;
+    let buttons_right = (bar.x + bar.w - rend_w).max(buttons_left);
+    let mut x = buttons_left;
+    for slot in &chrome.command_buttons {
+        if x + btn_w > buttons_right {
+            break;
+        }
+        if let Some(s) = slot {
+            blit_button_in_cell(page, &s.image, RectPx::new(x, bar.y, btn_w, bar.h));
+        }
+        x += btn_w;
+    }
+
+    if let Some(s) = &chrome.rendcap {
+        let rx = (bar.x + bar.w - rend_w).max(bar.x);
+        blit_button_in_cell(page, &s.image, RectPx::new(rx, bar.y, rend_w, bar.h));
     }
 }
 

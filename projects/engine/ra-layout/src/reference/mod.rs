@@ -12,6 +12,7 @@ mod shell_chrome;
 
 pub use battle_hud::{
     battle_hud_layout_tree, battle_hud_layout_tree_with_metrics, BattleHudChromeMetrics,
+    COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 pub use campaign_page::campaign_content_layout_tree;
 pub use exit_confirm_page::exit_confirm_content_layout_tree;

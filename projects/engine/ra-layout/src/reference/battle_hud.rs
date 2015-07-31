@@ -1,6 +1,7 @@
 //! 对局 HUD → `LayoutNode`（视口像素，非壳层 800×600）。
 //!
-//! 几何对齐零售对局侧栏：仅右侧栏贴满屏高，战术区铺到屏底，无全宽底栏。
+//! 几何对齐零售对局侧栏：右侧栏贴满屏高；战术区底边留出命令条高度。
+//! 命令条横贯侧栏左侧（`lendcap` / `buttonNN` / `rendcap`），不是选项/外交假底栏。
 //! 盟军 `sidec01` 与苏军 `sidec02` 钮面画布尺寸不同，由 `BattleHudChromeMetrics` 区分。
 
 use crate::{
@@ -17,6 +18,14 @@ const SIDE1_H: i32 = 69;
 const SIDE3_H: i32 = 26;
 /// `addon.shp` 画布高（勿压成 48，否则底脚鹰标/双蓝板变形）。
 const ADDON_H: i32 = 63;
+/// 战术区底边命令条高度（`lendcap` / `buttonNN` / `rendcap` 画布高）。
+pub const COMMAND_BAR_H: i32 = 32;
+/// 命令条左端盖宽（`lendcap.shp`）。
+pub const COMMAND_LENDCAP_W: i32 = 28;
+/// 命令条右端盖宽（`rendcap.shp`）。
+pub const COMMAND_RENDCAP_W: i32 = 28;
+/// 命令钮画布宽（`button00`… / `bttnbkgd`）。
+pub const COMMAND_BUTTON_W: i32 = 52;
 
 /// 阵营侧栏 chrome 画布尺寸与槽位偏移（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,8 +130,10 @@ struct BattleHudRects {
     repair: Rect,
     sell: Rect,
     tabs: [Rect; 4],
-    /// 右栏底脚条带（仅侧栏内，不是全宽底栏）。
+    /// 右栏底脚条带（仅侧栏内，不是命令条）。
     bottom_strip: Rect,
+    /// 战术区底边命令条（侧栏左缘以左，高 `COMMAND_BAR_H`）。
+    command_bar: Rect,
     opt_btn: Rect,
     diplo_btn: Rect,
 }
@@ -142,6 +153,9 @@ fn compute_battle_hud_rects(
         .min(w)
         .max(1);
     let panel_x = (w - panel_w).max(0);
+    let command_bar_h = COMMAND_BAR_H.min(h).max(1);
+    let command_bar_y = (h - command_bar_h).max(0);
+    let command_bar_w = panel_x.max(1);
 
     let credits_h = CREDITS_H.min(h).max(1);
     let top_h = TOP_H.min((h - credits_h).max(1));
@@ -208,8 +222,10 @@ fn compute_battle_hud_rects(
         ),
         sell: rect_i(sell_x, repair_sell_y, repair_w, repair_h),
         tabs,
-        // 仅右栏底脚，供 chrome / 文案锚点；不再横贯战术区。
+        // 仅右栏底脚，供 chrome / 文案锚点。
         bottom_strip: rect_i(panel_x, side3_y, panel_w, (h - side3_y).max(1)),
+        // 战术区底边命令条：左端至侧栏左缘。
+        command_bar: rect_i(0, command_bar_y, command_bar_w, command_bar_h),
         diplo_btn: rect_i(diplo_x, top_btn_y, top_btn_w, top_btn_h),
         opt_btn: rect_i(opt_x, top_btn_y, top_btn_w, top_btn_h),
     }
@@ -234,6 +250,7 @@ fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRect
         fixed_rect_leaf("tab02", r.tabs[2]),
         fixed_rect_leaf("tab03", r.tabs[3]),
         fixed_rect_leaf("bottom_strip", r.bottom_strip),
+        fixed_rect_leaf("command_bar", r.command_bar),
         fixed_rect_leaf("opt_btn", r.opt_btn),
         fixed_rect_leaf("diplo_btn", r.diplo_btn),
     ];
@@ -247,7 +264,7 @@ fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRect
     )
 }
 
-/// 对局 HUD 布局树：右栏 chrome 槽位（无全宽底栏；默认盟军度量）。
+/// 对局 HUD 布局树：右栏 chrome 槽位 + 战术区底边命令条（默认盟军度量）。
 pub fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
     battle_hud_layout_tree_with_metrics(
         viewport_w,
@@ -301,6 +318,7 @@ mod tests {
                 ("tab02", legacy.tabs[2]),
                 ("tab03", legacy.tabs[3]),
                 ("bottom_strip", legacy.bottom_strip),
+                ("command_bar", legacy.command_bar),
                 ("opt_btn", legacy.opt_btn),
                 ("diplo_btn", legacy.diplo_btn),
             ] {
@@ -315,16 +333,20 @@ mod tests {
     }
 
     #[test]
-    fn battle_hud_has_no_full_width_bottom_strip() {
+    fn battle_hud_command_bar_spans_tactical_bottom() {
         let allied = BattleHudChromeMetrics::allied();
         let r = compute_battle_hud_rects(800, 600, allied);
         assert_eq!(r.sidebar.x as i32, 800 - 168);
         assert_eq!(r.sidebar.width as i32, 168);
         assert_eq!(r.sidebar.height as i32, 600);
-        // 底脚只在右栏内。
+        // 右栏底脚仍只在侧栏内。
         assert_eq!(r.bottom_strip.x as i32, r.sidebar.x as i32);
         assert_eq!(r.bottom_strip.width as i32, 168);
-        assert!(r.bottom_strip.x as i32 > 0);
+        // 命令条横贯战术区底边，右缘贴侧栏左缘。
+        assert_eq!(r.command_bar.x as i32, 0);
+        assert_eq!(r.command_bar.y as i32, 600 - COMMAND_BAR_H);
+        assert_eq!(r.command_bar.width as i32, r.sidebar.x as i32);
+        assert_eq!(r.command_bar.height as i32, COMMAND_BAR_H);
         // 选项 / 外交在资金条下的顶栏双槽，不在战术区左下、也不在底脚。
         assert!(r.opt_btn.x as i32 >= r.sidebar.x as i32);
         assert!(r.diplo_btn.x as i32 >= r.sidebar.x as i32);

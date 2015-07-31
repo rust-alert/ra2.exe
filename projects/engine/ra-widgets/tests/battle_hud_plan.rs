@@ -43,7 +43,10 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
     assert_eq!(world.x, 0);
     assert_eq!(world.y, 0);
     assert_eq!(world.w, legacy.sidebar.x);
-    assert_eq!(world.h, vh as i32, "tactical area reaches screen bottom");
+    assert_eq!(world.h, legacy.command_bar.y, "tactical area stops above command bar");
+    assert_eq!(legacy.command_bar.h, ra_layout::COMMAND_BAR_H);
+    assert_eq!(legacy.command_bar.x, 0);
+    assert_eq!(legacy.command_bar.w, legacy.sidebar.x);
     assert_eq!(legacy.bottom_strip.x, legacy.sidebar.x);
     assert_eq!(legacy.bottom_strip.w, legacy.sidebar.w);
     // 选项/外交命中格必须在右栏内，不能落到战术区。
