@@ -61,8 +61,6 @@ pub struct BattleHudChrome {
     pub lendcap: Option<DecodedUiSprite>,
     /// `rendcap.shp`（命令条右端盖）。
     pub rendcap: Option<DecodedUiSprite>,
-    /// `lspacer.shp`（命令条底板，可裁剪）。
-    pub lspacer: Option<DecodedUiSprite>,
     /// `button00`…`button11`。
     pub command_buttons: [Option<DecodedUiSprite>; COMMAND_BUTTON_SLOTS],
     /// 解码失败说明。
@@ -162,7 +160,6 @@ pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleH
         diplobtn: try_decode(source, &mix, "diplobtn.shp", 0, &mut errors),
         lendcap: try_decode(source, &mix, "lendcap.shp", 0, &mut errors),
         rendcap: try_decode(source, &mix, "rendcap.shp", 0, &mut errors),
-        lspacer: try_decode(source, &mix, "lspacer.shp", 0, &mut errors),
         command_buttons,
         errors,
     }
@@ -393,9 +390,7 @@ fn blit_command_bar(page: &mut RgbaImage, chrome: &BattleHudChrome, bar: RectPx)
         .unwrap_or(COMMAND_BUTTON_W)
         .max(1);
 
-    // `lspacer` 为金属轨底板，零售命令钮自带黑底；此处只铺黑以免盖住图标。
-    let _ = &chrome.lspacer;
-
+    // 命令钮自带黑底；底板 `lspacer` 暂不叠，以免金属轨盖住图标。
     if let Some(s) = &chrome.lendcap {
         blit_button_in_cell(page, &s.image, RectPx::new(bar.x, bar.y, lend_w, bar.h));
     }
