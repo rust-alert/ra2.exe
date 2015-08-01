@@ -180,6 +180,41 @@ impl LocalPlayerController {
         Some(id)
     }
 
+    /// 用给定实体集合替换选中（仅保留存活的本方可控移动单位与建筑）。
+    ///
+    /// `add=true` 时在现有选中上追加（跨阵营仍拒绝）。
+    pub fn apply_ids(&mut self, battle: &BattleSession, ids: &[EntityId], add: bool) {
+        if !add {
+            self.selected.clear();
+        }
+        for &id in ids {
+            if add {
+                self.select_add(battle, id);
+            }
+            else {
+                let Some((_, kind)) = battle.world.ecs_identity(id)
+                else {
+                    continue;
+                };
+                let Some((_, _, dead)) = battle.world.ecs_health(id)
+                else {
+                    continue;
+                };
+                if dead
+                    || !matches!(
+                        kind,
+                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                    )
+                {
+                    continue;
+                }
+                if !self.selected.contains(&id) {
+                    self.selected.push(id);
+                }
+            }
+        }
+    }
+
     /// 清空选中。
     pub fn clear(&mut self) {
         self.selected.clear();

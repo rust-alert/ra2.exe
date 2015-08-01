@@ -18,7 +18,7 @@ use winit::{
     window::Window,
 };
 
-use super::{boot::BootResult, local_player::LocalPlayerController};
+use super::{boot::BootResult, battle_input::{LeftGesture, LeftReleaseAction, ScreenRect, MARQUEE_HIT_HALF_PX}, local_player::LocalPlayerController};
 
 /// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
 const BATTLE_START_ZOOM: f32 = 1.0;
@@ -44,12 +44,8 @@ pub struct BattleController {
     pub session: Option<Session>,
     /// 本地选中与点选指令（非权威）。
     pub local: LocalPlayerController,
-    /// 左键拖拽中：上一帧光标位置。
-    drag_last: Option<(f64, f64)>,
-    /// 已按下左键，等待第一次 CursorMoved 建立起点。
-    drag_armed: bool,
-    /// 本次左键按下后累计拖拽距离（像素）。
-    drag_distance: f32,
+    /// 左键点选 / 框选手势（不再用拖拽平移相机）。
+    left_gesture: LeftGesture,
     /// 最近光标位置（窗口像素）。
     cursor: (f64, f64),
     /// 上一帧时间，用于固定仿真时钟。
@@ -95,9 +91,7 @@ impl BattleController {
             engine: boot.engine,
             session: boot.session,
             local: LocalPlayerController::new(),
-            drag_last: None,
-            drag_armed: false,
-            drag_distance: 0.0,
+            left_gesture: LeftGesture::Idle,
             cursor: (0.0, 0.0),
             last_pump: Instant::now(),
             logged_outcome: None,
@@ -321,6 +315,66 @@ impl BattleController {
         }
     }
 
+    /// 框选：按实体屏幕包围盒与拖拽矩形相交，选中本方可控移动单位。
+    fn handle_marquee_select(&mut self, renderer: &Renderer, window: &Window, rect: ScreenRect) {
+        let add = self.shift_down;
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let local_house = game
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == game.world.local_player)
+            .map(|p| p.house.to_string());
+        let Some(house) = local_house.as_deref()
+        else {
+            return;
+        };
+        let vp = self.map_viewport(window);
+        let cam = renderer.camera();
+        let mut hits = Vec::new();
+        for id in game.world.entity_ids() {
+            if game.world.ecs_health(id).is_none_or(|(_, _, dead)| dead) {
+                continue;
+            }
+            if game.world.ecs_owner(id).is_none_or(|o| o.as_ref() != house) {
+                continue;
+            }
+            let Some((_, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some((x, y, _)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            let z = game.world.pass_grid.cell_height(x, y);
+            let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
+            // 与标记 / `pick_local_mobile_near_image` 同一锚点。
+            let wx = (sx - game.preview_origin_x) as f32 + 30.0;
+            let wy = (sy - game.preview_origin_y) as f32 + 15.0;
+            let (cx, cy) = vp.world_to_screen(cam, wx, wy);
+            let hit = ScreenRect::from_center_half(cx, cy, MARQUEE_HIT_HALF_PX);
+            if rect.intersects(&hit) {
+                hits.push(id);
+            }
+        }
+        if hits.is_empty() {
+            if !add {
+                self.local.clear();
+                tracing::debug!("框选落空，清空选中");
+            }
+            return;
+        }
+        self.local.apply_ids(game, &hits, add);
+        tracing::info!("框选命中 {} 个 · {:?}", hits.len(), self.local.selected);
+    }
+
     fn cycle_place_mode(&mut self) {
         const CYCLE: &[Option<&'static str>] = &[None, Some("GAPOWR"), Some("GAPILE"), Some("GAREFN"), Some("GAWEAP")];
         let idx = CYCLE.iter().position(|m| *m == self.place_mode).unwrap_or(0);
@@ -379,36 +433,40 @@ impl BattleController {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
                 match state {
                     ElementState::Pressed => {
-                        self.drag_armed = true;
-                        self.drag_last = None;
-                        self.drag_distance = 0.0;
+                        let vp = self.map_viewport(window);
+                        if vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
+                            self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
+                        }
+                        else {
+                            self.left_gesture = LeftGesture::Idle;
+                        }
                     }
                     ElementState::Released => {
-                        let was_click = self.drag_armed && self.drag_distance < 6.0;
-                        self.drag_armed = false;
-                        self.drag_last = None;
-                        if was_click {
-                            self.handle_left_click(renderer, window);
+                        let (idle, action) = self.left_gesture.release();
+                        self.left_gesture = idle;
+                        match action {
+                            LeftReleaseAction::None => {}
+                            LeftReleaseAction::Click => self.handle_left_click(renderer, window),
+                            LeftReleaseAction::Marquee(rect) => self.handle_marquee_select(renderer, window, rect),
                         }
                     }
                 }
                 BattleNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => BattleNav::None,
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
+                self.left_gesture = LeftGesture::Idle;
+                BattleNav::None
+            }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
+                self.left_gesture = LeftGesture::Idle;
                 self.handle_right_click(renderer, window);
                 BattleNav::None
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x, position.y);
-                if accept_commands && self.drag_armed {
-                    if let Some((lx, ly)) = self.drag_last {
-                        let dx = (position.x - lx) as f32;
-                        let dy = (position.y - ly) as f32;
-                        self.drag_distance += (dx * dx + dy * dy).sqrt();
-                        self.pan_world(renderer, window, dx, dy);
-                    }
-                    self.drag_last = Some((position.x, position.y));
+                // 建造放置模式只认点选，拖拽不升为框选。
+                if accept_commands && self.place_mode.is_none() {
+                    self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
                 }
                 BattleNav::None
             }
@@ -791,7 +849,10 @@ impl BattleController {
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         let w = viewport_w.max(1);
         let h = viewport_h.max(1);
-        if let Some(page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
+        if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
+            if let Some(rect) = self.left_gesture.marquee_rect() {
+                stroke_marquee_rect(&mut page, rect);
+            }
             renderer.set_ui_overlay(page);
         }
     }
@@ -903,5 +964,46 @@ impl BattleController {
         let prev = self.last_pump;
         self.last_pump = now;
         prev
+    }
+}
+
+/// 在 HUD 叠加层上描框选矩形（半透明黄绿边）。
+fn stroke_marquee_rect(page: &mut RgbaImage, rect: ScreenRect) {
+    let w = page.width() as i32;
+    let h = page.height() as i32;
+    if w <= 0 || h <= 0 || rect.w < 1.0 || rect.h < 1.0 {
+        return;
+    }
+    let x0 = rect.x.floor() as i32;
+    let y0 = rect.y.floor() as i32;
+    let x1 = (rect.x + rect.w).ceil() as i32;
+    let y1 = (rect.y + rect.h).ceil() as i32;
+    let color = [180u8, 255, 60, 220];
+    let put = |img: &mut RgbaImage, x: i32, y: i32| {
+        if x < 0 || y < 0 || x >= w || y >= h {
+            return;
+        }
+        let i = ((y as u32 * img.width() + x as u32) * 4) as usize;
+        let px = img.as_mut();
+        px[i] = color[0];
+        px[i + 1] = color[1];
+        px[i + 2] = color[2];
+        px[i + 3] = color[3];
+    };
+    for x in x0..=x1 {
+        put(page, x, y0);
+        put(page, x, y1);
+        if y0 + 1 < y1 {
+            put(page, x, y0 + 1);
+            put(page, x, y1 - 1);
+        }
+    }
+    for y in y0..=y1 {
+        put(page, x0, y);
+        put(page, x1, y);
+        if x0 + 1 < x1 {
+            put(page, x0 + 1, y);
+            put(page, x1 - 1, y);
+        }
     }
 }

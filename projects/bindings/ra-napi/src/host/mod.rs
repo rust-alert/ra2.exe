@@ -4,6 +4,7 @@
 
 pub mod audio;
 pub mod boot;
+pub mod battle_input;
 pub mod config;
 pub mod extract;
 pub mod load_job;
