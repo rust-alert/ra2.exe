@@ -115,6 +115,7 @@ impl Shell {
             options_present_baseline: None,
             options_pointer_consumed: false,
             last_shell_title: String::new(),
+            battle_cursor_grabbed: false,
         }
     }
 
@@ -211,6 +212,7 @@ impl Shell {
             options_present_baseline: None,
             options_pointer_consumed: false,
             last_shell_title: String::new(),
+            battle_cursor_grabbed: false,
         }
     }
 }

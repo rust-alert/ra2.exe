@@ -7,18 +7,27 @@ use ra_widgets::{
     fs_source::GameAssetSource,
     battle_hud::{BattleHudChrome, decode_battle_hud_chrome},
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
+    ui_present,
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::ui_layout::MapViewport;
 use ra_map::{MapEntityKind, StructureAnimBank, iso_to_screen, paint_structure_anims_onto_rgba};
 use ra_renderer::{Renderer, RgbaImage};
+use ra_types::PresentFeel;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
 
-use super::{boot::BootResult, battle_input::{LeftGesture, LeftReleaseAction, ScreenRect, MARQUEE_HIT_HALF_PX}, local_player::LocalPlayerController};
+use super::{
+    boot::BootResult,
+    battle_input::{
+        edge_scroll_screen_delta, LeftGesture, LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX,
+        EDGE_SCROLL_SPEED_PX_PER_SEC, MARQUEE_HIT_HALF_PX,
+    },
+    local_player::LocalPlayerController,
+};
 
 /// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
 const BATTLE_START_ZOOM: f32 = 1.0;
@@ -256,6 +265,39 @@ impl BattleController {
         let vp = self.map_viewport(window);
         // 夹紧与投影同口径：战术区宽高（与 `set_world_view_rect` / write_vertices 一致）。
         renderer.pan_clamped_in_viewport(dx, dy, vp.proj_w(), vp.proj_h());
+    }
+
+    /// 战术区边缘滚屏（左键拖拽不再平移相机）。
+    pub fn tick_edge_scroll(&self, renderer: &mut Renderer, window: &Window, dt: f64, enabled: bool) {
+        if !enabled || dt <= 0.0 {
+            return;
+        }
+        if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
+            return;
+        }
+        let vp = self.map_viewport(window);
+        let (dx, dy) = edge_scroll_screen_delta(
+            self.cursor.0,
+            self.cursor.1,
+            vp.tactical.x,
+            vp.tactical.y,
+            vp.tactical.w,
+            vp.tactical.h,
+            EDGE_SCROLL_MARGIN_PX,
+            EDGE_SCROLL_SPEED_PX_PER_SEC,
+            dt,
+        );
+        if dx.abs() > 0.0 || dy.abs() > 0.0 {
+            self.pan_world(renderer, window, dx, dy);
+        }
+    }
+
+    /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
+    pub fn wants_cursor_capture(&self) -> bool {
+        self.session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| !g.paused && g.outcome.is_none())
     }
 
     fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
@@ -694,6 +736,7 @@ impl BattleController {
         screen_label: &str,
         fnt: Option<&FntFile>,
         assets: Option<&GameAssetSource>,
+        present: PresentFeel,
     ) {
         enum PendingDraw {
             Full(ra_engine::RenderSnapshot),
@@ -742,7 +785,7 @@ impl BattleController {
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
         self.refresh_structure_anims(renderer);
-        self.upload_battle_hud(renderer, &hud, fnt, vw, vh);
+        self.upload_battle_hud(renderer, &hud, fnt, vw, vh, present);
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
@@ -819,7 +862,15 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
-    fn upload_battle_hud(&self, renderer: &mut Renderer, hud: &HudSnapshot, fnt: Option<&FntFile>, viewport_w: u32, viewport_h: u32) {
+    fn upload_battle_hud(
+        &self,
+        renderer: &mut Renderer,
+        hud: &HudSnapshot,
+        fnt: Option<&FntFile>,
+        viewport_w: u32,
+        viewport_h: u32,
+        present: PresentFeel,
+    ) {
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
@@ -853,6 +904,8 @@ impl BattleController {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
             }
+            // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
+            let page = ui_present::present_ui_page(page, present);
             renderer.set_ui_overlay(page);
         }
     }

@@ -9,7 +9,7 @@ use ra_widgets::shell_slide::WaveDirection;
 use ra_widgets::ui_compose::{self, ShellWaveFrames};
 use ra_widgets::ui_decode;
 use ra_widgets::ui_present;
-use ra_widgets::ui_text::resolve_caption;
+use ra_widgets::ui_text::{resolve_caption, sanitize_csf_display};
 
 use super::Shell;
 
@@ -214,7 +214,13 @@ impl Shell {
                         let mode_labels: Vec<String> = self
                             .lobby_modes
                             .iter()
-                            .map(|m| resolve_caption(self.menu_csf.as_ref(), &m.name_csf, Some(&m.name_csf)))
+                            .map(|m| {
+                                sanitize_csf_display(&resolve_caption(
+                                    self.menu_csf.as_ref(),
+                                    &m.name_csf,
+                                    Some(&m.name_csf),
+                                ))
+                            })
                             .collect();
                         let mode_names: Vec<&str> = mode_labels.iter().map(|s| s.as_str()).collect();
                         let selected_mode_index = self
@@ -223,7 +229,13 @@ impl Shell {
                         let visible_maps = self.maps_matching_selected_mode();
                         let map_labels: Vec<String> = visible_maps
                             .iter()
-                            .map(|m| resolve_caption(self.menu_csf.as_ref(), &m.file_name, Some(&m.name_csf)))
+                            .map(|m| {
+                                sanitize_csf_display(&resolve_caption(
+                                    self.menu_csf.as_ref(),
+                                    &m.name_csf,
+                                    Some(&m.name_csf),
+                                ))
+                            })
                             .collect();
                         let map_names: Vec<&str> = map_labels.iter().map(|s| s.as_str()).collect();
                         let selected_map_index =
@@ -380,11 +392,22 @@ impl Shell {
             if let Some(ctrl) = self.battle_controller.as_mut() {
                 let prev = ctrl.take_pump_clock();
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
+                if let Some(window) = self.window.clone() {
+                    ctrl.tick_edge_scroll(&mut self.renderer, &window, dt, true);
+                }
                 let (nav, sim_dt) = ctrl.pump(dt);
                 self.renderer.timings.simulation = Some(sim_dt);
                 let assets = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref(), assets);
+                ctrl.draw_frame(
+                    &mut self.renderer,
+                    self.window.as_ref(),
+                    self.screen.as_str(),
+                    self.menu_font.as_ref(),
+                    assets,
+                    self.present,
+                );
                 self.apply_nav(nav);
+                self.sync_battle_cursor_grab();
             }
         }
         else if self.screen.requires_session() {
@@ -392,8 +415,16 @@ impl Shell {
                 let _ = ctrl.take_pump_clock();
                 self.renderer.timings.simulation = None;
                 let assets = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
-                ctrl.draw_frame(&mut self.renderer, self.window.as_ref(), self.screen.as_str(), self.menu_font.as_ref(), assets);
+                ctrl.draw_frame(
+                    &mut self.renderer,
+                    self.window.as_ref(),
+                    self.screen.as_str(),
+                    self.menu_font.as_ref(),
+                    assets,
+                    self.present,
+                );
             }
+            self.sync_battle_cursor_grab();
         }
         else {
             // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。

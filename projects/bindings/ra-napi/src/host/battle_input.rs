@@ -6,6 +6,12 @@ pub const CLICK_SLOP_PX: f32 = 6.0;
 /// 框选命中用的实体屏幕半宽/半高（与标记环量级一致）。
 pub const MARQUEE_HIT_HALF_PX: f32 = 12.0;
 
+/// 战术区边缘滚屏触发带宽（窗口像素）。
+pub const EDGE_SCROLL_MARGIN_PX: f32 = 16.0;
+
+/// 边缘滚屏速度（屏幕像素 / 秒）。
+pub const EDGE_SCROLL_SPEED_PX_PER_SEC: f32 = 640.0;
+
 /// 屏幕轴对齐矩形（窗口像素，已归一化使 `w/h >= 0`）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ScreenRect {
@@ -163,6 +169,51 @@ impl LeftGesture {
     }
 }
 
+/// 由战术区边缘与光标位置计算本帧相机平移（屏幕像素，交给 `pan_world`）。
+///
+/// 光标必须落在战术区内才会滚屏。靠近左边 → 正 `dx`（镜头左移），右边 → 负 `dx`。
+pub fn edge_scroll_screen_delta(
+    cursor_x: f64,
+    cursor_y: f64,
+    tactical_x: i32,
+    tactical_y: i32,
+    tactical_w: i32,
+    tactical_h: i32,
+    margin_px: f32,
+    speed_px_per_sec: f32,
+    dt_secs: f64,
+) -> (f32, f32) {
+    if tactical_w <= 0 || tactical_h <= 0 || dt_secs <= 0.0 || speed_px_per_sec <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let cx = cursor_x as f32;
+    let cy = cursor_y as f32;
+    let left = tactical_x as f32;
+    let top = tactical_y as f32;
+    let right = left + tactical_w as f32;
+    let bottom = top + tactical_h as f32;
+    if cx < left || cy < top || cx >= right || cy >= bottom {
+        return (0.0, 0.0);
+    }
+    let margin = margin_px.clamp(1.0, (tactical_w.min(tactical_h) as f32 * 0.45).max(1.0));
+    let step = (speed_px_per_sec as f64 * dt_secs) as f32;
+    let mut dx = 0.0_f32;
+    let mut dy = 0.0_f32;
+    if cx <= left + margin {
+        dx += step;
+    }
+    if cx >= right - margin {
+        dx -= step;
+    }
+    if cy <= top + margin {
+        dy += step;
+    }
+    if cy >= bottom - margin {
+        dy -= step;
+    }
+    (dx, dy)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,5 +263,22 @@ mod tests {
         assert!(drag.intersects(&hit));
         let miss = ScreenRect::from_center_half(200.0, 200.0, MARQUEE_HIT_HALF_PX);
         assert!(!drag.intersects(&miss));
+    }
+
+    #[test]
+    fn edge_scroll_left_and_right_oppose() {
+        let (dx_l, dy_l) = edge_scroll_screen_delta(5.0, 100.0, 0, 0, 800, 600, 16.0, 640.0, 0.1);
+        assert!(dx_l > 0.0);
+        assert_eq!(dy_l, 0.0);
+        let (dx_r, _) = edge_scroll_screen_delta(790.0, 100.0, 0, 0, 800, 600, 16.0, 640.0, 0.1);
+        assert!(dx_r < 0.0);
+        let (dx_mid, dy_mid) = edge_scroll_screen_delta(400.0, 300.0, 0, 0, 800, 600, 16.0, 640.0, 0.1);
+        assert_eq!((dx_mid, dy_mid), (0.0, 0.0));
+    }
+
+    #[test]
+    fn edge_scroll_ignores_cursor_outside_tactical() {
+        let (dx, dy) = edge_scroll_screen_delta(900.0, 100.0, 0, 0, 800, 600, 16.0, 640.0, 0.1);
+        assert_eq!((dx, dy), (0.0, 0.0));
     }
 }

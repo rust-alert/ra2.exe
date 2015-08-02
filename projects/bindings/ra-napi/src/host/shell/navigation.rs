@@ -41,9 +41,50 @@ impl Shell {
             self.refresh_ui_resolve_note();
             self.refresh_menu_backdrop();
             self.refresh_shell_title();
+            self.sync_battle_cursor_grab();
             #[cfg(feature = "test-harness")]
             if self.auto_screenshots.should_capture(next) {
                 self.queue_screenshot(next.as_str());
+            }
+        }
+    }
+
+    /// 对局可玩时 confine 光标；暂停 / 结算 / 离开 Battle 时释放。
+    pub(super) fn sync_battle_cursor_grab(&mut self) {
+        let want = self.screen == OriginalScreen::Battle
+            && self
+                .battle_controller
+                .as_ref()
+                .is_some_and(|c| c.wants_cursor_capture());
+        if want == self.battle_cursor_grabbed {
+            return;
+        }
+        let Some(window) = self.window.as_ref()
+        else {
+            return;
+        };
+        use winit::window::CursorGrabMode;
+        let result = if want {
+            window
+                .set_cursor_grab(CursorGrabMode::Confined)
+                .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
+        }
+        else {
+            window.set_cursor_grab(CursorGrabMode::None)
+        };
+        match result {
+            Ok(()) => {
+                self.battle_cursor_grabbed = want;
+                if want {
+                    tracing::debug!("对局光标已捕获（边缘滚屏）");
+                }
+                else {
+                    tracing::debug!("对局光标已释放");
+                }
+            }
+            Err(err) => {
+                tracing::warn!(?err, want, "设置光标捕获失败");
+                self.battle_cursor_grabbed = false;
             }
         }
     }

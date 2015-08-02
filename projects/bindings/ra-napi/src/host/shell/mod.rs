@@ -196,6 +196,8 @@ pub struct Shell {
     pub(super) options_pointer_consumed: bool,
     /// 上次已写入的窗口标题（避免每帧 `set_title` 卡顿）。
     pub(super) last_shell_title: String,
+    /// 对局页是否已 `CursorGrabMode::Confined`（暂停/结算/离局时释放）。
+    pub(super) battle_cursor_grabbed: bool,
 }
 
 impl Shell {
