@@ -90,13 +90,16 @@ pub struct BattleController {
     anim_started: Instant,
     /// 上一帧活动层签名（跳过无变化上传）。
     last_anim_sig: u64,
+    /// 开局镜头尚未按战术区对齐（等表面尺寸可用后再 `focus`）。
+    start_view_pending: bool,
 }
 
 impl BattleController {
     /// 由装载结果构造；可无会话（装载失败时仍占位）。
     pub fn from_boot(boot: BootResult, status_path: Option<PathBuf>, test_scene: Option<String>) -> Self {
         let edition = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.edition.as_str()).unwrap_or("—");
-        Self {
+        let has_session = boot.session.as_ref().and_then(|s| s.battle()).is_some();
+        let mut this = Self {
             engine: boot.engine,
             session: boot.session,
             local: LocalPlayerController::new(),
@@ -118,12 +121,43 @@ impl BattleController {
             preview_origin: boot.preview_origin,
             anim_started: Instant::now(),
             last_anim_sig: u64::MAX,
-        }
+            start_view_pending: has_session,
+        };
+        this.bind_local_start();
+        this
     }
 
     /// 是否已有可玩会话。
     pub fn has_session(&self) -> bool {
         self.session.as_ref().and_then(|s| s.battle()).is_some()
+    }
+
+    /// 选中本地开局单位（优先 MCV）。所有装载路径共用。
+    fn bind_local_start(&mut self) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        if let Some(id) = self.local.select_local_start(game) {
+            tracing::info!("开局已选中本方单位 #{}", id.0);
+        }
+        else {
+            tracing::warn!("开局未找到可本方选中的移动单位");
+        }
+    }
+
+    /// 表面尺寸就绪后对齐战术区并聚焦开局单位（可重复调用，只执行一次）。
+    pub fn ensure_start_view(&mut self, renderer: &mut Renderer) {
+        if !self.start_view_pending {
+            return;
+        }
+        let Some((vw, vh)) = renderer.surface_size_u32()
+        else {
+            return;
+        };
+        self.sync_world_view(renderer, vw, vh);
+        self.focus_camera_on_local_start(renderer);
+        self.start_view_pending = false;
     }
 
     /// 应用新的装载结果（重开）。
@@ -146,17 +180,18 @@ impl BattleController {
         self.preview_origin = boot.preview_origin;
         self.anim_started = Instant::now();
         self.last_anim_sig = u64::MAX;
-        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
-            self.title_base = format!("ra2 ({})", game.world.edition.as_str());
+        self.start_view_pending = self.has_session();
+        if self.has_session() {
+            let edition = self
+                .session
+                .as_ref()
+                .and_then(|s| s.battle())
+                .map(|g| g.world.edition.as_str())
+                .unwrap_or("—");
+            self.title_base = format!("ra2 ({edition})");
             tracing::info!("重开完成 · {}", boot.note);
-            // 先对齐战术区投影，再对焦，避免整窗夹紧与侧栏口径打架。
-            if let Some((vw, vh)) = renderer.surface_size_u32() {
-                self.sync_world_view(renderer, vw, vh);
-            }
-            self.focus_camera_on_local_start(renderer);
-            if let Some(id) = self.local.select_local_start(game) {
-                tracing::info!("开局已选中本方单位 #{}", id.0);
-            }
+            self.bind_local_start();
+            self.ensure_start_view(renderer);
         }
         else {
             tracing::error!("重开失败 · {}", boot.note);
@@ -777,6 +812,7 @@ impl BattleController {
         };
         let (hud, pending) = prepared;
         self.ensure_battle_hud_chrome(assets);
+        self.ensure_start_view(renderer);
         let (vw, vh) = window
             .map(|w| {
                 let s = w.inner_size();

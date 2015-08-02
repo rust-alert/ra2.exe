@@ -249,12 +249,7 @@ impl Shell {
             None => {
                 self.battle_controller = Some(BattleController::from_boot(boot, self.status_path.clone(), self.test_scene.clone()));
                 if let Some(ctrl) = self.battle_controller.as_mut() {
-                    ctrl.focus_camera_on_local_start(&mut self.renderer);
-                    if let Some(game) = ctrl.session.as_ref().and_then(|s| s.battle()) {
-                        if let Some(id) = ctrl.local.select_local_start(game) {
-                            tracing::info!("开局已选中本方单位 #{}", id.0);
-                        }
-                    }
+                    ctrl.ensure_start_view(&mut self.renderer);
                 }
             }
         }
