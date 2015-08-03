@@ -19,9 +19,12 @@ pub use engine::{
     CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError, SystemPhase, SystemSchedule,
 };
 pub use game::{
-    AnimState, CommandReject, CommandRejectReason, DEFAULT_TICK_HZ, BattleSession, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
-    BattleOutcome, BattleStats, RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command,
-    decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands, encode_scheduled,
+    evaluate_build_availability, evaluate_produce_availability, living_structure_type_keys, AnimState,
+    BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject,
+    CommandRejectReason, DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
+    RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command, decode_commands,
+    decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands,
+    encode_scheduled,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_skirmish_session};
