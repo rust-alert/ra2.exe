@@ -23,8 +23,8 @@ use winit::{
 use super::{
     boot::BootResult,
     battle_input::{
-        edge_scroll_screen_delta, LeftGesture, LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX,
-        EDGE_SCROLL_SPEED_PX_PER_SEC, MARQUEE_HIT_HALF_PX,
+        edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, EdgeScrollCursor, LeftGesture,
+        LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, MARQUEE_HIT_HALF_PX,
     },
     local_player::LocalPlayerController,
 };
@@ -96,6 +96,8 @@ pub struct BattleController {
     deploy_watch: Option<ra_types::EntityId>,
     /// 最近一次部署结果文案（成功或拒绝）。
     deploy_status: Option<String>,
+    /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
+    edge_scroll_cursor: EdgeScrollCursor,
 }
 
 impl BattleController {
@@ -128,6 +130,7 @@ impl BattleController {
             start_view_pending: has_session,
             deploy_watch: None,
             deploy_status: None,
+            edge_scroll_cursor: EdgeScrollCursor::Default,
         };
         this.bind_local_start();
         this
@@ -188,6 +191,7 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
         self.deploy_watch = None;
         self.deploy_status = None;
+        self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -310,29 +314,69 @@ impl BattleController {
         renderer.pan_clamped_in_viewport(dx, dy, vp.proj_w(), vp.proj_h());
     }
 
-    /// 战术区边缘滚屏（左键拖拽不再平移相机）。
-    pub fn tick_edge_scroll(&self, renderer: &mut Renderer, window: &Window, dt: f64, enabled: bool) {
+    /// 整窗边缘滚屏（右栏 / 底边命令条同样触发；左键拖拽不再平移相机）。
+    pub fn tick_edge_scroll(&mut self, renderer: &mut Renderer, window: &Window, dt: f64, enabled: bool) {
         if !enabled || dt <= 0.0 {
+            self.edge_scroll_cursor = EdgeScrollCursor::Default;
             return;
         }
         if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
+            self.edge_scroll_cursor = EdgeScrollCursor::Default;
             return;
         }
+        let size = window.inner_size();
+        let sw = size.width.max(1);
+        let sh = size.height.max(1);
+        let (west, east, north, south) =
+            edge_scroll_axes(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX);
         let vp = self.map_viewport(window);
-        let (dx, dy) = edge_scroll_screen_delta(
+        let (can_west, can_east, can_north, can_south) = self.edge_scroll_can_axes(renderer, vp.proj_w(), vp.proj_h());
+        self.edge_scroll_cursor =
+            edge_scroll_cursor_for(west, east, north, south, can_west, can_east, can_north, can_south);
+        let (mut dx, mut dy) = edge_scroll_screen_delta(
             self.cursor.0,
             self.cursor.1,
-            vp.tactical.x,
-            vp.tactical.y,
-            vp.tactical.w,
-            vp.tactical.h,
+            sw,
+            sh,
             EDGE_SCROLL_MARGIN_PX,
             EDGE_SCROLL_SPEED_PX_PER_SEC,
             dt,
         );
+        if dx > 0.0 && !can_west {
+            dx = 0.0;
+        }
+        if dx < 0.0 && !can_east {
+            dx = 0.0;
+        }
+        if dy > 0.0 && !can_north {
+            dy = 0.0;
+        }
+        if dy < 0.0 && !can_south {
+            dy = 0.0;
+        }
         if dx.abs() > 0.0 || dy.abs() > 0.0 {
             self.pan_world(renderer, window, dx, dy);
         }
+    }
+
+    /// 当前边缘滚屏光标（壳层据此切换系统 / 自定义指针）。
+    pub fn edge_scroll_cursor(&self) -> EdgeScrollCursor {
+        self.edge_scroll_cursor
+    }
+
+    /// 各轴是否还能平移（`pan_screen`：正 dx 减 `center_x`，正 dy 减 `center_y`）。
+    fn edge_scroll_can_axes(&self, renderer: &Renderer, proj_w: f32, proj_h: f32) -> (bool, bool, bool, bool) {
+        let Some(bounds) = renderer.camera_bounds_for_viewport(proj_w, proj_h)
+        else {
+            return (true, true, true, true);
+        };
+        let cam = renderer.camera();
+        const EPS: f32 = 0.5;
+        let can_west = cam.center_x > bounds.min_center_x + EPS;
+        let can_east = cam.center_x < bounds.max_center_x - EPS;
+        let can_north = cam.center_y > bounds.min_center_y + EPS;
+        let can_south = cam.center_y < bounds.max_center_y - EPS;
+        (can_west, can_east, can_north, can_south)
     }
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。

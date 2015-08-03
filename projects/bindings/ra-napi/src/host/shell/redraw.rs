@@ -408,6 +408,7 @@ impl Shell {
                 );
                 self.apply_nav(nav);
                 self.sync_battle_cursor_grab();
+                self.sync_battle_edge_cursor();
             }
         }
         else if self.screen.requires_session() {
@@ -425,6 +426,7 @@ impl Shell {
                 );
             }
             self.sync_battle_cursor_grab();
+            self.sync_battle_edge_cursor();
         }
         else {
             // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。

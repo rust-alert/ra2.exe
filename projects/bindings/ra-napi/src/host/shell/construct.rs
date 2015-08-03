@@ -116,6 +116,7 @@ impl Shell {
             options_pointer_consumed: false,
             last_shell_title: String::new(),
             battle_cursor_grabbed: false,
+            battle_edge_cursor: crate::host::battle_input::EdgeScrollCursor::Default,
         }
     }
 
@@ -213,6 +214,7 @@ impl Shell {
             options_pointer_consumed: false,
             last_shell_title: String::new(),
             battle_cursor_grabbed: false,
+            battle_edge_cursor: crate::host::battle_input::EdgeScrollCursor::Default,
         }
     }
 }
