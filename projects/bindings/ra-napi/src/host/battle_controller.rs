@@ -92,6 +92,10 @@ pub struct BattleController {
     last_anim_sig: u64,
     /// 开局镜头尚未按战术区对齐（等表面尺寸可用后再 `focus`）。
     start_view_pending: bool,
+    /// 等待本 tick 结算的部署实体（`KeyX` 下发后）。
+    deploy_watch: Option<ra_types::EntityId>,
+    /// 最近一次部署结果文案（成功或拒绝）。
+    deploy_status: Option<String>,
 }
 
 impl BattleController {
@@ -122,6 +126,8 @@ impl BattleController {
             anim_started: Instant::now(),
             last_anim_sig: u64::MAX,
             start_view_pending: has_session,
+            deploy_watch: None,
+            deploy_status: None,
         };
         this.bind_local_start();
         this
@@ -180,6 +186,8 @@ impl BattleController {
         self.preview_origin = boot.preview_origin;
         self.anim_started = Instant::now();
         self.last_anim_sig = u64::MAX;
+        self.deploy_watch = None;
+        self.deploy_status = None;
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -664,6 +672,10 @@ impl BattleController {
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
                         let selected = self.local.selected.clone();
+                        if let Some(&id) = selected.first() {
+                            self.deploy_watch = Some(id);
+                            self.deploy_status = Some("部署中…".into());
+                        }
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("部署选中 · {:?}", selected);
                             game.order_deploy(&selected);
@@ -739,7 +751,53 @@ impl BattleController {
         else {
             BattleNav::None
         };
+        self.resolve_deploy_watch();
         (nav, started.elapsed())
+    }
+
+    /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
+    fn resolve_deploy_watch(&mut self) {
+        let Some(id) = self.deploy_watch
+        else {
+            return;
+        };
+        let resolved = {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                self.deploy_watch = None;
+                return;
+            };
+            if game
+                .world
+                .last_rejects()
+                .iter()
+                .any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy))
+            {
+                Some(Err(ra_engine::CommandRejectReason::CannotDeploy.as_hud_label().to_string()))
+            }
+            else {
+                match game.world.ecs_identity(id) {
+                    Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => {
+                        Some(Ok(format!("已部署 {type_id}")))
+                    }
+                    None => Some(Err("部署目标已消失".into())),
+                    _ => None,
+                }
+            }
+        };
+        match resolved {
+            Some(Ok(note)) => {
+                tracing::info!("{note} · #{id}", id = id.0);
+                self.deploy_status = Some(note);
+                self.deploy_watch = None;
+            }
+            Some(Err(label)) => {
+                tracing::info!("部署失败 · {label}");
+                self.deploy_status = Some(label);
+                self.deploy_watch = None;
+            }
+            None => {}
+        }
     }
 
     fn note_outcome_once(&mut self) {
@@ -910,11 +968,26 @@ impl BattleController {
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
-        let selected_summary = match (self.local.selected.first().copied(), nsel) {
-            (Some(id), n) if n > 1 => format!("#{}+{}", id.0, n - 1),
-            (Some(id), _) => format!("#{}", id.0),
+        let game = self.session.as_ref().and_then(|s| s.battle());
+        let selected_type = self
+            .local
+            .selected
+            .first()
+            .copied()
+            .and_then(|id| game.and_then(|g| g.world.ecs_identity(id).map(|(t, _)| t.to_string())));
+        let selected_summary = match (self.local.selected.first().copied(), nsel, selected_type.as_deref()) {
+            (Some(id), n, Some(ty)) if n > 1 => format!("#{}+{} {ty}", id.0, n - 1),
+            (Some(id), _, Some(ty)) => format!("#{} {ty}", id.0),
+            (Some(id), n, None) if n > 1 => format!("#{}+{}", id.0, n - 1),
+            (Some(id), _, None) => format!("#{}", id.0),
             _ => "—".into(),
         };
+        let deploy_hint_owned = self
+            .local
+            .selected
+            .first()
+            .copied()
+            .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("X→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let outcome_owned = hud.outcome.as_ref().map(|o| match o {
@@ -927,6 +1000,8 @@ impl BattleController {
             power_drain: local.map(|p| p.power_drain).unwrap_or(0),
             low_power: local.map(|p| p.low_power).unwrap_or(false),
             selected_summary: selected_summary.as_str(),
+            deploy_hint: deploy_hint_owned.as_deref(),
+            deploy_status: self.deploy_status.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
             paused: hud.paused,
