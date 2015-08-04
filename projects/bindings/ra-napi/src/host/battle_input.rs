@@ -46,6 +46,34 @@ pub enum EdgeScrollCursor {
     Blocked(EdgeScrollDir),
 }
 
+/// 对局指针优先级：边缘滚屏 > 可部署选中 > 默认。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BattlePointer {
+    /// 系统默认箭头。
+    Default,
+    /// 选中可部署单位（MCV 等）时的部署标记光标。
+    Deploy,
+    /// 整窗边缘滚屏光标。
+    Edge(EdgeScrollCursor),
+}
+
+impl BattlePointer {
+    /// 由边缘态与「是否选中可部署单位」合成最终指针。
+    pub fn resolve(edge: EdgeScrollCursor, selection_deployable: bool) -> Self {
+        match edge {
+            EdgeScrollCursor::Default => {
+                if selection_deployable {
+                    Self::Deploy
+                }
+                else {
+                    Self::Default
+                }
+            }
+            other => Self::Edge(other),
+        }
+    }
+}
+
 impl EdgeScrollDir {
     /// 由轴向意图合成方向（可对角）。
     pub fn from_axes(west: bool, east: bool, north: bool, south: bool) -> Self {
@@ -420,5 +448,17 @@ mod tests {
         assert_eq!(cur, EdgeScrollCursor::Blocked(EdgeScrollDir::South));
         let cur_ok = edge_scroll_cursor_for(false, false, false, true, true, true, true, true);
         assert_eq!(cur_ok, EdgeScrollCursor::Scroll(EdgeScrollDir::South));
+    }
+
+    #[test]
+    fn deploy_pointer_when_selection_deployable_and_not_scrolling() {
+        assert_eq!(
+            BattlePointer::resolve(EdgeScrollCursor::Default, true),
+            BattlePointer::Deploy
+        );
+        assert_eq!(
+            BattlePointer::resolve(EdgeScrollCursor::Scroll(EdgeScrollDir::East), true),
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::East))
+        );
     }
 }

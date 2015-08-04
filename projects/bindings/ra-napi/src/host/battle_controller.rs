@@ -364,6 +364,23 @@ impl BattleController {
         self.edge_scroll_cursor
     }
 
+    /// 当前选中是否含可部署单位（MCV 等）。
+    pub fn selection_has_deployable(&self) -> bool {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return false;
+        };
+        self.local
+            .selected
+            .iter()
+            .any(|&id| game.deploy_target_of(id).is_some())
+    }
+
+    /// 对局指针：边缘滚屏优先，否则可部署选中显示部署标记光标。
+    pub fn battle_pointer(&self) -> super::battle_input::BattlePointer {
+        super::battle_input::BattlePointer::resolve(self.edge_scroll_cursor, self.selection_has_deployable())
+    }
+
     /// 各轴是否还能平移（`pan_screen`：正 dx 减 `center_x`，正 dy 减 `center_y`）。
     fn edge_scroll_can_axes(&self, renderer: &Renderer, proj_w: f32, proj_h: f32) -> (bool, bool, bool, bool) {
         let Some(bounds) = renderer.camera_bounds_for_viewport(proj_w, proj_h)

@@ -65,6 +65,7 @@ fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool) -> RenderUnit {
         is_structure: u.is_structure(),
         dead: u.dead,
         selected,
+        deployable: u.deployable,
         color: anim_tint(owner_color(u.owner.as_ref()), u.anim_state),
         health: u.health,
         max_health: u.max_health,

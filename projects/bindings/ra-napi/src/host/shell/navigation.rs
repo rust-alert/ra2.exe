@@ -80,7 +80,7 @@ impl Shell {
                 }
                 else {
                     tracing::debug!("对局光标已释放");
-                    self.apply_edge_scroll_cursor(crate::host::battle_input::EdgeScrollCursor::Default);
+                    self.apply_battle_pointer(crate::host::battle_input::BattlePointer::Default);
                 }
             }
             Err(err) => {
@@ -90,46 +90,48 @@ impl Shell {
         }
     }
 
-    /// 按边缘滚屏方向切换指针（上下左右不同；贴地图边界为禁止态）。
+    /// 合成并应用对局指针（边缘滚屏 > 可部署选中 > 默认）。
     pub(super) fn sync_battle_edge_cursor(&mut self) {
         let cur = if self.screen == OriginalScreen::Battle {
             self.battle_controller
                 .as_ref()
-                .map(|c| c.edge_scroll_cursor())
-                .unwrap_or(crate::host::battle_input::EdgeScrollCursor::Default)
+                .map(|c| c.battle_pointer())
+                .unwrap_or(crate::host::battle_input::BattlePointer::Default)
         }
         else {
-            crate::host::battle_input::EdgeScrollCursor::Default
+            crate::host::battle_input::BattlePointer::Default
         };
-        self.apply_edge_scroll_cursor(cur);
+        self.apply_battle_pointer(cur);
     }
 
-    fn apply_edge_scroll_cursor(&mut self, cur: crate::host::battle_input::EdgeScrollCursor) {
-        if cur == self.battle_edge_cursor {
+    fn apply_battle_pointer(&mut self, cur: crate::host::battle_input::BattlePointer) {
+        if cur == self.battle_pointer {
             return;
         }
         let Some(window) = self.window.as_ref()
         else {
             return;
         };
-        use crate::host::battle_input::{EdgeScrollCursor, EdgeScrollDir};
+        use crate::host::battle_input::{BattlePointer, EdgeScrollCursor, EdgeScrollDir};
         use winit::window::CursorIcon;
         let icon = match cur {
-            EdgeScrollCursor::Default => CursorIcon::Default,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::North) => CursorIcon::NResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::South) => CursorIcon::SResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::East) => CursorIcon::EResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::West) => CursorIcon::WResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::NorthEast) => CursorIcon::NeResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::NorthWest) => CursorIcon::NwResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::SouthEast) => CursorIcon::SeResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::SouthWest) => CursorIcon::SwResize,
-            EdgeScrollCursor::Scroll(EdgeScrollDir::None) => CursorIcon::Default,
-            // 禁止态暂用系统 NotAllowed；后续换成 `mouse.shp` 各方向禁止帧。
-            EdgeScrollCursor::Blocked(_) => CursorIcon::NotAllowed,
+            BattlePointer::Default => CursorIcon::Default,
+            // 部署标记光标：系统 Cell 作占位，后续换成 `mouse.shp` 部署帧。
+            BattlePointer::Deploy => CursorIcon::Cell,
+            BattlePointer::Edge(EdgeScrollCursor::Default) => CursorIcon::Default,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::North)) => CursorIcon::NResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::South)) => CursorIcon::SResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::East)) => CursorIcon::EResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::West)) => CursorIcon::WResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::NorthEast)) => CursorIcon::NeResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::NorthWest)) => CursorIcon::NwResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::SouthEast)) => CursorIcon::SeResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::SouthWest)) => CursorIcon::SwResize,
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::None)) => CursorIcon::Default,
+            BattlePointer::Edge(EdgeScrollCursor::Blocked(_)) => CursorIcon::NotAllowed,
         };
         window.set_cursor(icon);
-        self.battle_edge_cursor = cur;
+        self.battle_pointer = cur;
     }
 
     pub(super) fn apply_menu_action(&mut self, event_loop: &ActiveEventLoop, action: MenuAction) {

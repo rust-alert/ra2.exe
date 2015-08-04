@@ -198,8 +198,8 @@ pub struct Shell {
     pub(super) last_shell_title: String,
     /// 对局页是否已 `CursorGrabMode::Confined`（暂停/结算/离局时释放）。
     pub(super) battle_cursor_grabbed: bool,
-    /// 上次已应用的边缘滚屏光标（避免每帧重复 `set_cursor`）。
-    pub(super) battle_edge_cursor: crate::host::battle_input::EdgeScrollCursor,
+    /// 上次已应用的对局指针（避免每帧重复 `set_cursor`）。
+    pub(super) battle_pointer: crate::host::battle_input::BattlePointer,
 }
 
 impl Shell {

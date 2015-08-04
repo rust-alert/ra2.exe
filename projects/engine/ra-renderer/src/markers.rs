@@ -89,8 +89,18 @@ impl MarkerGpu {
                 continue;
             }
             let half = if u.is_structure { 12.0 } else { 10.0 };
-            let ring = [1.0, 1.0, 0.2, 0.95];
-            push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
+            if u.deployable {
+                // 可部署单位（MCV 等）：部署标记 = 青绿菱形底板 + 外环，区别于普通黄环。
+                let fill = [0.15, 0.85, 0.35, 0.55];
+                let ring = [0.25, 1.0, 0.45, 0.98];
+                push_diamond(&mut verts, camera, sw, sh, cx, cy, half + 2.0, fill);
+                push_ring(&mut verts, camera, sw, sh, cx, cy, half + 6.0, 2.5, ring);
+                push_ring(&mut verts, camera, sw, sh, cx, cy, half + 1.0, 1.5, [0.9, 1.0, 0.4, 0.9]);
+            }
+            else {
+                let ring = [1.0, 1.0, 0.2, 0.95];
+                push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
+            }
             if u.max_health > 0 {
                 let ratio = (u.health as f32 / u.max_health as f32).clamp(0.0, 1.0);
                 let bar_w = 18.0;

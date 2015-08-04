@@ -144,6 +144,8 @@ pub struct SnapshotUnit {
     pub max_health: u32,
     /// 是否已死亡。
     pub dead: bool,
+    /// 是否可部署（如 MCV）；选中时呈现部署标记。
+    pub deployable: bool,
 }
 
 impl SnapshotUnit {
@@ -796,6 +798,8 @@ impl BattleSession {
         let hva_frame = self.world.ecs_get::<AnimationState>(id).map(|a| a.hva_frame).unwrap_or(0);
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+        let deployable = !matches!(identity.kind, MapEntityKind::Structure)
+            && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id.as_ref()).is_some();
         Some(SnapshotUnit {
             id,
             kind: identity.kind,
@@ -812,6 +816,7 @@ impl BattleSession {
             health: health.current,
             max_health: health.maximum,
             dead: health.dead,
+            deployable,
         })
     }
 

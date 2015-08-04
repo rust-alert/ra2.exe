@@ -22,6 +22,8 @@ pub struct RenderUnit {
     pub dead: bool,
     /// 是否本地选中。
     pub selected: bool,
+    /// 是否可部署（选中时画部署标记，而非普通选中环）。
+    pub deployable: bool,
     /// 已烘焙的标记颜色（含阵营哈希与动画着色），避免绘制时再读字符串。
     pub color: [f32; 4],
     /// 当前生命。
