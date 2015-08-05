@@ -24,6 +24,12 @@ pub struct RenderUnit {
     pub selected: bool,
     /// 是否可部署（选中时画部署标记，而非普通选中环）。
     pub deployable: bool,
+    /// 移动目标锚点（预览图坐标，已含菱形中心偏移；无目标为 `None`）。
+    pub move_goal_screen: Option<(i32, i32)>,
+    /// 路径点锚点（预览图坐标，已含菱形中心偏移）。
+    pub path_waypoints_screen: Vec<(i32, i32)>,
+    /// 攻击目标锚点（预览图坐标，已含菱形中心偏移）。
+    pub attack_target_screen: Option<(i32, i32)>,
     /// 已烘焙的标记颜色（含阵营哈希与动画着色），避免绘制时再读字符串。
     pub color: [f32; 4],
     /// 当前生命。

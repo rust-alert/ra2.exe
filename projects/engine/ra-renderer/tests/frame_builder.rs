@@ -23,6 +23,11 @@ fn unit(id: u64, x: i32, y: i32) -> SnapshotUnit {
         health: 100,
         max_health: 100,
         dead: false,
+        deployable: false,
+        move_goal_screen: None,
+        path_waypoints_screen: Vec::new(),
+        attack_target: None,
+        attack_target_screen: None,
     }
 }
 

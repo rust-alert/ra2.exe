@@ -146,6 +146,14 @@ pub struct SnapshotUnit {
     pub dead: bool,
     /// 是否可部署（如 MCV）；选中时呈现部署标记。
     pub deployable: bool,
+    /// 移动目标相对预览图的锚点（无目标为 `None`）。
+    pub move_goal_screen: Option<(i32, i32)>,
+    /// 路径点相对预览图的锚点（最多若干格，供选中单位画路径标记）。
+    pub path_waypoints_screen: Vec<(i32, i32)>,
+    /// 当前攻击目标实体（有则画攻击标记）。
+    pub attack_target: Option<EntityId>,
+    /// 攻击目标相对预览图的锚点（目标已投影时带上，避免绘制时再查）。
+    pub attack_target_screen: Option<(i32, i32)>,
 }
 
 impl SnapshotUnit {
@@ -800,6 +808,26 @@ impl BattleSession {
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
         let deployable = !matches!(identity.kind, MapEntityKind::Structure)
             && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id.as_ref()).is_some();
+        let movement = self.world.ecs_get::<MovementState>(id);
+        let move_goal_screen = movement.and_then(|m| {
+            let dx = m.destination_x?;
+            let dy = m.destination_y?;
+            Some(self.cell_anchor_screen(dx, dy))
+        });
+        let path_waypoints_screen = movement
+            .map(|m| {
+                m.path
+                    .iter()
+                    .take(24)
+                    .map(|&(px, py)| self.cell_anchor_screen(px, py))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let attack_target = self.world.ecs_get::<AttackState>(id).and_then(|a| a.target);
+        let attack_target_screen = attack_target.and_then(|tid| {
+            let txf = self.world.ecs_get::<Transform>(tid).copied()?;
+            Some(self.cell_anchor_screen(txf.x, txf.y))
+        });
         Some(SnapshotUnit {
             id,
             kind: identity.kind,
@@ -817,7 +845,18 @@ impl BattleSession {
             max_health: health.maximum,
             dead: health.dead,
             deployable,
+            move_goal_screen,
+            path_waypoints_screen,
+            attack_target,
+            attack_target_screen,
         })
+    }
+
+    /// 逻辑格 → 预览图锚点（与选中环中心同口径：`iso` 后再加菱形视觉偏移）。
+    fn cell_anchor_screen(&self, x: u16, y: u16) -> (i32, i32) {
+        let z = self.world.pass_grid.cell_height(x, y);
+        let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
+        (sx - self.preview_origin_x + 30, sy - self.preview_origin_y + 15)
     }
 
     /// 从当前世界与本地选中构建一帧呈现快照。
