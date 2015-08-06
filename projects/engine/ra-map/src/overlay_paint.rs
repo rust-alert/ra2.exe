@@ -1,12 +1,12 @@
 //! 地图 Overlay SHP 叠画（类型名由调用方解析，避免依赖规则 crate）。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use ra_assets::{IniDocument, Palette, ShpFile};
+use ra_assets::{Hsv, IniDocument, Palette, ShpFile};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo,
+    MapInfo, OverlayCell,
     compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
@@ -45,6 +45,8 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
 /// `overlay_type_name`：由 rules `[OverlayTypes]` 解析得到的 id→名。
 /// `is_tiberium`：该 id 是否 `Tiberium=yes`（矿/宝石须用剧院地表 pal，如 `temperat.pal`，
 /// 不能用 `isotem.pal`，否则呈灰黑底块）。
+/// `tiberium_hsv`：矿/宝石 `[Tiberiums] Color=` 对应的 HSV（索引 16..=31 remap）；
+/// 原版 `NeonGreen=0,0,0` 为矿石哨兵，调用方应换成可用金色方案。
 /// `art_ini`：art 文件名（如 `art.ini` / `artmd.ini`）。
 ///
 /// 返回 `(shp 画上的格子数, 色块标记数)`。
@@ -55,6 +57,7 @@ pub fn paint_map_overlays(
     art_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
+    tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
 ) -> (usize, usize) {
     if map.overlays.is_empty() {
         return (0, 0);
@@ -75,10 +78,13 @@ pub fn paint_map_overlays(
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    // (image_key, frame, pal_kind): 0=unit 1=theater_iso 2=tiberium
-    let mut blit_cache: HashMap<(String, u8, u8), TileBlit> = HashMap::new();
-    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
-    let mut unresolved = Vec::new();
+
+    // 第一遍：解析 image_key / 加载 SHP，记录「首选帧可画」的锚点格。
+    // 低桥 LOBRDB 等同图三连格里只有 data=1 有像素；data=0/2 空帧是 footprint，不能回退。
+    // 断桥端头 LOBRDG 等只有空帧、又无同图锚点邻格时，回退到首个可画帧。
+    let mut resolved: Vec<ResolvedOverlay> = Vec::new();
+    let mut unresolved: Vec<OverlayCell> = Vec::new();
+    let mut anchors: HashSet<(String, u16, u16)> = HashSet::new();
 
     for cell in &map.overlays {
         let Some(type_name) = overlay_type_name(cell.overlay_id)
@@ -87,7 +93,7 @@ pub fn paint_map_overlays(
             continue;
         };
         let tib = is_tiberium(cell.overlay_id);
-        // 平地矿：资源态仍用 pack 里的 id，画图换成坐标派生的 TIB/GEM 外形（含矿柱）。
+        let tib_hsv = if tib { tiberium_hsv(cell.overlay_id) } else { None };
         let display_name = if tib {
             flat_tiberium_display_type_name(&type_name, cell.x, cell.y)
         } else {
@@ -111,7 +117,6 @@ pub fn paint_map_overlays(
             .and_then(|a| a.get(art_section, "Image"))
             .unwrap_or(display_name.as_str())
             .to_ascii_uppercase();
-        let frame_idx = cell.data;
         let new_theater = art.as_ref().and_then(|a| a.get(art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let theater_yes = art.as_ref().and_then(|a| a.get(art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
         let pal_kind: u8 = if tib {
@@ -121,11 +126,6 @@ pub fn paint_map_overlays(
         } else {
             0
         };
-        let cache_key = (image_key.clone(), frame_idx, pal_kind);
-        if let Some(blit) = blit_cache.get(&cache_key) {
-            items.push((cell.x, cell.y, blit.clone()));
-            continue;
-        }
 
         let mut candidates = Vec::new();
         if theater_yes {
@@ -161,24 +161,66 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        let Some(shp) = shp_cache.get(&file)
+        let preferred_drawable = shp_cache.get(&file).is_some_and(|shp| frame_drawable(shp, cell.data));
+        if preferred_drawable {
+            anchors.insert((image_key.clone(), cell.x, cell.y));
+        }
+        resolved.push(ResolvedOverlay {
+            x: cell.x,
+            y: cell.y,
+            data: cell.data,
+            image_key,
+            file,
+            pal_kind,
+            tib_hsv,
+        });
+    }
+
+    let mut blit_cache: HashMap<(String, u8, u8, u32), TileBlit> = HashMap::new();
+    let mut tib_pal_cache: HashMap<u32, Palette> = HashMap::new();
+    let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+
+    for item in &resolved {
+        let Some(shp) = shp_cache.get(&item.file)
         else {
-            unresolved.push(*cell);
             continue;
         };
-        // 空帧必须不画：低桥侧柱等 data 指向空帧时回退会造出幽灵板。
-        let Some(frame) = drawable_frame(shp, frame_idx)
+        let allow_fallback = !has_same_image_anchor_neighbor(&anchors, &item.image_key, item.x, item.y);
+        let Some(frame_idx) = select_overlay_frame_index(shp, item.data, allow_fallback)
         else {
-            unresolved.push(*cell);
             continue;
         };
-        let Some(pal) = (match pal_kind {
-            2 => tib_pal.as_ref().or(theater_pal.as_ref()).or(unit_pal.as_ref()),
+        let hsv_key = item
+            .tib_hsv
+            .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
+            .unwrap_or(0);
+        let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key);
+        if let Some(blit) = blit_cache.get(&cache_key) {
+            items.push((item.x, item.y, blit.clone()));
+            continue;
+        }
+        if item.pal_kind == 2 {
+            if let Some(hsv) = item.tib_hsv {
+                if let Some(base) = tib_pal.as_ref().or(theater_pal.as_ref()).or(unit_pal.as_ref()) {
+                    tib_pal_cache.entry(hsv_key).or_insert_with(|| base.with_hsv_remap(hsv));
+                }
+            }
+        }
+        let pal: Option<&Palette> = match item.pal_kind {
+            2 => tib_pal_cache
+                .get(&hsv_key)
+                .or(tib_pal.as_ref())
+                .or(theater_pal.as_ref())
+                .or(unit_pal.as_ref()),
             1 => theater_pal.as_ref().or(tib_pal.as_ref()).or(unit_pal.as_ref()),
             _ => unit_pal.as_ref().or(theater_pal.as_ref()).or(tib_pal.as_ref()),
-        })
+        };
+        let Some(pal) = pal
         else {
-            unresolved.push(*cell);
+            continue;
+        };
+        let Some(frame) = shp.frames.get(usize::from(frame_idx))
+        else {
             continue;
         };
         let blit = TileBlit {
@@ -189,7 +231,7 @@ pub fn paint_map_overlays(
             rgba: frame.to_rgba(pal),
         };
         blit_cache.insert(cache_key, blit.clone());
-        items.push((cell.x, cell.y, blit));
+        items.push((item.x, item.y, blit));
     }
 
     let shp_n = paint_cell_sprites(image, &items, z_at);
@@ -197,8 +239,48 @@ pub fn paint_map_overlays(
     (shp_n, mark_n)
 }
 
-/// 选取可画帧：仅当 `preferred` 宽高非 0；空帧不回退。
-fn drawable_frame(shp: &ShpFile, preferred: u8) -> Option<&ra_assets::ShpFrame> {
-    let frame = shp.frames.get(usize::from(preferred))?;
-    (frame.frame_width > 0 && frame.frame_height > 0).then_some(frame)
+struct ResolvedOverlay {
+    x: u16,
+    y: u16,
+    data: u8,
+    image_key: String,
+    file: String,
+    pal_kind: u8,
+    tib_hsv: Option<Hsv>,
+}
+
+fn frame_drawable(shp: &ShpFile, idx: u8) -> bool {
+    shp.frames
+        .get(usize::from(idx))
+        .is_some_and(|f| f.frame_width > 0 && f.frame_height > 0)
+}
+
+fn has_same_image_anchor_neighbor(anchors: &HashSet<(String, u16, u16)>, image_key: &str, x: u16, y: u16) -> bool {
+    let key = image_key.to_string();
+    for (nx, ny) in [
+        (x.wrapping_sub(1), y),
+        (x.wrapping_add(1), y),
+        (x, y.wrapping_sub(1)),
+        (x, y.wrapping_add(1)),
+    ] {
+        if anchors.contains(&(key.clone(), nx, ny)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// 首选帧可画则用之；否则在无同图锚点邻格时回退到首个可画帧。
+fn select_overlay_frame_index(shp: &ShpFile, preferred: u8, allow_fallback: bool) -> Option<u8> {
+    if frame_drawable(shp, preferred) {
+        return Some(preferred);
+    }
+    if !allow_fallback {
+        return None;
+    }
+    shp.frames
+        .iter()
+        .enumerate()
+        .find(|(_, f)| f.frame_width > 0 && f.frame_height > 0)
+        .and_then(|(i, _)| u8::try_from(i).ok())
 }
