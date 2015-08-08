@@ -1,6 +1,7 @@
-//! 选中反馈标记：叠在预览图之上（选中环、生命条、路径点、攻击目标）。
+//! 选中反馈标记：叠在预览图之上（选中环、生命条、选中行动线）。
 //!
-//! 单位本体由底图 VXL/SHP 表达，不再为每个实体画实心菱形/方块。
+//! 单位本体由底图 VXL/SHP 表达。选中后的移动/攻击反馈用 **UnitActionLines**
+//! 风格目标线（绿移动 / 红攻击），不是自绘路径菱形或红叉。
 //! 绘制数据来自 [`crate::world::RenderWorld`]。
 
 use bytemuck::{Pod, Zeroable};
@@ -14,8 +15,17 @@ struct Vertex {
     color: [f32; 4],
 }
 
-/// 最大同时绘制的标记顶点数（每单位 6 顶点，外加选中环）。
+/// 最大同时绘制的标记顶点数。
 const MAX_VERTICES: u64 = 4096 * 6;
+
+/// `PALETTE.PAL` 全强度通道 `0xA8` 展开到 0..1（与原版目标线一致）。
+const PALETTE_CHANNEL_A8: f32 = 0xA8 as f32 / 255.0;
+/// 攻击线：palette index 8 → `#A80000`。
+const ATTACK_LINE: [f32; 4] = [PALETTE_CHANNEL_A8, 0.0, 0.0, 1.0];
+/// 移动线：palette index 3 → `#00A800`。
+const MOVE_LINE: [f32; 4] = [0.0, PALETTE_CHANNEL_A8, 0.0, 1.0];
+/// 端点盒半径（3×3）。
+const ENDPOINT_BOX_RADIUS: i32 = 1;
 
 pub struct MarkerGpu {
     pipeline: wgpu::RenderPipeline,
@@ -74,8 +84,8 @@ impl MarkerGpu {
 
     /// 从可复用 [`RenderWorld`] 写入标记顶点（屏外粗裁剪，避免上传不可见单位）。
     ///
-    /// 底图已叠 VXL/SHP 时，不再为每个实体画实心菱形/方块（会叠出「一堆无意义色块」）。
-    /// 仅对**选中**实体画选中环、生命条、路径点与攻击目标标记。
+    /// 仅对**选中**实体画选中环与生命条。若 `action_lines_active`，再画移动/攻击目标线
+    ///（攻击优先于移动。只连最终目标，不画路径中间格）。
     pub fn write_from_world(&mut self, queue: &wgpu::Queue, world: &RenderWorld, camera: &Camera, surface_w: u32, surface_h: u32) {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
@@ -87,17 +97,9 @@ impl MarkerGpu {
             let unit_visible = ndc_visible(camera.world_to_ndc(cx, cy, sw, sh), MARGIN);
             let half = if u.is_structure { 12.0 } else { 10.0 };
             if unit_visible {
-                if u.deployable {
-                    // 可部署单位（MCV 等）：部署标记 = 青绿菱形底板 + 外环，区别于普通黄环。
-                    let fill = [0.15, 0.85, 0.35, 0.55];
-                    let ring = [0.25, 1.0, 0.45, 0.98];
-                    push_diamond(&mut verts, camera, sw, sh, cx, cy, half + 2.0, fill);
-                    push_ring(&mut verts, camera, sw, sh, cx, cy, half + 6.0, 2.5, ring);
-                    push_ring(&mut verts, camera, sw, sh, cx, cy, half + 1.0, 1.5, [0.9, 1.0, 0.4, 0.9]);
-                } else {
-                    let ring = [1.0, 1.0, 0.2, 0.95];
-                    push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
-                }
+                // 选中环：一律黄环。可部署态由光标反馈，不另造色块图标。
+                let ring = [1.0, 1.0, 0.2, 0.95];
+                push_ring(&mut verts, camera, sw, sh, cx, cy, half + 4.0, 2.0, ring);
                 if u.max_health > 0 {
                     let ratio = (u.health as f32 / u.max_health as f32).clamp(0.0, 1.0);
                     let bar_w = 18.0;
@@ -108,31 +110,12 @@ impl MarkerGpu {
                     push_rect(&mut verts, camera, sw, sh, bx, by, bar_w * ratio, bar_h, [0.2, 0.9, 0.25, 0.95]);
                 }
             }
-            // 路径点：浅绿小菱形；终点：稍大青绿菱形（单位离屏时仍画可见点）。
-            let path_fill = [0.35, 0.95, 0.45, 0.75];
-            let goal_fill = [0.2, 1.0, 0.4, 0.9];
-            for &(px, py) in &u.path_waypoints_screen {
-                let (px, py) = (px as f32, py as f32);
-                if !ndc_visible(camera.world_to_ndc(px, py, sw, sh), MARGIN) {
-                    continue;
-                }
-                push_diamond(&mut verts, camera, sw, sh, px, py, 4.0, path_fill);
-                if verts.len() as u64 >= MAX_VERTICES {
-                    break;
-                }
-            }
-            if let Some((gx, gy)) = u.move_goal_screen {
-                let (gx, gy) = (gx as f32, gy as f32);
-                if ndc_visible(camera.world_to_ndc(gx, gy, sw, sh), MARGIN) {
-                    push_diamond(&mut verts, camera, sw, sh, gx, gy, 7.0, goal_fill);
-                    push_ring(&mut verts, camera, sw, sh, gx, gy, 9.0, 1.5, [0.4, 1.0, 0.55, 0.95]);
-                }
-            }
-            // 攻击标记：红色交叉叠在目标锚点上。
-            if let Some((ax, ay)) = u.attack_target_screen {
-                let (ax, ay) = (ax as f32, ay as f32);
-                if ndc_visible(camera.world_to_ndc(ax, ay, sw, sh), MARGIN) {
-                    push_attack_mark(&mut verts, camera, sw, sh, ax, ay, [1.0, 0.2, 0.15, 0.95]);
+            if world.action_lines_active && !u.is_structure {
+                // 攻击优先：有攻击目标只画红线，否则画绿移动线到最终目的地。
+                if let Some((ax, ay)) = u.attack_target_screen {
+                    push_action_line(&mut verts, camera, sw, sh, cx, cy, ax as f32, ay as f32, ATTACK_LINE);
+                } else if let Some((gx, gy)) = u.move_goal_screen {
+                    push_action_line(&mut verts, camera, sw, sh, cx, cy, gx as f32, gy as f32, MOVE_LINE);
                 }
             }
             if verts.len() as u64 >= MAX_VERTICES {
@@ -159,19 +142,52 @@ impl MarkerGpu {
     }
 }
 
-fn push_diamond(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, cy: f32, half: f32, color: [f32; 4]) {
-    let top = camera.world_to_ndc(cx, cy - half, sw, sh);
-    let right = camera.world_to_ndc(cx + half, cy, sw, sh);
-    let bottom = camera.world_to_ndc(cx, cy + half, sw, sh);
-    let left = camera.world_to_ndc(cx - half, cy, sw, sh);
-    out.extend_from_slice(&[
-        Vertex { pos: top, color },
-        Vertex { pos: right, color },
-        Vertex { pos: bottom, color },
-        Vertex { pos: top, color },
-        Vertex { pos: bottom, color },
-        Vertex { pos: left, color },
-    ]);
+fn push_action_line(
+    out: &mut Vec<Vertex>,
+    camera: &Camera,
+    sw: f32,
+    sh: f32,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+    color: [f32; 4],
+) {
+    push_endpoint_box(out, camera, sw, sh, x0, y0, color);
+    push_endpoint_box(out, camera, sw, sh, x1, y1, color);
+    push_solid_line(out, camera, sw, sh, x0, y0, x1, y1, color);
+}
+
+fn push_endpoint_box(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, cy: f32, color: [f32; 4]) {
+    for dy in -ENDPOINT_BOX_RADIUS..=ENDPOINT_BOX_RADIUS {
+        for dx in -ENDPOINT_BOX_RADIUS..=ENDPOINT_BOX_RADIUS {
+            push_pixel(out, camera, sw, sh, cx + dx as f32, cy + dy as f32, color);
+            if out.len() as u64 >= MAX_VERTICES {
+                return;
+            }
+        }
+    }
+}
+
+fn push_solid_line(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 4]) {
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    let steps = dx.abs().max(dy.abs()).ceil() as i32;
+    if steps <= 0 {
+        return;
+    }
+    let step_x = dx / steps as f32;
+    let step_y = dy / steps as f32;
+    for i in 0..steps {
+        push_pixel(out, camera, sw, sh, x0 + step_x * i as f32, y0 + step_y * i as f32, color);
+        if out.len() as u64 >= MAX_VERTICES {
+            return;
+        }
+    }
+}
+
+fn push_pixel(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, x: f32, y: f32, color: [f32; 4]) {
+    push_rect(out, camera, sw, sh, x.round(), y.round(), 1.0, 1.0, color);
 }
 
 fn push_rect(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) {
@@ -195,46 +211,6 @@ fn push_ring(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, 
     push_rect(out, camera, sw, sh, cx - outer, cy + inner, outer * 2.0, thickness, color);
     push_rect(out, camera, sw, sh, cx - outer, cy - inner, thickness, inner * 2.0, color);
     push_rect(out, camera, sw, sh, cx + inner, cy - inner, thickness, inner * 2.0, color);
-}
-
-/// 攻击标记：两条对角粗线组成的「X」。
-fn push_attack_mark(out: &mut Vec<Vertex>, camera: &Camera, sw: f32, sh: f32, cx: f32, cy: f32, color: [f32; 4]) {
-    const ARM: f32 = 10.0;
-    const THICK: f32 = 2.5;
-    push_line_quad(out, camera, sw, sh, cx - ARM, cy - ARM, cx + ARM, cy + ARM, THICK, color);
-    push_line_quad(out, camera, sw, sh, cx + ARM, cy - ARM, cx - ARM, cy + ARM, THICK, color);
-    push_ring(out, camera, sw, sh, cx, cy, 12.0, 1.5, color);
-}
-
-fn push_line_quad(
-    out: &mut Vec<Vertex>,
-    camera: &Camera,
-    sw: f32,
-    sh: f32,
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
-    thickness: f32,
-    color: [f32; 4],
-) {
-    let dx = x1 - x0;
-    let dy = y1 - y0;
-    let len = (dx * dx + dy * dy).sqrt().max(1e-3);
-    let nx = (-dy / len) * (thickness * 0.5);
-    let ny = (dx / len) * (thickness * 0.5);
-    let a = camera.world_to_ndc(x0 + nx, y0 + ny, sw, sh);
-    let b = camera.world_to_ndc(x1 + nx, y1 + ny, sw, sh);
-    let c = camera.world_to_ndc(x1 - nx, y1 - ny, sw, sh);
-    let d = camera.world_to_ndc(x0 - nx, y0 - ny, sw, sh);
-    out.extend_from_slice(&[
-        Vertex { pos: a, color },
-        Vertex { pos: b, color },
-        Vertex { pos: c, color },
-        Vertex { pos: a, color },
-        Vertex { pos: c, color },
-        Vertex { pos: d, color },
-    ]);
 }
 
 /// NDC 点是否在扩大后的可见窗内（粗裁剪 stub，非完整视锥）。

@@ -67,7 +67,6 @@ fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool) -> RenderUnit {
         selected,
         deployable: u.deployable,
         move_goal_screen: u.move_goal_screen,
-        path_waypoints_screen: u.path_waypoints_screen.clone(),
         attack_target_screen: u.attack_target_screen,
         color: anim_tint(owner_color(u.owner.as_ref()), u.anim_state),
         health: u.health,

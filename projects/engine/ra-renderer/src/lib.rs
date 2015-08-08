@@ -507,6 +507,12 @@ impl Renderer {
     /// 重开对局前清空可视槽，迫使下一帧全量同步。
     pub fn clear_match_visuals(&mut self) {
         self.render_world.clear_units();
+        self.render_world.action_lines_active = false;
+    }
+
+    /// 本帧是否绘制选中行动线（UnitActionLines 窗口）。
+    pub fn set_action_lines_active(&mut self, active: bool) {
+        self.render_world.action_lines_active = active;
     }
 
     fn begin_frame_timings(&mut self) {

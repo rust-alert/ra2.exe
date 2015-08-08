@@ -2,15 +2,16 @@
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::FntFile;
+use ra_assets::{CsfFile, FntFile};
 use ra_widgets::{
     fs_source::GameAssetSource,
-    battle_hud::{BattleHudChrome, decode_battle_hud_chrome},
+    battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
     ui_present,
+    ui_text::{command_button_csf_tooltip, resolve_csf_text},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::ui_layout::MapViewport;
+use ra_layout::{battle_hud_layout_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
 use ra_map::{MapEntityKind, StructureAnimBank, iso_to_screen, paint_structure_anims_onto_rgba};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::PresentFeel;
@@ -31,6 +32,8 @@ use super::{
 
 /// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
 const BATTLE_START_ZOOM: f32 = 1.0;
+/// 选中行动线可见时长（仿真 tick，对齐原版约 25 帧窗口）。
+const ACTION_LINES_DURATION_TICKS: u64 = 25;
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +83,10 @@ pub struct BattleController {
     test_scene: Option<String>,
     /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
     hud_chrome: Option<BattleHudChrome>,
+    /// 命令条悬停槽。
+    command_hover: Option<usize>,
+    /// 命令条按下槽（高亮）。
+    command_pressed: Option<usize>,
     /// 不含建筑活动层的预览底图。
     preview_base: Option<RgbaImage>,
     /// 建筑活动层银行。
@@ -98,6 +105,8 @@ pub struct BattleController {
     deploy_status: Option<String>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     edge_scroll_cursor: EdgeScrollCursor,
+    /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
+    action_lines_start_tick: Option<u64>,
 }
 
 impl BattleController {
@@ -122,6 +131,8 @@ impl BattleController {
             status_path,
             test_scene,
             hud_chrome: None,
+            command_hover: None,
+            command_pressed: None,
             preview_base: boot.preview_base,
             structure_anims: boot.structure_anims,
             preview_origin: boot.preview_origin,
@@ -131,6 +142,7 @@ impl BattleController {
             deploy_watch: None,
             deploy_status: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
+            action_lines_start_tick: None,
         };
         this.bind_local_start();
         this
@@ -143,16 +155,41 @@ impl BattleController {
 
     /// 选中本地开局单位（优先 MCV）。所有装载路径共用。
     fn bind_local_start(&mut self) {
-        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
-        else {
-            return;
+        let pulse_tick = {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            if let Some(id) = self.local.select_local_start(game) {
+                tracing::info!("开局已选中本方单位 #{}", id.0);
+                Some(game.world.tick)
+            }
+            else {
+                tracing::warn!("开局未找到可本方选中的移动单位");
+                None
+            }
         };
-        if let Some(id) = self.local.select_local_start(game) {
-            tracing::info!("开局已选中本方单位 #{}", id.0);
+        if let Some(tick) = pulse_tick {
+            self.pulse_action_lines_at(tick);
         }
+    }
+
+    fn pulse_action_lines_at(&mut self, tick: u64) {
+        self.action_lines_start_tick = Some(tick);
+    }
+
+    fn action_lines_active(&self) -> bool {
+        let Some(start) = self.action_lines_start_tick
         else {
-            tracing::warn!("开局未找到可本方选中的移动单位");
-        }
+            return false;
+        };
+        let tick = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .map(|g| g.world.tick)
+            .unwrap_or(start);
+        tick.saturating_sub(start) < ACTION_LINES_DURATION_TICKS
     }
 
     /// 表面尺寸就绪后对齐战术区并聚焦开局单位（可重复调用，只执行一次）。
@@ -184,6 +221,8 @@ impl BattleController {
         self.leave_armed = false;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
+        self.command_hover = None;
+        self.command_pressed = None;
         self.preview_base = boot.preview_base;
         self.structure_anims = boot.structure_anims;
         self.preview_origin = boot.preview_origin;
@@ -192,6 +231,7 @@ impl BattleController {
         self.deploy_watch = None;
         self.deploy_status = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
+        self.action_lines_start_tick = None;
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -430,6 +470,7 @@ impl BattleController {
             return;
         }
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
+        let tick = game.world.tick;
         // 先按屏幕锚点点本方单位（VXL 车身常偏离逻辑格），再回退格点选。
         let picked = game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| {
             let cell = game.image_to_cell(wx, wy)?;
@@ -442,6 +483,7 @@ impl BattleController {
                 game.pick_entity_at(cell.0, cell.1)
             }
         });
+        let mut pulse = false;
         if let Some(id) = picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
             if add {
@@ -452,12 +494,16 @@ impl BattleController {
                 self.local.select_only(game, id);
                 tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
+            pulse = true;
         }
         else if !add {
             self.local.clear();
             if let Some(cell) = game.image_to_cell(wx, wy) {
                 tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
             }
+        }
+        if pulse {
+            self.pulse_action_lines_at(tick);
         }
     }
 
@@ -518,7 +564,9 @@ impl BattleController {
             return;
         }
         self.local.apply_ids(game, &hits, add);
+        let tick = game.world.tick;
         tracing::info!("框选命中 {} 个 · {:?}", hits.len(), self.local.selected);
+        self.pulse_action_lines_at(tick);
     }
 
     fn cycle_place_mode(&mut self) {
@@ -549,6 +597,7 @@ impl BattleController {
             game.order_rally(&selected, cell.0, cell.1);
             return;
         }
+        let tick = game.world.tick;
         if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
             let hostile = selected
                 .first()
@@ -561,11 +610,13 @@ impl BattleController {
             if hostile {
                 tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
                 game.order_attack(&selected, target);
+                self.pulse_action_lines_at(tick);
                 return;
             }
         }
         tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
         game.order_move(&selected, cell.0, cell.1);
+        self.pulse_action_lines_at(tick);
     }
 
     /// 对局页输入。`accept_commands=false` 时仅允许相机与重开 / 回菜单。
@@ -579,21 +630,43 @@ impl BattleController {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
                 match state {
                     ElementState::Pressed => {
-                        let vp = self.map_viewport(window);
-                        if vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
-                            self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
-                        }
-                        else {
+                        let x = self.cursor.0 as i32;
+                        let y = self.cursor.1 as i32;
+                        if let Some(BattleHudHit::CommandButton(slot)) = self.hit_hud_at(window, x, y) {
+                            self.command_pressed = Some(slot);
                             self.left_gesture = LeftGesture::Idle;
+                        } else {
+                            self.command_pressed = None;
+                            let vp = self.map_viewport(window);
+                            if vp.contains_cursor(x, y) {
+                                self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
+                            } else {
+                                self.left_gesture = LeftGesture::Idle;
+                            }
                         }
                     }
                     ElementState::Released => {
-                        let (idle, action) = self.left_gesture.release();
-                        self.left_gesture = idle;
-                        match action {
-                            LeftReleaseAction::None => {}
-                            LeftReleaseAction::Click => self.handle_left_click(renderer, window),
-                            LeftReleaseAction::Marquee(rect) => self.handle_marquee_select(renderer, window, rect),
+                        let pressed = self.command_pressed.take();
+                        if let Some(slot) = pressed {
+                            let x = self.cursor.0 as i32;
+                            let y = self.cursor.1 as i32;
+                            if matches!(
+                                self.hit_hud_at(window, x, y),
+                                Some(BattleHudHit::CommandButton(s)) if s == slot
+                            ) {
+                                self.on_command_button(slot);
+                            }
+                            self.left_gesture = LeftGesture::Idle;
+                        } else {
+                            let (idle, action) = self.left_gesture.release();
+                            self.left_gesture = idle;
+                            match action {
+                                LeftReleaseAction::None => {}
+                                LeftReleaseAction::Click => self.handle_left_click(renderer, window),
+                                LeftReleaseAction::Marquee(rect) => {
+                                    self.handle_marquee_select(renderer, window, rect)
+                                }
+                            }
                         }
                     }
                 }
@@ -601,19 +674,22 @@ impl BattleController {
             }
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
                 self.left_gesture = LeftGesture::Idle;
+                self.command_pressed = None;
                 BattleNav::None
             }
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
                 self.left_gesture = LeftGesture::Idle;
+                self.command_pressed = None;
                 self.handle_right_click(renderer, window);
                 BattleNav::None
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x, position.y);
                 // 建造放置模式只认点选，拖拽不升为框选。
-                if accept_commands && self.place_mode.is_none() {
+                if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() {
                     self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
                 }
+                self.refresh_command_hover(window);
                 BattleNav::None
             }
             WindowEvent::MouseWheel { .. } => {
@@ -707,27 +783,46 @@ impl BattleController {
                     PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Tab) => {
-                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                        let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                            let tick = game.world.tick;
                             self.local.cycle_selection(game);
                             tracing::info!("Tab 循环选中 · {:?}", self.local.selected);
+                            tick
+                        });
+                        if let Some(tick) = pulse_tick {
+                            self.pulse_action_lines_at(tick);
                         }
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyT) => {
-                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                        let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                            let tick = game.world.tick;
                             self.local.select_same_type(game);
                             tracing::info!("同类型选中 · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
+                            tick
+                        });
+                        if let Some(tick) = pulse_tick {
+                            self.pulse_action_lines_at(tick);
                         }
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyF) => {
                         let selected = self.local.selected.clone();
-                        if let Some(&atk) = selected.first() {
-                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                                if let Some(tgt) = game.nearest_hostile(atk) {
-                                    game.order_attack(&selected, tgt);
+                        let pulse_tick = {
+                            let mut out = None;
+                            if let Some(&atk) = selected.first() {
+                                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                                    if let Some(tgt) = game.nearest_hostile(atk) {
+                                        let tick = game.world.tick;
+                                        game.order_attack(&selected, tgt);
+                                        out = Some(tick);
+                                    }
                                 }
                             }
+                            out
+                        };
+                        if let Some(tick) = pulse_tick {
+                            self.pulse_action_lines_at(tick);
                         }
                         BattleNav::None
                     }
@@ -889,6 +984,7 @@ impl BattleController {
         window: Option<&Arc<Window>>,
         screen_label: &str,
         fnt: Option<&FntFile>,
+        csf: Option<&CsfFile>,
         assets: Option<&GameAssetSource>,
         present: PresentFeel,
     ) {
@@ -940,7 +1036,8 @@ impl BattleController {
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
         self.refresh_structure_anims(renderer);
-        self.upload_battle_hud(renderer, &hud, fnt, vw, vh, present);
+        self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present);
+        renderer.set_action_lines_active(self.action_lines_active());
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
@@ -1017,11 +1114,45 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
+    fn hud_layout_for_window(&self, window: &Window) -> ra_layout::BattleHudLayout {
+        let size = window.inner_size();
+        let w = size.width.max(1);
+        let h = size.height.max(1);
+        let metrics = self
+            .hud_chrome
+            .as_ref()
+            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
+            .unwrap_or_else(BattleHudChromeMetrics::allied);
+        battle_hud_layout_with_metrics(w, h, metrics)
+    }
+
+    fn hit_hud_at(&self, window: &Window, x: i32, y: i32) -> Option<BattleHudHit> {
+        let layout = self.hud_layout_for_window(window);
+        hit_at_with_chrome(layout, self.hud_chrome.as_ref(), x, y)
+    }
+
+    fn refresh_command_hover(&mut self, window: &Window) {
+        let x = self.cursor.0 as i32;
+        let y = self.cursor.1 as i32;
+        let next = match self.hit_hud_at(window, x, y) {
+            Some(BattleHudHit::CommandButton(slot)) => Some(slot),
+            _ => None,
+        };
+        self.command_hover = next;
+    }
+
+    fn on_command_button(&mut self, slot: usize) {
+        let tip = command_button_csf_tooltip(slot).unwrap_or("?");
+        tracing::info!(slot, tip, "命令条按钮");
+        // 语义动作（编队 / 警戒 / 路径点等）随后续对局命令接线补齐；此处先保证按下高亮与可点。
+    }
+
     fn upload_battle_hud(
         &self,
         renderer: &mut Renderer,
         hud: &HudSnapshot,
         fnt: Option<&FntFile>,
+        csf: Option<&CsfFile>,
         viewport_w: u32,
         viewport_h: u32,
         present: PresentFeel,
@@ -1054,6 +1185,10 @@ impl BattleController {
         let outcome_owned = hud.outcome.as_ref().map(|o| match o {
             BattleOutcome::Victory { owner } => format!("胜 {owner}"),
         });
+        let tip_owned = self
+            .command_hover
+            .and_then(command_button_csf_tooltip)
+            .and_then(|key| resolve_csf_text(csf, key));
         let paint = BattleHudModel {
             tick: hud.tick,
             funds: local.map(|p| p.funds).unwrap_or(0),
@@ -1068,6 +1203,9 @@ impl BattleController {
             paused: hud.paused,
             pause_reason: hud.pause_reason.as_deref(),
             outcome: outcome_owned.as_deref(),
+            command_pressed: self.command_pressed,
+            command_hovered: self.command_hover,
+            command_tip: tip_owned.as_deref(),
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         let w = viewport_w.max(1);

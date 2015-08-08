@@ -146,13 +146,11 @@ pub struct SnapshotUnit {
     pub dead: bool,
     /// 是否可部署（如 MCV）；选中时呈现部署标记。
     pub deployable: bool,
-    /// 移动目标相对预览图的锚点（无目标为 `None`）。
+    /// 移动最终目标相对预览图的锚点（无目标为 `None`；供选中行动线）。
     pub move_goal_screen: Option<(i32, i32)>,
-    /// 路径点相对预览图的锚点（最多若干格，供选中单位画路径标记）。
-    pub path_waypoints_screen: Vec<(i32, i32)>,
-    /// 当前攻击目标实体（有则画攻击标记）。
+    /// 当前攻击目标实体。
     pub attack_target: Option<EntityId>,
-    /// 攻击目标相对预览图的锚点（目标已投影时带上，避免绘制时再查）。
+    /// 攻击目标相对预览图的锚点（供选中行动线终点）。
     pub attack_target_screen: Option<(i32, i32)>,
 }
 
@@ -814,15 +812,6 @@ impl BattleSession {
             let dy = m.destination_y?;
             Some(self.cell_anchor_screen(dx, dy))
         });
-        let path_waypoints_screen = movement
-            .map(|m| {
-                m.path
-                    .iter()
-                    .take(24)
-                    .map(|&(px, py)| self.cell_anchor_screen(px, py))
-                    .collect()
-            })
-            .unwrap_or_default();
         let attack_target = self.world.ecs_get::<AttackState>(id).and_then(|a| a.target);
         let attack_target_screen = attack_target.and_then(|tid| {
             let txf = self.world.ecs_get::<Transform>(tid).copied()?;
@@ -846,7 +835,6 @@ impl BattleSession {
             dead: health.dead,
             deployable,
             move_goal_screen,
-            path_waypoints_screen,
             attack_target,
             attack_target_screen,
         })
