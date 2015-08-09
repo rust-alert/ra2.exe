@@ -34,6 +34,7 @@ pub use screens::skirmish_setup;
 pub use screens::campaign_setup;
 pub use screens::startup_splash;
 pub use screens::battle_hud;
+pub use screens::battle_order_icons;
 pub use screens::battle_pause_menu;
 pub use core::load_kind;
 pub use core::menu_action;

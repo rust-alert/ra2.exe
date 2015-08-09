@@ -6,6 +6,7 @@ use ra_assets::{CsfFile, FntFile};
 use ra_widgets::{
     fs_source::GameAssetSource,
     battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
+    battle_order_icons::load_battle_order_icons,
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
     ui_present,
     ui_text::{command_button_csf_tooltip, resolve_csf_text},
@@ -83,6 +84,8 @@ pub struct BattleController {
     test_scene: Option<String>,
     /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
     hud_chrome: Option<BattleHudChrome>,
+    /// 是否已尝试装入 `mouse.shp` 命令图标。
+    order_icons_loaded: bool,
     /// 命令条悬停槽。
     command_hover: Option<usize>,
     /// 命令条按下槽（高亮）。
@@ -131,6 +134,7 @@ impl BattleController {
             status_path,
             test_scene,
             hud_chrome: None,
+            order_icons_loaded: false,
             command_hover: None,
             command_pressed: None,
             preview_base: boot.preview_base,
@@ -221,6 +225,7 @@ impl BattleController {
         self.leave_armed = false;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
+        self.order_icons_loaded = false;
         self.command_hover = None;
         self.command_pressed = None;
         self.preview_base = boot.preview_base;
@@ -1027,6 +1032,7 @@ impl BattleController {
         };
         let (hud, pending) = prepared;
         self.ensure_battle_hud_chrome(assets);
+        self.ensure_order_icons(renderer, assets);
         self.ensure_start_view(renderer);
         let (vw, vh) = window
             .map(|w| {
@@ -1071,6 +1077,32 @@ impl BattleController {
             .and_then(|s| s.battle())
             .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player))
             .map(|p| p.house.to_string())
+    }
+
+    /// 装入 `mouse.shp` 移动 / 攻击 / 部署命令图标（每局一次）。
+    fn ensure_order_icons(&mut self, renderer: &mut Renderer, assets: Option<&GameAssetSource>) {
+        if self.order_icons_loaded {
+            return;
+        }
+        self.order_icons_loaded = true;
+        let Some(source) = assets
+        else {
+            return;
+        };
+        match load_battle_order_icons(source) {
+            Some(icons) => {
+                tracing::info!(
+                    "命令图标 · move#{} attack#{} deploy#{} · {}x{}",
+                    icons.move_frames.len(),
+                    icons.attack_frames.len(),
+                    icons.deploy_frames.len(),
+                    icons.canvas_w,
+                    icons.canvas_h
+                );
+                renderer.set_order_icons(icons);
+            }
+            None => tracing::warn!("命令图标装入失败 · 缺少 mouse.shp / mousepal.pal"),
+        }
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。

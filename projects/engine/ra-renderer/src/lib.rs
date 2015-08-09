@@ -17,6 +17,7 @@ mod capture;
 mod frame;
 mod gpu;
 mod markers;
+mod order_icons;
 mod pass;
 mod png_out;
 mod resources;
@@ -33,7 +34,7 @@ use winit::window::Window;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
 
-use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, sprite::SpriteGpu};
+use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, order_icons::OrderIconGpu, sprite::SpriteGpu};
 
 /// 2D 视口相机：平移与缩放，供外部读取或调整视角。
 pub use crate::camera::Camera as ViewCamera;
@@ -45,6 +46,8 @@ pub use crate::frame::FrameBuilder;
 pub use crate::gpu::encoded_view_formats;
 /// NDC 粗裁剪（marker stub）。
 pub use crate::markers::ndc_visible;
+/// 命令图标 CPU 解码结果（`mouse.shp` 帧）。
+pub use crate::order_icons::DecodedOrderIcons;
 /// 渲染阶段图。
 pub use crate::pass::{PassGraph, RenderPassKind};
 /// RGBA → PNG 字节。
@@ -88,6 +91,10 @@ pub struct Renderer {
     /// 对局叠加时应为战术区（侧栏以左），与命中、`CameraBounds` 同口径。
     world_view: Option<(u32, u32, u32, u32)>,
     markers: Option<MarkerGpu>,
+    /// `mouse.shp` 命令图标图集（移动 / 攻击 / 部署）。
+    order_icons: Option<OrderIconGpu>,
+    /// GPU 未就绪时暂存的命令图标。
+    pending_order_icons: Option<DecodedOrderIcons>,
     /// 下一帧 `submit_frame` 结束后做表面回读。
     capture_pending: bool,
     /// 最近一次成功截图（RGBA）。
@@ -119,6 +126,8 @@ impl Renderer {
             ui_overlay: false,
             world_view: None,
             markers: None,
+            order_icons: None,
+            pending_order_icons: None,
             capture_pending: false,
             last_capture: None,
             capture_error: None,
@@ -330,7 +339,22 @@ impl Renderer {
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
         self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
+        if let Some(icons) = self.pending_order_icons.take() {
+            self.order_icons = OrderIconGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &icons);
+        }
         self.gpu = Some(gpu);
+    }
+
+    /// 装入 `mouse.shp` 命令图标（移动 / 攻击 / 部署）。GPU 未就绪时暂存。
+    pub fn set_order_icons(&mut self, icons: DecodedOrderIcons) {
+        if let Some(gpu) = self.gpu.as_ref() {
+            self.order_icons = OrderIconGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &icons);
+            self.pending_order_icons = None;
+        }
+        else {
+            self.pending_order_icons = Some(icons);
+            self.order_icons = None;
+        }
     }
 
     /// 当前 GPU 后端标签（未附着时为 `None`）。
@@ -602,6 +626,21 @@ impl Renderer {
                 markers.clear();
             }
         }
+        if let Some(icons) = self.order_icons.as_mut() {
+            let draw_icons = self.render_world.unit_count() > 0 && (overlay || self.ui_sprite.is_none());
+            if draw_icons {
+                icons.write_from_world(
+                    &gpu.queue,
+                    &self.render_world,
+                    &self.camera,
+                    world_proj.0,
+                    world_proj.1,
+                );
+            }
+            else {
+                icons.clear();
+            }
+        }
 
         let clear = if encoded_menu_ui { wgpu::Color::BLACK } else { CLEAR_COLOR };
         let submit_start = std::time::Instant::now();
@@ -635,6 +674,11 @@ impl Renderer {
                 if let Some(markers) = self.markers.as_ref() {
                     if self.render_world.unit_count() > 0 {
                         markers.draw(&mut pass);
+                    }
+                }
+                if let Some(icons) = self.order_icons.as_ref() {
+                    if self.render_world.unit_count() > 0 {
+                        icons.draw(&mut pass);
                     }
                 }
             }
@@ -677,6 +721,11 @@ impl Renderer {
             if let Some(markers) = self.markers.as_ref() {
                 if self.ui_sprite.is_none() && self.render_world.unit_count() > 0 {
                     markers.draw(&mut pass);
+                }
+            }
+            if let Some(icons) = self.order_icons.as_ref() {
+                if self.ui_sprite.is_none() && self.render_world.unit_count() > 0 {
+                    icons.draw(&mut pass);
                 }
             }
         }

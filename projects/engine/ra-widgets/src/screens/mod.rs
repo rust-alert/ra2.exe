@@ -6,6 +6,7 @@ pub mod skirmish_setup;
 pub mod campaign_setup;
 pub mod startup_splash;
 pub mod battle_hud;
+pub mod battle_order_icons;
 pub mod battle_pause_menu;
 
 pub use page::*;
