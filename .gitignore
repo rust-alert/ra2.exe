@@ -34,7 +34,14 @@ __pycache__/
 # 本地启动配置（保留 RustAlert.toml.example）
 RustAlert.toml
 
-# 关键页验收截图（F12 / 自动测试 dump，勿提交）
+# 本机探查 / 截图 / 临时导出（禁止入库，也不跑 CI）
+_tmp_*/
+_tmp_*
+**/tests/diag_*.rs
+**/examples/diag_*.rs
+**/examples/_tmp_*.rs
+**/examples/tmp_*.rs
+
+# 壳页验收截图（F12 / 自动测试 dump，勿提交）
 screenshots/
 **/screenshots/
-
