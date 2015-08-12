@@ -9,7 +9,7 @@ use crate::ResourceChain;
 
 /// 一局装载用的规则快照。
 #[derive(Debug, Clone)]
-pub struct RulesDb {
+pub struct RulesSystem {
     /// 规则来源对应的 `GameEdition`。
     pub edition: GameEdition,
     /// 解析后的 `rules` INI 文档。
@@ -29,7 +29,7 @@ pub struct RulesDb {
 }
 
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
-pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesDb> {
+pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
     let rules_bytes = source.read(chain.rules_ini)?;
     let rules = IniDocument::parse(&rules_bytes).map_err(|e| {
         ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len()))
@@ -43,7 +43,7 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = TechnoTypeRegistry::from_rules(&rules);
     let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    Ok(RulesDb {
+    Ok(RulesSystem {
         edition: chain.edition,
         rules,
         art,
@@ -55,6 +55,6 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     })
 }
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。
-pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<RulesDb> {
+pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<RulesSystem> {
     load_rules_chain(source, &ResourceChain::for_edition(edition))
 }

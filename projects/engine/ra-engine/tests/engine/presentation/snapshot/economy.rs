@@ -1,8 +1,8 @@
 //! 快照中的经济与生产队列。
 
 use crate::common::test_engine;
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{CommandRejectReason, GameCommand, BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
@@ -15,12 +15,13 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     };

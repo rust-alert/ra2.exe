@@ -1,7 +1,7 @@
 //! 弹头 Verses 相对护甲结算伤害。
 
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{GameCommand, BattleState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -18,12 +18,13 @@ fn verses_scales_damage_against_armor() {
     .unwrap();
     let techno_types = TechnoTypeRegistry::from_rules(&doc);
     let warheads = WarheadRegistry::from_names(&doc, techno_types.iter().map(|t| t.warhead.as_str()));
-    let rules = RulesDb {
+    let rules = RulesSystem {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types,
         warheads,
     };

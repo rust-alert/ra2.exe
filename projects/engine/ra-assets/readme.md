@@ -11,7 +11,7 @@ flowchart TB
     shell[壳层 GameAssetSource]
     trait[AssetSource trait]
     assets[ra-assets 解析器]
-    ad[ra-adaptor RulesDb]
+    ad[ra-adaptor RulesSystem]
     map[ra-map 地图段]
     eng[ra-engine 内容消费]
 
@@ -73,7 +73,7 @@ flowchart LR
 `IniDocument` 解析 `;` 注释、`[section]`、`key=value`，保留插入顺序供地图 IsoMapPack 拼接。`numbered_section_concat` 将节内数字键按
 **数值**排序后拼接值，避免 `1,10,2` 字典序错误。
 
-从 rules INI 派生的注册表（供 `ra-adaptor::RulesDb` 使用）：
+从 rules INI 派生的注册表（供 `ra-adaptor::RulesSystem` 使用）：
 
 | 类型                  | 用途                       |
 |-----------------------|----------------------------|

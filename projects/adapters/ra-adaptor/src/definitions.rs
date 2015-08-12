@@ -1,4 +1,4 @@
-//! 从 `RulesDb` / INI 解释生成冻结 [`RuntimeDefinitions`]。
+//! 从 `RulesSystem` / INI 解释生成冻结 [`RuntimeDefinitions`]。
 //!
 //! 引擎不得再按外部类型名猜测电力、工厂、部署关系。
 
@@ -8,10 +8,10 @@ use ra_types::{
     StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
 };
 
-use crate::RulesDb;
+use crate::RulesSystem;
 
 /// 由已装载规则快照构建冻结运行时定义。
-pub fn build_runtime_definitions(rules: &RulesDb) -> RuntimeDefinitions {
+pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     let mut defs = RuntimeDefinitions::default();
     let mut next_id = 1u32;
     let mut alloc = || {

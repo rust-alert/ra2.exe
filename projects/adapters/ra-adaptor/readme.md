@@ -1,7 +1,7 @@
 # ra-adaptor
 
 本 crate 负责 **按安装布局识别游戏版本、组合扩展能力、装配统一资源表，并按资源链装载规则数据库**。它是内容进入 **
-`ra-engine`** 之前的编排层：把磁盘上的 MIX 与 INI 文件名映射成可执行的 `ResourceChain` 与 `RulesDb`，再交给桌面壳挂载与开局。
+`ra-engine`** 之前的编排层：把磁盘上的 MIX 与 INI 文件名映射成可执行的 `ResourceChain` 与 `RulesSystem`，再交给桌面壳挂载与开局。
 
 **硬边界**：本 crate **不依赖** `ra-engine`，也不持有对局 tick 或实体状态。冻结的运行时定义契约经 **`ra-types::RuntimeDefinitions`**
 单向流入引擎；adaptor 只产出规则快照与版本元数据，不参与仿真推进。
@@ -41,8 +41,8 @@ sequenceDiagram
     Desk ->> As: MixVfs 挂载（壳层执行）
     Desk ->> Ad: load_rules_chain(AssetSource)
     Ad ->> As: IniDocument / 派生表
-    Ad -->> Desk: RulesDb
-    Desk ->> Eng: open_skirmish_session(RulesDb, …)
+    Ad -->> Desk: RulesSystem
+    Desk ->> Eng: open_skirmish_session(RulesSystem, …)
 ```
 
 - **本层做**：版本消歧、`ResourceChain` 装配、根 MIX 存在性扫描、大小写不敏感路径查找、规则 INI 装载。
@@ -94,9 +94,9 @@ root 不是目录？ → Io("游戏目录不存在")
 各 edition 的 `ResourceProfile` 类型 **同形但分别定义**，避免 adaptor 编排层与 profile crate 形成循环依赖；映射函数
 `from_ra2` / `from_yr` / `from_phobos` 将静态表抄入 `ResourceChain`。
 
-## `RulesDb` 与规则装载
+## `RulesSystem` 与规则装载
 
-`RulesDb` 是一局启动用的规则快照：
+`RulesSystem` 是一局启动用的规则快照：
 
 | 字段            | 来源                     |
 |-----------------|--------------------------|
@@ -110,14 +110,14 @@ root 不是目录？ → Io("游戏目录不存在")
 flowchart LR
     src[AssetSource.read]
     ini[ra-assets IniDocument]
-    db[RulesDb]
+    db[RulesSystem]
     src --> ini --> db
 ```
 
 - **`load_rules_chain(source, chain)`**：显式资源链入口，适配组合装配后的调用方。
 - **`load_rules(source, edition)`**：兼容旧 API，内部先 `ResourceChain::for_edition` 再调用 `load_rules_chain`。
 
-遭遇战开局由 `ra-engine::open_skirmish_session` 消费 `RulesDb` 与地图信息；adaptor 本身不构造 `World`。
+遭遇战开局由 `ra-engine::open_skirmish_session` 消费 `RulesSystem` 与地图信息；adaptor 本身不构造 `World`。
 
 ## 可组合适配栈
 
@@ -139,7 +139,7 @@ flowchart TB
 `CapabilityReport` 记录已探测但引擎尚未实现的能力（如某扩展特性）， **不得静默忽略**。`AdaptorStack::from_edition` 可从历史互斥
 `GameEdition` 推导初始栈；`to_edition` 在扩展细节不完全保留时映射回当前仍在用的枚举值。
 
-冻结定义与 adaptor 输出的衔接经 **`ra-types::RuntimeDefinitions`**：`RulesDb` 中的 techno / overlay 等投影最终会收敛为引擎消费的不可变契约，避免引擎反向引用
+冻结定义与 adaptor 输出的衔接经 **`ra-types::RuntimeDefinitions`**：`RulesSystem` 中的 techno / overlay 等投影最终会收敛为引擎消费的不可变契约，避免引擎反向引用
 adaptor 内部类型。
 
 ## `EditionManifest` 与 `find_ci_file`
@@ -190,7 +190,7 @@ pnpm exec ra2 unpack --path "C:/Games/RA2" --out ./tmp/unpack
 DesktopConfig → GameEdition::parse(可选)
 → detect_edition(root, explicit)
 → mount_bytes / mount_nested（壳层）
-→ load_rules_chain → RulesDb
+→ load_rules_chain → RulesSystem
 → open_skirmish_session（ra-engine）
 ```
 

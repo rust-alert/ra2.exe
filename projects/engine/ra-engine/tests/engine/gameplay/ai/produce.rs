@@ -1,8 +1,8 @@
 //! AI 放置兵营并生产步兵。
 
 use crate::common::test_engine;
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -20,12 +20,13 @@ fn ai_places_barracks_and_produces_infantry() {
 [NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Soviets\nStrength=500\nSight=5\nCost=500\nArmor=wood\n",
     )
     .unwrap();
-    let rules = RulesDb {
+    let rules = RulesSystem {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
     };

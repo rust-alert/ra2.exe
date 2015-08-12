@@ -178,7 +178,7 @@ pub trait AssetSource {
 |----------------------------------|----------------------|
 | MIX / SHP / TMP / VXL / INI 解析 | `ra-assets`          |
 | 安装目录探测                     | `ra-adaptor`         |
-| `RulesDb` 装载                   | `ra-adaptor`         |
+| `RulesSystem` 装载                   | `ra-adaptor`         |
 | 地图 IsoMapPack                  | `ra-map`             |
 | GPU / 窗口                       | `ra-renderer` / 壳层 |
 | 对局 tick / 命令                 | **`ra-engine`**      |

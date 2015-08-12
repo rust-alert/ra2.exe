@@ -176,7 +176,7 @@ cargo test -p ra-testing
 | `gui`         | `GuiAutomationPlan`, `GuiAction`, …       | GUI 测试 DSL        |
 | `status`      | `TestStatus`                              | 旁路文件解析        |
 
-Headless 夹具在内部构造最小 `IniDocument`、`RulesDb`、`MapInfo` 与实体列表，逻辑与 `ra-engine` tests 共享同一
+Headless 夹具在内部构造最小 `IniDocument`、`RulesSystem`、`MapInfo` 与实体列表，逻辑与 `ra-engine` tests 共享同一
 `open_skirmish_session` 或等价路径，避免「测试版 World」。
 
 ### 确定性约定

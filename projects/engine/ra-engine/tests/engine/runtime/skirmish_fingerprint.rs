@@ -1,19 +1,20 @@
 //! 遭遇战开局指纹：规则字节必须真实可读，禁止空字节污染身份。
 
-use ra_adaptor::{ResourceChain, RulesDb};
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::{ResourceChain, RulesSystem};
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::MapInfo;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
-fn minimal_rules() -> RulesDb {
+fn minimal_rules() -> RulesSystem {
     let rules = IniDocument::parse(b"[BuildingTypes]\n0=GACNST\n[GACNST]\nConstructionYard=yes\nStrength=1000\n").expect("测试 INI 必须有效");
-    RulesDb {
+    RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     }

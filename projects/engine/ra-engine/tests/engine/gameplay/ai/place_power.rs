@@ -1,8 +1,8 @@
 //! AI 经 PlaceBuilding 放置电厂。
 
 use crate::common::test_engine;
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -17,12 +17,13 @@ fn ai_places_power_near_yard() {
 [NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\n",
     )
     .unwrap();
-    let rules = RulesDb {
+    let rules = RulesSystem {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
     };

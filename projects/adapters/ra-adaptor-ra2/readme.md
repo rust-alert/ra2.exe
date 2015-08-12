@@ -91,7 +91,7 @@ flowchart TB
 | `sound_ini` | `sound.ini` |
 | `exe_name`  | `game.exe`  |
 
-`RulesDb` 经 `ra-adaptor::load_rules_chain` 读取 rules + art 并派生 techno / overlay 等表，供 **
+`RulesSystem` 经 `ra-adaptor::load_rules_chain` 读取 rules + art 并派生 techno / overlay 等表，供 **
 `ra-engine::open_skirmish_session`** 使用。`ui.ini` / `sound.ini` 已在表中，加载器尚未消费——预留扩展位。
 
 ## `looks_like`

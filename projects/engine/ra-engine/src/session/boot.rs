@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesDb};
+use ra_adaptor::{ResourceChain, RulesSystem};
 use ra_map::{MapInfo, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
@@ -25,7 +25,7 @@ pub struct SkirmishOpenResult {
     pub note: String,
 }
 
-/// 从已装载的 `RulesDb` 与地图打开一局遭遇战会话。
+/// 从已装载的 `RulesSystem` 与地图打开一局遭遇战会话。
 ///
 /// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
 /// - `ensure_houses` 中的阵营一律登记进玩家表（遭遇战对手不一定出现在地图放置段）。
@@ -34,7 +34,7 @@ pub struct SkirmishOpenResult {
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
-    rules: &RulesDb,
+    rules: &RulesSystem,
     map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),

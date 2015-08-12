@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{Engine, EngineConfig, BattleState};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
@@ -16,18 +16,19 @@ pub fn test_engine() -> Engine {
 }
 
 /// 含 MTNK 坦克类型的最小规则库（Strength=400）。
-pub fn rules_with_mtnk() -> RulesDb {
+pub fn rules_with_mtnk() -> RulesSystem {
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n",
     )
     .unwrap();
-    RulesDb {
+    RulesSystem {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
     }
@@ -46,12 +47,13 @@ pub fn duel_mtnk_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     };

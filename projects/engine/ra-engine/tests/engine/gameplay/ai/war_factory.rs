@@ -1,8 +1,8 @@
 //! AI 放置战车工厂并生产载具。
 
 use crate::common::test_engine;
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -20,12 +20,13 @@ fn ai_places_war_factory_and_produces_tank() {
 [NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Soviets\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n",
     )
     .unwrap();
-    let rules = RulesDb {
+    let rules = RulesSystem {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
     };

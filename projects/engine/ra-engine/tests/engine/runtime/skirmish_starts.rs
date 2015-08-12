@@ -1,12 +1,12 @@
 //! 遭遇战开局：席位航点放置 MCV。
 
-use ra_adaptor::{ResourceChain, RulesDb};
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::{ResourceChain, RulesSystem};
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::{MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
-fn mcv_rules() -> RulesDb {
+fn mcv_rules() -> RulesSystem {
     let rules = IniDocument::parse(
         b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n\
@@ -16,12 +16,13 @@ fn mcv_rules() -> RulesDb {
 [NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",
     )
     .expect("测试 INI 必须有效");
-    RulesDb {
+    RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     }

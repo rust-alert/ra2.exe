@@ -2,7 +2,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use ra_adaptor::{RulesDb, build_runtime_definitions};
+use ra_adaptor::{RulesSystem, build_runtime_definitions};
 use ra_assets::TechnoKind;
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass, Tick};
@@ -107,7 +107,7 @@ pub struct BattleState {
 
 impl BattleState {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
-    pub fn new(edition: GameEdition, rules: &RulesDb, map: MapInfo) -> Self {
+    pub fn new(edition: GameEdition, rules: &RulesSystem, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);
         let definitions = Arc::new(build_runtime_definitions(rules));
         let mut next_entity_id = 1u64;

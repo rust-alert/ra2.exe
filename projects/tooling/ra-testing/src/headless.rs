@@ -1,7 +1,7 @@
 //! 无窗口遭遇战夹具。
 
-use ra_adaptor::RulesDb;
-use ra_assets::{ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use std::sync::Arc;
 
 use ra_engine::{Engine, EngineConfig, GameCommand, BattleOutcome, BattleState, RenderSnapshot, Session};
@@ -77,12 +77,13 @@ pub fn standard_duel() -> HeadlessCase {
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     };
@@ -124,12 +125,13 @@ pub fn mcv_deploy_open() -> HeadlessCase {
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     };
@@ -163,12 +165,13 @@ pub fn yard_open() -> HeadlessCase {
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
 [E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     };
@@ -211,12 +214,13 @@ pub fn ai_skirmish_open() -> HeadlessCase {
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
     let techno_types = TechnoTypeRegistry::from_rules(&rules);
     let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    let rules_db = RulesDb {
+    let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
         techno_types,
         warheads,
     };
