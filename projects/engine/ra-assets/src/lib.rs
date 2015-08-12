@@ -54,6 +54,7 @@ pub use mix::{
 };
 pub use rules::{
     color_schemes::ColorSchemes,
+    countries::{CountryDef, CountryRegistry, SideGroup},
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
     overlay::OverlayTypeRegistry,
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
