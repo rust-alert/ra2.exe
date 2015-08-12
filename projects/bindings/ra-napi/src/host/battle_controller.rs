@@ -102,7 +102,7 @@ pub struct BattleController {
     last_anim_sig: u64,
     /// 开局镜头尚未按战术区对齐（等表面尺寸可用后再 `focus`）。
     start_view_pending: bool,
-    /// 等待本 tick 结算的部署实体（`KeyX` 下发后）。
+    /// 等待本 tick 结算的部署实体（`KeyD` 下发后）。
     deploy_watch: Option<ra_types::EntityId>,
     /// 最近一次部署结果文案（成功或拒绝）。
     deploy_status: Option<String>,
@@ -769,19 +769,20 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => {
+                    // 镜头平移只用方向键；原版无 WASD 移动，且 D/X 留给部署/警戒。
+                    PhysicalKey::Code(KeyCode::ArrowLeft) => {
                         self.pan_world(renderer, window, 48.0, 0.0);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => {
+                    PhysicalKey::Code(KeyCode::ArrowRight) => {
                         self.pan_world(renderer, window, -48.0, 0.0);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => {
+                    PhysicalKey::Code(KeyCode::ArrowUp) => {
                         self.pan_world(renderer, window, 0.0, 48.0);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => {
+                    PhysicalKey::Code(KeyCode::ArrowDown) => {
                         self.pan_world(renderer, window, 0.0, -48.0);
                         BattleNav::None
                     }
@@ -831,7 +832,7 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyX) => {
+                    PhysicalKey::Code(KeyCode::KeyD) => {
                         let selected = self.local.selected.clone();
                         if let Some(&id) = selected.first() {
                             self.deploy_watch = Some(id);
@@ -841,6 +842,11 @@ impl BattleController {
                             tracing::info!("部署选中 · {:?}", selected);
                             game.order_deploy(&selected);
                         }
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyX) => {
+                        // 原版：警戒。引擎命令尚未接线，仅占位避免误绑到部署。
+                        tracing::info!("警戒 · 尚未接线 · {:?}", self.local.selected);
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyB) => {
@@ -1211,7 +1217,7 @@ impl BattleController {
             .selected
             .first()
             .copied()
-            .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("X→{t}"))));
+            .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let outcome_owned = hud.outcome.as_ref().map(|o| match o {
