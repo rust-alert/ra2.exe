@@ -223,6 +223,128 @@ pub fn paint_structure_anims_onto_rgba(
     n
 }
 
+/// 建筑一次性 Buildup 序列（MCV 展开 / 放置建造等）。
+#[derive(Debug, Clone)]
+pub struct StructureBuildupClip {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 格子高度。
+    pub cell_z: u8,
+    /// 毫秒/帧。
+    pub rate_ms: u32,
+    /// 按播放顺序的已解码帧。
+    pub frames: Vec<TileBlit>,
+}
+
+impl StructureBuildupClip {
+    /// 按已过毫秒取当前帧下标；播完返回 `None`。
+    pub fn frame_at(&self, elapsed_ms: u64) -> Option<usize> {
+        buildup_frame_index(elapsed_ms, self.rate_ms, self.frames.len())
+    }
+}
+
+/// Buildup 一次性选帧：`elapsed / rate`；越界表示播完。
+pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) -> Option<usize> {
+    if frame_count == 0 {
+        return None;
+    }
+    let rate = u64::from(rate_ms.max(1));
+    let idx = (elapsed_ms / rate) as usize;
+    if idx >= frame_count {
+        None
+    } else {
+        Some(idx)
+    }
+}
+
+/// 从 art `Buildup=` 装入一次性展开序列。无 `Buildup` 或资源缺失时返回 `None`。
+pub fn load_structure_buildup_clip(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    art_ini: &str,
+    type_id: &str,
+    owner: &str,
+    x: u16,
+    y: u16,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+) -> Option<StructureBuildupClip> {
+    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok())?;
+    let art_section = resolve_art_section(Some(&art), type_id);
+    let buildup_key = art.get(&art_section, "Buildup")?.to_ascii_uppercase();
+    let parent_new_theater = art.get(&art_section, "NewTheater").is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    // 无独立 `[GACNSTMK]` 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
+    let image_key = art.get(&buildup_key, "Image").unwrap_or(buildup_key.as_str()).to_ascii_uppercase();
+    let new_theater = art
+        .get(&buildup_key, "NewTheater")
+        .map(|v| v.eq_ignore_ascii_case("yes"))
+        .unwrap_or(parent_new_theater);
+    let rate_ms = art.get(&buildup_key, "Rate").and_then(parse_u32).unwrap_or(100);
+    let remapable = is_remapable(Some(&art), &art_section, true);
+    let obj_pal = load_object_palette(source, map)?;
+    let pal = if remapable { remap_owner(&obj_pal, owner) } else { obj_pal };
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let shp = load_shp(source, map, &image_key, new_theater, &mut shp_cache)?;
+    let mut frames = Vec::with_capacity(shp.frames.len());
+    for i in 0..shp.frames.len() {
+        let Some(blit) = frame_to_blit(shp, i as u16, 0, &pal)
+        else {
+            continue;
+        };
+        if blit.width == 0 || blit.height == 0 {
+            continue;
+        }
+        frames.push(blit);
+    }
+    if frames.is_empty() {
+        return None;
+    }
+    let cell_z = map
+        .cells
+        .iter()
+        .find(|c| c.x == x as i16 && c.y == y as i16)
+        .map(|c| c.z)
+        .unwrap_or(0);
+    Some(StructureBuildupClip { x, y, cell_z, rate_ms, frames })
+}
+
+/// 把 Buildup 某一帧叠到 RGBA 预览。
+pub fn paint_structure_buildup_onto_rgba(
+    image: &mut image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    clip: &StructureBuildupClip,
+    frame_idx: usize,
+) -> bool {
+    let Some(blit) = clip.frames.get(frame_idx)
+    else {
+        return false;
+    };
+    let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
+    let items = vec![(clip.x, clip.y, blit.clone())];
+    let z = clip.cell_z;
+    paint_cell_sprites(&mut terrain, &items, |_, _| z);
+    *image = terrain.image;
+    true
+}
+
+/// 在已有 RGBA 上叠建筑主体（`BodyOnly`）。
+pub fn paint_structures_onto_rgba(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    image: &mut image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    art_ini: &str,
+    remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+) -> usize {
+    let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
+    let n = paint_map_structures(source, map, &mut terrain, art_ini, remap_owner, StructureAnimMode::BodyOnly);
+    *image = terrain.image;
+    n
+}
+
 fn paint_map_structures_inner(
     source: &dyn AssetSource,
     map: &MapInfo,
