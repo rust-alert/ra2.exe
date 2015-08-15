@@ -7,7 +7,7 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     battle_hud::{BattleHudChrome, blit_battle_hud_chrome},
-    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES, LOBBY_SIDES},
+    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES},
     ui_decode::{DecodedUiSprite, PageDecodeReport},
     ui_text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,

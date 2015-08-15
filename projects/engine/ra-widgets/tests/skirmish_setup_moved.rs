@@ -3,6 +3,19 @@
 use ra_widgets::skirmish_setup::*;
 use ra_layout::ui_layout::{RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, skirmish_lobby_layout};
 
+fn sample_sides() -> Vec<String> {
+    ["Americans", "French", "Germans", "British", "Russians"]
+        .into_iter()
+        .map(str::to_string)
+        .collect()
+}
+
+fn lobby_with_sides() -> SkirmishBootRequest {
+    let mut s = SkirmishBootRequest::default_lobby();
+    s.set_lobby_sides(sample_sides());
+    s
+}
+
 /// 下拉仅右侧箭头可切换（与壳层 `dnarrow` 命中一致）。
 fn combo_arrow_point(face: RectPx) -> (i32, i32) {
     let w = SKIRMISH_COMBO_ARROW_RESERVE.min(face.w.max(0));
@@ -18,12 +31,13 @@ fn default_options_match_retail_defaults() {
     assert_eq!(s.credits, 10_000);
     assert_eq!(s.unit_count, 10);
     assert_eq!(s.player_name, "Player");
+    assert!(s.sides.is_empty());
 }
 
 #[test]
 fn checkbox_toggle_and_track_drag() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     let r = layout.checkboxes[0];
     assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2, 1), Some(SkirmishLobbyHit::Toggle(SkirmishCheckbox::ShortGame)));
     assert!(!s.short_game);
@@ -38,12 +52,12 @@ fn checkbox_toggle_and_track_drag() {
 #[test]
 fn side_face_click_opens_country_combo() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     assert_eq!(s.side, "Americans");
     let (ax, ay) = combo_arrow_point(layout.side_faces[0]);
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.open_combo, Some(SkirmishComboKind::Country));
-    let list = SkirmishBootRequest::country_list_rect(&layout, 0);
+    let list = SkirmishBootRequest::country_list_rect(&layout, 0, s.sides.len());
     // 第三项 Germans，避免与默认行 1（French）撞名。
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
@@ -56,7 +70,7 @@ fn side_face_click_opens_country_combo() {
 #[test]
 fn color_face_click_opens_color_combo() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     assert_eq!(s.color_index, 0);
     let (ax, ay) = combo_arrow_point(layout.color_faces[0]);
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleColorCombo));
@@ -73,13 +87,13 @@ fn color_face_click_opens_color_combo() {
 #[test]
 fn ai_row_country_pick_does_not_change_local_side() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     assert_eq!(s.row_side(0), "Americans");
     assert_eq!(s.row_side(1), "French");
     let (ax, ay) = combo_arrow_point(layout.side_faces[1]);
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleCountryCombo));
     assert_eq!(s.combo_row, 1);
-    let list = SkirmishBootRequest::country_list_rect(&layout, 1);
+    let list = SkirmishBootRequest::country_list_rect(&layout, 1, s.sides.len());
     let y = list.y + SKIRMISH_COMBO_FACE_H * 2 + 2;
     assert_eq!(s.on_press(&layout, list.x + 2, y, 1), Some(SkirmishLobbyHit::PickCountry(2)));
     assert_eq!(s.row_side(1), "Germans");
@@ -90,7 +104,7 @@ fn ai_row_country_pick_does_not_change_local_side() {
 #[test]
 fn ai_face_click_opens_difficulty_combo() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     assert_eq!(s.difficulty, "Normal");
     let (ax, ay) = combo_arrow_point(layout.ai_faces[0]);
     assert_eq!(s.on_press(&layout, ax, ay, 1), Some(SkirmishLobbyHit::ToggleAiCombo));
@@ -107,7 +121,7 @@ fn ai_face_click_opens_difficulty_combo() {
 #[test]
 fn ai_face_ignored_when_map_has_no_ai_rows() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     let (ax, ay) = combo_arrow_point(layout.ai_faces[0]);
     assert_eq!(s.on_press(&layout, ax, ay, 0), None);
     assert!(s.open_combo.is_none());
@@ -116,7 +130,7 @@ fn ai_face_ignored_when_map_has_no_ai_rows() {
 #[test]
 fn player_name_edit_accepts_ascii_and_backspace() {
     let layout = skirmish_lobby_layout(800, 600);
-    let mut s = SkirmishBootRequest::default_lobby();
+    let mut s = lobby_with_sides();
     let r = layout.player_name;
     assert_eq!(s.on_press(&layout, r.x + 2, r.y + 2, 1), Some(SkirmishLobbyHit::FocusName));
     assert!(s.player_name_editing);
@@ -142,6 +156,8 @@ fn player_name_edit_accepts_ascii_and_backspace() {
 fn americans_flag_pcx() {
     assert_eq!(side_flag_pcx("Americans"), "usai.pcx");
     assert_eq!(side_flag_pcx("Russians"), "rusi.pcx");
+    assert_eq!(side_flag_pcx("Alliance"), "japi.pcx");
+    assert_eq!(side_flag_pcx("YuriCountry"), "yrii.pcx");
 }
 
 #[test]

@@ -7,10 +7,6 @@ use ra_layout::ui_layout::{
     SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
 };
 
-/// 大厅可选阵营短名（写入装载请求；遭遇战会登记进玩家表，不要求地图实体已有同名 owner）。
-/// 旗标 PCX 取自 `local.mix` 已证实文件名。
-pub const LOBBY_SIDES: &[&str] = &["Americans", "French", "Germans", "British", "Russians"];
-
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
@@ -29,7 +25,18 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
 /// 玩家名最大字符数（零售 Handle 常见上限）。
 pub const PLAYER_NAME_MAX_CHARS: usize = 12;
 
-/// 阵营 → 对局侧栏嵌套包（盟军 `sidec01` / 苏军 `sidec02`）。
+/// 势力 id（`Side=` / `[Sides]` 键）→ 对局侧栏嵌套包。
+pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
+    match faction.trim().to_ascii_uppercase().as_str() {
+        "GDI" => "sidec01.mix",
+        "NOD" | "THIRDSIDE" => "sidec02.mix",
+        _ => "sidec01.mix",
+    }
+}
+
+/// 阵营 → 对局侧栏嵌套包（盟军 `sidec01` / 苏军·尤里 `sidec02`）。
+///
+/// 优先按已知国家名；未知时回退盟军盘。产品路径应尽量走 [`sidebar_chrome_mix_for_faction`]。
 pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     match side {
         "Russians" | "Confederation" | "Cuba" | "Cubans" | "Arabs" | "Iraq" | "Iraqis" | "Africans" | "Libya"
@@ -38,7 +45,7 @@ pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     }
 }
 
-/// 阵营 → 安装内旗标 PCX（`local.mix` 证据）。
+/// 阵营 → 安装内旗标 PCX（`local.mix` 常见文件名）。
 pub fn side_flag_pcx(side: &str) -> &'static str {
     match side {
         "Americans" => "usai.pcx",
@@ -46,6 +53,11 @@ pub fn side_flag_pcx(side: &str) -> &'static str {
         "Germans" => "geri.pcx",
         "British" => "gbri.pcx",
         "Russians" => "rusi.pcx",
+        "Alliance" | "Korea" | "Koreans" => "japi.pcx",
+        "Confederation" | "Cuba" | "Cubans" => "cubi.pcx",
+        "Arabs" | "Iraq" | "Iraqis" => "iraqi.pcx",
+        "Africans" | "Libya" | "Libyans" => "lybi.pcx",
+        "YuriCountry" | "Yuri" => "yrii.pcx",
         _ => "usai.pcx",
     }
 }
@@ -203,7 +215,9 @@ pub struct SkirmishBootRequest {
     pub preferred_map: Option<String>,
     /// 期望本地阵营（规则/地图 house 名；与 `row_sides[0]` 同步）。
     pub side: String,
-    /// 各行国家下标（`LOBBY_SIDES`；行 0 本地，其后 AI）。
+    /// 可选国家短名（来自 rules `[Countries]` 的遭遇战可见子集；空表表示尚未注入）。
+    pub sides: Vec<String>,
+    /// 各行国家下标（相对 `sides`；行 0 本地，其后 AI）。
     pub row_sides: [u8; SKIRMISH_ROW_COUNT],
     /// 难度标签。
     pub difficulty: String,
@@ -240,15 +254,16 @@ pub struct SkirmishBootRequest {
 }
 
 impl SkirmishBootRequest {
-    /// 默认：玩家名 `Player`、无指定图（装载时按候选自动选）、盟军、普通难度；勾选对齐零售默认。
+    /// 默认：玩家名 `Player`、无指定图（装载时按候选自动选）、普通难度；勾选对齐零售默认。
     ///
-    /// 地图、阵营与席位由遭遇战大厅 / 选图页决定。固定复现配方在 `ra-testing`，不在此钉死。
+    /// 国家表由壳层从 rules 注入（[`Self::set_lobby_sides`]）。地图与席位由遭遇战大厅 / 选图页决定。
     pub fn default_lobby() -> Self {
         Self {
             player_name: "Player".to_string(),
             preferred_map: None,
-            side: LOBBY_SIDES[0].to_string(),
-            row_sides: default_row_sides(),
+            side: String::new(),
+            sides: Vec::new(),
+            row_sides: [0; SKIRMISH_ROW_COUNT],
             difficulty: LOBBY_DIFFICULTIES[1].to_string(),
             color_index: 0,
             row_colors: default_row_colors(),
@@ -268,14 +283,37 @@ impl SkirmishBootRequest {
         }
     }
 
+    /// 写入可选国家表并钳位各行下标；保留已选国家名（若仍在新表中）。
+    pub fn set_lobby_sides(&mut self, sides: Vec<String>) {
+        if sides.is_empty() {
+            self.sides.clear();
+            self.side.clear();
+            self.row_sides = [0; SKIRMISH_ROW_COUNT];
+            return;
+        }
+        let prev: Vec<String> = (0..SKIRMISH_ROW_COUNT).map(|r| self.row_side(r).to_string()).collect();
+        self.sides = sides;
+        for row in 0..SKIRMISH_ROW_COUNT {
+            let keep = prev.get(row).and_then(|name| {
+                self.sides.iter().position(|s| s.eq_ignore_ascii_case(name))
+            });
+            let index = keep.unwrap_or(row % self.sides.len());
+            self.row_sides[row] = index as u8;
+        }
+        self.side = self.row_side(0).to_string();
+    }
+
     /// 装载时需登记的 house 列表：本地 + 当前地图席位内的 AI 行（去重保序）。
-    pub fn houses_to_ensure(&self, ai_rows: usize) -> Vec<&'static str> {
+    pub fn houses_to_ensure(&self, ai_rows: usize) -> Vec<String> {
         let rows = (1 + ai_rows).min(SKIRMISH_ROW_COUNT);
         let mut out = Vec::with_capacity(rows);
         for row in 0..rows {
             let house = self.row_side(row);
-            if !out.iter().any(|h| *h == house) {
-                out.push(house);
+            if house.is_empty() {
+                continue;
+            }
+            if !out.iter().any(|h: &String| h.eq_ignore_ascii_case(house)) {
+                out.push(house.to_string());
             }
         }
         out
@@ -283,8 +321,11 @@ impl SkirmishBootRequest {
 
     /// 循环下一阵营（仅本地行）。
     pub fn cycle_side(&mut self) {
+        if self.sides.is_empty() {
+            return;
+        }
         let i = self.row_side_index(0);
-        self.set_row_side(0, (i + 1) % LOBBY_SIDES.len());
+        self.set_row_side(0, (i + 1) % self.sides.len());
     }
 
     /// 循环下一色块（仅本地行）。
@@ -299,8 +340,12 @@ impl SkirmishBootRequest {
     }
 
     /// 指定行国家短名。
-    pub fn row_side(&self, row: usize) -> &'static str {
-        LOBBY_SIDES[self.row_side_index(row)]
+    pub fn row_side(&self, row: usize) -> &str {
+        let Some(name) = self.sides.get(self.row_side_index(row))
+        else {
+            return "";
+        };
+        name.as_str()
     }
 
     /// 指定行色块 RGB。
@@ -309,7 +354,10 @@ impl SkirmishBootRequest {
     }
 
     fn row_side_index(&self, row: usize) -> usize {
-        (self.row_sides[row.min(SKIRMISH_ROW_COUNT - 1)] as usize) % LOBBY_SIDES.len()
+        if self.sides.is_empty() {
+            return 0;
+        }
+        (self.row_sides[row.min(SKIRMISH_ROW_COUNT - 1)] as usize) % self.sides.len()
     }
 
     fn row_color_index(&self, row: usize) -> usize {
@@ -331,9 +379,10 @@ impl SkirmishBootRequest {
     }
 
     /// 国家下拉列表矩形（紧贴指定行国家面下方）。
-    pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
+    pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize, side_count: usize) -> RectPx {
         let face = layout.side_faces[row.min(layout.side_faces.len().saturating_sub(1))];
-        RectPx::new(face.x, face.y + face.h, face.w, SKIRMISH_COMBO_FACE_H * LOBBY_SIDES.len() as i32)
+        let n = side_count.max(1) as i32;
+        RectPx::new(face.x, face.y + face.h, face.w, SKIRMISH_COMBO_FACE_H * n)
     }
 
     /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
@@ -348,16 +397,26 @@ impl SkirmishBootRequest {
         RectPx::new(face.x, face.y + face.h, face.w, SKIRMISH_COMBO_FACE_H * LOBBY_DIFFICULTIES.len() as i32)
     }
 
-    /// 设置指定行阵营为 `LOBBY_SIDES[index]`。
+    /// 设置指定行阵营为 `sides[index]`。
     pub fn set_row_side(&mut self, row: usize, index: usize) {
         if row >= SKIRMISH_ROW_COUNT {
             return;
         }
-        if let Some(side) = LOBBY_SIDES.get(index) {
+        if let Some(side) = self.sides.get(index) {
             self.row_sides[row] = index as u8;
             if row == 0 {
-                self.side = (*side).to_string();
+                self.side = side.clone();
             }
+        }
+    }
+
+    /// 按国家短名设置指定行（找不到则忽略）。
+    pub fn set_row_side_by_name(&mut self, row: usize, name: &str) {
+        if let Some(index) = self.sides.iter().position(|s| s.eq_ignore_ascii_case(name)) {
+            self.set_row_side(row, index);
+        }
+        else if row == 0 {
+            self.side = name.to_string();
         }
     }
 
@@ -492,9 +551,9 @@ impl SkirmishBootRequest {
         let human_rows = (1 + ai_rows).min(layout.side_faces.len());
         // 已展开的下拉优先命中列表 / 面框。
         if self.open_combo == Some(SkirmishComboKind::Country) {
-            let list = Self::country_list_rect(layout, self.combo_row);
-            if list.contains(x, y) {
-                let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_SIDES.len() as i32 - 1) as usize;
+            let list = Self::country_list_rect(layout, self.combo_row, self.sides.len());
+            if list.contains(x, y) && !self.sides.is_empty() {
+                let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, self.sides.len() as i32 - 1) as usize;
                 self.set_side_index(choice);
                 self.open_combo = None;
                 self.player_name_editing = false;
@@ -695,14 +754,6 @@ fn track_pos_from_mouse(rect: RectPx, mouse_x: i32, id: SkirmishTrackbar) -> i32
 
 fn is_player_name_char(ch: char) -> bool {
     matches!(ch, ' '..='~')
-}
-
-fn default_row_sides() -> [u8; SKIRMISH_ROW_COUNT] {
-    let mut sides = [0u8; SKIRMISH_ROW_COUNT];
-    for (i, slot) in sides.iter_mut().enumerate() {
-        *slot = (i % LOBBY_SIDES.len()) as u8;
-    }
-    sides
 }
 
 fn default_row_colors() -> [u8; SKIRMISH_ROW_COUNT] {

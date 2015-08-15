@@ -2,9 +2,12 @@
 
 use super::*;
 
-pub(super) fn row_side_name(paint: &SkirmishLobbyPaint<'_>, row: usize) -> &'static str {
-    let i = paint.row_side_indices[row.min(paint.row_side_indices.len() - 1)] as usize % LOBBY_SIDES.len();
-    LOBBY_SIDES[i]
+pub(super) fn row_side_name<'a>(paint: &'a SkirmishLobbyPaint<'_>, row: usize) -> &'a str {
+    if paint.sides.is_empty() {
+        return "";
+    }
+    let i = paint.row_side_indices[row.min(paint.row_side_indices.len() - 1)] as usize % paint.sides.len();
+    &paint.sides[i]
 }
 
 pub(super) fn row_color_rgb(paint: &SkirmishLobbyPaint<'_>, row: usize) -> [u8; 3] {
@@ -102,7 +105,9 @@ pub struct SkirmishLobbyPaint<'a> {
     pub ai_combo_open: bool,
     /// 当前展开下拉所在玩家行。
     pub combo_row: usize,
-    /// 各行国家下标（`LOBBY_SIDES`）。
+    /// 可选国家短名（与装载请求 `sides` 同步）。
+    pub sides: &'a [String],
+    /// 各行国家下标（相对 `sides`）。
     pub row_side_indices: [u8; ra_layout::ui_layout::SKIRMISH_ROW_COUNT],
     /// 各行色块下标（`LOBBY_COLORS`）。
     pub row_color_indices: [u8; ra_layout::ui_layout::SKIRMISH_ROW_COUNT],
@@ -135,6 +140,7 @@ impl Default for SkirmishLobbyPaint<'_> {
             color_combo_open: false,
             ai_combo_open: false,
             combo_row: 0,
+            sides: &[],
             row_side_indices: [0, 1, 2, 3, 4, 0, 1, 2],
             row_color_indices: [0, 1, 2, 3, 4, 5, 6, 7],
             chrome: None,
@@ -250,12 +256,12 @@ pub(super) fn paint_skirmish_lobby_controls(
         blit_text_colored(page, fnt, &paint.unit_count.to_string(), value_x(layout.track_units), layout.track_units.y + 2, TRACK_VALUE);
     }
 
-    if paint.country_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout, paint.combo_row);
+    if paint.country_combo_open && !paint.sides.is_empty() {
+        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout, paint.combo_row, paint.sides.len());
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = row_side_name(paint, paint.combo_row);
-        for (i, side) in LOBBY_SIDES.iter().enumerate() {
+        for (i, side) in paint.sides.iter().enumerate() {
             let row = RectPx::new(list.x, list.y + (i as i32) * SKIRMISH_COMBO_FACE_H, list.w, SKIRMISH_COMBO_FACE_H);
             let selected = selected_side.eq_ignore_ascii_case(side);
             if selected {
