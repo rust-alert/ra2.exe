@@ -121,9 +121,12 @@ impl Shell {
             }
         }
         self.load_job = Some(LoadJob::start_install_boot({
-            let house_index = ra_widgets::skirmish_setup::LOBBY_SIDES
+            self.ensure_lobby_sides();
+            let house_index = self
+                .skirmish
+                .sides
                 .iter()
-                .position(|s| *s == house)
+                .position(|s| s.eq_ignore_ascii_case(house))
                 .unwrap_or(0) as u8;
             let mut req = self.skirmish.clone();
             req.preferred_map = Some(camp.scenario.clone());
@@ -131,6 +134,10 @@ impl Shell {
             req.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
             // 战役首关先只保留本方 house（各行同阵营，装载侧去重后仅一席）。
             req.row_sides = [house_index; ra_layout::ui_layout::SKIRMISH_ROW_COUNT];
+            if req.sides.is_empty() {
+                req.set_lobby_sides(vec![house.to_string()]);
+                req.row_sides = [0; ra_layout::ui_layout::SKIRMISH_ROW_COUNT];
+            }
             req
         }));
         tracing::info!(

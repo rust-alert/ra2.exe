@@ -49,9 +49,11 @@ impl Shell {
             if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 self.ensure_lobby_maps();
                 self.ensure_lobby_modes();
+                self.ensure_lobby_sides();
                 self.ensure_lobby_preview();
             }
             if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby) {
+                self.ensure_lobby_sides();
                 self.ensure_skirmish_chrome();
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
@@ -191,6 +193,7 @@ impl Shell {
                             color_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Color),
                             ai_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
+                            sides: self.skirmish.sides.as_slice(),
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
                             chrome: self.skirmish_chrome.as_ref(),
@@ -403,6 +406,7 @@ impl Shell {
                     self.window.as_ref(),
                     self.screen.as_str(),
                     self.menu_font.as_ref(),
+                    self.menu_csf.as_ref(),
                     assets,
                     self.present,
                 );
@@ -421,6 +425,7 @@ impl Shell {
                     self.window.as_ref(),
                     self.screen.as_str(),
                     self.menu_font.as_ref(),
+                    self.menu_csf.as_ref(),
                     assets,
                     self.present,
                 );

@@ -20,11 +20,8 @@ impl Shell {
     /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
     pub(super) fn ensure_skirmish_chrome(&mut self) {
         self.ensure_menu_assets();
-        let flag_key = self
-            .skirmish
-            .row_sides
-            .iter()
-            .map(|i| ra_widgets::skirmish_setup::LOBBY_SIDES[(*i as usize) % ra_widgets::skirmish_setup::LOBBY_SIDES.len()])
+        let flag_key = (0..ui_layout::SKIRMISH_ROW_COUNT)
+            .map(|i| self.skirmish.row_side(i).to_string())
             .collect::<Vec<_>>()
             .join(",");
         let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
@@ -164,6 +161,24 @@ impl Shell {
             count = self.lobby_modes.len(),
             selected = ?self.selected_mode_id,
             "遭遇战模式列表已刷新"
+        );
+    }
+
+    /// 惰性装载遭遇战可选国家 / 势力（rules `[Countries]` / `[Sides]`）。
+    pub(super) fn ensure_lobby_sides(&mut self) {
+        if !self.lobby_countries.is_empty() {
+            return;
+        }
+        let (countries, sides) = boot::list_install_skirmish_countries();
+        self.lobby_side_groups = sides;
+        self.lobby_countries = countries;
+        let ids: Vec<String> = self.lobby_countries.iter().map(|c| c.id.clone()).collect();
+        self.skirmish.set_lobby_sides(ids);
+        tracing::info!(
+            countries = self.lobby_countries.len(),
+            side_groups = self.lobby_side_groups.len(),
+            selected = %self.skirmish.side,
+            "遭遇战国家 / 势力列表已刷新"
         );
     }
 

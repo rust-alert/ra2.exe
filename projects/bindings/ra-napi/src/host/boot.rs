@@ -2,22 +2,25 @@
 
 use std::collections::HashMap;
 
-use ra_adaptor::{ResourceChain, RulesDb, detect_edition, load_rules_chain};
-use ra_assets::{Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes};
+use ra_adaptor::{ResourceChain, RulesSystem, detect_edition, load_rules_chain};
+use ra_assets::{
+    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes,
+};
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
-    find_boot_map, list_parseable_maps_from_names, mount_theater_mixes, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    find_boot_map, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, mount_theater_mixes,
+    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
 use ra_widgets::campaign_setup::campaign_side_battle_id;
 use ra_widgets::fs_source::GameAssetSource;
-use ra_widgets::skirmish_setup::{LOBBY_COLORS, LOBBY_SIDES, SkirmishBootRequest};
+use ra_widgets::skirmish_setup::{LOBBY_COLORS, SkirmishBootRequest};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 
-pub use ra_assets::{BattleCampaign, MpMode};
+pub use ra_assets::{BattleCampaign, CountryDef, MpMode, SideGroup};
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
@@ -33,12 +36,22 @@ pub struct BootResult {
     pub session: Option<Session>,
     /// 可选地形预览图（含当前活动层）。
     pub preview: Option<RgbaImage>,
-    /// 不含建筑活动层的预览底图（对局时钟刷新用）。
+    /// 不含建筑活动层的预览底图（对局时钟刷新用；可含开局移动单位）。
     pub preview_base: Option<RgbaImage>,
+    /// 无开局移动单位的底图（部署后重组预览用）。
+    pub preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub structure_anims: StructureAnimBank,
     /// 预览画布原点（世界像素）。
     pub preview_origin: (i32, i32),
+    /// 资源链 art INI 逻辑名（对局部署 Buildup 用）。
+    pub art_ini: &'static str,
+    /// 资源链 rules INI 逻辑名。
+    pub rules_ini: &'static str,
+    /// 已解析规则（房屋色调 / 部署叠画）。
+    pub rules: Option<RulesSystem>,
+    /// 大厅行色 → house 主色。
+    pub lobby_primaries: HashMap<String, Rgba>,
 }
 
 impl BootResult {
@@ -55,8 +68,13 @@ impl BootResult {
             session: None,
             preview: None,
             preview_base: None,
+            preview_clean: None,
             structure_anims: StructureAnimBank::default(),
             preview_origin: (0, 0),
+            art_ini: "art.ini",
+            rules_ini: "rules.ini",
+            rules: None,
+            lobby_primaries: HashMap::new(),
         }
     }
 
@@ -69,8 +87,13 @@ impl BootResult {
             session: Some(t.session),
             preview: t.preview,
             preview_base: None,
+            preview_clean: None,
             structure_anims: StructureAnimBank::default(),
             preview_origin: (0, 0),
+            art_ini: "art.ini",
+            rules_ini: "rules.ini",
+            rules: None,
+            lobby_primaries: HashMap::new(),
         }
     }
 }
@@ -79,7 +102,7 @@ fn load_map_terrain_preview(
     source: &GameAssetSource,
     map: &MapInfo,
     chain: &ResourceChain,
-    rules: &RulesDb,
+    rules: &RulesSystem,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
 ) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
@@ -111,8 +134,11 @@ fn load_map_terrain_preview(
 /// 大厅行色 → house 主色（遭遇战阵营色以大厅为准，不用国家默认 `Color=Gold`）。
 fn lobby_house_primaries(request: &SkirmishBootRequest) -> HashMap<String, Rgba> {
     let mut out = HashMap::new();
+    if request.sides.is_empty() {
+        return out;
+    }
     for (row, &side_i) in request.row_sides.iter().enumerate() {
-        let Some(side) = LOBBY_SIDES.get(usize::from(side_i)).copied()
+        let Some(side) = request.sides.get(usize::from(side_i) % request.sides.len())
         else {
             continue;
         };
@@ -126,7 +152,13 @@ fn lobby_house_primaries(request: &SkirmishBootRequest) -> HashMap<String, Rgba>
     out
 }
 
-fn remap_owner_palette(rules: &RulesDb, lobby_primaries: Option<&HashMap<String, Rgba>>, base: &Palette, owner: &str) -> Palette {
+/// 房屋色调色板（大厅行色优先，否则国家默认配色）。
+pub(crate) fn remap_owner_palette(
+    rules: &RulesSystem,
+    lobby_primaries: Option<&HashMap<String, Rgba>>,
+    base: &Palette,
+    owner: &str,
+) -> Palette {
     let up = owner.to_ascii_uppercase();
     if matches!(up.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN") {
         return rules.color_schemes.palette_for_house(&rules.rules, base, owner);
@@ -141,7 +173,7 @@ fn remap_owner_palette(rules: &RulesDb, lobby_primaries: Option<&HashMap<String,
 fn paint_session_mobiles_onto_preview(
     source: &GameAssetSource,
     chain: &ResourceChain,
-    rules: &RulesDb,
+    rules: &RulesSystem,
     session: &Session,
     image: &mut RgbaImage,
     origin: (i32, i32),
@@ -211,7 +243,9 @@ fn load_boot_map(
     Ok(loaded.map)
 }
 
-/// 列出安装资源中可解析的遭遇战地图（动态扫描松散文件与 `mp*.map`，供大厅选图）。
+/// 列出安装资源中可解析的遭遇战地图（供大厅选图）。
+///
+/// 优先按资源链 `missions_pkt` 的 `[MultiMaps]` 源序；缺表或空表时回退到松散/`mp*.map` 扫描。
 pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
@@ -225,6 +259,18 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    if let Ok(pkt) = source.read(manifest.chain.missions_pkt) {
+        let from_pkt = list_parseable_maps_from_missions_pkt(manifest.chain.edition, &source, &pkt);
+        if !from_pkt.is_empty() {
+            return from_pkt;
+        }
+        tracing::warn!(
+            file = %manifest.chain.missions_pkt,
+            "遭遇战选图表可读但未产出可解析行，回退扫描"
+        );
+    } else {
+        tracing::warn!(file = %manifest.chain.missions_pkt, "遭遇战选图表不可读，回退扫描");
+    }
     let names = source.discover_skirmish_map_names();
     list_parseable_maps_from_names(manifest.chain.edition, &source, names)
 }
@@ -257,6 +303,38 @@ pub fn list_install_skirmish_modes() -> Vec<MpMode> {
             Vec::new()
         }
     }
+}
+
+/// 列出安装资源链中遭遇战可选国家 / 势力（来自 `rules.ini` 的 `[Countries]` / `[Sides]`）。
+///
+/// 失败或缺文件时返回空表；调用方应回退到空列表 UI，勿写死国家名。
+pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>) {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
+    else {
+        return (Vec::new(), Vec::new());
+    };
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let Some(bytes) = source.vfs.read(manifest.chain.rules_ini)
+    else {
+        tracing::warn!(file = %manifest.chain.rules_ini, "规则表不可读，无法列出国家");
+        return (Vec::new(), Vec::new());
+    };
+    let Ok(doc) = IniDocument::parse(&bytes)
+    else {
+        tracing::warn!(file = %manifest.chain.rules_ini, "规则表解析失败，无法列出国家");
+        return (Vec::new(), Vec::new());
+    };
+    let registry = CountryRegistry::from_rules(&doc);
+    let countries: Vec<CountryDef> = registry.skirmish_countries().into_iter().cloned().collect();
+    let sides = registry.sides().to_vec();
+    (countries, sides)
 }
 
 /// 列出安装资源链中的战役表（来自 `battle.ini` / `battlemd.ini`）。
@@ -412,6 +490,7 @@ pub fn boot_world_with_progress(
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
     let mut preview_base: Option<RgbaImage> = None;
+    let mut preview_clean: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut preview = match rules
         .as_ref()
@@ -434,6 +513,7 @@ pub fn boot_world_with_progress(
     let preferred_house = Some(request.side.as_str());
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
+    let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
     let (engine, session) = match rules.as_ref().map(|rules| {
         open_skirmish_session(
             &source,
@@ -443,7 +523,7 @@ pub fn boot_world_with_progress(
             note.clone(),
             preview_origin,
             preferred_house,
-            &ensure_houses,
+            &ensure_refs,
             request.match_seed,
         )
     }) {
@@ -467,8 +547,9 @@ pub fn boot_world_with_progress(
                 opened.session.expect_battle().fingerprint.rules_hash,
                 opened.session.expect_battle().match_seed
             );
-            // 航点播种的 MCV 不在地图放置段：叠到无活动层底图后再按时钟叠活动层。
+            // 航点播种的 MCV 不在地图放置段：保留无 mobile 底图，再叠到对局底图。
             if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
+                preview_clean = Some(base.clone());
                 let painted =
                     paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
@@ -502,8 +583,13 @@ pub fn boot_world_with_progress(
         session,
         preview,
         preview_base,
+        preview_clean,
         structure_anims,
         preview_origin,
+        art_ini: chain.art_ini,
+        rules_ini: chain.rules_ini,
+        rules,
+        lobby_primaries,
     })
 }
 
