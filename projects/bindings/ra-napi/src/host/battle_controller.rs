@@ -1,8 +1,9 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{CsfFile, FntFile};
+use ra_adaptor::RulesSystem;
+use ra_assets::{CsfFile, FntFile, Palette, Rgba};
 use ra_widgets::{
     fs_source::GameAssetSource,
     battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
@@ -13,9 +14,13 @@ use ra_widgets::{
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{battle_hud_layout_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
-use ra_map::{MapEntityKind, StructureAnimBank, iso_to_screen, paint_structure_anims_onto_rgba};
+use ra_map::{
+    MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, collect_structure_anim_bank, iso_to_screen,
+    load_structure_buildup_clip, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::PresentFeel;
+use ra_types::{EntityId, PresentFeel};
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
@@ -23,7 +28,7 @@ use winit::{
 };
 
 use super::{
-    boot::BootResult,
+    boot::{remap_owner_palette, BootResult},
     battle_input::{
         edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, EdgeScrollCursor, LeftGesture,
         LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, MARQUEE_HIT_HALF_PX,
@@ -47,6 +52,24 @@ pub enum BattleNav {
     ToResults,
     /// 离开对局/结算，回到遭遇战大厅（保留选图）。
     ToMainMenu,
+}
+
+/// 待播的建筑 Buildup（MCV 展开等）。
+struct PendingBuildup {
+    entity: EntityId,
+    type_id: String,
+    owner: String,
+    clip: StructureBuildupClip,
+    started: Instant,
+}
+
+/// 部署已在权威侧完成、等待呈现侧播动画的任务。
+struct DeployVisualJob {
+    entity: EntityId,
+    type_id: String,
+    owner: String,
+    x: u16,
+    y: u16,
 }
 
 /// 对局页专用状态（与菜单 / 加载页隔离）。
@@ -90,10 +113,24 @@ pub struct BattleController {
     command_hover: Option<usize>,
     /// 命令条按下槽（高亮）。
     command_pressed: Option<usize>,
-    /// 不含建筑活动层的预览底图。
+    /// 不含建筑活动层的预览底图（可含开局移动单位与已定格建造场）。
     preview_base: Option<RgbaImage>,
+    /// 无开局移动单位、可烘焙已定格动态建筑的底图。
+    preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     structure_anims: StructureAnimBank,
+    /// art.ini 逻辑名。
+    art_ini: &'static str,
+    /// rules.ini 逻辑名。
+    rules_ini: &'static str,
+    /// 规则快照（房屋色调）。
+    rules: Option<RulesSystem>,
+    /// 大厅行色 → house 主色。
+    lobby_primaries: HashMap<String, Rgba>,
+    /// 正在播放的 Buildup。
+    pending_buildups: Vec<PendingBuildup>,
+    /// 权威部署完成后待启动的呈现任务。
+    deploy_visual_queue: Vec<DeployVisualJob>,
     /// 预览原点。
     preview_origin: (i32, i32),
     /// 活动层呈现时钟起点。
@@ -138,7 +175,14 @@ impl BattleController {
             command_hover: None,
             command_pressed: None,
             preview_base: boot.preview_base,
+            preview_clean: boot.preview_clean,
             structure_anims: boot.structure_anims,
+            art_ini: boot.art_ini,
+            rules_ini: boot.rules_ini,
+            rules: boot.rules,
+            lobby_primaries: boot.lobby_primaries,
+            pending_buildups: Vec::new(),
+            deploy_visual_queue: Vec::new(),
             preview_origin: boot.preview_origin,
             anim_started: Instant::now(),
             last_anim_sig: u64::MAX,
@@ -229,7 +273,14 @@ impl BattleController {
         self.command_hover = None;
         self.command_pressed = None;
         self.preview_base = boot.preview_base;
+        self.preview_clean = boot.preview_clean;
         self.structure_anims = boot.structure_anims;
+        self.art_ini = boot.art_ini;
+        self.rules_ini = boot.rules_ini;
+        self.rules = boot.rules;
+        self.lobby_primaries = boot.lobby_primaries;
+        self.pending_buildups.clear();
+        self.deploy_visual_queue.clear();
         self.preview_origin = boot.preview_origin;
         self.anim_started = Instant::now();
         self.last_anim_sig = u64::MAX;
