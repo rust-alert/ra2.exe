@@ -193,3 +193,24 @@ fn parse_toml_skips_present_table_without_diag() {
     assert_eq!(t.get("ra2_dir"), Some("."));
     assert!(t.get("mode").is_none());
 }
+
+#[test]
+fn optional_install_root_reads_toml_under_search_path() {
+    let dir = std::env::temp_dir().join(format!("ra-config-install-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let fake_game = dir.join("game");
+    std::fs::create_dir_all(&fake_game).unwrap();
+    std::fs::write(
+        dir.join("RustAlert.toml"),
+        format!("ra2_dir = \"{}\"\nedition = \"ra2\"\n", fake_game.display().to_string().replace('\\', "/")),
+    )
+    .unwrap();
+
+    let (root, edition) = ra_config::resolve_optional_install_root(&dir).expect("toml root");
+    assert_eq!(root, fake_game);
+    assert_eq!(edition.as_deref(), Some("ra2"));
+    assert!(ra_config::resolve_optional_install_root(&dir.join("missing-child")).is_some());
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

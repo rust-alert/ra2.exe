@@ -139,6 +139,65 @@ pub fn rust_alert_toml_path() -> PathBuf {
     exe_dir().join(RUST_ALERT_TOML)
 }
 
+/// 解析可选本机安装根目录（供 `#[ignore]` 本机测试 / 探针）。
+///
+/// 优先级：环境变量 `RA2_DIR` → 从 `search_from` 向上查找 `RustAlert.toml` 的 `ra2_dir`。
+/// 路径不存在则返回 `None`。**禁止**在调用方硬编码盘符或机主路径。
+///
+/// 可选 `RA2_EDITION` / TOML `edition` 作为第二返回值。
+pub fn resolve_optional_install_root(search_from: &Path) -> Option<(PathBuf, Option<String>)> {
+    if let Ok(dir) = std::env::var("RA2_DIR") {
+        let root = PathBuf::from(dir.trim());
+        if root.is_dir() {
+            return Some((root, std::env::var("RA2_EDITION").ok().filter(|s| !s.trim().is_empty())));
+        }
+    }
+    let mut dir = if search_from.is_file() {
+        search_from.parent().unwrap_or(search_from).to_path_buf()
+    } else {
+        search_from.to_path_buf()
+    };
+    loop {
+        let cfg = dir.join(RUST_ALERT_TOML);
+        if cfg.is_file() {
+            if let Some(parsed) = parse_ra2_dir_from_toml_text(&std::fs::read_to_string(&cfg).ok()?) {
+                let (root, edition) = parsed;
+                if root.is_dir() {
+                    return Some((root, edition));
+                }
+            }
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn parse_ra2_dir_from_toml_text(text: &str) -> Option<(PathBuf, Option<String>)> {
+    let mut ra2_dir = None;
+    let mut edition = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("ra2_dir") {
+            let v = rest.trim().trim_start_matches('=').trim().trim_matches('"');
+            if !v.is_empty() {
+                ra2_dir = Some(PathBuf::from(v));
+            }
+        }
+        if let Some(rest) = line.strip_prefix("edition") {
+            let v = rest.trim().trim_start_matches('=').trim().trim_matches('"');
+            if !v.is_empty() {
+                edition = Some(v.to_string());
+            }
+        }
+    }
+    Some((ra2_dir?, edition))
+}
+
 fn value_as_string(value: &Value) -> Option<String> {
     match value {
         Value::String(s) => Some(s.value().clone()),
@@ -375,7 +434,7 @@ impl Default for DesktopSettings {
             present: PresentFeel::DEFAULT,
             load_min_secs: 3.0,
             shell_slide_gap_secs: 0.2,
-            palette_vga_expand: VgaExpandMode::Full,
+            palette_vga_expand: VgaExpandMode::Shift2,
             net_url: None,
             net_room: None,
         }
