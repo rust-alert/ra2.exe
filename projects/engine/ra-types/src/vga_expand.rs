@@ -38,7 +38,7 @@ impl VgaExpandMode {
     pub const fn expand(self, v: u8) -> u8 {
         let v = v & 63;
         match self {
-            Self::Full => ((v as u16 * 255) / 63) as u8,
+            Self::Full => ((v as u16 * 255 + 31) / 63) as u8,
             Self::Shift2 => v << 2,
         }
     }

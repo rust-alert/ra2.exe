@@ -94,31 +94,21 @@ impl TmpFile {
         Ok(Self { template_width, template_height, tile_width, tile_height, tiles })
     }
 
-    /// 将指定单元转为 RGBA。钻石外索引 0 透明；钻石内索引 0 不透明。
+    /// 将指定单元转为 RGBA。
+    ///
+    /// 索引 0（及调色板里标透明的槽）始终全透明；钻石内把索引 0 画成
+    /// `temperat.pal[0]` 实心色会在悬崖/空洞格上冒出深蓝三角碎片。
     pub fn tile_to_rgba(&self, tile_index: usize, palette: &Palette) -> RaResult<Vec<u8>> {
         let tile =
             self.tiles.get(tile_index).and_then(|t| t.as_ref()).ok_or_else(|| RaError::Parse(format!("tmp 单元 {tile_index} 为空或不存在")))?;
 
         let mut rgba = Vec::with_capacity(tile.pixels.len() * 4);
-        for (i, &idx) in tile.pixels.iter().enumerate() {
+        for &idx in &tile.pixels {
             let color = palette.colors[idx as usize];
             rgba.push(color.r);
             rgba.push(color.g);
             rgba.push(color.b);
-            let x = (i as u32) % tile.pixel_width;
-            let y = (i as u32) / tile.pixel_width;
-            let dx = x as i32 + tile.offset_x;
-            let dy = y as i32 + tile.offset_y;
-            let alpha = if idx == 0 {
-                if inside_diamond(dx, dy, self.tile_width, self.tile_height) { 255 } else { 0 }
-            }
-            else if color.a == 0 {
-                0
-            }
-            else {
-                255
-            };
-            rgba.push(alpha);
+            rgba.push(if color.a == 0 { 0 } else { 255 });
         }
         Ok(rgba)
     }
@@ -291,27 +281,6 @@ fn overlay_extra(
         }
     }
     Ok(())
-}
-
-fn inside_diamond(x: i32, y: i32, tile_width: u32, tile_height: u32) -> bool {
-    if x < 0 || y < 0 || x >= tile_width as i32 || y >= tile_height as i32 {
-        return false;
-    }
-    let mut row_width = DIAMOND_INITIAL_WIDTH;
-    let half_minus_one = tile_height / 2 - 1;
-    for j in 0..tile_height {
-        if j == y as u32 {
-            let start = ((tile_width - row_width) / 2) as i32;
-            return x >= start && x < start + row_width as i32;
-        }
-        if j < half_minus_one {
-            row_width += DIAMOND_WIDTH_STEP;
-        }
-        else {
-            row_width = row_width.saturating_sub(DIAMOND_WIDTH_STEP);
-        }
-    }
-    false
 }
 
 fn slice_at<'a>(data: &'a [u8], cell: usize, rel: u32, len: usize) -> RaResult<&'a [u8]> {

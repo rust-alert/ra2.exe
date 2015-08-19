@@ -11,7 +11,8 @@ const COLOR_COUNT: usize = 256;
 const PAL_FILE_SIZE: usize = COLOR_COUNT * 3;
 
 /// 0 = [`VgaExpandMode::Full`]，1 = [`VgaExpandMode::Shift2`]。
-static DEFAULT_VGA_EXPAND: AtomicU8 = AtomicU8::new(0);
+/// 默认 `Shift2`：与零售引擎 / 侧栏 chrome 常见路径一致（`63 → 252`）。
+static DEFAULT_VGA_EXPAND: AtomicU8 = AtomicU8::new(1);
 
 fn mode_to_tag(mode: VgaExpandMode) -> u8 {
     match mode {
