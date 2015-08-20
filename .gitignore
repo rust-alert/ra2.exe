@@ -38,7 +38,13 @@ RustAlert.toml
 _tmp_*/
 _tmp_*
 **/tests/diag_*.rs
+**/tests/probe_*.rs
+**/tests/cmp_*.rs
+**/tests/dump_*.rs
 **/examples/diag_*.rs
+**/examples/probe_*.rs
+**/examples/cmp_*.rs
+**/examples/dump_*.rs
 **/examples/_tmp_*.rs
 **/examples/tmp_*.rs
 

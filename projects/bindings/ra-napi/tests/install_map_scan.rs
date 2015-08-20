@@ -1,50 +1,22 @@
 //! 本机安装扫图（**不进默认 CI**）。
 //!
 //! 运行：`RA2_DIR=… cargo test -p ra-napi --test install_map_scan -- --ignored --nocapture`
-//! 也可读工作区根 `RustAlert.toml` 的 `ra2_dir`（该文件已 gitignore）。
-//! 缺安装目录时直接 return，禁止硬编码盘符路径。
+//! 也可在工作区放置 gitignore 的 `RustAlert.toml`（`ra2_dir=`）。
+//! 缺安装目录时直接 return。**禁止**硬编码盘符路径。
 
 use std::path::PathBuf;
 
 use ra_adaptor::detect_edition;
+use ra_config::resolve_optional_install_root;
 use ra_map::{decode_preview_from_map_bytes, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names};
 use ra_types::{AssetSource, GameEdition};
 use ra_widgets::fs_source::GameAssetSource;
 
-fn resolve_install_root() -> Option<(PathBuf, Option<String>)> {
-    if let Ok(dir) = std::env::var("RA2_DIR") {
-        let root = PathBuf::from(dir.trim());
-        if root.is_dir() {
-            return Some((root, std::env::var("RA2_EDITION").ok()));
-        }
-    }
-    let cfg_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..").join("RustAlert.toml");
-    let text = std::fs::read_to_string(&cfg_path).ok()?;
-    let mut ra2_dir = None;
-    let mut edition = None;
-    for line in text.lines() {
-        let line = line.trim();
-        if let Some(rest) = line.strip_prefix("ra2_dir") {
-            let v = rest.trim().trim_start_matches('=').trim().trim_matches('"');
-            if !v.is_empty() {
-                ra2_dir = Some(PathBuf::from(v));
-            }
-        }
-        if let Some(rest) = line.strip_prefix("edition") {
-            let v = rest.trim().trim_start_matches('=').trim().trim_matches('"');
-            if !v.is_empty() {
-                edition = Some(v.to_string());
-            }
-        }
-    }
-    let root = ra2_dir.filter(|p| p.is_dir())?;
-    Some((root, edition))
-}
-
 #[test]
 #[ignore = "需要本机安装：设 RA2_DIR 或本地 RustAlert.toml"]
 fn install_discover_and_parse_skirmish_maps() {
-    let Some((root, edition)) = resolve_install_root()
+    let search = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let Some((root, edition)) = resolve_optional_install_root(&search)
     else {
         eprintln!("skip · 未找到安装目录（RA2_DIR / RustAlert.toml）");
         return;

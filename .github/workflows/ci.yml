@@ -29,6 +29,19 @@ jobs:
       - name: Build
         run: cargo build --release --workspace
 
+      - name: Forbid hardcoded local install paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 禁止把本机游戏安装盘符写进 .rs（CI 无该路径，且会污染开源仓）。
+          # 本机探针用 RA2_DIR / gitignore 的 RustAlert.toml，且须 #[ignore]。
+          if grep -RInE --include='*.rs' \
+            'Red_Alert_2|Red_Alert_2_YURI|E:/ra |E:\\ra |E:/ra\\|红色警戒[/\\]Red_Alert' \
+            projects; then
+            echo "::error::Hardcoded machine install paths found in Rust sources" >&2
+            exit 1
+          fi
+
       - name: Tests
         run: cargo test --release --workspace
 
