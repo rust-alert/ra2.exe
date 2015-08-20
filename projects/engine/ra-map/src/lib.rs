@@ -37,8 +37,8 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
-    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_names, mount_theater_mixes,
-    resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
+    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt,
+    list_parseable_maps_from_names, mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
 pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
@@ -57,8 +57,9 @@ pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
 };
 pub use structure_paint::{
-    StructureAnimBank, StructureAnimLayer, StructureAnimMode, collect_structure_anim_bank, paint_map_structures,
-    paint_structure_anim_bank, paint_structure_anims_onto_rgba, structure_anim_frame,
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index,
+    collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank,
+    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::paint_map_terrain_objects;

@@ -44,6 +44,8 @@ pub struct ResourceChain {
     pub sound_ini: &'static str,
     /// 多人模式表 INI 在资源链中的逻辑路径。
     pub mpmodes_ini: &'static str,
+    /// 遭遇战选图表（`missions.pkt` / `missionsmd.pkt`）在资源链中的逻辑路径。
+    pub missions_pkt: &'static str,
     /// 战役表 INI 在资源链中的逻辑路径。
     pub battle_ini: &'static str,
     /// 可执行文件名（用于布局校验）。
@@ -72,6 +74,7 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         mpmodes_ini: p.mpmodes_ini,
+        missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
         exe_name: p.exe_name,
     }
@@ -87,6 +90,7 @@ fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         mpmodes_ini: p.mpmodes_ini,
+        missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
         exe_name: p.exe_name,
     }
@@ -102,6 +106,7 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         mpmodes_ini: p.mpmodes_ini,
+        missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
         exe_name: p.exe_name,
     }

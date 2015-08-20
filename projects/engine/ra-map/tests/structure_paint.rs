@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, StructureAnimMode, TerrainImage, paint_map_structures, structure_anim_frame,
+    MapEntity, MapEntityKind, MapInfo, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures,
+    structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -149,4 +150,45 @@ Rate=300\n\
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
     assert_eq!(painted, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
+}
+
+#[test]
+fn buildup_frame_index_one_shot() {
+    assert_eq!(buildup_frame_index(0, 100, 3), Some(0));
+    assert_eq!(buildup_frame_index(99, 100, 3), Some(0));
+    assert_eq!(buildup_frame_index(100, 100, 3), Some(1));
+    assert_eq!(buildup_frame_index(299, 100, 3), Some(2));
+    assert_eq!(buildup_frame_index(300, 100, 3), None);
+    assert_eq!(buildup_frame_index(0, 100, 0), None);
+}
+
+#[test]
+fn load_structure_buildup_clip_decodes_frames() {
+    use ra_map::load_structure_buildup_clip;
+
+    let art = b"\
+[GACNST]\n\
+Remapable=yes\n\
+NewTheater=yes\n\
+Buildup=GACNSTMK\n\
+\n\
+[GACNSTMK]\n\
+Rate=50\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 63, 0));
+    files.insert("gtcnstmk.shp".into(), multi_frame_shp(&[5, 5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.theater = ra_map::Theater::Temperate;
+    let source = MapSource { files };
+    let clip = load_structure_buildup_clip(&source, &map, "art.ini", "GACNST", "Americans", 3, 4, &|p, _| p.clone())
+        .expect("buildup clip");
+    assert_eq!(clip.frames.len(), 3);
+    assert_eq!(clip.rate_ms, 50);
+    assert_eq!((clip.x, clip.y), (3, 4));
+    assert_eq!(clip.frame_at(0), Some(0));
+    assert_eq!(clip.frame_at(50), Some(1));
+    assert_eq!(clip.frame_at(150), None);
 }

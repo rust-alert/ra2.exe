@@ -1,8 +1,9 @@
 //! Alpha 遭遇战启动用地图探测。
 
+use ra_assets::IniDocument;
 use ra_types::{AssetSource, GameEdition};
 
-use crate::{MapInfo, Theater, theater::theater_mix_names};
+use crate::{MapInfo, Theater, parse_game_modes, theater::theater_mix_names};
 
 /// Alpha 单机优先尝试的遭遇图文件名（按序）。
 pub const BOOT_MAP_CANDIDATES: &[&str] = &["mp03t4.map", "mp01t4.map", "mp01t2.map", "mp02t4.map"];
@@ -99,7 +100,7 @@ pub fn mount_theater_mixes(theater: Theater, mount_nested: &mut dyn FnMut(&str) 
 
 /// 按给定文件名列表解析可装载的遭遇图（保序；跳过不可读或解析失败项）。
 ///
-/// 大厅选图应传入**动态扫描**得到的名字，而不是 [`BOOT_MAP_CANDIDATES`]。
+/// 大厅选图优先用 [`list_parseable_maps_from_missions_pkt`]；本函数供探测与回退。
 pub fn list_parseable_maps_from_names(
     edition: GameEdition,
     source: &dyn AssetSource,
@@ -116,22 +117,83 @@ pub fn list_parseable_maps_from_names(
         else {
             continue;
         };
-        out.push(BootMapCandidate {
-            file_name: name.to_string(),
-            name_csf: resolve_boot_map_name_csf(name, &map.description_csf),
-            width: map.size_width,
-            height: map.size_height,
-            theater: map.theater,
-            start_slots: count_skirmish_start_slots(&map.waypoints, name),
-            game_modes: map.game_modes,
-        });
+        out.push(candidate_from_parsed_map(name, &map, None, None));
     }
     out
 }
 
+/// 按遭遇战选图表（`missions.pkt` / `missionsmd.pkt`）的 `[MultiMaps]` **源序**列出可解析图。
+///
+/// - 行序 = PKT 节内键值出现顺序（不是文件名排序，也不是按编号键重排）。
+/// - 显示名 CSF 键与模式过滤取自各 stem 对应 PKT 小节的 `Description` / `GameMode`。
+/// - 地图文件不可读或解析失败则跳过该项，不改动其余项顺序。
+/// - `pkt_bytes` 无法解析或缺 `[MultiMaps]` 时返回空表。
+pub fn list_parseable_maps_from_missions_pkt(
+    edition: GameEdition,
+    source: &dyn AssetSource,
+    pkt_bytes: &[u8],
+) -> Vec<BootMapCandidate> {
+    let Ok(pkt) = IniDocument::parse(pkt_bytes)
+    else {
+        return Vec::new();
+    };
+    let Some(multimaps) = pkt.section("MultiMaps")
+    else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for (key, stem) in multimaps.pairs() {
+        if key.parse::<u32>().is_err() {
+            continue;
+        }
+        let stem = stem.trim();
+        if stem.is_empty() {
+            continue;
+        }
+        let file_name = format!("{}.map", stem.to_ascii_lowercase());
+        let Ok(bytes) = source.read(&file_name)
+        else {
+            continue;
+        };
+        let Ok(map) = try_parse_boot_map(edition, &file_name, &bytes)
+        else {
+            continue;
+        };
+        let pkt_desc = pkt.get(stem, "Description").or_else(|| pkt.get(stem, "DescriptionText"));
+        let pkt_modes = pkt.get(stem, "GameMode");
+        out.push(candidate_from_parsed_map(&file_name, &map, pkt_desc, pkt_modes));
+    }
+    out
+}
+
+fn candidate_from_parsed_map(
+    file_name: &str,
+    map: &MapInfo,
+    pkt_description: Option<&str>,
+    pkt_game_mode: Option<&str>,
+) -> BootMapCandidate {
+    let name_csf = match pkt_description.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(desc) => desc.to_string(),
+        None => resolve_boot_map_name_csf(file_name, &map.description_csf),
+    };
+    let game_modes = match pkt_game_mode {
+        Some(raw) => parse_game_modes(Some(raw)),
+        None => map.game_modes.clone(),
+    };
+    BootMapCandidate {
+        file_name: file_name.to_string(),
+        name_csf,
+        width: map.size_width,
+        height: map.size_height,
+        theater: map.theater,
+        start_slots: count_skirmish_start_slots(&map.waypoints, file_name),
+        game_modes,
+    }
+}
+
 /// 列出启动候选表中当前资源源可解析的遭遇图（保序）。
 ///
-/// 仅供自动选图 / 探测；大厅列表请用 [`list_parseable_maps_from_names`]。
+/// 仅供自动选图 / 探测；大厅列表请用 [`list_parseable_maps_from_missions_pkt`]。
 pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) -> Vec<BootMapCandidate> {
     list_parseable_maps_from_names(edition, source, BOOT_MAP_CANDIDATES.iter().copied())
 }

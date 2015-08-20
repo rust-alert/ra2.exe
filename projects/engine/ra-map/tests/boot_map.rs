@@ -1,4 +1,4 @@
-use ra_map::{find_boot_map, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_names};
+use ra_map::{find_boot_map, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 use std::collections::HashMap;
 
@@ -39,6 +39,40 @@ fn list_parseable_maps_from_names_keeps_order_and_skips_bad() {
     };
     let listed = list_parseable_maps_from_names(GameEdition::Ra2, &source, ["missing.map", "a.map", "bad.map", "c.map"]);
     assert_eq!(listed.iter().map(|m| m.file_name.as_str()).collect::<Vec<_>>(), vec!["a.map", "c.map"]);
+}
+
+#[test]
+fn list_parseable_maps_from_missions_pkt_keeps_multimaps_source_order() {
+    let map_body = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Basic]\nName=t\n";
+    let pkt = b"\
+[MultiMaps]\n\
+1=MP02T2\n\
+2=MP06T2\n\
+3=MP01T4\n\
+[MP02T2]\n\
+Description=DESC:MP02T2\n\
+GameMode=standard\n\
+[MP06T2]\n\
+Description=DESC:MP06T2\n\
+GameMode=standard, meatgrind\n\
+[MP01T4]\n\
+Description=DESC:MP01T4\n\
+";
+    let source = MemSource {
+        files: HashMap::from([
+            ("mp02t2.map".into(), map_body.to_vec()),
+            ("mp06t2.map".into(), map_body.to_vec()),
+            // mp01t4 故意缺失：应跳过且不打乱其余源序
+            ("mp99t4.map".into(), map_body.to_vec()),
+        ]),
+    };
+    let listed = list_parseable_maps_from_missions_pkt(GameEdition::Ra2, &source, pkt);
+    assert_eq!(
+        listed.iter().map(|m| m.file_name.as_str()).collect::<Vec<_>>(),
+        vec!["mp02t2.map", "mp06t2.map"]
+    );
+    assert_eq!(listed[0].name_csf, "DESC:MP02T2");
+    assert_eq!(listed[1].game_modes, vec!["standard".to_string(), "meatgrind".to_string()]);
 }
 
 #[test]
