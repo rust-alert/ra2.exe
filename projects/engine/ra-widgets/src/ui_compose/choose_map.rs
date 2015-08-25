@@ -2,22 +2,28 @@
 
 use super::*;
 
-/// 选图列表选中行底色（原版大红高亮条）。
-pub const CHOOSE_MAP_LIST_SELECTED: [u8; 4] = [200, 24, 24, 255];
+/// 选图列表选中行底色（`DAT_00AC4604 = 0xFF` → 源 RGB 纯红）。
+pub const CHOOSE_MAP_LIST_SELECTED: [u8; 4] = [255, 0, 0, 255];
 
 /// 选图列表框描边。
-pub const CHOOSE_MAP_LIST_BORDER: [u8; 4] = [200, 24, 24, 255];
+pub const CHOOSE_MAP_LIST_BORDER: [u8; 4] = [255, 0, 0, 255];
 
 /// 选图列表底。
 pub const CHOOSE_MAP_LIST_BG: [u8; 4] = [0, 0, 0, 255];
 
-/// 选图页滚动条槽 / 拇指。
-pub const CHOOSE_MAP_SCROLL_TRACK: [u8; 4] = [48, 8, 8, 255];
-/// 选图页滚动条拇指。
-pub const CHOOSE_MAP_SCROLL_THUMB: [u8; 4] = [200, 32, 32, 255];
+/// 选图列表行文字色（壳层黄 `DAT_00AC18A4 = 0x0000FFFF`）。
+pub const CHOOSE_MAP_LIST_TEXT: [u8; 4] = [255, 255, 0, 255];
 
-/// 选图页列表行高（内容像素）。
-pub const CHOOSE_MAP_LIST_ROW_H: i32 = 16;
+/// 选图页滚动条槽。
+pub const CHOOSE_MAP_SCROLL_TRACK: [u8; 4] = [48, 8, 8, 255];
+/// 选图页滚动条拇指 / 箭头。
+pub const CHOOSE_MAP_SCROLL_THUMB: [u8; 4] = [255, 0, 0, 255];
+
+/// 选图页列表行高：`GAME.FNT` 字高 17 + 2。
+pub const CHOOSE_MAP_LIST_ROW_H: i32 = 19;
+
+/// 溢出时列表内容区右侧留给滚动条的宽度（`1*2+0x12`）。
+pub const CHOOSE_MAP_SCROLL_W: i32 = 20;
 
 /// 列表框高度可容纳的行数。
 pub fn choose_map_visible_rows(list_h: i32) -> usize {
@@ -105,37 +111,44 @@ pub fn compose_choose_map_page(
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y, row.w - 8, row.h, MENU_TEXT_ENABLED);
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 2, row.y, row.w - 4, row.h, CHOOSE_MAP_LIST_TEXT);
         }
     }
 
     let visible_rows = choose_map_visible_rows(layout.map_list.h);
     let scroll = clamp_map_list_scroll(map_list_scroll, map_names.len(), visible_rows);
+    let map_overflow = map_names.len() > visible_rows && visible_rows > 0;
+    let map_content_w = if map_overflow {
+        (layout.map_list.w - CHOOSE_MAP_SCROLL_W).max(8)
+    } else {
+        layout.map_list.w
+    };
     for (row_i, name) in map_names.iter().skip(scroll).take(visible_rows).enumerate() {
         let abs_i = scroll + row_i;
         let row = RectPx::new(
             layout.map_list.x,
             layout.map_list.y + (row_i as i32) * CHOOSE_MAP_LIST_ROW_H,
-            layout.map_list.w,
+            map_content_w,
             CHOOSE_MAP_LIST_ROW_H,
         );
         if Some(abs_i) == selected_map_index {
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
         if let Some(fnt) = fnt {
-            // 右侧留给滚动条，避免字与拇指叠在一起。
-            let text_w = (row.w - 8 - 10).max(8);
-            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 4, row.y, text_w, row.h, MENU_TEXT_ENABLED);
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                name,
+                row.x + 2,
+                row.y,
+                (row.w - 4).max(8),
+                row.h,
+                CHOOSE_MAP_LIST_TEXT,
+            );
         }
     }
 
-    paint_choose_map_scrollbar(
-        &mut page,
-        layout.map_list,
-        map_names.len(),
-        visible_rows,
-        scroll,
-    );
+    paint_choose_map_scrollbar(&mut page, layout.map_list, map_names.len(), visible_rows, scroll);
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
@@ -155,22 +168,23 @@ fn paint_choose_map_scrollbar(page: &mut RgbaImage, list: RectPx, total: usize, 
     if total <= visible || visible == 0 || list.h <= 8 {
         return;
     }
-    let track_w = 8i32;
-    let track = RectPx::new(list.x + list.w - track_w - 1, list.y + 1, track_w, list.h - 2);
+    let track = RectPx::new(list.x + list.w - CHOOSE_MAP_SCROLL_W, list.y, CHOOSE_MAP_SCROLL_W, list.h);
     fill_rect(page, track, CHOOSE_MAP_SCROLL_TRACK);
+    stroke_rect(page, track, CHOOSE_MAP_LIST_BORDER);
     let max_scroll = total - visible;
-    let thumb_h = ((track.h as usize * visible) / total).max(12).min(track.h as usize) as i32;
-    let travel = (track.h - thumb_h).max(0);
-    let thumb_y = track.y + ((travel as usize * scroll) / max_scroll.max(1)) as i32;
-    fill_rect(page, RectPx::new(track.x + 1, thumb_y, track.w - 2, thumb_h), CHOOSE_MAP_SCROLL_THUMB);
-    // 上下三角提示（粗像素）。
+    let arrow = 8i32;
+    let travel_h = (track.h - arrow * 2).max(1);
+    let thumb_h = ((travel_h as usize * visible) / total).max(12).min(travel_h as usize) as i32;
+    let travel = (travel_h - thumb_h).max(0);
+    let thumb_y = track.y + arrow + ((travel as usize * scroll) / max_scroll.max(1)) as i32;
+    fill_rect(page, RectPx::new(track.x + 2, thumb_y, track.w - 4, thumb_h), CHOOSE_MAP_SCROLL_THUMB);
     let mid_x = track.x + track.w / 2;
-    for (i, dy) in [0i32, 1, 2].into_iter().enumerate() {
+    for (i, dy) in [0i32, 1, 2, 3].into_iter().enumerate() {
         let half = i as i32;
-        fill_rect(page, RectPx::new(mid_x - half, track.y + dy, half * 2 + 1, 1), CHOOSE_MAP_SCROLL_THUMB);
+        fill_rect(page, RectPx::new(mid_x - half, track.y + 2 + dy, half * 2 + 1, 1), CHOOSE_MAP_SCROLL_THUMB);
         fill_rect(
             page,
-            RectPx::new(mid_x - half, track.y + track.h - 1 - dy, half * 2 + 1, 1),
+            RectPx::new(mid_x - half, track.y + track.h - 3 - dy, half * 2 + 1, 1),
             CHOOSE_MAP_SCROLL_THUMB,
         );
     }
