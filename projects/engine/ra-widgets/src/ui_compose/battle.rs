@@ -29,6 +29,12 @@ pub struct BattleHudModel<'a> {
     pub pause_reason: Option<&'a str>,
     /// 结算文案（可空）。
     pub outcome: Option<&'a str>,
+    /// 命令条按下槽（高亮帧）。
+    pub command_pressed: Option<usize>,
+    /// 命令条悬停槽（浮动 `TIP:*`）。
+    pub command_hovered: Option<usize>,
+    /// 悬停提示文案（已解析 CSF；可含换行）。
+    pub command_tip: Option<&'a str>,
 }
 
 /// 合成战斗 HUD 叠加层：右栏 + 底边命令条。
@@ -56,7 +62,12 @@ pub fn compose_battle_hud_overlay(
 
     let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
     if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
-        blit_battle_hud_chrome(&mut page, chrome, layout);
+        crate::battle_hud::blit_battle_hud_chrome_with_state(
+            &mut page,
+            chrome,
+            layout,
+            paint.command_pressed,
+        );
     }
     else {
         fill_rect(&mut page, layout.sidebar, [28, 32, 40, 230]);
@@ -167,7 +178,66 @@ pub fn compose_battle_hud_overlay(
         }
     }
 
+    // 命令条悬停浮动提示（黑底白边，锚在钮上方）。
+    if let (Some(tip), Some(slot), Some(chrome), Some(fnt)) =
+        (paint.command_tip, paint.command_hovered, chrome, fnt)
+    {
+        if !tip.is_empty() {
+            let geom = crate::battle_hud::CommandBarGeom::from_chrome(chrome, layout.command_bar);
+            if let Some(cell) = geom.button_rect(layout.command_bar, slot) {
+                paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
+            }
+        }
+    }
+
     Some(page)
+}
+
+fn paint_command_tip(
+    page: &mut RgbaImage,
+    fnt: &FntFile,
+    tip: &str,
+    anchor: RectPx,
+    viewport_w: i32,
+    viewport_h: i32,
+) {
+    let lines: Vec<&str> = tip.lines().filter(|l| !l.is_empty()).collect();
+    if lines.is_empty() {
+        return;
+    }
+    let pad_x = 6;
+    let pad_y = 3;
+    let line_gap = 2;
+    let line_h = fnt.bitmap_rows as i32;
+    let mut text_w = 0i32;
+    for line in &lines {
+        text_w = text_w.max(fnt.text_width(line) as i32);
+    }
+    let box_w = text_w + pad_x * 2;
+    let box_h = (lines.len() as i32) * line_h
+        + (lines.len().saturating_sub(1) as i32) * line_gap
+        + pad_y * 2;
+    let mut bx = anchor.x + (anchor.w - box_w) / 2;
+    let mut by = anchor.y - box_h - 4;
+    if bx < 2 {
+        bx = 2;
+    }
+    if bx + box_w > viewport_w - 2 {
+        bx = (viewport_w - 2 - box_w).max(2);
+    }
+    if by < 2 {
+        by = (anchor.y + anchor.h + 4).min(viewport_h - box_h - 2).max(2);
+    }
+    let rect = RectPx::new(bx, by, box_w, box_h);
+    fill_rect(page, rect, [0, 0, 0, 255]);
+    stroke_rect(page, rect, [220, 220, 220, 255]);
+    let mut ty = by + pad_y;
+    for line in lines {
+        let tw = fnt.text_width(line) as i32;
+        let tx = bx + (box_w - tw) / 2;
+        blit_text_colored(page, fnt, line, tx, ty, [255, 255, 255, 255]);
+        ty += line_h + line_gap;
+    }
 }
 
 /// 合成对局暂停菜单叠加层：左战术区压暗，右栏六钮（选项 / 载入 / 保存 / 重开 / 放弃 / 回到游戏）。

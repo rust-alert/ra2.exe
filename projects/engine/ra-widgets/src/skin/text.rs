@@ -307,6 +307,25 @@ pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 对局命令条按钮悬停提示 → CSF（`TIP:*`）。
+pub fn command_button_csf_tooltip(slot: usize) -> Option<&'static str> {
+    match slot {
+        0 => Some("TIP:TEAM01"),
+        1 => Some("TIP:TEAM02"),
+        2 => Some("TIP:TYPESELECT"),
+        3 => Some("TIP:ATTACKMOVE"),
+        4 => Some("TIP:GUARD"),
+        5 => Some("TIP:PLANNINGMODE"),
+        6 => Some("TIP:DEPLOY"),
+        7 => Some("TIP:BEACON"),
+        8 => Some("TIP:CHEER"),
+        9 => Some("TIP:STOP"),
+        10 => Some("TIP:TEAM03"),
+        11 => Some("TIP:AUTODEPLOY"),
+        _ => None,
+    }
+}
+
 /// 退出确认提示 CSF 键。
 pub fn exit_confirm_prompt_csf_key() -> &'static str {
     "GUI:ExitAreYouSure"

@@ -75,3 +75,12 @@ fn blit_text_writes_colored_pixel() {
     blit_text_colored(&mut dst, &fnt, "A", 0, 0, [255, 214, 0, 255]);
     assert_eq!(&dst.as_raw()[0..4], &[255, 214, 0, 255]);
 }
+
+#[test]
+fn command_button_tip_keys_cover_retail_slots() {
+    assert_eq!(command_button_csf_tooltip(0), Some("TIP:TEAM01"));
+    assert_eq!(command_button_csf_tooltip(2), Some("TIP:TYPESELECT"));
+    assert_eq!(command_button_csf_tooltip(4), Some("TIP:GUARD"));
+    assert_eq!(command_button_csf_tooltip(5), Some("TIP:PLANNINGMODE"));
+    assert_eq!(command_button_csf_tooltip(12), None);
+}
