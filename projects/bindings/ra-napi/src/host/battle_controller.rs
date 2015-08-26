@@ -1,6 +1,6 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::{Duration, Instant}};
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, Palette, Rgba};
@@ -40,6 +40,8 @@ use super::{
 const BATTLE_START_ZOOM: f32 = 1.0;
 /// 选中行动线可见时长（仿真 tick，对齐原版约 25 帧窗口）。
 const ACTION_LINES_DURATION_TICKS: u64 = 25;
+/// 同一实体两次点选间隔小于该值视为双击部署（MCV 等）。
+const DEPLOY_DOUBLE_CLICK_MS: u64 = 450;
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +58,7 @@ pub enum BattleNav {
 
 /// 待播的建筑 Buildup（MCV 展开等）。
 struct PendingBuildup {
+    #[allow(dead_code)]
     entity: EntityId,
     type_id: String,
     owner: String,
@@ -147,6 +150,8 @@ pub struct BattleController {
     edge_scroll_cursor: EdgeScrollCursor,
     /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
     action_lines_start_tick: Option<u64>,
+    /// 上一记左键点选实体（双击部署判定）。
+    last_click: Option<(EntityId, Instant)>,
 }
 
 impl BattleController {
@@ -191,6 +196,7 @@ impl BattleController {
             deploy_status: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             action_lines_start_tick: None,
+            last_click: None,
         };
         this.bind_local_start();
         this
@@ -288,6 +294,7 @@ impl BattleController {
         self.deploy_status = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
+        self.last_click = None;
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -542,6 +549,20 @@ impl BattleController {
         let mut pulse = false;
         if let Some(id) = picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
+            let deployable = game.deploy_target_of(id).is_some();
+            let double_deploy = !add
+                && deployable
+                && self.local.selected.len() == 1
+                && self.local.selected[0] == id
+                && self
+                    .last_click
+                    .is_some_and(|(last_id, t)| last_id == id && t.elapsed() < Duration::from_millis(DEPLOY_DOUBLE_CLICK_MS));
+            if double_deploy {
+                self.last_click = None;
+                tracing::info!("双击部署 · #{} @({},{})", id.0, cell.0, cell.1);
+                self.deploy_selection();
+                return;
+            }
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -550,10 +571,12 @@ impl BattleController {
                 self.local.select_only(game, id);
                 tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
+            self.last_click = Some((id, Instant::now()));
             pulse = true;
         }
         else if !add {
             self.local.clear();
+            self.last_click = None;
             if let Some(cell) = game.image_to_cell(wx, wy) {
                 tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
             }
@@ -884,15 +907,7 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyD) => {
-                        let selected = self.local.selected.clone();
-                        if let Some(&id) = selected.first() {
-                            self.deploy_watch = Some(id);
-                            self.deploy_status = Some("部署中…".into());
-                        }
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            tracing::info!("部署选中 · {:?}", selected);
-                            game.order_deploy(&selected);
-                        }
+                        self.deploy_selection();
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyX) => {
@@ -973,6 +988,29 @@ impl BattleController {
         (nav, started.elapsed())
     }
 
+    /// 对当前选中下发部署命令（`D` 键 / 双击 MCV）。
+    fn deploy_selection(&mut self) {
+        let selected = self.local.selected.clone();
+        let Some(&id) = selected.first()
+        else {
+            return;
+        };
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        if game.deploy_target_of(id).is_none() {
+            tracing::info!("部署 · 选中不可部署 · {:?}", selected);
+            return;
+        }
+        self.deploy_watch = Some(id);
+        self.deploy_status = Some("部署中…".into());
+        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            tracing::info!("部署选中 · {:?}", selected);
+            game.order_deploy(&selected);
+        }
+    }
+
     /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
     fn resolve_deploy_watch(&mut self) {
         let Some(id) = self.deploy_watch
@@ -1008,6 +1046,23 @@ impl BattleController {
                 tracing::info!("{note} · #{id}", id = id.0);
                 self.deploy_status = Some(note);
                 self.deploy_watch = None;
+                if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                    if let (Some((type_id, kind)), Some(owner), Some((x, y, _))) = (
+                        game.world.ecs_identity(id),
+                        game.world.ecs_owner(id),
+                        game.world.ecs_transform(id),
+                    ) {
+                        if matches!(kind, MapEntityKind::Structure) {
+                            self.deploy_visual_queue.push(DeployVisualJob {
+                                entity: id,
+                                type_id: type_id.to_string(),
+                                owner: owner.to_string(),
+                                x,
+                                y,
+                            });
+                        }
+                    }
+                }
             }
             Some(Err(label)) => {
                 tracing::info!("部署失败 · {label}");
@@ -1098,7 +1153,10 @@ impl BattleController {
             })
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
-        self.refresh_structure_anims(renderer);
+        self.tick_deploy_visuals(assets, renderer);
+        if self.pending_buildups.is_empty() {
+            self.refresh_structure_anims(renderer);
+        }
         self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present);
         renderer.set_action_lines_active(self.action_lines_active());
         match pending {
@@ -1106,6 +1164,296 @@ impl BattleController {
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
         }
         self.refresh_title(renderer, window, screen_label, Some(&hud));
+    }
+
+    /// 启动 / 推进部署 Buildup，并在播放期间重绘预览（去掉已烤死的 MCV 像素）。
+    fn tick_deploy_visuals(&mut self, assets: Option<&GameAssetSource>, renderer: &mut Renderer) {
+        let Some(assets) = assets
+        else {
+            return;
+        };
+        let had_queue = !self.deploy_visual_queue.is_empty();
+        let jobs: Vec<DeployVisualJob> = self.deploy_visual_queue.drain(..).collect();
+        let pending_before = self.pending_buildups.len();
+        for job in jobs {
+            self.begin_deploy_visual(assets, job);
+        }
+        let started_new = self.pending_buildups.len() > pending_before;
+        if self.pending_buildups.is_empty() {
+            if had_queue {
+                // 无 Buildup 资源时已定格：刷新活动层。
+                self.refresh_structure_anims(renderer);
+            }
+            return;
+        }
+        if started_new {
+            self.recompose_preview_with_buildups(assets, renderer);
+        }
+        let mut still = Vec::new();
+        let mut finished = Vec::new();
+        for pending in self.pending_buildups.drain(..) {
+            let elapsed = pending.started.elapsed().as_millis() as u64;
+            if pending.clip.frame_at(elapsed).is_none() {
+                finished.push(pending);
+            }
+            else {
+                still.push(pending);
+            }
+        }
+        self.pending_buildups = still;
+        for done in &finished {
+            tracing::info!(
+                "部署动画结束 · {} @({},{})",
+                done.type_id,
+                done.clip.x,
+                done.clip.y
+            );
+            self.settle_deployed_structure(assets, &done.type_id, &done.owner, done.clip.x, done.clip.y);
+        }
+        if self.pending_buildups.is_empty() {
+            self.refresh_structure_anims(renderer);
+        }
+        else {
+            self.recompose_preview_with_buildups(assets, renderer);
+        }
+    }
+
+    fn begin_deploy_visual(&mut self, assets: &GameAssetSource, job: DeployVisualJob) {
+        if self.rules.is_none() {
+            tracing::warn!("部署动画 · 无规则快照，直接定格 {}", job.type_id);
+            self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y);
+            return;
+        }
+        let clip = {
+            let rules = self.rules.as_ref().expect("rules checked");
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            let lobby = &self.lobby_primaries;
+            load_structure_buildup_clip(
+                assets,
+                &game.world.map,
+                self.art_ini,
+                &job.type_id,
+                &job.owner,
+                job.x,
+                job.y,
+                &|base, owner| remap_owner_palette(rules, Some(lobby), base, owner),
+            )
+        };
+        match clip {
+            Some(clip) => {
+                tracing::info!(
+                    "部署动画 · {} @({},{}) · {}帧 · {}ms/帧",
+                    job.type_id,
+                    job.x,
+                    job.y,
+                    clip.frames.len(),
+                    clip.rate_ms
+                );
+                self.pending_buildups.push(PendingBuildup {
+                    entity: job.entity,
+                    type_id: job.type_id,
+                    owner: job.owner,
+                    clip,
+                    started: Instant::now(),
+                });
+            }
+            None => {
+                tracing::warn!("部署动画 · 无 Buildup 资源 {}，直接定格", job.type_id);
+                self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y);
+            }
+        }
+    }
+
+    /// 把已展开建造场主体烤进 `preview_clean`，并并入 ActiveAnim 银行。
+    fn settle_deployed_structure(&mut self, assets: &GameAssetSource, type_id: &str, owner: &str, x: u16, y: u16) {
+        let art_ini = self.art_ini;
+        let origin = self.preview_origin;
+        let bank = {
+            let Some(rules) = self.rules.as_ref()
+            else {
+                return;
+            };
+            let Some(clean) = self.preview_clean.as_mut()
+            else {
+                return;
+            };
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            let mut one = game.world.map.clone();
+            one.entities.clear();
+            one.entities.push(MapEntity {
+                kind: MapEntityKind::Structure,
+                owner: owner.to_string(),
+                type_id: type_id.to_string(),
+                health: 256,
+                x,
+                y,
+                facing: 0,
+                sub_cell: 0,
+            });
+            let lobby = &self.lobby_primaries;
+            paint_structures_onto_rgba(
+                assets,
+                &one,
+                clean,
+                origin.0,
+                origin.1,
+                art_ini,
+                &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
+            );
+            collect_structure_anim_bank(assets, &one, art_ini, &|base, own| remap_owner_palette(rules, Some(lobby), base, own))
+        };
+        self.structure_anims.layers.extend(bank.layers);
+        self.last_anim_sig = u64::MAX;
+        self.rebuild_preview_base_with_mobiles(assets);
+    }
+
+    /// `preview_base` = 已定格底图（含展开后的建造场）+ 当前存活移动单位。
+    fn rebuild_preview_base_with_mobiles(&mut self, assets: &GameAssetSource) {
+        let Some(rules) = self.rules.as_ref()
+        else {
+            return;
+        };
+        let Some(clean) = self.preview_clean.as_ref()
+        else {
+            return;
+        };
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let mut mobile_map = game.world.map.clone();
+        mobile_map.entities.clear();
+        for id in game.world.entity_ids() {
+            if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
+                continue;
+            }
+            let Some((type_id, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            let Some((x, y, facing)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            mobile_map.entities.push(MapEntity {
+                kind,
+                owner: owner.to_string(),
+                type_id: type_id.to_string(),
+                health: 256,
+                x,
+                y,
+                facing,
+                sub_cell: 0,
+            });
+        }
+        let mut base = clean.clone();
+        let lobby = &self.lobby_primaries;
+        paint_mobiles_onto_preview_rgba(
+            assets,
+            &mobile_map,
+            &mut base,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            self.art_ini,
+            self.rules_ini,
+            &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
+        );
+        self.preview_base = Some(base);
+        self.last_anim_sig = u64::MAX;
+    }
+
+    /// Buildup 播放中：干净底图 + 移动单位 + 当前展开帧 + ActiveAnim。
+    fn recompose_preview_with_buildups(&mut self, assets: &GameAssetSource, renderer: &mut Renderer) {
+        let Some(rules) = self.rules.as_ref()
+        else {
+            return;
+        };
+        let Some(clean) = self.preview_clean.as_ref()
+        else {
+            return;
+        };
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let mut mobile_map = game.world.map.clone();
+        mobile_map.entities.clear();
+        for id in game.world.entity_ids() {
+            if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
+                continue;
+            }
+            let Some((type_id, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            let Some((x, y, facing)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            mobile_map.entities.push(MapEntity {
+                kind,
+                owner: owner.to_string(),
+                type_id: type_id.to_string(),
+                health: 256,
+                x,
+                y,
+                facing,
+                sub_cell: 0,
+            });
+        }
+        let lobby = self.lobby_primaries.clone();
+        let mut composed = clean.clone();
+        paint_mobiles_onto_preview_rgba(
+            assets,
+            &mobile_map,
+            &mut composed,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            self.art_ini,
+            self.rules_ini,
+            &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
+        );
+        for pending in &self.pending_buildups {
+            let elapsed = pending.started.elapsed().as_millis() as u64;
+            let frame = pending.clip.frame_at(elapsed).unwrap_or(0);
+            paint_structure_buildup_onto_rgba(
+                &mut composed,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                &pending.clip,
+                frame,
+            );
+        }
+        let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        paint_structure_anims_onto_rgba(
+            &mut composed,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            &self.structure_anims,
+            clock_ms,
+        );
+        renderer.update_map_preview(composed);
+        self.last_anim_sig = u64::MAX;
     }
 
     /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机），不重置相机。
