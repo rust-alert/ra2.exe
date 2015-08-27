@@ -3,17 +3,41 @@
 use std::time::Instant;
 
 use ra_layout::ui_layout;
+use ra_map::mount_theater_mixes;
 use ra_renderer::RgbaImage;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::shell_slide::WaveDirection;
 use ra_widgets::ui_compose::{self, ShellWaveFrames};
 use ra_widgets::ui_decode;
 use ra_widgets::ui_present;
-use ra_widgets::ui_text::{resolve_caption, sanitize_csf_display};
+use ra_widgets::ui_text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
 
 use super::Shell;
 
 impl Shell {
+    /// 对局需要剧院 MIX（Buildup / 建筑 SHP 在 `isotemp.mix` 等）；菜单源默认未挂。
+    pub(super) fn ensure_battle_theater_mixes(&mut self) {
+        let Some(theater) = self.battle_controller.as_ref().and_then(|c| c.map_theater())
+        else {
+            return;
+        };
+        if self.battle_theater_mounted == Some(theater) {
+            return;
+        }
+        self.ensure_menu_assets();
+        let Some(source) = self.menu_assets.as_mut().and_then(|a| a.source.as_mut())
+        else {
+            return;
+        };
+        let n = mount_theater_mixes(theater, &mut |mix| {
+            matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0)
+        });
+        self.battle_theater_mounted = Some(theater);
+        if n > 0 {
+            tracing::info!("对局剧院 MIX · {} · 新挂载 {}", theater.as_str(), n);
+        }
+    }
+
     /// 上传 UI 页：先按 `[present]` 做质感变换再进 GPU。
     pub(super) fn upload_ui_page(&mut self, page: RgbaImage) {
         let page = ui_present::present_ui_page(page, self.present);
@@ -156,6 +180,29 @@ impl Shell {
                         let map_csf = selected.map(|m| m.name_csf.as_str());
                         let map_name = resolve_caption(self.menu_csf.as_ref(), map_file, map_csf);
                         let country = self.skirmish.side.clone();
+                        let side_labels: Vec<String> = self
+                            .skirmish
+                            .sides
+                            .iter()
+                            .map(|id| {
+                                let ui_name = self
+                                    .lobby_countries
+                                    .iter()
+                                    .find(|c| c.id.eq_ignore_ascii_case(id))
+                                    .map(|c| c.ui_name.as_str())
+                                    .unwrap_or("");
+                                country_lobby_display_name(self.menu_csf.as_ref(), id, ui_name)
+                            })
+                            .collect();
+                        let local_side_i = if self.skirmish.sides.is_empty() {
+                            0
+                        } else {
+                            usize::from(self.skirmish.row_sides[0]) % self.skirmish.sides.len()
+                        };
+                        let country_label = side_labels
+                            .get(local_side_i)
+                            .cloned()
+                            .unwrap_or_else(|| country_lobby_display_name(self.menu_csf.as_ref(), &country, ""));
                         let ai_csf = ra_widgets::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
@@ -174,7 +221,7 @@ impl Shell {
                             map_name: map_name.as_str(),
                             game_type_name: game_type_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
-                            country_name: country.as_str(),
+                            country_name: country_label.as_str(),
                             color_rgb: self.skirmish.color_rgb(),
                             ai_name: ai_name.as_str(),
                             ai_country: self.skirmish.row_side(1),
@@ -194,6 +241,7 @@ impl Shell {
                             ai_combo_open: self.skirmish.open_combo == Some(ra_widgets::skirmish_setup::SkirmishComboKind::Ai),
                             combo_row: self.skirmish.combo_row,
                             sides: self.skirmish.sides.as_slice(),
+                            side_labels: side_labels.as_slice(),
                             row_side_indices: self.skirmish.row_sides,
                             row_color_indices: self.skirmish.row_colors,
                             chrome: self.skirmish_chrome.as_ref(),
@@ -392,6 +440,7 @@ impl Shell {
 
     pub(super) fn redraw(&mut self) {
         if self.screen.pumps_session() {
+            self.ensure_battle_theater_mixes();
             if let Some(ctrl) = self.battle_controller.as_mut() {
                 let prev = ctrl.take_pump_clock();
                 let dt = Instant::now().duration_since(prev).as_secs_f64();
@@ -416,6 +465,7 @@ impl Shell {
             }
         }
         else if self.screen.requires_session() {
+            self.ensure_battle_theater_mixes();
             if let Some(ctrl) = self.battle_controller.as_mut() {
                 let _ = ctrl.take_pump_clock();
                 self.renderer.timings.simulation = None;

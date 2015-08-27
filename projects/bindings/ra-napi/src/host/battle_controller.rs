@@ -15,7 +15,7 @@ use ra_widgets::{
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{battle_hud_layout_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
 use ra_map::{
-    MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, collect_structure_anim_bank, iso_to_screen,
+    MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank, iso_to_screen,
     load_structure_buildup_clip, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
     paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
 };
@@ -152,6 +152,8 @@ pub struct BattleController {
     action_lines_start_tick: Option<u64>,
     /// 上一记左键点选实体（双击部署判定）。
     last_click: Option<(EntityId, Instant)>,
+    /// 当前地图剧院（壳层挂载剧院 MIX 用）。
+    map_theater: Option<Theater>,
 }
 
 impl BattleController {
@@ -159,6 +161,7 @@ impl BattleController {
     pub fn from_boot(boot: BootResult, status_path: Option<PathBuf>, test_scene: Option<String>) -> Self {
         let edition = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.edition.as_str()).unwrap_or("—");
         let has_session = boot.session.as_ref().and_then(|s| s.battle()).is_some();
+        let map_theater = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
         let mut this = Self {
             engine: boot.engine,
             session: boot.session,
@@ -197,9 +200,15 @@ impl BattleController {
             edge_scroll_cursor: EdgeScrollCursor::Default,
             action_lines_start_tick: None,
             last_click: None,
+            map_theater,
         };
         this.bind_local_start();
         this
+    }
+
+    /// 当前对局地图剧院（供壳层挂载 `isotemp` 等）。
+    pub fn map_theater(&self) -> Option<Theater> {
+        self.map_theater
     }
 
     /// 是否已有可玩会话。
@@ -295,6 +304,7 @@ impl BattleController {
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
         self.last_click = None;
+        self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -1181,8 +1191,8 @@ impl BattleController {
         let started_new = self.pending_buildups.len() > pending_before;
         if self.pending_buildups.is_empty() {
             if had_queue {
-                // 无 Buildup 资源时已定格：刷新活动层。
-                self.refresh_structure_anims(renderer);
+                // 无 Buildup 资源时已定格：必须上传底图（活动层可空）。
+                self.present_preview_base(renderer);
             }
             return;
         }
@@ -1208,10 +1218,10 @@ impl BattleController {
                 done.clip.x,
                 done.clip.y
             );
-            self.settle_deployed_structure(assets, &done.type_id, &done.owner, done.clip.x, done.clip.y);
+            self.settle_deployed_structure(assets, &done.type_id, &done.owner, done.clip.x, done.clip.y, Some(&done.clip));
         }
         if self.pending_buildups.is_empty() {
-            self.refresh_structure_anims(renderer);
+            self.present_preview_base(renderer);
         }
         else {
             self.recompose_preview_with_buildups(assets, renderer);
@@ -1221,7 +1231,7 @@ impl BattleController {
     fn begin_deploy_visual(&mut self, assets: &GameAssetSource, job: DeployVisualJob) {
         if self.rules.is_none() {
             tracing::warn!("部署动画 · 无规则快照，直接定格 {}", job.type_id);
-            self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y);
+            self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y, None);
             return;
         }
         let clip = {
@@ -1261,17 +1271,25 @@ impl BattleController {
                 });
             }
             None => {
-                tracing::warn!("部署动画 · 无 Buildup 资源 {}，直接定格", job.type_id);
-                self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y);
+                tracing::warn!("部署动画 · 无 Buildup 资源 {}，尝试直接定格", job.type_id);
+                self.settle_deployed_structure(assets, &job.type_id, &job.owner, job.x, job.y, None);
             }
         }
     }
 
-    /// 把已展开建造场主体烤进 `preview_clean`，并并入 ActiveAnim 银行。
-    fn settle_deployed_structure(&mut self, assets: &GameAssetSource, type_id: &str, owner: &str, x: u16, y: u16) {
+    /// 把已展开建造场烤进 `preview_clean`。主体 SHP 缺失时用 Buildup 末帧。
+    fn settle_deployed_structure(
+        &mut self,
+        assets: &GameAssetSource,
+        type_id: &str,
+        owner: &str,
+        x: u16,
+        y: u16,
+        clip: Option<&StructureBuildupClip>,
+    ) {
         let art_ini = self.art_ini;
         let origin = self.preview_origin;
-        let bank = {
+        let painted = {
             let Some(rules) = self.rules.as_ref()
             else {
                 return;
@@ -1297,7 +1315,7 @@ impl BattleController {
                 sub_cell: 0,
             });
             let lobby = &self.lobby_primaries;
-            paint_structures_onto_rgba(
+            let mut n = paint_structures_onto_rgba(
                 assets,
                 &one,
                 clean,
@@ -1306,8 +1324,29 @@ impl BattleController {
                 art_ini,
                 &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
             );
-            collect_structure_anim_bank(assets, &one, art_ini, &|base, own| remap_owner_palette(rules, Some(lobby), base, own))
+            if n == 0 {
+                if let Some(clip) = clip {
+                    if let Some(last) = clip.frames.len().checked_sub(1) {
+                        if paint_structure_buildup_onto_rgba(clean, origin.0, origin.1, clip, last) {
+                            n = 1;
+                            tracing::info!("定格 · {} Buildup 末帧 #{}", type_id, last);
+                        }
+                    }
+                }
+            }
+            else {
+                tracing::info!("定格 · {} 主体 SHP", type_id);
+            }
+            if n == 0 {
+                tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
+                return;
+            }
+            let bank = collect_structure_anim_bank(assets, &one, art_ini, &|base, own| {
+                remap_owner_palette(rules, Some(lobby), base, own)
+            });
+            (n, bank)
         };
+        let (_n, bank) = painted;
         self.structure_anims.layers.extend(bank.layers);
         self.last_anim_sig = u64::MAX;
         self.rebuild_preview_base_with_mobiles(assets);
@@ -1454,6 +1493,30 @@ impl BattleController {
         );
         renderer.update_map_preview(composed);
         self.last_anim_sig = u64::MAX;
+    }
+
+    /// 上传当前 `preview_base`（可叠活动层）。定格后即使无 ActiveAnim 也必须调用。
+    fn present_preview_base(&mut self, renderer: &mut Renderer) {
+        let Some(base) = self.preview_base.as_ref()
+        else {
+            return;
+        };
+        let mut composed = base.clone();
+        if !self.structure_anims.is_empty() {
+            let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+            paint_structure_anims_onto_rgba(
+                &mut composed,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                &self.structure_anims,
+                clock_ms,
+            );
+            self.last_anim_sig = self.structure_anims.frame_signature(clock_ms);
+        }
+        else {
+            self.last_anim_sig = 0;
+        }
+        renderer.update_map_preview(composed);
     }
 
     /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机），不重置相机。

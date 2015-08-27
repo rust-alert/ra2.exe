@@ -27,7 +27,7 @@ use ra_widgets::{
         CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
         WAVE_STOWED_FRAME, WaveDirection,
     },
-    skirmish_setup::{SkirmishBootRequest, hover_entry_at, side_flag_pcx},
+    skirmish_setup::{SkirmishBootRequest, hover_entry_at},
     startup_splash::{self, StartupSplashPresentation},
     ui_assets::{MenuUiAssets, load_menu_ui_assets},
     ui_compose::{self, SkirmishChromeSprites},
@@ -204,6 +204,8 @@ pub struct Shell {
     pub(super) battle_cursor_grabbed: bool,
     /// 上次已应用的对局指针（避免每帧重复 `set_cursor`）。
     pub(super) battle_pointer: crate::host::battle_input::BattlePointer,
+    /// 已为对局挂载的剧院 MIX（避免每帧重复挂载）。
+    pub(super) battle_theater_mounted: Option<ra_map::Theater>,
 }
 
 impl Shell {

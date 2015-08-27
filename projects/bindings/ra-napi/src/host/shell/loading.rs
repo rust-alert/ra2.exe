@@ -263,6 +263,8 @@ impl Shell {
         let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
         let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);
         if ok {
+            self.battle_theater_mounted = None;
+            self.ensure_battle_theater_mixes();
             self.set_screen(target);
         } else {
             let hint = self.load_cancel_hint();
