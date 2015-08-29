@@ -119,6 +119,8 @@ impl Shell {
             last_shell_title: String::new(),
             battle_cursor_grabbed: false,
             battle_pointer: crate::host::battle_input::BattlePointer::Default,
+            battle_mouse_cursors: None,
+            battle_mouse_cursors_tried: false,
             battle_theater_mounted: None,
         }
     }
@@ -220,6 +222,8 @@ impl Shell {
             last_shell_title: String::new(),
             battle_cursor_grabbed: false,
             battle_pointer: crate::host::battle_input::BattlePointer::Default,
+            battle_mouse_cursors: None,
+            battle_mouse_cursors_tried: false,
             battle_theater_mounted: None,
         }
     }

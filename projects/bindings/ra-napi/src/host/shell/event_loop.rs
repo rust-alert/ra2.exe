@@ -114,6 +114,7 @@ impl ApplicationHandler for Shell {
             }
             WindowEvent::RedrawRequested => {
                 self.tick_menu_frame_wave(event_loop);
+                self.ensure_battle_mouse_cursors(event_loop);
                 self.redraw();
                 return;
             }

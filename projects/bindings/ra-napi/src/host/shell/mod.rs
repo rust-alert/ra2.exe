@@ -204,6 +204,10 @@ pub struct Shell {
     pub(super) battle_cursor_grabbed: bool,
     /// 上次已应用的对局指针（避免每帧重复 `set_cursor`）。
     pub(super) battle_pointer: crate::host::battle_input::BattlePointer,
+    /// `mouse.shp` 软件光标（边缘滚屏 / 贴边禁止 / 部署）；缺资源时为空。
+    pub(super) battle_mouse_cursors: Option<battle_cursors::BattleMouseCursorSet>,
+    /// 是否已尝试装入对局软件光标（避免反复读盘）。
+    pub(super) battle_mouse_cursors_tried: bool,
     /// 已为对局挂载的剧院 MIX（避免每帧重复挂载）。
     pub(super) battle_theater_mounted: Option<ra_map::Theater>,
 }
@@ -220,6 +224,7 @@ mod options;
 mod lobby;
 mod campaign;
 mod assets;
+mod battle_cursors;
 mod diagnostics;
 mod navigation;
 mod loading;
