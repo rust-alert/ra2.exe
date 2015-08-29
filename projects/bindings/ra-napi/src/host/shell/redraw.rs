@@ -203,6 +203,17 @@ impl Shell {
                             .get(local_side_i)
                             .cloned()
                             .unwrap_or_else(|| country_lobby_display_name(self.menu_csf.as_ref(), &country, ""));
+                        let ai_side_i = if self.skirmish.sides.is_empty() {
+                            0
+                        } else {
+                            usize::from(self.skirmish.row_sides[1]) % self.skirmish.sides.len()
+                        };
+                        let ai_country_label = side_labels
+                            .get(ai_side_i)
+                            .cloned()
+                            .unwrap_or_else(|| {
+                                country_lobby_display_name(self.menu_csf.as_ref(), self.skirmish.row_side(1), "")
+                            });
                         let ai_csf = ra_widgets::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
@@ -224,7 +235,7 @@ impl Shell {
                             country_name: country_label.as_str(),
                             color_rgb: self.skirmish.color_rgb(),
                             ai_name: ai_name.as_str(),
-                            ai_country: self.skirmish.row_side(1),
+                            ai_country: ai_country_label.as_str(),
                             ai_difficulty: self.skirmish.difficulty.as_str(),
                             ai_rows,
                             short_game: self.skirmish.short_game,

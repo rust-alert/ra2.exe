@@ -157,7 +157,11 @@ fn americans_flag_pcx() {
     assert_eq!(side_flag_pcx("Americans"), "usai.pcx");
     assert_eq!(side_flag_pcx("Russians"), "rusi.pcx");
     assert_eq!(side_flag_pcx("Alliance"), "japi.pcx");
+    assert_eq!(side_flag_pcx("Africans"), "lati.pcx");
+    assert_eq!(side_flag_pcx("Arabs"), "arbi.pcx");
+    assert_eq!(side_flag_pcx("Confederation"), "djbi.pcx");
     assert_eq!(side_flag_pcx("YuriCountry"), "yrii.pcx");
+    assert_eq!(side_flag_pcx_candidates("Africans"), &["lati.pcx", "lybi.pcx"]);
 }
 
 #[test]

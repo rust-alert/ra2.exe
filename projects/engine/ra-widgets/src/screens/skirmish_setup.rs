@@ -45,21 +45,30 @@ pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     }
 }
 
-/// 阵营 → 安装内旗标 PCX（`local.mix` 常见文件名）。
-pub fn side_flag_pcx(side: &str) -> &'static str {
+/// 阵营 → 安装内旗标 PCX 候选（`local.mix` 穷举证实；前者优先）。
+///
+/// 原版盘：`usai/frai/geri/gbri/japi/rusi` + 苏军三国 `djbi/arbi/lati`；
+/// `cubi/lybi/iraqi` 等常见拼写不存在，仅作回退。
+pub fn side_flag_pcx_candidates(side: &str) -> &'static [&'static str] {
     match side {
-        "Americans" => "usai.pcx",
-        "French" => "frai.pcx",
-        "Germans" => "geri.pcx",
-        "British" => "gbri.pcx",
-        "Russians" => "rusi.pcx",
-        "Alliance" | "Korea" | "Koreans" => "japi.pcx",
-        "Confederation" | "Cuba" | "Cubans" => "cubi.pcx",
-        "Arabs" | "Iraq" | "Iraqis" => "iraqi.pcx",
-        "Africans" | "Libya" | "Libyans" => "lybi.pcx",
-        "YuriCountry" | "Yuri" => "yrii.pcx",
-        _ => "usai.pcx",
+        "Americans" => &["usai.pcx"],
+        "French" => &["frai.pcx"],
+        "Germans" => &["geri.pcx"],
+        "British" => &["gbri.pcx"],
+        "Russians" => &["rusi.pcx"],
+        "Alliance" | "Korea" | "Koreans" => &["japi.pcx"],
+        "Confederation" | "Cuba" | "Cubans" => &["djbi.pcx", "cubi.pcx"],
+        "Arabs" | "Iraq" | "Iraqis" => &["arbi.pcx", "iraqi.pcx", "irqi.pcx"],
+        "Africans" | "Libya" | "Libyans" => &["lati.pcx", "lybi.pcx"],
+        "YuriCountry" | "Yuri" => &["yrii.pcx"],
+        "Observer" | "Observers" => &["obsi.pcx"],
+        _ => &["usai.pcx"],
     }
+}
+
+/// 阵营 → 首选旗标 PCX 文件名。
+pub fn side_flag_pcx(side: &str) -> &'static str {
+    side_flag_pcx_candidates(side)[0]
 }
 
 /// 阵营 → 标准装载艺术图后缀（`ls800{suffix}.shp` / `ls640{suffix}.shp`）。

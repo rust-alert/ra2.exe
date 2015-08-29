@@ -219,6 +219,24 @@ pub fn load_screen_name_csf_key(side: &str) -> String {
     format!("NAME:{}", side.to_ascii_uppercase())
 }
 
+/// 遭遇战大厅国家显示名：优先 `UIName=` CSF，其次 `NAME:{id}`，最后回退 house id。
+pub fn country_lobby_display_name(csf: Option<&CsfFile>, id: &str, ui_name: &str) -> String {
+    if !ui_name.trim().is_empty() {
+        if let Some(text) = resolve_csf_text(csf, ui_name.trim()) {
+            return text;
+        }
+    }
+    let name_key = format!("Name:{}", id);
+    if let Some(text) = resolve_csf_text(csf, &name_key) {
+        return text;
+    }
+    let upper = load_screen_name_csf_key(id);
+    if let Some(text) = resolve_csf_text(csf, &upper) {
+        return text;
+    }
+    id.to_string()
+}
+
 /// 装载页国家介绍 CSF：`LOADBRIEF:{suffix}`。
 pub fn load_screen_brief_csf_key(side: &str) -> String {
     format!("LOADBRIEF:{}", crate::skirmish_setup::load_screen_brief_suffix(side))

@@ -6,7 +6,7 @@ use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skirmish_setup::{self, hover_entry_at, side_flag_pcx};
+use ra_widgets::skirmish_setup::{self, hover_entry_at, side_flag_pcx_candidates};
 use ra_widgets::ui_compose::{self, SkirmishChromeSprites};
 use winit::event::KeyEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -51,7 +51,23 @@ impl Shell {
         if need_flag {
             for i in 0..ui_layout::SKIRMISH_ROW_COUNT {
                 let side = self.skirmish.row_side(i);
-                chrome.row_flags[i] = Self::load_pcx_rgba(source, side_flag_pcx(side));
+                let prefix = self
+                    .lobby_countries
+                    .iter()
+                    .find(|c| c.id.eq_ignore_ascii_case(side))
+                    .map(|c| c.prefix.as_str())
+                    .unwrap_or("");
+                // 已知 id 映射优先；再试 `{prefix}i.pcx`（如 `USA`→`usai.pcx`）。
+                let prefix_flag = if prefix.len() >= 3 {
+                    Some(format!("{}i.pcx", prefix[..3].to_ascii_lowercase()))
+                } else {
+                    None
+                };
+                chrome.row_flags[i] = side_flag_pcx_candidates(side)
+                    .iter()
+                    .copied()
+                    .chain(prefix_flag.as_deref())
+                    .find_map(|name| Self::load_pcx_rgba(source, name));
             }
             chrome.flag = chrome.row_flags[0].clone();
             chrome.ai_flag = chrome.row_flags[1].clone();
