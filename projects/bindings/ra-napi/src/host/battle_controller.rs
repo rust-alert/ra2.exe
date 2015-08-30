@@ -489,9 +489,79 @@ impl BattleController {
             .any(|&id| game.deploy_target_of(id).is_some())
     }
 
-    /// 对局指针：边缘滚屏优先，否则可部署选中显示部署标记光标。
-    pub fn battle_pointer(&self) -> super::battle_input::BattlePointer {
-        super::battle_input::BattlePointer::resolve(self.edge_scroll_cursor, self.selection_has_deployable())
+    /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack / Deploy 等。
+    pub fn battle_pointer(&self, renderer: &Renderer, window: &Window) -> super::battle_input::BattlePointer {
+        use super::battle_input::BattlePointer;
+        let context = self.battle_pointer_context(renderer, window);
+        BattlePointer::resolve(self.edge_scroll_cursor, context)
+    }
+
+    /// 战术区悬停上下文（不含边缘滚屏）。
+    fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::battle_input::BattlePointer {
+        use super::battle_input::BattlePointer;
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return BattlePointer::Default;
+        };
+        let selected = &self.local.selected;
+        let Some(cell) = self.cursor_cell(renderer, window)
+        else {
+            // 光标不在战术区：无选中时保持默认；有选中仍可用边缘光标，此处回默认。
+            return BattlePointer::Default;
+        };
+
+        if selected.is_empty() {
+            let vp = self.map_viewport(window);
+            let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
+            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some()
+                || game
+                    .pick_structure_at(cell.0, cell.1)
+                    .is_some_and(|id| {
+                        let local = game
+                            .world
+                            .players
+                            .iter()
+                            .find(|p| p.id == game.world.local_player)
+                            .map(|p| p.house.as_ref());
+                        local.is_some_and(|h| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == h))
+                    })
+            {
+                return BattlePointer::Select;
+            }
+            return BattlePointer::Default;
+        }
+
+        if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
+            let hostile = selected.first().and_then(|&atk| {
+                let a_owner = game.world.ecs_owner(atk)?;
+                let t_owner = game.world.ecs_owner(target)?;
+                Some(a_owner != t_owner)
+            });
+            if hostile == Some(true) {
+                return BattlePointer::Attack;
+            }
+        }
+
+        let passable = game.world.pass_grid.in_bounds(cell.0, cell.1)
+            && game.world.pass_grid.is_passable(cell.0, cell.1);
+        let has_deployable = selected.iter().any(|&id| game.deploy_target_of(id).is_some());
+        let has_other_mobile = selected.iter().any(|&id| {
+            game.deploy_target_of(id).is_none() && !game.selection_has_structure(&[id])
+        });
+
+        if has_deployable && !has_other_mobile {
+            return if passable {
+                BattlePointer::Deploy
+            } else {
+                BattlePointer::NoDeploy
+            };
+        }
+
+        if passable {
+            BattlePointer::Move
+        } else {
+            BattlePointer::NoMove
+        }
     }
 
     /// 各轴是否还能平移（`pan_screen`：正 dx 减 `center_x`，正 dy 减 `center_y`）。

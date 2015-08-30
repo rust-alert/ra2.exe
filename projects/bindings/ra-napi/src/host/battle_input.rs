@@ -46,29 +46,32 @@ pub enum EdgeScrollCursor {
     Blocked(EdgeScrollDir),
 }
 
-/// 对局指针优先级：边缘滚屏 > 可部署选中 > 默认。
+/// 对局指针优先级：边缘滚屏 > 攻击 / 移动 / 部署上下文 > 点选 > 默认。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BattlePointer {
-    /// 系统默认箭头。
+    /// 默认箭头（`mouse.shp` #0）。
     Default,
-    /// 选中可部署单位（MCV 等）时的部署标记光标。
+    /// 悬停可点选本方单位（`mouse.shp` Select）。
+    Select,
+    /// 选中单位可移动到光标格（Move）。
+    Move,
+    /// 选中单位不可到达光标格（NoMove）。
+    NoMove,
+    /// 选中单位可攻击光标下敌方（Attack）。
+    Attack,
+    /// 选中可部署单位且光标格可落（Deploy）。
     Deploy,
+    /// 选中可部署单位但光标格不可落（NoDeploy）。
+    NoDeploy,
     /// 整窗边缘滚屏光标。
     Edge(EdgeScrollCursor),
 }
 
 impl BattlePointer {
-    /// 由边缘态与「是否选中可部署单位」合成最终指针。
-    pub fn resolve(edge: EdgeScrollCursor, selection_deployable: bool) -> Self {
+    /// 边缘滚屏优先；否则按战术区悬停上下文。
+    pub fn resolve(edge: EdgeScrollCursor, context: BattlePointer) -> Self {
         match edge {
-            EdgeScrollCursor::Default => {
-                if selection_deployable {
-                    Self::Deploy
-                }
-                else {
-                    Self::Default
-                }
-            }
+            EdgeScrollCursor::Default => context,
             other => Self::Edge(other),
         }
     }
@@ -451,14 +454,21 @@ mod tests {
     }
 
     #[test]
-    fn deploy_pointer_when_selection_deployable_and_not_scrolling() {
+    fn edge_scroll_overrides_context_pointer() {
         assert_eq!(
-            BattlePointer::resolve(EdgeScrollCursor::Default, true),
+            BattlePointer::resolve(EdgeScrollCursor::Default, BattlePointer::Deploy),
             BattlePointer::Deploy
         );
         assert_eq!(
-            BattlePointer::resolve(EdgeScrollCursor::Scroll(EdgeScrollDir::East), true),
+            BattlePointer::resolve(
+                EdgeScrollCursor::Scroll(EdgeScrollDir::East),
+                BattlePointer::Deploy
+            ),
             BattlePointer::Edge(EdgeScrollCursor::Scroll(EdgeScrollDir::East))
+        );
+        assert_eq!(
+            BattlePointer::resolve(EdgeScrollCursor::Default, BattlePointer::Attack),
+            BattlePointer::Attack
         );
     }
 }

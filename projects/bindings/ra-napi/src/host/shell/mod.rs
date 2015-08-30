@@ -204,6 +204,8 @@ pub struct Shell {
     pub(super) battle_cursor_grabbed: bool,
     /// 上次已应用的对局指针（避免每帧重复 `set_cursor`）。
     pub(super) battle_pointer: crate::host::battle_input::BattlePointer,
+    /// 上次已应用的动画帧序号（多帧光标用）。
+    pub(super) battle_pointer_anim_frame: u32,
     /// `mouse.shp` 软件光标（边缘滚屏 / 贴边禁止 / 部署）；缺资源时为空。
     pub(super) battle_mouse_cursors: Option<battle_cursors::BattleMouseCursorSet>,
     /// 是否已尝试装入对局软件光标（避免反复读盘）。
