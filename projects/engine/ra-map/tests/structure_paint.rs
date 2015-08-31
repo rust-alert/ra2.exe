@@ -178,17 +178,49 @@ Rate=50\n\
     let mut files = HashMap::new();
     files.insert("art.ini".into(), art.to_vec());
     files.insert("unittem.pal".into(), solid_index_pal(5, 63, 63, 0));
-    files.insert("gtcnstmk.shp".into(), multi_frame_shp(&[5, 5, 5]));
+    // 画布 60×30，末帧占满，便于断言锚点。
+    files.insert("gtcnstmk.shp".into(), canvas_frame_shp(60, 30, &[(0, 0, 60, 30, 5), (10, 5, 40, 20, 5)]));
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.theater = ra_map::Theater::Temperate;
     let source = MapSource { files };
     let clip = load_structure_buildup_clip(&source, &map, "art.ini", "GACNST", "Americans", 3, 4, &|p, _| p.clone())
         .expect("buildup clip");
-    assert_eq!(clip.frames.len(), 3);
+    assert_eq!(clip.frames.len(), 2);
     assert_eq!(clip.rate_ms, 50);
-    assert_eq!((clip.x, clip.y), (3, 4));
-    assert_eq!(clip.frame_at(0), Some(0));
-    assert_eq!(clip.frame_at(50), Some(1));
-    assert_eq!(clip.frame_at(150), None);
+    // 相对 iso_to_screen：画布中心 → (+TILE_W/2, 0)，再加 FrameX/Y。
+    // 帧0：offset = (0 - 30 + 30, 0 - 15) = (0, -15)
+    assert_eq!(clip.frames[0].offset_x, 0);
+    assert_eq!(clip.frames[0].offset_y, -15);
+    // 帧1：offset = (10 - 30 + 30, 5 - 15) = (10, -10)
+    assert_eq!(clip.frames[1].offset_x, 10);
+    assert_eq!(clip.frames[1].offset_y, -10);
+}
+
+/// 构造带整幅画布尺寸与多帧裁切矩形的 SHP（TS/RA2）。
+fn canvas_frame_shp(full_w: u16, full_h: u16, frames: &[(u16, u16, u16, u16, u8)]) -> Vec<u8> {
+    let frame_count = frames.len() as u16;
+    let header_size = 8 + frame_count as usize * 24;
+    let mut data = Vec::new();
+    data.extend_from_slice(&0u16.to_le_bytes());
+    data.extend_from_slice(&full_w.to_le_bytes());
+    data.extend_from_slice(&full_h.to_le_bytes());
+    data.extend_from_slice(&frame_count.to_le_bytes());
+    let mut payload = Vec::new();
+    for (i, &(fx, fy, fw, fh, index)) in frames.iter().enumerate() {
+        data.extend_from_slice(&fx.to_le_bytes());
+        data.extend_from_slice(&fy.to_le_bytes());
+        data.extend_from_slice(&fw.to_le_bytes());
+        data.extend_from_slice(&fh.to_le_bytes());
+        data.push(0);
+        data.extend_from_slice(&[0, 0, 0]);
+        data.extend_from_slice(&[0, 0, 0, 0]);
+        data.extend_from_slice(&0u32.to_le_bytes());
+        let offset = (header_size + payload.len()) as u32;
+        data.extend_from_slice(&offset.to_le_bytes());
+        let _ = i;
+        payload.extend(std::iter::repeat(index).take((fw as usize) * (fh as usize)));
+    }
+    data.extend_from_slice(&payload);
+    data
 }

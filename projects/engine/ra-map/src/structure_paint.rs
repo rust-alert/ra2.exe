@@ -8,6 +8,7 @@ use ra_types::AssetSource;
 use crate::{
     MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
+    iso_math::TILE_WIDTH,
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -504,11 +505,15 @@ fn frame_to_blit(shp: &ShpFile, frame_idx: u16, z_adjust: i32, pal: &Palette) ->
     if frame.frame_width == 0 || frame.frame_height == 0 {
         return None;
     }
+    // TS/RA2 建筑 SHP：`frame_x/y` 是相对整幅画布的裁切原点。
+    // 叠画相对 `iso_to_screen`（钻石包围盒左上）时，画布中心落在「箱顶边中点」
+    // `(+TILE_WIDTH/2, 0)`，再加裁切偏移。单位/选中环在钻石中心 `(+30,+15)`，
+    // 建筑艺术锚点比其高半格（Y 减 `TILE_HEIGHT/2`）。
     Some(TileBlit {
         width: u32::from(frame.frame_width),
         height: u32::from(frame.frame_height),
-        offset_x: i32::from(frame.frame_x as i16),
-        offset_y: i32::from(frame.frame_y as i16) + z_adjust,
+        offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
+        offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + z_adjust,
         rgba: frame.to_rgba(pal),
     })
 }
