@@ -3,8 +3,14 @@
 /// 左键位移小于该像素阈值时视为点选，否则进入框选。
 pub const CLICK_SLOP_PX: f32 = 6.0;
 
-/// 框选命中用的实体屏幕半宽/半高（与标记环量级一致）。
-pub const MARQUEE_HIT_HALF_PX: f32 = 12.0;
+/// 框选命中：步兵屏幕半宽/半高（格心锚点）。
+pub const MARQUEE_HIT_HALF_INFANTRY_PX: f32 = 18.0;
+/// 框选命中：载具 / 飞行器屏幕半宽/半高（覆盖 VXL 车身，避免只框车身选不中）。
+pub const MARQUEE_HIT_HALF_VEHICLE_PX: f32 = 48.0;
+/// 载具框选锚点相对格心上移（图像像素；VXL 主体在脚点上方）。
+pub const MARQUEE_VEHICLE_LIFT_PX: f32 = 28.0;
+/// 兼容旧名：默认步兵半宽。
+pub const MARQUEE_HIT_HALF_PX: f32 = MARQUEE_HIT_HALF_INFANTRY_PX;
 
 /// 战术区边缘滚屏触发带宽（窗口像素）。
 pub const EDGE_SCROLL_MARGIN_PX: f32 = 16.0;
@@ -250,6 +256,20 @@ impl ScreenRect {
             h: h * 2.0,
         }
     }
+
+    /// 中心点是否落在矩形内（含边界）。
+    pub fn contains_point(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.w && py >= self.y && py <= self.y + self.h
+    }
+
+    /// 点到矩形的最短距离（在内则为 0）。
+    pub fn distance_to_point(&self, px: f32, py: f32) -> f32 {
+        let cx = px.clamp(self.x, self.x + self.w);
+        let cy = py.clamp(self.y, self.y + self.h);
+        let dx = px - cx;
+        let dy = py - cy;
+        (dx * dx + dy * dy).sqrt()
+    }
 }
 
 /// 左键手势状态。
@@ -414,6 +434,29 @@ mod tests {
         assert!(drag.intersects(&hit));
         let miss = ScreenRect::from_center_half(200.0, 200.0, MARQUEE_HIT_HALF_PX);
         assert!(!drag.intersects(&miss));
+    }
+
+    #[test]
+    fn vehicle_marquee_hitbox_covers_body_above_feet() {
+        // 脚点在 (100, 100)；框只罩住上方车身时，旧 12px 半宽会漏，载具半宽+上移应命中。
+        let feet = (100.0_f32, 100.0_f32);
+        let body_box = ScreenRect::from_drag(70.0, 40.0, 130.0, 85.0);
+        let old = ScreenRect::from_center_half(feet.0, feet.1, 12.0);
+        assert!(!body_box.intersects(&old));
+        let vehicle = ScreenRect::from_center_half(
+            feet.0,
+            feet.1 - MARQUEE_VEHICLE_LIFT_PX,
+            MARQUEE_HIT_HALF_VEHICLE_PX,
+        );
+        assert!(body_box.intersects(&vehicle));
+    }
+
+    #[test]
+    fn distance_to_point_zero_inside() {
+        let r = ScreenRect::from_drag(10.0, 10.0, 40.0, 40.0);
+        assert_eq!(r.distance_to_point(20.0, 20.0), 0.0);
+        assert!(r.contains_point(20.0, 20.0));
+        assert!(r.distance_to_point(50.0, 25.0) > 0.0);
     }
 
     #[test]

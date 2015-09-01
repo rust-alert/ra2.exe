@@ -31,7 +31,8 @@ use super::{
     boot::{remap_owner_palette, BootResult},
     battle_input::{
         edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, EdgeScrollCursor, LeftGesture,
-        LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, MARQUEE_HIT_HALF_PX,
+        LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC,
+        MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX,
     },
     local_player::LocalPlayerController,
 };
@@ -142,8 +143,8 @@ pub struct BattleController {
     start_view_pending: bool,
     /// 等待本 tick 结算的部署实体（`KeyD` 下发后）。
     deploy_watch: Option<ra_types::EntityId>,
-    /// 最近一次部署结果文案（成功或拒绝）。
-    deploy_status: Option<String>,
+    /// 对局短音效事件 id 队列（如 `PlaceBuilding`；由壳层按 `sound.ini` 播放）。
+    pending_battle_sfx: Vec<String>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     edge_scroll_cursor: EdgeScrollCursor,
     /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
@@ -192,7 +193,7 @@ impl BattleController {
             last_anim_sig: u64::MAX,
             start_view_pending: has_session,
             deploy_watch: None,
-            deploy_status: None,
+            pending_battle_sfx: Vec::new(),
             edge_scroll_cursor: EdgeScrollCursor::Default,
             action_lines_start_tick: None,
             map_theater,
@@ -295,7 +296,7 @@ impl BattleController {
         self.anim_started = Instant::now();
         self.last_anim_sig = u64::MAX;
         self.deploy_watch = None;
-        self.deploy_status = None;
+        self.pending_battle_sfx.clear();
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
         self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
@@ -689,11 +690,18 @@ impl BattleController {
             };
             let z = game.world.pass_grid.cell_height(x, y);
             let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
-            // 与标记 / `pick_local_mobile_near_image` 同一锚点。
+            // 与标记 / `pick_local_mobile_near_image` 同一脚点锚；载具再上移以覆盖 VXL 车身。
             let wx = (sx - game.preview_origin_x) as f32 + 30.0;
             let wy = (sy - game.preview_origin_y) as f32 + 15.0;
             let (cx, cy) = vp.world_to_screen(cam, wx, wy);
-            let hit = ScreenRect::from_center_half(cx, cy, MARQUEE_HIT_HALF_PX);
+            let (hit_cx, hit_cy, half) = match kind {
+                MapEntityKind::Infantry => (cx, cy, MARQUEE_HIT_HALF_INFANTRY_PX),
+                MapEntityKind::Unit | MapEntityKind::Aircraft => {
+                    (cx, cy - MARQUEE_VEHICLE_LIFT_PX, MARQUEE_HIT_HALF_VEHICLE_PX)
+                }
+                _ => (cx, cy, MARQUEE_HIT_HALF_INFANTRY_PX),
+            };
+            let hit = ScreenRect::from_center_half(hit_cx, hit_cy, half);
             if rect.intersects(&hit) {
                 hits.push(id);
             }
