@@ -40,8 +40,6 @@ use super::{
 const BATTLE_START_ZOOM: f32 = 1.0;
 /// 选中行动线可见时长（仿真 tick，对齐原版约 25 帧窗口）。
 const ACTION_LINES_DURATION_TICKS: u64 = 25;
-/// 同一实体两次点选间隔小于该值视为双击部署（MCV 等）。
-const DEPLOY_DOUBLE_CLICK_MS: u64 = 450;
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,8 +148,6 @@ pub struct BattleController {
     edge_scroll_cursor: EdgeScrollCursor,
     /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
     action_lines_start_tick: Option<u64>,
-    /// 上一记左键点选实体（双击部署判定）。
-    last_click: Option<(EntityId, Instant)>,
     /// 当前地图剧院（壳层挂载剧院 MIX 用）。
     map_theater: Option<Theater>,
 }
@@ -199,7 +195,6 @@ impl BattleController {
             deploy_status: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             action_lines_start_tick: None,
-            last_click: None,
             map_theater,
         };
         this.bind_local_start();
@@ -303,7 +298,6 @@ impl BattleController {
         self.deploy_status = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
-        self.last_click = None;
         self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
         self.start_view_pending = self.has_session();
         if self.has_session() {
@@ -497,6 +491,8 @@ impl BattleController {
     }
 
     /// 战术区悬停上下文（不含边缘滚屏）。
+    ///
+    /// 部署光标仅在悬停**已选中的可部署单位本身**时出现；移开即回到移动 / 攻击 / 默认。
     fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::battle_input::BattlePointer {
         use super::battle_input::BattlePointer;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -506,13 +502,12 @@ impl BattleController {
         let selected = &self.local.selected;
         let Some(cell) = self.cursor_cell(renderer, window)
         else {
-            // 光标不在战术区：无选中时保持默认；有选中仍可用边缘光标，此处回默认。
             return BattlePointer::Default;
         };
+        let vp = self.map_viewport(window);
+        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
 
         if selected.is_empty() {
-            let vp = self.map_viewport(window);
-            let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
             if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some()
                 || game
                     .pick_structure_at(cell.0, cell.1)
@@ -531,6 +526,13 @@ impl BattleController {
             return BattlePointer::Default;
         }
 
+        // 悬停已选中的可部署单位 → 部署光标（移开则不再是部署）。
+        if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
+            if selected.contains(&id) && game.deploy_target_of(id).is_some() {
+                return BattlePointer::Deploy;
+            }
+        }
+
         if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
             let hostile = selected.first().and_then(|&atk| {
                 let a_owner = game.world.ecs_owner(atk)?;
@@ -544,19 +546,6 @@ impl BattleController {
 
         let passable = game.world.pass_grid.in_bounds(cell.0, cell.1)
             && game.world.pass_grid.is_passable(cell.0, cell.1);
-        let has_deployable = selected.iter().any(|&id| game.deploy_target_of(id).is_some());
-        let has_other_mobile = selected.iter().any(|&id| {
-            game.deploy_target_of(id).is_none() && !game.selection_has_structure(&[id])
-        });
-
-        if has_deployable && !has_other_mobile {
-            return if passable {
-                BattlePointer::Deploy
-            } else {
-                BattlePointer::NoDeploy
-            };
-        }
-
         if passable {
             BattlePointer::Move
         } else {
@@ -630,16 +619,12 @@ impl BattleController {
         if let Some(id) = picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
             let deployable = game.deploy_target_of(id).is_some();
-            let double_deploy = !add
+            // 已选中的可部署单位再点一次 → 部署（非双击）。
+            let click_deploy = !add
                 && deployable
-                && self.local.selected.len() == 1
-                && self.local.selected[0] == id
-                && self
-                    .last_click
-                    .is_some_and(|(last_id, t)| last_id == id && t.elapsed() < Duration::from_millis(DEPLOY_DOUBLE_CLICK_MS));
-            if double_deploy {
-                self.last_click = None;
-                tracing::info!("双击部署 · #{} @({},{})", id.0, cell.0, cell.1);
+                && self.local.selected.contains(&id);
+            if click_deploy {
+                tracing::info!("点击部署 · #{} @({},{})", id.0, cell.0, cell.1);
                 self.deploy_selection();
                 return;
             }
@@ -651,12 +636,10 @@ impl BattleController {
                 self.local.select_only(game, id);
                 tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
-            self.last_click = Some((id, Instant::now()));
             pulse = true;
         }
         else if !add {
             self.local.clear();
-            self.last_click = None;
             if let Some(cell) = game.image_to_cell(wx, wy) {
                 tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
             }
