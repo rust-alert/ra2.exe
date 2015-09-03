@@ -40,7 +40,9 @@ pub use image::{
     fnt::{FONT_MAGIC, FntFile, FntGlyph},
     pal::{Palette, Rgba, default_vga_expand, set_default_vga_expand},
     pcx::{PcxImage, parse_pcx},
-    shp::{ShpFile, ShpFrame, decode_rle_frame},
+    shp::{
+        ShpFile, ShpFrame, decode_rle_frame, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated,
+    },
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
 pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};

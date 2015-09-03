@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile};
+use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count};
 use ra_types::AssetSource;
 
 use crate::{
@@ -157,7 +157,14 @@ pub fn collect_structure_anim_bank(
             else {
                 continue;
             };
-            let end = if loop_end > loop_start { loop_end } else { loop_start.saturating_add(1) };
+            let body_n = shp_body_frame_count(&shp.frames) as u16;
+            let end = {
+                let raw = if loop_end > loop_start { loop_end } else { loop_start.saturating_add(1) };
+                raw.min(body_n.max(loop_start.saturating_add(1)))
+            };
+            if end <= loop_start {
+                continue;
+            }
             let mut frames = Vec::with_capacity(usize::from(end.saturating_sub(loop_start)));
             for frame_idx in loop_start..end {
                 let Some(blit) = frame_to_blit(shp, frame_idx, z_adjust, &anim_pal)
@@ -287,8 +294,10 @@ pub fn load_structure_buildup_clip(
     let pal = if remapable { remap_owner(&obj_pal, owner) } else { obj_pal };
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let shp = load_shp(source, map, &image_key, new_theater, &mut shp_cache)?;
-    let mut frames = Vec::with_capacity(shp.frames.len());
-    for i in 0..shp.frames.len() {
+    // 偶数帧且后半有像素时，后半是落影（常为索引 1）；Buildup 只播主体半幅。
+    let body_n = shp_body_frame_count(&shp.frames);
+    let mut frames = Vec::with_capacity(body_n);
+    for i in 0..body_n {
         let Some(blit) = frame_to_blit(shp, i as u16, 0, &pal)
         else {
             continue;
@@ -535,6 +544,10 @@ fn load_structure_blit(
         return Some(blit.clone());
     }
     let shp = load_shp(source, map, image_key, new_theater, shp_cache)?;
+    // 跳过落影半幅（索引常为 1，会画成纯色剪影）。
+    if usize::from(frame_idx) >= shp_body_frame_count(&shp.frames) {
+        return None;
+    }
     let blit = frame_to_blit(shp, frame_idx, z_adjust, pal)?;
     blit_cache.insert(cache_key, blit.clone());
     Some(blit)

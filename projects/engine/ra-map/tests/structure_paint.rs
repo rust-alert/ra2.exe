@@ -178,15 +178,22 @@ Rate=50\n\
     let mut files = HashMap::new();
     files.insert("art.ini".into(), art.to_vec());
     files.insert("unittem.pal".into(), solid_index_pal(5, 63, 63, 0));
-    // 画布 60×30，末帧占满，便于断言锚点。
-    files.insert("gtcnstmk.shp".into(), canvas_frame_shp(60, 30, &[(0, 0, 60, 30, 5), (10, 5, 40, 20, 5)]));
+    // 4 帧：前半主体 + 后半落影（索引 1）；Buildup 只应留下 2 帧主体。
+    files.insert(
+        "gtcnstmk.shp".into(),
+        canvas_frame_shp(
+            60,
+            30,
+            &[(0, 0, 60, 30, 5), (10, 5, 40, 20, 5), (0, 0, 60, 30, 1), (10, 5, 40, 20, 1)],
+        ),
+    );
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.theater = ra_map::Theater::Temperate;
     let source = MapSource { files };
     let clip = load_structure_buildup_clip(&source, &map, "art.ini", "GACNST", "Americans", 3, 4, &|p, _| p.clone())
         .expect("buildup clip");
-    assert_eq!(clip.frames.len(), 2);
+    assert_eq!(clip.frames.len(), 2, "shadow half must not enter buildup clip");
     assert_eq!(clip.rate_ms, 50);
     // 相对 iso_to_screen：画布中心 → (+TILE_W/2, 0)，再加 FrameX/Y。
     // 帧0：offset = (0 - 30 + 30, 0 - 15) = (0, -15)
