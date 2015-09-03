@@ -1075,7 +1075,6 @@ impl BattleController {
             return;
         }
         self.deploy_watch = Some(id);
-        self.deploy_status = Some("部署中…".into());
         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
             tracing::info!("部署选中 · {:?}", selected);
             game.order_deploy(&selected);
@@ -1105,7 +1104,7 @@ impl BattleController {
             else {
                 match game.world.ecs_identity(id) {
                     Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => {
-                        Some(Ok(format!("已部署 {type_id}")))
+                        Some(Ok(type_id.to_string()))
                     }
                     None => Some(Err("部署目标已消失".into())),
                     _ => None,
@@ -1113,9 +1112,8 @@ impl BattleController {
             }
         };
         match resolved {
-            Some(Ok(note)) => {
-                tracing::info!("{note} · #{id}", id = id.0);
-                self.deploy_status = Some(note);
+            Some(Ok(type_id)) => {
+                tracing::info!("部署完成 · {type_id} · #{id}", id = id.0);
                 self.deploy_watch = None;
                 if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                     if let (Some((type_id, kind)), Some(owner), Some((x, y, _))) = (
@@ -1137,7 +1135,6 @@ impl BattleController {
             }
             Some(Err(label)) => {
                 tracing::info!("部署失败 · {label}");
-                self.deploy_status = Some(label);
                 self.deploy_watch = None;
             }
             None => {}
@@ -1410,6 +1407,8 @@ impl BattleController {
         let (_n, bank) = painted;
         self.structure_anims.layers.extend(bank.layers);
         self.last_anim_sig = u64::MAX;
+        // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
+        self.pending_battle_sfx.push("PlaceBuilding".into());
         self.rebuild_preview_base_with_mobiles(assets);
     }
 
@@ -1758,7 +1757,6 @@ impl BattleController {
             low_power: local.map(|p| p.low_power).unwrap_or(false),
             selected_summary: selected_summary.as_str(),
             deploy_hint: deploy_hint_owned.as_deref(),
-            deploy_status: self.deploy_status.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
             paused: hud.paused,
@@ -1888,6 +1886,11 @@ impl BattleController {
         let prev = self.last_pump;
         self.last_pump = now;
         prev
+    }
+
+    /// 取出待播对局短音效事件 id（壳层按 `sound.ini` → `audio.bag` 播放）。
+    pub fn take_pending_battle_sfx(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_battle_sfx)
     }
 }
 

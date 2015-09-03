@@ -343,4 +343,35 @@ impl Shell {
             audio.play_sfx(pcm);
         }
     }
+
+    /// 对局短音效：`sound.ini` 事件 → `audio.bag`（如 `PlaceBuilding` → `uplace`）。
+    pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) {
+        if event_id.is_empty() {
+            return;
+        }
+        self.ensure_audio_bag();
+        let mut candidates: Vec<String> = self.sound_event_sample_names(event_id);
+        // 零售 `[PlaceBuilding] Sounds=uplace`；解析失败时仍走 bag 名。
+        let fallbacks: &[&str] = match event_id {
+            id if id.eq_ignore_ascii_case("PlaceBuilding") => &["uplace", "UPLACE", "PlaceBuilding"],
+            _ => &[],
+        };
+        for fallback in fallbacks {
+            if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                candidates.push((*fallback).into());
+            }
+        }
+        if candidates.is_empty() {
+            candidates.push(event_id.to_string());
+        }
+        let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
+        let Some(pcm) = self.decode_bag_named(&refs)
+        else {
+            tracing::debug!(%event_id, "对局音效未命中");
+            return;
+        };
+        if let Some(audio) = self.audio.as_mut() {
+            audio.play_sfx(&pcm);
+        }
+    }
 }

@@ -470,6 +470,10 @@ impl Shell {
                     assets,
                     self.present,
                 );
+                let sfx = ctrl.take_pending_battle_sfx();
+                for event_id in sfx {
+                    self.play_battle_sfx_event(&event_id);
+                }
                 self.apply_nav(nav);
                 self.sync_battle_cursor_grab();
                 self.sync_battle_edge_cursor();
@@ -490,6 +494,10 @@ impl Shell {
                     assets,
                     self.present,
                 );
+                let sfx = ctrl.take_pending_battle_sfx();
+                for event_id in sfx {
+                    self.play_battle_sfx_event(&event_id);
+                }
             }
             self.sync_battle_cursor_grab();
             self.sync_battle_edge_cursor();

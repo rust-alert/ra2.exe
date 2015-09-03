@@ -524,7 +524,6 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
             low_power: false,
             selected_summary: "—",
             deploy_hint: None,
-            deploy_status: None,
             produce_queue: None,
             reject: None,
             paused: false,

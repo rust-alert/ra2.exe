@@ -17,8 +17,6 @@ pub struct BattleHudModel<'a> {
     pub selected_summary: &'a str,
     /// 可部署提示（如 `X→GACNST`），无可部署时为空。
     pub deploy_hint: Option<&'a str>,
-    /// 最近部署结果或拒绝（如 `已部署 GACNST` / `无法部署`）。
-    pub deploy_status: Option<&'a str>,
     /// 生产队列首项文案（可空）。
     pub produce_queue: Option<&'a str>,
     /// 最近命令拒绝原因（可空）。
@@ -128,10 +126,6 @@ pub fn compose_battle_hud_overlay(
                 blit_caption_top_left_clipped(&mut page, fnt, hint, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
                 y += line_h + 4;
             }
-            if let Some(status) = paint.deploy_status {
-                blit_caption_top_left_clipped(&mut page, fnt, status, text_x, y, text_w, line_h, [120, 220, 120, 255]);
-                y += line_h + 4;
-            }
             let queue = paint.produce_queue.unwrap_or("队列 —");
             blit_caption_top_left_clipped(&mut page, fnt, queue, text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
             y += line_h + 4;
@@ -150,7 +144,7 @@ pub fn compose_battle_hud_overlay(
                 blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
             }
         }
-        else if paint.paused || paint.outcome.is_some() || paint.reject.is_some() || paint.deploy_hint.is_some() || paint.deploy_status.is_some()
+        else if paint.paused || paint.outcome.is_some() || paint.reject.is_some() || paint.deploy_hint.is_some()
         {
             // 状态文案锚在右栏底脚内侧，不写到战术区。
             let mut x = layout.bottom_strip.x + 8;
@@ -158,10 +152,6 @@ pub fn compose_battle_hud_overlay(
             if let Some(hint) = paint.deploy_hint {
                 blit_text_colored(&mut page, fnt, hint, x, y, MENU_TEXT_ACCENT);
                 x += 100;
-            }
-            if let Some(status) = paint.deploy_status {
-                blit_text_colored(&mut page, fnt, status, x, y, [120, 220, 120, 255]);
-                x += 120;
             }
             if let Some(reject) = paint.reject {
                 blit_text_colored(&mut page, fnt, reject, x, y, [255, 120, 80, 255]);
