@@ -1223,7 +1223,20 @@ impl BattleController {
         self.sync_world_view(renderer, vw, vh);
         self.tick_deploy_visuals(assets, renderer);
         if self.pending_buildups.is_empty() {
-            self.refresh_structure_anims(renderer);
+            // 移动单位烤在预览底图上：ECS 变脏时必须重绘，否则 MCV 等 VXL 会停在开局格。
+            let mobiles_moved = match &pending {
+                PendingDraw::Incremental { dirty, .. } => self.dirty_includes_mobile(dirty),
+                PendingDraw::Full(_) => false,
+            };
+            if mobiles_moved {
+                if let Some(assets) = assets {
+                    self.rebuild_preview_base_with_mobiles(assets);
+                    self.present_preview_base(renderer);
+                }
+            }
+            else {
+                self.refresh_structure_anims(renderer);
+            }
         }
         self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present);
         renderer.set_action_lines_active(self.action_lines_active());
@@ -1232,6 +1245,21 @@ impl BattleController {
             PendingDraw::Incremental { tick, dirty, units } => renderer.draw_incremental(tick, &dirty, &units, &selected),
         }
         self.refresh_title(renderer, window, screen_label, Some(&hud));
+    }
+
+    /// 脏集是否含存活移动单位（步兵 / 载具 / 飞行器）。
+    fn dirty_includes_mobile(&self, dirty: &[ra_types::EntityId]) -> bool {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return false;
+        };
+        dirty.iter().any(|&id| {
+            game.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
+                && game
+                    .world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+        })
     }
 
     /// 启动 / 推进部署 Buildup，并在播放期间重绘预览（去掉已烤死的 MCV 像素）。
