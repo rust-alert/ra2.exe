@@ -685,12 +685,14 @@ impl BattleSession {
         fallback
     }
 
-    /// 点选格上精确匹配的存活建筑。
+    /// 点选格子上或邻近的存活建筑（建造场等多格占地：锚点格附近也算命中）。
     pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<EntityId> {
-        self.world.entities.iter().find_map(|e| {
+        const CELL_RADIUS: u32 = 3;
+        let mut best: Option<(u32, EntityId)> = None;
+        for e in &self.world.entities {
             let id = e.id;
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
-                return None;
+                continue;
             }
             if !self
                 .world
@@ -698,11 +700,66 @@ impl BattleSession {
                 .map(|identity| identity.kind == MapEntityKind::Structure)
                 .unwrap_or(false)
             {
-                return None;
+                continue;
             }
-            let xf = self.world.ecs_get::<Transform>(id)?;
-            (xf.x == x && xf.y == y).then_some(id)
-        })
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let dist = (i32::from(xf.x) - i32::from(x)).unsigned_abs() + (i32::from(xf.y) - i32::from(y)).unsigned_abs();
+            if dist > CELL_RADIUS {
+                continue;
+            }
+            if best.map(|(d, _)| dist < d).unwrap_or(true) {
+                best = Some((dist, id));
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
+    /// 按预览图像素点选本地玩家建筑（建造场 SHP 远大于单格，需屏幕距离容忍）。
+    pub fn pick_local_structure_near_image(&self, image_x: f32, image_y: f32, max_dist_px: f32) -> Option<EntityId> {
+        let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player)?.house.clone();
+        let mut best: Option<(f32, EntityId)> = None;
+        for e in &self.world.entities {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            let Some(owner) = self.world.ecs_get::<Owner>(id)
+            else {
+                continue;
+            };
+            if owner.house.as_ref() != local_house.as_ref() {
+                continue;
+            }
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
+            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+            // 格心锚点再上移，贴近建筑主体（SHP 画在脚点上方）。
+            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
+            let cy = (sy - self.preview_origin_y) as f32 + 15.0 - 48.0;
+            let dx = cx - image_x;
+            let dy = cy - image_y;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > max_dist_px {
+                continue;
+            }
+            if best.map(|(best_dist, _)| dist < best_dist).unwrap_or(true) {
+                best = Some((dist, id));
+            }
+        }
+        best.map(|(_, id)| id)
     }
 
     /// 相对 `from` 最近的异阵营存活目标（移动单位或建筑）。

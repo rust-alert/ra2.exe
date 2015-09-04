@@ -510,17 +510,7 @@ impl BattleController {
 
         if selected.is_empty() {
             if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some()
-                || game
-                    .pick_structure_at(cell.0, cell.1)
-                    .is_some_and(|id| {
-                        let local = game
-                            .world
-                            .players
-                            .iter()
-                            .find(|p| p.id == game.world.local_player)
-                            .map(|p| p.house.as_ref());
-                        local.is_some_and(|h| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == h))
-                    })
+                || game.pick_local_structure_near_image(wx, wy, 120.0).is_some()
             {
                 return BattlePointer::Select;
             }
@@ -604,18 +594,21 @@ impl BattleController {
         }
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
-        // 先按屏幕锚点点本方单位（VXL 车身常偏离逻辑格），再回退格点选。
-        let picked = game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| {
-            let cell = game.image_to_cell(wx, wy)?;
-            if let Some(house) = local_house.as_deref() {
-                game.pick_mobile_at_owned(cell.0, cell.1, Some(house)).or_else(|| {
-                    game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-                })
-            }
-            else {
-                game.pick_entity_at(cell.0, cell.1)
-            }
-        });
+        // 先屏幕距离点本方单位 / 建筑（VXL·SHP 常偏离逻辑格），再回退格点选。
+        let picked = game
+            .pick_local_mobile_near_image(wx, wy, 72.0)
+            .or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
+            .or_else(|| {
+                let cell = game.image_to_cell(wx, wy)?;
+                if let Some(house) = local_house.as_deref() {
+                    game.pick_mobile_at_owned(cell.0, cell.1, Some(house)).or_else(|| {
+                        game.pick_structure_at(cell.0, cell.1)
+                            .filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+                    })
+                } else {
+                    game.pick_entity_at(cell.0, cell.1)
+                }
+            });
         let mut pulse = false;
         if let Some(id) = picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
