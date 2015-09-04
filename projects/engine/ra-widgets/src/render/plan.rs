@@ -4,7 +4,7 @@ use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     battle_hud_layout_tree, campaign_content_layout_tree, dialog_layout_tree,
     exit_confirm_content_layout_tree, load_screen_layout_tree, options_page_layout_tree,
-    shell_design_size, shell_page_layout_tree, LayoutEngine, LayoutId, LayoutSnapshot, Rect,
+    shell_design_size, solve_shell_page, LayoutEngine, LayoutId, LayoutSnapshot, Rect,
     RightPanelChrome, Size2, Viewport,
 };
 
@@ -68,20 +68,13 @@ impl RenderPlan {
         Self::solid_placeholders_from_snapshot(&snap, "battle_hud")
     }
 
-    /// 壳层页：`shell_page_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 壳层页：`solve_shell_page` → snapshot → 占位 `RenderPlan`。
     pub fn shell_page_placeholders(
         root_id: &str,
         stacked_ids: &[&str],
         bottom_id: Option<&str>,
     ) -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome),
-        );
+        let snap = solve_shell_page(root_id, stacked_ids, bottom_id);
         Self::solid_placeholders_from_snapshot(&snap, root_id)
     }
 

@@ -27,4 +27,5 @@ pub use options_page::{
 };
 pub use shell_chrome::{
     right_rail_buttons_layout_tree, shell_chrome_layout_tree, shell_page_layout_tree,
+    solve_shell_page,
 };

@@ -3,8 +3,7 @@
 //! 本模块只持入口 id、命中与布局入口；壳层导航 / 暂停仿真由宿主另接。
 
 use ra_layout::{
-    battle_pause_menu_layout, shell_design_size, shell_page_layout_tree, LayoutEngine, Point2,
-    RightPanelChrome, Viewport, BATTLE_PAUSE_MENU_BUTTON_IDS,
+    battle_pause_menu_layout, solve_shell_page, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
 };
 
 pub use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, BattlePauseMenuLayout};
@@ -58,19 +57,11 @@ pub fn layout() -> BattlePauseMenuLayout {
     battle_pause_menu_layout(0, 0)
 }
 
-fn battle_pause_snapshot() -> ra_layout::LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(
-            "battle_pause",
-            &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
-            Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
-            chrome,
-        ),
+fn battle_pause_snapshot() -> LayoutSnapshot {
+    solve_shell_page(
+        "battle_pause",
+        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
+        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
     )
 }
 

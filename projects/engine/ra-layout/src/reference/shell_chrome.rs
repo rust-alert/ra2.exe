@@ -4,7 +4,10 @@ use crate::{
     geometry::Rect,
     policy::{bottom_cover_button, RightPanelChrome},
     reference::from_template::shell_design_size,
+    snapshot::LayoutSnapshot,
+    solver::LayoutEngine,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
+    viewport::Viewport,
 };
 
 /// 壳层底装饰条高（`lwscrnl`）。
@@ -120,6 +123,22 @@ pub fn shell_page_layout_tree(
     let mut children = shell_chrome_children(chrome);
     children.extend(right_rail_button_children(stacked_ids, bottom_id, chrome));
     root_with_fixed_children(root_id, shell_design_size(chrome), children)
+}
+
+/// 用壳层默认 chrome 求解 [`shell_page_layout_tree`]（hit / compose / 过渡布局共用）。
+pub fn solve_shell_page(
+    root_id: impl Into<String>,
+    stacked_ids: &[&str],
+    bottom_id: Option<&str>,
+) -> LayoutSnapshot {
+    let chrome = RightPanelChrome::shell_defaults();
+    LayoutEngine.solve(
+        Viewport {
+            size: shell_design_size(chrome),
+            ..Viewport::default()
+        },
+        &shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome),
+    )
 }
 
 #[cfg(test)]

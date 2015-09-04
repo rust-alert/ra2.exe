@@ -2,8 +2,7 @@
 
 use super::*;
 use crate::{
-    options_page_layout_tree, shell_page_layout_tree, LayoutEngine, LayoutSnapshot,
-    RightPanelChrome, Viewport,
+    options_page_layout_tree, LayoutEngine, LayoutSnapshot, RightPanelChrome, Viewport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,13 +37,7 @@ pub(super) fn shell_page_snapshot(
     bottom_id: Option<&str>,
 ) -> (RightPanelChrome, LayoutSnapshot) {
     let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome),
-    );
+    let snap = crate::solve_shell_page(root_id, stacked_ids, bottom_id);
     (chrome, snap)
 }
 

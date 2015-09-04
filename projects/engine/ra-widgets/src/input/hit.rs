@@ -11,7 +11,7 @@ use ra_layout::{
     LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
     SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect, RightPanelChrome,
     Viewport, campaign_content_layout_tree, dialog_layout_tree, exit_confirm_content_layout_tree,
-    load_screen_layout_tree, options_page_layout_tree, shell_design_size, shell_page_layout_tree,
+    load_screen_layout_tree, options_page_layout_tree, shell_design_size, solve_shell_page,
     window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
@@ -244,18 +244,10 @@ fn hover_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> O
 }
 
 fn main_menu_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(
-            "main_menu",
-            &MAIN_MENU_BUTTON_IDS[..5],
-            Some(MAIN_MENU_BUTTON_IDS[5]),
-            chrome,
-        ),
+    solve_shell_page(
+        "main_menu",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
     )
 }
 
@@ -335,18 +327,10 @@ fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
 }
 
 fn single_player_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(
-            "single_player",
-            &SINGLE_PLAYER_BUTTON_IDS[..3],
-            Some(SINGLE_PLAYER_BUTTON_IDS[3]),
-            chrome,
-        ),
+    solve_shell_page(
+        "single_player",
+        &SINGLE_PLAYER_BUTTON_IDS[..3],
+        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
     )
 }
 
