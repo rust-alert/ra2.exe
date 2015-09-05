@@ -3,7 +3,11 @@
 use crate::{
     geometry::Rect,
     policy::RightPanelChrome,
-    reference::{from_template::shell_design_size, DluRect, MS_SANS_SERIF_8PT},
+    reference::{
+        from_template::shell_design_size, shell_chrome::solve_with_shell_defaults, DluRect,
+        MS_SANS_SERIF_8PT,
+    },
+    snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
     ui_layout::{
         EXIT_CONFIRM_BUTTON_H, EXIT_CONFIRM_BUTTON_IDS, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_DIALOG_H,
@@ -60,6 +64,11 @@ pub fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode 
         fixed_rect_leaf(EXIT_CONFIRM_BUTTON_IDS[1], cancel),
     ];
     root_with_fixed_children("exit_confirm", shell_design_size(chrome), children)
+}
+
+/// 用壳层默认 chrome 求解 [`exit_confirm_content_layout_tree`]。
+pub fn solve_exit_confirm() -> LayoutSnapshot {
+    solve_with_shell_defaults(exit_confirm_content_layout_tree)
 }
 
 #[cfg(test)]

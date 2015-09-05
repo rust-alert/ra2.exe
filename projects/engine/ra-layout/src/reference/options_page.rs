@@ -4,7 +4,10 @@ use crate::{
     geometry::Rect,
     policy::RightPanelChrome,
     reference::from_template::shell_design_size,
-    reference::shell_chrome::{right_rail_button_children, shell_chrome_children},
+    reference::shell_chrome::{
+        right_rail_button_children, shell_chrome_children, solve_with_shell_defaults,
+    },
+    snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
 
@@ -97,6 +100,11 @@ pub fn options_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     ));
     children.extend(options_content_children(chrome));
     root_with_fixed_children("options", shell_design_size(chrome), children)
+}
+
+/// 用壳层默认 chrome 求解 [`options_page_layout_tree`]。
+pub fn solve_options_page() -> LayoutSnapshot {
+    solve_with_shell_defaults(options_page_layout_tree)
 }
 
 #[cfg(test)]

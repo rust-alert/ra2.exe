@@ -1,9 +1,7 @@
 //! 装载页布局。
 
 use super::*;
-use crate::{
-    load_screen_layout_tree, LayoutEngine, RightPanelChrome, Viewport, LOAD_SCREEN_BUTTON_IDS,
-};
+use crate::{solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LoadScreenLayout {
@@ -29,16 +27,9 @@ pub struct LoadScreenLayout {
 
 /// 装载页布局（投影自 `load_screen_layout_tree`）。
 pub fn load_screen_layout(_viewport_w: u32, _viewport_h: u32) -> LoadScreenLayout {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &load_screen_layout_tree(chrome),
-    );
+    let snap = solve_load_screen();
     LoadScreenLayout {
-        canvas: RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32),
+        canvas: RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H),
         special: rect_px_from_snapshot(&snap, "special"),
         brief: rect_px_from_snapshot(&snap, "brief"),
         name: rect_px_from_snapshot(&snap, "name"),

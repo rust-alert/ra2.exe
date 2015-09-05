@@ -125,11 +125,9 @@ pub fn shell_page_layout_tree(
     root_with_fixed_children(root_id, shell_design_size(chrome), children)
 }
 
-/// 用壳层默认 chrome 求解 [`shell_page_layout_tree`]（hit / compose / 过渡布局共用）。
-pub fn solve_shell_page(
-    root_id: impl Into<String>,
-    stacked_ids: &[&str],
-    bottom_id: Option<&str>,
+/// 用壳层默认 chrome 求解任意布局树（shell 设计尺寸 viewport）。
+pub(crate) fn solve_with_shell_defaults(
+    build: impl FnOnce(RightPanelChrome) -> LayoutNode,
 ) -> LayoutSnapshot {
     let chrome = RightPanelChrome::shell_defaults();
     LayoutEngine.solve(
@@ -137,8 +135,20 @@ pub fn solve_shell_page(
             size: shell_design_size(chrome),
             ..Viewport::default()
         },
-        &shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome),
+        &build(chrome),
     )
+}
+
+/// 用壳层默认 chrome 求解 [`shell_page_layout_tree`]（hit / compose / 过渡布局共用）。
+pub fn solve_shell_page(
+    root_id: impl Into<String>,
+    stacked_ids: &[&str],
+    bottom_id: Option<&str>,
+) -> LayoutSnapshot {
+    let root_id = root_id.into();
+    solve_with_shell_defaults(|chrome| {
+        shell_page_layout_tree(root_id, stacked_ids, bottom_id, chrome)
+    })
 }
 
 #[cfg(test)]

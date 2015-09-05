@@ -1,9 +1,7 @@
 //! 主菜单 / 单人 / 选项右栏布局。
 
 use super::*;
-use crate::{
-    options_page_layout_tree, LayoutEngine, LayoutSnapshot, RightPanelChrome, Viewport,
-};
+use crate::{LayoutSnapshot, RightPanelChrome, solve_options_page};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MainMenuLayout {
@@ -109,13 +107,7 @@ pub fn single_player_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayou
 /// 几何与 `options_dialog` / hit 同源：一次 `options_page_layout_tree` 求解。
 pub fn options_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
     let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &options_page_layout_tree(chrome),
-    );
+    let snap = solve_options_page();
     let mut layout = layout_from_shell_page_snap(chrome, &snap);
     let rail = buttons_from_snap(&snap, &OPTIONS_BUTTON_IDS);
     layout.buttons = [

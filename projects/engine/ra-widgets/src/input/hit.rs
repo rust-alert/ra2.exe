@@ -10,9 +10,8 @@ use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS,
     LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
     SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect, RightPanelChrome,
-    Viewport, campaign_content_layout_tree, dialog_layout_tree, exit_confirm_content_layout_tree,
-    load_screen_layout_tree, options_page_layout_tree, shell_design_size, solve_shell_page,
-    window_to_shell_px,
+    Viewport, dialog_layout_tree, shell_design_size, solve_campaign, solve_exit_confirm,
+    solve_load_screen, solve_options_page, solve_shell_page, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -452,14 +451,7 @@ fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Op
 }
 
 fn campaign_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &campaign_content_layout_tree(chrome),
-    )
+    solve_campaign()
 }
 
 fn hits_options() -> Vec<MenuHit> {
@@ -538,14 +530,7 @@ fn hover_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opt
 }
 
 fn options_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &options_page_layout_tree(chrome),
-    )
+    solve_options_page()
 }
 
 fn hits_exit_confirm() -> Vec<MenuHit> {
@@ -623,14 +608,7 @@ fn hover_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
 }
 
 fn exit_confirm_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &exit_confirm_content_layout_tree(chrome),
-    )
+    solve_exit_confirm()
 }
 
 fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
@@ -678,14 +656,7 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
 }
 
 fn load_screen_snapshot() -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &load_screen_layout_tree(chrome),
-    )
+    solve_load_screen()
 }
 
 fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {

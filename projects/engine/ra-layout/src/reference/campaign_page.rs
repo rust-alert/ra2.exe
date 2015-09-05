@@ -4,6 +4,8 @@ use crate::{
     geometry::Rect,
     policy::{bottom_cover_button, RightPanelChrome},
     reference::from_template::shell_design_size,
+    reference::shell_chrome::solve_with_shell_defaults,
+    snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
     ui_layout::{
         CAMPAIGN_ALLIED_ORIGIN, CAMPAIGN_ALLIED_SIZE, CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS,
@@ -37,6 +39,11 @@ pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         fixed_rect_leaf(CAMPAIGN_BUTTON_IDS[0], bottom_cover_button(chrome)),
     ];
     root_with_fixed_children("campaign", shell_design_size(chrome), children)
+}
+
+/// 用壳层默认 chrome 求解 [`campaign_content_layout_tree`]。
+pub fn solve_campaign() -> LayoutSnapshot {
+    solve_with_shell_defaults(campaign_content_layout_tree)
 }
 
 #[cfg(test)]

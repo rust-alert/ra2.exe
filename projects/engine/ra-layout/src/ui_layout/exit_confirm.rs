@@ -1,9 +1,7 @@
 //! 退出确认对话框布局。
 
 use super::*;
-use crate::{
-    exit_confirm_content_layout_tree, LayoutEngine, RightPanelChrome, Viewport,
-};
+use crate::solve_exit_confirm;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExitConfirmLayout {
@@ -19,14 +17,7 @@ pub struct ExitConfirmLayout {
 ///
 /// 交互几何来自 `exit_confirm_content_layout_tree`。
 pub fn exit_confirm_layout(_viewport_w: u32, _viewport_h: u32) -> ExitConfirmLayout {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &exit_confirm_content_layout_tree(chrome),
-    );
+    let snap = solve_exit_confirm();
     ExitConfirmLayout {
         dialog: rect_px_from_snapshot(&snap, "dialog"),
         prompt: rect_px_from_snapshot(&snap, "prompt"),

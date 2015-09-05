@@ -1,9 +1,7 @@
 //! 战役页布局。
 
 use super::*;
-use crate::{
-    campaign_content_layout_tree, LayoutEngine, RightPanelChrome, Viewport,
-};
+use crate::solve_campaign;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CampaignLayout {
@@ -30,14 +28,7 @@ pub struct CampaignLayout {
 /// 战役页布局（800×600；交互几何来自 `campaign_content_layout_tree`）。
 pub fn campaign_layout(_viewport_w: u32, _viewport_h: u32) -> CampaignLayout {
     let mut shell = shell_chrome_base_layout();
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &campaign_content_layout_tree(chrome),
-    );
+    let snap = solve_campaign();
     let back = rect_px_from_snapshot(&snap, CAMPAIGN_BUTTON_IDS[0]);
     shell.buttons = [
         back,

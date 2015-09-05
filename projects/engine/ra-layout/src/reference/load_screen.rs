@@ -4,6 +4,8 @@ use crate::{
     geometry::Rect,
     policy::RightPanelChrome,
     reference::from_template::shell_design_size,
+    reference::shell_chrome::solve_with_shell_defaults,
+    snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
 
@@ -47,6 +49,11 @@ pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         ),
     ];
     root_with_fixed_children("load_screen", shell_design_size(chrome), children)
+}
+
+/// 用壳层默认 chrome 求解 [`load_screen_layout_tree`]。
+pub fn solve_load_screen() -> LayoutSnapshot {
+    solve_with_shell_defaults(load_screen_layout_tree)
 }
 
 #[cfg(test)]

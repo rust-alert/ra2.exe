@@ -2,10 +2,9 @@
 
 use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
-    battle_hud_layout_tree, campaign_content_layout_tree, dialog_layout_tree,
-    exit_confirm_content_layout_tree, load_screen_layout_tree, options_page_layout_tree,
-    shell_design_size, solve_shell_page, LayoutEngine, LayoutId, LayoutSnapshot, Rect,
-    RightPanelChrome, Size2, Viewport,
+    battle_hud_layout_tree, dialog_layout_tree, shell_design_size, solve_campaign,
+    solve_exit_confirm, solve_load_screen, solve_options_page, solve_shell_page, LayoutEngine,
+    LayoutId, LayoutSnapshot, Rect, RightPanelChrome, Size2, Viewport,
 };
 
 /// 单条可绘制命令。
@@ -78,17 +77,9 @@ impl RenderPlan {
         Self::solid_placeholders_from_snapshot(&snap, root_id)
     }
 
-    /// 退出确认：`exit_confirm_content_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 退出确认：`solve_exit_confirm` → snapshot → 占位 `RenderPlan`。
     pub fn exit_confirm_placeholders() -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &exit_confirm_content_layout_tree(chrome),
-        );
-        Self::solid_placeholders_from_snapshot(&snap, "exit_confirm")
+        Self::solid_placeholders_from_snapshot(&solve_exit_confirm(), "exit_confirm")
     }
 
     /// 壳层对话框模板：`RuntimeUiProfile` → `dialog_layout_tree` → 占位 `RenderPlan`。
@@ -108,42 +99,18 @@ impl RenderPlan {
         Self::solid_placeholders_from_snapshot(&snap, root_id)
     }
 
-    /// 战役页：`campaign_content_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 战役页：`solve_campaign` → snapshot → 占位 `RenderPlan`。
     pub fn campaign_placeholders() -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &campaign_content_layout_tree(chrome),
-        );
-        Self::solid_placeholders_from_snapshot(&snap, "campaign")
+        Self::solid_placeholders_from_snapshot(&solve_campaign(), "campaign")
     }
 
-    /// 装载页：`load_screen_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 装载页：`solve_load_screen` → snapshot → 占位 `RenderPlan`。
     pub fn load_screen_placeholders() -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &load_screen_layout_tree(chrome),
-        );
-        Self::solid_placeholders_from_snapshot(&snap, "load_screen")
+        Self::solid_placeholders_from_snapshot(&solve_load_screen(), "load_screen")
     }
 
-    /// 选项整页：`options_page_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 选项整页：`solve_options_page` → snapshot → 占位 `RenderPlan`。
     pub fn options_page_placeholders() -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &options_page_layout_tree(chrome),
-        );
-        Self::solid_placeholders_from_snapshot(&snap, "options")
+        Self::solid_placeholders_from_snapshot(&solve_options_page(), "options")
     }
 }
