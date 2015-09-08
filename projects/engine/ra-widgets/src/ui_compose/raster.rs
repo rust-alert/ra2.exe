@@ -199,8 +199,7 @@ pub(super) fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     fill_rect(dst, RectPx::new(rect.x + rect.w - 1, rect.y, 1, rect.h), rgba);
 }
 
-/// 壳层 owner-draw 双环斜角框（对齐 `FUN_006208F0` border=2 固定色）。
-
+/// 按源图宽度裁剪后 1:1 贴图（装载进度条横向揭示）。
 pub(super) fn blit_rgba_clipped_width(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32, clip_w: u32) {
     let w = clip_w.min(src.width());
     if w == 0 || src.height() == 0 {

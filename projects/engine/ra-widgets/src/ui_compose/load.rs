@@ -210,29 +210,3 @@ pub fn compose_load_screen_page(
 
     Some(page)
 }
-
-pub(super) fn blit_rgba_clipped_width(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32, clip_w: u32) {
-    let w = clip_w.min(src.width());
-    if w == 0 || src.height() == 0 {
-        return;
-    }
-    for row in 0..src.height() {
-        let dy = y + row as i32;
-        if dy < 0 || dy as u32 >= dst.height() {
-            continue;
-        }
-        for col in 0..w {
-            let dx = x + col as i32;
-            if dx < 0 || dx as u32 >= dst.width() {
-                continue;
-            }
-            let si = ((row * src.width() + col) * 4) as usize;
-            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
-            let sa = src.as_raw()[si + 3];
-            if sa == 0 {
-                continue;
-            }
-            dst.as_mut()[di..di + 4].copy_from_slice(&src.as_raw()[si..si + 4]);
-        }
-    }
-}
