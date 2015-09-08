@@ -7,6 +7,7 @@ mod exit_confirm_page;
 mod from_template;
 mod legacy;
 mod load_screen;
+mod network_page;
 mod options_page;
 mod shell_chrome;
 
@@ -22,6 +23,7 @@ pub use from_template::{
 };
 pub use legacy::{LegacyReference, LegacyRole, LegacySource};
 pub use load_screen::{load_screen_layout_tree, solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
+pub use network_page::{network_page_layout_tree, solve_network_page, NETWORK_BUTTON_IDS};
 pub use options_page::{
     options_content_layout_tree, options_page_layout_tree, solve_options_page, OPTIONS_CONTENT_IDS,
 };

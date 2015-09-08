@@ -1,17 +1,18 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
 //! 选图 / 遭遇战大厅几何来自壳层 `RuntimeUiProfile` 对话框模板经 `LayoutEngine` 求解；
-//! 主菜单 / 单人 / 选项右栏页来自 `shell_page_layout_tree`；
-//! 装载页来自 `load_screen_layout_tree`；其余页用 [`crate::ui_slots`]。
+//! 主菜单 / 单人 / 选项右栏页来自 `solve_shell_page`；
+//! 装载 / 战役 / 退出确认 / 网络占位来自对应 `solve_*`；闪屏与对局无菜单命中。
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
 use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS,
-    LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
-    SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect, RightPanelChrome,
-    Viewport, dialog_layout_tree, shell_design_size, solve_campaign, solve_exit_confirm,
-    solve_load_screen, solve_options_page, solve_shell_page, window_to_shell_px,
+    LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS,
+    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
+    RightPanelChrome, Viewport, dialog_layout_tree, shell_design_size, solve_campaign,
+    solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
+    window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -58,8 +59,8 @@ pub fn hits_for(
         OriginalScreen::Options => hits_options(),
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
-        OriginalScreen::Battle | OriginalScreen::Results => Vec::new(),
-        other => hits_from_slots(other),
+        OriginalScreen::Network => hits_network(),
+        OriginalScreen::Splash | OriginalScreen::Battle | OriginalScreen::Results => Vec::new(),
     }
 }
 
@@ -611,16 +612,28 @@ fn exit_confirm_snapshot() -> LayoutSnapshot {
     solve_exit_confirm()
 }
 
-fn hits_from_slots(screen: OriginalScreen) -> Vec<MenuHit> {
-    let Some(page) = slots_for(screen)
+fn hits_network() -> Vec<MenuHit> {
+    let Some(page) = slots_for(OriginalScreen::Network)
     else {
         return Vec::new();
     };
-    page.buttons
+    let snap = solve_network_page();
+    let chrome = RightPanelChrome::shell_defaults();
+    let bw = chrome.shell_w;
+    let bh = chrome.shell_h;
+    NETWORK_BUTTON_IDS
         .iter()
-        .map(|btn| {
-            let (x0, y0, x1, y1) = btn.hit;
-            MenuHit { entry_id: btn.entry_id, action: btn.action, x0, y0, x1, y1, enabled: btn.enabled }
+        .filter_map(|id| {
+            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
+            let el = snap.get(id)?;
+            Some(menu_hit_from_rect(
+                btn.entry_id,
+                btn.action,
+                el.layout.rect,
+                bw,
+                bh,
+                btn.enabled,
+            ))
         })
         .collect()
 }
