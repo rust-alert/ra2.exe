@@ -1,10 +1,9 @@
 //! 与后端无关的渲染计划（几何来自 `LayoutSnapshot`）。
 
-use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
-    battle_hud_layout_tree, dialog_layout_tree, shell_design_size, solve_campaign,
-    solve_exit_confirm, solve_load_screen, solve_options_page, solve_shell_page, LayoutEngine,
-    LayoutId, LayoutSnapshot, Rect, RightPanelChrome, Size2, Viewport,
+    battle_hud_layout_tree, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
+    solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutEngine, LayoutId,
+    LayoutSnapshot, Rect, Size2, Viewport,
 };
 
 /// 单条可绘制命令。
@@ -82,20 +81,13 @@ impl RenderPlan {
         Self::solid_placeholders_from_snapshot(&solve_exit_confirm(), "exit_confirm")
     }
 
-    /// 壳层对话框模板：`RuntimeUiProfile` → `dialog_layout_tree` → 占位 `RenderPlan`。
+    /// 壳层对话框模板：已知 id 走 `solve_choose_map` / `solve_skirmish_lobby`。
     pub fn shell_dialog_placeholders(dialog_id: u16, root_id: &str) -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
-        let profile = shell_runtime_ui_profile();
-        let template = profile
-            .dialog(dialog_id)
-            .unwrap_or_else(|| panic!("shell profile missing dialog {dialog_id:#x}"));
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &dialog_layout_tree(root_id, template, chrome),
-        );
+        let snap = match dialog_id {
+            0x6B => solve_choose_map(),
+            0x102 => solve_skirmish_lobby(),
+            other => panic!("unsupported shell dialog {other:#x}"),
+        };
         Self::solid_placeholders_from_snapshot(&snap, root_id)
     }
 

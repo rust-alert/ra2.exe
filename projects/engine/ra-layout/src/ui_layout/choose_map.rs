@@ -1,8 +1,7 @@
 //! 选图页布局。
 
 use super::*;
-use crate::{dialog_layout_tree, LayoutEngine, RightPanelChrome, Viewport};
-use ra_types::dialog_template_0x6b;
+use crate::solve_choose_map;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChooseMapLayout {
@@ -32,14 +31,7 @@ pub struct ChooseMapLayout {
 pub fn choose_map_layout(_viewport_w: u32, _viewport_h: u32) -> ChooseMapLayout {
     let mut shell = shell_chrome_base_layout();
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &dialog_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome),
-    );
+    let snap = solve_choose_map();
     shell.buttons = [
         rect_px_from_snapshot(&snap, "use_map"),
         rect_px_from_snapshot(&snap, "create_random"),

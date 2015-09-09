@@ -5,13 +5,12 @@
 //! 装载 / 战役 / 退出确认 / 网络占位来自对应 `solve_*`；闪屏与对局无菜单命中。
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
-use ra_adaptor::shell_runtime_ui_profile;
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS,
     LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutEngine, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, Viewport, dialog_layout_tree, shell_design_size, solve_campaign,
-    solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
+    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2, Rect,
+    RightPanelChrome, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
+    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
     window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
@@ -732,29 +731,14 @@ fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f6
     None
 }
 
-/// 遭遇战大厅几何权威：壳层 profile `0x102` → `LayoutEngine` → `LayoutSnapshot`。
+/// 遭遇战大厅几何权威：`solve_skirmish_lobby` → `LayoutSnapshot`。
 fn skirmish_lobby_snapshot() -> LayoutSnapshot {
-    shell_dialog_snapshot(0x102, "dialog_0x102")
+    solve_skirmish_lobby()
 }
 
-/// 选图页几何权威：壳层 profile `0x6B` → `LayoutEngine` → `LayoutSnapshot`。
+/// 选图页几何权威：`solve_choose_map` → `LayoutSnapshot`。
 fn choose_map_snapshot() -> LayoutSnapshot {
-    shell_dialog_snapshot(0x6B, "dialog_0x6b")
-}
-
-fn shell_dialog_snapshot(dialog_id: u16, root_id: &str) -> LayoutSnapshot {
-    let chrome = RightPanelChrome::shell_defaults();
-    let profile = shell_runtime_ui_profile();
-    let template = profile
-        .dialog(dialog_id)
-        .unwrap_or_else(|| panic!("shell profile missing dialog {dialog_id:#x}"));
-    LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &dialog_layout_tree(root_id, template, chrome),
-    )
+    solve_choose_map()
 }
 
 fn menu_hit_from_rect(

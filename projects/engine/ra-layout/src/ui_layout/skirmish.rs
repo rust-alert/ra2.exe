@@ -1,8 +1,7 @@
 //! 遭遇战大厅布局。
 
 use super::*;
-use crate::{dialog_layout_tree, LayoutEngine, RightPanelChrome, Viewport};
-use ra_types::dialog_template_0x102;
+use crate::solve_skirmish_lobby;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SkirmishLobbyLayout {
@@ -50,14 +49,7 @@ pub struct SkirmishLobbyLayout {
 pub fn skirmish_lobby_layout(_viewport_w: u32, _viewport_h: u32) -> SkirmishLobbyLayout {
     let mut shell = shell_chrome_base_layout();
     shell.lower_strip = RectPx::new(0, 0, 0, 0);
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: crate::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &dialog_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome),
-    );
+    let snap = solve_skirmish_lobby();
     shell.buttons = [
         rect_px_from_snapshot(&snap, "start"),
         rect_px_from_snapshot(&snap, "choose_map"),
