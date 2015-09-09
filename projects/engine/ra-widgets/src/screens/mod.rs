@@ -14,5 +14,4 @@ pub use options_dialog::*;
 pub use skirmish_setup::*;
 pub use campaign_setup::*;
 pub use startup_splash::*;
-pub use battle_hud::*;
-pub use battle_pause_menu::*;
+// `battle_hud` / `battle_pause_menu` 仅通过子模块路径导出，避免同名 `hit_at` 冲突。
