@@ -283,6 +283,31 @@ pub fn battle_hud_layout_tree_with_metrics(
     battle_hud_tree_from_rects(viewport_w, viewport_h, r)
 }
 
+/// 求解对局 HUD snapshot（默认盟军度量）。
+pub fn solve_battle_hud(viewport_w: u32, viewport_h: u32) -> crate::LayoutSnapshot {
+    solve_battle_hud_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::allied())
+}
+
+/// 求解对局 HUD snapshot（指定阵营度量）。
+pub fn solve_battle_hud_with_metrics(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> crate::LayoutSnapshot {
+    let w = viewport_w.max(1) as f32;
+    let h = viewport_h.max(1) as f32;
+    crate::LayoutEngine.solve(
+        crate::Viewport {
+            size: Size2 {
+                width: w,
+                height: h,
+            },
+            ..crate::Viewport::default()
+        },
+        &battle_hud_layout_tree_with_metrics(viewport_w, viewport_h, metrics),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

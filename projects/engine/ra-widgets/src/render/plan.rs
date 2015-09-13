@@ -1,9 +1,8 @@
 //! 与后端无关的渲染计划（几何来自 `LayoutSnapshot`）。
 
 use ra_layout::{
-    battle_hud_layout_tree, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
-    solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutEngine, LayoutId,
-    LayoutSnapshot, Rect, Size2, Viewport,
+    solve_battle_hud, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
+    solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutId, LayoutSnapshot, Rect,
 };
 
 /// 单条可绘制命令。
@@ -51,18 +50,9 @@ impl RenderPlan {
         })
     }
 
-    /// 对局 HUD：`battle_hud_layout_tree` → snapshot → 占位 `RenderPlan`。
+    /// 对局 HUD：`solve_battle_hud` → snapshot → 占位 `RenderPlan`。
     pub fn battle_hud_placeholders(viewport_w: u32, viewport_h: u32) -> Self {
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: Size2 {
-                    width: viewport_w.max(1) as f32,
-                    height: viewport_h.max(1) as f32,
-                },
-                ..Viewport::default()
-            },
-            &battle_hud_layout_tree(viewport_w, viewport_h),
-        );
+        let snap = solve_battle_hud(viewport_w, viewport_h);
         Self::solid_placeholders_from_snapshot(&snap, "battle_hud")
     }
 

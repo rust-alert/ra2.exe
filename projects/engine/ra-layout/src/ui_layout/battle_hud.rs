@@ -1,9 +1,7 @@
 //! 对局 HUD 布局。
 
 use super::*;
-use crate::{
-    battle_hud_layout_tree_with_metrics, BattleHudChromeMetrics, LayoutEngine, Size2, Viewport,
-};
+use crate::{solve_battle_hud_with_metrics, BattleHudChromeMetrics};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattleHudLayout {
@@ -63,18 +61,7 @@ pub fn battle_hud_layout_with_metrics(
     viewport_h: u32,
     metrics: BattleHudChromeMetrics,
 ) -> BattleHudLayout {
-    let w = viewport_w.max(1) as f32;
-    let h = viewport_h.max(1) as f32;
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: Size2 {
-                width: w,
-                height: h,
-            },
-            ..Viewport::default()
-        },
-        &battle_hud_layout_tree_with_metrics(viewport_w, viewport_h, metrics),
-    );
+    let snap = solve_battle_hud_with_metrics(viewport_w, viewport_h, metrics);
     BattleHudLayout {
         sidebar: rect_px_from_snapshot(&snap, "sidebar"),
         credits: rect_px_from_snapshot(&snap, "credits"),
