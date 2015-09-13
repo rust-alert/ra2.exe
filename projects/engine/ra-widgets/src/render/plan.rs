@@ -2,7 +2,8 @@
 
 use ra_layout::{
     solve_battle_hud, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
-    solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutId, LayoutSnapshot, Rect,
+    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutId,
+    LayoutSnapshot, Rect,
 };
 
 /// 单条可绘制命令。
@@ -89,6 +90,11 @@ impl RenderPlan {
     /// 装载页：`solve_load_screen` → snapshot → 占位 `RenderPlan`。
     pub fn load_screen_placeholders() -> Self {
         Self::solid_placeholders_from_snapshot(&solve_load_screen(), "load_screen")
+    }
+
+    /// 网络占位页：`solve_network_page` → snapshot → 占位 `RenderPlan`。
+    pub fn network_page_placeholders() -> Self {
+        Self::solid_placeholders_from_snapshot(&solve_network_page(), "network")
     }
 
     /// 选项整页：`solve_options_page` → snapshot → 占位 `RenderPlan`。

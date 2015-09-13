@@ -1,24 +1,11 @@
-//! 遭遇战大厅闭环：profile `0x102` → snapshot → hit → `RenderPlan`。
+//! 遭遇战大厅闭环：`solve_skirmish_lobby` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    dialog_layout_tree, shell_design_size, skirmish_lobby_layout, LayoutEngine, Point2,
-    RightPanelChrome, Viewport,
-};
-use ra_adaptor::shell_runtime_ui_profile;
+use ra_layout::{solve_skirmish_lobby, skirmish_lobby_layout, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn skirmish_lobby_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let profile = shell_runtime_ui_profile();
-    let template = profile.dialog(0x102).expect("dialog 0x102");
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &dialog_layout_tree("dialog_0x102", template, chrome),
-    );
+    let snap = solve_skirmish_lobby();
     let plan = RenderPlan::shell_dialog_placeholders(0x102, "dialog_0x102");
     let legacy = skirmish_lobby_layout(800, 600);
 

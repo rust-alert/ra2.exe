@@ -1,6 +1,6 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
-//! 选图 / 遭遇战大厅几何来自壳层 `RuntimeUiProfile` 对话框模板经 `LayoutEngine` 求解；
+//! 选图 / 遭遇战大厅几何来自 `solve_choose_map` / `solve_skirmish_lobby`；
 //! 主菜单 / 单人 / 选项右栏页来自 `solve_shell_page`；
 //! 装载 / 战役 / 退出确认 / 网络占位来自对应 `solve_*`；闪屏与对局无菜单命中。
 
