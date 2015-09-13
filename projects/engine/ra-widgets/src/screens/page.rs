@@ -57,7 +57,7 @@ pub enum UiButtonVisualState {
     Focused,
 }
 
-/// 单个按钮的逻辑动作、命中框与各状态资源名。
+/// 单个按钮的逻辑动作与各状态资源名（几何命中由 `LayoutSnapshot` 提供）。
 #[derive(Debug, Clone)]
 pub struct UiButtonResources {
     /// 与机读 UI 状态一致的入口 id。
@@ -66,8 +66,6 @@ pub struct UiButtonResources {
     pub action: MenuAction,
     /// 是否可点。
     pub enabled: bool,
-    /// 归一化命中框（左、上、右、下，0..1）。
-    pub hit: (f32, f32, f32, f32),
     /// 常态精灵。
     pub normal: Option<UiAssetRef>,
     /// 悬停精灵。
@@ -144,7 +142,6 @@ fn slot_to_button(slot: &UiButtonSlot) -> UiButtonResources {
         entry_id: slot.entry_id,
         action: slot.action,
         enabled: slot.enabled,
-        hit: slot.hit,
         normal: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.normal_frame),
         hover: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.hover_frame),
         pressed: slot_frame_asset(slot.anim_shp, slot.anim_pal, slot.pressed_frame),

@@ -63,7 +63,6 @@ fn counts_readable_and_missing() {
             entry_id: "single_player",
             action: MenuAction::OpenSinglePlayer,
             enabled: true,
-            hit: (0.0, 0.0, 1.0, 1.0),
             normal: Some(UiAssetRef::named("btn.shp")),
             hover: Some(UiAssetRef::named("missing.shp")),
             pressed: None,

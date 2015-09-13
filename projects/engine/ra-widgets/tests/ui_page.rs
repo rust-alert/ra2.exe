@@ -65,7 +65,6 @@ fn button_asset_for_falls_back_to_normal() {
         entry_id: "x",
         action: MenuAction::Noop,
         enabled: true,
-        hit: (0.0, 0.0, 1.0, 1.0),
         normal: Some(UiAssetRef::named("a.shp")),
         hover: None,
         pressed: None,

@@ -1,6 +1,6 @@
 //! 原版产品页的逻辑 UI 资源槽（按页面组织，不依赖 `ui.ini` 当素材目录）。
 //!
-//! 第一阶段对照锁定 **RA2 原版**（非默认 YR）。槽位先对齐入口 id 与命中框；
+//! 第一阶段对照锁定 **RA2 原版**（非默认 YR）。槽位先对齐入口 id 与资源名；
 //! 具体 SHP/PAL/帧须有安装内证据后再填，禁止臆造。
 //! **填了文件名 ≠ 已解码 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。**
 //! 页面级资源索引见 [`crate::ui_page`]；可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
@@ -31,8 +31,6 @@ pub struct UiButtonSlot {
     pub action: MenuAction,
     /// 是否可点（未实现模式保留位置但禁用）。
     pub enabled: bool,
-    /// 归一化命中框（左、上、右、下，0..1）。几何仍待与原版布局对齐。
-    pub hit: (f32, f32, f32, f32),
     /// 按钮动画 SHP（多状态常为同文件不同帧）。
     pub anim_shp: Option<&'static str>,
     /// 按钮调色板。
@@ -136,12 +134,11 @@ const EXIT_CONFIRM_PANELS: &[UiPanelSlot] = &[
 
 const MAIN_MENU_FONTS: &[&str] = &["game.fnt"];
 
-const fn main_menu_button(entry_id: &'static str, action: MenuAction, enabled: bool, hit: (f32, f32, f32, f32)) -> UiButtonSlot {
+const fn main_menu_button(entry_id: &'static str, action: MenuAction, enabled: bool) -> UiButtonSlot {
     UiButtonSlot {
         entry_id,
         action,
         enabled,
-        hit,
         anim_shp: Some(SDBTNANM_SHP),
         anim_pal: Some(SDBTNANM_PAL),
         normal_frame: Some(SDBTNANM_FRAME_NORMAL),
@@ -152,12 +149,11 @@ const fn main_menu_button(entry_id: &'static str, action: MenuAction, enabled: b
     }
 }
 
-const fn empty_button(entry_id: &'static str, action: MenuAction, enabled: bool, hit: (f32, f32, f32, f32)) -> UiButtonSlot {
+const fn empty_button(entry_id: &'static str, action: MenuAction, enabled: bool) -> UiButtonSlot {
     UiButtonSlot {
         entry_id,
         action,
         enabled,
-        hit,
         anim_shp: None,
         anim_pal: None,
         normal_frame: None,
@@ -169,25 +165,25 @@ const fn empty_button(entry_id: &'static str, action: MenuAction, enabled: bool,
 
 // 命中框为 800×600 内容归一化；实际点击经 `ui_layout` + fit 相机，不直接用窗口比例。
 const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("single_player", MenuAction::OpenSinglePlayer, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("ww_online", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("network", MenuAction::OpenNetwork, false, (0.805, 0.4717, 1.0, 0.5417)),
-    main_menu_button("movies", MenuAction::Noop, false, (0.805, 0.5417, 1.0, 0.6117)),
-    main_menu_button("options", MenuAction::OpenOptions, true, (0.805, 0.6117, 1.0, 0.6817)),
-    main_menu_button("exit", MenuAction::Exit, true, (0.805, 0.8917, 1.0, 0.9617)),
+    main_menu_button("single_player", MenuAction::OpenSinglePlayer, true),
+    main_menu_button("ww_online", MenuAction::Noop, false),
+    main_menu_button("network", MenuAction::OpenNetwork, false),
+    main_menu_button("movies", MenuAction::Noop, false),
+    main_menu_button("options", MenuAction::OpenOptions, true),
+    main_menu_button("exit", MenuAction::Exit, true),
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 单人页像素格。
 // 顺序对齐壳层：新战役 / 载入 / 遭遇战 / 主菜单（贴底）。
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("campaign", MenuAction::OpenCampaign, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("load", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("skirmish", MenuAction::OpenSkirmish, true, (0.805, 0.4717, 1.0, 0.5417)),
-    main_menu_button("back", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
+    main_menu_button("campaign", MenuAction::OpenCampaign, true),
+    main_menu_button("load", MenuAction::Noop, false),
+    main_menu_button("skirmish", MenuAction::OpenSkirmish, true),
+    main_menu_button("back", MenuAction::Back, true),
 ];
 
 /// 战役页：右栏仅「上一页」；中列为空部队格（cameo 后续接线）。
-const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617))];
+const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[main_menu_button("back", MenuAction::Back, true)];
 
 /// 战役页面板：壳层 chrome。三侧 `fs*.shp` 供悬停箭头透叠；静态徽标在 `fsbkgdlg`。
 const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
@@ -204,9 +200,9 @@ const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
 // 命中框占位；实际点击走 `ui_layout` 遭遇战像素格。
 // 顺序：开始游戏 / 选图 / 上一页（贴底）。
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("start", MenuAction::StartSkirmish, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("choose_map", MenuAction::ChooseMap, true, (0.805, 0.4717, 1.0, 0.5417)),
-    main_menu_button("back", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
+    main_menu_button("start", MenuAction::StartSkirmish, true),
+    main_menu_button("choose_map", MenuAction::ChooseMap, true),
+    main_menu_button("back", MenuAction::Back, true),
 ];
 
 /// 遭遇战右栏：`sdtp` 外壳 + `sdmpbtn` 地图名底板；合成时再叠 `sdtp` 帧 1 作顶栏高亮牌。
@@ -220,9 +216,9 @@ const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
 
 /// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。
 const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("use_map", MenuAction::UseMap, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("create_random", MenuAction::Noop, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("cancel", MenuAction::Back, true, (0.805, 0.8917, 1.0, 0.9617)),
+    main_menu_button("use_map", MenuAction::UseMap, true),
+    main_menu_button("create_random", MenuAction::Noop, true),
+    main_menu_button("cancel", MenuAction::Back, true),
 ];
 
 /// 装载页：国家 `ls800*`/`ls640*` 全幅艺术 + `progbarm`；失败时 `mnbttn` 重试/取消。
@@ -235,23 +231,22 @@ const LOAD_SCREEN_PANELS: &[UiPanelSlot] = &[UiPanelSlot {
 }];
 
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
-    modal_button("retry", MenuAction::RetryLoad, true, (0.30, 0.88, 0.50, 0.96)),
-    modal_button("cancel", MenuAction::CancelLoad, true, (0.54, 0.88, 0.74, 0.96)),
+    modal_button("retry", MenuAction::RetryLoad, true),
+    modal_button("cancel", MenuAction::CancelLoad, true),
 ];
 
 // 命中框占位；实际点击走 `ui_layout` 选项页像素格。右栏为接受 / 取消 / 主菜单。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("accept", MenuAction::OptionsAccept, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("cancel", MenuAction::OptionsCancel, true, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("main_menu", MenuAction::Back, true, (0.805, 0.5417, 1.0, 0.6117)),
+    main_menu_button("accept", MenuAction::OptionsAccept, true),
+    main_menu_button("cancel", MenuAction::OptionsCancel, true),
+    main_menu_button("main_menu", MenuAction::Back, true),
 ];
 
-const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool, hit: (f32, f32, f32, f32)) -> UiButtonSlot {
+const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool) -> UiButtonSlot {
     UiButtonSlot {
         entry_id,
         action,
         enabled,
-        hit,
         anim_shp: Some(MNBTTN_SHP),
         anim_pal: Some(MNBTTN_PAL),
         normal_frame: Some(MNBTTN_FRAME_UP),
@@ -263,19 +258,19 @@ const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool,
 
 // 退出确认：底下仍画主菜单六钮（仅视觉，命中只走 ok/cancel）+ MessageBox 确定/取消。
 const EXIT_CONFIRM_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("single_player", MenuAction::Noop, true, (0.805, 0.3317, 1.0, 0.4017)),
-    main_menu_button("ww_online", MenuAction::Noop, false, (0.805, 0.4017, 1.0, 0.4717)),
-    main_menu_button("network", MenuAction::Noop, false, (0.805, 0.4717, 1.0, 0.5417)),
-    main_menu_button("movies", MenuAction::Noop, false, (0.805, 0.5417, 1.0, 0.6117)),
-    main_menu_button("options", MenuAction::Noop, true, (0.805, 0.6117, 1.0, 0.6817)),
-    main_menu_button("exit", MenuAction::Noop, true, (0.805, 0.8917, 1.0, 0.9617)),
-    modal_button("ok", MenuAction::ConfirmExit, true, (0.6075, 0.595, 0.76375, 0.635)),
-    modal_button("cancel", MenuAction::Back, true, (0.6075, 0.7033, 0.76375, 0.7433)),
+    main_menu_button("single_player", MenuAction::Noop, true),
+    main_menu_button("ww_online", MenuAction::Noop, false),
+    main_menu_button("network", MenuAction::Noop, false),
+    main_menu_button("movies", MenuAction::Noop, false),
+    main_menu_button("options", MenuAction::Noop, true),
+    main_menu_button("exit", MenuAction::Noop, true),
+    modal_button("ok", MenuAction::ConfirmExit, true),
+    modal_button("cancel", MenuAction::Back, true),
 ];
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("online", MenuAction::Noop, false, (0.22, 0.36, 0.78, 0.44)),
-    empty_button("back", MenuAction::Back, true, (0.22, 0.56, 0.78, 0.64)),
+    empty_button("online", MenuAction::Noop, false),
+    empty_button("back", MenuAction::Back, true),
 ];
 
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
