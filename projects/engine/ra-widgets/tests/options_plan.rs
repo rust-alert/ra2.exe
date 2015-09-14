@@ -1,20 +1,11 @@
-//! 选项整页闭环：`options_page_layout_tree` → snapshot → hit → `RenderPlan`。
+//! 选项整页闭环：`solve_options_page` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    options_page_layout_tree, shell_design_size, LayoutEngine, Point2, RightPanelChrome, Viewport,
-};
+use ra_layout::{solve_options_page, Point2};
 use ra_widgets::{options_dialog::OptionsDialogLayout, RenderPlan};
 
 #[test]
 fn options_page_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &options_page_layout_tree(chrome),
-    );
+    let snap = solve_options_page();
     let plan = RenderPlan::options_page_placeholders();
     let legacy = OptionsDialogLayout::new();
 

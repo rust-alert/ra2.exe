@@ -1,25 +1,16 @@
-//! 对局暂停菜单闭环：`shell_page_layout_tree` → snapshot → hit → `RenderPlan`。
+//! 对局暂停菜单闭环：`solve_shell_page` → snapshot → hit → `RenderPlan`。
 
 use ra_layout::{
-    battle_pause_menu_layout, shell_design_size, shell_page_layout_tree, LayoutEngine,
-    BATTLE_PAUSE_MENU_BUTTON_IDS, Point2, RightPanelChrome, Viewport,
+    battle_pause_menu_layout, solve_shell_page, BATTLE_PAUSE_MENU_BUTTON_IDS, Point2,
 };
 use ra_widgets::RenderPlan;
 
 #[test]
 fn battle_pause_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(
-            "battle_pause",
-            &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
-            Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
-            chrome,
-        ),
+    let snap = solve_shell_page(
+        "battle_pause",
+        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
+        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
     );
     let plan = RenderPlan::shell_page_placeholders(
         "battle_pause",

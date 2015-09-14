@@ -1,25 +1,14 @@
-//! 主菜单闭环：`shell_page_layout_tree` → snapshot → hit → `RenderPlan`。
+//! 主菜单闭环：`solve_shell_page` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    main_menu_layout, shell_design_size, shell_page_layout_tree, LayoutEngine, MAIN_MENU_BUTTON_IDS,
-    Point2, RightPanelChrome, Viewport,
-};
+use ra_layout::{main_menu_layout, solve_shell_page, MAIN_MENU_BUTTON_IDS, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn main_menu_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &shell_page_layout_tree(
-            "main_menu",
-            &MAIN_MENU_BUTTON_IDS[..5],
-            Some(MAIN_MENU_BUTTON_IDS[5]),
-            chrome,
-        ),
+    let snap = solve_shell_page(
+        "main_menu",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
     );
     let plan = RenderPlan::shell_page_placeholders(
         "main_menu",

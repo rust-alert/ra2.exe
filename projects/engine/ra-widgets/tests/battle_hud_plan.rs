@@ -1,23 +1,12 @@
-//! 对局 HUD 闭环：layout tree → snapshot → hit → `RenderPlan`。
+//! 对局 HUD 闭环：`solve_battle_hud` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    battle_hud_layout, battle_hud_layout_tree, LayoutEngine, Point2, Size2, Viewport,
-};
+use ra_layout::{battle_hud_layout, solve_battle_hud, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn battle_hud_render_plan_rects_match_snapshot_hits() {
     let (vw, vh) = (1280u32, 720u32);
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: Size2 {
-                width: vw as f32,
-                height: vh as f32,
-            },
-            ..Viewport::default()
-        },
-        &battle_hud_layout_tree(vw, vh),
-    );
+    let snap = solve_battle_hud(vw, vh);
     let plan = RenderPlan::battle_hud_placeholders(vw, vh);
     let legacy = battle_hud_layout(vw, vh);
 

@@ -1,21 +1,11 @@
-//! 战役页闭环：content tree → snapshot → hit → `RenderPlan`。
+//! 战役页闭环：`solve_campaign` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    campaign_content_layout_tree, campaign_layout, shell_design_size, LayoutEngine,
-    CAMPAIGN_SIDE_IDS, Point2, RightPanelChrome, Viewport,
-};
+use ra_layout::{campaign_layout, solve_campaign, CAMPAIGN_SIDE_IDS, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn campaign_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &campaign_content_layout_tree(chrome),
-    );
+    let snap = solve_campaign();
     let plan = RenderPlan::campaign_placeholders();
     let legacy = campaign_layout(800, 600);
     let allied = CAMPAIGN_SIDE_IDS[0];

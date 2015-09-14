@@ -1,21 +1,11 @@
-//! 退出确认闭环：content tree → snapshot → hit → `RenderPlan`。
+//! 退出确认闭环：`solve_exit_confirm` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    exit_confirm_content_layout_tree, exit_confirm_layout, shell_design_size, LayoutEngine,
-    EXIT_CONFIRM_BUTTON_IDS, Point2, RightPanelChrome, Viewport,
-};
+use ra_layout::{exit_confirm_layout, solve_exit_confirm, EXIT_CONFIRM_BUTTON_IDS, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn exit_confirm_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &exit_confirm_content_layout_tree(chrome),
-    );
+    let snap = solve_exit_confirm();
     let plan = RenderPlan::exit_confirm_placeholders();
     let legacy = exit_confirm_layout(800, 600);
     let ok_id = EXIT_CONFIRM_BUTTON_IDS[0];

@@ -1,21 +1,11 @@
-//! 装载页闭环：`load_screen_layout_tree` → snapshot → hit → `RenderPlan`。
+//! 装载页闭环：`solve_load_screen` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{
-    load_screen_layout, load_screen_layout_tree, shell_design_size, LayoutEngine,
-    LOAD_SCREEN_BUTTON_IDS, Point2, RightPanelChrome, Viewport,
-};
+use ra_layout::{load_screen_layout, solve_load_screen, LOAD_SCREEN_BUTTON_IDS, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn load_screen_render_plan_rects_match_snapshot_hits() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &load_screen_layout_tree(chrome),
-    );
+    let snap = solve_load_screen();
     let plan = RenderPlan::load_screen_placeholders();
     let legacy = load_screen_layout(800, 600);
     let retry = LOAD_SCREEN_BUTTON_IDS[0];
