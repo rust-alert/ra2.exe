@@ -96,6 +96,13 @@ pub fn hit_action(
     if screen == OriginalScreen::ExitConfirm {
         return hit_exit_confirm_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
+    if screen == OriginalScreen::LoadScreen {
+        return hit_load_screen_at(cursor.0, cursor.1, win_w, win_h, load_allow_retry)
+            .map(|(_, action)| action);
+    }
+    if screen == OriginalScreen::Network {
+        return hit_network_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
     hit_at(
         &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
         cursor.0,
@@ -139,6 +146,12 @@ pub fn hover_index(
     }
     if screen == OriginalScreen::ExitConfirm {
         return hover_exit_confirm_at(cursor.0, cursor.1, win_w, win_h);
+    }
+    if screen == OriginalScreen::LoadScreen {
+        return hit_load_screen_at(cursor.0, cursor.1, win_w, win_h, load_allow_retry).map(|(i, _)| i);
+    }
+    if screen == OriginalScreen::Network {
+        return hover_network_at(cursor.0, cursor.1, win_w, win_h);
     }
     hit_at(
         &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
@@ -616,7 +629,7 @@ fn hits_network() -> Vec<MenuHit> {
     else {
         return Vec::new();
     };
-    let snap = solve_network_page();
+    let snap = network_snapshot();
     let chrome = RightPanelChrome::shell_defaults();
     let bw = chrome.shell_w;
     let bh = chrome.shell_h;
@@ -635,6 +648,58 @@ fn hits_network() -> Vec<MenuHit> {
             ))
         })
         .collect()
+}
+
+fn hit_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = network_snapshot();
+    let page = slots_for(OriginalScreen::Network)?;
+    for (i, id) in NETWORK_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
+            return Some((i, btn.action));
+        }
+    }
+    None
+}
+
+fn hover_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = network_snapshot();
+    for (i, id) in NETWORK_BUTTON_IDS.iter().enumerate() {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn network_snapshot() -> LayoutSnapshot {
+    solve_network_page()
 }
 
 fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
@@ -665,6 +730,42 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
             ))
         })
         .collect()
+}
+
+fn hit_load_screen_at(
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+    allow_retry: bool,
+) -> Option<(usize, MenuAction)> {
+    if !allow_retry || win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = load_screen_snapshot();
+    let page = slots_for(OriginalScreen::LoadScreen)?;
+    for (i, id) in LOAD_SCREEN_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
+            return Some((i, btn.action));
+        }
+    }
+    None
 }
 
 fn load_screen_snapshot() -> LayoutSnapshot {
