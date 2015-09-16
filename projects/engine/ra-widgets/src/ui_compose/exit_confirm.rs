@@ -14,9 +14,10 @@ pub fn compose_exit_confirm_page(
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     // 先画完整主菜单壳（右栏六钮仍在），再压暗并叠居中 MessageBox。
+    let shell = main_menu_layout(viewport_w, viewport_h);
     let mut page = compose_shell_menu_page(
         decoded,
-        main_menu_layout(viewport_w, viewport_h),
+        shell,
         &MAIN_MENU_BUTTON_IDS,
         None,
         None,
@@ -29,7 +30,6 @@ pub fn compose_exit_confirm_page(
         warn_anim_frame,
     )?;
 
-    let shell = main_menu_layout(viewport_w, viewport_h);
     dim_rect(&mut page, shell.canvas, 160);
 
     let dlg = exit_confirm_layout(viewport_w, viewport_h);
