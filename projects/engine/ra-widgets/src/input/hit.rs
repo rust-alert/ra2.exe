@@ -1,5 +1,8 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
+//! 点击 / 悬停一律经 `window_to_shell_px` + 各页 `solve_*` snapshot。
+//! [`hits_for`] 仍产出归一化 [`MenuHit`] 列表，供诊断与测试枚举入口。
+//!
 //! 选图 / 遭遇战大厅几何来自 `solve_choose_map` / `solve_skirmish_lobby`；
 //! 主菜单 / 单人 / 选项右栏页来自 `solve_shell_page`；
 //! 装载 / 战役 / 退出确认 / 网络占位来自对应 `solve_*`；闪屏与对局无菜单命中。
@@ -103,14 +106,8 @@ pub fn hit_action(
     if screen == OriginalScreen::Network {
         return hit_network_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
-    hit_at(
-        &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
-        cursor.0,
-        cursor.1,
-        win_w,
-        win_h,
-    )
-    .map(|(_, action)| action)
+    // 闪屏 / 对局 / 结算无前置菜单点击命中。
+    None
 }
 
 /// 命中命中区下标。主菜单 / 单人页包含禁用项（用于悬停帧与底栏提示）；
@@ -153,30 +150,7 @@ pub fn hover_index(
     if screen == OriginalScreen::Network {
         return hover_network_at(cursor.0, cursor.1, win_w, win_h);
     }
-    hit_at(
-        &hits_for(screen, maps, mode_count, map_list_scroll, load_allow_retry),
-        cursor.0,
-        cursor.1,
-        win_w,
-        win_h,
-    )
-    .map(|(i, _)| i)
-}
-
-fn hit_at(hits: &[MenuHit], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let nx = (cursor_x / win_w) as f32;
-    let ny = (cursor_y / win_h) as f32;
-    for (i, h) in hits.iter().enumerate() {
-        if !h.enabled {
-            continue;
-        }
-        if nx >= h.x0 && nx <= h.x1 && ny >= h.y0 && ny <= h.y1 {
-            return Some((i, h.action));
-        }
-    }
+    // 闪屏 / 对局 / 结算无前置菜单悬停命中。
     None
 }
 
@@ -434,8 +408,50 @@ fn hits_campaign() -> Vec<MenuHit> {
 }
 
 fn hit_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    let hits = hits_campaign();
-    hit_at(&hits, cursor_x, cursor_y, win_w, win_h)
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    let point = Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    };
+    let snap = campaign_snapshot();
+    let side_actions = [
+        (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied),
+        (CAMPAIGN_SIDE_IDS[1], MenuAction::SelectCampaignTutorial),
+        (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet),
+    ];
+    for (i, (id, action)) in side_actions.iter().enumerate() {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
+            return Some((i, *action));
+        }
+    }
+    if snap
+        .get("difficulty")
+        .is_some_and(|el| el.layout.rect.contains(point))
+    {
+        return Some((3, MenuAction::CycleCampaignDifficulty));
+    }
+    let page = slots_for(OriginalScreen::Campaign)?;
+    for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
+            continue;
+        };
+        if !btn.enabled {
+            continue;
+        }
+        let Some(el) = snap.get(id)
+        else {
+            continue;
+        };
+        if el.layout.rect.contains(point) {
+            // 侧三 + 难度轨占 0..3；右栏钮从 4 起与 `hits_campaign` / hover 序一致。
+            return Some((4 + i, btn.action));
+        }
+    }
+    None
 }
 
 fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
