@@ -4,7 +4,7 @@ use crate::{
     geometry::Rect,
     policy::{bottom_cover_button, RightPanelChrome},
     reference::from_template::shell_design_size,
-    reference::shell_chrome::solve_with_shell_defaults,
+    reference::shell_chrome::{shell_chrome_children, solve_with_shell_defaults},
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
     ui_layout::{
@@ -17,9 +17,10 @@ fn side_rect(origin: (i32, i32), size: (i32, i32)) -> Rect {
     Rect::from_xywh(origin.0 as f32, origin.1 as f32, size.0 as f32, size.1 as f32)
 }
 
-/// 战役页：三侧入口 + 难度标签/数值/轨 + 右栏「上一页」。
+/// 战役整页：壳层 chrome + 三侧入口 + 难度区 + 右栏「上一页」，一次求解。
 pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
-    let children = vec![
+    let mut children = shell_chrome_children(chrome);
+    children.extend([
         fixed_rect_leaf(
             CAMPAIGN_SIDE_IDS[0],
             side_rect(CAMPAIGN_ALLIED_ORIGIN, CAMPAIGN_ALLIED_SIZE),
@@ -37,7 +38,7 @@ pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         fixed_rect_leaf("difficulty_value", Rect::from_xywh(338.0, 454.0, 100.0, 20.0)),
         fixed_rect_leaf("difficulty", Rect::from_xywh(191.0, 483.0, 247.0, 13.0)),
         fixed_rect_leaf(CAMPAIGN_BUTTON_IDS[0], bottom_cover_button(chrome)),
-    ];
+    ]);
     root_with_fixed_children("campaign", shell_design_size(chrome), children)
 }
 
@@ -70,6 +71,9 @@ mod tests {
             ("difficulty_value", legacy.difficulty_value),
             ("difficulty", legacy.difficulty_track),
             ("back", legacy.shell.buttons[0]),
+            ("title", legacy.title),
+            ("tooltip", legacy.status_help),
+            ("panel_top", legacy.shell.panel_top),
         ] {
             let got = snap.get(id).expect(id).layout.rect;
             assert_eq!(got.x as i32, cell.x, "{id} x");
