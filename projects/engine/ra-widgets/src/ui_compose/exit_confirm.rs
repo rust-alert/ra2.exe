@@ -13,8 +13,8 @@ pub fn compose_exit_confirm_page(
     movie: Option<&RgbaImage>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
-    // 先画完整主菜单壳（右栏六钮仍在），再压暗并叠居中 MessageBox。
-    let shell = main_menu_layout(viewport_w, viewport_h);
+    // 主菜单壳与居中 MessageBox 同源一次求解，再压暗并叠对话框。
+    let (shell, dlg) = exit_confirm_page_layouts(viewport_w, viewport_h);
     let mut page = compose_shell_menu_page(
         decoded,
         shell,
@@ -31,8 +31,6 @@ pub fn compose_exit_confirm_page(
     )?;
 
     dim_rect(&mut page, shell.canvas, 160);
-
-    let dlg = exit_confirm_layout(viewport_w, viewport_h);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dlg.dialog.x, dlg.dialog.y);
     }

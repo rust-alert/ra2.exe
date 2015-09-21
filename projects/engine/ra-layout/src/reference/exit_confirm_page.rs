@@ -4,14 +4,15 @@ use crate::{
     geometry::Rect,
     policy::RightPanelChrome,
     reference::{
-        from_template::shell_design_size, shell_chrome::solve_with_shell_defaults, DluRect,
-        MS_SANS_SERIF_8PT,
+        from_template::shell_design_size,
+        shell_chrome::{shell_page_layout_tree, solve_with_shell_defaults},
+        DluRect, MS_SANS_SERIF_8PT,
     },
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
     ui_layout::{
         EXIT_CONFIRM_BUTTON_H, EXIT_CONFIRM_BUTTON_IDS, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_DIALOG_H,
-        EXIT_CONFIRM_DIALOG_W,
+        EXIT_CONFIRM_DIALOG_W, MAIN_MENU_BUTTON_IDS,
     },
 };
 
@@ -39,8 +40,7 @@ fn dlu_local(x: i32, y: i32, w: i32, h: i32) -> Rect {
     DluRect::new(x, y, w, h).to_design_px(MS_SANS_SERIF_8PT)
 }
 
-/// 退出确认：底板、提示区、确定/取消。
-pub fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+fn exit_confirm_modal_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let dialog = centered_dialog(chrome);
     let prompt = modal_child(dialog, dlu_local(40, 40, 220, 50));
     let ok_origin = modal_child(dialog, dlu_local(207, 135, 83, 15));
@@ -57,12 +57,24 @@ pub fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode 
         EXIT_CONFIRM_BUTTON_W as f32,
         EXIT_CONFIRM_BUTTON_H as f32,
     );
-    let children = vec![
+    vec![
         fixed_rect_leaf("dialog", dialog),
         fixed_rect_leaf("prompt", prompt),
         fixed_rect_leaf(EXIT_CONFIRM_BUTTON_IDS[0], ok),
         fixed_rect_leaf(EXIT_CONFIRM_BUTTON_IDS[1], cancel),
-    ];
+    ]
+}
+
+/// 退出确认整页：主菜单壳（右栏六钮）+ 居中 MessageBox，一次求解。
+pub fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+    let mut children = shell_page_layout_tree(
+        "exit_confirm",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
+        chrome,
+    )
+    .children;
+    children.extend(exit_confirm_modal_children(chrome));
     root_with_fixed_children("exit_confirm", shell_design_size(chrome), children)
 }
 
@@ -122,6 +134,25 @@ mod tests {
                 legacy.buttons[1].y,
                 legacy.buttons[1].w,
                 legacy.buttons[1].h
+            ))
+        );
+        let shell = crate::ui_layout::main_menu_layout(800, 600);
+        assert_eq!(
+            snap.get("title").map(|e| e.layout.rect.width as i32),
+            Some(shell.title.w)
+        );
+        assert_eq!(
+            snap.get("single_player").map(|e| (
+                e.layout.rect.x as i32,
+                e.layout.rect.y as i32,
+                e.layout.rect.width as i32,
+                e.layout.rect.height as i32
+            )),
+            Some((
+                shell.buttons[0].x,
+                shell.buttons[0].y,
+                shell.buttons[0].w,
+                shell.buttons[0].h
             ))
         );
     }

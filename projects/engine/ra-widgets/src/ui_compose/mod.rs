@@ -27,7 +27,7 @@ use ra_layout::{
     SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
     SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, LOAD_SCREEN_BUTTON_IDS, battle_hud_layout,
     battle_hud_layout_with_metrics, battle_pause_menu_layout, BattleHudChromeMetrics,
-    campaign_layout, choose_map_layout, exit_confirm_layout, load_screen_layout, main_menu_layout,
+    campaign_layout, choose_map_layout, exit_confirm_page_layouts, load_screen_layout, main_menu_layout,
     single_player_layout, skirmish_lobby_layout,
 };
 
