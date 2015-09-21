@@ -61,12 +61,6 @@ pub(super) fn buttons_from_snap(snap: &LayoutSnapshot, ids: &[&str]) -> Vec<Rect
         .collect()
 }
 
-/// 壳层 chrome（无页面按钮）；选图 / 遭遇战等页在此基础上覆写按钮与底条。
-pub(super) fn shell_chrome_base_layout() -> MainMenuLayout {
-    let (chrome, snap) = shell_page_snapshot("shell_chrome", &[], None);
-    layout_from_shell_page_snap(chrome, &snap)
-}
-
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
 /// chrome 与右栏按钮均投影自同一次 `shell_page_layout_tree` 求解。

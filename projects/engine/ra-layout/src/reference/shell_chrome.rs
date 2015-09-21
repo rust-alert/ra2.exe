@@ -26,6 +26,30 @@ const TOOLTIP_H: f32 = 20.0;
 const TOOLTIP_BOTTOM_GAP: f32 = 1.0;
 
 pub(crate) fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
+    let mut children = shell_panel_chrome_children(chrome);
+    let panel_x = chrome.panel_x();
+    children.push(fixed_rect_leaf(
+        "lower_strip",
+        Rect::from_xywh(0.0, chrome.shell_h - LOWER_STRIP_H, panel_x, LOWER_STRIP_H),
+    ));
+    children.push(fixed_rect_leaf(
+        "title",
+        Rect::from_xywh(panel_x + TITLE_INSET_X, TITLE_Y, TITLE_W, TITLE_H),
+    ));
+    children.push(fixed_rect_leaf(
+        "tooltip",
+        Rect::from_xywh(
+            TOOLTIP_X,
+            chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP,
+            TOOLTIP_W,
+            TOOLTIP_H,
+        ),
+    ));
+    children
+}
+
+/// 对话框页共用的面板 / 影片区（不含底条、标题、提示，避免与模板控件 id 冲突）。
+pub(crate) fn shell_panel_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let panel_x = chrome.panel_x();
     let movie_w = panel_x;
     let bottom_y = chrome.panel_bottom_y();
@@ -47,23 +71,6 @@ pub(crate) fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode>
             Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H),
         ),
         fixed_rect_leaf("movie", Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H)),
-        fixed_rect_leaf(
-            "lower_strip",
-            Rect::from_xywh(0.0, chrome.shell_h - LOWER_STRIP_H, movie_w, LOWER_STRIP_H),
-        ),
-        fixed_rect_leaf(
-            "title",
-            Rect::from_xywh(panel_x + TITLE_INSET_X, TITLE_Y, TITLE_W, TITLE_H),
-        ),
-        fixed_rect_leaf(
-            "tooltip",
-            Rect::from_xywh(
-                TOOLTIP_X,
-                chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP,
-                TOOLTIP_W,
-                TOOLTIP_H,
-            ),
-        ),
     ]
 }
 

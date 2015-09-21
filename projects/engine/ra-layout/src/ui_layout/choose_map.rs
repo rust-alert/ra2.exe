@@ -1,7 +1,7 @@
 //! 选图页布局。
 
 use super::*;
-use crate::solve_choose_map;
+use crate::{solve_choose_map, RightPanelChrome};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChooseMapLayout {
@@ -27,11 +27,11 @@ pub struct ChooseMapLayout {
     pub status_help: RectPx,
 }
 
-/// 选图页布局（800×600 内容坐标；几何权威来自 `0x6B` snapshot）。
+/// 选图页布局（800×600；面板 chrome 与 `0x6B` 控件同一次 snapshot）。
 pub fn choose_map_layout(_viewport_w: u32, _viewport_h: u32) -> ChooseMapLayout {
-    let mut shell = shell_chrome_base_layout();
-    shell.lower_strip = RectPx::new(0, 0, 0, 0);
+    let chrome = RightPanelChrome::shell_defaults();
     let snap = solve_choose_map();
+    let mut shell = layout_from_shell_page_snap(chrome, &snap);
     shell.buttons = [
         rect_px_from_snapshot(&snap, "use_map"),
         rect_px_from_snapshot(&snap, "create_random"),

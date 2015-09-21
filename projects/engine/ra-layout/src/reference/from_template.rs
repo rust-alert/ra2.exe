@@ -7,7 +7,10 @@ use ra_types::{
 use crate::{
     geometry::{Rect, Size2},
     policy::{bottom_cover_button, right_panel_anchor, tile_snap_button, RightPanelChrome},
-    reference::{shell_chrome::solve_with_shell_defaults, DluRect, MS_SANS_SERIF_8PT},
+    reference::{
+        shell_chrome::{shell_panel_chrome_children, solve_with_shell_defaults},
+        DluRect, MS_SANS_SERIF_8PT,
+    },
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
 };
@@ -73,16 +76,34 @@ pub fn dialog_layout_tree(
     template: &DialogTemplate,
     chrome: RightPanelChrome,
 ) -> LayoutNode {
+    root_with_fixed_children(
+        root_id,
+        shell_design_size(chrome),
+        dialog_control_children(template, chrome),
+    )
+}
+
+/// 对话框整页：面板 chrome（无底条 / 标题 / 提示）+ 模板控件，一次求解。
+pub fn dialog_page_layout_tree(
+    root_id: impl Into<String>,
+    template: &DialogTemplate,
+    chrome: RightPanelChrome,
+) -> LayoutNode {
+    let mut children = shell_panel_chrome_children(chrome);
+    children.extend(dialog_control_children(template, chrome));
+    root_with_fixed_children(root_id, shell_design_size(chrome), children)
+}
+
+fn dialog_control_children(template: &DialogTemplate, chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let mut controls: Vec<&DialogControlDesc> = template.controls.iter().collect();
     controls.sort_by_key(|c| match c.placement {
         ControlPlacement::TileSnap | ControlPlacement::BottomCoverButton => 1_u8,
         _ => 0,
     });
-    let children = controls
+    controls
         .into_iter()
         .map(|c| fixed_rect_leaf(c.id.0.clone(), resolve_control_desc(c, chrome)))
-        .collect();
-    root_with_fixed_children(root_id, shell_design_size(chrome), children)
+        .collect()
 }
 
 /// 用壳层默认 chrome 求解 [`dialog_layout_tree`]。
@@ -94,12 +115,16 @@ pub fn solve_dialog_template(
     solve_with_shell_defaults(|chrome| dialog_layout_tree(root_id.clone(), template, chrome))
 }
 
-/// 选图页：`0x6B` 模板 → snapshot。
+/// 选图页：面板 chrome + `0x6B` 模板 → 一次 snapshot。
 pub fn solve_choose_map() -> LayoutSnapshot {
-    solve_dialog_template("dialog_0x6b", &dialog_template_0x6b())
+    solve_with_shell_defaults(|chrome| {
+        dialog_page_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome)
+    })
 }
 
-/// 遭遇战大厅：`0x102` 模板 → snapshot。
+/// 遭遇战大厅：面板 chrome + `0x102` 模板 → 一次 snapshot。
 pub fn solve_skirmish_lobby() -> LayoutSnapshot {
-    solve_dialog_template("dialog_0x102", &dialog_template_0x102())
+    solve_with_shell_defaults(|chrome| {
+        dialog_page_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome)
+    })
 }
