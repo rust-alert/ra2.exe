@@ -1,7 +1,7 @@
 //! 前置菜单逻辑命中：仅命中框，不绘制色块或 SHP。
 //!
 //! 点击 / 悬停一律经 `window_to_shell_px` + 各页 `solve_*` snapshot。
-//! [`hits_for`] 仍产出归一化 [`MenuHit`] 列表，供诊断与测试枚举入口。
+//! [`hits_for`] 仍产出壳层像素 [`MenuHit`] 列表，供诊断与测试枚举入口。
 //!
 //! 选图 / 遭遇战大厅几何来自 `solve_choose_map` / `solve_skirmish_lobby`；
 //! 主菜单 / 单人 / 选项右栏页来自 `solve_shell_page`；
@@ -11,37 +11,30 @@ use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS,
     LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2, Rect,
-    RightPanelChrome, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
-    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
-    window_to_shell_px,
+    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2, Rect, RectPx,
+    solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page,
+    solve_options_page, solve_shell_page, solve_skirmish_lobby, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
 use crate::ui_compose::{CHOOSE_MAP_LIST_ROW_H, choose_map_visible_rows, clamp_map_list_scroll};
 
-/// 菜单上的一个可点区域（窗口归一化坐标 0..1）。
+/// 菜单上的一个可点区域（壳层设计像素，非窗口归一化）。
 #[derive(Debug, Clone, Copy)]
 pub struct MenuHit {
     /// 逻辑入口 id。
     pub entry_id: &'static str,
     /// 动作标识。
     pub action: MenuAction,
-    /// 左。
-    pub x0: f32,
-    /// 上。
-    pub y0: f32,
-    /// 右。
-    pub x1: f32,
-    /// 下。
-    pub y1: f32,
+    /// 壳层像素矩形。
+    pub rect: RectPx,
     /// 是否可点。
     pub enabled: bool,
 }
 
 /// 为当前页构建命中列表；对局/结算返回空。
 ///
-/// 主菜单列表的归一化框是 **800×600 内容坐标**（非窗口坐标）；点击请走 [`hit_action`]。
+/// 列表矩形为壳层 800×600 内容坐标；点击请走 [`hit_action`]。
 /// `mode_count`：选图页游戏类型行数（其它页忽略）。
 /// `map_list_scroll`：选图页地图列表滚动偏移（其它页忽略）。
 /// `load_allow_retry`：加载页「重试」是否可点（装载进行中为 `false`）。
@@ -160,9 +153,6 @@ fn hits_main_menu() -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = main_menu_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     MAIN_MENU_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -172,8 +162,6 @@ fn hits_main_menu() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -243,9 +231,6 @@ fn hits_single_player() -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = single_player_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     SINGLE_PLAYER_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -255,8 +240,6 @@ fn hits_single_player() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -358,9 +341,6 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
 
 fn hits_campaign() -> Vec<MenuHit> {
     let snap = campaign_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     let mut out = Vec::new();
     let side_actions = [
         (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied),
@@ -372,15 +352,13 @@ fn hits_campaign() -> Vec<MenuHit> {
         else {
             continue;
         };
-        out.push(menu_hit_from_rect(id, action, el.layout.rect, bw, bh, true));
+        out.push(menu_hit_from_rect(id, action, el.layout.rect, true));
     }
     if let Some(el) = snap.get("difficulty") {
         out.push(menu_hit_from_rect(
             "difficulty",
             MenuAction::CycleCampaignDifficulty,
             el.layout.rect,
-            bw,
-            bh,
             true,
         ));
     }
@@ -398,8 +376,6 @@ fn hits_campaign() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ));
         }
@@ -489,9 +465,6 @@ fn hits_options() -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = options_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     OPTIONS_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -501,8 +474,6 @@ fn hits_options() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -568,9 +539,6 @@ fn hits_exit_confirm() -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = exit_confirm_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     EXIT_CONFIRM_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -580,8 +548,6 @@ fn hits_exit_confirm() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -646,9 +612,6 @@ fn hits_network() -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = network_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     NETWORK_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -658,8 +621,6 @@ fn hits_network() -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -728,9 +689,6 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
         return Vec::new();
     };
     let snap = load_screen_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     LOAD_SCREEN_BUTTON_IDS
         .iter()
         .filter_map(|id| {
@@ -740,8 +698,6 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ))
         })
@@ -790,9 +746,6 @@ fn load_screen_snapshot() -> LayoutSnapshot {
 
 fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     let snap = skirmish_lobby_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     let mut hits = Vec::new();
     // 地图列表不在本页左侧；选图走右栏 `choose_map`（完整模态后续接）。
     if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
@@ -809,8 +762,6 @@ fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ));
         }
@@ -862,26 +813,23 @@ fn menu_hit_from_rect(
     entry_id: &'static str,
     action: MenuAction,
     rect: Rect,
-    canvas_w: f32,
-    canvas_h: f32,
     enabled: bool,
 ) -> MenuHit {
     MenuHit {
         entry_id,
         action,
-        x0: rect.x / canvas_w,
-        y0: rect.y / canvas_h,
-        x1: (rect.x + rect.width) / canvas_w,
-        y1: (rect.y + rect.height) / canvas_h,
+        rect: RectPx::new(
+            rect.x as i32,
+            rect.y as i32,
+            rect.width as i32,
+            rect.height as i32,
+        ),
         enabled,
     }
 }
 
 fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll: usize) -> Vec<MenuHit> {
     let snap = choose_map_snapshot();
-    let chrome = RightPanelChrome::shell_defaults();
-    let bw = chrome.shell_w;
-    let bh = chrome.shell_h;
     let mut hits = Vec::new();
     if let Some(page) = slots_for(OriginalScreen::ChooseMap) {
         for id in CHOOSE_MAP_BUTTON_IDS.iter() {
@@ -897,8 +845,6 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
                 btn.entry_id,
                 btn.action,
                 el.layout.rect,
-                bw,
-                bh,
                 btn.enabled,
             ));
         }
@@ -909,7 +855,7 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
         for i in 0..mode_count.min(visible) {
             let row_y = list.y + (i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
             let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
-            hits.push(menu_hit_from_rect("mode_row", MenuAction::SelectMode(i), row, bw, bh, true));
+            hits.push(menu_hit_from_rect("mode_row", MenuAction::SelectMode(i), row, true));
         }
     }
     let Some(list) = snap.get("map_list")
@@ -923,7 +869,7 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
         let abs_i = scroll + row_i;
         let row_y = list.y + (row_i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
         let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
-        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(abs_i), row, bw, bh, true));
+        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(abs_i), row, true));
     }
     hits
 }
