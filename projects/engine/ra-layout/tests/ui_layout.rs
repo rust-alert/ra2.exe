@@ -116,3 +116,32 @@ fn exit_confirm_centers_pudlgbgn_panel() {
     assert_eq!(dlg.buttons[0], RectPx::new(486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
     assert_eq!(dlg.buttons[1], RectPx::new(486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
 }
+
+#[test]
+fn shell_page_layouts_ignore_viewport_size() {
+    // 壳层页内容落在 800×600 设计画布；窗口适配由相机负责，禁止页面再算第二套几何。
+    for (w, h) in [(640u32, 480u32), (800, 600), (1280, 720), (2560, 1440)] {
+        let main = main_menu_layout(w, h);
+        assert_eq!(main.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} main canvas");
+        assert_eq!(main.buttons[5], RectPx::new(644, 535, 156, 42), "{w}x{h} exit");
+
+        let lobby = skirmish_lobby_layout(w, h);
+        assert_eq!(lobby.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} lobby canvas");
+        assert_eq!(lobby.shell.buttons[0], RectPx::new(644, 241, 156, 42), "{w}x{h} start");
+
+        let maps = choose_map_layout(w, h);
+        assert_eq!(maps.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} choose canvas");
+        assert_eq!(maps.map_list, RectPx::new(252, 127, 195, 260), "{w}x{h} map_list");
+
+        let campaign = campaign_layout(w, h);
+        assert_eq!(campaign.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} campaign canvas");
+        assert_eq!(campaign.allied, RectPx::new(30, 26, 570, 135), "{w}x{h} allied");
+
+        let exit = exit_confirm_layout(w, h);
+        assert_eq!(
+            exit.dialog,
+            RectPx::new(175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H),
+            "{w}x{h} exit dialog"
+        );
+    }
+}
