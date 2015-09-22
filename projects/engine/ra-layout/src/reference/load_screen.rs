@@ -16,18 +16,6 @@ fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
     Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
 }
 
-/// 归一化命中框 → 800×600 设计像素。
-fn frac_rect(x0: f32, y0: f32, x1: f32, y1: f32, chrome: RightPanelChrome) -> Rect {
-    let w = chrome.shell_w;
-    let h = chrome.shell_h;
-    Rect::from_xywh(
-        (x0 * w).round(),
-        (y0 * h).round(),
-        ((x1 - x0) * w).round().max(1.0),
-        ((y1 - y0) * h).round().max(1.0),
-    )
-}
-
 /// 装载页：文案槽、进度条原点、失败时重试/取消。
 pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
@@ -41,11 +29,11 @@ pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
         fixed_rect_leaf("player_name", rect_i(202, 328, 120, 20)),
         fixed_rect_leaf(
             LOAD_SCREEN_BUTTON_IDS[0],
-            frac_rect(0.30, 0.88, 0.50, 0.96, chrome),
+            Rect::from_frac(0.30, 0.88, 0.50, 0.96, chrome.shell_w, chrome.shell_h),
         ),
         fixed_rect_leaf(
             LOAD_SCREEN_BUTTON_IDS[1],
-            frac_rect(0.54, 0.88, 0.74, 0.96, chrome),
+            Rect::from_frac(0.54, 0.88, 0.74, 0.96, chrome.shell_w, chrome.shell_h),
         ),
     ];
     root_with_fixed_children("load_screen", shell_design_size(chrome), children)

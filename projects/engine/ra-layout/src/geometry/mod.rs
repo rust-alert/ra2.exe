@@ -40,7 +40,20 @@ impl Rect {
 
     /// 点是否落在矩形内（含左上、不含右下边界约定：`[min, max)`）。
     pub fn contains(&self, point: Point2) -> bool {
-        point.x >= self.x && point.y >= self.y && point.x < self.x + self.width && point.y < self.y + self.height
+        point.x >= self.x
+            && point.y >= self.y
+            && point.x < self.x + self.width
+            && point.y < self.y + self.height
+    }
+
+    /// 归一化框 `[x0,y0)…(x1,y1]` → 设计像素矩形（相对画布宽高）。
+    pub fn from_frac(x0: f32, y0: f32, x1: f32, y1: f32, canvas_w: f32, canvas_h: f32) -> Self {
+        Self::from_xywh(
+            (x0 * canvas_w).round(),
+            (y0 * canvas_h).round(),
+            ((x1 - x0) * canvas_w).round().max(1.0),
+            ((y1 - y0) * canvas_h).round().max(1.0),
+        )
     }
 }
 
