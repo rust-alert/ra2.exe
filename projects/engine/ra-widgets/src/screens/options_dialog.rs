@@ -5,10 +5,7 @@
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
-use ra_layout::{
-    options_page_layout_tree, shell_design_size, LayoutEngine, RectPx, RightPanelChrome, Viewport,
-    SHELL_BASE_H, SHELL_BASE_W,
-};
+use ra_layout::{solve_options_page, RectPx, RightPanelChrome, SHELL_BASE_H, SHELL_BASE_W};
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -280,16 +277,10 @@ pub struct OptionsDialogLayout {
 impl OptionsDialogLayout {
     /// 构造与主菜单同右栏几何的选项板。
     ///
-    /// 整页几何投影自同一次 `options_page_layout_tree` 求解（chrome、右栏三钮、内容板）。
+    /// 整页几何投影自同一次 `solve_options_page`（chrome、右栏三钮、内容板）。
     pub fn new() -> Self {
         let chrome = RightPanelChrome::shell_defaults();
-        let snap = LayoutEngine.solve(
-            Viewport {
-                size: shell_design_size(chrome),
-                ..Viewport::default()
-            },
-            &options_page_layout_tree(chrome),
-        );
+        let snap = solve_options_page();
         let rect = |id: &str| {
             let r = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
             RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
