@@ -147,14 +147,26 @@ pub fn hover_index(
     None
 }
 
-fn hits_main_menu() -> Vec<MenuHit> {
-    let Some(page) = slots_for(OriginalScreen::MainMenu)
-    else {
+fn shell_point(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<Point2> {
+    if win_w <= 0.0 || win_h <= 0.0 {
+        return None;
+    }
+    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
+    Some(Point2 {
+        x: sx as f32,
+        y: sy as f32,
+    })
+}
+
+fn hits_from_slot_ids(
+    screen: OriginalScreen,
+    snap: &LayoutSnapshot,
+    ids: &[&'static str],
+) -> Vec<MenuHit> {
+    let Some(page) = slots_for(screen) else {
         return Vec::new();
     };
-    let snap = main_menu_snapshot();
-    MAIN_MENU_BUTTON_IDS
-        .iter()
+    ids.iter()
         .filter_map(|id| {
             let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
             let el = snap.get(id)?;
@@ -168,27 +180,21 @@ fn hits_main_menu() -> Vec<MenuHit> {
         .collect()
 }
 
-fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = main_menu_snapshot();
-    let page = slots_for(OriginalScreen::MainMenu)?;
-    for (i, id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
+fn hit_enabled_slot_at(
+    screen: OriginalScreen,
+    snap: &LayoutSnapshot,
+    ids: &[&'static str],
+    point: Point2,
+) -> Option<(usize, MenuAction)> {
+    let page = slots_for(screen)?;
+    for (i, id) in ids.iter().enumerate() {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id) else {
             continue;
         };
         if !btn.enabled {
             continue;
         }
-        let Some(el) = snap.get(id)
-        else {
+        let Some(el) = snap.get(id) else {
             continue;
         };
         if el.layout.rect.contains(point) {
@@ -198,23 +204,37 @@ fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opt
     None
 }
 
-/// 悬停：含禁用钮（底栏提示仍可显示）。
-fn hover_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = main_menu_snapshot();
-    for (i, id) in MAIN_MENU_BUTTON_IDS.iter().enumerate() {
+fn hover_ids_at(snap: &LayoutSnapshot, ids: &[&'static str], point: Point2) -> Option<usize> {
+    for (i, id) in ids.iter().enumerate() {
         if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
             return Some(i);
         }
     }
     None
+}
+
+fn hits_main_menu() -> Vec<MenuHit> {
+    hits_from_slot_ids(
+        OriginalScreen::MainMenu,
+        &main_menu_snapshot(),
+        &MAIN_MENU_BUTTON_IDS,
+    )
+}
+
+fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::MainMenu,
+        &main_menu_snapshot(),
+        &MAIN_MENU_BUTTON_IDS,
+        point,
+    )
+}
+
+/// 悬停：含禁用钮（底栏提示仍可显示）。
+fn hover_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hover_ids_at(&main_menu_snapshot(), &MAIN_MENU_BUTTON_IDS, point)
 }
 
 fn main_menu_snapshot() -> LayoutSnapshot {
@@ -226,73 +246,27 @@ fn main_menu_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_single_player() -> Vec<MenuHit> {
-    let Some(page) = slots_for(OriginalScreen::SinglePlayerMenu)
-    else {
-        return Vec::new();
-    };
-    let snap = single_player_snapshot();
-    SINGLE_PLAYER_BUTTON_IDS
-        .iter()
-        .filter_map(|id| {
-            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
-        })
-        .collect()
+    hits_from_slot_ids(
+        OriginalScreen::SinglePlayerMenu,
+        &single_player_snapshot(),
+        &SINGLE_PLAYER_BUTTON_IDS,
+    )
 }
 
 fn hit_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = single_player_snapshot();
-    let page = slots_for(OriginalScreen::SinglePlayerMenu)?;
-    for (i, id) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::SinglePlayerMenu,
+        &single_player_snapshot(),
+        &SINGLE_PLAYER_BUTTON_IDS,
+        point,
+    )
 }
 
 /// 悬停：含禁用钮。
 fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = single_player_snapshot();
-    for (i, id) in SINGLE_PLAYER_BUTTON_IDS.iter().enumerate() {
-        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
-            return Some(i);
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hover_ids_at(&single_player_snapshot(), &SINGLE_PLAYER_BUTTON_IDS, point)
 }
 
 fn single_player_snapshot() -> LayoutSnapshot {
@@ -305,14 +279,7 @@ fn single_player_snapshot() -> LayoutSnapshot {
 
 /// 战役页悬停入口 id（三侧 / 难度轨 / 右栏钮）。
 pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<&'static str> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
     let snap = campaign_snapshot();
     for id in CAMPAIGN_SIDE_IDS {
         if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
@@ -348,8 +315,7 @@ fn hits_campaign() -> Vec<MenuHit> {
         (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet),
     ];
     for (id, action) in side_actions {
-        let Some(el) = snap.get(id)
-        else {
+        let Some(el) = snap.get(id) else {
             continue;
         };
         out.push(menu_hit_from_rect(id, action, el.layout.rect, true));
@@ -362,36 +328,16 @@ fn hits_campaign() -> Vec<MenuHit> {
             true,
         ));
     }
-    if let Some(page) = slots_for(OriginalScreen::Campaign) {
-        for id in CAMPAIGN_BUTTON_IDS.iter() {
-            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-            else {
-                continue;
-            };
-            let Some(el) = snap.get(id)
-            else {
-                continue;
-            };
-            out.push(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ));
-        }
-    }
+    out.extend(hits_from_slot_ids(
+        OriginalScreen::Campaign,
+        &snap,
+        &CAMPAIGN_BUTTON_IDS,
+    ));
     out
 }
 
 fn hit_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
     let snap = campaign_snapshot();
     let side_actions = [
         (CAMPAIGN_SIDE_IDS[0], MenuAction::SelectCampaignAllied),
@@ -409,37 +355,13 @@ fn hit_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opti
     {
         return Some((3, MenuAction::CycleCampaignDifficulty));
     }
-    let page = slots_for(OriginalScreen::Campaign)?;
-    for (i, id) in CAMPAIGN_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            // 侧三 + 难度轨占 0..3；右栏钮从 4 起与 `hits_campaign` / hover 序一致。
-            return Some((4 + i, btn.action));
-        }
-    }
-    None
+    // 侧三 + 难度轨占 0..3；右栏钮从 4 起与 `hits_campaign` / hover 序一致。
+    hit_enabled_slot_at(OriginalScreen::Campaign, &snap, &CAMPAIGN_BUTTON_IDS, point)
+        .map(|(i, action)| (4 + i, action))
 }
 
 fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = campaign_snapshot();
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
     let order = [
         CAMPAIGN_SIDE_IDS[0],
         CAMPAIGN_SIDE_IDS[1],
@@ -447,12 +369,7 @@ fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Op
         "difficulty",
         CAMPAIGN_BUTTON_IDS[0],
     ];
-    for (i, id) in order.iter().enumerate() {
-        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
-            return Some(i);
-        }
-    }
-    None
+    hover_ids_at(&campaign_snapshot(), &order, point)
 }
 
 fn campaign_snapshot() -> LayoutSnapshot {
@@ -460,73 +377,27 @@ fn campaign_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_options() -> Vec<MenuHit> {
-    let Some(page) = slots_for(OriginalScreen::Options)
-    else {
-        return Vec::new();
-    };
-    let snap = options_snapshot();
-    OPTIONS_BUTTON_IDS
-        .iter()
-        .filter_map(|id| {
-            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
-        })
-        .collect()
+    hits_from_slot_ids(
+        OriginalScreen::Options,
+        &options_snapshot(),
+        &OPTIONS_BUTTON_IDS,
+    )
 }
 
 fn hit_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = options_snapshot();
-    let page = slots_for(OriginalScreen::Options)?;
-    for (i, id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::Options,
+        &options_snapshot(),
+        &OPTIONS_BUTTON_IDS,
+        point,
+    )
 }
 
 /// 悬停：含禁用钮。
 fn hover_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = options_snapshot();
-    for (i, id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
-        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
-            return Some(i);
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hover_ids_at(&options_snapshot(), &OPTIONS_BUTTON_IDS, point)
 }
 
 fn options_snapshot() -> LayoutSnapshot {
@@ -534,72 +405,26 @@ fn options_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_exit_confirm() -> Vec<MenuHit> {
-    let Some(page) = slots_for(OriginalScreen::ExitConfirm)
-    else {
-        return Vec::new();
-    };
-    let snap = exit_confirm_snapshot();
-    EXIT_CONFIRM_BUTTON_IDS
-        .iter()
-        .filter_map(|id| {
-            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
-        })
-        .collect()
+    hits_from_slot_ids(
+        OriginalScreen::ExitConfirm,
+        &exit_confirm_snapshot(),
+        &EXIT_CONFIRM_BUTTON_IDS,
+    )
 }
 
 fn hit_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = exit_confirm_snapshot();
-    let page = slots_for(OriginalScreen::ExitConfirm)?;
-    for (i, id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::ExitConfirm,
+        &exit_confirm_snapshot(),
+        &EXIT_CONFIRM_BUTTON_IDS,
+        point,
+    )
 }
 
 fn hover_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = exit_confirm_snapshot();
-    for (i, id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
-        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
-            return Some(i);
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hover_ids_at(&exit_confirm_snapshot(), &EXIT_CONFIRM_BUTTON_IDS, point)
 }
 
 fn exit_confirm_snapshot() -> LayoutSnapshot {
@@ -607,72 +432,26 @@ fn exit_confirm_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_network() -> Vec<MenuHit> {
-    let Some(page) = slots_for(OriginalScreen::Network)
-    else {
-        return Vec::new();
-    };
-    let snap = network_snapshot();
-    NETWORK_BUTTON_IDS
-        .iter()
-        .filter_map(|id| {
-            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
-        })
-        .collect()
+    hits_from_slot_ids(
+        OriginalScreen::Network,
+        &network_snapshot(),
+        &NETWORK_BUTTON_IDS,
+    )
 }
 
 fn hit_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = network_snapshot();
-    let page = slots_for(OriginalScreen::Network)?;
-    for (i, id) in NETWORK_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::Network,
+        &network_snapshot(),
+        &NETWORK_BUTTON_IDS,
+        point,
+    )
 }
 
 fn hover_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = network_snapshot();
-    for (i, id) in NETWORK_BUTTON_IDS.iter().enumerate() {
-        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
-            return Some(i);
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hover_ids_at(&network_snapshot(), &NETWORK_BUTTON_IDS, point)
 }
 
 fn network_snapshot() -> LayoutSnapshot {
@@ -684,24 +463,11 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
     if !allow_retry {
         return Vec::new();
     }
-    let Some(page) = slots_for(OriginalScreen::LoadScreen)
-    else {
-        return Vec::new();
-    };
-    let snap = load_screen_snapshot();
-    LOAD_SCREEN_BUTTON_IDS
-        .iter()
-        .filter_map(|id| {
-            let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
-            let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
-        })
-        .collect()
+    hits_from_slot_ids(
+        OriginalScreen::LoadScreen,
+        &load_screen_snapshot(),
+        &LOAD_SCREEN_BUTTON_IDS,
+    )
 }
 
 fn hit_load_screen_at(
@@ -711,33 +477,16 @@ fn hit_load_screen_at(
     win_h: f64,
     allow_retry: bool,
 ) -> Option<(usize, MenuAction)> {
-    if !allow_retry || win_w <= 0.0 || win_h <= 0.0 {
+    if !allow_retry {
         return None;
     }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = load_screen_snapshot();
-    let page = slots_for(OriginalScreen::LoadScreen)?;
-    for (i, id) in LOAD_SCREEN_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::LoadScreen,
+        &load_screen_snapshot(),
+        &LOAD_SCREEN_BUTTON_IDS,
+        point,
+    )
 }
 
 fn load_screen_snapshot() -> LayoutSnapshot {
@@ -745,58 +494,28 @@ fn load_screen_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
-    let snap = skirmish_lobby_snapshot();
-    let mut hits = Vec::new();
     // 地图列表不在本页左侧；选图走右栏 `choose_map`（完整模态后续接）。
-    if let Some(page) = slots_for(OriginalScreen::SkirmishLobby) {
-        for id in SKIRMISH_LOBBY_BUTTON_IDS.iter() {
-            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-            else {
-                continue;
-            };
-            let Some(el) = snap.get(id)
-            else {
-                continue;
-            };
-            hits.push(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ));
-        }
-    }
-    hits
+    hits_from_slot_ids(
+        OriginalScreen::SkirmishLobby,
+        &skirmish_lobby_snapshot(),
+        &SKIRMISH_LOBBY_BUTTON_IDS,
+    )
 }
 
-fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
-    let snap = skirmish_lobby_snapshot();
-    let page = slots_for(OriginalScreen::SkirmishLobby)?;
-    for (i, id) in SKIRMISH_LOBBY_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
-    }
-    None
+fn hit_skirmish_lobby_at(
+    _maps: &[BootMapCandidate],
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+) -> Option<(usize, MenuAction)> {
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::SkirmishLobby,
+        &skirmish_lobby_snapshot(),
+        &SKIRMISH_LOBBY_BUTTON_IDS,
+        point,
+    )
 }
 
 /// 遭遇战大厅几何权威：`solve_skirmish_lobby` → `LayoutSnapshot`。
@@ -830,25 +549,7 @@ fn menu_hit_from_rect(
 
 fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll: usize) -> Vec<MenuHit> {
     let snap = choose_map_snapshot();
-    let mut hits = Vec::new();
-    if let Some(page) = slots_for(OriginalScreen::ChooseMap) {
-        for id in CHOOSE_MAP_BUTTON_IDS.iter() {
-            let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-            else {
-                continue;
-            };
-            let Some(el) = snap.get(id)
-            else {
-                continue;
-            };
-            hits.push(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ));
-        }
-    }
+    let mut hits = hits_from_slot_ids(OriginalScreen::ChooseMap, &snap, &CHOOSE_MAP_BUTTON_IDS);
     if let Some(list) = snap.get("game_type_list") {
         let list = list.layout.rect;
         let visible = choose_map_visible_rows(list.height as i32);
@@ -858,8 +559,7 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
             hits.push(menu_hit_from_rect("mode_row", MenuAction::SelectMode(i), row, true));
         }
     }
-    let Some(list) = snap.get("map_list")
-    else {
+    let Some(list) = snap.get("map_list") else {
         return hits;
     };
     let list = list.layout.rect;
@@ -883,37 +583,18 @@ fn hit_choose_map_at(
     win_w: f64,
     win_h: f64,
 ) -> Option<(usize, MenuAction)> {
-    if win_w <= 0.0 || win_h <= 0.0 {
-        return None;
-    }
-    let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    let point = Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    };
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
     let snap = choose_map_snapshot();
-    let page = slots_for(OriginalScreen::ChooseMap)?;
-    for (i, id) in CHOOSE_MAP_BUTTON_IDS.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
-        else {
-            continue;
-        };
-        if !btn.enabled {
-            continue;
-        }
-        let Some(el) = snap.get(id)
-        else {
-            continue;
-        };
-        if el.layout.rect.contains(point) {
-            return Some((i, btn.action));
-        }
+    if let Some(hit) =
+        hit_enabled_slot_at(OriginalScreen::ChooseMap, &snap, &CHOOSE_MAP_BUTTON_IDS, point)
+    {
+        return Some(hit);
     }
     let mode_base = CHOOSE_MAP_BUTTON_IDS.len();
     if let Some(list) = snap.get("game_type_list") {
         let list = list.layout.rect;
         if list.contains(point) {
-            let row = ((sy as f32 - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+            let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
             let visible = choose_map_visible_rows(list.height as i32);
             if row < mode_count.min(visible) {
                 return Some((mode_base + row, MenuAction::SelectMode(row)));
@@ -923,7 +604,7 @@ fn hit_choose_map_at(
     let map_base = mode_base + mode_count;
     let list = snap.get("map_list")?.layout.rect;
     if list.contains(point) {
-        let row = ((sy as f32 - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+        let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
         let visible = choose_map_visible_rows(list.height as i32);
         let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
         let window = maps.len().saturating_sub(scroll).min(visible);
