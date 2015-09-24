@@ -394,7 +394,7 @@ impl Shell {
     /// 选图页地图列表可视行数。
     pub(super) fn choose_map_visible_row_count(&self) -> usize {
         let layout = ui_layout::choose_map_layout(0, 0);
-        ui_compose::choose_map_visible_rows(layout.map_list.h)
+        ui_layout::choose_map_visible_rows(layout.map_list.h)
     }
 
     /// 使当前选中地图落在选图列表可视窗内。
@@ -406,7 +406,8 @@ impl Shell {
             .as_ref()
             .and_then(|sel| maps.iter().position(|m| &m.file_name == sel))
             .unwrap_or(0);
-        self.map_list_scroll = ui_compose::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
+        self.map_list_scroll =
+            ui_layout::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
     }
 
     /// 选图页滚轮 / 快捷键微调列表偏移。

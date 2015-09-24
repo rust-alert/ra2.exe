@@ -9,15 +9,14 @@
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
 use ra_layout::{
-    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS,
-    LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2, Rect, RectPx,
-    solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page,
-    solve_options_page, solve_shell_page, solve_skirmish_lobby, window_to_shell_px,
+    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
+    EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS,
+    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2,
+    Rect, RectPx, choose_map_visible_rows, clamp_map_list_scroll, solve_campaign, solve_choose_map,
+    solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
+    solve_skirmish_lobby, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
-
-use crate::ui_compose::{CHOOSE_MAP_LIST_ROW_H, choose_map_visible_rows, clamp_map_list_scroll};
 
 /// 菜单上的一个可点区域（壳层设计像素，非窗口归一化）。
 #[derive(Debug, Clone, Copy)]

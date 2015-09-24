@@ -3,6 +3,38 @@
 use super::*;
 use crate::{solve_choose_map, RightPanelChrome};
 
+/// 选图页列表行高：`GAME.FNT` 字高 17 + 2。
+pub const CHOOSE_MAP_LIST_ROW_H: i32 = 19;
+
+/// 列表框高度可容纳的行数。
+pub fn choose_map_visible_rows(list_h: i32) -> usize {
+    (list_h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize
+}
+
+/// 将滚动偏移钳在 `[0, total.saturating_sub(visible)]`。
+pub fn clamp_map_list_scroll(scroll: usize, total: usize, visible: usize) -> usize {
+    if total <= visible {
+        return 0;
+    }
+    scroll.min(total - visible)
+}
+
+/// 调整滚动使 `index` 落在可视窗内（尽量少动）。
+pub fn scroll_map_list_to_reveal(scroll: usize, index: usize, total: usize, visible: usize) -> usize {
+    if visible == 0 || total == 0 {
+        return 0;
+    }
+    let index = index.min(total - 1);
+    let scroll = clamp_map_list_scroll(scroll, total, visible);
+    if index < scroll {
+        return index;
+    }
+    if index >= scroll + visible {
+        return index + 1 - visible;
+    }
+    scroll
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChooseMapLayout {
     /// 共用壳层 chrome（背景 / 右栏）。选图页不画底条装饰。

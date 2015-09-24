@@ -1,6 +1,6 @@
 //! 选图列表滚动窗口纯函数。
 
-use ra_widgets::ui_compose::{clamp_map_list_scroll, scroll_map_list_to_reveal};
+use ra_layout::{clamp_map_list_scroll, scroll_map_list_to_reveal};
 
 #[test]
 fn clamp_scroll_when_all_fit() {
