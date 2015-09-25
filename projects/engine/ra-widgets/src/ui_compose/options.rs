@@ -25,24 +25,16 @@ pub fn compose_options_page(
     // 整页黑底，避免残留主菜单影片/大背景。
     fill_rect(&mut page, dlg.canvas, [0, 0, 0, 255]);
 
-    blit_right_panel_top(&mut page, decoded, dlg.panel_top, warn_anim_frame);
-    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
-        for i in 0..dlg.panel_tile_count {
-            let r = RectPx::new(
-                dlg.panel_tile.x,
-                dlg.panel_tile.y + i * dlg.panel_tile.h,
-                dlg.panel_tile.w,
-                dlg.panel_tile.h,
-            );
-            blit_stretched(&mut page, &tile.image, r);
-        }
-    }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
-        blit_stretched(&mut page, &bottom.image, dlg.panel_bottom);
-    }
-    if let Some(lower) = find_panel(decoded, "lwscrnl.shp", 0) {
-        blit_stretched(&mut page, &lower.image, dlg.lower_strip);
-    }
+    paint_right_panel_chrome(
+        &mut page,
+        decoded,
+        dlg.panel_top,
+        dlg.panel_tile,
+        dlg.panel_tile_count,
+        dlg.panel_bottom,
+        dlg.lower_strip,
+        warn_anim_frame,
+    );
 
     for (i, entry_id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
         let Some(normal) = find_button_normal(decoded, entry_id) else {

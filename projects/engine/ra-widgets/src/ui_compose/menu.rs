@@ -31,7 +31,16 @@ pub(super) fn compose_shell_menu_page(
         blit_stretched(&mut page, frame, layout.movie);
     }
 
-    blit_right_panel_top(&mut page, decoded, layout.panel_top, warn_anim_frame);
+    paint_right_panel_chrome(
+        &mut page,
+        decoded,
+        layout.panel_top,
+        layout.panel_tile,
+        layout.panel_tile_count,
+        layout.panel_bottom,
+        layout.lower_strip,
+        warn_anim_frame,
+    );
     let btn_n = button_ids.len();
     let tile_occupied = |tile_y: i32| {
         (0..btn_n).any(|i| {
@@ -39,14 +48,6 @@ pub(super) fn compose_shell_menu_page(
             b.w > 0 && b.h > 0 && b.y == tile_y
         })
     };
-    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
-        for i in 0..layout.panel_tile_count {
-            let tile_y = layout.panel_tile.y + i * layout.panel_tile.h;
-            // 始终铺 `sdbtnbkgd`（含左侧红线），波浪只叠钮面，不藏底。
-            let r = RectPx::new(layout.panel_tile.x, tile_y, layout.panel_tile.w, layout.panel_tile.h);
-            blit_stretched(&mut page, &tile.image, r);
-        }
-    }
     // 波浪出去：无字平铺格叠 `SDBTNANM`；进来不叠，避免满钮收束后瞬间消失。
     if let Some(wave) = wave {
         if wave.animate_empty_tiles {
@@ -67,12 +68,6 @@ pub(super) fn compose_shell_menu_page(
                 blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
             }
         }
-    }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
-        blit_stretched(&mut page, &bottom.image, layout.panel_bottom);
-    }
-    if let Some(lower) = find_panel(decoded, "lwscrnl.shp", 0) {
-        blit_stretched(&mut page, &lower.image, layout.lower_strip);
     }
 
     for (i, entry_id) in button_ids.iter().enumerate() {

@@ -21,14 +21,14 @@ use crate::{
     },
 };
 use ra_layout::{
-    BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS,
-    MainMenuLayout, OPTIONS_BUTTON_IDS, BATTLE_PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X,
-    SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE,
-    SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
-    SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, LOAD_SCREEN_BUTTON_IDS, battle_hud_layout,
+    BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H, EXIT_CONFIRM_BUTTON_IDS,
+    MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS, BATTLE_PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx,
+    SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
+    SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD,
+    SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, SkirmishLobbyLayout, LOAD_SCREEN_BUTTON_IDS, battle_hud_layout,
     battle_hud_layout_with_metrics, battle_pause_menu_layout, BattleHudChromeMetrics, campaign_layout,
-    choose_map_layout, exit_confirm_page_layouts, load_screen_layout, main_menu_layout, single_player_layout,
-    skirmish_lobby_layout,
+    choose_map_layout, choose_map_visible_rows, clamp_map_list_scroll, exit_confirm_page_layouts, load_screen_layout,
+    main_menu_layout, single_player_layout, skirmish_lobby_layout,
 };
 
 mod raster;
@@ -56,9 +56,6 @@ pub use options::compose_options_page;
 pub use exit_confirm::compose_exit_confirm_page;
 pub use skirmish::{SkirmishChromeSprites, SkirmishLobbyPaint, compose_skirmish_lobby_page};
 pub use choose_map::compose_choose_map_page;
-pub use ra_layout::{
-    CHOOSE_MAP_LIST_ROW_H, choose_map_visible_rows, clamp_map_list_scroll, scroll_map_list_to_reveal,
-};
 pub use load::{LoadScreenPaint, compose_load_screen_page};
 pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay};
 pub use controls::paint_options_dialog_controls;

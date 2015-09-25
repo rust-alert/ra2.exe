@@ -62,6 +62,39 @@ pub(super) fn blit_right_panel_top(page: &mut RgbaImage, decoded: &PageDecodeRep
     }
 }
 
+/// 右栏静态 chrome：顶盖 + `sdbtnbkgd` 瓦片 + 底盖 + 可选底条。
+pub(super) fn paint_right_panel_chrome(
+    page: &mut RgbaImage,
+    decoded: &PageDecodeReport,
+    panel_top: RectPx,
+    panel_tile: RectPx,
+    panel_tile_count: i32,
+    panel_bottom: RectPx,
+    lower_strip: RectPx,
+    warn_anim_frame: usize,
+) {
+    blit_right_panel_top(page, decoded, panel_top, warn_anim_frame);
+    if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
+        for i in 0..panel_tile_count {
+            let r = RectPx::new(
+                panel_tile.x,
+                panel_tile.y + i * panel_tile.h,
+                panel_tile.w,
+                panel_tile.h,
+            );
+            blit_stretched(page, &tile.image, r);
+        }
+    }
+    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
+        blit_stretched(page, &bottom.image, panel_bottom);
+    }
+    if lower_strip.w > 0 && lower_strip.h > 0 {
+        if let Some(lower) = find_panel(decoded, "lwscrnl.shp", 0) {
+            blit_stretched(page, &lower.image, lower_strip);
+        }
+    }
+}
+
 /// 遭遇战 / 选图：在壳层 `sdtp` 帧 0 之上叠帧 1 顶栏高亮牌，再贴 `sdmpbtn` 地图名底板。
 pub(super) fn blit_skirmish_preview_chrome(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_top: RectPx, map_name_plate: RectPx) {
     if let Some(top1) = find_panel(decoded, "sdtp.shp", 1) {
