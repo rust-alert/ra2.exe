@@ -145,3 +145,17 @@ fn shell_page_layouts_ignore_viewport_size() {
         );
     }
 }
+
+#[test]
+fn window_to_shell_px_matches_fit_camera() {
+    assert_eq!(window_to_shell_px(400.0, 300.0, 800.0, 600.0), (400, 300));
+    assert_eq!(window_to_shell_px(0.0, 0.0, 800.0, 600.0), (0, 0));
+    // 2× 等比放大。
+    assert_eq!(window_to_shell_px(800.0, 600.0, 1600.0, 1200.0), (400, 300));
+    // 1280×720：zoom=1.2，左右黑边；内容左上角落在屏幕 x=160。
+    assert_eq!(window_to_shell_px(160.0, 0.0, 1280.0, 720.0), (0, 0));
+    assert_eq!(window_to_shell_px(640.0, 360.0, 1280.0, 720.0), (400, 300));
+    // 点在左侧黑边 → 负壳层 x。
+    let (sx, _) = window_to_shell_px(0.0, 360.0, 1280.0, 720.0);
+    assert!(sx < 0, "pillarbox maps outside design canvas, got {sx}");
+}
