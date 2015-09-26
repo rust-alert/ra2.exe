@@ -64,7 +64,12 @@ pub(super) fn compose_shell_menu_page(
                 else {
                     continue;
                 };
-                let cell_x = layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W);
+                let cell_x = layout
+                    .buttons
+                    .iter()
+                    .find(|b| b.w > 0 && b.h > 0)
+                    .map(|b| b.x)
+                    .unwrap_or(layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W));
                 blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
             }
         }
