@@ -12,9 +12,9 @@ use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
     EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS,
     OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2,
-    Rect, RectPx, choose_map_visible_rows, clamp_map_list_scroll, solve_campaign, solve_choose_map,
-    solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
-    solve_skirmish_lobby, window_to_shell_px,
+    Rect, RectPx, choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll,
+    solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page,
+    solve_options_page, solve_shell_page, solve_skirmish_lobby, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -533,42 +533,53 @@ fn menu_hit_from_rect(
     rect: Rect,
     enabled: bool,
 ) -> MenuHit {
+    menu_hit_from_rect_px(entry_id, action, rect_px_from_layout_rect(rect), enabled)
+}
+
+fn menu_hit_from_rect_px(
+    entry_id: &'static str,
+    action: MenuAction,
+    rect: RectPx,
+    enabled: bool,
+) -> MenuHit {
     MenuHit {
         entry_id,
         action,
-        rect: RectPx::new(
-            rect.x as i32,
-            rect.y as i32,
-            rect.width as i32,
-            rect.height as i32,
-        ),
+        rect,
         enabled,
     }
+}
+
+fn rect_px_from_layout_rect(rect: Rect) -> RectPx {
+    RectPx::new(
+        rect.x as i32,
+        rect.y as i32,
+        rect.width as i32,
+        rect.height as i32,
+    )
 }
 
 fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll: usize) -> Vec<MenuHit> {
     let snap = choose_map_snapshot();
     let mut hits = hits_from_slot_ids(OriginalScreen::ChooseMap, &snap, &CHOOSE_MAP_BUTTON_IDS);
     if let Some(list) = snap.get("game_type_list") {
-        let list = list.layout.rect;
-        let visible = choose_map_visible_rows(list.height as i32);
+        let list = rect_px_from_layout_rect(list.layout.rect);
+        let visible = choose_map_visible_rows(list.h);
         for i in 0..mode_count.min(visible) {
-            let row_y = list.y + (i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
-            let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
-            hits.push(menu_hit_from_rect("mode_row", MenuAction::SelectMode(i), row, true));
+            let row = choose_map_list_row_rect(list, i, list.w);
+            hits.push(menu_hit_from_rect_px("mode_row", MenuAction::SelectMode(i), row, true));
         }
     }
     let Some(list) = snap.get("map_list") else {
         return hits;
     };
-    let list = list.layout.rect;
-    let visible = choose_map_visible_rows(list.height as i32);
+    let list = rect_px_from_layout_rect(list.layout.rect);
+    let visible = choose_map_visible_rows(list.h);
     let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
     for (row_i, _) in maps.iter().skip(scroll).take(visible).enumerate() {
         let abs_i = scroll + row_i;
-        let row_y = list.y + (row_i as f32) * CHOOSE_MAP_LIST_ROW_H as f32;
-        let row = Rect::from_xywh(list.x, row_y, list.width, CHOOSE_MAP_LIST_ROW_H as f32);
-        hits.push(menu_hit_from_rect("map_row", MenuAction::SelectMap(abs_i), row, true));
+        let row = choose_map_list_row_rect(list, row_i, list.w);
+        hits.push(menu_hit_from_rect_px("map_row", MenuAction::SelectMap(abs_i), row, true));
     }
     hits
 }

@@ -69,12 +69,7 @@ pub fn compose_choose_map_page(
 
     let visible_modes = (layout.game_type_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
     for (i, name) in mode_names.iter().take(visible_modes).enumerate() {
-        let row = RectPx::new(
-            layout.game_type_list.x,
-            layout.game_type_list.y + (i as i32) * CHOOSE_MAP_LIST_ROW_H,
-            layout.game_type_list.w,
-            CHOOSE_MAP_LIST_ROW_H,
-        );
+        let row = choose_map_list_row_rect(layout.game_type_list, i, layout.game_type_list.w);
         if Some(i) == selected_mode_index {
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
@@ -93,12 +88,7 @@ pub fn compose_choose_map_page(
     };
     for (row_i, name) in map_names.iter().skip(scroll).take(visible_rows).enumerate() {
         let abs_i = scroll + row_i;
-        let row = RectPx::new(
-            layout.map_list.x,
-            layout.map_list.y + (row_i as i32) * CHOOSE_MAP_LIST_ROW_H,
-            map_content_w,
-            CHOOSE_MAP_LIST_ROW_H,
-        );
+        let row = choose_map_list_row_rect(layout.map_list, row_i, map_content_w);
         if Some(abs_i) == selected_map_index {
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }

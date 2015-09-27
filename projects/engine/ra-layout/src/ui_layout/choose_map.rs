@@ -35,6 +35,16 @@ pub fn scroll_map_list_to_reveal(scroll: usize, index: usize, total: usize, visi
     scroll
 }
 
+/// 选图列表可视行矩形（`row_index` 为窗内行，非绝对下标）。
+pub fn choose_map_list_row_rect(list: RectPx, row_index: usize, content_w: i32) -> RectPx {
+    RectPx::new(
+        list.x,
+        list.y + (row_index as i32) * CHOOSE_MAP_LIST_ROW_H,
+        content_w,
+        CHOOSE_MAP_LIST_ROW_H,
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChooseMapLayout {
     /// 共用壳层 chrome（背景 / 右栏）。选图页不画底条装饰。
