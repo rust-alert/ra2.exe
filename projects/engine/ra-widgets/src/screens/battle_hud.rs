@@ -16,6 +16,7 @@ use crate::{
     skirmish_setup::sidebar_chrome_mix,
     ui_decode::{DecodedUiSprite, frame_to_canvas_rgba},
     ui_page::UiAssetRef,
+    ui_text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
 };
 
 /// 对局侧栏调色板。
@@ -235,6 +236,44 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
+/// 横向密铺：宽度不足则裁切左段，超出则按源宽循环；高度按目标格拉伸。
+fn blit_tiled_x(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
+    if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
+        return;
+    }
+    let sw = src.width() as i32;
+    let mut x = rect.x;
+    let right = rect.x + rect.w;
+    while x < right {
+        let chunk = (right - x).min(sw);
+        // 竖向若目标高与源高不同，走小矩形拉伸；同高则 1:1 贴。
+        if rect.h == src.height() as i32 {
+            for row in 0..rect.h as u32 {
+                let dy = rect.y + row as i32;
+                if dy < 0 || dy as u32 >= dst.height() {
+                    continue;
+                }
+                for col in 0..chunk as u32 {
+                    let dx = x + col as i32;
+                    if dx < 0 || dx as u32 >= dst.width() {
+                        continue;
+                    }
+                    let si = ((row * src.width() + col) * 4) as usize;
+                    let raw = src.as_raw();
+                    if raw[si + 3] == 0 {
+                        continue;
+                    }
+                    let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+                    dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+                }
+            }
+        } else {
+            blit_stretched(dst, src, RectPx::new(x, rect.y, chunk, rect.h));
+        }
+        x += sw;
+    }
+}
+
 /// 钮面优先按 SHP 画布原尺寸居中贴入命中格；仅当源图大于格时才拉伸，避免变形。
 fn blit_button_in_cell(dst: &mut RgbaImage, src: &RgbaImage, cell: RectPx) {
     if cell.w <= 0 || cell.h <= 0 || src.width() == 0 || src.height() == 0 {
@@ -395,7 +434,7 @@ pub fn blit_battle_hud_chrome_with_state(
     blit_command_bar(page, chrome, layout.command_bar, command_pressed);
 }
 
-/// 命令条端盖与钮槽几何（与 `blit_command_bar` 同口径）。
+/// 命令条端盖与钮槽几何（与 `blit_command_bar` 同口径；槽位按 `ButtonList` 可视序）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommandBarGeom {
     /// 左端盖宽。
@@ -435,18 +474,32 @@ impl CommandBarGeom {
         }
     }
 
-    /// 第 `slot` 个命令钮命中格；槽位超出可画宽度时返回 `None`。
-    pub fn button_rect(self, bar: RectPx, slot: usize) -> Option<RectPx> {
+    /// 当前启用的命令条 `ButtonList`（遭遇战默认）。
+    pub fn active_buttons() -> &'static [&'static str] {
+        SKIRMISH_COMMAND_BAR
+    }
+
+    /// 第 `visual_slot` 个可视命令钮命中格（`ButtonList` 下标）。
+    pub fn button_rect(self, bar: RectPx, visual_slot: usize) -> Option<RectPx> {
         if bar.w <= 0 || bar.h <= 0 {
+            return None;
+        }
+        if visual_slot >= Self::active_buttons().len() {
             return None;
         }
         let buttons_left = bar.x + self.lend_w;
         let buttons_right = (bar.x + bar.w - self.rend_w).max(buttons_left);
-        let x = buttons_left + (slot as i32) * self.btn_w;
+        let x = buttons_left + (visual_slot as i32) * self.btn_w;
         if x < buttons_left || x + self.btn_w > buttons_right {
             return None;
         }
         Some(RectPx::new(x, bar.y, self.btn_w, bar.h))
+    }
+
+    /// 可视槽 → 零售 `buttonNN` 素材下标。
+    pub fn shp_index_for_visual(visual_slot: usize) -> Option<usize> {
+        let name = *Self::active_buttons().get(visual_slot)?;
+        command_bar_shp_index(name)
     }
 }
 
@@ -464,43 +517,49 @@ fn blit_command_bar(
     let geom = CommandBarGeom::from_chrome(chrome, bar);
     let buttons_left = bar.x + geom.lend_w;
     let buttons_right = (bar.x + bar.w - geom.rend_w).max(buttons_left);
-    let mid_w = (buttons_right - buttons_left).max(0);
-
-    // 先铺可拉伸金属轨，再叠命令钮（钮自带黑底盖住轨面，避免盖住图标）。
-    if mid_w > 0 {
-        if let Some(s) = &chrome.lspacer {
-            blit_stretched(
-                page,
-                &s.image,
-                RectPx::new(buttons_left, bar.y, mid_w, bar.h),
-            );
-        }
-    }
 
     if let Some(s) = &chrome.lendcap {
         blit_button_in_cell(page, &s.image, RectPx::new(bar.x, bar.y, geom.lend_w, bar.h));
     }
 
+    // 只画 `ui.ini` ButtonList 指定的命令，按列表序从左铺开。
     let mut x = buttons_left;
-    for (i, slot) in chrome.command_buttons.iter().enumerate() {
+    let mut drawn = 0usize;
+    for (visual, name) in CommandBarGeom::active_buttons().iter().enumerate() {
         if x + geom.btn_w > buttons_right {
             break;
         }
-        if let Some(normal) = slot {
-            let sprite = if pressed_slot == Some(i) {
-                chrome.command_buttons_pressed[i]
-                    .as_ref()
-                    .unwrap_or(normal)
-            } else {
-                normal
-            };
-            blit_button_in_cell(
-                page,
-                &sprite.image,
-                RectPx::new(x, bar.y, geom.btn_w, bar.h),
-            );
-        }
+        let Some(shp_i) = command_bar_shp_index(name) else {
+            continue;
+        };
+        let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()) else {
+            continue;
+        };
+        let sprite = if pressed_slot == Some(visual) {
+            chrome
+                .command_buttons_pressed
+                .get(shp_i)
+                .and_then(|s| s.as_ref())
+                .unwrap_or(normal)
+        } else {
+            normal
+        };
+        blit_button_in_cell(
+            page,
+            &sprite.image,
+            RectPx::new(x, bar.y, geom.btn_w, bar.h),
+        );
         x += geom.btn_w;
+        drawn += 1;
+    }
+    let _ = drawn;
+
+    // 钮右侧空隙密铺金属轨（不拉伸整条 856 轨，避免高分辨率变形）。
+    let gap_w = (buttons_right - x).max(0);
+    if gap_w > 0 {
+        if let Some(s) = &chrome.lspacer {
+            blit_tiled_x(page, &s.image, RectPx::new(x, bar.y, gap_w, bar.h));
+        }
     }
 
     if let Some(s) = &chrome.rendcap {
@@ -527,7 +586,7 @@ pub enum BattleHudHit {
     Options,
     /// 外交。
     Diplomacy,
-    /// 底边命令条按钮（`button00`…）。
+    /// 底边命令条可视槽（`ButtonList` 下标）。
     CommandButton(usize),
 }
 
@@ -540,9 +599,9 @@ impl BattleHudHit {
             "opt_btn" => Some(Self::Options),
             "diplo_btn" => Some(Self::Diplomacy),
             _ => {
-                if let Some(rest) = id.strip_prefix("button") {
+                if let Some(rest) = id.strip_prefix("cmd") {
                     if let Ok(slot) = rest.parse::<usize>() {
-                        if slot < COMMAND_BUTTON_SLOTS {
+                        if slot < CommandBarGeom::active_buttons().len() {
                             return Some(Self::CommandButton(slot));
                         }
                     }
@@ -552,26 +611,21 @@ impl BattleHudHit {
         }
     }
 
-    /// 稳定入口 id（与 layout tree 叶节点或 `buttonNN` 一致）。
+    /// 稳定入口 id。
     pub fn entry_id(self) -> &'static str {
         match self {
             Self::Repair => "repair",
             Self::Sell => "sell",
             Self::Options => "opt_btn",
             Self::Diplomacy => "diplo_btn",
-            Self::CommandButton(0) => "button00",
-            Self::CommandButton(1) => "button01",
-            Self::CommandButton(2) => "button02",
-            Self::CommandButton(3) => "button03",
-            Self::CommandButton(4) => "button04",
-            Self::CommandButton(5) => "button05",
-            Self::CommandButton(6) => "button06",
-            Self::CommandButton(7) => "button07",
-            Self::CommandButton(8) => "button08",
-            Self::CommandButton(9) => "button09",
-            Self::CommandButton(10) => "button10",
-            Self::CommandButton(11) => "button11",
-            Self::CommandButton(_) => "button00",
+            Self::CommandButton(0) => "cmd0",
+            Self::CommandButton(1) => "cmd1",
+            Self::CommandButton(2) => "cmd2",
+            Self::CommandButton(3) => "cmd3",
+            Self::CommandButton(4) => "cmd4",
+            Self::CommandButton(5) => "cmd5",
+            Self::CommandButton(6) => "cmd6",
+            Self::CommandButton(_) => "cmd0",
         }
     }
 }
@@ -593,7 +647,7 @@ fn battle_hud_snapshot(viewport_w: u32, viewport_h: u32) -> ra_layout::LayoutSna
 
 /// 视口像素命中（侧栏钮走 snapshot；命令条钮走与绘制同口径几何）。
 ///
-/// `chrome` 用于推算命令钮槽宽；缺省时仅测侧栏入口。
+/// `layout` 仅用于推断视口尺寸，保持与暂停菜单 `hit_at` 签名同构。
 pub fn hit_at(layout: BattleHudLayout, x: i32, y: i32) -> Option<BattleHudHit> {
     hit_at_with_chrome(layout, None, x, y)
 }
@@ -609,13 +663,16 @@ pub fn hit_at_with_chrome(
         let bar = layout.command_bar;
         if bar.contains(x, y) {
             let geom = CommandBarGeom::from_chrome(chrome, bar);
-            for i in 0..COMMAND_BUTTON_SLOTS {
-                if chrome.command_buttons[i].is_none() {
+            for visual in 0..CommandBarGeom::active_buttons().len() {
+                let Some(shp_i) = CommandBarGeom::shp_index_for_visual(visual) else {
+                    continue;
+                };
+                if chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()).is_none() {
                     continue;
                 }
-                if let Some(cell) = geom.button_rect(bar, i) {
+                if let Some(cell) = geom.button_rect(bar, visual) {
                     if cell.contains(x, y) {
-                        return Some(BattleHudHit::CommandButton(i));
+                        return Some(BattleHudHit::CommandButton(visual));
                     }
                 }
             }

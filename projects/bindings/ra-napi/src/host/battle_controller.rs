@@ -1723,8 +1723,12 @@ impl BattleController {
     }
 
     fn on_command_button(&mut self, slot: usize) {
+        let name = ra_widgets::ui_text::SKIRMISH_COMMAND_BAR
+            .get(slot)
+            .copied()
+            .unwrap_or("?");
         let tip = command_button_csf_tooltip(slot).unwrap_or("?");
-        tracing::info!(slot, tip, "命令条按钮");
+        tracing::info!(slot, name, tip, "命令条按钮");
         // 语义动作（编队 / 警戒 / 路径点等）随后续对局命令接线补齐；此处先保证按下高亮与可点。
     }
 

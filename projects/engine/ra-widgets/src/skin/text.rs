@@ -325,23 +325,74 @@ pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
-/// 对局命令条按钮悬停提示 → CSF（`TIP:*`）。
-pub fn command_button_csf_tooltip(slot: usize) -> Option<&'static str> {
-    match slot {
-        0 => Some("TIP:TEAM01"),
-        1 => Some("TIP:TEAM02"),
-        2 => Some("TIP:TYPESELECT"),
-        3 => Some("TIP:ATTACKMOVE"),
-        4 => Some("TIP:GUARD"),
-        5 => Some("TIP:PLANNINGMODE"),
-        6 => Some("TIP:DEPLOY"),
-        7 => Some("TIP:BEACON"),
-        8 => Some("TIP:CHEER"),
-        9 => Some("TIP:STOP"),
-        10 => Some("TIP:TEAM03"),
-        11 => Some("TIP:AUTODEPLOY"),
+/// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
+pub const SKIRMISH_COMMAND_BAR: &[&str] = &[
+    "Team01",
+    "Team02",
+    "TypeSelect",
+    "Deploy",
+    "Guard",
+    "PlanningMode",
+];
+
+/// 多人命令条（对齐 `[MultiplayerAdvancedCommandBar]`）。
+pub const MULTIPLAYER_COMMAND_BAR: &[&str] = &[
+    "Team01",
+    "Team02",
+    "TypeSelect",
+    "Deploy",
+    "Guard",
+    "PlanningMode",
+    "Beacon",
+];
+
+/// 零售 `buttonNN.shp` 编号（按素材内容，不是 `ButtonList` 顺序）。
+pub fn command_bar_shp_index(name: &str) -> Option<usize> {
+    match name {
+        "Team01" => Some(0),
+        "Team02" => Some(1),
+        "Team03" => Some(2),
+        "TypeSelect" => Some(3),
+        "Deploy" => Some(4),
+        "AttackMove" => Some(5),
+        "Guard" => Some(6),
+        "Beacon" => Some(7),
+        "Stop" => Some(8),
+        "PlanningMode" => Some(9),
+        "Cheer" => Some(10),
+        "AutoDeploy" => Some(11),
         _ => None,
     }
+}
+
+/// 命令条按钮悬停提示 → CSF（`TIP:*`），按命令名。
+pub fn command_bar_csf_tooltip(name: &str) -> Option<&'static str> {
+    match name {
+        "Team01" => Some("TIP:TEAM01"),
+        "Team02" => Some("TIP:TEAM02"),
+        "Team03" => Some("TIP:TEAM03"),
+        "TypeSelect" => Some("TIP:TYPESELECT"),
+        "Deploy" => Some("TIP:DEPLOY"),
+        "AttackMove" => Some("TIP:ATTACKMOVE"),
+        "Guard" => Some("TIP:GUARD"),
+        "Beacon" => Some("TIP:BEACON"),
+        "Stop" => Some("TIP:STOP"),
+        "PlanningMode" => Some("TIP:PLANNINGMODE"),
+        "Cheer" => Some("TIP:CHEER"),
+        "AutoDeploy" => Some("TIP:AUTODEPLOY"),
+        _ => None,
+    }
+}
+
+/// 可视槽位悬停提示（槽位 = 当前 `ButtonList` 下标）。
+pub fn command_button_csf_tooltip(slot: usize) -> Option<&'static str> {
+    command_button_csf_tooltip_in(SKIRMISH_COMMAND_BAR, slot)
+}
+
+/// 按给定 `ButtonList` 解析可视槽位 tip。
+pub fn command_button_csf_tooltip_in(buttons: &[&str], slot: usize) -> Option<&'static str> {
+    let name = *buttons.get(slot)?;
+    command_bar_csf_tooltip(name)
 }
 
 /// 退出确认提示 CSF 键。
