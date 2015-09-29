@@ -1,7 +1,7 @@
 //! 对局暂停菜单布局。
 
 use super::*;
-
+use crate::LayoutSnapshot;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattlePauseMenuLayout {
@@ -11,8 +11,27 @@ pub struct BattlePauseMenuLayout {
     pub dim: RectPx,
     /// 右侧栏整体。
     pub sidebar: RectPx,
+    /// 右侧顶盖。
+    pub panel_top: RectPx,
+    /// 右侧平铺起点与单条尺寸。
+    pub panel_tile: RectPx,
+    /// 平铺条数。
+    pub panel_tile_count: i32,
+    /// 右侧底盖。
+    pub panel_bottom: RectPx,
+    /// 底部装饰条。
+    pub lower_strip: RectPx,
     /// 六钮：前五连续平铺，末项贴底盖。
     pub buttons: [RectPx; 6],
+}
+
+/// 对局暂停菜单几何权威：`shell_page_layout_tree` → snapshot。
+pub fn solve_battle_pause() -> LayoutSnapshot {
+    crate::solve_shell_page(
+        "battle_pause",
+        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
+        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
+    )
 }
 
 /// 对局暂停菜单布局（右栏几何与壳层主菜单钮格同构）。
@@ -32,6 +51,11 @@ pub fn battle_pause_menu_layout(_viewport_w: u32, _viewport_h: u32) -> BattlePau
         canvas: shell.canvas,
         dim: RectPx::new(0, 0, panel_x, SHELL_BASE_H),
         sidebar: RectPx::new(panel_x, 0, RIGHT_PANEL_W, SHELL_BASE_H),
+        panel_top: shell.panel_top,
+        panel_tile: shell.panel_tile,
+        panel_tile_count: shell.panel_tile_count,
+        panel_bottom: shell.panel_bottom,
+        lower_strip: shell.lower_strip,
         buttons,
     }
 }

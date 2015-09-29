@@ -1,9 +1,9 @@
 //! 与后端无关的渲染计划（几何来自 `LayoutSnapshot`）。
 
 use ra_layout::{
-    solve_battle_hud, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
-    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby, LayoutId,
-    LayoutSnapshot, Rect,
+    solve_battle_hud, solve_battle_pause, solve_campaign, solve_choose_map, solve_exit_confirm,
+    solve_load_screen, solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
+    LayoutId, LayoutSnapshot, Rect,
 };
 
 /// 单条可绘制命令。
@@ -100,5 +100,10 @@ impl RenderPlan {
     /// 选项整页：`solve_options_page` → snapshot → 占位 `RenderPlan`。
     pub fn options_page_placeholders() -> Self {
         Self::solid_placeholders_from_snapshot(&solve_options_page(), "options")
+    }
+
+    /// 对局暂停菜单：`solve_battle_pause` → snapshot → 占位 `RenderPlan`。
+    pub fn battle_pause_placeholders() -> Self {
+        Self::solid_placeholders_from_snapshot(&solve_battle_pause(), "battle_pause")
     }
 }

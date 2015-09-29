@@ -3,7 +3,7 @@
 //! 本模块只持入口 id、命中与布局入口；壳层导航 / 暂停仿真由宿主另接。
 
 use ra_layout::{
-    battle_pause_menu_layout, solve_shell_page, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
+    battle_pause_menu_layout, solve_battle_pause, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
 };
 
 pub use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, BattlePauseMenuLayout};
@@ -58,11 +58,7 @@ pub fn layout() -> BattlePauseMenuLayout {
 }
 
 fn battle_pause_snapshot() -> LayoutSnapshot {
-    solve_shell_page(
-        "battle_pause",
-        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
-        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
-    )
+    solve_battle_pause()
 }
 
 /// 在布局上命中（几何权威为 `shell_page_layout_tree` snapshot；`layout` 仅保留 API 兼容）。
