@@ -105,6 +105,9 @@ pub const SKIRMISH_TRACK_ACTIVE_PAD: i32 = 13;
 /// 滑条拇指宽（`trakgrip.pcx`）。
 pub const SKIRMISH_TRACK_THUMB_W: i32 = 12;
 
+/// 选项页分辨率下拉展开行高。
+pub const OPTIONS_RESOLUTION_ROW_H: i32 = 24;
+
 /// `fsalg.shp` 相对 `fsbkgdlg` 左上角。
 pub const CAMPAIGN_ALLIED_ORIGIN: (i32, i32) = (30, 26);
 

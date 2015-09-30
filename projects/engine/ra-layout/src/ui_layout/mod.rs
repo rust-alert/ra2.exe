@@ -3,6 +3,7 @@
 mod rect;
 mod constants;
 mod viewport_map;
+mod popup;
 mod main_menu;
 mod skirmish;
 mod campaign;
@@ -16,6 +17,7 @@ mod map_viewport;
 pub use rect::*;
 pub use constants::*;
 pub use viewport_map::*;
+pub use popup::*;
 pub use main_menu::*;
 pub use skirmish::*;
 pub use campaign::*;
