@@ -232,7 +232,7 @@ fn paint_command_tip(
 
 /// 合成对局暂停菜单叠加层：左战术区压暗，右栏六钮（选项 / 载入 / 保存 / 重开 / 放弃 / 回到游戏）。
 ///
-/// `decoded` 若带 `sdbtnanm` 则贴壳层钮面；否则用纯色格占位。不改宿主导航。
+/// `decoded` 若带壳层面板 / `sdbtnanm` 则走共享右栏 chrome；否则用纯色格占位。不改宿主导航。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -249,9 +249,23 @@ pub fn compose_battle_pause_menu_overlay(
 
     // 左战术区压暗罩（半透明黑）。
     fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
-    // 右栏实心底，盖住对局 cameo。
-    fill_rect(&mut page, layout.sidebar, [28, 16, 16, 240]);
-    stroke_rect(&mut page, layout.sidebar, [140, 32, 32, 255]);
+
+    if let Some(decoded) = decoded {
+        paint_right_panel_chrome(
+            &mut page,
+            decoded,
+            layout.panel_top,
+            layout.panel_tile,
+            layout.panel_tile_count,
+            layout.panel_bottom,
+            layout.lower_strip,
+            0,
+        );
+    } else {
+        // 右栏实心底，盖住对局 cameo（资源未挂载时的诊断态）。
+        fill_rect(&mut page, layout.sidebar, [28, 16, 16, 240]);
+        stroke_rect(&mut page, layout.sidebar, [140, 32, 32, 255]);
+    }
 
     for (i, entry_id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
         let cell = layout.buttons[i];
