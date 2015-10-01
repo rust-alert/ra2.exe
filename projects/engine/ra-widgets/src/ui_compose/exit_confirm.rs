@@ -43,18 +43,13 @@ pub fn compose_exit_confirm_page(
         blit_caption_top_left_clipped(&mut page, fnt, &prompt, dlg.prompt.x, dlg.prompt.y, dlg.prompt.w, dlg.prompt.h, MENU_TEXT_ENABLED);
     }
     for (i, entry_id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
-        let Some(normal) = find_button_normal(decoded, entry_id)
-        else {
+        let Some(sprite) = resolve_button_sprite(
+            decoded,
+            entry_id,
+            pressed_entry_id == Some(entry_id),
+            hovered_entry_id == Some(entry_id),
+        ) else {
             continue;
-        };
-        let sprite = if pressed_entry_id == Some(entry_id) {
-            find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        }
-        else if hovered_entry_id == Some(entry_id) {
-            find_button_hover(decoded, entry_id).unwrap_or(normal)
-        }
-        else {
-            normal
         };
         let cell = dlg.buttons[i];
         // `mnbttn` 自控件 DLU 原点贴齐，不居中缩进。

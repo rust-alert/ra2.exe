@@ -1,7 +1,7 @@
 //! 遭遇战大厅布局。
 
 use super::*;
-use crate::{solve_skirmish_lobby, RightPanelChrome};
+use crate::solve_skirmish_lobby;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SkirmishLobbyLayout {
@@ -47,17 +47,8 @@ pub struct SkirmishLobbyLayout {
 
 /// 遭遇战大厅布局（800×600；面板 chrome 与 `0x102` 控件同一次 snapshot）。
 pub fn skirmish_lobby_layout(_viewport_w: u32, _viewport_h: u32) -> SkirmishLobbyLayout {
-    let chrome = RightPanelChrome::shell_defaults();
     let snap = solve_skirmish_lobby();
-    let mut shell = layout_from_shell_page_snap(chrome, &snap);
-    shell.buttons = [
-        rect_px_from_snapshot(&snap, "start"),
-        rect_px_from_snapshot(&snap, "choose_map"),
-        rect_px_from_snapshot(&snap, "back"),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
 
     let mut flags = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];
     let mut side_faces = [RectPx::new(0, 0, 0, 0); SKIRMISH_ROW_COUNT];

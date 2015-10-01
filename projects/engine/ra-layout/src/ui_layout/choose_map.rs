@@ -1,7 +1,7 @@
 //! 选图页布局。
 
 use super::*;
-use crate::{solve_choose_map, RightPanelChrome};
+use crate::solve_choose_map;
 
 /// 选图页列表行高：`GAME.FNT` 字高 17 + 2。
 pub const CHOOSE_MAP_LIST_ROW_H: i32 = 19;
@@ -71,17 +71,8 @@ pub struct ChooseMapLayout {
 
 /// 选图页布局（800×600；面板 chrome 与 `0x6B` 控件同一次 snapshot）。
 pub fn choose_map_layout(_viewport_w: u32, _viewport_h: u32) -> ChooseMapLayout {
-    let chrome = RightPanelChrome::shell_defaults();
     let snap = solve_choose_map();
-    let mut shell = layout_from_shell_page_snap(chrome, &snap);
-    shell.buttons = [
-        rect_px_from_snapshot(&snap, "use_map"),
-        rect_px_from_snapshot(&snap, "create_random"),
-        rect_px_from_snapshot(&snap, "cancel"),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    let shell = shell_rail_layout_from_snap(&snap, &CHOOSE_MAP_BUTTON_IDS);
     ChooseMapLayout {
         shell,
         title: rect_px_from_snapshot(&snap, "title"),

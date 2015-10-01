@@ -1,7 +1,7 @@
 //! 退出确认对话框布局。
 
 use super::*;
-use crate::{solve_exit_confirm, RightPanelChrome};
+use crate::solve_exit_confirm;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExitConfirmLayout {
@@ -29,11 +29,8 @@ pub fn exit_confirm_page_layouts(
     _viewport_w: u32,
     _viewport_h: u32,
 ) -> (MainMenuLayout, ExitConfirmLayout) {
-    let chrome = RightPanelChrome::shell_defaults();
     let snap = solve_exit_confirm();
-    let mut shell = layout_from_shell_page_snap(chrome, &snap);
-    let rail = buttons_from_snap(&snap, &MAIN_MENU_BUTTON_IDS);
-    shell.buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
+    let shell = shell_rail_layout_from_snap(&snap, &MAIN_MENU_BUTTON_IDS);
     (shell, exit_confirm_from_snap(&snap))
 }
 

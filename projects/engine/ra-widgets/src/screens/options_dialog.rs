@@ -5,7 +5,9 @@
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
-use ra_layout::{solve_options_page, RectPx, RightPanelChrome, SHELL_BASE_H, SHELL_BASE_W};
+use ra_layout::{
+    options_layout_from_snap, popup_row_below, solve_options_page, RectPx, OPTIONS_RESOLUTION_ROW_H,
+};
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -279,23 +281,22 @@ impl OptionsDialogLayout {
     ///
     /// 整页几何投影自同一次 `solve_options_page`（chrome、右栏三钮、内容板）。
     pub fn new() -> Self {
-        let chrome = RightPanelChrome::shell_defaults();
         let snap = solve_options_page();
+        let shell = options_layout_from_snap(&snap);
         let rect = |id: &str| {
             let r = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
             RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
         };
-        let rail = [rect("accept"), rect("cancel"), rect("main_menu")];
         Self {
-            canvas: RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H),
+            canvas: shell.canvas,
             content: rect("content"),
-            panel_top: rect("panel_top"),
-            panel_tile: rect("panel_tile"),
-            panel_tile_count: chrome.tile_count(),
-            panel_bottom: rect("panel_bottom"),
-            lower_strip: rect("lower_strip"),
-            title: rect("title"),
-            rail,
+            panel_top: shell.panel_top,
+            panel_tile: shell.panel_tile,
+            panel_tile_count: shell.panel_tile_count,
+            panel_bottom: shell.panel_bottom,
+            lower_strip: shell.lower_strip,
+            title: shell.title,
+            rail: [shell.buttons[0], shell.buttons[1], shell.buttons[2]],
             sec_display: rect("sec_display"),
             track_detail: rect("track_detail"),
             resolution: rect("resolution"),
@@ -330,7 +331,7 @@ impl OptionsDialogLayout {
 
     /// 分辨率下拉展开后的行矩形。
     pub fn resolution_row(self, index: usize) -> RectPx {
-        RectPx::new(self.resolution.x, self.resolution.y + self.resolution.h + index as i32 * 24, self.resolution.w, 24)
+        popup_row_below(self.resolution, OPTIONS_RESOLUTION_ROW_H, index)
     }
 
     /// 壳层像素命中。`resolution_open` 为真时才命中下拉行。

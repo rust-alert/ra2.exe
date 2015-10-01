@@ -37,15 +37,13 @@ pub fn compose_options_page(
     );
 
     for (i, entry_id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
-        let Some(normal) = find_button_normal(decoded, entry_id) else {
+        let Some(sprite) = resolve_button_sprite(
+            decoded,
+            entry_id,
+            pressed_entry_id == Some(entry_id),
+            hovered_entry_id == Some(entry_id),
+        ) else {
             continue;
-        };
-        let sprite = if pressed_entry_id == Some(entry_id) {
-            find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        } else if hovered_entry_id == Some(entry_id) {
-            find_button_hover(decoded, entry_id).unwrap_or(normal)
-        } else {
-            normal
         };
         let cell = dlg.rail[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);

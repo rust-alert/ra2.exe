@@ -29,16 +29,6 @@ pub struct MainMenuLayout {
     pub buttons: [RectPx; 6],
 }
 
-pub(super) fn shell_page_snapshot(
-    root_id: &str,
-    stacked_ids: &[&str],
-    bottom_id: Option<&str>,
-) -> (RightPanelChrome, LayoutSnapshot) {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = crate::solve_shell_page(root_id, stacked_ids, bottom_id);
-    (chrome, snap)
-}
-
 pub(super) fn layout_from_shell_page_snap(chrome: RightPanelChrome, snap: &LayoutSnapshot) -> MainMenuLayout {
     MainMenuLayout {
         canvas: RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32),
@@ -61,56 +51,49 @@ pub(super) fn buttons_from_snap(snap: &LayoutSnapshot, ids: &[&str]) -> Vec<Rect
         .collect()
 }
 
+/// 由已有 shell-page snapshot 投影右栏壳层与按钮格（不足六格补空矩形）。
+pub fn shell_rail_layout_from_snap(snap: &LayoutSnapshot, button_ids: &[&str]) -> MainMenuLayout {
+    let chrome = RightPanelChrome::shell_defaults();
+    let mut layout = layout_from_shell_page_snap(chrome, snap);
+    let rail = buttons_from_snap(snap, button_ids);
+    let mut buttons = [RectPx::new(0, 0, 0, 0); 6];
+    for (i, rect) in rail.into_iter().enumerate().take(6) {
+        buttons[i] = rect;
+    }
+    layout.buttons = buttons;
+    layout
+}
+
 /// 按视口计算主菜单布局（内容落在 800×600 基准上；视口更大时由渲染相机居中）。
 ///
 /// chrome 与右栏按钮均投影自同一次 `shell_page_layout_tree` 求解。
 pub fn main_menu_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let (chrome, snap) = shell_page_snapshot(
+    let snap = crate::solve_shell_page(
         "main_menu",
         &MAIN_MENU_BUTTON_IDS[..5],
         Some(MAIN_MENU_BUTTON_IDS[5]),
     );
-    let mut layout = layout_from_shell_page_snap(chrome, &snap);
-    let rail = buttons_from_snap(&snap, &MAIN_MENU_BUTTON_IDS);
-    layout.buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
-    layout
+    shell_rail_layout_from_snap(&snap, &MAIN_MENU_BUTTON_IDS)
 }
 
 /// 单人页：前三连格 + 返回贴底盖（与主菜单 Exit 同锚点）。
 pub fn single_player_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let (chrome, snap) = shell_page_snapshot(
+    let snap = crate::solve_shell_page(
         "single_player",
         &SINGLE_PLAYER_BUTTON_IDS[..3],
         Some(SINGLE_PLAYER_BUTTON_IDS[3]),
     );
-    let mut layout = layout_from_shell_page_snap(chrome, &snap);
-    let rail = buttons_from_snap(&snap, &SINGLE_PLAYER_BUTTON_IDS);
-    layout.buttons = [
-        rail[0],
-        rail[1],
-        rail[2],
-        rail[3],
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
-    layout
+    shell_rail_layout_from_snap(&snap, &SINGLE_PLAYER_BUTTON_IDS)
 }
 
 /// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
 ///
 /// 几何与 `options_dialog` / hit 同源：一次 `options_page_layout_tree` 求解。
 pub fn options_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = solve_options_page();
-    let mut layout = layout_from_shell_page_snap(chrome, &snap);
-    let rail = buttons_from_snap(&snap, &OPTIONS_BUTTON_IDS);
-    layout.buttons = [
-        rail[0],
-        rail[1],
-        rail[2],
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
-    layout
+    options_layout_from_snap(&solve_options_page())
+}
+
+/// 由已有 `solve_options_page` snapshot 投影右栏壳层（避免二次求解）。
+pub fn options_layout_from_snap(snap: &LayoutSnapshot) -> MainMenuLayout {
+    shell_rail_layout_from_snap(snap, &OPTIONS_BUTTON_IDS)
 }

@@ -38,15 +38,9 @@ pub fn solve_battle_pause() -> LayoutSnapshot {
 ///
 /// chrome 与按钮投影自同一次 `shell_page_layout_tree` 求解。
 pub fn battle_pause_menu_layout(_viewport_w: u32, _viewport_h: u32) -> BattlePauseMenuLayout {
-    let (chrome, snap) = shell_page_snapshot(
-        "battle_pause",
-        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
-        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
-    );
-    let shell = layout_from_shell_page_snap(chrome, &snap);
+    let snap = solve_battle_pause();
+    let shell = shell_rail_layout_from_snap(&snap, &BATTLE_PAUSE_MENU_BUTTON_IDS);
     let panel_x = shell.panel_top.x;
-    let rail = buttons_from_snap(&snap, &BATTLE_PAUSE_MENU_BUTTON_IDS);
-    let buttons = [rail[0], rail[1], rail[2], rail[3], rail[4], rail[5]];
     BattlePauseMenuLayout {
         canvas: shell.canvas,
         dim: RectPx::new(0, 0, panel_x, SHELL_BASE_H),
@@ -56,7 +50,7 @@ pub fn battle_pause_menu_layout(_viewport_w: u32, _viewport_h: u32) -> BattlePau
         panel_tile_count: shell.panel_tile_count,
         panel_bottom: shell.panel_bottom,
         lower_strip: shell.lower_strip,
-        buttons,
+        buttons: shell.buttons,
     }
 }
 

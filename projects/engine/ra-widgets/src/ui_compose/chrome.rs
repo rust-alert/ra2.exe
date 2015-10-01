@@ -125,6 +125,23 @@ pub(super) fn find_button_pressed<'a>(decoded: &'a PageDecodeReport, entry_id: &
     decoded.button_presseds.iter().find(|(id, _)| *id == entry_id).map(|(_, sprite)| sprite)
 }
 
+/// 按按下 / 悬停态挑选钮面；缺图时回落到常态帧。
+pub(super) fn resolve_button_sprite<'a>(
+    decoded: &'a PageDecodeReport,
+    entry_id: &str,
+    pressed: bool,
+    hovered: bool,
+) -> Option<&'a DecodedUiSprite> {
+    let normal = find_button_normal(decoded, entry_id)?;
+    if pressed {
+        Some(find_button_pressed(decoded, entry_id).unwrap_or(normal))
+    } else if hovered {
+        Some(find_button_hover(decoded, entry_id).unwrap_or(normal))
+    } else {
+        Some(normal)
+    }
+}
+
 /// 主菜单 owner-draw 文案裁切：未按 `+0/+1/-2/-1`，按下 `+2/+5/-4/-5`。
 pub(super) fn owner_draw_caption_rect(cell: RectPx, pressed: bool) -> (i32, i32, i32, i32) {
     let (dx, dy) = if pressed { (2, 5) } else { (0, 1) };

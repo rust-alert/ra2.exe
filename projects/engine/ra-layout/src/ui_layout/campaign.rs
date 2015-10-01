@@ -1,7 +1,7 @@
 //! 战役页布局。
 
 use super::*;
-use crate::{solve_campaign, RightPanelChrome};
+use crate::solve_campaign;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CampaignLayout {
@@ -27,18 +27,8 @@ pub struct CampaignLayout {
 
 /// 战役页布局（800×600；chrome 与交互几何来自同一次 `solve_campaign`）。
 pub fn campaign_layout(_viewport_w: u32, _viewport_h: u32) -> CampaignLayout {
-    let chrome = RightPanelChrome::shell_defaults();
     let snap = solve_campaign();
-    let mut shell = layout_from_shell_page_snap(chrome, &snap);
-    let back = rect_px_from_snapshot(&snap, CAMPAIGN_BUTTON_IDS[0]);
-    shell.buttons = [
-        back,
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-        RectPx::new(0, 0, 0, 0),
-    ];
+    let shell = shell_rail_layout_from_snap(&snap, &CAMPAIGN_BUTTON_IDS);
     CampaignLayout {
         shell,
         title: shell.title,

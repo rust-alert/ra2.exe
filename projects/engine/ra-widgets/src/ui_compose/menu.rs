@@ -82,15 +82,16 @@ pub(super) fn compose_shell_menu_page(
         let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        }
-        else if pressed_entry_id == Some(entry_id) && !disabled {
-            find_button_pressed(decoded, entry_id).unwrap_or(normal)
-        }
-        else if hovered_entry_id == Some(entry_id) && !disabled {
-            find_button_hover(decoded, entry_id).unwrap_or(normal)
-        }
-        else {
+        } else if disabled {
             normal
+        } else {
+            resolve_button_sprite(
+                decoded,
+                entry_id,
+                pressed_entry_id == Some(entry_id),
+                hovered_entry_id == Some(entry_id),
+            )
+            .unwrap_or(normal)
         };
         let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);

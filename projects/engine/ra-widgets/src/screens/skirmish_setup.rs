@@ -3,8 +3,9 @@
 //! 控件几何在 [`ra_layout::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
 use ra_layout::ui_layout::{
-    RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
-    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
+    popup_list_below, popup_list_below_min_w, RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
+    SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
+    SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
 };
 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
@@ -390,20 +391,19 @@ impl SkirmishBootRequest {
     /// 国家下拉列表矩形（紧贴指定行国家面下方）。
     pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize, side_count: usize) -> RectPx {
         let face = layout.side_faces[row.min(layout.side_faces.len().saturating_sub(1))];
-        let n = side_count.max(1) as i32;
-        RectPx::new(face.x, face.y + face.h, face.w, SKIRMISH_COMBO_FACE_H * n)
+        popup_list_below(face, SKIRMISH_COMBO_FACE_H, side_count.max(1))
     }
 
     /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
     pub fn color_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
         let face = layout.color_faces[row.min(layout.color_faces.len().saturating_sub(1))];
-        RectPx::new(face.x, face.y + face.h, face.w.max(28), SKIRMISH_COMBO_FACE_H * LOBBY_COLORS.len() as i32)
+        popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_COLORS.len(), 28)
     }
 
     /// AI 难度下拉列表矩形（紧贴行 0 AI 面下方）。
     pub fn ai_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
         let face = layout.ai_faces[0];
-        RectPx::new(face.x, face.y + face.h, face.w, SKIRMISH_COMBO_FACE_H * LOBBY_DIFFICULTIES.len() as i32)
+        popup_list_below(face, SKIRMISH_COMBO_FACE_H, LOBBY_DIFFICULTIES.len())
     }
 
     /// 设置指定行阵营为 `sides[index]`。

@@ -271,15 +271,7 @@ pub fn compose_battle_pause_menu_overlay(
         let cell = layout.buttons[i];
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);
-        let sprite = decoded.and_then(|d| {
-            if pressed {
-                find_button_pressed(d, entry_id).or_else(|| find_button_normal(d, entry_id))
-            } else if hovered {
-                find_button_hover(d, entry_id).or_else(|| find_button_normal(d, entry_id))
-            } else {
-                find_button_normal(d, entry_id)
-            }
-        });
+        let sprite = decoded.and_then(|d| resolve_button_sprite(d, entry_id, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         } else {
