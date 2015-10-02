@@ -37,8 +37,8 @@ pub struct BattleHudModel<'a> {
 
 /// 合成战斗 HUD 叠加层：右栏 + 底边命令条。
 ///
-/// 有 [`BattleHudChrome`] 时贴阵营侧栏与命令条素材；否则回退占位灰条（资源未挂载时的诊断态）。
-/// 仍为像素合成；占位计划见 `RenderPlan::battle_hud_placeholders`，真资源计划待替换。
+/// 有 [`BattleHudChrome`] 时贴阵营侧栏与命令条素材；否则回退 `RenderPlan` 占位（资源未挂载时的诊断态）。
+/// 仍为像素合成；真资源计划待替换。
 pub fn compose_battle_hud_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -66,29 +66,11 @@ pub fn compose_battle_hud_overlay(
             layout,
             paint.command_pressed,
         );
-    }
-    else {
-        fill_rect(&mut page, layout.sidebar, [28, 32, 40, 230]);
-        stroke_rect(&mut page, layout.sidebar, [180, 40, 40, 255]);
-        // 占位态底脚仅在右栏内，避免假全宽底栏。
-        fill_rect(&mut page, layout.bottom_strip, [22, 26, 34, 230]);
-        stroke_rect(&mut page, layout.bottom_strip, [180, 40, 40, 255]);
-        let cell = 48;
-        let gap = 4;
-        let cols = ((layout.sidebar.w - 16) / (cell + gap)).max(1);
-        let grid_top = layout.cameo_band.y.max(layout.sidebar.y + 160);
-        for i in 0..8 {
-            let col = i % cols;
-            let row = i / cols;
-            let cx = layout.sidebar.x + 8 + col * (cell + gap);
-            let cy = grid_top + row * (cell + gap);
-            if cy + cell > layout.side3.y {
-                break;
-            }
-            let r = RectPx::new(cx, cy, cell, cell);
-            fill_rect(&mut page, r, [20, 22, 28, 255]);
-            stroke_rect(&mut page, r, [90, 30, 30, 255]);
-        }
+    } else {
+        // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
+        crate::RenderPlan::battle_hud_placeholders(w, h)
+            .excluding_ids(&["command_bar"])
+            .paint_solids_into(&mut page);
     }
 
     let funds_line = paint.funds.to_string();
@@ -232,7 +214,7 @@ fn paint_command_tip(
 
 /// 合成对局暂停菜单叠加层：左战术区压暗，右栏六钮（选项 / 载入 / 保存 / 重开 / 放弃 / 回到游戏）。
 ///
-/// `decoded` 若带壳层面板 / `sdbtnanm` 则走共享右栏 chrome；否则用纯色格占位。不改宿主导航。
+/// `decoded` 若带壳层面板 / `sdbtnanm` 则走共享右栏 chrome；否则用 `RenderPlan` 纯色占位。不改宿主导航。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -247,10 +229,9 @@ pub fn compose_battle_pause_menu_overlay(
     let h = layout.canvas.h.max(1) as u32;
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
 
-    // 左战术区压暗罩（半透明黑）。
-    fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
-
     if let Some(decoded) = decoded {
+        // 左战术区压暗罩（半透明黑）。
+        fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
         paint_right_panel_chrome(
             &mut page,
             decoded,
@@ -262,9 +243,11 @@ pub fn compose_battle_pause_menu_overlay(
             0,
         );
     } else {
-        // 右栏实心底，盖住对局 cameo（资源未挂载时的诊断态）。
-        fill_rect(&mut page, layout.sidebar, [28, 16, 16, 240]);
-        stroke_rect(&mut page, layout.sidebar, [140, 32, 32, 255]);
+        // 诊断态：snapshot 占位色块（去掉全幅背景，保留左区压暗）。
+        crate::RenderPlan::battle_pause_placeholders()
+            .excluding_ids(&["background", "movie"])
+            .paint_solids_into(&mut page);
+        fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
     }
 
     for (i, entry_id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
@@ -274,15 +257,17 @@ pub fn compose_battle_pause_menu_overlay(
         let sprite = decoded.and_then(|d| resolve_button_sprite(d, entry_id, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
-        } else {
+        } else if pressed || hovered {
             let fill = if pressed {
                 [120, 24, 24, 255]
-            } else if hovered {
-                [90, 20, 20, 255]
             } else {
-                [64, 12, 12, 255]
+                [90, 20, 20, 255]
             };
             fill_rect(&mut page, cell, fill);
+            stroke_rect(&mut page, cell, [200, 40, 40, 255]);
+        } else if decoded.is_some() {
+            // 有 decode 但缺该钮精灵：本地色块兜底（无 decode 时 plan 已画灰钮）。
+            fill_rect(&mut page, cell, [64, 12, 12, 255]);
             stroke_rect(&mut page, cell, [200, 40, 40, 255]);
         }
         if let Some(fnt) = fnt {

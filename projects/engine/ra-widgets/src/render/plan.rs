@@ -51,6 +51,38 @@ impl RenderPlan {
         })
     }
 
+    /// 丢掉指定 id 的命令（例如 HUD 战术区底边 `command_bar`）。
+    pub fn excluding_ids(&self, skip: &[&str]) -> Self {
+        Self {
+            commands: self
+                .commands
+                .iter()
+                .filter(|cmd| match cmd {
+                    RenderCommand::SolidRect { id, .. } => {
+                        !skip.iter().any(|s| id.0.as_str() == *s)
+                    }
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// 只保留指定 id 的命令。
+    pub fn retaining_ids(&self, keep: &[&str]) -> Self {
+        Self {
+            commands: self
+                .commands
+                .iter()
+                .filter(|cmd| match cmd {
+                    RenderCommand::SolidRect { id, .. } => {
+                        keep.iter().any(|s| id.0.as_str() == *s)
+                    }
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+
     /// 对局 HUD：`solve_battle_hud` → snapshot → 占位 `RenderPlan`。
     pub fn battle_hud_placeholders(viewport_w: u32, viewport_h: u32) -> Self {
         let snap = solve_battle_hud(viewport_w, viewport_h);
