@@ -36,3 +36,18 @@ fn retaining_ids_keeps_only_named_commands() {
     assert!(rail.rect_of("bottom_strip").is_some());
     assert!(rail.rect_of("command_bar").is_none());
 }
+
+#[test]
+fn for_original_screen_covers_menu_pages() {
+    use ra_widgets::OriginalScreen;
+    assert!(RenderPlan::for_original_screen(OriginalScreen::MainMenu).is_some());
+    assert!(RenderPlan::for_original_screen(OriginalScreen::ChooseMap)
+        .unwrap()
+        .rect_of("use_map")
+        .is_some());
+    assert!(RenderPlan::for_original_screen(OriginalScreen::Splash).is_none());
+    assert!(RenderPlan::diagnostic_for_original_screen(OriginalScreen::MainMenu)
+        .unwrap()
+        .rect_of("background")
+        .is_none());
+}

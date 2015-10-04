@@ -3,8 +3,10 @@
 use ra_layout::{
     solve_battle_hud, solve_battle_pause, solve_campaign, solve_choose_map, solve_exit_confirm,
     solve_load_screen, solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
-    LayoutId, LayoutSnapshot, Rect,
+    LayoutId, LayoutSnapshot, Rect, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
 };
+
+use crate::OriginalScreen;
 
 /// 单条可绘制命令。
 #[derive(Debug, Clone, PartialEq)]
@@ -137,5 +139,38 @@ impl RenderPlan {
     /// 对局暂停菜单：`solve_battle_pause` → snapshot → 占位 `RenderPlan`。
     pub fn battle_pause_placeholders() -> Self {
         Self::solid_placeholders_from_snapshot(&solve_battle_pause(), "battle_pause")
+    }
+
+    /// 壳层前置页诊断占位；闪屏 / 对局 / 结算无计划。
+    pub fn for_original_screen(screen: OriginalScreen) -> Option<Self> {
+        Some(match screen {
+            OriginalScreen::MainMenu => Self::shell_page_placeholders(
+                "main_menu",
+                &MAIN_MENU_BUTTON_IDS[..5],
+                Some(MAIN_MENU_BUTTON_IDS[5]),
+            ),
+            OriginalScreen::SinglePlayerMenu => Self::shell_page_placeholders(
+                "single_player",
+                &SINGLE_PLAYER_BUTTON_IDS[..3],
+                Some(SINGLE_PLAYER_BUTTON_IDS[3]),
+            ),
+            OriginalScreen::Campaign => Self::campaign_placeholders(),
+            OriginalScreen::SkirmishLobby => Self::shell_dialog_placeholders(0x102, "dialog_0x102"),
+            OriginalScreen::ChooseMap => Self::shell_dialog_placeholders(0x6B, "dialog_0x6b"),
+            OriginalScreen::Options => Self::options_page_placeholders(),
+            OriginalScreen::ExitConfirm => Self::exit_confirm_placeholders(),
+            OriginalScreen::LoadScreen => Self::load_screen_placeholders(),
+            OriginalScreen::Network => Self::network_page_placeholders(),
+            OriginalScreen::Splash | OriginalScreen::Battle | OriginalScreen::Results => {
+                return None;
+            }
+        })
+    }
+
+    /// 诊断栅格化用：去掉满幅背景 / 影片层，避免盖住左侧透明区。
+    pub fn diagnostic_for_original_screen(screen: OriginalScreen) -> Option<Self> {
+        Some(
+            Self::for_original_screen(screen)?.excluding_ids(&["background", "movie"]),
+        )
     }
 }
