@@ -7,10 +7,11 @@ use ra_map::mount_theater_mixes;
 use ra_renderer::RgbaImage;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::shell_slide::WaveDirection;
-use ra_widgets::ui_compose::{self, ShellWaveFrames};
+use ra_widgets::ui_compose::{self};
 use ra_widgets::ui_decode;
 use ra_widgets::ui_present;
 use ra_widgets::ui_text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
+use ra_widgets::RenderPlan;
 
 use super::Shell;
 
@@ -383,6 +384,24 @@ impl Shell {
                     self.upload_ui_page(page);
                     return;
                 }
+            }
+            // 解码缺失时：按设计画布栅格化 snapshot 诊断占位，避免空白 UI 通道。
+            if let Some(page) = RenderPlan::diagnostic_for_original_screen(self.screen)
+                .and_then(|plan| {
+                    plan.rasterize_solids(
+                        ui_layout::SHELL_BASE_W as u32,
+                        ui_layout::SHELL_BASE_H as u32,
+                    )
+                })
+            {
+                tracing::debug!(
+                    screen = self.screen.as_str(),
+                    w = page.width(),
+                    h = page.height(),
+                    "壳层 chrome 未解码 · 已上传 RenderPlan 诊断占位"
+                );
+                self.upload_ui_page(page);
+                return;
             }
             self.renderer.clear_ui_page();
             return;
