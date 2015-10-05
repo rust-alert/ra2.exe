@@ -159,3 +159,11 @@ fn window_to_shell_px_matches_fit_camera() {
     let (sx, _) = window_to_shell_px(0.0, 360.0, 1280.0, 720.0);
     assert!(sx < 0, "pillarbox maps outside design canvas, got {sx}");
 }
+
+#[test]
+fn shell_content_rect_in_window_matches_fit_camera() {
+    assert_eq!(shell_content_rect_in_window(800, 600), RectPx::new(0, 0, 800, 600));
+    assert_eq!(shell_content_rect_in_window(1600, 1200), RectPx::new(0, 0, 1600, 1200));
+    // 1280×720：zoom=1.2，左右 pillarbox 各 160。
+    assert_eq!(shell_content_rect_in_window(1280, 720), RectPx::new(160, 0, 960, 720));
+}
