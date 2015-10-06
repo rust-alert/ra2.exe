@@ -273,6 +273,31 @@ const NETWORK_BUTTONS: &[UiButtonSlot] = &[
     empty_button("back", MenuAction::Back, true),
 ];
 
+/// 对局 Esc 暂停菜单：右栏六钮，与 [`ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS`] 对齐。
+const BATTLE_PAUSE_BUTTONS: &[UiButtonSlot] = &[
+    main_menu_button("options", MenuAction::OpenOptions, true),
+    main_menu_button("load", MenuAction::Noop, true),
+    main_menu_button("save", MenuAction::Noop, true),
+    main_menu_button("restart", MenuAction::Noop, true),
+    main_menu_button("abort", MenuAction::Back, true),
+    main_menu_button("resume", MenuAction::Noop, true),
+];
+
+/// 对局暂停菜单资源槽（非独立 `OriginalScreen`；由合成叠加层消费）。
+pub fn battle_pause_page_slots() -> UiPageSlots {
+    UiPageSlots {
+        screen: OriginalScreen::Battle,
+        background_shp: None,
+        background_pcx: None,
+        background_pal: None,
+        background_frame: 0,
+        movie_bik: None,
+        panels: MAIN_MENU_PANELS,
+        fonts: MAIN_MENU_FONTS,
+        buttons: BATTLE_PAUSE_BUTTONS,
+    }
+}
+
 /// 返回某原版产品页的逻辑槽位；对局/结算无前置菜单槽。
 pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
     match screen {

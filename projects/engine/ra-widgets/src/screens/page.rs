@@ -184,6 +184,24 @@ pub fn page_resources_from_slots_with_edition(screen: OriginalScreen, edition: O
     })
 }
 
+/// 对局 Esc 暂停菜单：右栏 chrome + 六钮（无整页背景）。
+pub fn page_resources_for_battle_pause() -> UiPageResources {
+    let page = crate::ui_slots::battle_pause_page_slots();
+    UiPageResources {
+        screen: OriginalScreen::Battle,
+        background: None,
+        background_palette: None,
+        movie: None,
+        panels: page
+            .panels
+            .iter()
+            .map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame))
+            .collect(),
+        buttons: page.buttons.iter().map(slot_to_button).collect(),
+        fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
+    }
+}
+
 /// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`，背景用共享 `mpls.pal`。
 pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::LoadScreen)?;
