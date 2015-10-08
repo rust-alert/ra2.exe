@@ -6,7 +6,7 @@ use ra_widgets::RenderPlan;
 #[test]
 fn skirmish_lobby_render_plan_rects_match_snapshot_hits() {
     let snap = solve_skirmish_lobby();
-    let plan = RenderPlan::shell_dialog_placeholders(0x102, "dialog_0x102");
+    let plan = RenderPlan::skirmish_lobby_placeholders();
     let legacy = skirmish_lobby_layout(800, 600);
 
     assert_eq!(

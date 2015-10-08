@@ -108,12 +108,27 @@ impl RenderPlan {
 
     /// 壳层对话框模板：已知 id 走 `solve_choose_map` / `solve_skirmish_lobby`。
     pub fn shell_dialog_placeholders(dialog_id: u16, root_id: &str) -> Self {
-        let snap = match dialog_id {
-            0x6B => solve_choose_map(),
-            0x102 => solve_skirmish_lobby(),
+        match dialog_id {
+            0x6B => {
+                assert_eq!(root_id, "dialog_0x6b");
+                Self::choose_map_placeholders()
+            }
+            0x102 => {
+                assert_eq!(root_id, "dialog_0x102");
+                Self::skirmish_lobby_placeholders()
+            }
             other => panic!("unsupported shell dialog {other:#x}"),
-        };
-        Self::solid_placeholders_from_snapshot(&snap, root_id)
+        }
+    }
+
+    /// 选图页：`solve_choose_map` → snapshot → 占位 `RenderPlan`。
+    pub fn choose_map_placeholders() -> Self {
+        Self::solid_placeholders_from_snapshot(&solve_choose_map(), "dialog_0x6b")
+    }
+
+    /// 遭遇战大厅：`solve_skirmish_lobby` → snapshot → 占位 `RenderPlan`。
+    pub fn skirmish_lobby_placeholders() -> Self {
+        Self::solid_placeholders_from_snapshot(&solve_skirmish_lobby(), "dialog_0x102")
     }
 
     /// 战役页：`solve_campaign` → snapshot → 占位 `RenderPlan`。
@@ -155,8 +170,8 @@ impl RenderPlan {
                 Some(SINGLE_PLAYER_BUTTON_IDS[3]),
             ),
             OriginalScreen::Campaign => Self::campaign_placeholders(),
-            OriginalScreen::SkirmishLobby => Self::shell_dialog_placeholders(0x102, "dialog_0x102"),
-            OriginalScreen::ChooseMap => Self::shell_dialog_placeholders(0x6B, "dialog_0x6b"),
+            OriginalScreen::SkirmishLobby => Self::skirmish_lobby_placeholders(),
+            OriginalScreen::ChooseMap => Self::choose_map_placeholders(),
             OriginalScreen::Options => Self::options_page_placeholders(),
             OriginalScreen::ExitConfirm => Self::exit_confirm_placeholders(),
             OriginalScreen::LoadScreen => Self::load_screen_placeholders(),

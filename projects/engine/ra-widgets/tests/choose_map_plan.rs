@@ -6,7 +6,7 @@ use ra_widgets::RenderPlan;
 #[test]
 fn choose_map_render_plan_rects_match_snapshot_hits() {
     let snap = solve_choose_map();
-    let plan = RenderPlan::shell_dialog_placeholders(0x6B, "dialog_0x6b");
+    let plan = RenderPlan::choose_map_placeholders();
 
     assert_eq!(
         plan.rect_of("use_map"),
