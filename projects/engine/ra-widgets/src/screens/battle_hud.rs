@@ -236,41 +236,80 @@ fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     }
 }
 
-/// 横向密铺：宽度不足则裁切左段，超出则按源宽循环；高度按目标格拉伸。
-fn blit_tiled_x(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
-    if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
+/// 从源图矩形拷到目标（宽度 1:1；高度按 `dst_h` 对齐，同高则不拉伸）。
+fn blit_src_cols(
+    dst: &mut RgbaImage,
+    src: &RgbaImage,
+    src_x: u32,
+    src_w: u32,
+    dst_x: i32,
+    dst_y: i32,
+    dst_h: i32,
+) {
+    if src_w == 0 || dst_h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
     }
-    let sw = src.width() as i32;
-    let mut x = rect.x;
-    let right = rect.x + rect.w;
-    while x < right {
-        let chunk = (right - x).min(sw);
-        // 竖向若目标高与源高不同，走小矩形拉伸；同高则 1:1 贴。
-        if rect.h == src.height() as i32 {
-            for row in 0..rect.h as u32 {
-                let dy = rect.y + row as i32;
-                if dy < 0 || dy as u32 >= dst.height() {
-                    continue;
-                }
-                for col in 0..chunk as u32 {
-                    let dx = x + col as i32;
-                    if dx < 0 || dx as u32 >= dst.width() {
-                        continue;
-                    }
-                    let si = ((row * src.width() + col) * 4) as usize;
-                    let raw = src.as_raw();
-                    if raw[si + 3] == 0 {
-                        continue;
-                    }
-                    let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
-                    dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
-                }
-            }
+    let src_x = src_x.min(src.width().saturating_sub(1));
+    let src_w = src_w.min(src.width().saturating_sub(src_x));
+    let sh = src.height();
+    for row in 0..dst_h as u32 {
+        let sy = if dst_h as u32 == sh {
+            row
         } else {
-            blit_stretched(dst, src, RectPx::new(x, rect.y, chunk, rect.h));
+            row * sh / dst_h as u32
+        };
+        let dy = dst_y + row as i32;
+        if dy < 0 || dy as u32 >= dst.height() {
+            continue;
         }
-        x += sw;
+        for col in 0..src_w {
+            let dx = dst_x + col as i32;
+            if dx < 0 || dx as u32 >= dst.width() {
+                continue;
+            }
+            let si = ((sy * src.width() + (src_x + col)) * 4) as usize;
+            let raw = src.as_raw();
+            if raw[si + 3] == 0 {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+        }
+    }
+}
+
+/// 命令条钮右侧空轨：用 `lspacer` 轨身（跳过左接头）裁切/密铺成深色凹槽，禁止整图拉伸。
+///
+/// 零售 1024 宽时空隙小于轨身，表现为一段黑灰金属槽；更宽分辨率则循环中段，保留上下细轨。
+fn blit_lspacer_gap(dst: &mut RgbaImage, src: &RgbaImage, gap: RectPx) {
+    if gap.w <= 0 || gap.h <= 0 || src.width() == 0 || src.height() == 0 {
+        return;
+    }
+    // 左端约 0..24 为接头装饰，轨身从其后开始。
+    const BODY_X: u32 = 24;
+    let body_x = BODY_X.min(src.width().saturating_sub(1));
+    let body_w = src.width().saturating_sub(body_x).max(1);
+    let first = (gap.w as u32).min(body_w);
+    blit_src_cols(dst, src, body_x, first, gap.x, gap.y, gap.h);
+    let mut written = first as i32;
+    if written >= gap.w {
+        return;
+    }
+    // 超出轨身时循环中段（避免回到左接头）。
+    let tile_w = body_w.min(96).max(1);
+    let tile_x = body_x + (body_w - tile_w) / 2;
+    while written < gap.w {
+        let chunk = ((gap.w - written) as u32).min(tile_w);
+        blit_src_cols(
+            dst,
+            src,
+            tile_x,
+            chunk,
+            gap.x + written,
+            gap.y,
+            gap.h,
+        );
+        written += chunk as i32;
     }
 }
 
@@ -554,11 +593,11 @@ fn blit_command_bar(
     }
     let _ = drawn;
 
-    // 钮右侧空隙密铺金属轨（不拉伸整条 856 轨，避免高分辨率变形）。
+    // 钮右侧：`lspacer` 轨身凹槽（深色上下细轨），非纯黑填充、非整图拉伸。
     let gap_w = (buttons_right - x).max(0);
     if gap_w > 0 {
         if let Some(s) = &chrome.lspacer {
-            blit_tiled_x(page, &s.image, RectPx::new(x, bar.y, gap_w, bar.h));
+            blit_lspacer_gap(page, &s.image, RectPx::new(x, bar.y, gap_w, bar.h));
         }
     }
 
