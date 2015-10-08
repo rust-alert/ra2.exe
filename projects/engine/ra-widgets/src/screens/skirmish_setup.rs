@@ -3,10 +3,11 @@
 //! 控件几何在 [`ra_layout::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
 
 use ra_layout::ui_layout::{
-    popup_list_below, popup_list_below_min_w, RectPx, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
-    SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
-    SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
+    popup_list_below, popup_list_below_min_w, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H,
+    SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
+    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
 };
+use ra_layout::{solve_skirmish_lobby, LayoutSnapshot};
 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
@@ -688,56 +689,90 @@ impl SkirmishBootRequest {
 }
 
 /// 光标下的悬停入口 id（供底栏 `STT:Skirmish*`；不改状态）。
-pub fn hover_entry_at(layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<&'static str> {
-    if layout.player_name.contains(x, y) {
+///
+/// 几何取自 `solve_skirmish_lobby` snapshot；`layout` 参数保留给调用方过渡期签名。
+pub fn hover_entry_at(_layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<&'static str> {
+    hover_entry_from_snapshot(&solve_skirmish_lobby(), x, y)
+}
+
+/// 在已求解的遭遇战 snapshot 上做悬停命中（壳层像素）。
+pub fn hover_entry_from_snapshot(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str> {
+    if snap_contains(snap, "player_name", x, y) {
         return Some("player_name");
     }
-    if layout.flags.iter().any(|r| r.contains(x, y)) {
-        return Some("flag");
+    for i in 0..SKIRMISH_ROW_COUNT {
+        if snap_contains(snap, &format!("flag_{i}"), x, y) {
+            return Some("flag");
+        }
     }
-    if layout.side_faces.iter().any(|r| r.contains(x, y)) {
-        return Some("country");
+    for i in 0..SKIRMISH_ROW_COUNT {
+        if snap_contains(snap, &format!("side_face_{i}"), x, y) {
+            return Some("country");
+        }
     }
-    if layout.color_faces.iter().any(|r| r.contains(x, y)) {
-        return Some("color");
+    for i in 0..SKIRMISH_ROW_COUNT {
+        if snap_contains(snap, &format!("color_face_{i}"), x, y) {
+            return Some("color");
+        }
     }
-    for face in &layout.ai_faces {
-        if face.contains(x, y) {
+    for i in 0..SKIRMISH_AI_ROW_COUNT {
+        if snap_contains(snap, &format!("ai_face_{i}"), x, y) {
             return Some("ai");
         }
     }
-    for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
-        let rect = layout.checkboxes[i];
-        let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
-        if icon.contains(x, y) || rect.contains(x, y) {
-            return Some(match id {
-                SkirmishCheckbox::ShortGame => "short_game",
-                SkirmishCheckbox::McvRepacks => "mcv_repacks",
-                SkirmishCheckbox::Crates => "crates",
-                SkirmishCheckbox::SuperWeapons => "superweapons",
-                SkirmishCheckbox::BuildOffAlly => "build_off_ally",
-            });
+    const CHECKBOXES: &[(&str, &str)] = &[
+        ("checkbox_quick", "short_game"),
+        ("checkbox_1", "mcv_repacks"),
+        ("checkbox_2", "crates"),
+        ("checkbox_3", "superweapons"),
+        ("checkbox_4", "build_off_ally"),
+    ];
+    for (snap_id, entry) in CHECKBOXES {
+        if let Some(rect) = snap_rect_px(snap, snap_id) {
+            let icon = RectPx::new(
+                rect.x,
+                rect.y,
+                SKIRMISH_CHECK_W,
+                SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)),
+            );
+            if icon.contains(x, y) || rect.contains(x, y) {
+                return Some(*entry);
+            }
         }
     }
-    if layout.track_speed.contains(x, y) || layout.label_speed.contains(x, y) {
+    if snap_contains(snap, "track_speed", x, y) || snap_contains(snap, "label_speed", x, y) {
         return Some("speed");
     }
-    if layout.track_credits.contains(x, y) || layout.label_credits.contains(x, y) {
+    if snap_contains(snap, "track_credits", x, y) || snap_contains(snap, "label_credits", x, y) {
         return Some("credits");
     }
-    if layout.track_units.contains(x, y) || layout.label_units.contains(x, y) {
+    if snap_contains(snap, "track_units", x, y) || snap_contains(snap, "label_units", x, y) {
         return Some("units");
     }
-    if layout.map_preview.contains(x, y) {
+    if snap_contains(snap, "map_preview", x, y) {
         return Some("map_preview");
     }
-    if layout.game_type.contains(x, y) {
+    if snap_contains(snap, "game_type", x, y) {
         return Some("game_type");
     }
-    if layout.map_label.contains(x, y) {
+    if snap_contains(snap, "map_label", x, y) {
         return Some("map_label");
     }
     None
+}
+
+fn snap_rect_px(snap: &LayoutSnapshot, id: &str) -> Option<RectPx> {
+    let r = snap.get(id)?.layout.rect;
+    Some(RectPx::new(
+        r.x.round() as i32,
+        r.y.round() as i32,
+        r.width.round() as i32,
+        r.height.round() as i32,
+    ))
+}
+
+fn snap_contains(snap: &LayoutSnapshot, id: &str, x: i32, y: i32) -> bool {
+    snap_rect_px(snap, id).is_some_and(|r| r.contains(x, y))
 }
 
 fn track_rect(layout: &SkirmishLobbyLayout, id: SkirmishTrackbar) -> RectPx {
