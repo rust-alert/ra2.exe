@@ -3,7 +3,9 @@
 use ra_layout::{
     solve_battle_hud, solve_battle_pause, solve_campaign, solve_choose_map, solve_exit_confirm,
     solve_load_screen, solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
-    LayoutId, LayoutSnapshot, Rect, MAIN_MENU_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS,
+    CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS,
+    LayoutId, LayoutSnapshot, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS, Rect,
+    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
 };
 
 use crate::OriginalScreen;
@@ -81,6 +83,34 @@ impl RenderPlan {
                     }
                 })
                 .cloned()
+                .collect(),
+        }
+    }
+
+    /// 覆盖指定 id 的纯色（诊断高亮右栏按钮等）。
+    pub fn recolor_ids(&self, ids: &[&str], color: [u8; 4]) -> Self {
+        Self {
+            commands: self
+                .commands
+                .iter()
+                .map(|cmd| match cmd {
+                    RenderCommand::SolidRect {
+                        id,
+                        rect,
+                        color: prev,
+                    } => {
+                        let color = if ids.iter().any(|s| id.0.as_str() == *s) {
+                            color
+                        } else {
+                            *prev
+                        };
+                        RenderCommand::SolidRect {
+                            id: id.clone(),
+                            rect: *rect,
+                            color,
+                        }
+                    }
+                })
                 .collect(),
         }
     }
@@ -182,10 +212,31 @@ impl RenderPlan {
         })
     }
 
-    /// 诊断栅格化用：去掉满幅背景 / 影片层，避免盖住左侧透明区。
+    /// 诊断栅格化用：去掉满幅背景 / 影片层，并高亮页内主按钮。
     pub fn diagnostic_for_original_screen(screen: OriginalScreen) -> Option<Self> {
+        let rail = diagnostic_button_ids(screen)?;
         Some(
-            Self::for_original_screen(screen)?.excluding_ids(&["background", "movie"]),
+            Self::for_original_screen(screen)?
+                .excluding_ids(&["background", "movie"])
+                .recolor_ids(rail, [196, 148, 48, 255]),
         )
     }
+}
+
+/// 诊断高亮用的主按钮 id（与各页 `*_BUTTON_IDS` 对齐）。
+fn diagnostic_button_ids(screen: OriginalScreen) -> Option<&'static [&'static str]> {
+    Some(match screen {
+        OriginalScreen::MainMenu => &MAIN_MENU_BUTTON_IDS,
+        OriginalScreen::SinglePlayerMenu => &SINGLE_PLAYER_BUTTON_IDS,
+        OriginalScreen::Campaign => &CAMPAIGN_BUTTON_IDS,
+        OriginalScreen::SkirmishLobby => &SKIRMISH_LOBBY_BUTTON_IDS,
+        OriginalScreen::ChooseMap => &CHOOSE_MAP_BUTTON_IDS,
+        OriginalScreen::Options => &OPTIONS_BUTTON_IDS,
+        OriginalScreen::ExitConfirm => &EXIT_CONFIRM_BUTTON_IDS,
+        OriginalScreen::LoadScreen => &LOAD_SCREEN_BUTTON_IDS,
+        OriginalScreen::Network => &NETWORK_BUTTON_IDS,
+        OriginalScreen::Splash | OriginalScreen::Battle | OriginalScreen::Results => {
+            return None;
+        }
+    })
 }

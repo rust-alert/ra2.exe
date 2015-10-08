@@ -40,3 +40,48 @@ fn choose_map_and_skirmish_factories_match_dialog_roots() {
     assert!(RenderPlan::choose_map_placeholders().rect_of("use_map").is_some());
     assert!(RenderPlan::skirmish_lobby_placeholders().rect_of("start").is_some());
 }
+
+#[test]
+fn diagnostic_recolors_rail_buttons() {
+    let plan = RenderPlan::diagnostic_for_original_screen(OriginalScreen::MainMenu)
+        .expect("main menu");
+    let exit = plan
+        .commands
+        .iter()
+        .find_map(|cmd| match cmd {
+            ra_widgets::RenderCommand::SolidRect { id, color, .. } if id.0 == "exit" => {
+                Some(*color)
+            }
+            _ => None,
+        })
+        .expect("exit command");
+    assert_eq!(exit, [196, 148, 48, 255]);
+}
+
+#[test]
+fn recolor_ids_only_touches_named_commands() {
+    let base = RenderPlan::choose_map_placeholders();
+    let tinted = base.recolor_ids(&["use_map"], [1, 2, 3, 4]);
+    let use_map = tinted
+        .commands
+        .iter()
+        .find_map(|cmd| match cmd {
+            ra_widgets::RenderCommand::SolidRect { id, color, .. } if id.0 == "use_map" => {
+                Some(*color)
+            }
+            _ => None,
+        })
+        .expect("use_map");
+    let cancel = tinted
+        .commands
+        .iter()
+        .find_map(|cmd| match cmd {
+            ra_widgets::RenderCommand::SolidRect { id, color, .. } if id.0 == "cancel" => {
+                Some(*color)
+            }
+            _ => None,
+        })
+        .expect("cancel");
+    assert_eq!(use_map, [1, 2, 3, 4]);
+    assert_eq!(cancel, [80, 80, 80, 255]);
+}
