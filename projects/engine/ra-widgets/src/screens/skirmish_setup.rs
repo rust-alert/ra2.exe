@@ -557,6 +557,7 @@ impl SkirmishBootRequest {
 
     /// 按下：勾选 / 滑条 / 下拉 / 玩家名。`ai_rows` 为当前地图可见 AI 行数。
     pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32, ai_rows: usize) -> Option<SkirmishLobbyHit> {
+        let snap = solve_skirmish_lobby();
         let ai_rows = ai_rows.min(layout.ai_faces.len());
         let human_rows = (1 + ai_rows).min(layout.side_faces.len());
         // 已展开的下拉优先命中列表 / 面框。
@@ -569,7 +570,9 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickCountry(choice));
             }
-            if self.combo_row < layout.side_faces.len() && layout.side_faces[self.combo_row].contains(x, y) {
+            if self.combo_row < layout.side_faces.len()
+                && snap_contains(&snap, &format!("side_face_{}", self.combo_row), x, y)
+            {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleCountryCombo);
@@ -585,7 +588,9 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickColor(choice));
             }
-            if self.combo_row < layout.color_faces.len() && layout.color_faces[self.combo_row].contains(x, y) {
+            if self.combo_row < layout.color_faces.len()
+                && snap_contains(&snap, &format!("color_face_{}", self.combo_row), x, y)
+            {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleColorCombo);
@@ -605,7 +610,7 @@ impl SkirmishBootRequest {
                     self.player_name_editing = false;
                     return Some(SkirmishLobbyHit::PickAi(row));
                 }
-                if layout.ai_faces[0].contains(x, y) {
+                if snap_contains(&snap, "ai_face_0", x, y) {
                     self.open_combo = None;
                     self.player_name_editing = false;
                     return Some(SkirmishLobbyHit::ToggleAiCombo);
@@ -614,7 +619,7 @@ impl SkirmishBootRequest {
             }
         }
 
-        if layout.player_name.contains(x, y) {
+        if snap_contains(&snap, "player_name", x, y) {
             self.player_name_editing = true;
             self.open_combo = None;
             return Some(SkirmishLobbyHit::FocusName);
@@ -622,9 +627,23 @@ impl SkirmishBootRequest {
         // 点到其它左栏控件时退出编辑。
         self.player_name_editing = false;
 
+        const CHECKBOX_IDS: &[&str] = &[
+            "checkbox_quick",
+            "checkbox_1",
+            "checkbox_2",
+            "checkbox_3",
+            "checkbox_4",
+        ];
         for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
-            let rect = layout.checkboxes[i];
-            let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
+            let Some(rect) = snap_rect_px(&snap, CHECKBOX_IDS[i]) else {
+                continue;
+            };
+            let icon = RectPx::new(
+                rect.x,
+                rect.y,
+                SKIRMISH_CHECK_W,
+                SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)),
+            );
             // 图标或整行标签区均可点（对齐零售勾选行为）。
             if icon.contains(x, y) || rect.contains(x, y) {
                 self.set_checkbox(*id, !self.checkbox_value(*id));
@@ -632,7 +651,9 @@ impl SkirmishBootRequest {
             }
         }
         for id in [SkirmishTrackbar::GameSpeed, SkirmishTrackbar::Credits, SkirmishTrackbar::UnitCount] {
-            let rect = track_rect(layout, id);
+            let Some(rect) = track_rect_from_snap(&snap, id) else {
+                continue;
+            };
             if rect.contains(x, y) {
                 self.dragging = Some(id);
                 self.set_track_pos(id, track_pos_from_mouse(rect, x, id));
@@ -641,39 +662,49 @@ impl SkirmishBootRequest {
         }
         // 各行国家 / 颜色面：仅右侧箭头区展开（对齐原版 owner-draw）。
         for row in 0..human_rows {
-            if combo_arrow_hit(layout.side_faces[row]).contains(x, y) {
-                let same = self.open_combo == Some(SkirmishComboKind::Country) && self.combo_row == row;
-                self.combo_row = row;
-                self.open_combo = if same { None } else { Some(SkirmishComboKind::Country) };
-                return Some(SkirmishLobbyHit::ToggleCountryCombo);
+            if let Some(face) = snap_rect_px(&snap, &format!("side_face_{row}")) {
+                if combo_arrow_hit(face).contains(x, y) {
+                    let same = self.open_combo == Some(SkirmishComboKind::Country) && self.combo_row == row;
+                    self.combo_row = row;
+                    self.open_combo = if same { None } else { Some(SkirmishComboKind::Country) };
+                    return Some(SkirmishLobbyHit::ToggleCountryCombo);
+                }
             }
-            if combo_arrow_hit(layout.color_faces[row]).contains(x, y) {
-                let same = self.open_combo == Some(SkirmishComboKind::Color) && self.combo_row == row;
-                self.combo_row = row;
-                self.open_combo = if same { None } else { Some(SkirmishComboKind::Color) };
-                return Some(SkirmishLobbyHit::ToggleColorCombo);
+            if let Some(face) = snap_rect_px(&snap, &format!("color_face_{row}")) {
+                if combo_arrow_hit(face).contains(x, y) {
+                    let same = self.open_combo == Some(SkirmishComboKind::Color) && self.combo_row == row;
+                    self.combo_row = row;
+                    self.open_combo = if same { None } else { Some(SkirmishComboKind::Color) };
+                    return Some(SkirmishLobbyHit::ToggleColorCombo);
+                }
             }
         }
         // 仅当地图有 AI 席位时展开难度下拉（行 0 代表共用难度）。
-        if ai_rows > 0 && combo_arrow_hit(layout.ai_faces[0]).contains(x, y) {
-            self.open_combo = if self.open_combo == Some(SkirmishComboKind::Ai) {
-                None
+        if ai_rows > 0 {
+            if let Some(face) = snap_rect_px(&snap, "ai_face_0") {
+                if combo_arrow_hit(face).contains(x, y) {
+                    self.open_combo = if self.open_combo == Some(SkirmishComboKind::Ai) {
+                        None
+                    } else {
+                        Some(SkirmishComboKind::Ai)
+                    };
+                    return Some(SkirmishLobbyHit::ToggleAiCombo);
+                }
             }
-            else {
-                Some(SkirmishComboKind::Ai)
-            };
-            return Some(SkirmishLobbyHit::ToggleAiCombo);
         }
         None
     }
 
     /// 拖动滑条。
     pub fn on_drag(&mut self, layout: &SkirmishLobbyLayout, x: i32, _y: i32) -> bool {
+        let _ = layout;
         let Some(id) = self.dragging
         else {
             return false;
         };
-        let rect = track_rect(layout, id);
+        let Some(rect) = track_rect_from_snap(&solve_skirmish_lobby(), id) else {
+            return false;
+        };
         let next = track_pos_from_mouse(rect, x, id);
         if next == self.track_pos(id) {
             return true;
@@ -775,12 +806,13 @@ fn snap_contains(snap: &LayoutSnapshot, id: &str, x: i32, y: i32) -> bool {
     snap_rect_px(snap, id).is_some_and(|r| r.contains(x, y))
 }
 
-fn track_rect(layout: &SkirmishLobbyLayout, id: SkirmishTrackbar) -> RectPx {
-    match id {
-        SkirmishTrackbar::GameSpeed => layout.track_speed,
-        SkirmishTrackbar::Credits => layout.track_credits,
-        SkirmishTrackbar::UnitCount => layout.track_units,
-    }
+fn track_rect_from_snap(snap: &LayoutSnapshot, id: SkirmishTrackbar) -> Option<RectPx> {
+    let key = match id {
+        SkirmishTrackbar::GameSpeed => "track_speed",
+        SkirmishTrackbar::Credits => "track_credits",
+        SkirmishTrackbar::UnitCount => "track_units",
+    };
+    snap_rect_px(snap, key)
 }
 
 fn combo_arrow_hit(face: RectPx) -> RectPx {
