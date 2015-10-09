@@ -22,6 +22,31 @@ pub enum RenderCommand {
         /// RGBA。
         color: [u8; 4],
     },
+    /// 精灵槽几何（绑资源后由 present 绘制；占位栅格化跳过）。
+    SpriteRect {
+        /// 与 snapshot 对齐的控件 id。
+        id: LayoutId,
+        /// 视口矩形（与 snapshot 同源）。
+        rect: Rect,
+        /// 资源槽短名（默认与控件 id 相同）。
+        slot: String,
+    },
+}
+
+impl RenderCommand {
+    /// 控件 id。
+    pub fn id(&self) -> &LayoutId {
+        match self {
+            Self::SolidRect { id, .. } | Self::SpriteRect { id, .. } => id,
+        }
+    }
+
+    /// 视口矩形。
+    pub fn rect(&self) -> Rect {
+        match self {
+            Self::SolidRect { rect, .. } | Self::SpriteRect { rect, .. } => *rect,
+        }
+    }
 }
 
 /// 一帧的有序绘制计划。
@@ -49,10 +74,10 @@ impl RenderPlan {
 
     /// 按控件 id 查找命令矩形（与 snapshot 同源校验用）。
     pub fn rect_of(&self, id: &str) -> Option<Rect> {
-        self.commands.iter().find_map(|cmd| match cmd {
-            RenderCommand::SolidRect { id: cid, rect, .. } if cid.0 == id => Some(*rect),
-            RenderCommand::SolidRect { .. } => None,
-        })
+        self.commands
+            .iter()
+            .find(|cmd| cmd.id().0 == id)
+            .map(RenderCommand::rect)
     }
 
     /// 丢掉指定 id 的命令（例如 HUD 战术区底边 `command_bar`）。
@@ -61,11 +86,7 @@ impl RenderPlan {
             commands: self
                 .commands
                 .iter()
-                .filter(|cmd| match cmd {
-                    RenderCommand::SolidRect { id, .. } => {
-                        !skip.iter().any(|s| id.0.as_str() == *s)
-                    }
-                })
+                .filter(|cmd| !skip.iter().any(|s| cmd.id().0.as_str() == *s))
                 .cloned()
                 .collect(),
         }
@@ -77,17 +98,13 @@ impl RenderPlan {
             commands: self
                 .commands
                 .iter()
-                .filter(|cmd| match cmd {
-                    RenderCommand::SolidRect { id, .. } => {
-                        keep.iter().any(|s| id.0.as_str() == *s)
-                    }
-                })
+                .filter(|cmd| keep.iter().any(|s| cmd.id().0.as_str() == *s))
                 .cloned()
                 .collect(),
         }
     }
 
-    /// 覆盖指定 id 的纯色（诊断高亮右栏按钮等）。
+    /// 覆盖指定 id 的纯色（诊断高亮右栏按钮等；精灵命令保持不变）。
     pub fn recolor_ids(&self, ids: &[&str], color: [u8; 4]) -> Self {
         Self {
             commands: self
@@ -110,6 +127,29 @@ impl RenderPlan {
                             color,
                         }
                     }
+                    RenderCommand::SpriteRect { .. } => cmd.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    /// 把指定 id 的纯色占位提升为精灵槽（几何不变，栅格化不再填充色块）。
+    pub fn promote_ids_to_sprites(&self, ids: &[&str]) -> Self {
+        Self {
+            commands: self
+                .commands
+                .iter()
+                .map(|cmd| match cmd {
+                    RenderCommand::SolidRect { id, rect, .. }
+                        if ids.iter().any(|s| id.0.as_str() == *s) =>
+                    {
+                        RenderCommand::SpriteRect {
+                            id: id.clone(),
+                            rect: *rect,
+                            slot: id.0.clone(),
+                        }
+                    }
+                    other => other.clone(),
                 })
                 .collect(),
         }

@@ -85,3 +85,20 @@ fn recolor_ids_only_touches_named_commands() {
     assert_eq!(use_map, [1, 2, 3, 4]);
     assert_eq!(cancel, [80, 80, 80, 255]);
 }
+
+#[test]
+fn promote_ids_to_sprites_keeps_rect_and_skips_raster() {
+    use ra_widgets::RenderCommand;
+
+    let full = RenderPlan::choose_map_placeholders();
+    let plan = full
+        .retaining_ids(&["use_map"])
+        .promote_ids_to_sprites(&["use_map"]);
+    assert!(matches!(
+        plan.commands.as_slice(),
+        [RenderCommand::SpriteRect { slot, .. }] if slot == "use_map"
+    ));
+    assert_eq!(plan.rect_of("use_map"), full.rect_of("use_map"));
+    let page = plan.rasterize_solids(800, 600).expect("page");
+    assert!(page.as_raw().iter().all(|&b| b == 0));
+}

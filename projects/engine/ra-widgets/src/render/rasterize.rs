@@ -16,6 +16,8 @@ impl RenderPlan {
                     }
                     fill_rect_f(dst, *rect, *color);
                 }
+                // 精灵槽留给绑资源 present；诊断栅格化不画假色块。
+                RenderCommand::SpriteRect { .. } => {}
             }
         }
     }
