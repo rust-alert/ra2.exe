@@ -391,19 +391,29 @@ impl SkirmishBootRequest {
 
     /// 国家下拉列表矩形（紧贴指定行国家面下方）。
     pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize, side_count: usize) -> RectPx {
-        let face = layout.side_faces[row.min(layout.side_faces.len().saturating_sub(1))];
+        let _ = layout;
+        let snap = solve_skirmish_lobby();
+        let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
+        let face = snap_rect_px(&snap, &format!("side_face_{row}"))
+            .unwrap_or(RectPx::new(0, 0, 0, 0));
         popup_list_below(face, SKIRMISH_COMBO_FACE_H, side_count.max(1))
     }
 
     /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
     pub fn color_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
-        let face = layout.color_faces[row.min(layout.color_faces.len().saturating_sub(1))];
+        let _ = layout;
+        let snap = solve_skirmish_lobby();
+        let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
+        let face = snap_rect_px(&snap, &format!("color_face_{row}"))
+            .unwrap_or(RectPx::new(0, 0, 0, 0));
         popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_COLORS.len(), 28)
     }
 
     /// AI 难度下拉列表矩形（紧贴行 0 AI 面下方）。
     pub fn ai_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
-        let face = layout.ai_faces[0];
+        let _ = layout;
+        let face = snap_rect_px(&solve_skirmish_lobby(), "ai_face_0")
+            .unwrap_or(RectPx::new(0, 0, 0, 0));
         popup_list_below(face, SKIRMISH_COMBO_FACE_H, LOBBY_DIFFICULTIES.len())
     }
 
