@@ -22,6 +22,24 @@ impl RenderPlan {
         }
     }
 
+    /// 按 `SpriteRect.slot` 解析精灵并 1:1 贴到命令矩形原点（alpha 混合）。
+    pub fn paint_sprites_into<'a, F>(&self, dst: &mut RgbaImage, mut resolve: F)
+    where
+        F: FnMut(&str) -> Option<&'a RgbaImage>,
+    {
+        for cmd in &self.commands {
+            match cmd {
+                RenderCommand::SpriteRect { rect, slot, .. } => {
+                    let Some(src) = resolve(slot.as_str()) else {
+                        continue;
+                    };
+                    blit_rgba_1to1(dst, src, rect.x.round() as i32, rect.y.round() as i32);
+                }
+                RenderCommand::SolidRect { .. } => {}
+            }
+        }
+    }
+
     /// 新建透明画布并绘制全部 `SolidRect` 占位。
     pub fn rasterize_solids(&self, width: u32, height: u32) -> Option<RgbaImage> {
         let w = width.max(1);
@@ -50,6 +68,41 @@ fn fill_rect_f(dst: &mut RgbaImage, rect: Rect, rgba: [u8; 4]) {
         for x in left..right {
             let di = ((y as u32 * dst.width() + x as u32) * 4) as usize;
             dst.as_mut()[di..di + 4].copy_from_slice(&rgba);
+        }
+    }
+}
+
+fn blit_rgba_1to1(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
+    if src.width() == 0 || src.height() == 0 || dst.width() == 0 || dst.height() == 0 {
+        return;
+    }
+    for row in 0..src.height() {
+        let dy = y + row as i32;
+        if dy < 0 || dy as u32 >= dst.height() {
+            continue;
+        }
+        for col in 0..src.width() {
+            let dx = x + col as i32;
+            if dx < 0 || dx as u32 >= dst.width() {
+                continue;
+            }
+            let si = ((row * src.width() + col) * 4) as usize;
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            let sa = src.as_raw()[si + 3] as u32;
+            if sa == 0 {
+                continue;
+            }
+            if sa == 255 {
+                dst.as_mut()[di..di + 4].copy_from_slice(&src.as_raw()[si..si + 4]);
+                continue;
+            }
+            let inv = 255 - sa;
+            for c in 0..3 {
+                let s = src.as_raw()[si + c] as u32;
+                let d = dst.as_mut()[di + c] as u32;
+                dst.as_mut()[di + c] = ((s * sa + d * inv) / 255) as u8;
+            }
+            dst.as_mut()[di + 3] = 255;
         }
     }
 }

@@ -5,7 +5,7 @@ use ra_layout::{
     solve_load_screen, solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby,
     CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS,
     LayoutId, LayoutSnapshot, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS, Rect,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
+    RectPx, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
 };
 
 use crate::OriginalScreen;
@@ -78,6 +78,23 @@ impl RenderPlan {
             .iter()
             .find(|cmd| cmd.id().0 == id)
             .map(RenderCommand::rect)
+    }
+
+    /// 按控件 id 查找壳层整数像素矩形。
+    pub fn rect_px_of(&self, id: &str) -> Option<RectPx> {
+        let r = self.rect_of(id)?;
+        Some(RectPx::new(
+            r.x.round() as i32,
+            r.y.round() as i32,
+            r.width.round() as i32,
+            r.height.round() as i32,
+        ))
+    }
+
+    /// 只保留并提升指定按钮 id 为精灵槽（compose / present 绑资源用）。
+    pub fn button_sprite_plan(&self, button_ids: &[&str]) -> Self {
+        self.retaining_ids(button_ids)
+            .promote_ids_to_sprites(button_ids)
     }
 
     /// 丢掉指定 id 的命令（例如 HUD 战术区底边 `command_bar`）。

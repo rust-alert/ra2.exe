@@ -102,3 +102,30 @@ fn promote_ids_to_sprites_keeps_rect_and_skips_raster() {
     let page = plan.rasterize_solids(800, 600).expect("page");
     assert!(page.as_raw().iter().all(|&b| b == 0));
 }
+
+#[test]
+fn button_sprite_plan_and_paint_sprites_into() {
+    use ra_renderer::RgbaImage;
+    use ra_widgets::RenderCommand;
+
+    let plan = RenderPlan::choose_map_placeholders().button_sprite_plan(&["use_map"]);
+    assert!(matches!(
+        plan.commands.as_slice(),
+        [RenderCommand::SpriteRect { slot, .. }] if slot == "use_map"
+    ));
+    let cell = plan.rect_px_of("use_map").expect("rect_px");
+    assert!(cell.w > 0 && cell.h > 0);
+
+    let sprite = RgbaImage::from_raw(2, 2, vec![255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255])
+        .expect("sprite");
+    let mut page = RgbaImage::from_raw(800, 600, vec![0u8; 800 * 600 * 4]).expect("page");
+    plan.paint_sprites_into(&mut page, |slot| {
+        if slot == "use_map" {
+            Some(&sprite)
+        } else {
+            None
+        }
+    });
+    let i = ((cell.y as u32 * 800 + cell.x as u32) * 4) as usize;
+    assert_eq!(&page.as_raw()[i..i + 4], &[255, 0, 0, 255]);
+}
