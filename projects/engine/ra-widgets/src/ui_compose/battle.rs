@@ -250,25 +250,47 @@ pub fn compose_battle_pause_menu_overlay(
         fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
     }
 
-    for (i, entry_id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
-        let cell = layout.buttons[i];
+    let button_ids = &BATTLE_PAUSE_MENU_BUTTON_IDS[..];
+    let btn_plan = crate::RenderPlan::battle_pause_placeholders().button_sprite_plan(button_ids);
+    if let Some(decoded) = decoded {
+        btn_plan.paint_sprites_into(&mut page, |slot| {
+            let pressed = pressed_entry_id == Some(slot);
+            let hovered = hovered_entry_id == Some(slot);
+            resolve_button_sprite(decoded, slot, pressed, hovered).map(|s| &s.image)
+        });
+    }
+
+    for entry_id in BATTLE_PAUSE_MENU_BUTTON_IDS.iter() {
+        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+            continue;
+        };
         let pressed = pressed_entry_id == Some(*entry_id);
         let hovered = hovered_entry_id == Some(*entry_id);
-        let sprite = decoded.and_then(|d| resolve_button_sprite(d, entry_id, pressed, hovered));
-        if let Some(sprite) = sprite {
-            blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
-        } else if pressed || hovered {
-            let fill = if pressed {
-                [120, 24, 24, 255]
-            } else {
-                [90, 20, 20, 255]
-            };
-            fill_rect(&mut page, cell, fill);
-            stroke_rect(&mut page, cell, [200, 40, 40, 255]);
-        } else if decoded.is_some() {
-            // 有 decode 但缺该钮精灵：本地色块兜底（无 decode 时 plan 已画灰钮）。
-            fill_rect(&mut page, cell, [64, 12, 12, 255]);
-            stroke_rect(&mut page, cell, [200, 40, 40, 255]);
+        let has_sprite = decoded
+            .and_then(|d| resolve_button_sprite(d, entry_id, pressed, hovered))
+            .is_some();
+        if !has_sprite {
+            if decoded.is_some() {
+                // 有 decode 但缺该钮精灵：本地色块兜底。
+                let fill = if pressed {
+                    [120, 24, 24, 255]
+                } else if hovered {
+                    [90, 20, 20, 255]
+                } else {
+                    [64, 12, 12, 255]
+                };
+                fill_rect(&mut page, cell, fill);
+                stroke_rect(&mut page, cell, [200, 40, 40, 255]);
+            } else if pressed || hovered {
+                // 无 decode：plan solids 已画灰钮；悬停/按下再叠强调色。
+                let fill = if pressed {
+                    [120, 24, 24, 255]
+                } else {
+                    [90, 20, 20, 255]
+                };
+                fill_rect(&mut page, cell, fill);
+                stroke_rect(&mut page, cell, [200, 40, 40, 255]);
+            }
         }
         if let Some(fnt) = fnt {
             let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
