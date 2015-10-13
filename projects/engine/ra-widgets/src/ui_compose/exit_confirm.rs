@@ -42,18 +42,21 @@ pub fn compose_exit_confirm_page(
         let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
         blit_caption_top_left_clipped(&mut page, fnt, &prompt, dlg.prompt.x, dlg.prompt.y, dlg.prompt.w, dlg.prompt.h, MENU_TEXT_ENABLED);
     }
-    for (i, entry_id) in EXIT_CONFIRM_BUTTON_IDS.iter().enumerate() {
-        let Some(sprite) = resolve_button_sprite(
+    let button_ids = &EXIT_CONFIRM_BUTTON_IDS[..];
+    let btn_plan = crate::RenderPlan::exit_confirm_placeholders().button_sprite_plan(button_ids);
+    btn_plan.paint_sprites_into(&mut page, |slot| {
+        resolve_button_sprite(
             decoded,
-            entry_id,
-            pressed_entry_id == Some(entry_id),
-            hovered_entry_id == Some(entry_id),
-        ) else {
+            slot,
+            pressed_entry_id == Some(slot),
+            hovered_entry_id == Some(slot),
+        )
+        .map(|s| &s.image)
+    });
+    for entry_id in EXIT_CONFIRM_BUTTON_IDS.iter() {
+        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
             continue;
         };
-        let cell = dlg.buttons[i];
-        // `mnbttn` 自控件 DLU 原点贴齐，不居中缩进。
-        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
             let key = exit_confirm_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
