@@ -41,11 +41,13 @@ pub(super) fn compose_shell_menu_page(
         layout.lower_strip,
         warn_anim_frame,
     );
-    let btn_n = button_ids.len();
+
+    let btn_plan = shell_button_sprite_plan(captions, button_ids);
     let tile_occupied = |tile_y: i32| {
-        (0..btn_n).any(|i| {
-            let b = layout.buttons[i];
-            b.w > 0 && b.h > 0 && b.y == tile_y
+        button_ids.iter().any(|id| {
+            btn_plan
+                .rect_px_of(id)
+                .is_some_and(|b| b.w > 0 && b.h > 0 && b.y == tile_y)
         })
     };
     // 波浪出去：无字平铺格叠 `SDBTNANM`；进来不叠，避免满钮收束后瞬间消失。
@@ -64,10 +66,9 @@ pub(super) fn compose_shell_menu_page(
                 else {
                     continue;
                 };
-                let cell_x = layout
-                    .buttons
+                let cell_x = button_ids
                     .iter()
-                    .find(|b| b.w > 0 && b.h > 0)
+                    .find_map(|id| btn_plan.rect_px_of(id))
                     .map(|b| b.x)
                     .unwrap_or(layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W));
                 blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
@@ -76,6 +77,9 @@ pub(super) fn compose_shell_menu_page(
     }
 
     for (i, entry_id) in button_ids.iter().enumerate() {
+        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+            continue;
+        };
         let normal = find_button_normal(decoded, entry_id)?;
         // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
         let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random");
@@ -93,7 +97,6 @@ pub(super) fn compose_shell_menu_page(
             )
             .unwrap_or(normal)
         };
-        let cell = layout.buttons[i];
         blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
         if wave_frame.is_some() {
@@ -129,6 +132,26 @@ pub(super) fn compose_shell_menu_page(
     }
 
     Some(page)
+}
+
+/// 当前壳层页右栏按钮的精灵计划（几何来自对应 `solve_*` snapshot）。
+fn shell_button_sprite_plan(captions: MenuCaptionKind, button_ids: &[&str]) -> crate::RenderPlan {
+    let base = match captions {
+        MenuCaptionKind::Main => crate::RenderPlan::shell_page_placeholders(
+            "main_menu",
+            &MAIN_MENU_BUTTON_IDS[..5],
+            Some(MAIN_MENU_BUTTON_IDS[5]),
+        ),
+        MenuCaptionKind::SinglePlayer => crate::RenderPlan::shell_page_placeholders(
+            "single_player",
+            &SINGLE_PLAYER_BUTTON_IDS[..3],
+            Some(SINGLE_PLAYER_BUTTON_IDS[3]),
+        ),
+        MenuCaptionKind::Campaign => crate::RenderPlan::campaign_placeholders(),
+        MenuCaptionKind::SkirmishLobby => crate::RenderPlan::skirmish_lobby_placeholders(),
+        MenuCaptionKind::ChooseMap => crate::RenderPlan::choose_map_placeholders(),
+    };
+    base.button_sprite_plan(button_ids)
 }
 
 /// 合成主菜单 chrome。
