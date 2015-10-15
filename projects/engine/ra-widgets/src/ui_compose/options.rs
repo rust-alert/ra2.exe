@@ -36,17 +36,21 @@ pub fn compose_options_page(
         warn_anim_frame,
     );
 
-    for (i, entry_id) in OPTIONS_BUTTON_IDS.iter().enumerate() {
-        let Some(sprite) = resolve_button_sprite(
+    let button_ids = &OPTIONS_BUTTON_IDS[..];
+    let btn_plan = crate::RenderPlan::options_page_placeholders().button_sprite_plan(button_ids);
+    btn_plan.paint_sprites_into(&mut page, |slot| {
+        resolve_button_sprite(
             decoded,
-            entry_id,
-            pressed_entry_id == Some(entry_id),
-            hovered_entry_id == Some(entry_id),
-        ) else {
+            slot,
+            pressed_entry_id == Some(slot),
+            hovered_entry_id == Some(slot),
+        )
+        .map(|s| &s.image)
+    });
+    for entry_id in OPTIONS_BUTTON_IDS.iter() {
+        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
             continue;
         };
-        let cell = dlg.rail[i];
-        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
         if let Some(fnt) = fnt {
             let key = options_csf_label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
