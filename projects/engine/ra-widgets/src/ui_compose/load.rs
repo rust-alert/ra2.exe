@@ -141,8 +141,12 @@ pub fn compose_load_screen_page(
 
     // 失败时只露操作钮；不再叠中区假对话框（状态在窗口标题）。
     if paint.allow_retry {
-        for (i, entry_id) in LOAD_SCREEN_BUTTON_IDS.iter().enumerate() {
-            let rect = layout.buttons[i];
+        let btn_plan =
+            crate::RenderPlan::load_screen_placeholders().button_sprite_plan(&LOAD_SCREEN_BUTTON_IDS);
+        for entry_id in LOAD_SCREEN_BUTTON_IDS.iter() {
+            let Some(rect) = btn_plan.rect_px_of(entry_id) else {
+                continue;
+            };
             let enabled = *entry_id != "retry" || paint.allow_retry;
             let normal = find_button_normal(decoded, entry_id);
             let sprite = if !enabled {
