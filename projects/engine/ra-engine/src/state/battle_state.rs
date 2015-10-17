@@ -124,7 +124,8 @@ impl BattleState {
             let speed = tt.map(|t| t.speed).unwrap_or(0);
             // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
             let attack_range = tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }).unwrap_or(0);
-            let attack_damage = tt.map(|t| if t.damage > 0 { t.damage } else { (t.strength / 4).max(1) }).unwrap_or(0);
+            // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害（否则平民车会参与自动进攻）。
+            let attack_damage = tt.map(|t| t.damage).unwrap_or(0);
             let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
             let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
             let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
@@ -828,7 +829,8 @@ impl BattleState {
         let warhead = tt.warhead.clone();
         let class = tt.class;
         let attack_range = if tt.range > 0 { tt.range } else { tt.sight.max(1) };
-        let attack_damage = if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) };
+        // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
+        let attack_damage = tt.damage;
         let attack_cooldown_max = if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS };
         let attack_verses = verses_for(&self.definitions, &warhead);
         let id = self.alloc_entity_id();

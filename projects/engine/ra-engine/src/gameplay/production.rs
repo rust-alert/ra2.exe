@@ -103,7 +103,8 @@ impl crate::state::BattleState {
             combat: CombatStats {
                 armor: tt.armor.clone(),
                 attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
-                attack_damage: if tt.damage > 0 { tt.damage } else { (tt.strength / 4).max(1) },
+                // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
+                attack_damage: tt.damage,
                 attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
                 attack_verses: verses_for(&self.definitions, &tt.warhead),
                 techno_kind: Some(techno_kind),

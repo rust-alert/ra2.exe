@@ -43,3 +43,38 @@ fn seeds_attack_stats_from_primary_weapon() {
     assert_eq!(combat.attack_range, 5);
     assert_eq!(combat.attack_cooldown_max, 20);
 }
+
+#[test]
+fn weaponless_unit_keeps_zero_attack_damage() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=TRUCKA\n\
+[TRUCKA]\nStrength=150\nSpeed=40\nSight=4\nCost=100\nArmor=light\n",
+    )
+    .unwrap();
+    let rules = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: doc.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&doc),
+        warheads: WarheadRegistry::default(),
+    };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "civilian");
+    map.width = 16;
+    map.height = 16;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "Neutral".into(),
+        type_id: "TRUCKA".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
+    assert_eq!(combat.attack_damage, 0, "无主武器时不得用 Strength 发明伤害");
+}
