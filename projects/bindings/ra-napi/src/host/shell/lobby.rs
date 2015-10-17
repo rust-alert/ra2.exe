@@ -78,10 +78,9 @@ impl Shell {
 
     /// 遭遇战左栏按下：勾选 / 滑条优先于右栏按钮。
     pub(super) fn handle_skirmish_press(&mut self) -> bool {
-        let layout = ui_layout::skirmish_lobby_layout(0, 0);
         let (x, y) = self.shell_cursor_px();
         let ai_rows = self.lobby_ai_rows();
-        if self.skirmish.on_press(&layout, x, y, ai_rows).is_none() {
+        if self.skirmish.on_press(x, y, ai_rows).is_none() {
             return false;
         }
         self.skirmish_pointer_consumed = true;
@@ -107,9 +106,8 @@ impl Shell {
         if self.skirmish.dragging.is_none() {
             return false;
         }
-        let layout = ui_layout::skirmish_lobby_layout(0, 0);
         let (x, y) = self.shell_cursor_px();
-        if !self.skirmish.on_drag(&layout, x, y) {
+        if !self.skirmish.on_drag(x, y) {
             return false;
         }
         self.refresh_menu_backdrop();

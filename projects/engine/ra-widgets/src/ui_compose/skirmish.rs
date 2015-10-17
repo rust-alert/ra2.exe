@@ -263,7 +263,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.country_combo_open && !paint.sides.is_empty() {
-        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(layout, paint.combo_row, paint.sides.len());
+        let list = crate::skirmish_setup::SkirmishBootRequest::country_list_rect(paint.combo_row, paint.sides.len());
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = if paint.sides.is_empty() {
@@ -291,7 +291,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.color_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(layout, paint.combo_row);
+        let list = crate::skirmish_setup::SkirmishBootRequest::color_list_rect(paint.combo_row);
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_rgb = row_color_rgb(paint, paint.combo_row);
@@ -306,7 +306,7 @@ pub(super) fn paint_skirmish_lobby_controls(
     }
 
     if paint.ai_combo_open {
-        let list = crate::skirmish_setup::SkirmishBootRequest::ai_list_rect(layout);
+        let list = crate::skirmish_setup::SkirmishBootRequest::ai_list_rect();
         fill_rect(page, list, [12, 12, 18, 255]);
         stroke_rect(page, list, [180, 24, 24, 255]);
         for (i, diff) in LOBBY_DIFFICULTIES.iter().enumerate() {

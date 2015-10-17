@@ -1,11 +1,11 @@
 //! 遭遇战大厅配置：对话框 `0x102` 选项 + 装载请求。
 //!
-//! 控件几何在 [`ra_layout::ui_layout::skirmish_lobby_layout`]；本模块只持状态与命中。
+//! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
 use ra_layout::ui_layout::{
     popup_list_below, popup_list_below_min_w, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H,
     SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
-    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SkirmishLobbyLayout,
+    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
 };
 use ra_layout::{solve_skirmish_lobby, LayoutSnapshot};
 
@@ -390,31 +390,18 @@ impl SkirmishBootRequest {
     }
 
     /// 国家下拉列表矩形（紧贴指定行国家面下方）。
-    pub fn country_list_rect(layout: &SkirmishLobbyLayout, row: usize, side_count: usize) -> RectPx {
-        let _ = layout;
-        let snap = solve_skirmish_lobby();
-        let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
-        let face = snap_rect_px(&snap, &format!("side_face_{row}"))
-            .unwrap_or(RectPx::new(0, 0, 0, 0));
-        popup_list_below(face, SKIRMISH_COMBO_FACE_H, side_count.max(1))
+    pub fn country_list_rect(row: usize, side_count: usize) -> RectPx {
+        country_list_rect_in(&solve_skirmish_lobby(), row, side_count)
     }
 
     /// 颜色下拉列表矩形（紧贴指定行颜色面下方）。
-    pub fn color_list_rect(layout: &SkirmishLobbyLayout, row: usize) -> RectPx {
-        let _ = layout;
-        let snap = solve_skirmish_lobby();
-        let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
-        let face = snap_rect_px(&snap, &format!("color_face_{row}"))
-            .unwrap_or(RectPx::new(0, 0, 0, 0));
-        popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_COLORS.len(), 28)
+    pub fn color_list_rect(row: usize) -> RectPx {
+        color_list_rect_in(&solve_skirmish_lobby(), row)
     }
 
     /// AI 难度下拉列表矩形（紧贴行 0 AI 面下方）。
-    pub fn ai_list_rect(layout: &SkirmishLobbyLayout) -> RectPx {
-        let _ = layout;
-        let face = snap_rect_px(&solve_skirmish_lobby(), "ai_face_0")
-            .unwrap_or(RectPx::new(0, 0, 0, 0));
-        popup_list_below(face, SKIRMISH_COMBO_FACE_H, LOBBY_DIFFICULTIES.len())
+    pub fn ai_list_rect() -> RectPx {
+        ai_list_rect_in(&solve_skirmish_lobby())
     }
 
     /// 设置指定行阵营为 `sides[index]`。
@@ -566,13 +553,13 @@ impl SkirmishBootRequest {
     }
 
     /// 按下：勾选 / 滑条 / 下拉 / 玩家名。`ai_rows` 为当前地图可见 AI 行数。
-    pub fn on_press(&mut self, layout: &SkirmishLobbyLayout, x: i32, y: i32, ai_rows: usize) -> Option<SkirmishLobbyHit> {
+    pub fn on_press(&mut self, x: i32, y: i32, ai_rows: usize) -> Option<SkirmishLobbyHit> {
         let snap = solve_skirmish_lobby();
-        let ai_rows = ai_rows.min(layout.ai_faces.len());
-        let human_rows = (1 + ai_rows).min(layout.side_faces.len());
+        let ai_rows = ai_rows.min(SKIRMISH_AI_ROW_COUNT);
+        let human_rows = (1 + ai_rows).min(SKIRMISH_ROW_COUNT);
         // 已展开的下拉优先命中列表 / 面框。
         if self.open_combo == Some(SkirmishComboKind::Country) {
-            let list = Self::country_list_rect(layout, self.combo_row, self.sides.len());
+            let list = country_list_rect_in(&snap, self.combo_row, self.sides.len());
             if list.contains(x, y) && !self.sides.is_empty() {
                 let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, self.sides.len() as i32 - 1) as usize;
                 self.set_side_index(choice);
@@ -580,7 +567,7 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickCountry(choice));
             }
-            if self.combo_row < layout.side_faces.len()
+            if self.combo_row < SKIRMISH_ROW_COUNT
                 && snap_contains(&snap, &format!("side_face_{}", self.combo_row), x, y)
             {
                 self.open_combo = None;
@@ -590,7 +577,7 @@ impl SkirmishBootRequest {
             self.open_combo = None;
         }
         else if self.open_combo == Some(SkirmishComboKind::Color) {
-            let list = Self::color_list_rect(layout, self.combo_row);
+            let list = color_list_rect_in(&snap, self.combo_row);
             if list.contains(x, y) {
                 let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_COLORS.len() as i32 - 1) as usize;
                 self.set_color_index(choice);
@@ -598,7 +585,7 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickColor(choice));
             }
-            if self.combo_row < layout.color_faces.len()
+            if self.combo_row < SKIRMISH_ROW_COUNT
                 && snap_contains(&snap, &format!("color_face_{}", self.combo_row), x, y)
             {
                 self.open_combo = None;
@@ -612,7 +599,7 @@ impl SkirmishBootRequest {
                 self.open_combo = None;
             }
             else {
-                let list = Self::ai_list_rect(layout);
+                let list = ai_list_rect_in(&snap);
                 if list.contains(x, y) {
                     let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_DIFFICULTIES.len() as i32 - 1) as usize;
                     self.set_difficulty_index(row);
@@ -706,8 +693,7 @@ impl SkirmishBootRequest {
     }
 
     /// 拖动滑条。
-    pub fn on_drag(&mut self, layout: &SkirmishLobbyLayout, x: i32, _y: i32) -> bool {
-        let _ = layout;
+    pub fn on_drag(&mut self, x: i32, _y: i32) -> bool {
         let Some(id) = self.dragging
         else {
             return false;
@@ -730,14 +716,11 @@ impl SkirmishBootRequest {
 }
 
 /// 光标下的悬停入口 id（供底栏 `STT:Skirmish*`；不改状态）。
-///
-/// 几何取自 `solve_skirmish_lobby` snapshot；`layout` 参数保留给调用方过渡期签名。
-pub fn hover_entry_at(_layout: &SkirmishLobbyLayout, x: i32, y: i32) -> Option<&'static str> {
-    hover_entry_from_snapshot(&solve_skirmish_lobby(), x, y)
+pub fn hover_entry_at(x: i32, y: i32) -> Option<&'static str> {
+    hover_entry_in(&solve_skirmish_lobby(), x, y)
 }
 
-/// 在已求解的遭遇战 snapshot 上做悬停命中（壳层像素）。
-pub fn hover_entry_from_snapshot(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str> {
+fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str> {
     if snap_contains(snap, "player_name", x, y) {
         return Some("player_name");
     }
@@ -800,6 +783,23 @@ pub fn hover_entry_from_snapshot(snap: &LayoutSnapshot, x: i32, y: i32) -> Optio
         return Some("map_label");
     }
     None
+}
+
+fn country_list_rect_in(snap: &LayoutSnapshot, row: usize, side_count: usize) -> RectPx {
+    let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
+    let face = snap_rect_px(snap, &format!("side_face_{row}")).unwrap_or(RectPx::new(0, 0, 0, 0));
+    popup_list_below(face, SKIRMISH_COMBO_FACE_H, side_count.max(1))
+}
+
+fn color_list_rect_in(snap: &LayoutSnapshot, row: usize) -> RectPx {
+    let row = row.min(SKIRMISH_ROW_COUNT.saturating_sub(1));
+    let face = snap_rect_px(snap, &format!("color_face_{row}")).unwrap_or(RectPx::new(0, 0, 0, 0));
+    popup_list_below_min_w(face, SKIRMISH_COMBO_FACE_H, LOBBY_COLORS.len(), 28)
+}
+
+fn ai_list_rect_in(snap: &LayoutSnapshot) -> RectPx {
+    let face = snap_rect_px(snap, "ai_face_0").unwrap_or(RectPx::new(0, 0, 0, 0));
+    popup_list_below(face, SKIRMISH_COMBO_FACE_H, LOBBY_DIFFICULTIES.len())
 }
 
 fn snap_rect_px(snap: &LayoutSnapshot, id: &str) -> Option<RectPx> {

@@ -38,9 +38,8 @@ impl Shell {
             {
                 return Some(id);
             }
-            let layout = ui_layout::skirmish_lobby_layout(0, 0);
             let (x, y) = self.shell_cursor_px();
-            return hover_entry_at(&layout, x, y);
+            return hover_entry_at(x, y);
         }
         let idx = ui_hit::hover_index(
             self.screen,
