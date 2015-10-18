@@ -5,8 +5,9 @@ use ra_widgets::{
     ui_decode::{DecodedUiSprite, PageDecodeReport},
 };
 use ra_layout::ui_layout::{
-    MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, main_menu_layout, options_layout,
-    single_player_layout, skirmish_lobby_layout,
+    MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
+    main_menu_layout, options_layout, rect_px_from_snapshot, shell_rail_layout_from_snap,
+    single_player_layout,
 };
 use ra_renderer::RgbaImage;
 #[test]
@@ -206,8 +207,11 @@ fn compose_skirmish_lobby_uses_start_id() {
     };
     let paint = SkirmishLobbyPaint::default();
     let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, None, &paint, None, 0).unwrap();
-    let layout = skirmish_lobby_layout(800, 600);
-    let cell = layout.shell.buttons[0];
+    let shell = shell_rail_layout_from_snap(
+        &ra_layout::solve_skirmish_lobby(),
+        &SKIRMISH_LOBBY_BUTTON_IDS,
+    );
+    let cell = shell.buttons[0];
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
 }
@@ -357,12 +361,14 @@ fn compose_skirmish_overlays_sdtp_frame1_and_sdmpbtn() {
     };
     let paint = SkirmishLobbyPaint::default();
     let page = compose_skirmish_lobby_page(&decoded, 800, 600, None, None, None, None, None, None, &paint, None, 0).unwrap();
-    let layout = skirmish_lobby_layout(800, 600);
+    let snap = ra_layout::solve_skirmish_lobby();
+    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
     // 顶盖被帧 1 覆盖。
-    let ti = ((layout.shell.panel_top.y as u32 * page.width() + (layout.shell.panel_top.x as u32 + 2)) * 4) as usize;
+    let ti = ((shell.panel_top.y as u32 * page.width() + (shell.panel_top.x as u32 + 2)) * 4) as usize;
     assert_eq!(&page.as_raw()[ti..ti + 4], &[20, 80, 120, 255]);
     // 地图名底板贴到 `sdmpbtn` 格。
-    let pi = ((layout.map_name_plate.y as u32 * page.width() + layout.map_name_plate.x as u32) * 4) as usize;
+    let plate = rect_px_from_snapshot(&snap, "map_name_plate");
+    let pi = ((plate.y as u32 * page.width() + plate.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[pi..pi + 4], &[200, 40, 40, 255]);
 }
 

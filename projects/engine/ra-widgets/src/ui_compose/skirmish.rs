@@ -156,59 +156,68 @@ impl Default for SkirmishLobbyPaint<'_> {
 
 pub(super) fn paint_skirmish_lobby_controls(
     page: &mut RgbaImage,
-    layout: &SkirmishLobbyLayout,
+    snap: &LayoutSnapshot,
     paint: &SkirmishLobbyPaint<'_>,
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
 ) {
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, skirmish_lobby_static_csf_key(kind));
     let chrome = paint.chrome;
+    let r = |id: &str| rect_px_from_snapshot(snap, id);
+    let row_r = |prefix: &str, i: usize| rect_px_from_snapshot(snap, &format!("{prefix}_{i}"));
 
     // 玩家名 / 下拉面 / 色块（本地 + 可选 AI 行）。
+    let player_name = r("player_name");
     let name_face = if paint.player_name_editing { [40, 40, 56, 255] } else { [16, 16, 20, 255] };
-    draw_edit_face(page, layout.player_name, name_face);
+    draw_edit_face(page, player_name, name_face);
     let local_rgb = row_color_rgb(paint, 0);
-    draw_combo_face(page, layout.side_faces[0], [16, 16, 20, 255], chrome, paint.country_combo_open && paint.combo_row == 0);
-    draw_color_combo_face(page, layout.color_faces[0], local_rgb, chrome, paint.color_combo_open && paint.combo_row == 0);
-    blit_flag(page, row_flag(chrome, 0), layout.flags[0]);
+    draw_combo_face(page, row_r("side_face", 0), [16, 16, 20, 255], chrome, paint.country_combo_open && paint.combo_row == 0);
+    draw_color_combo_face(page, row_r("color_face", 0), local_rgb, chrome, paint.color_combo_open && paint.combo_row == 0);
+    blit_flag(page, row_flag(chrome, 0), row_r("flag", 0));
 
-    let ai_rows = paint.ai_rows.min(layout.ai_faces.len());
+    let ai_rows = paint.ai_rows.min(SKIRMISH_AI_ROW_COUNT);
     for i in 0..ai_rows {
-        draw_combo_face(page, layout.ai_faces[i], [16, 16, 20, 255], chrome, paint.ai_combo_open && i == 0);
+        draw_combo_face(page, row_r("ai_face", i), [16, 16, 20, 255], chrome, paint.ai_combo_open && i == 0);
         let human_row = i + 1;
-        if human_row < layout.side_faces.len() {
+        if human_row < SKIRMISH_ROW_COUNT {
             draw_combo_face(
                 page,
-                layout.side_faces[human_row],
+                row_r("side_face", human_row),
                 [16, 16, 20, 255],
                 chrome,
                 paint.country_combo_open && paint.combo_row == human_row,
             );
-        }
-        if human_row < layout.color_faces.len() {
             let rgb = row_color_rgb(paint, human_row);
             draw_color_combo_face(
                 page,
-                layout.color_faces[human_row],
+                row_r("color_face", human_row),
                 rgb,
                 chrome,
                 paint.color_combo_open && paint.combo_row == human_row,
             );
-        }
-        if human_row < layout.flags.len() {
-            blit_flag(page, row_flag(chrome, human_row), layout.flags[human_row]);
+            blit_flag(page, row_flag(chrome, human_row), row_r("flag", human_row));
         }
     }
 
+    const CHECK_IDS: [&str; 5] = [
+        "checkbox_quick",
+        "checkbox_1",
+        "checkbox_2",
+        "checkbox_3",
+        "checkbox_4",
+    ];
     let checks = [paint.short_game, paint.mcv_repacks, paint.crates, paint.superweapons, paint.build_off_ally];
     for (i, checked) in checks.iter().enumerate() {
-        draw_skirmish_checkbox(page, layout.checkboxes[i], *checked, chrome);
+        draw_skirmish_checkbox(page, r(CHECK_IDS[i]), *checked, chrome);
     }
 
-    draw_skirmish_trackbar(page, layout.track_speed, i32::from(paint.game_speed), 6, chrome);
+    let track_speed = r("track_speed");
+    let track_credits = r("track_credits");
+    let track_units = r("track_units");
+    draw_skirmish_trackbar(page, track_speed, i32::from(paint.game_speed), 6, chrome);
     let credit_pos = (paint.credits / 1000).clamp(0, 10);
-    draw_skirmish_trackbar(page, layout.track_credits, credit_pos, 10, chrome);
-    draw_skirmish_trackbar(page, layout.track_units, paint.unit_count.clamp(0, 20), 20, chrome);
+    draw_skirmish_trackbar(page, track_credits, credit_pos, 10, chrome);
+    draw_skirmish_trackbar(page, track_units, paint.unit_count.clamp(0, 20), 20, chrome);
 
     if let Some(fnt) = fnt {
         let name_shown = if paint.player_name_editing { format!("{}|", paint.player_name) } else { paint.player_name.to_string() };
@@ -216,24 +225,27 @@ pub(super) fn paint_skirmish_lobby_controls(
             page,
             fnt,
             &name_shown,
-            layout.player_name.x + 4,
-            layout.player_name.y + 2,
+            player_name.x + 4,
+            player_name.y + 2,
             if paint.player_name_editing { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
         );
         let country = row_side_name(paint, 0);
-        blit_text_colored(page, fnt, country, layout.side_faces[0].x + 4, layout.side_faces[0].y + 4, MENU_TEXT_ENABLED);
+        let side0 = row_r("side_face", 0);
+        blit_text_colored(page, fnt, country, side0.x + 4, side0.y + 4, MENU_TEXT_ENABLED);
 
         let ai_label = if paint.ai_name.is_empty() { paint.ai_difficulty.to_string() } else { paint.ai_name.to_string() };
         for i in 0..ai_rows {
-            blit_text_colored(page, fnt, &ai_label, layout.ai_faces[i].x + 4, layout.ai_faces[i].y + 4, MENU_TEXT_ENABLED);
+            let ai = row_r("ai_face", i);
+            blit_text_colored(page, fnt, &ai_label, ai.x + 4, ai.y + 4, MENU_TEXT_ENABLED);
             let human_row = i + 1;
-            if human_row < layout.side_faces.len() {
+            if human_row < SKIRMISH_ROW_COUNT {
+                let side = row_r("side_face", human_row);
                 blit_text_colored(
                     page,
                     fnt,
                     row_side_name(paint, human_row),
-                    layout.side_faces[human_row].x + 4,
-                    layout.side_faces[human_row].y + 4,
+                    side.x + 4,
+                    side.y + 4,
                     MENU_TEXT_ENABLED,
                 );
             }
@@ -247,19 +259,22 @@ pub(super) fn paint_skirmish_lobby_controls(
             ("build_off_ally", "Build Off Ally"),
         ];
         for (i, (key, fb)) in check_labels.iter().enumerate() {
-            let r = layout.checkboxes[i];
-            blit_text_colored(page, fnt, &label(key, fb), r.x + SKIRMISH_CHECK_W + 8, r.y + 1, MENU_TEXT_ENABLED);
+            let box_r = r(CHECK_IDS[i]);
+            blit_text_colored(page, fnt, &label(key, fb), box_r.x + SKIRMISH_CHECK_W + 8, box_r.y + 1, MENU_TEXT_ENABLED);
         }
 
-        blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), layout.label_speed.x, layout.label_speed.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("credits", "Credits"), layout.label_credits.x, layout.label_credits.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), layout.label_units.x, layout.label_units.y, MENU_TEXT_ENABLED);
+        let label_speed = r("label_speed");
+        let label_credits = r("label_credits");
+        let label_units = r("label_units");
+        blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), label_speed.x, label_speed.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("credits", "Credits"), label_credits.x, label_credits.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), label_units.x, label_units.y, MENU_TEXT_ENABLED);
         // 数值画在右侧底板内；源色 0x00000C05 → RGB(5,12,0)。
         const TRACK_VALUE: [u8; 4] = [5, 12, 0, 255];
         let value_x = |track: RectPx| track.x + track.w - 0x31;
-        blit_text_colored(page, fnt, &paint.game_speed.to_string(), value_x(layout.track_speed), layout.track_speed.y + 2, TRACK_VALUE);
-        blit_text_colored(page, fnt, &paint.credits.to_string(), value_x(layout.track_credits), layout.track_credits.y + 2, TRACK_VALUE);
-        blit_text_colored(page, fnt, &paint.unit_count.to_string(), value_x(layout.track_units), layout.track_units.y + 2, TRACK_VALUE);
+        blit_text_colored(page, fnt, &paint.game_speed.to_string(), value_x(track_speed), track_speed.y + 2, TRACK_VALUE);
+        blit_text_colored(page, fnt, &paint.credits.to_string(), value_x(track_credits), track_credits.y + 2, TRACK_VALUE);
+        blit_text_colored(page, fnt, &paint.unit_count.to_string(), value_x(track_units), track_units.y + 2, TRACK_VALUE);
     }
 
     if paint.country_combo_open && !paint.sides.is_empty() {
@@ -326,8 +341,8 @@ pub(super) fn paint_skirmish_lobby_controls(
 /// 合成遭遇战大厅：右栏预览/地图名 + 左栏玩家与选项（非左侧地图列表）。
 pub fn compose_skirmish_lobby_page(
     decoded: &PageDecodeReport,
-    viewport_w: u32,
-    viewport_h: u32,
+    _viewport_w: u32,
+    _viewport_h: u32,
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
     status_text: Option<&str>,
@@ -338,10 +353,11 @@ pub fn compose_skirmish_lobby_page(
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
-    let layout = skirmish_lobby_layout(viewport_w, viewport_h);
+    let snap = solve_skirmish_lobby();
+    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
     let mut page = compose_shell_menu_page(
         decoded,
-        layout.shell,
+        shell,
         &SKIRMISH_LOBBY_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
@@ -354,36 +370,43 @@ pub fn compose_skirmish_lobby_page(
         warn_anim_frame,
     )?;
 
+    let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");
+    let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
+    let title = rect_px_from_snapshot(&snap, "title");
+    let game_type = rect_px_from_snapshot(&snap, "game_type");
+    let map_label = rect_px_from_snapshot(&snap, "map_label");
+    let status_help = rect_px_from_snapshot(&snap, "status_help");
+
     // 右栏：`sdtp` 帧 1 标题牌 + `sdmpbtn` 地图名底板；预览等比落入 `0x468` 黑窗（无红描边）。
-    blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
+    blit_skirmish_preview_chrome(&mut page, decoded, shell.panel_top, map_name_plate);
     if let Some(preview) = map_preview {
-        blit_map_preview_fit(&mut page, preview, layout.map_preview);
+        blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }
     if let Some(fnt) = fnt {
-        let title = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
-        blit_shell_static_title(&mut page, fnt, &title, layout.title);
+        let title_text = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
+        blit_shell_static_title(&mut page, fnt, &title_text, title);
         if !paint.game_type_name.is_empty() {
-            blit_text_colored(&mut page, fnt, paint.game_type_name, layout.game_type.x, layout.game_type.y, MENU_TEXT_ENABLED);
+            blit_text_colored(&mut page, fnt, paint.game_type_name, game_type.x, game_type.y, MENU_TEXT_ENABLED);
         }
         if !paint.map_name.is_empty() {
             blit_caption_top_left_clipped(
                 &mut page,
                 fnt,
                 paint.map_name,
-                layout.map_label.x,
-                layout.map_label.y,
-                layout.map_label.w,
-                layout.map_label.h,
+                map_label.x,
+                map_label.y,
+                map_label.w,
+                map_label.h,
                 MENU_TEXT_ENABLED,
             );
         }
     }
 
-    paint_skirmish_lobby_controls(&mut page, &layout, paint, fnt, csf);
+    paint_skirmish_lobby_controls(&mut page, &snap, paint, fnt, csf);
 
     // 底栏状态提示：壳层打字机可见切片。
     if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
-        blit_text_colored(&mut page, fnt, text, layout.status_help.x, layout.status_help.y, MENU_TEXT_ENABLED);
+        blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
     }
 
     Some(page)

@@ -142,7 +142,12 @@ impl Shell {
         Some(match screen {
             OriginalScreen::MainMenu => ui_layout::main_menu_layout(0, 0),
             OriginalScreen::SinglePlayerMenu => ui_layout::single_player_layout(0, 0),
-            OriginalScreen::SkirmishLobby => ui_layout::skirmish_lobby_layout(0, 0).shell,
+            OriginalScreen::SkirmishLobby => {
+                ui_layout::shell_rail_layout_from_snap(
+                    &ra_layout::solve_skirmish_lobby(),
+                    &ui_layout::SKIRMISH_LOBBY_BUTTON_IDS,
+                )
+            }
             OriginalScreen::Campaign => ui_layout::campaign_layout(0, 0).shell,
             OriginalScreen::ChooseMap => ui_layout::choose_map_layout(0, 0).shell,
             _ => return None,

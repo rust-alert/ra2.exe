@@ -28,7 +28,7 @@ impl RectPx {
 }
 
 /// 从 `LayoutSnapshot` 取整数像素矩形（缺省为零矩形）。
-pub(super) fn rect_px_from_snapshot(snap: &LayoutSnapshot, id: &str) -> RectPx {
+pub fn rect_px_from_snapshot(snap: &LayoutSnapshot, id: &str) -> RectPx {
     let Rect {
         x,
         y,

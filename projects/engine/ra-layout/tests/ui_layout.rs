@@ -43,26 +43,27 @@ fn main_menu_exit_sits_on_bottom_cover() {
 
 #[test]
 fn skirmish_lobby_matches_game_exe_dialog_0x102() {
-    let layout = skirmish_lobby_layout(800, 600);
+    let snap = ra_layout::solve_skirmish_lobby();
+    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
     assert_eq!(SKIRMISH_LOBBY_BUTTON_IDS, ["start", "choose_map", "back"]);
     // 开始/选图：模板 y DLU 149/176 → 吸附到 tile 1/2。
-    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 241, 156, 42));
-    assert_eq!(layout.shell.buttons[1], RectPx::new(644, 283, 156, 42));
-    assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
+    assert_eq!(shell.buttons[0], RectPx::new(644, 241, 156, 42));
+    assert_eq!(shell.buttons[1], RectPx::new(644, 283, 156, 42));
+    assert_eq!(shell.buttons[2], RectPx::new(644, 535, 156, 42));
     // 预览 `0x468` DLU (324,23,96,69) → right_anchor。
-    assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
+    assert_eq!(rect_px_from_snapshot(&snap, "map_preview"), RectPx::new(644, 37, 144, 112));
     // 标题 `0x694` DLU (318,1,108,10) → right_anchor。
-    assert_eq!(layout.title, RectPx::new(635, 2, 162, 16));
+    assert_eq!(rect_px_from_snapshot(&snap, "title"), RectPx::new(635, 2, 162, 16));
     // 地图名底板 `sdmpbtn`：贴右缘，底边落在第一根 tile 下沿。
-    assert_eq!(layout.map_name_plate, RectPx::new(644, 157, 156, 84));
+    assert_eq!(rect_px_from_snapshot(&snap, "map_name_plate"), RectPx::new(644, 157, 156, 84));
     // 玩家名 `0x6A0` DLU (35,11,100,12)。
-    assert_eq!(layout.player_name, RectPx::new(53, 18, 150, 20));
+    assert_eq!(rect_px_from_snapshot(&snap, "player_name"), RectPx::new(53, 18, 150, 20));
     // 快速游戏 `0x54E` DLU (35,145,100,10)。
-    assert_eq!(layout.checkboxes[0], RectPx::new(53, 236, 150, 16));
+    assert_eq!(rect_px_from_snapshot(&snap, "checkbox_quick"), RectPx::new(53, 236, 150, 16));
     // 速度滑条 `0x529` DLU (214,145,85,13)。
-    assert_eq!(layout.track_speed, RectPx::new(321, 236, 128, 21));
-    assert_eq!(layout.label_speed, RectPx::new(219, 236, 90, 16));
-    assert_eq!(layout.shell.lower_strip, RectPx::new(0, 0, 0, 0));
+    assert_eq!(rect_px_from_snapshot(&snap, "track_speed"), RectPx::new(321, 236, 128, 21));
+    assert_eq!(rect_px_from_snapshot(&snap, "label_speed"), RectPx::new(219, 236, 90, 16));
+    assert_eq!(shell.lower_strip, RectPx::new(0, 0, 0, 0));
 }
 
 #[test]
@@ -125,9 +126,12 @@ fn shell_page_layouts_ignore_viewport_size() {
         assert_eq!(main.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} main canvas");
         assert_eq!(main.buttons[5], RectPx::new(644, 535, 156, 42), "{w}x{h} exit");
 
-        let lobby = skirmish_lobby_layout(w, h);
-        assert_eq!(lobby.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} lobby canvas");
-        assert_eq!(lobby.shell.buttons[0], RectPx::new(644, 241, 156, 42), "{w}x{h} start");
+        let lobby = shell_rail_layout_from_snap(
+            &ra_layout::solve_skirmish_lobby(),
+            &SKIRMISH_LOBBY_BUTTON_IDS,
+        );
+        assert_eq!(lobby.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} lobby canvas");
+        assert_eq!(lobby.buttons[0], RectPx::new(644, 241, 156, 42), "{w}x{h} start");
 
         let maps = choose_map_layout(w, h);
         assert_eq!(maps.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} choose canvas");
