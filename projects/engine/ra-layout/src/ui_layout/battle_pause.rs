@@ -53,15 +53,3 @@ pub fn battle_pause_menu_layout(_viewport_w: u32, _viewport_h: u32) -> BattlePau
         buttons: shell.buttons,
     }
 }
-
-impl BattlePauseMenuLayout {
-    /// 壳层像素命中入口 id。
-    pub fn hit_entry_id(self, x: i32, y: i32) -> Option<&'static str> {
-        for (i, id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
-            if self.buttons[i].contains(x, y) {
-                return Some(*id);
-            }
-        }
-        None
-    }
-}

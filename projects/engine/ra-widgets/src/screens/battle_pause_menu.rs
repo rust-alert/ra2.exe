@@ -1,12 +1,12 @@
 //! 对局内暂停菜单（原版 Esc 菜单）：右栏六钮，左战术区压暗。
 //!
-//! 本模块只持入口 id、命中与布局入口；壳层导航 / 暂停仿真由宿主另接。
+//! 本模块只持入口 id 与命中；壳层导航 / 暂停仿真由宿主另接。几何权威为 `solve_battle_pause`。
 
 use ra_layout::{
-    battle_pause_menu_layout, solve_battle_pause, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
+    solve_battle_pause, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
 };
 
-pub use ra_layout::ui_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS, BattlePauseMenuLayout};
+pub use ra_layout::ui_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
 
 /// 暂停菜单命中结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,17 +52,12 @@ impl BattlePauseMenuHit {
     }
 }
 
-/// 构造 800×600 内容坐标下的暂停菜单布局。
-pub fn layout() -> BattlePauseMenuLayout {
-    battle_pause_menu_layout(0, 0)
-}
-
 fn battle_pause_snapshot() -> LayoutSnapshot {
     solve_battle_pause()
 }
 
-/// 在布局上命中（几何权威为 `shell_page_layout_tree` snapshot；`layout` 仅保留 API 兼容）。
-pub fn hit_at(_layout: BattlePauseMenuLayout, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
+/// 壳层像素命中（几何权威为 `solve_battle_pause` snapshot）。
+pub fn hit_at(x: i32, y: i32) -> Option<BattlePauseMenuHit> {
     let snap = battle_pause_snapshot();
     let point = Point2 {
         x: x as f32,
