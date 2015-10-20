@@ -436,8 +436,9 @@ impl BattleSession {
         self.refresh_outcome();
     }
 
-    /// 为所有非本地阵营下发本 tick 的 AI 命令（经 `push_command`）。
+    /// 为所有非本地、非氛围阵营下发本 tick 的 AI 命令（经 `push_command`）。
     ///
+    /// `Neutral` / `Civilian` 地图装饰房主不参与遭遇战 AI。
     /// `Easy`：奇数 tick 跳过生产与自动进攻，仅保留部署/建造节奏。
     /// `Normal`：每 4 个 tick 跳过一拍进攻/生产（略弱于 Hard）。
     /// `Hard`：每 tick 完整下发，并追加一轮生产尝试。
@@ -447,6 +448,7 @@ impl BattleSession {
             .world
             .players
             .iter()
+            .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
             .filter(|p| local_house.as_ref().map(|h| p.house.as_ref() != h.as_ref()).unwrap_or(true))
             .map(|p| (p.id, p.house.clone()))
             .collect();
@@ -802,9 +804,16 @@ impl BattleSession {
     }
 
     /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
-    /// 至少需要两名玩家槽位，避免单机装载尚未开战时误判胜负。
+    /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
+    /// `Neutral` / `Civilian` 氛围单位不计入作战力量。
     pub fn sole_victor(&self) -> Option<&str> {
-        if self.world.players.len() < 2 {
+        let skirmish_houses = self
+            .world
+            .players
+            .iter()
+            .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
+            .count();
+        if skirmish_houses < 2 {
             return None;
         }
         let mut owners: Vec<&str> = self
@@ -1034,9 +1043,16 @@ pub fn difficulty_extra_produce(difficulty: &str) -> bool {
     difficulty.eq_ignore_ascii_case("Hard")
 }
 
-/// 冻结胜负：存活建筑或可作战移动单位均算作战力量。
+/// 冻结胜负：存活建筑或可作战移动单位均算作战力量（排除 `Neutral` / `Civilian`）。
 fn is_combat_force(world: &BattleState, id: EntityId) -> bool {
     if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+        return false;
+    }
+    if world
+        .ecs_get::<Owner>(id)
+        .map(|o| crate::gameplay::ai::is_ambient_house(o.house.as_ref()))
+        .unwrap_or(false)
+    {
         return false;
     }
     world

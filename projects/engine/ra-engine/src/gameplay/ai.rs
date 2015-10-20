@@ -10,6 +10,11 @@ use crate::{
 use ra_map::MapEntityKind;
 use ra_types::{PlayerId, ProductionCategory};
 
+/// 地图氛围房主（平民装饰），不参与遭遇战 AI，也不计入胜负作战力量。
+pub fn is_ambient_house(house: &str) -> bool {
+    house.eq_ignore_ascii_case("Neutral") || house.eq_ignore_ascii_case("Civilian")
+}
+
 /// 为本阵营未部署的可部署单位生成 `Deploy`（已有建造场则跳过）。
 pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand> {
     if house_has_yard(world, house) {
@@ -312,6 +317,9 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
             continue;
         }
         if world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            continue;
+        }
+        if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(o.house.as_ref())).unwrap_or(false) {
             continue;
         }
         let Some(xf) = world.ecs_get::<Transform>(id)
