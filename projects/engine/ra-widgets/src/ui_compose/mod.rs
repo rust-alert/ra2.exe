@@ -26,11 +26,11 @@ use ra_layout::{
     SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W,
     SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT,
     SKIRMISH_AI_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W,
-    LOAD_SCREEN_BUTTON_IDS, LayoutSnapshot, battle_hud_layout, battle_hud_layout_with_metrics,
-    battle_pause_menu_layout, BattleHudChromeMetrics, campaign_layout, choose_map_layout,
+    LOAD_SCREEN_BUTTON_IDS, LayoutSnapshot, RightPanelChrome, SHELL_BASE_H, SHELL_BASE_W, battle_hud_layout,
+    battle_hud_layout_with_metrics, BattleHudChromeMetrics, campaign_layout, choose_map_layout,
     choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll, exit_confirm_page_layouts,
     load_screen_layout, main_menu_layout, rect_px_from_snapshot, shell_rail_layout_from_snap,
-    single_player_layout, solve_skirmish_lobby,
+    single_player_layout, solve_battle_pause, solve_skirmish_lobby,
 };
 
 mod raster;

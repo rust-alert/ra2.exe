@@ -224,22 +224,30 @@ pub fn compose_battle_pause_menu_overlay(
     csf: Option<&CsfFile>,
     decoded: Option<&PageDecodeReport>,
 ) -> Option<RgbaImage> {
-    let layout = battle_pause_menu_layout(viewport_w, viewport_h);
-    let w = layout.canvas.w.max(1) as u32;
-    let h = layout.canvas.h.max(1) as u32;
+    let _ = (viewport_w, viewport_h);
+    let snap = solve_battle_pause();
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
+    let panel_top = rect_px_from_snapshot(&snap, "panel_top");
+    let panel_tile = rect_px_from_snapshot(&snap, "panel_tile");
+    let panel_bottom = rect_px_from_snapshot(&snap, "panel_bottom");
+    let lower_strip = rect_px_from_snapshot(&snap, "lower_strip");
+    let panel_tile_count = RightPanelChrome::shell_defaults().tile_count();
+    let dim = RectPx::new(0, 0, panel_top.x, SHELL_BASE_H);
+    let w = canvas.w.max(1) as u32;
+    let h = canvas.h.max(1) as u32;
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
 
     if let Some(decoded) = decoded {
         // 左战术区压暗罩（半透明黑）。
-        fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
+        fill_rect(&mut page, dim, [0, 0, 0, 160]);
         paint_right_panel_chrome(
             &mut page,
             decoded,
-            layout.panel_top,
-            layout.panel_tile,
-            layout.panel_tile_count,
-            layout.panel_bottom,
-            layout.lower_strip,
+            panel_top,
+            panel_tile,
+            panel_tile_count,
+            panel_bottom,
+            lower_strip,
             0,
         );
     } else {
@@ -247,7 +255,7 @@ pub fn compose_battle_pause_menu_overlay(
         crate::RenderPlan::battle_pause_placeholders()
             .excluding_ids(&["background", "movie"])
             .paint_solids_into(&mut page);
-        fill_rect(&mut page, layout.dim, [0, 0, 0, 160]);
+        fill_rect(&mut page, dim, [0, 0, 0, 160]);
     }
 
     let button_ids = &BATTLE_PAUSE_MENU_BUTTON_IDS[..];
