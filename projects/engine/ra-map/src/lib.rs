@@ -15,6 +15,7 @@ mod pass_grid;
 mod placements;
 mod preview_pack;
 mod skirmish_preview;
+mod structure_damage;
 mod structure_paint;
 mod terrain_objects;
 mod terrain_paint;
@@ -55,6 +56,9 @@ pub use preview_pack::{
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
+};
+pub use structure_damage::{
+    StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset,
 };
 pub use structure_paint::{
     StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index,

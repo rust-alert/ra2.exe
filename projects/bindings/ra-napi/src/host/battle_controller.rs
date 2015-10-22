@@ -1401,6 +1401,7 @@ impl BattleController {
                 origin.0,
                 origin.1,
                 art_ini,
+                self.rules_ini,
                 &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
             );
             if n == 0 {
@@ -1420,7 +1421,7 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, art_ini, &|base, own| {
+            let bank = collect_structure_anim_bank(assets, &one, art_ini, self.rules_ini, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             (n, bank)

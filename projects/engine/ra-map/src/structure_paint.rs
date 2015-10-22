@@ -1,4 +1,4 @@
-//! 地图建筑放置段 SHP 叠画（含 ActiveAnim 时钟）。
+//! 地图建筑放置段 SHP 叠画（含 ActiveAnim 时钟与受损燃烧）。
 
 use std::collections::HashMap;
 
@@ -9,6 +9,7 @@ use crate::{
     MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
+    structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -86,11 +87,13 @@ pub fn structure_anim_frame(clock_ms: u64, rate_ms: u32, loop_start: u16, loop_e
 /// 叠画 `[Structures]`。`remap_owner(base, owner)` 返回房屋色调色板。
 ///
 /// `BodyAndAnims` 时叠 `ActiveAnim` / `ActiveAnimTwo`（如油田旗帜 `CAOILD_F`）。
+/// `rules_ini` 提供 `ConditionYellow` / `DamageFireTypes`；黄血建筑用受损主体帧并叠燃烧。
 pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
     art_ini: &str,
+    rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> usize {
@@ -98,14 +101,15 @@ pub fn paint_map_structures(
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, art_ini, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, art_ini, rules_ini, remap_owner, paint_body, clock_ms)
 }
 
-/// 收集建筑活动层并预解码全部循环帧（不含主体）。
+/// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
 pub fn collect_structure_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
     art_ini: &str,
+    rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> StructureAnimBank {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
@@ -117,6 +121,12 @@ pub fn collect_structure_anim_bank(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let damage = source
+        .read(rules_ini)
+        .ok()
+        .and_then(|b| IniDocument::parse(&b).ok())
+        .map(|d| StructureDamageRules::from_rules_doc(&d))
+        .unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -185,6 +195,93 @@ pub fn collect_structure_anim_bank(
                 rate_ms,
                 loop_start,
                 loop_end: end,
+                frames,
+            });
+        }
+
+        // 黄血及以下：按 art `DamageFireOffset*` 叠 `DamageFireTypes` 火焰。
+        if !damage.is_yellow(ent.health) || damage.fire_types.is_empty() {
+            continue;
+        }
+        for i in 0..8u8 {
+            let Some(raw) = art.as_ref().and_then(|a| a.get(&art_section, &format!("DamageFireOffset{i}")))
+            else {
+                continue;
+            };
+            let Some((ox, oy)) = parse_damage_fire_offset(raw)
+            else {
+                continue;
+            };
+            let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
+            let fire_image = art
+                .as_ref()
+                .and_then(|a| a.get(fire_name, "Image"))
+                .unwrap_or(fire_name.as_str())
+                .to_ascii_uppercase();
+            let fire_new_theater =
+                art.as_ref().and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let rate_ms = art.as_ref().and_then(|a| a.get(fire_name, "Rate")).and_then(parse_u32).unwrap_or(80);
+            let Some(shp) = load_shp(source, map, &fire_image, fire_new_theater, &mut shp_cache)
+            else {
+                // 无节时仍尝试直接按类型名读 SHP。
+                let Some(shp) = load_shp(source, map, fire_name, false, &mut shp_cache)
+                else {
+                    continue;
+                };
+                let body_n = shp_body_frame_count(&shp.frames) as u16;
+                if body_n == 0 {
+                    continue;
+                }
+                let mut frames = Vec::with_capacity(usize::from(body_n));
+                for frame_idx in 0..body_n {
+                    let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &obj_pal)
+                    else {
+                        frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
+                        continue;
+                    };
+                    blit.offset_x += ox;
+                    blit.offset_y += oy;
+                    frames.push(blit);
+                }
+                if frames.iter().all(|f| f.width == 0) {
+                    continue;
+                }
+                layers.push(StructureAnimLayer {
+                    x: ent.x,
+                    y: ent.y,
+                    cell_z,
+                    rate_ms,
+                    loop_start: 0,
+                    loop_end: body_n,
+                    frames,
+                });
+                continue;
+            };
+            let body_n = shp_body_frame_count(&shp.frames) as u16;
+            if body_n == 0 {
+                continue;
+            }
+            let mut frames = Vec::with_capacity(usize::from(body_n));
+            for frame_idx in 0..body_n {
+                let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &obj_pal)
+                else {
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
+                    continue;
+                };
+                blit.offset_x += ox;
+                blit.offset_y += oy;
+                frames.push(blit);
+            }
+            if frames.iter().all(|f| f.width == 0) {
+                continue;
+            }
+            layers.push(StructureAnimLayer {
+                x: ent.x,
+                y: ent.y,
+                cell_z,
+                rate_ms,
+                loop_start: 0,
+                loop_end: body_n,
                 frames,
             });
         }
@@ -347,10 +444,11 @@ pub fn paint_structures_onto_rgba(
     origin_x: i32,
     origin_y: i32,
     art_ini: &str,
+    rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_structures(source, map, &mut terrain, art_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let n = paint_map_structures(source, map, &mut terrain, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -360,6 +458,7 @@ fn paint_map_structures_inner(
     map: &MapInfo,
     image: &mut TerrainImage,
     art_ini: &str,
+    rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
@@ -374,6 +473,12 @@ fn paint_map_structures_inner(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let damage = source
+        .read(rules_ini)
+        .ok()
+        .and_then(|b| IniDocument::parse(&b).ok())
+        .map(|d| StructureDamageRules::from_rules_doc(&d))
+        .unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return 0;
@@ -392,9 +497,22 @@ fn paint_map_structures_inner(
             let body_key = art.as_ref().and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
             let body_new_theater =
                 art.as_ref().and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-            if let Some(blit) =
-                load_structure_blit(source, map, &body_key, body_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
-            {
+            let body_frames = load_shp(source, map, &body_key, body_new_theater, &mut shp_cache)
+                .map(|shp| shp_body_frame_count(&shp.frames))
+                .unwrap_or(1);
+            let frame_idx = damaged_body_frame(ent.health, damage.yellow, body_frames);
+            if let Some(blit) = load_structure_blit(
+                source,
+                map,
+                &body_key,
+                body_new_theater,
+                frame_idx,
+                0,
+                &pal,
+                &mut shp_cache,
+                &mut blit_cache,
+                &ent.owner,
+            ) {
                 items.push((ent.x, ent.y, blit));
             }
         }

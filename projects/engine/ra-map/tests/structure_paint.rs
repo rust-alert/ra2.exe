@@ -80,7 +80,7 @@ fn empty_structures_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
-        paint_map_structures(&EmptySource, &map, &mut image, "art.ini", &|p, _| p.clone(), StructureAnimMode::BodyOnly),
+        paint_map_structures(&EmptySource, &map, &mut image, "art.ini", "rules.ini", &|p, _| p.clone(), StructureAnimMode::BodyOnly),
         0
     );
 }
@@ -146,10 +146,92 @@ Rate=300\n\
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|p, _| p.clone(),
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
     assert_eq!(painted, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
+}
+
+#[test]
+fn yellow_health_collects_damage_fire_layers() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[CAGAS01]\n\
+Remapable=no\n\
+DamageFireOffset0=10,-5\n\
+\n\
+[FIRE01]\n\
+Rate=50\n\
+";
+    let rules = b"\
+[AudioVisual]\n\
+ConditionYellow=50%\n\
+ConditionRed=25%\n\
+DamageFireTypes=FIRE01\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), rules.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("cagas01.shp".into(), raw_one_pixel_shp(5));
+    files.insert("fire01.shp".into(), multi_frame_shp(&[5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAGAS01".into(),
+        health: 64,
+        x: 2,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert_eq!(bank.layers.len(), 1, "yellow HP should bake one fire layer");
+    assert_eq!(bank.layers[0].frames.len(), 2);
+    // frame_to_blit 锚点 (+TILE_W/2, -H/2) 再加 DamageFireOffset。
+    assert_eq!(bank.layers[0].frames[0].offset_x, 30 + 10);
+    assert_eq!(bank.layers[0].frames[0].offset_y, -5);
+}
+
+#[test]
+fn full_health_skips_damage_fire_layers() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[CAGAS01]\n\
+DamageFireOffset0=10,-5\n\
+";
+    let rules = b"\
+[AudioVisual]\n\
+ConditionYellow=50%\n\
+DamageFireTypes=FIRE01\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), rules.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("cagas01.shp".into(), raw_one_pixel_shp(5));
+    files.insert("fire01.shp".into(), multi_frame_shp(&[5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAGAS01".into(),
+        health: 256,
+        x: 2,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert!(bank.layers.is_empty());
 }
 
 #[test]
