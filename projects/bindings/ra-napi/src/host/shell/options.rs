@@ -46,9 +46,8 @@ impl Shell {
 
     /// 选项页按下：左栏优先；右栏仍走原有 pressed 精灵。
     pub(super) fn handle_options_press(&mut self) -> bool {
-        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
-        let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(&layout, x, y))
+        let Some(hit) = self.options_state.as_mut().and_then(|state| state.on_press(x, y))
         else {
             return false;
         };
@@ -85,9 +84,12 @@ impl Shell {
 
     /// 选项页拖动滑条。
     pub(super) fn handle_options_drag(&mut self) -> bool {
-        let layout = ra_widgets::options_dialog::OptionsDialogLayout::new();
         let (x, y) = self.shell_cursor_px();
-        let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(&layout, x, y)).unwrap_or(false);
+        let dragged = self
+            .options_state
+            .as_mut()
+            .map(|state| state.dragging.is_some() && state.on_drag(x, y))
+            .unwrap_or(false);
         if !dragged {
             return false;
         }

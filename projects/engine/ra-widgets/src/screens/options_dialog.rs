@@ -1,12 +1,12 @@
 //! 选项对话框：左五区控件 + 右栏接受/取消/主菜单。
 //!
-//! 布局对齐原版选项板（显示 / 游戏 / 界面 / 音效），并增补 16 位质感勾选；右栏动作为接受、取消、主菜单。
-//! 本模块只持草稿状态与命中，不直接碰窗口或配置落盘。
+//! 几何权威为 `solve_options_page` snapshot。本模块只持草稿状态与命中，不碰窗口或配置落盘。
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
 use ra_layout::{
-    options_layout_from_snap, popup_row_below, solve_options_page, RectPx, OPTIONS_RESOLUTION_ROW_H,
+    popup_row_below, rect_px_from_snapshot, solve_options_page, LayoutSnapshot, RectPx,
+    OPTIONS_RESOLUTION_ROW_H,
 };
 
 /// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
@@ -38,6 +38,18 @@ impl OptionsTrackbar {
             Self::Music | Self::Sound | Self::Voice => 10,
         }
     }
+
+    /// snapshot 控件 id。
+    pub const fn layout_id(self) -> &'static str {
+        match self {
+            Self::Detail => "track_detail",
+            Self::Difficulty => "track_difficulty",
+            Self::Scroll => "track_scroll",
+            Self::Music => "track_music",
+            Self::Sound => "track_sound",
+            Self::Voice => "track_voice",
+        }
+    }
 }
 
 /// 勾选框种类。
@@ -51,6 +63,18 @@ pub enum OptionsCheckbox {
     ShowDamage,
     /// 启用 16 位质感呈现。
     Present16bit,
+}
+
+impl OptionsCheckbox {
+    /// snapshot 控件 id。
+    pub const fn layout_id(self) -> &'static str {
+        match self {
+            Self::Tooltips => "check_tooltips",
+            Self::Scanlines => "check_scanlines",
+            Self::ShowDamage => "check_damage",
+            Self::Present16bit => "check_present",
+        }
+    }
 }
 
 /// 选项页命中结果（含拖动起点）。
@@ -161,21 +185,26 @@ impl OptionsDialogState {
         }
     }
 
-    /// 按壳层像素处理按下。
-    pub fn on_press(&mut self, layout: &OptionsDialogLayout, x: i32, y: i32) -> Option<OptionsHit> {
-        let hit = layout.hit_at(x, y, self.resolution_open)?;
+    /// 按壳层像素处理按下（几何来自 `solve_options_page`）。
+    pub fn on_press(&mut self, x: i32, y: i32) -> Option<OptionsHit> {
+        let snap = solve_options_page();
+        let hit = hit_at(&snap, x, y, self.resolution_open)?;
         match hit {
             OptionsHit::Toggle(id) => match id {
                 OptionsCheckbox::Tooltips => self.tooltips = !self.tooltips,
                 OptionsCheckbox::Scanlines => self.scanlines = !self.scanlines,
                 OptionsCheckbox::ShowDamage => self.show_damage = !self.show_damage,
                 OptionsCheckbox::Present16bit => {
-                    self.present.mode = if self.present.is_active() { PresentMode::Off } else { PresentMode::Bit16 };
+                    self.present.mode = if self.present.is_active() {
+                        PresentMode::Off
+                    } else {
+                        PresentMode::Bit16
+                    };
                 }
             },
             OptionsHit::Track(id) => {
                 self.dragging = Some(id);
-                self.apply_track_at(layout, id, x);
+                self.apply_track_at(&snap, id, x);
             }
             OptionsHit::ResolutionCombo => {
                 self.resolution_open = !self.resolution_open;
@@ -192,13 +221,13 @@ impl OptionsDialogState {
     }
 
     /// 拖动中更新滑条；档位变化时返回 `true`。
-    pub fn on_drag(&mut self, layout: &OptionsDialogLayout, x: i32, _y: i32) -> bool {
-        let Some(id) = self.dragging
-        else {
+    pub fn on_drag(&mut self, x: i32, _y: i32) -> bool {
+        let Some(id) = self.dragging else {
             return false;
         };
+        let snap = solve_options_page();
         let before = self.track_value(id);
-        self.apply_track_at(layout, id, x);
+        self.apply_track_at(&snap, id, x);
         self.track_value(id) != before
     }
 
@@ -208,15 +237,74 @@ impl OptionsDialogState {
         None
     }
 
-    fn apply_track_at(&mut self, layout: &OptionsDialogLayout, id: OptionsTrackbar, x: i32) {
-        let track = layout.trackbar_rect(id);
+    fn apply_track_at(&mut self, snap: &LayoutSnapshot, id: OptionsTrackbar, x: i32) {
+        let track = rect_px_from_snapshot(snap, id.layout_id());
         let max = id.max();
         let inner = (track.w - 12).max(1);
         let rel = (x - track.x - 6).clamp(0, inner);
-        let pos = if max == 0 { 0 } else { ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8 };
+        let pos = if max == 0 {
+            0
+        } else {
+            ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8
+        };
         let pos = pos.min(max);
         *self.track_value_mut(id) = pos;
     }
+}
+
+/// 分辨率下拉展开后的行矩形。
+pub fn resolution_row_rect(snap: &LayoutSnapshot, index: usize) -> RectPx {
+    popup_row_below(
+        rect_px_from_snapshot(snap, "resolution"),
+        OPTIONS_RESOLUTION_ROW_H,
+        index,
+    )
+}
+
+/// 壳层像素命中。`resolution_open` 为真时才命中下拉行。
+pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32, resolution_open: bool) -> Option<OptionsHit> {
+    for id in OPTIONS_RAIL_IDS {
+        if rect_px_from_snapshot(snap, id).contains(x, y) {
+            return Some(match id {
+                "accept" => OptionsHit::Accept,
+                "cancel" => OptionsHit::Cancel,
+                _ => OptionsHit::MainMenu,
+            });
+        }
+    }
+    if resolution_open {
+        for i in 0..DisplayMode::ALL.len() {
+            if resolution_row_rect(snap, i).contains(x, y) {
+                return Some(OptionsHit::ResolutionRow(i));
+            }
+        }
+    }
+    if rect_px_from_snapshot(snap, "resolution").contains(x, y) {
+        return Some(OptionsHit::ResolutionCombo);
+    }
+    for id in [
+        OptionsCheckbox::Tooltips,
+        OptionsCheckbox::Scanlines,
+        OptionsCheckbox::ShowDamage,
+        OptionsCheckbox::Present16bit,
+    ] {
+        if rect_px_from_snapshot(snap, id.layout_id()).contains(x, y) {
+            return Some(OptionsHit::Toggle(id));
+        }
+    }
+    for id in [
+        OptionsTrackbar::Detail,
+        OptionsTrackbar::Difficulty,
+        OptionsTrackbar::Scroll,
+        OptionsTrackbar::Music,
+        OptionsTrackbar::Sound,
+        OptionsTrackbar::Voice,
+    ] {
+        if rect_px_from_snapshot(snap, id.layout_id()).contains(x, y) {
+            return Some(OptionsHit::Track(id));
+        }
+    }
+    None
 }
 
 fn vol_to_pos(v: f32) -> u8 {
@@ -225,172 +313,4 @@ fn vol_to_pos(v: f32) -> u8 {
 
 fn pos_to_vol(p: u8) -> f32 {
     f32::from(p.min(10)) / 10.0
-}
-
-/// 选项对话框一帧几何（800×600 内容坐标）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OptionsDialogLayout {
-    /// 画布。
-    pub canvas: RectPx,
-    /// 左侧大内容板。
-    pub content: RectPx,
-    /// 右栏顶盖。
-    pub panel_top: RectPx,
-    /// 右栏平铺起点。
-    pub panel_tile: RectPx,
-    /// 平铺条数。
-    pub panel_tile_count: i32,
-    /// 右栏底盖。
-    pub panel_bottom: RectPx,
-    /// 底部装饰条。
-    pub lower_strip: RectPx,
-    /// 右栏标题。
-    pub title: RectPx,
-    /// 接受 / 取消 / 主菜单。
-    pub rail: [RectPx; 3],
-    /// 显示区标题。
-    pub sec_display: RectPx,
-    /// 游戏区标题。
-    pub sec_game: RectPx,
-    /// 界面区标题。
-    pub sec_ui: RectPx,
-    /// 质感呈现区标题。
-    pub sec_present: RectPx,
-    /// 音效区标题。
-    pub sec_audio: RectPx,
-    /// 详细程度滑条。
-    pub track_detail: RectPx,
-    /// 分辨率下拉。
-    pub resolution: RectPx,
-    /// 难度滑条。
-    pub track_difficulty: RectPx,
-    /// 三勾选（提示 / 扫描线 / 损害）。
-    pub checks: [RectPx; 3],
-    /// 滚动滑条。
-    pub track_scroll: RectPx,
-    /// 16 位质感勾选。
-    pub check_present: RectPx,
-    /// 音乐 / 音效 / 语音。
-    pub track_music: RectPx,
-    pub track_sound: RectPx,
-    pub track_voice: RectPx,
-}
-
-impl OptionsDialogLayout {
-    /// 构造与主菜单同右栏几何的选项板。
-    ///
-    /// 整页几何投影自同一次 `solve_options_page`（chrome、右栏三钮、内容板）。
-    pub fn new() -> Self {
-        let snap = solve_options_page();
-        let shell = options_layout_from_snap(&snap);
-        let rect = |id: &str| {
-            let r = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
-            RectPx::new(r.x as i32, r.y as i32, r.width as i32, r.height as i32)
-        };
-        Self {
-            canvas: shell.canvas,
-            content: rect("content"),
-            panel_top: shell.panel_top,
-            panel_tile: shell.panel_tile,
-            panel_tile_count: shell.panel_tile_count,
-            panel_bottom: shell.panel_bottom,
-            lower_strip: shell.lower_strip,
-            title: shell.title,
-            rail: [shell.buttons[0], shell.buttons[1], shell.buttons[2]],
-            sec_display: rect("sec_display"),
-            track_detail: rect("track_detail"),
-            resolution: rect("resolution"),
-            sec_game: rect("sec_game"),
-            track_difficulty: rect("track_difficulty"),
-            sec_ui: rect("sec_ui"),
-            checks: [
-                rect("check_tooltips"),
-                rect("check_scanlines"),
-                rect("check_damage"),
-            ],
-            track_scroll: rect("track_scroll"),
-            sec_present: rect("sec_present"),
-            check_present: rect("check_present"),
-            sec_audio: rect("sec_audio"),
-            track_music: rect("track_music"),
-            track_sound: rect("track_sound"),
-            track_voice: rect("track_voice"),
-        }
-    }
-
-    fn trackbar_rect(self, id: OptionsTrackbar) -> RectPx {
-        match id {
-            OptionsTrackbar::Detail => self.track_detail,
-            OptionsTrackbar::Difficulty => self.track_difficulty,
-            OptionsTrackbar::Scroll => self.track_scroll,
-            OptionsTrackbar::Music => self.track_music,
-            OptionsTrackbar::Sound => self.track_sound,
-            OptionsTrackbar::Voice => self.track_voice,
-        }
-    }
-
-    /// 分辨率下拉展开后的行矩形。
-    pub fn resolution_row(self, index: usize) -> RectPx {
-        popup_row_below(self.resolution, OPTIONS_RESOLUTION_ROW_H, index)
-    }
-
-    /// 壳层像素命中。`resolution_open` 为真时才命中下拉行。
-    pub fn hit_at(self, x: i32, y: i32, resolution_open: bool) -> Option<OptionsHit> {
-        for (i, id) in OPTIONS_RAIL_IDS.iter().enumerate() {
-            if self.rail[i].contains(x, y) {
-                return Some(match *id {
-                    "accept" => OptionsHit::Accept,
-                    "cancel" => OptionsHit::Cancel,
-                    _ => OptionsHit::MainMenu,
-                });
-            }
-        }
-        if resolution_open {
-            for i in 0..DisplayMode::ALL.len() {
-                if self.resolution_row(i).contains(x, y) {
-                    return Some(OptionsHit::ResolutionRow(i));
-                }
-            }
-        }
-        if self.resolution.contains(x, y) {
-            return Some(OptionsHit::ResolutionCombo);
-        }
-        for (i, rect) in self.checks.iter().enumerate() {
-            if rect.contains(x, y) {
-                let id = match i {
-                    0 => OptionsCheckbox::Tooltips,
-                    1 => OptionsCheckbox::Scanlines,
-                    _ => OptionsCheckbox::ShowDamage,
-                };
-                return Some(OptionsHit::Toggle(id));
-            }
-        }
-        if self.check_present.contains(x, y) {
-            return Some(OptionsHit::Toggle(OptionsCheckbox::Present16bit));
-        }
-        for id in [
-            OptionsTrackbar::Detail,
-            OptionsTrackbar::Difficulty,
-            OptionsTrackbar::Scroll,
-            OptionsTrackbar::Music,
-            OptionsTrackbar::Sound,
-            OptionsTrackbar::Voice,
-        ] {
-            if self.trackbar_rect(id).contains(x, y) {
-                return Some(OptionsHit::Track(id));
-            }
-        }
-        None
-    }
-
-    /// 悬停右栏下标（含全部三钮）。
-    pub fn hover_rail_index(self, x: i32, y: i32) -> Option<usize> {
-        self.rail.iter().position(|r| r.contains(x, y))
-    }
-}
-
-impl Default for OptionsDialogLayout {
-    fn default() -> Self {
-        Self::new()
-    }
 }

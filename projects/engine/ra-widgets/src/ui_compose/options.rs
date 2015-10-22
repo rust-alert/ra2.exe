@@ -15,24 +15,25 @@ pub fn compose_options_page(
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
-    // 整页几何只求一次：chrome、右栏三钮与内容板同源。
-    let dlg = crate::options_dialog::OptionsDialogLayout::new();
+    let snap = ra_layout::solve_options_page();
+    let chrome = RightPanelChrome::shell_defaults();
+    let canvas = RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32);
     let mut page = RgbaImage::from_raw(
-        dlg.canvas.w as u32,
-        dlg.canvas.h as u32,
-        vec![0u8; (dlg.canvas.w as usize) * (dlg.canvas.h as usize) * 4],
+        canvas.w as u32,
+        canvas.h as u32,
+        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
     )?;
     // 整页黑底，避免残留主菜单影片/大背景。
-    fill_rect(&mut page, dlg.canvas, [0, 0, 0, 255]);
+    fill_rect(&mut page, canvas, [0, 0, 0, 255]);
 
     paint_right_panel_chrome(
         &mut page,
         decoded,
-        dlg.panel_top,
-        dlg.panel_tile,
-        dlg.panel_tile_count,
-        dlg.panel_bottom,
-        dlg.lower_strip,
+        rect_px_from_snapshot(&snap, "panel_top"),
+        rect_px_from_snapshot(&snap, "panel_tile"),
+        chrome.tile_count(),
+        rect_px_from_snapshot(&snap, "panel_bottom"),
+        rect_px_from_snapshot(&snap, "lower_strip"),
         warn_anim_frame,
     );
 
@@ -62,18 +63,19 @@ pub fn compose_options_page(
 
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "options", options_dialog_csf_key("title"));
+        let title_cell = rect_px_from_snapshot(&snap, "title");
         blit_caption_in_cell(
             &mut page,
             fnt,
             &title,
-            dlg.title.x,
-            dlg.title.y,
-            dlg.title.w,
-            dlg.title.h,
+            title_cell.x,
+            title_cell.y,
+            title_cell.w,
+            title_cell.h,
             MENU_TEXT_SECTION,
         );
     }
 
-    paint_options_dialog_controls(&mut page, &dlg, state, fnt, csf);
+    paint_options_dialog_controls(&mut page, &snap, state, fnt, csf);
     Some(page)
 }

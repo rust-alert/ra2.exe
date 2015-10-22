@@ -1,8 +1,7 @@
-//! 主菜单 / 单人 / 选项右栏布局。
+//! 主菜单 / 单人右栏布局。
 
 use super::*;
-use crate::{LayoutSnapshot, RightPanelChrome, solve_options_page};
-
+use crate::{LayoutSnapshot, RightPanelChrome};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MainMenuLayout {
     /// 合成画布（通常为 800×600；大窗时仍以此为内容基准）。
@@ -84,16 +83,4 @@ pub fn single_player_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayou
         Some(SINGLE_PLAYER_BUTTON_IDS[3]),
     );
     shell_rail_layout_from_snap(&snap, &SINGLE_PLAYER_BUTTON_IDS)
-}
-
-/// 选项页：接受 / 取消 / 主菜单贴底盖（左栏控件另由 `options_dialog` 绘制）。
-///
-/// 几何与 `options_dialog` / hit 同源：一次 `options_page_layout_tree` 求解。
-pub fn options_layout(_viewport_w: u32, _viewport_h: u32) -> MainMenuLayout {
-    options_layout_from_snap(&solve_options_page())
-}
-
-/// 由已有 `solve_options_page` snapshot 投影右栏壳层（避免二次求解）。
-pub fn options_layout_from_snap(snap: &LayoutSnapshot) -> MainMenuLayout {
-    shell_rail_layout_from_snap(snap, &OPTIONS_BUTTON_IDS)
 }

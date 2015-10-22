@@ -6,8 +6,7 @@ use ra_widgets::{
 };
 use ra_layout::ui_layout::{
     MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
-    main_menu_layout, options_layout, rect_px_from_snapshot, shell_rail_layout_from_snap,
-    single_player_layout,
+    main_menu_layout, rect_px_from_snapshot, shell_rail_layout_from_snap, single_player_layout,
 };
 use ra_renderer::RgbaImage;
 #[test]
@@ -237,8 +236,7 @@ fn compose_options_uses_main_menu_id() {
         ra_types::PresentFeel::DEFAULT,
     );
     let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, 0).unwrap();
-    let layout = options_layout(800, 600);
-    let cell = layout.buttons[2];
+    let cell = rect_px_from_snapshot(&ra_layout::solve_options_page(), "main_menu");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[200, 200, 0, 255]);
 }

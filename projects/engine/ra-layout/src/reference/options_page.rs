@@ -19,7 +19,7 @@ fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
 const OPTIONS_RAIL_STACKED: &[&str] = &["accept", "cancel"];
 const OPTIONS_RAIL_BOTTOM: &str = "main_menu";
 
-/// 选项页内容控件 id（与过渡期 `OptionsDialogLayout` 字段同构）。
+/// 选项页内容控件 id（与 `solve_options_page` snapshot 对齐）。
 pub const OPTIONS_CONTENT_IDS: &[&str] = &[
     "content",
     "sec_display",
@@ -122,7 +122,7 @@ mod tests {
             },
             &options_content_layout_tree(chrome),
         );
-        // 与过渡期 `OptionsDialogLayout::new` 在 800×600 下的内容板公式一致。
+        // 与 `solve_options_page` 在 800×600 下的内容板公式一致。
         let expect = [
             ("content", 16, 16, 608, 568),
             ("sec_display", 32, 28, 576, 18),

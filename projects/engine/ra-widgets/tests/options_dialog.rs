@@ -1,57 +1,64 @@
-//! 集成测试：原 `src/options_dialog.rs` 内联测试迁出。
+//! 集成测试：选项页草稿命中（几何权威为 `solve_options_page`）。
 
-use ra_widgets::options_dialog::*;
-use ra_layout::ui_layout::options_layout;
+use ra_layout::{rect_px_from_snapshot, solve_options_page};
 use ra_types::{DisplayMode, PresentFeel};
+use ra_widgets::options_dialog::*;
 
 #[test]
 fn rail_accept_is_top_tile_cell() {
-    let layout = OptionsDialogLayout::new();
-    let shell = options_layout(0, 0);
-    assert_eq!(layout.rail[0], shell.buttons[0]);
-    assert_eq!(layout.rail[1], shell.buttons[1]);
-    assert_eq!(layout.rail[2], shell.buttons[2]);
-    assert_eq!(layout.rail[0].y, shell.panel_tile.y);
-    assert!(layout.rail[2].y < shell.panel_bottom.y);
+    let snap = solve_options_page();
+    let accept = rect_px_from_snapshot(&snap, "accept");
+    let cancel = rect_px_from_snapshot(&snap, "cancel");
+    let main_menu = rect_px_from_snapshot(&snap, "main_menu");
+    let panel_tile = rect_px_from_snapshot(&snap, "panel_tile");
+    let panel_bottom = rect_px_from_snapshot(&snap, "panel_bottom");
+    assert_eq!(accept.y, panel_tile.y);
+    assert!(cancel.y > accept.y);
+    assert!(main_menu.y < panel_bottom.y);
 }
 
 #[test]
 fn track_drag_maps_edges() {
-    let layout = OptionsDialogLayout::new();
+    let snap = solve_options_page();
     let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.4, 0.7, PresentFeel::DEFAULT);
-    let track = layout.track_music;
-    state.on_press(&layout, track.x + 6, track.y + 4);
+    let track = rect_px_from_snapshot(&snap, "track_music");
+    state.on_press(track.x + 6, track.y + 4);
     assert_eq!(state.music, 0);
-    state.on_press(&layout, track.x + track.w - 2, track.y + 4);
+    state.on_press(track.x + track.w - 2, track.y + 4);
     assert_eq!(state.music, 10);
 }
 
 #[test]
 fn resolution_row_selects_mode() {
-    let layout = OptionsDialogLayout::new();
+    let snap = solve_options_page();
     let mut state = OptionsDialogState::from_shell(DisplayMode::W640H480, 0.5, 0.5, PresentFeel::DEFAULT);
     state.resolution_open = true;
-    let row = layout.resolution_row(2);
-    state.on_press(&layout, row.x + 4, row.y + 4);
+    let row = resolution_row_rect(&snap, 2);
+    state.on_press(row.x + 4, row.y + 4);
     assert_eq!(state.display_mode, DisplayMode::W1024H768);
     assert!(!state.resolution_open);
 }
 
 #[test]
 fn present_toggle_only() {
-    let layout = OptionsDialogLayout::new();
+    let snap = solve_options_page();
     let mut state = OptionsDialogState::from_shell(DisplayMode::W800H600, 0.5, 0.5, PresentFeel::DEFAULT);
+    let check = rect_px_from_snapshot(&snap, "check_present");
     assert!(state.present.is_active());
-    state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
+    state.on_press(check.x + 4, check.y + 4);
     assert!(!state.present.is_active());
-    state.on_press(&layout, layout.check_present.x + 4, layout.check_present.y + 4);
+    state.on_press(check.x + 4, check.y + 4);
     assert!(state.present.is_active());
 }
 
 #[test]
 fn present_controls_fit_content() {
-    let layout = OptionsDialogLayout::new();
-    let bottom = layout.track_voice.y + layout.track_voice.h;
-    assert!(bottom <= layout.content.y + layout.content.h);
-    assert!(layout.sec_present.y < layout.sec_audio.y);
+    let snap = solve_options_page();
+    let content = rect_px_from_snapshot(&snap, "content");
+    let track_voice = rect_px_from_snapshot(&snap, "track_voice");
+    let sec_present = rect_px_from_snapshot(&snap, "sec_present");
+    let sec_audio = rect_px_from_snapshot(&snap, "sec_audio");
+    let bottom = track_voice.y + track_voice.h;
+    assert!(bottom <= content.y + content.h);
+    assert!(sec_present.y < sec_audio.y);
 }
