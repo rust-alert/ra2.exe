@@ -28,19 +28,47 @@ fn main_menu_hit_options_and_exit_cells() {
 
 #[test]
 fn exit_confirm_ok_and_cancel_cells() {
+    use ra_layout::{rect_px_from_snapshot, solve_exit_confirm, EXIT_CONFIRM_BUTTON_IDS};
+
     let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
         (x as f64, y as f64)
     };
-    let dlg = ra_layout::ui_layout::exit_confirm_layout(0, 0);
-    let ok = dlg.buttons[0];
-    let cancel = dlg.buttons[1];
+    let snap = solve_exit_confirm();
+    let ok = rect_px_from_snapshot(&snap, EXIT_CONFIRM_BUTTON_IDS[0]);
+    let cancel = rect_px_from_snapshot(&snap, EXIT_CONFIRM_BUTTON_IDS[1]);
     let (ox, oy) = to_win(ok.x + ok.w / 2, ok.y + ok.h / 2);
     let (cx, cy) = to_win(cancel.x + cancel.w / 2, cancel.y + cancel.h / 2);
-    assert_eq!(hit_action(OriginalScreen::ExitConfirm, &[], 0, None, (ox, oy), 1024.0, 768.0, 0, false), Some(MenuAction::ConfirmExit));
-    assert_eq!(hit_action(OriginalScreen::ExitConfirm, &[], 0, None, (cx, cy), 1024.0, 768.0, 0, false), Some(MenuAction::Back));
+    assert_eq!(
+        hit_action(
+            OriginalScreen::ExitConfirm,
+            &[],
+            0,
+            None,
+            (ox, oy),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::ConfirmExit)
+    );
+    assert_eq!(
+        hit_action(
+            OriginalScreen::ExitConfirm,
+            &[],
+            0,
+            None,
+            (cx, cy),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::Back)
+    );
 }
 
 #[test]
@@ -105,22 +133,63 @@ fn physical_cursor_with_logical_window_misses_on_hidpi() {
 
 #[test]
 fn campaign_side_and_difficulty_are_hit() {
+    use ra_layout::{rect_px_from_snapshot, solve_campaign};
+
     let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
         (x as f64, y as f64)
     };
-    let layout = ra_layout::ui_layout::campaign_layout(0, 0);
-    let allied = layout.allied;
-    let track = layout.difficulty_track;
-    let back = layout.shell.buttons[0];
+    let snap = solve_campaign();
+    let allied = rect_px_from_snapshot(&snap, "allied");
+    let track = rect_px_from_snapshot(&snap, "difficulty");
+    let back = rect_px_from_snapshot(&snap, "back");
     let (ax, ay) = to_win(allied.x + allied.w / 2, allied.y + allied.h / 2);
     let (tx, ty) = to_win(track.x + track.w / 2, track.y + track.h / 2);
     let (bx, by) = to_win(back.x + back.w / 2, back.y + back.h / 2);
-    assert_eq!(hit_action(OriginalScreen::Campaign, &[], 0, None, (ax, ay), 1024.0, 768.0, 0, false), Some(MenuAction::SelectCampaignAllied));
-    assert_eq!(hit_action(OriginalScreen::Campaign, &[], 0, None, (tx, ty), 1024.0, 768.0, 0, false), Some(MenuAction::CycleCampaignDifficulty));
-    assert_eq!(hit_action(OriginalScreen::Campaign, &[], 0, None, (bx, by), 1024.0, 768.0, 0, false), Some(MenuAction::Back));
+    assert_eq!(
+        hit_action(
+            OriginalScreen::Campaign,
+            &[],
+            0,
+            None,
+            (ax, ay),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::SelectCampaignAllied)
+    );
+    assert_eq!(
+        hit_action(
+            OriginalScreen::Campaign,
+            &[],
+            0,
+            None,
+            (tx, ty),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::CycleCampaignDifficulty)
+    );
+    assert_eq!(
+        hit_action(
+            OriginalScreen::Campaign,
+            &[],
+            0,
+            None,
+            (bx, by),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::Back)
+    );
     assert_eq!(campaign_entry_at(ax, ay, 1024.0, 768.0), Some("allied"));
     assert_eq!(campaign_entry_at(tx, ty, 1024.0, 768.0), Some("difficulty"));
 }
@@ -142,13 +211,37 @@ fn choose_map_use_and_list_row_are_hit() {
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
         (x as f64, y as f64)
     };
-    let layout = ra_layout::ui_layout::choose_map_layout(0, 0);
-    let use_map = layout.shell.buttons[0];
+    let snap = ra_layout::solve_choose_map();
+    let use_map = ra_layout::rect_px_from_snapshot(&snap, "use_map");
+    let map_list = ra_layout::rect_px_from_snapshot(&snap, "map_list");
     let (ux, uy) = to_win(use_map.x + use_map.w / 2, use_map.y + use_map.h / 2);
-    assert_eq!(hit_action(OriginalScreen::ChooseMap, &maps, 0, Some("mp03t4.map"), (ux, uy), 1024.0, 768.0, 0, false), Some(MenuAction::UseMap));
-    let (mx, my) = to_win(layout.map_list.x + 8, layout.map_list.y + 8);
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 0, Some("mp03t4.map"), (mx, my), 1024.0, 768.0, 0, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            0,
+            Some("mp03t4.map"),
+            (ux, uy),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
+        Some(MenuAction::UseMap)
+    );
+    let (mx, my) = to_win(map_list.x + 8, map_list.y + 8);
+    assert_eq!(
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            0,
+            Some("mp03t4.map"),
+            (mx, my),
+            1024.0,
+            768.0,
+            0,
+            false
+        ),
         Some(MenuAction::SelectMap(0))
     );
 }

@@ -33,7 +33,7 @@ pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
             CAMPAIGN_SIDE_IDS[2],
             side_rect(CAMPAIGN_SOVIET_ORIGIN, CAMPAIGN_SOVIET_SIZE),
         ),
-        // 难度区：与过渡期 `campaign_layout` 金标一致。
+        // 难度区：侧图下方固定槽位。
         fixed_rect_leaf("difficulty_label", Rect::from_xywh(191.0, 454.0, 100.0, 20.0)),
         fixed_rect_leaf("difficulty_value", Rect::from_xywh(338.0, 454.0, 100.0, 20.0)),
         fixed_rect_leaf("difficulty", Rect::from_xywh(191.0, 483.0, 247.0, 13.0)),
@@ -53,7 +53,9 @@ mod tests {
     use crate::{LayoutEngine, Viewport};
 
     #[test]
-    fn campaign_content_matches_ui_layout_golden() {
+    fn campaign_content_matches_golden_shell_slots() {
+        use crate::ui_layout::{rect_px_from_snapshot, RectPx};
+
         let chrome = RightPanelChrome::shell_defaults();
         let snap = LayoutEngine.solve(
             Viewport {
@@ -62,24 +64,42 @@ mod tests {
             },
             &campaign_content_layout_tree(chrome),
         );
-        let legacy = crate::ui_layout::campaign_layout(800, 600);
-        for (id, cell) in [
-            ("allied", legacy.allied),
-            ("tutorial", legacy.tutorial),
-            ("soviet", legacy.soviet),
-            ("difficulty_label", legacy.difficulty_label),
-            ("difficulty_value", legacy.difficulty_value),
-            ("difficulty", legacy.difficulty_track),
-            ("back", legacy.shell.buttons[0]),
-            ("title", legacy.title),
-            ("tooltip", legacy.status_help),
-            ("panel_top", legacy.shell.panel_top),
-        ] {
-            let got = snap.get(id).expect(id).layout.rect;
-            assert_eq!(got.x as i32, cell.x, "{id} x");
-            assert_eq!(got.y as i32, cell.y, "{id} y");
-            assert_eq!(got.width as i32, cell.w, "{id} w");
-            assert_eq!(got.height as i32, cell.h, "{id} h");
-        }
+        // 侧图原点相对 `fsbkgdlg`；难度轨在苏军图下方；右栏「上一页」贴底盖。
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "allied"),
+            RectPx::new(30, 26, 570, 135)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "tutorial"),
+            RectPx::new(82, 187, 468, 108)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "soviet"),
+            RectPx::new(98, 298, 444, 149)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "difficulty_label"),
+            RectPx::new(191, 454, 100, 20)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "difficulty_value"),
+            RectPx::new(338, 454, 100, 20)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "difficulty"),
+            RectPx::new(191, 483, 247, 13)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "back"),
+            RectPx::new(644, 535, 156, 42)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "title"),
+            RectPx::new(635, 9, 163, 18)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "tooltip"),
+            RectPx::new(10, 579, 455, 20)
+        );
     }
 }

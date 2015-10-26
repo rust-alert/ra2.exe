@@ -1,10 +1,6 @@
-// reshape-layout-components:skeleton
 //! 布局约束（关系，不是复制原版像素）。
 
-use crate::{
-    geometry::{Insets, Size2},
-    reference::LegacyReference,
-};
+use crate::geometry::{Insets, Size2};
 
 /// 尺寸策略。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,8 +65,6 @@ pub struct LayoutRules {
     pub padding: Insets,
     /// 可选宽高比（宽/高）。
     pub aspect_ratio: Option<f32>,
-    /// 可选原版参考。
-    pub legacy_reference: Option<LegacyReference>,
 }
 
 impl Default for LayoutRules {
@@ -83,7 +77,6 @@ impl Default for LayoutRules {
             margin: Insets::default(),
             padding: Insets::default(),
             aspect_ratio: None,
-            legacy_reference: None,
         }
     }
 }
@@ -91,6 +84,10 @@ impl Default for LayoutRules {
 impl LayoutRules {
     /// 固定宽高并贴左上。
     pub fn fixed_size(size: Size2) -> Self {
-        Self { width: SizeRule::Fixed(size.width), height: SizeRule::Fixed(size.height), ..Self::default() }
+        Self {
+            width: SizeRule::Fixed(size.width),
+            height: SizeRule::Fixed(size.height),
+            ..Self::default()
+        }
     }
 }

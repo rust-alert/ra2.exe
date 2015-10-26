@@ -243,7 +243,7 @@ fn compose_options_uses_main_menu_id() {
 
 #[test]
 fn compose_campaign_uses_back_id() {
-    use ra_layout::ui_layout::{CAMPAIGN_BUTTON_IDS, campaign_layout};
+    use ra_layout::{rect_px_from_snapshot, solve_campaign, CAMPAIGN_BUTTON_IDS};
     let bg = solid_sprite("fsbkgdlg.shp#0", [1, 2, 3, 255]);
     let normal = solid_sprite("sdbtnanm.shp#2", [10, 10, 10, 255]);
     let pressed = solid_sprite("sdbtnanm.shp#4", [0, 200, 200, 255]);
@@ -256,10 +256,16 @@ fn compose_campaign_uses_back_id() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let paint = CampaignPaint { selected_side: Some("allied"), difficulty: 1, track_thumb: None, side_anim_frame: 1 };
-    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint, None, 0).unwrap();
-    let layout = campaign_layout(800, 600);
-    let cell = layout.shell.buttons[0];
+    let paint = CampaignPaint {
+        selected_side: Some("allied"),
+        difficulty: 1,
+        track_thumb: None,
+        side_anim_frame: 1,
+    };
+    let page =
+        compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint, None, 0)
+            .unwrap();
+    let cell = rect_px_from_snapshot(&solve_campaign(), "back");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 200, 255]);
 }

@@ -41,10 +41,22 @@ pub fn compose_choose_map_page(
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
-    let layout = choose_map_layout(viewport_w, viewport_h);
+    let _ = (viewport_w, viewport_h);
+    let snap = ra_layout::solve_choose_map();
+    let shell = shell_rail_layout_from_snap(&snap, &CHOOSE_MAP_BUTTON_IDS);
+    let panel_top = shell.panel_top;
+    let title = rect_px_from_snapshot(&snap, "title");
+    let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
+    let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");
+    let label_engagement = rect_px_from_snapshot(&snap, "label_engagement");
+    let label_game_type = rect_px_from_snapshot(&snap, "label_game_type");
+    let label_game_map = rect_px_from_snapshot(&snap, "label_game_map");
+    let game_type_list = rect_px_from_snapshot(&snap, "game_type_list");
+    let map_list = rect_px_from_snapshot(&snap, "map_list");
+
     let mut page = compose_shell_menu_page(
         decoded,
-        layout.shell,
+        shell,
         &CHOOSE_MAP_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
@@ -57,38 +69,47 @@ pub fn compose_choose_map_page(
         warn_anim_frame,
     )?;
 
-    blit_skirmish_preview_chrome(&mut page, decoded, layout.shell.panel_top, layout.map_name_plate);
+    blit_skirmish_preview_chrome(&mut page, decoded, panel_top, map_name_plate);
     if let Some(preview) = map_preview {
-        blit_map_preview_fit(&mut page, preview, layout.map_preview);
+        blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }
 
-    fill_rect(&mut page, layout.game_type_list, CHOOSE_MAP_LIST_BG);
-    stroke_rect(&mut page, layout.game_type_list, CHOOSE_MAP_LIST_BORDER);
-    fill_rect(&mut page, layout.map_list, CHOOSE_MAP_LIST_BG);
-    stroke_rect(&mut page, layout.map_list, CHOOSE_MAP_LIST_BORDER);
+    fill_rect(&mut page, game_type_list, CHOOSE_MAP_LIST_BG);
+    stroke_rect(&mut page, game_type_list, CHOOSE_MAP_LIST_BORDER);
+    fill_rect(&mut page, map_list, CHOOSE_MAP_LIST_BG);
+    stroke_rect(&mut page, map_list, CHOOSE_MAP_LIST_BORDER);
 
-    let visible_modes = (layout.game_type_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
+    let visible_modes = (game_type_list.h / CHOOSE_MAP_LIST_ROW_H).max(0) as usize;
     for (i, name) in mode_names.iter().take(visible_modes).enumerate() {
-        let row = choose_map_list_row_rect(layout.game_type_list, i, layout.game_type_list.w);
+        let row = choose_map_list_row_rect(game_type_list, i, game_type_list.w);
         if Some(i) == selected_mode_index {
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 2, row.y, row.w - 4, row.h, CHOOSE_MAP_LIST_TEXT);
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                name,
+                row.x + 2,
+                row.y,
+                row.w - 4,
+                row.h,
+                CHOOSE_MAP_LIST_TEXT,
+            );
         }
     }
 
-    let visible_rows = choose_map_visible_rows(layout.map_list.h);
+    let visible_rows = choose_map_visible_rows(map_list.h);
     let scroll = clamp_map_list_scroll(map_list_scroll, map_names.len(), visible_rows);
     let map_overflow = map_names.len() > visible_rows && visible_rows > 0;
     let map_content_w = if map_overflow {
-        (layout.map_list.w - CHOOSE_MAP_SCROLL_W).max(8)
+        (map_list.w - CHOOSE_MAP_SCROLL_W).max(8)
     } else {
-        layout.map_list.w
+        map_list.w
     };
     for (row_i, name) in map_names.iter().skip(scroll).take(visible_rows).enumerate() {
         let abs_i = scroll + row_i;
-        let row = choose_map_list_row_rect(layout.map_list, row_i, map_content_w);
+        let row = choose_map_list_row_rect(map_list, row_i, map_content_w);
         if Some(abs_i) == selected_map_index {
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
@@ -106,17 +127,39 @@ pub fn compose_choose_map_page(
         }
     }
 
-    paint_choose_map_scrollbar(&mut page, layout.map_list, map_names.len(), visible_rows, scroll);
+    paint_choose_map_scrollbar(&mut page, map_list, map_names.len(), visible_rows, scroll);
 
     if let Some(fnt) = fnt {
-        let title = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
-        blit_shell_static_title(&mut page, fnt, &title, layout.title);
-        let engagement = resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
-        blit_text_colored(&mut page, fnt, &engagement, layout.label_engagement.x, layout.label_engagement.y, MENU_TEXT_ENABLED);
+        let title_text = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
+        blit_shell_static_title(&mut page, fnt, &title_text, title);
+        let engagement =
+            resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
+        blit_text_colored(
+            &mut page,
+            fnt,
+            &engagement,
+            label_engagement.x,
+            label_engagement.y,
+            MENU_TEXT_ENABLED,
+        );
         let game_type = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
-        blit_text_colored(&mut page, fnt, &game_type, layout.label_game_type.x, layout.label_game_type.y, MENU_TEXT_ENABLED);
+        blit_text_colored(
+            &mut page,
+            fnt,
+            &game_type,
+            label_game_type.x,
+            label_game_type.y,
+            MENU_TEXT_ENABLED,
+        );
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
-        blit_text_colored(&mut page, fnt, &game_map, layout.label_game_map.x, layout.label_game_map.y, MENU_TEXT_ENABLED);
+        blit_text_colored(
+            &mut page,
+            fnt,
+            &game_map,
+            label_game_map.x,
+            label_game_map.y,
+            MENU_TEXT_ENABLED,
+        );
     }
 
     Some(page)

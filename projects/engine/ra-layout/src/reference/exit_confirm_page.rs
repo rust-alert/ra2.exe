@@ -98,7 +98,6 @@ mod tests {
             },
             &exit_confirm_content_layout_tree(chrome),
         );
-        let legacy = crate::ui_layout::exit_confirm_layout(800, 600);
         assert_eq!(
             snap.get("dialog").map(|e| (
                 e.layout.rect.x as i32,
@@ -106,7 +105,7 @@ mod tests {
                 e.layout.rect.width as i32,
                 e.layout.rect.height as i32
             )),
-            Some((legacy.dialog.x, legacy.dialog.y, legacy.dialog.w, legacy.dialog.h))
+            Some((175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H))
         );
         assert_eq!(
             snap.get("ok").map(|e| (
@@ -115,12 +114,7 @@ mod tests {
                 e.layout.rect.width as i32,
                 e.layout.rect.height as i32
             )),
-            Some((
-                legacy.buttons[0].x,
-                legacy.buttons[0].y,
-                legacy.buttons[0].w,
-                legacy.buttons[0].h
-            ))
+            Some((486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H))
         );
         assert_eq!(
             snap.get("cancel").map(|e| (
@@ -129,31 +123,20 @@ mod tests {
                 e.layout.rect.width as i32,
                 e.layout.rect.height as i32
             )),
-            Some((
-                legacy.buttons[1].x,
-                legacy.buttons[1].y,
-                legacy.buttons[1].w,
-                legacy.buttons[1].h
-            ))
+            Some((486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H))
         );
-        let shell = crate::ui_layout::main_menu_layout(800, 600);
-        assert_eq!(
-            snap.get("title").map(|e| e.layout.rect.width as i32),
-            Some(shell.title.w)
+        let shell_snap = crate::solve_shell_page(
+            "main_menu",
+            &MAIN_MENU_BUTTON_IDS[..5],
+            Some(MAIN_MENU_BUTTON_IDS[5]),
         );
         assert_eq!(
-            snap.get("single_player").map(|e| (
-                e.layout.rect.x as i32,
-                e.layout.rect.y as i32,
-                e.layout.rect.width as i32,
-                e.layout.rect.height as i32
-            )),
-            Some((
-                shell.buttons[0].x,
-                shell.buttons[0].y,
-                shell.buttons[0].w,
-                shell.buttons[0].h
-            ))
+            snap.get("title").map(|e| e.layout.rect),
+            shell_snap.get("title").map(|e| e.layout.rect)
+        );
+        assert_eq!(
+            snap.get("single_player").map(|e| e.layout.rect),
+            shell_snap.get("single_player").map(|e| e.layout.rect)
         );
     }
 }

@@ -1,35 +1,29 @@
 //! 装载页闭环：`solve_load_screen` → snapshot → hit → `RenderPlan`。
 
-use ra_layout::{load_screen_layout, solve_load_screen, LOAD_SCREEN_BUTTON_IDS, Point2};
+use ra_layout::{solve_load_screen, LOAD_SCREEN_BUTTON_IDS, Point2};
 use ra_widgets::RenderPlan;
 
 #[test]
 fn load_screen_render_plan_rects_match_snapshot_hits() {
     let snap = solve_load_screen();
     let plan = RenderPlan::load_screen_placeholders();
-    let legacy = load_screen_layout(800, 600);
     let retry = LOAD_SCREEN_BUTTON_IDS[0];
     let cancel = LOAD_SCREEN_BUTTON_IDS[1];
 
     assert_eq!(
+        snap.get(retry).map(|e| e.layout.rect),
         plan.rect_of(retry)
-            .map(|r| (r.x as i32, r.y as i32, r.width as i32, r.height as i32)),
-        Some((
-            legacy.buttons[0].x,
-            legacy.buttons[0].y,
-            legacy.buttons[0].w,
-            legacy.buttons[0].h
-        ))
     );
     assert_eq!(
         snap.get("brief").map(|e| e.layout.rect),
         plan.rect_of("brief")
     );
 
+    let cancel_rect = plan.rect_of(cancel).expect("cancel");
     let hit = snap
         .hit_test(Point2 {
-            x: legacy.buttons[1].x as f32 + 4.0,
-            y: legacy.buttons[1].y as f32 + 4.0,
+            x: cancel_rect.x + 4.0,
+            y: cancel_rect.y + 4.0,
         })
         .expect("hit cancel");
     assert_eq!(hit.id.0, cancel);

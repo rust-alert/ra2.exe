@@ -1,6 +1,6 @@
 //! 装载页命中消费 `load_screen_layout_tree` snapshot。
 
-use ra_layout::load_screen_layout;
+use ra_layout::{rect_px_from_snapshot, solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
@@ -16,9 +16,9 @@ fn load_screen_hits_use_content_snapshot() {
     assert!(hits.iter().any(|h| h.entry_id == "retry"));
     assert!(hits.iter().any(|h| h.entry_id == "cancel"));
 
-    let layout = load_screen_layout(800, 600);
-    let retry = layout.buttons[0];
-    let cancel = layout.buttons[1];
+    let snap = solve_load_screen();
+    let retry = rect_px_from_snapshot(&snap, LOAD_SCREEN_BUTTON_IDS[0]);
+    let cancel = rect_px_from_snapshot(&snap, LOAD_SCREEN_BUTTON_IDS[1]);
     assert_eq!(
         hit_action(
             OriginalScreen::LoadScreen,

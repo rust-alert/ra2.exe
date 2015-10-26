@@ -68,60 +68,116 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
 
 #[test]
 fn choose_map_matches_game_exe_dialog_0x6b() {
-    let layout = choose_map_layout(800, 600);
+    let snap = ra_layout::solve_choose_map();
+    let shell = shell_rail_layout_from_snap(&snap, &CHOOSE_MAP_BUTTON_IDS);
     assert_eq!(CHOOSE_MAP_BUTTON_IDS, ["use_map", "create_random", "cancel"]);
     // 使用地图 `0x6C5` DLU y 122 → 吸附 tile 0；随机 y 149 → tile 1；取消贴底盖。
-    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 199, 156, 42));
-    assert_eq!(layout.shell.buttons[1], RectPx::new(644, 241, 156, 42));
-    assert_eq!(layout.shell.buttons[2], RectPx::new(644, 535, 156, 42));
-    assert_eq!(layout.map_preview, RectPx::new(644, 37, 144, 112));
-    assert_eq!(layout.title, RectPx::new(635, 2, 162, 16));
-    assert_eq!(layout.map_name_plate, RectPx::new(644, 157, 156, 84));
-    assert_eq!(layout.game_type_list, RectPx::new(30, 127, 195, 260));
-    assert_eq!(layout.map_list, RectPx::new(252, 127, 195, 260));
-    assert_eq!(layout.label_engagement, RectPx::new(35, 33, 386, 20));
-    assert_eq!(layout.shell.lower_strip, RectPx::new(0, 0, 0, 0));
+    assert_eq!(shell.buttons[0], RectPx::new(644, 199, 156, 42));
+    assert_eq!(shell.buttons[1], RectPx::new(644, 241, 156, 42));
+    assert_eq!(shell.buttons[2], RectPx::new(644, 535, 156, 42));
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "map_preview"),
+        RectPx::new(644, 37, 144, 112)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "title"),
+        RectPx::new(635, 2, 162, 16)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "map_name_plate"),
+        RectPx::new(644, 157, 156, 84)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "game_type_list"),
+        RectPx::new(30, 127, 195, 260)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "map_list"),
+        RectPx::new(252, 127, 195, 260)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "label_engagement"),
+        RectPx::new(35, 33, 386, 20)
+    );
+    assert_eq!(shell.lower_strip, RectPx::new(0, 0, 0, 0));
 }
 
 #[test]
 fn campaign_matches_fsbkgdlg_side_origins() {
-    use ra_layout::ui_layout::{CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, campaign_layout};
-    let layout = campaign_layout(800, 600);
+    use ra_layout::{rect_px_from_snapshot, solve_campaign, CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS};
+
+    let snap = solve_campaign();
     assert_eq!(CAMPAIGN_BUTTON_IDS, ["back"]);
     assert_eq!(CAMPAIGN_SIDE_IDS, ["allied", "tutorial", "soviet"]);
     // 仅「上一页」贴底盖。
-    assert_eq!(layout.shell.buttons[0], RectPx::new(644, 535, 156, 42));
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "back"),
+        RectPx::new(644, 535, 156, 42)
+    );
     // 三侧图：相对 `fsbkgdlg` 的 SHP 原点与画布。
-    assert_eq!(layout.allied, RectPx::new(30, 26, 570, 135));
-    assert_eq!(layout.tutorial, RectPx::new(82, 187, 468, 108));
-    assert_eq!(layout.soviet, RectPx::new(98, 298, 444, 149));
-    // 难度：原版截图映到壳层坐标。
-    assert_eq!(layout.difficulty_label, RectPx::new(191, 454, 100, 20));
-    assert_eq!(layout.difficulty_value, RectPx::new(338, 454, 100, 20));
-    assert_eq!(layout.difficulty_track, RectPx::new(191, 483, 247, 13));
-    assert!(layout.difficulty_track.y >= layout.soviet.y + layout.soviet.h);
-    // 标题 / 底栏提示与主菜单壳层 chrome 同格。
-    assert_eq!(layout.title, layout.shell.title);
-    assert_eq!(layout.status_help, layout.shell.tooltip);
-    assert_eq!(layout.title, RectPx::new(635, 9, 163, 18));
-    assert_eq!(layout.status_help, RectPx::new(10, 579, 455, 20));
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "allied"),
+        RectPx::new(30, 26, 570, 135)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "tutorial"),
+        RectPx::new(82, 187, 468, 108)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "soviet"),
+        RectPx::new(98, 298, 444, 149)
+    );
+    // 难度：侧图下方固定槽位。
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "difficulty_label"),
+        RectPx::new(191, 454, 100, 20)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "difficulty_value"),
+        RectPx::new(338, 454, 100, 20)
+    );
+    let track = rect_px_from_snapshot(&snap, "difficulty");
+    assert_eq!(track, RectPx::new(191, 483, 247, 13));
+    let soviet = rect_px_from_snapshot(&snap, "soviet");
+    assert!(track.y >= soviet.y + soviet.h);
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "title"),
+        RectPx::new(635, 9, 163, 18)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "tooltip"),
+        RectPx::new(10, 579, 455, 20)
+    );
 }
 
 #[test]
 fn exit_confirm_centers_pudlgbgn_panel() {
-    let dlg = exit_confirm_layout(800, 600);
+    let snap = ra_layout::solve_exit_confirm();
     // 画布 451×326；居中 ((800-451)+1)/2=175，((600-326)+1)/2=137。
-    assert_eq!(dlg.dialog, RectPx::new(175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H));
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "dialog"),
+        RectPx::new(175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H)
+    );
     // 正文左上锚点区；按钮原点取 DLU，尺寸取 `mnbttn` 126×25。
-    assert_eq!(dlg.prompt, RectPx::new(235, 202, 330, 81));
-    assert_eq!(dlg.buttons[0], RectPx::new(486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
-    assert_eq!(dlg.buttons[1], RectPx::new(486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H));
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "prompt"),
+        RectPx::new(235, 202, 330, 81)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, EXIT_CONFIRM_BUTTON_IDS[0]),
+        RectPx::new(486, 356, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, EXIT_CONFIRM_BUTTON_IDS[1]),
+        RectPx::new(486, 421, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_BUTTON_H)
+    );
 }
 
 #[test]
 fn shell_page_layouts_ignore_viewport_size() {
     // 壳层页内容落在 800×600 设计画布；窗口适配由相机负责，禁止页面再算第二套几何。
     for (w, h) in [(640u32, 480u32), (800, 600), (1280, 720), (2560, 1440)] {
+        let _ = (w, h);
         let main = main_menu_layout(w, h);
         assert_eq!(main.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} main canvas");
         assert_eq!(main.buttons[5], RectPx::new(644, 535, 156, 42), "{w}x{h} exit");
@@ -133,17 +189,23 @@ fn shell_page_layouts_ignore_viewport_size() {
         assert_eq!(lobby.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} lobby canvas");
         assert_eq!(lobby.buttons[0], RectPx::new(644, 241, 156, 42), "{w}x{h} start");
 
-        let maps = choose_map_layout(w, h);
-        assert_eq!(maps.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} choose canvas");
-        assert_eq!(maps.map_list, RectPx::new(252, 127, 195, 260), "{w}x{h} map_list");
-
-        let campaign = campaign_layout(w, h);
-        assert_eq!(campaign.shell.canvas, RectPx::new(0, 0, 800, 600), "{w}x{h} campaign canvas");
-        assert_eq!(campaign.allied, RectPx::new(30, 26, 570, 135), "{w}x{h} allied");
-
-        let exit = exit_confirm_layout(w, h);
+        let maps = ra_layout::solve_choose_map();
         assert_eq!(
-            exit.dialog,
+            rect_px_from_snapshot(&maps, "map_list"),
+            RectPx::new(252, 127, 195, 260),
+            "{w}x{h} map_list"
+        );
+
+        let campaign = ra_layout::solve_campaign();
+        assert_eq!(
+            rect_px_from_snapshot(&campaign, "allied"),
+            RectPx::new(30, 26, 570, 135),
+            "{w}x{h} allied"
+        );
+
+        let exit = ra_layout::solve_exit_confirm();
+        assert_eq!(
+            rect_px_from_snapshot(&exit, "dialog"),
             RectPx::new(175, 137, EXIT_CONFIRM_DIALOG_W, EXIT_CONFIRM_DIALOG_H),
             "{w}x{h} exit dialog"
         );

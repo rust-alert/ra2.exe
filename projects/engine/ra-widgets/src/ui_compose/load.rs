@@ -22,7 +22,7 @@ pub struct LoadScreenPaint<'a> {
 /// 合成进战斗装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
 ///
 /// 遭遇战与战役共用本合成入口；战役简报外观后续按 [`crate::LoadKind`] 分支。
-/// 文案与按钮几何来自 `load_screen_layout`（`load_screen_layout_tree` 投影）。
+/// 文案与按钮几何来自 `solve_load_screen` snapshot。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -33,28 +33,38 @@ pub fn compose_load_screen_page(
     csf: Option<&CsfFile>,
     paint: LoadScreenPaint<'_>,
 ) -> Option<RgbaImage> {
-    let layout = load_screen_layout(viewport_w, viewport_h);
+    let _ = (viewport_w, viewport_h);
+    let snap = ra_layout::solve_load_screen();
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
+    let special = rect_px_from_snapshot(&snap, "special");
+    let brief = rect_px_from_snapshot(&snap, "brief");
+    let name = rect_px_from_snapshot(&snap, "name");
+    let status = rect_px_from_snapshot(&snap, "status");
+    let progress = rect_px_from_snapshot(&snap, "progress");
+    let player_flag = rect_px_from_snapshot(&snap, "player_flag");
+    let player_name = rect_px_from_snapshot(&snap, "player_name");
+
     let mut page = RgbaImage::from_raw(
-        layout.canvas.w as u32,
-        layout.canvas.h as u32,
-        vec![0u8; (layout.canvas.w as usize) * (layout.canvas.h as usize) * 4],
+        canvas.w as u32,
+        canvas.h as u32,
+        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
     )?;
-    fill_rect(&mut page, layout.canvas, [0, 0, 0, 255]);
+    fill_rect(&mut page, canvas, [0, 0, 0, 255]);
     if let Some(bg) = decoded.background.as_ref() {
-        blit_stretched(&mut page, &bg.image, layout.canvas);
+        blit_stretched(&mut page, &bg.image, canvas);
     }
 
     if let Some(fnt) = fnt {
         let special_key = load_screen_special_unit_csf_key(paint.side);
-        if let Some(special) = resolve_csf_text(csf, special_key) {
+        if let Some(special_text) = resolve_csf_text(csf, special_key) {
             blit_caption_top_left_clipped(
                 &mut page,
                 fnt,
-                &special,
-                layout.special.x,
-                layout.special.y,
-                layout.special.w,
-                layout.special.h,
+                &special_text,
+                special.x,
+                special.y,
+                special.w,
+                special.h,
                 LOAD_SCREEN_TEXT_TITLE,
             );
         }
@@ -63,29 +73,29 @@ pub fn compose_load_screen_page(
             .brief_csf_override
             .map(str::to_string)
             .unwrap_or_else(|| load_screen_brief_csf_key(paint.side));
-        if let Some(brief) = resolve_csf_text(csf, &brief_key) {
+        if let Some(brief_text) = resolve_csf_text(csf, &brief_key) {
             blit_caption_wrapped(
                 &mut page,
                 fnt,
-                &brief,
-                layout.brief.x,
-                layout.brief.y,
-                layout.brief.w,
-                layout.brief.h,
+                &brief_text,
+                brief.x,
+                brief.y,
+                brief.w,
+                brief.h,
                 LOAD_SCREEN_TEXT,
             );
         }
 
         let name_key = load_screen_name_csf_key(paint.side);
-        if let Some(name) = resolve_csf_text(csf, &name_key) {
+        if let Some(name_text) = resolve_csf_text(csf, &name_key) {
             blit_caption_top_left_clipped(
                 &mut page,
                 fnt,
-                &name,
-                layout.name.x,
-                layout.name.y,
-                layout.name.w,
-                layout.name.h,
+                &name_text,
+                name.x,
+                name.y,
+                name.w,
+                name.h,
                 LOAD_SCREEN_TEXT_TITLE,
             );
         }
@@ -97,20 +107,20 @@ pub fn compose_load_screen_page(
                 &mut page,
                 fnt,
                 &loading,
-                layout.status.x,
-                layout.status.y,
-                layout.status.w,
-                layout.status.h,
+                status.x,
+                status.y,
+                status.w,
+                status.h,
                 LOAD_SCREEN_TEXT,
             );
             blit_caption_top_left_clipped(
                 &mut page,
                 fnt,
                 paint.player_name,
-                layout.player_name.x,
-                layout.player_name.y,
-                layout.player_name.w,
-                layout.player_name.h,
+                player_name.x,
+                player_name.y,
+                player_name.w,
+                player_name.h,
                 [80, 220, 80, 255],
             );
         }
@@ -118,12 +128,7 @@ pub fn compose_load_screen_page(
 
     if !paint.allow_retry {
         if let Some(flag) = paint.side_flag {
-            blit_rgba(
-                &mut page,
-                flag,
-                layout.player_flag.x,
-                layout.player_flag.y,
-            );
+            blit_rgba(&mut page, flag, player_flag.x, player_flag.y);
         }
     }
 
@@ -133,8 +138,8 @@ pub fn compose_load_screen_page(
         blit_rgba_clipped_width(
             &mut page,
             &bar.image,
-            layout.progress.x,
-            layout.progress.y,
+            progress.x,
+            progress.y,
             clip_w,
         );
     }

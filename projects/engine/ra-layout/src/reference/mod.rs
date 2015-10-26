@@ -1,11 +1,10 @@
-//! 模板与遗留参照。
+//! 页面模板与 `solve_*` 入口（几何权威为 `LayoutSnapshot`）。
 
 mod battle_hud;
 mod campaign_page;
 mod dlu;
 mod exit_confirm_page;
 mod from_template;
-mod legacy;
 mod load_screen;
 mod network_page;
 mod options_page;
@@ -23,7 +22,6 @@ pub use from_template::{
     dialog_layout_tree, dialog_page_layout_tree, resolve_control_desc, resolve_dialog_template,
     shell_design_size, solve_choose_map, solve_dialog_template, solve_skirmish_lobby,
 };
-pub use legacy::{LegacyReference, LegacyRole, LegacySource};
 pub use load_screen::{load_screen_layout_tree, solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 pub use network_page::{network_page_layout_tree, solve_network_page, NETWORK_BUTTON_IDS};
 pub use options_page::{

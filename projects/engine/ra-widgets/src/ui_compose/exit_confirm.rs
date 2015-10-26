@@ -13,8 +13,12 @@ pub fn compose_exit_confirm_page(
     movie: Option<&RgbaImage>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
+    let _ = (viewport_w, viewport_h);
     // 主菜单壳与居中 MessageBox 同源一次求解，再压暗并叠对话框。
-    let (shell, dlg) = exit_confirm_page_layouts(viewport_w, viewport_h);
+    let snap = ra_layout::solve_exit_confirm();
+    let shell = shell_rail_layout_from_snap(&snap, &MAIN_MENU_BUTTON_IDS);
+    let dialog = rect_px_from_snapshot(&snap, "dialog");
+    let prompt = rect_px_from_snapshot(&snap, "prompt");
     let mut page = compose_shell_menu_page(
         decoded,
         shell,
@@ -32,15 +36,23 @@ pub fn compose_exit_confirm_page(
 
     dim_rect(&mut page, shell.canvas, 160);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
-        blit_rgba(&mut page, &modal_bg.image, dlg.dialog.x, dlg.dialog.y);
-    }
-    else {
+        blit_rgba(&mut page, &modal_bg.image, dialog.x, dialog.y);
+    } else {
         // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
-        fill_rect(&mut page, dlg.dialog, [40, 24, 24, 255]);
+        fill_rect(&mut page, dialog, [40, 24, 24, 255]);
     }
     if let Some(fnt) = fnt {
-        let prompt = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
-        blit_caption_top_left_clipped(&mut page, fnt, &prompt, dlg.prompt.x, dlg.prompt.y, dlg.prompt.w, dlg.prompt.h, MENU_TEXT_ENABLED);
+        let text = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
+        blit_caption_top_left_clipped(
+            &mut page,
+            fnt,
+            &text,
+            prompt.x,
+            prompt.y,
+            prompt.w,
+            prompt.h,
+            MENU_TEXT_ENABLED,
+        );
     }
     let button_ids = &EXIT_CONFIRM_BUTTON_IDS[..];
     let btn_plan = crate::RenderPlan::exit_confirm_placeholders().button_sprite_plan(button_ids);
