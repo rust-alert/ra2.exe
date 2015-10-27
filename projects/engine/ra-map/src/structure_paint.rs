@@ -139,13 +139,19 @@ pub fn collect_structure_anim_bank(
         let art_section = resolve_art_section(art.as_ref(), &ent.type_id);
         let remapable = is_remapable(art.as_ref(), &art_section, true);
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
+        let yellow = damage.is_yellow(ent.health);
 
-        for (anim_key, z_key) in [("ActiveAnim", "ActiveAnimZAdjust"), ("ActiveAnimTwo", "ActiveAnimTwoZAdjust")] {
-            let Some(anim_name) = art.as_ref().and_then(|a| a.get(&art_section, anim_key)).map(str::to_ascii_uppercase)
+        for (anim_key, damaged_key, z_key) in [
+            ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
+            ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
+        ] {
+            let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
-            let z_adjust = art.as_ref().and_then(|a| a.get(&art_section, z_key)).and_then(parse_i32).unwrap_or(0);
+            let z_adjust = art_get_building(art.as_ref(), &ent.type_id, &art_section, z_key)
+                .and_then(parse_i32)
+                .unwrap_or(0);
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
             let anim_new_theater =
                 art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -200,11 +206,11 @@ pub fn collect_structure_anim_bank(
         }
 
         // 黄血及以下：按 art `DamageFireOffset*` 叠 `DamageFireTypes` 火焰。
-        if !damage.is_yellow(ent.health) || damage.fire_types.is_empty() {
+        if !yellow || damage.fire_types.is_empty() {
             continue;
         }
         for i in 0..8u8 {
-            let Some(raw) = art.as_ref().and_then(|a| a.get(&art_section, &format!("DamageFireOffset{i}")))
+            let Some(raw) = art_get_building(art.as_ref(), &ent.type_id, &art_section, &format!("DamageFireOffset{i}"))
             else {
                 continue;
             };
@@ -521,12 +527,18 @@ fn paint_map_structures_inner(
         else {
             continue;
         };
-        for (anim_key, z_key) in [("ActiveAnim", "ActiveAnimZAdjust"), ("ActiveAnimTwo", "ActiveAnimTwoZAdjust")] {
-            let Some(anim_name) = art.as_ref().and_then(|a| a.get(&art_section, anim_key)).map(str::to_ascii_uppercase)
+        let yellow = damage.is_yellow(ent.health);
+        for (anim_key, damaged_key, z_key) in [
+            ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
+            ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
+        ] {
+            let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
-            let z_adjust = art.as_ref().and_then(|a| a.get(&art_section, z_key)).and_then(parse_i32).unwrap_or(0);
+            let z_adjust = art_get_building(art.as_ref(), &ent.type_id, &art_section, z_key)
+                .and_then(parse_i32)
+                .unwrap_or(0);
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
             let anim_new_theater =
                 art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -584,6 +596,35 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
         }
     })
     .unwrap_or_else(|| type_id.to_ascii_uppercase())
+}
+
+/// 建筑键优先读类型节，再回退 `Image=` 目标节（`DamageFireOffset*` 等挂在类型节）。
+fn art_get_building<'a>(art: Option<&'a IniDocument>, type_id: &str, art_section: &str, key: &str) -> Option<&'a str> {
+    let art = art?;
+    art.get(type_id, key).or_else(|| {
+        if art_section.eq_ignore_ascii_case(type_id) {
+            None
+        } else {
+            art.get(art_section, key)
+        }
+    })
+}
+
+/// 黄血时优先 `ActiveAnimDamaged` / `ActiveAnimTwoDamaged`，否则用正常活动层。
+fn resolve_structure_anim_name(
+    art: Option<&IniDocument>,
+    type_id: &str,
+    art_section: &str,
+    anim_key: &str,
+    damaged_key: &str,
+    yellow: bool,
+) -> Option<String> {
+    if yellow {
+        if let Some(name) = art_get_building(art, type_id, art_section, damaged_key) {
+            return Some(name.to_ascii_uppercase());
+        }
+    }
+    art_get_building(art, type_id, art_section, anim_key).map(str::to_ascii_uppercase)
 }
 
 fn is_remapable(art: Option<&IniDocument>, section: &str, default_yes: bool) -> bool {

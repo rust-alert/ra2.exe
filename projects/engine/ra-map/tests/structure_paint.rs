@@ -166,10 +166,11 @@ DamageFireOffset0=10,-5\n\
 Rate=50\n\
 ";
     let rules = b"\
+[General]\n\
+DamageFireTypes=FIRE01\n\
 [AudioVisual]\n\
 ConditionYellow=50%\n\
 ConditionRed=25%\n\
-DamageFireTypes=FIRE01\n\
 ";
     let mut files = HashMap::new();
     files.insert("art.ini".into(), art.to_vec());
@@ -199,6 +200,112 @@ DamageFireTypes=FIRE01\n\
 }
 
 #[test]
+fn yellow_health_uses_active_anim_damaged() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[GATECH]\n\
+Remapable=no\n\
+ActiveAnim=GATECH_A\n\
+ActiveAnimDamaged=GATECH_AD\n\
+DamageFireOffset0=1,1\n\
+\n\
+[GATECH_A]\n\
+Image=GATECH_A\n\
+LoopStart=0\n\
+LoopEnd=2\n\
+Rate=200\n\
+\n\
+[GATECH_AD]\n\
+Image=GATECH_AD\n\
+LoopStart=0\n\
+LoopEnd=3\n\
+Rate=200\n\
+\n\
+[FIRE01]\n\
+Rate=50\n\
+";
+    let rules = b"\
+[General]\n\
+DamageFireTypes=FIRE01\n\
+[AudioVisual]\n\
+ConditionYellow=50%\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), rules.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("gatech.shp".into(), raw_one_pixel_shp(5));
+    files.insert("gatech_a.shp".into(), multi_frame_shp(&[5, 5]));
+    files.insert("gatech_ad.shp".into(), multi_frame_shp(&[5, 5, 5]));
+    files.insert("fire01.shp".into(), multi_frame_shp(&[5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GATECH".into(),
+        health: 64,
+        x: 3,
+        y: 3,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    // 受损活动层 3 帧 + 火焰层。
+    assert!(bank.layers.len() >= 2, "expected damaged anim + fire, got {}", bank.layers.len());
+    let damaged = bank.layers.iter().find(|l| l.frames.len() == 3).expect("ActiveAnimDamaged 3 frames");
+    assert_eq!(damaged.loop_end - damaged.loop_start, 3);
+}
+
+#[test]
+fn fire_offset_reads_type_section_when_image_redirects() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[CAGAS01]\n\
+Image=CAGAS_SHARED\n\
+DamageFireOffset0=7,-3\n\
+\n\
+[CAGAS_SHARED]\n\
+Remapable=no\n\
+\n\
+[FIRE01]\n\
+Rate=50\n\
+";
+    let rules = b"\
+[General]\n\
+DamageFireTypes=FIRE01\n\
+[AudioVisual]\n\
+ConditionYellow=50%\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), rules.to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("cagas_shared.shp".into(), raw_one_pixel_shp(5));
+    files.insert("fire01.shp".into(), multi_frame_shp(&[5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAGAS01".into(),
+        health: 64,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert_eq!(bank.layers.len(), 1);
+    assert_eq!(bank.layers[0].frames[0].offset_x, 30 + 7);
+    assert_eq!(bank.layers[0].frames[0].offset_y, -3);
+}
+
+#[test]
 fn full_health_skips_damage_fire_layers() {
     use ra_map::collect_structure_anim_bank;
 
@@ -207,9 +314,10 @@ fn full_health_skips_damage_fire_layers() {
 DamageFireOffset0=10,-5\n\
 ";
     let rules = b"\
+[General]\n\
+DamageFireTypes=FIRE01\n\
 [AudioVisual]\n\
 ConditionYellow=50%\n\
-DamageFireTypes=FIRE01\n\
 ";
     let mut files = HashMap::new();
     files.insert("art.ini".into(), art.to_vec());

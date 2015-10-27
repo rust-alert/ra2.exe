@@ -33,7 +33,13 @@ impl StructureDamageRules {
         if let Some(v) = doc.get("AudioVisual", "ConditionRed").and_then(parse_condition_percent) {
             out.red = v;
         }
-        if let Some(raw) = doc.get("AudioVisual", "DamageFireTypes").or_else(|| doc.get("AudioVisual", "DamageFireNames")) {
+        // 零售写在 `[General]`；个别模组可能挂在 `[AudioVisual]`。
+        if let Some(raw) = doc
+            .get("General", "DamageFireTypes")
+            .or_else(|| doc.get("General", "DamageFireNames"))
+            .or_else(|| doc.get("AudioVisual", "DamageFireTypes"))
+            .or_else(|| doc.get("AudioVisual", "DamageFireNames"))
+        {
             out.fire_types = raw
                 .split(',')
                 .map(str::trim)
@@ -98,6 +104,7 @@ pub fn parse_damage_fire_offset(raw: &str) -> Option<(i32, i32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ra_assets::IniDocument;
 
     #[test]
     fn parses_percent_and_picks_damaged_frame() {
@@ -107,5 +114,18 @@ mod tests {
         assert_eq!(damaged_body_frame(128, 0.5, 2), 1);
         assert_eq!(damaged_body_frame(64, 0.5, 1), 0);
         assert_eq!(parse_damage_fire_offset("57,-13"), Some((57, -13)));
+    }
+
+    #[test]
+    fn damage_fire_types_read_from_general() {
+        let doc = IniDocument::parse(
+            b"[General]\nDamageFireTypes=FIRE01,FIRE02,FIRE03\n\
+[AudioVisual]\nConditionYellow=50%\nConditionRed=25%\n",
+        )
+        .unwrap();
+        let rules = StructureDamageRules::from_rules_doc(&doc);
+        assert_eq!(rules.fire_types, vec!["FIRE01", "FIRE02", "FIRE03"]);
+        assert_eq!(rules.yellow, 0.5);
+        assert_eq!(rules.red, 0.25);
     }
 }
