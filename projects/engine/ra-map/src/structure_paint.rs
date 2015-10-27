@@ -9,7 +9,7 @@ use crate::{
     MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
-    structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset},
+    structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -87,7 +87,8 @@ pub fn structure_anim_frame(clock_ms: u64, rate_ms: u32, loop_start: u16, loop_e
 /// 叠画 `[Structures]`。`remap_owner(base, owner)` 返回房屋色调色板。
 ///
 /// `BodyAndAnims` 时叠 `ActiveAnim` / `ActiveAnimTwo`（如油田旗帜 `CAOILD_F`）。
-/// `rules_ini` 提供 `ConditionYellow` / `DamageFireTypes`；黄血建筑用受损主体帧并叠燃烧。
+/// `rules_ini` 提供 `ConditionYellow` / `ConditionRed` / `DamageFireTypes`。
+/// 黄血起火并切 `ActiveAnimDamaged`；主体受损帧按 `TechLevel` 区分军建黄档与平民红档。
 pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -479,12 +480,8 @@ fn paint_map_structures_inner(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let damage = source
-        .read(rules_ini)
-        .ok()
-        .and_then(|b| IniDocument::parse(&b).ok())
-        .map(|d| StructureDamageRules::from_rules_doc(&d))
-        .unwrap_or_default();
+    let rules_doc = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let damage = rules_doc.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return 0;
@@ -506,7 +503,8 @@ fn paint_map_structures_inner(
             let body_frames = load_shp(source, map, &body_key, body_new_theater, &mut shp_cache)
                 .map(|shp| shp_body_frame_count(&shp.frames))
                 .unwrap_or(1);
-            let frame_idx = damaged_body_frame(ent.health, damage.yellow, body_frames);
+            let tech = structure_tech_level(rules_doc.as_ref(), &ent.type_id);
+            let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, tech, body_frames);
             if let Some(blit) = load_structure_blit(
                 source,
                 map,

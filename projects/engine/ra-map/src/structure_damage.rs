@@ -50,12 +50,12 @@ impl StructureDamageRules {
         out
     }
 
-    /// 地图 `health`（0..=256）是否已进入黄血（应显示受损/起火）。
+    /// 地图 `health`（0..=256）是否已进入黄血带及以下（起火 / 受损活动层门槛）。
     pub fn is_yellow(&self, health_256: u16) -> bool {
         health_ratio_256(health_256) <= self.yellow
     }
 
-    /// 是否已进入红血。
+    /// 是否已进入红血（血条与平民房主体受损帧门槛）。
     pub fn is_red(&self, health_256: u16) -> bool {
         health_ratio_256(health_256) <= self.red
     }
@@ -81,12 +81,27 @@ pub fn health_ratio_256(health_256: u16) -> f32 {
     f32::from(health_256.min(256)) / 256.0
 }
 
-/// 主体帧：黄血及以下且至少 2 帧主体时用第 1 帧（受损），否则第 0 帧。
-pub fn damaged_body_frame(health_256: u16, yellow: f32, body_frames: usize) -> u16 {
+/// 从 rules 类型节读 `TechLevel`；缺省按平民建筑 `-1`。
+pub fn structure_tech_level(rules: Option<&IniDocument>, type_id: &str) -> i32 {
+    rules
+        .and_then(|d| d.get(type_id, "TechLevel"))
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(-1)
+}
+
+/// 主体受损帧（无人占领、非驻军折叠）。
+///
+/// - 绿：帧 0
+/// - 黄：仅 `TechLevel > 0` 的军建用帧 1；平民（`TechLevel <= 0`）仍帧 0
+/// - 红：一律帧 1（需至少 2 帧主体）
+pub fn damaged_body_frame(health_256: u16, yellow: f32, red: f32, tech_level: i32, body_frames: usize) -> u16 {
     if body_frames < 2 {
         return 0;
     }
-    if health_ratio_256(health_256) <= yellow {
+    let ratio = health_ratio_256(health_256);
+    let red_tier = ratio <= red;
+    let yellow_tier = tech_level > 0 && ratio <= yellow;
+    if red_tier || yellow_tier {
         1
     } else {
         0
@@ -110,9 +125,13 @@ mod tests {
     fn parses_percent_and_picks_damaged_frame() {
         assert_eq!(parse_condition_percent("50%"), Some(0.5));
         assert_eq!(parse_condition_percent("25%"), Some(0.25));
-        assert_eq!(damaged_body_frame(256, 0.5, 2), 0);
-        assert_eq!(damaged_body_frame(128, 0.5, 2), 1);
-        assert_eq!(damaged_body_frame(64, 0.5, 1), 0);
+        // 军建：黄血即受损帧。
+        assert_eq!(damaged_body_frame(256, 0.5, 0.25, 1, 2), 0);
+        assert_eq!(damaged_body_frame(128, 0.5, 0.25, 1, 2), 1);
+        assert_eq!(damaged_body_frame(64, 0.5, 0.25, 1, 1), 0);
+        // 平民：黄血不切主体，红血才切。
+        assert_eq!(damaged_body_frame(128, 0.5, 0.25, -1, 2), 0);
+        assert_eq!(damaged_body_frame(64, 0.5, 0.25, -1, 2), 1);
         assert_eq!(parse_damage_fire_offset("57,-13"), Some((57, -13)));
     }
 
