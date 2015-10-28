@@ -306,6 +306,52 @@ ConditionYellow=50%\n\
 }
 
 #[test]
+fn damage_fire_uses_anim_palette_not_unittem() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[CAGAS01]\n\
+DamageFireOffset0=0,0\n\
+\n\
+[FIRE01]\n\
+Rate=50\n\
+";
+    let rules = b"\
+[General]\n\
+DamageFireTypes=FIRE01\n\
+[AudioVisual]\n\
+ConditionYellow=50%\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), rules.to_vec());
+    // unittem：索引 5 = 青绿；anim：索引 5 = 纯红。火焰像素应取 anim。
+    files.insert("unittem.pal".into(), solid_index_pal(5, 0, 63, 63));
+    files.insert("anim.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("cagas01.shp".into(), raw_one_pixel_shp(5));
+    files.insert("fire01.shp".into(), raw_one_pixel_shp(5));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAGAS01".into(),
+        health: 64,
+        x: 0,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert_eq!(bank.layers.len(), 1);
+    let px = &bank.layers[0].frames[0].rgba;
+    assert!(px.len() >= 4, "expected at least one RGBA pixel");
+    // VGA 6-bit 63 → 8-bit 扩展后接近 255；只断言红通道远高于绿/蓝。
+    assert!(px[0] > 200 && px[1] < 40 && px[2] < 40, "fire must use anim.pal red, got {:?}", &px[0..4]);
+}
+
+#[test]
 fn full_health_skips_damage_fire_layers() {
     use ra_map::collect_structure_anim_bank;
 

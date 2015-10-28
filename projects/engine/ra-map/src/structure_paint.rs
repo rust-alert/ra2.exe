@@ -132,6 +132,7 @@ pub fn collect_structure_anim_bank(
     else {
         return StructureAnimBank::default();
     };
+    let fire_pal = load_anim_palette(source).unwrap_or_else(|| obj_pal.clone());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut layers = Vec::new();
@@ -241,7 +242,7 @@ pub fn collect_structure_anim_bank(
                 }
                 let mut frames = Vec::with_capacity(usize::from(body_n));
                 for frame_idx in 0..body_n {
-                    let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &obj_pal)
+                    let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                     else {
                         frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
                         continue;
@@ -270,7 +271,7 @@ pub fn collect_structure_anim_bank(
             }
             let mut frames = Vec::with_capacity(usize::from(body_n));
             for frame_idx in 0..body_n {
-                let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &obj_pal)
+                let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                 else {
                     frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
                     continue;
@@ -580,6 +581,11 @@ fn load_object_palette(source: &dyn AssetSource, map: &MapInfo) -> Option<Palett
         .ok()
         .and_then(|b| Palette::parse(&b).ok())
         .or_else(|| source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok()))
+}
+
+/// 特效 / 燃烧动画调色板（`anim.pal`）；缺失时由调用方回退单位盘。
+fn load_anim_palette(source: &dyn AssetSource) -> Option<Palette> {
+    source.read("anim.pal").ok().and_then(|b| Palette::parse(&b).ok())
 }
 
 fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
