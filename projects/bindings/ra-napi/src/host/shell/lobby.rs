@@ -391,8 +391,8 @@ impl Shell {
 
     /// 选图页地图列表可视行数。
     pub(super) fn choose_map_visible_row_count(&self) -> usize {
-        let layout = ui_layout::choose_map_layout(0, 0);
-        ui_layout::choose_map_visible_rows(layout.map_list.h)
+        let list = ra_layout::rect_px_from_snapshot(&ra_layout::solve_choose_map(), "map_list");
+        ui_layout::choose_map_visible_rows(list.h)
     }
 
     /// 使当前选中地图落在选图列表可视窗内。

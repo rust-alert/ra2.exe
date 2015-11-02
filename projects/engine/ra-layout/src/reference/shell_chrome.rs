@@ -14,7 +14,7 @@ use crate::{
 const LOWER_STRIP_H: f32 = 32.0;
 /// 影片 / 背景区高（原版 `ra2ts_l` 可视高）。
 const MOVIE_H: f32 = 570.0;
-/// 右栏顶盖内页标题（兼容宽）。
+/// 右栏顶盖内页标题宽。
 const TITLE_W: f32 = 163.0;
 const TITLE_H: f32 = 18.0;
 const TITLE_INSET_X: f32 = 3.0;
@@ -161,10 +161,13 @@ pub fn solve_shell_page(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LayoutEngine, Viewport};
+    use crate::{
+        ui_layout::{rect_px_from_snapshot, RectPx},
+        LayoutEngine, Viewport,
+    };
 
     #[test]
-    fn shell_chrome_matches_ui_layout_main_menu_chrome() {
+    fn shell_chrome_matches_golden_slots() {
         let chrome = RightPanelChrome::shell_defaults();
         let snap = LayoutEngine.solve(
             Viewport {
@@ -173,28 +176,43 @@ mod tests {
             },
             &shell_chrome_layout_tree(chrome),
         );
-        let legacy = crate::ui_layout::main_menu_layout(800, 600);
-        for (id, cell) in [
-            ("panel_top", legacy.panel_top),
-            ("panel_tile", legacy.panel_tile),
-            ("panel_bottom", legacy.panel_bottom),
-            ("background", legacy.background),
-            ("movie", legacy.movie),
-            ("lower_strip", legacy.lower_strip),
-            ("title", legacy.title),
-            ("tooltip", legacy.tooltip),
-        ] {
-            let got = snap.get(id).expect(id).layout.rect;
-            assert_eq!(got.x as i32, cell.x, "{id} x");
-            assert_eq!(got.y as i32, cell.y, "{id} y");
-            assert_eq!(got.width as i32, cell.w, "{id} w");
-            assert_eq!(got.height as i32, cell.h, "{id} h");
-        }
-        assert_eq!(chrome.tile_count(), legacy.panel_tile_count);
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "panel_top"),
+            RectPx::new(632, 0, 168, 199)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "panel_tile"),
+            RectPx::new(632, 199, 168, 42)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "panel_bottom"),
+            RectPx::new(632, 577, 168, 23)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "background"),
+            RectPx::new(0, 0, 632, 570)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "movie"),
+            RectPx::new(0, 0, 632, 570)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "lower_strip"),
+            RectPx::new(0, 568, 632, 32)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "title"),
+            RectPx::new(635, 9, 163, 18)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "tooltip"),
+            RectPx::new(10, 579, 455, 20)
+        );
+        assert_eq!(chrome.tile_count(), 9);
     }
 
     #[test]
-    fn main_menu_style_stack_matches_ui_layout_buttons() {
+    fn main_menu_rail_buttons_match_golden_cells() {
         let chrome = RightPanelChrome::shell_defaults();
         let root = right_rail_buttons_layout_tree(
             "main_menu",
@@ -209,24 +227,16 @@ mod tests {
             },
             &root,
         );
-        let legacy = crate::ui_layout::main_menu_layout(800, 600);
-        for (i, id) in [
-            "single_player",
-            "ww_online",
-            "network",
-            "movies",
-            "options",
-            "exit",
-        ]
-        .iter()
-        .enumerate()
-        {
-            let cell = legacy.buttons[i];
-            let got = snap.get(id).expect(id).layout.rect;
-            assert_eq!(got.x as i32, cell.x, "{id} x");
-            assert_eq!(got.y as i32, cell.y, "{id} y");
-            assert_eq!(got.width as i32, cell.w, "{id} w");
-            assert_eq!(got.height as i32, cell.h, "{id} h");
+        let expected = [
+            ("single_player", RectPx::new(644, 199, 156, 42)),
+            ("ww_online", RectPx::new(644, 241, 156, 42)),
+            ("network", RectPx::new(644, 283, 156, 42)),
+            ("movies", RectPx::new(644, 325, 156, 42)),
+            ("options", RectPx::new(644, 367, 156, 42)),
+            ("exit", RectPx::new(644, 535, 156, 42)),
+        ];
+        for (id, cell) in expected {
+            assert_eq!(rect_px_from_snapshot(&snap, id), cell, "{id}");
         }
     }
 
@@ -248,16 +258,13 @@ mod tests {
             },
             &shell_page_layout_tree("main_menu", &ids[..5], Some(ids[5]), chrome),
         );
-        let legacy = crate::ui_layout::main_menu_layout(800, 600);
         assert_eq!(
-            snap.get("title").unwrap().layout.rect.width as i32,
-            legacy.title.w
+            rect_px_from_snapshot(&snap, "title"),
+            RectPx::new(635, 9, 163, 18)
         );
-        for (i, id) in ids.iter().enumerate() {
-            let cell = legacy.buttons[i];
-            let got = snap.get(id).expect(id).layout.rect;
-            assert_eq!(got.x as i32, cell.x, "{id} x");
-            assert_eq!(got.y as i32, cell.y, "{id} y");
-        }
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "exit"),
+            RectPx::new(644, 535, 156, 42)
+        );
     }
 }

@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) fn compose_shell_menu_page(
     decoded: &PageDecodeReport,
-    layout: MainMenuLayout,
+    snap: &LayoutSnapshot,
     button_ids: &[&str],
     pressed_entry_id: Option<&str>,
     hovered_entry_id: Option<&str>,
@@ -19,26 +19,37 @@ pub(super) fn compose_shell_menu_page(
     // WARNING 窗内 `sdwrnanm` 帧（对解码帧数取模）。
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
+    let background = rect_px_from_snapshot(snap, "background");
+    let movie_rect = rect_px_from_snapshot(snap, "movie");
+    let panel_top = rect_px_from_snapshot(snap, "panel_top");
+    let panel_tile = rect_px_from_snapshot(snap, "panel_tile");
+    let panel_tile_count = RightPanelChrome::shell_defaults().tile_count();
+    let panel_bottom = rect_px_from_snapshot(snap, "panel_bottom");
+    let lower_strip = rect_px_from_snapshot(snap, "lower_strip");
+    let title = rect_px_from_snapshot(snap, "title");
+    let tooltip = rect_px_from_snapshot(snap, "tooltip");
+
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
-        layout.canvas.w as u32,
-        layout.canvas.h as u32,
-        vec![0u8; (layout.canvas.w as usize) * (layout.canvas.h as usize) * 4],
+        canvas.w as u32,
+        canvas.h as u32,
+        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
     )?;
 
-    blit_rgba(&mut page, &bg.image, layout.background.x, layout.background.y);
+    blit_rgba(&mut page, &bg.image, background.x, background.y);
     if let Some(frame) = movie {
-        blit_stretched(&mut page, frame, layout.movie);
+        blit_stretched(&mut page, frame, movie_rect);
     }
 
     paint_right_panel_chrome(
         &mut page,
         decoded,
-        layout.panel_top,
-        layout.panel_tile,
-        layout.panel_tile_count,
-        layout.panel_bottom,
-        layout.lower_strip,
+        panel_top,
+        panel_tile,
+        panel_tile_count,
+        panel_bottom,
+        lower_strip,
         warn_anim_frame,
     );
 
@@ -53,24 +64,22 @@ pub(super) fn compose_shell_menu_page(
     // 波浪出去：无字平铺格叠 `SDBTNANM`；进来不叠，避免满钮收束后瞬间消失。
     if let Some(wave) = wave {
         if wave.animate_empty_tiles {
-            for ti in 0..layout.panel_tile_count {
-                let tile_y = layout.panel_tile.y + ti * layout.panel_tile.h;
+            for ti in 0..panel_tile_count {
+                let tile_y = panel_tile.y + ti * panel_tile.h;
                 if tile_occupied(tile_y) {
                     continue;
                 }
-                let Some(&frame) = wave.tiles.get(ti as usize)
-                else {
+                let Some(&frame) = wave.tiles.get(ti as usize) else {
                     continue;
                 };
-                let Some(sprite) = decoded.sdbtnanm_frame(frame)
-                else {
+                let Some(sprite) = decoded.sdbtnanm_frame(frame) else {
                     continue;
                 };
                 let cell_x = button_ids
                     .iter()
                     .find_map(|id| btn_plan.rect_px_of(id))
                     .map(|b| b.x)
-                    .unwrap_or(layout.panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W));
+                    .unwrap_or(panel_tile.x + (RIGHT_PANEL_W - BUTTON_CELL_W));
                 blit_rgba(&mut page, &sprite.image, cell_x, tile_y);
             }
         }
@@ -82,7 +91,10 @@ pub(super) fn compose_shell_menu_page(
         };
         let normal = find_button_normal(decoded, entry_id)?;
         // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
-        let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random");
+        let disabled = matches!(
+            *entry_id,
+            "ww_online" | "network" | "movies" | "load" | "create_random"
+        );
         let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
@@ -106,7 +118,11 @@ pub(super) fn compose_shell_menu_page(
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
+            let color = if disabled {
+                MENU_TEXT_DISABLED
+            } else {
+                MENU_TEXT_ENABLED
+            };
             let pressed = pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
@@ -114,19 +130,42 @@ pub(super) fn compose_shell_menu_page(
     }
 
     if let Some(fnt) = fnt {
-        let title = match captions {
+        let title_text = match captions {
             MenuCaptionKind::Main => Some(resolve_caption(csf, "main_menu", Some("GUI:MainMenu"))),
-            MenuCaptionKind::SinglePlayer => Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key()))),
+            MenuCaptionKind::SinglePlayer => {
+                Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key())))
+            }
             // 战役 / 遭遇战 / 选图标题由各自 compose 按对话框锚点另画。
-            MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby | MenuCaptionKind::ChooseMap => None,
+            MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby | MenuCaptionKind::ChooseMap => {
+                None
+            }
         };
-        if let Some(title) = title {
-            blit_caption_in_cell(&mut page, fnt, &title, layout.title.x, layout.title.y, layout.title.w, layout.title.h, MENU_TEXT_ENABLED);
+        if let Some(title_text) = title_text {
+            blit_caption_in_cell(
+                &mut page,
+                fnt,
+                &title_text,
+                title.x,
+                title.y,
+                title.w,
+                title.h,
+                MENU_TEXT_ENABLED,
+            );
         }
         // 主菜单 / 单人页底栏：由壳层传入打字机可见切片。
-        if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer) {
+        if matches!(
+            captions,
+            MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer
+        ) {
             if let Some(text) = status_text.filter(|s| !s.is_empty()) {
-                blit_text_colored(&mut page, fnt, text, layout.tooltip.x, layout.tooltip.y, MENU_TEXT_ENABLED);
+                blit_text_colored(
+                    &mut page,
+                    fnt,
+                    text,
+                    tooltip.x,
+                    tooltip.y,
+                    MENU_TEXT_ENABLED,
+                );
             }
         }
     }
@@ -168,9 +207,15 @@ pub fn compose_main_menu_page(
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
+    let _ = (viewport_w, viewport_h);
+    let snap = ra_layout::solve_shell_page(
+        "main_menu",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
+    );
     compose_shell_menu_page(
         decoded,
-        main_menu_layout(viewport_w, viewport_h),
+        &snap,
         &MAIN_MENU_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
@@ -198,9 +243,15 @@ pub fn compose_single_player_page(
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
+    let _ = (viewport_w, viewport_h);
+    let snap = ra_layout::solve_shell_page(
+        "single_player",
+        &SINGLE_PLAYER_BUTTON_IDS[..3],
+        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
+    );
     compose_shell_menu_page(
         decoded,
-        single_player_layout(viewport_w, viewport_h),
+        &snap,
         &SINGLE_PLAYER_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,

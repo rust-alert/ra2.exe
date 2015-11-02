@@ -22,15 +22,14 @@ use crate::{
 };
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
-    EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, MainMenuLayout, OPTIONS_BUTTON_IDS,
-    BATTLE_PAUSE_MENU_BUTTON_IDS, RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y,
-    SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE,
-    SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT, SKIRMISH_AI_ROW_COUNT,
-    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, LOAD_SCREEN_BUTTON_IDS,
-    LayoutSnapshot, RightPanelChrome, SHELL_BASE_H, SHELL_BASE_W, battle_hud_layout,
-    battle_hud_layout_with_metrics, BattleHudChromeMetrics, choose_map_list_row_rect,
-    choose_map_visible_rows, clamp_map_list_scroll, main_menu_layout, rect_px_from_snapshot,
-    shell_rail_layout_from_snap, single_player_layout, solve_battle_pause, solve_skirmish_lobby,
+    EXIT_CONFIRM_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, BATTLE_PAUSE_MENU_BUTTON_IDS,
+    RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SINGLE_PLAYER_BUTTON_IDS,
+    SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H,
+    SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT, SKIRMISH_AI_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
+    SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, LOAD_SCREEN_BUTTON_IDS, LayoutSnapshot,
+    RightPanelChrome, SHELL_BASE_H, SHELL_BASE_W, battle_hud_layout, battle_hud_layout_with_metrics,
+    BattleHudChromeMetrics, choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll,
+    rect_px_from_snapshot, solve_battle_pause, solve_skirmish_lobby,
 };
 
 mod raster;

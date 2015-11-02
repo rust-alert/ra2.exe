@@ -9,7 +9,6 @@ use ra_widgets::shell_slide::{
     CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
     ShellFrameWave, ShellSlideSpec, WAVE_STOWED_FRAME, WaveDirection,
 };
-use ra_widgets::ui_compose::ShellWaveFrames;
 use winit::event_loop::ActiveEventLoop;
 
 use crate::host::battle_controller::BattleNav;
@@ -125,39 +124,47 @@ impl Shell {
         }
     }
 
-    /// 当前页参与波浪的按钮 id 表。
-    pub(super) fn wave_button_ids(screen: OriginalScreen) -> Option<&'static [&'static str]> {
-        match screen {
-            OriginalScreen::MainMenu => Some(&ui_layout::MAIN_MENU_BUTTON_IDS),
-            OriginalScreen::SinglePlayerMenu => Some(&ui_layout::SINGLE_PLAYER_BUTTON_IDS),
-            OriginalScreen::SkirmishLobby => Some(&ui_layout::SKIRMISH_LOBBY_BUTTON_IDS),
-            OriginalScreen::Campaign => Some(&ui_layout::CAMPAIGN_BUTTON_IDS),
-            OriginalScreen::ChooseMap => Some(&ui_layout::CHOOSE_MAP_BUTTON_IDS),
-            _ => None,
-        }
-    }
-
-    /// 当前页壳层 chrome 布局（波浪按物理平铺格取帧）。
-    pub(super) fn wave_shell_layout(screen: OriginalScreen) -> Option<ui_layout::MainMenuLayout> {
+    /// 当前页 snapshot + 右栏按钮 id（波浪按物理平铺格取帧）。
+    pub(super) fn wave_shell_page(
+        screen: OriginalScreen,
+    ) -> Option<(ra_layout::LayoutSnapshot, &'static [&'static str])> {
         Some(match screen {
-            OriginalScreen::MainMenu => ui_layout::main_menu_layout(0, 0),
-            OriginalScreen::SinglePlayerMenu => ui_layout::single_player_layout(0, 0),
-            OriginalScreen::SkirmishLobby => {
-                ui_layout::shell_rail_layout_from_snap(
-                    &ra_layout::solve_skirmish_lobby(),
-                    &ui_layout::SKIRMISH_LOBBY_BUTTON_IDS,
-                )
-            }
-            OriginalScreen::Campaign => ui_layout::campaign_layout(0, 0).shell,
-            OriginalScreen::ChooseMap => ui_layout::choose_map_layout(0, 0).shell,
+            OriginalScreen::MainMenu => (
+                ra_layout::solve_shell_page(
+                    "main_menu",
+                    &ui_layout::MAIN_MENU_BUTTON_IDS[..5],
+                    Some(ui_layout::MAIN_MENU_BUTTON_IDS[5]),
+                ),
+                &ui_layout::MAIN_MENU_BUTTON_IDS,
+            ),
+            OriginalScreen::SinglePlayerMenu => (
+                ra_layout::solve_shell_page(
+                    "single_player",
+                    &ui_layout::SINGLE_PLAYER_BUTTON_IDS[..3],
+                    Some(ui_layout::SINGLE_PLAYER_BUTTON_IDS[3]),
+                ),
+                &ui_layout::SINGLE_PLAYER_BUTTON_IDS,
+            ),
+            OriginalScreen::SkirmishLobby => (
+                ra_layout::solve_skirmish_lobby(),
+                &ui_layout::SKIRMISH_LOBBY_BUTTON_IDS,
+            ),
+            OriginalScreen::Campaign => (
+                ra_layout::solve_campaign(),
+                &ui_layout::CAMPAIGN_BUTTON_IDS,
+            ),
+            OriginalScreen::ChooseMap => (
+                ra_layout::solve_choose_map(),
+                &ui_layout::CHOOSE_MAP_BUTTON_IDS,
+            ),
             _ => return None,
         })
     }
 
     /// 按钮格相对 `panel_tile` 的平铺下标（贴底 Exit/返回落在末格）。
-    pub(super) fn panel_tile_index(layout: &ui_layout::MainMenuLayout, cell: ui_layout::RectPx) -> u32 {
-        let tile_h = layout.panel_tile.h.max(1);
-        ((cell.y - layout.panel_tile.y) / tile_h).max(0) as u32
+    pub(super) fn panel_tile_index(panel_tile: ui_layout::RectPx, cell: ui_layout::RectPx) -> u32 {
+        let tile_h = panel_tile.h.max(1);
+        ((cell.y - panel_tile.y) / tile_h).max(0) as u32
     }
 
     /// 切页波浪或出去→进来卡顿进行中。
@@ -167,10 +174,14 @@ impl Shell {
 
     /// 合成用收起帧（卡顿间隙：钮面停在 `WAVE_STOWED_FRAME`，不叠字）。
     pub(super) fn stowed_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
-        let ids = Self::wave_button_ids(self.screen)?;
-        let layout = Self::wave_shell_layout(self.screen)?;
+        let (_snap, ids) = Self::wave_shell_page(self.screen)?;
         let buttons = vec![WAVE_STOWED_FRAME; ids.len()];
-        let tiles = vec![WAVE_STOWED_FRAME; layout.panel_tile_count.max(0) as usize];
+        let tiles = vec![
+            WAVE_STOWED_FRAME;
+            ra_layout::RightPanelChrome::shell_defaults()
+                .tile_count()
+                .max(0) as usize
+        ];
         Some((buttons, tiles))
     }
 
@@ -181,22 +192,24 @@ impl Shell {
             return self.stowed_wave_frames();
         }
         let wave = self.menu_frame_wave.as_ref()?;
-        let ids = Self::wave_button_ids(self.screen)?;
-        let layout = Self::wave_shell_layout(self.screen)?;
+        let (snap, ids) = Self::wave_shell_page(self.screen)?;
+        let panel_tile = ui_layout::rect_px_from_snapshot(&snap, "panel_tile");
         let buttons = ids
             .iter()
             .enumerate()
-            .map(|(i, _id)| {
-                let cell = layout.buttons.get(i).copied().unwrap_or(ui_layout::RectPx::new(0, 0, 0, 0));
+            .map(|(i, id)| {
+                let cell = ui_layout::rect_px_from_snapshot(&snap, id);
                 let ti = if cell.w > 0 && cell.h > 0 {
-                    Self::panel_tile_index(&layout, cell)
+                    Self::panel_tile_index(panel_tile, cell)
                 } else {
                     i as u32
                 };
                 wave.frame_for_slot(ti)
             })
             .collect::<Vec<_>>();
-        let tile_count = layout.panel_tile_count.max(0) as u32;
+        let tile_count = ra_layout::RightPanelChrome::shell_defaults()
+            .tile_count()
+            .max(0) as u32;
         let tiles = (0..tile_count).map(|ti| wave.frame_for_slot(ti)).collect::<Vec<_>>();
         Some((buttons, tiles))
     }

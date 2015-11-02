@@ -24,7 +24,7 @@ pub(super) const CAMPAIGN_SIDE_NEAR_BLACK_SUM: u16 = 32;
 
 /// 合成战役选边页：三侧图 + 难度 + 右栏返回。
 ///
-/// 几何权威为 `solve_campaign` snapshot；右栏 chrome 经 `shell_rail_layout_from_snap` 供共用合成入口。
+/// 几何权威为 `solve_campaign` snapshot。
 pub fn compose_campaign_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -40,7 +40,6 @@ pub fn compose_campaign_page(
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_campaign();
-    let shell = shell_rail_layout_from_snap(&snap, &CAMPAIGN_BUTTON_IDS);
     let allied = rect_px_from_snapshot(&snap, ra_layout::CAMPAIGN_SIDE_IDS[0]);
     let tutorial = rect_px_from_snapshot(&snap, ra_layout::CAMPAIGN_SIDE_IDS[1]);
     let soviet = rect_px_from_snapshot(&snap, ra_layout::CAMPAIGN_SIDE_IDS[2]);
@@ -52,7 +51,7 @@ pub fn compose_campaign_page(
 
     let mut page = compose_shell_menu_page(
         decoded,
-        shell,
+        &snap,
         &CAMPAIGN_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,

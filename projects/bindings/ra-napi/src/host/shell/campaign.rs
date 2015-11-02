@@ -1,20 +1,23 @@
 //! 战役页交互。
 
-use ra_layout::ui_layout;
+use ra_layout::{rect_px_from_snapshot, solve_campaign, ui_layout};
 
 use super::{campaign_difficulty_from_track_x, Shell};
 
 impl Shell {
     /// 战役难度滑条按下：按轨坐标落档并开始拖动。
     pub(super) fn handle_campaign_press(&mut self) -> bool {
-        let layout = ui_layout::campaign_layout(0, 0);
+        let snap = solve_campaign();
+        let track = rect_px_from_snapshot(&snap, "difficulty");
+        let label = rect_px_from_snapshot(&snap, "difficulty_label");
+        let value = rect_px_from_snapshot(&snap, "difficulty_value");
         let (x, y) = self.shell_cursor_px();
-        if !(layout.difficulty_track.contains(x, y) || layout.difficulty_label.contains(x, y) || layout.difficulty_value.contains(x, y)) {
+        if !(track.contains(x, y) || label.contains(x, y) || value.contains(x, y)) {
             return false;
         }
         self.campaign_dragging = true;
         self.campaign_pointer_consumed = true;
-        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        self.set_campaign_difficulty_from_x(track, x);
         self.play_menu_click();
         true
     }
@@ -24,9 +27,9 @@ impl Shell {
         if !self.campaign_dragging {
             return false;
         }
-        let layout = ui_layout::campaign_layout(0, 0);
+        let track = rect_px_from_snapshot(&solve_campaign(), "difficulty");
         let (x, _) = self.shell_cursor_px();
-        self.set_campaign_difficulty_from_x(layout.difficulty_track, x);
+        self.set_campaign_difficulty_from_x(track, x);
         true
     }
 

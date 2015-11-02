@@ -16,12 +16,12 @@ pub fn compose_exit_confirm_page(
     let _ = (viewport_w, viewport_h);
     // 主菜单壳与居中 MessageBox 同源一次求解，再压暗并叠对话框。
     let snap = ra_layout::solve_exit_confirm();
-    let shell = shell_rail_layout_from_snap(&snap, &MAIN_MENU_BUTTON_IDS);
     let dialog = rect_px_from_snapshot(&snap, "dialog");
     let prompt = rect_px_from_snapshot(&snap, "prompt");
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let mut page = compose_shell_menu_page(
         decoded,
-        shell,
+        &snap,
         &MAIN_MENU_BUTTON_IDS,
         None,
         None,
@@ -34,7 +34,7 @@ pub fn compose_exit_confirm_page(
         warn_anim_frame,
     )?;
 
-    dim_rect(&mut page, shell.canvas, 160);
+    dim_rect(&mut page, canvas, 160);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dialog.x, dialog.y);
     } else {

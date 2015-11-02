@@ -4,11 +4,20 @@ use ra_widgets::{
     ui_compose::*,
     ui_decode::{DecodedUiSprite, PageDecodeReport},
 };
-use ra_layout::ui_layout::{
-    MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS,
-    main_menu_layout, rect_px_from_snapshot, shell_rail_layout_from_snap, single_player_layout,
+use ra_layout::{
+    rect_px_from_snapshot, solve_shell_page, solve_skirmish_lobby, MAIN_MENU_BUTTON_IDS,
+    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, RightPanelChrome,
 };
 use ra_renderer::RgbaImage;
+
+fn main_menu_snap() -> ra_layout::LayoutSnapshot {
+    solve_shell_page(
+        "main_menu",
+        &MAIN_MENU_BUTTON_IDS[..5],
+        Some(MAIN_MENU_BUTTON_IDS[5]),
+    )
+}
+
 #[test]
 fn blit_writes_opaque_pixel() {
     let mut dst = RgbaImage::from_raw(2, 2, vec![0u8; 16]).unwrap();
@@ -46,8 +55,8 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
     };
     let frames = [10u16, 10, 10, 10, 10, 10];
     let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, Some(ShellWaveFrames { buttons: &frames, tiles: &[], animate_empty_tiles: false }), 0).unwrap();
-    let layout = main_menu_layout(800, 600);
-    let cell = layout.buttons[0];
+    let snap = main_menu_snap();
+    let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 255, 255]);
 }
@@ -79,8 +88,8 @@ fn compose_hides_button_caption_while_wave_frames_active() {
     data.push(0b1000_0000);
     let fnt = FntFile::parse(&data).unwrap();
 
-    let layout = main_menu_layout(800, 600);
-    let cell = layout.buttons[0];
+    let snap = main_menu_snap();
+    let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let w = cell.w.max(1) as u16;
     let h = cell.h.max(1) as u16;
     let px = (u32::from(w) * u32::from(h)) as usize;
@@ -142,8 +151,8 @@ fn compose_uses_pressed_sprite_when_entry_matches() {
         errors: Vec::new(),
     };
     let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, None, 0).unwrap();
-    let layout = main_menu_layout(800, 600);
-    let cell = layout.buttons[0];
+    let snap = main_menu_snap();
+    let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[200, 0, 0, 255]);
 }
@@ -163,8 +172,8 @@ fn compose_uses_hover_sprite_when_not_pressed() {
         errors: Vec::new(),
     };
     let page = compose_main_menu_page(&decoded, 800, 600, None, Some("single_player"), None, None, None, None, None, 0).unwrap();
-    let layout = main_menu_layout(800, 600);
-    let cell = layout.buttons[0];
+    let snap = main_menu_snap();
+    let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
 }
@@ -184,8 +193,12 @@ fn compose_single_player_uses_skirmish_id() {
         errors: Vec::new(),
     };
     let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None, None, None, 0).unwrap();
-    let layout = single_player_layout(800, 600);
-    let cell = layout.buttons[2];
+    let snap = ra_layout::solve_shell_page(
+        "single_player",
+        &SINGLE_PLAYER_BUTTON_IDS[..3],
+        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
+    );
+    let cell = rect_px_from_snapshot(&snap, "skirmish");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 0, 255]);
 }
@@ -206,11 +219,7 @@ fn compose_skirmish_lobby_uses_start_id() {
     };
     let paint = SkirmishLobbyPaint::default();
     let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, None, &paint, None, 0).unwrap();
-    let shell = shell_rail_layout_from_snap(
-        &ra_layout::solve_skirmish_lobby(),
-        &SKIRMISH_LOBBY_BUTTON_IDS,
-    );
-    let cell = shell.buttons[0];
+    let cell = rect_px_from_snapshot(&solve_skirmish_lobby(), "start");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
 }
@@ -306,14 +315,14 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
         errors: Vec::new(),
     };
     let page = compose_main_menu_page(&decoded, 800, 600, None, None, None, None, None, None, None, 0).unwrap();
-    let layout = main_menu_layout(800, 600);
-    let wx = layout.panel_top.x + SDWRNANM_OFFSET_X;
-    let wy = layout.panel_top.y + SDWRNANM_OFFSET_Y;
+    let snap = main_menu_snap();
+    let wx = rect_px_from_snapshot(&snap, "panel_top").x + SDWRNANM_OFFSET_X;
+    let wy = rect_px_from_snapshot(&snap, "panel_top").y + SDWRNANM_OFFSET_Y;
     let wi = ((wy as u32 * page.width() + wx as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[wi..wi + 4], &[255, 128, 0, 255]);
     // 窗缘外侧仍应是 `sdtp` 灰，证明没有整幅盖住顶盖。
-    let edge_x = layout.panel_top.x + 2;
-    let edge_y = layout.panel_top.y + 2;
+    let edge_x = rect_px_from_snapshot(&snap, "panel_top").x + 2;
+    let edge_y = rect_px_from_snapshot(&snap, "panel_top").y + 2;
     let ei = ((edge_y as u32 * page.width() + edge_x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[ei..ei + 4], &[40, 40, 40, 40]);
 }
@@ -366,9 +375,9 @@ fn compose_skirmish_overlays_sdtp_frame1_and_sdmpbtn() {
     let paint = SkirmishLobbyPaint::default();
     let page = compose_skirmish_lobby_page(&decoded, 800, 600, None, None, None, None, None, None, &paint, None, 0).unwrap();
     let snap = ra_layout::solve_skirmish_lobby();
-    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
+    let panel_top = rect_px_from_snapshot(&snap, "panel_top");
     // 顶盖被帧 1 覆盖。
-    let ti = ((shell.panel_top.y as u32 * page.width() + (shell.panel_top.x as u32 + 2)) * 4) as usize;
+    let ti = ((panel_top.y as u32 * page.width() + (panel_top.x as u32 + 2)) * 4) as usize;
     assert_eq!(&page.as_raw()[ti..ti + 4], &[20, 80, 120, 255]);
     // 地图名底板贴到 `sdmpbtn` 格。
     let plate = rect_px_from_snapshot(&snap, "map_name_plate");
@@ -378,18 +387,18 @@ fn compose_skirmish_overlays_sdtp_frame1_and_sdmpbtn() {
 
 #[test]
 fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
-    let layout = main_menu_layout(800, 600);
-    let tile_h = layout.panel_tile.h;
-    let tile_y0 = layout.panel_tile.y;
+    let snap = main_menu_snap();
+    let tile_h = rect_px_from_snapshot(&snap, "panel_tile").h;
+    let tile_y0 = rect_px_from_snapshot(&snap, "panel_tile").y;
     // 找一个无按钮占用的平铺格。
-    let empty_ti = (0..layout.panel_tile_count)
+    let empty_ti = (0..RightPanelChrome::shell_defaults().tile_count())
         .find(|&ti| {
             let y = tile_y0 + ti * tile_h;
-            !layout.buttons.iter().any(|b| b.w > 0 && b.y == y)
+            !MAIN_MENU_BUTTON_IDS.iter().any(|id| { let b = rect_px_from_snapshot(&snap, id); b.w > 0 && b.y == y })
         })
         .expect("main menu should have empty panel tiles");
     let empty_y = tile_y0 + empty_ti * tile_h;
-    let cell_x = layout.panel_tile.x + (ra_layout::RIGHT_PANEL_W - ra_layout::BUTTON_CELL_W);
+    let cell_x = rect_px_from_snapshot(&snap, "panel_tile").x + (ra_layout::RIGHT_PANEL_W - ra_layout::BUTTON_CELL_W);
 
     let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
     let bkgd = solid_sprite("sdbtnbkgd.shp#0", [90, 90, 90, 255]);
@@ -406,7 +415,7 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         errors: Vec::new(),
     };
     let buttons = [10u16; 6];
-    let mut tiles = vec![1u16; layout.panel_tile_count as usize];
+    let mut tiles = vec![1u16; RightPanelChrome::shell_defaults().tile_count() as usize];
     tiles[empty_ti as usize] = 10;
     let page = compose_main_menu_page(
         &decoded,
@@ -430,7 +439,7 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
     // 出去时：空格钮格叠波浪帧绿。
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
     // 左侧红线带仍是 `sdbtnbkgd`，不被波浪藏掉。
-    let wire_x = layout.panel_tile.x as u32;
+    let wire_x = rect_px_from_snapshot(&snap, "panel_tile").x as u32;
     let wi = ((empty_y as u32 * page.width() + wire_x) * 4) as usize;
     assert_eq!(&page.as_raw()[wi..wi + 4], &[90, 90, 90, 255]);
 

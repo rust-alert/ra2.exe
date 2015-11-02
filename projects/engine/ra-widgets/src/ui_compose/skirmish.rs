@@ -354,10 +354,10 @@ pub fn compose_skirmish_lobby_page(
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let snap = solve_skirmish_lobby();
-    let shell = shell_rail_layout_from_snap(&snap, &SKIRMISH_LOBBY_BUTTON_IDS);
+    let panel_top = rect_px_from_snapshot(&snap, "panel_top");
     let mut page = compose_shell_menu_page(
         decoded,
-        shell,
+        &snap,
         &SKIRMISH_LOBBY_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
@@ -378,7 +378,7 @@ pub fn compose_skirmish_lobby_page(
     let status_help = rect_px_from_snapshot(&snap, "status_help");
 
     // 右栏：`sdtp` 帧 1 标题牌 + `sdmpbtn` 地图名底板；预览等比落入 `0x468` 黑窗（无红描边）。
-    blit_skirmish_preview_chrome(&mut page, decoded, shell.panel_top, map_name_plate);
+    blit_skirmish_preview_chrome(&mut page, decoded, panel_top, map_name_plate);
     if let Some(preview) = map_preview {
         blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }

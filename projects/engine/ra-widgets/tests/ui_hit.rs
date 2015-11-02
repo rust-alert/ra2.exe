@@ -1,7 +1,7 @@
 //! 集成测试：原 `src/ui_hit.rs` 内联测试迁出。
 
 use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, ui_hit::*};
-use ra_layout::ui_layout::{shell_rail_layout_from_snap, SKIRMISH_LOBBY_BUTTON_IDS};
+use ra_layout::{rect_px_from_snapshot, solve_skirmish_lobby, SKIRMISH_LOBBY_BUTTON_IDS};
 use ra_map::{BootMapCandidate, Theater};
 
 #[test]
@@ -100,11 +100,7 @@ fn lobby_start_button_is_hit() {
         start_slots: 4,
         game_modes: Vec::new(),
     }];
-    let shell = shell_rail_layout_from_snap(
-        &ra_layout::solve_skirmish_lobby(),
-        &SKIRMISH_LOBBY_BUTTON_IDS,
-    );
-    let cell = shell.buttons[0];
+    let cell = rect_px_from_snapshot(&solve_skirmish_lobby(), SKIRMISH_LOBBY_BUTTON_IDS[0]);
     let cx = cell.x + cell.w / 2;
     let cy = cell.y + cell.h / 2;
     let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);

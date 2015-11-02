@@ -64,7 +64,7 @@ pub struct ShellSlideSpec {
     pub slot_count: u32,
 }
 
-/// 右栏 `sdbtnbkgd` 平铺格数（与 `main_menu_layout` 的 `panel_tile_count` 一致）。
+/// 右栏 `sdbtnbkgd` 平铺格数（与 `RightPanelChrome::tile_count` 一致）。
 /// 波浪按物理格自上而下交错：有字钮、无字空格、贴底末钮同一套档位。
 pub const SHELL_PANEL_WAVE_SLOTS: u32 = 9;
 

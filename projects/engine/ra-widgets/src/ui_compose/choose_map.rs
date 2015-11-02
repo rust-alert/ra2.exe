@@ -43,8 +43,7 @@ pub fn compose_choose_map_page(
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_choose_map();
-    let shell = shell_rail_layout_from_snap(&snap, &CHOOSE_MAP_BUTTON_IDS);
-    let panel_top = shell.panel_top;
+    let panel_top = rect_px_from_snapshot(&snap, "panel_top");
     let title = rect_px_from_snapshot(&snap, "title");
     let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
     let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");
@@ -56,7 +55,7 @@ pub fn compose_choose_map_page(
 
     let mut page = compose_shell_menu_page(
         decoded,
-        shell,
+        &snap,
         &CHOOSE_MAP_BUTTON_IDS,
         pressed_entry_id,
         hovered_entry_id,
