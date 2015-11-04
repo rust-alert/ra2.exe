@@ -3,7 +3,7 @@
 use ra_adaptor::{ResourceChain, RulesSystem};
 use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
-use ra_map::{MapInfo, Waypoint};
+use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 fn mcv_rules() -> RulesSystem {
@@ -75,6 +75,60 @@ fn open_skirmish_places_mcv_at_seat_waypoints() {
         .collect();
     assert!(units.contains(&("Americans".into(), "AMCV".into(), 4, 4)), "{units:?}");
     assert!(units.contains(&("Russians".into(), "SMCV".into(), 20, 20)), "{units:?}");
+}
+
+#[test]
+fn open_skirmish_strips_map_preplaced_mobiles() {
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let mut map = map_with_starts();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 8,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "ADOG".into(),
+        health: 256,
+        x: 10,
+        y: 10,
+        facing: 0,
+        sub_cell: 0,
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "Russians".into(),
+        type_id: "DEST".into(),
+        health: 256,
+        x: 12,
+        y: 12,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let opened = open_skirmish_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans", "Russians"],
+        0,
+    )
+    .expect("应成功开局");
+    assert!(opened.note.contains("strip_mobiles#2"), "{}", opened.note);
+    let snap = opened.session.expect_battle().snapshot(&[]);
+    let type_ids: Vec<_> = snap.units.iter().map(|u| u.type_id.as_ref().to_string()).collect();
+    assert!(type_ids.iter().any(|t| t == "AMCV"), "{type_ids:?}");
+    assert!(type_ids.iter().any(|t| t == "SMCV"), "{type_ids:?}");
+    assert!(!type_ids.iter().any(|t| t == "ADOG" || t == "DEST"), "{type_ids:?}");
 }
 
 #[test]

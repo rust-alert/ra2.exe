@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesSystem};
-use ra_map::{MapInfo, seal_pass_grid_from_tmp, skirmish_start_waypoint};
+use ra_map::{MapInfo, MapEntityKind, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
 use crate::{
@@ -30,12 +30,13 @@ pub struct SkirmishOpenResult {
 /// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。
 /// - `ensure_houses` 中的阵营一律登记进玩家表（遭遇战对手不一定出现在地图放置段）。
 /// - 每个 `ensure_houses[slot]` 在地图航点 `slot` 放置该 house 的开局 MCV；航点缺失或格子非法时失败。
+/// - 地图预放的机动单位（步兵 / 载具 / 飞行器）不进入仿真，仅保留建筑；避免无工厂时 AI 驱赶预放部队。
 /// - `match_seed` 混入对局指纹，供后续确定性 RNG 使用。
 pub fn open_skirmish_session(
     source: &dyn AssetSource,
     chain: &ResourceChain,
     rules: &RulesSystem,
-    map: MapInfo,
+    mut map: MapInfo,
     mut note: String,
     preview_origin: (i32, i32),
     preferred_house: Option<&str>,
@@ -49,6 +50,11 @@ pub fn open_skirmish_session(
         rules.techno_types.len(),
         match_seed
     );
+
+    let stripped = strip_skirmish_map_mobiles(&mut map);
+    if stripped > 0 {
+        note = format!("{note} · strip_mobiles#{stripped}");
+    }
 
     let mut state = BattleState::new(chain.edition, rules, map);
     for house in ensure_houses {
@@ -108,6 +114,13 @@ pub fn open_skirmish_session(
     session.attach_battle(game);
 
     Ok(SkirmishOpenResult { engine, session, note })
+}
+
+/// 遭遇战不把地图预放机动单位纳入权威世界（预览底图仍可保留叠画）。
+fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
+    let before = map.entities.len();
+    map.entities.retain(|e| e.kind == MapEntityKind::Structure);
+    before.saturating_sub(map.entities.len())
 }
 
 /// 按大厅席位顺序，在地图航点放置各 house 的开局 MCV。

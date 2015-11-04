@@ -155,7 +155,12 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: 
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。
+///
+/// 无建造场时不下发（遭遇战开局仅有 MCV / 未展开时不应满图追打）。
 pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand> {
+    if !house_has_yard(world, house) {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     for (attacker_index, attacker) in world.entities.iter().enumerate() {
         let id = attacker.id;
@@ -206,10 +211,20 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
         .techno
         .iter()
         .filter(|t| {
-            t.class.production_category() == Some(category) && owner_allows(&t.owner, house) && t.class != ra_types::TechnoClass::Building
+            t.class.production_category() == Some(category)
+                && owner_allows(&t.owner, house)
+                && t.class != ra_types::TechnoClass::Building
+                // TechLevel < 1：不可建造或仅地图装饰。
+                && t.tech_level >= 1
+                // 陆地工厂不造海军单位（否则 DEST 等会从战车厂刷出）。
+                && !t.naval
+                // 警犬等 Category=Dog 不进常规量产。
+                && !t.category.eq_ignore_ascii_case("Dog")
+                && deploy_into_type(&world.definitions, &t.type_key).is_none()
         })
+        // 同科技等级下优先较便宜的基础单位；再按类型键稳定排序。
+        .min_by_key(|t| (t.tech_level, t.cost, t.type_key.as_str()))
         .map(|t| t.type_key.as_str())
-        .next()
 }
 
 fn living_house_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> bool

@@ -26,6 +26,25 @@ fn parse_vehicle_list() {
 }
 
 #[test]
+fn parse_category_naval_and_tech_level() {
+    let doc = IniDocument::parse(
+        b"[InfantryTypes]\n0=ADOG\n\
+[VehicleTypes]\n0=DEST\n\
+[ADOG]\nStrength=100\nSpeed=8\nSight=5\nCost=200\nTechLevel=-1\nCategory=Dog\nOwner=Americans\n\
+[DEST]\nStrength=600\nSpeed=6\nSight=7\nCost=1000\nTechLevel=5\nNaval=yes\nOwner=Americans\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let dog = reg.get("ADOG").unwrap();
+    assert_eq!(dog.category, "Dog");
+    assert_eq!(dog.tech_level, -1);
+    assert!(!dog.naval);
+    let dest = reg.get("DEST").unwrap();
+    assert!(dest.naval);
+    assert_eq!(dest.tech_level, 5);
+}
+
+#[test]
 fn parse_primary_weapon_damage_and_range() {
     let doc = IniDocument::parse(
         b"[VehicleTypes]\n0=MTNK\n\

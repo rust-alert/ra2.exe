@@ -27,6 +27,10 @@ pub struct TechnoType {
     pub owner: String,
     /// `Image` 资源名（缺省等于 id）。
     pub image: String,
+    /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
+    pub category: String,
+    /// `Naval=yes`。
+    pub naval: bool,
     /// 主武器名（`Primary`）；空表示未配置。
     pub primary: String,
     /// 主武器伤害（来自武器节 `Damage`）；0 表示未配置。
@@ -127,6 +131,10 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let tech_level = rules.get(id, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
     let owner = rules.get(id, "Owner").unwrap_or("").to_string();
     let image = rules.get(id, "Image").unwrap_or(id).to_ascii_uppercase();
+    let category = rules.get(id, "Category").unwrap_or("").trim().to_string();
+    let naval = rules
+        .get(id, "Naval")
+        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
     let primary = rules.get(id, "Primary").unwrap_or("").trim().to_ascii_uppercase();
     let techno_rof = parse_u32(rules.get(id, "ROF")).unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
@@ -141,6 +149,8 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         tech_level,
         owner,
         image,
+        category,
+        naval,
         primary,
         damage,
         range,

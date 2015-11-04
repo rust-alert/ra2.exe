@@ -50,6 +50,12 @@ pub struct TechnoDefinition {
     pub speed: u32,
     /// Owner 串。
     pub owner: String,
+    /// `TechLevel`；`< 0` 表示不可建造。
+    pub tech_level: i32,
+    /// `Naval=yes`。
+    pub naval: bool,
+    /// `Category`（如 `Soldier` / `Dog`）。
+    pub category: String,
     /// 视野（格）；缺省攻击射程回退用。
     pub sight: u32,
     /// 主武器伤害；0 表示未配置。
