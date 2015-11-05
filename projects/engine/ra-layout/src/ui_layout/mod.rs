@@ -7,7 +7,6 @@ mod viewport_map;
 mod popup;
 mod choose_map;
 mod battle_hud;
-mod battle_pause;
 mod map_viewport;
 
 pub use rect::*;
@@ -16,5 +15,4 @@ pub use viewport_map::*;
 pub use popup::*;
 pub use choose_map::*;
 pub use battle_hud::*;
-pub use battle_pause::*;
 pub use map_viewport::*;

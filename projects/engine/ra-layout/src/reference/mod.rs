@@ -1,6 +1,7 @@
 //! 页面模板与 `solve_*` 入口（几何权威为 `LayoutSnapshot`）。
 
 mod battle_hud;
+mod battle_pause;
 mod campaign_page;
 mod dlu;
 mod exit_confirm_page;
@@ -15,6 +16,7 @@ pub use battle_hud::{
     solve_battle_hud_with_metrics, BattleHudChromeMetrics, COMMAND_BAR_H, COMMAND_BUTTON_W,
     COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
+pub use battle_pause::solve_battle_pause;
 pub use campaign_page::{campaign_content_layout_tree, solve_campaign};
 pub use exit_confirm_page::{exit_confirm_content_layout_tree, solve_exit_confirm};
 pub use dlu::{mul_div_round, DluRect, FontBaseUnits, MS_SANS_SERIF_8PT};

@@ -1,6 +1,8 @@
 //! 对局暂停菜单：几何权威为 `solve_battle_pause` snapshot。
 
-use crate::{solve_shell_page, LayoutSnapshot, BATTLE_PAUSE_MENU_BUTTON_IDS};
+use crate::{
+    reference::shell_chrome::solve_shell_page, snapshot::LayoutSnapshot, BATTLE_PAUSE_MENU_BUTTON_IDS,
+};
 
 /// 对局暂停菜单：`shell_page_layout_tree` → snapshot。
 pub fn solve_battle_pause() -> LayoutSnapshot {
