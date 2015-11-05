@@ -7,7 +7,9 @@
 use crate::{
     geometry::{Rect, Size2},
     policy::RightPanelChrome,
+    snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
+    ui_layout::{rect_px_from_snapshot, RectPx},
 };
 
 /// 侧栏共用竖向槽位高度（两阵营一致）。
@@ -116,7 +118,14 @@ impl BattleHudChromeMetrics {
     }
 }
 
-/// 对局 HUD 各槽位设计矩形（与过渡期 `battle_hud_layout` 同构）。
+/// 世界层可视矩形：左起至侧栏左缘，上起至命令条顶边。
+pub fn battle_hud_world_viewport(snap: &LayoutSnapshot) -> RectPx {
+    let sidebar = rect_px_from_snapshot(snap, "sidebar");
+    let command_bar = rect_px_from_snapshot(snap, "command_bar");
+    RectPx::new(0, 0, sidebar.x.max(0), command_bar.y.max(0))
+}
+
+/// 对局 HUD 各槽位设计矩形（内部算树用）。
 #[derive(Debug, Clone, Copy)]
 struct BattleHudRects {
     sidebar: Rect,
@@ -311,49 +320,42 @@ pub fn solve_battle_hud_with_metrics(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LayoutEngine, Viewport};
 
     #[test]
-    fn battle_hud_tree_matches_ui_layout() {
+    fn battle_hud_snap_matches_computed_rects() {
+        let metrics = BattleHudChromeMetrics::allied();
         for (vw, vh) in [(640u32, 480u32), (800, 600), (1280, 720), (2560, 1440)] {
-            let snap = LayoutEngine.solve(
-                Viewport {
-                    size: Size2 {
-                        width: vw.max(1) as f32,
-                        height: vh.max(1) as f32,
-                    },
-                    ..Viewport::default()
-                },
-                &battle_hud_layout_tree(vw, vh),
-            );
-            let legacy = crate::ui_layout::battle_hud_layout(vw, vh);
+            let snap = solve_battle_hud_with_metrics(vw, vh, metrics);
+            let expected = compute_battle_hud_rects(vw, vh, metrics);
             for (id, cell) in [
-                ("sidebar", legacy.sidebar),
-                ("credits", legacy.credits),
-                ("top", legacy.top),
-                ("radar", legacy.radar),
-                ("side1", legacy.side1),
-                ("cameo_band", legacy.cameo_band),
-                ("side3", legacy.side3),
-                ("addon", legacy.addon),
-                ("repair", legacy.repair),
-                ("sell", legacy.sell),
-                ("tab00", legacy.tabs[0]),
-                ("tab01", legacy.tabs[1]),
-                ("tab02", legacy.tabs[2]),
-                ("tab03", legacy.tabs[3]),
-                ("bottom_strip", legacy.bottom_strip),
-                ("command_bar", legacy.command_bar),
-                ("opt_btn", legacy.opt_btn),
-                ("diplo_btn", legacy.diplo_btn),
+                ("sidebar", expected.sidebar),
+                ("credits", expected.credits),
+                ("top", expected.top),
+                ("radar", expected.radar),
+                ("side1", expected.side1),
+                ("cameo_band", expected.cameo_band),
+                ("side3", expected.side3),
+                ("addon", expected.addon),
+                ("repair", expected.repair),
+                ("sell", expected.sell),
+                ("tab00", expected.tabs[0]),
+                ("tab01", expected.tabs[1]),
+                ("tab02", expected.tabs[2]),
+                ("tab03", expected.tabs[3]),
+                ("bottom_strip", expected.bottom_strip),
+                ("command_bar", expected.command_bar),
+                ("opt_btn", expected.opt_btn),
+                ("diplo_btn", expected.diplo_btn),
             ] {
                 let got = snap.get(id).expect(id).layout.rect;
-                assert_eq!(got.x as i32, cell.x, "{vw}x{vh} {id} x");
-                assert_eq!(got.y as i32, cell.y, "{vw}x{vh} {id} y");
-                assert_eq!(got.width as i32, cell.w, "{vw}x{vh} {id} w");
-                assert_eq!(got.height as i32, cell.h, "{vw}x{vh} {id} h");
+                assert_eq!(got.x as i32, cell.x as i32, "{vw}x{vh} {id} x");
+                assert_eq!(got.y as i32, cell.y as i32, "{vw}x{vh} {id} y");
+                assert_eq!(got.width as i32, cell.width as i32, "{vw}x{vh} {id} w");
+                assert_eq!(got.height as i32, cell.height as i32, "{vw}x{vh} {id} h");
             }
-            assert_eq!(legacy.power_meter_w, BattleHudChromeMetrics::allied().power_w);
+            let world = battle_hud_world_viewport(&snap);
+            assert_eq!(world.w, expected.sidebar.x as i32);
+            assert_eq!(world.h, expected.command_bar.y as i32);
         }
     }
 

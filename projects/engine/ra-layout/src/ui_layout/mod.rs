@@ -6,7 +6,6 @@ mod constants;
 mod viewport_map;
 mod popup;
 mod choose_map;
-mod battle_hud;
 mod map_viewport;
 
 pub use rect::*;
@@ -14,5 +13,4 @@ pub use constants::*;
 pub use viewport_map::*;
 pub use popup::*;
 pub use choose_map::*;
-pub use battle_hud::*;
 pub use map_viewport::*;

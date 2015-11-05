@@ -5,9 +5,8 @@
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
-    battle_hud_layout_tree, battle_hud_layout_with_metrics, BattleHudChromeMetrics, BattleHudLayout,
-    LayoutEngine, Point2, RectPx, Size2, Viewport, COMMAND_BUTTON_W, COMMAND_LENDCAP_W,
-    COMMAND_RENDCAP_W,
+    rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics, LayoutSnapshot,
+    Point2, RectPx, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 use ra_renderer::RgbaImage;
 
@@ -378,17 +377,44 @@ fn sample_opaque_rgb(img: &RgbaImage) -> Option<[u8; 4]> {
 }
 
 /// 把已解码 chrome 画进透明页（左战术区保持透明，供地图透出）。
-pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, layout: BattleHudLayout) {
-    blit_battle_hud_chrome_with_state(page, chrome, layout, None);
+pub fn blit_battle_hud_chrome(
+    page: &mut RgbaImage,
+    chrome: &BattleHudChrome,
+    snap: &LayoutSnapshot,
+    power_meter_w: i32,
+) {
+    blit_battle_hud_chrome_with_state(page, chrome, snap, power_meter_w, None);
 }
 
 /// 带命令条按下态绘制。
 pub fn blit_battle_hud_chrome_with_state(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
-    layout: BattleHudLayout,
+    snap: &LayoutSnapshot,
+    power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
+    let sidebar = rect_px_from_snapshot(snap, "sidebar");
+    let credits = rect_px_from_snapshot(snap, "credits");
+    let top = rect_px_from_snapshot(snap, "top");
+    let radar = rect_px_from_snapshot(snap, "radar");
+    let side1 = rect_px_from_snapshot(snap, "side1");
+    let cameo_band = rect_px_from_snapshot(snap, "cameo_band");
+    let side3 = rect_px_from_snapshot(snap, "side3");
+    let addon = rect_px_from_snapshot(snap, "addon");
+    let repair = rect_px_from_snapshot(snap, "repair");
+    let sell = rect_px_from_snapshot(snap, "sell");
+    let bottom_strip = rect_px_from_snapshot(snap, "bottom_strip");
+    let command_bar = rect_px_from_snapshot(snap, "command_bar");
+    let opt_btn = rect_px_from_snapshot(snap, "opt_btn");
+    let diplo_btn = rect_px_from_snapshot(snap, "diplo_btn");
+    let tabs = [
+        rect_px_from_snapshot(snap, "tab00"),
+        rect_px_from_snapshot(snap, "tab01"),
+        rect_px_from_snapshot(snap, "tab02"),
+        rect_px_from_snapshot(snap, "tab03"),
+    ];
+
     let sidebar_fill = chrome
         .side2
         .as_ref()
@@ -396,27 +422,27 @@ pub fn blit_battle_hud_chrome_with_state(
         .or(chrome.top.as_ref())
         .and_then(|s| sample_opaque_rgb(&s.image))
         .unwrap_or([40, 44, 52, 255]);
-    fill_rect(page, layout.sidebar, sidebar_fill);
+    fill_rect(page, sidebar, sidebar_fill);
 
     if let Some(s) = &chrome.credits {
-        blit_stretched(page, &s.image, layout.credits);
+        blit_stretched(page, &s.image, credits);
     }
     if let Some(s) = &chrome.top {
-        blit_stretched(page, &s.image, layout.top);
+        blit_stretched(page, &s.image, top);
     }
     if let Some(s) = &chrome.radar {
-        blit_stretched(page, &s.image, layout.radar);
+        blit_stretched(page, &s.image, radar);
     }
     if let Some(s) = &chrome.side1 {
-        blit_stretched(page, &s.image, layout.side1);
+        blit_stretched(page, &s.image, side1);
     }
     if let Some(tile) = &chrome.side2 {
         let th = tile.image.height().max(1) as i32;
-        let mut y = layout.cameo_band.y;
-        while y < layout.cameo_band.y + layout.cameo_band.h {
-            let remain = layout.cameo_band.y + layout.cameo_band.h - y;
+        let mut y = cameo_band.y;
+        while y < cameo_band.y + cameo_band.h {
+            let remain = cameo_band.y + cameo_band.h - y;
             let h = remain.min(th);
-            blit_stretched(page, &tile.image, RectPx::new(layout.cameo_band.x, y, layout.cameo_band.w, h));
+            blit_stretched(page, &tile.image, RectPx::new(cameo_band.x, y, cameo_band.w, h));
             y += th;
         }
     }
@@ -427,31 +453,31 @@ pub fn blit_battle_hud_chrome_with_state(
         .or(chrome.side3.as_ref())
         .and_then(|s| sample_opaque_rgb(&s.image))
         .unwrap_or(sidebar_fill);
-    fill_rect(page, layout.bottom_strip, bottom_fill);
+    fill_rect(page, bottom_strip, bottom_fill);
     if let Some(s) = &chrome.side3 {
-        blit_stretched(page, &s.image, layout.side3);
+        blit_stretched(page, &s.image, side3);
     }
     if let Some(s) = &chrome.addon {
-        blit_stretched(page, &s.image, layout.addon);
+        blit_stretched(page, &s.image, addon);
     }
     if let Some(s) = &chrome.repair {
-        blit_button_in_cell(page, &s.image, layout.repair);
+        blit_button_in_cell(page, &s.image, repair);
     }
     if let Some(s) = &chrome.sell {
-        blit_button_in_cell(page, &s.image, layout.sell);
+        blit_button_in_cell(page, &s.image, sell);
     }
     if let Some(s) = &chrome.powerp {
         // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
-        let meter_w = layout.power_meter_w.min(layout.sidebar.w).max(1);
+        let meter_w = power_meter_w.min(sidebar.w).max(1);
         let strip_h = s.image.height().max(1) as i32;
-        let mut y = layout.cameo_band.y;
-        let bottom = layout.cameo_band.y + layout.cameo_band.h;
+        let mut y = cameo_band.y;
+        let bottom = cameo_band.y + cameo_band.h;
         while y < bottom {
             let h = (bottom - y).min(strip_h);
             blit_stretched(
                 page,
                 &s.image,
-                RectPx::new(layout.sidebar.x, y, meter_w, h),
+                RectPx::new(sidebar.x, y, meter_w, h),
             );
             y += strip_h;
         }
@@ -459,18 +485,18 @@ pub fn blit_battle_hud_chrome_with_state(
     // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
     for (i, tab) in chrome.tabs.iter().enumerate() {
         if let Some(tab) = tab {
-            blit_button_in_cell(page, &tab.image, layout.tabs[i]);
+            blit_button_in_cell(page, &tab.image, tabs[i]);
         }
     }
     // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。底脚鹰标/蓝光只靠 `side3`。
     if let Some(s) = &chrome.diplobtn {
-        blit_button_in_cell(page, &s.image, layout.diplo_btn);
+        blit_button_in_cell(page, &s.image, diplo_btn);
     }
     if let Some(s) = &chrome.optbtn {
-        blit_button_in_cell(page, &s.image, layout.opt_btn);
+        blit_button_in_cell(page, &s.image, opt_btn);
     }
 
-    blit_command_bar(page, chrome, layout.command_bar, command_pressed);
+    blit_command_bar(page, chrome, command_bar, command_pressed);
 }
 
 /// 命令条端盖与钮槽几何（与 `blit_command_bar` 同口径；槽位按 `ButtonList` 可视序）。
@@ -610,11 +636,11 @@ fn blit_command_bar(
 /// 便捷：按视口与 chrome 嵌套包度量生成布局并绘制。
 pub fn paint_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome) {
     let metrics = BattleHudChromeMetrics::for_mix(&chrome.mix);
-    let layout = battle_hud_layout_with_metrics(page.width(), page.height(), metrics);
-    blit_battle_hud_chrome(page, chrome, layout);
+    let snap = solve_battle_hud_with_metrics(page.width(), page.height(), metrics);
+    blit_battle_hud_chrome(page, chrome, &snap, metrics.power_w);
 }
 
-/// 对局 HUD 可点入口（几何权威为 `battle_hud_layout_tree` snapshot + 命令条几何）。
+/// 对局 HUD 可点入口（几何权威为 `solve_battle_hud` snapshot + 命令条几何）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleHudHit {
     /// 修理模式。
@@ -671,35 +697,20 @@ impl BattleHudHit {
 
 const BATTLE_HUD_HIT_IDS: [&str; 4] = ["repair", "sell", "opt_btn", "diplo_btn"];
 
-fn battle_hud_snapshot(viewport_w: u32, viewport_h: u32) -> ra_layout::LayoutSnapshot {
-    LayoutEngine.solve(
-        Viewport {
-            size: Size2 {
-                width: viewport_w.max(1) as f32,
-                height: viewport_h.max(1) as f32,
-            },
-            ..Viewport::default()
-        },
-        &battle_hud_layout_tree(viewport_w, viewport_h),
-    )
-}
-
 /// 视口像素命中（侧栏钮走 snapshot；命令条钮走与绘制同口径几何）。
-///
-/// `layout` 仅用于推断视口尺寸，保持与暂停菜单 `hit_at` 签名同构。
-pub fn hit_at(layout: BattleHudLayout, x: i32, y: i32) -> Option<BattleHudHit> {
-    hit_at_with_chrome(layout, None, x, y)
+pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
+    hit_at_with_chrome(snap, None, x, y)
 }
 
 /// 带 chrome 的命中（可点命令条按钮）。
 pub fn hit_at_with_chrome(
-    layout: BattleHudLayout,
+    snap: &LayoutSnapshot,
     chrome: Option<&BattleHudChrome>,
     x: i32,
     y: i32,
 ) -> Option<BattleHudHit> {
     if let Some(chrome) = chrome {
-        let bar = layout.command_bar;
+        let bar = rect_px_from_snapshot(snap, "command_bar");
         if bar.contains(x, y) {
             let geom = CommandBarGeom::from_chrome(chrome, bar);
             for visual in 0..CommandBarGeom::active_buttons().len() {
@@ -720,9 +731,6 @@ pub fn hit_at_with_chrome(
         }
     }
 
-    let viewport_w = (layout.sidebar.x + layout.sidebar.w).max(1) as u32;
-    let viewport_h = layout.sidebar.h.max(1) as u32;
-    let snap = battle_hud_snapshot(viewport_w, viewport_h);
     let point = Point2 {
         x: x as f32,
         y: y as f32,

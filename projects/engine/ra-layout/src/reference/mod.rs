@@ -12,9 +12,9 @@ mod options_page;
 mod shell_chrome;
 
 pub use battle_hud::{
-    battle_hud_layout_tree, battle_hud_layout_tree_with_metrics, solve_battle_hud,
-    solve_battle_hud_with_metrics, BattleHudChromeMetrics, COMMAND_BAR_H, COMMAND_BUTTON_W,
-    COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    battle_hud_layout_tree, battle_hud_layout_tree_with_metrics, battle_hud_world_viewport,
+    solve_battle_hud, solve_battle_hud_with_metrics, BattleHudChromeMetrics, COMMAND_BAR_H,
+    COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 pub use battle_pause::solve_battle_pause;
 pub use campaign_page::{campaign_content_layout_tree, solve_campaign};

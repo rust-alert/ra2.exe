@@ -13,7 +13,7 @@ use ra_widgets::{
     ui_text::{command_button_csf_tooltip, resolve_csf_text},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::{battle_hud_layout_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
+use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
 use ra_map::{
     MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank, iso_to_screen,
     load_structure_buildup_clip, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
@@ -1696,7 +1696,7 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
-    fn hud_layout_for_window(&self, window: &Window) -> ra_layout::BattleHudLayout {
+    fn hud_snap_for_window(&self, window: &Window) -> ra_layout::LayoutSnapshot {
         let size = window.inner_size();
         let w = size.width.max(1);
         let h = size.height.max(1);
@@ -1705,12 +1705,12 @@ impl BattleController {
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
             .unwrap_or_else(BattleHudChromeMetrics::allied);
-        battle_hud_layout_with_metrics(w, h, metrics)
+        solve_battle_hud_with_metrics(w, h, metrics)
     }
 
     fn hit_hud_at(&self, window: &Window, x: i32, y: i32) -> Option<BattleHudHit> {
-        let layout = self.hud_layout_for_window(window);
-        hit_at_with_chrome(layout, self.hud_chrome.as_ref(), x, y)
+        let snap = self.hud_snap_for_window(window);
+        hit_at_with_chrome(&snap, self.hud_chrome.as_ref(), x, y)
     }
 
     fn refresh_command_hover(&mut self, window: &Window) {

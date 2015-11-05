@@ -2,7 +2,9 @@
 
 use ra_renderer::{CameraBounds, ViewCamera};
 
-use super::{battle_hud_layout, RectPx};
+use crate::{battle_hud_world_viewport, solve_battle_hud};
+
+use super::RectPx;
 
 /// 对局地图视口：世界绘制、marker、命中与相机边界必须使用同一实例。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -16,11 +18,12 @@ pub struct MapViewport {
 }
 
 impl MapViewport {
-    /// 由窗口像素构造：战术区取自 [`battle_hud_layout`] 的 `world_viewport`。
+    /// 由窗口像素构造：战术区取自 `solve_battle_hud` → `battle_hud_world_viewport`。
     pub fn battle(window_w: u32, window_h: u32) -> Self {
         let sw = window_w.max(1);
         let sh = window_h.max(1);
-        let tactical = battle_hud_layout(sw, sh).world_viewport();
+        let snap = solve_battle_hud(sw, sh);
+        let tactical = battle_hud_world_viewport(&snap);
         Self {
             tactical,
             surface_w: sw,
@@ -86,13 +89,15 @@ impl MapViewport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{battle_hud_world_viewport, solve_battle_hud};
     use ra_renderer::ViewCamera;
 
     #[test]
     fn battle_tactical_matches_hud_world_viewport() {
         let vp = MapViewport::battle(1280, 720);
-        let legacy = battle_hud_layout(1280, 720).world_viewport();
-        assert_eq!(vp.tactical, legacy);
+        let snap = solve_battle_hud(1280, 720);
+        let world = battle_hud_world_viewport(&snap);
+        assert_eq!(vp.tactical, world);
         assert_eq!(vp.surface_w, 1280);
         assert_eq!(vp.surface_h, 720);
         assert!(vp.proj_w() < 1280.0);

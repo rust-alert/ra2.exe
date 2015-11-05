@@ -49,21 +49,24 @@ pub fn compose_battle_hud_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let layout = match chrome {
-        Some(c) => battle_hud_layout_with_metrics(
-            w,
-            h,
-            BattleHudChromeMetrics::for_mix(&c.mix),
-        ),
-        None => battle_hud_layout(w, h),
+    let metrics = match chrome {
+        Some(c) => BattleHudChromeMetrics::for_mix(&c.mix),
+        None => BattleHudChromeMetrics::allied(),
     };
+    let snap = solve_battle_hud_with_metrics(w, h, metrics);
+    let credits = rect_px_from_snapshot(&snap, "credits");
+    let sidebar = rect_px_from_snapshot(&snap, "sidebar");
+    let radar = rect_px_from_snapshot(&snap, "radar");
+    let bottom_strip = rect_px_from_snapshot(&snap, "bottom_strip");
+    let command_bar = rect_px_from_snapshot(&snap, "command_bar");
 
     let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
     if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
         crate::battle_hud::blit_battle_hud_chrome_with_state(
             &mut page,
             chrome,
-            layout,
+            &snap,
+            metrics.power_w,
             paint.command_pressed,
         );
     } else {
@@ -83,14 +86,14 @@ pub fn compose_battle_hud_overlay(
             &mut page,
             fnt,
             &funds_line,
-            layout.credits.x,
-            layout.credits.y,
-            layout.credits.w,
-            layout.credits.h,
+            credits.x,
+            credits.y,
+            credits.w,
+            credits.h,
             credit_color,
         );
         if !used_chrome {
-            blit_text_colored(&mut page, fnt, &power_line, layout.sidebar.x + 8, layout.credits.y + layout.credits.h + 8, {
+            blit_text_colored(&mut page, fnt, &power_line, sidebar.x + 8, credits.y + credits.h + 8, {
                 if paint.low_power {
                     [255, 80, 80, 255]
                 }
@@ -98,10 +101,10 @@ pub fn compose_battle_hud_overlay(
                     MENU_TEXT_ENABLED
                 }
             });
-            let mut y = layout.radar.y + 8;
+            let mut y = radar.y + 8;
             let line_h = 18;
-            let text_x = layout.sidebar.x + 8;
-            let text_w = layout.sidebar.w - 16;
+            let text_x = sidebar.x + 8;
+            let text_w = sidebar.w - 16;
             blit_caption_top_left_clipped(&mut page, fnt, &format!("选中 {}", paint.selected_summary), text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
             y += line_h + 4;
             if let Some(hint) = paint.deploy_hint {
@@ -129,8 +132,8 @@ pub fn compose_battle_hud_overlay(
         else if paint.paused || paint.outcome.is_some() || paint.reject.is_some() || paint.deploy_hint.is_some()
         {
             // 状态文案锚在右栏底脚内侧，不写到战术区。
-            let mut x = layout.bottom_strip.x + 8;
-            let y = layout.bottom_strip.y + 8;
+            let mut x = bottom_strip.x + 8;
+            let y = bottom_strip.y + 8;
             if let Some(hint) = paint.deploy_hint {
                 blit_text_colored(&mut page, fnt, hint, x, y, MENU_TEXT_ACCENT);
                 x += 100;
@@ -155,8 +158,8 @@ pub fn compose_battle_hud_overlay(
         (paint.command_tip, paint.command_hovered, chrome, fnt)
     {
         if !tip.is_empty() {
-            let geom = crate::battle_hud::CommandBarGeom::from_chrome(chrome, layout.command_bar);
-            if let Some(cell) = geom.button_rect(layout.command_bar, slot) {
+            let geom = crate::battle_hud::CommandBarGeom::from_chrome(chrome, command_bar);
+            if let Some(cell) = geom.button_rect(command_bar, slot) {
                 paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
             }
         }
