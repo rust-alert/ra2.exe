@@ -26,7 +26,8 @@ pub use reference::{
     solve_dialog_template, solve_exit_confirm, solve_load_screen, solve_network_page,
     solve_options_page, solve_shell_page, solve_skirmish_lobby, BattleHudChromeMetrics, DluRect,
     FontBaseUnits, LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT, NETWORK_BUTTON_IDS,
-    OPTIONS_CONTENT_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    OPTIONS_CONTENT_IDS, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H,
+    COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
 pub use policy::{

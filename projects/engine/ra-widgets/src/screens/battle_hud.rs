@@ -6,7 +6,7 @@
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
     rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics, LayoutSnapshot,
-    Point2, RectPx, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    Point2, RectPx, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_BUTTON_COUNT,
 };
 use ra_renderer::RgbaImage;
 
@@ -405,7 +405,6 @@ pub fn blit_battle_hud_chrome_with_state(
     let repair = rect_px_from_snapshot(snap, "repair");
     let sell = rect_px_from_snapshot(snap, "sell");
     let bottom_strip = rect_px_from_snapshot(snap, "bottom_strip");
-    let command_bar = rect_px_from_snapshot(snap, "command_bar");
     let opt_btn = rect_px_from_snapshot(snap, "opt_btn");
     let diplo_btn = rect_px_from_snapshot(snap, "diplo_btn");
     let tabs = [
@@ -496,105 +495,39 @@ pub fn blit_battle_hud_chrome_with_state(
         blit_button_in_cell(page, &s.image, opt_btn);
     }
 
-    blit_command_bar(page, chrome, command_bar, command_pressed);
+    blit_command_bar(page, chrome, snap, command_pressed);
 }
 
-/// 命令条端盖与钮槽几何（与 `blit_command_bar` 同口径；槽位按 `ButtonList` 可视序）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CommandBarGeom {
-    /// 左端盖宽。
-    pub lend_w: i32,
-    /// 右端盖宽。
-    pub rend_w: i32,
-    /// 单钮宽。
-    pub btn_w: i32,
-}
-
-impl CommandBarGeom {
-    /// 由已解码 chrome 与命令条矩形推算。
-    pub fn from_chrome(chrome: &BattleHudChrome, bar: RectPx) -> Self {
-        let lend_w = chrome
-            .lendcap
-            .as_ref()
-            .map(|s| s.image.width() as i32)
-            .unwrap_or(COMMAND_LENDCAP_W)
-            .clamp(1, bar.w.max(1));
-        let rend_w = chrome
-            .rendcap
-            .as_ref()
-            .map(|s| s.image.width() as i32)
-            .unwrap_or(COMMAND_RENDCAP_W)
-            .clamp(1, bar.w.max(1));
-        let btn_w = chrome
-            .command_buttons
-            .iter()
-            .find_map(|b| b.as_ref())
-            .map(|s| s.image.width() as i32)
-            .unwrap_or(COMMAND_BUTTON_W)
-            .max(1);
-        Self {
-            lend_w,
-            rend_w,
-            btn_w,
-        }
-    }
-
-    /// 当前启用的命令条 `ButtonList`（遭遇战默认）。
-    pub fn active_buttons() -> &'static [&'static str] {
-        SKIRMISH_COMMAND_BAR
-    }
-
-    /// 第 `visual_slot` 个可视命令钮命中格（`ButtonList` 下标）。
-    pub fn button_rect(self, bar: RectPx, visual_slot: usize) -> Option<RectPx> {
-        if bar.w <= 0 || bar.h <= 0 {
-            return None;
-        }
-        if visual_slot >= Self::active_buttons().len() {
-            return None;
-        }
-        let buttons_left = bar.x + self.lend_w;
-        let buttons_right = (bar.x + bar.w - self.rend_w).max(buttons_left);
-        let x = buttons_left + (visual_slot as i32) * self.btn_w;
-        if x < buttons_left || x + self.btn_w > buttons_right {
-            return None;
-        }
-        Some(RectPx::new(x, bar.y, self.btn_w, bar.h))
-    }
-
-    /// 可视槽 → 零售 `buttonNN` 素材下标。
-    pub fn shp_index_for_visual(visual_slot: usize) -> Option<usize> {
-        let name = *Self::active_buttons().get(visual_slot)?;
-        command_bar_shp_index(name)
-    }
+fn command_bar_shp_index_for_visual(visual_slot: usize) -> Option<usize> {
+    let name = *SKIRMISH_COMMAND_BAR.get(visual_slot)?;
+    command_bar_shp_index(name)
 }
 
 fn blit_command_bar(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
-    bar: RectPx,
+    snap: &LayoutSnapshot,
     pressed_slot: Option<usize>,
 ) {
+    let bar = rect_px_from_snapshot(snap, "command_bar");
     if bar.w <= 0 || bar.h <= 0 {
         return;
     }
     fill_rect(page, bar, [0, 0, 0, 255]);
 
-    let geom = CommandBarGeom::from_chrome(chrome, bar);
-    let buttons_left = bar.x + geom.lend_w;
-    let buttons_right = (bar.x + bar.w - geom.rend_w).max(buttons_left);
-
+    let lendcap = rect_px_from_snapshot(snap, "lendcap");
+    let rendcap = rect_px_from_snapshot(snap, "rendcap");
     if let Some(s) = &chrome.lendcap {
-        blit_button_in_cell(page, &s.image, RectPx::new(bar.x, bar.y, geom.lend_w, bar.h));
+        blit_button_in_cell(page, &s.image, lendcap);
     }
 
-    // 只画 `ui.ini` ButtonList 指定的命令，按列表序从左铺开。
-    let mut x = buttons_left;
-    let mut drawn = 0usize;
-    for (visual, name) in CommandBarGeom::active_buttons().iter().enumerate() {
-        if x + geom.btn_w > buttons_right {
-            break;
+    let mut last_btn_right = lendcap.x + lendcap.w;
+    for (visual, id) in COMMAND_BAR_BUTTON_IDS.iter().enumerate() {
+        let cell = rect_px_from_snapshot(snap, id);
+        if cell.w <= 0 {
+            continue;
         }
-        let Some(shp_i) = command_bar_shp_index(name) else {
+        let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
             continue;
         };
         let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()) else {
@@ -609,27 +542,20 @@ fn blit_command_bar(
         } else {
             normal
         };
-        blit_button_in_cell(
-            page,
-            &sprite.image,
-            RectPx::new(x, bar.y, geom.btn_w, bar.h),
-        );
-        x += geom.btn_w;
-        drawn += 1;
+        blit_button_in_cell(page, &sprite.image, cell);
+        last_btn_right = cell.x + cell.w;
     }
-    let _ = drawn;
 
     // 钮右侧：`lspacer` 轨身凹槽（深色上下细轨），非纯黑填充、非整图拉伸。
-    let gap_w = (buttons_right - x).max(0);
+    let gap_w = (rendcap.x - last_btn_right).max(0);
     if gap_w > 0 {
         if let Some(s) = &chrome.lspacer {
-            blit_lspacer_gap(page, &s.image, RectPx::new(x, bar.y, gap_w, bar.h));
+            blit_lspacer_gap(page, &s.image, RectPx::new(last_btn_right, bar.y, gap_w, bar.h));
         }
     }
 
     if let Some(s) = &chrome.rendcap {
-        let rx = (bar.x + bar.w - geom.rend_w).max(bar.x);
-        blit_button_in_cell(page, &s.image, RectPx::new(rx, bar.y, geom.rend_w, bar.h));
+        blit_button_in_cell(page, &s.image, rendcap);
     }
 }
 
@@ -640,7 +566,7 @@ pub fn paint_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome) {
     blit_battle_hud_chrome(page, chrome, &snap, metrics.power_w);
 }
 
-/// 对局 HUD 可点入口（几何权威为 `solve_battle_hud` snapshot + 命令条几何）。
+/// 对局 HUD 可点入口（几何权威为 `solve_battle_hud` snapshot）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleHudHit {
     /// 修理模式。
@@ -651,12 +577,12 @@ pub enum BattleHudHit {
     Options,
     /// 外交。
     Diplomacy,
-    /// 底边命令条可视槽（`ButtonList` 下标）。
+    /// 底边命令条可视槽（`cmdN` / `ButtonList` 下标）。
     CommandButton(usize),
 }
 
 impl BattleHudHit {
-    /// 由 snapshot / layout 控件 id 解析。
+    /// 由 snapshot 控件 id 解析。
     pub fn from_entry_id(id: &str) -> Option<Self> {
         match id {
             "repair" => Some(Self::Repair),
@@ -666,7 +592,7 @@ impl BattleHudHit {
             _ => {
                 if let Some(rest) = id.strip_prefix("cmd") {
                     if let Ok(slot) = rest.parse::<usize>() {
-                        if slot < CommandBarGeom::active_buttons().len() {
+                        if slot < COMMAND_BAR_BUTTON_COUNT {
                             return Some(Self::CommandButton(slot));
                         }
                     }
@@ -683,21 +609,17 @@ impl BattleHudHit {
             Self::Sell => "sell",
             Self::Options => "opt_btn",
             Self::Diplomacy => "diplo_btn",
-            Self::CommandButton(0) => "cmd0",
-            Self::CommandButton(1) => "cmd1",
-            Self::CommandButton(2) => "cmd2",
-            Self::CommandButton(3) => "cmd3",
-            Self::CommandButton(4) => "cmd4",
-            Self::CommandButton(5) => "cmd5",
-            Self::CommandButton(6) => "cmd6",
-            Self::CommandButton(_) => "cmd0",
+            Self::CommandButton(slot) => COMMAND_BAR_BUTTON_IDS
+                .get(slot)
+                .copied()
+                .unwrap_or(COMMAND_BAR_BUTTON_IDS[0]),
         }
     }
 }
 
 const BATTLE_HUD_HIT_IDS: [&str; 4] = ["repair", "sell", "opt_btn", "diplo_btn"];
 
-/// 视口像素命中（侧栏钮走 snapshot；命令条钮走与绘制同口径几何）。
+/// 视口像素命中（侧栏与命令条均走 snapshot）。
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
     hit_at_with_chrome(snap, None, x, y)
 }
@@ -712,18 +634,22 @@ pub fn hit_at_with_chrome(
     if let Some(chrome) = chrome {
         let bar = rect_px_from_snapshot(snap, "command_bar");
         if bar.contains(x, y) {
-            let geom = CommandBarGeom::from_chrome(chrome, bar);
-            for visual in 0..CommandBarGeom::active_buttons().len() {
-                let Some(shp_i) = CommandBarGeom::shp_index_for_visual(visual) else {
+            let point = Point2 {
+                x: x as f32,
+                y: y as f32,
+            };
+            for (visual, id) in COMMAND_BAR_BUTTON_IDS.iter().enumerate() {
+                let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
                     continue;
                 };
                 if chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()).is_none() {
                     continue;
                 }
-                if let Some(cell) = geom.button_rect(bar, visual) {
-                    if cell.contains(x, y) {
-                        return Some(BattleHudHit::CommandButton(visual));
-                    }
+                if snap
+                    .get(id)
+                    .is_some_and(|el| el.layout.rect.width > 0.0 && el.layout.rect.contains(point))
+                {
+                    return Some(BattleHudHit::CommandButton(visual));
                 }
             }
             // 点在命令条空白（金属轨）上仍吞掉，避免穿透到地图手势。

@@ -58,7 +58,6 @@ pub fn compose_battle_hud_overlay(
     let sidebar = rect_px_from_snapshot(&snap, "sidebar");
     let radar = rect_px_from_snapshot(&snap, "radar");
     let bottom_strip = rect_px_from_snapshot(&snap, "bottom_strip");
-    let command_bar = rect_px_from_snapshot(&snap, "command_bar");
 
     let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
     if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
@@ -72,7 +71,17 @@ pub fn compose_battle_hud_overlay(
     } else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
         crate::RenderPlan::battle_hud_placeholders(w, h)
-            .excluding_ids(&["command_bar"])
+            .excluding_ids(&[
+                "command_bar",
+                "lendcap",
+                "rendcap",
+                "cmd0",
+                "cmd1",
+                "cmd2",
+                "cmd3",
+                "cmd4",
+                "cmd5",
+            ])
             .paint_solids_into(&mut page);
     }
 
@@ -154,13 +163,15 @@ pub fn compose_battle_hud_overlay(
     }
 
     // 命令条悬停浮动提示（黑底白边，锚在钮上方）。
-    if let (Some(tip), Some(slot), Some(chrome), Some(fnt)) =
+    if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) =
         (paint.command_tip, paint.command_hovered, chrome, fnt)
     {
         if !tip.is_empty() {
-            let geom = crate::battle_hud::CommandBarGeom::from_chrome(chrome, command_bar);
-            if let Some(cell) = geom.button_rect(command_bar, slot) {
-                paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
+            if let Some(id) = COMMAND_BAR_BUTTON_IDS.get(slot) {
+                let cell = rect_px_from_snapshot(&snap, id);
+                if cell.w > 0 {
+                    paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
+                }
             }
         }
     }

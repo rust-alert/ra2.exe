@@ -1,7 +1,8 @@
 //! 对局 HUD 闭环：`solve_battle_hud` → snapshot → hit → `RenderPlan`。
 
 use ra_layout::{
-    battle_hud_world_viewport, rect_px_from_snapshot, solve_battle_hud, Point2, COMMAND_BAR_H,
+    battle_hud_world_viewport, rect_px_from_snapshot, solve_battle_hud, Point2, COMMAND_BAR_BUTTON_IDS,
+    COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W,
 };
 use ra_widgets::RenderPlan;
 
@@ -18,6 +19,8 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
     let repair = rect_px_from_snapshot(&snap, "repair");
     let sell = rect_px_from_snapshot(&snap, "sell");
     let side1 = rect_px_from_snapshot(&snap, "side1");
+    let cmd0 = rect_px_from_snapshot(&snap, "cmd0");
+    let lendcap = rect_px_from_snapshot(&snap, "lendcap");
 
     assert_eq!(
         plan.rect_of("opt_btn").map(|r| (r.x as i32, r.y as i32, r.width as i32, r.height as i32)),
@@ -27,6 +30,11 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
         snap.get("repair").map(|e| e.layout.rect),
         plan.rect_of("repair")
     );
+    assert_eq!(plan.rect_of("cmd0"), snap.get("cmd0").map(|e| e.layout.rect));
+    assert_eq!(lendcap.w, COMMAND_LENDCAP_W);
+    assert_eq!(cmd0.x, COMMAND_LENDCAP_W);
+    assert_eq!(cmd0.w, COMMAND_BUTTON_W);
+    assert_eq!(COMMAND_BAR_BUTTON_IDS.len(), 6);
 
     let hit = snap
         .hit_test(Point2 {
@@ -36,6 +44,14 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
         .expect("hit opt_btn");
     assert_eq!(hit.id.0, "opt_btn");
     assert_eq!(plan.rect_of("opt_btn"), Some(hit.layout.rect));
+
+    let cmd_hit = snap
+        .hit_test(Point2 {
+            x: cmd0.x as f32 + 4.0,
+            y: cmd0.y as f32 + 4.0,
+        })
+        .expect("hit cmd0");
+    assert_eq!(cmd_hit.id.0, "cmd0");
 
     let world = battle_hud_world_viewport(&snap);
     assert_eq!(world.x, 0);

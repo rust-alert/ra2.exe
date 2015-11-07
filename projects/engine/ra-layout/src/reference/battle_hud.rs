@@ -28,6 +28,11 @@ pub const COMMAND_LENDCAP_W: i32 = 28;
 pub const COMMAND_RENDCAP_W: i32 = 28;
 /// 命令钮画布宽（`button00`… / `bttnbkgd`）。
 pub const COMMAND_BUTTON_W: i32 = 52;
+/// 遭遇战命令条可视钮槽数（对齐 `ui.ini` `[AdvancedCommandBar]` 长度）。
+pub const COMMAND_BAR_BUTTON_COUNT: usize = 6;
+/// 命令条可视钮 snapshot id（`cmd0`…）。
+pub const COMMAND_BAR_BUTTON_IDS: [&str; COMMAND_BAR_BUTTON_COUNT] =
+    ["cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5"];
 
 /// 阵营侧栏 chrome 画布尺寸与槽位偏移（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +148,9 @@ struct BattleHudRects {
     bottom_strip: Rect,
     /// 战术区底边命令条（侧栏左缘以左，高 `COMMAND_BAR_H`）。
     command_bar: Rect,
+    lendcap: Rect,
+    rendcap: Rect,
+    cmd_buttons: [Rect; COMMAND_BAR_BUTTON_COUNT],
     opt_btn: Rect,
     diplo_btn: Rect,
 }
@@ -214,6 +222,23 @@ fn compute_battle_hud_rects(
     let opt_x =
         (diplo_x + top_btn_w + metrics.top_btn_gap).min(panel_x + panel_w - top_btn_w);
 
+    let command_bar = rect_i(0, command_bar_y, command_bar_w, command_bar_h);
+    let lend_w = COMMAND_LENDCAP_W.min(command_bar_w).max(1);
+    let rend_w = COMMAND_RENDCAP_W.min(command_bar_w.saturating_sub(lend_w)).max(1);
+    let buttons_left = lend_w;
+    let buttons_right = (command_bar_w - rend_w).max(buttons_left);
+    let btn_w = COMMAND_BUTTON_W.max(1);
+    let mut cmd_buttons = [rect_i(0, 0, 1, 1); COMMAND_BAR_BUTTON_COUNT];
+    for (i, slot) in cmd_buttons.iter_mut().enumerate() {
+        let x = buttons_left + (i as i32) * btn_w;
+        if x + btn_w > buttons_right {
+            // 槽位仍占位（零宽），保持稳定 id。
+            *slot = rect_i(x.min(buttons_right), command_bar_y, 0, command_bar_h);
+        } else {
+            *slot = rect_i(x, command_bar_y, btn_w, command_bar_h);
+        }
+    }
+
     BattleHudRects {
         sidebar: rect_i(panel_x, 0, panel_w, h),
         credits: rect_i(panel_x, 0, panel_w, credits_h),
@@ -234,7 +259,15 @@ fn compute_battle_hud_rects(
         // 仅右栏底脚，供 chrome / 文案锚点。
         bottom_strip: rect_i(panel_x, side3_y, panel_w, (h - side3_y).max(1)),
         // 战术区底边命令条：左端至侧栏左缘。
-        command_bar: rect_i(0, command_bar_y, command_bar_w, command_bar_h),
+        command_bar,
+        lendcap: rect_i(0, command_bar_y, lend_w, command_bar_h),
+        rendcap: rect_i(
+            (command_bar_w - rend_w).max(0),
+            command_bar_y,
+            rend_w,
+            command_bar_h,
+        ),
+        cmd_buttons,
         diplo_btn: rect_i(diplo_x, top_btn_y, top_btn_w, top_btn_h),
         opt_btn: rect_i(opt_x, top_btn_y, top_btn_w, top_btn_h),
     }
@@ -243,7 +276,7 @@ fn compute_battle_hud_rects(
 fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRects) -> LayoutNode {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
-    let children = vec![
+    let mut children = vec![
         fixed_rect_leaf("sidebar", r.sidebar),
         fixed_rect_leaf("credits", r.credits),
         fixed_rect_leaf("top", r.top),
@@ -260,9 +293,14 @@ fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRect
         fixed_rect_leaf("tab03", r.tabs[3]),
         fixed_rect_leaf("bottom_strip", r.bottom_strip),
         fixed_rect_leaf("command_bar", r.command_bar),
+        fixed_rect_leaf("lendcap", r.lendcap),
+        fixed_rect_leaf("rendcap", r.rendcap),
         fixed_rect_leaf("opt_btn", r.opt_btn),
         fixed_rect_leaf("diplo_btn", r.diplo_btn),
     ];
+    for (id, cell) in COMMAND_BAR_BUTTON_IDS.iter().zip(r.cmd_buttons.iter()) {
+        children.push(fixed_rect_leaf(*id, *cell));
+    }
     root_with_fixed_children(
         "battle_hud",
         Size2 {
@@ -344,6 +382,8 @@ mod tests {
                 ("tab03", expected.tabs[3]),
                 ("bottom_strip", expected.bottom_strip),
                 ("command_bar", expected.command_bar),
+                ("lendcap", expected.lendcap),
+                ("rendcap", expected.rendcap),
                 ("opt_btn", expected.opt_btn),
                 ("diplo_btn", expected.diplo_btn),
             ] {
@@ -352,6 +392,11 @@ mod tests {
                 assert_eq!(got.y as i32, cell.y as i32, "{vw}x{vh} {id} y");
                 assert_eq!(got.width as i32, cell.width as i32, "{vw}x{vh} {id} w");
                 assert_eq!(got.height as i32, cell.height as i32, "{vw}x{vh} {id} h");
+            }
+            for (id, cell) in COMMAND_BAR_BUTTON_IDS.iter().zip(expected.cmd_buttons.iter()) {
+                let got = snap.get(id).expect(id).layout.rect;
+                assert_eq!(got.x as i32, cell.x as i32, "{vw}x{vh} {id} x");
+                assert_eq!(got.width as i32, cell.width as i32, "{vw}x{vh} {id} w");
             }
             let world = battle_hud_world_viewport(&snap);
             assert_eq!(world.w, expected.sidebar.x as i32);
@@ -374,6 +419,14 @@ mod tests {
         assert_eq!(r.command_bar.y as i32, 600 - COMMAND_BAR_H);
         assert_eq!(r.command_bar.width as i32, r.sidebar.x as i32);
         assert_eq!(r.command_bar.height as i32, COMMAND_BAR_H);
+        assert_eq!(r.lendcap.width as i32, COMMAND_LENDCAP_W);
+        assert_eq!(r.rendcap.width as i32, COMMAND_RENDCAP_W);
+        assert_eq!(r.cmd_buttons[0].x as i32, COMMAND_LENDCAP_W);
+        assert_eq!(r.cmd_buttons[0].width as i32, COMMAND_BUTTON_W);
+        assert_eq!(
+            r.cmd_buttons[1].x as i32,
+            COMMAND_LENDCAP_W + COMMAND_BUTTON_W
+        );
         // 选项 / 外交在资金条下的顶栏双槽，不在战术区左下、也不在底脚。
         assert!(r.opt_btn.x as i32 >= r.sidebar.x as i32);
         assert!(r.diplo_btn.x as i32 >= r.sidebar.x as i32);
