@@ -16,8 +16,7 @@ pub fn compose_options_page(
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_options_page();
-    let chrome = RightPanelChrome::shell_defaults();
-    let canvas = RectPx::new(0, 0, chrome.shell_w as i32, chrome.shell_h as i32);
+    let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let mut page = RgbaImage::from_raw(
         canvas.w as u32,
         canvas.h as u32,
@@ -31,7 +30,7 @@ pub fn compose_options_page(
         decoded,
         rect_px_from_snapshot(&snap, "panel_top"),
         rect_px_from_snapshot(&snap, "panel_tile"),
-        chrome.tile_count(),
+        panel_tile_count_from_snap(&snap),
         rect_px_from_snapshot(&snap, "panel_bottom"),
         rect_px_from_snapshot(&snap, "lower_strip"),
         warn_anim_frame,

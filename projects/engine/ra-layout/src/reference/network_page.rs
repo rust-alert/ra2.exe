@@ -12,7 +12,7 @@ use crate::{
 /// 网络页入口 id（占位：在线不可用 + 返回）。
 pub const NETWORK_BUTTON_IDS: [&str; 2] = ["online", "back"];
 
-/// 网络占位页：居中宽钮（与过渡期 `NETWORK_BUTTONS` 归一化框同构）。
+/// 网络占位页：居中宽钮（设计画布比例框）。
 pub fn network_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
         fixed_rect_leaf(
@@ -37,7 +37,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn network_page_matches_legacy_slot_fractions() {
+    fn network_page_matches_design_slot_rects() {
         let snap = solve_network_page();
         let online = snap.get("online").unwrap().layout.rect;
         assert_eq!(online.x as i32, 176);

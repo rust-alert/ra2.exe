@@ -146,7 +146,7 @@ pub(crate) fn solve_with_shell_defaults(
     )
 }
 
-/// 用壳层默认 chrome 求解 [`shell_page_layout_tree`]（hit / compose / 过渡布局共用）。
+/// 用壳层默认 chrome 求解 [`shell_page_layout_tree`]（hit / compose 共用）。
 pub fn solve_shell_page(
     root_id: impl Into<String>,
     stacked_ids: &[&str],

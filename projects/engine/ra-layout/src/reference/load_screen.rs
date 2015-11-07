@@ -19,7 +19,7 @@ fn rect_i(x: i32, y: i32, w: i32, h: i32) -> Rect {
 /// 装载页：文案槽、进度条原点、失败时重试/取消。
 pub fn load_screen_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
-        // 对照原版截图的 800×600 像素映射（与过渡期 compose 常量一致）。
+        // 装载页文案与进度槽：800×600 设计画布固定像素。
         fixed_rect_leaf("special", rect_i(54, 106, 190, 22)),
         fixed_rect_leaf("brief", rect_i(48, 134, 340, 200)),
         fixed_rect_leaf("name", rect_i(648, 538, 120, 24)),

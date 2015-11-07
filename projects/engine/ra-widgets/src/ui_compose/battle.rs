@@ -245,7 +245,7 @@ pub fn compose_battle_pause_menu_overlay(
     let panel_tile = rect_px_from_snapshot(&snap, "panel_tile");
     let panel_bottom = rect_px_from_snapshot(&snap, "panel_bottom");
     let lower_strip = rect_px_from_snapshot(&snap, "lower_strip");
-    let panel_tile_count = RightPanelChrome::shell_defaults().tile_count();
+    let panel_tile_count = panel_tile_count_from_snap(&snap);
     let dim = RectPx::new(0, 0, panel_top.x, SHELL_BASE_H);
     let w = canvas.w.max(1) as u32;
     let h = canvas.h.max(1) as u32;

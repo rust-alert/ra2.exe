@@ -95,6 +95,17 @@ pub(super) fn paint_right_panel_chrome(
     }
 }
 
+/// 由 snapshot 的 `panel_tile` / `panel_bottom` 推导右栏瓦片格数。
+pub(super) fn panel_tile_count_from_snap(snap: &LayoutSnapshot) -> i32 {
+    let tile = rect_px_from_snapshot(snap, "panel_tile");
+    let bottom = rect_px_from_snapshot(snap, "panel_bottom");
+    if tile.h > 0 {
+        ((bottom.y - tile.y) / tile.h).max(0)
+    } else {
+        0
+    }
+}
+
 /// 遭遇战 / 选图：在壳层 `sdtp` 帧 0 之上叠帧 1 顶栏高亮牌，再贴 `sdmpbtn` 地图名底板。
 pub(super) fn blit_skirmish_preview_chrome(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_top: RectPx, map_name_plate: RectPx) {
     if let Some(top1) = find_panel(decoded, "sdtp.shp", 1) {

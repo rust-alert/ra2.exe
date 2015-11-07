@@ -24,11 +24,11 @@ pub(super) fn compose_shell_menu_page(
     let movie_rect = rect_px_from_snapshot(snap, "movie");
     let panel_top = rect_px_from_snapshot(snap, "panel_top");
     let panel_tile = rect_px_from_snapshot(snap, "panel_tile");
-    let panel_tile_count = RightPanelChrome::shell_defaults().tile_count();
     let panel_bottom = rect_px_from_snapshot(snap, "panel_bottom");
     let lower_strip = rect_px_from_snapshot(snap, "lower_strip");
     let title = rect_px_from_snapshot(snap, "title");
     let tooltip = rect_px_from_snapshot(snap, "tooltip");
+    let panel_tile_count = panel_tile_count_from_snap(snap);
 
     let bg = decoded.background.as_ref()?;
     let mut page = RgbaImage::from_raw(
