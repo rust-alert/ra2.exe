@@ -106,14 +106,6 @@ impl GameAssetSource {
         (mounted, skipped)
     }
 
-    /// 兼容旧路径：无 priority 时按列表顺序挂载（同优先级后挂覆盖）。
-    #[allow(dead_code)]
-    pub fn mount_present_roots(&mut self, present_mixes: &[String]) -> (usize, usize) {
-        let plan: Vec<MountSpec> =
-            present_mixes.iter().map(|name| MountSpec { name: name.clone(), priority: 0, layer_id: "legacy".to_string() }).collect();
-        self.mount_root_plan(&plan)
-    }
-
     /// 按组合里的嵌套挂载计划展开子包（当前仅 `AllParents`）。
     ///
     /// 返回 `(新挂载份数, 失败/跳过条目数)`。展开失败不得静默丢弃计数。
@@ -129,15 +121,6 @@ impl GameAssetSource {
             }
         }
         (mounted, skipped)
-    }
-
-    /// 按名单从**所有**已挂载父档展开同名嵌套包，继承各父档内容层优先级。
-    ///
-    /// 新路径请优先 [`Self::mount_nested_plan`]。
-    pub fn mount_nested_names(&mut self, names: &[&str]) -> (usize, usize) {
-        let plan: Vec<NestedMountSpec> =
-            names.iter().map(|name| NestedMountSpec { name: (*name).to_string(), strategy: NestedMountStrategy::AllParents }).collect();
-        self.mount_nested_plan(&plan)
     }
 
     /// 统一解析：松散层与 MIX 比较优先级后得出唯一胜出。

@@ -56,7 +56,13 @@ fn nested_expand_leaf_overlays_base_leaf() {
     let mut src = GameAssetSource::new(dir.clone());
     src.vfs.mount_bytes_with_meta("base.mix", outer_base, 0, None, Some("base".into())).unwrap();
     src.vfs.mount_bytes_with_meta("expand01.mix", outer_exp, 101, None, Some("expansion.plain.01".into())).unwrap();
-    assert_eq!(src.mount_nested_names(&["cache.mix"]), (2, 0));
+    assert_eq!(
+        src.mount_nested_plan(&[NestedMountSpec {
+            name: "cache.mix".into(),
+            strategy: NestedMountStrategy::AllParents,
+        }]),
+        (2, 0)
+    );
 
     let hit = src.resolve("leaf.bin").unwrap();
     assert_eq!(hit.bytes, b"EXP-LEAF");
