@@ -1,6 +1,7 @@
 //! 集成测试：原 `src/fs_source.rs` 内联测试迁出。
 
 use ra_assets::mix_hash;
+use ra_adaptor::{NestedMountSpec, NestedMountStrategy};
 use ra_widgets::fs_source::*;
 use ra_types::AssetSource;
 use std::{
