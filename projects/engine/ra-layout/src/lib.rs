@@ -23,11 +23,10 @@ pub use reference::{
     resolve_control_desc, resolve_dialog_template, right_rail_buttons_layout_tree,
     shell_chrome_layout_tree, shell_design_size, shell_page_layout_tree, solve_battle_hud,
     solve_battle_hud_with_metrics, solve_battle_pause, solve_campaign, solve_choose_map,
-    solve_dialog_template, solve_exit_confirm, solve_load_screen, solve_network_page,
-    solve_options_page, solve_shell_page, solve_skirmish_lobby, BattleHudChromeMetrics, DluRect,
-    FontBaseUnits, LOAD_SCREEN_BUTTON_IDS, MS_SANS_SERIF_8PT, NETWORK_BUTTON_IDS,
-    OPTIONS_CONTENT_IDS, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H,
-    COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
+    solve_skirmish_lobby, BattleHudChromeMetrics, DluRect, FontBaseUnits, LOAD_SCREEN_BUTTON_IDS,
+    MS_SANS_SERIF_8PT, NETWORK_BUTTON_IDS, OPTIONS_CONTENT_IDS, COMMAND_BAR_BUTTON_COUNT,
+    COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
 pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
 pub use policy::{

@@ -106,15 +106,6 @@ fn dialog_control_children(template: &DialogTemplate, chrome: RightPanelChrome) 
         .collect()
 }
 
-/// 用壳层默认 chrome 求解 [`dialog_layout_tree`]。
-pub fn solve_dialog_template(
-    root_id: impl Into<String>,
-    template: &DialogTemplate,
-) -> LayoutSnapshot {
-    let root_id = root_id.into();
-    solve_with_shell_defaults(|chrome| dialog_layout_tree(root_id.clone(), template, chrome))
-}
-
 /// 选图页：面板 chrome + `0x6B` 模板 → 一次 snapshot。
 pub fn solve_choose_map() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| {
