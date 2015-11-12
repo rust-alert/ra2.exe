@@ -9,7 +9,7 @@ use ra_layout::{
     OPTIONS_RESOLUTION_ROW_H,
 };
 
-/// 右栏按钮入口 id（与 [`crate::ui_slots`] 一致）。
+/// 右栏按钮入口 id（与 [`crate::skin::slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
 
 /// 滑条种类。

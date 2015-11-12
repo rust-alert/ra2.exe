@@ -43,17 +43,17 @@ pub const BUTTON_CELL_H: i32 = 42;
 /// 底部装饰条高（`lwscrnl`）。
 pub const LOWER_STRIP_H: i32 = 32;
 
-/// 主菜单按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+/// 主菜单按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 ///
 /// 顺序对齐原版 0xE2：前五项连续平铺格，末项 Exit 贴底盖。
 pub const MAIN_MENU_BUTTON_IDS: [&str; 6] = ["single_player", "ww_online", "network", "movies", "options", "exit"];
 
-/// 单人页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+/// 单人页按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 ///
 /// 顺序：新战役 → 载入 → 遭遇战 → 主菜单（贴底盖）。
 pub const SINGLE_PLAYER_BUTTON_IDS: [&str; 4] = ["campaign", "load", "skirmish", "back"];
 
-/// 战役页右栏按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+/// 战役页右栏按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 ///
 /// 原版 `0x94` 右栏为部队格 + 唯一「上一页」；无「载入」钮。
 pub const CAMPAIGN_BUTTON_IDS: [&str; 1] = ["back"];
@@ -61,18 +61,18 @@ pub const CAMPAIGN_BUTTON_IDS: [&str; 1] = ["back"];
 /// 战役三侧入口 id（盟军 / 新兵训练营 / 苏军；`battle.ini` 的 ALL1 / TUT1 / SOV1）。
 pub const CAMPAIGN_SIDE_IDS: [&str; 3] = ["allied", "tutorial", "soviet"];
 
-/// 遭遇战大厅右侧按钮入口 id（与 `ui_slots` 顺序一致）。
+/// 遭遇战大厅右侧按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 ///
 /// 顺序对齐原版 0x102：开始游戏 → 选图（自订战役）→ 上一页（贴底）。
 pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 3] = ["start", "choose_map", "back"];
 
-/// 选图页右侧按钮入口 id（与 `ui_slots` 顺序一致）。
+/// 选图页右侧按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 ///
 /// 顺序对齐安装 `game.exe` 的 `RT_DIALOG` id=`107`（`0x6B`）：
 /// 使用地图 → 创建随机地图 → 取消（贴底）。
 pub const CHOOSE_MAP_BUTTON_IDS: [&str; 3] = ["use_map", "create_random", "cancel"];
 
-/// 选项页按钮入口 id（与 [`crate::ui_slots`] 顺序一致）。
+/// 选项页按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
 pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
 
 /// 退出确认对话框按钮 id。

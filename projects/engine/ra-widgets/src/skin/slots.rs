@@ -3,7 +3,7 @@
 //! 第一阶段对照锁定 **RA2 原版**（非默认 YR）。槽位先对齐入口 id 与资源名；
 //! 具体 SHP/PAL/帧须有安装内证据后再填，禁止臆造。
 //! **填了文件名 ≠ 已解码 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。**
-//! 页面级资源索引见 [`crate::ui_page`]；可读性探测见 [`crate::ui_resolve`]；逻辑命中见 [`crate::ui_hit`]。
+//! 页面级资源索引见 [`crate::screens::page`]；可读性探测见 [`crate::skin::resolve`]；逻辑命中见 [`crate::input::hit`]。
 
 use ra_types::GameEdition;
 

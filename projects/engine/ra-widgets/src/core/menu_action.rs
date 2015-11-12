@@ -1,4 +1,4 @@
-//! 菜单导航动作（与 [`crate::ui_slots`] / [`crate::ui_hit`] 共用）。
+//! 菜单导航动作（与 [`crate::skin::slots`] / [`crate::input::hit`] 共用）。
 
 /// 菜单导航动作（键盘或逻辑命中框触发）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

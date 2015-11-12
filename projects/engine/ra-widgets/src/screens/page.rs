@@ -3,7 +3,7 @@
 //! 本模块只描述「页面需要哪些资源」，不负责解码或 GPU 上传。
 //! **在 `declared_refs_complete` 为真之前，不得宣称资源名已齐。**
 //! 资源名齐 ≠ 可读 ≠ 已 GPU 绘制 ≠ Pre-Alpha 视觉交付。
-//! 当前仅键盘与 [`crate::ui_hit`] 逻辑命中，不绘制按钮图。
+//! 当前仅键盘与 [`crate::input::hit`] 逻辑命中，不绘制按钮图。
 
 use ra_types::GameEdition;
 
