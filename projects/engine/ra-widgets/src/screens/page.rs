@@ -10,8 +10,8 @@ use ra_types::GameEdition;
 use crate::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
+    skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{load_screen_background_shp, load_screen_palette},
-    ui_slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
 };
 
 /// 逻辑资源引用（文件名或装载键；尚未解析为像素）。
@@ -186,7 +186,7 @@ pub fn page_resources_from_slots_with_edition(screen: OriginalScreen, edition: O
 
 /// 对局 Esc 暂停菜单：右栏 chrome + 六钮（无整页背景）。
 pub fn page_resources_for_battle_pause() -> UiPageResources {
-    let page = crate::ui_slots::battle_pause_page_slots();
+    let page = crate::skin::slots::battle_pause_page_slots();
     UiPageResources {
         screen: OriginalScreen::Battle,
         background: None,

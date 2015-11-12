@@ -7,7 +7,7 @@
 //! 主菜单 / 单人 / 选项右栏页来自 `solve_shell_page`；
 //! 装载 / 战役 / 退出确认 / 网络占位来自对应 `solve_*`；闪屏与对局无菜单命中。
 
-use crate::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::slots_for};
+use crate::{menu_action::MenuAction, original_screen::OriginalScreen, skin::slots::slots_for};
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
     EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS,

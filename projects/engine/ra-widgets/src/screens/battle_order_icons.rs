@@ -12,7 +12,7 @@ use ra_assets::{Palette, ShpFile};
 use ra_renderer::{DecodedOrderIcons, RgbaImage};
 use ra_types::AssetSource;
 
-use crate::{fs_source::GameAssetSource, ui_decode::frame_to_canvas_rgba};
+use crate::{fs_source::GameAssetSource, skin::decode::frame_to_canvas_rgba};
 
 /// Default 光标帧。
 pub const MOUSE_DEFAULT_START: usize = 0;

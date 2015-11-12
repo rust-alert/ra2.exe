@@ -5,7 +5,7 @@
 
 use ra_types::AssetSource;
 
-use crate::ui_page::{UiAssetRef, UiPageResources};
+use crate::screens::page::{UiAssetRef, UiPageResources};
 
 /// 单页资源引用探测结果。
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -8,7 +8,7 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     fs_source::GameAssetSource,
-    ui_page::{UiAssetRef, UiButtonVisualState, UiPageResources},
+    screens::page::{UiAssetRef, UiButtonVisualState, UiPageResources},
 };
 
 /// 一帧已解码精灵（含诊断元数据）。

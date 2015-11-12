@@ -12,10 +12,10 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     fs_source::GameAssetSource,
+    screens::page::UiAssetRef,
+    skin::decode::{DecodedUiSprite, frame_to_canvas_rgba},
+    skin::text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
     skirmish_setup::sidebar_chrome_mix,
-    ui_decode::{DecodedUiSprite, frame_to_canvas_rgba},
-    ui_page::UiAssetRef,
-    ui_text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
 };
 
 /// 对局侧栏调色板。

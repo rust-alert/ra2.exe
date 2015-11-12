@@ -7,9 +7,8 @@ use ra_renderer::RgbaImage;
 
 use crate::{
     battle_hud::BattleHudChrome,
-    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES},
-    ui_decode::{DecodedUiSprite, PageDecodeReport},
-    ui_text::{
+    skin::decode::{DecodedUiSprite, PageDecodeReport},
+    skin::text::{
         MENU_TEXT_ACCENT, MENU_TEXT_DISABLED, MENU_TEXT_ENABLED, MENU_TEXT_SECTION, blit_caption_in_cell,
         blit_caption_top_left_clipped, blit_caption_wrapped, blit_text_colored, campaign_csf_label,
         campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key,
@@ -19,6 +18,7 @@ use crate::{
         single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
         skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
     },
+    skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES},
 };
 use ra_layout::{
     BUTTON_CELL_W, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
