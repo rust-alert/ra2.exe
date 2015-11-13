@@ -69,6 +69,20 @@ pub fn compose_choose_map_page(
     )?;
 
     blit_skirmish_preview_chrome(&mut page, decoded, panel_top, map_name_plate);
+    // `map_name_plate`（`sdmpbtn`）与第一格「使用地图」重叠；命中已靠更高 z，这里再画一遍钮面以免被底板盖住。
+    let btn_plan = shell_button_sprite_plan(MenuCaptionKind::ChooseMap, &CHOOSE_MAP_BUTTON_IDS);
+    paint_shell_rail_buttons(
+        &mut page,
+        decoded,
+        &CHOOSE_MAP_BUTTON_IDS,
+        &btn_plan,
+        pressed_entry_id,
+        hovered_entry_id,
+        fnt,
+        csf,
+        MenuCaptionKind::ChooseMap,
+        wave,
+    )?;
     if let Some(preview) = map_preview {
         blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }

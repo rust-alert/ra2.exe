@@ -85,49 +85,18 @@ pub(super) fn compose_shell_menu_page(
         }
     }
 
-    for (i, entry_id) in button_ids.iter().enumerate() {
-        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
-            continue;
-        };
-        let normal = find_button_normal(decoded, entry_id)?;
-        // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
-        let disabled = matches!(
-            *entry_id,
-            "ww_online" | "network" | "movies" | "load" | "create_random"
-        );
-        let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
-        let sprite = if let Some(frame) = wave_frame {
-            decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        } else if disabled {
-            normal
-        } else {
-            resolve_button_sprite(
-                decoded,
-                entry_id,
-                pressed_entry_id == Some(entry_id),
-                hovered_entry_id == Some(entry_id),
-            )
-            .unwrap_or(normal)
-        };
-        blit_rgba(&mut page, &sprite.image, cell.x, cell.y);
-        // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
-        if wave_frame.is_some() {
-            continue;
-        }
-        // 壳层禁用：同常态 `SDBTNANM` 帧 + 暗红字，不压暗钮面（原版无整格压暗投影）。
-        if let Some(fnt) = fnt {
-            let key = captions.label(entry_id);
-            let caption = resolve_caption(csf, entry_id, key);
-            let color = if disabled {
-                MENU_TEXT_DISABLED
-            } else {
-                MENU_TEXT_ENABLED
-            };
-            let pressed = pressed_entry_id == Some(entry_id) && !disabled;
-            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
-            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
-        }
-    }
+    paint_shell_rail_buttons(
+        &mut page,
+        decoded,
+        button_ids,
+        &btn_plan,
+        pressed_entry_id,
+        hovered_entry_id,
+        fnt,
+        csf,
+        captions,
+        wave,
+    )?;
 
     if let Some(fnt) = fnt {
         let title_text = match captions {
@@ -173,8 +142,67 @@ pub(super) fn compose_shell_menu_page(
     Some(page)
 }
 
+/// 绘制右栏轨上按钮（钮面 + 文案）。选图页在叠 `map_name_plate` 后会再调一次，避免「使用地图」被底板盖住。
+pub(super) fn paint_shell_rail_buttons(
+    page: &mut RgbaImage,
+    decoded: &PageDecodeReport,
+    button_ids: &[&str],
+    btn_plan: &crate::RenderPlan,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    captions: MenuCaptionKind,
+    wave: Option<ShellWaveFrames<'_>>,
+) -> Option<()> {
+    for (i, entry_id) in button_ids.iter().enumerate() {
+        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+            continue;
+        };
+        let normal = find_button_normal(decoded, entry_id)?;
+        // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
+        let disabled = matches!(
+            *entry_id,
+            "ww_online" | "network" | "movies" | "load" | "create_random"
+        );
+        let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
+        let sprite = if let Some(frame) = wave_frame {
+            decoded.sdbtnanm_frame(frame).unwrap_or(normal)
+        } else if disabled {
+            normal
+        } else {
+            resolve_button_sprite(
+                decoded,
+                entry_id,
+                pressed_entry_id == Some(entry_id),
+                hovered_entry_id == Some(entry_id),
+            )
+            .unwrap_or(normal)
+        };
+        blit_rgba(page, &sprite.image, cell.x, cell.y);
+        // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
+        if wave_frame.is_some() {
+            continue;
+        }
+        // 壳层禁用：同常态 `SDBTNANM` 帧 + 暗红字，不压暗钮面（原版无整格压暗投影）。
+        if let Some(fnt) = fnt {
+            let key = captions.label(entry_id);
+            let caption = resolve_caption(csf, entry_id, key);
+            let color = if disabled {
+                MENU_TEXT_DISABLED
+            } else {
+                MENU_TEXT_ENABLED
+            };
+            let pressed = pressed_entry_id == Some(entry_id) && !disabled;
+            let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+            blit_caption_in_cell(page, fnt, &caption, tx, ty, tw, th, color);
+        }
+    }
+    Some(())
+}
+
 /// 当前壳层页右栏按钮的精灵计划（几何来自对应 `solve_*` snapshot）。
-fn shell_button_sprite_plan(captions: MenuCaptionKind, button_ids: &[&str]) -> crate::RenderPlan {
+pub(super) fn shell_button_sprite_plan(captions: MenuCaptionKind, button_ids: &[&str]) -> crate::RenderPlan {
     let base = match captions {
         MenuCaptionKind::Main => crate::RenderPlan::shell_page_placeholders(
             "main_menu",
