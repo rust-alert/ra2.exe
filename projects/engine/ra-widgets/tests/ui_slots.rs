@@ -1,6 +1,6 @@
-//! 集成测试：原 `src/ui_slots.rs` 内联测试迁出。
+//! 集成测试：原 `src/skin/slots.rs` 内联测试迁出。
 
-use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, ui_slots::*};
+use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, skin::slots::*};
 #[test]
 fn main_menu_entries_match_expected_ids() {
     let page = slots_for(OriginalScreen::MainMenu).unwrap();

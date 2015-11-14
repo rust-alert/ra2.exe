@@ -4,7 +4,7 @@ use ra_map::BootMapCandidate;
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_hit::hit_action,
+    input::hit::hit_action,
 };
 
 #[test]

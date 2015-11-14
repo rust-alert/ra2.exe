@@ -4,7 +4,7 @@ use ra_map::{BootMapCandidate, Theater};
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_hit::{hit_action, hits_for},
+    input::hit::{hit_action, hits_for},
 };
 
 fn sample_map(name: &str) -> BootMapCandidate {

@@ -3,7 +3,7 @@
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_hit::{campaign_entry_at, hit_action},
+    input::hit::{campaign_entry_at, hit_action},
 };
 
 #[test]

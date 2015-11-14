@@ -1,6 +1,6 @@
-//! 集成测试：原 `src/ui_page.rs` 内联测试迁出。
+//! 集成测试：原 `src/screens/page.rs` 内联测试迁出。
 
-use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, ui_page::*};
+use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, screens::page::*};
 #[test]
 fn main_menu_and_single_player_are_declared_complete() {
     let pages = catalog_pre_game_pages();

@@ -1,10 +1,10 @@
-//! 集成测试：原 `src/ui_resolve.rs` 内联测试迁出。
+//! 集成测试：原 `src/skin/resolve.rs` 内联测试迁出。
 
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_page::{UiAssetRef, UiButtonResources, UiPageResources, page_resources_from_slots},
-    ui_resolve::*,
+    screens::page::{UiAssetRef, UiButtonResources, UiPageResources, page_resources_from_slots},
+    skin::resolve::*,
 };
 use ra_types::{AssetSource, RaError};
 use std::collections::HashMap;

@@ -4,7 +4,7 @@ use ra_layout::{rect_px_from_snapshot, solve_load_screen, LOAD_SCREEN_BUTTON_IDS
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_hit::{hit_action, hits_for},
+    input::hit::{hit_action, hits_for},
 };
 
 #[test]

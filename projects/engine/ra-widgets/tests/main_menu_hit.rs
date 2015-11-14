@@ -3,7 +3,7 @@
 use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    ui_hit::{hit_action, hover_index},
+    input::hit::{hit_action, hover_index},
 };
 
 #[test]

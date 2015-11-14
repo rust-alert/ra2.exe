@@ -1,7 +1,7 @@
-//! 集成测试：原 `src/ui_text.rs` 内联测试迁出。
+//! 集成测试：原 `src/skin/text.rs` 内联测试迁出。
 
 use ra_assets::{CsfFile, FntFile, LABEL_MAGIC, STRING_MAGIC};
-use ra_widgets::ui_text::*;
+use ra_widgets::skin::text::*;
 use ra_renderer::RgbaImage;
 
 const CSF_HEADER_MAGIC: u32 = 0x4353_4620; // " FSC"

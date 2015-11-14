@@ -2,7 +2,7 @@
 
 use ra_widgets::{
     ui_compose::*,
-    ui_decode::{DecodedUiSprite, PageDecodeReport},
+    skin::decode::{DecodedUiSprite, PageDecodeReport},
 };
 use ra_layout::{
     rect_px_from_snapshot, solve_shell_page, solve_skirmish_lobby, MAIN_MENU_BUTTON_IDS,
