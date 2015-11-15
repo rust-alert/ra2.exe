@@ -1,6 +1,6 @@
-//! 主菜单阶段的安装资源挂载：MixVfs → 供 `ui_compose` / [`crate::input::hit`] / 音频读取。
+//! 主菜单阶段的安装资源挂载：MixVfs → 供 `compose` / [`crate::input::hit`] / 音频读取。
 //!
-//! 本模块只负责探测版本、按计划挂载与读 `ui.ini`；页面合成见 `ui_compose`，命中见 [`crate::input::hit`]。
+//! 本模块只负责探测版本、按计划挂载与读 `ui.ini`；页面合成见 `compose`，命中见 [`crate::input::hit`]。
 
 use ra_adaptor::detect_edition;
 use ra_assets::IniDocument;

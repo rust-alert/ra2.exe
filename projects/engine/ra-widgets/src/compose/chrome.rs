@@ -1,4 +1,4 @@
-//! 由一次性拆分自 `ui_compose.rs`。
+//! 壳层侧栏 / 波浪 chrome 合成。
 
 use super::*;
 

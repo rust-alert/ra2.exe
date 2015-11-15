@@ -13,7 +13,7 @@ use ra_assets::{CsfFile, FntFile, Palette, ShpFile};
 use ra_renderer::RgbaImage;
 use ra_types::GameEdition;
 
-use crate::{fs_source::GameAssetSource, skin::decode::frame_to_canvas_rgba, skin::text::blit_text_colored, ui_compose::blit_rgba};
+use crate::{fs_source::GameAssetSource, skin::decode::frame_to_canvas_rgba, skin::text::blit_text_colored, compose::blit_rgba};
 
 pub const SMALL_SPLASH_SHP: &str = "GLSS.SHP";
 pub const LARGE_SPLASH_SHP: &str = "GLSL.SHP";

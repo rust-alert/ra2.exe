@@ -30,7 +30,7 @@ use ra_widgets::{
     skin::decode,
     skirmish_setup::SkirmishBootRequest,
     startup_splash::StartupSplashPresentation,
-    ui_compose::SkirmishChromeSprites,
+    compose::SkirmishChromeSprites,
 };
 use ra_layout::ui_layout;
 

@@ -1,4 +1,4 @@
-//! 由一次性拆分自 `ui_compose.rs`。
+//! RGBA blit 与基础栅格辅助。
 
 use super::*;
 

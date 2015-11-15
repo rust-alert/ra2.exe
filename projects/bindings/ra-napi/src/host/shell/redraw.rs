@@ -7,7 +7,7 @@ use ra_map::mount_theater_mixes;
 use ra_renderer::RgbaImage;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::shell_slide::WaveDirection;
-use ra_widgets::ui_compose::{self};
+use ra_widgets::compose::{self};
 use ra_widgets::skin::decode;
 use ra_widgets::render::present;
 use ra_widgets::skin::text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
@@ -90,7 +90,7 @@ impl Shell {
             let wave = wave_owned.as_ref().map(|(buttons, tiles)| {
                 let animate_empty_tiles =
                     self.menu_frame_wave.as_ref().is_some_and(|w| w.direction() == WaveDirection::SlideOut);
-                ui_compose::ShellWaveFrames {
+                compose::ShellWaveFrames {
                     buttons: buttons.as_slice(),
                     tiles: tiles.as_slice(),
                     animate_empty_tiles,
@@ -99,7 +99,7 @@ impl Shell {
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
-                    OriginalScreen::MainMenu => ui_compose::compose_main_menu_page(
+                    OriginalScreen::MainMenu => compose::compose_main_menu_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -112,7 +112,7 @@ impl Shell {
                         wave,
                         self.menu_panel_anim_frame,
                     ),
-                    OriginalScreen::SinglePlayerMenu => ui_compose::compose_single_player_page(
+                    OriginalScreen::SinglePlayerMenu => compose::compose_single_player_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -127,7 +127,7 @@ impl Shell {
                     ),
                     OriginalScreen::Campaign => {
                         let track_thumb = self.skirmish_chrome.as_ref().and_then(|c| c.track_thumb.as_ref());
-                        ui_compose::compose_campaign_page(
+                        compose::compose_campaign_page(
                             decoded,
                             self.window_width as u32,
                             self.window_height as u32,
@@ -136,7 +136,7 @@ impl Shell {
                             self.status_line_visible(),
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
-                            ui_compose::CampaignPaint {
+                            compose::CampaignPaint {
                                 selected_side: self.campaign_side,
                                 difficulty: self.campaign_difficulty,
                                 track_thumb,
@@ -147,7 +147,7 @@ impl Shell {
                         )
                     }
                     OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
-                        ui_compose::compose_options_page(
+                        compose::compose_options_page(
                             decoded,
                             state,
                             self.window_width as u32,
@@ -160,7 +160,7 @@ impl Shell {
                             self.menu_panel_anim_frame,
                         )
                     }),
-                    OriginalScreen::ExitConfirm => ui_compose::compose_exit_confirm_page(
+                    OriginalScreen::ExitConfirm => compose::compose_exit_confirm_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -229,7 +229,7 @@ impl Shell {
                             .map(|m| m.name_csf.as_str())
                             .unwrap_or("GUI:Battle");
                         let game_type_name = resolve_caption(self.menu_csf.as_ref(), mode_csf, Some(mode_csf));
-                        let paint = ui_compose::SkirmishLobbyPaint {
+                        let paint = compose::SkirmishLobbyPaint {
                             map_name: map_name.as_str(),
                             game_type_name: game_type_name.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
@@ -258,7 +258,7 @@ impl Shell {
                             row_color_indices: self.skirmish.row_colors,
                             chrome: self.skirmish_chrome.as_ref(),
                         };
-                        ui_compose::compose_skirmish_lobby_page(
+                        compose::compose_skirmish_lobby_page(
                             decoded,
                             self.window_width as u32,
                             self.window_height as u32,
@@ -303,7 +303,7 @@ impl Shell {
                         let map_names: Vec<&str> = map_labels.iter().map(|s| s.as_str()).collect();
                         let selected_map_index =
                             self.selected_map.as_ref().and_then(|sel| visible_maps.iter().position(|m| &m.file_name == sel));
-                        ui_compose::compose_choose_map_page(
+                        compose::compose_choose_map_page(
                             decoded,
                             self.window_width as u32,
                             self.window_height as u32,
@@ -322,7 +322,7 @@ impl Shell {
                             0,
                         )
                     }
-                    OriginalScreen::LoadScreen => ui_compose::compose_load_screen_page(
+                    OriginalScreen::LoadScreen => compose::compose_load_screen_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -330,7 +330,7 @@ impl Shell {
                         self.menu_hovered_entry,
                         self.menu_font.as_ref(),
                         self.menu_csf.as_ref(),
-                        ui_compose::LoadScreenPaint {
+                        compose::LoadScreenPaint {
                             side: self.skirmish.side.as_str(),
                             player_name: self.skirmish.player_name.as_str(),
                             side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
@@ -363,7 +363,7 @@ impl Shell {
                     sdbtnanm_frames: Vec::new(),
                     errors: Vec::new(),
                 };
-                if let Some(page) = ui_compose::compose_load_screen_page(
+                if let Some(page) = compose::compose_load_screen_page(
                     &empty,
                     self.window_width as u32,
                     self.window_height as u32,
@@ -371,7 +371,7 @@ impl Shell {
                     self.menu_hovered_entry,
                     self.menu_font.as_ref(),
                     self.menu_csf.as_ref(),
-                    ui_compose::LoadScreenPaint {
+                    compose::LoadScreenPaint {
                         side: self.skirmish.side.as_str(),
                         player_name: self.skirmish.player_name.as_str(),
                         side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),

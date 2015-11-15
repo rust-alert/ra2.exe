@@ -1,9 +1,9 @@
-//! 集成测试：原 `src/ui_compose.rs` 内联测试迁出。
+//! 选项页控件合成集成测试。
 
 use ra_layout::{rect_px_from_snapshot, solve_options_page};
 use ra_renderer::RgbaImage;
 use ra_types::{DisplayMode, PresentFeel};
-use ra_widgets::{options_dialog::OptionsDialogState, ui_compose::*};
+use ra_widgets::{options_dialog::OptionsDialogState, compose::*};
 
 #[test]
 fn paint_options_draws_music_thumb() {

@@ -1,4 +1,4 @@
-//! 由一次性拆分自 `ui_compose.rs`。
+//! 对局 HUD 叠层合成。
 
 use super::*;
 

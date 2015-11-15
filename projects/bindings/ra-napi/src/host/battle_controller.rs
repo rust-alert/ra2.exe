@@ -10,7 +10,7 @@ use ra_widgets::{
     fs_source::GameAssetSource,
     render::present,
     skin::text::{command_button_csf_tooltip, resolve_csf_text},
-    ui_compose::{BattleHudModel, compose_battle_hud_overlay},
+    compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};

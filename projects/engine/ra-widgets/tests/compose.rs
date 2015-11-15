@@ -1,7 +1,7 @@
-//! 集成测试：原 `src/ui_compose.rs` 内联测试迁出。
+//! 页面合成集成测试。
 
 use ra_widgets::{
-    ui_compose::*,
+    compose::*,
     skin::decode::{DecodedUiSprite, PageDecodeReport},
 };
 use ra_layout::{

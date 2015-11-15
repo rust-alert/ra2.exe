@@ -11,7 +11,7 @@ pub mod chrome;
 pub mod skin;
 pub mod render;
 pub mod screens;
-pub mod ui_compose;
+pub mod compose;
 
 pub use core::*;
 

@@ -7,7 +7,7 @@ use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::{self, hover_entry_at, side_flag_pcx_candidates};
-use ra_widgets::ui_compose::{self, SkirmishChromeSprites};
+use ra_widgets::compose::{self, SkirmishChromeSprites};
 use winit::event::KeyEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
 

@@ -2,7 +2,7 @@
 
 use ra_layout::{rect_px_from_snapshot, solve_battle_pause, BATTLE_PAUSE_MENU_BUTTON_IDS};
 use ra_widgets::battle_pause_menu::{hit_at, BattlePauseMenuHit};
-use ra_widgets::ui_compose::compose_battle_pause_menu_overlay;
+use ra_widgets::compose::compose_battle_pause_menu_overlay;
 
 #[test]
 fn battle_pause_menu_hits_resume_and_options_from_snapshot() {
