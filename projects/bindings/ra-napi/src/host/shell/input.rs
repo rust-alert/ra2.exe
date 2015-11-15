@@ -5,7 +5,7 @@ use ra_widgets::menu_action::MenuAction;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::options_dialog::OptionsHit;
 use ra_widgets::skirmish_setup::hover_entry_at;
-use ra_widgets::ui_hit;
+use ra_widgets::input::hit;
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -19,11 +19,11 @@ impl Shell {
     /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
     pub(super) fn menu_entry_under_cursor(&self) -> Option<&'static str> {
         if self.screen == OriginalScreen::Campaign {
-            return ui_hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
+            return hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
         }
         let hit_maps = self.maps_for_menu_hit();
         if self.screen == OriginalScreen::SkirmishLobby {
-            if let Some(id) = ui_hit::hover_index(
+            if let Some(id) = hit::hover_index(
                 self.screen,
                 &hit_maps,
                 self.lobby_modes.len(),
@@ -41,7 +41,7 @@ impl Shell {
             let (x, y) = self.shell_cursor_px();
             return hover_entry_at(x, y);
         }
-        let idx = ui_hit::hover_index(
+        let idx = hit::hover_index(
             self.screen,
             &hit_maps,
             self.lobby_modes.len(),

@@ -8,9 +8,9 @@ use ra_renderer::RgbaImage;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::shell_slide::WaveDirection;
 use ra_widgets::ui_compose::{self};
-use ra_widgets::ui_decode;
-use ra_widgets::ui_present;
-use ra_widgets::ui_text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
+use ra_widgets::skin::decode;
+use ra_widgets::render::present;
+use ra_widgets::skin::text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
 use ra_widgets::RenderPlan;
 
 use super::Shell;
@@ -41,7 +41,7 @@ impl Shell {
 
     /// 上传 UI 页：先按 `[present]` 做质感变换再进 GPU。
     pub(super) fn upload_ui_page(&mut self, page: RgbaImage) {
-        let page = ui_present::present_ui_page(page, self.present);
+        let page = present::present_ui_page(page, self.present);
         self.renderer.set_ui_page(page);
     }
 
@@ -354,7 +354,7 @@ impl Shell {
             }
             // 装载页即使 chrome 未解码也要画出可读状态，禁止纯色空窗。
             if self.screen == OriginalScreen::LoadScreen {
-                let empty = ui_decode::PageDecodeReport {
+                let empty = decode::PageDecodeReport {
                     background: None,
                     panels: Vec::new(),
                     button_normals: Vec::new(),

@@ -7,12 +7,11 @@ use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::ui_assets::{self, load_menu_ui_assets};
-use ra_widgets::ui_decode;
-use ra_widgets::ui_movie::MenuMoviePlayer;
-use ra_widgets::ui_page::{page_resources_for_load_screen, page_resources_from_slots_with_edition};
-use ra_widgets::ui_resolve;
-use ra_widgets::ui_text;
+use ra_widgets::skin::assets::load_menu_ui_assets;
+use ra_widgets::skin::decode;
+use ra_widgets::chrome::movie::MenuMoviePlayer;
+use ra_widgets::screens::page::{page_resources_for_load_screen, page_resources_from_slots_with_edition};
+use ra_widgets::skin::resolve;
 
 use super::Shell;
 
@@ -70,7 +69,7 @@ impl Shell {
         else {
             return;
         };
-        let report = ui_resolve::resolve_page(source, &page);
+        let report = resolve::resolve_page(source, &page);
         tracing::info!(
             screen = self.screen.as_str(),
             named = report.named,
@@ -93,7 +92,7 @@ impl Shell {
         let load_bg_ok = self.screen == OriginalScreen::LoadScreen
             && load_bg_name.as_ref().is_some_and(|bg| !report.missing.iter().any(|m| m.eq_ignore_ascii_case(bg)));
         if report.named > 0 && (only_movie_gaps || load_bg_ok) {
-            let decoded = ui_decode::decode_page_chrome(source, &page);
+            let decoded = decode::decode_page_chrome(source, &page);
             tracing::info!(
                 screen = self.screen.as_str(),
                 errors = decoded.errors.len(),

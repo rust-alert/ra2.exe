@@ -10,7 +10,7 @@ use ra_widgets::load_kind::LoadKind;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skirmish_setup::SkirmishBootRequest;
 use ra_widgets::startup_splash;
-use ra_widgets::ui_typewriter::TypewriterText;
+use ra_widgets::animation::typewriter::TypewriterText;
 
 use crate::host::battle_controller::BattleController;
 use crate::host::boot::BootResult;

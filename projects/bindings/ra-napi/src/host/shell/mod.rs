@@ -20,23 +20,17 @@ use super::{
     preview_job::PreviewJob,
 };
 use ra_widgets::{
+    animation::typewriter::TypewriterText,
+    chrome::movie::MenuMoviePlayer,
+    load_kind::LoadKind,
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    load_kind::LoadKind,
-    shell_slide::{
-        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
-        WAVE_STOWED_FRAME, WaveDirection,
-    },
-    skirmish_setup::{SkirmishBootRequest, hover_entry_at},
-    startup_splash::{self, StartupSplashPresentation},
-    ui_assets::{MenuUiAssets, load_menu_ui_assets},
-    ui_compose::{self, SkirmishChromeSprites},
-    ui_decode, ui_hit,
-    ui_movie::MenuMoviePlayer,
-    ui_page::{page_resources_for_load_screen, page_resources_from_slots_with_edition},
-    ui_present, ui_resolve,
-    ui_text::{campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip, skirmish_lobby_csf_tooltip},
-    ui_typewriter::TypewriterText,
+    shell_slide::ShellFrameWave,
+    skin::assets::MenuUiAssets,
+    skin::decode,
+    skirmish_setup::SkirmishBootRequest,
+    startup_splash::StartupSplashPresentation,
+    ui_compose::SkirmishChromeSprites,
 };
 use ra_layout::ui_layout;
 
@@ -110,7 +104,7 @@ pub struct Shell {
     /// 主菜单阶段已挂载资源（惰性一次）。
     pub(super) menu_assets: Option<MenuUiAssets>,
     /// 当前页 chrome 解码缓存（切换页或重探时刷新）。
-    pub(super) ui_decode_cache: Option<ui_decode::PageDecodeReport>,
+    pub(super) ui_decode_cache: Option<decode::PageDecodeReport>,
     /// 主菜单当前按住的按钮入口 id（按下帧合成）。
     pub(super) menu_pressed_entry: Option<&'static str>,
     /// 切页排队：`SlideOut` 完成后提交的 `MenuAction`。

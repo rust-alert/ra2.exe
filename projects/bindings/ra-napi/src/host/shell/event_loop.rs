@@ -6,7 +6,7 @@ use ra_layout::ui_layout;
 use ra_widgets::menu_action::MenuAction;
 use ra_widgets::options_dialog::OptionsHit;
 use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::ui_hit;
+use ra_widgets::input::hit;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -277,7 +277,7 @@ impl ApplicationHandler for Shell {
                             if consumed {
                                 self.refresh_menu_backdrop();
                             }
-                            else if let Some(action) = ui_hit::hit_action(
+                            else if let Some(action) = hit::hit_action(
                                 self.screen,
                                 &self.maps_for_menu_hit(),
                                 self.lobby_modes.len(),
@@ -302,7 +302,7 @@ impl ApplicationHandler for Shell {
                             if consumed {
                                 self.refresh_menu_backdrop();
                             }
-                            else if let Some(action) = ui_hit::hit_action(
+                            else if let Some(action) = hit::hit_action(
                                 self.screen,
                                 &self.maps_for_menu_hit(),
                                 self.lobby_modes.len(),
@@ -327,7 +327,7 @@ impl ApplicationHandler for Shell {
                             if consumed {
                                 // 难度已在按下/拖动时落档，勿再 CycleCampaignDifficulty。
                             }
-                            else if let Some(action) = ui_hit::hit_action(
+                            else if let Some(action) = hit::hit_action(
                                 self.screen,
                                 &self.maps_for_menu_hit(),
                                 self.lobby_modes.len(),
@@ -346,7 +346,7 @@ impl ApplicationHandler for Shell {
                             if self.menu_pressed_entry.take().is_some() {
                                 self.refresh_menu_backdrop();
                             }
-                            let action = ui_hit::hit_action(
+                            let action = hit::hit_action(
                                 self.screen,
                                 &self.maps_for_menu_hit(),
                                 self.lobby_modes.len(),

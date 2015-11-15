@@ -4,9 +4,9 @@ use std::time::Instant;
 
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::startup_splash::{self, StartupSplashPresentation};
-use ra_widgets::ui_decode;
-use ra_widgets::ui_page::page_resources_from_slots_with_edition;
-use ra_widgets::ui_resolve;
+use ra_widgets::skin::decode;
+use ra_widgets::screens::page::page_resources_from_slots_with_edition;
+use ra_widgets::skin::resolve;
 
 use super::Shell;
 
@@ -65,10 +65,10 @@ impl Shell {
         else {
             return;
         };
-        let report = ui_resolve::resolve_page(source, &page);
+        let report = resolve::resolve_page(source, &page);
         let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
         if report.named > 0 && only_movie_gaps {
-            let decoded = ui_decode::decode_page_chrome(source, &page);
+            let decoded = decode::decode_page_chrome(source, &page);
             tracing::info!(
                 errors = decoded.errors.len(),
                 chrome_ready = decoded.chrome_ready_for_enabled_buttons(&page),

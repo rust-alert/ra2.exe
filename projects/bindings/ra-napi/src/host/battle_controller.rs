@@ -5,12 +5,12 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::{Duration, Insta
 use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, Palette, Rgba};
 use ra_widgets::{
-    fs_source::GameAssetSource,
     battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
     battle_order_icons::load_battle_order_icons,
+    fs_source::GameAssetSource,
+    render::present,
+    skin::text::{command_button_csf_tooltip, resolve_csf_text},
     ui_compose::{BattleHudModel, compose_battle_hud_overlay},
-    ui_present,
-    ui_text::{command_button_csf_tooltip, resolve_csf_text},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
@@ -1724,7 +1724,7 @@ impl BattleController {
     }
 
     fn on_command_button(&mut self, slot: usize) {
-        let name = ra_widgets::ui_text::SKIRMISH_COMMAND_BAR
+        let name = ra_widgets::skin::text::SKIRMISH_COMMAND_BAR
             .get(slot)
             .copied()
             .unwrap_or("?");
@@ -1800,7 +1800,7 @@ impl BattleController {
                 stroke_marquee_rect(&mut page, rect);
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
-            let page = ui_present::present_ui_page(page, present);
+            let page = present::present_ui_page(page, present);
             renderer.set_ui_overlay(page);
         }
     }
