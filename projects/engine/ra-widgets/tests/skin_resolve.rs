@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/skin/resolve.rs` 内联测试迁出。
+//! 页面资源可读性探测集成测试。
 
 use ra_widgets::{
     menu_action::MenuAction,

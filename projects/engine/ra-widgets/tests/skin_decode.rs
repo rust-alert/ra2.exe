@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/skin/decode.rs` 内联测试迁出。
+//! 壳层 chrome 解码集成测试。
 
 use ra_assets::{Palette, ShpFile, mix_hash};
 use ra_widgets::skin::decode::*;

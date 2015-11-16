@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/input/hit.rs` 内联测试迁出。
+//! 壳层命中测试。
 
 use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, input::hit::*};
 use ra_layout::{rect_px_from_snapshot, solve_skirmish_lobby, SKIRMISH_LOBBY_BUTTON_IDS};

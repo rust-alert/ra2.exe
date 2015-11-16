@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/skin/slots.rs` 内联测试迁出。
+//! 逻辑 UI 槽位集成测试。
 
 use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, skin::slots::*};
 #[test]

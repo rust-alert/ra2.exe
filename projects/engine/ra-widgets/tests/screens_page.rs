@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/screens/page.rs` 内联测试迁出。
+//! 页面资源索引集成测试。
 
 use ra_widgets::{menu_action::MenuAction, original_screen::OriginalScreen, screens::page::*};
 #[test]

@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/animation/typewriter.rs` 内联测试迁出。
+//! 打字机文案集成测试。
 
 use ra_widgets::animation::typewriter::*;
 

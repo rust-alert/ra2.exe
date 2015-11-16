@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/render/present.rs` 内联测试迁出。
+//! present 质感变换集成测试。
 
 use ra_widgets::render::present::*;
 use ra_renderer::RgbaImage;

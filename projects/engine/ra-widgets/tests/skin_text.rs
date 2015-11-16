@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/skin/text.rs` 内联测试迁出。
+//! CSF/文字辅助集成测试。
 
 use ra_assets::{CsfFile, FntFile, LABEL_MAGIC, STRING_MAGIC};
 use ra_widgets::skin::text::*;

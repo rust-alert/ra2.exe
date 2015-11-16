@@ -1,4 +1,4 @@
-//! 集成测试：原 `src/skin/assets.rs` 内联测试迁出。
+//! 菜单资源挂载与探测集成测试。
 
 use ra_widgets::skin::assets::*;
 use ra_renderer::RgbaImage;
