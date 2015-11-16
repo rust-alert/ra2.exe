@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use ra_layout::ui_layout;
+use ra_layout;
 use ra_map::mount_theater_mixes;
 use ra_renderer::RgbaImage;
 use ra_widgets::original_screen::OriginalScreen;
@@ -389,8 +389,8 @@ impl Shell {
             if let Some(page) = RenderPlan::diagnostic_for_original_screen(self.screen)
                 .and_then(|plan| {
                     plan.rasterize_solids(
-                        ui_layout::SHELL_BASE_W as u32,
-                        ui_layout::SHELL_BASE_H as u32,
+                        ra_layout::SHELL_BASE_W as u32,
+                        ra_layout::SHELL_BASE_H as u32,
                     )
                 })
             {

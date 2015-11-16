@@ -133,10 +133,10 @@ impl Shell {
             req.side = house.to_string();
             req.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
             // 战役首关先只保留本方 house（各行同阵营，装载侧去重后仅一席）。
-            req.row_sides = [house_index; ra_layout::ui_layout::SKIRMISH_ROW_COUNT];
+            req.row_sides = [house_index; ra_layout::SKIRMISH_ROW_COUNT];
             if req.sides.is_empty() {
                 req.set_lobby_sides(vec![house.to_string()]);
-                req.row_sides = [0; ra_layout::ui_layout::SKIRMISH_ROW_COUNT];
+                req.row_sides = [0; ra_layout::SKIRMISH_ROW_COUNT];
             }
             req
         }));

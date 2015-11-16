@@ -281,7 +281,7 @@ fn compose_campaign_uses_back_id() {
 
 #[test]
 fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
-    use ra_layout::ui_layout::{SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y};
+    use ra_layout::{SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y};
     let bg = solid_sprite("mnscrnl.shp#0", [1, 2, 3, 255]);
     // `sdtp` 外壳：整幅灰；窗内会被 `sdwrnanm` 替换。
     let sdtp = DecodedUiSprite {

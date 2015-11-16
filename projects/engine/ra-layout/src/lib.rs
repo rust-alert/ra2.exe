@@ -10,7 +10,7 @@ mod spec;
 mod policy;
 mod reference;
 
-pub mod ui_layout;
+mod shell;
 
 pub use solver::LayoutEngine;
 pub use geometry::{Insets, Point2, Rect, Size2};
@@ -33,5 +33,5 @@ pub use policy::{
     bottom_cover_button, right_panel_anchor, tile_snap_button, HorizontalRule, LayoutRules,
     RightPanelChrome, SizeRule, VerticalRule,
 };
-pub use ui_layout::*;
+pub use shell::*;
 pub use viewport::Viewport;

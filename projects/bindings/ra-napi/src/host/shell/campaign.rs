@@ -1,6 +1,6 @@
 //! 战役页交互。
 
-use ra_layout::{rect_px_from_snapshot, solve_campaign, ui_layout};
+use ra_layout::{rect_px_from_snapshot, solve_campaign, RectPx};
 
 use super::{campaign_difficulty_from_track_x, Shell};
 
@@ -34,7 +34,7 @@ impl Shell {
     }
 
     /// 按轨道 X 映射难度 0..=2，档位变化时刷新。
-    pub(super) fn set_campaign_difficulty_from_x(&mut self, track: ui_layout::RectPx, x: i32) {
+    pub(super) fn set_campaign_difficulty_from_x(&mut self, track: RectPx, x: i32) {
         let next = campaign_difficulty_from_track_x(track, x);
         if next == self.campaign_difficulty {
             return;

@@ -10,7 +10,7 @@ use crate::{
     },
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
-    ui_layout::{
+    shell::{
         EXIT_CONFIRM_BUTTON_H, EXIT_CONFIRM_BUTTON_IDS, EXIT_CONFIRM_BUTTON_W, EXIT_CONFIRM_DIALOG_H,
         EXIT_CONFIRM_DIALOG_W, MAIN_MENU_BUTTON_IDS,
     },
@@ -89,7 +89,7 @@ mod tests {
     use crate::{LayoutEngine, Viewport};
 
     #[test]
-    fn exit_confirm_content_matches_ui_layout_golden() {
+    fn exit_confirm_content_matches_shell_golden() {
         let chrome = RightPanelChrome::shell_defaults();
         let snap = LayoutEngine.solve(
             Viewport {

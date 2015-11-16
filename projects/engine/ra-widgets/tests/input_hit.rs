@@ -13,7 +13,7 @@ fn main_menu_hit_single_player() {
 
 #[test]
 fn main_menu_hit_options_and_exit_cells() {
-    let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
+    let cam = ra_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
@@ -30,7 +30,7 @@ fn main_menu_hit_options_and_exit_cells() {
 fn exit_confirm_ok_and_cancel_cells() {
     use ra_layout::{rect_px_from_snapshot, solve_exit_confirm, EXIT_CONFIRM_BUTTON_IDS};
 
-    let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
+    let cam = ra_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
@@ -103,7 +103,7 @@ fn lobby_start_button_is_hit() {
     let cell = rect_px_from_snapshot(&solve_skirmish_lobby(), SKIRMISH_LOBBY_BUTTON_IDS[0]);
     let cx = cell.x + cell.w / 2;
     let cy = cell.y + cell.h / 2;
-    let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
+    let cam = ra_layout::shell_fit_camera(1024, 768);
     let sx = (cx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
     let sy = (cy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
     let action = hit_action(OriginalScreen::SkirmishLobby, &maps, 0, Some("mp03t4.map"), (sx as f64, sy as f64), 1024.0, 768.0, 0, false);
@@ -131,7 +131,7 @@ fn physical_cursor_with_logical_window_misses_on_hidpi() {
 fn campaign_side_and_difficulty_are_hit() {
     use ra_layout::{rect_px_from_snapshot, solve_campaign};
 
-    let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
+    let cam = ra_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;
@@ -201,7 +201,7 @@ fn choose_map_use_and_list_row_are_hit() {
         start_slots: 4,
         game_modes: Vec::new(),
     }];
-    let cam = ra_layout::ui_layout::shell_fit_camera(1024, 768);
+    let cam = ra_layout::shell_fit_camera(1024, 768);
     let to_win = |sx: i32, sy: i32| {
         let x = (sx as f32 - cam.center_x) * cam.zoom + 1024.0 * 0.5;
         let y = (sy as f32 - cam.center_y) * cam.zoom + 768.0 * 0.5;

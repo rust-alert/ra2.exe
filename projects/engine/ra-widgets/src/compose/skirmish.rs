@@ -58,7 +58,7 @@ pub struct SkirmishChromeSprites {
     /// AI 行旗标（可与本地相同资源）。
     pub ai_flag: Option<RgbaImage>,
     /// 各玩家行旗标（行 0 本地）。
-    pub row_flags: [Option<RgbaImage>; ra_layout::ui_layout::SKIRMISH_ROW_COUNT],
+    pub row_flags: [Option<RgbaImage>; ra_layout::SKIRMISH_ROW_COUNT],
 }
 
 /// 遭遇战大厅绘制参数（左栏玩家/选项 + 右栏地图名）。
@@ -113,9 +113,9 @@ pub struct SkirmishLobbyPaint<'a> {
     /// 可选国家显示名（CSF；与 `sides` 等长，缺省时回退 id）。
     pub side_labels: &'a [String],
     /// 各行国家下标（相对 `sides`）。
-    pub row_side_indices: [u8; ra_layout::ui_layout::SKIRMISH_ROW_COUNT],
+    pub row_side_indices: [u8; ra_layout::SKIRMISH_ROW_COUNT],
     /// 各行色块下标（`LOBBY_COLORS`）。
-    pub row_color_indices: [u8; ra_layout::ui_layout::SKIRMISH_ROW_COUNT],
+    pub row_color_indices: [u8; ra_layout::SKIRMISH_ROW_COUNT],
     /// 安装内控件 PCX（可空）。
     pub chrome: Option<&'a SkirmishChromeSprites>,
 }

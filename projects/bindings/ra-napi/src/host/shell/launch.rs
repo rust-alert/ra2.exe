@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use ra_layout::ui_layout;
+use ra_layout::RectPx;
 use ra_types::{DisplayMode, PresentFeel, RaError, RaResult};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -14,7 +14,7 @@ use crate::host::boot::BootResult;
 use super::Shell;
 
 /// 战役难度轨鼠标 X → 档位 0..=2（与遭遇战滑条同一套整数映射）。
-pub fn campaign_difficulty_from_track_x(track: ui_layout::RectPx, mouse_x: i32) -> u8 {
+pub fn campaign_difficulty_from_track_x(track: RectPx, mouse_x: i32) -> u8 {
     let travel = (track.w - 12).max(1);
     let rel = (mouse_x - track.x - 6).clamp(0, travel);
     ((rel * 2 + travel / 2) / travel).clamp(0, 2) as u8

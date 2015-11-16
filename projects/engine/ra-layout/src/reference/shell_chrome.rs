@@ -162,7 +162,7 @@ pub fn solve_shell_page(
 mod tests {
     use super::*;
     use crate::{
-        ui_layout::{rect_px_from_snapshot, RectPx},
+        shell::{rect_px_from_snapshot, RectPx},
         LayoutEngine, Viewport,
     };
 

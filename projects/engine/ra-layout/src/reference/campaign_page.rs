@@ -7,7 +7,7 @@ use crate::{
     reference::shell_chrome::{shell_chrome_children, solve_with_shell_defaults},
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
-    ui_layout::{
+    shell::{
         CAMPAIGN_ALLIED_ORIGIN, CAMPAIGN_ALLIED_SIZE, CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS,
         CAMPAIGN_SOVIET_ORIGIN, CAMPAIGN_SOVIET_SIZE, CAMPAIGN_TUTORIAL_ORIGIN, CAMPAIGN_TUTORIAL_SIZE,
     },
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn campaign_content_matches_golden_shell_slots() {
-        use crate::ui_layout::{rect_px_from_snapshot, RectPx};
+        use crate::shell::{rect_px_from_snapshot, RectPx};
 
         let chrome = RightPanelChrome::shell_defaults();
         let snap = LayoutEngine.solve(

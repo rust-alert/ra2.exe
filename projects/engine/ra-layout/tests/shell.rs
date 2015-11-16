@@ -1,6 +1,6 @@
-//! 集成测试：原 `src/ui_layout.rs` 内联测试迁出。
+//! 壳层像素辅助与常量集成测试。
 
-use ra_layout::ui_layout::*;
+use ra_layout::*;
 
 #[test]
 fn main_menu_panel_sits_on_right_edge() {

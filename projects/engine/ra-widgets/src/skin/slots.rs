@@ -163,7 +163,7 @@ const fn empty_button(entry_id: &'static str, action: MenuAction, enabled: bool)
     }
 }
 
-// 命中框为 800×600 内容归一化；实际点击经 `ui_layout` + fit 相机，不直接用窗口比例。
+// 命中框为 800×600 内容归一化；实际点击经 `ra_layout` shell helpers + fit 相机，不直接用窗口比例。
 const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("single_player", MenuAction::OpenSinglePlayer, true),
     main_menu_button("ww_online", MenuAction::Noop, false),
@@ -173,7 +173,7 @@ const MAIN_MENU_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("exit", MenuAction::Exit, true),
 ];
 
-// 命中框占位；实际点击走 `ui_layout` 单人页像素格。
+// 命中框占位；实际点击走 `ra_layout` shell helpers 单人页像素格。
 // 顺序对齐壳层：新战役 / 载入 / 遭遇战 / 主菜单（贴底）。
 const SINGLE_PLAYER_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("campaign", MenuAction::OpenCampaign, true),
@@ -197,7 +197,7 @@ const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "soviet", shp: "fsslg.shp", pal: "fsscrn.pal", frame: 0 },
 ];
 
-// 命中框占位；实际点击走 `ui_layout` 遭遇战像素格。
+// 命中框占位；实际点击走 `ra_layout` shell helpers 遭遇战像素格。
 // 顺序：开始游戏 / 选图 / 上一页（贴底）。
 const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("start", MenuAction::StartSkirmish, true),
@@ -235,7 +235,7 @@ const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
     modal_button("cancel", MenuAction::CancelLoad, true),
 ];
 
-// 命中框占位；实际点击走 `ui_layout` 选项页像素格。右栏为接受 / 取消 / 主菜单。
+// 命中框占位；实际点击走 `ra_layout` shell helpers 选项页像素格。右栏为接受 / 取消 / 主菜单。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("accept", MenuAction::OptionsAccept, true),
     main_menu_button("cancel", MenuAction::OptionsCancel, true),

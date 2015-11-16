@@ -2,7 +2,7 @@
 //!
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
-use ra_layout::ui_layout::{
+use ra_layout::{
     popup_list_below, popup_list_below_min_w, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H,
     SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
     SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,

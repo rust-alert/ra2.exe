@@ -9,7 +9,7 @@ use crate::{
     policy::RightPanelChrome,
     snapshot::LayoutSnapshot,
     spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
-    ui_layout::{rect_px_from_snapshot, RectPx},
+    shell::{rect_px_from_snapshot, RectPx},
 };
 
 /// 侧栏共用竖向槽位高度（两阵营一致）。

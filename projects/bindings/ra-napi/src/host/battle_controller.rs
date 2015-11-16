@@ -13,7 +13,7 @@ use ra_widgets::{
     compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, ui_layout::MapViewport};
+use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport};
 use ra_map::{
     MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank, iso_to_screen,
     load_structure_buildup_clip, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,

@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use ra_layout::ui_layout;
 use ra_widgets::menu_action::MenuAction;
 use ra_widgets::options_dialog::OptionsHit;
 use ra_widgets::original_screen::OriginalScreen;

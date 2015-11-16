@@ -1,6 +1,6 @@
 //! 遭遇战大厅与选图。
 
-use ra_layout::ui_layout;
+use ra_layout;
 use ra_map::map_matches_game_mode_filter;
 use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
@@ -20,7 +20,7 @@ impl Shell {
     /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
     pub(super) fn ensure_skirmish_chrome(&mut self) {
         self.ensure_menu_assets();
-        let flag_key = (0..ui_layout::SKIRMISH_ROW_COUNT)
+        let flag_key = (0..ra_layout::SKIRMISH_ROW_COUNT)
             .map(|i| self.skirmish.row_side(i).to_string())
             .collect::<Vec<_>>()
             .join(",");
@@ -49,7 +49,7 @@ impl Shell {
             chrome.combo_arrow_pressed = Self::load_pcx_rgba(source, "dnarrowp.pcx");
         }
         if need_flag {
-            for i in 0..ui_layout::SKIRMISH_ROW_COUNT {
+            for i in 0..ra_layout::SKIRMISH_ROW_COUNT {
                 let side = self.skirmish.row_side(i);
                 let prefix = self
                     .lobby_countries
@@ -392,7 +392,7 @@ impl Shell {
     /// 选图页地图列表可视行数。
     pub(super) fn choose_map_visible_row_count(&self) -> usize {
         let list = ra_layout::rect_px_from_snapshot(&ra_layout::solve_choose_map(), "map_list");
-        ui_layout::choose_map_visible_rows(list.h)
+        ra_layout::choose_map_visible_rows(list.h)
     }
 
     /// 使当前选中地图落在选图列表可视窗内。
@@ -405,7 +405,7 @@ impl Shell {
             .and_then(|sel| maps.iter().position(|m| &m.file_name == sel))
             .unwrap_or(0);
         self.map_list_scroll =
-            ui_layout::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
+            ra_layout::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
     }
 
     /// 选图页滚轮 / 快捷键微调列表偏移。

@@ -1,6 +1,6 @@
 //! 指针命中与菜单前按键。
 
-use ra_layout::ui_layout;
+use ra_layout;
 use ra_widgets::menu_action::MenuAction;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::options_dialog::OptionsHit;
@@ -13,7 +13,7 @@ use super::Shell;
 
 impl Shell {
     pub(super) fn shell_cursor_px(&self) -> (i32, i32) {
-        ui_layout::window_to_shell_px(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
+        ra_layout::window_to_shell_px(self.cursor.0, self.cursor.1, self.window_width, self.window_height)
     }
 
     /// 当前光标下的可点按钮入口（逻辑窗口坐标）。
@@ -34,7 +34,7 @@ impl Shell {
                 self.map_list_scroll,
                 self.load_allow_retry(),
             )
-            .and_then(|idx| ui_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied())
+            .and_then(|idx| ra_layout::SKIRMISH_LOBBY_BUTTON_IDS.get(idx).copied())
             {
                 return Some(id);
             }
@@ -53,13 +53,13 @@ impl Shell {
             self.load_allow_retry(),
         )?;
         match self.screen {
-            OriginalScreen::MainMenu => ui_layout::MAIN_MENU_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::SinglePlayerMenu => ui_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::Options => ui_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::ExitConfirm => ui_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::MainMenu => ra_layout::MAIN_MENU_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::SinglePlayerMenu => ra_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::Options => ra_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
+            OriginalScreen::ExitConfirm => ra_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ChooseMap => {
-                let n_btn = ui_layout::CHOOSE_MAP_BUTTON_IDS.len();
-                if let Some(id) = ui_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied() {
+                let n_btn = ra_layout::CHOOSE_MAP_BUTTON_IDS.len();
+                if let Some(id) = ra_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied() {
                     return Some(id);
                 }
                 let mode_base = n_btn;

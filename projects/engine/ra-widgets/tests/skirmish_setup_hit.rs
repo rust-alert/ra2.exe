@@ -1,6 +1,6 @@
 //! 遭遇战大厅状态与 snapshot 命中集成测试。
 
-use ra_layout::ui_layout::{RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H};
+use ra_layout::{RectPx, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H};
 use ra_layout::{solve_skirmish_lobby, LayoutSnapshot};
 use ra_widgets::skirmish_setup::*;
 

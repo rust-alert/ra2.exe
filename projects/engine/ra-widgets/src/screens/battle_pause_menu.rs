@@ -6,7 +6,7 @@ use ra_layout::{
     solve_battle_pause, LayoutSnapshot, Point2, BATTLE_PAUSE_MENU_BUTTON_IDS,
 };
 
-pub use ra_layout::ui_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
+pub use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
 
 /// 暂停菜单命中结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

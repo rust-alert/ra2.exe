@@ -32,7 +32,7 @@ use ra_widgets::{
     startup_splash::StartupSplashPresentation,
     compose::SkirmishChromeSprites,
 };
-use ra_layout::ui_layout;
+use ra_layout;
 
 /// 外壳持有的可导航壳层会话状态。
 pub struct Shell {
