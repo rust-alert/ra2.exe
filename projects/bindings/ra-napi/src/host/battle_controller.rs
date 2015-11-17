@@ -16,7 +16,7 @@ use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport};
 use ra_map::{
     MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank, iso_to_screen,
-    load_structure_buildup_clip, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
     paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
@@ -261,8 +261,42 @@ impl BattleController {
             return;
         };
         self.sync_world_view(renderer, vw, vh);
+        self.sync_camera_content_bounds(renderer);
         self.focus_camera_on_local_start(renderer);
         self.start_view_pending = false;
+    }
+
+    /// 按 `[Map] LocalSize` 投影设置镜头内容矩形，避免扫到 `Size` 外缘锯齿外。
+    fn sync_camera_content_bounds(&self, renderer: &mut Renderer) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            renderer.clear_camera_content_rect();
+            return;
+        };
+        let map = &game.world.map;
+        let Some((x0, y0, x1, y1)) = local_size_preview_rect(
+            map.size_width,
+            map.local_size,
+            game.preview_origin_x,
+            game.preview_origin_y,
+        )
+        else {
+            renderer.clear_camera_content_rect();
+            return;
+        };
+        let (pw, ph) = match renderer.preview_size_u32() {
+            Some(s) => s,
+            None => {
+                renderer.clear_camera_content_rect();
+                return;
+            }
+        };
+        // 与预览画布求交，避免越界内容矩形。
+        let x0 = x0.max(0).min(pw.saturating_sub(1) as i32);
+        let y0 = y0.max(0).min(ph.saturating_sub(1) as i32);
+        let x1 = x1.max(x0 + 1).min(pw as i32);
+        let y1 = y1.max(y0 + 1).min(ph as i32);
+        renderer.set_camera_content_rect(x0 as f32, y0 as f32, x1 as f32, y1 as f32);
     }
 
     /// 应用新的装载结果（重开）。

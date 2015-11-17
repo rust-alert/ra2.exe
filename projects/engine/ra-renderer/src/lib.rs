@@ -90,6 +90,10 @@ pub struct Renderer {
     ///
     /// 对局叠加时应为战术区（侧栏以左），与命中、`CameraBounds` 同口径。
     world_view: Option<(u32, u32, u32, u32)>,
+    /// 镜头可扫的预览图像素内容矩形 `(x0,y0,x1,y1)`。`None` 时用整张预览（`[0,w]×[0,h]`）。
+    ///
+    /// 对局应设为 `[Map] LocalSize` 投影，避免扫到 `Size` 外缘锯齿外的空域。
+    camera_content: Option<(f32, f32, f32, f32)>,
     markers: Option<MarkerGpu>,
     /// `mouse.shp` 命令图标图集（移动 / 攻击 / 部署）。
     order_icons: Option<OrderIconGpu>,
@@ -125,6 +129,7 @@ impl Renderer {
             ui_sprite: None,
             ui_overlay: false,
             world_view: None,
+            camera_content: None,
             markers: None,
             order_icons: None,
             pending_order_icons: None,
@@ -183,6 +188,30 @@ impl Renderer {
         self.preview = Some(image);
     }
 
+    /// 设置镜头内容矩形（预览图像素）。对局传入 `LocalSize` 投影。
+    pub fn set_camera_content_rect(&mut self, x0: f32, y0: f32, x1: f32, y1: f32) {
+        let (x0, x1) = if x0 <= x1 { (x0, x1) } else { (x1, x0) };
+        let (y0, y1) = if y0 <= y1 { (y0, y1) } else { (y1, y0) };
+        self.camera_content = Some((x0, y0, x1, y1));
+        let (vw, vh) = self.world_proj_size();
+        if vw > 0.0 && vh > 0.0 {
+            if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
+                self.camera.clamp_to_bounds(&bounds);
+            }
+        }
+    }
+
+    /// 清除镜头内容矩形，恢复按整张预览夹紧。
+    pub fn clear_camera_content_rect(&mut self) {
+        self.camera_content = None;
+        let (vw, vh) = self.world_proj_size();
+        if vw > 0.0 && vh > 0.0 {
+            if let Some(bounds) = self.camera_bounds_for_viewport(vw, vh) {
+                self.camera.clamp_to_bounds(&bounds);
+            }
+        }
+    }
+
     /// 更新地图预览像素，**不**重置相机（活动层逐帧刷新用）。
     ///
     /// 尺寸变化时回退为 [`Self::set_map_preview`]。
@@ -206,6 +235,7 @@ impl Renderer {
     pub fn clear_preview(&mut self) {
         self.preview = None;
         self.sprite = None;
+        self.camera_content = None;
         if self.ui_page.is_none() {
             self.camera_ready = false;
         }
@@ -450,9 +480,15 @@ impl Renderer {
     /// 当前预览世界与给定 viewport 下的相机边界；无预览时为 `None`。
     pub fn camera_bounds_for_viewport(&self, viewport_w: f32, viewport_h: f32) -> Option<CameraBounds> {
         let preview = self.preview.as_ref()?;
-        Some(crate::camera::CameraBounds::from_world_and_viewport(
-            preview.width() as f32,
-            preview.height() as f32,
+        let (x0, y0, x1, y1) = match self.camera_content {
+            Some(r) => r,
+            None => (0.0, 0.0, preview.width() as f32, preview.height() as f32),
+        };
+        Some(crate::camera::CameraBounds::from_content_rect(
+            x0,
+            y0,
+            x1,
+            y1,
             viewport_w.max(1.0),
             viewport_h.max(1.0),
             self.camera.zoom,
@@ -479,6 +515,11 @@ impl Renderer {
     /// 当前交换链表面尺寸（像素）；未绑定 GPU 时为 `None`。
     pub fn surface_size_u32(&self) -> Option<(u32, u32)> {
         self.gpu.as_ref().map(|g| (g.config.width.max(1), g.config.height.max(1)))
+    }
+
+    /// 当前地图预览像素尺寸；无预览时为 `None`。
+    pub fn preview_size_u32(&self) -> Option<(u32, u32)> {
+        self.preview.as_ref().map(|p| (p.width().max(1), p.height().max(1)))
     }
 
     /// 世界投影用的宽高：已设 `world_view` 时用战术区，否则整窗。

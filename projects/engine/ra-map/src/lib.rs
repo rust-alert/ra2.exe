@@ -13,6 +13,7 @@ mod overlay;
 mod overlay_paint;
 mod pass_grid;
 mod placements;
+mod playfield;
 mod preview_pack;
 mod skirmish_preview;
 mod structure_damage;
@@ -51,6 +52,7 @@ pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_o
 pub use overlay_paint::{flat_tiberium_display_type_name, paint_map_overlays};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
+pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
 pub use preview_pack::{
     MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size,
 };
@@ -87,6 +89,8 @@ pub struct MapInfo {
     pub size_width: u32,
     /// `[Map] Size` 高（菱形参数，不是通行格网高）。
     pub size_height: u32,
+    /// `[Map] LocalSize`：镜头可见内缘（缺省等于整张 `Size`）。
+    pub local_size: LocalSize,
     /// 游戏格网宽（与 iso / 航点 / 覆盖层同一坐标系）。
     pub width: u32,
     /// 游戏格网高（与 iso / 航点 / 覆盖层同一坐标系）。
@@ -117,6 +121,7 @@ impl MapInfo {
             name: name.into(),
             size_width: 0,
             size_height: 0,
+            local_size: LocalSize::from_full_size(1, 1),
             width: 0,
             height: 0,
             theater: Theater::Temperate,
@@ -135,6 +140,10 @@ impl MapInfo {
         let doc = IniDocument::parse(bytes)?;
         let size = doc.get("Map", "Size").ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
         let (size_width, size_height) = parse_size(size)?;
+        let local_size = doc
+            .get("Map", "LocalSize")
+            .and_then(|raw| parse_local_size(raw).ok())
+            .unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
         // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
         let side = game_cell_grid_side(size_width, size_height);
         let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
@@ -157,6 +166,7 @@ impl MapInfo {
             name: name.into(),
             size_width,
             size_height,
+            local_size,
             width: side,
             height: side,
             theater,
@@ -215,4 +225,33 @@ fn parse_size(raw: &str) -> RaResult<(u32, u32)> {
     let width: u32 = parts[2].parse().map_err(|_| RaError::Parse(format!("Size 宽无效: {}", parts[2])))?;
     let height: u32 = parts[3].parse().map_err(|_| RaError::Parse(format!("Size 高无效: {}", parts[3])))?;
     Ok((width, height))
+}
+
+/// 解析 `LocalSize=left,top,width,height`。
+fn parse_local_size(raw: &str) -> RaResult<LocalSize> {
+    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+    if parts.len() < 4 {
+        return Err(RaError::Parse(format!("无效 LocalSize: {raw}")));
+    }
+    let left: i32 = parts[0]
+        .parse()
+        .map_err(|_| RaError::Parse(format!("LocalSize left 无效: {}", parts[0])))?;
+    let top: i32 = parts[1]
+        .parse()
+        .map_err(|_| RaError::Parse(format!("LocalSize top 无效: {}", parts[1])))?;
+    let width: i32 = parts[2]
+        .parse()
+        .map_err(|_| RaError::Parse(format!("LocalSize 宽无效: {}", parts[2])))?;
+    let height: i32 = parts[3]
+        .parse()
+        .map_err(|_| RaError::Parse(format!("LocalSize 高无效: {}", parts[3])))?;
+    if width <= 0 || height <= 0 {
+        return Err(RaError::Parse(format!("LocalSize 宽高须为正: {raw}")));
+    }
+    Ok(LocalSize {
+        left,
+        top,
+        width,
+        height,
+    })
 }

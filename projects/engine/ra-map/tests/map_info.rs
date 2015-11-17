@@ -2,6 +2,28 @@ use ra_map::{MapInfo, Theater, game_cell_grid_side, map_matches_game_mode_filter
 use ra_types::GameEdition;
 
 #[test]
+fn parse_local_size_from_map_ini() {
+    let text = b"[Map]\nSize=0,0,105,95\nLocalSize=5,4,95,85\nTheater=TEMPERATE\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.size_width, 105);
+    assert_eq!(info.size_height, 95);
+    assert_eq!(info.local_size.left, 5);
+    assert_eq!(info.local_size.top, 4);
+    assert_eq!(info.local_size.width, 95);
+    assert_eq!(info.local_size.height, 85);
+}
+
+#[test]
+fn missing_local_size_defaults_to_full_size() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.local_size.left, 0);
+    assert_eq!(info.local_size.top, 0);
+    assert_eq!(info.local_size.width, 50);
+    assert_eq!(info.local_size.height, 40);
+}
+
+#[test]
 fn parse_basic_description_csf() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nDescription=DESC:MP03T4\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();

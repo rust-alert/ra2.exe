@@ -18,14 +18,27 @@ pub struct CameraBounds {
 impl CameraBounds {
     /// 由世界矩形 `[0, world_w] × [0, world_h]` 与可视 viewport（屏幕像素）计算中心夹紧范围。
     pub fn from_world_and_viewport(world_w: f32, world_h: f32, viewport_w: f32, viewport_h: f32, zoom: f32) -> Self {
+        Self::from_content_rect(0.0, 0.0, world_w, world_h, viewport_w, viewport_h, zoom)
+    }
+
+    /// 由预览图像素内容矩形 `[x0,x1] × [y0,y1]`（通常为 `LocalSize` 投影）计算中心夹紧范围。
+    pub fn from_content_rect(
+        content_x0: f32,
+        content_y0: f32,
+        content_x1: f32,
+        content_y1: f32,
+        viewport_w: f32,
+        viewport_h: f32,
+        zoom: f32,
+    ) -> Self {
         let z = zoom.max(0.0001);
         let half_w = viewport_w.max(1.0) * 0.5 / z;
         let half_h = viewport_h.max(1.0) * 0.5 / z;
         Self {
-            min_center_x: half_w,
-            max_center_x: world_w - half_w,
-            min_center_y: half_h,
-            max_center_y: world_h - half_h,
+            min_center_x: content_x0 + half_w,
+            max_center_x: content_x1 - half_w,
+            min_center_y: content_y0 + half_h,
+            max_center_y: content_y1 - half_h,
         }
     }
 }
@@ -201,6 +214,16 @@ mod tests {
         let (cx, cy) = cam.screen_to_world_in(ox + vw * 0.5, oy + vh * 0.5, ox, oy, vw, vh);
         assert!((cx - 80.0).abs() < 1e-4);
         assert!((cy - 40.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn content_rect_inset_hides_outer_void() {
+        // LocalSize 投影比整图小：夹紧后可见左缘不再落到预览 0 之外。
+        let full = CameraBounds::from_world_and_viewport(400.0, 400.0, 200.0, 200.0, 1.0);
+        let local = CameraBounds::from_content_rect(40.0, 40.0, 360.0, 360.0, 200.0, 200.0, 1.0);
+        assert!(local.min_center_x > full.min_center_x);
+        let visible_left = local.min_center_x - 100.0;
+        assert!((visible_left - 40.0).abs() < 1e-5);
     }
 
     #[test]
