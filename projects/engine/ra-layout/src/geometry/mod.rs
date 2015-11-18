@@ -1,5 +1,4 @@
-// reshape-layout-components:skeleton
-//! 普通几何结果（非 DesignRect 世界坐标）。
+//! 普通几何结果（逻辑像素，非原版低分辨率参考表）。
 
 /// 二维点（逻辑像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Default)]

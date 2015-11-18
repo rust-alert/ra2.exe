@@ -1,4 +1,3 @@
-// reshape-layout-components:skeleton
 //! 命中区域（与 LayoutBox 同源）。
 
 use crate::geometry::Rect;

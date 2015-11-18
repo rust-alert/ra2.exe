@@ -1,4 +1,3 @@
-// reshape-layout-components:skeleton
 //! 布局树节点。
 
 use crate::policy::LayoutRules;

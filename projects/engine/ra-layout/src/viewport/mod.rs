@@ -1,4 +1,3 @@
-// reshape-layout-components:skeleton
 //! 视口与 DPI。
 
 use crate::geometry::{Insets, Size2};
