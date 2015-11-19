@@ -21,8 +21,8 @@ pub use campaign_page::{campaign_content_layout_tree, solve_campaign};
 pub use exit_confirm_page::{exit_confirm_content_layout_tree, solve_exit_confirm};
 pub use dlu::{mul_div_round, DluRect, FontBaseUnits, MS_SANS_SERIF_8PT};
 pub use from_template::{
-    dialog_layout_tree, dialog_page_layout_tree, resolve_control_desc, resolve_dialog_template,
-    shell_design_size, solve_choose_map, solve_skirmish_lobby,
+    dialog_layout_tree, dialog_page_layout_tree, shell_design_size, solve_choose_map,
+    solve_skirmish_lobby,
 };
 pub use load_screen::{load_screen_layout_tree, solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 pub use network_page::{network_page_layout_tree, solve_network_page, NETWORK_BUTTON_IDS};

@@ -31,7 +31,7 @@ fn map_name_plate(chrome: RightPanelChrome) -> Rect {
 }
 
 /// 解析单个控件描述。
-pub fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelChrome) -> Rect {
+pub(crate) fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelChrome) -> Rect {
     match desc.placement {
         ControlPlacement::PreserveDlu => dlu_of(desc),
         ControlPlacement::TileSnap => tile_snap_button(dlu_of(desc), chrome),
@@ -45,18 +45,6 @@ pub fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelChrome) 
             rect
         }
     }
-}
-
-/// 解析整份对话框模板。
-pub fn resolve_dialog_template(
-    template: &DialogTemplate,
-    chrome: RightPanelChrome,
-) -> Vec<(String, Rect)> {
-    template
-        .controls
-        .iter()
-        .map(|c| (c.id.0.clone(), resolve_control_desc(c, chrome)))
-        .collect()
 }
 
 /// 壳层设计视口。
