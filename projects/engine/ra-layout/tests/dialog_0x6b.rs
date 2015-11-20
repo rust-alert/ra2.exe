@@ -1,21 +1,10 @@
-//! `RT_DIALOG` `0x6B`：adaptor 模板 → `LayoutEngine` → snapshot / hit。
+//! `0x6B` 选图页：`solve_choose_map` → snapshot / hit。
 
-use ra_adaptor::dialog_template_0x6b;
-use ra_layout::{
-    dialog_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
-};
+use ra_layout::{solve_choose_map, Point2, Rect};
 
 #[test]
 fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let root = dialog_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome);
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: ra_layout::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &root,
-    );
+    let snap = solve_choose_map();
 
     assert_eq!(
         snap.get("use_map").map(|e| e.layout.rect),

@@ -1,21 +1,10 @@
-//! `RT_DIALOG` `0x102`：adaptor 模板 → `LayoutEngine` → snapshot / hit。
+//! `0x102` 遭遇战大厅：`solve_skirmish_lobby` → snapshot / hit。
 
-use ra_adaptor::dialog_template_0x102;
-use ra_layout::{
-    dialog_layout_tree, LayoutEngine, Point2, Rect, RightPanelChrome, Viewport,
-};
+use ra_layout::{solve_skirmish_lobby, Point2, Rect};
 
 #[test]
 fn dialog_0x102_snapshot_matches_skirmish_golden_rects() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let root = dialog_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome);
-    let snap = LayoutEngine.solve(
-        Viewport {
-            size: ra_layout::shell_design_size(chrome),
-            ..Viewport::default()
-        },
-        &root,
-    );
+    let snap = solve_skirmish_lobby();
 
     assert_eq!(
         snap.get("start").map(|e| e.layout.rect),
