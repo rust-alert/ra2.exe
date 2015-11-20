@@ -66,7 +66,7 @@ fn exit_confirm_modal_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
 }
 
 /// 退出确认整页：主菜单壳（右栏六钮）+ 居中 MessageBox，一次求解。
-pub fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn exit_confirm_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let mut children = shell_page_layout_tree(
         "exit_confirm",
         &MAIN_MENU_BUTTON_IDS[..5],

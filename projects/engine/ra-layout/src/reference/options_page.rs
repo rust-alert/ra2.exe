@@ -82,7 +82,7 @@ fn options_content_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
 }
 
 /// 选项页左侧内容板（不含右栏 chrome / 三钮）。
-pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     root_with_fixed_children(
         "options_content",
         shell_design_size(chrome),
@@ -91,7 +91,7 @@ pub fn options_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
 }
 
 /// 选项整页：壳层 chrome + 右栏三钮 + 左侧内容板，一次求解。
-pub fn options_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn options_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let mut children = shell_chrome_children(chrome);
     children.extend(right_rail_button_children(
         OPTIONS_RAIL_STACKED,

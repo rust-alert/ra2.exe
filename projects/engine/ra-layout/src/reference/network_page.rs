@@ -13,7 +13,7 @@ use crate::{
 pub const NETWORK_BUTTON_IDS: [&str; 2] = ["online", "back"];
 
 /// 网络占位页：居中宽钮（设计画布比例框）。
-pub fn network_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn network_page_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let children = vec![
         fixed_rect_leaf(
             NETWORK_BUTTON_IDS[0],

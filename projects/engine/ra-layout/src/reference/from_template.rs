@@ -48,7 +48,7 @@ pub(crate) fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelC
 }
 
 /// 壳层设计视口。
-pub fn shell_design_size(chrome: RightPanelChrome) -> Size2 {
+pub(crate) fn shell_design_size(chrome: RightPanelChrome) -> Size2 {
     Size2 {
         width: chrome.shell_w,
         height: chrome.shell_h,

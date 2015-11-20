@@ -1,4 +1,4 @@
-//! 单人页命中消费 `shell_page_layout_tree` snapshot。
+//! 单人页命中消费 solve_shell_page snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,

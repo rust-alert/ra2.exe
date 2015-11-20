@@ -96,7 +96,7 @@ pub(crate) fn right_rail_button_children(
 }
 
 /// 壳层共享 chrome（面板条带、影片区、标题、提示），不含页面按钮。
-pub fn shell_chrome_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn shell_chrome_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     root_with_fixed_children(
         "shell_chrome",
         shell_design_size(chrome),
@@ -107,7 +107,7 @@ pub fn shell_chrome_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
 /// 右栏连续平铺格 + 可选贴底盖按钮。
 ///
 /// `stacked_ids` 从 tile 0 起依次占格；`bottom_id` 若有则贴底盖上沿。
-pub fn right_rail_buttons_layout_tree(
+pub(crate) fn right_rail_buttons_layout_tree(
     root_id: impl Into<String>,
     stacked_ids: &[&str],
     bottom_id: Option<&str>,
@@ -121,7 +121,7 @@ pub fn right_rail_buttons_layout_tree(
 }
 
 /// 壳层页面：共享 chrome + 右栏按钮，一次求解。
-pub fn shell_page_layout_tree(
+pub(crate) fn shell_page_layout_tree(
     root_id: impl Into<String>,
     stacked_ids: &[&str],
     bottom_id: Option<&str>,

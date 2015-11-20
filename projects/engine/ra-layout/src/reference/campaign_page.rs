@@ -18,7 +18,7 @@ fn side_rect(origin: (i32, i32), size: (i32, i32)) -> Rect {
 }
 
 /// 战役整页：壳层 chrome + 三侧入口 + 难度区 + 右栏「上一页」，一次求解。
-pub fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
+pub(crate) fn campaign_content_layout_tree(chrome: RightPanelChrome) -> LayoutNode {
     let mut children = shell_chrome_children(chrome);
     children.extend([
         fixed_rect_leaf(

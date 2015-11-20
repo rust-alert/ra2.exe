@@ -1,4 +1,4 @@
-//! 主菜单命中消费 `shell_page_layout_tree` snapshot。
+//! 主菜单命中消费 solve_shell_page snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,

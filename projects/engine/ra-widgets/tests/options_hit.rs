@@ -1,4 +1,4 @@
-//! 选项页右栏命中消费 `shell_page_layout_tree` snapshot。
+//! 选项页命中消费 solve_options_page snapshot。
 
 use ra_widgets::{
     menu_action::MenuAction,

@@ -1,4 +1,4 @@
-//! 装载页命中消费 `load_screen_layout_tree` snapshot。
+//! 装载页命中消费 solve_load_screen snapshot。
 
 use ra_layout::{rect_px_from_snapshot, solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 use ra_widgets::{
