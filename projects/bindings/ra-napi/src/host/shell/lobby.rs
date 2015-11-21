@@ -258,6 +258,10 @@ impl Shell {
         if self.lobby_preview_job.as_ref().is_some_and(|j| j.map_name() == name) {
             return;
         }
+        // 换图后先摘掉旧缩略图，避免选图页仍显示上一张直到新任务完成。
+        if self.lobby_preview_for.as_ref().is_some_and(|prev| prev.as_str() != name.as_str()) {
+            self.lobby_preview = None;
+        }
         self.lobby_preview_job = Some(PreviewJob::start(name));
     }
 

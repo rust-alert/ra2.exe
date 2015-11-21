@@ -22,7 +22,7 @@ pub const CHOOSE_MAP_SCROLL_THUMB: [u8; 4] = [255, 0, 0, 255];
 /// 溢出时列表内容区右侧留给滚动条的宽度（`1*2+0x12`）。
 pub const CHOOSE_MAP_SCROLL_W: i32 = 20;
 
-/// 合成选图页：双列表 + 右栏预览 / 使用地图 / 随机 / 取消。
+/// 合成选图页：双列表 + 右栏预览 / 地图名 / 使用地图 / 随机 / 取消。
 pub fn compose_choose_map_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -33,6 +33,7 @@ pub fn compose_choose_map_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
+    selected_map_caption: Option<&str>,
     mode_names: &[&str],
     selected_mode_index: Option<usize>,
     map_names: &[&str],
@@ -69,7 +70,7 @@ pub fn compose_choose_map_page(
     )?;
 
     blit_skirmish_preview_chrome(&mut page, decoded, panel_top, map_name_plate);
-    // `map_name_plate`（`sdmpbtn`）与第一格「使用地图」重叠；命中已靠更高 z，这里再画一遍钮面以免被底板盖住。
+    // 钮面画在底板之后，保证与 `map_name_plate` 相接时不被挡板盖住。
     let btn_plan = shell_button_sprite_plan(MenuCaptionKind::ChooseMap, &CHOOSE_MAP_BUTTON_IDS);
     paint_shell_rail_buttons(
         &mut page,
@@ -85,6 +86,19 @@ pub fn compose_choose_map_page(
     )?;
     if let Some(preview) = map_preview {
         blit_map_preview_fit(&mut page, preview, map_preview_rect);
+    }
+    if let (Some(fnt), Some(caption)) = (fnt, selected_map_caption.filter(|s| !s.is_empty())) {
+        // 信息板：在 `map_name_plate` 上画当前选中地图名（与大厅右栏地图名同角色）。
+        blit_caption_top_left_clipped(
+            &mut page,
+            fnt,
+            caption,
+            map_name_plate.x + 4,
+            map_name_plate.y + 4,
+            (map_name_plate.w - 8).max(8),
+            (map_name_plate.h - 8).max(8),
+            MENU_TEXT_ENABLED,
+        );
     }
 
     fill_rect(&mut page, game_type_list, CHOOSE_MAP_LIST_BG);

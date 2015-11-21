@@ -27,13 +27,13 @@ fn choose_map_hits_use_snapshot_button_rects() {
     assert!(hits.iter().any(|h| h.entry_id == "cancel"));
     assert!(hits.iter().any(|h| h.entry_id == "create_random" && h.enabled));
 
-    // 800×600 窗口下，点 use_map 格中心 (644+78, 199+21) ≈ (722, 220)。
+    // 800×600 窗口下，点 use_map 格中心 (644+78, 241+21) ≈ (722, 262)。
     let action = hit_action(
         OriginalScreen::ChooseMap,
         &maps,
         0,
         None,
-        (722.0, 220.0),
+        (722.0, 262.0),
         800.0,
         600.0,
         0,

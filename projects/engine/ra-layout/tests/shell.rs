@@ -139,14 +139,14 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
 fn choose_map_matches_game_exe_dialog_0x6b() {
     let snap = ra_layout::solve_choose_map();
     assert_eq!(CHOOSE_MAP_BUTTON_IDS, ["use_map", "create_random", "cancel"]);
-    // 使用地图 `0x6C5` DLU y 122 → 吸附 tile 0；随机 y 149 → tile 1；取消贴底盖。
+    // 使用地图 / 随机：与遭遇战「开始 / 选图」同格（DLU 149/176 → tile 1/2），落在 `map_name_plate` 下方，避免盖住挡板。
     assert_eq!(
         rect_px_from_snapshot(&snap, "use_map"),
-        RectPx::new(644, 199, 156, 42)
+        RectPx::new(644, 241, 156, 42)
     );
     assert_eq!(
         rect_px_from_snapshot(&snap, "create_random"),
-        RectPx::new(644, 241, 156, 42)
+        RectPx::new(644, 283, 156, 42)
     );
     assert_eq!(
         rect_px_from_snapshot(&snap, "cancel"),

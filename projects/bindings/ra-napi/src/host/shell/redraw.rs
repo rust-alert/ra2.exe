@@ -303,6 +303,7 @@ impl Shell {
                         let map_names: Vec<&str> = map_labels.iter().map(|s| s.as_str()).collect();
                         let selected_map_index =
                             self.selected_map.as_ref().and_then(|sel| visible_maps.iter().position(|m| &m.file_name == sel));
+                        let selected_map_caption = selected_map_index.and_then(|i| map_names.get(i).copied());
                         compose::compose_choose_map_page(
                             decoded,
                             self.window_width as u32,
@@ -313,6 +314,7 @@ impl Shell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             self.lobby_preview.as_ref(),
+                            selected_map_caption,
                             &mode_names,
                             selected_mode_index,
                             &map_names,
@@ -595,7 +597,7 @@ impl Shell {
                     }
                 }
             }
-            if self.screen == OriginalScreen::SkirmishLobby {
+            if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 let ready = self.poll_lobby_preview();
                 if ready {
                     self.refresh_menu_backdrop();

@@ -8,11 +8,11 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
 
     assert_eq!(
         snap.get("use_map").map(|e| e.layout.rect),
-        Some(Rect::from_xywh(644.0, 199.0, 156.0, 42.0))
+        Some(Rect::from_xywh(644.0, 241.0, 156.0, 42.0))
     );
     assert_eq!(
         snap.get("create_random").map(|e| e.layout.rect),
-        Some(Rect::from_xywh(644.0, 241.0, 156.0, 42.0))
+        Some(Rect::from_xywh(644.0, 283.0, 156.0, 42.0))
     );
     assert_eq!(
         snap.get("cancel").map(|e| e.layout.rect),
@@ -39,7 +39,7 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
         snap
             .hit_test(Point2 {
                 x: 650.0,
-                y: 210.0
+                y: 260.0
             })
             .map(|e| e.id.0.as_str()),
         Some("use_map")

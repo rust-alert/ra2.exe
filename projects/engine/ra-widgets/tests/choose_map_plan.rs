@@ -10,7 +10,7 @@ fn choose_map_render_plan_rects_match_snapshot_hits() {
 
     assert_eq!(
         plan.rect_of("use_map"),
-        Some(Rect::from_xywh(644.0, 199.0, 156.0, 42.0))
+        Some(Rect::from_xywh(644.0, 241.0, 156.0, 42.0))
     );
     assert_eq!(
         plan.rect_of("cancel"),
@@ -24,7 +24,7 @@ fn choose_map_render_plan_rects_match_snapshot_hits() {
     let hit = snap
         .hit_test(Point2 {
             x: 650.0,
-            y: 210.0,
+            y: 260.0,
         })
         .expect("hit use_map");
     assert_eq!(hit.id.0, "use_map");

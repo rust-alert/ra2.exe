@@ -136,8 +136,8 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
     DialogTemplate {
         dialog_id: 0x6B,
         controls: vec![
-            ctrl("use_map", 318, 122, 108, 23, ControlPlacement::TileSnap),
-            ctrl("create_random", 318, 149, 108, 23, ControlPlacement::TileSnap),
+            ctrl("use_map", 318, 149, 108, 23, ControlPlacement::TileSnap),
+            ctrl("create_random", 318, 176, 108, 23, ControlPlacement::TileSnap),
             ctrl("cancel", 318, 269, 108, 23, ControlPlacement::BottomCoverButton),
             ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
             ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
