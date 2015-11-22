@@ -37,7 +37,8 @@ pub fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     }
 }
 
-pub(super) fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
+/// 最近邻拉伸贴图（面板 / 暂停菜单 letterbox 等）。
+pub fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
     }

@@ -7,17 +7,25 @@ use ra_assets::{CsfFile, FntFile, Palette, Rgba};
 use ra_widgets::{
     battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
     battle_order_icons::load_battle_order_icons,
+    battle_pause_menu::{self, BattlePauseMenuHit},
+    compose::{
+        blit_stretched, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
+    },
     fs_source::GameAssetSource,
     render::present,
+    screens::page_resources_for_battle_pause,
+    skin::decode::{decode_page_chrome, PageDecodeReport},
     skin::text::{command_button_csf_tooltip, resolve_csf_text},
-    compose::{BattleHudModel, compose_battle_hud_overlay},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
-use ra_layout::{solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport};
+use ra_layout::{
+    shell_content_rect_in_window, solve_battle_hud_with_metrics, window_to_shell_px, BattleHudChromeMetrics,
+    MapViewport,
+};
 use ra_map::{
-    MapEntity, MapEntityKind, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank, iso_to_screen,
-    load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank,
+    iso_to_screen, load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba,
+    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
@@ -98,8 +106,16 @@ pub struct BattleController {
     ctrl_down: bool,
     /// 建造放置模式。
     place_mode: Option<&'static str>,
-    /// 暂停后已武装「再按 Esc 回大厅」（避免误触离开）。
+    /// 测试旁路：曾表示「再按 Esc 回大厅」武装态；现由暂停菜单「放弃」离开，恒为 false。
     leave_armed: bool,
+    /// 对局 Esc 暂停菜单 chrome（右栏六钮）。
+    pause_menu_chrome: Option<PageDecodeReport>,
+    /// 是否已尝试解码暂停菜单（避免每帧重试）。
+    pause_menu_tried: bool,
+    /// 暂停菜单悬停入口 id。
+    pause_hover: Option<&'static str>,
+    /// 暂停菜单按下入口 id。
+    pause_pressed: Option<&'static str>,
     /// 标题用版本短名。
     title_base: String,
     /// 测试状态旁路文件。
@@ -172,6 +188,10 @@ impl BattleController {
             ctrl_down: false,
             place_mode: None,
             leave_armed: false,
+            pause_menu_chrome: None,
+            pause_menu_tried: false,
+            pause_hover: None,
+            pause_pressed: None,
             title_base: format!("ra2 ({edition})"),
             status_path,
             test_scene,
@@ -312,6 +332,10 @@ impl BattleController {
         self.logged_reject = None;
         self.place_mode = None;
         self.leave_armed = false;
+        self.pause_menu_chrome = None;
+        self.pause_menu_tried = false;
+        self.pause_hover = None;
+        self.pause_pressed = None;
         self.last_pump = Instant::now();
         self.hud_chrome = None;
         self.order_icons_loaded = false;
@@ -798,11 +822,15 @@ impl BattleController {
 
     /// 对局页输入。`accept_commands=false` 时仅允许相机与重开 / 回菜单。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
+        let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
         match event {
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
                 self.ctrl_down = mods.state().control_key();
                 BattleNav::None
+            }
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
+                self.handle_pause_menu_mouse(*state, window)
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
                 match state {
@@ -852,9 +880,12 @@ impl BattleController {
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
+                self.pause_pressed = None;
                 BattleNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands => {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. }
+                if accept_commands && !battle_paused =>
+            {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
                 self.handle_right_click(renderer, window);
@@ -862,11 +893,16 @@ impl BattleController {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor = (position.x, position.y);
-                // 建造放置模式只认点选，拖拽不升为框选。
-                if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() {
-                    self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
+                if battle_paused {
+                    self.left_gesture = LeftGesture::Idle;
+                    self.refresh_pause_hover(window);
+                } else {
+                    // 建造放置模式只认点选，拖拽不升为框选。
+                    if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() {
+                        self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
+                    }
+                    self.refresh_command_hover(window);
                 }
-                self.refresh_command_hover(window);
                 BattleNav::None
             }
             WindowEvent::MouseWheel { .. } => {
@@ -894,32 +930,23 @@ impl BattleController {
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
-                            self.leave_armed = false;
+                            self.clear_pause_menu_input();
                             tracing::info!("建造模式 · 已关闭");
                             BattleNav::None
-                        }
-                        else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            // 对局中 Esc 先暂停；暂停后再 Esc 武装离开，再按一次确认回大厅。
-                            // 空格仍可切换暂停并解除武装。
+                        } else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                            // Esc：打开暂停菜单并暂停；菜单已开则回到游戏。
                             if game.paused {
-                                if self.leave_armed {
-                                    self.leave_armed = false;
-                                    BattleNav::ToMainMenu
-                                }
-                                else {
-                                    self.leave_armed = true;
-                                    tracing::info!("再按 Esc 确认返回大厅");
-                                    BattleNav::None
-                                }
-                            }
-                            else {
-                                self.leave_armed = false;
                                 game.toggle_pause();
-                                tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
+                                self.clear_pause_menu_input();
+                                tracing::info!("继续");
+                                BattleNav::None
+                            } else {
+                                game.toggle_pause();
+                                self.clear_pause_menu_input();
+                                tracing::info!("暂停菜单");
                                 BattleNav::None
                             }
-                        }
-                        else {
+                        } else {
                             BattleNav::ToMainMenu
                         }
                     }
@@ -960,7 +987,7 @@ impl BattleController {
                     }
                     PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => BattleNav::None,
-                    PhysicalKey::Code(KeyCode::Tab) => {
+                    PhysicalKey::Code(KeyCode::Tab) if !battle_paused => {
                         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                             let tick = game.world.tick;
                             self.local.cycle_selection(game);
@@ -972,7 +999,7 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyT) => {
+                    PhysicalKey::Code(KeyCode::KeyT) if !battle_paused => {
                         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                             let tick = game.world.tick;
                             self.local.select_same_type(game);
@@ -984,7 +1011,7 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyF) => {
+                    PhysicalKey::Code(KeyCode::KeyF) if !battle_paused => {
                         let selected = self.local.selected.clone();
                         let pulse_tick = {
                             let mut out = None;
@@ -1004,47 +1031,49 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyD) => {
+                    PhysicalKey::Code(KeyCode::KeyD) if !battle_paused => {
                         self.deploy_selection();
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyX) => {
+                    PhysicalKey::Code(KeyCode::KeyX) if !battle_paused => {
                         // 原版：警戒。引擎命令尚未接线，仅占位避免误绑到部署。
                         tracing::info!("警戒 · 尚未接线 · {:?}", self.local.selected);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyB) => {
+                    PhysicalKey::Code(KeyCode::KeyB) if !battle_paused => {
                         self.cycle_place_mode();
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                        let paused = if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
-                            self.leave_armed = false;
-                            if game.paused {
-                                tracing::info!("暂停 · {}", game.pause_reason.as_deref().unwrap_or("已暂停"));
-                            }
-                            else {
-                                tracing::info!("继续");
-                            }
+                            game.paused
+                        } else {
+                            false
+                        };
+                        self.clear_pause_menu_input();
+                        if paused {
+                            tracing::info!("暂停菜单");
+                        } else if self.session.as_ref().and_then(|s| s.battle()).is_some() {
+                            tracing::info!("继续");
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyP) => {
+                    PhysicalKey::Code(KeyCode::KeyP) if !battle_paused => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("生产 · E1");
                             game.order_produce("E1");
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyO) => {
+                    PhysicalKey::Code(KeyCode::KeyO) if !battle_paused => {
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             tracing::info!("生产 · MTNK");
                             game.order_produce("MTNK");
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyY) => {
+                    PhysicalKey::Code(KeyCode::KeyY) if !battle_paused => {
                         if let Some(cell) = self.cursor_cell(renderer, window) {
                             let selected = self.local.selected.clone();
                             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
@@ -1239,6 +1268,7 @@ impl BattleController {
         };
         let (hud, pending) = prepared;
         self.ensure_battle_hud_chrome(assets);
+        self.ensure_pause_menu_chrome(assets);
         self.ensure_order_icons(renderer, assets);
         self.ensure_start_view(renderer);
         let (vw, vh) = window
@@ -1484,6 +1514,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
+        let mut poses: HashMap<(u16, u16, String, String), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -1503,10 +1534,22 @@ impl BattleController {
             else {
                 continue;
             };
+            let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
+            let moving = game
+                .world
+                .ecs_move_destination(id)
+                .is_some_and(|(dx, _)| dx.is_some())
+                || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
+            let owner_s = owner.to_string();
+            let type_s = type_id.to_string();
+            poses.insert(
+                (x, y, type_s.clone(), owner_s.clone()),
+                MobilePaintPose { anim_frame, moving },
+            );
             mobile_map.entities.push(MapEntity {
                 kind,
-                owner: owner.to_string(),
-                type_id: type_id.to_string(),
+                owner: owner_s,
+                type_id: type_s,
                 health: 256,
                 x,
                 y,
@@ -1525,6 +1568,12 @@ impl BattleController {
             self.art_ini,
             self.rules_ini,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
+            &|ent| {
+                poses
+                    .get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone()))
+                    .copied()
+                    .unwrap_or_default()
+            },
         );
         self.preview_base = Some(base);
         self.last_anim_sig = u64::MAX;
@@ -1546,6 +1595,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
+        let mut poses: HashMap<(u16, u16, String, String), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -1565,10 +1615,22 @@ impl BattleController {
             else {
                 continue;
             };
+            let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
+            let moving = game
+                .world
+                .ecs_move_destination(id)
+                .is_some_and(|(dx, _)| dx.is_some())
+                || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
+            let owner_s = owner.to_string();
+            let type_s = type_id.to_string();
+            poses.insert(
+                (x, y, type_s.clone(), owner_s.clone()),
+                MobilePaintPose { anim_frame, moving },
+            );
             mobile_map.entities.push(MapEntity {
                 kind,
-                owner: owner.to_string(),
-                type_id: type_id.to_string(),
+                owner: owner_s,
+                type_id: type_s,
                 health: 256,
                 x,
                 y,
@@ -1587,6 +1649,12 @@ impl BattleController {
             self.art_ini,
             self.rules_ini,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
+            &|ent| {
+                poses
+                    .get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone()))
+                    .copied()
+                    .unwrap_or_default()
+            },
         );
         for pending in &self.pending_buildups {
             let elapsed = pending.started.elapsed().as_millis() as u64;
@@ -1730,6 +1798,100 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
+    /// 解码对局 Esc 暂停菜单右栏 chrome（只试一次）。
+    fn ensure_pause_menu_chrome(&mut self, assets: Option<&GameAssetSource>) {
+        if self.pause_menu_chrome.is_some() || self.pause_menu_tried {
+            return;
+        }
+        self.pause_menu_tried = true;
+        let Some(source) = assets
+        else {
+            return;
+        };
+        let page = page_resources_for_battle_pause();
+        let decoded = decode_page_chrome(source, &page);
+        if !decoded.errors.is_empty() {
+            tracing::warn!(errors = ?decoded.errors, "暂停菜单 chrome 解码有缺口");
+        } else {
+            tracing::info!("暂停菜单 chrome 已解码");
+        }
+        self.pause_menu_chrome = Some(decoded);
+    }
+
+    fn clear_pause_menu_input(&mut self) {
+        self.pause_hover = None;
+        self.pause_pressed = None;
+        self.leave_armed = false;
+        self.command_hover = None;
+        self.command_pressed = None;
+        self.left_gesture = LeftGesture::Idle;
+    }
+
+    fn shell_cursor_px(&self, window: &Window) -> (i32, i32) {
+        let size = window.inner_size();
+        window_to_shell_px(
+            self.cursor.0,
+            self.cursor.1,
+            f64::from(size.width.max(1)),
+            f64::from(size.height.max(1)),
+        )
+    }
+
+    fn refresh_pause_hover(&mut self, window: &Window) {
+        let (sx, sy) = self.shell_cursor_px(window);
+        self.pause_hover = battle_pause_menu::hit_at(sx, sy).map(|h| h.entry_id());
+    }
+
+    fn handle_pause_menu_mouse(&mut self, state: ElementState, window: &Window) -> BattleNav {
+        match state {
+            ElementState::Pressed => {
+                let (sx, sy) = self.shell_cursor_px(window);
+                self.pause_pressed = battle_pause_menu::hit_at(sx, sy).map(|h| h.entry_id());
+                BattleNav::None
+            }
+            ElementState::Released => {
+                let pressed = self.pause_pressed.take();
+                let (sx, sy) = self.shell_cursor_px(window);
+                let hit = battle_pause_menu::hit_at(sx, sy);
+                if pressed.is_some_and(|id| hit.is_some_and(|h| h.entry_id() == id)) {
+                    if let Some(hit) = hit {
+                        return self.on_pause_menu_hit(hit);
+                    }
+                }
+                BattleNav::None
+            }
+        }
+    }
+
+    fn on_pause_menu_hit(&mut self, hit: BattlePauseMenuHit) -> BattleNav {
+        match hit {
+            BattlePauseMenuHit::Resume => {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    if game.paused {
+                        game.toggle_pause();
+                    }
+                }
+                self.clear_pause_menu_input();
+                tracing::info!("继续");
+                BattleNav::None
+            }
+            BattlePauseMenuHit::Abort => {
+                self.clear_pause_menu_input();
+                tracing::info!("放弃任务 · 返回大厅");
+                BattleNav::ToMainMenu
+            }
+            BattlePauseMenuHit::Restart => {
+                self.clear_pause_menu_input();
+                tracing::info!("重新开始…");
+                BattleNav::Rematch
+            }
+            BattlePauseMenuHit::Options | BattlePauseMenuHit::Load | BattlePauseMenuHit::Save => {
+                tracing::info!(entry = hit.entry_id(), "暂停菜单 · 尚未接线");
+                BattleNav::None
+            }
+        }
+    }
+
     fn hud_snap_for_window(&self, window: &Window) -> ra_layout::LayoutSnapshot {
         let size = window.inner_size();
         let w = size.width.max(1);
@@ -1809,6 +1971,8 @@ impl BattleController {
             .command_hover
             .and_then(command_button_csf_tooltip)
             .and_then(|key| resolve_csf_text(csf, key));
+        // 暂停菜单打开时不再画「已暂停」横幅文案。
+        let show_pause_banner = hud.paused && hud.outcome.is_none();
         let paint = BattleHudModel {
             tick: hud.tick,
             funds: local.map(|p| p.funds).unwrap_or(0),
@@ -1819,12 +1983,12 @@ impl BattleController {
             deploy_hint: deploy_hint_owned.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
-            paused: hud.paused,
-            pause_reason: hud.pause_reason.as_deref(),
+            paused: false,
+            pause_reason: None,
             outcome: outcome_owned.as_deref(),
-            command_pressed: self.command_pressed,
-            command_hovered: self.command_hover,
-            command_tip: tip_owned.as_deref(),
+            command_pressed: if show_pause_banner { None } else { self.command_pressed },
+            command_hovered: if show_pause_banner { None } else { self.command_hover },
+            command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         let w = viewport_w.max(1);
@@ -1832,6 +1996,20 @@ impl BattleController {
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
+            }
+            if show_pause_banner {
+                if let Some(pause) = compose_battle_pause_menu_overlay(
+                    w,
+                    h,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                ) {
+                    let dst = shell_content_rect_in_window(w, h);
+                    blit_stretched(&mut page, &pause, dst);
+                }
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
             let page = present::present_ui_page(page, present);
@@ -1881,13 +2059,10 @@ impl BattleController {
                     format!("{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
                 else if hud.paused {
-                    let reason = hud.pause_reason.as_deref().unwrap_or("已暂停");
-                    if self.leave_armed {
-                        format!("{} · [{screen_label}] · t{} · 暂停 · {reason} · 再按 Esc 确认回大厅 · Space继续", self.title_base, hud.tick)
-                    }
-                    else {
-                        format!("{} · [{screen_label}] · t{} · 暂停 · {reason} · Esc离开 Space继续", self.title_base, hud.tick)
-                    }
+                    format!(
+                        "{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅",
+                        self.title_base, hud.tick
+                    )
                 }
                 else if self.place_mode.is_some() {
                     let nsel = self.local.selected.len();
