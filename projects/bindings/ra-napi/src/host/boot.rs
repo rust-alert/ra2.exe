@@ -8,9 +8,9 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
-    find_boot_map, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, mount_theater_mixes,
-    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots,
+    decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
+    mount_theater_mixes, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
@@ -227,6 +227,7 @@ fn paint_session_mobiles_onto_preview(
         chain.art_ini,
         chain.rules_ini,
         &|base, owner| remap_owner_palette(rules, Some(lobby_primaries), base, owner),
+        &|_| MobilePaintPose::default(),
     )
 }
 

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesSystem};
-use ra_map::{MapInfo, MapEntityKind, seal_pass_grid_from_tmp, skirmish_start_waypoint};
+use ra_map::{MapInfo, MapEntityKind, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
 use crate::{
@@ -71,7 +71,13 @@ pub fn open_skirmish_session(
         note = format!("{note} · local_house={house}");
     }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
-    if land_sealed > 0 {
+    let overlay_land = apply_overlay_land_to_pass_grid(
+        &state.map,
+        &rules.rules,
+        &|id| rules.overlay_types.name(id).map(str::to_string),
+        &mut state.pass_grid,
+    );
+    if land_sealed > 0 || overlay_land > 0 {
         state.repath_mobiles();
     }
 
@@ -81,11 +87,12 @@ pub fn open_skirmish_session(
     }
 
     note = format!(
-        "{note} · world_entities#{} bound#{} blocked#{} land#{} defs_struct#{} deploy#{}",
+        "{note} · world_entities#{} bound#{} blocked#{} land#{} overlay_land#{} defs_struct#{} deploy#{}",
         state.entities.len(),
         state.bound_techno_count(),
         state.pass_grid.blocked_count(),
         land_sealed,
+        overlay_land,
         state.definitions.structures.len(),
         state.definitions.deployables.len()
     );

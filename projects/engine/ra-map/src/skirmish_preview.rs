@@ -5,9 +5,10 @@ use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, StructureAnimBank, StructureAnimMode, compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles,
-    overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures,
-    structure_paint::paint_structure_anim_bank, terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
+    MapInfo, MobilePaintPose, StructureAnimBank, StructureAnimMode, compose::TerrainImage, fallback_preview::RawRgbaImage,
+    mobile_paint::paint_map_mobiles, overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank,
+    structure_paint::paint_map_structures, structure_paint::paint_structure_anim_bank, terrain_paint::paint_map_terrain_objects,
+    terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -65,7 +66,7 @@ pub fn compose_skirmish_preview(
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, rules_ini, remap_owner);
-    let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner);
+    let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
     let anim_n = paint_structure_anim_bank(&mut image, &anim_bank, anim_clock_ms);
     Some((
@@ -94,9 +95,10 @@ pub fn paint_mobiles_onto_preview_rgba(
     art_ini: &str,
     rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+    pose_of: &dyn Fn(&crate::MapEntity) -> MobilePaintPose,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_mobiles(source, entities_map, &mut terrain, art_ini, rules_ini, remap_owner);
+    let n = paint_map_mobiles(source, entities_map, &mut terrain, art_ini, rules_ini, remap_owner, pose_of);
     *image = terrain.image;
     n
 }

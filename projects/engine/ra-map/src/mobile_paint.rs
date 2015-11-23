@@ -6,16 +6,32 @@ use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLay
 use ra_types::AssetSource;
 
 use crate::{
-    MapEntityKind, MapInfo,
+    MapEntity, MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     theater::{new_theater_shp_name, theater_palette},
 };
 
+/// 移动单位绘制姿态：行走循环帧 + 是否移动中。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MobilePaintPose {
+    /// 行走 / 待机循环索引（仿真 `hva_frame`）。
+    pub anim_frame: u16,
+    /// `true` 时步兵取 `Walk` 序列，否则 `Ready`/`Guard`。
+    pub moving: bool,
+}
+
+/// 步兵朝向槽表（零售 32 项），由 [`infantry_facing_slot`] 索引。
+const INFANTRY_FACING_SLOT_TABLE: [u8; 32] = [
+    7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 7, 7,
+];
+
 /// 叠画单位 / 步兵 / 飞行器。`remap_owner` 提供房屋色调色板。
 ///
 /// 图像键解析顺序：`rules.ini` 的 `Image` → `art.ini` 的 `Image` → 类型 id 本身。
 /// （例如 `AMCV` 的 rules `Image=MCV` → `mcv.vxl`，不可误读成不存在的 `amcv.vxl`。）
+///
+/// `pose_of` 提供行走帧；大厅预览可传 `|_| MobilePaintPose::default()`。
 pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -23,6 +39,7 @@ pub fn paint_map_mobiles(
     art_ini: &str,
     rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
+    pose_of: &dyn Fn(&MapEntity) -> MobilePaintPose,
 ) -> usize {
     let mobiles: Vec<_> =
         map.entities.iter().filter(|e| matches!(e.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)).collect();
@@ -48,14 +65,15 @@ pub fn paint_map_mobiles(
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u8, String), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u16, String), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
         let image_key = resolve_mobile_image_key(rules.as_ref(), art.as_ref(), &ent.type_id);
         let prefer_voxel = art.as_ref().and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let frame_hint = ent.facing / 32;
-        let cache_key = (image_key.clone(), frame_hint, ent.owner.clone());
+        let pose = pose_of(ent);
+        let frame_index = resolve_mobile_shp_frame(art.as_ref(), &image_key, ent, pose);
+        let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((ent.x, ent.y, blit.clone()));
             continue;
@@ -64,10 +82,10 @@ pub fn paint_map_mobiles(
         let pal = remap_owner(&obj_pal, &ent.owner);
         let blit = if prefer_voxel {
             load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
-                .or_else(|| load_mobile_shp(source, &art, &image_key, map, &pal, frame_hint, &mut shp_cache))
+                .or_else(|| load_mobile_shp(source, &art, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
-            load_mobile_shp(source, &art, &image_key, map, &pal, frame_hint, &mut shp_cache)
+            load_mobile_shp(source, &art, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
         if let Some(blit) = blit {
@@ -85,6 +103,75 @@ fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocumen
         .or_else(|| art.and_then(|a| a.get(type_id, "Image")))
         .unwrap_or(type_id)
         .to_ascii_uppercase()
+}
+
+/// 步兵朝向字节 → SHP 朝向槽（0..=7）。
+pub fn infantry_facing_slot(facing: u8) -> u16 {
+    let step = (((u16::from(facing) >> 2) + 1) >> 1) as usize & 0x1F;
+    u16::from(INFANTRY_FACING_SLOT_TABLE[step])
+}
+
+/// 解析 art 序列值 `Start,Count,FacingsOrMultiplier`；第三字段为朝向步长。
+fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
+    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+    if parts.len() < 3 {
+        return None;
+    }
+    let start: u16 = parts[0].parse().ok()?;
+    let count: u16 = parts[1].parse().ok()?;
+    let multiplier: u16 = parts[2].parse().ok()?;
+    Some((start, count, multiplier))
+}
+
+fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<String> {
+    art.get(image_key, "Sequence")
+        .map(|s| s.trim().to_ascii_uppercase())
+        .filter(|s| !s.is_empty())
+}
+
+fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]) -> Option<&'a str> {
+    for key in keys {
+        if let Some(v) = art.get(seq_section, key) {
+            return Some(v);
+        }
+    }
+    None
+}
+
+/// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
+fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
+    let Some(art) = art
+    else {
+        return u16::from(ent.facing / 32);
+    };
+    // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。
+    if ent.kind != MapEntityKind::Infantry {
+        return u16::from(ent.facing / 32);
+    }
+    let Some(seq_section) = sequence_section_name(art, image_key)
+    else {
+        return infantry_facing_slot(ent.facing);
+    };
+    let seq_keys: &[&str] = if pose.moving {
+        &["Walk", "Panic"]
+    }
+    else {
+        &["Ready", "Guard"]
+    };
+    let Some(raw) = sequence_value(art, &seq_section, seq_keys)
+    else {
+        return infantry_facing_slot(ent.facing);
+    };
+    let Some((start, count, multiplier)) = parse_sequence_triple(raw)
+    else {
+        return infantry_facing_slot(ent.facing);
+    };
+    let step = if count > 0 { pose.anim_frame % count } else { 0 };
+    if multiplier == 0 {
+        return start.saturating_add(step);
+    }
+    let slot = infantry_facing_slot(ent.facing);
+    start.saturating_add(slot.saturating_mul(multiplier)).saturating_add(step)
 }
 
 fn load_mobile_vxl_layers(
@@ -143,7 +230,7 @@ fn load_mobile_shp(
     image_key: &str,
     map: &MapInfo,
     obj_pal: &Palette,
-    frame_hint: u8,
+    frame_index: u16,
     shp_cache: &mut HashMap<String, ShpFile>,
 ) -> Option<TileBlit> {
     let new_theater = art.as_ref().and_then(|a| a.get(image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -174,7 +261,11 @@ fn load_mobile_shp(
     }
     let file = loaded?;
     let shp = shp_cache.get(&file)?;
-    let frame = shp.frames.get(usize::from(frame_hint)).or_else(|| shp.frames.first())?;
+    let frame = shp
+        .frames
+        .get(usize::from(frame_index))
+        .or_else(|| shp.frames.get(usize::from(frame_index % shp.frames.len().max(1) as u16)))
+        .or_else(|| shp.frames.first())?;
     if frame.frame_width == 0 || frame.frame_height == 0 {
         return None;
     }
@@ -185,4 +276,26 @@ fn load_mobile_shp(
         offset_y: i32::from(frame.frame_y),
         rgba: frame.to_rgba(obj_pal),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn walk_sequence_frame_matches_gi_layout() {
+        // Walk=8,6,6 → start 8, count 6, multiplier 6；朝向槽 0 + 步 2 → 帧 10。
+        let start = 8u16;
+        let mult = 6u16;
+        let slot = 0u16;
+        let step = 2u16;
+        assert_eq!(start + slot * mult + step, 10);
+        assert!(infantry_facing_slot(0) < 8);
+    }
+
+    #[test]
+    fn parse_walk_triple() {
+        assert_eq!(parse_sequence_triple("8,6,6"), Some((8, 6, 6)));
+        assert_eq!(parse_sequence_triple("0,1,1"), Some((0, 1, 1)));
+    }
 }

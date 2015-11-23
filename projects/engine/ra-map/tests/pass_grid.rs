@@ -37,7 +37,8 @@ fn diagonal_path_is_shorter() {
 #[test]
 fn seal_water_land_types() {
     let mut grid = PassGrid::open(3, 3);
-    let sealed = grid.seal_land_types(&[(1, 1, 3), (0, 0, 0)]);
+    // TMP terrain_type 9 → Water；0 → Clear。
+    let sealed = grid.seal_land_types(&[(1, 1, 9), (0, 0, 0)]);
     assert_eq!(sealed, 1);
     assert!(!grid.is_passable(1, 1));
     assert!(grid.is_passable(0, 0));
