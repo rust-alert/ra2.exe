@@ -440,6 +440,76 @@ Rate=50\n\
     assert_eq!(clip.frames[1].offset_y, -10);
 }
 
+#[test]
+fn outpost_paints_bib_and_collects_idle_anim() {
+    use ra_map::collect_structure_anim_bank;
+
+    let art = b"\
+[CAOUTP]\n\
+Image=CAOUTP\n\
+Remapable=no\n\
+NewTheater=no\n\
+BibShape=CAOUTPBB\n\
+IdleAnim=CAOUTP_D\n\
+IdleAnimZAdjust=0\n\
+ActiveAnim=CAOUTP_F\n\
+ActiveAnimZAdjust=-200\n\
+\n\
+[CAOUTP_D]\n\
+LoopStart=0\n\
+LoopEnd=1\n\
+Rate=200\n\
+\n\
+[CAOUTP_F]\n\
+LoopStart=0\n\
+LoopEnd=2\n\
+Rate=300\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), b"[AudioVisual]\nConditionYellow=50%\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("caoutp.shp".into(), raw_one_pixel_shp(5));
+    files.insert("caoutpbb.shp".into(), raw_one_pixel_shp(5));
+    files.insert("caoutp_d.shp".into(), multi_frame_shp(&[5]));
+    files.insert("caoutp_f.shp".into(), multi_frame_shp(&[5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAOUTP".into(),
+        health: 256,
+        x: 5,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let painted = paint_map_structures(
+        &source,
+        &map,
+        &mut TerrainImage::blank(256, 256),
+        "art.ini",
+        "rules.ini",
+        &|p, _| p.clone(),
+        StructureAnimMode::BodyOnly,
+    );
+    // 主体 + Bib（无体素炮塔资源时仍应至少 2）。
+    assert!(painted >= 2, "expected body+bib, got {painted}");
+
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert!(
+        bank.layers.iter().any(|l| l.frames.len() == 1 && l.rate_ms == 200),
+        "IdleAnim layer missing: {:?}",
+        bank.layers.iter().map(|l| (l.frames.len(), l.rate_ms)).collect::<Vec<_>>()
+    );
+    assert!(
+        bank.layers.iter().any(|l| l.frames.len() == 2 && l.rate_ms == 300),
+        "ActiveAnim flag layer missing"
+    );
+}
+
 /// 构造带整幅画布尺寸与多帧裁切矩形的 SHP（TS/RA2）。
 fn canvas_frame_shp(full_w: u16, full_h: u16, frames: &[(u16, u16, u16, u16, u8)]) -> Vec<u8> {
     let frame_count = frames.len() as u16;

@@ -2,7 +2,9 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count};
+use ra_assets::{
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count,
+};
 use ra_types::AssetSource;
 
 use crate::{
@@ -12,6 +14,14 @@ use crate::{
     structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
+
+/// 建筑循环活动层键：常态 / 受损 / ZAdjust。含 `IdleAnim`（科技前哨收回臂等）。
+const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
+    ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
+    ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
+    ("IdleAnim", "IdleAnimDamaged", "IdleAnimZAdjust"),
+    ("IdleAnimTwo", "IdleAnimTwoDamaged", "IdleAnimTwoZAdjust"),
+];
 
 /// 建筑活动层绘制模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,9 +96,10 @@ pub fn structure_anim_frame(clock_ms: u64, rate_ms: u32, loop_start: u16, loop_e
 
 /// 叠画 `[Structures]`。`remap_owner(base, owner)` 返回房屋色调色板。
 ///
-/// `BodyAndAnims` 时叠 `ActiveAnim` / `ActiveAnimTwo`（如油田旗帜 `CAOILD_F`）。
-/// `rules_ini` 提供 `ConditionYellow` / `ConditionRed` / `DamageFireTypes`。
-/// 黄血起火并切 `ActiveAnimDamaged`；主体受损帧按 `TechLevel` 区分军建黄档与平民红档。
+/// `BodyAndAnims` 时叠 `ActiveAnim` / `IdleAnim` 等循环层，并画 `BibShape` 与体素 `TurretAnim`。
+/// `rules_ini` 提供 `ConditionYellow` / `ConditionRed` / `DamageFireTypes` / 炮塔偏移。
+/// 黄血起火并切 `*Damaged`；主体受损帧按 `TechLevel` 区分军建黄档与平民红档。
+/// 不自动叠 `SpecialAnim*`（修理臂等状态机层，需仿真态才播）。
 pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -143,10 +154,7 @@ pub fn collect_structure_anim_bank(
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
         let yellow = damage.is_yellow(ent.health);
 
-        for (anim_key, damaged_key, z_key) in [
-            ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
-            ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
-        ] {
+        for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
             let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
@@ -498,9 +506,31 @@ fn paint_map_structures_inner(
         let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
         if paint_body {
-            let body_key = art.as_ref().and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
             let body_new_theater =
                 art.as_ref().and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            // Bib 垫在主体下（同格、帧 0）；科技前哨等靠它补齐地基。
+            if let Some(bib_key) = art_get_building(art.as_ref(), &ent.type_id, &art_section, "BibShape").map(str::to_ascii_uppercase) {
+                let bib_new_theater = art
+                    .as_ref()
+                    .and_then(|a| a.get(&bib_key, "NewTheater"))
+                    .map(|v| v.eq_ignore_ascii_case("yes"))
+                    .unwrap_or(body_new_theater);
+                if let Some(blit) = load_structure_blit(
+                    source,
+                    map,
+                    &bib_key,
+                    bib_new_theater,
+                    0,
+                    0,
+                    &pal,
+                    &mut shp_cache,
+                    &mut blit_cache,
+                    &ent.owner,
+                ) {
+                    items.push((ent.x, ent.y, blit));
+                }
+            }
+            let body_key = art.as_ref().and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
             let body_frames = load_shp(source, map, &body_key, body_new_theater, &mut shp_cache)
                 .map(|shp| shp_body_frame_count(&shp.frames))
                 .unwrap_or(1);
@@ -520,6 +550,9 @@ fn paint_map_structures_inner(
             ) {
                 items.push((ent.x, ent.y, blit));
             }
+            if let Some(blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
+                items.push((ent.x, ent.y, blit));
+            }
         }
 
         let Some(clock_ms) = anim_clock_ms
@@ -527,10 +560,7 @@ fn paint_map_structures_inner(
             continue;
         };
         let yellow = damage.is_yellow(ent.health);
-        for (anim_key, damaged_key, z_key) in [
-            ("ActiveAnim", "ActiveAnimDamaged", "ActiveAnimZAdjust"),
-            ("ActiveAnimTwo", "ActiveAnimTwoDamaged", "ActiveAnimTwoZAdjust"),
-        ] {
+        for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
             let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
@@ -714,6 +744,49 @@ fn load_structure_blit(
     let blit = frame_to_blit(shp, frame_idx, z_adjust, pal)?;
     blit_cache.insert(cache_key, blit.clone());
     Some(blit)
+}
+
+/// rules `TurretAnim` 体素炮塔（如科技前哨 `OUTP`）；非体素 / 缺资源时跳过。
+fn load_structure_turret_vxl(
+    source: &dyn AssetSource,
+    rules: Option<&IniDocument>,
+    type_id: &str,
+    facing: u8,
+    pal: &Palette,
+) -> Option<TileBlit> {
+    let rules = rules?;
+    let is_voxel = rules
+        .get(type_id, "TurretAnimIsVoxel")
+        .is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+    if !is_voxel {
+        return None;
+    }
+    let stem = rules.get(type_id, "TurretAnim")?.trim().to_ascii_lowercase();
+    if stem.is_empty() {
+        return None;
+    }
+    let anim_x = rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0);
+    let anim_y = rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0);
+    let z_adjust = rules.get(type_id, "TurretAnimZAdjust").and_then(parse_i32).unwrap_or(0);
+    let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
+    let body_bytes = source.read(&format!("{stem}.vxl")).ok()?;
+    let body = VxlFile::parse(&body_bytes).ok()?;
+    let body_hva = source.read(&format!("{stem}.hva")).ok().and_then(|b| HvaFile::parse(&b).ok());
+    let layers = [VxlLayerPose {
+        vxl: &body,
+        hva: body_hva.as_ref(),
+        facing,
+        frame: 0,
+    }];
+    let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl.as_ref())?;
+    // 建筑锚点与主体 SHP 同口径（钻石顶边中点）；再加 rules 像素偏移。
+    Some(TileBlit {
+        width: sprite.width,
+        height: sprite.height,
+        offset_x: sprite.offset_x + TILE_WIDTH / 2 + anim_x,
+        offset_y: sprite.offset_y + anim_y + z_adjust,
+        rgba: sprite.rgba,
+    })
 }
 
 fn parse_i32(raw: &str) -> Option<i32> {
