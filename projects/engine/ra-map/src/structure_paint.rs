@@ -159,9 +159,8 @@ pub fn collect_structure_anim_bank(
             else {
                 continue;
             };
-            let z_adjust = art_get_building(art.as_ref(), &ent.type_id, &art_section, z_key)
-                .and_then(parse_i32)
-                .unwrap_or(0);
+            // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
+            let _ = z_key;
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
             let anim_new_theater =
                 art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -193,10 +192,10 @@ pub fn collect_structure_anim_bank(
             }
             let mut frames = Vec::with_capacity(usize::from(end.saturating_sub(loop_start)));
             for frame_idx in loop_start..end {
-                let Some(blit) = frame_to_blit(shp, frame_idx, z_adjust, &anim_pal)
+                let Some(blit) = frame_to_blit(shp, frame_idx, 0, &anim_pal)
                 else {
                     // 空帧占位，保持下标对齐。
-                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: z_adjust, rgba: Vec::new() });
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: 0, rgba: Vec::new() });
                     continue;
                 };
                 frames.push(blit);
@@ -565,9 +564,8 @@ fn paint_map_structures_inner(
             else {
                 continue;
             };
-            let z_adjust = art_get_building(art.as_ref(), &ent.type_id, &art_section, z_key)
-                .and_then(parse_i32)
-                .unwrap_or(0);
+            // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
+            let _ = z_key;
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
             let anim_new_theater =
                 art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
@@ -591,7 +589,7 @@ fn paint_map_structures_inner(
                 &anim_image,
                 anim_new_theater,
                 frame_idx,
-                z_adjust,
+                0,
                 &anim_pal,
                 &mut shp_cache,
                 &mut blit_cache,
@@ -710,7 +708,9 @@ fn frame_to_blit(shp: &ShpFile, frame_idx: u16, z_adjust: i32, pal: &Palette) ->
     // TS/RA2 建筑 SHP：`frame_x/y` 是相对整幅画布的裁切原点。
     // 叠画相对 `iso_to_screen`（钻石包围盒左上）时，画布中心落在「箱顶边中点」
     // `(+TILE_WIDTH/2, 0)`，再加裁切偏移。单位/选中环在钻石中心 `(+30,+15)`，
-    // 建筑艺术锚点比其高半格（Y 减 `TILE_HEIGHT/2`）。
+    // 建筑艺术锚点比其高半格。
+    // `z_adjust` 仅用于调用方明确要加的像素位移（如 DamageFireOffset），
+    // **不要**传入 art `*ZAdjust`（那是 Z 排序，不是像素）。
     Some(TileBlit {
         width: u32::from(frame.frame_width),
         height: u32::from(frame.frame_height),
@@ -767,7 +767,7 @@ fn load_structure_turret_vxl(
     }
     let anim_x = rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0);
     let anim_y = rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0);
-    let z_adjust = rules.get(type_id, "TurretAnimZAdjust").and_then(parse_i32).unwrap_or(0);
+    // `TurretAnimZAdjust` 同 ActiveAnim：原版 Z 排序字段，不计入像素。
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
     let body_bytes = source.read(&format!("{stem}.vxl")).ok()?;
     let body = VxlFile::parse(&body_bytes).ok()?;
@@ -784,7 +784,7 @@ fn load_structure_turret_vxl(
         width: sprite.width,
         height: sprite.height,
         offset_x: sprite.offset_x + TILE_WIDTH / 2 + anim_x,
-        offset_y: sprite.offset_y + anim_y + z_adjust,
+        offset_y: sprite.offset_y + anim_y,
         rgba: sprite.rgba,
     })
 }

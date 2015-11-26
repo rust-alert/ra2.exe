@@ -441,6 +441,59 @@ Rate=50\n\
 }
 
 #[test]
+fn active_anim_z_adjust_is_not_screen_pixels() {
+    use ra_map::collect_structure_anim_bank;
+
+    // 医院类：`ActiveAnimZAdjust=-200` 若当像素会把旗/屋顶漂出本体。
+    let art = b"\
+[CAHOSP]\n\
+Remapable=no\n\
+ActiveAnim=CAHOSP_A\n\
+ActiveAnimZAdjust=-200\n\
+ActiveAnimTwo=CAHOSP_F\n\
+ActiveAnimTwoZAdjust=-200\n\
+\n\
+[CAHOSP_A]\n\
+LoopStart=0\n\
+LoopEnd=2\n\
+Rate=100\n\
+\n\
+[CAHOSP_F]\n\
+LoopStart=0\n\
+LoopEnd=2\n\
+Rate=300\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), b"[AudioVisual]\nConditionYellow=50%\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("cahosp.shp".into(), raw_one_pixel_shp(5));
+    files.insert("cahosp_a.shp".into(), multi_frame_shp(&[5, 5]));
+    files.insert("cahosp_f.shp".into(), multi_frame_shp(&[5, 5]));
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "CAHOSP".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let source = MapSource { files };
+    let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
+    assert_eq!(bank.layers.len(), 2);
+    for layer in &bank.layers {
+        let f0 = &layer.frames[0];
+        // 1×1 SHP：offset_y = 0 - 1/2 + 0 = 0，绝不能掺入 -200。
+        assert_eq!(f0.offset_y, 0, "ZAdjust must not enter screen offset_y");
+        assert_eq!(f0.offset_x, 30); // TILE_WIDTH/2 - width/2 = 30
+    }
+}
+
+#[test]
 fn outpost_paints_bib_and_collects_idle_anim() {
     use ra_map::collect_structure_anim_bank;
 
