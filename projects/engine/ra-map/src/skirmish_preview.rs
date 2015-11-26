@@ -62,7 +62,7 @@ pub fn compose_skirmish_preview(
 ) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank)> {
     let mut image = compose_terrain_preview(source, map)?;
     let (overlay_shp, overlay_mark) =
-        paint_map_overlays(source, map, &mut image, art_ini, overlay_type_name, is_tiberium, tiberium_hsv);
+        paint_map_overlays(source, map, &mut image, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
     let structures = paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, rules_ini, remap_owner);

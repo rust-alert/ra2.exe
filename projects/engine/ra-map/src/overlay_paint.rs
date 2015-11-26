@@ -8,6 +8,7 @@ use ra_types::AssetSource;
 use crate::{
     MapInfo, OverlayCell,
     compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
+    iso_math::{TILE_HEIGHT, TILE_WIDTH},
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
@@ -47,7 +48,7 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
 /// 不能用 `isotem.pal`，否则呈灰黑底块）。
 /// `tiberium_hsv`：矿/宝石 `[Tiberiums] Color=` 对应的 HSV（索引 16..=31 remap）；
 /// 原版 `NeonGreen=0,0,0` 为矿石哨兵，调用方应换成可用金色方案。
-/// `art_ini`：art 文件名（如 `art.ini` / `artmd.ini`）。
+/// `art_ini` / `rules_ini`：art 与 rules 文件名（rules 提供 `Image=`，如 `BRIDGE1`→`BRIDGE`）。
 ///
 /// 返回 `(shp 画上的格子数, 色块标记数)`。
 pub fn paint_map_overlays(
@@ -55,6 +56,7 @@ pub fn paint_map_overlays(
     map: &MapInfo,
     image: &mut TerrainImage,
     art_ini: &str,
+    rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -68,6 +70,7 @@ pub fn paint_map_overlays(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let rules = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
@@ -99,26 +102,8 @@ pub fn paint_map_overlays(
         } else {
             type_name.clone()
         };
-        let art_section = art
-            .as_ref()
-            .and_then(|a| {
-                if a.get(&display_name, "Theater").is_some()
-                    || a.get(&display_name, "NewTheater").is_some()
-                    || a.get(&display_name, "Image").is_some()
-                {
-                    Some(display_name.as_str())
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(type_name.as_str());
-        let image_key = art
-            .as_ref()
-            .and_then(|a| a.get(art_section, "Image"))
-            .unwrap_or(display_name.as_str())
-            .to_ascii_uppercase();
-        let new_theater = art.as_ref().and_then(|a| a.get(art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-        let theater_yes = art.as_ref().and_then(|a| a.get(art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let (image_key, new_theater, theater_yes) =
+            resolve_overlay_art_keys(art.as_ref(), rules.as_ref(), &type_name, &display_name);
         let pal_kind: u8 = if tib {
             2
         } else if theater_yes && !new_theater {
@@ -169,6 +154,7 @@ pub fn paint_map_overlays(
             x: cell.x,
             y: cell.y,
             data: cell.data,
+            type_name,
             image_key,
             file,
             pal_kind,
@@ -176,7 +162,7 @@ pub fn paint_map_overlays(
         });
     }
 
-    let mut blit_cache: HashMap<(String, u8, u8, u32), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u8, u8, u32, i32), TileBlit> = HashMap::new();
     let mut tib_pal_cache: HashMap<u32, Palette> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
@@ -190,11 +176,12 @@ pub fn paint_map_overlays(
         else {
             continue;
         };
+        let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data);
         let hsv_key = item
             .tib_hsv
             .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
             .unwrap_or(0);
-        let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key);
+        let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key, y_adjust);
         if let Some(blit) = blit_cache.get(&cache_key) {
             items.push((item.x, item.y, blit.clone()));
             continue;
@@ -223,11 +210,15 @@ pub fn paint_map_overlays(
         else {
             continue;
         };
+        if frame.frame_width == 0 || frame.frame_height == 0 {
+            continue;
+        }
+        // TS/RA2 overlay：子帧相对整幅画布裁切；叠画锚在钻石中心，再加高桥等 Y 修正。
         let blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
-            offset_x: i32::from(frame.frame_x as i16),
-            offset_y: i32::from(frame.frame_y as i16),
+            offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
+            offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + TILE_HEIGHT / 2 + y_adjust,
             rgba: frame.to_rgba(pal),
         };
         blit_cache.insert(cache_key, blit.clone());
@@ -243,10 +234,69 @@ struct ResolvedOverlay {
     x: u16,
     y: u16,
     data: u8,
+    type_name: String,
     image_key: String,
     file: String,
     pal_kind: u8,
     tib_hsv: Option<Hsv>,
+}
+
+/// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
+///
+/// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
+fn resolve_overlay_art_keys(
+    art: Option<&IniDocument>,
+    rules: Option<&IniDocument>,
+    type_name: &str,
+    display_name: &str,
+) -> (String, bool, bool) {
+    let rules_image = rules.and_then(|r| r.get(type_name, "Image")).map(str::to_ascii_uppercase);
+    let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
+    let art_section = art
+        .and_then(|a| {
+            for candidate in [type_name, rules_image_or_type.as_str(), display_name] {
+                if a.get(candidate, "Theater").is_some()
+                    || a.get(candidate, "NewTheater").is_some()
+                    || a.get(candidate, "Image").is_some()
+                {
+                    return Some(candidate.to_ascii_uppercase());
+                }
+            }
+            None
+        })
+        .unwrap_or_else(|| type_name.to_ascii_uppercase());
+    let image_key = art
+        .and_then(|a| a.get(&art_section, "Image"))
+        .map(str::to_ascii_uppercase)
+        .or(rules_image)
+        .unwrap_or_else(|| display_name.to_ascii_uppercase());
+    let new_theater = art
+        .and_then(|a| a.get(&art_section, "NewTheater"))
+        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let theater_yes = art
+        .and_then(|a| a.get(&art_section, "Theater"))
+        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    (image_key, new_theater, theater_yes)
+}
+
+/// 高桥主体相对格子中心的额外 Y（零售 `Get_Draw_Offset`：NS −16，EW −31）。
+fn overlay_draw_y_adjust(type_name: &str, data: u8) -> i32 {
+    if is_high_bridge_body_name(type_name) {
+        if (9..=17).contains(&data) {
+            -31
+        } else {
+            -16
+        }
+    } else {
+        0
+    }
+}
+
+fn is_high_bridge_body_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_uppercase().as_str(),
+        "BRIDGE1" | "BRIDGE2" | "BRIDGEB1" | "BRIDGEB2"
+    )
 }
 
 fn frame_drawable(shp: &ShpFile, idx: u8) -> bool {

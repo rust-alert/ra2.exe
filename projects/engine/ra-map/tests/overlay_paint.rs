@@ -58,7 +58,7 @@ fn overlay_map(id: u8, data: u8) -> MapInfo {
 fn empty_overlays_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
-    assert_eq!(paint_map_overlays(&EmptySource, &map, &mut image, "art.ini", &|_| None, &|_| false, &|_| None), (0, 0));
+    assert_eq!(paint_map_overlays(&EmptySource, &map, &mut image, "art.ini", "rules.ini", &|_| None, &|_| false, &|_| None), (0, 0));
 }
 
 #[test]
@@ -77,6 +77,7 @@ fn theater_overlay_uses_theater_palette() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 102).then(|| "LOBRDG26".into()),
         &|_| false,
         &|_| None,
@@ -103,6 +104,7 @@ fn tiberium_overlay_uses_temperat_palette() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -161,11 +163,36 @@ fn empty_footprint_skips_when_same_image_anchor_neighbor_draws() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
     );
     assert_eq!((shp, mark), (1, 0), "footprint must not double-draw");
+}
+
+#[test]
+fn rules_image_redirects_bridge1_to_bridge_shp() {
+    // rules `Image=BRIDGE` + art `[BRIDGE]` → 读 bridge.tem，不读 bridge1.tem。
+    let mut files = HashMap::new();
+    files.insert("rules.ini".into(), b"[BRIDGE1]\nImage=BRIDGE\n".to_vec());
+    files.insert("art.ini".into(), b"[BRIDGE]\nTheater=yes\n".to_vec());
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("bridge.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+    let map = overlay_map(1, 0);
+    let mut image = TerrainImage::blank(256, 256);
+    let (shp, mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut image,
+        "art.ini",
+        "rules.ini",
+        &|id| (id == 1).then(|| "BRIDGE1".into()),
+        &|_| false,
+        &|_| None,
+    );
+    assert_eq!((shp, mark), (1, 0), "BRIDGE1 must load bridge.tem via rules Image");
 }
 
 #[test]
@@ -183,6 +210,7 @@ fn empty_frame_falls_back_without_same_image_anchor_neighbor() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 1).then(|| "LOBRDG10".into()),
         &|_| false,
         &|_| None,
@@ -220,6 +248,7 @@ fn empty_preferred_does_not_paint_markers() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -254,6 +283,7 @@ fn tiberium_paint_loads_coordinate_display_shp() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -276,6 +306,7 @@ fn new_theater_wall_uses_unittem_palette() {
         &map,
         &mut image,
         "art.ini",
+        "rules.ini",
         &|id| (id == 27).then(|| "NAWALL".into()),
         &|_| false,
         &|_| None,
