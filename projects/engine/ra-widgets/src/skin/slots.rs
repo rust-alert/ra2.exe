@@ -283,7 +283,7 @@ const BATTLE_PAUSE_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("resume", MenuAction::Noop, true),
 ];
 
-/// 对局暂停菜单资源槽（非独立 `OriginalScreen`；由合成叠加层消费）。
+/// 对局暂停菜单资源槽（历史壳层路径；现行合成改走 `battle_pause_menu::decode_battle_pause_chrome`）。
 pub fn battle_pause_page_slots() -> UiPageSlots {
     UiPageSlots {
         screen: OriginalScreen::Battle,
@@ -292,7 +292,8 @@ pub fn battle_pause_page_slots() -> UiPageSlots {
         background_pal: None,
         background_frame: 0,
         movie_bik: None,
-        panels: MAIN_MENU_PANELS,
+        // 不再绑主菜单 `sdtp`；保留空面板以免旧诊断路径 panic。
+        panels: &[],
         fonts: MAIN_MENU_FONTS,
         buttons: BATTLE_PAUSE_BUTTONS,
     }

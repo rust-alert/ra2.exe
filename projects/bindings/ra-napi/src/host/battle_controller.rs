@@ -7,20 +7,17 @@ use ra_assets::{CsfFile, FntFile, Palette, Rgba};
 use ra_widgets::{
     battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
     battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseMenuHit},
+    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
     compose::{
-        blit_stretched, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
+        blit_rgba, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
     },
     fs_source::GameAssetSource,
     render::present,
-    screens::page_resources_for_battle_pause,
-    skin::decode::{decode_page_chrome, PageDecodeReport},
     skin::text::{command_button_csf_tooltip, resolve_csf_text},
 };
 use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
 use ra_layout::{
-    shell_content_rect_in_window, solve_battle_hud_with_metrics, window_to_shell_px, BattleHudChromeMetrics,
-    MapViewport,
+    solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport,
 };
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank,
@@ -108,10 +105,10 @@ pub struct BattleController {
     place_mode: Option<&'static str>,
     /// 测试旁路：曾表示「再按 Esc 回大厅」武装态；现由暂停菜单「放弃」离开，恒为 false。
     leave_armed: bool,
-    /// 对局 Esc 暂停菜单 chrome（右栏六钮）。
-    pause_menu_chrome: Option<PageDecodeReport>,
-    /// 是否已尝试解码暂停菜单（避免每帧重试）。
-    pause_menu_tried: bool,
+    /// 对局 Esc 暂停菜单阵营素材（`radar` / `sidebttn`，跟本地 house）。
+    pause_menu_chrome: Option<BattlePauseChrome>,
+    /// 是否已尝试解码暂停菜单（避免每帧重试；换边时清掉重解）。
+    pause_menu_tried_side: Option<String>,
     /// 暂停菜单悬停入口 id。
     pause_hover: Option<&'static str>,
     /// 暂停菜单按下入口 id。
@@ -189,7 +186,7 @@ impl BattleController {
             place_mode: None,
             leave_armed: false,
             pause_menu_chrome: None,
-            pause_menu_tried: false,
+            pause_menu_tried_side: None,
             pause_hover: None,
             pause_pressed: None,
             title_base: format!("ra2 ({edition})"),
@@ -333,7 +330,7 @@ impl BattleController {
         self.place_mode = None;
         self.leave_armed = false;
         self.pause_menu_chrome = None;
-        self.pause_menu_tried = false;
+        self.pause_menu_tried_side = None;
         self.pause_hover = None;
         self.pause_pressed = None;
         self.last_pump = Instant::now();
@@ -1798,22 +1795,26 @@ impl BattleController {
         self.hud_chrome = Some(chrome);
     }
 
-    /// 解码对局 Esc 暂停菜单右栏 chrome（只试一次）。
+    /// 按本地阵营解码暂停菜单素材（换边重解；必须 prefer `sidec*`）。
     fn ensure_pause_menu_chrome(&mut self, assets: Option<&GameAssetSource>) {
-        if self.pause_menu_chrome.is_some() || self.pause_menu_tried {
-            return;
-        }
-        self.pause_menu_tried = true;
-        let Some(source) = assets
+        let Some(side) = self.local_house_name()
         else {
             return;
         };
-        let page = page_resources_for_battle_pause();
-        let decoded = decode_page_chrome(source, &page);
+        if self.pause_menu_tried_side.as_deref() == Some(side.as_str()) {
+            return;
+        }
+        self.pause_menu_tried_side = Some(side.clone());
+        let Some(source) = assets
+        else {
+            self.pause_menu_chrome = None;
+            return;
+        };
+        let decoded = battle_pause_menu::decode_battle_pause_chrome(source, &side);
         if !decoded.errors.is_empty() {
-            tracing::warn!(errors = ?decoded.errors, "暂停菜单 chrome 解码有缺口");
+            tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
         } else {
-            tracing::info!("暂停菜单 chrome 已解码");
+            tracing::info!(side = %side, mix = %decoded.mix, "暂停菜单素材已解码");
         }
         self.pause_menu_chrome = Some(decoded);
     }
@@ -1827,32 +1828,47 @@ impl BattleController {
         self.left_gesture = LeftGesture::Idle;
     }
 
-    fn shell_cursor_px(&self, window: &Window) -> (i32, i32) {
-        let size = window.inner_size();
-        window_to_shell_px(
-            self.cursor.0,
-            self.cursor.1,
-            f64::from(size.width.max(1)),
-            f64::from(size.height.max(1)),
-        )
+    fn pause_hud_metrics(&self) -> BattleHudChromeMetrics {
+        self.hud_chrome
+            .as_ref()
+            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
+            .or_else(|| {
+                self.pause_menu_chrome
+                    .as_ref()
+                    .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
+            })
+            .unwrap_or_else(BattleHudChromeMetrics::allied)
     }
 
     fn refresh_pause_hover(&mut self, window: &Window) {
-        let (sx, sy) = self.shell_cursor_px(window);
-        self.pause_hover = battle_pause_menu::hit_at(sx, sy).map(|h| h.entry_id());
+        let size = window.inner_size();
+        let metrics = self.pause_hud_metrics();
+        self.pause_hover = battle_pause_menu::hit_at(
+            size.width.max(1),
+            size.height.max(1),
+            metrics,
+            self.cursor.0 as i32,
+            self.cursor.1 as i32,
+        )
+        .map(|h| h.entry_id());
     }
 
     fn handle_pause_menu_mouse(&mut self, state: ElementState, window: &Window) -> BattleNav {
+        let size = window.inner_size();
+        let metrics = self.pause_hud_metrics();
+        let x = self.cursor.0 as i32;
+        let y = self.cursor.1 as i32;
         match state {
             ElementState::Pressed => {
-                let (sx, sy) = self.shell_cursor_px(window);
-                self.pause_pressed = battle_pause_menu::hit_at(sx, sy).map(|h| h.entry_id());
+                self.pause_pressed =
+                    battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y)
+                        .map(|h| h.entry_id());
                 BattleNav::None
             }
             ElementState::Released => {
                 let pressed = self.pause_pressed.take();
-                let (sx, sy) = self.shell_cursor_px(window);
-                let hit = battle_pause_menu::hit_at(sx, sy);
+                let hit =
+                    battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y);
                 if pressed.is_some_and(|id| hit.is_some_and(|h| h.entry_id() == id)) {
                     if let Some(hit) = hit {
                         return self.on_pause_menu_hit(hit);
@@ -1998,6 +2014,7 @@ impl BattleController {
                 stroke_marquee_rect(&mut page, rect);
             }
             if show_pause_banner {
+                let metrics = self.pause_hud_metrics();
                 if let Some(pause) = compose_battle_pause_menu_overlay(
                     w,
                     h,
@@ -2006,9 +2023,9 @@ impl BattleController {
                     fnt,
                     csf,
                     self.pause_menu_chrome.as_ref(),
+                    metrics,
                 ) {
-                    let dst = shell_content_rect_in_window(w, h);
-                    blit_stretched(&mut page, &pause, dst);
+                    blit_rgba(&mut page, &pause, 0, 0);
                 }
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
