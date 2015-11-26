@@ -5,10 +5,10 @@ use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, MobilePaintPose, StructureAnimBank, StructureAnimMode, compose::TerrainImage, fallback_preview::RawRgbaImage,
-    mobile_paint::paint_map_mobiles, overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank,
-    structure_paint::paint_map_structures, structure_paint::paint_structure_anim_bank, terrain_paint::paint_map_terrain_objects,
-    terrain_preview::compose_terrain_preview,
+    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, compose::TerrainImage,
+    fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles, overlay_paint::paint_map_overlays,
+    structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures, structure_paint::paint_structure_anim_bank,
+    terrain_paint::paint_map_terrain_objects, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -20,8 +20,10 @@ pub struct SkirmishPreviewStats {
     pub overlay_mark: usize,
     /// 地形物件叠画数。
     pub terrain_objects: usize,
-    /// 建筑叠画数。
+    /// 建筑叠画数（含 bib / 炮塔等）。
     pub structures: usize,
+    /// 建筑主体缺失占位色块数。
+    pub structure_mark: usize,
     /// 移动单位叠画数。
     pub mobiles: usize,
 }
@@ -47,7 +49,7 @@ pub struct BootPreviewResult {
 
 /// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
 ///
-/// 顺序：主体与移动单位先入底图，再按 `anim_clock_ms` 叠活动层。
+/// 顺序：地面 overlay → 地形物件 → 建筑 → 桥 overlay → 移动单位 → 活动层。
 /// 返回 `(合成图, 无活动层底图, 统计, 活动层银行)`。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
@@ -61,10 +63,31 @@ pub fn compose_skirmish_preview(
     anim_clock_ms: u64,
 ) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank)> {
     let mut image = compose_terrain_preview(source, map)?;
-    let (overlay_shp, overlay_mark) =
-        paint_map_overlays(source, map, &mut image, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv);
+    let (ground_shp, ground_mark) = paint_map_overlays(
+        source,
+        map,
+        &mut image,
+        art_ini,
+        rules_ini,
+        overlay_type_name,
+        is_tiberium,
+        tiberium_hsv,
+        OverlayLayerFilter::Ground,
+    );
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
-    let structures = paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let (structures, structure_mark) =
+        paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let (bridge_shp, bridge_mark) = paint_map_overlays(
+        source,
+        map,
+        &mut image,
+        art_ini,
+        rules_ini,
+        overlay_type_name,
+        is_tiberium,
+        tiberium_hsv,
+        OverlayLayerFilter::Bridge,
+    );
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, rules_ini, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
@@ -73,10 +96,11 @@ pub fn compose_skirmish_preview(
         image,
         base_without_anims,
         SkirmishPreviewStats {
-            overlay_shp,
-            overlay_mark,
+            overlay_shp: ground_shp + bridge_shp,
+            overlay_mark: ground_mark + bridge_mark,
             terrain_objects,
             structures: structures + anim_n,
+            structure_mark,
             mobiles,
         },
         anim_bank,
@@ -119,7 +143,7 @@ pub fn compose_boot_preview(
     let (image, base_without_anims, stats, anim_bank) =
         compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, &|_| None, remap_owner, 0)?;
     let note = format!(
-        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} mobile_shp#{} anim#{} {}x{}",
+        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",
         map.name,
         map.cells.len(),
         image.drawn,
@@ -128,6 +152,7 @@ pub fn compose_boot_preview(
         stats.overlay_mark,
         stats.terrain_objects,
         stats.structures,
+        stats.structure_mark,
         stats.mobiles,
         anim_bank.layers.len(),
         image.image.width(),

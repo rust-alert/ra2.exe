@@ -12,6 +12,31 @@ use crate::{
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
+/// 叠画层过滤：桥应压在谷底建筑之上，需分两遍画。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OverlayLayerFilter {
+    /// 全部 overlay。
+    All,
+    /// 非桥（矿石、围墙、岩石等）。
+    Ground,
+    /// 高/低桥（`BRIDGE*` / `LOBRD*`）。
+    Bridge,
+}
+
+/// 是否为桥类 overlay 类型名（含高桥与低桥家族）。
+pub fn is_bridge_overlay_name(name: &str) -> bool {
+    let upper = name.to_ascii_uppercase();
+    upper.starts_with("BRIDGE") || upper.starts_with("LOBRD")
+}
+
+fn layer_allows(filter: OverlayLayerFilter, is_bridge: bool) -> bool {
+    match filter {
+        OverlayLayerFilter::All => true,
+        OverlayLayerFilter::Ground => !is_bridge,
+        OverlayLayerFilter::Bridge => is_bridge,
+    }
+}
+
 /// 平地矿/宝石的显示用类型名（不改资源态 id / 密度帧）。
 ///
 /// 原版在平地格用 `((i16)x * (i16)y) % 12` 在 12 个扁平外形间选图
@@ -49,6 +74,7 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
 /// `tiberium_hsv`：矿/宝石 `[Tiberiums] Color=` 对应的 HSV（索引 16..=31 remap）；
 /// 原版 `NeonGreen=0,0,0` 为矿石哨兵，调用方应换成可用金色方案。
 /// `art_ini` / `rules_ini`：art 与 rules 文件名（rules 提供 `Image=`，如 `BRIDGE1`→`BRIDGE`）。
+/// `layer`：地面 / 桥分层（先地面后建筑再桥，避免谷底楼穿桥面）。
 ///
 /// 返回 `(shp 画上的格子数, 色块标记数)`。
 pub fn paint_map_overlays(
@@ -60,6 +86,7 @@ pub fn paint_map_overlays(
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
+    layer: OverlayLayerFilter,
 ) -> (usize, usize) {
     if map.overlays.is_empty() {
         return (0, 0);
@@ -75,7 +102,16 @@ pub fn paint_map_overlays(
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     if unit_pal.is_none() && theater_pal.is_none() && tib_pal.is_none() {
-        let mark = paint_overlay_markers(image, &map.overlays, z_at);
+        let filtered: Vec<OverlayCell> = map
+            .overlays
+            .iter()
+            .copied()
+            .filter(|cell| match overlay_type_name(cell.overlay_id) {
+                Some(name) => layer_allows(layer, is_bridge_overlay_name(&name)),
+                None => matches!(layer, OverlayLayerFilter::All | OverlayLayerFilter::Ground),
+            })
+            .collect();
+        let mark = paint_overlay_markers(image, &filtered, z_at);
         return (0, mark);
     }
 
@@ -92,9 +128,14 @@ pub fn paint_map_overlays(
     for cell in &map.overlays {
         let Some(type_name) = overlay_type_name(cell.overlay_id)
         else {
-            unresolved.push(*cell);
+            if matches!(layer, OverlayLayerFilter::All | OverlayLayerFilter::Ground) {
+                unresolved.push(*cell);
+            }
             continue;
         };
+        if !layer_allows(layer, is_bridge_overlay_name(&type_name)) {
+            continue;
+        }
         let tib = is_tiberium(cell.overlay_id);
         let tib_hsv = if tib { tiberium_hsv(cell.overlay_id) } else { None };
         let display_name = if tib {

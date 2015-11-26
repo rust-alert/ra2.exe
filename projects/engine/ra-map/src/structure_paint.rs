@@ -100,6 +100,8 @@ pub fn structure_anim_frame(clock_ms: u64, rate_ms: u32, loop_start: u16, loop_e
 /// `rules_ini` 提供 `ConditionYellow` / `ConditionRed` / `DamageFireTypes` / 炮塔偏移。
 /// 黄血起火并切 `*Damaged`；主体受损帧按 `TechLevel` 区分军建黄档与平民红档。
 /// 不自动叠 `SpecialAnim*`（修理臂等状态机层，需仿真态才播）。
+///
+/// 返回 `(成功叠画件数含 bib/炮塔/活动层, 主体缺失占位色块数)`。
 pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -108,7 +110,7 @@ pub fn paint_map_structures(
     rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
-) -> usize {
+) -> (usize, usize) {
     let (paint_body, clock_ms) = match mode {
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
@@ -463,7 +465,7 @@ pub fn paint_structures_onto_rgba(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_structures(source, map, &mut terrain, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -477,10 +479,10 @@ fn paint_map_structures_inner(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
-) -> usize {
+) -> (usize, usize) {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
     if structures.is_empty() {
-        return 0;
+        return (0, 0);
     }
 
     let z_lookup: HashMap<(u16, u16), u8> =
@@ -492,12 +494,18 @@ fn paint_map_structures_inner(
     let damage = rules_doc.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
-        return 0;
+        if !paint_body {
+            return (0, 0);
+        }
+        let missing: Vec<(u16, u16)> = structures.iter().map(|e| (e.x, e.y)).collect();
+        let mark = crate::paint_structure_missing_markers(image, &missing, z_at);
+        return (0, mark);
     };
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
+    let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
         let art_section = resolve_art_section(art.as_ref(), &ent.type_id);
@@ -548,6 +556,8 @@ fn paint_map_structures_inner(
                 &ent.owner,
             ) {
                 items.push((ent.x, ent.y, blit));
+            } else {
+                missing.push((ent.x, ent.y));
             }
             if let Some(blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
                 items.push((ent.x, ent.y, blit));
@@ -600,7 +610,13 @@ fn paint_map_structures_inner(
         }
     }
 
-    paint_cell_sprites(image, &items, z_at)
+    let shp_n = paint_cell_sprites(image, &items, z_at);
+    let mark_n = if missing.is_empty() {
+        0
+    } else {
+        crate::paint_structure_missing_markers(image, &missing, z_at)
+    };
+    (shp_n, mark_n)
 }
 
 fn load_object_palette(source: &dyn AssetSource, map: &MapInfo) -> Option<Palette> {

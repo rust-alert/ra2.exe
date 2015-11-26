@@ -81,7 +81,7 @@ fn empty_structures_noop() {
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
         paint_map_structures(&EmptySource, &map, &mut image, "art.ini", "rules.ini", &|p, _| p.clone(), StructureAnimMode::BodyOnly),
-        0
+        (0, 0)
     );
 }
 
@@ -150,7 +150,7 @@ Rate=300\n\
         &|p, _| p.clone(),
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
-    assert_eq!(painted, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
+    assert_eq!(painted.0, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
 }
 
 #[test]
@@ -549,7 +549,7 @@ Rate=300\n\
         StructureAnimMode::BodyOnly,
     );
     // 主体 + Bib（无体素炮塔资源时仍应至少 2）。
-    assert!(painted >= 2, "expected body+bib, got {painted}");
+    assert!(painted.0 >= 2, "expected body+bib, got {painted:?}");
 
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
     assert!(
@@ -589,4 +589,39 @@ fn canvas_frame_shp(full_w: u16, full_h: u16, frames: &[(u16, u16, u16, u16, u8)
     }
     data.extend_from_slice(&payload);
     data
+}
+
+#[test]
+fn missing_structure_body_paints_magenta_marker() {
+    // 有调色板、有 art 节，但无 SHP → 主体缺失色块。
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[MISS]\nRemapable=no\n".to_vec());
+    files.insert("rules.ini".into(), b"[AudioVisual]\nConditionYellow=50%\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    let source = MapSource { files };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "MISS".into(),
+        health: 256,
+        x: 5,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+    });
+    let mut image = TerrainImage::blank(256, 256);
+    let (shp, mark) = paint_map_structures(
+        &source,
+        &map,
+        &mut image,
+        "art.ini",
+        "rules.ini",
+        &|p, _| p.clone(),
+        StructureAnimMode::BodyOnly,
+    );
+    assert_eq!((shp, mark), (0, 1));
+    let px = image.image.as_raw();
+    let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");
+    assert!(hit[0] > 200 && hit[2] > 150, "expected magenta marker, got {hit:?}");
 }

@@ -43,14 +43,14 @@ pub use boot_map::{
     find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt,
     list_parseable_maps_from_names, mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
-pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers};
+pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
 pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_to_iso};
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
-pub use overlay_paint::{flat_tiberium_display_type_name, paint_map_overlays};
+pub use overlay_paint::{OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays};
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};

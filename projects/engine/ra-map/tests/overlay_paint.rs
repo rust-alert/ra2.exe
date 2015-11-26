@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ra_map::{MapInfo, OverlayCell, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays};
+use ra_map::{MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;
@@ -58,7 +58,20 @@ fn overlay_map(id: u8, data: u8) -> MapInfo {
 fn empty_overlays_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
-    assert_eq!(paint_map_overlays(&EmptySource, &map, &mut image, "art.ini", "rules.ini", &|_| None, &|_| false, &|_| None), (0, 0));
+    assert_eq!(
+        paint_map_overlays(
+            &EmptySource,
+            &map,
+            &mut image,
+            "art.ini",
+            "rules.ini",
+            &|_| None,
+            &|_| false,
+            &|_| None,
+            OverlayLayerFilter::All,
+        ),
+        (0, 0)
+    );
 }
 
 #[test]
@@ -81,6 +94,7 @@ fn theater_overlay_uses_theater_palette() {
         &|id| (id == 102).then(|| "LOBRDG26".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0));
     let px = image.image.as_raw();
@@ -108,6 +122,7 @@ fn tiberium_overlay_uses_temperat_palette() {
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0));
     let px = image.image.as_raw();
@@ -167,6 +182,7 @@ fn empty_footprint_skips_when_same_image_anchor_neighbor_draws() {
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0), "footprint must not double-draw");
 }
@@ -191,6 +207,7 @@ fn rules_image_redirects_bridge1_to_bridge_shp() {
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0), "BRIDGE1 must load bridge.tem via rules Image");
 }
@@ -214,6 +231,7 @@ fn empty_frame_falls_back_without_same_image_anchor_neighbor() {
         &|id| (id == 1).then(|| "LOBRDG10".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0), "stub without anchor must fall back to drawable frame");
 }
@@ -252,6 +270,7 @@ fn empty_preferred_does_not_paint_markers() {
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!(shp, 0);
     assert_eq!(mark, 0, "empty frame must not fall back to color markers");
@@ -287,6 +306,7 @@ fn tiberium_paint_loads_coordinate_display_shp() {
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0), "must paint TIB08 from flat display remap");
 }
@@ -310,9 +330,64 @@ fn new_theater_wall_uses_unittem_palette() {
         &|id| (id == 27).then(|| "NAWALL".into()),
         &|_| false,
         &|_| None,
+        OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (1, 0));
     let px = image.image.as_raw();
     let red = px.chunks_exact(4).find(|c| c[3] > 0).expect("painted");
     assert!(red[0] > red[1] && red[0] > red[2], "expected unittem red for wall, got {red:?}");
+}
+
+#[test]
+fn bridge_layer_filter_skips_ore_on_bridge_pass() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n[BRIDGE1]\nTheater=yes\n".to_vec());
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("temperat.pal".into(), solid_index_pal(5, 0, 0, 63));
+    files.insert("tib01.tem".into(), raw_one_pixel_shp(5));
+    files.insert("bridge1.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.overlays = vec![
+        OverlayCell { x: 1, y: 0, overlay_id: 102, data: 0 },
+        OverlayCell { x: 2, y: 0, overlay_id: 1, data: 0 },
+    ];
+    let name = |id: u8| match id {
+        102 => Some("TIB01".into()),
+        1 => Some("BRIDGE1".into()),
+        _ => None,
+    };
+    let mut ground = TerrainImage::blank(256, 256);
+    let (g_shp, g_mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut ground,
+        "art.ini",
+        "rules.ini",
+        &name,
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::Ground,
+    );
+    assert_eq!((g_shp, g_mark), (1, 0), "ground pass paints ore only");
+    let mut bridge = TerrainImage::blank(256, 256);
+    let (b_shp, b_mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut bridge,
+        "art.ini",
+        "rules.ini",
+        &name,
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::Bridge,
+    );
+    assert_eq!((b_shp, b_mark), (1, 0), "bridge pass paints bridge only");
+}
+
+#[test]
+fn is_bridge_overlay_name_matches_families() {
+    assert!(ra_map::is_bridge_overlay_name("LOBRDB11"));
+    assert!(ra_map::is_bridge_overlay_name("bridge1"));
+    assert!(!ra_map::is_bridge_overlay_name("TIB01"));
 }
