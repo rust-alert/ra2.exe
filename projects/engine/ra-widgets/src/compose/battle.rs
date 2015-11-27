@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::battle_pause_menu::{
-    button_rects, dim_rect, logo_dest_rect, resolve_sidebttn, BattlePauseChrome,
+    button_rects, center_panel_dest_rect, command_bar_cover_rect, dim_rect, menu_strip_rect,
+    resolve_sidebttn, BattlePauseChrome,
 };
 
 pub struct BattleHudModel<'a> {
@@ -227,11 +228,13 @@ fn paint_command_tip(
 
 /// 合成对局暂停菜单叠加层（窗口像素，叠在已画好的对局 HUD 之上）。
 ///
+/// 原版暂停逻辑：
 /// - 战术区半透明压暗
-/// - 居中贴本地阵营 `radar.shp` 首帧（盟军鹰 / 苏军镰锤）
-/// - cameo 带上贴 `sidebttn` 六钮 + CSF 文案
+/// - 居中贴阵营装饰板（`credits`+空`top`+`radar`）
+/// - **盖住**修理 / 出售 / QWER 页签 / cameo / 底边命令条（暂停态不出现）
+/// - 只在清空带内画暂停菜单项
 ///
-/// **禁止**再画主菜单 `sdtp` / `sdbtnanm`。
+/// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，也**禁止**在 radar/顶栏装饰上叠钮。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -249,60 +252,57 @@ pub fn compose_battle_pause_menu_overlay(
     let dim = dim_rect(w, h, hud_metrics);
     fill_rect(&mut page, dim, [0, 0, 0, 160]);
 
+    // 中心装饰板（与侧栏菜单分离）。
     if let Some(pause) = pause {
-        if let Some(logo) = pause.logo.as_ref() {
-            let dest = logo_dest_rect(w, h, hud_metrics, logo.image.width(), logo.image.height());
-            blit_stretched(&mut page, &logo.image, dest);
+        if let Some(panel) = pause.center_panel.as_ref() {
+            let dest = center_panel_dest_rect(w, h, hud_metrics, panel.width(), panel.height());
+            blit_stretched(&mut page, panel, dest);
+        } else if let Some(radar) = pause.radar.as_ref() {
+            let dest =
+                center_panel_dest_rect(w, h, hud_metrics, radar.image.width(), radar.image.height());
+            blit_stretched(&mut page, &radar.image, dest);
         }
+    }
 
-        let snap = solve_battle_hud_with_metrics(w, h, hud_metrics);
-        let cameo = rect_px_from_snapshot(&snap, "cameo_band");
-        // 盖住 cameo 生产线，避免暂停钮与建造图标叠在一起。
-        fill_rect(&mut page, cameo, [0, 0, 0, 220]);
+    // 原版：暂停后 side1（修理/出售/QWER）与 cameo、命令条均不出现。
+    let strip = menu_strip_rect(w, h, hud_metrics);
+    fill_rect(&mut page, strip, [0, 0, 0, 255]);
+    let cmd = command_bar_cover_rect(w, h, hud_metrics);
+    fill_rect(&mut page, cmd, [0, 0, 0, 255]);
 
-        let rects = button_rects(w, h, hud_metrics);
-        for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
-            let pressed = pressed_entry_id == Some(*entry_id);
-            let hovered = hovered_entry_id == Some(*entry_id);
-            if let Some(sprite) = resolve_sidebttn(pause, pressed, hovered) {
-                blit_stretched(&mut page, &sprite.image, *cell);
-            } else {
-                let fill = if pressed {
-                    [40, 40, 80, 255]
-                } else if hovered {
-                    [30, 30, 60, 255]
-                } else {
-                    [20, 20, 40, 255]
-                };
-                fill_rect(&mut page, *cell, fill);
-                stroke_rect(&mut page, *cell, [180, 180, 200, 255]);
-            }
-            if let Some(fnt) = fnt {
-                let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
-                let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
-                blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
-            }
-        }
-    } else {
-        // 无阵营素材时仍画压暗 + 占位钮，避免只剩黑屏。
-        let rects = button_rects(w, h, hud_metrics);
-        for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
-            let pressed = pressed_entry_id == Some(*entry_id);
-            let hovered = hovered_entry_id == Some(*entry_id);
+    // 顶栏选项/外交槽在暂停态也不应露出可点钮面。
+    let snap = solve_battle_hud_with_metrics(w, h, hud_metrics);
+    let opt = rect_px_from_snapshot(&snap, "opt_btn");
+    let diplo = rect_px_from_snapshot(&snap, "diplo_btn");
+    if opt.w > 0 && opt.h > 0 {
+        fill_rect(&mut page, opt, [0, 0, 0, 255]);
+    }
+    if diplo.w > 0 && diplo.h > 0 {
+        fill_rect(&mut page, diplo, [0, 0, 0, 255]);
+    }
+
+    let rects = button_rects(w, h, hud_metrics);
+    for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
+        let pressed = pressed_entry_id == Some(*entry_id);
+        let hovered = hovered_entry_id == Some(*entry_id);
+        let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
+        if let Some(sprite) = sprite {
+            blit_stretched(&mut page, &sprite.image, *cell);
+        } else {
             let fill = if pressed {
                 [40, 40, 80, 255]
             } else if hovered {
                 [30, 30, 60, 255]
             } else {
-                [20, 20, 40, 255]
+                [16, 24, 48, 255]
             };
             fill_rect(&mut page, *cell, fill);
-            stroke_rect(&mut page, *cell, [180, 180, 200, 255]);
-            if let Some(fnt) = fnt {
-                let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
-                let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
-                blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
-            }
+            stroke_rect(&mut page, *cell, [80, 120, 180, 255]);
+        }
+        if let Some(fnt) = fnt {
+            let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
+            let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
         }
     }
 

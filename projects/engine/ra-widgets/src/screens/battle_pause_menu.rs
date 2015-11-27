@@ -1,13 +1,19 @@
-//! 对局内暂停菜单（原版 Esc 菜单）：战术区压暗 + 阵营中心徽 + 侧栏 `sidebttn` 六钮。
+//! 对局内暂停菜单（原版 Esc 菜单）。
 //!
-//! 几何跟对局 HUD 同口径（窗口像素），**不**复用主菜单 `sdtp` / `sdbtnanm`。
-//! 中心徽与钮面来自本地阵营 `sidec01` / `sidec02`（`radar.shp` 首帧 / `sidebttn.shp`）。
+//! 原版暂停态侧栏**不出现**修理 / 出售 / QWER 页签 / cameo 生产线 / 底边命令条。
+//! 视觉分块：
+//! 1. **战术区中心装饰板**：`credits` + 空 `top` + `radar` 首帧竖拼放大（纯装饰，不画钮）。
+//! 2. **侧栏清空带**（`side1`+`cameo`）：盖住战术控件后，只列暂停菜单项。
+//! 3. 顶栏 `credits`/`radar` 仍由对局 HUD chrome 保留。
+//!
+//! 几何跟对局 HUD 同口径（窗口像素）。阵营包必须 `resolve_preferring(sidec01|sidec02)`。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
     battle_hud_world_viewport, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
     LayoutSnapshot, RectPx, BATTLE_PAUSE_MENU_BUTTON_IDS,
 };
+use ra_renderer::RgbaImage;
 
 use crate::{
     fs_source::GameAssetSource,
@@ -25,7 +31,7 @@ const SIDEBTTN_W: i32 = 125;
 const SIDEBTTN_H: i32 = 25;
 /// 钮列上下间距。
 const SIDEBTTN_GAP: i32 = 4;
-/// 中心徽相对战术区居中时的放大倍数（最近邻）。
+/// 中心装饰板放大倍数（最近邻；只放大装饰，不放大钮）。
 const LOGO_SCALE: i32 = 2;
 
 /// 暂停菜单命中结果。
@@ -79,9 +85,15 @@ pub struct BattlePauseChrome {
     pub side: String,
     /// 实际优先读取的嵌套包名。
     pub mix: String,
-    /// `radar.shp` 首帧（阵营徽：盟军鹰 / 苏军镰锤）。
-    pub logo: Option<DecodedUiSprite>,
-    /// `sidebttn.shp` 常态帧。
+    /// `credits.shp`（中心板顶条；装饰）。
+    pub credits: Option<DecodedUiSprite>,
+    /// `top.shp`（中心板空蓝槽；**不**叠选项/外交钮）。
+    pub top: Option<DecodedUiSprite>,
+    /// `radar.shp` 首帧（阵营徽）。
+    pub radar: Option<DecodedUiSprite>,
+    /// 已拼好的中心装饰板（credits+top+radar，未放大）。
+    pub center_panel: Option<RgbaImage>,
+    /// `sidebttn.shp` 常态帧（仅 cameo 菜单列）。
     pub button_normal: Option<DecodedUiSprite>,
     /// `sidebttn.shp` 按下帧。
     pub button_pressed: Option<DecodedUiSprite>,
@@ -158,11 +170,66 @@ fn decode_preferring(
     })
 }
 
+fn blit_opaque(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
+    let sw = src.width() as i32;
+    let sh = src.height() as i32;
+    let dw = dst.width() as i32;
+    let dh = dst.height() as i32;
+    let raw = src.as_raw();
+    for row in 0..sh {
+        let dy = y + row;
+        if dy < 0 || dy >= dh {
+            continue;
+        }
+        for col in 0..sw {
+            let dx = x + col;
+            if dx < 0 || dx >= dw {
+                continue;
+            }
+            let si = ((row as u32 * src.width() + col as u32) * 4) as usize;
+            if raw[si + 3] == 0 {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            dst.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+        }
+    }
+}
+
+/// 竖向拼接 credits → top（空槽）→ radar，得到中心装饰板。
+fn compose_center_panel(
+    credits: Option<&DecodedUiSprite>,
+    top: Option<&DecodedUiSprite>,
+    radar: Option<&DecodedUiSprite>,
+) -> Option<RgbaImage> {
+    let parts: Vec<&RgbaImage> = [credits, top, radar]
+        .into_iter()
+        .flatten()
+        .map(|s| &s.image)
+        .collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let w = parts.iter().map(|p| p.width()).max().unwrap_or(1).max(1);
+    let h = parts.iter().map(|p| p.height()).sum::<u32>().max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let mut y = 0i32;
+    for part in parts {
+        let x = ((w as i32) - (part.width() as i32)) / 2;
+        blit_opaque(&mut page, part, x, y);
+        y += part.height() as i32;
+    }
+    Some(page)
+}
+
 /// 按本地阵营解码暂停菜单素材（必须 `resolve_preferring`，避免全局落到苏军包）。
 pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> BattlePauseChrome {
     let mix = crate::skirmish_setup::sidebar_chrome_mix(side).to_string();
     let mut errors = Vec::new();
-    let logo = decode_preferring(source, &mix, "radar.shp", 0, &mut errors);
+    let credits = decode_preferring(source, &mix, "credits.shp", 0, &mut errors);
+    let top = decode_preferring(source, &mix, "top.shp", 0, &mut errors);
+    let radar = decode_preferring(source, &mix, "radar.shp", 0, &mut errors);
+    let center_panel = compose_center_panel(credits.as_ref(), top.as_ref(), radar.as_ref());
     let button_normal = decode_preferring(source, &mix, "sidebttn.shp", 0, &mut errors);
     let button_pressed = decode_preferring(source, &mix, "sidebttn.shp", 1, &mut errors);
     let button_hover = decode_preferring(source, &mix, "sidebttn.shp", 2, &mut errors)
@@ -170,7 +237,10 @@ pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> Battl
     BattlePauseChrome {
         side: side.to_string(),
         mix,
-        logo,
+        credits,
+        top,
+        radar,
+        center_panel,
         button_normal,
         button_pressed,
         button_hover,
@@ -182,7 +252,33 @@ fn pause_snap(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics)
     solve_battle_hud_with_metrics(viewport_w, viewport_h, metrics)
 }
 
-/// 暂停六钮在窗口像素中的矩形（前五钮落在 cameo 带顶向下排，`resume` 贴 cameo 底）。
+/// 暂停时盖住的侧栏战术控件区：`side1`（修理/出售/QWER 页签）+ `cameo_band`。
+///
+/// 原版暂停后这些控件不出现；菜单项画在此清空带内。
+pub fn menu_strip_rect(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> RectPx {
+    let snap = pause_snap(viewport_w, viewport_h, metrics);
+    let side1 = rect_px_from_snapshot(&snap, "side1");
+    let cameo = rect_px_from_snapshot(&snap, "cameo_band");
+    let y0 = side1.y;
+    let y1 = cameo.y + cameo.h;
+    RectPx::new(side1.x, y0, side1.w.max(cameo.w), (y1 - y0).max(1))
+}
+
+/// 暂停时盖住的底边命令条（编队/部署等战术钮；暂停态不显示）。
+pub fn command_bar_cover_rect(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+) -> RectPx {
+    let snap = pause_snap(viewport_w, viewport_h, metrics);
+    rect_px_from_snapshot(&snap, "command_bar")
+}
+
+/// 暂停六钮在窗口像素中的矩形（落在已清空的 side1+cameo 带内）。
 pub fn button_rects(
     viewport_w: u32,
     viewport_h: u32,
@@ -190,24 +286,24 @@ pub fn button_rects(
 ) -> [RectPx; 6] {
     let snap = pause_snap(viewport_w, viewport_h, metrics);
     let sidebar = rect_px_from_snapshot(&snap, "sidebar");
-    let cameo = rect_px_from_snapshot(&snap, "cameo_band");
+    let strip = menu_strip_rect(viewport_w, viewport_h, metrics);
     let btn_w = SIDEBTTN_W.min(sidebar.w.saturating_sub(8)).max(1);
-    let btn_h = SIDEBTTN_H.min(cameo.h.max(1)).max(1);
+    let btn_h = SIDEBTTN_H.min(strip.h.max(1)).max(1);
     let x = sidebar.x + ((sidebar.w - btn_w) / 2).max(0);
     let mut rects = [RectPx::new(0, 0, 1, 1); 6];
-    // 前五钮自上而下。
-    let mut y = cameo.y + 4;
+    // 前五钮靠 strip 顶向下排。
+    let mut y = strip.y + 8;
     for i in 0..5 {
         rects[i] = RectPx::new(x, y, btn_w, btn_h);
         y += btn_h + SIDEBTTN_GAP;
     }
-    // resume 贴 cameo 底。
-    let resume_y = (cameo.y + cameo.h - btn_h - 4).max(cameo.y);
+    // resume 贴 strip 底（接近原版「回到任务」落点）。
+    let resume_y = (strip.y + strip.h - btn_h - 8).max(strip.y);
     rects[5] = RectPx::new(x, resume_y, btn_w, btn_h);
     rects
 }
 
-/// 窗口像素命中（与合成同口径）。
+/// 窗口像素命中（与合成同口径；装饰板不可点）。
 pub fn hit_at(
     viewport_w: u32,
     viewport_h: u32,
@@ -230,17 +326,17 @@ pub fn dim_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetric
     battle_hud_world_viewport(&snap)
 }
 
-/// 中心徽目标矩形（战术区居中，按 [`LOGO_SCALE`] 放大）。
-pub fn logo_dest_rect(
+/// 中心装饰板目标矩形（战术区居中）。
+pub fn center_panel_dest_rect(
     viewport_w: u32,
     viewport_h: u32,
     metrics: BattleHudChromeMetrics,
-    logo_w: u32,
-    logo_h: u32,
+    panel_w: u32,
+    panel_h: u32,
 ) -> RectPx {
     let world = dim_rect(viewport_w, viewport_h, metrics);
-    let dw = ((logo_w as i32) * LOGO_SCALE).max(1).min(world.w.max(1));
-    let dh = ((logo_h as i32) * LOGO_SCALE).max(1).min(world.h.max(1));
+    let dw = ((panel_w as i32) * LOGO_SCALE).max(1).min(world.w.max(1));
+    let dh = ((panel_h as i32) * LOGO_SCALE).max(1).min(world.h.max(1));
     let x = world.x + (world.w - dw) / 2;
     let y = world.y + (world.h - dh) / 2;
     RectPx::new(x, y, dw, dh)
@@ -251,7 +347,7 @@ pub fn button_ids() -> &'static [&'static str; 6] {
     &BATTLE_PAUSE_MENU_BUTTON_IDS
 }
 
-/// 供合成选帧。
+/// 供合成选帧（仅 cameo 菜单列）。
 pub fn resolve_sidebttn<'a>(
     chrome: &'a BattlePauseChrome,
     pressed: bool,
@@ -266,10 +362,9 @@ pub fn resolve_sidebttn<'a>(
     }
 }
 
-/// 诊断：是否至少解出徽或钮。
 impl BattlePauseChrome {
-    /// 是否有可用徽或钮面。
+    /// 是否有可用中心板或菜单钮面。
     pub fn has_art(&self) -> bool {
-        self.logo.is_some() || self.button_normal.is_some()
+        self.center_panel.is_some() || self.radar.is_some() || self.button_normal.is_some()
     }
 }
