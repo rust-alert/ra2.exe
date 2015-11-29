@@ -1,8 +1,8 @@
 //! 地图 Overlay SHP 叠画（类型名由调用方解析，避免依赖规则 crate）。
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use ra_assets::{Hsv, IniDocument, Palette, ShpFile};
+use ra_assets::{Hsv, IniDocument, Palette, ShpFile, shp_body_frame_count};
 use ra_types::AssetSource;
 
 use crate::{
@@ -118,12 +118,11 @@ pub fn paint_map_overlays(
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
 
-    // 第一遍：解析 image_key / 加载 SHP，记录「首选帧可画」的锚点格。
-    // 低桥 LOBRDB 等同图三连格里只有 data=1 有像素；data=0/2 空帧是 footprint，不能回退。
-    // 断桥端头 LOBRDG 等只有空帧、又无同图锚点邻格时，回退到首个可画帧。
+    // OverlayData 字节即帧号。空帧必须不画：低桥三连格侧柱（data=0/2）靠中间格宽精灵覆盖，
+    // 回退到首个可画帧会把整块桥面叠到每一侧柱上。不同 `LOBRDB*` 也不共用 image_key，
+    // 「同图锚点邻格」挡不住这种串画。
     let mut resolved: Vec<ResolvedOverlay> = Vec::new();
     let mut unresolved: Vec<OverlayCell> = Vec::new();
-    let mut anchors: HashSet<(String, u16, u16)> = HashSet::new();
 
     for cell in &map.overlays {
         let Some(type_name) = overlay_type_name(cell.overlay_id)
@@ -187,10 +186,6 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        let preferred_drawable = shp_cache.get(&file).is_some_and(|shp| frame_drawable(shp, cell.data));
-        if preferred_drawable {
-            anchors.insert((image_key.clone(), cell.x, cell.y));
-        }
         resolved.push(ResolvedOverlay {
             x: cell.x,
             y: cell.y,
@@ -212,8 +207,7 @@ pub fn paint_map_overlays(
         else {
             continue;
         };
-        let allow_fallback = !has_same_image_anchor_neighbor(&anchors, &item.image_key, item.x, item.y);
-        let Some(frame_idx) = select_overlay_frame_index(shp, item.data, allow_fallback)
+        let Some(frame_idx) = select_overlay_frame_index(shp, item.data)
         else {
             continue;
         };
@@ -346,32 +340,11 @@ fn frame_drawable(shp: &ShpFile, idx: u8) -> bool {
         .is_some_and(|f| f.frame_width > 0 && f.frame_height > 0)
 }
 
-fn has_same_image_anchor_neighbor(anchors: &HashSet<(String, u16, u16)>, image_key: &str, x: u16, y: u16) -> bool {
-    let key = image_key.to_string();
-    for (nx, ny) in [
-        (x.wrapping_sub(1), y),
-        (x.wrapping_add(1), y),
-        (x, y.wrapping_sub(1)),
-        (x, y.wrapping_add(1)),
-    ] {
-        if anchors.contains(&(key.clone(), nx, ny)) {
-            return true;
-        }
-    }
-    false
-}
-
-/// 首选帧可画则用之；否则在无同图锚点邻格时回退到首个可画帧。
-fn select_overlay_frame_index(shp: &ShpFile, preferred: u8, allow_fallback: bool) -> Option<u8> {
-    if frame_drawable(shp, preferred) {
-        return Some(preferred);
-    }
-    if !allow_fallback {
+/// 只用 OverlayData 指向的主体帧；空帧 / 落影半幅一律不画、不回退。
+fn select_overlay_frame_index(shp: &ShpFile, preferred: u8) -> Option<u8> {
+    let body = shp_body_frame_count(&shp.frames);
+    if usize::from(preferred) >= body {
         return None;
     }
-    shp.frames
-        .iter()
-        .enumerate()
-        .find(|(_, f)| f.frame_width > 0 && f.frame_height > 0)
-        .and_then(|(i, _)| u8::try_from(i).ok())
+    frame_drawable(shp, preferred).then_some(preferred)
 }

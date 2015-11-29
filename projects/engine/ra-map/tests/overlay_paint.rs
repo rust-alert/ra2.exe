@@ -213,8 +213,8 @@ fn rules_image_redirects_bridge1_to_bridge_shp() {
 }
 
 #[test]
-fn empty_frame_falls_back_without_same_image_anchor_neighbor() {
-    // 断桥端头：仅 data=0 空帧，无同图锚点邻格 → 回退首个可画帧。
+fn empty_frame_without_drawable_preferred_skips() {
+    // 断桥端头 / 侧柱：data 指向空帧时不回退到可画帧（否则会叠出多重桥面）。
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[LOBRDG10]\nTheater=yes\n".to_vec());
     files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
@@ -233,7 +233,45 @@ fn empty_frame_falls_back_without_same_image_anchor_neighbor() {
         &|_| None,
         OverlayLayerFilter::All,
     );
-    assert_eq!((shp, mark), (1, 0), "stub without anchor must fall back to drawable frame");
+    assert_eq!((shp, mark), (0, 0), "empty preferred frame must not fall back");
+}
+
+#[test]
+fn mixed_lobrdb_flank_does_not_paint_neighbor_deck() {
+    // 低桥一行常为不同 LOBRDB*：侧柱空帧不能因「无同图锚点」去画整块桥面。
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        b"[LOBRDB12]\nTheater=yes\n[LOBRDB10]\nTheater=yes\n".to_vec(),
+    );
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("lobrdb12.tem".into(), two_frame_shp_frame0_empty_frame1_drawable());
+    files.insert("lobrdb10.tem".into(), two_frame_shp_frame0_empty_frame1_drawable());
+    let source = MapSource { files };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.overlays = vec![
+        OverlayCell { x: 5, y: 0, overlay_id: 12, data: 0 },
+        OverlayCell { x: 6, y: 0, overlay_id: 10, data: 1 },
+        OverlayCell { x: 7, y: 0, overlay_id: 10, data: 2 },
+    ];
+    let name = |id: u8| match id {
+        12 => Some("LOBRDB12".into()),
+        10 => Some("LOBRDB10".into()),
+        _ => None,
+    };
+    let mut image = TerrainImage::blank(256, 256);
+    let (shp, mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut image,
+        "art.ini",
+        "rules.ini",
+        &name,
+        &|_| false,
+        &|_| None,
+        OverlayLayerFilter::All,
+    );
+    assert_eq!((shp, mark), (1, 0), "only middle drawable frame paints");
 }
 
 #[test]
