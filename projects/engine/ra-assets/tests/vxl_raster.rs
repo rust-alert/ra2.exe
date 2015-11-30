@@ -117,3 +117,32 @@ fn vpl_shades_by_normal_page() {
     let sprite = rasterize_vxl_layer_poses(&[pose], &pal, Some(&vpl)).unwrap();
     assert_eq!(&sprite.rgba[..4], &[42, 0, 0, 255]);
 }
+
+#[test]
+fn shadow_marks_occupied_columns_only() {
+    let vxl = limb_with(vec![
+        VxlVoxel { x: 1, y: 1, z: 0, color_index: 10, normal_index: 0 },
+        VxlVoxel { x: 1, y: 1, z: 2, color_index: 10, normal_index: 0 },
+        VxlVoxel { x: 3, y: 0, z: 1, color_index: 10, normal_index: 0 },
+    ]);
+    let pose = VxlLayerPose { vxl: &vxl, hva: None, facing: 0, frame: 0 };
+    let shadow = rasterize_vxl_shadow_layer_poses(&[pose]).unwrap();
+    let lit = shadow.rgba.chunks_exact(4).filter(|c| c[3] != 0).count();
+    assert_eq!(lit, 2, "one stamp per occupied column");
+    assert!(shadow.rgba.chunks_exact(4).filter(|c| c[3] != 0).all(|c| c[..3] == [0, 0, 0]));
+}
+
+#[test]
+fn shadow_shifts_right_of_body_projection() {
+    let vxl = limb_with(vec![VxlVoxel { x: 2, y: 1, z: 0, color_index: 10, normal_index: 0 }]);
+    let mut colors = [Rgba::transparent(); 256];
+    colors[10] = Rgba::rgb(1, 1, 1);
+    let pal = Palette { colors };
+    let pose = VxlLayerPose { vxl: &vxl, hva: None, facing: 0, frame: 0 };
+    let body = rasterize_vxl_layer_poses(&[pose], &pal, None).unwrap();
+    let shadow = rasterize_vxl_shadow_layer_poses(&[pose]).unwrap();
+    // 体素 (2,1,0) → sx=1,sy=1；落影 sx=1+offset，居中后 offset_x 比车身多光向位移。
+    assert_eq!(body.width, 1);
+    assert_eq!(shadow.width, 1);
+    assert_eq!(shadow.offset_x, body.offset_x + VXL_SHADOW_LIGHT_OFFSET_X);
+}

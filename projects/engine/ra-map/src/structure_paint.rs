@@ -11,6 +11,7 @@ use crate::{
     MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
+    lighting::{apply_rgba_tint, cell_tint},
     structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
@@ -55,10 +56,21 @@ pub struct StructureAnimLayer {
 }
 
 /// 地图上全部建筑活动层（装载时烘焙，对局按时钟选帧）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StructureAnimBank {
+    /// 收集时的地图 `[Lighting]`（播帧时按格 tint）。
+    pub lighting: crate::LightingConfig,
     /// 活动层列表。
     pub layers: Vec<StructureAnimLayer>,
+}
+
+impl Default for StructureAnimBank {
+    fn default() -> Self {
+        Self {
+            lighting: crate::LightingConfig::default(),
+            layers: Vec::new(),
+        }
+    }
 }
 
 impl StructureAnimBank {
@@ -197,7 +209,7 @@ pub fn collect_structure_anim_bank(
                 let Some(blit) = frame_to_blit(shp, frame_idx, 0, &anim_pal)
                 else {
                     // 空帧占位，保持下标对齐。
-                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: 0, rgba: Vec::new() });
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: 0, rgba: Vec::new(), shadow: None, });
                     continue;
                 };
                 frames.push(blit);
@@ -253,7 +265,7 @@ pub fn collect_structure_anim_bank(
                 for frame_idx in 0..body_n {
                     let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                     else {
-                        frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
+                        frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None, });
                         continue;
                     };
                     blit.offset_x += ox;
@@ -282,7 +294,7 @@ pub fn collect_structure_anim_bank(
             for frame_idx in 0..body_n {
                 let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                 else {
-                    frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new() });
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None, });
                     continue;
                 };
                 blit.offset_x += ox;
@@ -304,7 +316,10 @@ pub fn collect_structure_anim_bank(
         }
     }
 
-    StructureAnimBank { layers }
+    StructureAnimBank {
+        lighting: map.lighting,
+        layers,
+    }
 }
 
 /// 按时钟把活动层叠到地形图上。
@@ -323,7 +338,9 @@ pub fn paint_structure_anim_bank(image: &mut TerrainImage, bank: &StructureAnimB
         if blit.width == 0 || blit.height == 0 {
             continue;
         }
-        items.push((layer.x, layer.y, blit.clone()));
+        let mut painted = blit.clone();
+        apply_rgba_tint(&mut painted.rgba, cell_tint(&bank.lighting, layer.cell_z));
+        items.push((layer.x, layer.y, painted));
     }
     let z_at = |x: u16, y: u16| {
         bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0)
@@ -522,7 +539,7 @@ fn paint_map_structures_inner(
                     .and_then(|a| a.get(&bib_key, "NewTheater"))
                     .map(|v| v.eq_ignore_ascii_case("yes"))
                     .unwrap_or(body_new_theater);
-                if let Some(blit) = load_structure_blit(
+                if let Some(mut blit) = load_structure_blit(
                     source,
                     map,
                     &bib_key,
@@ -534,6 +551,7 @@ fn paint_map_structures_inner(
                     &mut blit_cache,
                     &ent.owner,
                 ) {
+                    apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
                     items.push((ent.x, ent.y, blit));
                 }
             }
@@ -543,7 +561,7 @@ fn paint_map_structures_inner(
                 .unwrap_or(1);
             let tech = structure_tech_level(rules_doc.as_ref(), &ent.type_id);
             let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, tech, body_frames);
-            if let Some(blit) = load_structure_blit(
+            if let Some(mut blit) = load_structure_blit(
                 source,
                 map,
                 &body_key,
@@ -555,11 +573,13 @@ fn paint_map_structures_inner(
                 &mut blit_cache,
                 &ent.owner,
             ) {
+                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             } else {
                 missing.push((ent.x, ent.y));
             }
-            if let Some(blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
+            if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
+                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
         }
@@ -593,7 +613,7 @@ fn paint_map_structures_inner(
                 .map(|v| !v.eq_ignore_ascii_case("no"))
                 .unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
-            if let Some(blit) = load_structure_blit(
+            if let Some(mut blit) = load_structure_blit(
                 source,
                 map,
                 &anim_image,
@@ -605,6 +625,7 @@ fn paint_map_structures_inner(
                 &mut blit_cache,
                 &ent.owner,
             ) {
+                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
         }
@@ -733,7 +754,7 @@ fn frame_to_blit(shp: &ShpFile, frame_idx: u16, z_adjust: i32, pal: &Palette) ->
         offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
         offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + z_adjust,
         rgba: frame.to_rgba(pal),
-    })
+     shadow: None, })
 }
 
 fn load_structure_blit(
@@ -802,7 +823,7 @@ fn load_structure_turret_vxl(
         offset_x: sprite.offset_x + TILE_WIDTH / 2 + anim_x,
         offset_y: sprite.offset_y + anim_y,
         rgba: sprite.rgba,
-    })
+     shadow: None, })
 }
 
 fn parse_i32(raw: &str) -> Option<i32> {

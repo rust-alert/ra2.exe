@@ -2,13 +2,16 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses};
+use ra_assets::{
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, rasterize_vxl_shadow_layer_poses,
+};
 use ra_types::AssetSource;
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
-    compose::{TerrainImage, TileBlit, paint_cell_sprites},
+    compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
+    lighting::{apply_rgba_tint, cell_tint},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -74,8 +77,11 @@ pub fn paint_map_mobiles(
         let pose = pose_of(ent);
         let frame_index = resolve_mobile_shp_frame(art.as_ref(), &image_key, ent, pose);
         let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
+        let tint = cell_tint(&map.lighting, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
-            items.push((ent.x, ent.y, blit.clone()));
+            let mut painted = blit.clone();
+            apply_rgba_tint(&mut painted.rgba, tint);
+            items.push((ent.x, ent.y, painted));
             continue;
         }
 
@@ -88,8 +94,9 @@ pub fn paint_map_mobiles(
             load_mobile_shp(source, &art, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
-        if let Some(blit) = blit {
+        if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
+            apply_rgba_tint(&mut blit.rgba, tint);
             items.push((ent.x, ent.y, blit));
         }
     }
@@ -215,12 +222,29 @@ fn load_mobile_vxl_layers(
         })
         .collect();
     let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl)?;
+    // 落影只用车身层（炮塔 / 炮管不参与）。
+    let shadow = layers.first().and_then(|body| rasterize_vxl_shadow_layer_poses(std::slice::from_ref(body))).map(|s| {
+        let mut mask = vec![0u8; (s.width as usize) * (s.height as usize)];
+        for (i, px) in mask.iter_mut().enumerate() {
+            if s.rgba.get(i * 4 + 3).copied().unwrap_or(0) != 0 {
+                *px = 1;
+            }
+        }
+        ShadowBlit {
+            width: s.width,
+            height: s.height,
+            offset_x: s.offset_x + TILE_WIDTH / 2,
+            offset_y: s.offset_y + TILE_HEIGHT / 2,
+            mask,
+        }
+    });
     Some(TileBlit {
         width: sprite.width,
         height: sprite.height,
         offset_x: sprite.offset_x + TILE_WIDTH / 2,
         offset_y: sprite.offset_y + TILE_HEIGHT / 2,
         rgba: sprite.rgba,
+        shadow,
     })
 }
 
@@ -275,6 +299,7 @@ fn load_mobile_shp(
         offset_x: i32::from(frame.frame_x),
         offset_y: i32::from(frame.frame_y),
         rgba: frame.to_rgba(obj_pal),
+        shadow: None,
     })
 }
 

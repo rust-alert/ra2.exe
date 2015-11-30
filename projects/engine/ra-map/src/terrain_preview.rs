@@ -8,6 +8,7 @@ use ra_types::AssetSource;
 use crate::{
     MapInfo,
     compose::{TerrainImage, TileBlit, compose_terrain_rgba},
+    lighting::{apply_rgba_tint, terrain_tint},
     theater::{theater_ini_name, theater_palette, theater_tmp_extension},
     tileset::parse_tileset_ini,
 };
@@ -39,8 +40,10 @@ pub fn compose_terrain_preview(source: &dyn AssetSource, map: &MapInfo) -> Optio
         let tmp = file_cache.get(&name)?;
         let index = usize::from(sub_tile);
         let tile = tmp.tiles.get(index)?.as_ref()?;
-        let rgba = tmp.tile_to_rgba(index, &pal).ok()?;
-        let blit = TileBlit { width: tile.pixel_width, height: tile.pixel_height, offset_x: tile.offset_x, offset_y: tile.offset_y, rgba };
+        let mut rgba = tmp.tile_to_rgba(index, &pal).ok()?;
+        // 地形砖统一用地面海拔 tint，避免同砖因邻格高度不同出现接缝。
+        apply_rgba_tint(&mut rgba, terrain_tint(&map.lighting));
+        let blit = TileBlit { width: tile.pixel_width, height: tile.pixel_height, offset_x: tile.offset_x, offset_y: tile.offset_y, rgba, shadow: None, };
         blit_cache.insert((tile_num, sub_tile), blit.clone());
         Some(blit)
     };

@@ -9,6 +9,7 @@ use crate::{
     MapInfo, OverlayCell,
     compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
+    lighting::{apply_rgba_tint, cell_tint},
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
@@ -217,8 +218,11 @@ pub fn paint_map_overlays(
             .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
             .unwrap_or(0);
         let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key, y_adjust);
+        let tint = cell_tint(&map.lighting, z_at(item.x, item.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
-            items.push((item.x, item.y, blit.clone()));
+            let mut painted = blit.clone();
+            apply_rgba_tint(&mut painted.rgba, tint);
+            items.push((item.x, item.y, painted));
             continue;
         }
         if item.pal_kind == 2 {
@@ -249,14 +253,16 @@ pub fn paint_map_overlays(
             continue;
         }
         // TS/RA2 overlay：子帧相对整幅画布裁切；叠画锚在钻石中心，再加高桥等 Y 修正。
-        let blit = TileBlit {
+        let mut blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
             offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
             offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + TILE_HEIGHT / 2 + y_adjust,
             rgba: frame.to_rgba(pal),
+            shadow: None,
         };
         blit_cache.insert(cache_key, blit.clone());
+        apply_rgba_tint(&mut blit.rgba, tint);
         items.push((item.x, item.y, blit));
     }
 

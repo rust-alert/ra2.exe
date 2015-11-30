@@ -1,7 +1,12 @@
-//! VXL 简易等距正交投影（预览用，无光照）。
+//! VXL 简易等距正交投影（预览用；车身 VPL 为法线→亮度页粗映射）。
+
+use std::collections::HashSet;
 
 use super::{hva::HvaFile, vpl::VplFile, vxl::VxlFile};
 use crate::image::pal::Palette;
+
+/// 落影相对底面投影的屏幕 X 光向偏移（像素）。
+pub const VXL_SHADOW_LIGHT_OFFSET_X: i32 = 3;
 
 /// 投影后的精灵。
 #[derive(Debug, Clone)]
@@ -128,6 +133,85 @@ pub fn rasterize_vxl_layer_poses(layers: &[VxlLayerPose<'_>], palette: &Palette,
     }
 
     Some(VxlSprite { width, height, offset_x: -(width as i32) / 2, offset_y: -(height as i32) / 2, rgba })
+}
+
+/// 体素落影：各占用柱压到模型最低高度后做等距投影，再加光向偏移。
+///
+/// 返回精灵的不透明黑像素为落影模板；叠画端应对目标像素压暗，而不是源覆盖。
+/// 炮塔 / 炮管层通常不参与；调用方只传入车身层即可。
+pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<VxlSprite> {
+    let mut world: Vec<(f32, f32, f32)> = Vec::new();
+    for layer in layers {
+        let frame_idx = match layer.hva {
+            Some(h) if h.frame_count > 0 => layer.frame % h.frame_count,
+            _ => 0,
+        };
+        for (section, limb) in layer.vxl.limbs.iter().enumerate() {
+            let bone = layer.hva.and_then(|h| h.get_transform(frame_idx, section as u32)).unwrap_or(&limb.transform);
+            for v in &limb.voxels {
+                let (mx, my, mz) = section_point(limb, v, bone);
+                let (x, y, z) = yaw_point(mx, my, mz, 0.0, 0.0, layer.facing);
+                world.push((x, y, z));
+            }
+        }
+    }
+    if world.is_empty() {
+        return None;
+    }
+
+    let ground_z = world.iter().map(|(_, _, z)| *z).fold(f32::INFINITY, f32::min);
+    let zi = ground_z.round() as i32;
+    let mut columns = HashSet::new();
+    let mut points: Vec<(i32, i32)> = Vec::new();
+    for &(x, y, _) in &world {
+        let xi = x.round() as i32;
+        let yi = y.round() as i32;
+        if !columns.insert((xi, yi)) {
+            continue;
+        }
+        let sx = xi - yi + VXL_SHADOW_LIGHT_OFFSET_X;
+        let sy = (xi + yi) / 2 - zi;
+        points.push((sx, sy));
+    }
+    if points.is_empty() {
+        return None;
+    }
+
+    let mut min_sx = i32::MAX;
+    let mut min_sy = i32::MAX;
+    let mut max_sx = i32::MIN;
+    let mut max_sy = i32::MIN;
+    for &(sx, sy) in &points {
+        min_sx = min_sx.min(sx);
+        min_sy = min_sy.min(sy);
+        max_sx = max_sx.max(sx);
+        max_sy = max_sy.max(sy);
+    }
+
+    let width = (max_sx - min_sx + 1).clamp(1, 512) as u32;
+    let height = (max_sy - min_sy + 1).clamp(1, 512) as u32;
+    let mut rgba = vec![0u8; (width as usize) * (height as usize) * 4];
+    for (sx, sy) in points {
+        let px = sx - min_sx;
+        let py = sy - min_sy;
+        if px < 0 || py < 0 || px >= width as i32 || py >= height as i32 {
+            continue;
+        }
+        let di = ((py as u32 * width + px as u32) * 4) as usize;
+        rgba[di] = 0;
+        rgba[di + 1] = 0;
+        rgba[di + 2] = 0;
+        rgba[di + 3] = 255;
+    }
+
+    // 与车身同样按包围盒居中，但保留光向 X 偏移，避免「先加偏移再居中」被抵消。
+    Some(VxlSprite {
+        width,
+        height,
+        offset_x: -(width as i32) / 2 + VXL_SHADOW_LIGHT_OFFSET_X,
+        offset_y: -(height as i32) / 2,
+        rgba,
+    })
 }
 
 /// 节局部点：`bounds_min + bone(section_scale * grid)`。

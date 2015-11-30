@@ -8,6 +8,7 @@ mod fallback_preview;
 mod iso_math;
 mod iso_pack;
 mod land;
+mod lighting;
 mod mobile_paint;
 mod overlay;
 mod overlay_paint;
@@ -43,11 +44,16 @@ pub use boot_map::{
     find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt,
     list_parseable_maps_from_names, mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
-pub use compose::{TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers};
+pub use compose::{
+    ShadowBlit, TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers,
+};
 pub use fallback_preview::{RawRgbaImage, load_fallback_theater_tile, load_fallback_unit_sprite};
 pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_to_iso};
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
+pub use lighting::{
+    LightingConfig, apply_rgba_tint, cell_light_scalar, cell_tint, parse_lighting, terrain_tint,
+};
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays};
@@ -103,6 +109,8 @@ pub struct MapInfo {
     pub game_modes: Vec<String>,
     /// `[Basic] Description` CSF 键（可空；官方遭遇图常省略）。
     pub description_csf: String,
+    /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
+    pub lighting: LightingConfig,
     /// 等距地形单元。
     pub cells: Vec<IsoCell>,
     /// 覆盖层格。
@@ -129,6 +137,7 @@ impl MapInfo {
             theater: Theater::Temperate,
             game_modes: Vec::new(),
             description_csf: String::new(),
+            lighting: LightingConfig::default(),
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
@@ -152,6 +161,7 @@ impl MapInfo {
         let theater = Theater::parse(theater_raw)?;
         let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
         let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
+        let lighting = parse_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
             Err(_) => Vec::new(),
@@ -174,6 +184,7 @@ impl MapInfo {
             theater,
             game_modes,
             description_csf,
+            lighting,
             cells,
             overlays,
             terrain_objects,

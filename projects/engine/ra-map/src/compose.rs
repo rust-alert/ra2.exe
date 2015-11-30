@@ -20,6 +20,30 @@ pub struct TileBlit {
     pub offset_y: i32,
     /// RGBA，长度 = width * height * 4。
     pub rgba: Vec<u8>,
+    /// 可选落影模板（先于主体压暗目标像素）。
+    pub shadow: Option<ShadowBlit>,
+}
+
+/// 落影模板：`mask` 非零处对目标 RGB 折半压暗。
+#[derive(Debug, Clone)]
+pub struct ShadowBlit {
+    /// 像素宽。
+    pub width: u32,
+    /// 像素高。
+    pub height: u32,
+    /// 相对格子钻石原点的 X 偏移。
+    pub offset_x: i32,
+    /// 相对格子钻石原点的 Y 偏移。
+    pub offset_y: i32,
+    /// 长度 = width * height；非 0 表示落影。
+    pub mask: Vec<u8>,
+}
+
+impl TileBlit {
+    /// 无落影的主体精灵。
+    pub fn solid(width: u32, height: u32, offset_x: i32, offset_y: i32, rgba: Vec<u8>) -> Self {
+        Self { width, height, offset_x, offset_y, rgba, shadow: None }
+    }
 }
 
 /// 合成结果。
@@ -148,21 +172,26 @@ pub fn paint_structure_missing_markers(
 
 /// 在已合成地形上按格子绘制精灵（树 / 建筑等）。
 ///
-/// `items` 为 `(cell_x, cell_y, blit)`；返回实际画上的数量。
+/// `items` 为 `(cell_x, cell_y, blit)`；每项先压暗落影再画主体。返回实际画上的主体数量。
 pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[(u16, u16, TileBlit)], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
     if items.is_empty() {
         return 0;
     }
-    let mut prepared: Vec<(i32, i32, &TileBlit)> = Vec::with_capacity(items.len());
+    let mut prepared: Vec<(i32, i32, i32, i32, &TileBlit)> = Vec::with_capacity(items.len());
     for (x, y, blit) in items {
         let z = cell_z(*x, *y);
         let (sx, sy) = iso_to_screen(i32::from(*x), i32::from(*y), z);
-        prepared.push((sx + blit.offset_x - image.origin_x, sy + blit.offset_y - image.origin_y, blit));
+        prepared.push((sx - image.origin_x, sy - image.origin_y, sx + blit.offset_x - image.origin_x, sy + blit.offset_y - image.origin_y, blit));
     }
-    prepared.sort_by_key(|(x, y, _)| (*y, *x));
+    prepared.sort_by_key(|(_, _, bx, by, _)| (*by, *bx));
     let mut painted = 0usize;
     let (width, height) = (image.image.width(), image.image.height());
-    for (dx, dy, blit) in prepared {
+    for (cell_sx, cell_sy, dx, dy, blit) in prepared {
+        if let Some(shadow) = blit.shadow.as_ref() {
+            let sdx = cell_sx + shadow.offset_x;
+            let sdy = cell_sy + shadow.offset_y;
+            blit_shadow_darken(image.image.as_mut(), width, height, sdx, sdy, shadow.width, shadow.height, &shadow.mask);
+        }
         if blit_over(image.image.as_mut(), width, height, dx, dy, blit.width, blit.height, &blit.rgba) {
             painted += 1;
         }
@@ -220,6 +249,33 @@ fn blit_over(dst: &mut [u8], dst_w: u32, dst_h: u32, dx: i32, dy: i32, src_w: u3
             }
             let di = ((y as u32 * dst_w + x as u32) * 4) as usize;
             dst[di..di + 4].copy_from_slice(&src[si..si + 4]);
+            any = true;
+        }
+    }
+    any
+}
+
+/// 落影压暗：`mask` 非零处将目标 RGB 各通道右移一位（折半）。
+fn blit_shadow_darken(dst: &mut [u8], dst_w: u32, dst_h: u32, dx: i32, dy: i32, src_w: u32, src_h: u32, mask: &[u8]) -> bool {
+    let mut any = false;
+    for row in 0..src_h as i32 {
+        let y = dy + row;
+        if y < 0 || y >= dst_h as i32 {
+            continue;
+        }
+        for col in 0..src_w as i32 {
+            let x = dx + col;
+            if x < 0 || x >= dst_w as i32 {
+                continue;
+            }
+            let mi = (row as u32 * src_w + col as u32) as usize;
+            if mi >= mask.len() || mask[mi] == 0 {
+                continue;
+            }
+            let di = ((y as u32 * dst_w + x as u32) * 4) as usize;
+            dst[di] >>= 1;
+            dst[di + 1] >>= 1;
+            dst[di + 2] >>= 1;
             any = true;
         }
     }

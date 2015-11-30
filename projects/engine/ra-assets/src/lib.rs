@@ -65,7 +65,8 @@ pub use rules::{
 pub use voxel::{
     hva::HvaFile,
     raster::{
-        VxlLayerPose, VxlSprite, rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layer_poses, rasterize_vxl_layers, rasterize_vxl_posed,
+        VXL_SHADOW_LIGHT_OFFSET_X, VxlLayerPose, VxlSprite, rasterize_vxl, rasterize_vxl_frame, rasterize_vxl_layer_poses,
+        rasterize_vxl_layers, rasterize_vxl_posed, rasterize_vxl_shadow_layer_poses,
     },
     vpl::VplFile,
     vxl::{VxlFile, VxlLimb, VxlVoxel},

@@ -9,6 +9,7 @@ use crate::{
     MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
+    lighting::{apply_rgba_tint, cell_tint},
     theater::{theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
@@ -57,8 +58,11 @@ pub fn paint_map_terrain_objects(
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let use_tib_pal = terrain_uses_tiberium_palette(rules.as_ref(), &obj.name);
         let cache_key = (image_key.clone(), use_tib_pal);
+        let tint = cell_tint(&map.lighting, z_at(obj.x, obj.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
-            items.push((obj.x, obj.y, blit.clone()));
+            let mut painted = blit.clone();
+            apply_rgba_tint(&mut painted.rgba, tint);
+            items.push((obj.x, obj.y, painted));
             continue;
         }
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
@@ -94,14 +98,16 @@ pub fn paint_map_terrain_objects(
             continue;
         };
         // 与 overlay / 建筑一致：子帧相对整幅画布裁切，锚在钻石中心（再加 FA2 −3 Y）。
-        let blit = TileBlit {
+        let mut blit = TileBlit {
             width: u32::from(frame.frame_width),
             height: u32::from(frame.frame_height),
             offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
             offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + TILE_HEIGHT / 2 + TERRAIN_OBJECT_Y_FUDGE,
             rgba: frame.to_rgba(pal),
+            shadow: None,
         };
         blit_cache.insert(cache_key, blit.clone());
+        apply_rgba_tint(&mut blit.rgba, tint);
         items.push((obj.x, obj.y, blit));
     }
 
