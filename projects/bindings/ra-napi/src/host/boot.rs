@@ -112,11 +112,16 @@ fn load_map_terrain_preview(
         chain.rules_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|id| {
-            rules
-                .overlay_types
-                .name(id)
-                .and_then(|n| rules.rules.get(n, "Tiberium"))
-                .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
+            rules.overlay_types.name(id).is_some_and(|n| {
+                rules
+                    .rules
+                    .get(n, "Tiberium")
+                    .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
+                    || rules
+                        .rules
+                        .get(n, "SpawnsTiberium")
+                        .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
+            })
         },
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;

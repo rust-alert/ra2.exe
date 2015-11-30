@@ -74,7 +74,7 @@ pub fn compose_skirmish_preview(
         tiberium_hsv,
         OverlayLayerFilter::Ground,
     );
-    let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini);
+    let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini, rules_ini);
     let (structures, structure_mark) =
         paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) = paint_map_overlays(

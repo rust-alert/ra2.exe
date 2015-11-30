@@ -121,7 +121,7 @@ fn spawns_tiberium_uses_temperat_not_isotem() {
 
 #[test]
 fn terrain_object_centers_on_iso_diamond() {
-    // 60×60 画布、子帧在 (0,0) 的 1×1 → 相对 iso 原点偏移应为 (+30, +12)（中心 −3 Y）。
+    // 60×60 画布、子帧在 (0,0) 的 1×1 → offset = (0−30+30, 0−30+15−3) = (0, −18)。
     let mut data = Vec::new();
     data.extend_from_slice(&0u16.to_le_bytes());
     data.extend_from_slice(&60u16.to_le_bytes());
@@ -147,8 +147,8 @@ fn terrain_object_centers_on_iso_diamond() {
     let mut image = TerrainImage::blank(256, 256);
     assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini"), 1);
     let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
-    let expect_x = (sx + 30 - image.origin_x) as u32;
-    let expect_y = (sy + 12 - image.origin_y) as u32;
+    let expect_x = (sx - image.origin_x) as u32;
+    let expect_y = (sy - 18 - image.origin_y) as u32;
     let w = image.image.width();
     let px = image.image.as_raw();
     let di = ((expect_y * w + expect_x) * 4) as usize;
