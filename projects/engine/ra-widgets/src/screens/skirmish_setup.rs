@@ -47,10 +47,13 @@ pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     }
 }
 
-/// 阵营 → 安装内旗标 PCX 候选（`local.mix` 穷举证实；前者优先）。
+/// 阵营 → 安装内旗标 PCX 候选（`local.mix` / 扩展包；前者为同优先级首选）。
 ///
 /// 原版盘：`usai/frai/geri/gbri/japi/rusi` + 苏军三国 `djbi/arbi/lati`；
 /// `cubi/lybi/iraqi` 等常见拼写不存在，仅作回退。
+///
+/// 模组常把改过的旗塞进 expand 里的 `lati.pcx` 等文件名，同时 CSF 把 `Confederation`
+/// 显示成别国；装载时须在候选间按 MIX 优先级取胜出，不能只认基包里的首选名。
 pub fn side_flag_pcx_candidates(side: &str) -> &'static [&'static str] {
     match side {
         "Americans" => &["usai.pcx"],
@@ -59,7 +62,8 @@ pub fn side_flag_pcx_candidates(side: &str) -> &'static [&'static str] {
         "British" => &["gbri.pcx"],
         "Russians" => &["rusi.pcx"],
         "Alliance" | "Korea" | "Koreans" => &["japi.pcx"],
-        "Confederation" | "Cuba" | "Cubans" => &["djbi.pcx", "cubi.pcx"],
+        // 古巴 / 中国模组：基包 `djbi`；部分 expand 把中国旗写在 `lati.pcx`。
+        "Confederation" | "Cuba" | "Cubans" => &["djbi.pcx", "cubi.pcx", "lati.pcx"],
         "Arabs" | "Iraq" | "Iraqis" => &["arbi.pcx", "iraqi.pcx", "irqi.pcx"],
         "Africans" | "Libya" | "Libyans" => &["lati.pcx", "lybi.pcx"],
         "YuriCountry" | "Yuri" => &["yrii.pcx"],
@@ -68,9 +72,31 @@ pub fn side_flag_pcx_candidates(side: &str) -> &'static [&'static str] {
     }
 }
 
-/// 阵营 → 首选旗标 PCX 文件名。
+/// 阵营 → 首选旗标 PCX 文件名（忽略挂载优先级；产品路径请用 [`pick_side_flag_pcx`]）。
 pub fn side_flag_pcx(side: &str) -> &'static str {
     side_flag_pcx_candidates(side)[0]
+}
+
+/// 在候选旗标中按「可读且 MIX/松散层优先级最高」选取；同优先级保留候选表更靠前的项。
+///
+/// `resolve_priority` 返回该逻辑名胜出层的 priority（越大越优先）；不可读则 `None`。
+pub fn pick_side_flag_pcx(side: &str, mut resolve_priority: impl FnMut(&str) -> Option<i32>) -> Option<&'static str> {
+    let mut best: Option<(i32, usize, &'static str)> = None;
+    for (index, name) in side_flag_pcx_candidates(side).iter().copied().enumerate() {
+        let Some(priority) = resolve_priority(name)
+        else {
+            continue;
+        };
+        let rank = (priority, usize::MAX - index);
+        let better = match best {
+            None => true,
+            Some((bp, bi, _)) => rank > (bp, bi),
+        };
+        if better {
+            best = Some((priority, usize::MAX - index, name));
+        }
+    }
+    best.map(|(_, _, name)| name)
 }
 
 /// 阵营 → 标准装载艺术图后缀（`ls800{suffix}.shp` / `ls640{suffix}.shp`）。

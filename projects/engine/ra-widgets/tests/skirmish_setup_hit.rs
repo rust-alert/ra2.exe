@@ -179,6 +179,27 @@ fn americans_flag_pcx() {
     assert_eq!(side_flag_pcx("Confederation"), "djbi.pcx");
     assert_eq!(side_flag_pcx("YuriCountry"), "yrii.pcx");
     assert_eq!(side_flag_pcx_candidates("Africans"), &["lati.pcx", "lybi.pcx"]);
+    assert_eq!(
+        side_flag_pcx_candidates("Confederation"),
+        &["djbi.pcx", "cubi.pcx", "lati.pcx"]
+    );
+}
+
+#[test]
+fn pick_side_flag_prefers_higher_mix_priority() {
+    // 基包只有 djbi；expand 覆盖 lati → 选 lati（共和国之辉中国旗常见布局）。
+    let picked = pick_side_flag_pcx("Confederation", |name| match name {
+        "djbi.pcx" => Some(0),
+        "lati.pcx" => Some(101),
+        _ => None,
+    });
+    assert_eq!(picked, Some("lati.pcx"));
+    // 同优先级时保留候选表更靠前的 djbi（原版古巴）。
+    let vanilla = pick_side_flag_pcx("Confederation", |name| match name {
+        "djbi.pcx" | "lati.pcx" => Some(0),
+        _ => None,
+    });
+    assert_eq!(vanilla, Some("djbi.pcx"));
 }
 
 #[test]

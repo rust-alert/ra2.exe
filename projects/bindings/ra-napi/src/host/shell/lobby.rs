@@ -6,7 +6,7 @@ use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skirmish_setup::{self, hover_entry_at, side_flag_pcx_candidates};
+use ra_widgets::skirmish_setup::{self, hover_entry_at, pick_side_flag_pcx};
 use ra_widgets::compose::{self, SkirmishChromeSprites};
 use winit::event::KeyEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -57,15 +57,20 @@ impl Shell {
                     .find(|c| c.id.eq_ignore_ascii_case(side))
                     .map(|c| c.prefix.as_str())
                     .unwrap_or("");
-                // 已知 id 映射优先；再试 `{prefix}i.pcx`（如 `USA`→`usai.pcx`）。
+                // 候选按 MIX / 松散层优先级取胜（expand 覆盖基包）；再试 `{prefix}i.pcx`。
                 let prefix_flag = if prefix.len() >= 3 {
                     Some(format!("{}i.pcx", prefix[..3].to_ascii_lowercase()))
                 } else {
                     None
                 };
-                chrome.row_flags[i] = side_flag_pcx_candidates(side)
-                    .iter()
-                    .copied()
+                let flag_name = pick_side_flag_pcx(side, |name| {
+                    source.resolve(name).map(|hit| match &hit.origin {
+                        ra_widgets::fs_source::AssetOrigin::Mix { priority, .. } => *priority,
+                        ra_widgets::fs_source::AssetOrigin::Loose { .. } => ra_adaptor::PRIORITY_USER_OVERRIDE,
+                    })
+                });
+                chrome.row_flags[i] = flag_name
+                    .into_iter()
                     .chain(prefix_flag.as_deref())
                     .find_map(|name| Self::load_pcx_rgba(source, name));
             }
