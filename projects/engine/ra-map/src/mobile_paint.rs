@@ -11,7 +11,7 @@ use crate::{
     MapEntity, MapEntityKind, MapInfo,
     compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
-    lighting::{apply_rgba_tint, cell_tint},
+    lighting::apply_rgba_tint,
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -77,7 +77,7 @@ pub fn paint_map_mobiles(
         let pose = pose_of(ent);
         let frame_index = resolve_mobile_shp_frame(art.as_ref(), &image_key, ent, pose);
         let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
-        let tint = cell_tint(&map.lighting, z_at(ent.x, ent.y));
+        let tint = map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);

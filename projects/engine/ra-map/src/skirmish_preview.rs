@@ -1,7 +1,7 @@
 //! 遭遇战启动预览：地形 + overlay + 物件 + 建筑；会话播种后可再叠移动单位 SHP。
 
 use image::RgbaImage;
-use ra_assets::{Hsv, Palette};
+use ra_assets::{Hsv, IniDocument, Palette};
 use ra_types::AssetSource;
 
 use crate::{
@@ -62,6 +62,15 @@ pub fn compose_skirmish_preview(
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
 ) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank)> {
+    // 预览叠画需要点光源；从 rules 收集后挂到地图副本上（不改调用方 MapInfo）。
+    let mut lit_map = map.clone();
+    if let Ok(bytes) = source.read(rules_ini) {
+        if let Ok(doc) = IniDocument::parse(&bytes) {
+            lit_map.refresh_point_lights(&doc);
+        }
+    }
+    let map = &lit_map;
+
     let mut image = compose_terrain_preview(source, map)?;
     let (ground_shp, ground_mark) = paint_map_overlays(
         source,

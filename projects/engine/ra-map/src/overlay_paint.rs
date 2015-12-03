@@ -9,7 +9,7 @@ use crate::{
     MapInfo, OverlayCell,
     compose::{TerrainImage, TileBlit, paint_cell_sprites, paint_overlay_markers},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
-    lighting::{apply_rgba_tint, cell_tint},
+    lighting::apply_rgba_tint,
     theater::{new_theater_shp_name, theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
@@ -218,7 +218,7 @@ pub fn paint_map_overlays(
             .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
             .unwrap_or(0);
         let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key, y_adjust);
-        let tint = cell_tint(&map.lighting, z_at(item.x, item.y));
+        let tint = map.tint_at(item.x, item.y, z_at(item.x, item.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);

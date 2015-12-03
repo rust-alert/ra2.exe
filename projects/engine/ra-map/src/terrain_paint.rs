@@ -9,7 +9,7 @@ use crate::{
     MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
-    lighting::{apply_rgba_tint, cell_tint},
+    lighting::apply_rgba_tint,
     theater::{theater_palette, theater_tiberium_palette, theater_tmp_extension},
 };
 
@@ -58,7 +58,7 @@ pub fn paint_map_terrain_objects(
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let use_tib_pal = terrain_uses_tiberium_palette(rules.as_ref(), &obj.name);
         let cache_key = (image_key.clone(), use_tib_pal);
-        let tint = cell_tint(&map.lighting, z_at(obj.x, obj.y));
+        let tint = map.tint_at(obj.x, obj.y, z_at(obj.x, obj.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);

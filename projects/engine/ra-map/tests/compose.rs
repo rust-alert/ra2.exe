@@ -8,7 +8,11 @@ fn compose_one_opaque_tile() {
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
     let img =
-        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, })).unwrap();
+        compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    ).unwrap();
     assert_eq!(img.drawn, 1);
     assert!(img.image.width() >= 60);
     assert!(img.image.height() >= 30);
@@ -38,11 +42,15 @@ fn cliff_extra_draws_over_lower_neighbor() {
         IsoCell { x: 5, y: 4, tile_num: 1, sub_tile: 0, z: 0, flags: 0 },
         IsoCell { x: 5, y: 5, tile_num: 2, sub_tile: 0, z: 1, flags: 0 },
     ];
-    let img = compose_terrain_rgba(&cells, |tile, _| match tile {
-        1 => Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: water.clone(), shadow: None, }),
-        2 => Some(TileBlit { width: 60, height: 60, offset_x: 0, offset_y: -30, rgba: cliff.clone(), shadow: None, }),
-        _ => None,
-    })
+    let img = compose_terrain_rgba(
+        &cells,
+        |tile, _| match tile {
+            1 => Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: water.clone(), shadow: None, }),
+            2 => Some(TileBlit { width: 60, height: 60, offset_x: 0, offset_y: -30, rgba: cliff.clone(), shadow: None, }),
+            _ => None,
+        },
+        |_, _, _| [1.0, 1.0, 1.0],
+    )
     .unwrap();
     assert_eq!(img.drawn, 2);
     // 两格重叠区应留下悬崖红，而非水面蓝。
@@ -59,7 +67,11 @@ fn paint_overlay_marks_pixel() {
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
     let mut img =
-        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, })).unwrap();
+        compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    ).unwrap();
     let overlays = [OverlayCell { x: 2, y: 3, overlay_id: 110, data: 0 }];
     let n = paint_overlay_markers(&mut img, &overlays, |_, _| 0);
     assert_eq!(n, 1);
@@ -74,7 +86,11 @@ fn paint_cell_sprite_marks_pixel() {
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
     let mut img =
-        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, })).unwrap();
+        compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    ).unwrap();
     let mut sprite = vec![0u8; 4 * 4 * 4];
     for px in sprite.chunks_exact_mut(4) {
         px.copy_from_slice(&[255, 0, 0, 255]);
@@ -93,7 +109,11 @@ fn paint_cell_sprite_shadow_darkens_terrain() {
     }
     let cells = [IsoCell { x: 2, y: 3, tile_num: 0, sub_tile: 0, z: 0, flags: 0 }];
     let mut img =
-        compose_terrain_rgba(&cells, |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, }))
+        compose_terrain_rgba(
+        &cells,
+        |_, _| Some(TileBlit { width: 60, height: 30, offset_x: 0, offset_y: 0, rgba: rgba.clone(), shadow: None, }),
+        |_, _, _| [1.0, 1.0, 1.0],
+    )
             .unwrap();
     // 主体透明，只验证落影压暗。
     let sprite = vec![0u8; 2 * 2 * 4];

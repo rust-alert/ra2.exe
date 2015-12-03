@@ -5,6 +5,7 @@ use image::RgbaImage;
 use crate::{
     IsoCell,
     iso_math::{TILE_HEIGHT, TILE_WIDTH, iso_to_screen},
+    lighting::apply_rgba_tint,
 };
 
 /// 一块已解码的地形砖（相对钻石原点的像素缓冲）。
@@ -69,11 +70,16 @@ impl TerrainImage {
 /// 按等距顺序把单元画到画布上。
 ///
 /// `resolve` 返回 `(tile_num, sub_tile)` 对应砖块；缺砖则跳过该单元。
+/// `tint_at`：格子 `(x,y,z)` 的 RGB 倍率（地形通常固定 `z=0` 环境光再加点光源）。
 ///
 /// 排序按**格子**深度（`x+y`、`x`、高度），不用 blit 顶边。悬崖 TMP 的 extra
 /// 常 `offset_y < 0`（朝屏幕上方伸出）；若按 blit 顶边排序，会被更北的水面钻石盖住，
 /// 北向峡谷边就会出现锯齿缺口。
-pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) -> Option<TileBlit>) -> Option<TerrainImage> {
+pub fn compose_terrain_rgba(
+    cells: &[IsoCell],
+    mut resolve: impl FnMut(i32, u8) -> Option<TileBlit>,
+    mut tint_at: impl FnMut(i16, i16, u8) -> [f32; 3],
+) -> Option<TerrainImage> {
     if cells.is_empty() {
         return None;
     }
@@ -81,10 +87,11 @@ pub fn compose_terrain_rgba(cells: &[IsoCell], mut resolve: impl FnMut(i32, u8) 
     // (blit_x, blit_y, depth=x+y, cell_x, z, blit)
     let mut prepared: Vec<(i32, i32, i32, i16, u8, TileBlit)> = Vec::new();
     for cell in cells {
-        let Some(blit) = resolve(cell.tile_num, cell.sub_tile)
+        let Some(mut blit) = resolve(cell.tile_num, cell.sub_tile)
         else {
             continue;
         };
+        apply_rgba_tint(&mut blit.rgba, tint_at(cell.x, cell.y, cell.z));
         let (sx, sy) = iso_to_screen(i32::from(cell.x), i32::from(cell.y), cell.z);
         let depth = i32::from(cell.x) + i32::from(cell.y);
         prepared.push((sx + blit.offset_x, sy + blit.offset_y, depth, cell.x, cell.z, blit));

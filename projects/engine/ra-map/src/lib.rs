@@ -52,7 +52,9 @@ pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_t
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use lighting::{
-    LightingConfig, apply_rgba_tint, cell_light_scalar, cell_tint, parse_lighting, terrain_tint,
+    LightingConfig, PointLight, apply_rgba_tint, cell_light_scalar, cell_tint, cell_tint_with_lights,
+    collect_structure_point_lights, light_value_to_units, parse_lighting, point_light_at, point_light_from_rules,
+    terrain_tint, LEPTONS_PER_CELL,
 };
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
@@ -111,6 +113,8 @@ pub struct MapInfo {
     pub description_csf: String,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
     pub lighting: LightingConfig,
+    /// 建筑点光源（由 rules `LightIntensity` 收集；缺省空）。
+    pub point_lights: Vec<PointLight>,
     /// 等距地形单元。
     pub cells: Vec<IsoCell>,
     /// 覆盖层格。
@@ -138,6 +142,7 @@ impl MapInfo {
             game_modes: Vec::new(),
             description_csf: String::new(),
             lighting: LightingConfig::default(),
+            point_lights: Vec::new(),
             cells: Vec::new(),
             overlays: Vec::new(),
             terrain_objects: Vec::new(),
@@ -185,12 +190,23 @@ impl MapInfo {
             game_modes,
             description_csf,
             lighting,
+            point_lights: Vec::new(),
             cells,
             overlays,
             terrain_objects,
             entities,
             waypoints,
         })
+    }
+
+    /// 用 rules 收集建筑点光源写入 `point_lights`。
+    pub fn refresh_point_lights(&mut self, rules: &IniDocument) {
+        self.point_lights = collect_structure_point_lights(&self.entities, rules);
+    }
+
+    /// 环境光 + 点光源的格 tint（地形砖请传 `z=0` 以免接缝）。
+    pub fn tint_at(&self, x: u16, y: u16, z: u8) -> [f32; 3] {
+        cell_tint_with_lights(&self.lighting, z, x, y, &self.point_lights)
     }
 }
 

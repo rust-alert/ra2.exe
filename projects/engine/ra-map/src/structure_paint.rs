@@ -11,7 +11,7 @@ use crate::{
     MapEntityKind, MapInfo,
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
-    lighting::{apply_rgba_tint, cell_tint},
+    lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
     structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
@@ -60,6 +60,8 @@ pub struct StructureAnimLayer {
 pub struct StructureAnimBank {
     /// 收集时的地图 `[Lighting]`（播帧时按格 tint）。
     pub lighting: crate::LightingConfig,
+    /// 收集时的点光源。
+    pub point_lights: Vec<PointLight>,
     /// 活动层列表。
     pub layers: Vec<StructureAnimLayer>,
 }
@@ -68,6 +70,7 @@ impl Default for StructureAnimBank {
     fn default() -> Self {
         Self {
             lighting: crate::LightingConfig::default(),
+            point_lights: Vec::new(),
             layers: Vec::new(),
         }
     }
@@ -318,6 +321,7 @@ pub fn collect_structure_anim_bank(
 
     StructureAnimBank {
         lighting: map.lighting,
+        point_lights: map.point_lights.clone(),
         layers,
     }
 }
@@ -339,7 +343,10 @@ pub fn paint_structure_anim_bank(image: &mut TerrainImage, bank: &StructureAnimB
             continue;
         }
         let mut painted = blit.clone();
-        apply_rgba_tint(&mut painted.rgba, cell_tint(&bank.lighting, layer.cell_z));
+        apply_rgba_tint(
+            &mut painted.rgba,
+            cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights),
+        );
         items.push((layer.x, layer.y, painted));
     }
     let z_at = |x: u16, y: u16| {
@@ -551,7 +558,7 @@ fn paint_map_structures_inner(
                     &mut blit_cache,
                     &ent.owner,
                 ) {
-                    apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
+                    apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                     items.push((ent.x, ent.y, blit));
                 }
             }
@@ -573,13 +580,13 @@ fn paint_map_structures_inner(
                 &mut blit_cache,
                 &ent.owner,
             ) {
-                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
+                apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             } else {
                 missing.push((ent.x, ent.y));
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
-                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
+                apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
         }
@@ -625,7 +632,7 @@ fn paint_map_structures_inner(
                 &mut blit_cache,
                 &ent.owner,
             ) {
-                apply_rgba_tint(&mut blit.rgba, cell_tint(&map.lighting, z_at(ent.x, ent.y)));
+                apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
         }
