@@ -320,7 +320,7 @@ pub fn collect_structure_anim_bank(
     }
 
     StructureAnimBank {
-        lighting: map.lighting,
+        lighting: map.active_lighting(),
         point_lights: map.point_lights.clone(),
         layers,
     }

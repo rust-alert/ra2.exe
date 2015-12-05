@@ -1,8 +1,8 @@
 use ra_assets::IniDocument;
 use ra_map::{
-    LightingConfig, MapEntity, MapEntityKind, MapInfo, apply_rgba_tint, cell_light_scalar, cell_tint,
-    cell_tint_with_lights, collect_structure_point_lights, parse_lighting, point_light_at, terrain_tint,
-    LEPTONS_PER_CELL,
+    LightingConfig, LightingProfile, MapEntity, MapEntityKind, MapInfo, apply_rgba_tint, cell_light_scalar,
+    cell_tint, cell_tint_with_lights, collect_structure_point_lights, parse_lighting, parse_map_lighting,
+    point_light_at, terrain_tint, LEPTONS_PER_CELL,
 };
 use ra_types::GameEdition;
 
@@ -56,6 +56,45 @@ fn cell_tint_rises_with_elevation() {
     let low = cell_tint(&cfg, 0);
     let high = cell_tint(&cfg, 8);
     assert!(high[0] > low[0]);
+}
+
+#[test]
+fn parse_map_lighting_reads_ion_keys() {
+    let doc = IniDocument::parse(
+        b"[Lighting]\nAmbient=1.0\nIonAmbient=0.5\nIonRed=0.2\nIonGreen=0.3\nIonBlue=0.9\nIonGround=0.1\nIonLevel=0.02\n",
+    )
+    .expect("ini");
+    let profiles = parse_map_lighting(&doc);
+    assert!((profiles.normal.ambient - 1.0).abs() < 1e-4);
+    assert!((profiles.ion.ambient - 0.5).abs() < 1e-4);
+    assert!((profiles.ion.red - 0.2).abs() < 1e-4);
+    assert!((profiles.ion.green - 0.3).abs() < 1e-4);
+    assert!((profiles.ion.blue - 0.9).abs() < 1e-4);
+    assert!((profiles.ion.ground - 0.1).abs() < 1e-4);
+    assert!((profiles.ion.level - 0.02).abs() < 1e-4);
+}
+
+#[test]
+fn parse_map_lighting_missing_ion_uses_retail_ion_defaults() {
+    let doc = IniDocument::parse(b"[Lighting]\nAmbient=0.8\n").expect("ini");
+    let profiles = parse_map_lighting(&doc);
+    assert_eq!(profiles.ion, LightingConfig::ion_default());
+    assert!((profiles.normal.ambient - 0.8).abs() < 1e-4);
+}
+
+#[test]
+fn map_info_ion_profile_switches_tint() {
+    let bytes = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
+IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "ion.map", bytes).expect("map");
+    assert_eq!(map.lighting_profile, LightingProfile::Normal);
+    let normal = map.tint_at(0, 0, 0);
+    assert!((normal[0] - 1.0).abs() < 1e-2, "normal={normal:?}");
+    map.set_lighting_profile(LightingProfile::Ion);
+    let ion = map.tint_at(0, 0, 0);
+    // Ion 档偏蓝：蓝通道相对更强，且 ambient 更暗。
+    assert!(ion[0] < normal[0], "ion={ion:?} normal={normal:?}");
+    assert!(ion[2] > ion[0], "expected blue-heavy ion tint {ion:?}");
 }
 
 #[test]

@@ -1,7 +1,10 @@
-//! 地图 `[Lighting]`：环境光、点光源与每格 RGB tint。
+//! 地图 `[Lighting]`：环境光、Ion 档、点光源与每格 RGB tint。
 //!
 //! 标量按原版 Scenario 量化：Ambient/RGB ×100（+0.01 截断），Ground/Level ×250；
 //! 点光源强度 `value * 1000 + 0.1`。内部单位 `1000 == 1.0`。
+//!
+//! Ion 档（闪电风暴 / 离子风暴）读 `IonAmbient` / `IonRed` / …；缺键用零售缺省
+//!（Ambient≈0.87、偏蓝紫通道、Ground/Level=0）。
 
 use ra_assets::IniDocument;
 
@@ -15,20 +18,30 @@ const LIGHT_CLAMP_MAX: i32 = 2000;
 pub const LEPTONS_PER_CELL: i32 = 256;
 const HALF_CELL_LEPTONS: i32 = LEPTONS_PER_CELL / 2;
 
-/// 地图 `[Lighting]` 全局参数。
+/// 当前生效的环境光档（普通 / Ion 风暴）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LightingProfile {
+    /// `[Lighting]` Ambient/RGB/Ground/Level。
+    #[default]
+    Normal,
+    /// `[Lighting]` IonAmbient / IonRed / …（闪电风暴目标档）。
+    Ion,
+}
+
+/// 地图 `[Lighting]` 一组环境光参数（普通或 Ion）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LightingConfig {
-    /// 基础亮度（缺省 `1.0`）。
+    /// 基础亮度（普通缺省 `1.0`；Ion 缺省 `0.87`）。
     pub ambient: f32,
-    /// 红通道倍率（缺省 `1.0`）。
+    /// 红通道倍率。
     pub red: f32,
-    /// 绿通道倍率（缺省 `1.0`）。
+    /// 绿通道倍率。
     pub green: f32,
-    /// 蓝通道倍率（缺省 `1.0`）。
+    /// 蓝通道倍率。
     pub blue: f32,
-    /// 地面压暗项（缺省 `0.20`；按 ×250 量化后从 ambient 单位中减去）。
+    /// 地面压暗项（普通缺省 `0.20`；Ion 缺省 `0.0`）。
     pub ground: f32,
-    /// 每级海拔对 ambient 的增量（缺省 `0.032`）。
+    /// 每级海拔对 ambient 的增量（普通缺省 `0.032`；Ion 缺省 `0.0`）。
     pub level: f32,
 }
 
@@ -57,6 +70,46 @@ impl LightingConfig {
             level: 0.0,
         }
     }
+
+    /// 闪电风暴 / Ion 零售缺省档。
+    pub const fn ion_default() -> Self {
+        Self {
+            ambient: 0.87,
+            red: 0.30,
+            green: 0.40,
+            blue: 0.75,
+            ground: 0.0,
+            level: 0.0,
+        }
+    }
+}
+
+/// 地图解析出的普通 + Ion 两套环境光。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MapLightingProfiles {
+    /// 日常档。
+    pub normal: LightingConfig,
+    /// Ion / 闪电风暴档。
+    pub ion: LightingConfig,
+}
+
+impl Default for MapLightingProfiles {
+    fn default() -> Self {
+        Self {
+            normal: LightingConfig::default(),
+            ion: LightingConfig::ion_default(),
+        }
+    }
+}
+
+impl MapLightingProfiles {
+    /// 按当前档取环境光。
+    pub fn config(&self, profile: LightingProfile) -> LightingConfig {
+        match profile {
+            LightingProfile::Normal => self.normal,
+            LightingProfile::Ion => self.ion,
+        }
+    }
 }
 
 /// 建筑点光源（灯柱 / 发光建筑等）。
@@ -78,37 +131,63 @@ pub struct PointLight {
     pub tint: [i32; 3],
 }
 
-/// 从地图 INI 解析 `[Lighting]`；缺节或缺键用零售缺省。
+/// 从地图 INI 解析 `[Lighting]` 普通档；缺节或缺键用零售缺省。
+///
+/// 仅读 Ambient/RGB/Ground/Level。Ion 档请用 [`parse_map_lighting`]。
 pub fn parse_lighting(doc: &IniDocument) -> LightingConfig {
-    let mut cfg = LightingConfig::default();
-    if doc.get("Lighting", "Ambient").is_none()
-        && doc.get("Lighting", "Red").is_none()
-        && doc.get("Lighting", "Ground").is_none()
-        && doc.get("Lighting", "Level").is_none()
-        && doc.get("Lighting", "Green").is_none()
-        && doc.get("Lighting", "Blue").is_none()
-    {
-        return cfg;
+    parse_map_lighting(doc).normal
+}
+
+/// 从地图 INI 解析普通 + Ion 两套环境光。
+pub fn parse_map_lighting(doc: &IniDocument) -> MapLightingProfiles {
+    let mut out = MapLightingProfiles::default();
+    let has_normal = lighting_key_present(doc, &["Ambient", "Red", "Green", "Blue", "Ground", "Level"]);
+    let has_ion = lighting_key_present(
+        doc,
+        &["IonAmbient", "IonRed", "IonGreen", "IonBlue", "IonGround", "IonLevel"],
+    );
+    if !has_normal && !has_ion {
+        return out;
     }
-    if let Some(v) = doc.get("Lighting", "Ambient").and_then(parse_f32) {
+    if has_normal {
+        fill_lighting_keys(doc, "", &mut out.normal);
+    }
+    if has_ion {
+        fill_lighting_keys(doc, "Ion", &mut out.ion);
+    }
+    out
+}
+
+fn lighting_key_present(doc: &IniDocument, keys: &[&str]) -> bool {
+    keys.iter().any(|k| doc.get("Lighting", k).is_some())
+}
+
+fn fill_lighting_keys(doc: &IniDocument, prefix: &str, cfg: &mut LightingConfig) {
+    let key = |name: &str| -> String {
+        if prefix.is_empty() {
+            name.to_string()
+        } else {
+            format!("{prefix}{name}")
+        }
+    };
+    if let Some(v) = doc.get("Lighting", &key("Ambient")).and_then(parse_f32) {
         cfg.ambient = v;
     }
-    if let Some(v) = doc.get("Lighting", "Red").and_then(parse_f32) {
+    if let Some(v) = doc.get("Lighting", &key("Red")).and_then(parse_f32) {
         cfg.red = v;
     }
-    if let Some(v) = doc.get("Lighting", "Green").and_then(parse_f32) {
+    if let Some(v) = doc.get("Lighting", &key("Green")).and_then(parse_f32) {
         cfg.green = v;
     }
-    if let Some(v) = doc.get("Lighting", "Blue").and_then(parse_f32) {
+    if let Some(v) = doc.get("Lighting", &key("Blue")).and_then(parse_f32) {
         cfg.blue = v;
     }
-    if let Some(v) = doc.get("Lighting", "Ground").and_then(parse_f32) {
+    if let Some(v) = doc.get("Lighting", &key("Ground")).and_then(parse_f32) {
         cfg.ground = v;
     }
-    if let Some(v) = doc.get("Lighting", "Level").and_then(parse_f32) {
+    if let Some(v) = doc.get("Lighting", &key("Level")).and_then(parse_f32) {
         cfg.level = v;
     }
-    cfg
 }
 
 fn parse_f32(raw: &str) -> Option<f32> {
@@ -304,6 +383,13 @@ fn mul_channel(value: u8, tint: f32) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ion_default_is_blueish_storm() {
+        let tint = terrain_tint(&LightingConfig::ion_default());
+        assert!(tint[2] > tint[0], "ion tint={tint:?}");
+        assert!(tint[0] < 0.5, "ion should be darker than full white");
+    }
 
     #[test]
     fn default_ground_level_tint_is_0_95() {
