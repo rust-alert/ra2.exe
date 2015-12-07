@@ -1,8 +1,8 @@
 use ra_assets::IniDocument;
 use ra_map::{
-    LightingConfig, LightingProfile, MapEntity, MapEntityKind, MapInfo, apply_rgba_tint, cell_light_scalar,
-    cell_tint, cell_tint_with_lights, collect_structure_point_lights, parse_lighting, parse_map_lighting,
-    point_light_at, terrain_tint, LEPTONS_PER_CELL,
+    LightingConfig, LightingProfile, MapEntity, MapEntityKind, MapInfo, RadiationLightRules, RadiationLightSite,
+    apply_rgba_tint, cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights,
+    parse_lighting, parse_map_lighting, point_light_at, terrain_tint, LEPTONS_PER_CELL,
 };
 use ra_types::GameEdition;
 
@@ -126,10 +126,41 @@ fn refresh_point_lights_from_rules_structures() {
     });
     map.refresh_point_lights(&rules);
     assert_eq!(map.point_lights.len(), 1);
+    assert_eq!(map.structure_point_lights.len(), 1);
     assert_eq!(map.point_lights[0].x, 5);
     assert_eq!(map.point_lights[0].y, 7);
     let collected = collect_structure_point_lights(&map.entities, &rules);
-    assert_eq!(collected, map.point_lights);
+    assert_eq!(collected, map.structure_point_lights);
     let tint = map.tint_at(5, 7, 0);
     assert!(tint[0] > 1.0 || tint[1] > 0.9, "expected light boost, tint={tint:?}");
+}
+
+#[test]
+fn refresh_radiation_lights_merges_green_glow() {
+    let mut map = MapInfo::empty(GameEdition::Ra2, "rad.map");
+    map.lighting = LightingConfig::identity();
+    let sites = [RadiationLightSite::with_spread(8, 8, 4, 500, 500, 500)];
+    let rules = RadiationLightRules::default();
+    map.refresh_radiation_lights(&sites, &rules);
+    assert_eq!(map.radiation_point_lights.len(), 1);
+    assert_eq!(map.point_lights.len(), 1);
+    assert_eq!(map.radiation_point_lights[0].tint, [0, 1000, 0]);
+    let tint = map.tint_at(8, 8, 0);
+    assert!(tint[1] > tint[0], "expected green-heavy radiation tint {tint:?}");
+    // 建筑光刷新不得冲掉辐射光。
+    let struct_rules = IniDocument::parse(b"[GAYARD]\nLightIntensity=0.1\nLightVisibility=512\n").expect("rules");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GAYARD".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+    });
+    map.refresh_point_lights(&struct_rules);
+    assert_eq!(map.structure_point_lights.len(), 1);
+    assert_eq!(map.radiation_point_lights.len(), 1);
+    assert_eq!(map.point_lights.len(), 2);
 }

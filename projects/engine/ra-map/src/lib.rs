@@ -17,6 +17,7 @@ mod pass_grid;
 mod placements;
 mod playfield;
 mod preview_pack;
+mod radiation_light;
 mod skirmish_preview;
 mod structure_damage;
 mod structure_paint;
@@ -54,7 +55,12 @@ pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_typ
 pub use lighting::{
     LightingConfig, LightingProfile, MapLightingProfiles, PointLight, apply_rgba_tint, cell_light_scalar,
     cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting,
-    parse_map_lighting, point_light_at, point_light_from_rules, terrain_tint, LEPTONS_PER_CELL,
+    parse_map_lighting, point_light_at, point_light_from_rules, radiation_point_light, terrain_tint,
+    LEPTONS_PER_CELL,
+};
+pub use radiation_light::{
+    RadiationLightRules, RadiationLightSite, collect_radiation_lights, parse_radiation_light_rules,
+    radiation_light_epoch, radiation_site_light, radiation_site_radius_leptons,
 };
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
@@ -117,7 +123,11 @@ pub struct MapInfo {
     pub ion_lighting: LightingConfig,
     /// 当前生效的环境光档（缺省普通；风暴切换时设为 `Ion`）。
     pub lighting_profile: LightingProfile,
-    /// 建筑点光源（由 rules `LightIntensity` 收集；缺省空）。
+    /// 建筑点光源（rules `LightIntensity`；由 [`Self::refresh_point_lights`] 刷新）。
+    pub structure_point_lights: Vec<PointLight>,
+    /// 辐射站点绿光（由 [`Self::refresh_radiation_lights`] 刷新）。
+    pub radiation_point_lights: Vec<PointLight>,
+    /// 叠画用合并点光源（建筑 + 辐射）。
     pub point_lights: Vec<PointLight>,
     /// 等距地形单元。
     pub cells: Vec<IsoCell>,
@@ -148,6 +158,8 @@ impl MapInfo {
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
             lighting_profile: LightingProfile::Normal,
+            structure_point_lights: Vec::new(),
+            radiation_point_lights: Vec::new(),
             point_lights: Vec::new(),
             cells: Vec::new(),
             overlays: Vec::new(),
@@ -198,6 +210,8 @@ impl MapInfo {
             lighting: profiles.normal,
             ion_lighting: profiles.ion,
             lighting_profile: LightingProfile::Normal,
+            structure_point_lights: Vec::new(),
+            radiation_point_lights: Vec::new(),
             point_lights: Vec::new(),
             cells,
             overlays,
@@ -220,9 +234,24 @@ impl MapInfo {
         self.lighting_profile = profile;
     }
 
-    /// 用 rules 收集建筑点光源写入 `point_lights`。
+    /// 用 rules 收集建筑点光源，并与辐射光合并进 `point_lights`。
     pub fn refresh_point_lights(&mut self, rules: &IniDocument) {
-        self.point_lights = collect_structure_point_lights(&self.entities, rules);
+        self.structure_point_lights = collect_structure_point_lights(&self.entities, rules);
+        self.rebuild_point_lights();
+    }
+
+    /// 用当前辐射站点快照刷新绿光，并与建筑光合并进 `point_lights`。
+    pub fn refresh_radiation_lights(&mut self, sites: &[RadiationLightSite], rules: &RadiationLightRules) {
+        self.radiation_point_lights = collect_radiation_lights(sites, rules);
+        self.rebuild_point_lights();
+    }
+
+    fn rebuild_point_lights(&mut self) {
+        self.point_lights.clear();
+        self.point_lights
+            .reserve(self.structure_point_lights.len() + self.radiation_point_lights.len());
+        self.point_lights.extend_from_slice(&self.structure_point_lights);
+        self.point_lights.extend_from_slice(&self.radiation_point_lights);
     }
 
     /// 当前档环境光 + 点光源的格 tint（地形砖请传 `z=0` 以免接缝）。

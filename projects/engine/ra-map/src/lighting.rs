@@ -11,9 +11,9 @@ use ra_assets::IniDocument;
 use crate::placements::{MapEntity, MapEntityKind};
 
 /// 内部光强单位：`1000 == 1.0`。
-const LIGHT_UNIT: i32 = 1000;
+pub(crate) const LIGHT_UNIT: i32 = 1000;
 /// 标量上限（对应 tint 通道乘积上限约 2.0）。
-const LIGHT_CLAMP_MAX: i32 = 2000;
+pub(crate) const LIGHT_CLAMP_MAX: i32 = 2000;
 /// 一格边长（leptons）。
 pub const LEPTONS_PER_CELL: i32 = 256;
 const HALF_CELL_LEPTONS: i32 = LEPTONS_PER_CELL / 2;
@@ -272,6 +272,25 @@ pub fn point_light_at(x: u16, y: u16, radius_leptons: i32, intensity: f32, tint:
             light_value_to_units(tint[1]),
             light_value_to_units(tint[2]),
         ],
+    }
+}
+
+/// 辐射绿光点光源（强度 / 染色已是内部单位 `1000 == 1.0`）。
+pub fn radiation_point_light(
+    x: u16,
+    y: u16,
+    radius_leptons: i32,
+    intensity: i32,
+    tint: [i32; 3],
+) -> PointLight {
+    PointLight {
+        x,
+        y,
+        center_x: i32::from(x) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
+        center_y: i32::from(y) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
+        radius_leptons: radius_leptons.max(0),
+        intensity,
+        tint,
     }
 }
 
