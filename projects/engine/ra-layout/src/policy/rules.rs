@@ -5,7 +5,7 @@ use crate::geometry::{Insets, Size2};
 /// 尺寸策略。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SizeRule {
-    /// 由内容决定（局部辅助；不作原版主结构）。
+    /// 由内容决定（流式子树固有尺寸；非流式时为 0）。
     Content,
     /// 固定逻辑像素。
     Fixed(f32),
@@ -48,6 +48,29 @@ pub enum VerticalRule {
     Stretch,
 }
 
+/// 子节点排布方式（相对本节点 content box）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LayoutFlow {
+    /// 子节点各自相对父盒独立定位（`Start`/`Top` 等）。
+    None,
+    /// 纵向堆叠；`gap` 为子项外边距之外的间距。
+    Column {
+        /// 子项间距。
+        gap: f32,
+    },
+    /// 横向排列；`gap` 为子项外边距之外的间距。
+    Row {
+        /// 子项间距。
+        gap: f32,
+    },
+}
+
+impl Default for LayoutFlow {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 /// 单节点布局规则。
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutRules {
@@ -65,6 +88,10 @@ pub struct LayoutRules {
     pub padding: Insets,
     /// 可选宽高比（宽/高）。
     pub aspect_ratio: Option<f32>,
+    /// 子节点流式排布；`None` 时保持绝对相对定位。
+    pub flow: LayoutFlow,
+    /// 是否参与命中（容器通常为 `false`）。
+    pub hit_test: bool,
 }
 
 impl Default for LayoutRules {
@@ -77,6 +104,8 @@ impl Default for LayoutRules {
             margin: Insets::default(),
             padding: Insets::default(),
             aspect_ratio: None,
+            flow: LayoutFlow::None,
+            hit_test: true,
         }
     }
 }
@@ -87,6 +116,17 @@ impl LayoutRules {
         Self {
             width: SizeRule::Fixed(size.width),
             height: SizeRule::Fixed(size.height),
+            ..Self::default()
+        }
+    }
+
+    /// 流式容器：固有尺寸由子树决定，不参与命中。
+    pub fn flow_container(flow: LayoutFlow) -> Self {
+        Self {
+            width: SizeRule::Content,
+            height: SizeRule::Content,
+            flow,
+            hit_test: false,
             ..Self::default()
         }
     }

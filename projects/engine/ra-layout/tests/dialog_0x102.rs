@@ -32,7 +32,19 @@ fn dialog_0x102_snapshot_matches_skirmish_golden_rects() {
     );
     assert_eq!(
         snap.get("player_name").map(|e| e.layout.rect),
-        Some(Rect::from_xywh(53.0, 18.0, 150.0, 20.0))
+        Some(Rect::from_xywh(53.0, 18.0, 150.0, 24.0))
+    );
+    assert_eq!(
+        snap.get("flag_0").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(215.0, 18.0, 48.0, 24.0))
+    );
+    assert_eq!(
+        snap.get("lower_strip").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(0.0, 568.0, 632.0, 32.0))
+    );
+    assert_eq!(
+        snap.get("status_help").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(15.0, 579.0, 455.0, 20.0))
     );
     assert_eq!(
         snap.get("checkbox_quick").map(|e| e.layout.rect),

@@ -3,5 +3,7 @@
 mod builder;
 mod node;
 
-pub use builder::{fixed_rect_leaf, root_with_fixed_children};
+pub use builder::{
+    column, fixed_rect_leaf, root_with_children, root_with_fixed_children, row, sized_leaf,
+};
 pub use node::{LayoutId, LayoutNode};

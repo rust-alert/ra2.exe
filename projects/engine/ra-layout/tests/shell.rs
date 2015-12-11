@@ -110,10 +110,10 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
         rect_px_from_snapshot(&snap, "map_name_plate"),
         RectPx::new(644, 157, 156, 84)
     );
-    // 玩家名 `0x6A0` DLU (35,11,100,12)。
+    // 玩家名：ComboFace 同行高 24（原 DLU h=12 → 20，改为与下拉面对齐）。
     assert_eq!(
         rect_px_from_snapshot(&snap, "player_name"),
-        RectPx::new(53, 18, 150, 20)
+        RectPx::new(53, 18, 150, 24)
     );
     // 快速游戏 `0x54E` DLU (35,145,100,10)。
     assert_eq!(
@@ -129,9 +129,14 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
         rect_px_from_snapshot(&snap, "label_speed"),
         RectPx::new(219, 236, 90, 16)
     );
+    // 对话框页也画壳层底条；提示贴 tooltip 带。
     assert_eq!(
         rect_px_from_snapshot(&snap, "lower_strip"),
-        RectPx::new(0, 0, 0, 0)
+        RectPx::new(0, 568, 632, 32)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "status_help"),
+        RectPx::new(15, 579, 455, 20)
     );
 }
 
@@ -178,7 +183,11 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
     );
     assert_eq!(
         rect_px_from_snapshot(&snap, "lower_strip"),
-        RectPx::new(0, 0, 0, 0)
+        RectPx::new(0, 568, 632, 32)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "status_help"),
+        RectPx::new(15, 579, 455, 20)
     );
 }
 

@@ -34,6 +34,14 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
         snap.get("map_list").map(|e| e.layout.rect),
         Some(Rect::from_xywh(252.0, 127.0, 195.0, 260.0))
     );
+    assert_eq!(
+        snap.get("lower_strip").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(0.0, 568.0, 632.0, 32.0))
+    );
+    assert_eq!(
+        snap.get("status_help").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(15.0, 579.0, 455.0, 20.0))
+    );
 
     assert_eq!(
         snap

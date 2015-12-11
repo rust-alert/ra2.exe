@@ -23,9 +23,12 @@ pub use reference::{
     NETWORK_BUTTON_IDS, OPTIONS_CONTENT_IDS, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS,
     COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
 };
-pub use spec::{fixed_rect_leaf, root_with_fixed_children, LayoutId, LayoutNode};
+pub use spec::{
+    column, fixed_rect_leaf, root_with_children, root_with_fixed_children, row, sized_leaf, LayoutId,
+    LayoutNode,
+};
 pub use policy::{
-    bottom_cover_button, right_panel_anchor, tile_snap_button, HorizontalRule, LayoutRules,
+    bottom_cover_button, right_panel_anchor, tile_snap_button, HorizontalRule, LayoutFlow, LayoutRules,
     RightPanelChrome, SizeRule, VerticalRule,
 };
 pub use shell::*;

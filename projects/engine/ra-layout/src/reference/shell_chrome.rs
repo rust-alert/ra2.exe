@@ -48,7 +48,7 @@ pub(crate) fn shell_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode>
     children
 }
 
-/// 对话框页共用的面板 / 影片区（不含底条、标题、提示，避免与模板控件 id 冲突）。
+/// 对话框页共用的面板 / 影片区 / 底装饰条（不含标题、提示，避免与模板控件 id 冲突）。
 pub(crate) fn shell_panel_chrome_children(chrome: RightPanelChrome) -> Vec<LayoutNode> {
     let panel_x = chrome.panel_x();
     let movie_w = panel_x;
@@ -71,6 +71,11 @@ pub(crate) fn shell_panel_chrome_children(chrome: RightPanelChrome) -> Vec<Layou
             Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H),
         ),
         fixed_rect_leaf("movie", Rect::from_xywh(0.0, 0.0, movie_w, MOVIE_H)),
+        // 与壳层菜单共用 `lwscrnl` 底条；提示文案由模板 `status_help`（ShellTooltip）承载。
+        fixed_rect_leaf(
+            "lower_strip",
+            Rect::from_xywh(0.0, chrome.shell_h - LOWER_STRIP_H, panel_x, LOWER_STRIP_H),
+        ),
     ]
 }
 

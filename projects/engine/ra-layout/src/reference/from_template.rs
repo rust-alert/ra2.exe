@@ -30,6 +30,20 @@ fn map_name_plate(chrome: RightPanelChrome) -> Rect {
     )
 }
 
+/// 壳层底栏提示带（与 `shell_chrome` tooltip 同几何）。
+fn shell_tooltip_rect(chrome: RightPanelChrome, desc: &DialogControlDesc) -> Rect {
+    const TOOLTIP_H: f32 = 20.0;
+    const TOOLTIP_BOTTOM_GAP: f32 = 1.0;
+    let base = dlu_of(desc);
+    let max_w = (chrome.panel_x() - base.x).max(1.0);
+    Rect::from_xywh(
+        base.x,
+        chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP,
+        base.width.min(max_w),
+        TOOLTIP_H,
+    )
+}
+
 /// 解析单个控件描述。
 pub(crate) fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelChrome) -> Rect {
     match desc.placement {
@@ -44,6 +58,7 @@ pub(crate) fn resolve_control_desc(desc: &DialogControlDesc, chrome: RightPanelC
             rect.height = 24.0;
             rect
         }
+        ControlPlacement::ShellTooltip => shell_tooltip_rect(chrome, desc),
     }
 }
 
@@ -55,7 +70,7 @@ pub(crate) fn shell_design_size(chrome: RightPanelChrome) -> Size2 {
     }
 }
 
-/// 对话框整页：面板 chrome（无底条 / 标题 / 提示）+ 模板控件，一次求解。
+/// 对话框整页：面板 chrome（含底条，不含标题 / 提示 id）+ 模板控件，一次求解。
 pub(crate) fn dialog_page_layout_tree(
     root_id: impl Into<String>,
     template: &DialogTemplate,
@@ -90,4 +105,42 @@ pub fn solve_skirmish_lobby() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| {
         dialog_page_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shell::{rect_px_from_snapshot, RectPx};
+
+    #[test]
+    fn skirmish_lobby_has_lower_strip_and_bottom_status() {
+        let snap = solve_skirmish_lobby();
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "lower_strip"),
+            RectPx::new(0, 568, 632, 32)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "status_help"),
+            RectPx::new(15, 579, 455, 20)
+        );
+        // 同行控件同高，避免名框 / 旗标矮于下拉面。
+        assert_eq!(rect_px_from_snapshot(&snap, "player_name").h, 24);
+        assert_eq!(rect_px_from_snapshot(&snap, "flag_0").h, 24);
+        assert_eq!(rect_px_from_snapshot(&snap, "side_face_0").h, 24);
+        assert_eq!(rect_px_from_snapshot(&snap, "color_face_0").h, 24);
+        assert_eq!(rect_px_from_snapshot(&snap, "ai_face_0").h, 24);
+    }
+
+    #[test]
+    fn choose_map_has_lower_strip_and_bottom_status() {
+        let snap = solve_choose_map();
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "lower_strip"),
+            RectPx::new(0, 568, 632, 32)
+        );
+        assert_eq!(
+            rect_px_from_snapshot(&snap, "status_help"),
+            RectPx::new(15, 579, 455, 20)
+        );
+    }
 }

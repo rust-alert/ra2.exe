@@ -31,6 +31,8 @@ pub enum ControlPlacement {
     MapNamePlate,
     /// DLU 换算后强制下拉面高度（壳层 combo face）。
     ComboFace,
+    /// 底栏悬停提示：贴壳层 `lower_strip` 内 tooltip 带（忽略模板 y）。
+    ShellTooltip,
 }
 
 /// 对话框模板中的单个控件描述（DLU，尚未求解）。
@@ -147,7 +149,7 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
             ctrl("label_game_map", 168, 60, 130, 10, ControlPlacement::PreserveDlu),
             ctrl("game_type_list", 20, 78, 130, 160, ControlPlacement::PreserveDlu),
             ctrl("map_list", 168, 78, 130, 160, ControlPlacement::PreserveDlu),
-            ctrl("status_help", 10, 282, 303, 12, ControlPlacement::PreserveDlu),
+            ctrl("status_help", 10, 282, 303, 12, ControlPlacement::ShellTooltip),
         ],
     }
 }
@@ -163,7 +165,7 @@ pub fn dialog_template_0x102() -> DialogTemplate {
         ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
         ctrl("game_type", 327, 103, 90, 10, ControlPlacement::RightPanelAnchor),
         ctrl("map_label", 327, 116, 90, 20, ControlPlacement::RightPanelAnchor),
-        ctrl("player_name", 35, 11, 100, 12, ControlPlacement::PreserveDlu),
+        ctrl("player_name", 35, 11, 100, 12, ControlPlacement::ComboFace),
         ctrl("checkbox_quick", 35, 145, 100, 10, ControlPlacement::PreserveDlu),
         ctrl("checkbox_1", 35, 162, 100, 10, ControlPlacement::PreserveDlu),
         ctrl("checkbox_2", 35, 179, 100, 10, ControlPlacement::PreserveDlu),
@@ -175,7 +177,7 @@ pub fn dialog_template_0x102() -> DialogTemplate {
         ctrl("label_speed", 146, 145, 60, 10, ControlPlacement::PreserveDlu),
         ctrl("label_credits", 146, 162, 60, 10, ControlPlacement::PreserveDlu),
         ctrl("label_units", 146, 179, 60, 10, ControlPlacement::PreserveDlu),
-        ctrl("status_help", 10, 282, 303, 12, ControlPlacement::PreserveDlu),
+        ctrl("status_help", 10, 282, 303, 12, ControlPlacement::ShellTooltip),
     ];
     // 行 y DLU：本地 11，其后每行 +16。
     for i in 0..8 {
@@ -186,7 +188,7 @@ pub fn dialog_template_0x102() -> DialogTemplate {
             y,
             32,
             12,
-            ControlPlacement::PreserveDlu,
+            ControlPlacement::ComboFace,
         ));
         controls.push(ctrl(
             &format!("side_face_{i}"),

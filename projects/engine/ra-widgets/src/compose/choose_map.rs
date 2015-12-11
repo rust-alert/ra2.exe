@@ -156,6 +156,7 @@ pub fn compose_choose_map_page(
 
     paint_choose_map_scrollbar(&mut page, map_list, map_names.len(), visible_rows, scroll);
 
+    let status_help = rect_px_from_snapshot(&snap, "status_help");
     if let Some(fnt) = fnt {
         let title_text = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title_text, title);
@@ -187,6 +188,16 @@ pub fn compose_choose_map_page(
             label_game_map.y,
             MENU_TEXT_ENABLED,
         );
+        if let Some(text) = status_text.filter(|s| !s.is_empty()) {
+            blit_text_colored(
+                &mut page,
+                fnt,
+                text,
+                status_help.x,
+                text_y_centered(fnt, status_help),
+                MENU_TEXT_ENABLED,
+            );
+        }
     }
 
     Some(page)

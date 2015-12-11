@@ -119,9 +119,13 @@ pub(super) fn blit_skirmish_preview_chrome(page: &mut RgbaImage, decoded: &PageD
 
 /// 右栏静态标题：对话框静态控件左对齐，垂直在格内居中（勿按按钮格水平居中）。
 pub(super) fn blit_shell_static_title(page: &mut RgbaImage, fnt: &FntFile, text: &str, cell: RectPx) {
+    blit_text_colored(page, fnt, text, cell.x, text_y_centered(fnt, cell), MENU_TEXT_ENABLED);
+}
+
+/// 控件格内文字基线 y：按字高垂直居中。
+pub(super) fn text_y_centered(fnt: &FntFile, cell: RectPx) -> i32 {
     let th = fnt.bitmap_rows as i32;
-    let y = cell.y + ((cell.h - th).max(0) / 2);
-    blit_text_colored(page, fnt, text, cell.x, y, MENU_TEXT_ENABLED);
+    cell.y + ((cell.h - th).max(0) / 2)
 }
 
 pub(super) fn find_button_normal<'a>(decoded: &'a PageDecodeReport, entry_id: &str) -> Option<&'a DecodedUiSprite> {

@@ -226,17 +226,17 @@ pub(super) fn paint_skirmish_lobby_controls(
             fnt,
             &name_shown,
             player_name.x + 4,
-            player_name.y + 2,
+            text_y_centered(fnt, player_name),
             if paint.player_name_editing { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
         );
         let country = row_side_name(paint, 0);
         let side0 = row_r("side_face", 0);
-        blit_text_colored(page, fnt, country, side0.x + 4, side0.y + 4, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, country, side0.x + 4, text_y_centered(fnt, side0), MENU_TEXT_ENABLED);
 
         let ai_label = if paint.ai_name.is_empty() { paint.ai_difficulty.to_string() } else { paint.ai_name.to_string() };
         for i in 0..ai_rows {
             let ai = row_r("ai_face", i);
-            blit_text_colored(page, fnt, &ai_label, ai.x + 4, ai.y + 4, MENU_TEXT_ENABLED);
+            blit_text_colored(page, fnt, &ai_label, ai.x + 4, text_y_centered(fnt, ai), MENU_TEXT_ENABLED);
             let human_row = i + 1;
             if human_row < SKIRMISH_ROW_COUNT {
                 let side = row_r("side_face", human_row);
@@ -245,7 +245,7 @@ pub(super) fn paint_skirmish_lobby_controls(
                     fnt,
                     row_side_name(paint, human_row),
                     side.x + 4,
-                    side.y + 4,
+                    text_y_centered(fnt, side),
                     MENU_TEXT_ENABLED,
                 );
             }
@@ -260,21 +260,32 @@ pub(super) fn paint_skirmish_lobby_controls(
         ];
         for (i, (key, fb)) in check_labels.iter().enumerate() {
             let box_r = r(CHECK_IDS[i]);
-            blit_text_colored(page, fnt, &label(key, fb), box_r.x + SKIRMISH_CHECK_W + 8, box_r.y + 1, MENU_TEXT_ENABLED);
+            let check_cell = RectPx::new(box_r.x, box_r.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(box_r.h.max(SKIRMISH_CHECK_H)));
+            blit_text_colored(
+                page,
+                fnt,
+                &label(key, fb),
+                box_r.x + SKIRMISH_CHECK_W + 8,
+                text_y_centered(fnt, check_cell),
+                MENU_TEXT_ENABLED,
+            );
         }
 
         let label_speed = r("label_speed");
         let label_credits = r("label_credits");
         let label_units = r("label_units");
-        blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), label_speed.x, label_speed.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("credits", "Credits"), label_credits.x, label_credits.y, MENU_TEXT_ENABLED);
-        blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), label_units.x, label_units.y, MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("game_speed", "Game Speed"), label_speed.x, text_y_centered(fnt, label_speed), MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("credits", "Credits"), label_credits.x, text_y_centered(fnt, label_credits), MENU_TEXT_ENABLED);
+        blit_text_colored(page, fnt, &label("unit_count", "Unit Count"), label_units.x, text_y_centered(fnt, label_units), MENU_TEXT_ENABLED);
         // 数值画在右侧底板内；源色 0x00000C05 → RGB(5,12,0)。
         const TRACK_VALUE: [u8; 4] = [5, 12, 0, 255];
-        let value_x = |track: RectPx| track.x + track.w - 0x31;
-        blit_text_colored(page, fnt, &paint.game_speed.to_string(), value_x(track_speed), track_speed.y + 2, TRACK_VALUE);
-        blit_text_colored(page, fnt, &paint.credits.to_string(), value_x(track_credits), track_credits.y + 2, TRACK_VALUE);
-        blit_text_colored(page, fnt, &paint.unit_count.to_string(), value_x(track_units), track_units.y + 2, TRACK_VALUE);
+        let paint_track_value = |page: &mut RgbaImage, track: RectPx, text: &str| {
+            let plaque = track_plaque_rect(track);
+            blit_text_colored(page, fnt, text, plaque.x + 4, text_y_centered(fnt, plaque), TRACK_VALUE);
+        };
+        paint_track_value(page, track_speed, &paint.game_speed.to_string());
+        paint_track_value(page, track_credits, &paint.credits.to_string());
+        paint_track_value(page, track_units, &paint.unit_count.to_string());
     }
 
     if paint.country_combo_open && !paint.sides.is_empty() {
@@ -300,7 +311,7 @@ pub(super) fn paint_skirmish_lobby_controls(
                 .filter(|s| !s.is_empty())
                 .unwrap_or(side.as_str());
             if let Some(fnt) = fnt {
-                blit_text_colored(page, fnt, label, row.x + 4, row.y + 4, if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
+                blit_text_colored(page, fnt, label, row.x + 4, text_y_centered(fnt, row), if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
             }
         }
     }
@@ -332,7 +343,7 @@ pub(super) fn paint_skirmish_lobby_controls(
             }
             if let Some(fnt) = fnt {
                 let label = resolve_caption(csf, diff, Some(crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(diff)));
-                blit_text_colored(page, fnt, &label, row.x + 4, row.y + 4, if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
+                blit_text_colored(page, fnt, &label, row.x + 4, text_y_centered(fnt, row), if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
             }
         }
     }
@@ -386,7 +397,14 @@ pub fn compose_skirmish_lobby_page(
         let title_text = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title_text, title);
         if !paint.game_type_name.is_empty() {
-            blit_text_colored(&mut page, fnt, paint.game_type_name, game_type.x, game_type.y, MENU_TEXT_ENABLED);
+            blit_text_colored(
+                &mut page,
+                fnt,
+                paint.game_type_name,
+                game_type.x,
+                text_y_centered(fnt, game_type),
+                MENU_TEXT_ENABLED,
+            );
         }
         if !paint.map_name.is_empty() {
             blit_caption_top_left_clipped(
@@ -404,9 +422,16 @@ pub fn compose_skirmish_lobby_page(
 
     paint_skirmish_lobby_controls(&mut page, &snap, paint, fnt, csf);
 
-    // 底栏状态提示：壳层打字机可见切片。
+    // 底栏状态提示：贴 `lower_strip` 内 ShellTooltip 带（壳层打字机可见切片）。
     if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
-        blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
+        blit_text_colored(
+            &mut page,
+            fnt,
+            text,
+            status_help.x,
+            text_y_centered(fnt, status_help),
+            MENU_TEXT_ENABLED,
+        );
     }
 
     Some(page)
