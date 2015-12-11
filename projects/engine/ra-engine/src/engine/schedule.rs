@@ -17,6 +17,8 @@ pub enum SystemPhase {
     RefineryIncome,
     /// 工厂生产推进。
     Production,
+    /// 超武效果（闪电风暴倒计时与光照档切换）。
+    Powers,
     /// 重算状态摘要。
     Rehash,
 }
@@ -32,6 +34,7 @@ impl SystemPhase {
             Self::Turrets,
             Self::RefineryIncome,
             Self::Production,
+            Self::Powers,
             Self::Rehash,
         ]
     }

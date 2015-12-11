@@ -112,6 +112,21 @@ impl BattleState {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
+        h = h
+            .wrapping_mul(1099511628211)
+            .wrapping_add(match self.map.lighting_profile {
+                ra_map::LightingProfile::Normal => 0,
+                ra_map::LightingProfile::Ion => 1,
+            });
+        if let Some(storm) = &self.lightning_storm {
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(1)
+                .wrapping_add(u64::from(storm.target_x))
+                .wrapping_add((u64::from(storm.target_y)) << 16)
+                .wrapping_add((storm.deferment_remaining as u64) << 32)
+                .wrapping_add(storm.duration_remaining as u64);
+        }
         self.state_hash = h;
     }
 }

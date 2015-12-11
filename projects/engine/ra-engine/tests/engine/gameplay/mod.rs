@@ -6,5 +6,6 @@ mod construction;
 mod deploy;
 mod economy;
 mod movement;
+mod powers;
 mod production;
 mod targeting;

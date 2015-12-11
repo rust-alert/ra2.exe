@@ -101,6 +101,8 @@ pub struct BattleState {
     pub(crate) state_hash: u64,
     /// 呈现脏实体集（增量 `RenderWorld` 用；与全量 snapshot 并存）。
     pub(crate) presentation_dirty: DirtyEntitySet,
+    /// 当前闪电风暴（同时最多一场；驱动 Ion 光照档）。
+    pub lightning_storm: Option<crate::gameplay::LightningStormState>,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -187,6 +189,7 @@ impl BattleState {
             seen_command_ids: HashSet::new(),
             state_hash: 0,
             presentation_dirty: DirtyEntitySet::new(),
+            lightning_storm: None,
             ecs,
         };
         for bundle in seed_bundles {
@@ -751,6 +754,7 @@ impl BattleState {
                 SystemPhase::Turrets => self.advance_turrets(),
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
+                SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
                 SystemPhase::Rehash => {
                     self.sync_ecs_components();
                     self.rehash();
