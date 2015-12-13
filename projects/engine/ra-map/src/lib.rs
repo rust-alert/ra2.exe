@@ -28,6 +28,7 @@ mod theater;
 mod tileset;
 mod tmp_pass;
 mod waypoints;
+mod weather_particles;
 
 /// Base64 编解码（地图二进制段）。
 pub mod base64;
@@ -93,6 +94,7 @@ pub use theater::{
 pub use tileset::{CLEAR_TILE_SENTINEL, TilesetLookup, normalize_tile_ref, parse_tileset_ini};
 pub use tmp_pass::seal_pass_grid_from_tmp;
 pub use waypoints::{Waypoint, parse_waypoints, skirmish_start_waypoint};
+pub use weather_particles::{WeatherKind, WeatherParticleField};
 
 /// 地图基本信息（可附带已解码的 IsoMapPack / Overlay / Terrain / 放置 / 航点）。
 #[derive(Debug, Clone)]

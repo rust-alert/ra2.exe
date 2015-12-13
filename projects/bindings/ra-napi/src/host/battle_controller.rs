@@ -20,8 +20,8 @@ use ra_layout::{
     solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, collect_structure_anim_bank,
-    iso_to_screen, load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, WeatherParticleField,
+    collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba,
     paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
@@ -164,6 +164,12 @@ pub struct BattleController {
     action_lines_start_tick: Option<u64>,
     /// 当前地图剧院（壳层挂载剧院 MIX 用）。
     map_theater: Option<Theater>,
+    /// 天气氛围粒子（呈现层；雪地剧院默认飘雪）。
+    weather: WeatherParticleField,
+    /// 天气粒子时钟起点。
+    weather_started: Instant,
+    /// 上一帧已推进的天气毫秒（避免重复 tick）。
+    weather_last_ms: u64,
 }
 
 impl BattleController {
@@ -172,6 +178,11 @@ impl BattleController {
         let edition = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.edition.as_str()).unwrap_or("—");
         let has_session = boot.session.as_ref().and_then(|s| s.battle()).is_some();
         let map_theater = boot.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
+        let weather = match (map_theater, boot.preview_base.as_ref()) {
+            (Some(theater), Some(img)) => WeatherParticleField::for_theater(theater, img.width(), img.height()),
+            (Some(theater), None) => WeatherParticleField::for_theater(theater, 1, 1),
+            _ => WeatherParticleField::none(),
+        };
         let mut this = Self {
             engine: boot.engine,
             session: boot.session,
@@ -214,6 +225,9 @@ impl BattleController {
             edge_scroll_cursor: EdgeScrollCursor::Default,
             action_lines_start_tick: None,
             map_theater,
+            weather,
+            weather_started: Instant::now(),
+            weather_last_ms: 0,
         };
         this.bind_local_start();
         this
@@ -355,6 +369,13 @@ impl BattleController {
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
         self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
+        self.weather = match (self.map_theater, self.preview_base.as_ref()) {
+            (Some(theater), Some(img)) => WeatherParticleField::for_theater(theater, img.width(), img.height()),
+            (Some(theater), None) => WeatherParticleField::for_theater(theater, 1, 1),
+            _ => WeatherParticleField::none(),
+        };
+        self.weather_started = Instant::now();
+        self.weather_last_ms = 0;
         self.start_view_pending = self.has_session();
         if self.has_session() {
             let edition = self
@@ -1676,7 +1697,7 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
     }
 
-    /// 上传当前 `preview_base`（可叠活动层）。定格后即使无 ActiveAnim 也必须调用。
+    /// 上传当前 `preview_base`（可叠活动层与天气粒子）。定格后即使无 ActiveAnim 也必须调用。
     fn present_preview_base(&mut self, renderer: &mut Renderer) {
         let Some(base) = self.preview_base.as_ref()
         else {
@@ -1697,27 +1718,42 @@ impl BattleController {
         else {
             self.last_anim_sig = 0;
         }
+        self.paint_weather_onto(&mut composed);
         renderer.update_map_preview(composed);
     }
 
-    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机），不重置相机。
+    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）与天气粒子，不重置相机。
     fn refresh_structure_anims(&mut self, renderer: &mut Renderer) {
-        if self.structure_anims.is_empty() {
-            return;
-        }
         let Some(base) = self.preview_base.as_ref()
         else {
             return;
         };
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
         let sig = self.structure_anims.frame_signature(clock_ms);
-        if sig == self.last_anim_sig {
+        let weather_active = self.weather.is_active();
+        if !weather_active && (self.structure_anims.is_empty() || sig == self.last_anim_sig) {
             return;
         }
         let mut composed = base.clone();
-        paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
+        if !self.structure_anims.is_empty() {
+            paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
+        }
+        self.paint_weather_onto(&mut composed);
         renderer.update_map_preview(composed);
         self.last_anim_sig = sig;
+    }
+
+    /// 按预览尺寸推进并叠画天气粒子。
+    fn paint_weather_onto(&mut self, image: &mut RgbaImage) {
+        if self.map_theater.is_none() && !self.weather.is_active() {
+            return;
+        }
+        self.weather.resize(image.width(), image.height());
+        let now_ms = self.weather_started.elapsed().as_millis() as u64;
+        let dt = now_ms.saturating_sub(self.weather_last_ms);
+        self.weather_last_ms = now_ms;
+        self.weather.tick(dt);
+        self.weather.paint_onto(image);
     }
 
     fn local_house_name(&self) -> Option<String> {
