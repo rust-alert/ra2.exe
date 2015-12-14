@@ -76,20 +76,89 @@ pub(crate) fn dialog_page_layout_tree(
     template: &DialogTemplate,
     chrome: RightPanelChrome,
 ) -> LayoutNode {
+    dialog_page_layout_tree_ex(root_id, template, chrome, false)
+}
+
+/// 同 [`dialog_page_layout_tree`]；`center_left_form` 时把左栏表单块在内容区居中。
+pub(crate) fn dialog_page_layout_tree_ex(
+    root_id: impl Into<String>,
+    template: &DialogTemplate,
+    chrome: RightPanelChrome,
+    center_left_form: bool,
+) -> LayoutNode {
     let mut children = shell_panel_chrome_children(chrome);
-    children.extend(dialog_control_children(template, chrome));
+    children.extend(dialog_control_children(template, chrome, center_left_form));
     root_with_fixed_children(root_id, shell_design_size(chrome), children)
 }
 
-fn dialog_control_children(template: &DialogTemplate, chrome: RightPanelChrome) -> Vec<LayoutNode> {
+fn is_left_content_placement(placement: ControlPlacement) -> bool {
+    matches!(
+        placement,
+        ControlPlacement::PreserveDlu | ControlPlacement::ComboFace
+    )
+}
+
+/// 将左栏表单块在内容区（右栏左侧）水平+垂直居中，避免贴左上角。
+fn center_rects_in_content_area(rects: &mut [Rect], chrome: RightPanelChrome) {
+    if rects.is_empty() {
+        return;
+    }
+    const MARGIN: f32 = 28.0;
+    const BOTTOM_RESERVE: f32 = 48.0;
+    let panel_x = chrome.panel_x();
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_r = f32::NEG_INFINITY;
+    let mut max_b = f32::NEG_INFINITY;
+    for r in rects.iter() {
+        min_x = min_x.min(r.x);
+        min_y = min_y.min(r.y);
+        max_r = max_r.max(r.x + r.width);
+        max_b = max_b.max(r.y + r.height);
+    }
+    let block_w = (max_r - min_x).max(0.0);
+    let block_h = (max_b - min_y).max(0.0);
+    let avail_w = (panel_x - MARGIN * 2.0).max(0.0);
+    let avail_h = (chrome.shell_h - BOTTOM_RESERVE - MARGIN * 2.0).max(0.0);
+    let offset_x = MARGIN + (avail_w - block_w).max(0.0) * 0.5 - min_x;
+    let offset_y = MARGIN + (avail_h - block_h).max(0.0) * 0.5 - min_y;
+    for r in rects.iter_mut() {
+        r.x += offset_x;
+        r.y += offset_y;
+    }
+}
+
+fn dialog_control_children(
+    template: &DialogTemplate,
+    chrome: RightPanelChrome,
+    center_left_form: bool,
+) -> Vec<LayoutNode> {
+    let mut left: Vec<(String, Rect)> = Vec::new();
+    let mut other: Vec<(String, Rect)> = Vec::new();
     let mut controls: Vec<&DialogControlDesc> = template.controls.iter().collect();
     controls.sort_by_key(|c| match c.placement {
         ControlPlacement::TileSnap | ControlPlacement::BottomCoverButton => 1_u8,
         _ => 0,
     });
-    controls
-        .into_iter()
-        .map(|c| fixed_rect_leaf(c.id.0.clone(), resolve_control_desc(c, chrome)))
+    for c in controls {
+        let rect = resolve_control_desc(c, chrome);
+        if is_left_content_placement(c.placement) {
+            left.push((c.id.0.clone(), rect));
+        } else {
+            other.push((c.id.0.clone(), rect));
+        }
+    }
+    if center_left_form {
+        let mut left_rects: Vec<Rect> = left.iter().map(|(_, r)| *r).collect();
+        center_rects_in_content_area(&mut left_rects, chrome);
+        for (i, r) in left_rects.into_iter().enumerate() {
+            left[i].1 = r;
+        }
+    }
+
+    left.into_iter()
+        .chain(other)
+        .map(|(id, rect)| fixed_rect_leaf(id, rect))
         .collect()
 }
 
@@ -100,10 +169,10 @@ pub fn solve_choose_map() -> LayoutSnapshot {
     })
 }
 
-/// 遭遇战大厅：面板 chrome + `0x102` 模板 → 一次 snapshot。
+/// 遭遇战大厅：面板 chrome + `0x102` 模板 → 左栏表单在内容区居中。
 pub fn solve_skirmish_lobby() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| {
-        dialog_page_layout_tree("dialog_0x102", &dialog_template_0x102(), chrome)
+        dialog_page_layout_tree_ex("dialog_0x102", &dialog_template_0x102(), chrome, true)
     })
 }
 
@@ -123,12 +192,33 @@ mod tests {
             rect_px_from_snapshot(&snap, "status_help"),
             RectPx::new(15, 579, 455, 20)
         );
-        // 同行控件同高，避免名框 / 旗标矮于下拉面。
         assert_eq!(rect_px_from_snapshot(&snap, "player_name").h, 24);
         assert_eq!(rect_px_from_snapshot(&snap, "flag_0").h, 24);
         assert_eq!(rect_px_from_snapshot(&snap, "side_face_0").h, 24);
         assert_eq!(rect_px_from_snapshot(&snap, "color_face_0").h, 24);
         assert_eq!(rect_px_from_snapshot(&snap, "ai_face_0").h, 24);
+    }
+
+    #[test]
+    fn skirmish_lobby_form_is_centered_in_content_area() {
+        let snap = solve_skirmish_lobby();
+        let chrome = RightPanelChrome::shell_defaults();
+        let panel_x = chrome.panel_x() as i32;
+        let name = rect_px_from_snapshot(&snap, "player_name");
+        let color = rect_px_from_snapshot(&snap, "color_face_0");
+        let check = rect_px_from_snapshot(&snap, "checkbox_4");
+        let left = name.x;
+        let right = color.x + color.w;
+        let right2 = check.x + check.w;
+        let right = right.max(right2);
+        let mid = (left + right) / 2;
+        let content_mid = panel_x / 2;
+        assert!(
+            (mid - content_mid).abs() <= 4,
+            "form mid {mid} should near content mid {content_mid} (left={left} right={right})"
+        );
+        // 不再贴顶：首行应明显低于旧 DLU y≈18。
+        assert!(name.y >= 40, "player_name.y={} should leave top margin", name.y);
     }
 
     #[test]

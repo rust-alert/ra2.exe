@@ -110,25 +110,20 @@ fn skirmish_lobby_matches_game_exe_dialog_0x102() {
         rect_px_from_snapshot(&snap, "map_name_plate"),
         RectPx::new(644, 157, 156, 84)
     );
-    // 玩家名：ComboFace 同行高 24（原 DLU h=12 → 20，改为与下拉面对齐）。
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "player_name"),
-        RectPx::new(53, 18, 150, 24)
-    );
-    // 快速游戏 `0x54E` DLU (35,145,100,10)。
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "checkbox_quick"),
-        RectPx::new(53, 236, 150, 16)
-    );
-    // 速度滑条 `0x529` DLU (214,145,85,13)。
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "track_speed"),
-        RectPx::new(321, 236, 128, 21)
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "label_speed"),
-        RectPx::new(219, 236, 90, 16)
-    );
+    // 左栏表单：内容区居中（固有尺寸不变，原点随居中偏移）。
+    let player_name = rect_px_from_snapshot(&snap, "player_name");
+    assert_eq!((player_name.w, player_name.h), (150, 24));
+    assert!(player_name.y >= 40, "top margin");
+    let color = rect_px_from_snapshot(&snap, "color_face_0");
+    let check4 = rect_px_from_snapshot(&snap, "checkbox_4");
+    let right = (color.x + color.w).max(check4.x + check4.w);
+    let mid = (player_name.x + right) / 2;
+    assert!((mid - 316).abs() <= 4, "form mid {mid}");
+    let checkbox_quick = rect_px_from_snapshot(&snap, "checkbox_quick");
+    assert_eq!((checkbox_quick.w, checkbox_quick.h), (150, 16));
+    let track_speed = rect_px_from_snapshot(&snap, "track_speed");
+    assert_eq!((track_speed.w, track_speed.h), (128, 21));
+    assert_eq!(checkbox_quick.y, track_speed.y);
     // 对话框页也画壳层底条；提示贴 tooltip 带。
     assert_eq!(
         rect_px_from_snapshot(&snap, "lower_strip"),

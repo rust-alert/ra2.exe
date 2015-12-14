@@ -397,17 +397,19 @@ pub fn compose_skirmish_lobby_page(
         let title_text = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title_text, title);
         if !paint.game_type_name.is_empty() {
-            blit_text_colored(
+            blit_caption_in_cell(
                 &mut page,
                 fnt,
                 paint.game_type_name,
                 game_type.x,
-                text_y_centered(fnt, game_type),
+                game_type.y,
+                game_type.w,
+                game_type.h,
                 MENU_TEXT_ENABLED,
             );
         }
         if !paint.map_name.is_empty() {
-            blit_caption_top_left_clipped(
+            blit_caption_in_cell(
                 &mut page,
                 fnt,
                 paint.map_name,
@@ -424,12 +426,14 @@ pub fn compose_skirmish_lobby_page(
 
     // 底栏状态提示：贴 `lower_strip` 内 ShellTooltip 带（壳层打字机可见切片）。
     if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
-        blit_text_colored(
+        blit_caption_in_cell(
             &mut page,
             fnt,
             text,
             status_help.x,
-            text_y_centered(fnt, status_help),
+            status_help.y,
+            status_help.w,
+            status_help.h,
             MENU_TEXT_ENABLED,
         );
     }
