@@ -497,6 +497,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             allow_retry: false,
             progress: 0.5,
             brief_csf_override: None,
+            special_ui_name: None,
         },
     )
     .unwrap();
@@ -522,6 +523,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             allow_retry: true,
             progress: 1.0,
             brief_csf_override: None,
+            special_ui_name: None,
         },
     )
     .unwrap();

@@ -17,6 +17,10 @@ pub struct LoadScreenPaint<'a> {
     pub progress: f32,
     /// 简报 CSF 覆盖（战役 `DESC:*`）；`None` 时按 `side` 走国家 `LOADBRIEF`。
     pub brief_csf_override: Option<&'a str>,
+    /// 特色兵种 CSF 键（来自 [`ra_assets::CountryDef::special_ui_name`]，经资源链 rules）。
+    ///
+    /// `None` / 空串：不画特色名。原版与模组都允许缺失，禁止回退国家→兵种写死表。
+    pub special_ui_name: Option<&'a str>,
 }
 
 /// 合成进战斗装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
@@ -55,18 +59,24 @@ pub fn compose_load_screen_page(
     }
 
     if let Some(fnt) = fnt {
-        let special_key = load_screen_special_unit_csf_key(paint.side);
-        if let Some(special_text) = resolve_csf_text(csf, special_key) {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                &special_text,
-                special.x,
-                special.y,
-                special.w,
-                special.h,
-                LOAD_SCREEN_TEXT_TITLE,
-            );
+        // 特色名：rules 派生 UIName → 胜出 CSF。键空或 CSF 无文案则整行省略。
+        if let Some(special_key) = paint
+            .special_ui_name
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if let Some(special_text) = resolve_csf_text(csf, special_key) {
+                blit_caption_top_left_clipped(
+                    &mut page,
+                    fnt,
+                    &special_text,
+                    special.x,
+                    special.y,
+                    special.w,
+                    special.h,
+                    LOAD_SCREEN_TEXT_TITLE,
+                );
+            }
         }
 
         let brief_key = paint

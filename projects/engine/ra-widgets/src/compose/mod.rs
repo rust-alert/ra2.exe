@@ -13,7 +13,7 @@ use crate::{
         blit_caption_top_left_clipped, blit_caption_wrapped, blit_text_colored, campaign_csf_label,
         campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key,
         choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
-        load_screen_loading_csf_key, load_screen_name_csf_key, load_screen_special_unit_csf_key, main_menu_csf_label,
+        load_screen_loading_csf_key, load_screen_name_csf_key, main_menu_csf_label,
         options_csf_label, options_dialog_csf_key, battle_pause_menu_csf_label, resolve_caption, resolve_csf_text,
         single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
         skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,

@@ -77,7 +77,10 @@ impl Shell {
                 self.ensure_lobby_sides();
                 self.ensure_lobby_preview();
             }
-            if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby) {
+            if matches!(
+                self.screen,
+                OriginalScreen::Campaign | OriginalScreen::SkirmishLobby | OriginalScreen::LoadScreen
+            ) {
                 self.ensure_lobby_sides();
                 self.ensure_skirmish_chrome();
             }
@@ -324,7 +327,15 @@ impl Shell {
                             0,
                         )
                     }
-                    OriginalScreen::LoadScreen => compose::compose_load_screen_page(
+                    OriginalScreen::LoadScreen => {
+                        // 特色兵种：`CountryDef.special_ui_name`（rules 资源链）；空则装载页不画。
+                        let special_ui_name = self
+                            .lobby_countries
+                            .iter()
+                            .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()))
+                            .map(|c| c.special_ui_name.as_str())
+                            .filter(|s| !s.is_empty());
+                        compose::compose_load_screen_page(
                         decoded,
                         self.window_width as u32,
                         self.window_height as u32,
@@ -340,8 +351,10 @@ impl Shell {
                             allow_retry: load_allow_retry,
                             progress: load_progress,
                             brief_csf_override: self.load_brief_csf.as_deref(),
+                            special_ui_name,
                         },
-                    ),
+                    )
+                    }
                     _ => None,
                 };
                 if let Some(page) = page {
@@ -381,6 +394,12 @@ impl Shell {
                         allow_retry: load_allow_retry,
                         progress: load_progress,
                         brief_csf_override: self.load_brief_csf.as_deref(),
+                        special_ui_name: self
+                            .lobby_countries
+                            .iter()
+                            .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()))
+                            .map(|c| c.special_ui_name.as_str())
+                            .filter(|s| !s.is_empty()),
                     },
                 ) {
                     self.upload_ui_page(page);

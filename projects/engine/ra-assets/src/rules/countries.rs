@@ -21,6 +21,12 @@ pub struct CountryDef {
     pub multiplay: bool,
     /// `MultiplayObsolete=` 是否从多人表中废弃。
     pub multiplay_obsolete: bool,
+    /// 装载页特色兵种 CSF 键（资源链派生，非国家→兵种写死表）。
+    ///
+    /// 取自 rules：`RequiredHouses` 恰为本国的类型之 `UIName`；建筑若挂
+    /// `SuperWeapon=` 则改用该超武的 `UIName`（如美军空降）。
+    /// 空串表示无特色可画——原版/模组均允许缺失，装载页应跳过该行。
+    pub special_ui_name: String,
 }
 
 impl CountryDef {
@@ -49,7 +55,10 @@ pub struct CountryRegistry {
 impl CountryRegistry {
     /// 从 rules 文档解析；缺节则空表。
     pub fn from_rules(rules: &IniDocument) -> Self {
-        let countries = parse_countries(rules);
+        let mut countries = parse_countries(rules);
+        for c in &mut countries {
+            c.special_ui_name = resolve_country_special_ui_name(rules, &c.id);
+        }
         let sides = parse_sides(rules);
         Self { countries, sides }
     }
@@ -133,7 +142,60 @@ fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
         side: get("Side"),
         multiplay,
         multiplay_obsolete,
+        special_ui_name: String::new(),
     }
+}
+
+/// 解析该国装载页特色兵种 CSF 键（`RequiredHouses` → 类型/`SuperWeapon` 的 `UIName`）。
+///
+/// 扫描顺序：步兵 → 飞行器 → 载具 → 建筑（与常见「特色兵种」优先级一致；同国多条时取先命中）。
+/// 未命中返回空串：调用方不得回退到写死表，装载页不画特色名即可。
+pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) -> String {
+    for list in ["InfantryTypes", "AircraftTypes", "VehicleTypes", "BuildingTypes"] {
+        let Some(sec) = rules.section(list)
+        else {
+            continue;
+        };
+        for (_key, type_id) in sec.pairs() {
+            let type_id = type_id.trim();
+            if type_id.is_empty() {
+                continue;
+            }
+            let Some(techno) = rules.section(type_id)
+            else {
+                continue;
+            };
+            if !required_houses_is_exactly(techno.get("RequiredHouses").unwrap_or(""), country_id) {
+                continue;
+            }
+            // 建筑特色常是「空指部挂空降」：优先超武 UIName，避免画出建筑名。
+            if list == "BuildingTypes" {
+                if let Some(sw) = techno.get("SuperWeapon").map(str::trim).filter(|s| !s.is_empty()) {
+                    if let Some(sw_ui) = rules
+                        .section(sw)
+                        .and_then(|s| s.get("UIName"))
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                    {
+                        return sw_ui.to_string();
+                    }
+                }
+            }
+            if let Some(ui) = techno.get("UIName").map(str::trim).filter(|s| !s.is_empty()) {
+                return ui.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
+    let houses: Vec<&str> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    houses.len() == 1 && houses[0].eq_ignore_ascii_case(country_id)
 }
 
 fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
@@ -237,5 +299,48 @@ Civilian=Neutral
         let reg = CountryRegistry::from_rules(&doc);
         let ids: Vec<_> = reg.skirmish_countries().iter().map(|c| c.id.as_str()).collect();
         assert_eq!(ids, vec!["Americans", "French", "Russians", "YuriCountry"]);
+    }
+
+    #[test]
+    fn special_ui_name_from_required_houses_and_superweapon() {
+        const RULES: &str = r#"
+[Countries]
+0=Americans
+1=Confederation
+
+[Americans]
+Multiplay=yes
+[Confederation]
+Multiplay=yes
+
+[InfantryTypes]
+0=TERROR
+1=E1
+
+[TERROR]
+UIName=Name:TERROR
+RequiredHouses=Confederation
+
+[E1]
+UIName=Name:E1
+
+[BuildingTypes]
+0=GAPILE
+
+[GAPILE]
+UIName=Name:GAPILE
+RequiredHouses=Americans
+SuperWeapon=ParaDrop
+
+[SuperWeaponTypes]
+0=ParaDrop
+
+[ParaDrop]
+UIName=Name:PARA
+"#;
+        let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
+        let reg = CountryRegistry::from_rules(&doc);
+        assert_eq!(reg.get("Confederation").unwrap().special_ui_name, "Name:TERROR");
+        assert_eq!(reg.get("Americans").unwrap().special_ui_name, "Name:PARA");
     }
 }

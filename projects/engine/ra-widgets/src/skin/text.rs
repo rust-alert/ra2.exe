@@ -242,22 +242,6 @@ pub fn load_screen_brief_csf_key(side: &str) -> String {
     format!("LOADBRIEF:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
 }
 
-/// 装载页特色兵种名 CSF（如美国 `NAME:PARA`＝伞兵）。
-pub fn load_screen_special_unit_csf_key(side: &str) -> &'static str {
-    match crate::skirmish_setup::load_screen_brief_suffix(side) {
-        "USA" => "NAME:PARA",
-        "FRENCH" => "NAME:GTGCAN",
-        "GERMANS" => "NAME:TNKD",
-        "BRITISH" => "NAME:SNIPE",
-        "RUSSIA" => "NAME:TTNK",
-        "KOREA" => "NAME:BEAGLE",
-        "CUBA" => "NAME:TERROR",
-        "IRAQ" => "NAME:DESO",
-        "LYBIA" => "NAME:DTRUCK",
-        _ => "NAME:PARA",
-    }
-}
-
 /// 装载页「载入中」CSF。
 pub fn load_screen_loading_csf_key() -> &'static str {
     "GUI:LOADINGEX"
