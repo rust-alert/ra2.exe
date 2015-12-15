@@ -8,7 +8,7 @@ use crate::{
 pub fn solve_battle_pause() -> LayoutSnapshot {
     solve_shell_page(
         "battle_pause",
-        &BATTLE_PAUSE_MENU_BUTTON_IDS[..5],
-        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[5]),
+        &BATTLE_PAUSE_MENU_BUTTON_IDS[..3],
+        Some(BATTLE_PAUSE_MENU_BUTTON_IDS[3]),
     )
 }

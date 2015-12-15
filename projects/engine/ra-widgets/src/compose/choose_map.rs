@@ -48,6 +48,8 @@ pub fn compose_choose_map_page(
     let title = rect_px_from_snapshot(&snap, "title");
     let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
     let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");
+    let game_type_slot = rect_px_from_snapshot(&snap, "game_type");
+    let map_label_slot = rect_px_from_snapshot(&snap, "map_label");
     let label_engagement = rect_px_from_snapshot(&snap, "label_engagement");
     let label_game_type = rect_px_from_snapshot(&snap, "label_game_type");
     let label_game_map = rect_px_from_snapshot(&snap, "label_game_map");
@@ -87,18 +89,33 @@ pub fn compose_choose_map_page(
     if let Some(preview) = map_preview {
         blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }
-    if let (Some(fnt), Some(caption)) = (fnt, selected_map_caption.filter(|s| !s.is_empty())) {
-        // 信息板：在 `map_name_plate` 上画当前选中地图名（与大厅右栏地图名同角色）。
-        blit_caption_top_left_clipped(
-            &mut page,
-            fnt,
-            caption,
-            map_name_plate.x + 4,
-            map_name_plate.y + 4,
-            (map_name_plate.w - 8).max(8),
-            (map_name_plate.h - 8).max(8),
-            MENU_TEXT_ENABLED,
-        );
+    // 右栏信息与遭遇战同槽：`game_type` / `map_label` 格内居中；金属板只作底板。
+    let selected_mode_caption = selected_mode_index.and_then(|i| mode_names.get(i).copied());
+    if let Some(fnt) = fnt {
+        if let Some(mode) = selected_mode_caption.filter(|s| !s.is_empty()) {
+            blit_caption_in_cell(
+                &mut page,
+                fnt,
+                mode,
+                game_type_slot.x,
+                game_type_slot.y,
+                game_type_slot.w,
+                game_type_slot.h,
+                MENU_TEXT_ENABLED,
+            );
+        }
+        if let Some(caption) = selected_map_caption.filter(|s| !s.is_empty()) {
+            blit_caption_in_cell(
+                &mut page,
+                fnt,
+                caption,
+                map_label_slot.x,
+                map_label_slot.y,
+                map_label_slot.w,
+                map_label_slot.h,
+                MENU_TEXT_ENABLED,
+            );
+        }
     }
 
     fill_rect(&mut page, game_type_list, CHOOSE_MAP_LIST_BG);
@@ -162,41 +179,41 @@ pub fn compose_choose_map_page(
         blit_shell_static_title(&mut page, fnt, &title_text, title);
         let engagement =
             resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
-        blit_text_colored(
+        // 「选择迎击」在宽标签格内水平+垂直居中（对齐双列表内容宽）。
+        blit_caption_in_cell(
             &mut page,
             fnt,
             &engagement,
             label_engagement.x,
             label_engagement.y,
+            label_engagement.w,
+            label_engagement.h,
             MENU_TEXT_ENABLED,
         );
         let game_type = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
-        blit_text_colored(
+        blit_caption_in_cell(
             &mut page,
             fnt,
             &game_type,
             label_game_type.x,
             label_game_type.y,
+            label_game_type.w,
+            label_game_type.h,
             MENU_TEXT_ENABLED,
         );
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
-        blit_text_colored(
+        blit_caption_in_cell(
             &mut page,
             fnt,
             &game_map,
             label_game_map.x,
             label_game_map.y,
+            label_game_map.w,
+            label_game_map.h,
             MENU_TEXT_ENABLED,
         );
         if let Some(text) = status_text.filter(|s| !s.is_empty()) {
-            blit_text_colored(
-                &mut page,
-                fnt,
-                text,
-                status_help.x,
-                text_y_centered(fnt, status_help),
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
         }
     }
 

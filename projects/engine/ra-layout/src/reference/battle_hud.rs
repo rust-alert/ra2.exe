@@ -355,6 +355,65 @@ pub fn solve_battle_hud_with_metrics(
     )
 }
 
+/// 建造栏 cameo 画布宽（像素）。
+pub const CAMEO_CELL_W: i32 = 60;
+/// 建造栏 cameo 画布高（像素）。
+pub const CAMEO_CELL_H: i32 = 48;
+/// 建造栏行距（含缝，像素）。
+pub const CAMEO_ROW_STRIDE: i32 = 50;
+/// 建造栏列数。
+pub const CAMEO_COLS: i32 = 2;
+/// 分类页签数量（建筑 / 步兵 / 载具 / 飞行器）。
+pub const SIDEBAR_TAB_COUNT: usize = 4;
+
+/// 电表右侧可摆 cameo 的内容区（去掉左缘电表条）。
+pub fn cameo_content_rect(cameo_band: RectPx, power_meter_w: i32) -> RectPx {
+    let left = power_meter_w.max(0).min(cameo_band.w.saturating_sub(1));
+    RectPx::new(
+        cameo_band.x + left,
+        cameo_band.y,
+        (cameo_band.w - left).max(1),
+        cameo_band.h.max(1),
+    )
+}
+
+/// 当前可视 cameo 槽位数（行数 × 2）。
+pub fn cameo_visible_slot_count(cameo_band_h: i32) -> usize {
+    let rows = ((cameo_band_h - 1).max(0) / CAMEO_ROW_STRIDE) as usize;
+    rows.saturating_mul(CAMEO_COLS as usize)
+}
+
+/// 可视槽 `slot`（先行后列）的屏幕矩形；越界返回 `None`。
+pub fn cameo_slot_rect(cameo_band: RectPx, power_meter_w: i32, slot: usize) -> Option<RectPx> {
+    let visible = cameo_visible_slot_count(cameo_band.h);
+    if slot >= visible {
+        return None;
+    }
+    let content = cameo_content_rect(cameo_band, power_meter_w);
+    let col = (slot as i32) % CAMEO_COLS;
+    let row = (slot as i32) / CAMEO_COLS;
+    let x = content.x + col * CAMEO_CELL_W;
+    let y = content.y + 1 + row * CAMEO_ROW_STRIDE;
+    if x + CAMEO_CELL_W > content.x + content.w {
+        return None;
+    }
+    if y + CAMEO_CELL_H > content.y + content.h {
+        return None;
+    }
+    Some(RectPx::new(x, y, CAMEO_CELL_W, CAMEO_CELL_H))
+}
+
+/// 命中 cameo 可视槽下标（相对当前滚动起点为 0）。
+pub fn hit_cameo_slot(cameo_band: RectPx, power_meter_w: i32, x: i32, y: i32) -> Option<usize> {
+    let visible = cameo_visible_slot_count(cameo_band.h);
+    for slot in 0..visible {
+        if cameo_slot_rect(cameo_band, power_meter_w, slot).is_some_and(|r| r.contains(x, y)) {
+            return Some(slot);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -506,5 +565,23 @@ mod tests {
             BattleHudChromeMetrics::for_mix("SIDEC02.MIX"),
             soviet
         );
+    }
+
+    #[test]
+    fn cameo_grid_two_columns_inside_band() {
+        let metrics = BattleHudChromeMetrics::allied();
+        let snap = solve_battle_hud_with_metrics(800, 600, metrics);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let visible = cameo_visible_slot_count(band.h);
+        assert!(visible >= 2, "至少两格 cameo · h={}", band.h);
+        assert_eq!(visible % 2, 0);
+        let a = cameo_slot_rect(band, metrics.power_w, 0).expect("slot0");
+        let b = cameo_slot_rect(band, metrics.power_w, 1).expect("slot1");
+        assert_eq!(a.w, CAMEO_CELL_W);
+        assert_eq!(a.h, CAMEO_CELL_H);
+        assert_eq!(b.x, a.x + CAMEO_CELL_W);
+        assert_eq!(b.y, a.y);
+        assert_eq!(hit_cameo_slot(band, metrics.power_w, a.x + 1, a.y + 1), Some(0));
+        assert_eq!(hit_cameo_slot(band, metrics.power_w, b.x + 1, b.y + 1), Some(1));
     }
 }

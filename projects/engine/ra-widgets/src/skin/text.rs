@@ -309,6 +309,18 @@ pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 暂停菜单无 CSF 时的字面回退（对齐原版遭遇战 Esc 文案）。
+pub fn battle_pause_menu_fallback_label(entry_id: &str) -> &str {
+    match entry_id {
+        "fullscreen" => "Fullscreen (Alt+F)",
+        "options" => "Options",
+        "abort" => "Abort Mission",
+        "resume" => "Resume Mission",
+        _ => "Menu",
+    }
+}
+
+
 /// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
 pub const SKIRMISH_COMMAND_BAR: &[&str] = &[
     "Team01",

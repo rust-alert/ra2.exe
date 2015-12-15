@@ -2,8 +2,8 @@
 
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skin::text::{
-    campaign_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip,
-    skirmish_lobby_csf_tooltip,
+    campaign_csf_tooltip, choose_map_csf_label, main_menu_csf_tooltip, resolve_csf_text,
+    single_player_csf_tooltip, skirmish_lobby_csf_tooltip,
 };
 
 use crate::host::screenshot;
@@ -62,6 +62,7 @@ impl Shell {
             OriginalScreen::SinglePlayerMenu => single_player_csf_tooltip(entry),
             OriginalScreen::Campaign => campaign_csf_tooltip(entry),
             OriginalScreen::SkirmishLobby => skirmish_lobby_csf_tooltip(entry),
+            OriginalScreen::ChooseMap => choose_map_csf_label(entry),
             _ => None,
         };
         let text = key.and_then(|k| resolve_csf_text(self.menu_csf.as_ref(), k)).unwrap_or_default();

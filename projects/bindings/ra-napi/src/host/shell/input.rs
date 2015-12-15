@@ -66,8 +66,10 @@ impl Shell {
                 let mode_count = self.lobby_modes.len();
                 if idx < mode_base + mode_count {
                     Some("mode_row")
-                } else {
+                } else if idx < mode_base + mode_count + self.maps_matching_selected_mode().len() {
                     Some("map_row")
+                } else {
+                    Some("map_preview")
                 }
             }
             _ => None,

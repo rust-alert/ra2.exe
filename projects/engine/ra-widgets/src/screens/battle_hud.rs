@@ -6,7 +6,8 @@
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
     rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics, LayoutSnapshot,
-    Point2, RectPx, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_BUTTON_COUNT,
+    Point2, RectPx, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_BUTTON_COUNT, SIDEBAR_TAB_COUNT,
+    cameo_slot_rect, hit_cameo_slot,
 };
 use ra_renderer::RgbaImage;
 
@@ -312,6 +313,18 @@ fn blit_lspacer_gap(dst: &mut RgbaImage, src: &RgbaImage, gap: RectPx) {
     }
 }
 
+/// 侧栏主 chrome：与槽同尺寸则 1:1，否则最近邻铺满。
+fn blit_chrome_slot(dst: &mut RgbaImage, src: &RgbaImage, slot: RectPx) {
+    if slot.w <= 0 || slot.h <= 0 || src.width() == 0 || src.height() == 0 {
+        return;
+    }
+    if src.width() as i32 == slot.w && src.height() as i32 == slot.h {
+        blit_rgba(dst, src, slot.x, slot.y);
+    } else {
+        blit_stretched(dst, src, slot);
+    }
+}
+
 /// 钮面优先按 SHP 画布原尺寸居中贴入命中格；仅当源图大于格时才拉伸，避免变形。
 fn blit_button_in_cell(dst: &mut RgbaImage, src: &RgbaImage, cell: RectPx) {
     if cell.w <= 0 || cell.h <= 0 || src.width() == 0 || src.height() == 0 {
@@ -423,17 +436,18 @@ pub fn blit_battle_hud_chrome_with_state(
         .unwrap_or([40, 44, 52, 255]);
     fill_rect(page, sidebar, sidebar_fill);
 
+    // chrome 主件与画布同尺寸时 1:1 贴，禁止无故拉伸把金属高光揉糊。
     if let Some(s) = &chrome.credits {
-        blit_stretched(page, &s.image, credits);
+        blit_chrome_slot(page, &s.image, credits);
     }
     if let Some(s) = &chrome.top {
-        blit_stretched(page, &s.image, top);
+        blit_chrome_slot(page, &s.image, top);
     }
     if let Some(s) = &chrome.radar {
-        blit_stretched(page, &s.image, radar);
+        blit_chrome_slot(page, &s.image, radar);
     }
     if let Some(s) = &chrome.side1 {
-        blit_stretched(page, &s.image, side1);
+        blit_chrome_slot(page, &s.image, side1);
     }
     if let Some(tile) = &chrome.side2 {
         let th = tile.image.height().max(1) as i32;
@@ -454,10 +468,10 @@ pub fn blit_battle_hud_chrome_with_state(
         .unwrap_or(sidebar_fill);
     fill_rect(page, bottom_strip, bottom_fill);
     if let Some(s) = &chrome.side3 {
-        blit_stretched(page, &s.image, side3);
+        blit_chrome_slot(page, &s.image, side3);
     }
     if let Some(s) = &chrome.addon {
-        blit_stretched(page, &s.image, addon);
+        blit_chrome_slot(page, &s.image, addon);
     }
     if let Some(s) = &chrome.repair {
         blit_button_in_cell(page, &s.image, repair);
@@ -509,10 +523,24 @@ fn blit_command_bar(
     snap: &LayoutSnapshot,
     pressed_slot: Option<usize>,
 ) {
+    blit_command_bar_track(page, chrome, snap, /*with_buttons*/ true, pressed_slot);
+}
+
+/// 底边命令条：端盖 + `lspacer` 轨身（白顶/红底细线）。
+///
+/// `with_buttons == false` 时整段钮槽铺轨身，供暂停态藏起编队/部署等命令钮，且不毁掉金属轨细节。
+pub fn blit_command_bar_track(
+    page: &mut RgbaImage,
+    chrome: &BattleHudChrome,
+    snap: &LayoutSnapshot,
+    with_buttons: bool,
+    pressed_slot: Option<usize>,
+) {
     let bar = rect_px_from_snapshot(snap, "command_bar");
     if bar.w <= 0 || bar.h <= 0 {
         return;
     }
+    // 只垫不透明底，轨身细线由 `lspacer`/`lendcap`/`rendcap` 画，禁止靠纯黑冒充。
     fill_rect(page, bar, [0, 0, 0, 255]);
 
     let lendcap = rect_px_from_snapshot(snap, "lendcap");
@@ -521,36 +549,45 @@ fn blit_command_bar(
         blit_button_in_cell(page, &s.image, lendcap);
     }
 
-    let mut last_btn_right = lendcap.x + lendcap.w;
-    for (visual, id) in COMMAND_BAR_BUTTON_IDS.iter().enumerate() {
-        let cell = rect_px_from_snapshot(snap, id);
-        if cell.w <= 0 {
-            continue;
+    let track_left = lendcap.x + lendcap.w;
+    let track_right = rendcap.x;
+    if with_buttons {
+        let mut last_btn_right = track_left;
+        for (visual, id) in COMMAND_BAR_BUTTON_IDS.iter().enumerate() {
+            let cell = rect_px_from_snapshot(snap, id);
+            if cell.w <= 0 {
+                continue;
+            }
+            let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
+                continue;
+            };
+            let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()) else {
+                continue;
+            };
+            let sprite = if pressed_slot == Some(visual) {
+                chrome
+                    .command_buttons_pressed
+                    .get(shp_i)
+                    .and_then(|s| s.as_ref())
+                    .unwrap_or(normal)
+            } else {
+                normal
+            };
+            blit_button_in_cell(page, &sprite.image, cell);
+            last_btn_right = cell.x + cell.w;
         }
-        let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
-            continue;
-        };
-        let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()) else {
-            continue;
-        };
-        let sprite = if pressed_slot == Some(visual) {
-            chrome
-                .command_buttons_pressed
-                .get(shp_i)
-                .and_then(|s| s.as_ref())
-                .unwrap_or(normal)
-        } else {
-            normal
-        };
-        blit_button_in_cell(page, &sprite.image, cell);
-        last_btn_right = cell.x + cell.w;
-    }
-
-    // 钮右侧：`lspacer` 轨身凹槽（深色上下细轨），非纯黑填充、非整图拉伸。
-    let gap_w = (rendcap.x - last_btn_right).max(0);
-    if gap_w > 0 {
-        if let Some(s) = &chrome.lspacer {
-            blit_lspacer_gap(page, &s.image, RectPx::new(last_btn_right, bar.y, gap_w, bar.h));
+        let gap_w = (track_right - last_btn_right).max(0);
+        if gap_w > 0 {
+            if let Some(s) = &chrome.lspacer {
+                blit_lspacer_gap(page, &s.image, RectPx::new(last_btn_right, bar.y, gap_w, bar.h));
+            }
+        }
+    } else {
+        let gap_w = (track_right - track_left).max(0);
+        if gap_w > 0 {
+            if let Some(s) = &chrome.lspacer {
+                blit_lspacer_gap(page, &s.image, RectPx::new(track_left, bar.y, gap_w, bar.h));
+            }
         }
     }
 
@@ -579,6 +616,10 @@ pub enum BattleHudHit {
     Diplomacy,
     /// 底边命令条可视槽（`cmdN` / `ButtonList` 下标）。
     CommandButton(usize),
+    /// 分类页签（0=建筑 / 1=步兵 / 2=载具 / 3=飞行器）。
+    SidebarTab(usize),
+    /// 当前页可视 cameo 槽。
+    Cameo(usize),
 }
 
 impl BattleHudHit {
@@ -589,6 +630,10 @@ impl BattleHudHit {
             "sell" => Some(Self::Sell),
             "opt_btn" => Some(Self::Options),
             "diplo_btn" => Some(Self::Diplomacy),
+            "tab00" => Some(Self::SidebarTab(0)),
+            "tab01" => Some(Self::SidebarTab(1)),
+            "tab02" => Some(Self::SidebarTab(2)),
+            "tab03" => Some(Self::SidebarTab(3)),
             _ => {
                 if let Some(rest) = id.strip_prefix("cmd") {
                     if let Ok(slot) = rest.parse::<usize>() {
@@ -609,6 +654,12 @@ impl BattleHudHit {
             Self::Sell => "sell",
             Self::Options => "opt_btn",
             Self::Diplomacy => "diplo_btn",
+            Self::SidebarTab(0) => "tab00",
+            Self::SidebarTab(1) => "tab01",
+            Self::SidebarTab(2) => "tab02",
+            Self::SidebarTab(3) => "tab03",
+            Self::SidebarTab(_) => "tab00",
+            Self::Cameo(_) => "cameo_band",
             Self::CommandButton(slot) => COMMAND_BAR_BUTTON_IDS
                 .get(slot)
                 .copied()
@@ -617,17 +668,28 @@ impl BattleHudHit {
     }
 }
 
-const BATTLE_HUD_HIT_IDS: [&str; 4] = ["repair", "sell", "opt_btn", "diplo_btn"];
+const BATTLE_HUD_HIT_IDS: [&str; 8] = [
+    "repair",
+    "sell",
+    "opt_btn",
+    "diplo_btn",
+    "tab00",
+    "tab01",
+    "tab02",
+    "tab03",
+];
 
 /// 视口像素命中（侧栏与命令条均走 snapshot）。
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
-    hit_at_with_chrome(snap, None, x, y)
+    hit_at_with_chrome(snap, None, BattleHudChromeMetrics::allied().power_w, 0, x, y)
 }
 
-/// 带 chrome 的命中（可点命令条按钮）。
+/// 带 chrome / cameo 槽数的命中。
 pub fn hit_at_with_chrome(
     snap: &LayoutSnapshot,
     chrome: Option<&BattleHudChrome>,
+    power_meter_w: i32,
+    cameo_count: usize,
     x: i32,
     y: i32,
 ) -> Option<BattleHudHit> {
@@ -669,5 +731,204 @@ pub fn hit_at_with_chrome(
             return BattleHudHit::from_entry_id(id);
         }
     }
+
+    let band = rect_px_from_snapshot(snap, "cameo_band");
+    if let Some(slot) = hit_cameo_slot(band, power_meter_w, x, y) {
+        if slot < cameo_count {
+            return Some(BattleHudHit::Cameo(slot));
+        }
+        // 点在空 cameo 槽仍吞掉，避免误清选中。
+        return None;
+    }
+    if band.contains(x, y) {
+        return None;
+    }
+    let _ = SIDEBAR_TAB_COUNT;
     None
+}
+
+/// 单枚建造栏图标绘制描述。
+#[derive(Debug, Clone, Copy)]
+pub struct BattleCameoPaint<'a> {
+    /// 规则类型键。
+    pub type_id: &'a str,
+    /// 已解码图标（缺图时画占位）。
+    pub image: Option<&'a RgbaImage>,
+    /// 当前是否可下单。
+    pub enabled: bool,
+    /// 是否处于放置选中态。
+    pub selected: bool,
+}
+
+/// 将 cameo 列表画进侧栏内容区。
+pub fn blit_battle_cameos(
+    page: &mut RgbaImage,
+    snap: &LayoutSnapshot,
+    power_meter_w: i32,
+    cameos: &[BattleCameoPaint<'_>],
+) {
+    let band = rect_px_from_snapshot(snap, "cameo_band");
+    for (slot, item) in cameos.iter().enumerate() {
+        let Some(cell) = cameo_slot_rect(band, power_meter_w, slot) else {
+            break;
+        };
+        if let Some(img) = item.image {
+            blit_button_in_cell(page, img, cell);
+        } else {
+            fill_rect(page, cell, [24, 28, 36, 255]);
+        }
+        if !item.enabled {
+            fill_rect_alpha(page, cell, [0, 0, 0, 120]);
+        }
+        if item.selected {
+            stroke_rect(page, cell, [255, 220, 64, 255]);
+        }
+    }
+}
+
+/// 按 `art.ini` 的 `Cameo=`（及回退名）解码建造栏图标。
+pub fn decode_cameo_sprite(
+    source: &GameAssetSource,
+    art: Option<&ra_assets::IniDocument>,
+    type_id: &str,
+) -> Option<DecodedUiSprite> {
+    let mut names = Vec::new();
+    if let Some(art) = art {
+        if let Some(c) = art.get(type_id, "Cameo").map(str::trim).filter(|s| !s.is_empty()) {
+            names.push(format!("{c}.shp"));
+        }
+        let image_key = art.get(type_id, "Image").unwrap_or(type_id);
+        if !image_key.eq_ignore_ascii_case(type_id) {
+            if let Some(c) = art.get(image_key, "Cameo").map(str::trim).filter(|s| !s.is_empty()) {
+                names.push(format!("{c}.shp"));
+            }
+        }
+        if let Some(c) = art.get(type_id, "AltCameo").map(str::trim).filter(|s| !s.is_empty()) {
+            names.push(format!("{c}.shp"));
+        }
+    }
+    names.push(format!("{type_id}icon.shp"));
+    names.push(format!("{type_id}.shp"));
+
+    let mut last_err = None;
+    for name in names {
+        match decode_cameo_named(source, &name) {
+            Ok(s) => return Some(s),
+            Err(e) => last_err = Some(e),
+        }
+    }
+    let _ = last_err;
+    None
+}
+
+fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
+    let hit = source
+        .resolve_preferring(name, "cameo.mix")
+        .or_else(|| source.resolve(name))
+        .ok_or_else(|| format!("{name}: 不可读"))?;
+    let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{name}: SHP 解析失败 · {e}"))?;
+    if shp.frames.is_empty() {
+        return Err(format!("{name}: SHP 无帧"));
+    }
+    let pal_hit = source
+        .resolve_preferring("cameo.pal", "cameo.mix")
+        .or_else(|| source.resolve("cameo.pal"))
+        .or_else(|| source.resolve_preferring("sidebar.pal", "sidec01.mix"))
+        .or_else(|| source.resolve("sidebar.pal"))
+        .ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
+    let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("cameo.pal: 解析失败 · {e}"))?;
+    let frame = &shp.frames[0];
+    let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{name}#0: 画布 RGBA 构造失败"))?;
+    Ok(DecodedUiSprite {
+        label: format!("{name}#0"),
+        image,
+        origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
+        frame: 0,
+        canvas: (shp.width, shp.height),
+        frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
+    })
+}
+
+fn fill_rect_alpha(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
+    if rect.w <= 0 || rect.h <= 0 {
+        return;
+    }
+    for y in rect.y..rect.y + rect.h {
+        if y < 0 || y as u32 >= page.height() {
+            continue;
+        }
+        for x in rect.x..rect.x + rect.w {
+            if x < 0 || x as u32 >= page.width() {
+                continue;
+            }
+            let di = ((y as u32 * page.width() + x as u32) * 4) as usize;
+            let sa = rgba[3] as u32;
+            if sa == 0 {
+                continue;
+            }
+            if sa == 255 {
+                page.as_mut()[di..di + 4].copy_from_slice(&rgba);
+                continue;
+            }
+            let inv = 255 - sa;
+            for c in 0..3 {
+                let s = rgba[c] as u32;
+                let d = page.as_mut()[di + c] as u32;
+                page.as_mut()[di + c] = ((s * sa + d * inv) / 255) as u8;
+            }
+            page.as_mut()[di + 3] = 255;
+        }
+    }
+}
+
+fn stroke_rect(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
+    if rect.w <= 0 || rect.h <= 0 {
+        return;
+    }
+    for x in rect.x..rect.x + rect.w {
+        put_px(page, x, rect.y, rgba);
+        put_px(page, x, rect.y + rect.h - 1, rgba);
+    }
+    for y in rect.y..rect.y + rect.h {
+        put_px(page, rect.x, y, rgba);
+        put_px(page, rect.x + rect.w - 1, y, rgba);
+    }
+}
+
+fn put_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
+    if x < 0 || y < 0 || x as u32 >= page.width() || y as u32 >= page.height() {
+        return;
+    }
+    let di = ((y as u32 * page.width() + x as u32) * 4) as usize;
+    page.as_mut()[di..di + 4].copy_from_slice(&rgba);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ra_layout::{
+        cameo_slot_rect, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
+    };
+
+    #[test]
+    fn hit_tabs_and_cameo_slots() {
+        let metrics = BattleHudChromeMetrics::allied();
+        let snap = solve_battle_hud_with_metrics(800, 600, metrics);
+        let tab0 = rect_px_from_snapshot(&snap, "tab00");
+        assert_eq!(
+            hit_at_with_chrome(&snap, None, metrics.power_w, 4, tab0.x + 1, tab0.y + 1),
+            Some(BattleHudHit::SidebarTab(0))
+        );
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let cell = cameo_slot_rect(band, metrics.power_w, 0).expect("slot0");
+        assert_eq!(
+            hit_at_with_chrome(&snap, None, metrics.power_w, 2, cell.x + 1, cell.y + 1),
+            Some(BattleHudHit::Cameo(0))
+        );
+        assert_eq!(
+            hit_at_with_chrome(&snap, None, metrics.power_w, 0, cell.x + 1, cell.y + 1),
+            None,
+            "空列表时 cameo 槽应吞掉点击"
+        );
+    }
 }

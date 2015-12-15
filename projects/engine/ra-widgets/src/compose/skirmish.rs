@@ -424,18 +424,9 @@ pub fn compose_skirmish_lobby_page(
 
     paint_skirmish_lobby_controls(&mut page, &snap, paint, fnt, csf);
 
-    // 底栏状态提示：贴 `lower_strip` 内 ShellTooltip 带（壳层打字机可见切片）。
+    // 底栏状态提示：原版左对齐（与主菜单 tooltip 一致，勿水平居中）。
     if let (Some(fnt), Some(text)) = (fnt, status_text.filter(|s| !s.is_empty())) {
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            text,
-            status_help.x,
-            status_help.y,
-            status_help.w,
-            status_help.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
     }
 
     Some(page)

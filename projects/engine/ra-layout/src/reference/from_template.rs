@@ -162,10 +162,10 @@ fn dialog_control_children(
         .collect()
 }
 
-/// 选图页：面板 chrome + `0x6B` 模板 → 一次 snapshot。
+/// 选图页：面板 chrome + `0x6B` 模板 → 左栏列表在内容区居中。
 pub fn solve_choose_map() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| {
-        dialog_page_layout_tree("dialog_0x6b", &dialog_template_0x6b(), chrome)
+        dialog_page_layout_tree_ex("dialog_0x6b", &dialog_template_0x6b(), chrome, true)
     })
 }
 
@@ -232,5 +232,24 @@ mod tests {
             rect_px_from_snapshot(&snap, "status_help"),
             RectPx::new(15, 579, 455, 20)
         );
+    }
+
+    #[test]
+    fn choose_map_lists_are_centered_in_content_area() {
+        let snap = solve_choose_map();
+        let chrome = RightPanelChrome::shell_defaults();
+        let panel_x = chrome.panel_x() as i32;
+        let game_type = rect_px_from_snapshot(&snap, "game_type_list");
+        let map_list = rect_px_from_snapshot(&snap, "map_list");
+        let left = game_type.x;
+        let right = map_list.x + map_list.w;
+        let mid = (left + right) / 2;
+        let content_mid = panel_x / 2;
+        assert!(
+            (mid - content_mid).abs() <= 4,
+            "lists mid {mid} should near content mid {content_mid}"
+        );
+        assert!(game_type.y >= 40, "game_type_list.y={} should leave top margin", game_type.y);
+        assert_eq!(map_list.x - (game_type.x + game_type.w), 27);
     }
 }

@@ -1,11 +1,14 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::{Duration, Instant}};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, Palette, Rgba};
+use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
 use ra_widgets::{
-    battle_hud::{BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, hit_at_with_chrome},
+    battle_hud::{
+        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, decode_cameo_sprite,
+        hit_at_with_chrome,
+    },
     battle_order_icons::load_battle_order_icons,
     battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
     compose::{
@@ -13,11 +16,15 @@ use ra_widgets::{
     },
     fs_source::GameAssetSource,
     render::present,
+    skin::decode::DecodedUiSprite,
     skin::text::{command_button_csf_tooltip, resolve_csf_text},
 };
-use ra_engine::{Engine, HudSnapshot, BattleOutcome, Session, SessionPhase};
+use ra_engine::{
+    BattleCapabilitiesSnapshot, CapabilityItem, Engine, HudSnapshot, BattleOutcome, Session, SessionPhase,
+};
 use ra_layout::{
-    solve_battle_hud_with_metrics, BattleHudChromeMetrics, MapViewport,
+    cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
+    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT,
 };
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, WeatherParticleField,
@@ -27,7 +34,7 @@ use ra_map::{
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
 use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, MouseButton, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
@@ -102,8 +109,14 @@ pub struct BattleController {
     shift_down: bool,
     /// Ctrl 是否按下。
     ctrl_down: bool,
-    /// 建造放置模式。
-    place_mode: Option<&'static str>,
+    /// 建造放置模式（建筑类型键）。
+    place_mode: Option<String>,
+    /// 侧栏分类页签（0=建筑 / 1=步兵 / 2=载具 / 3=飞行器）。
+    sidebar_tab: usize,
+    /// 侧栏按下（页签 / cameo），松手命中一致时生效。
+    sidebar_pressed: Option<BattleHudHit>,
+    /// 建造栏图标缓存（按类型键；`None` 表示已尝试但缺图，避免每帧重解）。
+    cameo_cache: HashMap<String, Option<DecodedUiSprite>>,
     /// 测试旁路：曾表示「再按 Esc 回大厅」武装态；现由暂停菜单「放弃」离开，恒为 false。
     leave_armed: bool,
     /// 对局 Esc 暂停菜单阵营素材（`radar` / `sidebttn`，跟本地 house）。
@@ -198,6 +211,9 @@ impl BattleController {
             shift_down: false,
             ctrl_down: false,
             place_mode: None,
+            sidebar_tab: 0,
+            sidebar_pressed: None,
+            cameo_cache: HashMap::new(),
             leave_armed: false,
             pause_menu_chrome: None,
             pause_menu_tried_side: None,
@@ -346,6 +362,9 @@ impl BattleController {
         self.logged_outcome = None;
         self.logged_reject = None;
         self.place_mode = None;
+        self.sidebar_tab = 0;
+        self.sidebar_pressed = None;
+        self.cameo_cache.clear();
         self.leave_armed = false;
         self.pause_menu_chrome = None;
         self.pause_menu_tried_side = None;
@@ -665,7 +684,7 @@ impl BattleController {
             return;
         };
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
-        if let Some(type_id) = self.place_mode {
+        if let Some(type_id) = self.place_mode.clone() {
             let Some(cell) = game.image_to_cell(wx, wy)
             else {
                 return;
@@ -796,17 +815,11 @@ impl BattleController {
         self.pulse_action_lines_at(tick);
     }
 
-    fn cycle_place_mode(&mut self) {
-        const CYCLE: &[Option<&'static str>] = &[None, Some("GAPOWR"), Some("GAPILE"), Some("GAREFN"), Some("GAWEAP")];
-        let idx = CYCLE.iter().position(|m| *m == self.place_mode).unwrap_or(0);
-        self.place_mode = CYCLE[(idx + 1) % CYCLE.len()];
-        match self.place_mode {
-            Some(id) => tracing::info!("建造模式 · 放置 {id}（再按 B 切换，Esc 取消）"),
-            None => tracing::info!("建造模式 · 已关闭"),
-        }
-    }
-
     fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
+        if self.place_mode.take().is_some() {
+            tracing::info!("建造模式 · 已关闭");
+            return;
+        }
         let Some(cell) = self.cursor_cell(renderer, window)
         else {
             return;
@@ -863,22 +876,42 @@ impl BattleController {
                     ElementState::Pressed => {
                         let x = self.cursor.0 as i32;
                         let y = self.cursor.1 as i32;
-                        if let Some(BattleHudHit::CommandButton(slot)) = self.hit_hud_at(window, x, y) {
-                            self.command_pressed = Some(slot);
-                            self.left_gesture = LeftGesture::Idle;
-                        } else {
-                            self.command_pressed = None;
-                            let vp = self.map_viewport(window);
-                            if vp.contains_cursor(x, y) {
-                                self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
-                            } else {
+                        self.sidebar_pressed = None;
+                        match self.hit_hud_at(window, x, y) {
+                            Some(BattleHudHit::CommandButton(slot)) => {
+                                self.command_pressed = Some(slot);
                                 self.left_gesture = LeftGesture::Idle;
+                            }
+                            Some(hit @ (BattleHudHit::SidebarTab(_) | BattleHudHit::Cameo(_))) => {
+                                self.command_pressed = None;
+                                self.sidebar_pressed = Some(hit);
+                                self.left_gesture = LeftGesture::Idle;
+                            }
+                            Some(
+                                BattleHudHit::Repair
+                                | BattleHudHit::Sell
+                                | BattleHudHit::Options
+                                | BattleHudHit::Diplomacy,
+                            ) => {
+                                // 入口几何可点；语义动作尚未接线，吞掉以免穿透到地图。
+                                self.command_pressed = None;
+                                self.left_gesture = LeftGesture::Idle;
+                            }
+                            None => {
+                                self.command_pressed = None;
+                                let vp = self.map_viewport(window);
+                                if vp.contains_cursor(x, y) {
+                                    self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
+                                } else {
+                                    self.left_gesture = LeftGesture::Idle;
+                                }
                             }
                         }
                     }
                     ElementState::Released => {
-                        let pressed = self.command_pressed.take();
-                        if let Some(slot) = pressed {
+                        let pressed_cmd = self.command_pressed.take();
+                        let pressed_side = self.sidebar_pressed.take();
+                        if let Some(slot) = pressed_cmd {
                             let x = self.cursor.0 as i32;
                             let y = self.cursor.1 as i32;
                             if matches!(
@@ -886,6 +919,13 @@ impl BattleController {
                                 Some(BattleHudHit::CommandButton(s)) if s == slot
                             ) {
                                 self.on_command_button(slot);
+                            }
+                            self.left_gesture = LeftGesture::Idle;
+                        } else if let Some(hit) = pressed_side {
+                            let x = self.cursor.0 as i32;
+                            let y = self.cursor.1 as i32;
+                            if self.hit_hud_at(window, x, y) == Some(hit) {
+                                self.on_sidebar_hit(hit);
                             }
                             self.left_gesture = LeftGesture::Idle;
                         } else {
@@ -906,6 +946,7 @@ impl BattleController {
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
+                self.sidebar_pressed = None;
                 self.pause_pressed = None;
                 BattleNav::None
             }
@@ -914,6 +955,7 @@ impl BattleController {
             {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
+                self.sidebar_pressed = None;
                 self.handle_right_click(renderer, window);
                 BattleNav::None
             }
@@ -924,19 +966,23 @@ impl BattleController {
                     self.refresh_pause_hover(window);
                 } else {
                     // 建造放置模式只认点选，拖拽不升为框选。
-                    if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() {
+                    if accept_commands
+                        && self.place_mode.is_none()
+                        && self.command_pressed.is_none()
+                        && self.sidebar_pressed.is_none()
+                    {
                         self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
                     }
                     self.refresh_command_hover(window);
                 }
                 BattleNav::None
             }
-            WindowEvent::MouseWheel { .. } => {
-                // 可玩阶段关闭滚轮缩放，避免越界黑边与选点变换漂移。
-                BattleNav::None
-            }
             WindowEvent::Focused(false) => {
                 self.camera_pan_keys.clear();
+                BattleNav::None
+            }
+            WindowEvent::MouseWheel { .. } => {
+                // 可玩阶段关闭滚轮缩放，避免越界黑边与选点变换漂移。
                 BattleNav::None
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -1075,10 +1121,6 @@ impl BattleController {
                         tracing::info!("警戒 · 尚未接线 · {:?}", self.local.selected);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyB) if !battle_paused => {
-                        self.cycle_place_mode();
-                        BattleNav::None
-                    }
                     PhysicalKey::Code(KeyCode::Space) => {
                         let paused = if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
@@ -1091,20 +1133,6 @@ impl BattleController {
                             tracing::info!("暂停菜单");
                         } else if self.session.as_ref().and_then(|s| s.battle()).is_some() {
                             tracing::info!("继续");
-                        }
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyP) if !battle_paused => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            tracing::info!("生产 · E1");
-                            game.order_produce("E1");
-                        }
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyO) if !battle_paused => {
-                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            tracing::info!("生产 · MTNK");
-                            game.order_produce("MTNK");
                         }
                         BattleNav::None
                     }
@@ -1305,6 +1333,7 @@ impl BattleController {
         self.ensure_battle_hud_chrome(assets);
         self.ensure_pause_menu_chrome(assets);
         self.ensure_order_icons(renderer, assets);
+        self.ensure_cameo_cache(assets);
         self.ensure_start_view(renderer);
         let (vw, vh) = window
             .map(|w| {
@@ -1949,12 +1978,7 @@ impl BattleController {
                 tracing::info!("放弃任务 · 返回大厅");
                 BattleNav::ToMainMenu
             }
-            BattlePauseMenuHit::Restart => {
-                self.clear_pause_menu_input();
-                tracing::info!("重新开始…");
-                BattleNav::Rematch
-            }
-            BattlePauseMenuHit::Options | BattlePauseMenuHit::Load | BattlePauseMenuHit::Save => {
+            BattlePauseMenuHit::Options | BattlePauseMenuHit::Fullscreen => {
                 tracing::info!(entry = hit.entry_id(), "暂停菜单 · 尚未接线");
                 BattleNav::None
             }
@@ -1975,7 +1999,129 @@ impl BattleController {
 
     fn hit_hud_at(&self, window: &Window, x: i32, y: i32) -> Option<BattleHudHit> {
         let snap = self.hud_snap_for_window(window);
-        hit_at_with_chrome(&snap, self.hud_chrome.as_ref(), x, y)
+        let metrics = self
+            .hud_chrome
+            .as_ref()
+            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
+            .unwrap_or_else(BattleHudChromeMetrics::allied);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let visible = cameo_visible_slot_count(band.h);
+        let cameo_count = self.current_tab_cameo_count(visible);
+        hit_at_with_chrome(
+            &snap,
+            self.hud_chrome.as_ref(),
+            metrics.power_w,
+            cameo_count,
+            x,
+            y,
+        )
+    }
+
+    fn tab_items<'a>(caps: &'a BattleCapabilitiesSnapshot, tab: usize) -> &'a [CapabilityItem] {
+        match tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)) {
+            0 => caps.build_items.as_slice(),
+            1 => caps.infantry_items.as_slice(),
+            2 => caps.vehicle_items.as_slice(),
+            _ => &[],
+        }
+    }
+
+    fn current_capabilities(&self) -> Option<BattleCapabilitiesSnapshot> {
+        let game = self.session.as_ref().and_then(|s| s.battle())?;
+        Some(game.snapshot_capabilities(&self.local.selected))
+    }
+
+    fn current_tab_cameo_count(&self, visible_slots: usize) -> usize {
+        let Some(caps) = self.current_capabilities()
+        else {
+            return 0;
+        };
+        Self::tab_items(&caps, self.sidebar_tab).len().min(visible_slots)
+    }
+
+    fn ensure_cameo_cache(&mut self, assets: Option<&GameAssetSource>) {
+        let Some(source) = assets
+        else {
+            return;
+        };
+        let Some(caps) = self.current_capabilities()
+        else {
+            return;
+        };
+        let art = source
+            .resolve(self.art_ini)
+            .and_then(|hit| IniDocument::parse(&hit.bytes).ok());
+        let art_ref = art.as_ref();
+        for item in caps
+            .build_items
+            .iter()
+            .chain(caps.infantry_items.iter())
+            .chain(caps.vehicle_items.iter())
+        {
+            let key = item.type_id.as_ref();
+            if self.cameo_cache.contains_key(key) {
+                continue;
+            }
+            let sprite = decode_cameo_sprite(source, art_ref, key);
+            self.cameo_cache.insert(key.to_string(), sprite);
+        }
+    }
+
+    fn on_sidebar_hit(&mut self, hit: BattleHudHit) {
+        match hit {
+            BattleHudHit::SidebarTab(tab) => {
+                let tab = tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1));
+                if self.sidebar_tab != tab {
+                    self.sidebar_tab = tab;
+                    if tab != 0 {
+                        self.place_mode = None;
+                    }
+                    tracing::info!("侧栏页签 · {tab}");
+                }
+            }
+            BattleHudHit::Cameo(slot) => {
+                let Some(caps) = self.current_capabilities()
+                else {
+                    return;
+                };
+                let items = Self::tab_items(&caps, self.sidebar_tab);
+                let Some(item) = items.get(slot)
+                else {
+                    return;
+                };
+                if !item.enabled {
+                    if let Some(reason) = item.disabled_reason {
+                        tracing::info!(
+                            "建造栏不可用 · {} · {}",
+                            item.type_id,
+                            reason.as_hud_label()
+                        );
+                    }
+                    return;
+                }
+                match self.sidebar_tab {
+                    0 => {
+                        let type_id = item.type_id.as_ref();
+                        if self.place_mode.as_deref() == Some(type_id) {
+                            self.place_mode = None;
+                            tracing::info!("建造模式 · 已关闭");
+                        } else {
+                            self.place_mode = Some(type_id.to_string());
+                            tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
+                        }
+                    }
+                    1 | 2 => {
+                        let type_id = item.type_id.as_ref().to_string();
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                            tracing::info!("生产 · {type_id}");
+                            game.order_produce(type_id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
     }
 
     fn refresh_command_hover(&mut self, window: &Window) {
@@ -2042,6 +2188,41 @@ impl BattleController {
             .and_then(|key| resolve_csf_text(csf, key));
         // 暂停菜单打开时不再画「已暂停」横幅文案。
         let show_pause_banner = hud.paused && hud.outcome.is_none();
+
+        let caps = game.map(|g| g.snapshot_capabilities(&self.local.selected));
+        let metrics = self
+            .hud_chrome
+            .as_ref()
+            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
+            .unwrap_or_else(BattleHudChromeMetrics::allied);
+        let w = viewport_w.max(1);
+        let h = viewport_h.max(1);
+        let snap = solve_battle_hud_with_metrics(w, h, metrics);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let visible = cameo_visible_slot_count(band.h);
+        let items = caps
+            .as_ref()
+            .map(|c| Self::tab_items(c, self.sidebar_tab))
+            .unwrap_or(&[]);
+        let page_items = &items[..items.len().min(visible)];
+        let cameos: Vec<BattleCameoPaint<'_>> = page_items
+            .iter()
+            .map(|item| {
+                let key = item.type_id.as_ref();
+                BattleCameoPaint {
+                    type_id: key,
+                    image: self
+                        .cameo_cache
+                        .get(key)
+                        .and_then(|opt| opt.as_ref())
+                        .map(|s| &s.image),
+                    enabled: item.enabled,
+                    selected: self.sidebar_tab == 0
+                        && self.place_mode.as_deref() == Some(key),
+                }
+            })
+            .collect();
+
         let paint = BattleHudModel {
             tick: hud.tick,
             funds: local.map(|p| p.funds).unwrap_or(0),
@@ -2058,10 +2239,10 @@ impl BattleController {
             command_pressed: if show_pause_banner { None } else { self.command_pressed },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
+            sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
+            cameos: &cameos,
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
-        let w = viewport_w.max(1);
-        let h = viewport_h.max(1);
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
@@ -2107,7 +2288,7 @@ impl BattleController {
                 let queue =
                     hud.produce_queues.first().map(|q| format!("q:{}:{}", q.type_id, q.remaining_ticks)).unwrap_or_else(|| "q:-".into());
                 let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
-                let place = self.place_mode.unwrap_or("-");
+                let place = self.place_mode.as_deref().unwrap_or("-");
                 if screen_label == "results" {
                     let outcome = match hud.outcome.as_ref() {
                         Some(BattleOutcome::Victory { owner }) => format!("胜 {owner}"),

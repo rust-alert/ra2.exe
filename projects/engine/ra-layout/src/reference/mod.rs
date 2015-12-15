@@ -12,9 +12,11 @@ mod options_page;
 mod shell_chrome;
 
 pub use battle_hud::{
-    battle_hud_world_viewport, solve_battle_hud, solve_battle_hud_with_metrics,
-    BattleHudChromeMetrics, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H,
-    COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    battle_hud_world_viewport, cameo_content_rect, cameo_slot_rect, cameo_visible_slot_count,
+    hit_cameo_slot, solve_battle_hud, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
+    CAMEO_CELL_H, CAMEO_CELL_W, CAMEO_COLS, CAMEO_ROW_STRIDE, COMMAND_BAR_BUTTON_COUNT,
+    COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W,
+    SIDEBAR_TAB_COUNT,
 };
 pub use battle_pause::solve_battle_pause;
 pub use campaign_page::solve_campaign;

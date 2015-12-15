@@ -553,6 +553,8 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
             command_pressed: None,
             command_hovered: None,
             command_tip: None,
+            sidebar_tab: 0,
+            cameos: &[],
         },
         None,
     )

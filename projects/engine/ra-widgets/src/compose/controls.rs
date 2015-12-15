@@ -63,17 +63,19 @@ pub fn paint_options_dialog_controls(
     );
 
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
+    // 滑条标签画在滑条上方，与 `SEC_TO_TRACK` 留白对齐。
+    const LABEL_ABOVE: i32 = 18;
 
     if let Some(fnt) = fnt {
         blit_text_colored(page, fnt, &label("display", "Display Options"), sec_display.x, sec_display.y, MENU_TEXT_SECTION);
         draw_section_rule(page, sec_display);
-        blit_text_colored(page, fnt, &label("detail", "Visual Details"), track_detail.x, track_detail.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("detail", "Visual Details"), track_detail.x, track_detail.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
         blit_text_colored(
             page,
             fnt,
             &label("resolution", "Set Game Resolution"),
             resolution.x,
-            resolution.y - 16,
+            resolution.y - LABEL_ABOVE,
             MENU_TEXT_ACCENT,
         );
         blit_text_colored(
@@ -81,7 +83,7 @@ pub fn paint_options_dialog_controls(
             fnt,
             &label("high", "High"),
             track_detail.x + track_detail.w + 8,
-            track_detail.y + 2,
+            text_y_centered(fnt, track_detail),
             MENU_TEXT_ACCENT,
         );
 
@@ -92,7 +94,7 @@ pub fn paint_options_dialog_controls(
             fnt,
             &label("difficulty", "Difficulty"),
             track_difficulty.x,
-            track_difficulty.y - 16,
+            track_difficulty.y - LABEL_ABOVE,
             MENU_TEXT_ACCENT,
         );
         blit_text_colored(
@@ -100,19 +102,19 @@ pub fn paint_options_dialog_controls(
             fnt,
             &label("hard", "Hard"),
             track_difficulty.x + track_difficulty.w + 8,
-            track_difficulty.y + 2,
+            text_y_centered(fnt, track_difficulty),
             MENU_TEXT_ACCENT,
         );
 
         blit_text_colored(page, fnt, &label("ui", "UI Options"), sec_ui.x, sec_ui.y, MENU_TEXT_SECTION);
         draw_section_rule(page, sec_ui);
-        blit_text_colored(page, fnt, &label("scroll", "Scroll Rate"), track_scroll.x, track_scroll.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("scroll", "Scroll Rate"), track_scroll.x, track_scroll.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
         blit_text_colored(
             page,
             fnt,
             &label("fastest", "Fastest"),
             track_scroll.x + track_scroll.w + 8,
-            track_scroll.y + 2,
+            text_y_centered(fnt, track_scroll),
             MENU_TEXT_ACCENT,
         );
 
@@ -146,9 +148,9 @@ pub fn paint_options_dialog_controls(
             check_present.y + 4,
             MENU_TEXT_ACCENT,
         );
-        blit_text_colored(page, fnt, &label("music", "Music Volume"), track_music.x, track_music.y - 16, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("sound", "Sound Volume"), track_sound.x, track_sound.y - 16, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("voice", "Voice Volume"), track_voice.x, track_voice.y - 16, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("music", "Music Volume"), track_music.x, track_music.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("sound", "Sound Volume"), track_sound.x, track_sound.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("voice", "Voice Volume"), track_voice.x, track_voice.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
     }
 
     fill_rect(page, resolution, [120, 24, 24, 255]);
@@ -158,7 +160,16 @@ pub fn paint_options_dialog_controls(
         [8, 8, 12, 255],
     );
     if let Some(fnt) = fnt {
-        blit_text_colored(page, fnt, state.display_mode.as_str(), resolution.x + 8, resolution.y + 6, MENU_TEXT_ACCENT);
+        blit_caption_in_cell(
+            page,
+            fnt,
+            state.display_mode.as_str(),
+            resolution.x,
+            resolution.y,
+            resolution.w,
+            resolution.h,
+            MENU_TEXT_ACCENT,
+        );
     }
     if state.resolution_open {
         for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {

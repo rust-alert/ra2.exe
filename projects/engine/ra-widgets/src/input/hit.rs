@@ -581,6 +581,10 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
         let row = choose_map_list_row_rect(list, row_i, list.w);
         hits.push(menu_hit_from_rect_px("map_row", MenuAction::SelectMap(abs_i), row, true));
     }
+    if let Some(preview) = snap.get("map_preview") {
+        let r = rect_px_from_layout_rect(preview.layout.rect);
+        hits.push(menu_hit_from_rect_px("map_preview", MenuAction::Noop, r, true));
+    }
     hits
 }
 
@@ -612,14 +616,21 @@ fn hit_choose_map_at(
         }
     }
     let map_base = mode_base + mode_count;
-    let list = snap.get("map_list")?.layout.rect;
-    if list.contains(point) {
-        let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
-        let visible = choose_map_visible_rows(list.height as i32);
-        let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
-        let window = maps.len().saturating_sub(scroll).min(visible);
-        if row < window {
-            return Some((map_base + row, MenuAction::SelectMap(scroll + row)));
+    if let Some(list) = snap.get("map_list") {
+        let list = list.layout.rect;
+        if list.contains(point) {
+            let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+            let visible = choose_map_visible_rows(list.height as i32);
+            let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
+            let window = maps.len().saturating_sub(scroll).min(visible);
+            if row < window {
+                return Some((map_base + row, MenuAction::SelectMap(scroll + row)));
+            }
+        }
+    }
+    if let Some(preview) = snap.get("map_preview") {
+        if preview.layout.rect.contains(point) {
+            return Some((map_base + maps.len(), MenuAction::Noop));
         }
     }
     None

@@ -144,6 +144,9 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
             ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
             ctrl("map_preview", 324, 23, 96, 69, ControlPlacement::RightPanelAnchor),
             ctrl("map_name_plate", 0, 0, 0, 0, ControlPlacement::MapNamePlate),
+            // 与遭遇战右栏同槽：模式名 / 地图名画在金属信息板内。
+            ctrl("game_type", 327, 103, 90, 10, ControlPlacement::RightPanelAnchor),
+            ctrl("map_label", 327, 116, 90, 20, ControlPlacement::RightPanelAnchor),
             ctrl("label_engagement", 23, 20, 257, 12, ControlPlacement::PreserveDlu),
             ctrl("label_game_type", 20, 60, 130, 10, ControlPlacement::PreserveDlu),
             ctrl("label_game_map", 168, 60, 130, 10, ControlPlacement::PreserveDlu),

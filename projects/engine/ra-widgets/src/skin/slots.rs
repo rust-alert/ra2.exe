@@ -205,13 +205,14 @@ const SKIRMISH_LOBBY_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("back", MenuAction::Back, true),
 ];
 
-/// 遭遇战右栏：`sdtp` 外壳 + `sdmpbtn` 地图名底板；合成时再叠 `sdtp` 帧 1 作顶栏高亮牌。
-/// 不画 WARNING 动画与底条。
+/// 遭遇战 / 选图右栏：`sdtp` 外壳 + `sdmpbtn` 地图名底板 + 底条；合成时再叠 `sdtp` 帧 1 作顶栏高亮牌。
+/// 不画 WARNING 动画。
 const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "minimap_plate", shp: "sdmpbtn.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
 ];
 
 /// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。

@@ -164,18 +164,17 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
         rect_px_from_snapshot(&snap, "map_name_plate"),
         RectPx::new(644, 157, 156, 84)
     );
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "game_type_list"),
-        RectPx::new(30, 127, 195, 260)
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "map_list"),
-        RectPx::new(252, 127, 195, 260)
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&snap, "label_engagement"),
-        RectPx::new(35, 33, 386, 20)
-    );
+    // 左栏双列表：内容区居中（固有尺寸与相对间距不变）。
+    let game_type_list = rect_px_from_snapshot(&snap, "game_type_list");
+    let map_list = rect_px_from_snapshot(&snap, "map_list");
+    assert_eq!((game_type_list.w, game_type_list.h), (195, 260));
+    assert_eq!((map_list.w, map_list.h), (195, 260));
+    assert_eq!(game_type_list.y, map_list.y);
+    assert_eq!(map_list.x - (game_type_list.x + game_type_list.w), 27);
+    let mid = (game_type_list.x + map_list.x + map_list.w) / 2;
+    assert!((mid - 316).abs() <= 4, "lists mid {mid}");
+    assert!(game_type_list.y >= 40, "top margin");
+    assert_eq!(rect_px_from_snapshot(&snap, "label_engagement").h, 20);
     assert_eq!(
         rect_px_from_snapshot(&snap, "lower_strip"),
         RectPx::new(0, 568, 632, 32)
@@ -281,11 +280,12 @@ fn shell_page_layouts_ignore_viewport_size() {
         );
 
         let maps = ra_layout::solve_choose_map();
-        assert_eq!(
-            rect_px_from_snapshot(&maps, "map_list"),
-            RectPx::new(252, 127, 195, 260),
-            "{w}x{h} map_list"
-        );
+        let map_list = rect_px_from_snapshot(&maps, "map_list");
+        assert_eq!((map_list.w, map_list.h), (195, 260), "{w}x{h} map_list size");
+        assert!(map_list.y >= 40, "{w}x{h} map_list top margin");
+        let game_type_list = rect_px_from_snapshot(&maps, "game_type_list");
+        let mid = (game_type_list.x + map_list.x + map_list.w) / 2;
+        assert!((mid - 316).abs() <= 4, "{w}x{h} lists mid {mid}");
 
         let campaign = ra_layout::solve_campaign();
         assert_eq!(

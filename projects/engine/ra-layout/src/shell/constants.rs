@@ -140,5 +140,6 @@ pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 
 /// 战斗暂停菜单右侧按钮入口 id（与 `battle_pause_menu` / 合成顺序一致）。
 ///
-/// 顺序对齐原版 Esc 菜单：选项 → 载入 → 保存 → 重新开始 → 放弃任务；「回到游戏」贴底。
-pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 6] = ["options", "load", "save", "restart", "abort", "resume"];
+/// 顺序对齐原版遭遇战 Esc 菜单：选项 → 全屏 → 放弃任务；「回到任务」贴底。
+pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 4] =
+    ["options", "fullscreen", "abort", "resume"];

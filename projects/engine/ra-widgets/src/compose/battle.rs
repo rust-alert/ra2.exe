@@ -2,9 +2,10 @@
 
 use super::*;
 use crate::battle_pause_menu::{
-    button_rects, center_panel_dest_rect, command_bar_cover_rect, dim_rect, menu_strip_rect,
+    button_rects, cameo_clear_rect, center_panel_dest_rect, dim_rect, menu_strip_rect,
     resolve_sidebttn, BattlePauseChrome,
 };
+use crate::skin::text::battle_pause_menu_fallback_label;
 
 pub struct BattleHudModel<'a> {
     /// 仿真 tick。
@@ -37,6 +38,10 @@ pub struct BattleHudModel<'a> {
     pub command_hovered: Option<usize>,
     /// 悬停提示文案（已解析 CSF；可含换行）。
     pub command_tip: Option<&'a str>,
+    /// 当前分类页签。
+    pub sidebar_tab: usize,
+    /// 当前页 cameo 列表。
+    pub cameos: &'a [crate::battle_hud::BattleCameoPaint<'a>],
 }
 
 /// 合成战斗 HUD 叠加层：右栏 + 底边命令条。
@@ -72,6 +77,13 @@ pub fn compose_battle_hud_overlay(
             metrics.power_w,
             paint.command_pressed,
         );
+        crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos);
+        // 当前页签描边，区分四分类。
+        let tab_id = format!("tab{:02}", paint.sidebar_tab.min(3));
+        let tab = rect_px_from_snapshot(&snap, &tab_id);
+        if tab.w > 0 && tab.h > 0 {
+            stroke_rect(&mut page, tab, [255, 220, 64, 255]);
+        }
     } else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
         crate::RenderPlan::battle_hud_placeholders(w, h)
@@ -229,10 +241,11 @@ fn paint_command_tip(
 /// 合成对局暂停菜单叠加层（窗口像素，叠在已画好的对局 HUD 之上）。
 ///
 /// 原版暂停逻辑：
-/// - 战术区半透明压暗
-/// - 居中贴阵营装饰板（`credits`+空`top`+`radar`）
-/// - **盖住**修理 / 出售 / QWER 页签 / cameo / 底边命令条（暂停态不出现）
-/// - 只在清空带内画暂停菜单项
+/// - 战术区半透明压暗（地图仍可见）
+/// - 居中贴阵营徽（`radar.shp` 首帧按战术区比例放大，保持宽高比）
+/// - **保留**侧栏 chrome：`credits`/`top`/`radar`/`side2` 边轨/`side3`/`addon` 底脚鹰徽
+/// - **只盖**修理/出售/QWER、cameo 内芯、命令钮、顶栏选项/外交（不要整带涂黑）
+/// - 清空带内画 Options / Fullscreen / Abort / Resume
 ///
 /// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，也**禁止**在 radar/顶栏装饰上叠钮。
 pub fn compose_battle_pause_menu_overlay(
@@ -252,7 +265,7 @@ pub fn compose_battle_pause_menu_overlay(
     let dim = dim_rect(w, h, hud_metrics);
     fill_rect(&mut page, dim, [0, 0, 0, 160]);
 
-    // 中心装饰板（与侧栏菜单分离）。
+    // 中心阵营徽（与侧栏菜单分离）。
     if let Some(pause) = pause {
         if let Some(panel) = pause.center_panel.as_ref() {
             let dest = center_panel_dest_rect(w, h, hud_metrics, panel.width(), panel.height());
@@ -264,23 +277,38 @@ pub fn compose_battle_pause_menu_overlay(
         }
     }
 
-    // 原版：暂停后 side1（修理/出售/QWER）与 cameo、命令条均不出现。
-    let strip = menu_strip_rect(w, h, hud_metrics);
-    fill_rect(&mut page, strip, [0, 0, 0, 255]);
-    let cmd = command_bar_cover_rect(w, h, hud_metrics);
-    fill_rect(&mut page, cmd, [0, 0, 0, 255]);
-
-    // 顶栏选项/外交槽在暂停态也不应露出可点钮面。
     let snap = solve_battle_hud_with_metrics(w, h, hud_metrics);
-    let opt = rect_px_from_snapshot(&snap, "opt_btn");
-    let diplo = rect_px_from_snapshot(&snap, "diplo_btn");
-    if opt.w > 0 && opt.h > 0 {
-        fill_rect(&mut page, opt, [0, 0, 0, 255]);
+    // 侧栏空槽底色：深墨蓝，别用纯黑把金属轨「吃掉」后看起来像乱渲染。
+    let well = [8, 12, 24, 255];
+
+    // side1：修理/出售/QWER 整块换成菜单落点井（保留其上下的 radar / cameo 轨）。
+    let side1 = rect_px_from_snapshot(&snap, "side1");
+    if side1.w > 0 && side1.h > 0 {
+        fill_rect(&mut page, side1, well);
     }
-    if diplo.w > 0 && diplo.h > 0 {
-        fill_rect(&mut page, diplo, [0, 0, 0, 255]);
+    // cameo 只清内芯，左右留给 HUD 已画好的 `side2` 金属边轨。
+    let cameo_well = cameo_clear_rect(w, h, hud_metrics);
+    if cameo_well.w > 0 && cameo_well.h > 0 {
+        fill_rect(&mut page, cameo_well, well);
     }
 
+    // 顶栏选项/外交：只盖钮面，不动 `top.shp` 半圆装饰。
+    for id in ["opt_btn", "diplo_btn"] {
+        let r = rect_px_from_snapshot(&snap, id);
+        if r.w > 0 && r.h > 0 {
+            fill_rect(&mut page, r, well);
+        }
+    }
+
+    // 底边命令条：只盖六枚命令钮，端盖 `lendcap`/`rendcap` 保留。
+    for i in 0..6 {
+        let r = rect_px_from_snapshot(&snap, &format!("cmd{i}"));
+        if r.w > 0 && r.h > 0 {
+            fill_rect(&mut page, r, well);
+        }
+    }
+
+    let _strip = menu_strip_rect(w, h, hud_metrics);
     let rects = button_rects(w, h, hud_metrics);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
         let pressed = pressed_entry_id == Some(*entry_id);
@@ -300,7 +328,15 @@ pub fn compose_battle_pause_menu_overlay(
             stroke_rect(&mut page, *cell, [80, 120, 180, 255]);
         }
         if let Some(fnt) = fnt {
-            let caption = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
+            let caption = {
+                let from_csf =
+                    resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
+                if from_csf == entry_id.replace('_', " ") {
+                    battle_pause_menu_fallback_label(entry_id).to_string()
+                } else {
+                    from_csf
+                }
+            };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
         }
