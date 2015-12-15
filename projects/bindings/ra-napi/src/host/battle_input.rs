@@ -18,6 +18,63 @@ pub const EDGE_SCROLL_MARGIN_PX: f32 = 16.0;
 /// 边缘滚屏速度（屏幕像素 / 秒）。
 pub const EDGE_SCROLL_SPEED_PX_PER_SEC: f32 = 640.0;
 
+/// 方向键镜头平移速度（屏幕像素 / 秒）。与边缘滚屏同速；跟逻辑 tick / 系统按键重复无关。
+pub const KEYBOARD_PAN_SPEED_PX_PER_SEC: f32 = EDGE_SCROLL_SPEED_PX_PER_SEC;
+
+/// 方向键按住状态（由渲染帧 `dt` 推进镜头，不靠 OS key-repeat 跳格）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CameraPanKeys {
+    /// 左方向键。
+    pub left: bool,
+    /// 右方向键。
+    pub right: bool,
+    /// 上方向键。
+    pub up: bool,
+    /// 下方向键。
+    pub down: bool,
+}
+
+impl CameraPanKeys {
+    /// 清空按住状态（失焦 / 暂停时调用）。
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    /// 是否有任一方向键按下。
+    pub fn any(self) -> bool {
+        self.left || self.right || self.up || self.down
+    }
+}
+
+/// 由方向键按住状态计算本帧相机平移（屏幕像素，交给 `pan_world`）。
+///
+/// 左 → 正 `dx`（镜头左移），右 → 负 `dx`；上 → 正 `dy`，下 → 负 `dy`。
+pub fn keyboard_pan_screen_delta(
+    keys: CameraPanKeys,
+    speed_px_per_sec: f32,
+    dt_secs: f64,
+) -> (f32, f32) {
+    if dt_secs <= 0.0 || speed_px_per_sec <= 0.0 || !keys.any() {
+        return (0.0, 0.0);
+    }
+    let step = (f64::from(speed_px_per_sec) * dt_secs) as f32;
+    let mut dx = 0.0_f32;
+    let mut dy = 0.0_f32;
+    if keys.left {
+        dx += step;
+    }
+    if keys.right {
+        dx -= step;
+    }
+    if keys.up {
+        dy += step;
+    }
+    if keys.down {
+        dy -= step;
+    }
+    (dx, dy)
+}
+
 /// 边缘滚屏方向（相对整窗；含对角）。上下左右光标不同。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EdgeScrollDir {
@@ -468,6 +525,23 @@ mod tests {
         assert!(dx_r < 0.0);
         let (dx_mid, dy_mid) = edge_scroll_screen_delta(400.0, 300.0, 800, 600, 16.0, 640.0, 0.1);
         assert_eq!((dx_mid, dy_mid), (0.0, 0.0));
+    }
+
+    #[test]
+    fn keyboard_pan_uses_dt_not_discrete_steps() {
+        let keys = CameraPanKeys {
+            left: true,
+            ..CameraPanKeys::default()
+        };
+        let (dx, dy) = keyboard_pan_screen_delta(keys, 640.0, 1.0 / 60.0);
+        assert!((dx - 640.0 / 60.0).abs() < 1e-3);
+        assert_eq!(dy, 0.0);
+        let both = CameraPanKeys {
+            left: true,
+            right: true,
+            ..CameraPanKeys::default()
+        };
+        assert_eq!(keyboard_pan_screen_delta(both, 640.0, 0.1), (0.0, 0.0));
     }
 
     #[test]

@@ -35,8 +35,9 @@ use winit::{
 use super::{
     boot::{remap_owner_palette, BootResult},
     battle_input::{
-        edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, EdgeScrollCursor, LeftGesture,
-        LeftReleaseAction, ScreenRect, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC,
+        edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
+        CameraPanKeys, EdgeScrollCursor, LeftGesture, LeftReleaseAction, ScreenRect,
+        EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, KEYBOARD_PAN_SPEED_PX_PER_SEC,
         MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX,
     },
     local_player::LocalPlayerController,
@@ -160,6 +161,8 @@ pub struct BattleController {
     pending_battle_sfx: Vec<String>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     edge_scroll_cursor: EdgeScrollCursor,
+    /// 方向键按住状态（渲染帧推进镜头，不跟逻辑 tick / OS 按键重复）。
+    camera_pan_keys: CameraPanKeys,
     /// 选中行动线计时起点（仿真 tick；`None` 表示未启动）。
     action_lines_start_tick: Option<u64>,
     /// 当前地图剧院（壳层挂载剧院 MIX 用）。
@@ -223,6 +226,7 @@ impl BattleController {
             deploy_watch: None,
             pending_battle_sfx: Vec::new(),
             edge_scroll_cursor: EdgeScrollCursor::Default,
+            camera_pan_keys: CameraPanKeys::default(),
             action_lines_start_tick: None,
             map_theater,
             weather,
@@ -498,7 +502,7 @@ impl BattleController {
         renderer.pan_clamped_in_viewport(dx, dy, vp.proj_w(), vp.proj_h());
     }
 
-    /// 整窗边缘滚屏（右栏 / 底边命令条同样触发；左键拖拽不再平移相机）。
+    /// 镜头平移：整窗边缘滚屏 + 方向键按住连续平移（均按真实 `dt`，与逻辑 tick 无关）。
     pub fn tick_edge_scroll(&mut self, renderer: &mut Renderer, window: &Window, dt: f64, enabled: bool) {
         if !enabled || dt <= 0.0 {
             self.edge_scroll_cursor = EdgeScrollCursor::Default;
@@ -506,6 +510,7 @@ impl BattleController {
         }
         if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
             self.edge_scroll_cursor = EdgeScrollCursor::Default;
+            self.camera_pan_keys.clear();
             return;
         }
         let size = window.inner_size();
@@ -526,6 +531,9 @@ impl BattleController {
             EDGE_SCROLL_SPEED_PX_PER_SEC,
             dt,
         );
+        let (kx, ky) = keyboard_pan_screen_delta(self.camera_pan_keys, KEYBOARD_PAN_SPEED_PX_PER_SEC, dt);
+        dx += kx;
+        dy += ky;
         if dx > 0.0 && !can_west {
             dx = 0.0;
         }
@@ -927,7 +935,32 @@ impl BattleController {
                 // 可玩阶段关闭滚轮缩放，避免越界黑边与选点变换漂移。
                 BattleNav::None
             }
+            WindowEvent::Focused(false) => {
+                self.camera_pan_keys.clear();
+                BattleNav::None
+            }
             WindowEvent::KeyboardInput { event, .. } => {
+                // 方向键：记录按住态，由 `tick_edge_scroll` 按渲染帧 `dt` 连续平移（勿跟 OS key-repeat 跳 48px）。
+                if let PhysicalKey::Code(code) = event.physical_key {
+                    if matches!(
+                        code,
+                        KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown
+                    ) {
+                        if !accept_commands || battle_paused {
+                            self.camera_pan_keys.clear();
+                            return BattleNav::None;
+                        }
+                        let down = event.state == ElementState::Pressed;
+                        match code {
+                            KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
+                            KeyCode::ArrowRight => self.camera_pan_keys.right = down,
+                            KeyCode::ArrowUp => self.camera_pan_keys.up = down,
+                            KeyCode::ArrowDown => self.camera_pan_keys.down = down,
+                            _ => {}
+                        }
+                        return BattleNav::None;
+                    }
+                }
                 if event.state != ElementState::Pressed {
                     return BattleNav::None;
                 }
@@ -986,23 +1019,7 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    // 镜头平移只用方向键；原版无 WASD 移动，且 D/X 留给部署/警戒。
-                    PhysicalKey::Code(KeyCode::ArrowLeft) => {
-                        self.pan_world(renderer, window, 48.0, 0.0);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::ArrowRight) => {
-                        self.pan_world(renderer, window, -48.0, 0.0);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::ArrowUp) => {
-                        self.pan_world(renderer, window, 0.0, 48.0);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::ArrowDown) => {
-                        self.pan_world(renderer, window, 0.0, -48.0);
-                        BattleNav::None
-                    }
+                    // 镜头平移只用方向键按住态（见上方 KeyboardInput 分支）；此处不再跳格。
                     PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => BattleNav::None,
                     PhysicalKey::Code(KeyCode::Tab) if !battle_paused => {
