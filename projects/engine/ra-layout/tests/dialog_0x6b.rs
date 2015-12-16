@@ -26,6 +26,14 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
         snap.get("title").map(|e| e.layout.rect),
         Some(Rect::from_xywh(635.0, 2.0, 162.0, 16.0))
     );
+    assert_eq!(
+        snap.get("game_type").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(649.0, 167.0, 135.0, 16.0))
+    );
+    assert_eq!(
+        snap.get("map_label").map(|e| e.layout.rect),
+        Some(Rect::from_xywh(649.0, 188.0, 135.0, 33.0))
+    );
 
     // 左栏双列表：内容区居中后固有尺寸与相对间距不变。
     let game_type_list = snap.get("game_type_list").map(|e| e.layout.rect).expect("game_type_list");

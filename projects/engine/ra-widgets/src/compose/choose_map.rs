@@ -22,7 +22,7 @@ pub const CHOOSE_MAP_SCROLL_THUMB: [u8; 4] = [255, 0, 0, 255];
 /// 溢出时列表内容区右侧留给滚动条的宽度（`1*2+0x12`）。
 pub const CHOOSE_MAP_SCROLL_W: i32 = 20;
 
-/// 合成选图页：双列表 + 右栏预览 / 地图名 / 使用地图 / 随机 / 取消。
+/// 合成选图页：双列表 + 右栏预览 / 模式·地图名 / 使用地图 / 随机 / 取消。
 pub fn compose_choose_map_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -33,6 +33,7 @@ pub fn compose_choose_map_page(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     map_preview: Option<&RgbaImage>,
+    selected_mode_caption: Option<&str>,
     selected_map_caption: Option<&str>,
     mode_names: &[&str],
     selected_mode_index: Option<usize>,
@@ -48,8 +49,8 @@ pub fn compose_choose_map_page(
     let title = rect_px_from_snapshot(&snap, "title");
     let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
     let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");
-    let game_type_slot = rect_px_from_snapshot(&snap, "game_type");
-    let map_label_slot = rect_px_from_snapshot(&snap, "map_label");
+    let game_type = rect_px_from_snapshot(&snap, "game_type");
+    let map_label = rect_px_from_snapshot(&snap, "map_label");
     let label_engagement = rect_px_from_snapshot(&snap, "label_engagement");
     let label_game_type = rect_px_from_snapshot(&snap, "label_game_type");
     let label_game_map = rect_px_from_snapshot(&snap, "label_game_map");
@@ -89,18 +90,17 @@ pub fn compose_choose_map_page(
     if let Some(preview) = map_preview {
         blit_map_preview_fit(&mut page, preview, map_preview_rect);
     }
-    // 右栏信息与遭遇战同槽：`game_type` / `map_label` 格内居中；金属板只作底板。
-    let selected_mode_caption = selected_mode_index.and_then(|i| mode_names.get(i).copied());
+    // 右栏信息板：与遭遇战同槽，模式名 / 地图名格内居中（板面只留 chrome）。
     if let Some(fnt) = fnt {
-        if let Some(mode) = selected_mode_caption.filter(|s| !s.is_empty()) {
+        if let Some(caption) = selected_mode_caption.filter(|s| !s.is_empty()) {
             blit_caption_in_cell(
                 &mut page,
                 fnt,
-                mode,
-                game_type_slot.x,
-                game_type_slot.y,
-                game_type_slot.w,
-                game_type_slot.h,
+                caption,
+                game_type.x,
+                game_type.y,
+                game_type.w,
+                game_type.h,
                 MENU_TEXT_ENABLED,
             );
         }
@@ -109,10 +109,10 @@ pub fn compose_choose_map_page(
                 &mut page,
                 fnt,
                 caption,
-                map_label_slot.x,
-                map_label_slot.y,
-                map_label_slot.w,
-                map_label_slot.h,
+                map_label.x,
+                map_label.y,
+                map_label.w,
+                map_label.h,
                 MENU_TEXT_ENABLED,
             );
         }
@@ -179,7 +179,6 @@ pub fn compose_choose_map_page(
         blit_shell_static_title(&mut page, fnt, &title_text, title);
         let engagement =
             resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
-        // 「选择迎击」在宽标签格内水平+垂直居中（对齐双列表内容宽）。
         blit_caption_in_cell(
             &mut page,
             fnt,
@@ -190,26 +189,22 @@ pub fn compose_choose_map_page(
             label_engagement.h,
             MENU_TEXT_ENABLED,
         );
-        let game_type = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
-        blit_caption_in_cell(
+        let game_type_hdr = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
+        blit_text_colored(
             &mut page,
             fnt,
-            &game_type,
+            &game_type_hdr,
             label_game_type.x,
             label_game_type.y,
-            label_game_type.w,
-            label_game_type.h,
             MENU_TEXT_ENABLED,
         );
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
-        blit_caption_in_cell(
+        blit_text_colored(
             &mut page,
             fnt,
             &game_map,
             label_game_map.x,
             label_game_map.y,
-            label_game_map.w,
-            label_game_map.h,
             MENU_TEXT_ENABLED,
         );
         if let Some(text) = status_text.filter(|s| !s.is_empty()) {

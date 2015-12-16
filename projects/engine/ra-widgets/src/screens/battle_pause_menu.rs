@@ -1,11 +1,11 @@
 //! 对局内暂停菜单（原版 Esc 菜单）。
 //!
 //! 原版暂停态：
-//! - **保留**侧栏 chrome（`credits`/`top`/`radar`/`side1`/`side2`/`side3`/`addon`）
-//! - **保留**底边命令条端盖与轨（`lendcap`/`lspacer`/`rendcap`），不整条涂黑
+//! - **保留**侧栏 chrome（`credits`/`top`/`radar`/`side2`/`side3`/`addon`）
+//! - **保留**底边命令条端盖与轨（`lendcap`/`lspacer`/`rendcap`），不整条涂黑、不盖钮槽
 //! - **不出现**修理 / 出售 / QWER 页签 / cameo 生产线 / 命令钮 / 顶栏选项外交钮
 //! - 战术区压暗；侧栏清空带内列暂停菜单项
-//! - 中心阵营徽：`radar.shp` 首帧放大居中（与侧栏顶徽同图，不是另拼顶栏）
+//! - 中心阵营徽：`radar.shp` 首帧裁掉左右金属侧轨后的徽芯放大（不是整块「雷达槽」）
 //!
 //! 几何跟对局 HUD 同口径（窗口像素）。阵营包必须 `resolve_preferring(sidec01|sidec02)`。
 
@@ -32,10 +32,12 @@ const SIDEBTTN_W: i32 = 125;
 const SIDEBTTN_H: i32 = 25;
 /// 钮列上下间距。
 const SIDEBTTN_GAP: i32 = 4;
-/// 中心阵营徽相对战术区短边的占比（保持 `radar` 宽高比，不做「雷达块」硬拉方）。
-const LOGO_FIT: f32 = 0.62;
+/// 中心阵营徽相对战术区短边的占比（保持徽芯宽高比）。
+const LOGO_FIT: f32 = 0.72;
 /// cameo 内侧清空边距，留给 `side2` 金属边轨透出。
 const CAMEO_RAIL_INSET: i32 = 12;
+/// `radar.shp` 左右金属侧轨宽度（裁掉后只留鹰徽+放射底，避免「放大雷达槽」观感）。
+const RADAR_SIDE_RAIL_PX: u32 = 22;
 
 /// 暂停菜单命中结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,9 +82,9 @@ pub struct BattlePauseChrome {
     pub side: String,
     /// 实际优先读取的嵌套包名。
     pub mix: String,
-    /// `radar.shp` 首帧（阵营徽；中心装饰即此图放大）。
+    /// `radar.shp` 首帧（侧栏顶徽；中心板取其裁轨后的徽芯）。
     pub radar: Option<DecodedUiSprite>,
-    /// 中心阵营徽画布（与 `radar` 同像素，未放大；便于合成路径统一）。
+    /// 中心阵营徽画布（`radar` 裁掉左右侧轨，未放大）。
     pub center_panel: Option<RgbaImage>,
     /// `sidebttn.shp` 常态帧（仅 cameo 菜单列）。
     pub button_normal: Option<DecodedUiSprite>,
@@ -166,7 +168,10 @@ pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> Battl
     let mix = crate::skirmish_setup::sidebar_chrome_mix(side).to_string();
     let mut errors = Vec::new();
     let radar = decode_preferring(source, &mix, "radar.shp", 0, &mut errors);
-    let center_panel = radar.as_ref().map(|s| s.image.clone());
+    let center_panel = radar
+        .as_ref()
+        .map(|s| crop_radar_emblem(&s.image))
+        .or_else(|| radar.as_ref().map(|s| s.image.clone()));
     let button_normal = decode_preferring(source, &mix, "sidebttn.shp", 0, &mut errors);
     let button_pressed = decode_preferring(source, &mix, "sidebttn.shp", 1, &mut errors);
     let button_hover = decode_preferring(source, &mix, "sidebttn.shp", 2, &mut errors)
@@ -185,6 +190,27 @@ pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> Battl
 
 fn pause_snap(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> LayoutSnapshot {
     solve_battle_hud_with_metrics(viewport_w, viewport_h, metrics)
+}
+
+/// 裁掉 `radar.shp` 左右侧栏金属轨，只留中央阵营徽+放射底。
+fn crop_radar_emblem(src: &RgbaImage) -> RgbaImage {
+    let w = src.width().max(1);
+    let h = src.height().max(1);
+    let rail = RADAR_SIDE_RAIL_PX.min(w / 4);
+    let x0 = rail;
+    let x1 = w.saturating_sub(rail).max(x0 + 1);
+    let nw = x1 - x0;
+    let mut out = RgbaImage::from_raw(nw, h, vec![0u8; (nw as usize) * (h as usize) * 4])
+        .unwrap_or_else(|| src.clone());
+    let raw = src.as_raw();
+    for y in 0..h {
+        for x in 0..nw {
+            let si = ((y * w + (x0 + x)) * 4) as usize;
+            let di = ((y * nw + x) * 4) as usize;
+            out.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
+        }
+    }
+    out
 }
 
 /// 暂停时菜单钮落点带：`side1` + `cameo_band`（chrome 仍由 HUD 保留，不在此整带涂黑）。

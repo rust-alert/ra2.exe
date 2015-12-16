@@ -2233,14 +2233,14 @@ impl BattleController {
             deploy_hint: deploy_hint_owned.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
-            paused: false,
+            paused: show_pause_banner,
             pause_reason: None,
             outcome: outcome_owned.as_deref(),
             command_pressed: if show_pause_banner { None } else { self.command_pressed },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
-            cameos: &cameos,
+            cameos: if show_pause_banner { &[] } else { &cameos },
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {

@@ -70,19 +70,22 @@ pub fn compose_battle_hud_overlay(
 
     let used_chrome = chrome.is_some_and(|c| c.has_sidebar_body());
     if let Some(chrome) = chrome.filter(|c| c.has_sidebar_body()) {
-        crate::battle_hud::blit_battle_hud_chrome_with_state(
+        crate::battle_hud::blit_battle_hud_chrome_ex(
             &mut page,
             chrome,
             &snap,
             metrics.power_w,
             paint.command_pressed,
+            paint.paused,
         );
-        crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos);
-        // 当前页签描边，区分四分类。
-        let tab_id = format!("tab{:02}", paint.sidebar_tab.min(3));
-        let tab = rect_px_from_snapshot(&snap, &tab_id);
-        if tab.w > 0 && tab.h > 0 {
-            stroke_rect(&mut page, tab, [255, 220, 64, 255]);
+        if !paint.paused {
+            crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos);
+            // 当前页签描边，区分四分类。
+            let tab_id = format!("tab{:02}", paint.sidebar_tab.min(3));
+            let tab = rect_px_from_snapshot(&snap, &tab_id);
+            if tab.w > 0 && tab.h > 0 {
+                stroke_rect(&mut page, tab, [255, 220, 64, 255]);
+            }
         }
     } else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
@@ -155,8 +158,8 @@ pub fn compose_battle_hud_overlay(
                 blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
             }
             let _ = (y, bottom_strip);
-        } else {
-            // 有 chrome 时只在底脚条带写少量诊断（避免盖住 cameo）。
+        } else if !paint.paused {
+            // 有 chrome 且非暂停：只在底脚条带写少量诊断（避免盖住 cameo / 暂停钮）。
             let x = sidebar.x + 8;
             let mut y = bottom_strip.y + 4;
             if let Some(hint) = paint.deploy_hint {
@@ -167,24 +170,24 @@ pub fn compose_battle_hud_overlay(
                 blit_text_colored(&mut page, fnt, reject, x, y, [255, 120, 80, 255]);
                 y += 14;
             }
-            if paint.paused {
-                let reason = paint.pause_reason.unwrap_or("已暂停");
-                blit_text_colored(&mut page, fnt, reason, x, y, MENU_TEXT_ACCENT);
-                y += 14;
-            }
             if let Some(outcome) = paint.outcome {
                 blit_text_colored(&mut page, fnt, outcome, x, y, MENU_TEXT_ACCENT);
             }
+            let _ = y;
+        } else {
+            // 暂停菜单打开：资金条仍画，底脚/侧栏诊断文案一律不写，留给暂停钮与 chrome。
         }
     }
 
-    if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) =
-        (paint.command_tip, paint.command_hovered, chrome, fnt)
-    {
-        let snap = solve_battle_hud_with_metrics(w, h, metrics);
-        let cell = rect_px_from_snapshot(&snap, &format!("cmd{slot}"));
-        if cell.w > 0 && cell.h > 0 {
-            paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
+    if !paint.paused {
+        if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) =
+            (paint.command_tip, paint.command_hovered, chrome, fnt)
+        {
+            let snap = solve_battle_hud_with_metrics(w, h, metrics);
+            let cell = rect_px_from_snapshot(&snap, &format!("cmd{slot}"));
+            if cell.w > 0 && cell.h > 0 {
+                paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
+            }
         }
     }
 
@@ -242,12 +245,13 @@ fn paint_command_tip(
 ///
 /// 原版暂停逻辑：
 /// - 战术区半透明压暗（地图仍可见）
-/// - 居中贴阵营徽（`radar.shp` 首帧按战术区比例放大，保持宽高比）
-/// - **保留**侧栏 chrome：`credits`/`top`/`radar`/`side2` 边轨/`side3`/`addon` 底脚鹰徽
-/// - **只盖**修理/出售/QWER、cameo 内芯、命令钮、顶栏选项/外交（不要整带涂黑）
-/// - 清空带内画 Options / Fullscreen / Abort / Resume
+/// - 居中贴阵营徽（`radar` 去左右侧轨后的徽芯放大，不是整块雷达槽）
+/// - **保留**侧栏 chrome：`credits`/`top`/`radar`/`side2` 边轨/`side3`/`addon`
+/// - **保留**底边 `lendcap`/`lspacer`/`rendcap` 金属轨（HUD 暂停态已画）
+/// - 只清 side1 / cameo 内芯 / 顶栏选项外交，再画 Options / Fullscreen / Abort / Resume
 ///
 /// **禁止**再画主菜单 `sdtp` / `sdbtnanm`，也**禁止**在 radar/顶栏装饰上叠钮。
+/// **禁止**再涂命令钮槽，以免砸掉 `lspacer` 白顶/红底细线。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -278,10 +282,10 @@ pub fn compose_battle_pause_menu_overlay(
     }
 
     let snap = solve_battle_hud_with_metrics(w, h, hud_metrics);
-    // 侧栏空槽底色：深墨蓝，别用纯黑把金属轨「吃掉」后看起来像乱渲染。
+    // 侧栏空槽底色：深墨蓝，别用纯黑把金属轨「吃掉」。
     let well = [8, 12, 24, 255];
 
-    // side1：修理/出售/QWER 整块换成菜单落点井（保留其上下的 radar / cameo 轨）。
+    // side1：修理/出售/QWER 槽换成菜单落点井（radar / side2 / side3 / addon 由 HUD 保留）。
     let side1 = rect_px_from_snapshot(&snap, "side1");
     if side1.w > 0 && side1.h > 0 {
         fill_rect(&mut page, side1, well);
@@ -300,13 +304,7 @@ pub fn compose_battle_pause_menu_overlay(
         }
     }
 
-    // 底边命令条：只盖六枚命令钮，端盖 `lendcap`/`rendcap` 保留。
-    for i in 0..6 {
-        let r = rect_px_from_snapshot(&snap, &format!("cmd{i}"));
-        if r.w > 0 && r.h > 0 {
-            fill_rect(&mut page, r, well);
-        }
-    }
+    // 底边命令轨已由 HUD 在暂停态画好（lendcap/lspacer/rendcap），禁止再涂 cmd 槽砸掉金属细线。
 
     let _strip = menu_strip_rect(w, h, hud_metrics);
     let rects = button_rects(w, h, hud_metrics);

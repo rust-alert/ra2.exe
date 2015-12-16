@@ -7,7 +7,7 @@ use ra_widgets::RenderPlan;
 fn battle_pause_render_plan_rects_match_snapshot_hits() {
     let snap = solve_battle_pause();
     let plan = RenderPlan::battle_pause_placeholders();
-    let resume = BATTLE_PAUSE_MENU_BUTTON_IDS[5];
+    let resume = BATTLE_PAUSE_MENU_BUTTON_IDS[3];
 
     assert_eq!(
         snap.get(resume).map(|e| e.layout.rect),

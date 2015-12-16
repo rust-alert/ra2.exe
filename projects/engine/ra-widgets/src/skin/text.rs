@@ -138,6 +138,21 @@ pub fn choose_map_csf_label(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 选图页悬停提示 → CSF（底栏 `STT:*`）。
+pub fn choose_map_csf_tooltip(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "use_map" => Some("STT:ScenarioButtonUseMap"),
+        "create_random" => Some("STT:ScenarioButtonRandom"),
+        "cancel" => Some("STT:ScenarioButtonCancel"),
+        "mode_row" | "game_type_list" => Some("STT:ScenarioListGameType"),
+        "map_row" | "map_list" => Some("STT:ScenarioListMaps"),
+        "map_preview" => Some("STT:ScenarioMapThumbnail"),
+        "game_type" => Some("STT:SkirmishLabelGameType"),
+        "map_label" => Some("STT:SkirmishLabelScenario"),
+        _ => None,
+    }
+}
+
 /// 选图页标题 CSF。
 pub fn choose_map_title_csf_key() -> &'static str {
     "GUI:ChooseMap"
@@ -300,9 +315,7 @@ pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
 pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
         "options" => Some("GUI:Options"),
-        "load" => Some("GUI:LoadMission"),
-        "save" => Some("GUI:SaveMission"),
-        "restart" => Some("GUI:AbortRestart"),
+        "fullscreen" => Some("GUI:FullScreen"),
         "abort" => Some("GUI:AbortMission"),
         "resume" => Some("GUI:ResumeMission"),
         _ => None,

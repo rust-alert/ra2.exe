@@ -407,6 +407,18 @@ pub fn blit_battle_hud_chrome_with_state(
     power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
+    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false);
+}
+
+/// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
+pub fn blit_battle_hud_chrome_ex(
+    page: &mut RgbaImage,
+    chrome: &BattleHudChrome,
+    snap: &LayoutSnapshot,
+    power_meter_w: i32,
+    command_pressed: Option<usize>,
+    pause_menu: bool,
+) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
     let credits = rect_px_from_snapshot(snap, "credits");
     let top = rect_px_from_snapshot(snap, "top");
@@ -473,11 +485,13 @@ pub fn blit_battle_hud_chrome_with_state(
     if let Some(s) = &chrome.addon {
         blit_chrome_slot(page, &s.image, addon);
     }
-    if let Some(s) = &chrome.repair {
-        blit_button_in_cell(page, &s.image, repair);
-    }
-    if let Some(s) = &chrome.sell {
-        blit_button_in_cell(page, &s.image, sell);
+    if !pause_menu {
+        if let Some(s) = &chrome.repair {
+            blit_button_in_cell(page, &s.image, repair);
+        }
+        if let Some(s) = &chrome.sell {
+            blit_button_in_cell(page, &s.image, sell);
+        }
     }
     if let Some(s) = &chrome.powerp {
         // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
@@ -495,21 +509,25 @@ pub fn blit_battle_hud_chrome_with_state(
             y += strip_h;
         }
     }
-    // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
-    for (i, tab) in chrome.tabs.iter().enumerate() {
-        if let Some(tab) = tab {
-            blit_button_in_cell(page, &tab.image, tabs[i]);
+    if !pause_menu {
+        // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
+        for (i, tab) in chrome.tabs.iter().enumerate() {
+            if let Some(tab) = tab {
+                blit_button_in_cell(page, &tab.image, tabs[i]);
+            }
         }
+        // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。
+        if let Some(s) = &chrome.diplobtn {
+            blit_button_in_cell(page, &s.image, diplo_btn);
+        }
+        if let Some(s) = &chrome.optbtn {
+            blit_button_in_cell(page, &s.image, opt_btn);
+        }
+        blit_command_bar(page, chrome, snap, command_pressed);
+    } else {
+        // 暂停：整段命令轨保留金属细节，不露编队/部署钮。
+        blit_command_bar_track(page, chrome, snap, /*with_buttons*/ false, None);
     }
-    // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。底脚鹰标/蓝光只靠 `side3`。
-    if let Some(s) = &chrome.diplobtn {
-        blit_button_in_cell(page, &s.image, diplo_btn);
-    }
-    if let Some(s) = &chrome.optbtn {
-        blit_button_in_cell(page, &s.image, opt_btn);
-    }
-
-    blit_command_bar(page, chrome, snap, command_pressed);
 }
 
 fn command_bar_shp_index_for_visual(visual_slot: usize) -> Option<usize> {

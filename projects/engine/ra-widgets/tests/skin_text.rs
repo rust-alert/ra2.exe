@@ -86,6 +86,16 @@ fn skirmish_lobby_csf_tooltips_match_stt_keys() {
 }
 
 #[test]
+fn choose_map_csf_tooltips_match_stt_keys() {
+    assert_eq!(choose_map_csf_tooltip("use_map"), Some("STT:ScenarioButtonUseMap"));
+    assert_eq!(choose_map_csf_tooltip("create_random"), Some("STT:ScenarioButtonRandom"));
+    assert_eq!(choose_map_csf_tooltip("cancel"), Some("STT:ScenarioButtonCancel"));
+    assert_eq!(choose_map_csf_tooltip("mode_row"), Some("STT:ScenarioListGameType"));
+    assert_eq!(choose_map_csf_tooltip("map_row"), Some("STT:ScenarioListMaps"));
+    assert_eq!(choose_map_csf_tooltip("map_preview"), Some("STT:ScenarioMapThumbnail"));
+}
+
+#[test]
 fn campaign_csf_keys_match_shell_labels() {
     assert_eq!(campaign_csf_label("load"), Some("GUI:Load"));
     assert_eq!(campaign_csf_label("back"), Some("GUI:Back"));
