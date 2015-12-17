@@ -147,7 +147,8 @@ pub fn dialog_template_0x6b() -> DialogTemplate {
             // 与遭遇战右栏同槽：模式名 / 地图名画在金属信息板内。
             ctrl("game_type", 327, 103, 90, 10, ControlPlacement::RightPanelAnchor),
             ctrl("map_label", 327, 116, 90, 20, ControlPlacement::RightPanelAnchor),
-            ctrl("label_engagement", 23, 20, 257, 12, ControlPlacement::PreserveDlu),
+            // 横跨双列表总宽，便于「选择迎击」相对列表块居中。
+            ctrl("label_engagement", 20, 20, 278, 12, ControlPlacement::PreserveDlu),
             ctrl("label_game_type", 20, 60, 130, 10, ControlPlacement::PreserveDlu),
             ctrl("label_game_map", 168, 60, 130, 10, ControlPlacement::PreserveDlu),
             ctrl("game_type_list", 20, 78, 130, 160, ControlPlacement::PreserveDlu),

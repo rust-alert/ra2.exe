@@ -32,7 +32,7 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
     );
     assert_eq!(
         snap.get("map_label").map(|e| e.layout.rect),
-        Some(Rect::from_xywh(649.0, 188.0, 135.0, 33.0))
+        Some(Rect::from_xywh(649.0, 189.0, 135.0, 33.0))
     );
 
     // 左栏双列表：内容区居中后固有尺寸与相对间距不变。
@@ -45,6 +45,13 @@ fn dialog_0x6b_snapshot_matches_choose_map_golden_rects() {
     let mid = (game_type_list.x + map_list.x + map_list.width) * 0.5;
     assert!((mid - 316.0).abs() <= 4.0, "lists mid {mid}");
     assert!(game_type_list.y >= 40.0, "top margin y={}", game_type_list.y);
+    let engagement = snap.get("label_engagement").map(|e| e.layout.rect).expect("label_engagement");
+    let eng_mid = engagement.x + engagement.width * 0.5;
+    assert!(
+        (eng_mid - mid).abs() <= 2.0,
+        "engagement mid {eng_mid} should match lists mid {mid}"
+    );
+    assert!((engagement.width - (map_list.x + map_list.width - game_type_list.x)).abs() <= 1.0);
 
     assert_eq!(
         snap.get("lower_strip").map(|e| e.layout.rect),

@@ -585,6 +585,13 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
         let r = rect_px_from_layout_rect(preview.layout.rect);
         hits.push(menu_hit_from_rect_px("map_preview", MenuAction::Noop, r, true));
     }
+    // 右栏信息槽：与遭遇战一致，可悬停出底栏提示。
+    for id in ["game_type", "map_label"] {
+        if let Some(slot) = snap.get(id) {
+            let r = rect_px_from_layout_rect(slot.layout.rect);
+            hits.push(menu_hit_from_rect_px(id, MenuAction::Noop, r, true));
+        }
+    }
     hits
 }
 
@@ -631,6 +638,14 @@ fn hit_choose_map_at(
     if let Some(preview) = snap.get("map_preview") {
         if preview.layout.rect.contains(point) {
             return Some((map_base + maps.len(), MenuAction::Noop));
+        }
+    }
+    let info_base = map_base + maps.len() + 1;
+    for (i, id) in ["game_type", "map_label"].into_iter().enumerate() {
+        if let Some(slot) = snap.get(id) {
+            if slot.layout.rect.contains(point) {
+                return Some((info_base + i, MenuAction::Noop));
+            }
         }
     }
     None

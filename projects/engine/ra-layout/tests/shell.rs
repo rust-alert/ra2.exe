@@ -164,6 +164,14 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
         rect_px_from_snapshot(&snap, "map_name_plate"),
         RectPx::new(644, 157, 156, 84)
     );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "game_type"),
+        RectPx::new(649, 167, 135, 16)
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&snap, "map_label"),
+        RectPx::new(649, 189, 135, 33)
+    );
     // 左栏双列表：内容区居中（固有尺寸与相对间距不变）。
     let game_type_list = rect_px_from_snapshot(&snap, "game_type_list");
     let map_list = rect_px_from_snapshot(&snap, "map_list");
@@ -174,7 +182,9 @@ fn choose_map_matches_game_exe_dialog_0x6b() {
     let mid = (game_type_list.x + map_list.x + map_list.w) / 2;
     assert!((mid - 316).abs() <= 4, "lists mid {mid}");
     assert!(game_type_list.y >= 40, "top margin");
-    assert_eq!(rect_px_from_snapshot(&snap, "label_engagement").h, 20);
+    let engagement = rect_px_from_snapshot(&snap, "label_engagement");
+    assert_eq!(engagement.h, 20);
+    assert!(((engagement.x + engagement.w / 2) - mid).abs() <= 2);
     assert_eq!(
         rect_px_from_snapshot(&snap, "lower_strip"),
         RectPx::new(0, 568, 632, 32)

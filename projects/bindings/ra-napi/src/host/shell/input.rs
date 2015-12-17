@@ -65,12 +65,21 @@ impl Shell {
                 let mode_base = n_btn;
                 let mode_count = self.lobby_modes.len();
                 if idx < mode_base + mode_count {
-                    Some("mode_row")
-                } else if idx < mode_base + mode_count + self.maps_matching_selected_mode().len() {
-                    Some("map_row")
-                } else {
-                    Some("map_preview")
+                    return Some("mode_row");
                 }
+                let map_count = self.maps_matching_selected_mode().len();
+                let map_base = mode_base + mode_count;
+                if idx < map_base + map_count {
+                    return Some("map_row");
+                }
+                let preview_idx = map_base + map_count;
+                if idx == preview_idx {
+                    return Some("map_preview");
+                }
+                if idx == preview_idx + 1 {
+                    return Some("game_type");
+                }
+                Some("map_label")
             }
             _ => None,
         }
