@@ -1,10 +1,13 @@
 //! 选图命中改为消费 `0x6B` snapshot。
 
+use ra_layout::{
+    choose_map_list_row_rect, rect_px_from_snapshot, solve_choose_map, CHOOSE_MAP_LIST_ROW_H,
+};
 use ra_map::{BootMapCandidate, Theater};
 use ra_widgets::{
+    input::hit::{hit_action, hits_for},
     menu_action::MenuAction,
     original_screen::OriginalScreen,
-    input::hit::{hit_action, hits_for},
 };
 
 fn sample_map(name: &str) -> BootMapCandidate {
@@ -17,6 +20,16 @@ fn sample_map(name: &str) -> BootMapCandidate {
         start_slots: 4,
         game_modes: Vec::new(),
     }
+}
+
+fn list_row_center(list_id: &str, row: usize) -> (f64, f64) {
+    let snap = solve_choose_map();
+    let list = rect_px_from_snapshot(&snap, list_id);
+    let row_rect = choose_map_list_row_rect(list, row, list.w);
+    (
+        (row_rect.x + row_rect.w / 2) as f64,
+        (row_rect.y + CHOOSE_MAP_LIST_ROW_H / 2) as f64,
+    )
 }
 
 #[test]
@@ -63,17 +76,50 @@ fn choose_map_mode_and_map_rows_are_hit() {
     assert!(hits.iter().any(|h| matches!(h.action, MenuAction::SelectMap(0))));
     assert!(hits.iter().any(|h| matches!(h.action, MenuAction::SelectMap(1))));
 
-    // game_type_list (30,127,195,260) 首行中心；map_list (252,127) 首行。
+    // 左栏表单已在内容区居中：点击点必须取自当前 snapshot，不能写死旧 DLU 像素。
+    let (mode_x, mode_y) = list_row_center("game_type_list", 0);
+    let (map0_x, map0_y) = list_row_center("map_list", 0);
+    let (map1_x, map1_y) = list_row_center("map_list", 1);
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 2, None, (80.0, 135.0), 800.0, 600.0, 0, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            2,
+            None,
+            (mode_x, mode_y),
+            800.0,
+            600.0,
+            0,
+            false
+        ),
         Some(MenuAction::SelectMode(0))
     );
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 2, None, (300.0, 135.0), 800.0, 600.0, 0, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            2,
+            None,
+            (map0_x, map0_y),
+            800.0,
+            600.0,
+            0,
+            false
+        ),
         Some(MenuAction::SelectMap(0))
     );
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 2, None, (300.0, 151.0), 800.0, 600.0, 0, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            2,
+            None,
+            (map1_x, map1_y),
+            800.0,
+            600.0,
+            0,
+            false
+        ),
         Some(MenuAction::SelectMap(1))
     );
 }
@@ -81,12 +127,33 @@ fn choose_map_mode_and_map_rows_are_hit() {
 #[test]
 fn choose_map_scroll_shifts_hit_rows() {
     let maps: Vec<_> = (0..20).map(|i| sample_map(&format!("mp{i:02}t4.map"))).collect();
+    let (map_x, map_y) = list_row_center("map_list", 0);
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 1, None, (300.0, 135.0), 800.0, 600.0, 0, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            1,
+            None,
+            (map_x, map_y),
+            800.0,
+            600.0,
+            0,
+            false
+        ),
         Some(MenuAction::SelectMap(0))
     );
     assert_eq!(
-        hit_action(OriginalScreen::ChooseMap, &maps, 1, None, (300.0, 135.0), 800.0, 600.0, 3, false),
+        hit_action(
+            OriginalScreen::ChooseMap,
+            &maps,
+            1,
+            None,
+            (map_x, map_y),
+            800.0,
+            600.0,
+            3,
+            false
+        ),
         Some(MenuAction::SelectMap(3))
     );
 }

@@ -22,6 +22,17 @@ impl Shell {
             return hit::campaign_entry_at(self.cursor.0, self.cursor.1, self.window_width, self.window_height);
         }
         let hit_maps = self.maps_for_menu_hit();
+        if self.screen == OriginalScreen::ChooseMap {
+            return hit::choose_map_entry_at(
+                &hit_maps,
+                self.lobby_modes.len(),
+                self.map_list_scroll,
+                self.cursor.0,
+                self.cursor.1,
+                self.window_width,
+                self.window_height,
+            );
+        }
         if self.screen == OriginalScreen::SkirmishLobby {
             if let Some(id) = hit::hover_index(
                 self.screen,
@@ -57,30 +68,6 @@ impl Shell {
             OriginalScreen::SinglePlayerMenu => ra_layout::SINGLE_PLAYER_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::Options => ra_layout::OPTIONS_BUTTON_IDS.get(idx).copied(),
             OriginalScreen::ExitConfirm => ra_layout::EXIT_CONFIRM_BUTTON_IDS.get(idx).copied(),
-            OriginalScreen::ChooseMap => {
-                let n_btn = ra_layout::CHOOSE_MAP_BUTTON_IDS.len();
-                if let Some(id) = ra_layout::CHOOSE_MAP_BUTTON_IDS.get(idx).copied() {
-                    return Some(id);
-                }
-                let mode_base = n_btn;
-                let mode_count = self.lobby_modes.len();
-                if idx < mode_base + mode_count {
-                    return Some("mode_row");
-                }
-                let map_count = self.maps_matching_selected_mode().len();
-                let map_base = mode_base + mode_count;
-                if idx < map_base + map_count {
-                    return Some("map_row");
-                }
-                let preview_idx = map_base + map_count;
-                if idx == preview_idx {
-                    return Some("map_preview");
-                }
-                if idx == preview_idx + 1 {
-                    return Some("game_type");
-                }
-                Some("map_label")
-            }
             _ => None,
         }
     }

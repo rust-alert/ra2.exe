@@ -595,6 +595,59 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
     hits
 }
 
+/// 选图页悬停入口 id（右栏钮 / 双列表行 / 预览与信息槽）。
+/// 直接返回 CSF tooltip 用的入口，避免 `hover_index` 再经下标反查错位。
+pub fn choose_map_entry_at(
+    maps: &[BootMapCandidate],
+    mode_count: usize,
+    map_list_scroll: usize,
+    cursor_x: f64,
+    cursor_y: f64,
+    win_w: f64,
+    win_h: f64,
+) -> Option<&'static str> {
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    let snap = choose_map_snapshot();
+    // 含禁用钮：底栏提示仍要出（与主菜单 `hover_ids_at` 一致）。
+    if let Some(i) = hover_ids_at(&snap, &CHOOSE_MAP_BUTTON_IDS, point) {
+        return Some(CHOOSE_MAP_BUTTON_IDS[i]);
+    }
+    if let Some(list) = snap.get("game_type_list") {
+        let list = list.layout.rect;
+        if list.contains(point) {
+            let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+            let visible = choose_map_visible_rows(list.height as i32);
+            if row < mode_count.min(visible) {
+                return Some("mode_row");
+            }
+        }
+    }
+    if let Some(list) = snap.get("map_list") {
+        let list = list.layout.rect;
+        if list.contains(point) {
+            let row = ((point.y - list.y) / CHOOSE_MAP_LIST_ROW_H as f32).floor().max(0.0) as usize;
+            let visible = choose_map_visible_rows(list.height as i32);
+            let scroll = clamp_map_list_scroll(map_list_scroll, maps.len(), visible);
+            let window = maps.len().saturating_sub(scroll).min(visible);
+            if row < window {
+                return Some("map_row");
+            }
+        }
+    }
+    if snap
+        .get("map_preview")
+        .is_some_and(|el| el.layout.rect.contains(point))
+    {
+        return Some("map_preview");
+    }
+    for id in ["game_type", "map_label"] {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
+            return Some(id);
+        }
+    }
+    None
+}
+
 fn hit_choose_map_at(
     maps: &[BootMapCandidate],
     mode_count: usize,

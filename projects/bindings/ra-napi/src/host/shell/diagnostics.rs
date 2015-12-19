@@ -71,6 +71,8 @@ impl Shell {
         }
         else {
             self.status_line.set_text(text);
+            // 本帧立刻露出首字，避免悬停当帧底栏仍空白。
+            let _ = self.status_line.tick(1.0 / 60.0);
         }
     }
 }
