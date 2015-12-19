@@ -128,4 +128,16 @@ impl Session {
         }
         n
     }
+
+    /// 距下一逻辑 tick 的进度 ∈ `[0, 1)`，供呈现侧格内滑移插值（与 `tick_hz` 解耦）。
+    pub fn tick_fraction(&self) -> f64 {
+        if self.tick_hz == 0 {
+            return 0.0;
+        }
+        let step_ms = 1000.0 / f64::from(self.tick_hz);
+        if step_ms <= 0.0 {
+            return 0.0;
+        }
+        (self.tick_accum_ms / step_ms).clamp(0.0, 0.999_999)
+    }
 }

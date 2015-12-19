@@ -74,9 +74,14 @@ impl HeadlessCase {
 /// 这是 `alpha-skirmish-v1` 冻结竖切的最小战斗前身：固定规则、两名玩家、可重复命令脚本。
 /// 完整竖切的建筑、经济与开局 MCV 见 `alpha_skirmish_v1`。
 pub fn standard_duel() -> HeadlessCase {
+    // 须声明 Primary / Warhead：无武器时 attack_damage=0，决斗永远打不死。
     let rules_text = b"[VehicleTypes]\n0=MTNK\n\
-[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n";
+[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
+    let techno_types = TechnoTypeRegistry::from_rules(&rules);
+    let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
@@ -84,8 +89,8 @@ pub fn standard_duel() -> HeadlessCase {
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
+        techno_types,
+        warheads,
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-duel");

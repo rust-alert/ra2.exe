@@ -194,6 +194,11 @@ impl crate::state::BattleState {
             let _ = self.with_movement_mut(id, |movement| {
                 movement.move_accum = movement.move_accum.saturating_add(speed);
             });
+            // 移动中每 tick 推进 Walk 循环，并标脏以便呈现刷新（勿等跨格才动画面）。
+            let _ = self.with_animation_mut(id, |anim| {
+                anim.hva_frame = anim.hva_frame.wrapping_add(1);
+            });
+            self.mark_entity_dirty(id);
             while self.ecs_get::<MovementState>(id).map(|m| m.move_accum).unwrap_or(0) >= crate::state::CELL_MOVE_COST {
                 let _ = self.with_movement_mut(id, |movement| {
                     movement.move_accum -= crate::state::CELL_MOVE_COST;
@@ -232,9 +237,6 @@ impl crate::state::BattleState {
                     transform.facing = facing;
                     transform.x = x;
                     transform.y = y;
-                });
-                let _ = self.with_animation_mut(id, |anim| {
-                    anim.hva_frame = anim.hva_frame.wrapping_add(1);
                 });
                 self.mark_entity_dirty(id);
             }

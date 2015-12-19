@@ -15,13 +15,17 @@ use crate::{
     theater::{new_theater_shp_name, theater_palette},
 };
 
-/// 移动单位绘制姿态：行走循环帧 + 是否移动中。
+/// 移动单位绘制姿态：行走循环帧 + 是否移动中 + 格内像素偏移。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MobilePaintPose {
     /// 行走 / 待机循环索引（仿真 `hva_frame`）。
     pub anim_frame: u16,
     /// `true` 时步兵取 `Walk` 序列，否则 `Ready`/`Guard`。
     pub moving: bool,
+    /// 相对当前格屏幕原点的水平偏移（预览像素；由 `move_accum` 滑向下一格）。
+    pub offset_x: i32,
+    /// 相对当前格屏幕原点的垂直偏移（预览像素）。
+    pub offset_y: i32,
 }
 
 /// 步兵朝向槽表（零售 32 项），由 [`infantry_facing_slot`] 索引。
@@ -81,6 +85,8 @@ pub fn paint_map_mobiles(
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);
+            painted.offset_x = painted.offset_x.saturating_add(pose.offset_x);
+            painted.offset_y = painted.offset_y.saturating_add(pose.offset_y);
             items.push((ent.x, ent.y, painted));
             continue;
         }
@@ -97,6 +103,8 @@ pub fn paint_map_mobiles(
         if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
             apply_rgba_tint(&mut blit.rgba, tint);
+            blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
+            blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
             items.push((ent.x, ent.y, blit));
         }
     }
@@ -322,5 +330,21 @@ mod tests {
     fn parse_walk_triple() {
         assert_eq!(parse_sequence_triple("8,6,6"), Some((8, 6, 6)));
         assert_eq!(parse_sequence_triple("0,1,1"), Some((0, 1, 1)));
+    }
+
+    #[test]
+    fn pose_slide_offset_is_added_to_blit_origin() {
+        // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
+        let pose = MobilePaintPose {
+            anim_frame: 0,
+            moving: true,
+            offset_x: 12,
+            offset_y: -8,
+        };
+        let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
+        blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
+        blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
+        assert_eq!(blit.offset_x, 15);
+        assert_eq!(blit.offset_y, -3);
     }
 }
