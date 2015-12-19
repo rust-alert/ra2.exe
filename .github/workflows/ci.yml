@@ -7,6 +7,7 @@ on:
     branches: [master, dev]
 
 jobs:
+  # 三端：原生 Rust 构建 / 测试 / N-API。不跑 Wasm。
   build:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -34,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           # 禁止把本机游戏安装盘符写进 .rs（CI 无该路径，且会污染开源仓）。
-          # 本机探针用 RA2_DIR / gitignore 的 RustAlert.toml，且须 #[ignore]。
+          # 本机可选扫图测试用 RA2_DIR / gitignore 的 RustAlert.toml，且须 #[ignore]。
           if grep -RInE --include='*.rs' \
             'Red_Alert_2|Red_Alert_2_YURI|E:/ra |E:\\ra |E:/ra\\|红色警戒[/\\]Red_Alert' \
             projects; then
@@ -53,34 +54,6 @@ jobs:
 
       - run: pnpm install
 
-      - name: Add wasm32 target
-        if: runner.os == 'Linux'
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        if: runner.os == 'Linux'
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Build Wasm + TypeScript
-        if: runner.os == 'Linux'
-        run: |
-          pnpm run build:wasm
-          pnpm run build:ts
-
-      - name: Lint
-        if: runner.os == 'Linux'
-        run: pnpm run lint
-
-      - name: Smoke wasm init
-        if: runner.os == 'Linux'
-        run: |
-          node --input-type=module <<'EOF'
-          import { readFileSync } from 'node:fs';
-          import { init, engineName, supportsWebgl2 } from './projects/platforms/wasm/red-alert2-unknown-wasm32/dist/index.js';
-          await init(readFileSync('./projects/platforms/wasm/red-alert2-unknown-wasm32/pkg/ra_wasm_bg.wasm'));
-          console.log(engineName(), supportsWebgl2());
-          EOF
-
       - name: Build native addon
         run: pnpm run build:napi
 
@@ -89,3 +62,43 @@ jobs:
         run: |
           short=$(node -e "const {platform:p,arch:a}=process; if(p==='win32'&&a==='x64')console.log('win32-x64'); else if(p==='darwin'&&a==='arm64')console.log('darwin-arm64'); else if(p==='darwin'&&a==='x64')console.log('darwin-x64'); else if(p==='linux'&&a==='x64')console.log('linux-x64'); else process.exit(1)")
           node -e "const p=require('./projects/platforms/native/red-alert2-${short}/package.json'); const path=require('path'); const bin=path.join(path.dirname(require.resolve('./projects/platforms/native/red-alert2-${short}/package.json')), p.main); const n=require(bin); console.log(n.version());"
+
+  # 仅 Linux：Wasm + TS + lint。不跑 cargo test / N-API。
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+
+      - name: Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build Wasm + TypeScript
+        run: |
+          pnpm run build:wasm
+          pnpm run build:ts
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Smoke wasm init
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from 'node:fs';
+          import { init, engineName, supportsPresent } from './projects/platforms/wasm/red-alert2-unknown-wasm32/dist/index.js';
+          await init(readFileSync('./projects/platforms/wasm/red-alert2-unknown-wasm32/pkg/ra_wasm_bg.wasm'));
+          console.log(engineName(), supportsPresent());
+          EOF

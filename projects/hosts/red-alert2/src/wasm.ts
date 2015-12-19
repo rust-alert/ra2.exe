@@ -2,16 +2,16 @@
 
 export type { InitInput } from '@game-gpt/red-alert2-unknown-wasm32';
 export {
-    InstallSession,
-    LoadProgress,
-    PrepareReport,
     attachCanvas,
     audioReady,
     audioState,
     engineName,
+    InstallSession,
     init,
+    LoadProgress,
     loadJobBusy,
     loadJobProgress,
+    PrepareReport,
     presentBackend,
     presentFrame,
     resizePresent,

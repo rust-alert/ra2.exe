@@ -1,0 +1,2 @@
+# 文本一律 LF，避免 Windows autocrlf 把工作区变成 CRLF 导致 biome check 失败。
+* text=auto eol=lf

@@ -7,7 +7,18 @@
     },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!**/target", "!**/*.node", "!**/dist", "!**/node_modules", "!**/projects/sites", "!**/pkg"]
+        "includes": [
+            "**",
+            "!**/target",
+            "!**/*.node",
+            "!**/dist",
+            "!**/node_modules",
+            "!**/projects/sites",
+            "!**/pkg",
+            "!_rebase_*",
+            "!_reword_*",
+            "!_scan_*"
+        ]
     },
     "formatter": {
         "enabled": true,

@@ -1,15 +1,15 @@
 /** Browser face over `ra-wasm`（`pkg/` 由 `scripts/build/wasm.mjs` 生成）。 */
 
 import initWasm, {
-    InstallSession,
-    LoadProgress,
-    PrepareReport,
     attachCanvas,
     audioReady,
     audioState,
     engine_name,
+    InstallSession,
+    LoadProgress,
     loadJobBusy,
     loadJobProgress,
+    PrepareReport,
     presentBackend,
     presentFrame,
     resizePresent,
@@ -21,14 +21,14 @@ import initWasm, {
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export {
-    InstallSession,
-    LoadProgress,
-    PrepareReport,
     attachCanvas,
     audioReady,
     audioState,
+    InstallSession,
+    LoadProgress,
     loadJobBusy,
     loadJobProgress,
+    PrepareReport,
     presentBackend,
     presentFrame,
     resizePresent,
