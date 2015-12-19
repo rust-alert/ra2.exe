@@ -40,6 +40,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             owner: tt.owner.clone(),
             tech_level: tt.tech_level,
             naval: tt.naval,
+            agent: tt.agent,
             category: tt.category.clone(),
             sight: tt.sight,
             damage: tt.damage,

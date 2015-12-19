@@ -2,6 +2,11 @@
 
 use ra_types::{ProductionCategory, RuntimeDefinitions, TechnoClass};
 
+/// 单位是否间谍类（`Agent=yes`），可渗透敌方建筑。
+pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    defs.techno.get(type_id).is_some_and(|t| t.agent)
+}
+
 /// 建筑是否建造场。
 pub(crate) fn is_construction_yard(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.structures.get(type_id).is_some_and(|s| s.construction_yard)

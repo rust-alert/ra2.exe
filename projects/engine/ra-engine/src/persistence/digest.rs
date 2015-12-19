@@ -170,6 +170,10 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(6);
             h = h.wrapping_mul(1099511628211).wrapping_add(factory.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
+        GameCommand::Infiltrate { agent, building } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(7);
+            h = h.wrapping_mul(1099511628211).wrapping_add(agent.0).wrapping_add(building.0 << 16);
+        }
     }
     h
 }

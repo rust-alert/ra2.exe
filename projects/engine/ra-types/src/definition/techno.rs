@@ -54,6 +54,8 @@ pub struct TechnoDefinition {
     pub tech_level: i32,
     /// `Naval=yes`。
     pub naval: bool,
+    /// `Agent=yes`（可渗透敌方建筑）。
+    pub agent: bool,
     /// `Category`（如 `Soldier` / `Dog`）。
     pub category: String,
     /// 视野（格）；缺省攻击射程回退用。

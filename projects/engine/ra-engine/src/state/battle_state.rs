@@ -164,7 +164,7 @@ impl BattleState {
                     attack_verses,
                     techno_kind,
                 },
-                attack: AttackState { target: None, cooldown: 0 },
+                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
                 production: ProductionQueue { item: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -588,6 +588,11 @@ impl BattleState {
         self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.path.clone())
     }
 
+    /// 读取 ECS `MovementState::move_accum`（格内滑移进度）。
+    pub fn ecs_move_accum(&self, id: EntityId) -> Option<u32> {
+        self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.move_accum)
+    }
+
     /// 读取 ECS `AttackState`（测试与诊断）。
     pub fn ecs_attack_state(&self, id: EntityId) -> Option<(Option<EntityId>, u32)> {
         let attack = self.ecs_get::<crate::state::components::AttackState>(id)?;
@@ -750,7 +755,11 @@ impl BattleState {
                 SystemPhase::ApplyCommands => self.apply_commands(&due),
                 SystemPhase::Movement => self.advance_movement(),
                 SystemPhase::HitFlash => self.tick_hit_flash(),
-                SystemPhase::Combat => self.resolve_combat(),
+                SystemPhase::Combat => {
+                    self.resolve_combat();
+                    self.resolve_infiltrate();
+                    self.tick_power_blackouts();
+                }
                 SystemPhase::Turrets => self.advance_turrets(),
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
@@ -868,7 +877,7 @@ impl BattleState {
                 attack_verses,
                 techno_kind: Some(techno_class_to_kind(class)),
             },
-            attack: AttackState { target: None, cooldown: 0 },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },

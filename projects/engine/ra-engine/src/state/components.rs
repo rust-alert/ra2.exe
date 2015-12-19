@@ -96,6 +96,8 @@ pub struct AttackState {
     pub target: Option<EntityId>,
     /// 开火冷却剩余 tick。
     pub cooldown: u32,
+    /// 渗透目标建筑（间谍专用；有值时不走普通开火）。
+    pub infiltrate_target: Option<EntityId>,
 }
 
 /// 工厂生产队列与集结格。

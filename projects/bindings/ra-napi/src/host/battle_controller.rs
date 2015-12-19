@@ -21,6 +21,7 @@ use ra_widgets::{
 };
 use ra_engine::{
     BattleCapabilitiesSnapshot, CapabilityItem, Engine, HudSnapshot, BattleOutcome, Session, SessionPhase,
+    CELL_MOVE_COST,
 };
 use ra_layout::{
     cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
@@ -54,6 +55,42 @@ use super::{
 const BATTLE_START_ZOOM: f32 = 1.0;
 /// 选中行动线可见时长（仿真 tick，对齐原版约 25 帧窗口）。
 const ACTION_LINES_DURATION_TICKS: u64 = 25;
+
+/// 由权威移动状态计算步兵/载具烤图姿态（含格内滑移偏移）。
+fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell_x: u16, cell_y: u16) -> MobilePaintPose {
+    let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
+    let moving = game
+        .world
+        .ecs_move_destination(id)
+        .is_some_and(|(dx, _)| dx.is_some())
+        || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
+    let (offset_x, offset_y) = if moving {
+        let accum = game.world.ecs_move_accum(id).unwrap_or(0);
+        let next = game.world.ecs_path(id).and_then(|p| p.first().copied());
+        match next {
+            Some((nx, ny)) if CELL_MOVE_COST > 0 => {
+                let t = (accum as f32 / CELL_MOVE_COST as f32).clamp(0.0, 1.0);
+                let z0 = game.world.pass_grid.cell_height(cell_x, cell_y);
+                let z1 = game.world.pass_grid.cell_height(nx, ny);
+                let (sx0, sy0) = iso_to_screen(i32::from(cell_x), i32::from(cell_y), z0);
+                let (sx1, sy1) = iso_to_screen(i32::from(nx), i32::from(ny), z1);
+                (
+                    ((sx1 - sx0) as f32 * t).round() as i32,
+                    ((sy1 - sy0) as f32 * t).round() as i32,
+                )
+            }
+            _ => (0, 0),
+        }
+    } else {
+        (0, 0)
+    };
+    MobilePaintPose {
+        anim_frame,
+        moving,
+        offset_x,
+        offset_y,
+    }
+}
 
 /// 对局控制器向外壳报告的导航意图（外壳改 `AppScreen`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -848,8 +885,17 @@ impl BattleController {
                 })
                 .unwrap_or(false);
             if hostile {
-                tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
-                game.order_attack(&selected, target);
+                let is_structure = game
+                    .world
+                    .ecs_identity(target)
+                    .is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
+                if is_structure && game.selection_has_agent(&selected) {
+                    tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_infiltrate(&selected, target);
+                } else {
+                    tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_attack(&selected, target);
+                }
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -1598,17 +1644,11 @@ impl BattleController {
             else {
                 continue;
             };
-            let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
-            let moving = game
-                .world
-                .ecs_move_destination(id)
-                .is_some_and(|(dx, _)| dx.is_some())
-                || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
             let owner_s = owner.to_string();
             let type_s = type_id.to_string();
             poses.insert(
                 (x, y, type_s.clone(), owner_s.clone()),
-                MobilePaintPose { anim_frame, moving },
+                mobile_paint_pose_for(game, id, x, y),
             );
             mobile_map.entities.push(MapEntity {
                 kind,
@@ -1679,17 +1719,11 @@ impl BattleController {
             else {
                 continue;
             };
-            let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
-            let moving = game
-                .world
-                .ecs_move_destination(id)
-                .is_some_and(|(dx, _)| dx.is_some())
-                || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
             let owner_s = owner.to_string();
             let type_s = type_id.to_string();
             poses.insert(
                 (x, y, type_s.clone(), owner_s.clone()),
-                MobilePaintPose { anim_frame, moving },
+                mobile_paint_pose_for(game, id, x, y),
             );
             mobile_map.entities.push(MapEntity {
                 kind,

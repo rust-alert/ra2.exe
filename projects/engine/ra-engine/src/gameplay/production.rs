@@ -82,7 +82,21 @@ impl crate::state::BattleState {
             ra_types::TechnoClass::Aircraft => TechnoKind::Aircraft,
             ra_types::TechnoClass::Building => return,
         };
-        let max_health = tt.strength.max(1);
+        let promoted = self
+            .players
+            .iter()
+            .find(|p| p.house.as_ref() == owner.as_ref())
+            .is_some_and(|p| match tt.class {
+                ra_types::TechnoClass::Infantry => p.promoted_infantry,
+                ra_types::TechnoClass::Vehicle => p.promoted_vehicle,
+                _ => false,
+            });
+        let base_health = tt.strength.max(1);
+        let max_health = if promoted {
+            base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1))
+        } else {
+            base_health
+        };
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity {
@@ -109,7 +123,7 @@ impl crate::state::BattleState {
                 attack_verses: verses_for(&self.definitions, &tt.warhead),
                 techno_kind: Some(techno_kind),
             },
-            attack: AttackState { target: None, cooldown: 0 },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },

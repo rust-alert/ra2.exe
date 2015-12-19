@@ -36,6 +36,10 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
+            // 渗透中的间谍不开火。
+            if attack.infiltrate_target.is_some() {
+                continue;
+            }
             let Some(target_id) = attack.target
             else {
                 continue;

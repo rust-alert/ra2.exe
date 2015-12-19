@@ -72,6 +72,11 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
+        GameCommand::Infiltrate { agent, building } => {
+            b.push(7);
+            b.extend_from_slice(&agent.0.to_be_bytes());
+            b.extend_from_slice(&building.0.to_be_bytes());
+        }
     }
     b
 }
@@ -141,6 +146,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let x = u16::from_be_bytes(bytes[9..11].try_into().ok()?);
             let y = u16::from_be_bytes(bytes[11..13].try_into().ok()?);
             Some(GameCommand::SetRallyPoint { factory, x, y })
+        }
+        7 => {
+            if bytes.len() < 1 + 8 + 8 {
+                return None;
+            }
+            let agent = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let building = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
+            Some(GameCommand::Infiltrate { agent, building })
         }
         _ => None,
     }
@@ -218,7 +231,10 @@ impl crate::state::BattleState {
 
         use crate::{
             game::CommandRejectReason,
-            gameplay::{building_power, deploy_into_type, full_verses, is_construction_yard, is_production_factory, requires_power_plant},
+            gameplay::{
+                building_power, deploy_into_type, full_verses, is_agent, is_construction_yard, is_production_factory,
+                requires_power_plant,
+            },
             spatial::is_mobile,
             state::{
                 PRODUCE_TICKS,
@@ -256,6 +272,7 @@ impl crate::state::BattleState {
                     }
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
+                        attack.infiltrate_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
@@ -305,6 +322,7 @@ impl crate::state::BattleState {
                     };
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
+                        attack.infiltrate_target = None;
                     });
                     let _ = self.with_movement_mut(attacker_id, |movement| {
                         movement.destination_x = Some(target_xf.x);
@@ -444,7 +462,7 @@ impl crate::state::BattleState {
                             attack_verses: full_verses(),
                             techno_kind: Some(TechnoKind::Building),
                         },
-                        attack: AttackState { target: None, cooldown: 0 },
+                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
                         production: ProductionQueue { item: None, rally_x: None, rally_y: None },
                         harvester: HarvesterState { ore_trip_accum: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -535,6 +553,83 @@ impl crate::state::BattleState {
                         queue.rally_y = Some(y);
                     });
                     self.mark_entity_dirty(id);
+                }
+                GameCommand::Infiltrate { agent, building } => {
+                    let Some(agent_index) = self.entity_index(agent)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let Some(building_index) = self.entity_index(building)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    if agent == building {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let agent_id = self.entities[agent_index].id;
+                    let building_id = self.entities[building_index].id;
+                    if self.ecs_get::<Health>(agent_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, agent_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(agent_type) = self.ecs_get::<Identity>(agent_id).map(|i| i.type_id.clone())
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if !is_agent(&self.definitions, agent_type.as_ref()) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(agent_id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self
+                        .ecs_get::<Identity>(building_id)
+                        .map(|i| i.kind == MapEntityKind::Structure)
+                        .unwrap_or(false)
+                    {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| o.house.clone());
+                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+                    match (agent_house, building_house) {
+                        (Some(a), Some(b)) if a != b => {}
+                        _ => {
+                            self.reject(command_index, CommandRejectReason::InvalidTarget);
+                            continue;
+                        }
+                    }
+                    let Some(building_xf) = self.ecs_get::<Transform>(building_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let _ = self.with_attack_mut(agent_id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = Some(building);
+                    });
+                    let _ = self.with_movement_mut(agent_id, |movement| {
+                        movement.destination_x = Some(building_xf.x);
+                        movement.destination_y = Some(building_xf.y);
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(agent_index);
+                    self.mark_entity_dirty(agent_id);
                 }
             }
         }

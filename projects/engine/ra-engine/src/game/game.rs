@@ -539,6 +539,30 @@ impl BattleSession {
         }
     }
 
+    /// 间谍渗透敌方建筑（选中中的 Agent 单位）。
+    pub fn order_infiltrate(&mut self, selected: &[EntityId], building: EntityId) {
+        if self.outcome.is_some() {
+            return;
+        }
+        if self.world.entity_index(building).is_none() {
+            return;
+        }
+        for &id in selected {
+            if id != building && self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Infiltrate { agent: id, building });
+            }
+        }
+    }
+
+    /// 选中是否含可渗透的间谍（`Agent=yes`）。
+    pub fn selection_has_agent(&self, selected: &[EntityId]) -> bool {
+        selected.iter().any(|&id| {
+            self.world
+                .ecs_identity(id)
+                .is_some_and(|(type_id, _)| crate::gameplay::is_agent(&self.world.definitions, type_id.as_ref()))
+        })
+    }
+
     /// 部署指定可展开单位（如 MCV）。
     pub fn order_deploy(&mut self, selected: &[EntityId]) {
         if self.outcome.is_some() {
