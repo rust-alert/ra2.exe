@@ -178,13 +178,28 @@ pub enum AnimState {
     Produce,
 }
 
-/// 对局结束结果（Alpha：唯一存活阵营胜）。
+/// 装载契约种类：遭遇战与战役胜负 / 开局规则不同。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SessionBootKind {
+    /// 遭遇战：剥机动、席位种 MCV、[`BattleSession::sole_victor`] 结算。
+    #[default]
+    Skirmish,
+    /// 战役：保留预放部队、触发器 Win/Lose 结算。
+    Campaign,
+}
+
+/// 对局结束结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BattleOutcome {
     /// 指定阵营获胜。
     Victory {
         /// 获胜阵营 owner 字符串。
         owner: String,
+    },
+    /// 本地或剧本判定失败（战役触发器 Lose 等）。
+    Defeat {
+        /// 可选说明（触发器 id 等）。
+        reason: String,
     },
 }
 
@@ -228,6 +243,8 @@ pub struct BattleSession {
     pub ai_enabled: bool,
     /// 遭遇战难度标签（大厅选择；影响 AI 进攻/生产节奏）。
     pub difficulty: String,
+    /// 开局契约（遭遇战 vs 战役）。
+    pub boot_kind: SessionBootKind,
 }
 
 impl BattleSession {
@@ -246,6 +263,7 @@ impl BattleSession {
             match_seed: 0,
             ai_enabled: false,
             difficulty: "Normal".into(),
+            boot_kind: SessionBootKind::Skirmish,
         }
     }
 
@@ -259,12 +277,23 @@ impl BattleSession {
         self.match_seed = match_seed;
     }
 
-    /// 由世界与装载备注打开一局（设置预览原点与指纹）。
+    /// 由世界与装载备注打开一局遭遇战（设置预览原点与指纹）。
     pub fn open_skirmish(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
+        session.boot_kind = SessionBootKind::Skirmish;
         session.ai_enabled = true;
+        session
+    }
+
+    /// 由世界与装载备注打开一局战役（保留预放单位；AI 默认关，剧本小队另行驱动）。
+    pub fn open_campaign(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
+        let mut session = Self::new(world, boot_note);
+        session.set_preview_origin(preview_origin.0, preview_origin.1);
+        session.set_fingerprint(fingerprint);
+        session.boot_kind = SessionBootKind::Campaign;
+        session.ai_enabled = false;
         session
     }
 
@@ -477,9 +506,13 @@ impl BattleSession {
         }
     }
 
-    /// 若仅剩一个阵营仍有作战力量，锁定胜负并暂停。
+    /// 遭遇战：若仅剩一个阵营仍有作战力量，锁定胜负并暂停。
+    /// 战役：不走 sole victor，由触发器 Action 写入 [`Self::outcome`]。
     fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
+            return;
+        }
+        if self.boot_kind == SessionBootKind::Campaign {
             return;
         }
         let Some(owner) = self.sole_victor().map(str::to_string)
@@ -490,6 +523,27 @@ impl BattleSession {
         self.outcome = Some(BattleOutcome::Victory { owner: owner.clone() });
         self.paused = true;
         self.pause_reason = Some(format!("胜负已定 · {owner}"));
+    }
+
+    /// 由剧本 / 触发器锁定胜负（战役主路径）。
+    pub fn apply_scripted_outcome(&mut self, outcome: BattleOutcome) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.battle_stats = Some(self.compute_battle_stats());
+        let reason = match &outcome {
+            BattleOutcome::Victory { owner } => format!("战役胜利 · {owner}"),
+            BattleOutcome::Defeat { reason } => {
+                if reason.is_empty() {
+                    "战役失败".into()
+                } else {
+                    format!("战役失败 · {reason}")
+                }
+            }
+        };
+        self.outcome = Some(outcome);
+        self.paused = true;
+        self.pause_reason = Some(reason);
     }
 
     fn compute_battle_stats(&self) -> BattleStats {

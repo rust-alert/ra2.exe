@@ -9,6 +9,8 @@ use ra_layout::{
 };
 use ra_layout::{solve_skirmish_lobby, LayoutSnapshot};
 
+use crate::core::LoadKind;
+
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
 pub const LOBBY_DIFFICULTIES: &[&str] = &["Easy", "Normal", "Hard"];
 
@@ -246,6 +248,8 @@ pub enum SkirmishComboKind {
 /// 遭遇战装载请求（大厅选项的可序列化快照）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SkirmishBootRequest {
+    /// 装载契约：遭遇战剥机动种 MCV；战役保留预放部队。
+    pub boot_kind: LoadKind,
     /// 本地玩家名（零售默认 `Player`）。
     pub player_name: String,
     /// 优选地图文件名。
@@ -296,6 +300,7 @@ impl SkirmishBootRequest {
     /// 国家表由壳层从 rules 注入（[`Self::set_lobby_sides`]）。地图与席位由遭遇战大厅 / 选图页决定。
     pub fn default_lobby() -> Self {
         Self {
+            boot_kind: LoadKind::Skirmish,
             player_name: "Player".to_string(),
             preferred_map: None,
             side: String::new(),

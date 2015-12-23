@@ -1,4 +1,4 @@
-//! 遭遇战装载：规则 → `BattleState` → `BattleSession` → `Session`。
+//! 遭遇战 / 战役装载：规则 → `BattleState` → `BattleSession` → `Session`。
 
 use std::sync::Arc;
 
@@ -8,18 +8,18 @@ use ra_types::{AssetSource, RaResult};
 
 use crate::{
     engine::{Engine, EngineConfig},
-    game::BattleSession,
+    game::{BattleSession, SessionBootKind},
     gameplay::starting_mcv_type_for_house,
     session::Session,
     state::BattleState,
 };
 
-/// `open_skirmish_session` 的成功结果。
+/// `open_skirmish_session` / `open_campaign_session` 的成功结果。
 #[derive(Debug)]
 pub struct SkirmishOpenResult {
     /// 长期引擎（共享定义；本便利 API 每次新建一份默认定义）。
     pub engine: Engine,
-    /// 已装载规则、地图与指纹的遭遇战会话（内含一场 `BattleSession`）。
+    /// 已装载规则、地图与指纹的会话（内含一场 `BattleSession`）。
     pub session: Session,
     /// 追加了规则 / 世界统计后的 boot 注记。
     pub note: String,
@@ -56,6 +56,75 @@ pub fn open_skirmish_session(
         note = format!("{note} · strip_mobiles#{stripped}");
     }
 
+    open_session_common(
+        source,
+        chain,
+        rules,
+        map,
+        note,
+        preview_origin,
+        preferred_house,
+        ensure_houses,
+        match_seed,
+        SessionBootKind::Skirmish,
+        true,
+    )
+}
+
+/// 从已装载的 `RulesSystem` 与地图打开一局战役会话。
+///
+/// 与遭遇战的差异：
+/// - **保留**地图预放步兵 / 载具 / 飞行器（不剥机动）。
+/// - **不**按席位航点种开局 MCV。
+/// - `BattleSession` 标记为 [`SessionBootKind::Campaign`]（胜负由触发器驱动，不用遭遇战 sole victor）。
+pub fn open_campaign_session(
+    source: &dyn AssetSource,
+    chain: &ResourceChain,
+    rules: &RulesSystem,
+    map: MapInfo,
+    mut note: String,
+    preview_origin: (i32, i32),
+    preferred_house: Option<&str>,
+    ensure_houses: &[&str],
+    match_seed: u64,
+) -> RaResult<SkirmishOpenResult> {
+    note = format!(
+        "{note} · campaign · rules#{} · overlay_types#{} · techno_types#{} · seed={:#x} · preplaced#{}",
+        rules.rules.sections.len(),
+        rules.overlay_types.len(),
+        rules.techno_types.len(),
+        match_seed,
+        map.entities.len()
+    );
+
+    open_session_common(
+        source,
+        chain,
+        rules,
+        map,
+        note,
+        preview_origin,
+        preferred_house,
+        ensure_houses,
+        match_seed,
+        SessionBootKind::Campaign,
+        false,
+    )
+}
+
+fn open_session_common(
+    source: &dyn AssetSource,
+    chain: &ResourceChain,
+    rules: &RulesSystem,
+    map: MapInfo,
+    mut note: String,
+    preview_origin: (i32, i32),
+    preferred_house: Option<&str>,
+    ensure_houses: &[&str],
+    match_seed: u64,
+    boot_kind: SessionBootKind,
+    seed_skirmish_mcv: bool,
+) -> RaResult<SkirmishOpenResult> {
     let mut state = BattleState::new(chain.edition, rules, map);
     for house in ensure_houses {
         if !house.is_empty() {
@@ -81,9 +150,11 @@ pub fn open_skirmish_session(
         state.repath_mobiles();
     }
 
-    let starts = seed_skirmish_starts_at_waypoints(&mut state, ensure_houses)?;
-    if !starts.is_empty() {
-        note = format!("{note} · starts=[{starts}]");
+    if seed_skirmish_mcv {
+        let starts = seed_skirmish_starts_at_waypoints(&mut state, ensure_houses)?;
+        if !starts.is_empty() {
+            note = format!("{note} · starts=[{starts}]");
+        }
     }
 
     note = format!(
@@ -114,7 +185,10 @@ pub fn open_skirmish_session(
     );
 
     let defs_for_engine = Arc::clone(&state.definitions);
-    let mut game = BattleSession::open_skirmish(state, note.clone(), preview_origin, fingerprint);
+    let mut game = match boot_kind {
+        SessionBootKind::Skirmish => BattleSession::open_skirmish(state, note.clone(), preview_origin, fingerprint),
+        SessionBootKind::Campaign => BattleSession::open_campaign(state, note.clone(), preview_origin, fingerprint),
+    };
     game.set_match_seed(match_seed);
     let engine = Engine::new(defs_for_engine, EngineConfig::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;
     let mut session = engine.create_session(crate::session::SessionSpec::default()).map_err(|e| ra_types::RaError::Msg(e.to_string()))?;

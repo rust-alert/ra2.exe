@@ -6,6 +6,7 @@ mod economy_orders;
 mod future_tick;
 mod input_frame;
 mod battle_stats;
+mod campaign_starts;
 mod pause;
 mod reject;
 mod schedule;

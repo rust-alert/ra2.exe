@@ -22,13 +22,13 @@ pub use game::{
     evaluate_build_availability, evaluate_produce_availability, living_structure_type_keys, AnimState,
     BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject,
     CommandRejectReason, DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
-    RenderSnapshot, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command, decode_commands,
-    decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands,
-    encode_scheduled,
+    RenderSnapshot, SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command,
+    decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command,
+    encode_commands, encode_scheduled,
 };
 pub use gameplay::{LightningStormState, start_lightning_storm, tick_lightning_storm};
 pub use presentation::DirtyEntitySet;
-pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_skirmish_session};
+pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};
 pub use state::{
     ATTACK_COOLDOWN_TICKS, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, EcsCombatView, HIT_FLASH_TICKS, BattleState,
     ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP,

@@ -6,7 +6,7 @@ use ra_adaptor::{ResourceChain, RulesSystem, detect_edition, load_rules_chain};
 use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes,
 };
-use ra_engine::{Engine, Session, open_skirmish_session};
+use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots,
     decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
@@ -14,6 +14,7 @@ use ra_map::{
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
+use ra_widgets::load_kind::LoadKind;
 use ra_widgets::campaign_setup::campaign_side_battle_id;
 use ra_widgets::fs_source::GameAssetSource;
 use ra_widgets::skirmish_setup::{LOBBY_COLORS, SkirmishBootRequest};
@@ -520,8 +521,8 @@ pub fn boot_world_with_progress(
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
-    let (engine, session) = match rules.as_ref().map(|rules| {
-        open_skirmish_session(
+    let (engine, session) = match rules.as_ref().map(|rules| match request.boot_kind {
+        LoadKind::Campaign => open_campaign_session(
             &source,
             chain,
             rules,
@@ -531,7 +532,18 @@ pub fn boot_world_with_progress(
             preferred_house,
             &ensure_refs,
             request.match_seed,
-        )
+        ),
+        LoadKind::Skirmish => open_skirmish_session(
+            &source,
+            chain,
+            rules,
+            map,
+            note.clone(),
+            preview_origin,
+            preferred_house,
+            &ensure_refs,
+            request.match_seed,
+        ),
     }) {
         Some(Ok(mut opened)) => {
             note = opened.note;

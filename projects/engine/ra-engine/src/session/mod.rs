@@ -5,5 +5,5 @@ mod clock;
 mod phase;
 mod session;
 
-pub use boot::{SkirmishOpenResult, open_skirmish_session};
+pub use boot::{SkirmishOpenResult, open_campaign_session, open_skirmish_session};
 pub use session::{Session, SessionPhase, SessionSpec};

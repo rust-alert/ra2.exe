@@ -67,6 +67,7 @@ impl Shell {
         self.load_job = Some(LoadJob::start_install_boot({
             let mut req = self.skirmish.clone();
             req.preferred_map = self.selected_map.clone();
+            req.boot_kind = LoadKind::Skirmish;
             req
         }));
         // load_job 赋值后刷新：禁用重试并改标题提示。
@@ -138,6 +139,7 @@ impl Shell {
                 req.set_lobby_sides(vec![house.to_string()]);
                 req.row_sides = [0; ra_layout::SKIRMISH_ROW_COUNT];
             }
+            req.boot_kind = LoadKind::Campaign;
             req
         }));
         tracing::info!(

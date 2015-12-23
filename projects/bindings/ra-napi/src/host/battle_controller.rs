@@ -1387,20 +1387,30 @@ impl BattleController {
         else {
             return;
         };
-        let Some(BattleOutcome::Victory { owner }) = game.outcome.as_ref()
+        let Some(outcome) = game.outcome.as_ref()
         else {
             return;
         };
-        if self.logged_outcome.as_deref() == Some(owner.as_str()) {
+        let label = match outcome {
+            BattleOutcome::Victory { owner } => owner.clone(),
+            BattleOutcome::Defeat { reason } => {
+                if reason.is_empty() {
+                    "defeat".into()
+                } else {
+                    format!("defeat:{reason}")
+                }
+            }
+        };
+        if self.logged_outcome.as_deref() == Some(label.as_str()) {
             return;
         }
-        self.logged_outcome = Some(owner.clone());
+        self.logged_outcome = Some(label.clone());
         let stats = game
             .battle_stats
             .as_ref()
             .map(|s| format!(" · {}tick · 损单位{} · 损建筑{} · 花费{}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
             .unwrap_or_default();
-        tracing::info!("对局结束 · 胜方 {owner} · tick={}{stats} · 按 R 重开", game.world.tick);
+        tracing::info!("对局结束 · {label} · tick={}{stats} · 按 R 重开", game.world.tick);
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
@@ -2319,6 +2329,13 @@ impl BattleController {
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let outcome_owned = hud.outcome.as_ref().map(|o| match o {
             BattleOutcome::Victory { owner } => format!("胜 {owner}"),
+            BattleOutcome::Defeat { reason } => {
+                if reason.is_empty() {
+                    "败".into()
+                } else {
+                    format!("败 · {reason}")
+                }
+            }
         });
         let tip_owned = self
             .command_hover
@@ -2430,6 +2447,13 @@ impl BattleController {
                 if screen_label == "results" {
                     let outcome = match hud.outcome.as_ref() {
                         Some(BattleOutcome::Victory { owner }) => format!("胜 {owner}"),
+                        Some(BattleOutcome::Defeat { reason }) => {
+                            if reason.is_empty() {
+                                "败".into()
+                            } else {
+                                format!("败 · {reason}")
+                            }
+                        }
                         _ => "结算".into(),
                     };
                     let stats = hud
@@ -2439,13 +2463,26 @@ impl BattleController {
                         .unwrap_or_default();
                     format!("{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
                 }
-                else if let Some(BattleOutcome::Victory { owner }) = hud.outcome.as_ref() {
+                else if let Some(outcome) = hud.outcome.as_ref() {
+                    let outcome_label = match outcome {
+                        BattleOutcome::Victory { owner } => format!("胜 {owner}"),
+                        BattleOutcome::Defeat { reason } => {
+                            if reason.is_empty() {
+                                "败".into()
+                            } else {
+                                format!("败 · {reason}")
+                            }
+                        }
+                    };
                     let stats = hud
                         .battle_stats
                         .as_ref()
                         .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
-                    format!("{} · [{screen_label}] · t{} · 胜 {owner}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
+                    format!(
+                        "{} · [{screen_label}] · t{} · {outcome_label}{stats} · Enter/R重开 L/Esc大厅",
+                        self.title_base, hud.tick
+                    )
                 }
                 else if hud.paused {
                     format!(
