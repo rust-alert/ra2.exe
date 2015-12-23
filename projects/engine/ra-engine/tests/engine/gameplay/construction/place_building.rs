@@ -9,10 +9,10 @@ use ra_types::{EntityId, GameEdition, PlayerId};
 fn yard_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n\
-[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\n\
-[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n";
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
+[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
@@ -36,6 +36,8 @@ fn yard_world() -> BattleState {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));

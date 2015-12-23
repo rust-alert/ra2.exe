@@ -21,6 +21,8 @@ fn snapshot_screen_moves_to_results_on_victory() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -31,6 +33,8 @@ fn snapshot_screen_moves_to_results_on_victory() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "screen");
     assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::InBattle);

@@ -36,6 +36,8 @@ fn seeds_attack_stats_from_primary_weapon() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");
@@ -73,6 +75,8 @@ fn weaponless_unit_keeps_zero_attack_damage() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let combat = world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat");

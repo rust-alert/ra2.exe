@@ -12,8 +12,8 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     let engine = test_engine();
     let rules_text = b"[InfantryTypes]\n0=E1\n\
 [BuildingTypes]\n0=GAPILE\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n";
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
@@ -37,6 +37,8 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         y: 3,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 5_000));

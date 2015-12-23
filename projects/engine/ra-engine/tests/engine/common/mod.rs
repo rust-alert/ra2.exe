@@ -78,6 +78,8 @@ pub fn duel_mtnk_world() -> BattleState {
             y: 8,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -88,6 +90,8 @@ pub fn duel_mtnk_world() -> BattleState {
             y: 8,
             facing: 128,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
     ];
     BattleState::new(GameEdition::Ra2, &rules_db, map)

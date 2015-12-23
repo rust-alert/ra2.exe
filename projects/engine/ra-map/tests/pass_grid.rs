@@ -15,6 +15,8 @@ fn structures_block_and_bfs_detours() {
         y: 1,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let grid = PassGrid::from_map(&map);
     assert!(!grid.is_passable(2, 1));

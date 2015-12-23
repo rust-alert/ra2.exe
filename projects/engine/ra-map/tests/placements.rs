@@ -16,6 +16,8 @@ fn parse_structure_and_infantry() {
     let infantry = ents.iter().find(|e| e.kind == MapEntityKind::Infantry).unwrap();
     assert_eq!(structure.type_id, "GACNST");
     assert_eq!(structure.x, 10);
+    assert_eq!(structure.tag, "None");
     assert_eq!(infantry.sub_cell, 2);
     assert_eq!(infantry.facing, 32);
+    assert_eq!(infantry.mission, "Guard");
 }

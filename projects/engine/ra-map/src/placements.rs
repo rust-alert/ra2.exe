@@ -34,6 +34,37 @@ pub struct MapEntity {
     pub facing: u8,
     /// 仅步兵：子格 0..=4；其它为 0。
     pub sub_cell: u8,
+    /// 初始任务（如 `Guard`）；空表示未指定。
+    pub mission: String,
+    /// 绑定的 Tag id；空表示无。
+    pub tag: String,
+}
+
+impl MapEntity {
+    /// 测试 / 工具用：无 mission / tag 的放置。
+    pub fn plain(
+        kind: MapEntityKind,
+        owner: impl Into<String>,
+        type_id: impl Into<String>,
+        health: u16,
+        x: u16,
+        y: u16,
+        facing: u8,
+        sub_cell: u8,
+    ) -> Self {
+        Self {
+            kind,
+            owner: owner.into(),
+            type_id: type_id.into(),
+            health,
+            x,
+            y,
+            facing,
+            sub_cell,
+            mission: String::new(),
+            tag: String::new(),
+        }
+    }
 }
 
 /// 解析四类放置段（缺省节则跳过）。
@@ -62,6 +93,7 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
     let fields: Vec<&str> = value.split(',').map(str::trim).collect();
     match kind {
         MapEntityKind::Infantry => {
+            // HOUSE,ID,HEALTH,X,Y,SUBCELL,MISSION,FACING[,TAG,…]
             if fields.len() < 8 {
                 return None;
             }
@@ -73,10 +105,13 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
                 x: fields[3].parse().ok()?,
                 y: fields[4].parse().ok()?,
                 sub_cell: fields[5].parse().unwrap_or(0).min(4),
+                mission: fields[6].to_string(),
                 facing: fields[7].parse::<u16>().unwrap_or(0).min(255) as u8,
+                tag: fields.get(8).unwrap_or(&"").to_string(),
             })
         }
-        MapEntityKind::Structure | MapEntityKind::Unit | MapEntityKind::Aircraft => {
+        MapEntityKind::Unit | MapEntityKind::Aircraft => {
+            // HOUSE,ID,HEALTH,X,Y,FACING[,MISSION[,TAG,…]]
             if fields.len() < 6 {
                 return None;
             }
@@ -89,6 +124,26 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
                 y: fields[4].parse().ok()?,
                 facing: fields[5].parse::<u16>().unwrap_or(0).min(255) as u8,
                 sub_cell: 0,
+                mission: fields.get(6).unwrap_or(&"").to_string(),
+                tag: fields.get(7).unwrap_or(&"").to_string(),
+            })
+        }
+        MapEntityKind::Structure => {
+            // HOUSE,ID,HEALTH,X,Y,FACING[,TAG,…]
+            if fields.len() < 6 {
+                return None;
+            }
+            Some(MapEntity {
+                kind,
+                owner: fields[0].to_string(),
+                type_id: fields[1].to_ascii_uppercase(),
+                health: fields[2].parse().unwrap_or(256).min(256),
+                x: fields[3].parse().ok()?,
+                y: fields[4].parse().ok()?,
+                facing: fields[5].parse::<u16>().unwrap_or(0).min(255) as u8,
+                sub_cell: 0,
+                mission: String::new(),
+                tag: fields.get(6).unwrap_or(&"").to_string(),
             })
         }
     }

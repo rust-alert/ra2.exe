@@ -1678,6 +1678,8 @@ impl BattleController {
                 y,
                 facing: 0,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             });
             let lobby = &self.lobby_primaries;
             let mut n = paint_structures_onto_rgba(
@@ -1772,6 +1774,8 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             });
         }
         let mut base = clean.clone();
@@ -1848,6 +1852,8 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             });
         }
         let lobby = self.lobby_primaries.clone();

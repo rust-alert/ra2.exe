@@ -18,6 +18,8 @@ fn advances_when_ordered_to_move() {
         y: 20,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
@@ -47,6 +49,8 @@ fn move_to_command_sets_target() {
         y: 20,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
@@ -70,6 +74,8 @@ fn turret_chases_body_facing() {
         y: 20,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     let id0 = world.entity_id_at(0).expect("entity");

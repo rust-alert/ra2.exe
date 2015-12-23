@@ -106,6 +106,8 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -116,6 +118,8 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 128,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
     ];
     let world = BattleState::new(GameEdition::Ra2, &rules_db, map);
@@ -153,6 +157,8 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
@@ -193,6 +199,8 @@ pub fn yard_open() -> HeadlessCase {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds(slice.human_house, slice.starting_funds));
@@ -243,6 +251,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 4,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -253,6 +263,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -263,6 +275,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
     ];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);

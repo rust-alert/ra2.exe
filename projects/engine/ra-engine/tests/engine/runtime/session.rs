@@ -22,6 +22,8 @@ fn session_tick_and_snapshot() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let mut session = Session::from_state(world, "test");
@@ -49,6 +51,8 @@ fn order_attack_and_detects_victor() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -59,6 +63,8 @@ fn order_attack_and_detects_victor() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     {
@@ -116,6 +122,8 @@ fn snapshot_includes_screen_coords_and_selection() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "t");
     session.expect_battle_mut().set_preview_origin(-100, -50);

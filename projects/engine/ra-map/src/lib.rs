@@ -18,6 +18,7 @@ mod placements;
 mod playfield;
 mod preview_pack;
 mod radiation_light;
+mod scripting;
 mod skirmish_preview;
 mod structure_damage;
 mod structure_paint;
@@ -70,6 +71,10 @@ pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
+pub use scripting::{
+    MapAction, MapActionCommand, MapCellTag, MapEvent, MapEventCondition, MapHouse, MapScriptStep, MapScriptType,
+    MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger, parse_map_scripting,
+};
 pub use preview_pack::{
     MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size,
 };
@@ -141,6 +146,8 @@ pub struct MapInfo {
     pub entities: Vec<MapEntity>,
     /// 航点。
     pub waypoints: Vec<Waypoint>,
+    /// 剧本节（Triggers / Teams / Houses 等）。
+    pub scripting: MapScripting,
 }
 
 impl MapInfo {
@@ -168,6 +175,7 @@ impl MapInfo {
             terrain_objects: Vec::new(),
             entities: Vec::new(),
             waypoints: Vec::new(),
+            scripting: MapScripting::default(),
         }
     }
 
@@ -198,6 +206,7 @@ impl MapInfo {
         let terrain_objects = parse_terrain_objects(&doc);
         let entities = parse_map_entities(&doc);
         let waypoints = parse_waypoints(&doc);
+        let scripting = parse_map_scripting(&doc);
         Ok(Self {
             edition,
             name: name.into(),
@@ -220,6 +229,7 @@ impl MapInfo {
             terrain_objects,
             entities,
             waypoints,
+            scripting,
         })
     }
 

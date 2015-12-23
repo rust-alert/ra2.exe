@@ -20,6 +20,8 @@ fn binds_strength_and_speed() {
         y: 20,
         facing: 64,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.entity_count(), 1);
@@ -49,6 +51,8 @@ fn unbound_techno_gets_zero_combat_stats() {
         y: 20,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let id = world.entity_id_at(0).expect("entity");
@@ -88,6 +92,8 @@ fn seeds_structure_health_from_map_ratio() {
         y: 8,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let world = BattleState::new(GameEdition::Ra2, &rules, map);
     let id = world.entity_id_at(0).expect("entity");

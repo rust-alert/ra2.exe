@@ -32,6 +32,8 @@ fn refinery_world() -> BattleState {
         y: 2,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 1_000));

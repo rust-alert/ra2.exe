@@ -12,9 +12,9 @@ fn ai_places_power_near_yard() {
     let engine = test_engine();
     let doc = IniDocument::parse(
         b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\n",
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n",
     )
     .unwrap();
     let rules = RulesSystem {
@@ -39,6 +39,8 @@ fn ai_places_power_near_yard() {
         y: 2,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -49,6 +51,8 @@ fn ai_places_power_near_yard() {
         y: 8,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));

@@ -40,6 +40,8 @@ fn verses_scales_damage_against_armor() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -50,6 +52,8 @@ fn verses_scales_damage_against_armor() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     assert_eq!(world.ecs_combat_view(world.entity_id_at(0).expect("entity")).expect("combat").attack_damage, 100);

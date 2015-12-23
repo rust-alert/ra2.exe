@@ -18,6 +18,8 @@ fn omitting_combat_phase_skips_damage() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -28,6 +30,8 @@ fn omitting_combat_phase_skips_damage() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     let a = world.entity_id_at(0).expect("entity");

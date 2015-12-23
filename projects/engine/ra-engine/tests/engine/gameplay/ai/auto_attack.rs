@@ -42,6 +42,8 @@ fn duel_session() -> Session {
         y: 1,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -52,6 +54,8 @@ fn duel_session() -> Session {
         y: 1,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -62,6 +66,8 @@ fn duel_session() -> Session {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -72,6 +78,8 @@ fn duel_session() -> Session {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai");
     session.expect_battle_mut().ai_enabled = true;
@@ -128,6 +136,8 @@ fn ambient_house_does_not_auto_attack() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -138,6 +148,8 @@ fn ambient_house_does_not_auto_attack() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ambient");
     session.expect_battle_mut().ai_enabled = true;

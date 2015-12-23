@@ -497,6 +497,8 @@ mod tests {
                 y: 4,
                 facing: 0,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             },
             MapEntity {
                 kind: MapEntityKind::Structure,
@@ -507,6 +509,8 @@ mod tests {
                 y: 1,
                 facing: 0,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             },
             MapEntity {
                 kind: MapEntityKind::Unit,
@@ -517,6 +521,8 @@ mod tests {
                 y: 9,
                 facing: 0,
                 sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
             },
         ];
         let lights = collect_structure_point_lights(&entities, &rules);

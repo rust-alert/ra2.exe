@@ -41,6 +41,8 @@ fn attack_structure_kills_and_frees_cell() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -51,6 +53,8 @@ fn attack_structure_kills_and_frees_cell() {
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     world.pass_grid.set_passable(6, 4, false);

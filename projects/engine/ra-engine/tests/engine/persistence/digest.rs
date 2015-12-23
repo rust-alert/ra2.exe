@@ -18,6 +18,8 @@ fn twin_worlds_same_command_stream_match_hash() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -28,6 +30,8 @@ fn twin_worlds_same_command_stream_match_hash() {
         y: 10,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mk = || {
         let mut w = BattleState::new(GameEdition::Ra2, &rules, map.clone());

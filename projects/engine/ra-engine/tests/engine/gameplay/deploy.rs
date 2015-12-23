@@ -35,6 +35,8 @@ fn mcv_world() -> BattleState {
         y: 5,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     }];
     BattleState::new(GameEdition::Ra2, &rules_db, map)
 }

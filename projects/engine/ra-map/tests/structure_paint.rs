@@ -137,6 +137,8 @@ Rate=300\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
 
     let source = MapSource { files };
@@ -189,6 +191,8 @@ ConditionRed=25%\n\
         y: 2,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -250,6 +254,8 @@ ConditionYellow=50%\n\
         y: 3,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -297,6 +303,8 @@ ConditionYellow=50%\n\
         y: 1,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -341,6 +349,8 @@ ConditionYellow=50%\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -382,6 +392,8 @@ ConditionYellow=50%\n\
         y: 2,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -481,6 +493,8 @@ Rate=300\n\
         y: 4,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let bank = collect_structure_anim_bank(&source, &map, "art.ini", "rules.ini", &|p, _| p.clone());
@@ -537,6 +551,8 @@ Rate=300\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let source = MapSource { files };
     let painted = paint_map_structures(
@@ -609,6 +625,8 @@ fn missing_structure_body_paints_magenta_marker() {
         y: 0,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     let mut image = TerrainImage::blank(256, 256);
     let (shp, mark) = paint_map_structures(

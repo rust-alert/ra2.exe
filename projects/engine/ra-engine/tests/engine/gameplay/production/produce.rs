@@ -10,10 +10,10 @@ fn factory_world() -> BattleState {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
 [VehicleTypes]\n0=MTNK\n\
 [BuildingTypes]\n0=GAPILE\n1=GAWEAP\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
-[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
-[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\n";
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n\
+[MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\nTechLevel=1\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n\
+[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nTechLevel=1\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
@@ -38,6 +38,8 @@ fn factory_world() -> BattleState {
             y: 4,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -48,6 +50,8 @@ fn factory_world() -> BattleState {
             y: 4,
             facing: 0,
             sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
         },
     ];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);

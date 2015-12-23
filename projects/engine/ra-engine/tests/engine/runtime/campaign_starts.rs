@@ -45,6 +45,8 @@ fn campaign_map() -> MapInfo {
         y: 8,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -55,6 +57,8 @@ fn campaign_map() -> MapInfo {
         y: 9,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -65,6 +69,8 @@ fn campaign_map() -> MapInfo {
         y: 12,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map
 }

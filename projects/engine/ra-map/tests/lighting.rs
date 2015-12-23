@@ -123,6 +123,8 @@ fn refresh_point_lights_from_rules_structures() {
         y: 7,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.refresh_point_lights(&rules);
     assert_eq!(map.point_lights.len(), 1);
@@ -158,6 +160,8 @@ fn refresh_radiation_lights_merges_green_glow() {
         y: 1,
         facing: 0,
         sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
     });
     map.refresh_point_lights(&struct_rules);
     assert_eq!(map.structure_point_lights.len(), 1);
