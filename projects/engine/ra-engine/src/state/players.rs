@@ -25,11 +25,18 @@ pub struct PlayerState {
     pub promoted_infantry: bool,
     /// 渗透车厂后，新产载具享受简易晋升级。
     pub promoted_vehicle: bool,
+    /// 本局科技上限（遭遇战滑条 / 默认 10）；类型 `TechLevel` 不得超过此值。
+    pub tech_level: i32,
 }
 
 impl PlayerState {
-    /// 构造默认经济字段的玩家。
+    /// 构造默认经济字段的玩家（科技上限 10）。
     pub fn new(id: PlayerId, house: impl AsRef<str>) -> Self {
+        Self::with_tech_level(id, house, 10)
+    }
+
+    /// 指定科技上限构造玩家。
+    pub fn with_tech_level(id: PlayerId, house: impl AsRef<str>, tech_level: i32) -> Self {
         Self {
             id,
             house: Arc::<str>::from(house.as_ref()),
@@ -40,6 +47,7 @@ impl PlayerState {
             power_blackout_ticks: 0,
             promoted_infantry: false,
             promoted_vehicle: false,
+            tech_level,
         }
     }
 

@@ -68,6 +68,16 @@ pub struct TechnoDefinition {
     pub rof: u32,
     /// 主武器弹头键；空表示未配置。
     pub warhead: String,
+    /// `Prerequisite` 逗号分隔 token（类型键或通用组名）；空 = 无前置。
+    pub prerequisite: Vec<String>,
+    /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。
+    pub prerequisite_override: Vec<String>,
+    /// `RequiredHouses`：非空时 house 必须命中其一。
+    pub required_houses: Vec<String>,
+    /// `ForbiddenHouses`：命中任一则不可造。
+    pub forbidden_houses: Vec<String>,
+    /// `BuildLimit`；`0` 表示不限。
+    pub build_limit: i32,
 }
 
 /// Techno 定义表。

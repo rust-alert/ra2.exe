@@ -4,8 +4,8 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, ProductionCategory, ProductionProfile, RuntimeDefinitions,
-    StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, PrerequisiteGroups, ProductionCategory,
+    ProductionProfile, RuntimeDefinitions, StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
 };
 
 use crate::RulesSystem;
@@ -19,6 +19,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         next_id = next_id.saturating_add(1);
         id
     };
+
+    defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
+    defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
 
     for tt in rules.techno_types.iter() {
         let key = tt.id.to_ascii_uppercase();
@@ -47,6 +50,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             range: tt.range,
             rof: tt.rof,
             warhead: tt.warhead.to_ascii_uppercase(),
+            prerequisite: ini_csv_tokens(&rules.rules, &key, "Prerequisite"),
+            prerequisite_override: ini_csv_tokens(&rules.rules, &key, "PrerequisiteOverride"),
+            required_houses: ini_csv_tokens(&rules.rules, &key, "RequiredHouses"),
+            forbidden_houses: ini_csv_tokens(&rules.rules, &key, "ForbiddenHouses"),
+            build_limit: ini_i32(&rules.rules, &key, "BuildLimit").unwrap_or(0).max(0),
         });
 
         if tt.kind != TechnoKind::Building {
@@ -139,6 +147,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs
 }
 
+fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
+    PrerequisiteGroups {
+        power: ini_csv_tokens(doc, "General", "PrerequisitePower"),
+        factory: ini_csv_tokens(doc, "General", "PrerequisiteFactory"),
+        barracks: ini_csv_tokens(doc, "General", "PrerequisiteBarracks"),
+        radar: ini_csv_tokens(doc, "General", "PrerequisiteRadar"),
+        tech: ini_csv_tokens(doc, "General", "PrerequisiteTech"),
+        proc: ini_csv_tokens(doc, "General", "PrerequisiteProc"),
+        proc_alternate: ini_csv_tokens(doc, "General", "PrerequisiteProcAlternate"),
+    }
+}
+
 fn parse_factory_category(raw: &str) -> ProductionCategory {
     match raw.trim().to_ascii_lowercase().as_str() {
         "infantrytype" | "infantry" => ProductionCategory::Infantry,
@@ -164,4 +184,17 @@ fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bo
         "no" | "false" | "0" => Some(false),
         _ => None,
     }
+}
+
+/// 逗号 / 分号分隔 token，统一大写；空段丢弃。
+fn ini_csv_tokens(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Vec<String> {
+    let Some(raw) = ini_string(doc, section, key)
+    else {
+        return Vec::new();
+    };
+    raw.split(|c| c == ',' || c == ';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_ascii_uppercase())
+        .collect()
 }

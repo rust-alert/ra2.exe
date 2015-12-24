@@ -170,8 +170,12 @@ impl BattleState {
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
             });
         }
-        let players: Vec<PlayerState> =
-            house_order.into_iter().enumerate().map(|(i, house)| PlayerState::new(PlayerId(i as u8), house)).collect();
+        let default_tech = definitions.default_tech_level;
+        let players: Vec<PlayerState> = house_order
+            .into_iter()
+            .enumerate()
+            .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
+            .collect();
         let mut world = Self {
             edition,
             tick: 0,
