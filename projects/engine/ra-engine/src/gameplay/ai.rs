@@ -4,7 +4,10 @@
 
 use crate::{
     GameCommand, BattleState,
-    gameplay::{deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, owner_allows},
+    gameplay::{
+        deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible,
+        living_structure_keys,
+    },
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
 use ra_map::MapEntityKind;
@@ -196,26 +199,42 @@ fn pick_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> Option
 where
     F: Fn(&ra_types::StructureDefinition) -> bool,
 {
+    let living = living_structure_keys(world, house);
+    let tech = world
+        .players
+        .iter()
+        .find(|p| p.house.as_ref() == house)
+        .map(|p| p.tech_level)
+        .unwrap_or(10);
     world
         .definitions
         .structures
         .iter()
-        .filter(|s| pred(s) && owner_allows(&s.owner, house) && !s.construction_yard)
+        .filter(|s| {
+            pred(s)
+                && !s.construction_yard
+                && is_type_eligible(&world.definitions, house, tech, &living, &s.type_key)
+        })
         .map(|s| s.type_key.as_str())
         .next()
 }
 
 fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a str> {
+    let living = living_structure_keys(world, house);
+    let tech = world
+        .players
+        .iter()
+        .find(|p| p.house.as_ref() == house)
+        .map(|p| p.tech_level)
+        .unwrap_or(10);
     world
         .definitions
         .techno
         .iter()
         .filter(|t| {
             t.class.production_category() == Some(category)
-                && owner_allows(&t.owner, house)
+                && is_type_eligible(&world.definitions, house, tech, &living, &t.type_key)
                 && t.class != ra_types::TechnoClass::Building
-                // TechLevel < 1：不可建造或仅地图装饰。
-                && t.tech_level >= 1
                 // 陆地工厂不造海军单位（否则 DEST 等会从战车厂刷出）。
                 && !t.naval
                 // 警犬等 Category=Dog 不进常规量产。

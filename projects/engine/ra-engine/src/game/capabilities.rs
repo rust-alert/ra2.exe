@@ -11,7 +11,7 @@ use ra_types::{EntityId, TechnoClass};
 use crate::{
     game::{CommandRejectReason, SnapshotProduceQueue},
     gameplay::{
-        deploy_into_type, is_power_plant, is_production_factory, is_refinery, owner_allows, requires_power_plant,
+        build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant,
     },
     state::{
         components::{Health, Identity, Owner, ProductionQueue},
@@ -94,6 +94,7 @@ impl BattleSession {
         let funds = local.map(|p| p.funds).unwrap_or(0);
         let power_output = local.map(|p| p.power_output).unwrap_or(0);
         let power_drain = local.map(|p| p.power_drain).unwrap_or(0);
+        let player_tech_level = local.map(|p| p.tech_level).unwrap_or(10);
 
         let has_construction_yard = self.world.house_has_living_yard(house.as_ref());
         let has_power_plant = self.world.house_has_living_power(house.as_ref());
@@ -101,11 +102,14 @@ impl BattleSession {
         let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
         let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Infantry).is_some();
         let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
+        let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
         let build_items = project_build_items(
             &self.world,
             house.as_ref(),
+            player_tech_level,
+            &living,
             funds,
             has_construction_yard,
             has_power_plant,
@@ -113,6 +117,8 @@ impl BattleSession {
         let infantry_items = project_produce_items(
             &self.world,
             house.as_ref(),
+            player_tech_level,
+            &living,
             TechnoClass::Infantry,
             funds,
             has_infantry_factory,
@@ -121,6 +127,8 @@ impl BattleSession {
         let vehicle_items = project_produce_items(
             &self.world,
             house.as_ref(),
+            player_tech_level,
+            &living,
             TechnoClass::Vehicle,
             funds,
             has_vehicle_factory,
@@ -179,13 +187,14 @@ impl BattleSession {
     }
 }
 
-/// 建造场没了 → 全部建筑科技掉级；需电建筑在无电厂时不可用。
+/// 建造场没了 → 全部建筑科技掉级；需电建筑在无电厂时不可用；BuildLimit 满则灰掉。
 pub fn evaluate_build_availability(
     has_construction_yard: bool,
     has_power_plant: bool,
     funds: i32,
     cost: i32,
     requires_power: bool,
+    build_limit_hit: bool,
 ) -> (bool, Option<CommandRejectReason>) {
     if !has_construction_yard {
         return (false, Some(CommandRejectReason::MissingPrerequisite));
@@ -193,23 +202,27 @@ pub fn evaluate_build_availability(
     if requires_power && !has_power_plant {
         return (false, Some(CommandRejectReason::InsufficientPower));
     }
+    if build_limit_hit {
+        return (false, Some(CommandRejectReason::QueueFull));
+    }
     if funds < cost {
         return (false, Some(CommandRejectReason::InsufficientFunds));
     }
     (true, None)
 }
 
-/// 对应工厂没了 → 单位科技掉级；工厂忙碌 → 队列满；资金不足单独标出。
+/// 对应工厂没了 → 单位科技掉级；工厂忙碌 / BuildLimit → 队列满；资金不足单独标出。
 pub fn evaluate_produce_availability(
     has_factory: bool,
     factory_idle: bool,
     funds: i32,
     cost: i32,
+    build_limit_hit: bool,
 ) -> (bool, Option<CommandRejectReason>) {
     if !has_factory {
         return (false, Some(CommandRejectReason::MissingPrerequisite));
     }
-    if !factory_idle {
+    if !factory_idle || build_limit_hit {
         return (false, Some(CommandRejectReason::QueueFull));
     }
     if funds < cost {
@@ -221,6 +234,8 @@ pub fn evaluate_produce_availability(
 fn project_build_items(
     world: &BattleState,
     house: &str,
+    player_tech_level: i32,
+    living: &std::collections::HashSet<String>,
     funds: i32,
     has_yard: bool,
     has_power: bool,
@@ -229,19 +244,18 @@ fn project_build_items(
         .definitions
         .structures
         .iter()
-        .filter(|s| !s.construction_yard)
-        .filter(|s| owner_allows(&s.owner, house))
-        // Alpha 建造栏：电厂 / 矿场 / 生产厂；其它建筑待完整 Prerequisite 表接入后再放开。
-        .filter(|s| is_power_plant(&world.definitions, &s.type_key) || is_refinery(&world.definitions, &s.type_key) || is_production_factory(&world.definitions, &s.type_key))
+        .filter(|s| is_type_eligible(&world.definitions, house, player_tech_level, living, &s.type_key))
         .map(|s| {
+            let techno = world.definitions.techno.get(&s.type_key);
             let cost = if s.cost > 0 {
                 s.cost
             } else {
-                world.definitions.techno.get(&s.type_key).map(|t| t.cost).unwrap_or(0)
+                techno.map(|t| t.cost).unwrap_or(0)
             };
             let requires_power = requires_power_plant(&world.definitions, &s.type_key);
+            let limit_hit = techno.is_some_and(|t| build_limit_reached(world, house, t));
             let (enabled, disabled_reason) =
-                evaluate_build_availability(has_yard, has_power, funds, cost, requires_power);
+                evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit);
             CapabilityItem {
                 type_id: Arc::<str>::from(s.type_key.as_str()),
                 cost,
@@ -257,6 +271,8 @@ fn project_build_items(
 fn project_produce_items(
     world: &BattleState,
     house: &str,
+    player_tech_level: i32,
+    living: &std::collections::HashSet<String>,
     class: TechnoClass,
     funds: i32,
     has_factory: bool,
@@ -267,12 +283,13 @@ fn project_produce_items(
         .techno
         .iter()
         .filter(|t| t.class == class)
-        .filter(|t| owner_allows(&t.owner, house))
+        .filter(|t| is_type_eligible(&world.definitions, house, player_tech_level, living, &t.type_key))
         // 可部署载具（MCV）不进常规生产栏。
         .filter(|t| deploy_into_type(&world.definitions, &t.type_key).is_none())
         .map(|t| {
+            let limit_hit = build_limit_reached(world, house, t);
             let (enabled, disabled_reason) =
-                evaluate_produce_availability(has_factory, factory_idle, funds, t.cost);
+                evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);
             CapabilityItem {
                 type_id: Arc::<str>::from(t.type_key.as_str()),
                 cost: t.cost,
@@ -316,31 +333,31 @@ mod tests {
 
     #[test]
     fn losing_construction_yard_disables_all_build_tech() {
-        let (ok, reason) = evaluate_build_availability(true, true, 5000, 800, false);
+        let (ok, reason) = evaluate_build_availability(true, true, 5000, 800, false, false);
         assert!(ok);
         assert_eq!(reason, None);
 
-        let (ok, reason) = evaluate_build_availability(false, true, 5000, 800, false);
+        let (ok, reason) = evaluate_build_availability(false, true, 5000, 800, false, false);
         assert!(!ok);
         assert_eq!(reason, Some(CommandRejectReason::MissingPrerequisite));
     }
 
     #[test]
     fn losing_power_plant_blocks_power_gated_buildings_only() {
-        let (ok, _) = evaluate_build_availability(true, false, 5000, 800, false);
+        let (ok, _) = evaluate_build_availability(true, false, 5000, 800, false, false);
         assert!(ok);
-        let (ok, reason) = evaluate_build_availability(true, false, 5000, 800, true);
+        let (ok, reason) = evaluate_build_availability(true, false, 5000, 800, true, false);
         assert!(!ok);
         assert_eq!(reason, Some(CommandRejectReason::InsufficientPower));
     }
 
     #[test]
     fn losing_factory_disables_produce_tech() {
-        let (ok, reason) = evaluate_produce_availability(false, true, 500, 200);
+        let (ok, reason) = evaluate_produce_availability(false, true, 500, 200, false);
         assert!(!ok);
         assert_eq!(reason, Some(CommandRejectReason::MissingPrerequisite));
 
-        let (ok, reason) = evaluate_produce_availability(true, false, 500, 200);
+        let (ok, reason) = evaluate_produce_availability(true, false, 500, 200, false);
         assert!(!ok);
         assert_eq!(reason, Some(CommandRejectReason::QueueFull));
     }

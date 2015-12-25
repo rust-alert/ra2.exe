@@ -232,8 +232,8 @@ impl crate::state::BattleState {
         use crate::{
             game::CommandRejectReason,
             gameplay::{
-                building_power, deploy_into_type, full_verses, is_agent, is_construction_yard, is_production_factory,
-                requires_power_plant,
+                building_power, build_limit_reached, deploy_into_type, full_verses, is_agent, is_construction_yard,
+                is_production_factory, is_type_eligible, living_structure_keys, requires_power_plant,
             },
             spatial::is_mobile,
             state::{
@@ -399,6 +399,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
+                    let player_tech = self.players[player_index].tech_level;
                     let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
@@ -414,6 +415,15 @@ impl crate::state::BattleState {
                     }
                     if !self.house_has_living_yard(&house) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
+                    let living = living_structure_keys(self, house.as_ref());
+                    if !is_type_eligible(&self.definitions, house.as_ref(), player_tech, &living, type_id) {
+                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
+                    if build_limit_reached(self, house.as_ref(), tt) {
+                        self.reject(command_index, CommandRejectReason::QueueFull);
                         continue;
                     }
                     if requires_power_plant(&self.definitions, type_id) && !self.house_has_living_power(&house) {
@@ -480,6 +490,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
+                    let player_tech = self.players[player_index].tech_level;
                     let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
@@ -487,6 +498,15 @@ impl crate::state::BattleState {
                     };
                     if !matches!(tt.class, TechnoClass::Infantry | TechnoClass::Vehicle) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    let living = living_structure_keys(self, house.as_ref());
+                    if !is_type_eligible(&self.definitions, house.as_ref(), player_tech, &living, type_id) {
+                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
+                    if build_limit_reached(self, house.as_ref(), tt) {
+                        self.reject(command_index, CommandRejectReason::QueueFull);
                         continue;
                     }
                     let kind = match tt.class {
