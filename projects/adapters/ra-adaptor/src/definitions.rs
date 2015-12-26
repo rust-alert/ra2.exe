@@ -5,7 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StructureDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition,
+    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, TechnoClass, TechnoDefinition, TypeId,
+    WarheadDefinition,
 };
 
 use crate::RulesSystem;
@@ -22,6 +23,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
     defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
+    for country in rules.countries.countries() {
+        if let Some(kind) = StolenTechKind::from_side(&country.side) {
+            defs.stolen_tech_by_house.insert(&country.id, kind);
+        }
+    }
 
     for tt in rules.techno_types.iter() {
         let key = tt.id.to_ascii_uppercase();
@@ -55,6 +61,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             required_houses: ini_csv_tokens(&rules.rules, &key, "RequiredHouses"),
             forbidden_houses: ini_csv_tokens(&rules.rules, &key, "ForbiddenHouses"),
             build_limit: ini_i32(&rules.rules, &key, "BuildLimit").unwrap_or(0).max(0),
+            requires_stolen_allied_tech: ini_bool(&rules.rules, &key, "RequiresStolenAlliedTech").unwrap_or(false),
+            requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
+            requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),
         });
 
         if tt.kind != TechnoKind::Building {

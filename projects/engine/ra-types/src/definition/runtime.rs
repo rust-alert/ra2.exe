@@ -1,9 +1,9 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, LocomotorDefinitions,
-    PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, TechnoDefinitions, WarheadDefinitions,
-    WeaponDefinitions,
+    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap,
+    LocomotorDefinitions, PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions,
+    TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
@@ -40,6 +40,8 @@ pub struct RuntimeDefinitions {
     pub sounds: SoundDefinitions,
     /// `[General]` 通用前置组。
     pub prerequisite_groups: PrerequisiteGroups,
+    /// house → 渗透其科技建筑时授予的偷取科技。
+    pub stolen_tech_by_house: HouseStolenTechMap,
     /// 遭遇战 / 多人默认科技上限（`[MultiplayerDialogSettings] TechLevel`，缺省 10）。
     pub default_tech_level: i32,
 }
@@ -60,6 +62,7 @@ impl Default for RuntimeDefinitions {
             animations: AnimationDefinitions::default(),
             sounds: SoundDefinitions::default(),
             prerequisite_groups: PrerequisiteGroups::default(),
+            stolen_tech_by_house: HouseStolenTechMap::default(),
             default_tech_level: 10,
         }
     }

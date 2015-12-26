@@ -28,7 +28,7 @@ pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfil
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
-pub use tech_tree::PrerequisiteGroups;
+pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{WarheadDefinition, WarheadDefinitions};

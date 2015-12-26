@@ -78,6 +78,12 @@ pub struct TechnoDefinition {
     pub forbidden_houses: Vec<String>,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
+    /// `RequiresStolenAlliedTech=yes`。
+    pub requires_stolen_allied_tech: bool,
+    /// `RequiresStolenSovietTech=yes`。
+    pub requires_stolen_soviet_tech: bool,
+    /// `RequiresStolenThirdTech=yes`。
+    pub requires_stolen_third_tech: bool,
 }
 
 /// Techno 定义表。
