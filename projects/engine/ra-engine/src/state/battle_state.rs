@@ -103,6 +103,8 @@ pub struct BattleState {
     pub(crate) presentation_dirty: DirtyEntitySet,
     /// 当前闪电风暴（同时最多一场；驱动 Ion 光照档）。
     pub lightning_storm: Option<crate::gameplay::LightningStormState>,
+    /// 地图触发运行时。
+    pub trigger_runtime: crate::gameplay::TriggerRuntime,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -139,6 +141,7 @@ impl BattleState {
                     entity_id: id,
                     type_id: Arc::<str>::from(e.type_id.as_ref()),
                     kind: e.kind,
+                    tag: e.tag.clone(),
                 },
                 owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
                 transform: Transform {
@@ -176,6 +179,7 @@ impl BattleState {
             .enumerate()
             .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
             .collect();
+        let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
         let mut world = Self {
             edition,
             tick: 0,
@@ -194,6 +198,7 @@ impl BattleState {
             state_hash: 0,
             presentation_dirty: DirtyEntitySet::new(),
             lightning_storm: None,
+            trigger_runtime,
             ecs,
         };
         for bundle in seed_bundles {
@@ -768,6 +773,7 @@ impl BattleState {
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
                 SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
+                SystemPhase::Triggers => crate::gameplay::tick_triggers(self),
                 SystemPhase::Rehash => {
                     self.sync_ecs_components();
                     self.rehash();
@@ -862,6 +868,7 @@ impl BattleState {
                 entity_id: id,
                 type_id: Arc::<str>::from(type_key),
                 kind,
+                tag: String::new(),
             },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },

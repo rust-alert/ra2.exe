@@ -233,7 +233,7 @@ impl crate::state::BattleState {
             game::CommandRejectReason,
             gameplay::{
                 building_power, build_limit_reached, deploy_into_type, full_verses, is_agent, is_construction_yard,
-                is_production_factory, is_type_eligible, living_structure_keys, requires_power_plant,
+                is_production_factory, is_type_eligible, living_structure_keys, requires_power_plant, TechTreePlayer,
             },
             spatial::is_mobile,
             state::{
@@ -399,7 +399,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let player_tech = self.players[player_index].tech_level;
+                    let tech_player = TechTreePlayer::from_player(&self.players[player_index]);
                     let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
@@ -418,7 +418,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let living = living_structure_keys(self, house.as_ref());
-                    if !is_type_eligible(&self.definitions, house.as_ref(), player_tech, &living, type_id) {
+                    if !is_type_eligible(&self.definitions, tech_player, &living, type_id) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
@@ -453,6 +453,7 @@ impl crate::state::BattleState {
                             entity_id: id,
                             type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                             kind: MapEntityKind::Structure,
+                            tag: String::new(),
                         },
                         owner: Owner { house },
                         transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
@@ -490,7 +491,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let player_tech = self.players[player_index].tech_level;
+                    let tech_player = TechTreePlayer::from_player(&self.players[player_index]);
                     let Some(tt) = self.definitions.techno.get(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
@@ -501,7 +502,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let living = living_structure_keys(self, house.as_ref());
-                    if !is_type_eligible(&self.definitions, house.as_ref(), player_tech, &living, type_id) {
+                    if !is_type_eligible(&self.definitions, tech_player, &living, type_id) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }

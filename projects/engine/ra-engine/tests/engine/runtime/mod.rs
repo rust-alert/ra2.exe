@@ -8,6 +8,7 @@ mod input_frame;
 mod battle_stats;
 mod campaign_starts;
 mod pause;
+mod triggers_win;
 mod reject;
 mod schedule;
 mod session;

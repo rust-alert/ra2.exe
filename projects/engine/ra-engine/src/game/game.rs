@@ -507,9 +507,13 @@ impl BattleSession {
     }
 
     /// 遭遇战：若仅剩一个阵营仍有作战力量，锁定胜负并暂停。
-    /// 战役：不走 sole victor，由触发器 Action 写入 [`Self::outcome`]。
+    /// 战役：消费触发器 `pending_outcome`，不走 sole victor。
     fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
+            return;
+        }
+        if let Some(outcome) = self.world.trigger_runtime.pending_outcome.take() {
+            self.apply_scripted_outcome(outcome);
             return;
         }
         if self.boot_kind == SessionBootKind::Campaign {

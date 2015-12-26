@@ -17,6 +17,8 @@ pub struct Identity {
     pub type_id: Arc<str>,
     /// 地图实体种类。
     pub kind: MapEntityKind,
+    /// 地图 Tag id（空表示无绑定）。
+    pub tag: String,
 }
 
 /// 所属房主。
