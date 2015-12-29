@@ -12,6 +12,7 @@ use crate::{
     game::{CommandRejectReason, SnapshotProduceQueue},
     gameplay::{
         build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant,
+        TechTreePlayer,
     },
     state::{
         components::{Health, Identity, Owner, ProductionQueue},
@@ -94,7 +95,13 @@ impl BattleSession {
         let funds = local.map(|p| p.funds).unwrap_or(0);
         let power_output = local.map(|p| p.power_output).unwrap_or(0);
         let power_drain = local.map(|p| p.power_drain).unwrap_or(0);
-        let player_tech_level = local.map(|p| p.tech_level).unwrap_or(10);
+        let tech_player = local.map(TechTreePlayer::from_player).unwrap_or(TechTreePlayer {
+            house: house.as_ref(),
+            tech_level: 10,
+            stolen_allied_tech: false,
+            stolen_soviet_tech: false,
+            stolen_third_tech: false,
+        });
 
         let has_construction_yard = self.world.house_has_living_yard(house.as_ref());
         let has_power_plant = self.world.house_has_living_power(house.as_ref());
@@ -107,8 +114,7 @@ impl BattleSession {
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
         let build_items = project_build_items(
             &self.world,
-            house.as_ref(),
-            player_tech_level,
+            tech_player,
             &living,
             funds,
             has_construction_yard,
@@ -116,8 +122,7 @@ impl BattleSession {
         );
         let infantry_items = project_produce_items(
             &self.world,
-            house.as_ref(),
-            player_tech_level,
+            tech_player,
             &living,
             TechnoClass::Infantry,
             funds,
@@ -126,8 +131,7 @@ impl BattleSession {
         );
         let vehicle_items = project_produce_items(
             &self.world,
-            house.as_ref(),
-            player_tech_level,
+            tech_player,
             &living,
             TechnoClass::Vehicle,
             funds,
@@ -233,8 +237,7 @@ pub fn evaluate_produce_availability(
 
 fn project_build_items(
     world: &BattleState,
-    house: &str,
-    player_tech_level: i32,
+    player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<String>,
     funds: i32,
     has_yard: bool,
@@ -244,7 +247,7 @@ fn project_build_items(
         .definitions
         .structures
         .iter()
-        .filter(|s| is_type_eligible(&world.definitions, house, player_tech_level, living, &s.type_key))
+        .filter(|s| is_type_eligible(&world.definitions, player, living, &s.type_key))
         .map(|s| {
             let techno = world.definitions.techno.get(&s.type_key);
             let cost = if s.cost > 0 {
@@ -253,7 +256,7 @@ fn project_build_items(
                 techno.map(|t| t.cost).unwrap_or(0)
             };
             let requires_power = requires_power_plant(&world.definitions, &s.type_key);
-            let limit_hit = techno.is_some_and(|t| build_limit_reached(world, house, t));
+            let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
             let (enabled, disabled_reason) =
                 evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit);
             CapabilityItem {
@@ -270,8 +273,7 @@ fn project_build_items(
 
 fn project_produce_items(
     world: &BattleState,
-    house: &str,
-    player_tech_level: i32,
+    player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<String>,
     class: TechnoClass,
     funds: i32,
@@ -283,11 +285,11 @@ fn project_produce_items(
         .techno
         .iter()
         .filter(|t| t.class == class)
-        .filter(|t| is_type_eligible(&world.definitions, house, player_tech_level, living, &t.type_key))
+        .filter(|t| is_type_eligible(&world.definitions, player, living, &t.type_key))
         // 可部署载具（MCV）不进常规生产栏。
         .filter(|t| deploy_into_type(&world.definitions, &t.type_key).is_none())
         .map(|t| {
-            let limit_hit = build_limit_reached(world, house, t);
+            let limit_hit = build_limit_reached(world, player.house, t);
             let (enabled, disabled_reason) =
                 evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);
             CapabilityItem {

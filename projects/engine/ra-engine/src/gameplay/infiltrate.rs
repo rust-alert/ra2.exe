@@ -1,7 +1,7 @@
 //! 间谍渗透：邻接敌方建筑后结算效果并移除间谍。
 
 use ra_map::MapEntityKind;
-use ra_types::{EntityId, ProductionCategory};
+use ra_types::{EntityId, ProductionCategory, StolenTechKind};
 
 use crate::{
     gameplay::{is_power_plant, is_refinery},
@@ -149,6 +149,18 @@ impl crate::state::BattleState {
                     ProductionCategory::Infantry => player.promoted_infantry = true,
                     ProductionCategory::Vehicle => player.promoted_vehicle = true,
                     ProductionCategory::Aircraft | ProductionCategory::Building => {}
+                }
+            }
+            return;
+        }
+        if self.definitions.prerequisite_groups.is_tech_building(building_type) {
+            if let Some(kind) = self.definitions.stolen_tech_by_house.get(victim_house) {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == agent_house) {
+                    match kind {
+                        StolenTechKind::Allied => player.stolen_allied_tech = true,
+                        StolenTechKind::Soviet => player.stolen_soviet_tech = true,
+                        StolenTechKind::Third => player.stolen_third_tech = true,
+                    }
                 }
             }
         }

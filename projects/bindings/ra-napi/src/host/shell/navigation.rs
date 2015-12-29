@@ -3,6 +3,7 @@
 use std::time::{Duration, Instant};
 
 use ra_layout;
+use ra_widgets::load_kind::LoadKind;
 use ra_widgets::menu_action::MenuAction;
 use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::shell_slide::{
@@ -421,15 +422,30 @@ impl Shell {
             BattleNav::None => {}
             BattleNav::Rematch => {
                 self.banner = "重开…".into();
-                self.begin_skirmish_load();
+                match self.load_kind {
+                    LoadKind::Campaign => {
+                        if let Some(side) = self.campaign_side {
+                            self.begin_campaign_load(side);
+                        } else {
+                            self.banner = "无战役选边可重开 · 回选边".into();
+                            self.set_screen(OriginalScreen::Campaign);
+                        }
+                    }
+                    LoadKind::Skirmish => self.begin_skirmish_load(),
+                }
             }
             BattleNav::ToResults => self.set_screen(OriginalScreen::Results),
-            BattleNav::ToMainMenu => {
-                // Pre-Alpha：从对局/结算回到遭遇战大厅，保留已选地图。
-                self.ensure_lobby_maps();
-                self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
-                self.set_screen(OriginalScreen::SkirmishLobby);
-            }
+            BattleNav::ToMainMenu => match self.load_kind {
+                LoadKind::Campaign => {
+                    self.banner = "已返回战役选边".into();
+                    self.set_screen(OriginalScreen::Campaign);
+                }
+                LoadKind::Skirmish => {
+                    self.ensure_lobby_maps();
+                    self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
+                    self.set_screen(OriginalScreen::SkirmishLobby);
+                }
+            },
         }
     }
 }

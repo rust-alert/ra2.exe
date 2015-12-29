@@ -11,9 +11,37 @@ use crate::{
     gameplay::owner_allows,
     state::{
         components::{Health, Identity, Owner},
-        BattleState,
+        BattleState, PlayerState,
     },
 };
+
+/// 科技树判定所需的玩家视图（避免把整局状态拖进纯函数）。
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TechTreePlayer<'a> {
+    /// 阵营名。
+    pub house: &'a str,
+    /// 科技上限。
+    pub tech_level: i32,
+    /// 已偷盟军科技。
+    pub stolen_allied_tech: bool,
+    /// 已偷苏军科技。
+    pub stolen_soviet_tech: bool,
+    /// 已偷第三势力科技。
+    pub stolen_third_tech: bool,
+}
+
+impl<'a> TechTreePlayer<'a> {
+    /// 从 [`PlayerState`] 投影。
+    pub fn from_player(player: &'a PlayerState) -> Self {
+        Self {
+            house: player.house.as_ref(),
+            tech_level: player.tech_level,
+            stolen_allied_tech: player.stolen_allied_tech,
+            stolen_soviet_tech: player.stolen_soviet_tech,
+            stolen_third_tech: player.stolen_third_tech,
+        }
+    }
+}
 
 /// 收集某 house 当前存活建筑的类型键（大写）。
 pub(crate) fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<String> {
@@ -98,11 +126,10 @@ fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<String>, techno
         .all(|t| token_satisfied(defs, living, t))
 }
 
-/// 类型是否对 `house` Eligible（可出现在建造/生产栏；不含资金与电力运作门槛）。
+/// 类型是否对玩家 Eligible（可出现在建造/生产栏；不含资金与电力运作门槛）。
 pub(crate) fn is_type_eligible(
     defs: &RuntimeDefinitions,
-    house: &str,
-    player_tech_level: i32,
+    player: TechTreePlayer<'_>,
     living: &HashSet<String>,
     type_key: &str,
 ) -> bool {
@@ -110,16 +137,25 @@ pub(crate) fn is_type_eligible(
     else {
         return false;
     };
-    if techno.tech_level < 0 || techno.tech_level > player_tech_level {
+    if techno.tech_level < 0 || techno.tech_level > player.tech_level {
         return false;
     }
-    if !owner_allows(&techno.owner, house) {
+    if !owner_allows(&techno.owner, player.house) {
         return false;
     }
-    if !techno.required_houses.is_empty() && !house_list_allows(&techno.required_houses, house) {
+    if !techno.required_houses.is_empty() && !house_list_allows(&techno.required_houses, player.house) {
         return false;
     }
-    if !techno.forbidden_houses.is_empty() && house_list_allows(&techno.forbidden_houses, house) {
+    if !techno.forbidden_houses.is_empty() && house_list_allows(&techno.forbidden_houses, player.house) {
+        return false;
+    }
+    if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {
+        return false;
+    }
+    if techno.requires_stolen_soviet_tech && !player.stolen_soviet_tech {
+        return false;
+    }
+    if techno.requires_stolen_third_tech && !player.stolen_third_tech {
         return false;
     }
     if techno.class == TechnoClass::Building {
@@ -166,6 +202,19 @@ mod tests {
             required_houses: Vec::new(),
             forbidden_houses: Vec::new(),
             build_limit: 0,
+            requires_stolen_allied_tech: false,
+            requires_stolen_soviet_tech: false,
+            requires_stolen_third_tech: false,
+        }
+    }
+
+    fn player(house: &str, tech_level: i32) -> TechTreePlayer<'_> {
+        TechTreePlayer {
+            house,
+            tech_level,
+            stolen_allied_tech: false,
+            stolen_soviet_tech: false,
+            stolen_third_tech: false,
         }
     }
 
@@ -188,8 +237,8 @@ mod tests {
             vec![techno("GAPOWR", TechnoClass::Building, "Americans", 1, &[], &[])],
         );
         let living = HashSet::new();
-        assert!(is_type_eligible(&defs, "Americans", 10, &living, "GAPOWR"));
-        assert!(!is_type_eligible(&defs, "Russians", 10, &living, "GAPOWR"));
+        assert!(is_type_eligible(&defs, player("Americans", 10), &living, "GAPOWR"));
+        assert!(!is_type_eligible(&defs, player("Russians", 10), &living, "GAPOWR"));
     }
 
     #[test]
@@ -210,9 +259,9 @@ mod tests {
         );
         let mut living = HashSet::new();
         living.insert("GAPOWR".into());
-        assert!(!is_type_eligible(&defs, "Americans", 10, &living, "GAPILE"));
+        assert!(!is_type_eligible(&defs, player("Americans", 10), &living, "GAPILE"));
         living.insert("GAREFN".into());
-        assert!(is_type_eligible(&defs, "Americans", 10, &living, "GAPILE"));
+        assert!(is_type_eligible(&defs, player("Americans", 10), &living, "GAPILE"));
     }
 
     #[test]
@@ -226,7 +275,7 @@ mod tests {
         );
         let mut living = HashSet::new();
         living.insert("NAPOWR".into());
-        assert!(is_type_eligible(&defs, "Americans", 10, &living, "GAREFN"));
+        assert!(is_type_eligible(&defs, player("Americans", 10), &living, "GAREFN"));
     }
 
     #[test]
@@ -244,7 +293,7 @@ mod tests {
         );
         let mut living = HashSet::new();
         living.insert("GACNST".into());
-        assert!(is_type_eligible(&defs, "Americans", 10, &living, "SEAL"));
+        assert!(is_type_eligible(&defs, player("Americans", 10), &living, "SEAL"));
     }
 
     #[test]
@@ -254,8 +303,8 @@ mod tests {
             vec![techno("MTNK", TechnoClass::Vehicle, "Americans", 5, &[], &[])],
         );
         let living = HashSet::new();
-        assert!(!is_type_eligible(&defs, "Americans", 3, &living, "MTNK"));
-        assert!(is_type_eligible(&defs, "Americans", 5, &living, "MTNK"));
+        assert!(!is_type_eligible(&defs, player("Americans", 3), &living, "MTNK"));
+        assert!(is_type_eligible(&defs, player("Americans", 5), &living, "MTNK"));
     }
 
     #[test]
@@ -264,6 +313,23 @@ mod tests {
             PrerequisiteGroups::default(),
             vec![techno("CIVIL", TechnoClass::Building, "", -1, &[], &[])],
         );
-        assert!(!is_type_eligible(&defs, "Americans", 10, &HashSet::new(), "CIVIL"));
+        assert!(!is_type_eligible(&defs, player("Americans", 10), &HashSet::new(), "CIVIL"));
+    }
+
+    #[test]
+    fn stolen_allied_tech_gates_eligibility() {
+        let mut item = techno("SEAL", TechnoClass::Infantry, "Americans", 1, &[], &[]);
+        item.requires_stolen_soviet_tech = true;
+        let defs = defs_with(PrerequisiteGroups::default(), vec![item]);
+        let living = HashSet::new();
+        assert!(!is_type_eligible(&defs, player("Americans", 10), &living, "SEAL"));
+        let unlocked = TechTreePlayer {
+            house: "Americans",
+            tech_level: 10,
+            stolen_allied_tech: false,
+            stolen_soviet_tech: true,
+            stolen_third_tech: false,
+        };
+        assert!(is_type_eligible(&defs, unlocked, &living, "SEAL"));
     }
 }
