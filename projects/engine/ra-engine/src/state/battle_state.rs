@@ -773,7 +773,10 @@ impl BattleState {
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
                 SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
-                SystemPhase::Triggers => crate::gameplay::tick_triggers(self),
+                SystemPhase::Triggers => {
+                    crate::gameplay::tick_triggers(self);
+                    crate::gameplay::flush_pending_team_spawns(self);
+                }
                 SystemPhase::Rehash => {
                     self.sync_ecs_components();
                     self.rehash();
