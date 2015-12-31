@@ -1,9 +1,5 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
-mod houses;
-mod script_teams;
-mod triggers;
-
 pub use houses::{MapHouse, parse_map_houses};
 pub use script_teams::{
     MapScriptStep, MapScriptType, MapTaskForce, MapTaskForceEntry, MapTeamType, parse_script_types, parse_task_forces,
@@ -13,6 +9,12 @@ pub use triggers::{
     MapAction, MapActionCommand, MapCellTag, MapEvent, MapEventCondition, MapTag, MapTrigger, parse_actions, parse_cell_tags,
     parse_events, parse_tags, parse_triggers,
 };
+pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map_scripting_capability_gaps};
+
+mod capability;
+mod houses;
+mod script_teams;
+mod triggers;
 
 use ra_assets::IniDocument;
 
@@ -67,9 +69,6 @@ const KNOWN_SECTIONS: &[&str] = &[
     "TaskForces",
     "ScriptTypes",
     "TeamTypes",
-    "AITriggerTypes",
-    "SpecialFlags",
-    "VariableNames",
     "Digest",
 ];
 

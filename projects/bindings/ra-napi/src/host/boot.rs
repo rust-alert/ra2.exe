@@ -8,8 +8,9 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, compose_boot_preview, count_skirmish_start_slots,
-    decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, campaign_blocking_capability_message,
+    compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
+    list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
     mount_theater_mixes, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
@@ -519,6 +520,18 @@ pub fn boot_world_with_progress(
     };
 
     report(0.88, "打开会话");
+    for gap in map_scripting_capability_gaps(&map) {
+        tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        note = format!("{note} · gap:{}", gap.code);
+    }
+    if request.boot_kind == LoadKind::Campaign {
+        if let Some(msg) = campaign_blocking_capability_message(&map) {
+            note = format!("{note} · {msg}");
+            tracing::error!(%msg, "战役装载因剧本缺口拒绝");
+            report(1.0, "剧本缺口");
+            return Ok(BootResult::failed(note));
+        }
+    }
     let preferred_house = Some(request.side.as_str());
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);

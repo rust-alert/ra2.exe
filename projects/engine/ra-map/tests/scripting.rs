@@ -66,3 +66,19 @@ fn parse_map_scripting_standalone() {
     assert_eq!(s.tags.len(), 1);
     assert_eq!(s.tags[0].persistence, 2);
 }
+
+#[test]
+fn capability_gaps_report_unsupported_actions() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Triggers]\nTR1=Americans,<none>,X,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=1,99,0,0,0,0,0,0,A\n\
+[AITriggerTypes]\n0=AI1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "gap.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(gaps.iter().any(|g| g.code.contains("map.action.99")), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code.contains("AITriggerTypes")), "{gaps:?}");
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_some());
+}
