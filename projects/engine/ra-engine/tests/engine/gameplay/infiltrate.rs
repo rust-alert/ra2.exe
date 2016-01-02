@@ -7,14 +7,21 @@ use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
 fn spy_rules() -> RulesSystem {
-    let rules_text = b"[InfantryTypes]\n0=SPY\n1=E1\n\
-[BuildingTypes]\n0=GAPOWR\n1=GAREFN\n2=GAPILE\n3=GACNST\n\
+    let rules_text = b"[Countries]\n0=Americans\n1=Russians\n\
+[Americans]\nSide=GDI\nMultiplay=yes\n\
+[Russians]\nSide=Nod\nMultiplay=yes\n\
+[General]\nPrerequisiteTech=GATECH,NATECH\n\
+[InfantryTypes]\n0=SPY\n1=E1\n2=SEAL\n\
+[BuildingTypes]\n0=GAPOWR\n1=GAREFN\n2=GAPILE\n3=GACNST\n4=GATECH\n5=NATECH\n\
 [SPY]\nAgent=yes\nOwner=Americans\nStrength=100\nSpeed=32\nSight=4\nCost=1000\nTechLevel=1\n\
 [E1]\nOwner=Americans\nStrength=125\nSpeed=24\nSight=4\nCost=200\nTechLevel=1\n\
+[SEAL]\nOwner=Americans\nStrength=200\nSpeed=24\nSight=6\nCost=1000\nTechLevel=1\nRequiresStolenSovietTech=yes\n\
 [GAPOWR]\nPower=200\nOwner=Americans,Russians\nStrength=750\nSight=4\nCost=800\nTechLevel=1\n\
 [GAREFN]\nRefinery=yes\nOwner=Americans,Russians\nStrength=1000\nSight=4\nCost=2000\nTechLevel=1\n\
 [GAPILE]\nFactory=InfantryType\nOwner=Americans,Russians\nStrength=600\nSight=5\nCost=500\nTechLevel=1\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n";
+[GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GATECH]\nOwner=Americans\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
+[NATECH]\nOwner=Russians\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     RulesSystem {
         edition: GameEdition::Ra2,
@@ -22,7 +29,7 @@ fn spy_rules() -> RulesSystem {
         art: IniDocument::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
+        countries: CountryRegistry::from_rules(&rules),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
     }
@@ -173,6 +180,41 @@ fn spy_infiltrates_barracks_promotes_infantry() {
     let e1 = produced.expect("produced E1");
     let (_, max, _) = world.ecs_health(e1).expect("health");
     assert!(max > 125, "promoted E1 should exceed base strength 125, got {max}");
+}
+
+#[test]
+fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
+    let mut world = spy_world(4, 4, "NATECH", 5, 4);
+    let spy = world.entity_id_at(0).expect("spy");
+    let lab = world.entity_id_at(1).expect("lab");
+
+    // 未偷科技前 SEAL 不可生产。
+    world.push_command(GameCommand::Produce {
+        player: PlayerId(0),
+        type_id: "SEAL".into(),
+    });
+    world.advance_tick();
+    assert_eq!(
+        world.last_rejects()[0].reason,
+        CommandRejectReason::MissingPrerequisite
+    );
+
+    world.push_command(GameCommand::Infiltrate { agent: spy, building: lab });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
+    assert!(americans.stolen_soviet_tech);
+
+    world.push_command(GameCommand::Produce {
+        player: PlayerId(0),
+        type_id: "SEAL".into(),
+    });
+    world.advance_tick();
+    assert!(
+        world.last_rejects().is_empty(),
+        "SEAL should queue after stolen soviet tech: {:?}",
+        world.last_rejects()
+    );
 }
 
 /// 测试辅助：实体是否已死亡。
