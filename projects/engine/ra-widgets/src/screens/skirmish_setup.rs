@@ -280,6 +280,8 @@ pub struct SkirmishBootRequest {
     pub game_speed: u8,
     /// 起始资金。
     pub credits: i32,
+    /// 科技上限（类型 `TechLevel` 不得超过此值；默认 10）。
+    pub tech_level: i32,
     /// 起始部队数。
     pub unit_count: i32,
     /// 对局随机种子（默认 0；测试夹具可显式写入，产品大厅不钉死）。
@@ -316,6 +318,7 @@ impl SkirmishBootRequest {
             build_off_ally: false,
             game_speed: 6,
             credits: 10_000,
+            tech_level: 10,
             unit_count: 10,
             match_seed: 0,
             dragging: None,

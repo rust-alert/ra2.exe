@@ -563,16 +563,18 @@ pub fn boot_world_with_progress(
         Some(Ok(mut opened)) => {
             note = opened.note;
             note = format!(
-                "{note} · player={} · difficulty={} · credits={} · seed={:#x} · houses={}",
+                "{note} · player={} · difficulty={} · credits={} · tech={} · seed={:#x} · houses={}",
                 request.player_name,
                 request.difficulty,
                 request.credits,
+                request.tech_level,
                 request.match_seed,
                 ensure_houses.join("+")
             );
             let game = opened.session.expect_battle_mut();
             game.set_difficulty(request.difficulty.clone());
             game.world.set_all_players_funds(request.credits);
+            game.world.set_all_players_tech_level(request.tech_level);
             tracing::info!(
                 "fingerprint edition={} map={} rules_hash={:#x} seed={:#x}",
                 opened.session.expect_battle().fingerprint.edition,

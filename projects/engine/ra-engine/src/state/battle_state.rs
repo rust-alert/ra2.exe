@@ -724,6 +724,18 @@ impl BattleState {
         self.rehash();
     }
 
+    /// 将所有玩家科技上限设为同一值（遭遇战大厅 / rules 默认）。
+    pub fn set_all_players_tech_level(&mut self, tech_level: i32) {
+        if self.players.is_empty() {
+            return;
+        }
+        let tech_level = tech_level.max(0);
+        for player in &mut self.players {
+            player.tech_level = tech_level;
+        }
+        self.rehash();
+    }
+
     /// 按 house 名称读取资金。
     pub fn house_funds(&self, house: &str) -> Option<i32> {
         self.players.iter().find(|p| p.house.as_ref() == house).map(|p| p.funds)
