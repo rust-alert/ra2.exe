@@ -573,7 +573,10 @@ pub fn boot_world_with_progress(
             );
             let game = opened.session.expect_battle_mut();
             game.set_difficulty(request.difficulty.clone());
-            game.world.set_all_players_funds(request.credits);
+            // 战役资金以地图 Houses.Credits 为准；遭遇战仍用大厅 credits。
+            if request.boot_kind != LoadKind::Campaign {
+                game.world.set_all_players_funds(request.credits);
+            }
             game.world.set_all_players_tech_level(request.tech_level);
             tracing::info!(
                 "fingerprint edition={} map={} rules_hash={:#x} seed={:#x}",

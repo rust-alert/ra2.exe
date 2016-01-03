@@ -139,6 +139,12 @@ fn open_session_common(
         }
         note = format!("{note} · local_house={house}");
     }
+    if boot_kind == SessionBootKind::Campaign {
+        let applied = apply_campaign_map_houses(&mut state);
+        if applied > 0 {
+            note = format!("{note} · map_houses#{applied}");
+        }
+    }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
     let overlay_land = apply_overlay_land_to_pass_grid(
         &state.map,
@@ -202,6 +208,41 @@ fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
     let before = map.entities.len();
     map.entities.retain(|e| e.kind == MapEntityKind::Structure);
     before.saturating_sub(map.entities.len())
+}
+
+/// 战役：登记地图 `[Houses]`，并把 `Credits`（百计）写入对应 house 资金。
+///
+/// house 键优先用 `Country=`，同时登记节名（部分地图放置 owner 用节名）。
+fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
+    let houses = state.map.scripting.houses.clone();
+    if houses.is_empty() {
+        return 0;
+    }
+    let mut applied = 0usize;
+    for h in &houses {
+        let country = h.country.trim();
+        let section = h.name.trim();
+        let primary = if !country.is_empty() { country } else { section };
+        if primary.is_empty() {
+            continue;
+        }
+        state.ensure_house(primary);
+        if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
+            state.ensure_house(section);
+        }
+        if h.credits > 0 {
+            let funds = h.credits.saturating_mul(100);
+            let _ = state.set_house_funds(primary, funds);
+            if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
+                let _ = state.set_house_funds(section, funds);
+            }
+        }
+        if h.player_control {
+            let _ = state.prefer_local_house(primary);
+        }
+        applied = applied.saturating_add(1);
+    }
+    applied
 }
 
 /// 按大厅席位顺序，在地图航点放置各 house 的开局 MCV。

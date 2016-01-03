@@ -133,3 +133,32 @@ fn open_skirmish_still_strips_when_campaign_path_exists() {
     assert!(opened.note.contains("strip_mobiles#2"), "{}", opened.note);
     assert_eq!(opened.session.expect_battle().boot_kind, SessionBootKind::Skirmish);
 }
+
+#[test]
+fn open_campaign_applies_map_house_credits() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nCredits=40\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nCredits=25\nPlayerControl=no\n\
+[Structures]\n1=Americans,GACNST,256,2,2,0\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "houses.map", text).unwrap();
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans"],
+        0,
+    )
+    .expect("战役应成功开局");
+    assert!(opened.note.contains("map_houses#2"), "{}", opened.note);
+    let world = &opened.session.expect_battle().world;
+    assert_eq!(world.house_funds("Americans"), Some(4_000));
+    assert_eq!(world.house_funds("Russians"), Some(2_500));
+}
