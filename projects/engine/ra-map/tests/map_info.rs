@@ -31,6 +31,13 @@ fn parse_basic_description_csf() {
 }
 
 #[test]
+fn parse_basic_next_mission() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nNextMission=all02t.map\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.next_mission, "all02t.map");
+}
+
+#[test]
 fn parse_basic_map_ini() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=SNOW\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();

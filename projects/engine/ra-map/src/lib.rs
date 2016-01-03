@@ -125,6 +125,8 @@ pub struct MapInfo {
     pub game_modes: Vec<String>,
     /// `[Basic] Description` CSF 键（可空；官方遭遇图常省略）。
     pub description_csf: String,
+    /// `[Basic] NextMission`：战役下一关地图文件名（可空）。
+    pub next_mission: String,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
     pub lighting: LightingConfig,
     /// `[Lighting]` Ion / 闪电风暴档（缺键用零售 Ion 缺省）。
@@ -165,6 +167,7 @@ impl MapInfo {
             theater: Theater::Temperate,
             game_modes: Vec::new(),
             description_csf: String::new(),
+            next_mission: String::new(),
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
             lighting_profile: LightingProfile::Normal,
@@ -195,6 +198,7 @@ impl MapInfo {
         let theater = Theater::parse(theater_raw)?;
         let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
         let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
+        let next_mission = doc.get("Basic", "NextMission").unwrap_or("").trim().to_string();
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
@@ -219,6 +223,7 @@ impl MapInfo {
             theater,
             game_modes,
             description_csf,
+            next_mission,
             lighting: profiles.normal,
             ion_lighting: profiles.ion,
             lighting_profile: LightingProfile::Normal,
