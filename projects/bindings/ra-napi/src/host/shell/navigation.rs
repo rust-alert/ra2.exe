@@ -424,7 +424,9 @@ impl Shell {
                 self.banner = "重开…".into();
                 match self.load_kind {
                     LoadKind::Campaign => {
-                        if let Some(side) = self.campaign_side {
+                        if let Some(map) = self.selected_map.clone() {
+                            self.begin_campaign_scenario_load(&map, None);
+                        } else if let Some(side) = self.campaign_side {
                             self.begin_campaign_load(side);
                         } else {
                             self.banner = "无战役选边可重开 · 回选边".into();
@@ -432,6 +434,26 @@ impl Shell {
                         }
                     }
                     LoadKind::Skirmish => self.begin_skirmish_load(),
+                }
+            }
+            BattleNav::ContinueCampaign => {
+                let next = self
+                    .battle_controller
+                    .as_ref()
+                    .and_then(|c| c.session.as_ref())
+                    .and_then(|s| s.battle())
+                    .map(|g| g.world.map.next_mission.trim().to_string())
+                    .filter(|s| !s.is_empty());
+                match next {
+                    Some(scenario) => {
+                        self.load_brief_csf = None;
+                        self.banner = format!("下一关 · {scenario}…");
+                        self.begin_campaign_scenario_load(&scenario, None);
+                    }
+                    None => {
+                        self.banner = "战役结束 · 回选边".into();
+                        self.set_screen(OriginalScreen::Campaign);
+                    }
                 }
             }
             BattleNav::ToResults => self.set_screen(OriginalScreen::Results),

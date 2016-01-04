@@ -77,16 +77,6 @@ impl Shell {
 
     /// 开始战役装载：按选边解析 `battle.ini` 首关并走共用 `LoadScreen`。
     pub(super) fn begin_campaign_load(&mut self, side: &'static str) {
-        if self.load_job.is_some() || self.pending_load_boot.is_some() {
-            tracing::warn!("装载已在进行，忽略重复开始");
-            return;
-        }
-        let Some(house) = campaign_side_lobby_house(side)
-        else {
-            self.banner = format!("未知战役选边 · {side}");
-            self.refresh_shell_title();
-            return;
-        };
         let Some(camp) = boot::resolve_install_campaign_for_side(side)
         else {
             self.campaign_side = Some(side);
@@ -96,18 +86,51 @@ impl Shell {
             self.refresh_shell_title();
             return;
         };
-
         self.campaign_side = Some(side);
-        self.load_kind = LoadKind::Campaign;
         self.load_brief_csf = if camp.description_csf.is_empty() {
             None
         } else {
             Some(camp.description_csf.clone())
         };
+        self.begin_campaign_scenario_load(&camp.scenario, Some(camp.id.as_str()));
+    }
+
+    /// 按指定 scenario 装载战役局（重开当前关 / 进入 NextMission）。
+    ///
+    /// 需要已设置 `campaign_side`（决定本地 house 与难度）。
+    pub(super) fn begin_campaign_scenario_load(&mut self, scenario: &str, battle_id: Option<&str>) {
+        if self.load_job.is_some() || self.pending_load_boot.is_some() {
+            tracing::warn!("装载已在进行，忽略重复开始");
+            return;
+        }
+        let Some(side) = self.campaign_side
+        else {
+            self.banner = "无战役选边 · 无法装载 scenario".into();
+            self.set_screen(OriginalScreen::Campaign);
+            self.refresh_shell_title();
+            return;
+        };
+        let Some(house) = campaign_side_lobby_house(side)
+        else {
+            self.banner = format!("未知战役选边 · {side}");
+            self.refresh_shell_title();
+            return;
+        };
+        let scenario = scenario.trim();
+        if scenario.is_empty() {
+            self.banner = "战役 scenario 为空".into();
+            self.refresh_shell_title();
+            return;
+        }
+
+        self.load_kind = LoadKind::Campaign;
         self.skirmish.side = house.to_string();
         self.skirmish.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
-        self.selected_map = Some(camp.scenario.clone());
-        self.banner = format!("正在装载战役 {} · {} · {}…", camp.id, camp.scenario, house);
+        self.selected_map = Some(scenario.to_string());
+        self.banner = match battle_id {
+            Some(id) => format!("正在装载战役 {id} · {scenario} · {house}…"),
+            None => format!("正在装载战役 · {scenario} · {house}…"),
+        };
         self.pending_after_load = Some(OriginalScreen::Battle);
         self.pending_load_boot = None;
         self.set_screen(OriginalScreen::LoadScreen);
@@ -130,10 +153,9 @@ impl Shell {
                 .position(|s| s.eq_ignore_ascii_case(house))
                 .unwrap_or(0) as u8;
             let mut req = self.skirmish.clone();
-            req.preferred_map = Some(camp.scenario.clone());
+            req.preferred_map = Some(scenario.to_string());
             req.side = house.to_string();
             req.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
-            // 战役首关先只保留本方 house（各行同阵营，装载侧去重后仅一席）。
             req.row_sides = [house_index; ra_layout::SKIRMISH_ROW_COUNT];
             if req.sides.is_empty() {
                 req.set_lobby_sides(vec![house.to_string()]);
@@ -142,13 +164,7 @@ impl Shell {
             req.boot_kind = LoadKind::Campaign;
             req
         }));
-        tracing::info!(
-            side,
-            battle = %camp.id,
-            scenario = %camp.scenario,
-            house,
-            "开始战役装载"
-        );
+        tracing::info!(side, scenario, house, battle_id, "开始战役 scenario 装载");
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
@@ -162,7 +178,9 @@ impl Shell {
         match self.load_kind {
             LoadKind::Skirmish => self.begin_skirmish_load(),
             LoadKind::Campaign => {
-                if let Some(side) = self.campaign_side {
+                if let Some(map) = self.selected_map.clone() {
+                    self.begin_campaign_scenario_load(&map, None);
+                } else if let Some(side) = self.campaign_side {
                     self.begin_campaign_load(side);
                 } else {
                     self.banner = "无战役选边可重试 · Esc 回选边".into();

@@ -173,8 +173,10 @@ mod slide_offset_tests {
 pub enum BattleNav {
     /// 无导航。
     None,
-    /// 请求重开（外壳进入 Loading 再装载）。
+    /// 请求重开当前图（外壳进入 Loading 再装载）。
     Rematch,
+    /// 战役胜利后进入地图 `NextMission`（无则回选边）。
+    ContinueCampaign,
     /// 对局已结束，应切到结算页。
     ToResults,
     /// 离开对局/结算，回到遭遇战大厅（保留选图）。
@@ -1138,8 +1140,22 @@ impl BattleController {
                         BattleNav::Rematch
                     }
                     PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
-                        tracing::info!("重开对局…");
-                        BattleNav::Rematch
+                        let continue_campaign = self
+                            .session
+                            .as_ref()
+                            .and_then(|s| s.battle())
+                            .is_some_and(|g| {
+                                matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }))
+                                    && g.boot_kind == ra_engine::SessionBootKind::Campaign
+                                    && !g.world.map.next_mission.trim().is_empty()
+                            });
+                        if continue_campaign {
+                            tracing::info!("战役继续 · NextMission");
+                            BattleNav::ContinueCampaign
+                        } else {
+                            tracing::info!("重开对局…");
+                            BattleNav::Rematch
+                        }
                     }
                     PhysicalKey::Code(KeyCode::KeyL) if !accept_commands => {
                         tracing::info!("结算 · 返回大厅");
