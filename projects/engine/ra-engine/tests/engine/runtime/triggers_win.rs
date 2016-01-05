@@ -96,3 +96,55 @@ fn cell_tag_entered_fires_win_on_campaign() {
         })
     );
 }
+
+#[test]
+fn destroyed_tagged_entity_fires_win_on_campaign() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Tags]\nOBJ=0,Objective,TRD\n\
+[Triggers]\nTRD=Americans,<none>,Obj Dead,0,1,1,1,0\n\
+[Events]\nTRD=1,11,0,0\n\
+[Actions]\nTRD=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "dead.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Russians".into(),
+        type_id: "NACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: "OBJ".into(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "dead");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // 存活目标时不应立刻胜利。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    let id = session
+        .expect_battle()
+        .world
+        .find_entity_id_by_type("NACNST")
+        .expect("tagged structure");
+    assert!(session.expect_battle_mut().world.set_ecs_health(id, 0, 1, true));
+
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
