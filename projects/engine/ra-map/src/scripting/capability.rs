@@ -44,15 +44,24 @@ fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
             });
         }
     }
+    if !scripting.ai_triggers.is_empty() {
+        out.push(MapCapabilityGap {
+            code: "map.aitrigger unsupported".into(),
+            message: format!(
+                "地图含 {} 条 AITriggerTypes，当前引擎未执行",
+                scripting.ai_triggers.len()
+            ),
+        });
+    }
     out
 }
 
-/// 战役开局：存在未接线动作时返回拒绝说明。
+/// 战役开局：存在未接线动作或 AITrigger 时返回拒绝说明。
 pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
     let reports = map_scripting_capability_gaps(map);
     let blocking: Vec<&MapCapabilityGap> = reports
         .iter()
-        .filter(|r| r.code.starts_with("map.action."))
+        .filter(|r| r.code.starts_with("map.action.") || r.code.starts_with("map.aitrigger"))
         .collect();
     if blocking.is_empty() {
         return None;
@@ -62,5 +71,5 @@ pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
         .map(|r| r.code.as_str())
         .collect::<Vec<_>>()
         .join(", ");
-    Some(format!("战役地图含未实现触发动作，拒绝静默开局: {summary}"))
+    Some(format!("战役地图含未实现剧本能力，拒绝静默开局: {summary}"))
 }

@@ -77,8 +77,28 @@ fn capability_gaps_report_unsupported_actions() {
 [AITriggerTypes]\n0=AI1\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "gap.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers.len(), 1);
+    assert_eq!(map.scripting.ai_triggers[0].id, "AI1");
     let gaps = ra_map::map_scripting_capability_gaps(&map);
     assert!(gaps.iter().any(|g| g.code.contains("map.action.99")), "{gaps:?}");
-    assert!(gaps.iter().any(|g| g.code.contains("AITriggerTypes")), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.aitrigger unsupported"), "{gaps:?}");
     assert!(ra_map::campaign_blocking_capability_message(&map).is_some());
+}
+
+#[test]
+fn parse_ai_trigger_inline_csv() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[AITriggerTypes]\n\
+AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai.csv.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers.len(), 1);
+    let t = &map.scripting.ai_triggers[0];
+    assert_eq!(t.id, "AT1");
+    assert_eq!(t.name, "Strike");
+    assert_eq!(t.team, "TM1");
+    assert_eq!(t.owner_house, "Russians");
+    assert_eq!(t.tech_level, 1);
+    assert!(map.scripting.unknown_sections.iter().all(|s| !s.eq_ignore_ascii_case("AITriggerTypes")));
 }

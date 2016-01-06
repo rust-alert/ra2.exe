@@ -72,8 +72,8 @@ pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
 pub use scripting::{
-    MapAction, MapActionCommand, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapHouse, MapScriptStep,
-    MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
+    MapAction, MapActionCommand, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapHouse,
+    MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
     campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_scripting,
 };
 pub use preview_pack::{

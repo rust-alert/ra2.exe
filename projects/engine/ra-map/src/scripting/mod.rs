@@ -1,5 +1,6 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
+pub use ai_triggers::{MapAiTrigger, parse_ai_triggers};
 pub use houses::{MapHouse, parse_map_houses};
 pub use script_teams::{
     MapScriptStep, MapScriptType, MapTaskForce, MapTaskForceEntry, MapTeamType, parse_script_types, parse_task_forces,
@@ -11,6 +12,7 @@ pub use triggers::{
 };
 pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map_scripting_capability_gaps};
 
+mod ai_triggers;
 mod capability;
 mod houses;
 mod script_teams;
@@ -39,6 +41,8 @@ pub struct MapScripting {
     pub script_types: Vec<MapScriptType>,
     /// `[TeamTypes]`。
     pub team_types: Vec<MapTeamType>,
+    /// `[AITriggerTypes]`（已解析，执行后置）。
+    pub ai_triggers: Vec<MapAiTrigger>,
     /// 识别到但本解析器未建模的节名（供能力缺口报告）。
     pub unknown_sections: Vec<String>,
 }
@@ -69,6 +73,7 @@ const KNOWN_SECTIONS: &[&str] = &[
     "TaskForces",
     "ScriptTypes",
     "TeamTypes",
+    "AITriggerTypes",
     "Digest",
 ];
 
@@ -84,6 +89,7 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
         task_forces: parse_task_forces(doc),
         script_types: parse_script_types(doc),
         team_types: parse_team_types(doc),
+        ai_triggers: parse_ai_triggers(doc),
         unknown_sections: Vec::new(),
     };
     scripting.unknown_sections = collect_unknown_sections(doc);
@@ -123,12 +129,20 @@ fn scripting_house_section(doc: &IniDocument, name: &str) -> bool {
 }
 
 fn scripting_named_object_section(doc: &IniDocument, name: &str) -> bool {
-    for list in ["TaskForces", "ScriptTypes", "TeamTypes"] {
+    for list in ["TaskForces", "ScriptTypes", "TeamTypes", "AITriggerTypes"] {
         let Some(sec) = doc.section(list)
         else {
             continue;
         };
-        if sec.pairs().any(|(_, v)| v.eq_ignore_ascii_case(name)) {
+        // 行内 CSV 的键是触发 id，值不是节名；仅当值无逗号时当作分节引用。
+        if sec.pairs().any(|(k, v)| {
+            let v = v.trim();
+            if v.contains(',') {
+                k.eq_ignore_ascii_case(name)
+            } else {
+                v.eq_ignore_ascii_case(name)
+            }
+        }) {
             return true;
         }
     }
