@@ -105,6 +105,8 @@ pub struct BattleState {
     pub lightning_storm: Option<crate::gameplay::LightningStormState>,
     /// 地图触发运行时。
     pub trigger_runtime: crate::gameplay::TriggerRuntime,
+    /// 小队 ScriptTypes 运行时。
+    pub script_team_runtime: crate::gameplay::ScriptTeamRuntime,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -199,6 +201,7 @@ impl BattleState {
             presentation_dirty: DirtyEntitySet::new(),
             lightning_storm: None,
             trigger_runtime,
+            script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
             ecs,
         };
         for bundle in seed_bundles {
@@ -788,6 +791,7 @@ impl BattleState {
                 SystemPhase::Triggers => {
                     crate::gameplay::tick_triggers(self);
                     crate::gameplay::flush_pending_team_spawns(self);
+                    crate::gameplay::tick_script_teams(self);
                 }
                 SystemPhase::Rehash => {
                     self.sync_ecs_components();

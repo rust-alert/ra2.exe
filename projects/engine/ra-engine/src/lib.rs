@@ -26,7 +26,9 @@ pub use game::{
     decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command,
     encode_commands, encode_scheduled,
 };
-pub use gameplay::{LightningStormState, TriggerRuntime, start_lightning_storm, tick_lightning_storm, tick_triggers};
+pub use gameplay::{
+    LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm, tick_lightning_storm, tick_triggers,
+};
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};
 pub use state::{
