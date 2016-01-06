@@ -716,6 +716,18 @@ impl BattleState {
         }
     }
 
+    /// 按 house 名称设置科技上限（战役地图 `[Houses]` 播种）。
+    pub fn set_house_tech_level(&mut self, house: &str, tech_level: i32) -> bool {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
+            player.tech_level = tech_level.max(0);
+            self.rehash();
+            true
+        }
+        else {
+            false
+        }
+    }
+
     /// 将所有玩家资金设为同一起始值（遭遇战大厅资金滑条）。
     pub fn set_all_players_funds(&mut self, funds: i32) {
         if self.players.is_empty() {

@@ -162,3 +162,33 @@ fn open_campaign_applies_map_house_credits() {
     assert_eq!(world.house_funds("Americans"), Some(4_000));
     assert_eq!(world.house_funds("Russians"), Some(2_500));
 }
+
+#[test]
+fn open_campaign_applies_map_house_tech_level() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nCredits=10\nTechLevel=5\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nCredits=10\nTechLevel=3\nPlayerControl=no\n\
+[Structures]\n1=Americans,GACNST,256,2,2,0\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "houses-tech.map", text).unwrap();
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans"],
+        0,
+    )
+    .expect("战役应成功开局");
+    let world = &opened.session.expect_battle().world;
+    let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("Americans");
+    let russians = world.players.iter().find(|p| p.house.as_ref() == "Russians").expect("Russians");
+    assert_eq!(americans.tech_level, 5);
+    assert_eq!(russians.tech_level, 3);
+}
