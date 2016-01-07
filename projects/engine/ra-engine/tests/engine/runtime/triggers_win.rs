@@ -148,3 +148,39 @@ fn destroyed_tagged_entity_fires_win_on_campaign() {
         })
     );
 }
+
+#[test]
+fn enable_trigger_action_unlocks_disabled_win() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TR1=Americans,<none>,Enable Next,0,1,1,1,0\n\
+TR2=Americans,<none>,Win Later,1,1,1,1,0\n\
+[Events]\n\
+TR1=1,13,0,0\n\
+TR2=1,13,0,0\n\
+[Actions]\n\
+TR1=1,53,0,TR2,0,0,0,0,A\n\
+TR2=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "enable.map", text).unwrap();
+    assert!(map.scripting.triggers.iter().any(|t| t.id == "TR2" && t.disabled));
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "enable");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none(), "disabled TR2 must not win on first tick");
+
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}

@@ -18,6 +18,8 @@ const EVENT_TIME_ELAPSE: i32 = 13;
 const ACTION_WIN: i32 = 1;
 const ACTION_LOSE: i32 = 2;
 const ACTION_CREATE_TEAM: i32 = 4;
+const ACTION_ENABLE_TRIGGER: i32 = 53;
+const ACTION_DISABLE_TRIGGER: i32 = 54;
 const ACTION_REINFORCEMENT_TEAM: i32 = 80;
 
 /// 单条触发器运行时状态。
@@ -266,9 +268,42 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_ENABLE_TRIGGER => {
+            if let Some(id) = action_trigger_id_param(cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+                    st.disabled = false;
+                }
+            } else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        ACTION_DISABLE_TRIGGER => {
+            if let Some(id) = action_trigger_id_param(cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+                    st.disabled = true;
+                }
+            } else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
         0 => {}
         other => world.trigger_runtime.record_unsupported(other),
     }
+}
+
+fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
+    // 常见写法：params[1] 为 Trigger id（与 Create Team 槽位一致）。
+    if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
+        return Some(id.to_string());
+    }
+    for p in &cmd.params {
+        let t = p.trim();
+        if t.is_empty() || t.parse::<i32>().is_ok() {
+            continue;
+        }
+        return Some(t.to_string());
+    }
+    None
 }
 
 fn action_house_param(cmd: &MapActionCommand) -> Option<String> {
