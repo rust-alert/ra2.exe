@@ -18,6 +18,7 @@ const EVENT_TIME_ELAPSE: i32 = 13;
 const ACTION_WIN: i32 = 1;
 const ACTION_LOSE: i32 = 2;
 const ACTION_CREATE_TEAM: i32 = 4;
+const ACTION_FORCE_TRIGGER: i32 = 40;
 const ACTION_ENABLE_TRIGGER: i32 = 53;
 const ACTION_DISABLE_TRIGGER: i32 = 54;
 const ACTION_REINFORCEMENT_TEAM: i32 = 80;
@@ -268,6 +269,13 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_FORCE_TRIGGER => {
+            if let Some(id) = action_trigger_id_param(cmd) {
+                force_fire_trigger(world, &id, local_house);
+            } else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
         ACTION_ENABLE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
@@ -288,6 +296,38 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
         }
         0 => {}
         other => world.trigger_runtime.record_unsupported(other),
+    }
+}
+
+/// 强制执行目标触发的 Actions（跳过 Events；已触发过则忽略，避免环）。
+fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
+    let already = world
+        .trigger_runtime
+        .states
+        .iter()
+        .find(|s| s.id.eq_ignore_ascii_case(id))
+        .map(|s| s.fired)
+        .unwrap_or(true);
+    if already {
+        return;
+    }
+    if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(id)) {
+        st.disabled = false;
+        st.fired = true;
+    }
+    let commands = world
+        .map
+        .scripting
+        .actions
+        .iter()
+        .find(|a| a.id.eq_ignore_ascii_case(id))
+        .map(|a| a.commands.clone())
+        .unwrap_or_default();
+    for cmd in &commands {
+        apply_action(world, cmd, local_house);
+        if world.trigger_runtime.pending_outcome.is_some() {
+            return;
+        }
     }
 }
 

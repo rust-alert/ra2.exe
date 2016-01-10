@@ -13,7 +13,7 @@ pub struct MapCapabilityGap {
 }
 
 /// 竖切已接线的触发动作码（None / Win / Lose / Create Team / Reinforce）。
-const SUPPORTED_ACTION_KINDS: &[i32] = &[0, 1, 2, 4, 53, 54, 80];
+const SUPPORTED_ACTION_KINDS: &[i32] = &[0, 1, 2, 4, 40, 53, 54, 80];
 
 /// 根据地图剧本数据生成能力缺口（不静默半可玩）。
 pub fn map_scripting_capability_gaps(map: &MapInfo) -> Vec<MapCapabilityGap> {
