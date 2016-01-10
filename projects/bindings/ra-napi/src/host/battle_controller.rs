@@ -1134,8 +1134,22 @@ impl BattleController {
                 if event.state != ElementState::Pressed {
                     return BattleNav::None;
                 }
+                // 暂停菜单打开时：只认 Esc / Space 关闭，吞掉 R 等对局/结算热键。
+                if accept_commands && battle_paused {
+                    return match event.physical_key {
+                        PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Space) => {
+                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                                game.toggle_pause();
+                            }
+                            self.clear_pause_menu_input();
+                            tracing::info!("继续");
+                            BattleNav::None
+                        }
+                        _ => BattleNav::None,
+                    };
+                }
                 match event.physical_key {
-                    PhysicalKey::Code(KeyCode::KeyR) => {
+                    PhysicalKey::Code(KeyCode::KeyR) if !accept_commands => {
                         tracing::info!("重开对局…");
                         BattleNav::Rematch
                     }
@@ -1169,18 +1183,11 @@ impl BattleController {
                             tracing::info!("建造模式 · 已关闭");
                             BattleNav::None
                         } else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            // Esc：打开暂停菜单并暂停；菜单已开则回到游戏。
-                            if game.paused {
-                                game.toggle_pause();
-                                self.clear_pause_menu_input();
-                                tracing::info!("继续");
-                                BattleNav::None
-                            } else {
-                                game.toggle_pause();
-                                self.clear_pause_menu_input();
-                                tracing::info!("暂停菜单");
-                                BattleNav::None
-                            }
+                            // Esc：打开暂停菜单。
+                            game.toggle_pause();
+                            self.clear_pause_menu_input();
+                            tracing::info!("暂停菜单");
+                            BattleNav::None
                         } else {
                             BattleNav::ToMainMenu
                         }
@@ -2145,8 +2152,13 @@ impl BattleController {
             }
             BattlePauseMenuHit::Abort => {
                 self.clear_pause_menu_input();
-                tracing::info!("放弃任务 · 返回大厅");
-                BattleNav::ToMainMenu
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    game.apply_scripted_outcome(BattleOutcome::Defeat {
+                        reason: "放弃任务".into(),
+                    });
+                }
+                tracing::info!("放弃任务 · 结算");
+                BattleNav::ToResults
             }
             BattlePauseMenuHit::Options | BattlePauseMenuHit::Fullscreen => {
                 tracing::info!(entry = hit.entry_id(), "暂停菜单 · 尚未接线");
