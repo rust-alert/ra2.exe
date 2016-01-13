@@ -173,13 +173,11 @@ mod slide_offset_tests {
 pub enum BattleNav {
     /// 无导航。
     None,
-    /// 请求重开当前图（外壳进入 Loading 再装载）。
-    Rematch,
     /// 战役胜利后进入地图 `NextMission`（无则回选边）。
     ContinueCampaign,
     /// 对局已结束，应切到结算页。
     ToResults,
-    /// 离开对局/结算，回到遭遇战大厅（保留选图）。
+    /// 离开对局/结算：战役回选边，遭遇战回大厅。
     ToMainMenu,
 }
 
@@ -983,7 +981,7 @@ impl BattleController {
         self.pulse_action_lines_at(tick);
     }
 
-    /// 对局页输入。`accept_commands=false` 时仅允许相机与重开 / 回菜单。
+    /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
         match event {
@@ -1134,7 +1132,7 @@ impl BattleController {
                 if event.state != ElementState::Pressed {
                     return BattleNav::None;
                 }
-                // 暂停菜单打开时：只认 Esc / Space 关闭，吞掉 R 等对局/结算热键。
+                // 暂停菜单打开时：只认 Esc / Space 关闭，吞掉其它对局热键。
                 if accept_commands && battle_paused {
                     return match event.physical_key {
                         PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Space) => {
@@ -1149,11 +1147,8 @@ impl BattleController {
                     };
                 }
                 match event.physical_key {
-                    PhysicalKey::Code(KeyCode::KeyR) if !accept_commands => {
-                        tracing::info!("重开对局…");
-                        BattleNav::Rematch
-                    }
                     PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
+                        // 结算确认：战役胜且有 NextMission → 下一关；否则离开结算（回选边/大厅）。
                         let continue_campaign = self
                             .session
                             .as_ref()
@@ -1167,15 +1162,14 @@ impl BattleController {
                             tracing::info!("战役继续 · NextMission");
                             BattleNav::ContinueCampaign
                         } else {
-                            tracing::info!("重开对局…");
-                            BattleNav::Rematch
+                            tracing::info!("结算确认 · 离开");
+                            BattleNav::ToMainMenu
                         }
                     }
-                    PhysicalKey::Code(KeyCode::KeyL) if !accept_commands => {
-                        tracing::info!("结算 · 返回大厅");
+                    PhysicalKey::Code(KeyCode::Escape) if !accept_commands => {
+                        tracing::info!("结算 · 离开");
                         BattleNav::ToMainMenu
                     }
-                    PhysicalKey::Code(KeyCode::Escape) if !accept_commands => BattleNav::ToMainMenu,
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
                         if self.place_mode.is_some() {
                             self.place_mode = None;
@@ -2495,7 +2489,7 @@ impl BattleController {
                         .as_ref()
                         .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
-                    format!("{} · [results] · t{} · {outcome}{stats} · Enter/R重开 L/Esc大厅", self.title_base, hud.tick)
+                    format!("{} · [results] · t{} · {outcome}{stats} · Enter确认 Esc离开", self.title_base, hud.tick)
                 }
                 else if let Some(outcome) = hud.outcome.as_ref() {
                     let outcome_label = match outcome {
@@ -2514,7 +2508,7 @@ impl BattleController {
                         .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
                         .unwrap_or_default();
                     format!(
-                        "{} · [{screen_label}] · t{} · {outcome_label}{stats} · Enter/R重开 L/Esc大厅",
+                        "{} · [{screen_label}] · t{} · {outcome_label}{stats} · Enter确认 Esc离开",
                         self.title_base, hud.tick
                     )
                 }

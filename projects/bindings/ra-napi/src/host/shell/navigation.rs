@@ -420,22 +420,6 @@ impl Shell {
     pub(super) fn apply_nav(&mut self, nav: BattleNav) {
         match nav {
             BattleNav::None => {}
-            BattleNav::Rematch => {
-                self.banner = "重开…".into();
-                match self.load_kind {
-                    LoadKind::Campaign => {
-                        if let Some(map) = self.selected_map.clone() {
-                            self.begin_campaign_scenario_load(&map, None);
-                        } else if let Some(side) = self.campaign_side {
-                            self.begin_campaign_load(side);
-                        } else {
-                            self.banner = "无战役选边可重开 · 回选边".into();
-                            self.set_screen(OriginalScreen::Campaign);
-                        }
-                    }
-                    LoadKind::Skirmish => self.begin_skirmish_load(),
-                }
-            }
             BattleNav::ContinueCampaign => {
                 let next = self
                     .battle_controller
