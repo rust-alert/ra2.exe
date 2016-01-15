@@ -248,3 +248,35 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
         "TR1 should disable TR2 before its timer reaches zero"
     );
 }
+
+#[test]
+fn destroy_trigger_action_blocks_win_path() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TR1=Americans,<none>,Destroy Win,0,1,1,1,0\n\
+TR2=Americans,<none>,Win Body,0,1,1,1,0\n\
+[Events]\n\
+TR1=1,13,0,0\n\
+TR2=1,13,10,0\n\
+[Actions]\n\
+TR1=1,12,0,TR2,0,0,0,0,A\n\
+TR2=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-trig.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "destroy-trig");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    for _ in 0..5 {
+        session.tick(&engine.runtime());
+    }
+    assert!(
+        session.expect_battle().outcome.is_none(),
+        "TR1 should destroy TR2 so its Win never fires"
+    );
+}

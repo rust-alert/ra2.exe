@@ -18,6 +18,7 @@ const EVENT_TIME_ELAPSE: i32 = 13;
 const ACTION_WIN: i32 = 1;
 const ACTION_LOSE: i32 = 2;
 const ACTION_CREATE_TEAM: i32 = 4;
+const ACTION_DESTROY_TRIGGER: i32 = 12;
 const ACTION_FORCE_TRIGGER: i32 = 40;
 const ACTION_ENABLE_TRIGGER: i32 = 53;
 const ACTION_DISABLE_TRIGGER: i32 = 54;
@@ -265,6 +266,16 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
             } else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
             {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
+            } else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        ACTION_DESTROY_TRIGGER => {
+            if let Some(id) = action_trigger_id_param(cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+                    st.disabled = true;
+                    st.fired = true;
+                }
             } else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
