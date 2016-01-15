@@ -27,6 +27,8 @@ pub struct PlayerState {
     pub promoted_vehicle: bool,
     /// 本局科技上限（遭遇战滑条 / 默认 10）；类型 `TechLevel` 不得超过此值。
     pub tech_level: i32,
+    /// 同盟 house 名（战役地图 `[Houses]` `Allies=`；同阵营不互攻）。
+    pub allies: Vec<String>,
     /// 已渗透盟军科技建筑。
     pub stolen_allied_tech: bool,
     /// 已渗透苏军科技建筑。
@@ -54,6 +56,7 @@ impl PlayerState {
             promoted_infantry: false,
             promoted_vehicle: false,
             tech_level,
+            allies: Vec::new(),
             stolen_allied_tech: false,
             stolen_soviet_tech: false,
             stolen_third_tech: false,

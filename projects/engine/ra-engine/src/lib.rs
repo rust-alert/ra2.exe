@@ -27,7 +27,8 @@ pub use game::{
     encode_commands, encode_scheduled,
 };
 pub use gameplay::{
-    LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm, tick_lightning_storm, tick_triggers,
+    houses_are_allied, LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm, tick_lightning_storm,
+    tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};

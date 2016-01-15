@@ -18,6 +18,28 @@ pub fn is_ambient_house(house: &str) -> bool {
     house.eq_ignore_ascii_case("Neutral") || house.eq_ignore_ascii_case("Civilian")
 }
 
+/// 两 house 是否同盟（同名，或任一方 `PlayerState.allies` 列出对方）。
+pub fn houses_are_allied(world: &BattleState, a: &str, b: &str) -> bool {
+    if a.eq_ignore_ascii_case(b) {
+        return true;
+    }
+    let a_lists_b = world
+        .players
+        .iter()
+        .find(|p| p.house.as_ref().eq_ignore_ascii_case(a))
+        .map(|p| p.allies.iter().any(|x| x.eq_ignore_ascii_case(b)))
+        .unwrap_or(false);
+    if a_lists_b {
+        return true;
+    }
+    world
+        .players
+        .iter()
+        .find(|p| p.house.as_ref().eq_ignore_ascii_case(b))
+        .map(|p| p.allies.iter().any(|x| x.eq_ignore_ascii_case(a)))
+        .unwrap_or(false)
+}
+
 /// 为本阵营未部署的可部署单位生成 `Deploy`（已有建造场则跳过）。
 pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand> {
     if house_has_yard(world, house) {
@@ -349,6 +371,13 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
             continue;
         }
         if world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            continue;
+        }
+        if world
+            .ecs_get::<Owner>(id)
+            .map(|o| houses_are_allied(world, house, o.house.as_ref()))
+            .unwrap_or(false)
+        {
             continue;
         }
         if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(o.house.as_ref())).unwrap_or(false) {

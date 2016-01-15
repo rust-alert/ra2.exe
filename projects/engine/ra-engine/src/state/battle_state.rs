@@ -728,6 +728,18 @@ impl BattleState {
         }
     }
 
+    /// 按 house 名称设置同盟列表（战役地图 `[Houses]` `Allies=`）。
+    pub fn set_house_allies(&mut self, house: &str, allies: Vec<String>) -> bool {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
+            player.allies = allies;
+            self.rehash();
+            true
+        }
+        else {
+            false
+        }
+    }
+
     /// 将所有玩家资金设为同一起始值（遭遇战大厅资金滑条）。
     pub fn set_all_players_funds(&mut self, funds: i32) {
         if self.players.is_empty() {

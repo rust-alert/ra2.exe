@@ -210,7 +210,7 @@ fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
     before.saturating_sub(map.entities.len())
 }
 
-/// 战役：登记地图 `[Houses]`，并把 `Credits`（百计）与 `TechLevel` 写入对应 house。
+/// 战役：登记地图 `[Houses]`，并把 `Credits`（百计）、`TechLevel` 与 `Allies` 写入对应 house。
 ///
 /// house 键优先用 `Country=`，同时登记节名（部分地图放置 owner 用节名）。
 fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
@@ -241,6 +241,12 @@ fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
             let _ = state.set_house_tech_level(primary, h.tech_level);
             if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
                 let _ = state.set_house_tech_level(section, h.tech_level);
+            }
+        }
+        if !h.allies.is_empty() {
+            let _ = state.set_house_allies(primary, h.allies.clone());
+            if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
+                let _ = state.set_house_allies(section, h.allies.clone());
             }
         }
         if h.player_control {
