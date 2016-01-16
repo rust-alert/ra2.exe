@@ -12,8 +12,32 @@ pub struct MapCapabilityGap {
     pub message: String,
 }
 
-/// 竖切已接线的触发动作码（None / Win / Lose / Create Team / Reinforce）。
-const SUPPORTED_ACTION_KINDS: &[i32] = &[0, 1, 2, 4, 12, 40, 53, 54, 80];
+/// 竖切已接线的 `[Actions]` 动作类型码（与 `ra-engine` 触发执行表对齐）。
+///
+/// | 码 | 含义 |
+/// |----|------|
+/// | 0 | None 无操作 |
+/// | 1 | Win 胜利 |
+/// | 2 | Lose 失败 |
+/// | 4 | Create Team 创建小队 |
+/// | 12 | Destroy Trigger 销毁触发器 |
+/// | 14 | Change House 改属阵营 |
+/// | 40 | Force Trigger 强制触发 |
+/// | 53 | Enable Trigger 启用触发器 |
+/// | 54 | Disable Trigger 禁用触发器 |
+/// | 80 | Reinforcement Team 增援小队 |
+const SUPPORTED_ACTION_KINDS: &[i32] = &[
+    0,  // None
+    1,  // Win
+    2,  // Lose
+    4,  // Create Team
+    12, // Destroy Trigger
+    14, // Change House
+    40, // Force Trigger
+    53, // Enable Trigger
+    54, // Disable Trigger
+    80, // Reinforcement Team
+];
 
 /// 根据地图剧本数据生成能力缺口（不静默半可玩）。
 pub fn map_scripting_capability_gaps(map: &MapInfo) -> Vec<MapCapabilityGap> {

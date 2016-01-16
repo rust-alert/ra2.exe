@@ -8,21 +8,27 @@ use crate::game::BattleOutcome;
 use crate::state::BattleState;
 use crate::state::components::{Health, Identity, Owner, Transform};
 
-/// 零售常用事件码（竖切子集）。
-const EVENT_DESTROYED: i32 = 8;
-const EVENT_ALL_DESTROYED: i32 = 11;
-const EVENT_ENTERED_BY: i32 = 1;
-const EVENT_TIME_ELAPSE: i32 = 13;
+/// 零售地图 `[Events]` 条件类型码（竖切已接线子集）。
+///
+/// 编号与原版 RA2 触发事件表一致；未列出的 kind 在 `condition_met` 中视为未满足。
+const EVENT_ENTERED_BY: i32 = 1; // 进入绑定 CellTag 的格子（本竖切按本地玩家 house 判定）
+const EVENT_DESTROYED: i32 = 8; // 绑定 Tag 的对象被摧毁（任一）
+const EVENT_ALL_DESTROYED: i32 = 11; // 绑定 Tag 的对象全部摧毁
+const EVENT_TIME_ELAPSE: i32 = 13; // 计时结束（params[0] 为初始 tick 数）
 
-/// 零售常用动作码（竖切子集）。
-const ACTION_WIN: i32 = 1;
-const ACTION_LOSE: i32 = 2;
-const ACTION_CREATE_TEAM: i32 = 4;
-const ACTION_DESTROY_TRIGGER: i32 = 12;
-const ACTION_FORCE_TRIGGER: i32 = 40;
-const ACTION_ENABLE_TRIGGER: i32 = 53;
-const ACTION_DISABLE_TRIGGER: i32 = 54;
-const ACTION_REINFORCEMENT_TEAM: i32 = 80;
+/// 零售地图 `[Actions]` 动作类型码（竖切已接线子集）。
+///
+/// 编号与原版 RA2 触发动作表一致；未列出的 kind 记入 `unsupported_actions`。
+const ACTION_NONE: i32 = 0; // 无操作
+const ACTION_WIN: i32 = 1; // 指定 house 胜利
+const ACTION_LOSE: i32 = 2; // 失败（可带原因/house 参数）
+const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce）
+const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
+const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
+const ACTION_FORCE_TRIGGER: i32 = 40; // 强制执行另一触发器的 Actions（跳过 Events）
+const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
+const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
+const ACTION_REINFORCEMENT_TEAM: i32 = 80; // 增援 TeamType（与 Create Team 同路径产队）
 
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
@@ -138,7 +144,7 @@ pub fn tick_triggers(world: &mut BattleState) {
             continue;
         };
         for cmd in &action.commands {
-            apply_action(world, cmd, &local_house);
+            apply_action(world, &id, cmd, &local_house);
             if world.trigger_runtime.pending_outcome.is_some() {
                 return;
             }
@@ -250,7 +256,7 @@ fn cell_entered_by_house(
     false
 }
 
-fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &str) {
+fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionCommand, local_house: &str) {
     match cmd.kind {
         ACTION_WIN => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
@@ -280,6 +286,14 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_CHANGE_HOUSE => {
+            let Some(new_house) = action_house_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            change_attached_objects_house(world, trigger_id, &new_house);
+        }
         ACTION_FORCE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 force_fire_trigger(world, &id, local_house);
@@ -305,8 +319,36 @@ fn apply_action(world: &mut BattleState, cmd: &MapActionCommand, local_house: &s
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        0 => {}
+        ACTION_NONE => {}
         other => world.trigger_runtime.record_unsupported(other),
+    }
+}
+
+/// 将绑定到本触发 Tag 的存活实体改属 `new_house`。
+fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_house: &str) {
+    world.ensure_house(new_house);
+    let bound = tags_for_trigger(&world.map.scripting.tags, trigger_id);
+    if bound.is_empty() {
+        return;
+    }
+    let ids: Vec<_> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            world
+                .ecs_get::<Identity>(id)
+                .map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag))
+                .unwrap_or(false)
+        })
+        .collect();
+    for id in ids {
+        let _ = world.with_owner_mut(id, |owner| {
+            owner.house = std::sync::Arc::<str>::from(new_house);
+        });
     }
 }
 
@@ -335,7 +377,7 @@ fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
         .map(|a| a.commands.clone())
         .unwrap_or_default();
     for cmd in &commands {
-        apply_action(world, cmd, local_house);
+        apply_action(world, id, cmd, local_house);
         if world.trigger_runtime.pending_outcome.is_some() {
             return;
         }

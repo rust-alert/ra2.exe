@@ -280,3 +280,55 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
         "TR1 should destroy TR2 so its Win never fires"
     );
 }
+
+#[test]
+fn change_house_action_reassigns_tagged_entities() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nPlayerControl=no\n\
+[Tags]\nOBJ=0,Defector,TRC\n\
+[Triggers]\nTRC=Americans,<none>,Change Side,0,1,1,1,0\n\
+[Events]\nTRC=1,13,0,0\n\
+[Actions]\nTRC=1,14,0,0,0,0,0,0,Americans\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "change-house.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: "OBJ".into(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "change-house");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    let id = session
+        .expect_battle()
+        .world
+        .find_entity_id_by_type("E1")
+        .expect("tagged infantry");
+    assert_eq!(
+        session.expect_battle().world.ecs_owner(id).as_deref(),
+        Some("Russians")
+    );
+
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().world.ecs_owner(id).as_deref(),
+        Some("Americans"),
+        "Change House should reassign tagged objects"
+    );
+}

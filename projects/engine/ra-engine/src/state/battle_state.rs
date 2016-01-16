@@ -418,6 +418,15 @@ impl BattleState {
         self.with_component_mut(id, f)
     }
 
+    /// 以 ECS 为权威修改所属房主，并立即投影回 `WorldEntity`。
+    pub(crate) fn with_owner_mut<R>(
+        &mut self,
+        id: EntityId,
+        f: impl FnOnce(&mut crate::state::components::Owner) -> R,
+    ) -> Option<R> {
+        self.with_component_mut(id, f)
+    }
+
     /// 以 ECS 为权威修改移动能力，并立即投影回 `WorldEntity`。
     pub(crate) fn with_locomotor_mut<R>(
         &mut self,
