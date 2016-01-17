@@ -27,9 +27,9 @@ pub struct MapTaskForce {
 /// Script 一步。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptStep {
-    /// 动作码。
+    /// 动作码（原版 ScriptTypes；例如 `3` = 移动到航点）。
     pub action: i32,
-    /// 参数。
+    /// 参数（含义随 `action`；例如航点编号）。
     pub argument: i32,
 }
 

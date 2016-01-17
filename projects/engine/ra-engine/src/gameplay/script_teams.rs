@@ -6,6 +6,9 @@ use ra_types::{EntityId, PlayerId};
 use crate::game::GameCommand;
 use crate::state::BattleState;
 
+/// 原版 `[ScriptTypes]` 步骤动作码：移动到航点（`argument` = 航点编号）。
+const SCRIPT_ACTION_MOVE_TO_WAYPOINT: i32 = 3;
+
 /// 已生成、仍在执行 Script 的小队。
 #[derive(Debug, Clone)]
 struct ActiveScriptTeam {
@@ -38,7 +41,7 @@ pub fn flush_pending_team_spawns(world: &mut BattleState) {
     }
 }
 
-/// 推进已生成小队的 ScriptTypes 步骤（竖切：动作码 3 = 移动到航点）。
+/// 推进已生成小队的 ScriptTypes 步骤（竖切：`SCRIPT_ACTION_MOVE_TO_WAYPOINT`）。
 pub fn tick_script_teams(world: &mut BattleState) {
     if world.script_team_runtime.active.is_empty() {
         return;
@@ -80,8 +83,8 @@ pub fn tick_script_teams(world: &mut BattleState) {
             continue;
         };
         match action {
-            // 原版 Script 动作 3：移动到航点（argument = 航点编号）。
-            3 => {
+            SCRIPT_ACTION_MOVE_TO_WAYPOINT => {
+                // `argument` = 航点编号（`[Waypoints]` index）。
                 if let Some(wp) = waypoints.iter().find(|w| w.index as i32 == argument) {
                     for id in members {
                         let Some((_, _, dead)) = world.ecs_health(id)

@@ -39,7 +39,7 @@ pub struct MapTrigger {
 /// 单条事件条件。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEventCondition {
-    /// 事件类型码。
+    /// 事件类型码（原版 Events；例如 `13` = 计时结束，`1` = 进入区域）。
     pub kind: i32,
     /// 参数（通常 2 个 int；变长事件保留原文参数）。
     pub params: Vec<String>,
@@ -57,7 +57,7 @@ pub struct MapEvent {
 /// 单条动作。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapActionCommand {
-    /// 动作类型码。
+    /// 动作类型码（原版 Actions；例如 `1` = Win，`4` = Create Team，`14` = Change House）。
     pub kind: i32,
     /// 七个参数槽（含航点字母等）。
     pub params: [String; 7],
