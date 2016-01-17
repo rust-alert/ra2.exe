@@ -342,3 +342,59 @@ pub fn compose_battle_pause_menu_overlay(
 
     Some(page)
 }
+
+/// 结算页叠加层：全屏压暗 + 居中胜负/统计（地图仍可见；替代侧栏一行小字）。
+pub fn compose_battle_results_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    fnt: Option<&FntFile>,
+    title: &str,
+    detail: Option<&str>,
+    stats: Option<&str>,
+    hint: &str,
+) -> Option<RgbaImage> {
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    fill_rect(&mut page, RectPx::new(0, 0, w as i32, h as i32), [0, 0, 0, 180]);
+
+    let Some(fnt) = fnt
+    else {
+        return Some(page);
+    };
+    let mut lines: Vec<(&str, [u8; 4])> = Vec::new();
+    lines.push((title, MENU_TEXT_ACCENT));
+    if let Some(d) = detail.filter(|s| !s.is_empty()) {
+        lines.push((d, MENU_TEXT_ENABLED));
+    }
+    if let Some(s) = stats.filter(|s| !s.is_empty()) {
+        lines.push((s, MENU_TEXT_SECTION));
+    }
+    lines.push((hint, MENU_TEXT_ENABLED));
+
+    let line_h = (fnt.bitmap_rows as i32).max(12);
+    let gap = 10;
+    let pad_x = 28;
+    let pad_y = 22;
+    let content_w = lines
+        .iter()
+        .map(|(t, _)| fnt.text_width(t) as i32)
+        .max()
+        .unwrap_or(120)
+        .min((w as i32).saturating_sub(80))
+        .max(160);
+    let box_w = content_w + pad_x * 2;
+    let box_h = (lines.len() as i32) * (line_h + gap) - gap + pad_y * 2;
+    let bx = ((w as i32) - box_w) / 2;
+    let by = ((h as i32) - box_h) / 2;
+    fill_rect(&mut page, RectPx::new(bx, by, box_w, box_h), [8, 12, 24, 230]);
+    stroke_rect(&mut page, RectPx::new(bx, by, box_w, box_h), [200, 180, 60, 255]);
+    let mut ty = by + pad_y;
+    for (text, color) in lines {
+        let tw = fnt.text_width(text) as i32;
+        let tx = bx + (box_w - tw).max(0) / 2;
+        blit_text_colored(&mut page, fnt, text, tx, ty, color);
+        ty += line_h + gap;
+    }
+    Some(page)
+}
