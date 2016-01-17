@@ -13,6 +13,7 @@ use ra_widgets::{
     battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
     compose::{
         blit_rgba, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
+        compose_battle_results_overlay,
     },
     fs_source::GameAssetSource,
     render::present,
@@ -1427,7 +1428,16 @@ impl BattleController {
             .as_ref()
             .map(|s| format!(" · {}tick · 损单位{} · 损建筑{} · 花费{}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
             .unwrap_or_default();
-        tracing::info!("对局结束 · {label} · tick={}{stats} · 按 R 重开", game.world.tick);
+        tracing::info!("对局结束 · {label} · tick={}{stats}", game.world.tick);
+
+        // EVA：放弃/败北播 Battle control terminated；胜利用 Mission Accomplished。
+        let eva = match outcome {
+            BattleOutcome::Victory { .. } => "EVA_MissionAccomplished",
+            BattleOutcome::Defeat { .. } => "EVA_BattleControlTerminated",
+        };
+        if !self.pending_battle_sfx.iter().any(|e| e.eq_ignore_ascii_case(eva)) {
+            self.pending_battle_sfx.push(eva.into());
+        }
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
@@ -1509,7 +1519,7 @@ impl BattleController {
                 self.refresh_structure_anims(renderer);
             }
         }
-        self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present);
+        self.upload_battle_hud(renderer, &hud, fnt, csf, vw, vh, present, screen_label);
         renderer.set_action_lines_active(self.action_lines_active());
         match pending {
             PendingDraw::Full(snap) => renderer.draw_frame(Some(&snap)),
@@ -2151,6 +2161,7 @@ impl BattleController {
                         reason: "放弃任务".into(),
                     });
                 }
+                self.note_outcome_once();
                 tracing::info!("放弃任务 · 结算");
                 BattleNav::ToResults
             }
@@ -2329,7 +2340,43 @@ impl BattleController {
         viewport_w: u32,
         viewport_h: u32,
         present: PresentFeel,
+        screen_label: &str,
     ) {
+        let w = viewport_w.max(1);
+        let h = viewport_h.max(1);
+        if screen_label == "results" {
+            let (title, detail) = match hud.outcome.as_ref() {
+                Some(BattleOutcome::Victory { owner }) => ("任务完成".to_string(), Some(format!("胜利 · {owner}"))),
+                Some(BattleOutcome::Defeat { reason }) => {
+                    let detail = if reason.is_empty() {
+                        None
+                    } else {
+                        Some(reason.clone())
+                    };
+                    ("战斗控制已终止".to_string(), detail)
+                }
+                None => ("结算".to_string(), None),
+            };
+            let stats = hud.battle_stats.as_ref().map(|s| {
+                format!(
+                    "{}tick · 损 {}u/{}b · 花 ${}",
+                    s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
+                )
+            });
+            if let Some(page) = compose_battle_results_overlay(
+                w,
+                h,
+                fnt,
+                &title,
+                detail.as_deref(),
+                stats.as_deref(),
+                "Enter 确认 · Esc 离开",
+            ) {
+                let page = present::present_ui_page(page, present);
+                renderer.set_ui_overlay(page);
+            }
+            return;
+        }
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
@@ -2378,8 +2425,6 @@ impl BattleController {
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
             .unwrap_or_else(BattleHudChromeMetrics::allied);
-        let w = viewport_w.max(1);
-        let h = viewport_h.max(1);
         let snap = solve_battle_hud_with_metrics(w, h, metrics);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);

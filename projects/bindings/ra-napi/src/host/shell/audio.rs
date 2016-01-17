@@ -344,16 +344,23 @@ impl Shell {
         }
     }
 
-    /// 对局短音效：`sound.ini` 事件 → `audio.bag`（如 `PlaceBuilding` → `uplace`）。
+    /// 对局短音效 / EVA：`sound.ini` 或 `eva.ini` → `audio.bag`。
     pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) {
         if event_id.is_empty() {
             return;
         }
         self.ensure_audio_bag();
-        let mut candidates: Vec<String> = self.sound_event_sample_names(event_id);
+        let mut candidates: Vec<String> = Vec::new();
+        if event_id.starts_with("EVA_") || event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
+            candidates.extend(self.eva_sample_names(event_id));
+        }
+        candidates.extend(self.sound_event_sample_names(event_id));
         // 零售 `[PlaceBuilding] Sounds=uplace`；解析失败时仍走 bag 名。
         let fallbacks: &[&str] = match event_id {
             id if id.eq_ignore_ascii_case("PlaceBuilding") => &["uplace", "UPLACE", "PlaceBuilding"],
+            id if id.eq_ignore_ascii_case("EVA_BattleControlTerminated") => &["ceva015", "csof015", "CEVA015", "CSOF015"],
+            id if id.eq_ignore_ascii_case("EVA_MissionAccomplished") => &["ceva013", "csof013", "CEVA013", "CSOF013"],
+            id if id.eq_ignore_ascii_case("EVA_MissionFailed") => &["ceva014", "csof014", "CEVA014", "CSOF014"],
             _ => &[],
         };
         for fallback in fallbacks {
@@ -367,11 +374,56 @@ impl Shell {
         let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
         let Some(pcm) = self.decode_bag_named(&refs)
         else {
-            tracing::debug!(%event_id, "对局音效未命中");
+            tracing::debug!(%event_id, candidates = ?candidates, "对局音效/EVA 未命中");
             return;
         };
         if let Some(audio) = self.audio.as_mut() {
             audio.play_sfx(&pcm);
         }
+    }
+
+    /// `eva.ini` 事件 → Allied/Russian 采样名（按本机阵营优先）。
+    pub(super) fn eva_sample_names(&self, event_id: &str) -> Vec<String> {
+        let Some(doc) = self.read_ini_doc("eva.ini")
+        else {
+            return Vec::new();
+        };
+        let allied = doc.get(event_id, "Allied").unwrap_or("").trim().to_string();
+        let russian = doc.get(event_id, "Russian").unwrap_or("").trim().to_string();
+        let soviet_house = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .and_then(|g| {
+                g.world
+                    .players
+                    .iter()
+                    .find(|p| p.id == g.world.local_player)
+                    .map(|p| p.house.to_ascii_lowercase())
+            })
+            .is_some_and(|h| {
+                h.contains("russia")
+                    || h.contains("soviet")
+                    || h.contains("iraq")
+                    || h.contains("libya")
+                    || h.contains("cuba")
+                    || h.contains("yuri")
+            });
+        let mut out = Vec::new();
+        let (first, second) = if soviet_house {
+            (russian, allied)
+        } else {
+            (allied, russian)
+        };
+        for stem in [first, second] {
+            if stem.is_empty() {
+                continue;
+            }
+            if !out.iter().any(|c: &String| c.eq_ignore_ascii_case(&stem)) {
+                out.push(stem);
+            }
+        }
+        out
     }
 }
