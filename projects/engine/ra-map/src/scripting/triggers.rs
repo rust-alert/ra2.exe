@@ -57,7 +57,7 @@ pub struct MapEvent {
 /// 单条动作。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapActionCommand {
-    /// 动作类型码（原版 Actions；例如 `1` = Win，`4` = Create Team，`14` = Change House）。
+    /// 动作类型码（原版 Actions；例如 `1` = Win，`4` = Create Team，`5` = Destroy Attached，`14` = Change House）。
     pub kind: i32,
     /// 七个参数槽（含航点字母等）。
     pub params: [String; 7],

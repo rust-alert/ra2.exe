@@ -20,6 +20,7 @@ pub struct MapCapabilityGap {
 /// | 1 | Win 胜利 |
 /// | 2 | Lose 失败 |
 /// | 4 | Create Team 创建小队 |
+/// | 5 | Destroy Attached Objects 摧毁绑定对象 |
 /// | 12 | Destroy Trigger 销毁触发器 |
 /// | 14 | Change House 改属阵营 |
 /// | 40 | Force Trigger 强制触发 |
@@ -31,6 +32,7 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     1,  // Win
     2,  // Lose
     4,  // Create Team
+    5,  // Destroy Attached Objects
     12, // Destroy Trigger
     14, // Change House
     40, // Force Trigger

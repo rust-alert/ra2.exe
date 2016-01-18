@@ -23,6 +23,7 @@ const ACTION_NONE: i32 = 0; // 无操作
 const ACTION_WIN: i32 = 1; // 指定 house 胜利
 const ACTION_LOSE: i32 = 2; // 失败（可带原因/house 参数）
 const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce）
+const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 5; // 摧毁绑定本触发 Tag 的存活实体
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
 const ACTION_FORCE_TRIGGER: i32 = 40; // 强制执行另一触发器的 Actions（跳过 Events）
@@ -276,6 +277,9 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_DESTROY_ATTACHED_OBJECTS => {
+            destroy_attached_objects(world, trigger_id);
+        }
         ACTION_DESTROY_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
@@ -349,6 +353,32 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_
         let _ = world.with_owner_mut(id, |owner| {
             owner.house = std::sync::Arc::<str>::from(new_house);
         });
+    }
+}
+
+/// 摧毁绑定到本触发 Tag 的存活实体。
+fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
+    let bound = tags_for_trigger(&world.map.scripting.tags, trigger_id);
+    if bound.is_empty() {
+        return;
+    }
+    let ids: Vec<_> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            world
+                .ecs_get::<Identity>(id)
+                .map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag))
+                .unwrap_or(false)
+        })
+        .collect();
+    for id in ids {
+        let max = world.ecs_health(id).map(|(_, m, _)| m).unwrap_or(1).max(1);
+        let _ = world.set_ecs_health(id, 0, max, true);
     }
 }
 
