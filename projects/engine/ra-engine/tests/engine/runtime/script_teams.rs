@@ -83,3 +83,64 @@ fn create_team_script_action_3_orders_move_to_waypoint() {
     let dest = session.expect_battle().world.ecs_move_destination(ids[0]);
     assert_eq!(dest, Some((Some(10), Some(10))), "script action 3 should MoveTo waypoint 1");
 }
+
+#[test]
+fn create_team_script_action_1_orders_attack_near_waypoint() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    // Waypoint 1 at (10,10) has a hostile American; Russian reinforce script action=1,argument=1.
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n1=10010\n\
+[Triggers]\nTR1=Russians,<none>,Reinforce,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=1,4,0,TM1,0,0,0,0,A\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=1,E1\nGroup=-1\n\
+[ScriptTypes]\n0=SC1\n\
+[SC1]\nName=AtkWp\n0=1,1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=SC1\nTaskForce=TF1\nMax=1\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "team-atk.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Americans".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 10,
+        y: 10,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-atk");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let russian = snap
+        .units
+        .iter()
+        .find(|u| u.owner.as_ref() == "Russians")
+        .map(|u| u.id)
+        .expect("reinforced Russian");
+    let american = snap
+        .units
+        .iter()
+        .find(|u| u.owner.as_ref() == "Americans")
+        .map(|u| u.id)
+        .expect("preplaced American");
+
+    session.tick(&engine.runtime());
+    let attack = session.expect_battle().world.ecs_attack_state(russian);
+    assert_eq!(
+        attack.map(|(t, _)| t),
+        Some(Some(american)),
+        "script action 1 should Attack hostile near waypoint 1"
+    );
+}

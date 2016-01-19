@@ -4,10 +4,16 @@ use ra_map::MapTeamType;
 use ra_types::{EntityId, PlayerId};
 
 use crate::game::GameCommand;
+use crate::gameplay::houses_are_allied;
 use crate::state::BattleState;
 
+/// 原版 `[ScriptTypes]` 步骤动作码：攻击航点附近敌方（`argument` = 航点编号）。
+const SCRIPT_ACTION_ATTACK_WAYPOINT: i32 = 1;
 /// 原版 `[ScriptTypes]` 步骤动作码：移动到航点（`argument` = 航点编号）。
 const SCRIPT_ACTION_MOVE_TO_WAYPOINT: i32 = 3;
+
+/// 攻击航点时，在航点曼哈顿距离内搜敌的半径（格）。
+const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
 
 /// 已生成、仍在执行 Script 的小队。
 #[derive(Debug, Clone)]
@@ -41,7 +47,7 @@ pub fn flush_pending_team_spawns(world: &mut BattleState) {
     }
 }
 
-/// 推进已生成小队的 ScriptTypes 步骤（竖切：`SCRIPT_ACTION_MOVE_TO_WAYPOINT`）。
+/// 推进已生成小队的 ScriptTypes 步骤（竖切：攻击/移动到航点）。
 pub fn tick_script_teams(world: &mut BattleState) {
     if world.script_team_runtime.active.is_empty() {
         return;
@@ -73,7 +79,8 @@ pub fn tick_script_teams(world: &mut BattleState) {
         })
         .collect();
 
-    let mut orders: Vec<(PlayerId, EntityId, u16, u16)> = Vec::new();
+    let mut move_orders: Vec<(PlayerId, EntityId, u16, u16)> = Vec::new();
+    let mut attack_orders: Vec<(PlayerId, EntityId, EntityId)> = Vec::new();
     let mut remove = Vec::new();
 
     for (idx, step, members, step_count) in plan {
@@ -83,6 +90,32 @@ pub fn tick_script_teams(world: &mut BattleState) {
             continue;
         };
         match action {
+            SCRIPT_ACTION_ATTACK_WAYPOINT => {
+                // `argument` = 航点编号；对航点附近最近敌方下发 `Attack`。
+                if let Some(wp) = waypoints.iter().find(|w| w.index as i32 == argument) {
+                    for id in members {
+                        let Some((_, _, dead)) = world.ecs_health(id)
+                        else {
+                            continue;
+                        };
+                        if dead {
+                            continue;
+                        }
+                        let Some(house) = world.ecs_owner(id)
+                        else {
+                            continue;
+                        };
+                        let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house.as_ref())
+                        else {
+                            continue;
+                        };
+                        if let Some(target) = nearest_hostile_near(world, house.as_ref(), wp.x, wp.y, ATTACK_WAYPOINT_SEARCH_RADIUS)
+                        {
+                            attack_orders.push((player.id, id, target));
+                        }
+                    }
+                }
+            }
             SCRIPT_ACTION_MOVE_TO_WAYPOINT => {
                 // `argument` = 航点编号（`[Waypoints]` index）。
                 if let Some(wp) = waypoints.iter().find(|w| w.index as i32 == argument) {
@@ -102,7 +135,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         else {
                             continue;
                         };
-                        orders.push((player.id, id, wp.x, wp.y));
+                        move_orders.push((player.id, id, wp.x, wp.y));
                     }
                 }
             }
@@ -123,9 +156,51 @@ pub fn tick_script_teams(world: &mut BattleState) {
         }
     }
 
-    for (player, entity, x, y) in orders {
+    for (player, entity, x, y) in move_orders {
         world.push_player_command(player, GameCommand::MoveTo { entity, x, y });
     }
+    for (player, attacker, target) in attack_orders {
+        world.push_player_command(player, GameCommand::Attack { attacker, target });
+    }
+}
+
+/// 在 `(cx,cy)` 附近找距离最近的敌对存活实体（同盟 / 氛围房主除外）。
+fn nearest_hostile_near(
+    world: &BattleState,
+    house: &str,
+    cx: u16,
+    cy: u16,
+    radius: u32,
+) -> Option<EntityId> {
+    let mut best: Option<(u32, EntityId)> = None;
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_health(id).map(|(_, _, d)| d).unwrap_or(true) {
+            continue;
+        }
+        let Some(owner) = world.ecs_owner(id)
+        else {
+            continue;
+        };
+        if houses_are_allied(world, house, owner.as_ref()) {
+            continue;
+        }
+        if crate::gameplay::ai::is_ambient_house(owner.as_ref()) {
+            continue;
+        }
+        let Some((x, y, _)) = world.ecs_transform(id)
+        else {
+            continue;
+        };
+        let dist = (i32::from(cx) - i32::from(x)).unsigned_abs() + (i32::from(cy) - i32::from(y)).unsigned_abs();
+        if dist > radius {
+            continue;
+        }
+        if best.map(|(d, _)| dist < d).unwrap_or(true) {
+            best = Some((dist, id));
+        }
+    }
+    best.map(|(_, id)| id)
 }
 
 fn spawn_team_type(
