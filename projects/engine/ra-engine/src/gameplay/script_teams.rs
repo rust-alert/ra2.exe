@@ -11,6 +11,8 @@ use crate::state::BattleState;
 const SCRIPT_ACTION_ATTACK_WAYPOINT: i32 = 1;
 /// 原版 `[ScriptTypes]` 步骤动作码：移动到航点（`argument` = 航点编号）。
 const SCRIPT_ACTION_MOVE_TO_WAYPOINT: i32 = 3;
+/// 原版 `[ScriptTypes]` 步骤动作码：部署（`argument` 通常未用；对可部署单位下发 `Deploy`）。
+const SCRIPT_ACTION_DEPLOY: i32 = 6;
 
 /// 攻击航点时，在航点曼哈顿距离内搜敌的半径（格）。
 const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
@@ -81,6 +83,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
 
     let mut move_orders: Vec<(PlayerId, EntityId, u16, u16)> = Vec::new();
     let mut attack_orders: Vec<(PlayerId, EntityId, EntityId)> = Vec::new();
+    let mut deploy_orders: Vec<(PlayerId, EntityId)> = Vec::new();
     let mut remove = Vec::new();
 
     for (idx, step, members, step_count) in plan {
@@ -139,6 +142,27 @@ pub fn tick_script_teams(world: &mut BattleState) {
                     }
                 }
             }
+            SCRIPT_ACTION_DEPLOY => {
+                // 对小队成员下发部署（不可部署单位由命令层拒绝）。
+                for id in members {
+                    let Some((_, _, dead)) = world.ecs_health(id)
+                    else {
+                        continue;
+                    };
+                    if dead {
+                        continue;
+                    }
+                    let Some(house) = world.ecs_owner(id)
+                    else {
+                        continue;
+                    };
+                    let Some(player) = world.players.iter().find(|p| p.house.as_ref() == house.as_ref())
+                    else {
+                        continue;
+                    };
+                    deploy_orders.push((player.id, id));
+                }
+            }
             _ => {
                 // 未接线动作：跳过一步，避免卡死整队脚本。
             }
@@ -161,6 +185,9 @@ pub fn tick_script_teams(world: &mut BattleState) {
     }
     for (player, attacker, target) in attack_orders {
         world.push_player_command(player, GameCommand::Attack { attacker, target });
+    }
+    for (player, entity) in deploy_orders {
+        world.push_player_command(player, GameCommand::Deploy { entity });
     }
 }
 

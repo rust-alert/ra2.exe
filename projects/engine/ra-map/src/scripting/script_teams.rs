@@ -27,7 +27,7 @@ pub struct MapTaskForce {
 /// Script 一步。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptStep {
-    /// 动作码（原版 ScriptTypes；例如 `1` = 攻击航点附近敌方，`3` = 移动到航点）。
+    /// 动作码（原版 ScriptTypes；例如 `1` = 攻击航点附近敌方，`3` = 移动到航点，`6` = 部署）。
     pub action: i32,
     /// 参数（含义随 `action`；例如航点编号）。
     pub argument: i32,

@@ -144,3 +144,59 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
         "script action 1 should Attack hostile near waypoint 1"
     );
 }
+
+#[test]
+fn create_team_script_action_6_deploys_mcv() {
+    let rules = IniDocument::parse(
+        b"[VehicleTypes]\n0=AMCV\n\
+[BuildingTypes]\n0=GACNST\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
+    )
+    .unwrap();
+    let rules = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    };
+    // Script action=6 Deploy after Create Team spawns AMCV at waypoint 0.
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Triggers]\nTR1=Americans,<none>,Reinforce,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=1,4,0,TM1,0,0,0,0,A\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Mcv\n0=1,AMCV\nGroup=-1\n\
+[ScriptTypes]\n0=SC1\n\
+[SC1]\nName=Deploy\n0=6,0\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Americans\nScript=SC1\nTaskForce=TF1\nMax=1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "team-deploy.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "team-deploy");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+
+    session.tick(&engine.runtime());
+    let amcv = session
+        .expect_battle()
+        .snapshot(&[])
+        .units
+        .iter()
+        .filter(|u| u.type_id.as_ref() == "AMCV")
+        .count();
+    assert_eq!(amcv, 1, "expected reinforced AMCV");
+
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let yards = snap.units.iter().filter(|u| u.type_id.as_ref() == "GACNST").count();
+    let left = snap.units.iter().filter(|u| u.type_id.as_ref() == "AMCV").count();
+    assert!(yards >= 1, "script action 6 should Deploy AMCV into GACNST, units={:?}", snap.units.iter().map(|u| u.type_id.as_ref()).collect::<Vec<_>>());
+    assert_eq!(left, 0, "AMCV should be gone after deploy");
+}
