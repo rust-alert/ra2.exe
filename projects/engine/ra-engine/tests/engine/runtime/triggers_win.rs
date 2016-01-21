@@ -379,3 +379,61 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
         "action 5 should destroy Tag-bound objects"
     );
 }
+
+#[test]
+fn all_to_hunt_action_orders_house_attack() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nPlayerControl=no\n\
+[Triggers]\nTRH=Russians,<none>,Hunt,0,1,1,1,0\n\
+[Events]\nTRH=1,13,0,0\n\
+[Actions]\nTRH=1,6,0,0,0,0,0,0,Russians\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "hunt.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 3,
+        y: 3,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Americans".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 8,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "hunt");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+
+    let snap = session.expect_battle().snapshot(&[]);
+    let russian = snap.units.iter().find(|u| u.owner.as_ref() == "Russians").map(|u| u.id).expect("RU");
+    let american = snap.units.iter().find(|u| u.owner.as_ref() == "Americans").map(|u| u.id).expect("US");
+
+    session.tick(&engine.runtime());
+    // All to Hunt queues Attack for next tick apply.
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().world.ecs_attack_state(russian).map(|(t, _)| t),
+        Some(Some(american)),
+        "action 6 All to Hunt should Attack nearest hostile"
+    );
+}

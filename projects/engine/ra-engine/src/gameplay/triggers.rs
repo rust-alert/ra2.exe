@@ -2,9 +2,11 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ra_map::{MapActionCommand, MapEventCondition, MapScripting};
+use ra_map::{MapActionCommand, MapEntityKind, MapEventCondition, MapScripting};
+use ra_types::EntityId;
 
-use crate::game::BattleOutcome;
+use crate::game::{BattleOutcome, GameCommand};
+use crate::gameplay::{ai::is_ambient_house, houses_are_allied};
 use crate::state::BattleState;
 use crate::state::components::{Health, Identity, Owner, Transform};
 
@@ -24,6 +26,7 @@ const ACTION_WIN: i32 = 1; // 指定 house 胜利
 const ACTION_LOSE: i32 = 2; // 失败（可带原因/house 参数）
 const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 5; // 摧毁绑定本触发 Tag 的存活实体
+const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最近敌方
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
 const ACTION_FORCE_TRIGGER: i32 = 40; // 强制执行另一触发器的 Actions（跳过 Events）
@@ -280,6 +283,10 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         ACTION_DESTROY_ATTACHED_OBJECTS => {
             destroy_attached_objects(world, trigger_id);
         }
+        ACTION_ALL_TO_HUNT => {
+            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            all_house_units_hunt(world, &house);
+        }
         ACTION_DESTROY_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
@@ -380,6 +387,83 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
         let max = world.ecs_health(id).map(|(_, m, _)| m).unwrap_or(1).max(1);
         let _ = world.set_ecs_health(id, 0, max, true);
     }
+}
+
+/// 指定 house 的全部机动单位攻击各自最近的敌对目标。
+fn all_house_units_hunt(world: &mut BattleState, house: &str) {
+    let Some(player) = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(house)).map(|p| p.id)
+    else {
+        return;
+    };
+    let hunters: Vec<EntityId> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            let Some(owner) = world.ecs_get::<Owner>(id)
+            else {
+                return false;
+            };
+            if !owner.house.eq_ignore_ascii_case(house) {
+                return false;
+            }
+            world
+                .ecs_get::<Identity>(id)
+                .map(|identity| {
+                    matches!(
+                        identity.kind,
+                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
+                    )
+                })
+                .unwrap_or(false)
+        })
+        .collect();
+    let mut orders = Vec::new();
+    for hunter in hunters {
+        let Some((hx, hy, _)) = world.ecs_transform(hunter)
+        else {
+            continue;
+        };
+        if let Some(target) = nearest_hostile_from(world, house, hx, hy) {
+            orders.push((hunter, target));
+        }
+    }
+    for (attacker, target) in orders {
+        world.push_player_command(player, GameCommand::Attack { attacker, target });
+    }
+}
+
+/// 以 `(cx,cy)` 为原点找最近敌对存活实体。
+fn nearest_hostile_from(world: &BattleState, house: &str, cx: u16, cy: u16) -> Option<EntityId> {
+    let mut best: Option<(u32, EntityId)> = None;
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(owner) = world.ecs_get::<Owner>(id)
+        else {
+            continue;
+        };
+        if houses_are_allied(world, house, owner.house.as_ref()) {
+            continue;
+        }
+        if is_ambient_house(owner.house.as_ref()) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let dist = (i32::from(cx) - i32::from(xf.x)).unsigned_abs() + (i32::from(cy) - i32::from(xf.y)).unsigned_abs();
+        if best.map(|(d, _)| dist < d).unwrap_or(true) {
+            best = Some((dist, id));
+        }
+    }
+    best.map(|(_, id)| id)
 }
 
 /// 强制执行目标触发的 Actions（跳过 Events；已触发过则忽略，避免环）。
