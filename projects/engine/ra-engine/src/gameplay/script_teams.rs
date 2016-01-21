@@ -13,6 +13,8 @@ const SCRIPT_ACTION_ATTACK_WAYPOINT: i32 = 1;
 const SCRIPT_ACTION_MOVE_TO_WAYPOINT: i32 = 3;
 /// 原版 `[ScriptTypes]` 步骤动作码：部署（`argument` 通常未用；对可部署单位下发 `Deploy`）。
 const SCRIPT_ACTION_DEPLOY: i32 = 6;
+/// 原版 `[ScriptTypes]` 步骤动作码：跳转到步骤行（`argument` = 0-based 步骤下标）。
+const SCRIPT_ACTION_JUMP_TO_LINE: i32 = 8;
 
 /// 攻击航点时，在航点曼哈顿距离内搜敌的半径（格）。
 const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
@@ -162,6 +164,16 @@ pub fn tick_script_teams(world: &mut BattleState) {
                     };
                     deploy_orders.push((player.id, id));
                 }
+            }
+            SCRIPT_ACTION_JUMP_TO_LINE => {
+                // `argument` = 目标步骤下标；越界则结束小队脚本。
+                let target = argument.max(0) as usize;
+                if target >= step_count {
+                    remove.push(idx);
+                } else {
+                    world.script_team_runtime.active[idx].step_idx = target;
+                }
+                continue;
             }
             _ => {
                 // 未接线动作：跳过一步，避免卡死整队脚本。
