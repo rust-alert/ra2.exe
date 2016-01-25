@@ -241,3 +241,41 @@ fn create_team_script_action_8_jumps_then_moves() {
         "script action 8 should jump to move step"
     );
 }
+
+#[test]
+fn create_team_script_action_7_clears_move_after_waypoint() {
+    // Steps: move to wp1, then guard (clear destination).
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n1=10010\n\
+[Triggers]\nTR1=Russians,<none>,Reinforce,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=1,4,0,TM1,0,0,0,0,A\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=1,E1\nGroup=-1\n\
+[ScriptTypes]\n0=SC1\n\
+[SC1]\nName=MoveGuard\n0=3,1\n1=7,0\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=SC1\nTaskForce=TF1\nMax=1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "team-guard.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-guard");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+
+    session.tick(&engine.runtime()); // spawn + enqueue MoveTo
+    let id = session
+        .expect_battle()
+        .snapshot(&[])
+        .units
+        .iter()
+        .find(|u| u.type_id.as_ref() == "E1")
+        .map(|u| u.id)
+        .expect("E1");
+    session.tick(&engine.runtime()); // apply MoveTo + run Guard (clears dest)
+    assert_eq!(
+        session.expect_battle().world.ecs_move_destination(id),
+        Some((None, None)),
+        "script action 7 Guard should clear MoveTo destination"
+    );
+}

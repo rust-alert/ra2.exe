@@ -13,6 +13,8 @@ const SCRIPT_ACTION_ATTACK_WAYPOINT: i32 = 1;
 const SCRIPT_ACTION_MOVE_TO_WAYPOINT: i32 = 3;
 /// 原版 `[ScriptTypes]` 步骤动作码：部署（`argument` 通常未用；对可部署单位下发 `Deploy`）。
 const SCRIPT_ACTION_DEPLOY: i32 = 6;
+/// 原版 `[ScriptTypes]` 步骤动作码：驻守区域（清移动目的地与攻击目标，就地警戒）。
+const SCRIPT_ACTION_GUARD_AREA: i32 = 7;
 /// 原版 `[ScriptTypes]` 步骤动作码：跳转到步骤行（`argument` = 0-based 步骤下标）。
 const SCRIPT_ACTION_JUMP_TO_LINE: i32 = 8;
 
@@ -163,6 +165,23 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         continue;
                     };
                     deploy_orders.push((player.id, id));
+                }
+            }
+            SCRIPT_ACTION_GUARD_AREA => {
+                // 就地驻守：清空移动与攻击目标（本 tick 立即生效）。
+                for id in members {
+                    let Some((_, _, dead)) = world.ecs_health(id)
+                    else {
+                        continue;
+                    };
+                    if dead {
+                        continue;
+                    }
+                    let _ = world.clear_ecs_movement(id);
+                    let _ = world.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                    });
                 }
             }
             SCRIPT_ACTION_JUMP_TO_LINE => {
