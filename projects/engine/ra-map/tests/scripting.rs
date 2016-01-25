@@ -42,7 +42,7 @@ fn parse_map_scripting_triggers_and_teams() {
 [ScriptTypes]\n0=SC1\n\
 [SC1]\nName=Move\n0=3,5\n\
 [TeamTypes]\n0=TM1\n\
-[TM1]\nName=Team\nHouse=BadGuy\nScript=SC1\nTaskForce=TF1\nMax=1\n\
+[TM1]\nName=Team\nHouse=BadGuy\nScript=SC1\nTaskForce=TF1\nWaypoint=3\nMax=1\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "t.map", text).unwrap();
     assert_eq!(map.scripting.houses.len(), 2);
@@ -57,6 +57,7 @@ fn parse_map_scripting_triggers_and_teams() {
     assert_eq!(map.scripting.task_forces[0].entries[0].type_id, "E1");
     assert_eq!(map.scripting.script_types[0].steps[0].action, 3);
     assert_eq!(map.scripting.team_types[0].task_force, "TF1");
+    assert_eq!(map.scripting.team_types[0].waypoint, 3);
 }
 
 #[test]

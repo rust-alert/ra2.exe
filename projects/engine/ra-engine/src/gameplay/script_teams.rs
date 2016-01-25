@@ -273,10 +273,14 @@ fn spawn_team_type(
     };
     let house = if team.house.is_empty() { "Neutral" } else { team.house.as_str() };
     world.ensure_house(house);
-    // 航点：优先用脚本参数缺失时的默认 0；TeamType 未建模 waypoint 字段时用 index 0。
-    let (wx, wy) = waypoints
-        .iter()
-        .find(|w| w.index == 0)
+    // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
+    let spawn_wp = if team.waypoint >= 0 {
+        waypoints.iter().find(|w| w.index as i32 == team.waypoint)
+    } else {
+        None
+    };
+    let (wx, wy) = spawn_wp
+        .or_else(|| waypoints.iter().find(|w| w.index == 0))
         .map(|w| (w.x, w.y))
         .or_else(|| waypoints.first().map(|w| (w.x, w.y)))
         .unwrap_or((1, 1));

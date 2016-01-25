@@ -59,6 +59,8 @@ pub struct MapTeamType {
     pub task_force: String,
     /// `Tag=`（可空）。
     pub tag: String,
+    /// `Waypoint=`：产队航点编号；`<0` 表示未指定（运行时回退 index 0）。
+    pub waypoint: i32,
     /// `Max=`。
     pub max: i32,
     /// `Priority=`。
@@ -150,6 +152,7 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
             script: sec.get("Script").unwrap_or("").trim().to_string(),
             task_force: sec.get("TaskForce").unwrap_or("").trim().to_string(),
             tag: sec.get("Tag").unwrap_or("").trim().to_string(),
+            waypoint: sec.get("Waypoint").and_then(|v| v.parse().ok()).unwrap_or(-1),
             max: sec.get("Max").and_then(|v| v.parse().ok()).unwrap_or(0),
             priority: sec.get("Priority").and_then(|v| v.parse().ok()).unwrap_or(0),
             veteran_level: sec.get("VeteranLevel").and_then(|v| v.parse().ok()).unwrap_or(0),

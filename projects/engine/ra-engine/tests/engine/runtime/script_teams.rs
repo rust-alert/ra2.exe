@@ -49,6 +49,32 @@ fn create_team_action_spawns_task_force() {
 }
 
 #[test]
+fn create_team_spawns_at_team_type_waypoint() {
+    // Waypoint 2 = (12,8); TeamType.Waypoint=2 must spawn there (not default WP0).
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n2=8012\n\
+[Triggers]\nTR1=Russians,<none>,Reinforce,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=1,4,0,TM1,0,0,0,0,A\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=1,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nWaypoint=2\nMax=1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "team-wp.map", text).unwrap();
+    assert_eq!(map.scripting.team_types[0].waypoint, 2);
+    assert_eq!(map.waypoints.iter().find(|w| w.index == 2).map(|w| (w.x, w.y)), Some((12, 8)));
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-wp");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let unit = snap.units.iter().find(|u| u.type_id.as_ref() == "E1").expect("reinforced E1");
+    assert_eq!((unit.x, unit.y), (12, 8), "Create Team should spawn at TeamType Waypoint");
+}
+
+#[test]
 fn create_team_script_action_3_orders_move_to_waypoint() {
     // Waypoints: index 0 spawn (5,5); index 1 move target (10,10). Script step action=3,argument=1.
     let text = b"\
