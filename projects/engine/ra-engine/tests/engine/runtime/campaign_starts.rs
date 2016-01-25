@@ -116,6 +116,34 @@ fn open_campaign_keeps_preplaced_mobiles_and_skips_mcv_seed() {
 }
 
 #[test]
+fn open_campaign_seeds_placement_mission_on_identity() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Infantry]\n1=Americans,E1,256,3,3,0,Guard,32\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "mission.map", text).unwrap();
+    assert_eq!(map.entities[0].mission, "Guard");
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans"],
+        0,
+    )
+    .expect("战役应成功开局");
+    let world = &opened.session.expect_battle().world;
+    let id = world.find_entity_id_by_type("E1").expect("E1");
+    assert_eq!(world.ecs_mission(id).as_deref(), Some("Guard"));
+}
+
+#[test]
 fn open_skirmish_still_strips_when_campaign_path_exists() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let opened = open_skirmish_session(

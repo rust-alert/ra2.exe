@@ -453,6 +453,7 @@ impl crate::state::BattleState {
                             entity_id: id,
                             type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                             kind: MapEntityKind::Structure,
+                            mission: String::new(),
                             tag: String::new(),
                         },
                         owner: Owner { house },

@@ -143,6 +143,7 @@ impl BattleState {
                     entity_id: id,
                     type_id: Arc::<str>::from(e.type_id.as_ref()),
                     kind: e.kind,
+                    mission: e.mission.clone(),
                     tag: e.tag.clone(),
                 },
                 owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
@@ -577,6 +578,11 @@ impl BattleState {
         Some((std::sync::Arc::clone(&identity.type_id), identity.kind))
     }
 
+    /// 读取 ECS `Identity.mission`（地图放置任务态；测试与诊断）。
+    pub fn ecs_mission(&self, id: EntityId) -> Option<String> {
+        self.ecs_get::<crate::state::components::Identity>(id).map(|i| i.mission.clone())
+    }
+
     /// 读取 ECS `Owner` 房主名（测试与诊断）。
     pub fn ecs_owner(&self, id: EntityId) -> Option<std::sync::Arc<str>> {
         self.ecs_get::<crate::state::components::Owner>(id).map(|o| std::sync::Arc::clone(&o.house))
@@ -920,6 +926,7 @@ impl BattleState {
                 entity_id: id,
                 type_id: Arc::<str>::from(type_key),
                 kind,
+                mission: String::new(),
                 tag: String::new(),
             },
             owner: Owner { house: Arc::<str>::from(house) },
