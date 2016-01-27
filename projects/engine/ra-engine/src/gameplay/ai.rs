@@ -208,6 +208,14 @@ pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand
         {
             continue;
         }
+        // 地图放置 `mission=Guard`：驻守，不参与 AI 主动追打。
+        if world
+            .ecs_get::<Identity>(id)
+            .map(|i| i.mission.eq_ignore_ascii_case("Guard"))
+            .unwrap_or(false)
+        {
+            continue;
+        }
         let Some(target_index) = nearest_enemy(world, attacker_index, house)
         else {
             continue;
