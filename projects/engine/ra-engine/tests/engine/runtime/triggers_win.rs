@@ -218,6 +218,47 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
 }
 
 #[test]
+fn timer_set_action_rearms_target_timer_win() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TR1=Americans,<none>,Arm Timer,0,1,1,1,0\n\
+TR2=Americans,<none>,Win Later,0,1,1,1,0\n\
+[Events]\n\
+TR1=1,13,0,0\n\
+TR2=1,13,99,0\n\
+[Actions]\n\
+TR1=1,45,0,TR2,2,0,0,0,A\n\
+TR2=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "timer-set.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "timer-set");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // tick0：TR1 将 TR2 计时器设为 2（不立刻胜利）。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    // tick1：TR2 剩余 1。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    // tick2：TR2 归零 → Win。
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
 fn disable_trigger_action_blocks_win_path() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

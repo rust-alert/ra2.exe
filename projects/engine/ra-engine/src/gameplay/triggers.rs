@@ -30,6 +30,7 @@ const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最�
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
 const ACTION_FORCE_TRIGGER: i32 = 40; // 强制执行另一触发器的 Actions（跳过 Events）
+const ACTION_TIMER_SET: i32 = 45; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
 const ACTION_REINFORCEMENT_TEAM: i32 = 80; // 增援 TeamType（与 Create Team 同路径产队）
@@ -312,6 +313,20 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_TIMER_SET => {
+            let Some(ticks) = action_timer_ticks_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            // 目标触发：参数中的 Trigger id；缺省则作用于本触发。
+            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+                st.timer_remaining = Some(ticks);
+                st.fired = false;
+                st.disabled = false;
+            }
+        }
         ACTION_ENABLE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
@@ -511,6 +526,20 @@ fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
         return Some(t.to_string());
     }
     None
+}
+
+/// 从动作参数中取 Timer Set 的 tick 数。
+///
+/// 常见布局：`kind,0,<TriggerId>,<ticks>,…`（ticks 在 `params[2]`）；
+/// 或 `kind,0,<ticks>,…`（无目标 id 时 ticks 在 `params[1]`）。
+fn action_timer_ticks_param(cmd: &MapActionCommand) -> Option<u32> {
+    if let Some(n) = cmd.params.get(2).map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok()) {
+        return Some(n);
+    }
+    if let Some(n) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok()) {
+        return Some(n);
+    }
+    cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok())
 }
 
 fn action_house_param(cmd: &MapActionCommand) -> Option<String> {
