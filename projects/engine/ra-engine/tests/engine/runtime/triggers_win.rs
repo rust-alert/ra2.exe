@@ -198,7 +198,7 @@ TR2=Americans,<none>,Win Body,1,1,1,1,0\n\
 TR1=1,13,0,0\n\
 TR2=1,13,99,0\n\
 [Actions]\n\
-TR1=1,40,0,TR2,0,0,0,0,A\n\
+TR1=1,22,0,TR2,0,0,0,0,A\n\
 TR2=1,1,0,0,0,0,0,0,Americans\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "force.map", text).unwrap();
@@ -230,7 +230,7 @@ TR2=Americans,<none>,Win Later,0,1,1,1,0\n\
 TR1=1,13,0,0\n\
 TR2=1,13,99,0\n\
 [Actions]\n\
-TR1=1,45,0,TR2,2,0,0,0,A\n\
+TR1=1,27,0,TR2,2,0,0,0,A\n\
 TR2=1,1,0,0,0,0,0,0,Americans\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "timer-set.map", text).unwrap();
@@ -385,7 +385,7 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
 [Tags]\nOBJ=0,Target,TRK\n\
 [Triggers]\nTRK=Americans,<none>,Kill Tagged,0,1,1,1,0\n\
 [Events]\nTRK=1,13,0,0\n\
-[Actions]\nTRK=1,5,0,0,0,0,0,0,A\n\
+[Actions]\nTRK=1,32,0,0,0,0,0,0,A\n\
 ";
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-attached.map", text).unwrap();
     map.entities.push(MapEntity {
@@ -417,8 +417,72 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
     assert_eq!(
         session.expect_battle().world.ecs_health(id).map(|(_, _, d)| d),
         Some(true),
-        "action 5 should destroy Tag-bound objects"
+        "action 32 should destroy Tag-bound objects"
     );
+}
+
+#[test]
+fn destroy_team_action_kills_spawned_team_members() {
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Americans\nScript=\nTaskForce=TF1\nMax=1\n\
+[Triggers]\n\
+TR1=Americans,<none>,Spawn,0,1,1,1,0\n\
+TR2=Americans,<none>,Wipe,0,1,1,1,0\n\
+[Events]\n\
+TR1=1,13,0,0\n\
+TR2=1,13,2,0\n\
+[Actions]\n\
+TR1=1,4,0,TM1,0,0,0,0,A\n\
+TR2=1,5,0,TM1,0,0,0,0,A\n\
+";
+    let rules = {
+        let doc = IniDocument::parse(
+            b"[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Americans\n",
+        )
+        .unwrap();
+        RulesSystem {
+            edition: GameEdition::Ra2,
+            rules: doc.clone(),
+            art: IniDocument::default(),
+            overlay_types: OverlayTypeRegistry::default(),
+            color_schemes: ColorSchemes::default(),
+            countries: CountryRegistry::default(),
+            techno_types: TechnoTypeRegistry::from_rules(&doc),
+            warheads: WarheadRegistry::default(),
+        }
+    };
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-team.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "destroy-team");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    let living = session
+        .expect_battle()
+        .snapshot(&[])
+        .units
+        .iter()
+        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
+        .count();
+    assert!(living >= 1, "Create Team should spawn members before Destroy Team");
+
+    session.tick(&engine.runtime());
+    let living_after = session
+        .expect_battle()
+        .snapshot(&[])
+        .units
+        .iter()
+        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
+        .count();
+    assert_eq!(living_after, 0, "action 5 should destroy spawned TeamType members");
 }
 
 #[test]

@@ -24,6 +24,7 @@ const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
 /// 已生成、仍在执行 Script 的小队。
 #[derive(Debug, Clone)]
 struct ActiveScriptTeam {
+    team_type_id: String,
     members: Vec<EntityId>,
     script_id: String,
     step_idx: usize,
@@ -68,6 +69,10 @@ pub fn tick_script_teams(world: &mut BattleState) {
         .iter()
         .enumerate()
         .map(|(idx, team)| {
+            // 无 Script 的队仅驻留供 Destroy Team 回收，不推进。
+            if team.script_id.is_empty() {
+                return (idx, Some((i32::MIN, 0)), Vec::new(), 0);
+            }
             let Some(script) = scripts.iter().find(|s| s.id.eq_ignore_ascii_case(&team.script_id))
             else {
                 return (idx, None, Vec::new(), team.step_idx);
@@ -97,6 +102,10 @@ pub fn tick_script_teams(world: &mut BattleState) {
             continue;
         };
         match action {
+            i32::MIN => {
+                // 无 Script 驻留队：本 tick 不推进。
+                continue;
+            }
             SCRIPT_ACTION_ATTACK_WAYPOINT => {
                 // `argument` = 航点编号；对航点附近最近敌方下发 `Attack`。
                 if let Some(wp) = waypoints.iter().find(|w| w.index as i32 == argument) {
@@ -317,9 +326,42 @@ fn spawn_team_type(
 
     if !members.is_empty() && !team.script.is_empty() {
         world.script_team_runtime.active.push(ActiveScriptTeam {
+            team_type_id: team.id.clone(),
             members,
             script_id: team.script.clone(),
             step_idx: 0,
         });
+    } else if !members.is_empty() {
+        // 无 Script 时仍登记，便于 Destroy Team 回收。
+        world.script_team_runtime.active.push(ActiveScriptTeam {
+            team_type_id: team.id.clone(),
+            members,
+            script_id: String::new(),
+            step_idx: 0,
+        });
+    }
+}
+
+/// 销毁指定 `TeamType`：取消排队产队，并击杀已生成实例、移出脚本队表。
+pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: &str) {
+    world
+        .trigger_runtime
+        .pending_team_spawns
+        .retain(|id| !id.eq_ignore_ascii_case(team_id));
+    let mut kill = Vec::new();
+    world.script_team_runtime.active.retain(|team| {
+        if team.team_type_id.eq_ignore_ascii_case(team_id) {
+            kill.extend(team.members.iter().copied());
+            false
+        } else {
+            true
+        }
+    });
+    for id in kill {
+        if world.ecs_health(id).map(|(_, _, d)| d).unwrap_or(true) {
+            continue;
+        }
+        let max = world.ecs_health(id).map(|(_, m, _)| m).unwrap_or(1).max(1);
+        let _ = world.set_ecs_health(id, 0, max, true);
     }
 }

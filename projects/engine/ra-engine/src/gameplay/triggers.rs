@@ -20,20 +20,22 @@ const EVENT_TIME_ELAPSE: i32 = 13; // 计时结束（params[0] 为初始 tick �
 
 /// 零售地图 `[Actions]` 动作类型码（竖切已接线子集）。
 ///
-/// 编号与原版 RA2 触发动作表一致；未列出的 kind 记入 `unsupported_actions`。
+/// 编号与原版 RA2/YR 触发动作表一致；未列出的 kind 记入 `unsupported_actions`。
 const ACTION_NONE: i32 = 0; // 无操作
 const ACTION_WIN: i32 = 1; // 指定 house 胜利
 const ACTION_LOSE: i32 = 2; // 失败（可带原因/house 参数）
 const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce）
-const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 5; // 摧毁绑定本触发 Tag 的存活实体
+const ACTION_DESTROY_TEAM: i32 = 5; // 销毁指定 TeamType（排队与已生成实例）
 const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最近敌方
+const ACTION_REINFORCEMENT: i32 = 7; // 增援 TeamType（与 Create Team 同路径产队）
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
-const ACTION_FORCE_TRIGGER: i32 = 40; // 强制执行另一触发器的 Actions（跳过 Events）
-const ACTION_TIMER_SET: i32 = 45; // 将目标触发器的计时器设为指定 tick（并可再次触发）
+const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
+const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
+const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
-const ACTION_REINFORCEMENT_TEAM: i32 = 80; // 增援 TeamType（与 Create Team 同路径产队）
+const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
 
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
@@ -271,12 +273,19 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let reason = action_house_param(cmd).unwrap_or_default();
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Defeat { reason });
         }
-        ACTION_CREATE_TEAM | ACTION_REINFORCEMENT_TEAM => {
+        ACTION_CREATE_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT => {
             if let Some(team) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
             } else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
             {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
+            } else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        ACTION_DESTROY_TEAM => {
+            if let Some(team) = action_team_id_param(cmd) {
+                super::script_teams::destroy_team_type(world, &team);
             } else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
@@ -526,6 +535,18 @@ fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
         return Some(t.to_string());
     }
     None
+}
+
+/// Create Team / Destroy Team / Reinforcement：TeamType id（通常在 `params[1]`）。
+fn action_team_id_param(cmd: &MapActionCommand) -> Option<String> {
+    if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
+        return Some(id.to_string());
+    }
+    cmd.params
+        .first()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
+        .map(|s| s.to_string())
 }
 
 /// 从动作参数中取 Timer Set 的 tick 数。

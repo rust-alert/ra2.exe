@@ -20,29 +20,33 @@ pub struct MapCapabilityGap {
 /// | 1 | Win 胜利 |
 /// | 2 | Lose 失败 |
 /// | 4 | Create Team 创建小队 |
-/// | 5 | Destroy Attached Objects 摧毁绑定对象 |
+/// | 5 | Destroy Team 销毁小队 |
 /// | 6 | All to Hunt 全员追击 |
+/// | 7 | Reinforcement 增援小队 |
 /// | 12 | Destroy Trigger 销毁触发器 |
 /// | 14 | Change House 改属阵营 |
-/// | 40 | Force Trigger 强制触发 |
-/// | 45 | Timer Set 设置计时器 |
+/// | 22 | Force Trigger 强制触发 |
+/// | 27 | Timer Set 设置计时器 |
+/// | 32 | Destroy Attached Objects 摧毁绑定对象 |
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
-/// | 80 | Reinforcement Team 增援小队 |
+/// | 80 | Reinforcement（航点）增援小队 |
 const SUPPORTED_ACTION_KINDS: &[i32] = &[
     0,  // None
     1,  // Win
     2,  // Lose
     4,  // Create Team
-    5,  // Destroy Attached Objects
+    5,  // Destroy Team
     6,  // All to Hunt
+    7,  // Reinforcement
     12, // Destroy Trigger
     14, // Change House
-    40, // Force Trigger
-    45, // Timer Set
+    22, // Force Trigger
+    27, // Timer Set
+    32, // Destroy Attached Objects
     53, // Enable Trigger
     54, // Disable Trigger
-    80, // Reinforcement Team
+    80, // Reinforcement at waypoint
 ];
 
 /// 根据地图剧本数据生成能力缺口（不静默半可玩）。
