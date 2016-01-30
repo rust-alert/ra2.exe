@@ -55,6 +55,43 @@ fn timer_trigger_fires_win_on_campaign() {
 }
 
 #[test]
+fn allow_win_blocks_until_cleared() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TRW=Americans,<none>,Try Win,0,1,1,1,0\n\
+TRA=Americans,<none>,Allow,0,1,1,1,0\n\
+[Events]\n\
+TRW=1,13,0,0\n\
+TRA=1,13,2,0\n\
+[Actions]\n\
+TRW=1,1,0,0,0,0,0,0,Americans\n\
+TRA=1,15,0,0,0,0,0,0,A\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "allow-win.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "allow-win");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // tick0：Win 触发但 Allow Win 阻塞，延后胜利。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    // tick1：Allow Win 清阻塞 → 兑现延后胜利。
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
 fn cell_tag_entered_fires_win_on_campaign() {
     use ra_map::{MapEntity, MapEntityKind};
 

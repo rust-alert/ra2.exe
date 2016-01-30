@@ -25,6 +25,7 @@ pub struct MapCapabilityGap {
 /// | 7 | Reinforcement 增援小队 |
 /// | 12 | Destroy Trigger 销毁触发器 |
 /// | 14 | Change House 改属阵营 |
+/// | 15 | Allow Win 允许胜利 |
 /// | 22 | Force Trigger 强制触发 |
 /// | 27 | Timer Set 设置计时器 |
 /// | 32 | Destroy Attached Objects 摧毁绑定对象 |
@@ -41,6 +42,7 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     7,  // Reinforcement
     12, // Destroy Trigger
     14, // Change House
+    15, // Allow Win
     22, // Force Trigger
     27, // Timer Set
     32, // Destroy Attached Objects

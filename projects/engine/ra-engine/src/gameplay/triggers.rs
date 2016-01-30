@@ -30,6 +30,7 @@ const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最�
 const ACTION_REINFORCEMENT: i32 = 7; // 增援 TeamType（与 Create Team 同路径产队）
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
+const ACTION_ALLOW_WIN: i32 = 15; // 解除一层胜利阻塞（地图内含此动作的触发数 = 初始阻塞层数）
 const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
 const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
@@ -57,6 +58,10 @@ pub struct TriggerRuntime {
     pub pending_team_spawns: Vec<String>,
     /// 本 tick 请求的剧本胜负（由 BattleSession 消费）。
     pub pending_outcome: Option<BattleOutcome>,
+    /// 胜利阻塞层数：开局等于含 `Allow Win` 动作的触发条数；归零后 `Win` 才生效。
+    win_blockers: u32,
+    /// `Win` 在阻塞未清时记下的获胜 house；阻塞归零后写入 `pending_outcome`。
+    deferred_victory_house: Option<String>,
 }
 
 impl TriggerRuntime {
@@ -83,6 +88,8 @@ impl TriggerRuntime {
             unsupported_actions: Vec::new(),
             pending_team_spawns: Vec::new(),
             pending_outcome: None,
+            win_blockers: count_allow_win_actions(scripting),
+            deferred_victory_house: None,
         }
     }
 
@@ -209,6 +216,15 @@ fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String
         .collect()
 }
 
+/// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。
+fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
+    scripting
+        .actions
+        .iter()
+        .filter(|a| a.commands.iter().any(|c| c.kind == ACTION_ALLOW_WIN))
+        .count() as u32
+}
+
 fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
     for e in &world.entities {
         let id = e.id;
@@ -267,11 +283,25 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
     match cmd.kind {
         ACTION_WIN => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            if world.trigger_runtime.win_blockers > 0 {
+                // 仍有 Allow Win 阻塞：延后胜利，待阻塞清零。
+                world.trigger_runtime.deferred_victory_house = Some(house);
+                return;
+            }
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Victory { owner: house });
         }
         ACTION_LOSE => {
             let reason = action_house_param(cmd).unwrap_or_default();
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Defeat { reason });
+        }
+        ACTION_ALLOW_WIN => {
+            world.trigger_runtime.win_blockers = world.trigger_runtime.win_blockers.saturating_sub(1);
+            if world.trigger_runtime.win_blockers == 0 {
+                if let Some(house) = world.trigger_runtime.deferred_victory_house.take() {
+                    world.trigger_runtime.pending_outcome =
+                        Some(BattleOutcome::Victory { owner: house });
+                }
+            }
         }
         ACTION_CREATE_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT => {
             if let Some(team) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()) {
