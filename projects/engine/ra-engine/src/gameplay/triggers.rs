@@ -34,6 +34,8 @@ const ACTION_ALLOW_WIN: i32 = 15; // 解除一层胜利阻塞（地图内含此�
 const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
 const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
+const ACTION_MAKE_ALLY: i32 = 37; // 本触发所属 house 与参数 house 结盟
+const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解盟（视为敌对）
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
@@ -225,6 +227,41 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
         .count() as u32
 }
 
+/// 查找触发器所属 house（`[Triggers]` 行首字段）。
+fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
+    world
+        .map
+        .scripting
+        .triggers
+        .iter()
+        .find(|t| t.id.eq_ignore_ascii_case(trigger_id))
+        .map(|t| t.house.clone())
+        .filter(|h| !h.is_empty())
+}
+
+/// 双向结盟或解盟：写入双方 `PlayerState.allies`。
+fn set_houses_allied(world: &mut BattleState, a: &str, b: &str, allied: bool) {
+    if a.eq_ignore_ascii_case(b) {
+        return;
+    }
+    world.ensure_house(a);
+    world.ensure_house(b);
+    for (house, other) in [(a, b), (b, a)] {
+        let Some(player) = world.players.iter_mut().find(|p| p.house.as_ref().eq_ignore_ascii_case(house))
+        else {
+            continue;
+        };
+        if allied {
+            if !player.allies.iter().any(|x| x.eq_ignore_ascii_case(other)) {
+                player.allies.push(other.to_string());
+            }
+        } else {
+            player.allies.retain(|x| !x.eq_ignore_ascii_case(other));
+        }
+    }
+    world.rehash();
+}
+
 fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
     for e in &world.entities {
         let id = e.id;
@@ -344,6 +381,24 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 return;
             };
             change_attached_objects_house(world, trigger_id, &new_house);
+        }
+        ACTION_MAKE_ALLY => {
+            let Some(other) = action_house_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            let owner = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
+            set_houses_allied(world, &owner, &other, true);
+        }
+        ACTION_MAKE_ENEMY => {
+            let Some(other) = action_house_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            let owner = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
+            set_houses_allied(world, &owner, &other, false);
         }
         ACTION_FORCE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {

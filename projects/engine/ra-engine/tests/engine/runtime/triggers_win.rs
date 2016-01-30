@@ -92,6 +92,48 @@ TRA=1,15,0,0,0,0,0,0,A\n\
 }
 
 #[test]
+fn make_ally_and_make_enemy_update_house_allies() {
+    use ra_engine::houses_are_allied;
+
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nPlayerControl=no\n\
+[Triggers]\n\
+TRA=Americans,<none>,Ally,0,1,1,1,0\n\
+TRE=Americans,<none>,Enemy,0,1,1,1,0\n\
+[Events]\n\
+TRA=1,13,0,0\n\
+TRE=1,13,2,0\n\
+[Actions]\n\
+TRA=1,37,0,0,0,0,0,0,Russians\n\
+TRE=1,38,0,0,0,0,0,0,Russians\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ally.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "ally");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    assert!(!houses_are_allied(&session.expect_battle().world, "Americans", "Russians"));
+
+    session.tick(&engine.runtime());
+    assert!(
+        houses_are_allied(&session.expect_battle().world, "Americans", "Russians"),
+        "action 37 should ally trigger house with param house"
+    );
+
+    session.tick(&engine.runtime());
+    assert!(
+        !houses_are_allied(&session.expect_battle().world, "Americans", "Russians"),
+        "action 38 should break the alliance"
+    );
+}
+
+#[test]
 fn cell_tag_entered_fires_win_on_campaign() {
     use ra_map::{MapEntity, MapEntityKind};
 

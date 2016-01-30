@@ -29,6 +29,8 @@ pub struct MapCapabilityGap {
 /// | 22 | Force Trigger 强制触发 |
 /// | 27 | Timer Set 设置计时器 |
 /// | 32 | Destroy Attached Objects 摧毁绑定对象 |
+/// | 37 | Make Ally 结盟 |
+/// | 38 | Make Enemy 解盟 |
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
 /// | 80 | Reinforcement（航点）增援小队 |
@@ -46,6 +48,8 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     22, // Force Trigger
     27, // Timer Set
     32, // Destroy Attached Objects
+    37, // Make Ally
+    38, // Make Enemy
     53, // Enable Trigger
     54, // Disable Trigger
     80, // Reinforcement at waypoint
