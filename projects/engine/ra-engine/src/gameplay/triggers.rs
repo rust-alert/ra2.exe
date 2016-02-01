@@ -34,6 +34,7 @@ const ACTION_ALLOW_WIN: i32 = 15; // 解除一层胜利阻塞（地图内含此�
 const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
 const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
+const ACTION_ALL_CHANGE_HOUSE: i32 = 36; // 本触发所属 house 的全部存活实体改属参数 house
 const ACTION_MAKE_ALLY: i32 = 37; // 本触发所属 house 与参数 house 结盟
 const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解盟（视为敌对）
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
@@ -400,6 +401,15 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let owner = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
             set_houses_allied(world, &owner, &other, false);
         }
+        ACTION_ALL_CHANGE_HOUSE => {
+            let Some(new_house) = action_house_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            let from = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
+            change_all_house_entities(world, &from, &new_house);
+        }
         ACTION_FORCE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 force_fire_trigger(world, &id, local_house);
@@ -462,6 +472,33 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_
             world
                 .ecs_get::<Identity>(id)
                 .map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag))
+                .unwrap_or(false)
+        })
+        .collect();
+    for id in ids {
+        let _ = world.with_owner_mut(id, |owner| {
+            owner.house = std::sync::Arc::<str>::from(new_house);
+        });
+    }
+}
+
+/// 将 `from_house` 名下全部存活实体改属 `new_house`。
+fn change_all_house_entities(world: &mut BattleState, from_house: &str, new_house: &str) {
+    if from_house.eq_ignore_ascii_case(new_house) {
+        return;
+    }
+    world.ensure_house(new_house);
+    let ids: Vec<_> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            world
+                .ecs_get::<Owner>(id)
+                .map(|o| o.house.eq_ignore_ascii_case(from_house))
                 .unwrap_or(false)
         })
         .collect();

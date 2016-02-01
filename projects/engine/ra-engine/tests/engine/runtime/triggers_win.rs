@@ -134,6 +134,67 @@ TRE=1,38,0,0,0,0,0,0,Russians\n\
 }
 
 #[test]
+fn all_change_house_reassigns_entire_house() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nPlayerControl=no\n\
+[Triggers]\nTRC=Russians,<none>,Defect,0,1,1,1,0\n\
+[Events]\nTRC=1,13,0,0\n\
+[Actions]\nTRC=1,36,0,0,0,0,0,0,Americans\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "all-house.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 5,
+        y: 5,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "all-house");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    let owners: Vec<_> = session
+        .expect_battle()
+        .snapshot(&[])
+        .units
+        .iter()
+        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
+        .map(|u| u.owner.to_string())
+        .collect();
+    assert!(!owners.is_empty());
+    assert!(
+        owners.iter().all(|o| o.eq_ignore_ascii_case("Americans")),
+        "action 36 should reassign all entities of the trigger house: {owners:?}"
+    );
+}
+
+#[test]
 fn cell_tag_entered_fires_win_on_campaign() {
     use ra_map::{MapEntity, MapEntityKind};
 
