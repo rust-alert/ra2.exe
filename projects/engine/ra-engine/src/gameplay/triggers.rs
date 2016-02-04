@@ -28,9 +28,15 @@ const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce�
 const ACTION_DESTROY_TEAM: i32 = 5; // 销毁指定 TeamType（排队与已生成实例）
 const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最近敌方
 const ACTION_REINFORCEMENT: i32 = 7; // 增援 TeamType（与 Create Team 同路径产队）
+const ACTION_DROP_ZONE_FLARE: i32 = 8; // 投放区照明弹（竖切：无呈现，已记账不拒开局）
+const ACTION_PLAY_MOVIE: i32 = 10; // 播放全屏影片（竖切：无呈现，已记账不拒开局）
+const ACTION_TEXT_TRIGGER: i32 = 11; // 屏幕文字（竖切：无呈现，已记账不拒开局）
 const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
 const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
 const ACTION_ALLOW_WIN: i32 = 15; // 解除一层胜利阻塞（地图内含此动作的触发数 = 初始阻塞层数）
+const ACTION_PLAY_SOUND: i32 = 19; // 播放音效（竖切：无音频，已记账不拒开局）
+const ACTION_PLAY_THEME: i32 = 20; // 播放主题音乐（竖切：无音频，已记账不拒开局）
+const ACTION_PLAY_SPEECH: i32 = 21; // 播放语音（竖切：无音频，已记账不拒开局）
 const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
 const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
@@ -40,6 +46,8 @@ const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解�
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
+const ACTION_PLAY_SOUND_EFFECT: i32 = 98; // 播放音效（与 19 同类，竖切 no-op）
+const ACTION_TIMER_TEXT: i32 = 103; // 计时器文字（竖切：无 UI，已记账不拒开局）
 
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
@@ -449,7 +457,15 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_NONE => {}
+        ACTION_NONE
+        | ACTION_DROP_ZONE_FLARE
+        | ACTION_PLAY_MOVIE
+        | ACTION_TEXT_TRIGGER
+        | ACTION_PLAY_SOUND
+        | ACTION_PLAY_THEME
+        | ACTION_PLAY_SPEECH
+        | ACTION_PLAY_SOUND_EFFECT
+        | ACTION_TIMER_TEXT => {}
         other => world.trigger_runtime.record_unsupported(other),
     }
 }

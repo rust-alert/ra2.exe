@@ -87,6 +87,23 @@ fn capability_gaps_report_unsupported_actions() {
 }
 
 #[test]
+fn cosmetic_trigger_actions_are_supported_noops() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Triggers]\nTR1=Americans,<none>,FX,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=4,11,0,0,0,0,0,0,A,21,0,0,0,0,0,0,A,19,0,0,0,0,0,0,A,103,0,0,0,0,0,0,A\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "fx.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(
+        gaps.iter().all(|g| !g.code.starts_with("map.action.")),
+        "cosmetic actions must not block: {gaps:?}"
+    );
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
+}
+
+#[test]
 fn parse_ai_trigger_inline_csv() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

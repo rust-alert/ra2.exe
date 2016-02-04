@@ -23,9 +23,15 @@ pub struct MapCapabilityGap {
 /// | 5 | Destroy Team 销毁小队 |
 /// | 6 | All to Hunt 全员追击 |
 /// | 7 | Reinforcement 增援小队 |
+/// | 8 | Drop Zone Flare（无呈现 no-op） |
+/// | 10 | Play Movie（无呈现 no-op） |
+/// | 11 | Text Trigger（无呈现 no-op） |
 /// | 12 | Destroy Trigger 销毁触发器 |
 /// | 14 | Change House 改属阵营 |
 /// | 15 | Allow Win 允许胜利 |
+/// | 19 | Play Sound（无音频 no-op） |
+/// | 20 | Play Theme（无音频 no-op） |
+/// | 21 | Play Speech（无音频 no-op） |
 /// | 22 | Force Trigger 强制触发 |
 /// | 27 | Timer Set 设置计时器 |
 /// | 32 | Destroy Attached Objects 摧毁绑定对象 |
@@ -35,26 +41,36 @@ pub struct MapCapabilityGap {
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
 /// | 80 | Reinforcement（航点）增援小队 |
+/// | 98 | Play Sound Effect（无音频 no-op） |
+/// | 103 | Timer Text（无 UI no-op） |
 const SUPPORTED_ACTION_KINDS: &[i32] = &[
-    0,  // None
-    1,  // Win
-    2,  // Lose
-    4,  // Create Team
-    5,  // Destroy Team
-    6,  // All to Hunt
-    7,  // Reinforcement
-    12, // Destroy Trigger
-    14, // Change House
-    15, // Allow Win
-    22, // Force Trigger
-    27, // Timer Set
-    32, // Destroy Attached Objects
-    36, // All Change House
-    37, // Make Ally
-    38, // Make Enemy
-    53, // Enable Trigger
-    54, // Disable Trigger
-    80, // Reinforcement at waypoint
+    0,   // None
+    1,   // Win
+    2,   // Lose
+    4,   // Create Team
+    5,   // Destroy Team
+    6,   // All to Hunt
+    7,   // Reinforcement
+    8,   // Drop Zone Flare (no-op)
+    10,  // Play Movie (no-op)
+    11,  // Text Trigger (no-op)
+    12,  // Destroy Trigger
+    14,  // Change House
+    15,  // Allow Win
+    19,  // Play Sound (no-op)
+    20,  // Play Theme (no-op)
+    21,  // Play Speech (no-op)
+    22,  // Force Trigger
+    27,  // Timer Set
+    32,  // Destroy Attached Objects
+    36,  // All Change House
+    37,  // Make Ally
+    38,  // Make Enemy
+    53,  // Enable Trigger
+    54,  // Disable Trigger
+    80,  // Reinforcement at waypoint
+    98,  // Play Sound Effect (no-op)
+    103, // Timer Text (no-op)
 ];
 
 /// 根据地图剧本数据生成能力缺口（不静默半可玩）。
