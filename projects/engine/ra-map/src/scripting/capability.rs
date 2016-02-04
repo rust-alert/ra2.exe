@@ -43,6 +43,9 @@ pub struct MapCapabilityGap {
 /// | 80 | Reinforcement（航点）增援小队 |
 /// | 98 | Play Sound Effect（无音频 no-op） |
 /// | 103 | Timer Text（无 UI no-op） |
+/// | 119 | Destroy all of 摧毁阵营全部 |
+/// | 120 | Destroy all Buildings of 摧毁阵营建筑 |
+/// | 121 | Destroy all Land Units of 摧毁阵营陆上单位 |
 const SUPPORTED_ACTION_KINDS: &[i32] = &[
     0,   // None
     1,   // Win
@@ -71,6 +74,9 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     80,  // Reinforcement at waypoint
     98,  // Play Sound Effect (no-op)
     103, // Timer Text (no-op)
+    119, // Destroy all of
+    120, // Destroy all Buildings of
+    121, // Destroy all Land Units of
 ];
 
 /// 根据地图剧本数据生成能力缺口（不静默半可玩）。

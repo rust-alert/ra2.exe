@@ -195,6 +195,79 @@ fn all_change_house_reassigns_entire_house() {
 }
 
 #[test]
+fn destroy_all_of_house_kills_living_entities() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nPlayerControl=no\n\
+[Triggers]\nTRD=Americans,<none>,Wipe,0,1,1,1,0\n\
+[Events]\nTRD=1,13,0,0\n\
+[Actions]\nTRD=1,119,0,0,0,0,0,0,Russians\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "wipe.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Russians".into(),
+        type_id: "NACNST".into(),
+        health: 256,
+        x: 3,
+        y: 3,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Americans".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 6,
+        y: 6,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "wipe");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    session.expect_battle_mut().world.ensure_house("Russians");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let russians_alive = snap
+        .units
+        .iter()
+        .filter(|u| u.owner.eq_ignore_ascii_case("Russians") && !u.dead)
+        .count();
+    let americans_alive = snap
+        .units
+        .iter()
+        .filter(|u| u.owner.eq_ignore_ascii_case("Americans") && !u.dead)
+        .count();
+    assert_eq!(russians_alive, 0, "action 119 should wipe the target house");
+    assert!(americans_alive >= 1, "other houses must remain");
+}
+
+#[test]
 fn cell_tag_entered_fires_win_on_campaign() {
     use ra_map::{MapEntity, MapEntityKind};
 

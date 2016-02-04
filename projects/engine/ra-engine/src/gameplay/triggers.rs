@@ -48,6 +48,9 @@ const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
 const ACTION_PLAY_SOUND_EFFECT: i32 = 98; // 播放音效（与 19 同类，竖切 no-op）
 const ACTION_TIMER_TEXT: i32 = 103; // 计时器文字（竖切：无 UI，已记账不拒开局）
+const ACTION_DESTROY_ALL_OF: i32 = 119; // 摧毁指定 house 的全部存活实体
+const ACTION_DESTROY_ALL_BUILDINGS_OF: i32 = 120; // 摧毁指定 house 的全部建筑
+const ACTION_DESTROY_ALL_LAND_UNITS_OF: i32 = 121; // 摧毁指定 house 的全部陆上机动单位（步兵+载具）
 
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
@@ -418,6 +421,18 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let from = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
             change_all_house_entities(world, &from, &new_house);
         }
+        ACTION_DESTROY_ALL_OF => {
+            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            destroy_house_entities(world, &house, DestroyHouseFilter::All);
+        }
+        ACTION_DESTROY_ALL_BUILDINGS_OF => {
+            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            destroy_house_entities(world, &house, DestroyHouseFilter::Buildings);
+        }
+        ACTION_DESTROY_ALL_LAND_UNITS_OF => {
+            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
+            destroy_house_entities(world, &house, DestroyHouseFilter::LandUnits);
+        }
         ACTION_FORCE_TRIGGER => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 force_fire_trigger(world, &id, local_house);
@@ -522,6 +537,49 @@ fn change_all_house_entities(world: &mut BattleState, from_house: &str, new_hous
         let _ = world.with_owner_mut(id, |owner| {
             owner.house = std::sync::Arc::<str>::from(new_house);
         });
+    }
+}
+
+/// 按种类过滤摧毁指定 house 实体。
+#[derive(Clone, Copy)]
+enum DestroyHouseFilter {
+    All,
+    Buildings,
+    LandUnits,
+}
+
+fn destroy_house_entities(world: &mut BattleState, house: &str, filter: DestroyHouseFilter) {
+    let ids: Vec<_> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !world
+                .ecs_get::<Owner>(id)
+                .map(|o| o.house.eq_ignore_ascii_case(house))
+                .unwrap_or(false)
+            {
+                return false;
+            }
+            let Some(identity) = world.ecs_get::<Identity>(id)
+            else {
+                return false;
+            };
+            match filter {
+                DestroyHouseFilter::All => true,
+                DestroyHouseFilter::Buildings => identity.kind == MapEntityKind::Structure,
+                DestroyHouseFilter::LandUnits => {
+                    matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry)
+                }
+            }
+        })
+        .collect();
+    for id in ids {
+        let max = world.ecs_health(id).map(|(_, m, _)| m).unwrap_or(1).max(1);
+        let _ = world.set_ecs_health(id, 0, max, true);
     }
 }
 
