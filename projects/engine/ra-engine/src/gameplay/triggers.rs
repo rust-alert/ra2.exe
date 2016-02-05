@@ -45,6 +45,8 @@ const ACTION_MAKE_ALLY: i32 = 37; // 本触发所属 house 与参数 house 结�
 const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解盟（视为敌对）
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
+const ACTION_AI_TRIGGERS_BEGIN: i32 = 74; // 启用 AITrigger（可带 house；空则全局）
+const ACTION_AI_TRIGGERS_STOP: i32 = 75; // 停用 AITrigger（可带 house；空则全局）
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
 const ACTION_PLAY_SOUND_EFFECT: i32 = 98; // 播放音效（与 19 同类，竖切 no-op）
 const ACTION_TIMER_TEXT: i32 = 103; // 计时器文字（竖切：无 UI，已记账不拒开局）
@@ -470,6 +472,19 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 }
             } else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        ACTION_AI_TRIGGERS_BEGIN => {
+            let house = action_house_param(cmd);
+            super::ai_triggers::set_ai_triggers_for_house(world, house.as_deref(), true);
+            world.ai_trigger_runtime.enabled = true;
+        }
+        ACTION_AI_TRIGGERS_STOP => {
+            let house = action_house_param(cmd);
+            if house.is_none() {
+                world.ai_trigger_runtime.enabled = false;
+            } else {
+                super::ai_triggers::set_ai_triggers_for_house(world, house.as_deref(), false);
             }
         }
         ACTION_NONE

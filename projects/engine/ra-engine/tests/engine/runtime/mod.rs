@@ -9,6 +9,7 @@ mod battle_stats;
 mod campaign_starts;
 mod pause;
 mod script_teams;
+mod ai_triggers;
 mod triggers_win;
 mod reject;
 mod schedule;

@@ -40,6 +40,8 @@ pub struct MapCapabilityGap {
 /// | 38 | Make Enemy 解盟 |
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
+/// | 74 | AI triggers begin 启用 AITrigger |
+/// | 75 | AI triggers stop 停用 AITrigger |
 /// | 80 | Reinforcement（航点）增援小队 |
 /// | 98 | Play Sound Effect（无音频 no-op） |
 /// | 103 | Timer Text（无 UI no-op） |
@@ -71,6 +73,8 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     38,  // Make Enemy
     53,  // Enable Trigger
     54,  // Disable Trigger
+    74,  // AI triggers begin
+    75,  // AI triggers stop
     80,  // Reinforcement at waypoint
     98,  // Play Sound Effect (no-op)
     103, // Timer Text (no-op)
@@ -108,24 +112,16 @@ fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
             });
         }
     }
-    if !scripting.ai_triggers.is_empty() {
-        out.push(MapCapabilityGap {
-            code: "map.aitrigger unsupported".into(),
-            message: format!(
-                "地图含 {} 条 AITriggerTypes，当前引擎未执行",
-                scripting.ai_triggers.len()
-            ),
-        });
-    }
+    // AITriggerTypes 已由引擎 `tick_ai_triggers` 最小执行，不再报告为开局阻塞缺口。
     out
 }
 
-/// 战役开局：存在未接线动作或 AITrigger 时返回拒绝说明。
+/// 战役开局：存在未接线动作时返回拒绝说明。
 pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
     let reports = map_scripting_capability_gaps(map);
     let blocking: Vec<&MapCapabilityGap> = reports
         .iter()
-        .filter(|r| r.code.starts_with("map.action.") || r.code.starts_with("map.aitrigger"))
+        .filter(|r| r.code.starts_with("map.action."))
         .collect();
     if blocking.is_empty() {
         return None;

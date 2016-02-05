@@ -1,4 +1,4 @@
-//! `[AITriggerTypes]` 解析（执行后置；有条目则报告能力缺口）。
+//! `[AITriggerTypes]` 解析（引擎侧 `tick_ai_triggers` 最小执行产队）。
 
 use ra_assets::IniDocument;
 

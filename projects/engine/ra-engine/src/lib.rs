@@ -22,13 +22,13 @@ pub use game::{
     evaluate_build_availability, evaluate_produce_availability, living_structure_type_keys, AnimState,
     BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject,
     CommandRejectReason, DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
-    RenderSnapshot, SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, decode_command,
-    decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command,
+    PlayerBattleStats, RenderSnapshot, SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
+    decode_command, decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command,
     encode_commands, encode_scheduled,
 };
 pub use gameplay::{
-    houses_are_allied, LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm, tick_lightning_storm,
-    tick_triggers,
+    houses_are_allied, AiTriggerRuntime, LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm,
+    tick_lightning_storm, tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};

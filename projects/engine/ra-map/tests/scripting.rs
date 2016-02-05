@@ -82,7 +82,10 @@ fn capability_gaps_report_unsupported_actions() {
     assert_eq!(map.scripting.ai_triggers[0].id, "AI1");
     let gaps = ra_map::map_scripting_capability_gaps(&map);
     assert!(gaps.iter().any(|g| g.code.contains("map.action.99")), "{gaps:?}");
-    assert!(gaps.iter().any(|g| g.code == "map.aitrigger unsupported"), "{gaps:?}");
+    assert!(
+        gaps.iter().all(|g| g.code != "map.aitrigger unsupported"),
+        "AITriggerTypes must not block after minimal execution: {gaps:?}"
+    );
     assert!(ra_map::campaign_blocking_capability_message(&map).is_some());
 }
 

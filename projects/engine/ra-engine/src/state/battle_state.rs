@@ -107,6 +107,8 @@ pub struct BattleState {
     pub trigger_runtime: crate::gameplay::TriggerRuntime,
     /// 小队 ScriptTypes 运行时。
     pub script_team_runtime: crate::gameplay::ScriptTeamRuntime,
+    /// 地图 AITriggerTypes 运行时。
+    pub ai_trigger_runtime: crate::gameplay::AiTriggerRuntime,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -183,6 +185,8 @@ impl BattleState {
             .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
             .collect();
         let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
+        let ai_trigger_runtime =
+            crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
         let mut world = Self {
             edition,
             tick: 0,
@@ -203,6 +207,7 @@ impl BattleState {
             lightning_storm: None,
             trigger_runtime,
             script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
+            ai_trigger_runtime,
             ecs,
         };
         for bundle in seed_bundles {
@@ -829,6 +834,7 @@ impl BattleState {
                 SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
                 SystemPhase::Triggers => {
                     crate::gameplay::tick_triggers(self);
+                    crate::gameplay::tick_ai_triggers(self);
                     crate::gameplay::flush_pending_team_spawns(self);
                     crate::gameplay::tick_script_teams(self);
                 }
