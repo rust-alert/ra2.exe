@@ -33,6 +33,10 @@ pub struct MapCapabilityGap {
 /// | 20 | Play Theme（无音频 no-op） |
 /// | 21 | Play Speech（无音频 no-op） |
 /// | 22 | Force Trigger 强制触发 |
+/// | 23 | Timer Start 恢复计时 |
+/// | 24 | Timer Stop 暂停计时 |
+/// | 25 | Timer Extend 延长计时 |
+/// | 26 | Timer Shorten 缩短计时 |
 /// | 27 | Timer Set 设置计时器 |
 /// | 32 | Destroy Attached Objects 摧毁绑定对象 |
 /// | 36 | All Change House 全员改属 |
@@ -66,6 +70,10 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     20,  // Play Theme (no-op)
     21,  // Play Speech (no-op)
     22,  // Force Trigger
+    23,  // Timer Start
+    24,  // Timer Stop
+    25,  // Timer Extend
+    26,  // Timer Shorten
     27,  // Timer Set
     32,  // Destroy Attached Objects
     36,  // All Change House

@@ -38,6 +38,10 @@ const ACTION_PLAY_SOUND: i32 = 19; // 播放音效（竖切：无音频，已记
 const ACTION_PLAY_THEME: i32 = 20; // 播放主题音乐（竖切：无音频，已记账不拒开局）
 const ACTION_PLAY_SPEECH: i32 = 21; // 播放语音（竖切：无音频，已记账不拒开局）
 const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
+const ACTION_TIMER_START: i32 = 23; // 恢复目标触发器计时器倒计时
+const ACTION_TIMER_STOP: i32 = 24; // 暂停目标触发器计时器倒计时
+const ACTION_TIMER_EXTEND: i32 = 25; // 延长目标触发器计时器（加 tick）
+const ACTION_TIMER_SHORTEN: i32 = 26; // 缩短目标触发器计时器（减 tick）
 const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
 const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
 const ACTION_ALL_CHANGE_HOUSE: i32 = 36; // 本触发所属 house 的全部存活实体改属参数 house
@@ -62,6 +66,8 @@ struct TriggerRuntimeState {
     fired: bool,
     /// `EVENT_TIME_ELAPSE` 倒计时（tick）；`None` 表示本触发无计时条件。
     timer_remaining: Option<u32>,
+    /// 计时器是否暂停（`Timer Stop` / `Timer Start`）。
+    timer_paused: bool,
 }
 
 /// 局内触发运行时（由地图 `MapScripting` 播种）。
@@ -97,6 +103,7 @@ impl TriggerRuntime {
                 disabled: tr.disabled,
                 fired: false,
                 timer_remaining,
+                timer_paused: false,
             });
         }
         Self {
@@ -139,9 +146,9 @@ pub fn tick_triggers(world: &mut BattleState) {
         .map(|p| p.house.clone())
         .unwrap_or_default();
 
-    // 先推进计时器。
+    // 先推进计时器（暂停中的不扣减）。
     for st in &mut world.trigger_runtime.states {
-        if st.disabled || st.fired {
+        if st.disabled || st.fired || st.timer_paused {
             continue;
         }
         if let Some(rem) = st.timer_remaining.as_mut() {
@@ -442,6 +449,46 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
+        ACTION_TIMER_START => {
+            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+                st.timer_paused = false;
+            }
+        }
+        ACTION_TIMER_STOP => {
+            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+                st.timer_paused = true;
+            }
+        }
+        ACTION_TIMER_EXTEND => {
+            let Some(ticks) = action_timer_ticks_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+                let cur = st.timer_remaining.unwrap_or(0);
+                st.timer_remaining = Some(cur.saturating_add(ticks));
+                st.fired = false;
+                st.disabled = false;
+            }
+        }
+        ACTION_TIMER_SHORTEN => {
+            let Some(ticks) = action_timer_ticks_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+                let cur = st.timer_remaining.unwrap_or(0);
+                st.timer_remaining = Some(cur.saturating_sub(ticks));
+                st.fired = false;
+                st.disabled = false;
+            }
+        }
         ACTION_TIMER_SET => {
             let Some(ticks) = action_timer_ticks_param(cmd)
             else {
@@ -452,6 +499,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
             if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
                 st.timer_remaining = Some(ticks);
+                st.timer_paused = false;
                 st.fired = false;
                 st.disabled = false;
             }

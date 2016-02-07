@@ -472,6 +472,128 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
 }
 
 #[test]
+fn timer_stop_and_start_pause_countdown() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TRS=Americans,<none>,Stop,0,1,1,1,0\n\
+TRG=Americans,<none>,Go,0,1,1,1,0\n\
+TRW=Americans,<none>,Win Body,0,1,1,1,0\n\
+[Events]\n\
+TRS=1,13,0,0\n\
+TRG=1,13,3,0\n\
+TRW=1,13,2,0\n\
+[Actions]\n\
+TRS=1,24,0,TRW,0,0,0,0,A\n\
+TRG=1,23,0,TRW,0,0,0,0,A\n\
+TRW=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "timer-pause.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "timer-pause");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // tick0：扣减后 TRW rem=1，TRS 暂停；tick1 仍暂停。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    // tick2：TRG Start 恢复；tick3：rem 1→0 → Win。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
+fn timer_extend_delays_win() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TRE=Americans,<none>,Extend,0,1,1,1,0\n\
+TRW=Americans,<none>,Win Body,0,1,1,1,0\n\
+[Events]\n\
+TRE=1,13,0,0\n\
+TRW=1,13,3,0\n\
+[Actions]\n\
+TRE=1,25,0,TRW,2,0,0,0,A\n\
+TRW=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "timer-ext.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "timer-ext");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // tick0：TRW 3→2，TRE +2 → rem=4。无 Extend 时约 tick2 胜利；有 Extend 更晚。
+    for i in 0..4 {
+        session.tick(&engine.runtime());
+        assert!(
+            session.expect_battle().outcome.is_none(),
+            "extend should delay win at tick {i}"
+        );
+    }
+    // rem 4 再经 tick1..4 变为 0：第 5 次 tick（下标 4 之后）触发 Win。
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
+fn timer_shorten_hastens_win() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\n\
+TRS=Americans,<none>,Shorten,0,1,1,1,0\n\
+TRW=Americans,<none>,Win Body,0,1,1,1,0\n\
+[Events]\n\
+TRS=1,13,0,0\n\
+TRW=1,13,5,0\n\
+[Actions]\n\
+TRS=1,26,0,TRW,4,0,0,0,A\n\
+TRW=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "timer-short.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "timer-short");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // tick0：TRW 5→4，Shorten -4 → rem=0 → 同 tick 若 TRW 已在 to_fire 则可能未改到；
+    // Shorten 在 apply 阶段把 rem 设为 0 并 fired=false，下一 tick 才会 Win。
+    session.tick(&engine.runtime());
+    if session.expect_battle().outcome.is_none() {
+        session.tick(&engine.runtime());
+    }
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
 fn disable_trigger_action_blocks_win_path() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
