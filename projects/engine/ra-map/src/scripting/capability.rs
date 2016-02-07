@@ -44,6 +44,7 @@ pub struct MapCapabilityGap {
 /// | 38 | Make Enemy 解盟 |
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
+/// | 70 | Destroy Tag 摧毁指定 Tag |
 /// | 74 | AI triggers begin 启用 AITrigger |
 /// | 75 | AI triggers stop 停用 AITrigger |
 /// | 80 | Reinforcement（航点）增援小队 |
@@ -81,6 +82,7 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     38,  // Make Enemy
     53,  // Enable Trigger
     54,  // Disable Trigger
+    70,  // Destroy Tag
     74,  // AI triggers begin
     75,  // AI triggers stop
     80,  // Reinforcement at waypoint

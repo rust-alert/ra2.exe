@@ -757,6 +757,65 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
 }
 
 #[test]
+fn destroy_tag_action_kills_named_tag_entities() {
+    use ra_map::{MapEntity, MapEntityKind};
+
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\nTRK=Americans,<none>,Kill Tag,0,1,1,1,0\n\
+[Events]\nTRK=1,13,0,0\n\
+[Actions]\nTRK=1,70,0,OBJ,0,0,0,0,A\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-tag.map", text).unwrap();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Russians".into(),
+        type_id: "NACNST".into(),
+        health: 256,
+        x: 6,
+        y: 6,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: "OBJ".into(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Russians".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 7,
+        y: 7,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "destroy-tag");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    let snap = session.expect_battle().snapshot(&[]);
+    let obj_dead = snap
+        .units
+        .iter()
+        .find(|u| u.type_id.as_ref() == "NACNST")
+        .map(|u| u.dead)
+        .unwrap_or(true);
+    let e1_alive = snap
+        .units
+        .iter()
+        .any(|u| u.type_id.as_ref() == "E1" && !u.dead);
+    assert!(obj_dead, "action 70 should destroy entities with Tag OBJ");
+    assert!(e1_alive, "untagged entities must remain");
+}
+
+#[test]
 fn destroy_team_action_kills_spawned_team_members() {
     let text = b"\
 [Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\

@@ -49,6 +49,7 @@ const ACTION_MAKE_ALLY: i32 = 37; // 本触发所属 house 与参数 house 结�
 const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解盟（视为敌对）
 const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
 const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
+const ACTION_DESTROY_TAG: i32 = 70; // 摧毁指定 Tag 绑定的全部存活实体
 const ACTION_AI_TRIGGERS_BEGIN: i32 = 74; // 启用 AITrigger（可带 house；空则全局）
 const ACTION_AI_TRIGGERS_STOP: i32 = 75; // 停用 AITrigger（可带 house；空则全局）
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
@@ -381,6 +382,14 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         ACTION_DESTROY_ATTACHED_OBJECTS => {
             destroy_attached_objects(world, trigger_id);
         }
+        ACTION_DESTROY_TAG => {
+            let Some(tag_id) = action_tag_id_param(cmd)
+            else {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+                return;
+            };
+            destroy_entities_with_tag(world, &tag_id);
+        }
         ACTION_ALL_TO_HUNT => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             all_house_units_hunt(world, &house);
@@ -672,6 +681,28 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
     }
 }
 
+/// 摧毁带有指定 Tag id 的全部存活实体。
+fn destroy_entities_with_tag(world: &mut BattleState, tag_id: &str) {
+    let ids: Vec<_> = world
+        .entities
+        .iter()
+        .map(|e| e.id)
+        .filter(|&id| {
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            world
+                .ecs_get::<Identity>(id)
+                .map(|identity| identity.tag.eq_ignore_ascii_case(tag_id))
+                .unwrap_or(false)
+        })
+        .collect();
+    for id in ids {
+        let max = world.ecs_health(id).map(|(_, m, _)| m).unwrap_or(1).max(1);
+        let _ = world.set_ecs_health(id, 0, max, true);
+    }
+}
+
 /// 指定 house 的全部机动单位攻击各自最近的敌对目标。
 fn all_house_units_hunt(world: &mut BattleState, house: &str) {
     let Some(player) = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(house)).map(|p| p.id)
@@ -806,6 +837,11 @@ fn action_team_id_param(cmd: &MapActionCommand) -> Option<String> {
         .map(|s| s.trim())
         .filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
         .map(|s| s.to_string())
+}
+
+/// Destroy Tag：Tag id（通常在 `params[1]`）。
+fn action_tag_id_param(cmd: &MapActionCommand) -> Option<String> {
+    action_team_id_param(cmd)
 }
 
 /// 从动作参数中取 Timer Set 的 tick 数。
