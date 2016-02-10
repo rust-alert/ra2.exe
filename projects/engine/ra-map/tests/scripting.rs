@@ -95,7 +95,7 @@ fn cosmetic_trigger_actions_are_supported_noops() {
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
 [Triggers]\nTR1=Americans,<none>,FX,0,1,1,1,0\n\
 [Events]\nTR1=1,13,0,0\n\
-[Actions]\nTR1=4,11,0,0,0,0,0,0,A,21,0,0,0,0,0,0,A,19,0,0,0,0,0,0,A,103,0,0,0,0,0,0,A\n\
+[Actions]\nTR1=5,11,0,0,0,0,0,0,A,21,0,0,0,0,0,0,A,19,0,0,0,0,0,0,A,103,0,0,0,0,0,0,A,16,0,0,0,0,0,0,A\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "fx.map", text).unwrap();
     let gaps = ra_map::map_scripting_capability_gaps(&map);

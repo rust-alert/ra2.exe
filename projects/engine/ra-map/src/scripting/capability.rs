@@ -29,6 +29,9 @@ pub struct MapCapabilityGap {
 /// | 12 | Destroy Trigger 销毁触发器 |
 /// | 14 | Change House 改属阵营 |
 /// | 15 | Allow Win 允许胜利 |
+/// | 16 | Reveal all map（无迷雾 no-op） |
+/// | 17 | Reveal around waypoint（无迷雾 no-op） |
+/// | 18 | Reveal waypoint zone（无迷雾 no-op） |
 /// | 19 | Play Sound（无音频 no-op） |
 /// | 20 | Play Theme（无音频 no-op） |
 /// | 21 | Play Speech（无音频 no-op） |
@@ -38,10 +41,12 @@ pub struct MapCapabilityGap {
 /// | 25 | Timer Extend 延长计时 |
 /// | 26 | Timer Shorten 缩短计时 |
 /// | 27 | Timer Set 设置计时器 |
+/// | 31 | Grow shroud（无迷雾 no-op） |
 /// | 32 | Destroy Attached Objects 摧毁绑定对象 |
 /// | 36 | All Change House 全员改属 |
 /// | 37 | Make Ally 结盟 |
 /// | 38 | Make Enemy 解盟 |
+/// | 51 | Reshroud Map（无迷雾 no-op） |
 /// | 53 | Enable Trigger 启用触发器 |
 /// | 54 | Disable Trigger 禁用触发器 |
 /// | 70 | Destroy Tag 摧毁指定 Tag |
@@ -49,6 +54,7 @@ pub struct MapCapabilityGap {
 /// | 75 | AI triggers stop 停用 AITrigger |
 /// | 80 | Reinforcement（航点）增援小队 |
 /// | 98 | Play Sound Effect（无音频 no-op） |
+/// | 101 | Reshroud Map At（无迷雾 no-op） |
 /// | 103 | Timer Text（无 UI no-op） |
 /// | 119 | Destroy all of 摧毁阵营全部 |
 /// | 120 | Destroy all Buildings of 摧毁阵营建筑 |
@@ -67,6 +73,9 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     12,  // Destroy Trigger
     14,  // Change House
     15,  // Allow Win
+    16,  // Reveal all map (no-op)
+    17,  // Reveal around waypoint (no-op)
+    18,  // Reveal waypoint zone (no-op)
     19,  // Play Sound (no-op)
     20,  // Play Theme (no-op)
     21,  // Play Speech (no-op)
@@ -76,10 +85,12 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     25,  // Timer Extend
     26,  // Timer Shorten
     27,  // Timer Set
+    31,  // Grow shroud (no-op)
     32,  // Destroy Attached Objects
     36,  // All Change House
     37,  // Make Ally
     38,  // Make Enemy
+    51,  // Reshroud Map (no-op)
     53,  // Enable Trigger
     54,  // Disable Trigger
     70,  // Destroy Tag
@@ -87,6 +98,7 @@ const SUPPORTED_ACTION_KINDS: &[i32] = &[
     75,  // AI triggers stop
     80,  // Reinforcement at waypoint
     98,  // Play Sound Effect (no-op)
+    101, // Reshroud Map At (no-op)
     103, // Timer Text (no-op)
     119, // Destroy all of
     120, // Destroy all Buildings of
