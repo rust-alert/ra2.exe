@@ -12,11 +12,14 @@ use crate::state::components::{Health, Identity, Owner, Transform};
 
 /// 零售地图 `[Events]` 条件类型码（竖切已接线子集）。
 ///
-/// 编号与原版 RA2 触发事件表一致；未列出的 kind 在 `condition_met` 中视为未满足。
+/// 编号与原版 RA2/YR 触发事件表一致；未列出的 kind 在 `condition_met` 中视为未满足。
 const EVENT_ENTERED_BY: i32 = 1; // 进入绑定 CellTag 的格子（本竖切按本地玩家 house 判定）
-const EVENT_DESTROYED: i32 = 8; // 绑定 Tag 的对象被摧毁（任一）
-const EVENT_ALL_DESTROYED: i32 = 11; // 绑定 Tag 的对象全部摧毁
-const EVENT_TIME_ELAPSE: i32 = 13; // 计时结束（params[0] 为初始 tick 数）
+const EVENT_DESTROYED_BY_ANYBODY: i32 = 7; // 绑定 Tag 的对象被摧毁（任一）
+const EVENT_DESTROYED_UNITS_ALL: i32 = 9; // 指定 house 全部陆上机动单位已摧毁
+const EVENT_DESTROYED_BUILDINGS_ALL: i32 = 10; // 指定 house 全部建筑已摧毁
+const EVENT_DESTROYED_ALL: i32 = 11; // 指定 house 全部实体已摧毁
+const EVENT_TIME_ELAPSE: i32 = 13; // 计时结束（params[0]/params[1] 为初始 tick 数）
+const EVENT_DESTROYED_BY_ANYTHING: i32 = 48; // 绑定 Tag 的对象被摧毁（与 7 同类，YR 常用）
 
 /// 零售地图 `[Actions]` 动作类型码（竖切已接线子集）。
 ///
@@ -220,13 +223,24 @@ fn condition_met(
 ) -> bool {
     match c.kind {
         EVENT_TIME_ELAPSE => st.timer_remaining == Some(0),
-        EVENT_DESTROYED | EVENT_ALL_DESTROYED => {
+        EVENT_DESTROYED_BY_ANYBODY | EVENT_DESTROYED_BY_ANYTHING => {
             let bound_tags = tags_for_trigger(tags, &st.id);
             if bound_tags.is_empty() {
-                // 无 Tag 绑定时：无法判定，视为未满足（避免误触发）。
                 return false;
             }
             !any_living_with_tags(world, &bound_tags)
+        }
+        EVENT_DESTROYED_UNITS_ALL => {
+            let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
+            !any_living_of_house(world, &house, HouseAliveFilter::LandUnits)
+        }
+        EVENT_DESTROYED_BUILDINGS_ALL => {
+            let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
+            !any_living_of_house(world, &house, HouseAliveFilter::Buildings)
+        }
+        EVENT_DESTROYED_ALL => {
+            let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
+            !any_living_of_house(world, &house, HouseAliveFilter::All)
         }
         EVENT_ENTERED_BY => {
             let bound_tags = tags_for_trigger(tags, &st.id);
@@ -237,6 +251,60 @@ fn condition_met(
         }
         _ => false,
     }
+}
+
+/// 事件条件中的 house 参数（常见在 `params[1]`）。
+fn event_house_param(c: &MapEventCondition) -> Option<String> {
+    for p in c.params.iter().rev() {
+        let t = p.trim();
+        if t.is_empty() || t == "0" || t == "-1" {
+            continue;
+        }
+        if t.parse::<i32>().is_ok() {
+            continue;
+        }
+        return Some(t.to_string());
+    }
+    None
+}
+
+/// 阵营存活过滤（事件 9/10/11）。
+#[derive(Clone, Copy)]
+enum HouseAliveFilter {
+    All,
+    Buildings,
+    LandUnits,
+}
+
+fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilter) -> bool {
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        if !world
+            .ecs_get::<Owner>(id)
+            .map(|o| o.house.eq_ignore_ascii_case(house))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            continue;
+        };
+        let matched = match filter {
+            HouseAliveFilter::All => true,
+            HouseAliveFilter::Buildings => identity.kind == MapEntityKind::Structure,
+            HouseAliveFilter::LandUnits => {
+                matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry)
+            }
+        };
+        if matched {
+            return true;
+        }
+    }
+    false
 }
 
 fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String> {
