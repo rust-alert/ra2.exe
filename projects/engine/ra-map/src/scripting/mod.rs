@@ -2,6 +2,7 @@
 
 pub use ai_triggers::{MapAiTrigger, parse_ai_triggers};
 pub use houses::{MapHouse, parse_map_houses};
+pub use kinds::{MapActionKind, MapEventKind};
 pub use script_teams::{
     MapScriptStep, MapScriptType, MapTaskForce, MapTaskForceEntry, MapTeamType, parse_script_types, parse_task_forces,
     parse_team_types,
@@ -15,6 +16,7 @@ pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map
 mod ai_triggers;
 mod capability;
 mod houses;
+mod kinds;
 mod script_teams;
 mod triggers;
 

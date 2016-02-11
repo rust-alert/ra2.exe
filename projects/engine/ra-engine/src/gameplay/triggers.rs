@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ra_map::{MapActionCommand, MapEntityKind, MapEventCondition, MapScripting};
+use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind, MapScripting};
 use ra_types::EntityId;
 
 use crate::game::{BattleOutcome, GameCommand};
@@ -10,63 +10,7 @@ use crate::gameplay::{ai::is_ambient_house, houses_are_allied};
 use crate::state::BattleState;
 use crate::state::components::{Health, Identity, Owner, Transform};
 
-/// 零售地图 `[Events]` 条件类型码（竖切已接线子集）。
-///
-/// 编号与原版 RA2/YR 触发事件表一致；未列出的 kind 在 `condition_met` 中视为未满足。
-const EVENT_ENTERED_BY: i32 = 1; // 进入绑定 CellTag 的格子（本竖切按本地玩家 house 判定）
-const EVENT_DESTROYED_BY_ANYBODY: i32 = 7; // 绑定 Tag 的对象被摧毁（任一）
-const EVENT_DESTROYED_UNITS_ALL: i32 = 9; // 指定 house 全部陆上机动单位已摧毁
-const EVENT_DESTROYED_BUILDINGS_ALL: i32 = 10; // 指定 house 全部建筑已摧毁
-const EVENT_DESTROYED_ALL: i32 = 11; // 指定 house 全部实体已摧毁
-const EVENT_TIME_ELAPSE: i32 = 13; // 计时结束（params[0]/params[1] 为初始 tick 数）
-const EVENT_DESTROYED_BY_ANYTHING: i32 = 48; // 绑定 Tag 的对象被摧毁（与 7 同类，YR 常用）
-
-/// 零售地图 `[Actions]` 动作类型码（竖切已接线子集）。
-///
-/// 编号与原版 RA2/YR 触发动作表一致；未列出的 kind 记入 `unsupported_actions`。
-const ACTION_NONE: i32 = 0; // 无操作
-const ACTION_WIN: i32 = 1; // 指定 house 胜利
-const ACTION_LOSE: i32 = 2; // 失败（可带原因/house 参数）
-const ACTION_CREATE_TEAM: i32 = 4; // 创建 TeamType（排队生成 TaskForce）
-const ACTION_DESTROY_TEAM: i32 = 5; // 销毁指定 TeamType（排队与已生成实例）
-const ACTION_ALL_TO_HUNT: i32 = 6; // 指定 house 全部机动单位攻击最近敌方
-const ACTION_REINFORCEMENT: i32 = 7; // 增援 TeamType（与 Create Team 同路径产队）
-const ACTION_DROP_ZONE_FLARE: i32 = 8; // 投放区照明弹（竖切：无呈现，已记账不拒开局）
-const ACTION_PLAY_MOVIE: i32 = 10; // 播放全屏影片（竖切：无呈现，已记账不拒开局）
-const ACTION_TEXT_TRIGGER: i32 = 11; // 屏幕文字（竖切：无呈现，已记账不拒开局）
-const ACTION_DESTROY_TRIGGER: i32 = 12; // 销毁触发器（目标禁用且视为已触发）
-const ACTION_CHANGE_HOUSE: i32 = 14; // 绑定本触发 Tag 的存活实体改属指定 house
-const ACTION_ALLOW_WIN: i32 = 15; // 解除一层胜利阻塞（地图内含此动作的触发数 = 初始阻塞层数）
-const ACTION_REVEAL_ALL_MAP: i32 = 16; // 全图迷雾揭开（竖切：无迷雾系统，已记账不拒开局）
-const ACTION_REVEAL_AROUND_WAYPOINT: i32 = 17; // 航点附近揭雾（竖切 no-op）
-const ACTION_REVEAL_WAYPOINT_ZONE: i32 = 18; // 航点区域揭雾（竖切 no-op）
-const ACTION_PLAY_SOUND: i32 = 19; // 播放音效（竖切：无音频，已记账不拒开局）
-const ACTION_PLAY_THEME: i32 = 20; // 播放主题音乐（竖切：无音频，已记账不拒开局）
-const ACTION_PLAY_SPEECH: i32 = 21; // 播放语音（竖切：无音频，已记账不拒开局）
-const ACTION_FORCE_TRIGGER: i32 = 22; // 强制执行另一触发器的 Actions（跳过 Events）
-const ACTION_TIMER_START: i32 = 23; // 恢复目标触发器计时器倒计时
-const ACTION_TIMER_STOP: i32 = 24; // 暂停目标触发器计时器倒计时
-const ACTION_TIMER_EXTEND: i32 = 25; // 延长目标触发器计时器（加 tick）
-const ACTION_TIMER_SHORTEN: i32 = 26; // 缩短目标触发器计时器（减 tick）
-const ACTION_TIMER_SET: i32 = 27; // 将目标触发器的计时器设为指定 tick（并可再次触发）
-const ACTION_GROW_SHROUD: i32 = 31; // 迷雾生长（竖切 no-op）
-const ACTION_DESTROY_ATTACHED_OBJECTS: i32 = 32; // 摧毁绑定本触发 Tag 的存活实体
-const ACTION_ALL_CHANGE_HOUSE: i32 = 36; // 本触发所属 house 的全部存活实体改属参数 house
-const ACTION_MAKE_ALLY: i32 = 37; // 本触发所属 house 与参数 house 结盟
-const ACTION_MAKE_ENEMY: i32 = 38; // 本触发所属 house 与参数 house 解盟（视为敌对）
-const ACTION_RESHROUD_MAP: i32 = 51; // 重新笼罩全图（竖切 no-op）
-const ACTION_ENABLE_TRIGGER: i32 = 53; // 启用（解除 disabled）另一触发器
-const ACTION_DISABLE_TRIGGER: i32 = 54; // 禁用另一触发器
-const ACTION_DESTROY_TAG: i32 = 70; // 摧毁指定 Tag 绑定的全部存活实体
-const ACTION_AI_TRIGGERS_BEGIN: i32 = 74; // 启用 AITrigger（可带 house；空则全局）
-const ACTION_AI_TRIGGERS_STOP: i32 = 75; // 停用 AITrigger（可带 house；空则全局）
-const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80; // 增援 TeamType（可带航点参数，产队路径同 Create Team）
-const ACTION_PLAY_SOUND_EFFECT: i32 = 98; // 播放音效（与 19 同类，竖切 no-op）
-const ACTION_RESHROUD_MAP_AT: i32 = 101; // 航点处重新笼罩（竖切 no-op）
-const ACTION_TIMER_TEXT: i32 = 103; // 计时器文字（竖切：无 UI，已记账不拒开局）
-const ACTION_DESTROY_ALL_OF: i32 = 119; // 摧毁指定 house 的全部存活实体
-const ACTION_DESTROY_ALL_BUILDINGS_OF: i32 = 120; // 摧毁指定 house 的全部建筑
-const ACTION_DESTROY_ALL_LAND_UNITS_OF: i32 = 121; // 摧毁指定 house 的全部陆上机动单位（步兵+载具）
+/// 地图触发事件/动作类型见 [`MapEventKind`] / [`MapActionKind`]（`ra-map`）。
 
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
@@ -74,7 +18,7 @@ struct TriggerRuntimeState {
     id: String,
     disabled: bool,
     fired: bool,
-    /// `EVENT_TIME_ELAPSE` 倒计时（tick）；`None` 表示本触发无计时条件。
+    /// `MapEventKind::TimeElapse` 倒计时（tick）；`None` 表示本触发无计时条件。
     timer_remaining: Option<u32>,
     /// 计时器是否暂停（`Timer Stop` / `Timer Start`）。
     timer_paused: bool,
@@ -104,7 +48,7 @@ impl TriggerRuntime {
         let mut states = Vec::with_capacity(scripting.triggers.len());
         for tr in &scripting.triggers {
             let timer_remaining = events_by_id.get(tr.id.as_str()).and_then(|ev| {
-                ev.conditions.iter().find(|c| c.kind == EVENT_TIME_ELAPSE).map(|c| {
+                ev.conditions.iter().find(|c| MapEventKind::from_i32(c.kind) == Some(MapEventKind::TimeElapse)).map(|c| {
                     c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0)
                 })
             });
@@ -221,35 +165,35 @@ fn condition_met(
     cell_tags: &[ra_map::MapCellTag],
     local_house: &str,
 ) -> bool {
-    match c.kind {
-        EVENT_TIME_ELAPSE => st.timer_remaining == Some(0),
-        EVENT_DESTROYED_BY_ANYBODY | EVENT_DESTROYED_BY_ANYTHING => {
+    match MapEventKind::from_i32(c.kind) {
+        Some(MapEventKind::TimeElapse) => st.timer_remaining == Some(0),
+        Some(MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything) => {
             let bound_tags = tags_for_trigger(tags, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
             !any_living_with_tags(world, &bound_tags)
         }
-        EVENT_DESTROYED_UNITS_ALL => {
+        Some(MapEventKind::DestroyedUnitsAll) => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::LandUnits)
         }
-        EVENT_DESTROYED_BUILDINGS_ALL => {
+        Some(MapEventKind::DestroyedBuildingsAll) => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::Buildings)
         }
-        EVENT_DESTROYED_ALL => {
+        Some(MapEventKind::DestroyedAll) => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::All)
         }
-        EVENT_ENTERED_BY => {
+        Some(MapEventKind::EnteredBy) => {
             let bound_tags = tags_for_trigger(tags, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
             cell_entered_by_house(world, cell_tags, &bound_tags, local_house)
         }
-        _ => false,
+        None => false,
     }
 }
 
@@ -319,7 +263,7 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
     scripting
         .actions
         .iter()
-        .filter(|a| a.commands.iter().any(|c| c.kind == ACTION_ALLOW_WIN))
+        .filter(|a| a.commands.iter().any(|c| MapActionKind::from_i32(c.kind) == Some(MapActionKind::AllowWin)))
         .count() as u32
 }
 
@@ -413,8 +357,13 @@ fn cell_entered_by_house(
 }
 
 fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionCommand, local_house: &str) {
-    match cmd.kind {
-        ACTION_WIN => {
+    let Some(kind) = MapActionKind::from_i32(cmd.kind)
+    else {
+        world.trigger_runtime.record_unsupported(cmd.kind);
+        return;
+    };
+    match kind {
+        MapActionKind::Win => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             if world.trigger_runtime.win_blockers > 0 {
                 // 仍有 Allow Win 阻塞：延后胜利，待阻塞清零。
@@ -423,11 +372,11 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             }
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Victory { owner: house });
         }
-        ACTION_LOSE => {
+        MapActionKind::Lose => {
             let reason = action_house_param(cmd).unwrap_or_default();
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Defeat { reason });
         }
-        ACTION_ALLOW_WIN => {
+        MapActionKind::AllowWin => {
             world.trigger_runtime.win_blockers = world.trigger_runtime.win_blockers.saturating_sub(1);
             if world.trigger_runtime.win_blockers == 0 {
                 if let Some(house) = world.trigger_runtime.deferred_victory_house.take() {
@@ -436,7 +385,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 }
             }
         }
-        ACTION_CREATE_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT => {
+        MapActionKind::CreateTeam | MapActionKind::Reinforcement | MapActionKind::ReinforcementAtWaypoint => {
             if let Some(team) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
             } else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
@@ -446,17 +395,17 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_DESTROY_TEAM => {
+        MapActionKind::DestroyTeam => {
             if let Some(team) = action_team_id_param(cmd) {
                 super::script_teams::destroy_team_type(world, &team);
             } else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_DESTROY_ATTACHED_OBJECTS => {
+        MapActionKind::DestroyAttachedObjects => {
             destroy_attached_objects(world, trigger_id);
         }
-        ACTION_DESTROY_TAG => {
+        MapActionKind::DestroyTag => {
             let Some(tag_id) = action_tag_id_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -464,11 +413,11 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             };
             destroy_entities_with_tag(world, &tag_id);
         }
-        ACTION_ALL_TO_HUNT => {
+        MapActionKind::AllToHunt => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             all_house_units_hunt(world, &house);
         }
-        ACTION_DESTROY_TRIGGER => {
+        MapActionKind::DestroyTrigger => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
                     st.disabled = true;
@@ -478,7 +427,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_CHANGE_HOUSE => {
+        MapActionKind::ChangeHouse => {
             let Some(new_house) = action_house_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -486,7 +435,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             };
             change_attached_objects_house(world, trigger_id, &new_house);
         }
-        ACTION_MAKE_ALLY => {
+        MapActionKind::MakeAlly => {
             let Some(other) = action_house_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -495,7 +444,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let owner = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
             set_houses_allied(world, &owner, &other, true);
         }
-        ACTION_MAKE_ENEMY => {
+        MapActionKind::MakeEnemy => {
             let Some(other) = action_house_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -504,7 +453,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let owner = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
             set_houses_allied(world, &owner, &other, false);
         }
-        ACTION_ALL_CHANGE_HOUSE => {
+        MapActionKind::AllChangeHouse => {
             let Some(new_house) = action_house_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -513,38 +462,38 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let from = trigger_owner_house(world, trigger_id).unwrap_or_else(|| local_house.to_string());
             change_all_house_entities(world, &from, &new_house);
         }
-        ACTION_DESTROY_ALL_OF => {
+        MapActionKind::DestroyAllOf => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             destroy_house_entities(world, &house, DestroyHouseFilter::All);
         }
-        ACTION_DESTROY_ALL_BUILDINGS_OF => {
+        MapActionKind::DestroyAllBuildingsOf => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             destroy_house_entities(world, &house, DestroyHouseFilter::Buildings);
         }
-        ACTION_DESTROY_ALL_LAND_UNITS_OF => {
+        MapActionKind::DestroyAllLandUnitsOf => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             destroy_house_entities(world, &house, DestroyHouseFilter::LandUnits);
         }
-        ACTION_FORCE_TRIGGER => {
+        MapActionKind::ForceTrigger => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 force_fire_trigger(world, &id, local_house);
             } else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_TIMER_START => {
+        MapActionKind::TimerStart => {
             let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
             if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
                 st.timer_paused = false;
             }
         }
-        ACTION_TIMER_STOP => {
+        MapActionKind::TimerStop => {
             let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
             if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
                 st.timer_paused = true;
             }
         }
-        ACTION_TIMER_EXTEND => {
+        MapActionKind::TimerExtend => {
             let Some(ticks) = action_timer_ticks_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -558,7 +507,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 st.disabled = false;
             }
         }
-        ACTION_TIMER_SHORTEN => {
+        MapActionKind::TimerShorten => {
             let Some(ticks) = action_timer_ticks_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -572,7 +521,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 st.disabled = false;
             }
         }
-        ACTION_TIMER_SET => {
+        MapActionKind::TimerSet => {
             let Some(ticks) = action_timer_ticks_param(cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -587,7 +536,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 st.disabled = false;
             }
         }
-        ACTION_ENABLE_TRIGGER => {
+        MapActionKind::EnableTrigger => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
                     st.disabled = false;
@@ -596,7 +545,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_DISABLE_TRIGGER => {
+        MapActionKind::DisableTrigger => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
                     st.disabled = true;
@@ -605,12 +554,12 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
-        ACTION_AI_TRIGGERS_BEGIN => {
+        MapActionKind::AiTriggersBegin => {
             let house = action_house_param(cmd);
             super::ai_triggers::set_ai_triggers_for_house(world, house.as_deref(), true);
             world.ai_trigger_runtime.enabled = true;
         }
-        ACTION_AI_TRIGGERS_STOP => {
+        MapActionKind::AiTriggersStop => {
             let house = action_house_param(cmd);
             if house.is_none() {
                 world.ai_trigger_runtime.enabled = false;
@@ -618,22 +567,21 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 super::ai_triggers::set_ai_triggers_for_house(world, house.as_deref(), false);
             }
         }
-        ACTION_NONE
-        | ACTION_DROP_ZONE_FLARE
-        | ACTION_PLAY_MOVIE
-        | ACTION_TEXT_TRIGGER
-        | ACTION_REVEAL_ALL_MAP
-        | ACTION_REVEAL_AROUND_WAYPOINT
-        | ACTION_REVEAL_WAYPOINT_ZONE
-        | ACTION_PLAY_SOUND
-        | ACTION_PLAY_THEME
-        | ACTION_PLAY_SPEECH
-        | ACTION_GROW_SHROUD
-        | ACTION_RESHROUD_MAP
-        | ACTION_PLAY_SOUND_EFFECT
-        | ACTION_RESHROUD_MAP_AT
-        | ACTION_TIMER_TEXT => {}
-        other => world.trigger_runtime.record_unsupported(other),
+        MapActionKind::None
+        | MapActionKind::DropZoneFlare
+        | MapActionKind::PlayMovie
+        | MapActionKind::TextTrigger
+        | MapActionKind::RevealAllMap
+        | MapActionKind::RevealAroundWaypoint
+        | MapActionKind::RevealWaypointZone
+        | MapActionKind::PlaySound
+        | MapActionKind::PlayTheme
+        | MapActionKind::PlaySpeech
+        | MapActionKind::GrowShroud
+        | MapActionKind::ReshroudMap
+        | MapActionKind::PlaySoundEffect
+        | MapActionKind::ReshroudMapAt
+        | MapActionKind::TimerText => {}
     }
 }
 
