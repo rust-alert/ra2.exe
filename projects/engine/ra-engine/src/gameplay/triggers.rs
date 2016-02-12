@@ -193,8 +193,47 @@ fn condition_met(
             }
             cell_entered_by_house(world, cell_tags, &bound_tags, local_house)
         }
+        Some(MapEventKind::CreditsExceed) => {
+            let Some(threshold) = event_numeric_param(c)
+            else {
+                return false;
+            };
+            let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
+            house_funds(world, &house) >= threshold as i32
+        }
+        Some(MapEventKind::CreditsBelow) => {
+            let Some(threshold) = event_numeric_param(c)
+            else {
+                return false;
+            };
+            let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
+            house_funds(world, &house) < threshold as i32
+        }
         None => false,
     }
+}
+
+/// 事件条件中的数值参数（Credits 阈值等，常在 `params[1]`）。
+fn event_numeric_param(c: &MapEventCondition) -> Option<u32> {
+    for p in c.params.iter().rev() {
+        let t = p.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if let Ok(n) = t.parse::<u32>() {
+            return Some(n);
+        }
+    }
+    None
+}
+
+fn house_funds(world: &BattleState, house: &str) -> i32 {
+    world
+        .players
+        .iter()
+        .find(|p| p.house.as_ref().eq_ignore_ascii_case(house))
+        .map(|p| p.funds)
+        .unwrap_or(0)
 }
 
 /// 事件条件中的 house 参数（常见在 `params[1]`）。

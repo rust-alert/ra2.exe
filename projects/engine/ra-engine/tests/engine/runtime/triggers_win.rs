@@ -415,6 +415,70 @@ fn destroyed_all_of_house_event_fires_win() {
 }
 
 #[test]
+fn credits_exceed_event_fires_win() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\nTRC=Americans,<none>,Rich,0,1,1,1,0\n\
+[Events]\nTRC=1,12,0,1000\n\
+[Actions]\nTRC=1,1,0,0,0,0,0,0,Americans\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "credits.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "credits");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    // 默认资金不足。
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    let player = session.expect_battle_mut().world.local_player;
+    if let Some(p) = session.expect_battle_mut().world.players.iter_mut().find(|p| p.id == player) {
+        p.funds = 1000;
+    }
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Victory {
+            owner: "Americans".into()
+        })
+    );
+}
+
+#[test]
+fn credits_below_event_fires_when_broke() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\nTRC=Americans,<none>,Broke,0,1,1,1,0\n\
+[Events]\nTRC=1,52,0,100\n\
+[Actions]\nTRC=1,2,0,0,0,0,0,0,Broke\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "broke.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "broke");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    let player = session.expect_battle_mut().world.local_player;
+    if let Some(p) = session.expect_battle_mut().world.players.iter_mut().find(|p| p.id == player) {
+        p.funds = 50;
+    }
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Defeat {
+            reason: "Broke".into()
+        })
+    );
+}
+
+#[test]
 fn enable_trigger_action_unlocks_disabled_win() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

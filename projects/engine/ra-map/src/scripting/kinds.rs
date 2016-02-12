@@ -16,10 +16,14 @@ pub enum MapEventKind {
     DestroyedBuildingsAll = 10,
     /// 指定 house 全部实体已摧毁。
     DestroyedAll = 11,
+    /// 触发所属 house 资金不少于阈值。
+    CreditsExceed = 12,
     /// 计时结束。
     TimeElapse = 13,
     /// 绑定 Tag 的对象被摧毁（与 `DestroyedByAnybody` 同类，YR 常用）。
     DestroyedByAnything = 48,
+    /// 触发所属 house 资金少于阈值。
+    CreditsBelow = 52,
 }
 
 impl MapEventKind {
@@ -31,8 +35,10 @@ impl MapEventKind {
             9 => Self::DestroyedUnitsAll,
             10 => Self::DestroyedBuildingsAll,
             11 => Self::DestroyedAll,
+            12 => Self::CreditsExceed,
             13 => Self::TimeElapse,
             48 => Self::DestroyedByAnything,
+            52 => Self::CreditsBelow,
             _ => return None,
         })
     }
