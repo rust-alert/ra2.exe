@@ -479,6 +479,40 @@ fn credits_below_event_fires_when_broke() {
 }
 
 #[test]
+fn low_power_event_fires_when_drain_exceeds_output() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Houses]\n0=Americans\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Triggers]\nTRP=Americans,<none>,Brownout,0,1,1,1,0\n\
+[Events]\nTRP=1,30,0,Americans\n\
+[Actions]\nTRP=1,2,0,0,0,0,0,0,LowPower\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "power.map", text).unwrap();
+    let engine = test_engine();
+    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &empty_rules(), map), "power");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.expect_battle_mut().world.ensure_house("Americans");
+    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+
+    let player = session.expect_battle_mut().world.local_player;
+    if let Some(p) = session.expect_battle_mut().world.players.iter_mut().find(|p| p.id == player) {
+        p.power_output = 10;
+        p.power_drain = 50;
+    }
+    session.tick(&engine.runtime());
+    assert_eq!(
+        session.expect_battle().outcome,
+        Some(BattleOutcome::Defeat {
+            reason: "LowPower".into()
+        })
+    );
+}
+
+#[test]
 fn enable_trigger_action_unlocks_disabled_win() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

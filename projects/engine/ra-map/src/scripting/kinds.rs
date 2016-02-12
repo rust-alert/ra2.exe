@@ -20,6 +20,8 @@ pub enum MapEventKind {
     CreditsExceed = 12,
     /// 计时结束。
     TimeElapse = 13,
+    /// 指定 house 处于低电。
+    LowPower = 30,
     /// 绑定 Tag 的对象被摧毁（与 `DestroyedByAnybody` 同类，YR 常用）。
     DestroyedByAnything = 48,
     /// 触发所属 house 资金少于阈值。
@@ -37,6 +39,7 @@ impl MapEventKind {
             11 => Self::DestroyedAll,
             12 => Self::CreditsExceed,
             13 => Self::TimeElapse,
+            30 => Self::LowPower,
             48 => Self::DestroyedByAnything,
             52 => Self::CreditsBelow,
             _ => return None,

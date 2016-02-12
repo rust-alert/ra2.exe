@@ -209,6 +209,15 @@ fn condition_met(
             let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
             house_funds(world, &house) < threshold as i32
         }
+        Some(MapEventKind::LowPower) => {
+            let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
+            world
+                .players
+                .iter()
+                .find(|p| p.house.as_ref().eq_ignore_ascii_case(&house))
+                .map(|p| p.low_power())
+                .unwrap_or(false)
+        }
         None => false,
     }
 }
