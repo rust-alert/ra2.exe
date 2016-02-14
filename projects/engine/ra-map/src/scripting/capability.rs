@@ -1,6 +1,6 @@
 //! 地图剧本能力缺口诊断。
 
-use super::{MapActionKind, MapScripting};
+use super::MapScripting;
 use crate::MapInfo;
 
 /// 一条地图域能力缺口。
@@ -28,16 +28,17 @@ fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
     let mut seen_actions = Vec::new();
     for action in &scripting.actions {
         for cmd in &action.commands {
-            if MapActionKind::is_supported(cmd.kind) {
+            if cmd.kind.is_supported() {
                 continue;
             }
             if seen_actions.contains(&cmd.kind) {
                 continue;
             }
             seen_actions.push(cmd.kind);
+            let code = cmd.kind.code();
             out.push(MapCapabilityGap {
-                code: format!("map.action.{} unsupported", cmd.kind),
-                message: format!("触发动作码 {} 当前引擎未执行", cmd.kind),
+                code: format!("map.action.{code} unsupported"),
+                message: format!("触发动作码 {code} 当前引擎未执行"),
             });
         }
     }
@@ -65,13 +66,14 @@ pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::MapActionKind;
 
     #[test]
     fn supported_action_kinds_cover_enum_table() {
-        assert!(MapActionKind::is_supported(MapActionKind::Win.as_i32()));
-        assert!(MapActionKind::is_supported(MapActionKind::DestroyAllLandUnitsOf.as_i32()));
-        assert!(!MapActionKind::is_supported(99));
+        assert!(MapActionKind::Win.is_supported());
+        assert!(MapActionKind::DestroyAllLandUnitsOf.is_supported());
+        assert!(!MapActionKind::from_code(99).is_supported());
+        assert!(matches!(MapActionKind::from_code(99), MapActionKind::Unknown(99)));
         assert_eq!(MapActionKind::SUPPORTED.len(), 43);
     }
 }

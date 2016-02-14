@@ -2,6 +2,8 @@
 
 use ra_assets::IniDocument;
 
+use super::{MapActionKind, MapEventKind};
+
 /// `[Tags]` 一行。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
@@ -39,8 +41,8 @@ pub struct MapTrigger {
 /// 单条事件条件。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEventCondition {
-    /// 事件类型码（原版 Events；例如 `13` = 计时结束，`1` = 进入区域）。
-    pub kind: i32,
+    /// 事件类型（未知原版码为 [`MapEventKind::Unknown`]）。
+    pub kind: MapEventKind,
     /// 参数（通常 2 个 int；变长事件保留原文参数）。
     pub params: Vec<String>,
 }
@@ -57,8 +59,8 @@ pub struct MapEvent {
 /// 单条动作。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapActionCommand {
-    /// 动作类型码（原版 Actions；例如 `1` = Win，`4` = Create Team，`5` = Destroy Team，`32` = Destroy Attached）。
-    pub kind: i32,
+    /// 动作类型（未知原版码为 [`MapActionKind::Unknown`]）。
+    pub kind: MapActionKind,
     /// 七个参数槽（含航点字母等）。
     pub params: [String; 7],
 }
@@ -150,7 +152,7 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
             if idx >= fields.len() {
                 break;
             }
-            let kind: i32 = fields[idx].parse().unwrap_or(0);
+            let kind = MapEventKind::from_code(fields[idx].parse().unwrap_or(0));
             idx += 1;
             let mut params = Vec::new();
             for _ in 0..2 {
@@ -187,7 +189,7 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
             if idx >= fields.len() {
                 break;
             }
-            let kind: i32 = fields[idx].parse().unwrap_or(0);
+            let kind = MapActionKind::from_code(fields[idx].parse().unwrap_or(0));
             idx += 1;
             let mut params = [
                 String::new(),

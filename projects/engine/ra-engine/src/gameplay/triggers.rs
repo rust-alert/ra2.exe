@@ -48,7 +48,7 @@ impl TriggerRuntime {
         let mut states = Vec::with_capacity(scripting.triggers.len());
         for tr in &scripting.triggers {
             let timer_remaining = events_by_id.get(tr.id.as_str()).and_then(|ev| {
-                ev.conditions.iter().find(|c| MapEventKind::from_i32(c.kind) == Some(MapEventKind::TimeElapse)).map(|c| {
+                ev.conditions.iter().find(|c| c.kind == MapEventKind::TimeElapse).map(|c| {
                     c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0)
                 })
             });
@@ -70,9 +70,10 @@ impl TriggerRuntime {
         }
     }
 
-    fn record_unsupported(&mut self, kind: i32) {
-        if !self.unsupported_actions.contains(&kind) {
-            self.unsupported_actions.push(kind);
+    fn record_unsupported(&mut self, kind: MapActionKind) {
+        let code = kind.code();
+        if !self.unsupported_actions.contains(&code) {
+            self.unsupported_actions.push(code);
         }
     }
 }
@@ -165,35 +166,35 @@ fn condition_met(
     cell_tags: &[ra_map::MapCellTag],
     local_house: &str,
 ) -> bool {
-    match MapEventKind::from_i32(c.kind) {
-        Some(MapEventKind::TimeElapse) => st.timer_remaining == Some(0),
-        Some(MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything) => {
+    match c.kind {
+        MapEventKind::TimeElapse => st.timer_remaining == Some(0),
+        MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything => {
             let bound_tags = tags_for_trigger(tags, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
             !any_living_with_tags(world, &bound_tags)
         }
-        Some(MapEventKind::DestroyedUnitsAll) => {
+        MapEventKind::DestroyedUnitsAll => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::LandUnits)
         }
-        Some(MapEventKind::DestroyedBuildingsAll) => {
+        MapEventKind::DestroyedBuildingsAll => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::Buildings)
         }
-        Some(MapEventKind::DestroyedAll) => {
+        MapEventKind::DestroyedAll => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             !any_living_of_house(world, &house, HouseAliveFilter::All)
         }
-        Some(MapEventKind::EnteredBy) => {
+        MapEventKind::EnteredBy => {
             let bound_tags = tags_for_trigger(tags, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
             cell_entered_by_house(world, cell_tags, &bound_tags, local_house)
         }
-        Some(MapEventKind::CreditsExceed) => {
+        MapEventKind::CreditsExceed => {
             let Some(threshold) = event_numeric_param(c)
             else {
                 return false;
@@ -201,7 +202,7 @@ fn condition_met(
             let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
             house_funds(world, &house) >= threshold as i32
         }
-        Some(MapEventKind::CreditsBelow) => {
+        MapEventKind::CreditsBelow => {
             let Some(threshold) = event_numeric_param(c)
             else {
                 return false;
@@ -209,7 +210,7 @@ fn condition_met(
             let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
             house_funds(world, &house) < threshold as i32
         }
-        Some(MapEventKind::LowPower) => {
+        MapEventKind::LowPower => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
             world
                 .players
@@ -218,7 +219,7 @@ fn condition_met(
                 .map(|p| p.low_power())
                 .unwrap_or(false)
         }
-        None => false,
+        MapEventKind::Unknown(_) => false,
     }
 }
 
@@ -311,7 +312,7 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
     scripting
         .actions
         .iter()
-        .filter(|a| a.commands.iter().any(|c| MapActionKind::from_i32(c.kind) == Some(MapActionKind::AllowWin)))
+        .filter(|a| a.commands.iter().any(|c| c.kind == MapActionKind::AllowWin))
         .count() as u32
 }
 
@@ -405,12 +406,10 @@ fn cell_entered_by_house(
 }
 
 fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionCommand, local_house: &str) {
-    let Some(kind) = MapActionKind::from_i32(cmd.kind)
-    else {
-        world.trigger_runtime.record_unsupported(cmd.kind);
-        return;
-    };
-    match kind {
+    match cmd.kind {
+        MapActionKind::Unknown(_) => {
+            world.trigger_runtime.record_unsupported(cmd.kind);
+        }
         MapActionKind::Win => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
             if world.trigger_runtime.win_blockers > 0 {

@@ -1,5 +1,7 @@
 use ra_assets::IniDocument;
-use ra_map::{MapEntityKind, MapInfo, parse_map_entities, parse_map_scripting};
+use ra_map::{
+    MapActionKind, MapEntityKind, MapEventKind, MapInfo, parse_map_entities, parse_map_scripting,
+};
 use ra_types::GameEdition;
 
 #[test]
@@ -50,8 +52,8 @@ fn parse_map_scripting_triggers_and_teams() {
     assert_eq!(map.scripting.tags[0].trigger_id, "TR1");
     assert_eq!(map.scripting.triggers[0].id, "TR1");
     assert!(!map.scripting.triggers[0].disabled);
-    assert_eq!(map.scripting.events[0].conditions[0].kind, 13);
-    assert_eq!(map.scripting.actions[0].commands[0].kind, 1);
+    assert_eq!(map.scripting.events[0].conditions[0].kind, MapEventKind::TimeElapse);
+    assert_eq!(map.scripting.actions[0].commands[0].kind, MapActionKind::Win);
     assert_eq!(map.scripting.cell_tags[0].x, 5);
     assert_eq!(map.scripting.cell_tags[0].y, 5);
     assert_eq!(map.scripting.task_forces[0].entries[0].type_id, "E1");
