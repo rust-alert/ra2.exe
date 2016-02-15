@@ -10,6 +10,7 @@ mod load_screen;
 mod network_page;
 mod options_page;
 mod shell_chrome;
+mod skirmish_score;
 
 pub use battle_hud::{
     battle_hud_world_viewport, cameo_content_rect, cameo_slot_rect, cameo_visible_slot_count,
@@ -27,3 +28,4 @@ pub use load_screen::{solve_load_screen, LOAD_SCREEN_BUTTON_IDS};
 pub use network_page::{solve_network_page, NETWORK_BUTTON_IDS};
 pub use options_page::{solve_options_page, OPTIONS_CONTENT_IDS};
 pub use shell_chrome::solve_shell_page;
+pub use skirmish_score::solve_skirmish_score;

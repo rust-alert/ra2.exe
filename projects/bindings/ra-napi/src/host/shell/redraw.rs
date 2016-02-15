@@ -47,7 +47,7 @@ impl Shell {
 
     /// 前置页：主菜单 / 单人 / 选项 / 遭遇战大厅 / 装载页上传合成 chrome；启动闪屏由独立 owner 保持。
     pub(super) fn refresh_menu_backdrop(&mut self) {
-        if matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
+        if self.screen == OriginalScreen::Battle {
             // 对局 HUD 由 `BattleController::draw_frame` 维护，勿在此清空；仍预热字体。
             self.ensure_menu_assets();
             self.ensure_menu_text_assets();
@@ -70,6 +70,7 @@ impl Shell {
                 | OriginalScreen::SkirmishLobby
                 | OriginalScreen::ChooseMap
                 | OriginalScreen::LoadScreen
+                | OriginalScreen::Results
         ) {
             if matches!(self.screen, OriginalScreen::SkirmishLobby | OriginalScreen::ChooseMap) {
                 self.ensure_lobby_maps();
@@ -357,6 +358,26 @@ impl Shell {
                         },
                     )
                     }
+                    OriginalScreen::Results => {
+                        self.ensure_score_backdrop();
+                        let rows = self.skirmish_score_rows();
+                        let time = self.skirmish_score_time_text();
+                        compose::compose_skirmish_score_page(
+                            decoded,
+                            self.menu_pressed_entry,
+                            self.menu_hovered_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            compose::SkirmishScorePaint {
+                                game_index: 1,
+                                time_text: time.as_str(),
+                                rows: rows.as_slice(),
+                                backdrop: self.score_backdrop.as_ref(),
+                                campaign: self.results_is_campaign(),
+                            },
+                            self.menu_panel_anim_frame,
+                        )
+                    }
                     _ => None,
                 };
                 if let Some(page) = page {
@@ -439,7 +460,7 @@ impl Shell {
         else {
             return;
         };
-        if matches!(self.screen, OriginalScreen::Battle | OriginalScreen::Results) {
+        if matches!(self.screen, OriginalScreen::Battle) {
             return;
         }
         let title = match self.screen {
@@ -452,6 +473,9 @@ impl Shell {
             OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into(),
             OriginalScreen::Campaign => {
                 format!("ra2 · 战役 · {} · Esc 返回 · F12 截图", self.banner)
+            }
+            OriginalScreen::Results => {
+                format!("ra2 · {} · Enter/继续确认 · Esc 离开 · F12 截图", self.banner)
             }
             OriginalScreen::SkirmishLobby => {
                 let detail = self
@@ -483,7 +507,7 @@ impl Shell {
             OriginalScreen::ExitConfirm => {
                 format!("ra2 · 确认退出 · {} · Enter 退出 · Esc 取消 · F12 截图", self.banner)
             }
-            OriginalScreen::Battle | OriginalScreen::Results => unreachable!(),
+            OriginalScreen::Battle => unreachable!(),
         };
         if title != self.last_shell_title {
             window.set_title(&title);
@@ -563,6 +587,7 @@ impl Shell {
                     | OriginalScreen::ExitConfirm
                     | OriginalScreen::SkirmishLobby
                     | OriginalScreen::ChooseMap
+                    | OriginalScreen::Results
             ) {
                 let dt = self.menu_movie_clock.replace(Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0).min(0.25);
                 let movie_advanced = self.menu_movie.as_mut().is_some_and(|m| m.tick(dt));
@@ -576,6 +601,7 @@ impl Shell {
                         | OriginalScreen::Campaign
                         | OriginalScreen::Options
                         | OriginalScreen::ExitConfirm
+                        | OriginalScreen::Results
                 );
                 let mut panel_advanced = false;
                 if warn_pages {

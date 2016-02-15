@@ -14,7 +14,8 @@ use crate::{
         campaign_difficulty_csf_key, campaign_title_csf_key, choose_map_csf_label, choose_map_static_csf_key,
         choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key, load_screen_brief_csf_key,
         load_screen_loading_csf_key, load_screen_name_csf_key, main_menu_csf_label,
-        options_csf_label, options_dialog_csf_key, battle_pause_menu_csf_label, resolve_caption, resolve_csf_text,
+        options_csf_label, options_dialog_csf_key, battle_pause_menu_csf_label, battle_pause_menu_fallback_label,
+        skirmish_score_csf_label, skirmish_score_fallback_label, resolve_caption, resolve_csf_text,
         single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
         skirmish_title_csf_key, LOAD_SCREEN_TEXT, LOAD_SCREEN_TEXT_TITLE,
     },
@@ -27,9 +28,9 @@ use ra_layout::{
     SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H,
     SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT, SKIRMISH_AI_ROW_COUNT, SKIRMISH_TRACK_ACTIVE_PAD,
     SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, LOAD_SCREEN_BUTTON_IDS, LayoutSnapshot,
-    SHELL_BASE_H, SHELL_BASE_W, BattleHudChromeMetrics,
+    SHELL_BASE_H, SHELL_BASE_W, BattleHudChromeMetrics, SKIRMISH_SCORE_BUTTON_IDS,
     choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll, rect_px_from_snapshot,
-    solve_battle_hud_with_metrics, solve_skirmish_lobby,
+    solve_battle_hud_with_metrics, solve_skirmish_lobby, solve_skirmish_score,
 };
 
 mod raster;
@@ -43,6 +44,7 @@ mod skirmish;
 mod choose_map;
 mod load;
 mod battle;
+mod skirmish_score;
 
 // 子模块通过 `use super::*` 共享 pub(super) 符号。
 pub(super) use raster::*;
@@ -59,5 +61,8 @@ pub use skirmish::{SkirmishChromeSprites, SkirmishLobbyPaint, compose_skirmish_l
 pub use choose_map::compose_choose_map_page;
 pub use load::{LoadScreenPaint, compose_load_screen_page};
 pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay, compose_battle_results_overlay};
+pub use skirmish_score::{
+    SkirmishScorePaint, SkirmishScoreRow, compose_skirmish_score_page, format_score_time, skirmish_score_hit_at,
+};
 pub use controls::paint_options_dialog_controls;
 pub use raster::{blit_rgba, blit_stretched};

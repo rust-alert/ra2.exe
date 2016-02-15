@@ -143,3 +143,6 @@ pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 /// 顺序对齐原版遭遇战 Esc 菜单：选项 → 全屏 → 放弃任务；「回到任务」贴底。
 pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 4] =
     ["options", "fullscreen", "abort", "resume"];
+
+/// 遭遇战积分页右栏按钮（仅「继续」贴底）。
+pub const SKIRMISH_SCORE_BUTTON_IDS: [&str; 1] = ["continue"];

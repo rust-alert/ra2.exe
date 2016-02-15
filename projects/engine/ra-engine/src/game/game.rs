@@ -208,12 +208,29 @@ pub enum BattleOutcome {
 pub struct BattleStats {
     /// 对局持续 tick。
     pub duration_ticks: u64,
-    /// 已死亡移动单位数。
+    /// 已死亡移动单位数（全场）。
     pub units_lost: u32,
-    /// 已死亡建筑数。
+    /// 已死亡建筑数（全场）。
     pub buildings_lost: u32,
     /// 全场累计花费。
     pub funds_spent: i32,
+    /// 各方结算行（顺序与开局玩家表一致）。
+    pub players: Vec<PlayerBattleStats>,
+}
+
+/// 单方结算行（遭遇战积分表）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PlayerBattleStats {
+    /// 阵营 / house 名。
+    pub house: String,
+    /// 摧毁数（当前引擎尚未逐击杀记账时为 0）。
+    pub kills: u32,
+    /// 损失单位数。
+    pub losses: u32,
+    /// 建造数（当前用生产花费档位近似；无建造流水时为 0）。
+    pub built: u32,
+    /// 积分（临时：花费/100 + 摧毁×10 − 损失×5，下限 0）。
+    pub score: i32,
 }
 
 /// 一场 RTS 权威战斗会话。
@@ -553,21 +570,59 @@ impl BattleSession {
     fn compute_battle_stats(&self) -> BattleStats {
         let mut units_lost = 0u32;
         let mut buildings_lost = 0u32;
+        let mut losses_by_house: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
         for e in &self.world.entities {
             let id = e.id;
             if !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(false) {
                 continue;
             }
+            let house = self
+                .world
+                .ecs_get::<Owner>(id)
+                .map(|o| o.house.to_string())
+                .unwrap_or_default();
             match self.world.ecs_get::<Identity>(id).map(|identity| identity.kind) {
-                Some(MapEntityKind::Structure) => buildings_lost = buildings_lost.saturating_add(1),
+                Some(MapEntityKind::Structure) => {
+                    buildings_lost = buildings_lost.saturating_add(1);
+                    if !house.is_empty() {
+                        *losses_by_house.entry(house).or_default() += 1;
+                    }
+                }
                 Some(MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) => {
                     units_lost = units_lost.saturating_add(1);
+                    if !house.is_empty() {
+                        *losses_by_house.entry(house).or_default() += 1;
+                    }
                 }
                 _ => {}
             }
         }
         let funds_spent = self.world.players.iter().map(|p| p.funds_spent).sum();
-        BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent }
+        let players = self
+            .world
+            .players
+            .iter()
+            .map(|p| {
+                let losses = losses_by_house.get(p.house.as_ref()).copied().unwrap_or(0);
+                let kills = 0u32;
+                let built = 0u32;
+                let score = (p.funds_spent / 100) + (kills as i32) * 10 - (losses as i32) * 5;
+                PlayerBattleStats {
+                    house: p.house.to_string(),
+                    kills,
+                    losses,
+                    built,
+                    score: score.max(0),
+                }
+            })
+            .collect();
+        BattleStats {
+            duration_ticks: self.world.tick,
+            units_lost,
+            buildings_lost,
+            funds_spent,
+            players,
+        }
     }
 
     /// 指定实体移动到目标格。

@@ -11,10 +11,11 @@ use crate::{menu_action::MenuAction, original_screen::OriginalScreen, skin::slot
 use ra_layout::{
     CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
     EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS,
-    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, LayoutSnapshot, Point2,
-    Rect, RectPx, choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll,
-    solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page,
-    solve_options_page, solve_shell_page, solve_skirmish_lobby, window_to_shell_px,
+    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_SCORE_BUTTON_IDS,
+    LayoutSnapshot, Point2, Rect, RectPx, choose_map_list_row_rect, choose_map_visible_rows,
+    clamp_map_list_scroll, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
+    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby, solve_skirmish_score,
+    window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -54,7 +55,8 @@ pub fn hits_for(
         OriginalScreen::ExitConfirm => hits_exit_confirm(),
         OriginalScreen::LoadScreen => hits_load_screen(load_allow_retry),
         OriginalScreen::Network => hits_network(),
-        OriginalScreen::Splash | OriginalScreen::Battle | OriginalScreen::Results => Vec::new(),
+        OriginalScreen::Results => hits_skirmish_score(),
+        OriginalScreen::Splash | OriginalScreen::Battle => Vec::new(),
     }
 }
 
@@ -98,7 +100,10 @@ pub fn hit_action(
     if screen == OriginalScreen::Network {
         return hit_network_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
-    // 闪屏 / 对局 / 结算无前置菜单点击命中。
+    if screen == OriginalScreen::Results {
+        return hit_skirmish_score_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
+    }
+    // 闪屏 / 对局无前置菜单点击命中。
     None
 }
 
@@ -142,7 +147,10 @@ pub fn hover_index(
     if screen == OriginalScreen::Network {
         return hover_network_at(cursor.0, cursor.1, win_w, win_h);
     }
-    // 闪屏 / 对局 / 结算无前置菜单悬停命中。
+    if screen == OriginalScreen::Results {
+        return hit_skirmish_score_at(cursor.0, cursor.1, win_w, win_h).map(|(i, _)| i);
+    }
+    // 闪屏 / 对局无前置菜单悬停命中。
     None
 }
 
@@ -455,6 +463,28 @@ fn hover_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opt
 
 fn network_snapshot() -> LayoutSnapshot {
     solve_network_page()
+}
+
+fn hits_skirmish_score() -> Vec<MenuHit> {
+    hits_from_slot_ids(
+        OriginalScreen::Results,
+        &skirmish_score_snapshot(),
+        &SKIRMISH_SCORE_BUTTON_IDS,
+    )
+}
+
+fn hit_skirmish_score_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
+    let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
+    hit_enabled_slot_at(
+        OriginalScreen::Results,
+        &skirmish_score_snapshot(),
+        &SKIRMISH_SCORE_BUTTON_IDS,
+        point,
+    )
+}
+
+fn skirmish_score_snapshot() -> LayoutSnapshot {
+    solve_skirmish_score()
 }
 
 fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {

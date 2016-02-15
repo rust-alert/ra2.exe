@@ -247,10 +247,13 @@ impl Shell {
         }
     }
 
-    /// 前置壳层页播 BGM；离开壳层则停。
+    /// 前置壳层页播 BGM；结算播 SCORE 主题；离开则停。
     pub(super) fn sync_shell_audio(&mut self) {
         self.ensure_menu_audio_assets();
-        let wants_bgm = matches!(
+        self.ensure_score_bgm();
+        let want_kind: Option<&'static str> = if self.screen == OriginalScreen::Results {
+            Some("score")
+        } else if matches!(
             self.screen,
             OriginalScreen::MainMenu
                 | OriginalScreen::SinglePlayerMenu
@@ -260,20 +263,57 @@ impl Shell {
                 | OriginalScreen::SkirmishLobby
                 | OriginalScreen::ChooseMap
                 | OriginalScreen::Network
-        );
-        if wants_bgm {
-            if !self.menu_bgm_playing {
+        ) {
+            Some("menu")
+        } else {
+            None
+        };
+        if self.shell_bgm_kind == want_kind && (want_kind.is_none() || self.menu_bgm_playing) {
+            return;
+        }
+        if self.menu_bgm_playing {
+            if let Some(audio) = self.audio.as_mut() {
+                audio.stop_music();
+            }
+            self.menu_bgm_playing = false;
+        }
+        self.shell_bgm_kind = want_kind;
+        match want_kind {
+            Some("score") => {
+                if let (Some(audio), Some(bgm)) = (self.audio.as_mut(), self.score_bgm.as_ref()) {
+                    audio.play_music_loop(bgm);
+                    self.menu_bgm_playing = true;
+                }
+            }
+            Some("menu") => {
                 if let (Some(audio), Some(bgm)) = (self.audio.as_mut(), self.menu_bgm.as_ref()) {
                     audio.play_music_loop(bgm);
                     self.menu_bgm_playing = true;
                 }
             }
+            _ => {}
         }
-        else if self.menu_bgm_playing {
-            if let Some(audio) = self.audio.as_mut() {
-                audio.stop_music();
-            }
-            self.menu_bgm_playing = false;
+    }
+
+    /// 惰性装载结算主题曲（`theme.ini` `[SCORE]`）。
+    pub(super) fn ensure_score_bgm(&mut self) {
+        if self.score_bgm.is_some() || self.score_bgm_tried {
+            return;
+        }
+        self.score_bgm_tried = true;
+        self.ensure_menu_assets();
+        let stem = self
+            .read_ini_doc("theme.ini")
+            .as_ref()
+            .and_then(|d| d.get("SCORE", "Sound"))
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "RA2-Sco".into());
+        if let Some(pcm) = self.decode_theme_track(&stem) {
+            tracing::info!(%stem, "已装载结算主题曲");
+            self.score_bgm = Some(pcm);
+        } else {
+            tracing::debug!(%stem, "结算主题曲不可用");
         }
     }
 

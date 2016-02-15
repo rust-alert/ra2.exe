@@ -66,8 +66,10 @@ impl OriginalScreen {
     }
 
     /// 绘制是否依赖已创建的 `Session`。
+    ///
+    /// 结算页改由壳层积分 UI 绘制，只读对局统计，不再走对局 HUD。
     pub fn requires_session(self) -> bool {
-        matches!(self, Self::Battle | Self::Results)
+        matches!(self, Self::Battle)
     }
 
     /// 解析 `ra2 launch --screen` 别名（大小写不敏感；不含对局/装载/结算）。

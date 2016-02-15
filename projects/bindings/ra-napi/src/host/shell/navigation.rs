@@ -355,6 +355,9 @@ impl Shell {
                 self.refresh_shell_title();
             }
             MenuAction::Back => match self.screen {
+                OriginalScreen::Results => {
+                    self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
+                }
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options | OriginalScreen::ExitConfirm => {
                     if self.screen == OriginalScreen::Options {
                         self.discard_options_draft();
@@ -440,7 +443,28 @@ impl Shell {
                     }
                 }
             }
-            BattleNav::ToResults => self.set_screen(OriginalScreen::Results),
+            BattleNav::ToResults => {
+                self.renderer.clear_preview();
+                self.battle_cursor_grabbed = false;
+                // 结算 EVA（若对局侧已排队）在切页前消费。
+                if let Some(ctrl) = self.battle_controller.as_mut() {
+                    for event_id in ctrl.take_pending_battle_sfx() {
+                        self.play_battle_sfx_event(&event_id);
+                    }
+                }
+                self.renderer.clear_ui_page();
+                self.ensure_score_backdrop();
+                self.menu_pressed_entry = None;
+                self.menu_hovered_entry = None;
+                self.set_screen(OriginalScreen::Results);
+                self.banner = if self.results_is_campaign() {
+                    "任务结算".into()
+                } else {
+                    "遭遇战积分".into()
+                };
+                self.refresh_menu_backdrop();
+                self.refresh_shell_title();
+            }
             BattleNav::ToMainMenu => match self.load_kind {
                 LoadKind::Campaign => {
                     self.banner = "已返回战役选边".into();

@@ -333,6 +333,36 @@ pub fn battle_pause_menu_fallback_label(entry_id: &str) -> &str {
     }
 }
 
+/// 遭遇战积分页按钮 / 标题 → CSF。
+pub fn skirmish_score_csf_label(entry_id: &str) -> Option<&'static str> {
+    match entry_id {
+        "continue" => Some("GUI:CONTINUE"),
+        "title" => Some("GUI:SKIRMISHSCORE"),
+        "player" => Some("GUI:PLAYER"),
+        "kills" => Some("GUI:KILLS"),
+        "losses" => Some("GUI:LOSSES"),
+        "built" => Some("GUI:BUILT"),
+        "score" => Some("GUI:SCORE"),
+        "time" => Some("GUI:TIME"),
+        _ => None,
+    }
+}
+
+/// 积分页无 CSF 时的字面回退。
+pub fn skirmish_score_fallback_label(entry_id: &str) -> &str {
+    match entry_id {
+        "continue" => "Continue",
+        "title" => "Skirmish Score",
+        "player" => "Player",
+        "kills" => "Kills",
+        "losses" => "Lost",
+        "built" => "Built",
+        "score" => "Score",
+        "time" => "Time",
+        _ => "Score",
+    }
+}
+
 
 /// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
 pub const SKIRMISH_COMMAND_BAR: &[&str] = &[

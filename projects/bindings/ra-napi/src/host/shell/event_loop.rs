@@ -128,7 +128,7 @@ impl ApplicationHandler for Shell {
         }
 
         match self.screen {
-            OriginalScreen::Battle | OriginalScreen::Results => {
+            OriginalScreen::Battle => {
                 let accept = self.screen.accepts_battle_commands();
                 let Some(window) = self.window.clone()
                 else {
@@ -138,6 +138,10 @@ impl ApplicationHandler for Shell {
                     let nav = ctrl.handle_event(&event, &mut self.renderer, &window, accept);
                     self.apply_nav(nav);
                 }
+            }
+            OriginalScreen::Results => {
+                let nav = self.handle_results_event(&event);
+                self.apply_nav(nav);
             }
             OriginalScreen::Splash
             | OriginalScreen::MainMenu

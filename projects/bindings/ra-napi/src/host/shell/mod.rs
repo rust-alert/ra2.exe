@@ -93,6 +93,12 @@ pub struct Shell {
     pub(super) lobby_preview_for: Option<String>,
     /// 已缩小的选中地图预览。
     pub(super) lobby_preview: Option<RgbaImage>,
+    /// 积分页左区氛围图（阵营 `ls800*` 或 `mnscrnl`）。
+    pub(super) score_backdrop: Option<RgbaImage>,
+    /// 氛围图对应的 house:suffix（换阵营时重载）。
+    pub(super) score_backdrop_for: Option<String>,
+    /// 是否已尝试装载积分氛围图（保留字段兼容；实际以 `score_backdrop_for` 为准）。
+    pub(super) score_backdrop_tried: bool,
     /// 后台地图预览任务。
     pub(super) lobby_preview_job: Option<PreviewJob>,
     /// 遭遇战控件 PCX 缓存（勾选/滑条拇指/旗标）。
@@ -168,6 +174,10 @@ pub struct Shell {
     pub(super) menu_bgm: Option<PcmAudio>,
     /// 是否已尝试装载菜单 BGM（失败后不再每帧重试）。
     pub(super) menu_bgm_tried: bool,
+    /// 结算页 BGM（`theme.ini` `[SCORE]` → 如 `RA2-Sco`）。
+    pub(super) score_bgm: Option<PcmAudio>,
+    /// 是否已尝试装载结算 BGM。
+    pub(super) score_bgm_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
     pub(super) menu_click: Option<PcmAudio>,
     /// 壳层出去音效（`GUIMoveOutSound` → 默认 `MenuSlideOut` / `uslide2`）。
@@ -180,6 +190,8 @@ pub struct Shell {
     pub(super) menu_move_in_tried: bool,
     /// 当前是否已在播壳层 BGM。
     pub(super) menu_bgm_playing: bool,
+    /// 当前 BGM 来源：`None` / `Some("menu")` / `Some("score")`。
+    pub(super) shell_bgm_kind: Option<&'static str>,
     /// 已解析的 `audio.bag` 索引（惰性）。
     pub(super) audio_bag: Option<AudioIndex>,
     /// 是否已尝试装载 `audio.bag`（避免反复读盘）。
@@ -219,6 +231,7 @@ mod splash;
 mod options;
 mod lobby;
 mod campaign;
+mod score;
 mod assets;
 mod battle_cursors;
 mod diagnostics;

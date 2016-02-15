@@ -1,0 +1,258 @@
+//! 遭遇战 / 战役结算页：积分表数据与交互。
+
+use ra_assets::{Palette, ShpFile};
+use ra_engine::{BattleOutcome, SessionBootKind};
+use ra_widgets::compose::{format_score_time, skirmish_score_hit_at, SkirmishScoreRow};
+use ra_widgets::load_kind::LoadKind;
+use ra_widgets::skin::decode::frame_to_canvas_rgba;
+use ra_widgets::skin::text::resolve_csf_text;
+use ra_widgets::skirmish_setup::{
+    load_screen_art_suffix, load_screen_background_shp, LOAD_SCREEN_FALLBACK_PAL, LOBBY_COLORS,
+};
+use ra_renderer::RgbaImage;
+use winit::event::{ElementState, MouseButton, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
+
+use crate::host::battle_controller::BattleNav;
+
+use super::Shell;
+
+impl Shell {
+    /// 本机阵营 house 名（驱动积分页左区装载艺术）。
+    fn results_local_house(&self) -> String {
+        self.battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .and_then(|g| {
+                g.world
+                    .players
+                    .iter()
+                    .find(|p| p.id == g.world.local_player)
+                    .map(|p| p.house.to_string())
+            })
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| self.skirmish.side.clone())
+    }
+
+    /// 惰性解码积分页左区氛围图：优先本机阵营 `ls800*` 装载艺术（贴近原版战报左区大图），回退 `mnscrnl`。
+    pub(super) fn ensure_score_backdrop(&mut self) {
+        let house = self.results_local_house();
+        let want_key = format!("{}:{}", house, load_screen_art_suffix(&house));
+        if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
+            return;
+        }
+        self.score_backdrop = None;
+        self.score_backdrop_for = Some(want_key);
+        self.ensure_menu_assets();
+        let Some(source) = self.menu_assets.as_ref().and_then(|a| a.source.as_ref())
+        else {
+            return;
+        };
+        let shp_name = load_screen_background_shp(&house, 800);
+        let candidates = [shp_name.as_str(), "mnscrnl.shp"];
+        let pal_names = [LOAD_SCREEN_FALLBACK_PAL, "sidebar.pal", "shell.pal"];
+        for name in candidates {
+            let Some(hit) = source.resolve(name)
+            else {
+                continue;
+            };
+            let Ok(shp) = ShpFile::parse(&hit.bytes)
+            else {
+                continue;
+            };
+            let Some(frame) = shp.frames.first()
+            else {
+                continue;
+            };
+            let mut decoded = None;
+            for paln in pal_names {
+                let Some(ph) = source.resolve(paln).or_else(|| source.resolve_preferring(paln, "sidec01.mix"))
+                else {
+                    continue;
+                };
+                let Ok(pal) = Palette::parse(&ph.bytes)
+                else {
+                    continue;
+                };
+                if let Some(img) = frame_to_canvas_rgba(&shp, frame, &pal) {
+                    tracing::info!(
+                        %name,
+                        %paln,
+                        house = %house,
+                        w = img.width(),
+                        h = img.height(),
+                        "已装载积分页左区氛围图"
+                    );
+                    decoded = Some(img);
+                    break;
+                }
+            }
+            if let Some(img) = decoded {
+                self.score_backdrop = Some(img);
+                return;
+            }
+        }
+        tracing::debug!(house = %house, "积分页氛围图不可读");
+    }
+
+    /// 从当前对局快照拼积分表行。
+    pub(super) fn skirmish_score_rows(&self) -> Vec<SkirmishScoreRow> {
+        let Some(game) = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+        else {
+            return Vec::new();
+        };
+        let local_house = game
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == game.world.local_player)
+            .map(|p| p.house.to_string())
+            .unwrap_or_default();
+        let ai_label = resolve_csf_text(self.menu_csf.as_ref(), "GUI:AI")
+            .unwrap_or_else(|| "电脑".into());
+        let stats_players = game
+            .battle_stats
+            .as_ref()
+            .map(|s| s.players.as_slice())
+            .unwrap_or(&[]);
+        if !stats_players.is_empty() {
+            return stats_players
+                .iter()
+                .enumerate()
+                .map(|(i, row)| {
+                    let is_local = row.house.eq_ignore_ascii_case(&local_house);
+                    let name = if is_local {
+                        self.skirmish.player_name.clone()
+                    } else {
+                        ai_label.clone()
+                    };
+                    let rgb = LOBBY_COLORS
+                        .get(i % LOBBY_COLORS.len())
+                        .copied()
+                        .unwrap_or([220, 220, 220]);
+                    let color = [rgb[0], rgb[1], rgb[2], 255];
+                    SkirmishScoreRow {
+                        name,
+                        color,
+                        kills: row.kills,
+                        losses: row.losses,
+                        built: row.built,
+                        score: row.score,
+                    }
+                })
+                .collect();
+        }
+        // 无逐玩家统计时回退：本方一行。
+        let losses = game.battle_stats.as_ref().map(|s| s.units_lost).unwrap_or(0);
+        let rgb = LOBBY_COLORS.first().copied().unwrap_or([255, 255, 255]);
+        vec![SkirmishScoreRow {
+            name: self.skirmish.player_name.clone(),
+            color: [rgb[0], rgb[1], rgb[2], 255],
+            kills: 0,
+            losses,
+            built: 0,
+            score: 0,
+        }]
+    }
+
+    /// 结算时长文案。
+    pub(super) fn skirmish_score_time_text(&self) -> String {
+        let ticks = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .and_then(|g| g.battle_stats.as_ref())
+            .map(|s| s.duration_ticks)
+            .unwrap_or(0);
+        format_score_time(ticks, 15)
+    }
+
+    /// 是否战役结算（标题走任务积分）。
+    pub(super) fn results_is_campaign(&self) -> bool {
+        self.load_kind == LoadKind::Campaign
+            || self
+                .battle_controller
+                .as_ref()
+                .and_then(|c| c.session.as_ref())
+                .and_then(|s| s.battle())
+                .is_some_and(|g| g.boot_kind == SessionBootKind::Campaign)
+    }
+
+    /// 结算页输入：继续 / 离开；战役胜且有下一关时 Enter=下一关。
+    pub(super) fn handle_results_event(&mut self, event: &WindowEvent) -> BattleNav {
+        match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
+                let logical = position.to_logical::<f64>(scale);
+                self.cursor = (logical.x, logical.y);
+                let hit = skirmish_score_hit_at(self.cursor.0 as i32, self.cursor.1 as i32);
+                if self.menu_hovered_entry != hit {
+                    self.menu_hovered_entry = hit;
+                    self.refresh_menu_backdrop();
+                }
+                BattleNav::None
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                let hit = skirmish_score_hit_at(self.cursor.0 as i32, self.cursor.1 as i32);
+                match state {
+                    ElementState::Pressed => {
+                        if hit.is_some() {
+                            self.play_menu_click();
+                        }
+                        self.menu_pressed_entry = hit;
+                        self.refresh_menu_backdrop();
+                        BattleNav::None
+                    }
+                    ElementState::Released => {
+                        let pressed = self.menu_pressed_entry.take();
+                        self.refresh_menu_backdrop();
+                        if pressed == Some("continue") && hit == Some("continue") {
+                            self.results_confirm_nav()
+                        } else {
+                            BattleNav::None
+                        }
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { event: key_ev, .. } if key_ev.state == ElementState::Pressed => {
+                match key_ev.physical_key {
+                    PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
+                        self.results_confirm_nav()
+                    }
+                    PhysicalKey::Code(KeyCode::Escape) => BattleNav::ToMainMenu,
+                    _ => BattleNav::None,
+                }
+            }
+            _ => BattleNav::None,
+        }
+    }
+
+    /// Enter / 继续：战役胜有 `NextMission` 则下一关，否则离开结算。
+    fn results_confirm_nav(&self) -> BattleNav {
+        let continue_campaign = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .is_some_and(|g| {
+                matches!(g.outcome, Some(BattleOutcome::Victory { .. }))
+                    && g.boot_kind == SessionBootKind::Campaign
+                    && !g.world.map.next_mission.trim().is_empty()
+            });
+        if continue_campaign {
+            BattleNav::ContinueCampaign
+        } else {
+            BattleNav::ToMainMenu
+        }
+    }
+}

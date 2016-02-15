@@ -215,6 +215,19 @@ const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
 ];
 
+/// 遭遇战积分：壳层右栏（含 WARNING 表头区）+ 底栏「继续」。
+const SKIRMISH_SCORE_PANELS: &[UiPanelSlot] = &[
+    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
+    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
+];
+
+const SKIRMISH_SCORE_BUTTONS: &[UiButtonSlot] = &[
+    main_menu_button("continue", MenuAction::Back, true),
+];
+
 /// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。
 const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("use_map", MenuAction::UseMap, true),
@@ -415,6 +428,18 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             fonts: &[],
             buttons: NETWORK_BUTTONS,
         }),
-        OriginalScreen::Battle | OriginalScreen::Results => None,
+        OriginalScreen::Battle => None,
+        // 遭遇战积分：壳层右栏 + mnscrnl；战役结算暂共用槽（合成侧再分支）。
+        OriginalScreen::Results => Some(UiPageSlots {
+            screen,
+            background_shp: Some("mnscrnl.shp"),
+            background_pcx: None,
+            background_pal: Some("shell.pal"),
+            background_frame: 0,
+            movie_bik: None,
+            panels: SKIRMISH_SCORE_PANELS,
+            fonts: MAIN_MENU_FONTS,
+            buttons: SKIRMISH_SCORE_BUTTONS,
+        }),
     }
 }
