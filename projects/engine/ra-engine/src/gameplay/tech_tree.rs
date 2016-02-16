@@ -202,6 +202,7 @@ mod tests {
             required_houses: Vec::new(),
             forbidden_houses: Vec::new(),
             build_limit: 0,
+            build_time: 0,
             requires_stolen_allied_tech: false,
             requires_stolen_soviet_tech: false,
             requires_stolen_third_tech: false,

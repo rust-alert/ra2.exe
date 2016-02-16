@@ -2,18 +2,33 @@
 
 use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
+use ra_types::TechnoDefinition;
 use std::sync::Arc;
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
     state::{
-        ATTACK_COOLDOWN_TICKS,
+        ATTACK_COOLDOWN_TICKS, BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS,
         components::{
             AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
             MovementState, Owner, ProductionQueue, Transform,
         },
     },
 };
+
+/// 将冻结定义中的 `BuildTime` 转为生产队列剩余 tick。
+///
+/// `build_time == 0`（缺省）回退 [`PRODUCE_TICKS`]。否则为 `build_time * BUILD_TIME_TICKS_PER_UNIT`，至少 1。
+pub(crate) fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
+    if techno.build_time == 0 {
+        PRODUCE_TICKS
+    } else {
+        techno
+            .build_time
+            .saturating_mul(BUILD_TIME_TICKS_PER_UNIT)
+            .max(1)
+    }
+}
 
 impl crate::state::BattleState {
     pub(crate) fn advance_production(&mut self) {
@@ -194,5 +209,54 @@ fn techno_kind_to_class(kind: TechnoKind) -> ra_types::TechnoClass {
         TechnoKind::Vehicle => ra_types::TechnoClass::Vehicle,
         TechnoKind::Aircraft => ra_types::TechnoClass::Aircraft,
         TechnoKind::Building => ra_types::TechnoClass::Building,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::produce_ticks_for;
+    use crate::state::{BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS};
+    use ra_types::{TechnoClass, TechnoDefinition, TypeId};
+
+    fn sample(build_time: u32) -> TechnoDefinition {
+        TechnoDefinition {
+            id: TypeId(1),
+            type_key: "E1".into(),
+            class: TechnoClass::Infantry,
+            cost: 200,
+            strength: 125,
+            armor: "none".into(),
+            speed: 4,
+            owner: "Americans".into(),
+            tech_level: 1,
+            naval: false,
+            agent: false,
+            category: String::new(),
+            sight: 5,
+            damage: 0,
+            range: 0,
+            rof: 0,
+            warhead: String::new(),
+            prerequisite: Vec::new(),
+            prerequisite_override: Vec::new(),
+            required_houses: Vec::new(),
+            forbidden_houses: Vec::new(),
+            build_limit: 0,
+            build_time,
+            requires_stolen_allied_tech: false,
+            requires_stolen_soviet_tech: false,
+            requires_stolen_third_tech: false,
+        }
+    }
+
+    #[test]
+    fn missing_build_time_falls_back_to_produce_ticks() {
+        assert_eq!(produce_ticks_for(&sample(0)), PRODUCE_TICKS);
+    }
+
+    #[test]
+    fn build_time_scales_to_ticks() {
+        assert_eq!(produce_ticks_for(&sample(5)), 5 * BUILD_TIME_TICKS_PER_UNIT);
+        assert_eq!(produce_ticks_for(&sample(1)), BUILD_TIME_TICKS_PER_UNIT.max(1));
     }
 }

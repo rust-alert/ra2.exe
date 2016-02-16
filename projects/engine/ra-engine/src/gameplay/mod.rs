@@ -30,5 +30,6 @@ pub(crate) use rules::{full_verses, verses_for};
 pub(crate) use script_teams::{flush_pending_team_spawns, tick_script_teams};
 pub use script_teams::ScriptTeamRuntime;
 pub(crate) use tech_tree::{build_limit_reached, is_type_eligible, living_structure_keys, TechTreePlayer};
+pub(crate) use production::produce_ticks_for;
 pub use powers::{LightningStormState, start_lightning_storm, tick_lightning_storm};
 pub use triggers::{TriggerRuntime, tick_triggers};

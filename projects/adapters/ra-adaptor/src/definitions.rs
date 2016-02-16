@@ -61,6 +61,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             required_houses: ini_csv_tokens(&rules.rules, &key, "RequiredHouses"),
             forbidden_houses: ini_csv_tokens(&rules.rules, &key, "ForbiddenHouses"),
             build_limit: ini_i32(&rules.rules, &key, "BuildLimit").unwrap_or(0).max(0),
+            build_time: ini_i32(&rules.rules, &key, "BuildTime").unwrap_or(0).max(0) as u32,
             requires_stolen_allied_tech: ini_bool(&rules.rules, &key, "RequiresStolenAlliedTech").unwrap_or(false),
             requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
             requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),

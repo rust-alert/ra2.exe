@@ -233,15 +233,13 @@ impl crate::state::BattleState {
             game::CommandRejectReason,
             gameplay::{
                 building_power, build_limit_reached, deploy_into_type, full_verses, is_agent, is_construction_yard,
-                is_production_factory, is_type_eligible, living_structure_keys, requires_power_plant, TechTreePlayer,
+                is_production_factory, is_type_eligible, living_structure_keys, produce_ticks_for, requires_power_plant,
+                TechTreePlayer,
             },
             spatial::is_mobile,
-            state::{
-                PRODUCE_TICKS,
-                components::{
-                    AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity,
-                    Locomotor, MovementState, Owner, ProductionQueue, Transform,
-                },
+            state::components::{
+                AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity,
+                Locomotor, MovementState, Owner, ProductionQueue, Transform,
             },
         };
 
@@ -537,8 +535,9 @@ impl crate::state::BattleState {
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     let factory_id = self.entities[factory_index].id;
                     let queued = Arc::<str>::from(type_id.to_ascii_uppercase());
+                    let ticks = produce_ticks_for(tt);
                     let _ = self.with_production_mut(factory_id, |queue| {
-                        queue.item = Some((queued, PRODUCE_TICKS));
+                        queue.item = Some((queued, ticks));
                     });
                     self.mark_entity_dirty(factory_id);
                 }

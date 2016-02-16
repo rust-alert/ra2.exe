@@ -78,6 +78,8 @@ pub struct TechnoDefinition {
     pub forbidden_houses: Vec<String>,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
+    /// INI `BuildTime`（原版分钟档语义的整数）；`0` 表示缺省，生产侧回退默认 tick。
+    pub build_time: u32,
     /// `RequiresStolenAlliedTech=yes`。
     pub requires_stolen_allied_tech: bool,
     /// `RequiresStolenSovietTech=yes`。

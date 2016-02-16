@@ -65,7 +65,11 @@ pub const ORE_TRIP_TICKS: u32 = 30;
 pub const ORE_INCOME_PER_TRIP: u32 = 700;
 
 /// 工厂完成一件生产所需的 tick 数（Alpha 简化）。
+/// 缺省 `BuildTime`（INI 为 0 或未写）时的生产时长（逻辑 tick）。
 pub const PRODUCE_TICKS: u32 = 20;
+
+/// 每个 INI `BuildTime` 单位对应的逻辑 tick（可调比例，非零售精确换算）。
+pub const BUILD_TIME_TICKS_PER_UNIT: u32 = 4;
 
 /// 确定性仿真世界：实体、通行格与按 tick 消费的命令。
 #[derive(Debug, Clone)]
