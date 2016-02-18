@@ -4,7 +4,7 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, PowerProfile, PrerequisiteGroups, ProductionCategory,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
     ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, TechnoClass, TechnoDefinition, TypeId,
     WarheadDefinition,
 };
@@ -114,6 +114,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             }
         }
 
+        let foundation = Foundation::parse(&ini_string(&rules.rules, &key, "Foundation").unwrap_or_default());
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -125,6 +126,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             refinery,
             production,
             owner: tt.owner.clone(),
+            foundation,
             capabilities,
         });
     }

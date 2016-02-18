@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::TypeId;
 
-use super::{BuiltinCapability, ProductionProfile};
+use super::{BuiltinCapability, Foundation, ProductionProfile};
 
 /// 建筑电力配置（正供电 / 耗电分离；是否需电）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -47,6 +47,8 @@ pub struct StructureDefinition {
     pub production: Option<ProductionProfile>,
     /// Owner 串（空表示不限）。
     pub owner: String,
+    /// INI `Foundation=` 占地。
+    pub foundation: Foundation,
     /// 定义期能力声明。
     pub capabilities: Vec<BuiltinCapability>,
 }

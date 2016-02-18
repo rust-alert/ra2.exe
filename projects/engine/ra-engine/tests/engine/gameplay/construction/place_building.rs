@@ -11,8 +11,8 @@ fn yard_world() -> BattleState {
 [BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
-[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\n";
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n\
+[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nFoundation=3x4\n";
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
@@ -60,7 +60,26 @@ fn place_power_deducts_funds_and_spawns_structure() {
     assert_eq!(world.ecs_owner(power).expect("owner").as_ref(), "Americans");
     assert_eq!(world.ecs_transform(power).map(|t| (t.0, t.1)), Some((6, 4)));
     assert!(!world.pass_grid.is_passable(6, 4));
+    assert!(!world.pass_grid.is_passable(7, 4));
+    assert!(!world.pass_grid.is_passable(6, 5));
+    assert!(!world.pass_grid.is_passable(7, 5));
     assert_eq!(world.players[0].power_output, 200);
+}
+
+#[test]
+fn place_building_rejects_when_footprint_overlaps_obstacle() {
+    let mut world = yard_world();
+    // 电厂 2x2：左上 (3,3) 会盖住已有建造场 (4,4)。
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+        x: 3,
+        y: 3,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 1);
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
 }
 
 #[test]

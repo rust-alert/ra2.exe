@@ -852,19 +852,62 @@ impl BattleState {
 
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
     pub fn can_place_structure(&self, x: u16, y: u16) -> bool {
+        self.can_place_structure_footprint(x, y, 1, 1)
+    }
+
+    /// 以 `(x,y)` 为左上角，检查 `width×height` 矩形是否全部可放置。
+    pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16) -> bool {
         use crate::state::components::{Health, Transform};
 
-        if !self.pass_grid.in_bounds(x, y) {
-            return false;
+        let width = width.max(1);
+        let height = height.max(1);
+        for dy in 0..height {
+            for dx in 0..width {
+                let Some(cx) = x.checked_add(dx)
+                else {
+                    return false;
+                };
+                let Some(cy) = y.checked_add(dy)
+                else {
+                    return false;
+                };
+                if !self.pass_grid.in_bounds(cx, cy) {
+                    return false;
+                }
+                if !self.pass_grid.is_passable(cx, cy) {
+                    return false;
+                }
+                if self.entities.iter().any(|e| {
+                    let id = e.id;
+                    !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                        && self.ecs_get::<Transform>(id).map(|t| t.x == cx && t.y == cy).unwrap_or(false)
+                }) {
+                    return false;
+                }
+            }
         }
-        if !self.pass_grid.is_passable(x, y) {
-            return false;
+        true
+    }
+
+    /// 将建筑占地矩形全部标为不可通行。
+    pub fn seal_structure_footprint(&mut self, x: u16, y: u16, width: u16, height: u16) {
+        let width = width.max(1);
+        let height = height.max(1);
+        for dy in 0..height {
+            for dx in 0..width {
+                let Some(cx) = x.checked_add(dx)
+                else {
+                    continue;
+                };
+                let Some(cy) = y.checked_add(dy)
+                else {
+                    continue;
+                };
+                if self.pass_grid.in_bounds(cx, cy) {
+                    self.pass_grid.set_passable(cx, cy, false);
+                }
+            }
         }
-        !self.entities.iter().any(|e| {
-            let id = e.id;
-            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Transform>(id).map(|t| t.x == x && t.y == y).unwrap_or(false)
-        })
     }
 
     /// 当前确定性状态哈希（锁步校验用）。

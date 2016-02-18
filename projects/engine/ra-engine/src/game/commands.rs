@@ -428,7 +428,13 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
-                    if !self.can_place_structure(x, y) {
+                    let foundation = self
+                        .definitions
+                        .structures
+                        .get(type_id)
+                        .map(|s| s.foundation.clone())
+                        .unwrap_or_default();
+                    if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -445,7 +451,7 @@ impl crate::state::BattleState {
                     self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
                     self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
-                    self.pass_grid.set_passable(x, y, false);
+                    self.seal_structure_footprint(x, y, foundation.width, foundation.height);
                     self.spawn_from_bundle(EntitySpawnBundle {
                         identity: Identity {
                             entity_id: id,
