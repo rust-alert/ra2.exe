@@ -7,7 +7,7 @@ use ra_widgets::load_kind::LoadKind;
 use ra_widgets::skin::decode::frame_to_canvas_rgba;
 use ra_widgets::skin::text::resolve_csf_text;
 use ra_widgets::skirmish_setup::{
-    load_screen_art_suffix, load_screen_background_shp, LOAD_SCREEN_FALLBACK_PAL, LOBBY_COLORS,
+    score_screen_background_candidates, LOAD_SCREEN_FALLBACK_PAL, LOBBY_COLORS,
 };
 use ra_renderer::RgbaImage;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -35,10 +35,15 @@ impl Shell {
             .unwrap_or_else(|| self.skirmish.side.clone())
     }
 
-    /// 惰性解码积分页左区氛围图：优先本机阵营 `ls800*` 装载艺术（贴近原版战报左区大图），回退 `mnscrnl`。
+    /// 惰性解码积分页左区战报图：盟军 `mpascrnl`（超时空兵）、苏军 `mpsscrnl`（辐射工兵）。
     pub(super) fn ensure_score_backdrop(&mut self) {
         let house = self.results_local_house();
-        let want_key = format!("{}:{}", house, load_screen_art_suffix(&house));
+        let want_key = score_screen_background_candidates(&house)
+            .first()
+            .copied()
+            .unwrap_or("mpascrnl.shp")
+            .to_string();
+        let want_key = format!("{house}:{want_key}");
         if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
             return;
         }
@@ -49,9 +54,8 @@ impl Shell {
         else {
             return;
         };
-        let shp_name = load_screen_background_shp(&house, 800);
-        let candidates = [shp_name.as_str(), "mnscrnl.shp"];
-        let pal_names = [LOAD_SCREEN_FALLBACK_PAL, "sidebar.pal", "shell.pal"];
+        let candidates = score_screen_background_candidates(&house);
+        let pal_names = ["shell.pal", "sidebar.pal", LOAD_SCREEN_FALLBACK_PAL, "unittem.pal"];
         for name in candidates {
             let Some(hit) = source.resolve(name)
             else {
@@ -82,7 +86,7 @@ impl Shell {
                         house = %house,
                         w = img.width(),
                         h = img.height(),
-                        "已装载积分页左区氛围图"
+                        "已装载积分页战报图"
                     );
                     decoded = Some(img);
                     break;
@@ -93,7 +97,7 @@ impl Shell {
                 return;
             }
         }
-        tracing::debug!(house = %house, "积分页氛围图不可读");
+        tracing::debug!(house = %house, "积分页战报图不可读");
     }
 
     /// 从当前对局快照拼积分表行。

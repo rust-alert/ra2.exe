@@ -153,6 +153,51 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
+/// 是否苏军系阵营（含尤里），用于结算战报图选边。
+pub fn is_soviet_side(side: &str) -> bool {
+    matches!(
+        side,
+        "Russians"
+            | "Confederation"
+            | "Cuba"
+            | "Cubans"
+            | "Arabs"
+            | "Iraq"
+            | "Iraqis"
+            | "Africans"
+            | "Libya"
+            | "Libyans"
+            | "YuriCountry"
+            | "Yuri"
+    ) || {
+        let h = side.to_ascii_lowercase();
+        h.contains("russia")
+            || h.contains("soviet")
+            || h.contains("iraq")
+            || h.contains("libya")
+            || h.contains("cuba")
+            || h.contains("yuri")
+    }
+}
+
+/// 遭遇战积分页左区战报图：盟军 `mpascrnl`（超时空兵）、苏军 `mpsscrnl`（辐射工兵）。
+pub fn score_screen_background_shp(side: &str) -> &'static str {
+    if is_soviet_side(side) {
+        "mpsscrnl.shp"
+    } else {
+        "mpascrnl.shp"
+    }
+}
+
+/// 结算战报图候选（本方优先，再对侧，再菜单底图）。
+pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
+    if is_soviet_side(side) {
+        &["mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"]
+    } else {
+        &["mpascrnl.shp", "mpsscrnl.shp", "mnscrnl.shp"]
+    }
+}
+
 /// 选择可读的装载调色板（原版链：共享 `mpls.pal`）。
 pub fn load_screen_palette(side: &str, pal_readable: impl Fn(&str) -> bool) -> &'static str {
     let preferred = load_screen_preferred_pal(side);

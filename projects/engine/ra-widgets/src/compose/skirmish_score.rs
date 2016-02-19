@@ -65,14 +65,13 @@ pub fn compose_skirmish_score_page(
     let table = rect_px_from_snapshot(&snap, "table");
     let title = rect_px_from_snapshot(&snap, "title");
 
-    // 左区氛围底：可用背景图，否则深橙暗底贴近战报观感。
+    // 左区氛围底：壳层已贴本方战报图（`mpascrnl`/`mpsscrnl`）；此处只叠半透明表板，勿用不透色盖掉。
     if let Some(bg) = paint.backdrop {
         blit_stretched(&mut page, bg, stats);
-    } else {
-        fill_rect(&mut page, stats, [40, 18, 8, 255]);
     }
-    fill_rect(&mut page, stats, [0, 0, 0, 140]);
-    stroke_rect(&mut page, stats, [180, 140, 40, 255]);
+    // 表区轻压暗，保证白字可读，仍透出战报图。
+    fill_rect(&mut page, table, [0, 0, 0, 110]);
+    stroke_rect(&mut page, stats, [180, 140, 40, 180]);
 
     if let Some(fnt) = fnt {
         let title_text = {

@@ -100,6 +100,9 @@ impl Shell {
                     animate_empty_tiles,
                 }
             });
+            if matches!(self.screen, OriginalScreen::Results) {
+                self.ensure_score_backdrop();
+            }
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
                 let page = match self.screen {
@@ -359,7 +362,6 @@ impl Shell {
                     )
                     }
                     OriginalScreen::Results => {
-                        self.ensure_score_backdrop();
                         let rows = self.skirmish_score_rows();
                         let time = self.skirmish_score_time_text();
                         compose::compose_skirmish_score_page(

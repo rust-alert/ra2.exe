@@ -10,7 +10,7 @@ use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skin::assets::load_menu_ui_assets;
 use ra_widgets::skin::decode;
 use ra_widgets::chrome::movie::MenuMoviePlayer;
-use ra_widgets::screens::page::{page_resources_for_load_screen, page_resources_from_slots_with_edition};
+use ra_widgets::screens::page::{page_resources_for_load_screen, page_resources_for_results, page_resources_from_slots_with_edition};
 use ra_widgets::skin::resolve;
 
 use super::Shell;
@@ -61,8 +61,23 @@ impl Shell {
         let edition = assets.edition;
         let page = if self.screen == OriginalScreen::LoadScreen {
             page_resources_for_load_screen(&self.skirmish.side, self.window_width as u32, |name| source.resolve(name).is_some())
-        }
-        else {
+        } else if self.screen == OriginalScreen::Results {
+            let house = self
+                .battle_controller
+                .as_ref()
+                .and_then(|c| c.session.as_ref())
+                .and_then(|s| s.battle())
+                .and_then(|g| {
+                    g.world
+                        .players
+                        .iter()
+                        .find(|p| p.id == g.world.local_player)
+                        .map(|p| p.house.to_string())
+                })
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| self.skirmish.side.clone());
+            page_resources_for_results(&house, |name| source.resolve(name).is_some())
+        } else {
             page_resources_from_slots_with_edition(self.screen, edition)
         };
         let Some(page) = page
@@ -87,11 +102,14 @@ impl Shell {
 
         // 影片缺失不挡 chrome 解码；仅非 BIK 缺口才清空解码缓存。
         // 装载页：只要国家背景可读就解码（进度条 / 失败钮可缺）。
+        // 结算页：战报图可读即可解码（右栏缺件不挡）。
         let only_movie_gaps = report.missing.iter().all(|m| m.to_ascii_lowercase().ends_with(".bik"));
         let load_bg_name = page.background.as_ref().map(|b| b.name.to_ascii_lowercase());
         let load_bg_ok = self.screen == OriginalScreen::LoadScreen
             && load_bg_name.as_ref().is_some_and(|bg| !report.missing.iter().any(|m| m.eq_ignore_ascii_case(bg)));
-        if report.named > 0 && (only_movie_gaps || load_bg_ok) {
+        let results_bg_ok = self.screen == OriginalScreen::Results
+            && load_bg_name.as_ref().is_some_and(|bg| !report.missing.iter().any(|m| m.eq_ignore_ascii_case(bg)));
+        if report.named > 0 && (only_movie_gaps || load_bg_ok || results_bg_ok) {
             let decoded = decode::decode_page_chrome(source, &page);
             tracing::info!(
                 screen = self.screen.as_str(),

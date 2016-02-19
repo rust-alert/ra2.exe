@@ -429,7 +429,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             buttons: NETWORK_BUTTONS,
         }),
         OriginalScreen::Battle => None,
-        // 遭遇战积分：壳层右栏 + mpascrnl 战报卡；战役结算暂共用槽（合成侧再分支）。
+        // 遭遇战积分：壳层右栏 + 本方战报图（盟军 mpascrnl / 苏军 mpsscrnl；合成侧按 house 再选）。
         OriginalScreen::Results => Some(UiPageSlots {
             screen,
             background_shp: Some("mpascrnl.shp"),

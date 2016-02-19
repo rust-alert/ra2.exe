@@ -11,7 +11,7 @@ use crate::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
-    skirmish_setup::{load_screen_background_shp, load_screen_palette},
+    skirmish_setup::{load_screen_background_shp, load_screen_palette, score_screen_background_candidates},
 };
 
 /// 逻辑资源引用（文件名或装载键；尚未解析为像素）。
@@ -222,6 +222,37 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
             .map(|p| {
                 // 面板用自身声明的 pal（`progbarm`→`shell.pal`），勿跟背景 `mpls.pal` 绑死。
                 let panel_pal = if readable(p.pal) { p.pal } else { pal };
+                UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
+            })
+            .collect(),
+        buttons: page.buttons.iter().map(slot_to_button).collect(),
+        fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
+    })
+}
+
+/// 结算积分页资源：按本机阵营选 `mpascrnl`（盟军超时空兵）/ `mpsscrnl`（苏军辐射工兵）。
+pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
+    let page = slots_for(OriginalScreen::Results)?;
+    let bg_name = score_screen_background_candidates(side)
+        .iter()
+        .copied()
+        .find(|n| readable(n))
+        .unwrap_or("mnscrnl.shp");
+    let bg_pal = ["shell.pal", "sidebar.pal", "unittem.pal"]
+        .into_iter()
+        .find(|p| readable(p))
+        .unwrap_or("shell.pal");
+    Some(UiPageResources {
+        screen: OriginalScreen::Results,
+        background: Some(UiAssetRef::with_palette_frame(bg_name, bg_pal, page.background_frame)),
+        background_palette: Some(bg_pal.to_string()),
+        movie: None,
+        panels: page
+            .panels
+            .iter()
+            .filter(|p| readable(p.shp))
+            .map(|p| {
+                let panel_pal = if readable(p.pal) { p.pal } else { bg_pal };
                 UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
             })
             .collect(),
