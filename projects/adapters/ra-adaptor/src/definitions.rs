@@ -50,6 +50,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             tech_level: tt.tech_level,
             naval: tt.naval,
             agent: tt.agent,
+            harvester: tt.harvester,
             category: tt.category.clone(),
             sight: tt.sight,
             damage: tt.damage,
@@ -66,6 +67,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
             requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),
         });
+
+        if tt.harvester {
+            if !defs.capabilities.builtins.contains(&BuiltinCapability::Harvester) {
+                defs.capabilities.builtins.push(BuiltinCapability::Harvester);
+            }
+        }
 
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上

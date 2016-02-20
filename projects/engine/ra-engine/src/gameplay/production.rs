@@ -231,6 +231,7 @@ mod tests {
             tech_level: 1,
             naval: false,
             agent: false,
+            harvester: false,
             category: String::new(),
             sight: 5,
             damage: 0,

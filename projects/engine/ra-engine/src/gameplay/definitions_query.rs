@@ -7,6 +7,11 @@ pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.techno.get(type_id).is_some_and(|t| t.agent)
 }
 
+/// 单位是否采矿车（`Harvester=yes`）。
+pub(crate) fn is_harvester(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    defs.techno.get(type_id).is_some_and(|t| t.harvester)
+}
+
 /// 建筑是否建造场。
 pub(crate) fn is_construction_yard(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.structures.get(type_id).is_some_and(|s| s.construction_yard)

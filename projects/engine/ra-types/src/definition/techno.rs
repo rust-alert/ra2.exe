@@ -56,6 +56,8 @@ pub struct TechnoDefinition {
     pub naval: bool,
     /// `Agent=yes`（可渗透敌方建筑）。
     pub agent: bool,
+    /// `Harvester=yes`（采矿车）。
+    pub harvester: bool,
     /// `Category`（如 `Soldier` / `Dog`）。
     pub category: String,
     /// 视野（格）；缺省攻击射程回退用。
