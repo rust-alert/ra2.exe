@@ -115,11 +115,13 @@ pub struct ProductionQueue {
     pub rally_y: Option<u16>,
 }
 
-/// 矿场采矿行程进度。
+/// 采矿车采集 / 运载状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HarvesterState {
-    /// 本趟采矿累计 tick。
+    /// 站在矿格上采集累计 tick。
     pub ore_trip_accum: u32,
+    /// 已装载趟数（竖切：`0` 空载，`1` 满载可卸）。
+    pub cargo: u8,
 }
 
 /// 呈现相关动画桥接状态。

@@ -53,6 +53,7 @@ impl BattleState {
             let attack_cooldown = attack.map(|a| a.cooldown).unwrap_or(0);
             let attack_target = attack.and_then(|a| a.target);
             let ore_trip_accum = harvester.map(|h| h.ore_trip_accum).unwrap_or(0);
+            let ore_cargo = harvester.map(|h| h.cargo).unwrap_or(0);
 
             h = h
                 .wrapping_mul(1099511628211)
@@ -71,6 +72,7 @@ impl BattleState {
                 .wrapping_add(u64::from(hva_frame) << 8)
                 .wrapping_add(u64::from(attack_cooldown) << 24)
                 .wrapping_add(u64::from(ore_trip_accum) << 8)
+                .wrapping_add(u64::from(ore_cargo) << 12)
                 .wrapping_add(u64::from(hit_flash) << 16)
                 .wrapping_add(attack_target.map(|tid| tid.0).unwrap_or(0) << 32);
             for b in armor.as_bytes() {

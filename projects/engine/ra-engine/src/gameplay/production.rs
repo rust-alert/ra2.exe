@@ -142,7 +142,7 @@ impl crate::state::BattleState {
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
-            harvester: HarvesterState { ore_trip_accum: 0 },
+            harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
         self.mark_entity_dirty(id);

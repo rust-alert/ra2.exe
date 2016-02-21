@@ -58,10 +58,10 @@ pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 /// 受击闪白剩余 tick（呈现 `TakeDamage`）。
 pub const HIT_FLASH_TICKS: u32 = 4;
 
-/// 矿场完成一趟采矿所需的 tick 数（Alpha 简化，无独立采矿车）。
+/// 矿车在矿格上完成一趟采集所需的 tick 数（竖切简化，无独立装载动画）。
 pub const ORE_TRIP_TICKS: u32 = 30;
 
-/// 矿场每趟采矿给所属房主增加的资金。
+/// 矿车向矿场卸货后给所属房主增加的资金。
 pub const ORE_INCOME_PER_TRIP: u32 = 700;
 
 /// 工厂完成一件生产所需的 tick 数（Alpha 简化）。
@@ -80,6 +80,8 @@ pub struct BattleState {
     pub tick: u64,
     /// 地图信息（尺寸、放置实体等）。
     pub map: MapInfo,
+    /// Overlay 类型表（含可采标记，供采矿查询）。
+    pub overlay_types: ra_assets::OverlayTypeRegistry,
     /// 通行格（由地图结构派生，可被重寻路使用）。
     pub pass_grid: PassGrid,
     /// 世界实体投影槽（与地图播种顺序对应；权威在 ECS）。
@@ -178,7 +180,7 @@ impl BattleState {
                 },
                 attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
                 production: ProductionQueue { item: None, rally_x: None, rally_y: None },
-                harvester: HarvesterState { ore_trip_accum: 0 },
+                harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
             });
         }
@@ -195,6 +197,7 @@ impl BattleState {
             edition,
             tick: 0,
             map,
+            overlay_types: rules.overlay_types.clone(),
             pass_grid,
             entities: Vec::with_capacity(seed_bundles.len()),
             players,
@@ -233,6 +236,17 @@ impl BattleState {
         else {
             false
         }
+    }
+
+    /// 查询格上可采 overlay 的密度字节；无可采矿则 `None`。
+    pub fn harvestable_ore_at(&self, x: u16, y: u16) -> Option<u8> {
+        self.map.overlays.iter().find_map(|cell| {
+            if cell.x == x && cell.y == y && self.overlay_types.is_harvestable(cell.overlay_id) {
+                Some(cell.data)
+            } else {
+                None
+            }
+        })
     }
 
     /// 确保玩家表含有该 house（遭遇战大厅阵营）。
@@ -1002,7 +1016,7 @@ impl BattleState {
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
-            harvester: HarvesterState { ore_trip_accum: 0 },
+            harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
         self.mark_entity_dirty(id);
