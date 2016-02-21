@@ -1,6 +1,11 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
@@ -286,6 +291,8 @@ pub struct BattleController {
     deploy_watch: Option<ra_types::EntityId>,
     /// 对局短音效事件 id 队列（如 `PlaceBuilding`；由壳层按 `sound.ini` 播放）。
     pending_battle_sfx: Vec<String>,
+    /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
+    outcome_hold_until: Option<Instant>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     edge_scroll_cursor: EdgeScrollCursor,
     /// 方向键按住状态（渲染帧推进镜头，不跟逻辑 tick / OS 按键重复）。
@@ -355,6 +362,7 @@ impl BattleController {
             start_view_pending: has_session,
             deploy_watch: None,
             pending_battle_sfx: Vec::new(),
+            outcome_hold_until: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
             action_lines_start_tick: None,
@@ -503,6 +511,7 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
         self.deploy_watch = None;
         self.pending_battle_sfx.clear();
+        self.outcome_hold_until = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
         self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);
@@ -985,6 +994,18 @@ impl BattleController {
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
+        let has_outcome = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| g.outcome.is_some());
+        // EVA 播报窗口：仍在 Battle 页，但不再接受对局/暂停输入。
+        if accept_commands && has_outcome {
+            if let WindowEvent::CursorMoved { position, .. } = event {
+                self.cursor = (position.x, position.y);
+            }
+            return BattleNav::None;
+        }
         match event {
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
@@ -1296,26 +1317,46 @@ impl BattleController {
     /// 推进仿真（仅对局页调用）并检测是否应进入结算。返回导航与本段耗时。
     pub fn pump(&mut self, dt: f64) -> (BattleNav, std::time::Duration) {
         let started = Instant::now();
-        let nav = if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
+        if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
             let _ = session.pump(&engine.runtime(), dt);
             if let Some(game) = session.battle() {
                 self.local.prune_dead(game);
             }
-            if session.battle().and_then(|g| g.outcome.as_ref()).is_some() {
-                session.phase = SessionPhase::Finished;
-                self.leave_armed = false;
-                self.note_outcome_once();
-                BattleNav::ToResults
-            }
-            else {
-                BattleNav::None
-            }
         }
-        else {
-            BattleNav::None
-        };
+        let nav = self.poll_outcome_nav();
         self.resolve_deploy_watch();
         (nav, started.elapsed())
+    }
+
+    /// 胜负已定：排队 EVA，留在对局页播报后再 `ToResults`。
+    fn poll_outcome_nav(&mut self) -> BattleNav {
+        let has_outcome = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| g.outcome.is_some());
+        if !has_outcome {
+            return BattleNav::None;
+        }
+        if let Some(session) = self.session.as_mut() {
+            session.phase = SessionPhase::Finished;
+        }
+        self.leave_armed = false;
+        self.begin_outcome_hold();
+        match self.outcome_hold_until {
+            Some(deadline) if Instant::now() >= deadline => BattleNav::ToResults,
+            _ => BattleNav::None,
+        }
+    }
+
+    /// 首次记录胜负并启动 EVA 播报窗口（幂等）。
+    fn begin_outcome_hold(&mut self) {
+        self.note_outcome_once();
+        if self.outcome_hold_until.is_none() {
+            // 原版先播 Battle control terminated / Mission Accomplished，再进积分页。
+            self.outcome_hold_until = Some(Instant::now() + Duration::from_millis(3200));
+            tracing::info!("胜负已定 · 播报 EVA 后进结算");
+        }
     }
 
     /// 对当前选中下发部署命令（`D` 键 / 双击 MCV）。
@@ -2160,10 +2201,15 @@ impl BattleController {
                     game.apply_scripted_outcome(BattleOutcome::Defeat {
                         reason: "放弃任务".into(),
                     });
+                    // 关掉暂停菜单输入路径；仿真仍因 `outcome` 停住。
+                    if game.paused {
+                        game.toggle_pause();
+                    }
                 }
-                self.note_outcome_once();
-                tracing::info!("放弃任务 · 结算");
-                BattleNav::ToResults
+                // 留在对局页播 EVA，由 `pump` → `poll_outcome_nav` 延后进结算。
+                self.begin_outcome_hold();
+                tracing::info!("放弃任务 · 先播报再结算");
+                BattleNav::None
             }
             BattlePauseMenuHit::Options | BattlePauseMenuHit::Fullscreen => {
                 tracing::info!(entry = hit.entry_id(), "暂停菜单 · 尚未接线");
