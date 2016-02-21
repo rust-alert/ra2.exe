@@ -60,7 +60,7 @@ pub use rules::{
         resolve_country_special_ui_name, CountryDef, CountryRegistry, SideGroup,
     },
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::OverlayTypeRegistry,
+    overlay::{OverlayTypeRegistry, harvestable_overlay_name},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
     warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index},
 };

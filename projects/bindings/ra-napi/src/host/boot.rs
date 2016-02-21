@@ -113,18 +113,7 @@ fn load_map_terrain_preview(
         chain.art_ini,
         chain.rules_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
-        &|id| {
-            rules.overlay_types.name(id).is_some_and(|n| {
-                rules
-                    .rules
-                    .get(n, "Tiberium")
-                    .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
-                    || rules
-                        .rules
-                        .get(n, "SpawnsTiberium")
-                        .is_some_and(|v| v.eq_ignore_ascii_case("yes"))
-            })
-        },
+        &|id| rules.overlay_types.is_harvestable(id),
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
     let rgba = preview.image.image;
