@@ -429,12 +429,12 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             buttons: NETWORK_BUTTONS,
         }),
         OriginalScreen::Battle => None,
-        // 遭遇战积分：壳层右栏 + 本方战报图（盟军 mpascrnl / 苏军 mpsscrnl；合成侧按 house 再选）。
+        // 遭遇战积分：壳层右栏 + 本方战报图；槽位默认盟军，实际解码走 `page_resources_for_results`。
         OriginalScreen::Results => Some(UiPageSlots {
             screen,
             background_shp: Some("mpascrnl.shp"),
             background_pcx: None,
-            background_pal: Some("shell.pal"),
+            background_pal: Some("mpascrn.pal"),
             background_frame: 0,
             movie_bik: None,
             panels: SKIRMISH_SCORE_PANELS,

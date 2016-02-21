@@ -59,19 +59,18 @@ pub fn compose_skirmish_score_page(
         warn_anim_frame,
     )?;
 
-    let stats = rect_px_from_snapshot(&snap, "stats_panel");
     let game_label = rect_px_from_snapshot(&snap, "game_label");
     let time_label = rect_px_from_snapshot(&snap, "time_label");
     let table = rect_px_from_snapshot(&snap, "table");
     let title = rect_px_from_snapshot(&snap, "title");
+    let background = rect_px_from_snapshot(&snap, "background");
 
-    // 左区氛围底：壳层已贴本方战报图（`mpascrnl`/`mpsscrnl`）；此处只叠半透明表板，勿用不透色盖掉。
+    // 壳层已贴本方战报图；若另有正确调色板解码结果，铺满左区（勿再拉伸进表板盖死画面）。
     if let Some(bg) = paint.backdrop {
-        blit_stretched(&mut page, bg, stats);
+        blit_stretched(&mut page, bg, background);
     }
-    // 表区轻压暗，保证白字可读，仍透出战报图。
-    fill_rect(&mut page, table, [0, 0, 0, 110]);
-    stroke_rect(&mut page, stats, [180, 140, 40, 180]);
+    // 表区轻压暗保证白字可读，仍透出战报图（`fill_rect` 不混合 alpha，会盖成纯黑）。
+    dim_rect(&mut page, table, 72);
 
     if let Some(fnt) = fnt {
         let title_text = {
@@ -193,7 +192,7 @@ pub fn compose_skirmish_score_page(
     Some(page)
 }
 
-/// 窗口像素命中「继续」。
+/// 窗口像素经 letterbox 映射后的壳层坐标命中「继续」。
 pub fn skirmish_score_hit_at(x: i32, y: i32) -> Option<&'static str> {
     let snap = solve_skirmish_score();
     let cell = rect_px_from_snapshot(&snap, "continue");

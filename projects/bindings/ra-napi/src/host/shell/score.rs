@@ -7,7 +7,7 @@ use ra_widgets::load_kind::LoadKind;
 use ra_widgets::skin::decode::frame_to_canvas_rgba;
 use ra_widgets::skin::text::resolve_csf_text;
 use ra_widgets::skirmish_setup::{
-    score_screen_background_candidates, LOAD_SCREEN_FALLBACK_PAL, LOBBY_COLORS,
+    score_screen_background_candidates, score_screen_palette_candidates, LOBBY_COLORS,
 };
 use ra_renderer::RgbaImage;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -38,12 +38,15 @@ impl Shell {
     /// 惰性解码积分页左区战报图：盟军 `mpascrnl`（超时空兵）、苏军 `mpsscrnl`（辐射工兵）。
     pub(super) fn ensure_score_backdrop(&mut self) {
         let house = self.results_local_house();
-        let want_key = score_screen_background_candidates(&house)
+        let want_shp = score_screen_background_candidates(&house)
             .first()
             .copied()
-            .unwrap_or("mpascrnl.shp")
-            .to_string();
-        let want_key = format!("{house}:{want_key}");
+            .unwrap_or("mpascrnl.shp");
+        let want_pal = score_screen_palette_candidates(&house)
+            .first()
+            .copied()
+            .unwrap_or("mpascrn.pal");
+        let want_key = format!("{house}:{want_shp}:{want_pal}");
         if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
             return;
         }
@@ -55,7 +58,7 @@ impl Shell {
             return;
         };
         let candidates = score_screen_background_candidates(&house);
-        let pal_names = ["shell.pal", "sidebar.pal", LOAD_SCREEN_FALLBACK_PAL, "unittem.pal"];
+        let pal_names = score_screen_palette_candidates(&house);
         for name in candidates {
             let Some(hit) = source.resolve(name)
             else {
@@ -195,7 +198,7 @@ impl Shell {
                 let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0);
                 let logical = position.to_logical::<f64>(scale);
                 self.cursor = (logical.x, logical.y);
-                let hit = skirmish_score_hit_at(self.cursor.0 as i32, self.cursor.1 as i32);
+                let hit = self.results_continue_hit();
                 if self.menu_hovered_entry != hit {
                     self.menu_hovered_entry = hit;
                     self.refresh_menu_backdrop();
@@ -207,7 +210,7 @@ impl Shell {
                 button: MouseButton::Left,
                 ..
             } => {
-                let hit = skirmish_score_hit_at(self.cursor.0 as i32, self.cursor.1 as i32);
+                let hit = self.results_continue_hit();
                 match state {
                     ElementState::Pressed => {
                         if hit.is_some() {
@@ -239,6 +242,18 @@ impl Shell {
             }
             _ => BattleNav::None,
         }
+    }
+
+    /// 将窗口光标映射到壳层设计坐标后命中「继续」。
+    fn results_continue_hit(&self) -> Option<&'static str> {
+        let (win_w, win_h) = self.display_mode.size();
+        let (sx, sy) = ra_layout::window_to_shell_px(
+            self.cursor.0,
+            self.cursor.1,
+            win_w as f64,
+            win_h as f64,
+        );
+        skirmish_score_hit_at(sx, sy)
     }
 
     /// Enter / 继续：战役胜有 `NextMission` 则下一关，否则离开结算。

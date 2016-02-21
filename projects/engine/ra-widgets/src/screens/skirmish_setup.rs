@@ -189,6 +189,24 @@ pub fn score_screen_background_shp(side: &str) -> &'static str {
     }
 }
 
+/// 结算战报图专用调色板：盟军 `mpascrn.pal`、苏军 `mpsscrn.pal`（勿用 `shell.pal`）。
+pub fn score_screen_palette(side: &str) -> &'static str {
+    if is_soviet_side(side) {
+        "mpsscrn.pal"
+    } else {
+        "mpascrn.pal"
+    }
+}
+
+/// 结算调色板候选（本方专用优先，再对侧，再壳层兜底）。
+pub fn score_screen_palette_candidates(side: &str) -> &'static [&'static str] {
+    if is_soviet_side(side) {
+        &["mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
+    } else {
+        &["mpascrn.pal", "mpsscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
+    }
+}
+
 /// 结算战报图候选（本方优先，再对侧，再菜单底图）。
 pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
     if is_soviet_side(side) {

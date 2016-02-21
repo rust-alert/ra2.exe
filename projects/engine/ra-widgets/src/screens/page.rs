@@ -11,7 +11,10 @@ use crate::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
-    skirmish_setup::{load_screen_background_shp, load_screen_palette, score_screen_background_candidates},
+    skirmish_setup::{
+        load_screen_background_shp, load_screen_palette, score_screen_background_candidates,
+        score_screen_palette, score_screen_palette_candidates,
+    },
 };
 
 /// 逻辑资源引用（文件名或装载键；尚未解析为像素）。
@@ -230,7 +233,7 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
     })
 }
 
-/// 结算积分页资源：按本机阵营选 `mpascrnl`（盟军超时空兵）/ `mpsscrnl`（苏军辐射工兵）。
+/// 结算积分页资源：按本机阵营选 `mpascrnl`/`mpsscrnl` 与专用 `mpascrn.pal`/`mpsscrn.pal`。
 pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
     let bg_name = score_screen_background_candidates(side)
@@ -238,10 +241,11 @@ pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -
         .copied()
         .find(|n| readable(n))
         .unwrap_or("mnscrnl.shp");
-    let bg_pal = ["shell.pal", "sidebar.pal", "unittem.pal"]
-        .into_iter()
+    let bg_pal = score_screen_palette_candidates(side)
+        .iter()
+        .copied()
         .find(|p| readable(p))
-        .unwrap_or("shell.pal");
+        .unwrap_or_else(|| score_screen_palette(side));
     Some(UiPageResources {
         screen: OriginalScreen::Results,
         background: Some(UiAssetRef::with_palette_frame(bg_name, bg_pal, page.background_frame)),
@@ -252,7 +256,8 @@ pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -
             .iter()
             .filter(|p| readable(p.shp))
             .map(|p| {
-                let panel_pal = if readable(p.pal) { p.pal } else { bg_pal };
+                // 右栏 chrome 用自身 pal，勿跟战报图专用调色板绑死。
+                let panel_pal = if readable(p.pal) { p.pal } else { "shell.pal" };
                 UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
             })
             .collect(),
