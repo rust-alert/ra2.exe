@@ -118,3 +118,84 @@ fn dead_harvester_stops_ore_income() {
     assert_eq!(world.house_funds("Americans"), Some(1_000));
     assert_eq!(world.harvestable_ore_at(3, 2), Some(2));
 }
+
+#[test]
+fn idle_harvester_seeks_ore_then_returns_to_refinery() {
+    let rules_text = b"[BuildingTypes]\n0=GAREFN\n\
+[VehicleTypes]\n0=CMIN\n\
+[OverlayTypes]\n0=TIB01\n\
+[TIB01]\nTiberium=yes\n\
+[GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\n\
+[CMIN]\nHarvester=yes\nOwner=Americans\nStrength=1000\nSpeed=4\nSight=4\nCost=1400\n";
+    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
+    let rules_db = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::from_rules(&rules),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "ore-seek");
+    map.width = 8;
+    map.height = 8;
+    map.overlays = vec![OverlayCell {
+        x: 3,
+        y: 2,
+        overlay_id: 0,
+        data: 1,
+    }];
+    map.entities = vec![
+        MapEntity {
+            kind: MapEntityKind::Structure,
+            owner: "Americans".into(),
+            type_id: "GAREFN".into(),
+            health: 256,
+            x: 2,
+            y: 2,
+            facing: 0,
+            sub_cell: 0,
+            mission: String::new(),
+            tag: String::new(),
+        },
+        MapEntity {
+            kind: MapEntityKind::Unit,
+            owner: "Americans".into(),
+            type_id: "CMIN".into(),
+            health: 256,
+            x: 5,
+            y: 2,
+            facing: 0,
+            sub_cell: 0,
+            mission: String::new(),
+            tag: String::new(),
+        },
+    ];
+    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds("Americans", 1_000));
+    let id = world.entity_id_at(1).expect("harvester");
+
+    world.advance_tick();
+    assert_eq!(
+        world.ecs_move_destination(id).expect("dest"),
+        (Some(3), Some(2)),
+        "空闲空载应指向最近矿格"
+    );
+
+    // Speed=4 · CELL_MOVE_COST=64 → 每格 16 tick；两格约 32 tick，再加采集与卸货。
+    for _ in 0..200 {
+        world.advance_tick();
+        if world.house_funds("Americans") == Some(1_000 + ORE_INCOME_PER_TRIP as i32) {
+            return;
+        }
+    }
+    panic!(
+        "expected one ore delivery after auto seek/return, funds={:?} pos={:?}",
+        world.house_funds("Americans"),
+        world.ecs_transform(id)
+    );
+}
+
+
