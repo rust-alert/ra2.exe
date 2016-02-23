@@ -581,6 +581,25 @@ pub fn blit_caption_wrapped(
     }
 }
 
+/// 在矩形内右上锚点绘制一行（超出宽度则自右向左截断）。
+pub fn blit_caption_top_right_clipped(
+    dst: &mut RgbaImage,
+    fnt: &FntFile,
+    text: &str,
+    cell_x: i32,
+    cell_y: i32,
+    cell_w: i32,
+    cell_h: i32,
+    rgba: [u8; 4],
+) {
+    if cell_w <= 0 || cell_h <= 0 {
+        return;
+    }
+    let tw = (fnt.text_width(text) as i32).min(cell_w);
+    let x = cell_x + cell_w - tw;
+    blit_caption_top_left_clipped(dst, fnt, text, x, cell_y, tw, cell_h, rgba);
+}
+
 /// 在按钮格内水平居中绘制一行（垂直居中；按下态由调用方先 inset 格）。
 pub fn blit_caption_in_cell(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell_x: i32, cell_y: i32, cell_w: i32, cell_h: i32, rgba: [u8; 4]) {
     let tw = fnt.text_width(text) as i32;

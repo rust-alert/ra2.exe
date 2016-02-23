@@ -15,10 +15,11 @@ pub(crate) fn skirmish_score_content_layout_tree(chrome: RightPanelChrome) -> La
     let mut children = shell_chrome_children(chrome);
     children.extend([
         // 左区统计卡（相对 800×600 设计坐标，避开右栏）。
-        fixed_rect_leaf("stats_panel", Rect::from_xywh(36.0, 72.0, 560.0, 360.0)),
-        fixed_rect_leaf("game_label", Rect::from_xywh(48.0, 84.0, 120.0, 20.0)),
-        fixed_rect_leaf("time_label", Rect::from_xywh(400.0, 84.0, 180.0, 20.0)),
-        fixed_rect_leaf("table", Rect::from_xywh(48.0, 120.0, 520.0, 280.0)),
+        fixed_rect_leaf("stats_panel", Rect::from_xywh(40.0, 64.0, 560.0, 340.0)),
+        fixed_rect_leaf("game_label", Rect::from_xywh(52.0, 76.0, 160.0, 20.0)),
+        // 与表右缘对齐，便于「時間」右齐。
+        fixed_rect_leaf("time_label", Rect::from_xywh(360.0, 76.0, 224.0, 20.0)),
+        fixed_rect_leaf("table", Rect::from_xywh(52.0, 108.0, 532.0, 270.0)),
         fixed_rect_leaf(SKIRMISH_SCORE_BUTTON_IDS[0], bottom_cover_button(chrome)),
     ]);
     root_with_fixed_children("skirmish_score", shell_design_size(chrome), children)
