@@ -41,11 +41,44 @@ pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
 /// 阵营 → 对局侧栏嵌套包（盟军 `sidec01` / 苏军·尤里 `sidec02`）。
 ///
 /// 优先按已知国家名；未知时回退盟军盘。产品路径应尽量走 [`sidebar_chrome_mix_for_faction`]。
+/// YR 盘另有 `sidec*md.mix`：解码时用 [`sidebar_chrome_mix_candidates`] 先 MD 后基座。
 pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     match side {
         "Russians" | "Confederation" | "Cuba" | "Cubans" | "Arabs" | "Iraq" | "Iraqis" | "Africans" | "Libya"
         | "Libyans" | "YuriCountry" | "Yuri" => "sidec02.mix",
         _ => "sidec01.mix",
+    }
+}
+
+/// 对局侧栏嵌套包候选（MD 优先，再基座；RA2 盘无 MD 时第二项仍可读）。
+pub fn sidebar_chrome_mix_candidates(side: &str) -> &'static [&'static str] {
+    if is_soviet_side(side) {
+        &["sidec02md.mix", "sidec02.mix"]
+    } else {
+        &["sidec01md.mix", "sidec01.mix"]
+    }
+}
+
+/// 是否尤里系国家（第三势力；侧栏雷达用 `radary` + `radaryuri.pal`）。
+pub fn is_yuri_side(side: &str) -> bool {
+    matches!(side, "YuriCountry" | "Yuri") || side.to_ascii_lowercase().contains("yuri")
+}
+
+/// 对局侧栏雷达 SHP：尤里为 `radary.shp`（`sidec02md`），其余为 `radar.shp`。
+pub fn sidebar_radar_shp(side: &str) -> &'static str {
+    if is_yuri_side(side) {
+        "radary.shp"
+    } else {
+        "radar.shp"
+    }
+}
+
+/// 对局侧栏雷达调色板：尤里为 `radaryuri.pal`，其余为 `sidebar.pal`。
+pub fn sidebar_radar_pal(side: &str) -> &'static str {
+    if is_yuri_side(side) {
+        "radaryuri.pal"
+    } else {
+        "sidebar.pal"
     }
 }
 
@@ -119,7 +152,7 @@ pub fn load_screen_art_suffix(side: &str) -> &'static str {
     }
 }
 
-/// 阵营 → CSF `LOADBRIEF:*` / `LOADBRIEFSHORT:*` 后缀（与 `ra2.csf` 键一致）。
+/// 阵营 → CSF `LOADBRIEF:*` / `LOADBRIEFSHORT:*` 后缀（与 `ra2.csf` / `ra2md.csf` 键一致）。
 pub fn load_screen_brief_suffix(side: &str) -> &'static str {
     match side {
         "Americans" => "USA",
@@ -131,16 +164,29 @@ pub fn load_screen_brief_suffix(side: &str) -> &'static str {
         "Confederation" | "Cuba" | "Cubans" => "CUBA",
         "Arabs" | "Iraq" | "Iraqis" => "IRAQ",
         "Africans" | "Libya" | "Libyans" => "LYBIA",
+        "YuriCountry" | "Yuri" => "YuriCountry",
         _ => "USA",
     }
 }
 
-/// 装载图调色板：原版 / 共和国之辉盘均为共享 `mpls.pal`（`cache.mix`），无国家专用 `mplsu` 等。
+/// 装载图回退调色板：RA2 / 缺国家盘时用共享 `mpls.pal`（`cache.mix`）。
 pub const LOAD_SCREEN_FALLBACK_PAL: &str = "mpls.pal";
 
-/// 阵营 → 装载图优先调色板（原版链只有共享盘，恒为 [`LOAD_SCREEN_FALLBACK_PAL`]）。
-pub fn load_screen_preferred_pal(_side: &str) -> &'static str {
-    LOAD_SCREEN_FALLBACK_PAL
+/// 阵营 → 装载图优先调色板（YR `loadmd.mix` 国家盘；RA2 无则由 [`load_screen_palette`] 回退）。
+pub fn load_screen_preferred_pal(side: &str) -> &'static str {
+    match side {
+        "Americans" => "mplsu.pal",
+        "French" => "mplsf.pal",
+        "Germans" => "mplsg.pal",
+        "British" => "mplsuk.pal",
+        "Russians" => "mplsr.pal",
+        "Alliance" | "Korea" | "Koreans" => "mplsk.pal",
+        "Confederation" | "Cuba" | "Cubans" => "mplsc.pal",
+        "Arabs" | "Iraq" | "Iraqis" => "mplsi.pal",
+        "Africans" | "Libya" | "Libyans" => "mplsl.pal",
+        "YuriCountry" | "Yuri" => "mpyls.pal",
+        _ => LOAD_SCREEN_FALLBACK_PAL,
+    }
 }
 
 /// 进度条 SHP（帧 0；按进度横向裁剪填充）。
@@ -216,15 +262,17 @@ pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str]
     }
 }
 
-/// 选择可读的装载调色板（原版链：共享 `mpls.pal`）。
+/// 选择可读的装载调色板：国家盘优先，缺则共享 [`LOAD_SCREEN_FALLBACK_PAL`]。
 pub fn load_screen_palette(side: &str, pal_readable: impl Fn(&str) -> bool) -> &'static str {
     let preferred = load_screen_preferred_pal(side);
     if pal_readable(preferred) {
-        preferred
-    } else {
-        // 缺盘时仍返回规范名，解码失败由壳层空页路径兜底。
-        preferred
+        return preferred;
     }
+    if preferred != LOAD_SCREEN_FALLBACK_PAL && pal_readable(LOAD_SCREEN_FALLBACK_PAL) {
+        return LOAD_SCREEN_FALLBACK_PAL;
+    }
+    // 皆不可读时仍返回优先名，解码失败由壳层空页路径兜底。
+    preferred
 }
 
 /// 勾选框种类（对齐 `0x102` 控件 id）。
