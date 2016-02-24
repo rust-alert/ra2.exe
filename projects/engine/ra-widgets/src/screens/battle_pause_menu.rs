@@ -5,9 +5,9 @@
 //! - **保留**底边命令条端盖与轨（`lendcap`/`lspacer`/`rendcap`），不整条涂黑、不盖钮槽
 //! - **不出现**修理 / 出售 / QWER 页签 / cameo 生产线 / 命令钮 / 顶栏选项外交钮
 //! - 战术区压暗；侧栏清空带内列暂停菜单项
-//! - 中心阵营徽：`radar.shp` 首帧裁掉左右金属侧轨后的徽芯放大（不是整块「雷达槽」）
+//! - 中心阵营徽：雷达 SHP 首帧裁掉左右金属侧轨后的徽芯放大（不是整块「雷达槽」）
 //!
-//! 几何跟对局 HUD 同口径（窗口像素）。阵营包必须 `resolve_preferring(sidec01|sidec02)`。
+//! 几何跟对局 HUD 同口径（窗口像素）。阵营包须按 [`crate::skirmish_setup::sidebar_chrome_mix_candidates`] 先 MD 后基座。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
@@ -20,6 +20,9 @@ use crate::{
     fs_source::GameAssetSource,
     screens::page::UiAssetRef,
     skin::decode::{frame_to_canvas_rgba, DecodedUiSprite},
+    skirmish_setup::{
+        sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_radar_pal, sidebar_radar_shp,
+    },
 };
 
 pub use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
@@ -100,10 +103,11 @@ fn decode_preferring(
     source: &GameAssetSource,
     mix: &str,
     name: &str,
+    pal_name: &str,
     frame: u16,
     errors: &mut Vec<String>,
 ) -> Option<DecodedUiSprite> {
-    let asset = UiAssetRef::with_palette_frame(name, BATTLE_PAUSE_PAL, frame);
+    let asset = UiAssetRef::with_palette_frame(name, pal_name, frame);
     let frame_idx = asset.frame.unwrap_or(0) as usize;
     let hit = match source.resolve_preferring(&asset.name, mix) {
         Some(h) => h,
@@ -124,19 +128,19 @@ fn decode_preferring(
         return None;
     }
     let pal_hit = match source
-        .resolve_preferring(BATTLE_PAUSE_PAL, mix)
-        .or_else(|| source.resolve(BATTLE_PAUSE_PAL))
+        .resolve_preferring(pal_name, mix)
+        .or_else(|| source.resolve(pal_name))
     {
         Some(h) => h,
         None => {
-            errors.push(format!("{BATTLE_PAUSE_PAL}: 调色板不可读"));
+            errors.push(format!("{pal_name}: 调色板不可读"));
             return None;
         }
     };
     let palette = match Palette::parse(&pal_hit.bytes) {
         Ok(p) => p,
         Err(e) => {
-            errors.push(format!("{BATTLE_PAUSE_PAL}: 解析失败 · {e}"));
+            errors.push(format!("{pal_name}: 解析失败 · {e}"));
             return None;
         }
     };
@@ -163,18 +167,42 @@ fn decode_preferring(
     })
 }
 
-/// 按本地阵营解码暂停菜单素材（必须 `resolve_preferring`，避免全局落到苏军包）。
+fn decode_candidates(
+    source: &GameAssetSource,
+    mixes: &[&str],
+    name: &str,
+    pal_name: &str,
+    frame: u16,
+    errors: &mut Vec<String>,
+) -> Option<DecodedUiSprite> {
+    let mut last: Option<DecodedUiSprite> = None;
+    let mut local_errors = Vec::new();
+    for mix in mixes {
+        local_errors.clear();
+        if let Some(sprite) = decode_preferring(source, mix, name, pal_name, frame, &mut local_errors) {
+            return Some(sprite);
+        }
+        last = None;
+    }
+    errors.extend(local_errors);
+    last
+}
+
+/// 按本地阵营解码暂停菜单素材（须先 MD 后基座，避免全局落到错误阵营包）。
 pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> BattlePauseChrome {
-    let mix = crate::skirmish_setup::sidebar_chrome_mix(side).to_string();
+    let mixes = sidebar_chrome_mix_candidates(side);
+    let mix = sidebar_chrome_mix(side).to_string();
     let mut errors = Vec::new();
-    let radar = decode_preferring(source, &mix, "radar.shp", 0, &mut errors);
+    let radar_shp = sidebar_radar_shp(side);
+    let radar_pal = sidebar_radar_pal(side);
+    let radar = decode_candidates(source, mixes, radar_shp, radar_pal, 0, &mut errors);
     let center_panel = radar
         .as_ref()
         .map(|s| crop_radar_emblem(&s.image))
         .or_else(|| radar.as_ref().map(|s| s.image.clone()));
-    let button_normal = decode_preferring(source, &mix, "sidebttn.shp", 0, &mut errors);
-    let button_pressed = decode_preferring(source, &mix, "sidebttn.shp", 1, &mut errors);
-    let button_hover = decode_preferring(source, &mix, "sidebttn.shp", 2, &mut errors)
+    let button_normal = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
+    let button_pressed = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 1, &mut errors);
+    let button_hover = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors)
         .or_else(|| button_normal.clone());
     BattlePauseChrome {
         side: side.to_string(),
@@ -192,7 +220,7 @@ fn pause_snap(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics)
     solve_battle_hud_with_metrics(viewport_w, viewport_h, metrics)
 }
 
-/// 裁掉 `radar.shp` 左右侧栏金属轨，只留中央阵营徽+放射底。
+/// 裁掉雷达 SHP 左右侧栏金属轨，只留中央阵营徽+放射底。
 fn crop_radar_emblem(src: &RgbaImage) -> RgbaImage {
     let w = src.width().max(1);
     let h = src.height().max(1);
