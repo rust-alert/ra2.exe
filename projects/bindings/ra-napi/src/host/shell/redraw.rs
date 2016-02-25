@@ -540,7 +540,13 @@ impl Shell {
                 );
                 let sfx = ctrl.take_pending_battle_sfx();
                 for event_id in sfx {
-                    self.play_battle_sfx_event(&event_id);
+                    if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
+                        if event_id.starts_with("EVA_") {
+                            if let Some(ctrl) = self.battle_controller.as_mut() {
+                                ctrl.extend_outcome_hold(&pcm);
+                            }
+                        }
+                    }
                 }
                 self.apply_nav(nav);
                 self.sync_battle_cursor_grab();
@@ -564,7 +570,13 @@ impl Shell {
                 );
                 let sfx = ctrl.take_pending_battle_sfx();
                 for event_id in sfx {
-                    self.play_battle_sfx_event(&event_id);
+                    if let Some(pcm) = self.play_battle_sfx_event(&event_id) {
+                        if event_id.starts_with("EVA_") {
+                            if let Some(ctrl) = self.battle_controller.as_mut() {
+                                ctrl.extend_outcome_hold(&pcm);
+                            }
+                        }
+                    }
                 }
             }
             self.sync_battle_cursor_grab();

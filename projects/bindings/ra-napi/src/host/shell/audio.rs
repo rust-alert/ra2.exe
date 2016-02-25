@@ -53,6 +53,48 @@ impl Shell {
         None
     }
 
+    /// 对局/EVA 采样：先 `audio.bag`，再试 MIX 内独立 `{stem}.wav` / `.aud`（如 `ceva015.wav`）。
+    pub(super) fn decode_sfx_named(&mut self, names: &[&str]) -> Option<PcmAudio> {
+        if let Some(pcm) = self.decode_bag_named(names) {
+            return Some(pcm);
+        }
+        self.ensure_menu_assets();
+        for raw in names {
+            let stem = {
+                let t = raw.trim().trim_start_matches(['$', '#']);
+                match t.rsplit_once('.') {
+                    Some((s, ext)) if ext.eq_ignore_ascii_case("wav") || ext.eq_ignore_ascii_case("aud") => s,
+                    _ => t,
+                }
+            };
+            if stem.is_empty() {
+                continue;
+            }
+            for ext in ["wav", "aud"] {
+                let file = format!("{stem}.{ext}");
+                let Some(bytes) = self.read_asset_bytes(&file)
+                else {
+                    continue;
+                };
+                match decode_audio_bytes(&bytes, Some(ext)) {
+                    Ok(pcm) => {
+                        tracing::info!(
+                            %file,
+                            frames = pcm.samples.len() / pcm.channels.max(1) as usize,
+                            rate = pcm.sample_rate,
+                            "已从 MIX 解码采样"
+                        );
+                        return Some(pcm);
+                    }
+                    Err(e) => {
+                        tracing::debug!(%file, error = %e, "MIX 采样解码失败");
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// `theme.ini` `[INTRO]` 的 `Sound=` 词干（缺省 `Grinder`）。
     pub(super) fn menu_theme_sound_stem(&self) -> String {
         let from_doc = self
@@ -384,10 +426,12 @@ impl Shell {
         }
     }
 
-    /// 对局短音效 / EVA：`sound.ini` 或 `eva.ini` → `audio.bag`。
-    pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) {
+    /// 对局短音效 / EVA：`sound.ini` 或 `eva.ini` → `audio.bag` 或 MIX 内 `.wav`。
+    ///
+    /// 成功解码时返回 PCM（供结算延迟按采样时长对齐）。
+    pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) -> Option<ra_assets::PcmAudio> {
         if event_id.is_empty() {
-            return;
+            return None;
         }
         self.ensure_audio_bag();
         let mut candidates: Vec<String> = Vec::new();
@@ -395,7 +439,7 @@ impl Shell {
             candidates.extend(self.eva_sample_names(event_id));
         }
         candidates.extend(self.sound_event_sample_names(event_id));
-        // 零售 `[PlaceBuilding] Sounds=uplace`；解析失败时仍走 bag 名。
+        // 零售 `[PlaceBuilding] Sounds=uplace`；解析失败时仍走 bag / MIX 名。
         let fallbacks: &[&str] = match event_id {
             id if id.eq_ignore_ascii_case("PlaceBuilding") => &["uplace", "UPLACE", "PlaceBuilding"],
             id if id.eq_ignore_ascii_case("EVA_BattleControlTerminated") => &["ceva015", "csof015", "CEVA015", "CSOF015"],
@@ -412,14 +456,16 @@ impl Shell {
             candidates.push(event_id.to_string());
         }
         let refs: Vec<&str> = candidates.iter().map(String::as_str).collect();
-        let Some(pcm) = self.decode_bag_named(&refs)
+        let Some(pcm) = self.decode_sfx_named(&refs)
         else {
-            tracing::debug!(%event_id, candidates = ?candidates, "对局音效/EVA 未命中");
-            return;
+            tracing::warn!(%event_id, candidates = ?candidates, "对局音效/EVA 未命中");
+            return None;
         };
         if let Some(audio) = self.audio.as_mut() {
             audio.play_sfx(&pcm);
+            tracing::info!(%event_id, frames = pcm.samples.len(), "已播放对局音效/EVA");
         }
+        Some(pcm)
     }
 
     /// `eva.ini` 事件 → Allied/Russian 采样名（按本机阵营优先）。

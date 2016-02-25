@@ -448,8 +448,9 @@ impl Shell {
                 self.battle_cursor_grabbed = false;
                 // 结算 EVA（若对局侧已排队）在切页前消费。
                 if let Some(ctrl) = self.battle_controller.as_mut() {
-                    for event_id in ctrl.take_pending_battle_sfx() {
-                        self.play_battle_sfx_event(&event_id);
+                    let pending = ctrl.take_pending_battle_sfx();
+                    for event_id in pending {
+                        let _ = self.play_battle_sfx_event(&event_id);
                     }
                 }
                 self.renderer.clear_ui_page();

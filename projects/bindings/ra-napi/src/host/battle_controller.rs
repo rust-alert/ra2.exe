@@ -1354,8 +1354,27 @@ impl BattleController {
         self.note_outcome_once();
         if self.outcome_hold_until.is_none() {
             // 原版先播 Battle control terminated / Mission Accomplished，再进积分页。
-            self.outcome_hold_until = Some(Instant::now() + Duration::from_millis(3200));
+            // 实际时长由壳层按采样长度 `extend_outcome_hold` 校正。
+            self.outcome_hold_until = Some(Instant::now() + Duration::from_millis(2500));
             tracing::info!("胜负已定 · 播报 EVA 后进结算");
+        }
+    }
+
+    /// 按已播放 EVA 采样时长拉长结算延迟（至少覆盖播完）。
+    pub fn extend_outcome_hold(&mut self, sample: &ra_assets::PcmAudio) {
+        let ch = sample.channels.max(1) as u64;
+        let rate = u64::from(sample.sample_rate.max(1));
+        let frames = (sample.samples.len() as u64) / ch;
+        let ms = frames.saturating_mul(1000) / rate;
+        // 尾音留白，避免切页掐断。
+        let hold = Duration::from_millis(ms.saturating_add(400).max(1200));
+        let deadline = Instant::now() + hold;
+        match self.outcome_hold_until {
+            Some(prev) if prev >= deadline => {}
+            _ => {
+                self.outcome_hold_until = Some(deadline);
+                tracing::debug!(ms = hold.as_millis(), "已按 EVA 采样延长结算延迟");
+            }
         }
     }
 
@@ -2448,16 +2467,7 @@ impl BattleController {
             .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
-        let outcome_owned = hud.outcome.as_ref().map(|o| match o {
-            BattleOutcome::Victory { owner } => format!("胜 {owner}"),
-            BattleOutcome::Defeat { reason } => {
-                if reason.is_empty() {
-                    "败".into()
-                } else {
-                    format!("败 · {reason}")
-                }
-            }
-        });
+        // 原版胜负只靠 EVA 播报，不对局内 HUD 写「败 · 放弃任务」之类调试文案。
         let tip_owned = self
             .command_hover
             .and_then(command_button_csf_tooltip)
@@ -2509,7 +2519,7 @@ impl BattleController {
             reject,
             paused: show_pause_banner,
             pause_reason: None,
-            outcome: outcome_owned.as_deref(),
+            outcome: None,
             command_pressed: if show_pause_banner { None } else { self.command_pressed },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
@@ -2582,24 +2592,9 @@ impl BattleController {
                         .unwrap_or_default();
                     format!("{} · [results] · t{} · {outcome}{stats} · Enter确认 Esc离开", self.title_base, hud.tick)
                 }
-                else if let Some(outcome) = hud.outcome.as_ref() {
-                    let outcome_label = match outcome {
-                        BattleOutcome::Victory { owner } => format!("胜 {owner}"),
-                        BattleOutcome::Defeat { reason } => {
-                            if reason.is_empty() {
-                                "败".into()
-                            } else {
-                                format!("败 · {reason}")
-                            }
-                        }
-                    };
-                    let stats = hud
-                        .battle_stats
-                        .as_ref()
-                        .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
-                        .unwrap_or_default();
+                else if hud.outcome.is_some() {
                     format!(
-                        "{} · [{screen_label}] · t{} · {outcome_label}{stats} · Enter确认 Esc离开",
+                        "{} · [{screen_label}] · t{} · EVA 播报中",
                         self.title_base, hud.tick
                     )
                 }
