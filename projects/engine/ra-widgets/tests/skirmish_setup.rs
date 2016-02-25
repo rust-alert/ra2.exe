@@ -1,8 +1,9 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp, load_screen_preferred_pal,
-    sidebar_chrome_mix, sidebar_chrome_mix_for_faction,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp,
+    load_screen_brief_suffix, load_screen_palette, load_screen_preferred_pal, sidebar_chrome_mix,
+    sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction, sidebar_radar_pal, sidebar_radar_shp,
 };
 
 fn sample_sides() -> Vec<String> {
@@ -75,10 +76,18 @@ fn cycle_difficulty_advances() {
 fn load_screen_maps_lobby_sides_to_country_art() {
     assert_eq!(load_screen_art_suffix("Americans"), "ustates");
     assert_eq!(load_screen_art_suffix("French"), "france");
-    // 原版装载页共用 `mpls.pal`，不按国家换 `mplsf` 等。
-    assert_eq!(load_screen_preferred_pal("French"), "mpls.pal");
+    assert_eq!(load_screen_art_suffix("YuriCountry"), "yuri");
+    // YR 国家盘优先；RA2 缺盘时由 `load_screen_palette` 回退 `mpls.pal`。
+    assert_eq!(load_screen_preferred_pal("French"), "mplsf.pal");
+    assert_eq!(load_screen_preferred_pal("YuriCountry"), "mpyls.pal");
+    assert_eq!(load_screen_palette("French", |_| false), "mplsf.pal");
+    assert_eq!(load_screen_palette("French", |n| n == "mpls.pal"), "mpls.pal");
+    assert_eq!(load_screen_palette("YuriCountry", |n| n == "mpyls.pal"), "mpyls.pal");
+    assert_eq!(load_screen_brief_suffix("YuriCountry"), "YuriCountry");
+    assert_eq!(load_screen_brief_suffix("Americans"), "USA");
     assert_eq!(load_screen_background_shp("Americans", 1024), "ls800ustates.shp");
     assert_eq!(load_screen_background_shp("British", 640), "ls640ukingdom.shp");
+    assert_eq!(load_screen_background_shp("YuriCountry", 800), "ls800yuri.shp");
 }
 
 #[test]
@@ -93,4 +102,10 @@ fn sidebar_chrome_mix_splits_allied_and_soviet() {
     assert_eq!(sidebar_chrome_mix_for_faction("GDI"), "sidec01.mix");
     assert_eq!(sidebar_chrome_mix_for_faction("Nod"), "sidec02.mix");
     assert_eq!(sidebar_chrome_mix_for_faction("ThirdSide"), "sidec02.mix");
+    assert_eq!(sidebar_chrome_mix_candidates("YuriCountry"), &["sidec02md.mix", "sidec02.mix"]);
+    assert_eq!(sidebar_chrome_mix_candidates("Americans"), &["sidec01md.mix", "sidec01.mix"]);
+    assert_eq!(sidebar_radar_shp("YuriCountry"), "radary.shp");
+    assert_eq!(sidebar_radar_shp("Russians"), "radar.shp");
+    assert_eq!(sidebar_radar_pal("YuriCountry"), "radaryuri.pal");
+    assert_eq!(sidebar_radar_pal("Russians"), "sidebar.pal");
 }

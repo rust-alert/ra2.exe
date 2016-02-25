@@ -207,7 +207,7 @@ pub fn page_resources_for_battle_pause() -> UiPageResources {
     }
 }
 
-/// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`，背景用共享 `mpls.pal`。
+/// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`；调色板国家盘优先、缺则 `mpls.pal`。
 pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::LoadScreen)?;
     let pal = load_screen_palette(side, &readable);

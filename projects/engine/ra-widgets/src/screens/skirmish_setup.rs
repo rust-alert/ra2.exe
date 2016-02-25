@@ -51,8 +51,10 @@ pub fn sidebar_chrome_mix(side: &str) -> &'static str {
 }
 
 /// 对局侧栏嵌套包候选（MD 优先，再基座；RA2 盘无 MD 时第二项仍可读）。
+///
+/// 与 [`sidebar_chrome_mix`] 同侧：苏军与尤里均为 `sidec02*`（尤里不走 `is_soviet_side`）。
 pub fn sidebar_chrome_mix_candidates(side: &str) -> &'static [&'static str] {
-    if is_soviet_side(side) {
+    if sidebar_chrome_mix(side) == "sidec02.mix" {
         &["sidec02md.mix", "sidec02.mix"]
     } else {
         &["sidec01md.mix", "sidec01.mix"]
@@ -199,7 +201,7 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
-/// 是否苏军系阵营（含尤里），用于结算战报图选边。
+/// 是否苏军系阵营（不含尤里），用于结算战报图选边。
 pub fn is_soviet_side(side: &str) -> bool {
     matches!(
         side,
@@ -213,52 +215,58 @@ pub fn is_soviet_side(side: &str) -> bool {
             | "Africans"
             | "Libya"
             | "Libyans"
-            | "YuriCountry"
-            | "Yuri"
     ) || {
         let h = side.to_ascii_lowercase();
-        h.contains("russia")
-            || h.contains("soviet")
-            || h.contains("iraq")
-            || h.contains("libya")
-            || h.contains("cuba")
-            || h.contains("yuri")
+        !h.contains("yuri")
+            && (h.contains("russia")
+                || h.contains("soviet")
+                || h.contains("iraq")
+                || h.contains("libya")
+                || h.contains("cuba"))
     }
 }
 
-/// 遭遇战积分页左区战报图：盟军 `mpascrnl`（超时空兵）、苏军 `mpsscrnl`（辐射工兵）。
+/// 遭遇战积分页左区战报图：盟军 `mpascrnl`、苏军 `mpsscrnl`、尤里 `mpyscrnl`。
 pub fn score_screen_background_shp(side: &str) -> &'static str {
-    if is_soviet_side(side) {
+    if is_yuri_side(side) {
+        "mpyscrnl.shp"
+    } else if is_soviet_side(side) {
         "mpsscrnl.shp"
     } else {
         "mpascrnl.shp"
     }
 }
 
-/// 结算战报图专用调色板：盟军 `mpascrn.pal`、苏军 `mpsscrn.pal`（勿用 `shell.pal`）。
+/// 结算战报图专用调色板：盟军 `mpascrn.pal`、苏军 `mpsscrn.pal`、尤里 `mpyscrn.pal`。
 pub fn score_screen_palette(side: &str) -> &'static str {
-    if is_soviet_side(side) {
+    if is_yuri_side(side) {
+        "mpyscrn.pal"
+    } else if is_soviet_side(side) {
         "mpsscrn.pal"
     } else {
         "mpascrn.pal"
     }
 }
 
-/// 结算调色板候选（本方专用优先，再对侧，再壳层兜底）。
+/// 结算调色板候选（本方专用优先，再他方，再壳层兜底）。
 pub fn score_screen_palette_candidates(side: &str) -> &'static [&'static str] {
-    if is_soviet_side(side) {
-        &["mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
+    if is_yuri_side(side) {
+        &["mpyscrn.pal", "mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
+    } else if is_soviet_side(side) {
+        &["mpsscrn.pal", "mpascrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
     } else {
-        &["mpascrn.pal", "mpsscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
+        &["mpascrn.pal", "mpsscrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
     }
 }
 
-/// 结算战报图候选（本方优先，再对侧，再菜单底图）。
+/// 结算战报图候选（本方优先，再他方，再菜单底图）。
 pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
-    if is_soviet_side(side) {
-        &["mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"]
+    if is_yuri_side(side) {
+        &["mpyscrnl.shp", "mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"]
+    } else if is_soviet_side(side) {
+        &["mpsscrnl.shp", "mpascrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"]
     } else {
-        &["mpascrnl.shp", "mpsscrnl.shp", "mnscrnl.shp"]
+        &["mpascrnl.shp", "mpsscrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"]
     }
 }
 
