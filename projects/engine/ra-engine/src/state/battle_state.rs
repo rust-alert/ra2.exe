@@ -227,9 +227,9 @@ impl BattleState {
         world
     }
 
-    /// 若存在同名 house，将 `local_player` 切到该玩家；否则保持原值并返回 `false`。
+    /// 若存在同名 house（大小写不敏感），将 `local_player` 切到该玩家；否则保持原值并返回 `false`。
     pub fn prefer_local_house(&mut self, house: &str) -> bool {
-        if let Some(p) = self.players.iter().find(|p| p.house.as_ref() == house) {
+        if let Some(p) = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)) {
             self.local_player = p.id;
             true
         }
@@ -252,8 +252,12 @@ impl BattleState {
     /// 确保玩家表含有该 house（遭遇战大厅阵营）。
     ///
     /// 多人图实体多为 `Neutral` 平民，大厅所选国家不会出现在放置段里，需要显式登记。
+    /// 已有同名（大小写不敏感）则不重复添加。
     pub fn ensure_house(&mut self, house: &str) {
-        if self.players.iter().any(|p| p.house.as_ref() == house) {
+        if house.is_empty() {
+            return;
+        }
+        if self.players.iter().any(|p| p.house.eq_ignore_ascii_case(house)) {
             return;
         }
         let id = PlayerId(self.players.len() as u8);
