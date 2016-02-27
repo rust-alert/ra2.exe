@@ -1,9 +1,10 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, load_screen_art_suffix, load_screen_background_shp,
-    load_screen_brief_suffix, load_screen_palette, load_screen_preferred_pal, sidebar_chrome_mix,
-    sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction, sidebar_radar_pal, sidebar_radar_shp,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionFamily, load_screen_art_suffix, load_screen_background_shp,
+    load_screen_brief_suffix, load_screen_palette, load_screen_preferred_pal, score_screen_background_shp,
+    score_screen_palette, sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction,
+    sidebar_radar_pal, sidebar_radar_shp,
 };
 
 fn sample_sides() -> Vec<String> {
@@ -108,4 +109,17 @@ fn sidebar_chrome_mix_splits_allied_and_soviet() {
     assert_eq!(sidebar_radar_shp("Russians"), "radar.shp");
     assert_eq!(sidebar_radar_pal("YuriCountry"), "radaryuri.pal");
     assert_eq!(sidebar_radar_pal("Russians"), "sidebar.pal");
+}
+
+#[test]
+fn ui_faction_family_covers_score_and_third_side() {
+    assert_eq!(UiFactionFamily::from_country("Americans"), UiFactionFamily::Allied);
+    assert_eq!(UiFactionFamily::from_country("Russians"), UiFactionFamily::Soviet);
+    assert_eq!(UiFactionFamily::from_country("YuriCountry"), UiFactionFamily::Yuri);
+    assert_eq!(UiFactionFamily::from_faction_id("ThirdSide"), UiFactionFamily::Yuri);
+    assert_eq!(UiFactionFamily::from_faction_id("Nod"), UiFactionFamily::Soviet);
+    assert_eq!(score_screen_background_shp("YuriCountry"), "mpyscrnl.shp");
+    assert_eq!(score_screen_palette("YuriCountry"), "mpyscrn.pal");
+    assert_eq!(score_screen_background_shp("Russians"), "mpsscrnl.shp");
+    assert_eq!(score_screen_background_shp("Americans"), "mpascrnl.shp");
 }

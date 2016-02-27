@@ -233,7 +233,7 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
     })
 }
 
-/// 结算积分页资源：按本机阵营选 `mpascrnl`/`mpsscrnl` 与专用 `mpascrn.pal`/`mpsscrn.pal`。
+/// 结算积分页资源：按 [`crate::skirmish_setup::UiFactionFamily`] 选战报图与调色板。
 pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
     let bg_name = score_screen_background_candidates(side)

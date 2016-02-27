@@ -29,59 +29,168 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
 /// 玩家名最大字符数（零售 Handle 常见上限）。
 pub const PLAYER_NAME_MAX_CHARS: usize = 12;
 
-/// 势力 id（`Side=` / `[Sides]` 键）→ 对局侧栏嵌套包。
-pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
-    match faction.trim().to_ascii_uppercase().as_str() {
-        "GDI" => "sidec01.mix",
-        "NOD" | "THIRDSIDE" => "sidec02.mix",
-        _ => "sidec01.mix",
+/// 壳层 UI 阵营族：侧栏包、雷达徽、结算战报等资源按族选择。
+///
+/// 库存覆盖盟军 / 苏军 / 尤里三族；模组扩展时应新增变体或走国家表 `Side=`，
+/// **禁止**再写「非盟军即苏军」二分硬分支。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UiFactionFamily {
+    /// 盟军系（`sidec01*` / `mpascrn*` / `radar.shp`）。
+    Allied,
+    /// 苏军系（`sidec02*` / `mpsscrn*` / `radar.shp`）。
+    Soviet,
+    /// 尤里 / 第三势力（`sidec02*` + `radary` / `mpyscrn*`）。
+    Yuri,
+}
+
+impl UiFactionFamily {
+    /// 由国家短名（`Americans` / `YuriCountry` 等）解析 UI 族。
+    pub fn from_country(side: &str) -> Self {
+        let s = side.trim();
+        if s.is_empty() {
+            return Self::Allied;
+        }
+        // 允许直接传入势力 id。
+        let upper = s.to_ascii_uppercase();
+        match upper.as_str() {
+            "GDI" => return Self::Allied,
+            "NOD" => return Self::Soviet,
+            "THIRDSIDE" => return Self::Yuri,
+            _ => {}
+        }
+        if matches!(s, "YuriCountry" | "Yuri") || upper.contains("YURI") {
+            return Self::Yuri;
+        }
+        if matches!(
+            s,
+            "Russians"
+                | "Confederation"
+                | "Cuba"
+                | "Cubans"
+                | "Arabs"
+                | "Iraq"
+                | "Iraqis"
+                | "Africans"
+                | "Libya"
+                | "Libyans"
+        ) || {
+            let h = upper.to_ascii_lowercase();
+            h.contains("russia") || h.contains("soviet") || h.contains("iraq") || h.contains("libya") || h.contains("cuba")
+        } {
+            return Self::Soviet;
+        }
+        Self::Allied
+    }
+
+    /// 由 rules `[Sides]` / `Side=` 势力 id 解析（`GDI` / `Nod` / `ThirdSide`）。
+    pub fn from_faction_id(faction: &str) -> Self {
+        match faction.trim().to_ascii_uppercase().as_str() {
+            "GDI" => Self::Allied,
+            "NOD" => Self::Soviet,
+            "THIRDSIDE" => Self::Yuri,
+            _ => Self::Allied,
+        }
+    }
+
+    /// 对局侧栏基座嵌套包名（无 MD 后缀）。
+    pub fn sidebar_mix(self) -> &'static str {
+        match self {
+            Self::Allied => "sidec01.mix",
+            Self::Soviet | Self::Yuri => "sidec02.mix",
+        }
+    }
+
+    /// 对局侧栏嵌套包候选（MD 优先，再基座）。
+    pub fn sidebar_mix_candidates(self) -> &'static [&'static str] {
+        match self {
+            Self::Allied => &["sidec01md.mix", "sidec01.mix"],
+            Self::Soviet | Self::Yuri => &["sidec02md.mix", "sidec02.mix"],
+        }
+    }
+
+    /// 侧栏 / 暂停菜单雷达 SHP。
+    pub fn radar_shp(self) -> &'static str {
+        match self {
+            Self::Yuri => "radary.shp",
+            Self::Allied | Self::Soviet => "radar.shp",
+        }
+    }
+
+    /// 雷达调色板。
+    pub fn radar_pal(self) -> &'static str {
+        match self {
+            Self::Yuri => "radaryuri.pal",
+            Self::Allied | Self::Soviet => "sidebar.pal",
+        }
+    }
+
+    /// 结算战报图。
+    pub fn score_background_shp(self) -> &'static str {
+        match self {
+            Self::Allied => "mpascrnl.shp",
+            Self::Soviet => "mpsscrnl.shp",
+            Self::Yuri => "mpyscrnl.shp",
+        }
+    }
+
+    /// 结算战报调色板。
+    pub fn score_palette(self) -> &'static str {
+        match self {
+            Self::Allied => "mpascrn.pal",
+            Self::Soviet => "mpsscrn.pal",
+            Self::Yuri => "mpyscrn.pal",
+        }
+    }
+
+    /// 结算战报图候选（本族优先，再他族，再菜单底图）。
+    pub fn score_background_candidates(self) -> &'static [&'static str] {
+        match self {
+            Self::Allied => &["mpascrnl.shp", "mpsscrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"],
+            Self::Soviet => &["mpsscrnl.shp", "mpascrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"],
+            Self::Yuri => &["mpyscrnl.shp", "mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"],
+        }
+    }
+
+    /// 结算调色板候选（本族优先，再他族，再壳层兜底）。
+    pub fn score_palette_candidates(self) -> &'static [&'static str] {
+        match self {
+            Self::Allied => &["mpascrn.pal", "mpsscrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
+            Self::Soviet => &["mpsscrn.pal", "mpascrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
+            Self::Yuri => &["mpyscrn.pal", "mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
+        }
     }
 }
 
-/// 阵营 → 对局侧栏嵌套包（盟军 `sidec01` / 苏军·尤里 `sidec02`）。
+/// 势力 id（`Side=` / `[Sides]` 键）→ 对局侧栏嵌套包。
+pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
+    UiFactionFamily::from_faction_id(faction).sidebar_mix()
+}
+
+/// 阵营 → 对局侧栏嵌套包。
 ///
-/// 优先按已知国家名；未知时回退盟军盘。产品路径应尽量走 [`sidebar_chrome_mix_for_faction`]。
-/// YR 盘另有 `sidec*md.mix`：解码时用 [`sidebar_chrome_mix_candidates`] 先 MD 后基座。
+/// 产品路径应尽量走 [`UiFactionFamily::from_country`]；未知国家回退盟军盘。
 pub fn sidebar_chrome_mix(side: &str) -> &'static str {
-    match side {
-        "Russians" | "Confederation" | "Cuba" | "Cubans" | "Arabs" | "Iraq" | "Iraqis" | "Africans" | "Libya"
-        | "Libyans" | "YuriCountry" | "Yuri" => "sidec02.mix",
-        _ => "sidec01.mix",
-    }
+    UiFactionFamily::from_country(side).sidebar_mix()
 }
 
 /// 对局侧栏嵌套包候选（MD 优先，再基座；RA2 盘无 MD 时第二项仍可读）。
-///
-/// 与 [`sidebar_chrome_mix`] 同侧：苏军与尤里均为 `sidec02*`（尤里不走 `is_soviet_side`）。
 pub fn sidebar_chrome_mix_candidates(side: &str) -> &'static [&'static str] {
-    if sidebar_chrome_mix(side) == "sidec02.mix" {
-        &["sidec02md.mix", "sidec02.mix"]
-    } else {
-        &["sidec01md.mix", "sidec01.mix"]
-    }
+    UiFactionFamily::from_country(side).sidebar_mix_candidates()
 }
 
-/// 是否尤里系国家（第三势力；侧栏雷达用 `radary` + `radaryuri.pal`）。
+/// 是否尤里系国家（第三势力 UI 族）。
 pub fn is_yuri_side(side: &str) -> bool {
-    matches!(side, "YuriCountry" | "Yuri") || side.to_ascii_lowercase().contains("yuri")
+    UiFactionFamily::from_country(side) == UiFactionFamily::Yuri
 }
 
-/// 对局侧栏雷达 SHP：尤里为 `radary.shp`（`sidec02md`），其余为 `radar.shp`。
+/// 对局侧栏雷达 SHP。
 pub fn sidebar_radar_shp(side: &str) -> &'static str {
-    if is_yuri_side(side) {
-        "radary.shp"
-    } else {
-        "radar.shp"
-    }
+    UiFactionFamily::from_country(side).radar_shp()
 }
 
-/// 对局侧栏雷达调色板：尤里为 `radaryuri.pal`，其余为 `sidebar.pal`。
+/// 对局侧栏雷达调色板。
 pub fn sidebar_radar_pal(side: &str) -> &'static str {
-    if is_yuri_side(side) {
-        "radaryuri.pal"
-    } else {
-        "sidebar.pal"
-    }
+    UiFactionFamily::from_country(side).radar_pal()
 }
 
 /// 阵营 → 安装内旗标 PCX 候选（`local.mix` / 扩展包；前者为同优先级首选）。
@@ -201,73 +310,29 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
-/// 是否苏军系阵营（不含尤里），用于结算战报图选边。
+/// 是否苏军系阵营（不含尤里；请优先用 [`UiFactionFamily`]）。
 pub fn is_soviet_side(side: &str) -> bool {
-    matches!(
-        side,
-        "Russians"
-            | "Confederation"
-            | "Cuba"
-            | "Cubans"
-            | "Arabs"
-            | "Iraq"
-            | "Iraqis"
-            | "Africans"
-            | "Libya"
-            | "Libyans"
-    ) || {
-        let h = side.to_ascii_lowercase();
-        !h.contains("yuri")
-            && (h.contains("russia")
-                || h.contains("soviet")
-                || h.contains("iraq")
-                || h.contains("libya")
-                || h.contains("cuba"))
-    }
+    UiFactionFamily::from_country(side) == UiFactionFamily::Soviet
 }
 
-/// 遭遇战积分页左区战报图：盟军 `mpascrnl`、苏军 `mpsscrnl`、尤里 `mpyscrnl`。
+/// 遭遇战积分页左区战报图。
 pub fn score_screen_background_shp(side: &str) -> &'static str {
-    if is_yuri_side(side) {
-        "mpyscrnl.shp"
-    } else if is_soviet_side(side) {
-        "mpsscrnl.shp"
-    } else {
-        "mpascrnl.shp"
-    }
+    UiFactionFamily::from_country(side).score_background_shp()
 }
 
-/// 结算战报图专用调色板：盟军 `mpascrn.pal`、苏军 `mpsscrn.pal`、尤里 `mpyscrn.pal`。
+/// 结算战报图专用调色板。
 pub fn score_screen_palette(side: &str) -> &'static str {
-    if is_yuri_side(side) {
-        "mpyscrn.pal"
-    } else if is_soviet_side(side) {
-        "mpsscrn.pal"
-    } else {
-        "mpascrn.pal"
-    }
+    UiFactionFamily::from_country(side).score_palette()
 }
 
-/// 结算调色板候选（本方专用优先，再他方，再壳层兜底）。
+/// 结算调色板候选（本族优先，再他族，再壳层兜底）。
 pub fn score_screen_palette_candidates(side: &str) -> &'static [&'static str] {
-    if is_yuri_side(side) {
-        &["mpyscrn.pal", "mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
-    } else if is_soviet_side(side) {
-        &["mpsscrn.pal", "mpascrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
-    } else {
-        &["mpascrn.pal", "mpsscrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"]
-    }
+    UiFactionFamily::from_country(side).score_palette_candidates()
 }
 
-/// 结算战报图候选（本方优先，再他方，再菜单底图）。
+/// 结算战报图候选（本族优先，再他族，再菜单底图）。
 pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
-    if is_yuri_side(side) {
-        &["mpyscrnl.shp", "mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"]
-    } else if is_soviet_side(side) {
-        &["mpsscrnl.shp", "mpascrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"]
-    } else {
-        &["mpascrnl.shp", "mpsscrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"]
-    }
+    UiFactionFamily::from_country(side).score_background_candidates()
 }
 
 /// 选择可读的装载调色板：国家盘优先，缺则共享 [`LOAD_SCREEN_FALLBACK_PAL`]。
