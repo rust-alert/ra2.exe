@@ -468,7 +468,7 @@ impl Shell {
         Some(pcm)
     }
 
-    /// `eva.ini` 事件 → Allied/Russian 采样名（按本机阵营优先）。
+    /// `eva.ini` 事件 → Allied/Russian 采样名（按本机 UI 阵营族优先）。
     pub(super) fn eva_sample_names(&self, event_id: &str) -> Vec<String> {
         let Some(doc) = self.read_ini_doc("eva.ini")
         else {
@@ -476,7 +476,7 @@ impl Shell {
         };
         let allied = doc.get(event_id, "Allied").unwrap_or("").trim().to_string();
         let russian = doc.get(event_id, "Russian").unwrap_or("").trim().to_string();
-        let soviet_house = self
+        let family = self
             .battle_controller
             .as_ref()
             .and_then(|c| c.session.as_ref())
@@ -486,21 +486,15 @@ impl Shell {
                     .players
                     .iter()
                     .find(|p| p.id == g.world.local_player)
-                    .map(|p| p.house.to_ascii_lowercase())
+                    .map(|p| ra_widgets::skirmish_setup::UiFactionFamily::from_country(p.house.as_ref()))
             })
-            .is_some_and(|h| {
-                h.contains("russia")
-                    || h.contains("soviet")
-                    || h.contains("iraq")
-                    || h.contains("libya")
-                    || h.contains("cuba")
-                    || h.contains("yuri")
-            });
+            .unwrap_or(ra_widgets::skirmish_setup::UiFactionFamily::Allied);
+        // 库存尤里 / 苏军共用 Russian 轨；模组若增独立 EVA 键再扩 `UiFactionFamily`。
         let mut out = Vec::new();
-        let (first, second) = if soviet_house {
-            (russian, allied)
-        } else {
-            (allied, russian)
+        let (first, second) = match family {
+            ra_widgets::skirmish_setup::UiFactionFamily::Allied => (allied, russian),
+            ra_widgets::skirmish_setup::UiFactionFamily::Soviet
+            | ra_widgets::skirmish_setup::UiFactionFamily::Yuri => (russian, allied),
         };
         for stem in [first, second] {
             if stem.is_empty() {
