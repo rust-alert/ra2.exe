@@ -18,7 +18,6 @@ use ra_widgets::{
     battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
     compose::{
         blit_rgba, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
-        compose_battle_results_overlay,
     },
     fs_source::GameAssetSource,
     render::present,
@@ -2409,39 +2408,6 @@ impl BattleController {
     ) {
         let w = viewport_w.max(1);
         let h = viewport_h.max(1);
-        if screen_label == "results" {
-            let (title, detail) = match hud.outcome.as_ref() {
-                Some(BattleOutcome::Victory { owner }) => ("任务完成".to_string(), Some(format!("胜利 · {owner}"))),
-                Some(BattleOutcome::Defeat { reason }) => {
-                    let detail = if reason.is_empty() {
-                        None
-                    } else {
-                        Some(reason.clone())
-                    };
-                    ("战斗控制已终止".to_string(), detail)
-                }
-                None => ("结算".to_string(), None),
-            };
-            let stats = hud.battle_stats.as_ref().map(|s| {
-                format!(
-                    "{}tick · 损 {}u/{}b · 花 ${}",
-                    s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent
-                )
-            });
-            if let Some(page) = compose_battle_results_overlay(
-                w,
-                h,
-                fnt,
-                &title,
-                detail.as_deref(),
-                stats.as_deref(),
-                "Enter 确认 · Esc 离开",
-            ) {
-                let page = present::present_ui_page(page, present);
-                renderer.set_ui_overlay(page);
-            }
-            return;
-        }
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
@@ -2467,7 +2433,6 @@ impl BattleController {
             .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
-        // 原版胜负只靠 EVA 播报，不对局内 HUD 写「败 · 放弃任务」之类调试文案。
         let tip_owned = self
             .command_hover
             .and_then(command_button_csf_tooltip)
@@ -2519,7 +2484,6 @@ impl BattleController {
             reject,
             paused: show_pause_banner,
             pause_reason: None,
-            outcome: None,
             command_pressed: if show_pause_banner { None } else { self.command_pressed },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
@@ -2574,29 +2538,7 @@ impl BattleController {
                 let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label()).unwrap_or("-");
                 let place = self.place_mode.as_deref().unwrap_or("-");
                 if screen_label == "results" {
-                    let outcome = match hud.outcome.as_ref() {
-                        Some(BattleOutcome::Victory { owner }) => format!("胜 {owner}"),
-                        Some(BattleOutcome::Defeat { reason }) => {
-                            if reason.is_empty() {
-                                "败".into()
-                            } else {
-                                format!("败 · {reason}")
-                            }
-                        }
-                        _ => "结算".into(),
-                    };
-                    let stats = hud
-                        .battle_stats
-                        .as_ref()
-                        .map(|s| format!(" · {}tick 损{}u/{}b 花${}", s.duration_ticks, s.units_lost, s.buildings_lost, s.funds_spent))
-                        .unwrap_or_default();
-                    format!("{} · [results] · t{} · {outcome}{stats} · Enter确认 Esc离开", self.title_base, hud.tick)
-                }
-                else if hud.outcome.is_some() {
-                    format!(
-                        "{} · [{screen_label}] · t{} · EVA 播报中",
-                        self.title_base, hud.tick
-                    )
+                    format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
                 }
                 else if hud.paused {
                     format!(

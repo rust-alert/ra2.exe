@@ -30,8 +30,6 @@ pub struct BattleHudModel<'a> {
     pub paused: bool,
     /// 暂停原因。
     pub pause_reason: Option<&'a str>,
-    /// 结算文案（可空）。
-    pub outcome: Option<&'a str>,
     /// 命令条按下槽（高亮帧）。
     pub command_pressed: Option<usize>,
     /// 命令条悬停槽（浮动 `TIP:*`）。
@@ -154,9 +152,6 @@ pub fn compose_battle_hud_overlay(
                 blit_caption_top_left_clipped(&mut page, fnt, reason, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
                 y += line_h + 4;
             }
-            if let Some(outcome) = paint.outcome {
-                blit_caption_top_left_clipped(&mut page, fnt, outcome, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
-            }
             let _ = (y, bottom_strip);
         } else if !paint.paused {
             // 有 chrome 且非暂停：只在底脚条带写少量诊断（避免盖住 cameo / 暂停钮）。
@@ -169,9 +164,6 @@ pub fn compose_battle_hud_overlay(
             if let Some(reject) = paint.reject {
                 blit_text_colored(&mut page, fnt, reject, x, y, [255, 120, 80, 255]);
                 y += 14;
-            }
-            if let Some(outcome) = paint.outcome {
-                blit_text_colored(&mut page, fnt, outcome, x, y, MENU_TEXT_ACCENT);
             }
             let _ = y;
         } else {
@@ -340,61 +332,5 @@ pub fn compose_battle_pause_menu_overlay(
         }
     }
 
-    Some(page)
-}
-
-/// 结算页叠加层：全屏压暗 + 居中胜负/统计（地图仍可见；替代侧栏一行小字）。
-pub fn compose_battle_results_overlay(
-    viewport_w: u32,
-    viewport_h: u32,
-    fnt: Option<&FntFile>,
-    title: &str,
-    detail: Option<&str>,
-    stats: Option<&str>,
-    hint: &str,
-) -> Option<RgbaImage> {
-    let w = viewport_w.max(1);
-    let h = viewport_h.max(1);
-    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    fill_rect(&mut page, RectPx::new(0, 0, w as i32, h as i32), [0, 0, 0, 180]);
-
-    let Some(fnt) = fnt
-    else {
-        return Some(page);
-    };
-    let mut lines: Vec<(&str, [u8; 4])> = Vec::new();
-    lines.push((title, MENU_TEXT_ACCENT));
-    if let Some(d) = detail.filter(|s| !s.is_empty()) {
-        lines.push((d, MENU_TEXT_ENABLED));
-    }
-    if let Some(s) = stats.filter(|s| !s.is_empty()) {
-        lines.push((s, MENU_TEXT_SECTION));
-    }
-    lines.push((hint, MENU_TEXT_ENABLED));
-
-    let line_h = (fnt.bitmap_rows as i32).max(12);
-    let gap = 10;
-    let pad_x = 28;
-    let pad_y = 22;
-    let content_w = lines
-        .iter()
-        .map(|(t, _)| fnt.text_width(t) as i32)
-        .max()
-        .unwrap_or(120)
-        .min((w as i32).saturating_sub(80))
-        .max(160);
-    let box_w = content_w + pad_x * 2;
-    let box_h = (lines.len() as i32) * (line_h + gap) - gap + pad_y * 2;
-    let bx = ((w as i32) - box_w) / 2;
-    let by = ((h as i32) - box_h) / 2;
-    fill_rect(&mut page, RectPx::new(bx, by, box_w, box_h), [8, 12, 24, 230]);
-    stroke_rect(&mut page, RectPx::new(bx, by, box_w, box_h), [200, 180, 60, 255]);
-    let mut ty = by + pad_y;
-    for (text, color) in lines {
-        let tw = fnt.text_width(text) as i32;
-        let tx = bx + (box_w - tw).max(0) / 2;
-        blit_text_colored(&mut page, fnt, text, tx, ty, color);
-        ty += line_h + gap;
-    }
     Some(page)
 }

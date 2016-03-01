@@ -60,7 +60,7 @@ pub use exit_confirm::compose_exit_confirm_page;
 pub use skirmish::{SkirmishChromeSprites, SkirmishLobbyPaint, compose_skirmish_lobby_page};
 pub use choose_map::compose_choose_map_page;
 pub use load::{LoadScreenPaint, compose_load_screen_page};
-pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay, compose_battle_results_overlay};
+pub use battle::{BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay};
 pub use skirmish_score::{
     SkirmishScorePaint, SkirmishScoreRow, compose_skirmish_score_page, format_score_time, skirmish_score_hit_at,
 };
