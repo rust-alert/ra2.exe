@@ -44,22 +44,39 @@ pub enum UiFactionFamily {
 }
 
 impl UiFactionFamily {
-    /// 由国家短名（`Americans` / `YuriCountry` 等）解析 UI 族。
+    /// 国家短名 + 可选 rules `Side=`。
+    ///
+    /// 已知库存国名优先；未知国名（模组扩展）再按 `Side=` 落族，避免只能盟军/苏军硬猜。
+    pub fn resolve(country: &str, faction_id: Option<&str>) -> Self {
+        if let Some(known) = Self::classify_country_name(country) {
+            return known;
+        }
+        if let Some(fid) = faction_id.map(str::trim).filter(|s| !s.is_empty()) {
+            return Self::from_faction_id(fid);
+        }
+        Self::Allied
+    }
+
+    /// 由国家短名解析 UI 族（无 `Side=` 时的便捷入口）。
     pub fn from_country(side: &str) -> Self {
+        Self::resolve(side, None)
+    }
+
+    /// 识别库存 / 常见国名；无法识别时返回 `None`（交给 `Side=`）。
+    fn classify_country_name(side: &str) -> Option<Self> {
         let s = side.trim();
         if s.is_empty() {
-            return Self::Allied;
+            return Some(Self::Allied);
         }
-        // 允许直接传入势力 id。
         let upper = s.to_ascii_uppercase();
         match upper.as_str() {
-            "GDI" => return Self::Allied,
-            "NOD" => return Self::Soviet,
-            "THIRDSIDE" => return Self::Yuri,
+            "GDI" => return Some(Self::Allied),
+            "NOD" => return Some(Self::Soviet),
+            "THIRDSIDE" => return Some(Self::Yuri),
             _ => {}
         }
         if matches!(s, "YuriCountry" | "Yuri") || upper.contains("YURI") {
-            return Self::Yuri;
+            return Some(Self::Yuri);
         }
         if matches!(
             s,
@@ -77,9 +94,23 @@ impl UiFactionFamily {
             let h = upper.to_ascii_lowercase();
             h.contains("russia") || h.contains("soviet") || h.contains("iraq") || h.contains("libya") || h.contains("cuba")
         } {
-            return Self::Soviet;
+            return Some(Self::Soviet);
         }
-        Self::Allied
+        if matches!(
+            s,
+            "Americans"
+                | "French"
+                | "Germans"
+                | "British"
+                | "Alliance"
+                | "Korea"
+                | "Koreans"
+                | "Observer"
+                | "Observers"
+        ) {
+            return Some(Self::Allied);
+        }
+        None
     }
 
     /// 由 rules `[Sides]` / `Side=` 势力 id 解析（`GDI` / `Nod` / `ThirdSide`）。
@@ -168,7 +199,7 @@ pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
 
 /// 阵营 → 对局侧栏嵌套包。
 ///
-/// 产品路径应尽量走 [`UiFactionFamily::from_country`]；未知国家回退盟军盘。
+/// 产品路径应尽量走 [`UiFactionFamily::resolve`]（带上 rules `Side=`）；未知国家回退盟军盘。
 pub fn sidebar_chrome_mix(side: &str) -> &'static str {
     UiFactionFamily::from_country(side).sidebar_mix()
 }
@@ -176,6 +207,11 @@ pub fn sidebar_chrome_mix(side: &str) -> &'static str {
 /// 对局侧栏嵌套包候选（MD 优先，再基座；RA2 盘无 MD 时第二项仍可读）。
 pub fn sidebar_chrome_mix_candidates(side: &str) -> &'static [&'static str] {
     UiFactionFamily::from_country(side).sidebar_mix_candidates()
+}
+
+/// 国家 + 可选 `Side=` → 侧栏嵌套包候选。
+pub fn sidebar_chrome_mix_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
+    UiFactionFamily::resolve(country, faction_id).sidebar_mix_candidates()
 }
 
 /// 是否尤里系国家（第三势力 UI 族）。
@@ -188,9 +224,19 @@ pub fn sidebar_radar_shp(side: &str) -> &'static str {
     UiFactionFamily::from_country(side).radar_shp()
 }
 
+/// 国家 + 可选 `Side=` → 雷达 SHP。
+pub fn sidebar_radar_shp_resolved(country: &str, faction_id: Option<&str>) -> &'static str {
+    UiFactionFamily::resolve(country, faction_id).radar_shp()
+}
+
 /// 对局侧栏雷达调色板。
 pub fn sidebar_radar_pal(side: &str) -> &'static str {
     UiFactionFamily::from_country(side).radar_pal()
+}
+
+/// 国家 + 可选 `Side=` → 雷达调色板。
+pub fn sidebar_radar_pal_resolved(country: &str, faction_id: Option<&str>) -> &'static str {
+    UiFactionFamily::resolve(country, faction_id).radar_pal()
 }
 
 /// 阵营 → 安装内旗标 PCX 候选（`local.mix` / 扩展包；前者为同优先级首选）。
@@ -330,9 +376,19 @@ pub fn score_screen_palette_candidates(side: &str) -> &'static [&'static str] {
     UiFactionFamily::from_country(side).score_palette_candidates()
 }
 
+/// 国家 + 可选 `Side=` → 结算调色板候选。
+pub fn score_screen_palette_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
+    UiFactionFamily::resolve(country, faction_id).score_palette_candidates()
+}
+
 /// 结算战报图候选（本族优先，再他族，再菜单底图）。
 pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
     UiFactionFamily::from_country(side).score_background_candidates()
+}
+
+/// 国家 + 可选 `Side=` → 结算战报图候选。
+pub fn score_screen_background_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
+    UiFactionFamily::resolve(country, faction_id).score_background_candidates()
 }
 
 /// 选择可读的装载调色板：国家盘优先，缺则共享 [`LOAD_SCREEN_FALLBACK_PAL`]。

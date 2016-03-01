@@ -122,4 +122,12 @@ fn ui_faction_family_covers_score_and_third_side() {
     assert_eq!(score_screen_palette("YuriCountry"), "mpyscrn.pal");
     assert_eq!(score_screen_background_shp("Russians"), "mpsscrnl.shp");
     assert_eq!(score_screen_background_shp("Americans"), "mpascrnl.shp");
+    // 模组未知国名：靠 Side= 落族，不再默认盟军。
+    assert_eq!(
+        UiFactionFamily::resolve("CustomPsi", Some("ThirdSide")),
+        UiFactionFamily::Yuri
+    );
+    assert_eq!(UiFactionFamily::resolve("CustomNod", Some("Nod")), UiFactionFamily::Soviet);
+    assert_eq!(UiFactionFamily::resolve("CustomGdi", Some("GDI")), UiFactionFamily::Allied);
+    assert_eq!(UiFactionFamily::resolve("TotallyUnknown", None), UiFactionFamily::Allied);
 }
