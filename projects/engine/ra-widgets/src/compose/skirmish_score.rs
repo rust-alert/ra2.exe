@@ -59,18 +59,20 @@ pub fn compose_skirmish_score_page(
         warn_anim_frame,
     )?;
 
+    let stats = rect_px_from_snapshot(&snap, "stats_panel");
     let game_label = rect_px_from_snapshot(&snap, "game_label");
     let time_label = rect_px_from_snapshot(&snap, "time_label");
     let table = rect_px_from_snapshot(&snap, "table");
     let title = rect_px_from_snapshot(&snap, "title");
     let background = rect_px_from_snapshot(&snap, "background");
 
-    // 壳层已贴本方战报图；若另有正确调色板解码结果，铺满左区（勿再拉伸进表板盖死画面）。
+    // 壳层已贴本方战报图；若另有正确调色板解码结果，铺满左区。
     if let Some(bg) = paint.backdrop {
         blit_stretched(&mut page, bg, background);
     }
-    // 表区轻压暗保证白字可读，仍透出战报图（`fill_rect` 不混合 alpha，会盖成纯黑）。
-    dim_rect(&mut page, table, 72);
+    // 整块统计卡半透明底板（含游戏/时间）；`fill_rect` 不混 alpha，会盖成纯黑。
+    blend_rect(&mut page, stats, [0, 0, 0, 168]);
+    stroke_rect(&mut page, stats, [160, 140, 60, 200]);
 
     if let Some(fnt) = fnt {
         let title_text = {

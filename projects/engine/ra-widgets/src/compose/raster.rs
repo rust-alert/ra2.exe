@@ -189,6 +189,34 @@ pub(super) fn dim_rect(dst: &mut RgbaImage, rect: RectPx, amount: u8) {
     }
 }
 
+/// 半透明色块叠到目标（`rgba[3]` 为覆盖强度；用于积分表底板等）。
+pub(super) fn blend_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
+    if rect.w <= 0 || rect.h <= 0 || rgba[3] == 0 {
+        return;
+    }
+    let sa = u32::from(rgba[3]);
+    let inv = 255 - sa;
+    for row in 0..rect.h {
+        let dy = rect.y + row;
+        if dy < 0 || dy as u32 >= dst.height() {
+            continue;
+        }
+        for col in 0..rect.w {
+            let dx = rect.x + col;
+            if dx < 0 || dx as u32 >= dst.width() {
+                continue;
+            }
+            let di = ((dy as u32 * dst.width() + dx as u32) * 4) as usize;
+            for c in 0..3 {
+                let s = u32::from(rgba[c]);
+                let d = u32::from(dst.as_raw()[di + c]);
+                dst.as_mut()[di + c] = ((s * sa + d * inv) / 255) as u8;
+            }
+            dst.as_mut()[di + 3] = 255;
+        }
+    }
+}
+
 
 pub(super) fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
