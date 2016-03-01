@@ -7,7 +7,7 @@ use ra_widgets::load_kind::LoadKind;
 use ra_widgets::skin::decode::frame_to_canvas_rgba;
 use ra_widgets::skin::text::resolve_csf_text;
 use ra_widgets::skirmish_setup::{
-    score_screen_background_candidates, score_screen_palette_candidates, LOBBY_COLORS,
+    score_screen_background_candidates_resolved, score_screen_palette_candidates_resolved, LOBBY_COLORS,
 };
 use ra_renderer::RgbaImage;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -35,18 +35,30 @@ impl Shell {
             .unwrap_or_else(|| self.skirmish.side.clone())
     }
 
-    /// 惰性解码积分页左区战报图：盟军 `mpascrnl`（超时空兵）、苏军 `mpsscrnl`（辐射工兵）。
+    /// 本机阵营对应 rules `Side=`（模组扩展国名时驱动 UI 族）。
+    fn results_faction_id(&self) -> Option<&str> {
+        let house = self.results_local_house();
+        self.lobby_countries
+            .iter()
+            .find(|c| c.id.eq_ignore_ascii_case(house.as_str()))
+            .map(|c| c.side.as_str())
+            .filter(|s| !s.is_empty())
+    }
+
+    /// 惰性解码积分页左区战报图（按 [`ra_widgets::skirmish_setup::UiFactionFamily`]）。
     pub(super) fn ensure_score_backdrop(&mut self) {
         let house = self.results_local_house();
-        let want_shp = score_screen_background_candidates(&house)
+        let faction_owned = self.results_faction_id().map(str::to_string);
+        let faction_id = faction_owned.as_deref();
+        let want_shp = score_screen_background_candidates_resolved(&house, faction_id)
             .first()
             .copied()
             .unwrap_or("mpascrnl.shp");
-        let want_pal = score_screen_palette_candidates(&house)
+        let want_pal = score_screen_palette_candidates_resolved(&house, faction_id)
             .first()
             .copied()
             .unwrap_or("mpascrn.pal");
-        let want_key = format!("{house}:{want_shp}:{want_pal}");
+        let want_key = format!("{house}:{}:{want_shp}:{want_pal}", faction_id.unwrap_or("-"));
         if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
             return;
         }
@@ -57,8 +69,8 @@ impl Shell {
         else {
             return;
         };
-        let candidates = score_screen_background_candidates(&house);
-        let pal_names = score_screen_palette_candidates(&house);
+        let candidates = score_screen_background_candidates_resolved(&house, faction_id);
+        let pal_names = score_screen_palette_candidates_resolved(&house, faction_id);
         for name in candidates {
             let Some(hit) = source.resolve(name)
             else {

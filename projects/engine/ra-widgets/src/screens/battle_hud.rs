@@ -17,7 +17,7 @@ use crate::{
     skin::decode::{DecodedUiSprite, frame_to_canvas_rgba},
     skin::text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
     skirmish_setup::{
-        sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_radar_pal, sidebar_radar_shp,
+        UiFactionFamily, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved,
     },
 };
 
@@ -147,13 +147,25 @@ fn radar_frame_index(_source: &GameAssetSource, _mix: &str) -> u16 {
 }
 
 /// 按本地阵营解码对局 HUD chrome。
+///
+/// `faction_id` 为 rules `Side=`（如 `ThirdSide`）；模组未知国名时靠它选 UI 族。
 pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleHudChrome {
-    let mixes = sidebar_chrome_mix_candidates(side);
-    let mix = sidebar_chrome_mix(side).to_string();
+    decode_battle_hud_chrome_resolved(source, side, None)
+}
+
+/// 同 [`decode_battle_hud_chrome`]，可带 `Side=`。
+pub fn decode_battle_hud_chrome_resolved(
+    source: &GameAssetSource,
+    side: &str,
+    faction_id: Option<&str>,
+) -> BattleHudChrome {
+    let family = UiFactionFamily::resolve(side, faction_id);
+    let mixes = family.sidebar_mix_candidates();
+    let mix = family.sidebar_mix().to_string();
     let mut errors = Vec::new();
     let radar_frame = radar_frame_index(source, &mix);
-    let radar_shp = sidebar_radar_shp(side);
-    let radar_pal = sidebar_radar_pal(side);
+    let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
+    let radar_pal = sidebar_radar_pal_resolved(side, faction_id);
     let mut tabs = [None, None, None, None];
     for (i, slot) in tabs.iter_mut().enumerate() {
         let name = format!("tab{i:02}.shp");

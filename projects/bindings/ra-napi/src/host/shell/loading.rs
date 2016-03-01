@@ -280,6 +280,16 @@ impl Shell {
                 }
             }
         }
+        self.ensure_lobby_sides();
+        let faction_id = self
+            .lobby_countries
+            .iter()
+            .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()))
+            .map(|c| c.side.clone())
+            .filter(|s| !s.is_empty());
+        if let Some(ctrl) = self.battle_controller.as_mut() {
+            ctrl.set_ui_faction_side(faction_id);
+        }
         let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
         let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);
         if ok {

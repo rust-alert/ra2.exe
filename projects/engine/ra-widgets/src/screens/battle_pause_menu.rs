@@ -20,9 +20,7 @@ use crate::{
     fs_source::GameAssetSource,
     screens::page::UiAssetRef,
     skin::decode::{frame_to_canvas_rgba, DecodedUiSprite},
-    skirmish_setup::{
-        sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_radar_pal, sidebar_radar_shp,
-    },
+    skirmish_setup::{UiFactionFamily, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved},
 };
 
 pub use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
@@ -190,11 +188,21 @@ fn decode_candidates(
 
 /// 按本地阵营解码暂停菜单素材（须先 MD 后基座，避免全局落到错误阵营包）。
 pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> BattlePauseChrome {
-    let mixes = sidebar_chrome_mix_candidates(side);
-    let mix = sidebar_chrome_mix(side).to_string();
+    decode_battle_pause_chrome_resolved(source, side, None)
+}
+
+/// 同 [`decode_battle_pause_chrome`]，可带 rules `Side=`。
+pub fn decode_battle_pause_chrome_resolved(
+    source: &GameAssetSource,
+    side: &str,
+    faction_id: Option<&str>,
+) -> BattlePauseChrome {
+    let family = UiFactionFamily::resolve(side, faction_id);
+    let mixes = family.sidebar_mix_candidates();
+    let mix = family.sidebar_mix().to_string();
     let mut errors = Vec::new();
-    let radar_shp = sidebar_radar_shp(side);
-    let radar_pal = sidebar_radar_pal(side);
+    let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
+    let radar_pal = sidebar_radar_pal_resolved(side, faction_id);
     let radar = decode_candidates(source, mixes, radar_shp, radar_pal, 0, &mut errors);
     let center_panel = radar
         .as_ref()

@@ -11,7 +11,7 @@ use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
 use ra_widgets::{
     battle_hud::{
-        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome, decode_cameo_sprite,
+        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_resolved, decode_cameo_sprite,
         hit_at_with_chrome,
     },
     battle_order_icons::load_battle_order_icons,
@@ -254,6 +254,8 @@ pub struct BattleController {
     test_scene: Option<String>,
     /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
     hud_chrome: Option<BattleHudChrome>,
+    /// rules `Side=`（如 `ThirdSide`）；模组未知国名时与 house 一起选 UI 族。
+    ui_faction_side: Option<String>,
     /// 是否已尝试装入 `mouse.shp` 命令图标。
     order_icons_loaded: bool,
     /// 命令条悬停槽。
@@ -343,6 +345,7 @@ impl BattleController {
             status_path,
             test_scene,
             hud_chrome: None,
+            ui_faction_side: None,
             order_icons_loaded: false,
             command_hover: None,
             command_pressed: None,
@@ -372,6 +375,17 @@ impl BattleController {
         };
         this.bind_local_start();
         this
+    }
+
+    /// 写入 rules `Side=`，并在变更时清空已缓存的侧栏 / 暂停 chrome。
+    pub fn set_ui_faction_side(&mut self, faction_id: Option<String>) {
+        if self.ui_faction_side == faction_id {
+            return;
+        }
+        self.ui_faction_side = faction_id;
+        self.hud_chrome = None;
+        self.pause_menu_chrome = None;
+        self.pause_menu_tried_side = None;
     }
 
     /// 当前对局地图剧院（供壳层挂载 `isotemp` 等）。
@@ -2089,7 +2103,7 @@ impl BattleController {
         if self.hud_chrome.as_ref().is_some_and(|c| c.side == side) {
             return;
         }
-        let chrome = decode_battle_hud_chrome(source, &side);
+        let chrome = decode_battle_hud_chrome_resolved(source, &side, self.ui_faction_side.as_deref());
         if chrome.has_sidebar_body() {
             let pal_origin = chrome
                 .side1
@@ -2100,6 +2114,7 @@ impl BattleController {
                 .unwrap_or("-");
             tracing::info!(
                 side = %chrome.side,
+                faction = ?self.ui_faction_side,
                 mix = %chrome.mix,
                 pal_origin,
                 errors = chrome.errors.len(),
@@ -2132,7 +2147,11 @@ impl BattleController {
             self.pause_menu_chrome = None;
             return;
         };
-        let decoded = battle_pause_menu::decode_battle_pause_chrome(source, &side);
+        let decoded = battle_pause_menu::decode_battle_pause_chrome_resolved(
+            source,
+            &side,
+            self.ui_faction_side.as_deref(),
+        );
         if !decoded.errors.is_empty() {
             tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
         } else {
