@@ -35,6 +35,19 @@ fn parse_basic_next_mission() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nNextMission=all02t.map\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
     assert_eq!(info.next_mission, "all02t.map");
+    assert!(info.alternate_next_mission.is_empty());
+    assert_eq!(info.campaign_continue_scenario(true), Some("all02t.map"));
+    assert_eq!(info.campaign_continue_scenario(false), None);
+}
+
+#[test]
+fn parse_basic_alternate_next_mission() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nNextMission=win.map\nAlternateNextMission=lose.map\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.next_mission, "win.map");
+    assert_eq!(info.alternate_next_mission, "lose.map");
+    assert_eq!(info.campaign_continue_scenario(true), Some("win.map"));
+    assert_eq!(info.campaign_continue_scenario(false), Some("lose.map"));
 }
 
 #[test]

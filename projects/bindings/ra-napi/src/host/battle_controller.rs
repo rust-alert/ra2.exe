@@ -178,7 +178,7 @@ mod slide_offset_tests {
 pub enum BattleNav {
     /// 无导航。
     None,
-    /// 战役胜利后进入地图 `NextMission`（无则回选边）。
+    /// 战役续关：胜用 `NextMission`，败用 `AlternateNextMission`（无则回选边）。
     ContinueCampaign,
     /// 对局已结束，应切到结算页。
     ToResults,
@@ -1183,18 +1183,27 @@ impl BattleController {
                 }
                 match event.physical_key {
                     PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
-                        // 结算确认：战役胜且有 NextMission → 下一关；否则离开结算（回选边/大厅）。
+                        // 结算确认：战役续关（胜 NextMission / 败 AlternateNextMission）或离开。
                         let continue_campaign = self
                             .session
                             .as_ref()
                             .and_then(|s| s.battle())
                             .is_some_and(|g| {
-                                matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }))
-                                    && g.boot_kind == ra_engine::SessionBootKind::Campaign
-                                    && !g.world.map.next_mission.trim().is_empty()
+                                if g.boot_kind != ra_engine::SessionBootKind::Campaign {
+                                    return false;
+                                }
+                                match g.outcome.as_ref() {
+                                    Some(ra_engine::BattleOutcome::Victory { .. }) => {
+                                        g.world.map.campaign_continue_scenario(true).is_some()
+                                    }
+                                    Some(ra_engine::BattleOutcome::Defeat { .. }) => {
+                                        g.world.map.campaign_continue_scenario(false).is_some()
+                                    }
+                                    None => false,
+                                }
                             });
                         if continue_campaign {
-                            tracing::info!("战役继续 · NextMission");
+                            tracing::info!("战役继续 · campaign continue scenario");
                             BattleNav::ContinueCampaign
                         } else {
                             tracing::info!("结算确认 · 离开");

@@ -268,7 +268,9 @@ impl Shell {
         skirmish_score_hit_at(sx, sy)
     }
 
-    /// Enter / 继续：战役胜有 `NextMission` 则下一关，否则离开结算。
+    /// Enter / 继续：战役有对应续关字段则下一关，否则离开结算。
+    ///
+    /// 胜 → `[Basic] NextMission`；败 → `[Basic] AlternateNextMission`。
     fn results_confirm_nav(&self) -> BattleNav {
         let continue_campaign = self
             .battle_controller
@@ -276,9 +278,14 @@ impl Shell {
             .and_then(|c| c.session.as_ref())
             .and_then(|s| s.battle())
             .is_some_and(|g| {
-                matches!(g.outcome, Some(BattleOutcome::Victory { .. }))
-                    && g.boot_kind == SessionBootKind::Campaign
-                    && !g.world.map.next_mission.trim().is_empty()
+                if g.boot_kind != SessionBootKind::Campaign {
+                    return false;
+                }
+                match g.outcome.as_ref() {
+                    Some(BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
+                    Some(BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
+                    None => false,
+                }
             });
         if continue_campaign {
             BattleNav::ContinueCampaign

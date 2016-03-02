@@ -125,8 +125,10 @@ pub struct MapInfo {
     pub game_modes: Vec<String>,
     /// `[Basic] Description` CSF 键（可空；官方遭遇图常省略）。
     pub description_csf: String,
-    /// `[Basic] NextMission`：战役下一关地图文件名（可空）。
+    /// `[Basic] NextMission`：战役胜利后下一关地图文件名（可空）。
     pub next_mission: String,
+    /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（可空）。
+    pub alternate_next_mission: String,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
     pub lighting: LightingConfig,
     /// `[Lighting]` Ion / 闪电风暴档（缺键用零售 Ion 缺省）。
@@ -168,6 +170,7 @@ impl MapInfo {
             game_modes: Vec::new(),
             description_csf: String::new(),
             next_mission: String::new(),
+            alternate_next_mission: String::new(),
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
             lighting_profile: LightingProfile::Normal,
@@ -199,6 +202,11 @@ impl MapInfo {
         let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
         let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
         let next_mission = doc.get("Basic", "NextMission").unwrap_or("").trim().to_string();
+        let alternate_next_mission = doc
+            .get("Basic", "AlternateNextMission")
+            .unwrap_or("")
+            .trim()
+            .to_string();
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
@@ -224,6 +232,7 @@ impl MapInfo {
             game_modes,
             description_csf,
             next_mission,
+            alternate_next_mission,
             lighting: profiles.normal,
             ion_lighting: profiles.ion,
             lighting_profile: LightingProfile::Normal,
@@ -237,6 +246,21 @@ impl MapInfo {
             waypoints,
             scripting,
         })
+    }
+
+    /// 战役结算后续关 scenario：胜用 `NextMission`，败用 `AlternateNextMission`；空则 `None`。
+    pub fn campaign_continue_scenario(&self, victory: bool) -> Option<&str> {
+        let raw = if victory {
+            self.next_mission.as_str()
+        } else {
+            self.alternate_next_mission.as_str()
+        };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
     }
 
     /// 当前档的环境光配置。

@@ -429,8 +429,13 @@ impl Shell {
                     .as_ref()
                     .and_then(|c| c.session.as_ref())
                     .and_then(|s| s.battle())
-                    .map(|g| g.world.map.next_mission.trim().to_string())
-                    .filter(|s| !s.is_empty());
+                    .and_then(|g| {
+                        let victory = matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }));
+                        g.world
+                            .map
+                            .campaign_continue_scenario(victory)
+                            .map(str::to_string)
+                    });
                 match next {
                     Some(scenario) => {
                         self.load_brief_csf = None;
