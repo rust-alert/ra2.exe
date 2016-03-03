@@ -51,6 +51,13 @@ fn parse_basic_alternate_next_mission() {
 }
 
 #[test]
+fn parse_basic_starting_credits() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nStartingCredits=10000\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
+    assert_eq!(info.starting_credits, 10_000);
+}
+
+#[test]
 fn parse_basic_map_ini() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=SNOW\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();

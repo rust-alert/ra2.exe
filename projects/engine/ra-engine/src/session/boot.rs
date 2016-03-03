@@ -144,6 +144,9 @@ fn open_session_common(
         if applied > 0 {
             note = format!("{note} · map_houses#{applied}");
         }
+        if apply_basic_starting_credits(&mut state) {
+            note = format!("{note} · starting_credits={}", state.map.starting_credits);
+        }
     }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
     let overlay_land = apply_overlay_land_to_pass_grid(
@@ -255,6 +258,27 @@ fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
         applied = applied.saturating_add(1);
     }
     applied
+}
+
+/// 战役：对仍为 0 资金的 house 套用 `[Basic] StartingCredits`（不覆盖 Houses `Credits`）。
+fn apply_basic_starting_credits(state: &mut BattleState) -> bool {
+    let credits = state.map.starting_credits;
+    if credits <= 0 {
+        return false;
+    }
+    let needy: Vec<std::sync::Arc<str>> = state
+        .players
+        .iter()
+        .filter(|p| p.funds <= 0)
+        .map(|p| p.house.clone())
+        .collect();
+    if needy.is_empty() {
+        return false;
+    }
+    for house in needy {
+        let _ = state.set_house_funds(house.as_ref(), credits);
+    }
+    true
 }
 
 /// 按大厅席位顺序，在地图航点放置各 house 的开局 MCV。

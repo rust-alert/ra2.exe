@@ -129,6 +129,8 @@ pub struct MapInfo {
     pub next_mission: String,
     /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（可空）。
     pub alternate_next_mission: String,
+    /// `[Basic] StartingCredits`：开局资金；`0` 表示节内未写或显式为 0。
+    pub starting_credits: i32,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
     pub lighting: LightingConfig,
     /// `[Lighting]` Ion / 闪电风暴档（缺键用零售 Ion 缺省）。
@@ -171,6 +173,7 @@ impl MapInfo {
             description_csf: String::new(),
             next_mission: String::new(),
             alternate_next_mission: String::new(),
+            starting_credits: 0,
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
             lighting_profile: LightingProfile::Normal,
@@ -207,6 +210,11 @@ impl MapInfo {
             .unwrap_or("")
             .trim()
             .to_string();
+        let starting_credits = doc
+            .get("Basic", "StartingCredits")
+            .and_then(|raw| raw.trim().parse::<i32>().ok())
+            .unwrap_or(0)
+            .max(0);
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
@@ -233,6 +241,7 @@ impl MapInfo {
             description_csf,
             next_mission,
             alternate_next_mission,
+            starting_credits,
             lighting: profiles.normal,
             ion_lighting: profiles.ion,
             lighting_profile: LightingProfile::Normal,

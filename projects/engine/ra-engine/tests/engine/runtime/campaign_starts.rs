@@ -192,6 +192,36 @@ fn open_campaign_applies_map_house_credits() {
 }
 
 #[test]
+fn open_campaign_applies_basic_starting_credits_when_house_credits_absent() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Basic]\nStartingCredits=10000\n\
+[Houses]\n0=Americans\n1=Russians\n\
+[Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Russians]\nCountry=Russians\nCredits=25\nPlayerControl=no\n\
+[Structures]\n1=Americans,GACNST,256,2,2,0\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "starting.map", text).unwrap();
+    let chain = ResourceChain::for_edition(GameEdition::Ra2);
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        &chain,
+        &mcv_rules(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("Americans"),
+        &["Americans"],
+        0,
+    )
+    .expect("战役应成功开局");
+    assert!(opened.note.contains("starting_credits=10000"), "{}", opened.note);
+    let world = &opened.session.expect_battle().world;
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    assert_eq!(world.house_funds("Russians"), Some(2_500));
+}
+
+#[test]
 fn open_campaign_applies_map_house_tech_level() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
