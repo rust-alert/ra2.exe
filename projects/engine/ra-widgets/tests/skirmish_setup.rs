@@ -1,7 +1,7 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionFamily, load_screen_art_suffix, load_screen_background_shp,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_art_suffix, load_screen_background_shp,
     load_screen_brief_suffix, load_screen_palette, load_screen_preferred_pal, score_screen_background_shp,
     score_screen_palette, sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction,
     sidebar_radar_pal, sidebar_radar_shp,
@@ -103,8 +103,14 @@ fn sidebar_chrome_mix_splits_allied_and_soviet() {
     assert_eq!(sidebar_chrome_mix_for_faction("GDI"), "sidec01.mix");
     assert_eq!(sidebar_chrome_mix_for_faction("Nod"), "sidec02.mix");
     assert_eq!(sidebar_chrome_mix_for_faction("ThirdSide"), "sidec02.mix");
-    assert_eq!(sidebar_chrome_mix_candidates("YuriCountry"), &["sidec02md.mix", "sidec02.mix"]);
-    assert_eq!(sidebar_chrome_mix_candidates("Americans"), &["sidec01md.mix", "sidec01.mix"]);
+    assert_eq!(
+        sidebar_chrome_mix_candidates("YuriCountry"),
+        vec!["sidec02md.mix".to_string(), "sidec02.mix".to_string()]
+    );
+    assert_eq!(
+        sidebar_chrome_mix_candidates("Americans"),
+        vec!["sidec01md.mix".to_string(), "sidec01.mix".to_string()]
+    );
     assert_eq!(sidebar_radar_shp("YuriCountry"), "radary.shp");
     assert_eq!(sidebar_radar_shp("Russians"), "radar.shp");
     assert_eq!(sidebar_radar_pal("YuriCountry"), "radaryuri.pal");
@@ -112,22 +118,39 @@ fn sidebar_chrome_mix_splits_allied_and_soviet() {
 }
 
 #[test]
-fn ui_faction_family_covers_score_and_third_side() {
-    assert_eq!(UiFactionFamily::from_country("Americans"), UiFactionFamily::Allied);
-    assert_eq!(UiFactionFamily::from_country("Russians"), UiFactionFamily::Soviet);
-    assert_eq!(UiFactionFamily::from_country("YuriCountry"), UiFactionFamily::Yuri);
-    assert_eq!(UiFactionFamily::from_faction_id("ThirdSide"), UiFactionFamily::Yuri);
-    assert_eq!(UiFactionFamily::from_faction_id("Nod"), UiFactionFamily::Soviet);
+fn ui_faction_chrome_is_open_by_mix_index() {
+    assert_eq!(UiFactionChrome::from_country("Americans").mix_file_index, 1);
+    assert_eq!(UiFactionChrome::from_country("Russians").mix_file_index, 2);
+    assert!(UiFactionChrome::from_country("YuriCountry").yuri_file_names);
+    assert!(UiFactionChrome::from_faction_id("ThirdSide").yuri_file_names);
+    assert_eq!(UiFactionChrome::from_faction_id("Nod").mix_file_index, 2);
     assert_eq!(score_screen_background_shp("YuriCountry"), "mpyscrnl.shp");
     assert_eq!(score_screen_palette("YuriCountry"), "mpyscrn.pal");
     assert_eq!(score_screen_background_shp("Russians"), "mpsscrnl.shp");
     assert_eq!(score_screen_background_shp("Americans"), "mpascrnl.shp");
-    // 模组未知国名：靠 Side= 落族，不再默认盟军。
+    // 模组未知国名：靠 Side= 库存默认；真正扩展族靠 MixFileIndex。
+    let custom_psi = UiFactionChrome::resolve("CustomPsi", Some("ThirdSide"), None);
+    assert_eq!(custom_psi.mix_file_index, 2);
+    assert!(custom_psi.yuri_file_names);
+    assert_eq!(UiFactionChrome::resolve("CustomNod", Some("Nod"), None).mix_file_index, 2);
+    assert_eq!(UiFactionChrome::resolve("CustomGdi", Some("GDI"), None).mix_file_index, 1);
+    assert_eq!(UiFactionChrome::resolve("TotallyUnknown", None, None).mix_file_index, 1);
+    // 任意多阵营：index 5 / 6 直接生成 sidecNN，不写死族名。
+    let fifth = UiFactionChrome::from_mix_index(5, false);
+    assert_eq!(fifth.sidebar_mix(), "sidec05.mix");
     assert_eq!(
-        UiFactionFamily::resolve("CustomPsi", Some("ThirdSide")),
-        UiFactionFamily::Yuri
+        fifth.sidebar_mix_candidates(),
+        vec!["sidec05md.mix".to_string(), "sidec05.mix".to_string()]
     );
-    assert_eq!(UiFactionFamily::resolve("CustomNod", Some("Nod")), UiFactionFamily::Soviet);
-    assert_eq!(UiFactionFamily::resolve("CustomGdi", Some("GDI")), UiFactionFamily::Allied);
-    assert_eq!(UiFactionFamily::resolve("TotallyUnknown", None), UiFactionFamily::Allied);
+    let sixth = UiFactionChrome::from_side_keys(
+        Some(6),
+        true,
+        Some("mpxscrnl.shp".into()),
+        Some("mpxscrn.pal".into()),
+    )
+    .expect("index 6");
+    assert_eq!(sixth.sidebar_mix(), "sidec06.mix");
+    assert_eq!(sixth.radar_shp(), "radary.shp");
+    assert_eq!(sixth.score_background_candidates()[0], "mpxscrnl.shp");
+    assert_eq!(sixth.score_palette_candidates()[0], "mpxscrn.pal");
 }

@@ -476,7 +476,7 @@ impl Shell {
         };
         let allied = doc.get(event_id, "Allied").unwrap_or("").trim().to_string();
         let russian = doc.get(event_id, "Russian").unwrap_or("").trim().to_string();
-        let family = self
+        let chrome = self
             .battle_controller
             .as_ref()
             .and_then(|c| c.session.as_ref())
@@ -486,15 +486,15 @@ impl Shell {
                     .players
                     .iter()
                     .find(|p| p.id == g.world.local_player)
-                    .map(|p| ra_widgets::skirmish_setup::UiFactionFamily::from_country(p.house.as_ref()))
+                    .map(|p| ra_widgets::skirmish_setup::UiFactionChrome::from_country(p.house.as_ref()))
             })
-            .unwrap_or(ra_widgets::skirmish_setup::UiFactionFamily::Allied);
-        // 库存尤里 / 苏军共用 Russian 轨；模组若增独立 EVA 键再扩 `UiFactionFamily`。
+            .unwrap_or_else(|| ra_widgets::skirmish_setup::UiFactionChrome::from_mix_index(1, false));
+        // 库存：index 1 走 Allied 轨，其余走 Russian；模组独立 EVA 键后续接 Side 表。
         let mut out = Vec::new();
-        let (first, second) = match family {
-            ra_widgets::skirmish_setup::UiFactionFamily::Allied => (allied, russian),
-            ra_widgets::skirmish_setup::UiFactionFamily::Soviet
-            | ra_widgets::skirmish_setup::UiFactionFamily::Yuri => (russian, allied),
+        let (first, second) = if chrome.prefers_allied_eva() {
+            (allied, russian)
+        } else {
+            (russian, allied)
         };
         for stem in [first, second] {
             if stem.is_empty() {

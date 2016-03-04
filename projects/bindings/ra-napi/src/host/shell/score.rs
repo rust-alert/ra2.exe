@@ -45,19 +45,19 @@ impl Shell {
             .filter(|s| !s.is_empty())
     }
 
-    /// 惰性解码积分页左区战报图（按 [`ra_widgets::skirmish_setup::UiFactionFamily`]）。
+    /// 惰性解码积分页左区战报图（按 [`ra_widgets::skirmish_setup::UiFactionChrome`]）。
     pub(super) fn ensure_score_backdrop(&mut self) {
         let house = self.results_local_house();
         let faction_owned = self.results_faction_id().map(str::to_string);
         let faction_id = faction_owned.as_deref();
         let want_shp = score_screen_background_candidates_resolved(&house, faction_id)
-            .first()
-            .copied()
-            .unwrap_or("mpascrnl.shp");
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "mpascrnl.shp".to_string());
         let want_pal = score_screen_palette_candidates_resolved(&house, faction_id)
-            .first()
-            .copied()
-            .unwrap_or("mpascrn.pal");
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "mpascrn.pal".to_string());
         let want_key = format!("{house}:{}:{want_shp}:{want_pal}", faction_id.unwrap_or("-"));
         if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
             return;
@@ -71,7 +71,7 @@ impl Shell {
         };
         let candidates = score_screen_background_candidates_resolved(&house, faction_id);
         let pal_names = score_screen_palette_candidates_resolved(&house, faction_id);
-        for name in candidates {
+        for name in &candidates {
             let Some(hit) = source.resolve(name)
             else {
                 continue;
@@ -85,7 +85,7 @@ impl Shell {
                 continue;
             };
             let mut decoded = None;
-            for paln in pal_names {
+            for paln in &pal_names {
                 let Some(ph) = source.resolve(paln).or_else(|| source.resolve_preferring(paln, "sidec01.mix"))
                 else {
                     continue;

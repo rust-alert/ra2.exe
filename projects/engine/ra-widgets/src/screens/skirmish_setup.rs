@@ -29,54 +29,106 @@ pub const LOBBY_COLORS: &[[u8; 3]] = &[
 /// 玩家名最大字符数（零售 Handle 常见上限）。
 pub const PLAYER_NAME_MAX_CHARS: usize = 12;
 
-/// 壳层 UI 阵营族：侧栏包、雷达徽、结算战报等资源按族选择。
+/// 壳层阵营 chrome：以 `Sidebar.MixFileIndex` 为开放主键，不限制阵营数量。
 ///
-/// 库存覆盖盟军 / 苏军 / 尤里三族；模组扩展时应新增变体或走国家表 `Side=`，
-/// **禁止**再写「非盟军即苏军」二分硬分支。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum UiFactionFamily {
-    /// 盟军系（`sidec01*` / `mpascrn*` / `radar.shp`）。
-    Allied,
-    /// 苏军系（`sidec02*` / `mpsscrn*` / `radar.shp`）。
-    Soviet,
-    /// 尤里 / 第三势力（`sidec02*` + `radary` / `mpyscrn*`）。
-    Yuri,
+/// - 侧栏包：`sidec{index:02}md.mix` / `sidec{index:02}.mix`（任意 index≥1）。
+/// - 雷达名：由 `Sidebar.YuriFileNames` 决定 `radary*` 或 `radar*`。
+/// - 结算图 / 调色板：优先 rules `MultiplayerScore.Background` / `Palette`，否则软回退候选池。
+///
+/// 库存 RA2/YR 仅提供无 rules 索引时的默认推断；模组第五、第六…族应靠 Side 段
+/// `MixFileIndex`（见 [`UiFactionChrome::from_side_keys`]），禁止再写死阵营枚举。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiFactionChrome {
+    /// 1-based，对应 `sidecNN` / `sidencNN`。
+    pub mix_file_index: u32,
+    /// `Sidebar.YuriFileNames`。
+    pub yuri_file_names: bool,
+    /// `MultiplayerScore.Background`（可空）。
+    pub score_background: Option<String>,
+    /// `MultiplayerScore.Palette`（可空）。
+    pub score_palette: Option<String>,
 }
 
-impl UiFactionFamily {
-    /// 国家短名 + 可选 rules `Side=`。
-    ///
-    /// 已知库存国名优先；未知国名（模组扩展）再按 `Side=` 落族，避免只能盟军/苏军硬猜。
-    pub fn resolve(country: &str, faction_id: Option<&str>) -> Self {
+impl UiFactionChrome {
+    /// 缺省侧栏索引（库存盟军盘）。
+    pub const DEFAULT_INDEX: u32 = 1;
+
+    /// 由 mix 索引构造（无结算覆盖）。
+    pub fn from_mix_index(mix_file_index: u32, yuri_file_names: bool) -> Self {
+        Self {
+            mix_file_index: mix_file_index.max(1),
+            yuri_file_names,
+            score_background: None,
+            score_palette: None,
+        }
+    }
+
+    /// 由 Side 段键构造（开放入口：任意势力 id 只要带 `MixFileIndex` 即可）。
+    pub fn from_side_keys(
+        mix_file_index: Option<u32>,
+        yuri_file_names: bool,
+        score_background: Option<String>,
+        score_palette: Option<String>,
+    ) -> Option<Self> {
+        let index = mix_file_index.filter(|n| *n >= 1)?;
+        Some(Self {
+            mix_file_index: index,
+            yuri_file_names,
+            score_background,
+            score_palette,
+        })
+    }
+
+    /// 附上结算资源覆盖。
+    pub fn with_score(mut self, background: Option<String>, palette: Option<String>) -> Self {
+        if background.is_some() {
+            self.score_background = background;
+        }
+        if palette.is_some() {
+            self.score_palette = palette;
+        }
+        self
+    }
+
+    /// 国家短名 + 可选 `Side=` + 可选 Side 段 chrome（rules 表优先）。
+    pub fn resolve(
+        country: &str,
+        faction_id: Option<&str>,
+        side_chrome: Option<&UiFactionChrome>,
+    ) -> Self {
+        if let Some(chrome) = side_chrome {
+            return chrome.clone();
+        }
         if let Some(known) = Self::classify_country_name(country) {
             return known;
         }
         if let Some(fid) = faction_id.map(str::trim).filter(|s| !s.is_empty()) {
             return Self::from_faction_id(fid);
         }
-        Self::Allied
+        Self::from_mix_index(Self::DEFAULT_INDEX, false)
     }
 
-    /// 由国家短名解析 UI 族（无 `Side=` 时的便捷入口）。
+    /// 无 Side 表时的便捷入口。
     pub fn from_country(side: &str) -> Self {
-        Self::resolve(side, None)
+        Self::resolve(side, None, None)
     }
 
-    /// 识别库存 / 常见国名；无法识别时返回 `None`（交给 `Side=`）。
+    /// 库存 / 常见国名 → chrome；无法识别返回 `None`。
     fn classify_country_name(side: &str) -> Option<Self> {
         let s = side.trim();
         if s.is_empty() {
-            return Some(Self::Allied);
+            return Some(Self::from_mix_index(Self::DEFAULT_INDEX, false));
         }
         let upper = s.to_ascii_uppercase();
         match upper.as_str() {
-            "GDI" => return Some(Self::Allied),
-            "NOD" => return Some(Self::Soviet),
-            "THIRDSIDE" => return Some(Self::Yuri),
+            "GDI" => return Some(Self::from_mix_index(1, false)),
+            "NOD" => return Some(Self::from_mix_index(2, false)),
+            // YR 库存第三势力与苏军共用 sidec02，雷达走 yuri 文件名。
+            "THIRDSIDE" => return Some(Self::from_mix_index(2, true)),
             _ => {}
         }
         if matches!(s, "YuriCountry" | "Yuri") || upper.contains("YURI") {
-            return Some(Self::Yuri);
+            return Some(Self::from_mix_index(2, true));
         }
         if matches!(
             s,
@@ -94,7 +146,7 @@ impl UiFactionFamily {
             let h = upper.to_ascii_lowercase();
             h.contains("russia") || h.contains("soviet") || h.contains("iraq") || h.contains("libya") || h.contains("cuba")
         } {
-            return Some(Self::Soviet);
+            return Some(Self::from_mix_index(2, false));
         }
         if matches!(
             s,
@@ -108,135 +160,174 @@ impl UiFactionFamily {
                 | "Observer"
                 | "Observers"
         ) {
-            return Some(Self::Allied);
+            return Some(Self::from_mix_index(1, false));
         }
         None
     }
 
-    /// 由 rules `[Sides]` / `Side=` 势力 id 解析（`GDI` / `Nod` / `ThirdSide`）。
+    /// 无 `MixFileIndex` 时的库存势力 id 默认（仅 GDI/Nod/ThirdSide；其它 id 不写死）。
     pub fn from_faction_id(faction: &str) -> Self {
         match faction.trim().to_ascii_uppercase().as_str() {
-            "GDI" => Self::Allied,
-            "NOD" => Self::Soviet,
-            "THIRDSIDE" => Self::Yuri,
-            _ => Self::Allied,
+            "GDI" => Self::from_mix_index(1, false),
+            "NOD" => Self::from_mix_index(2, false),
+            "THIRDSIDE" => Self::from_mix_index(2, true),
+            // 未知势力：回退 index 1。模组应提供 Side 段 `MixFileIndex`。
+            _ => Self::from_mix_index(Self::DEFAULT_INDEX, false),
         }
     }
 
-    /// 对局侧栏基座嵌套包名（无 MD 后缀）。
-    pub fn sidebar_mix(self) -> &'static str {
-        match self {
-            Self::Allied => "sidec01.mix",
-            Self::Soviet | Self::Yuri => "sidec02.mix",
-        }
+    /// 对局侧栏基座嵌套包名。
+    pub fn sidebar_mix(&self) -> String {
+        format!("sidec{:02}.mix", self.mix_file_index)
     }
 
     /// 对局侧栏嵌套包候选（MD 优先，再基座）。
-    pub fn sidebar_mix_candidates(self) -> &'static [&'static str] {
-        match self {
-            Self::Allied => &["sidec01md.mix", "sidec01.mix"],
-            Self::Soviet | Self::Yuri => &["sidec02md.mix", "sidec02.mix"],
-        }
+    pub fn sidebar_mix_candidates(&self) -> Vec<String> {
+        let i = self.mix_file_index;
+        vec![format!("sidec{:02}md.mix", i), format!("sidec{:02}.mix", i)]
     }
 
     /// 侧栏 / 暂停菜单雷达 SHP。
-    pub fn radar_shp(self) -> &'static str {
-        match self {
-            Self::Yuri => "radary.shp",
-            Self::Allied | Self::Soviet => "radar.shp",
+    pub fn radar_shp(&self) -> &'static str {
+        if self.yuri_file_names {
+            "radary.shp"
+        } else {
+            "radar.shp"
         }
     }
 
     /// 雷达调色板。
-    pub fn radar_pal(self) -> &'static str {
-        match self {
-            Self::Yuri => "radaryuri.pal",
-            Self::Allied | Self::Soviet => "sidebar.pal",
+    pub fn radar_pal(&self) -> &'static str {
+        if self.yuri_file_names {
+            "radaryuri.pal"
+        } else {
+            "sidebar.pal"
         }
     }
 
-    /// 结算战报图。
-    pub fn score_background_shp(self) -> &'static str {
-        match self {
-            Self::Allied => "mpascrnl.shp",
-            Self::Soviet => "mpsscrnl.shp",
-            Self::Yuri => "mpyscrnl.shp",
-        }
+    /// 结算战报图首选名。
+    pub fn score_background_shp(&self) -> String {
+        self.score_background_candidates()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "mpascrnl.shp".to_string())
     }
 
-    /// 结算战报调色板。
-    pub fn score_palette(self) -> &'static str {
-        match self {
-            Self::Allied => "mpascrn.pal",
-            Self::Soviet => "mpsscrn.pal",
-            Self::Yuri => "mpyscrn.pal",
-        }
+    /// 结算战报调色板首选名。
+    pub fn score_palette(&self) -> String {
+        self.score_palette_candidates()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| "mpascrn.pal".to_string())
     }
 
-    /// 结算战报图候选（本族优先，再他族，再菜单底图）。
-    pub fn score_background_candidates(self) -> &'static [&'static str] {
-        match self {
-            Self::Allied => &["mpascrnl.shp", "mpsscrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"],
-            Self::Soviet => &["mpsscrnl.shp", "mpascrnl.shp", "mpyscrnl.shp", "mnscrnl.shp"],
-            Self::Yuri => &["mpyscrnl.shp", "mpsscrnl.shp", "mpascrnl.shp", "mnscrnl.shp"],
+    /// 结算战报图候选：显式覆盖优先，再软主选，再共用发现池（含 `mpf*` 等扩展字母）。
+    pub fn score_background_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.score_background {
+            push_unique_ci(&mut out, s.clone());
         }
+        let soft = match (self.mix_file_index, self.yuri_file_names) {
+            (1, _) => "mpascrnl.shp",
+            (2, true) => "mpyscrnl.shp",
+            (2, false) => "mpsscrnl.shp",
+            (_, true) => "mpyscrnl.shp",
+            _ => "mpascrnl.shp",
+        };
+        push_unique_ci(&mut out, soft.to_string());
+        for name in ["mpascrnl.shp", "mpsscrnl.shp", "mpyscrnl.shp", "mpfscrnl.shp", "mnscrnl.shp"] {
+            push_unique_ci(&mut out, name.to_string());
+        }
+        out
     }
 
-    /// 结算调色板候选（本族优先，再他族，再壳层兜底）。
-    pub fn score_palette_candidates(self) -> &'static [&'static str] {
-        match self {
-            Self::Allied => &["mpascrn.pal", "mpsscrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
-            Self::Soviet => &["mpsscrn.pal", "mpascrn.pal", "mpyscrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
-            Self::Yuri => &["mpyscrn.pal", "mpsscrn.pal", "mpascrn.pal", "shell.pal", "sidebar.pal", "unittem.pal"],
+    /// 结算调色板候选：显式覆盖优先，再软主选，再共用池。
+    pub fn score_palette_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.score_palette {
+            push_unique_ci(&mut out, s.clone());
         }
+        let soft = match (self.mix_file_index, self.yuri_file_names) {
+            (1, _) => "mpascrn.pal",
+            (2, true) => "mpyscrn.pal",
+            (2, false) => "mpsscrn.pal",
+            (_, true) => "mpyscrn.pal",
+            _ => "mpascrn.pal",
+        };
+        push_unique_ci(&mut out, soft.to_string());
+        for name in [
+            "mpascrn.pal",
+            "mpsscrn.pal",
+            "mpyscrn.pal",
+            "mpsscrnlf.pal",
+            "mpfscrn.pal",
+            "shell.pal",
+            "sidebar.pal",
+            "unittem.pal",
+        ] {
+            push_unique_ci(&mut out, name.to_string());
+        }
+        out
+    }
+
+    /// 库存 Allied EVA 轨优先（index 1 且非 yuri 文件名）。
+    pub fn prefers_allied_eva(&self) -> bool {
+        self.mix_file_index == 1 && !self.yuri_file_names
     }
 }
 
+fn push_unique_ci(out: &mut Vec<String>, name: String) {
+    if out.iter().any(|s| s.eq_ignore_ascii_case(&name)) {
+        return;
+    }
+    out.push(name);
+}
+
 /// 势力 id（`Side=` / `[Sides]` 键）→ 对局侧栏嵌套包。
-pub fn sidebar_chrome_mix_for_faction(faction: &str) -> &'static str {
-    UiFactionFamily::from_faction_id(faction).sidebar_mix()
+pub fn sidebar_chrome_mix_for_faction(faction: &str) -> String {
+    UiFactionChrome::from_faction_id(faction).sidebar_mix()
 }
 
 /// 阵营 → 对局侧栏嵌套包。
 ///
-/// 产品路径应尽量走 [`UiFactionFamily::resolve`]（带上 rules `Side=`）；未知国家回退盟军盘。
-pub fn sidebar_chrome_mix(side: &str) -> &'static str {
-    UiFactionFamily::from_country(side).sidebar_mix()
+/// 产品路径应尽量走 [`UiFactionChrome::resolve`]（带上 rules Side chrome）；未知国家回退 index 1。
+pub fn sidebar_chrome_mix(side: &str) -> String {
+    UiFactionChrome::from_country(side).sidebar_mix()
 }
 
 /// 对局侧栏嵌套包候选（MD 优先，再基座；RA2 盘无 MD 时第二项仍可读）。
-pub fn sidebar_chrome_mix_candidates(side: &str) -> &'static [&'static str] {
-    UiFactionFamily::from_country(side).sidebar_mix_candidates()
+pub fn sidebar_chrome_mix_candidates(side: &str) -> Vec<String> {
+    UiFactionChrome::from_country(side).sidebar_mix_candidates()
 }
 
 /// 国家 + 可选 `Side=` → 侧栏嵌套包候选。
-pub fn sidebar_chrome_mix_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
-    UiFactionFamily::resolve(country, faction_id).sidebar_mix_candidates()
+pub fn sidebar_chrome_mix_candidates_resolved(country: &str, faction_id: Option<&str>) -> Vec<String> {
+    UiFactionChrome::resolve(country, faction_id, None).sidebar_mix_candidates()
 }
 
-/// 是否尤里系国家（第三势力 UI 族）。
+/// 是否使用 yuri 系侧栏文件名（`radary*` 等）。
 pub fn is_yuri_side(side: &str) -> bool {
-    UiFactionFamily::from_country(side) == UiFactionFamily::Yuri
+    UiFactionChrome::from_country(side).yuri_file_names
 }
 
 /// 对局侧栏雷达 SHP。
 pub fn sidebar_radar_shp(side: &str) -> &'static str {
-    UiFactionFamily::from_country(side).radar_shp()
+    UiFactionChrome::from_country(side).radar_shp()
 }
 
 /// 国家 + 可选 `Side=` → 雷达 SHP。
 pub fn sidebar_radar_shp_resolved(country: &str, faction_id: Option<&str>) -> &'static str {
-    UiFactionFamily::resolve(country, faction_id).radar_shp()
+    UiFactionChrome::resolve(country, faction_id, None).radar_shp()
 }
 
 /// 对局侧栏雷达调色板。
 pub fn sidebar_radar_pal(side: &str) -> &'static str {
-    UiFactionFamily::from_country(side).radar_pal()
+    UiFactionChrome::from_country(side).radar_pal()
 }
 
 /// 国家 + 可选 `Side=` → 雷达调色板。
 pub fn sidebar_radar_pal_resolved(country: &str, faction_id: Option<&str>) -> &'static str {
-    UiFactionFamily::resolve(country, faction_id).radar_pal()
+    UiFactionChrome::resolve(country, faction_id, None).radar_pal()
 }
 
 /// 阵营 → 安装内旗标 PCX 候选（`local.mix` / 扩展包；前者为同优先级首选）。
@@ -356,39 +447,40 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
-/// 是否苏军系阵营（不含尤里；请优先用 [`UiFactionFamily`]）。
+/// 是否苏军侧栏索引且非 yuri 文件名（库存推断；请优先用 [`UiFactionChrome`]）。
 pub fn is_soviet_side(side: &str) -> bool {
-    UiFactionFamily::from_country(side) == UiFactionFamily::Soviet
+    let c = UiFactionChrome::from_country(side);
+    c.mix_file_index == 2 && !c.yuri_file_names
 }
 
 /// 遭遇战积分页左区战报图。
-pub fn score_screen_background_shp(side: &str) -> &'static str {
-    UiFactionFamily::from_country(side).score_background_shp()
+pub fn score_screen_background_shp(side: &str) -> String {
+    UiFactionChrome::from_country(side).score_background_shp()
 }
 
 /// 结算战报图专用调色板。
-pub fn score_screen_palette(side: &str) -> &'static str {
-    UiFactionFamily::from_country(side).score_palette()
+pub fn score_screen_palette(side: &str) -> String {
+    UiFactionChrome::from_country(side).score_palette()
 }
 
-/// 结算调色板候选（本族优先，再他族，再壳层兜底）。
-pub fn score_screen_palette_candidates(side: &str) -> &'static [&'static str] {
-    UiFactionFamily::from_country(side).score_palette_candidates()
+/// 结算调色板候选（显式覆盖 / 软主选 / 发现池）。
+pub fn score_screen_palette_candidates(side: &str) -> Vec<String> {
+    UiFactionChrome::from_country(side).score_palette_candidates()
 }
 
 /// 国家 + 可选 `Side=` → 结算调色板候选。
-pub fn score_screen_palette_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
-    UiFactionFamily::resolve(country, faction_id).score_palette_candidates()
+pub fn score_screen_palette_candidates_resolved(country: &str, faction_id: Option<&str>) -> Vec<String> {
+    UiFactionChrome::resolve(country, faction_id, None).score_palette_candidates()
 }
 
-/// 结算战报图候选（本族优先，再他族，再菜单底图）。
-pub fn score_screen_background_candidates(side: &str) -> &'static [&'static str] {
-    UiFactionFamily::from_country(side).score_background_candidates()
+/// 结算战报图候选（显式覆盖 / 软主选 / 发现池）。
+pub fn score_screen_background_candidates(side: &str) -> Vec<String> {
+    UiFactionChrome::from_country(side).score_background_candidates()
 }
 
 /// 国家 + 可选 `Side=` → 结算战报图候选。
-pub fn score_screen_background_candidates_resolved(country: &str, faction_id: Option<&str>) -> &'static [&'static str] {
-    UiFactionFamily::resolve(country, faction_id).score_background_candidates()
+pub fn score_screen_background_candidates_resolved(country: &str, faction_id: Option<&str>) -> Vec<String> {
+    UiFactionChrome::resolve(country, faction_id, None).score_background_candidates()
 }
 
 /// 选择可读的装载调色板：国家盘优先，缺则共享 [`LOAD_SCREEN_FALLBACK_PAL`]。

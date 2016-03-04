@@ -17,7 +17,7 @@ use crate::{
     skin::decode::{DecodedUiSprite, frame_to_canvas_rgba},
     skin::text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
     skirmish_setup::{
-        UiFactionFamily, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved,
+        UiFactionChrome, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved,
     },
 };
 
@@ -159,9 +159,10 @@ pub fn decode_battle_hud_chrome_resolved(
     side: &str,
     faction_id: Option<&str>,
 ) -> BattleHudChrome {
-    let family = UiFactionFamily::resolve(side, faction_id);
-    let mixes = family.sidebar_mix_candidates();
-    let mix = family.sidebar_mix().to_string();
+    let chrome = UiFactionChrome::resolve(side, faction_id, None);
+    let mixes_owned = chrome.sidebar_mix_candidates();
+    let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
+    let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
     let radar_frame = radar_frame_index(source, &mix);
     let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
@@ -169,7 +170,7 @@ pub fn decode_battle_hud_chrome_resolved(
     let mut tabs = [None, None, None, None];
     for (i, slot) in tabs.iter_mut().enumerate() {
         let name = format!("tab{i:02}.shp");
-        *slot = try_decode(source, mixes, &name, BATTLE_HUD_PAL, 0, &mut errors);
+        *slot = try_decode(source, &mixes, &name, BATTLE_HUD_PAL, 0, &mut errors);
     }
     let mut command_buttons = std::array::from_fn(|_| None);
     let mut command_buttons_pressed = std::array::from_fn(|_| None);
@@ -177,34 +178,34 @@ pub fn decode_battle_hud_chrome_resolved(
         let name = format!("button{i:02}.shp");
         // 缺钮不记入 errors：零售包常只有 button00…11。
         let asset0 = UiAssetRef::with_palette_frame(&name, BATTLE_HUD_PAL, 0);
-        if let Ok(s) = decode_asset_ref_candidates(source, &asset0, mixes) {
+        if let Ok(s) = decode_asset_ref_candidates(source, &asset0, &mixes) {
             command_buttons[i] = Some(s);
         }
         let asset1 = UiAssetRef::with_palette_frame(&name, BATTLE_HUD_PAL, 1);
-        if let Ok(s) = decode_asset_ref_candidates(source, &asset1, mixes) {
+        if let Ok(s) = decode_asset_ref_candidates(source, &asset1, &mixes) {
             command_buttons_pressed[i] = Some(s);
         }
     }
-    let radar = try_decode(source, mixes, radar_shp, radar_pal, radar_frame, &mut errors);
+    let radar = try_decode(source, &mixes, radar_shp, radar_pal, radar_frame, &mut errors);
     BattleHudChrome {
         side: side.to_string(),
         mix: mix.clone(),
-        credits: try_decode(source, mixes, "credits.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        top: try_decode(source, mixes, "top.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        credits: try_decode(source, &mixes, "credits.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        top: try_decode(source, &mixes, "top.shp", BATTLE_HUD_PAL, 0, &mut errors),
         radar,
-        side1: try_decode(source, mixes, "side1.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        side2: try_decode(source, mixes, "side2.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        side3: try_decode(source, mixes, "side3.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        addon: try_decode(source, mixes, "addon.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        repair: try_decode(source, mixes, "repair.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        sell: try_decode(source, mixes, "sell.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        powerp: try_decode(source, mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        side1: try_decode(source, &mixes, "side1.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        side2: try_decode(source, &mixes, "side2.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        side3: try_decode(source, &mixes, "side3.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        addon: try_decode(source, &mixes, "addon.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        repair: try_decode(source, &mixes, "repair.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        sell: try_decode(source, &mixes, "sell.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        powerp: try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors),
         tabs,
-        optbtn: try_decode(source, mixes, "optbtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        diplobtn: try_decode(source, mixes, "diplobtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        lendcap: try_decode(source, mixes, "lendcap.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        rendcap: try_decode(source, mixes, "rendcap.shp", BATTLE_HUD_PAL, 0, &mut errors),
-        lspacer: try_decode(source, mixes, "lspacer.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        optbtn: try_decode(source, &mixes, "optbtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        diplobtn: try_decode(source, &mixes, "diplobtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        lendcap: try_decode(source, &mixes, "lendcap.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        rendcap: try_decode(source, &mixes, "rendcap.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        lspacer: try_decode(source, &mixes, "lspacer.shp", BATTLE_HUD_PAL, 0, &mut errors),
         command_buttons,
         command_buttons_pressed,
         errors,

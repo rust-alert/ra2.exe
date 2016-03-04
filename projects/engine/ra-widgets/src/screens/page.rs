@@ -233,23 +233,27 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
     })
 }
 
-/// 结算积分页资源：按 [`crate::skirmish_setup::UiFactionFamily`] 选战报图与调色板。
+/// 结算积分页资源：按 [`crate::skirmish_setup::UiFactionChrome`] 选战报图与调色板。
 pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
-    let bg_name = score_screen_background_candidates(side)
+    let bg_candidates = score_screen_background_candidates(side);
+    let bg_name = bg_candidates
         .iter()
-        .copied()
+        .map(String::as_str)
         .find(|n| readable(n))
-        .unwrap_or("mnscrnl.shp");
-    let bg_pal = score_screen_palette_candidates(side)
+        .unwrap_or("mnscrnl.shp")
+        .to_string();
+    let pal_candidates = score_screen_palette_candidates(side);
+    let bg_pal = pal_candidates
         .iter()
-        .copied()
+        .map(String::as_str)
         .find(|p| readable(p))
+        .map(str::to_string)
         .unwrap_or_else(|| score_screen_palette(side));
     Some(UiPageResources {
         screen: OriginalScreen::Results,
-        background: Some(UiAssetRef::with_palette_frame(bg_name, bg_pal, page.background_frame)),
-        background_palette: Some(bg_pal.to_string()),
+        background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),
+        background_palette: Some(bg_pal.clone()),
         movie: None,
         panels: page
             .panels

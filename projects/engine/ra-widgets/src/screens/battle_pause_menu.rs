@@ -20,7 +20,7 @@ use crate::{
     fs_source::GameAssetSource,
     screens::page::UiAssetRef,
     skin::decode::{frame_to_canvas_rgba, DecodedUiSprite},
-    skirmish_setup::{UiFactionFamily, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved},
+    skirmish_setup::{UiFactionChrome, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved},
 };
 
 pub use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
@@ -197,20 +197,21 @@ pub fn decode_battle_pause_chrome_resolved(
     side: &str,
     faction_id: Option<&str>,
 ) -> BattlePauseChrome {
-    let family = UiFactionFamily::resolve(side, faction_id);
-    let mixes = family.sidebar_mix_candidates();
-    let mix = family.sidebar_mix().to_string();
+    let chrome = UiFactionChrome::resolve(side, faction_id, None);
+    let mixes_owned = chrome.sidebar_mix_candidates();
+    let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
+    let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
     let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
     let radar_pal = sidebar_radar_pal_resolved(side, faction_id);
-    let radar = decode_candidates(source, mixes, radar_shp, radar_pal, 0, &mut errors);
+    let radar = decode_candidates(source, &mixes, radar_shp, radar_pal, 0, &mut errors);
     let center_panel = radar
         .as_ref()
         .map(|s| crop_radar_emblem(&s.image))
         .or_else(|| radar.as_ref().map(|s| s.image.clone()));
-    let button_normal = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
-    let button_pressed = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 1, &mut errors);
-    let button_hover = decode_candidates(source, mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors)
+    let button_normal = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
+    let button_pressed = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 1, &mut errors);
+    let button_hover = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors)
         .or_else(|| button_normal.clone());
     BattlePauseChrome {
         side: side.to_string(),
