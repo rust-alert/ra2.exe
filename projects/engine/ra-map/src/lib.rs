@@ -91,7 +91,7 @@ pub use structure_paint::{
     paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
-pub use terrain_paint::paint_map_terrain_objects;
+pub use terrain_paint::{paint_map_terrain_objects, terrain_anim_frame, terrain_animation_rate_ms};
 pub use terrain_preview::compose_terrain_preview;
 pub use theater::{
     Theater, new_theater_shp_name, theater_ini_name, theater_mix_names, theater_new_letter, theater_palette, theater_tiberium_palette,
