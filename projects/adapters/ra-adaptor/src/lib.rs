@@ -20,7 +20,8 @@ pub use definitions::build_runtime_definitions;
 pub use layers::{
     DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
     PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
-    ResourceLayerKind, compose_resource_layers, discover_expansions, is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
+    ResourceLayerKind, SIDEBAR_NESTED_INDEX_MAX, append_sidebar_nested_specs, compose_resource_layers, discover_expansions,
+    is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesSystem, load_rules, load_rules_chain};
 pub use ui_profile::{dialog_template_0x102, dialog_template_0x6b, shell_runtime_ui_profile};

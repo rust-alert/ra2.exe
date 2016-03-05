@@ -329,15 +329,42 @@ pub fn compose_resource_layers(root: &Path, chain: &ResourceChain) -> ResourceCo
         diagnostics.notes.push("未发现 expand*.mix，沿用基座资源画像".to_string());
     }
 
-    let nested_mount_plan: Vec<NestedMountSpec> = chain
+    let mut nested_mount_plan: Vec<NestedMountSpec> = chain
         .nested_mix_files
         .iter()
         .copied()
         .map(|name| NestedMountSpec { name: name.to_string(), strategy: NestedMountStrategy::AllParents })
         .collect();
+    // 任意多阵营侧栏：按 MixFileIndex 通式预挂 sidecNN / sidencNN（缺包时挂载阶段自然跳过）。
+    append_sidebar_nested_specs(&mut nested_mount_plan, SIDEBAR_NESTED_INDEX_MAX);
 
     let _ = present_base; // 已并入 layers
     ResourceComposition { layers, root_mount_plan, nested_mount_plan, diagnostics }
+}
+
+/// 预挂侧栏嵌套包时覆盖的最大 `Sidebar.MixFileIndex`（含）。
+pub const SIDEBAR_NESTED_INDEX_MAX: u32 = 16;
+
+/// 向嵌套挂载计划追加 `sidec{NN}md` / `sidec{NN}` / `sidenc{NN}`（1..=max_index，去重）。
+///
+/// 不写死第三、第四族名；模组第五、第六…族只要提供对应 index 的包即可被打开。
+pub fn append_sidebar_nested_specs(plan: &mut Vec<NestedMountSpec>, max_index: u32) {
+    let max_index = max_index.max(1);
+    for i in 1..=max_index {
+        for name in [
+            format!("sidec{i:02}md.mix"),
+            format!("sidec{i:02}.mix"),
+            format!("sidenc{i:02}.mix"),
+        ] {
+            if plan.iter().any(|n| n.name.eq_ignore_ascii_case(&name)) {
+                continue;
+            }
+            plan.push(NestedMountSpec {
+                name,
+                strategy: NestedMountStrategy::AllParents,
+            });
+        }
+    }
 }
 
 /// 基座表中应存在但磁盘缺失的非扩展 MIX 名。

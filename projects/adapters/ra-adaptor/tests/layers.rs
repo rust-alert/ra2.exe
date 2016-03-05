@@ -146,3 +146,16 @@ fn yr_edition_keeps_expandmd_on_combo_disk() {
     assert!(names.iter().any(|n| n == "expand01.mix"));
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn nested_plan_covers_open_sidebar_mix_indices() {
+    let dir = scratch_dir("sidebar-open");
+    touch(&dir, "language.mix");
+    touch(&dir, "ra2.mix");
+    let c = compose_resource_layers(&dir, &ra2_chain());
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("sidec01md.mix")));
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("sidec05.mix")));
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("sidenc06.mix")));
+    assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("sidec16md.mix")));
+    let _ = fs::remove_dir_all(&dir);
+}
