@@ -81,7 +81,7 @@ pub fn mo_layout_profile() -> ResourceProfile {
             "expandmd02.mix",
             "expandmd03.mix",
         ],
-        rules_ini: "rulesmd.ini",
+        rules_ini: "rulesmo.ini",
         art_ini: "artmd.ini",
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
