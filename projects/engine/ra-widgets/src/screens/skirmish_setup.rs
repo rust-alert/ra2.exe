@@ -79,6 +79,25 @@ impl UiFactionChrome {
         })
     }
 
+    /// 由 [`ra_assets::SideChromeDef`] 构造；无 `MixFileIndex` 且无结算覆盖时返回 `None`。
+    pub fn from_side_chrome(def: &ra_assets::SideChromeDef) -> Option<Self> {
+        if let Some(chrome) = Self::from_side_keys(
+            def.mix_file_index,
+            def.yuri_file_names,
+            def.score_background.clone(),
+            def.score_palette.clone(),
+        ) {
+            return Some(chrome);
+        }
+        if def.score_background.is_some() || def.score_palette.is_some() {
+            return Some(
+                Self::from_faction_id(&def.id)
+                    .with_score(def.score_background.clone(), def.score_palette.clone()),
+            );
+        }
+        None
+    }
+
     /// 附上结算资源覆盖。
     pub fn with_score(mut self, background: Option<String>, palette: Option<String>) -> Self {
         if background.is_some() {

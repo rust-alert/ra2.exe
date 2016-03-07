@@ -153,4 +153,14 @@ fn ui_faction_chrome_is_open_by_mix_index() {
     assert_eq!(sixth.radar_shp(), "radary.shp");
     assert_eq!(sixth.score_background_candidates()[0], "mpxscrnl.shp");
     assert_eq!(sixth.score_palette_candidates()[0], "mpxscrn.pal");
+    let from_def = UiFactionChrome::from_side_chrome(&ra_assets::SideChromeDef {
+        id: "FifthSide".into(),
+        mix_file_index: Some(5),
+        yuri_file_names: false,
+        score_background: Some("mpxscrnl.shp".into()),
+        score_palette: Some("mpxscrn.pal".into()),
+    })
+    .expect("side chrome");
+    assert_eq!(from_def.mix_file_index, 5);
+    assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
 }

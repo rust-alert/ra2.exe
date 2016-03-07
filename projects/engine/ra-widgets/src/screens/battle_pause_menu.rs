@@ -20,7 +20,7 @@ use crate::{
     fs_source::GameAssetSource,
     screens::page::UiAssetRef,
     skin::decode::{frame_to_canvas_rgba, DecodedUiSprite},
-    skirmish_setup::{UiFactionChrome, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved},
+    skirmish_setup::UiFactionChrome,
 };
 
 pub use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS as BUTTON_IDS;
@@ -197,13 +197,23 @@ pub fn decode_battle_pause_chrome_resolved(
     side: &str,
     faction_id: Option<&str>,
 ) -> BattlePauseChrome {
-    let chrome = UiFactionChrome::resolve(side, faction_id, None);
+    decode_battle_pause_chrome_with(source, side, faction_id, None)
+}
+
+/// 同 [`decode_battle_pause_chrome_resolved`]，可注入已解析的 [`UiFactionChrome`]。
+pub fn decode_battle_pause_chrome_with(
+    source: &GameAssetSource,
+    side: &str,
+    faction_id: Option<&str>,
+    side_chrome: Option<&UiFactionChrome>,
+) -> BattlePauseChrome {
+    let chrome = UiFactionChrome::resolve(side, faction_id, side_chrome);
     let mixes_owned = chrome.sidebar_mix_candidates();
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
-    let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
-    let radar_pal = sidebar_radar_pal_resolved(side, faction_id);
+    let radar_shp = chrome.radar_shp();
+    let radar_pal = chrome.radar_pal();
     let radar = decode_candidates(source, &mixes, radar_shp, radar_pal, 0, &mut errors);
     let center_panel = radar
         .as_ref()

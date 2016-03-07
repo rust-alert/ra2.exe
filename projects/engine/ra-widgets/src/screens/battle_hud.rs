@@ -16,9 +16,7 @@ use crate::{
     screens::page::UiAssetRef,
     skin::decode::{DecodedUiSprite, frame_to_canvas_rgba},
     skin::text::{SKIRMISH_COMMAND_BAR, command_bar_shp_index},
-    skirmish_setup::{
-        UiFactionChrome, sidebar_radar_pal_resolved, sidebar_radar_shp_resolved,
-    },
+    skirmish_setup::UiFactionChrome,
 };
 
 /// 对局侧栏调色板。
@@ -153,20 +151,30 @@ pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleH
     decode_battle_hud_chrome_resolved(source, side, None)
 }
 
-/// 同 [`decode_battle_hud_chrome`]，可带 `Side=`。
+/// 同 [`decode_battle_hud_chrome`]，可带 `Side=` 与可选 Side chrome。
 pub fn decode_battle_hud_chrome_resolved(
     source: &GameAssetSource,
     side: &str,
     faction_id: Option<&str>,
 ) -> BattleHudChrome {
-    let chrome = UiFactionChrome::resolve(side, faction_id, None);
+    decode_battle_hud_chrome_with(source, side, faction_id, None)
+}
+
+/// 同 [`decode_battle_hud_chrome_resolved`]，可注入已解析的 [`UiFactionChrome`]。
+pub fn decode_battle_hud_chrome_with(
+    source: &GameAssetSource,
+    side: &str,
+    faction_id: Option<&str>,
+    side_chrome: Option<&UiFactionChrome>,
+) -> BattleHudChrome {
+    let chrome = UiFactionChrome::resolve(side, faction_id, side_chrome);
     let mixes_owned = chrome.sidebar_mix_candidates();
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
     let radar_frame = radar_frame_index(source, &mix);
-    let radar_shp = sidebar_radar_shp_resolved(side, faction_id);
-    let radar_pal = sidebar_radar_pal_resolved(side, faction_id);
+    let radar_shp = chrome.radar_shp();
+    let radar_pal = chrome.radar_pal();
     let mut tabs = [None, None, None, None];
     for (i, slot) in tabs.iter_mut().enumerate() {
         let name = format!("tab{i:02}.shp");
