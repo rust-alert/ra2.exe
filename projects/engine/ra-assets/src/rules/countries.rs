@@ -45,11 +45,30 @@ pub struct SideGroup {
     pub countries: Vec<String>,
 }
 
+/// 势力壳层 chrome（Side 段键；任意势力 id，不限制阵营数量）。
+///
+/// 来自 rules 中与 `[Sides]` 键同名的节，例如 `Sidebar.MixFileIndex`、
+/// `MultiplayerScore.Background`。缺键时对应字段为空 / 默认，由上层用库存启发式补全。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SideChromeDef {
+    /// 势力 id（与 [`SideGroup::id`] 一致）。
+    pub id: String,
+    /// `Sidebar.MixFileIndex`（1-based → `sidecNN`）；缺省为 `None`。
+    pub mix_file_index: Option<u32>,
+    /// `Sidebar.YuriFileNames`。
+    pub yuri_file_names: bool,
+    /// `MultiplayerScore.Background`。
+    pub score_background: Option<String>,
+    /// `MultiplayerScore.Palette`。
+    pub score_palette: Option<String>,
+}
+
 /// rules 派生的国家 / 势力注册表。
 #[derive(Debug, Clone, Default)]
 pub struct CountryRegistry {
     countries: Vec<CountryDef>,
     sides: Vec<SideGroup>,
+    side_chromes: Vec<SideChromeDef>,
 }
 
 impl CountryRegistry {
@@ -60,7 +79,12 @@ impl CountryRegistry {
             c.special_ui_name = resolve_country_special_ui_name(rules, &c.id);
         }
         let sides = parse_sides(rules);
-        Self { countries, sides }
+        let side_chromes = parse_side_chromes(rules, &sides);
+        Self {
+            countries,
+            sides,
+            side_chromes,
+        }
     }
 
     /// 全部国家（`[Countries]` 列表序）。
@@ -71,6 +95,18 @@ impl CountryRegistry {
     /// 全部势力分组（`[Sides]` 键序）。
     pub fn sides(&self) -> &[SideGroup] {
         &self.sides
+    }
+
+    /// 全部势力壳层 chrome（与 `[Sides]` 键对齐；节缺失时仍有占位行）。
+    pub fn side_chromes(&self) -> &[SideChromeDef] {
+        &self.side_chromes
+    }
+
+    /// 按势力 id 查找 chrome（大小写不敏感）。
+    pub fn side_chrome(&self, side_id: &str) -> Option<&SideChromeDef> {
+        self.side_chromes
+            .iter()
+            .find(|c| c.id.eq_ignore_ascii_case(side_id))
     }
 
     /// 遭遇战可选国家（`Multiplay` 且非 `MultiplayObsolete`）。
@@ -223,6 +259,39 @@ fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
     out
 }
 
+fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChromeDef> {
+    let mut out = Vec::with_capacity(sides.len());
+    for group in sides {
+        let sec = rules.section(&group.id);
+        let mix_file_index = sec
+            .and_then(|s| s.get("Sidebar.MixFileIndex"))
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .filter(|n| *n >= 1);
+        let yuri_file_names = sec
+            .and_then(|s| s.get("Sidebar.YuriFileNames"))
+            .map(parse_ini_bool_loose)
+            .unwrap_or(false);
+        let score_background = sec
+            .and_then(|s| s.get("MultiplayerScore.Background"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        let score_palette = sec
+            .and_then(|s| s.get("MultiplayerScore.Palette"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        out.push(SideChromeDef {
+            id: group.id.clone(),
+            mix_file_index,
+            yuri_file_names,
+            score_background,
+            score_palette,
+        });
+    }
+    out
+}
+
 fn parse_ini_bool_loose(raw: &str) -> bool {
     matches!(raw.trim().to_ascii_lowercase().as_str(), "true" | "yes" | "1")
 }
@@ -276,6 +345,19 @@ GDI=Americans,French
 Nod=Russians
 ThirdSide=YuriCountry
 Civilian=Neutral
+
+[GDI]
+Sidebar.MixFileIndex=1
+Sidebar.YuriFileNames=yes
+
+[Nod]
+Sidebar.MixFileIndex=2
+
+[FourthSide]
+Sidebar.MixFileIndex=4
+Sidebar.YuriFileNames=yes
+MultiplayerScore.Background=mpfscrnl.shp
+MultiplayerScore.Palette=mpsscrnlf.pal
 "#;
 
     #[test]
@@ -291,6 +373,45 @@ Civilian=Neutral
         assert_eq!(reg.sides().len(), 4);
         assert_eq!(reg.sides()[0].id, "GDI");
         assert_eq!(reg.sides()[0].countries, vec!["Americans", "French"]);
+        let gdi = reg.side_chrome("GDI").unwrap();
+        assert_eq!(gdi.mix_file_index, Some(1));
+        assert!(gdi.yuri_file_names);
+        let nod = reg.side_chrome("Nod").unwrap();
+        assert_eq!(nod.mix_file_index, Some(2));
+        assert!(!nod.yuri_file_names);
+        // ThirdSide 无独立节：仍有占位 chrome，键为空。
+        let third = reg.side_chrome("ThirdSide").unwrap();
+        assert_eq!(third.mix_file_index, None);
+        assert!(!third.yuri_file_names);
+    }
+
+    #[test]
+    fn parses_open_side_chrome_score_overrides() {
+        const RULES: &str = r#"
+[Countries]
+0=Guild1
+
+[Guild1]
+Side=FifthSide
+Multiplay=yes
+
+[Sides]
+GDI=Americans
+FifthSide=Guild1
+
+[FifthSide]
+Sidebar.MixFileIndex=5
+Sidebar.YuriFileNames=no
+MultiplayerScore.Background=mpxscrnl.shp
+MultiplayerScore.Palette=mpxscrn.pal
+"#;
+        let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
+        let reg = CountryRegistry::from_rules(&doc);
+        let fifth = reg.side_chrome("FifthSide").unwrap();
+        assert_eq!(fifth.mix_file_index, Some(5));
+        assert!(!fifth.yuri_file_names);
+        assert_eq!(fifth.score_background.as_deref(), Some("mpxscrnl.shp"));
+        assert_eq!(fifth.score_palette.as_deref(), Some("mpxscrn.pal"));
     }
 
     #[test]
