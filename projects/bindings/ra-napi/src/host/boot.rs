@@ -22,7 +22,7 @@ use ra_widgets::skirmish_setup::{LOBBY_COLORS, SkirmishBootRequest};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 
-pub use ra_assets::{BattleCampaign, CountryDef, MpMode, SideGroup};
+pub use ra_assets::{BattleCampaign, CountryDef, MpMode, SideChromeDef, SideGroup};
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
@@ -304,10 +304,10 @@ pub fn list_install_skirmish_modes() -> Vec<MpMode> {
     }
 }
 
-/// 列出安装资源链中遭遇战可选国家 / 势力（来自 `rules.ini` 的 `[Countries]` / `[Sides]`）。
+/// 列出安装资源链中遭遇战可选国家 / 势力 / Side chrome（来自 rules 的 `[Countries]` / `[Sides]`）。
 ///
 /// 失败或缺文件时返回空表；调用方应回退到空列表 UI，勿写死国家名。
-pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>) {
+pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>, Vec<SideChromeDef>) {
     let (cfg, _) = load_desktop_config_with_diagnostics();
     let explicit = match cfg.edition.as_deref() {
         Some(s) => GameEdition::parse(s).ok(),
@@ -315,7 +315,7 @@ pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>) {
     };
     let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
     else {
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), Vec::new());
     };
     let mut source = GameAssetSource::new(manifest.root.clone());
     let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
@@ -323,17 +323,18 @@ pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>) {
     let Some(bytes) = source.vfs.read(manifest.chain.rules_ini)
     else {
         tracing::warn!(file = %manifest.chain.rules_ini, "规则表不可读，无法列出国家");
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), Vec::new());
     };
     let Ok(doc) = IniDocument::parse(&bytes)
     else {
         tracing::warn!(file = %manifest.chain.rules_ini, "规则表解析失败，无法列出国家");
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), Vec::new());
     };
     let registry = CountryRegistry::from_rules(&doc);
     let countries: Vec<CountryDef> = registry.skirmish_countries().into_iter().cloned().collect();
     let sides = registry.sides().to_vec();
-    (countries, sides)
+    let chromes = registry.side_chromes().to_vec();
+    (countries, sides, chromes)
 }
 
 /// 列出安装资源链中的战役表（来自 `battle.ini` / `battlemd.ini`）。

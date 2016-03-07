@@ -188,17 +188,35 @@ impl Shell {
         if !self.lobby_countries.is_empty() {
             return;
         }
-        let (countries, sides) = boot::list_install_skirmish_countries();
+        let (countries, sides, chromes) = boot::list_install_skirmish_countries();
         self.lobby_side_groups = sides;
+        self.lobby_side_chromes = chromes;
         self.lobby_countries = countries;
         let ids: Vec<String> = self.lobby_countries.iter().map(|c| c.id.clone()).collect();
         self.skirmish.set_lobby_sides(ids);
         tracing::info!(
             countries = self.lobby_countries.len(),
             side_groups = self.lobby_side_groups.len(),
+            side_chromes = self.lobby_side_chromes.len(),
             selected = %self.skirmish.side,
             "遭遇战国家 / 势力列表已刷新"
         );
+    }
+
+    /// 国家 + `Side=` → 壳层 chrome（优先 rules Side 段，开放任意 MixFileIndex）。
+    pub(super) fn resolve_ui_faction_chrome(
+        &self,
+        country: &str,
+        faction_id: Option<&str>,
+    ) -> ra_widgets::skirmish_setup::UiFactionChrome {
+        use ra_widgets::skirmish_setup::UiFactionChrome;
+        let mapped = faction_id.and_then(|fid| {
+            self.lobby_side_chromes
+                .iter()
+                .find(|c| c.id.eq_ignore_ascii_case(fid))
+                .and_then(UiFactionChrome::from_side_chrome)
+        });
+        UiFactionChrome::resolve(country, faction_id, mapped.as_ref())
     }
 
     /// 当前选中模式的地图过滤标签；无选中时回退 `standard`。

@@ -89,6 +89,8 @@ pub struct Shell {
     pub(super) lobby_countries: Vec<super::boot::CountryDef>,
     /// 势力分组（rules `[Sides]`）。
     pub(super) lobby_side_groups: Vec<super::boot::SideGroup>,
+    /// 势力壳层 chrome（rules Side 段 `MixFileIndex` / 结算键）。
+    pub(super) lobby_side_chromes: Vec<super::boot::SideChromeDef>,
     /// 大厅缩略图对应的地图名（与 `lobby_preview` 配对）。
     pub(super) lobby_preview_for: Option<String>,
     /// 已缩小的选中地图预览。

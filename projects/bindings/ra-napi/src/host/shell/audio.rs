@@ -479,14 +479,26 @@ impl Shell {
         let chrome = self
             .battle_controller
             .as_ref()
-            .and_then(|c| c.session.as_ref())
-            .and_then(|s| s.battle())
-            .and_then(|g| {
-                g.world
-                    .players
-                    .iter()
-                    .find(|p| p.id == g.world.local_player)
-                    .map(|p| ra_widgets::skirmish_setup::UiFactionChrome::from_country(p.house.as_ref()))
+            .and_then(|c| c.ui_faction_chrome().cloned())
+            .or_else(|| {
+                self.battle_controller.as_ref().and_then(|c| {
+                    c.session.as_ref().and_then(|s| s.battle()).and_then(|g| {
+                        g.world
+                            .players
+                            .iter()
+                            .find(|p| p.id == g.world.local_player)
+                            .map(|p| {
+                                let house = p.house.as_ref();
+                                let fid = self
+                                    .lobby_countries
+                                    .iter()
+                                    .find(|c| c.id.eq_ignore_ascii_case(house))
+                                    .map(|c| c.side.as_str())
+                                    .filter(|s| !s.is_empty());
+                                self.resolve_ui_faction_chrome(house, fid)
+                            })
+                    })
+                })
             })
             .unwrap_or_else(|| ra_widgets::skirmish_setup::UiFactionChrome::from_mix_index(1, false));
         // 库存：index 1 走 Allied 轨，其余走 Russian；模组独立 EVA 键后续接 Side 表。

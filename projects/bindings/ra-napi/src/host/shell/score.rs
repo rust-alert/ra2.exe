@@ -6,9 +6,7 @@ use ra_widgets::compose::{format_score_time, skirmish_score_hit_at, SkirmishScor
 use ra_widgets::load_kind::LoadKind;
 use ra_widgets::skin::decode::frame_to_canvas_rgba;
 use ra_widgets::skin::text::resolve_csf_text;
-use ra_widgets::skirmish_setup::{
-    score_screen_background_candidates_resolved, score_screen_palette_candidates_resolved, LOBBY_COLORS,
-};
+use ra_widgets::skirmish_setup::LOBBY_COLORS;
 use ra_renderer::RgbaImage;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -50,15 +48,26 @@ impl Shell {
         let house = self.results_local_house();
         let faction_owned = self.results_faction_id().map(str::to_string);
         let faction_id = faction_owned.as_deref();
-        let want_shp = score_screen_background_candidates_resolved(&house, faction_id)
+        let chrome = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.ui_faction_chrome().cloned())
+            .unwrap_or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
+        let want_shp = chrome
+            .score_background_candidates()
             .into_iter()
             .next()
             .unwrap_or_else(|| "mpascrnl.shp".to_string());
-        let want_pal = score_screen_palette_candidates_resolved(&house, faction_id)
+        let want_pal = chrome
+            .score_palette_candidates()
             .into_iter()
             .next()
             .unwrap_or_else(|| "mpascrn.pal".to_string());
-        let want_key = format!("{house}:{}:{want_shp}:{want_pal}", faction_id.unwrap_or("-"));
+        let want_key = format!(
+            "{house}:{}:{}:{want_shp}:{want_pal}",
+            faction_id.unwrap_or("-"),
+            chrome.mix_file_index
+        );
         if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
             return;
         }
@@ -69,8 +78,8 @@ impl Shell {
         else {
             return;
         };
-        let candidates = score_screen_background_candidates_resolved(&house, faction_id);
-        let pal_names = score_screen_palette_candidates_resolved(&house, faction_id);
+        let candidates = chrome.score_background_candidates();
+        let pal_names = chrome.score_palette_candidates();
         for name in &candidates {
             let Some(hit) = source.resolve(name)
             else {

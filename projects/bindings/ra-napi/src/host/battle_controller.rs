@@ -11,7 +11,7 @@ use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
 use ra_widgets::{
     battle_hud::{
-        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_resolved, decode_cameo_sprite,
+        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite,
         hit_at_with_chrome,
     },
     battle_order_icons::load_battle_order_icons,
@@ -254,8 +254,10 @@ pub struct BattleController {
     test_scene: Option<String>,
     /// 局内 HUD chrome（按本地阵营缓存；换边或重开时刷新）。
     hud_chrome: Option<BattleHudChrome>,
-    /// rules `Side=`（如 `ThirdSide`）；模组未知国名时与 house 一起选 UI 族。
+    /// rules `Side=`（如 `ThirdSide`）；模组未知国名时与 house 一起选 UI chrome。
     ui_faction_side: Option<String>,
+    /// 已解析的壳层 chrome（优先 rules Side 段 `MixFileIndex` / 结算键）。
+    ui_faction_chrome: Option<ra_widgets::skirmish_setup::UiFactionChrome>,
     /// 是否已尝试装入 `mouse.shp` 命令图标。
     order_icons_loaded: bool,
     /// 命令条悬停槽。
@@ -346,6 +348,7 @@ impl BattleController {
             test_scene,
             hud_chrome: None,
             ui_faction_side: None,
+            ui_faction_chrome: None,
             order_icons_loaded: false,
             command_hover: None,
             command_pressed: None,
@@ -386,6 +389,22 @@ impl BattleController {
         self.hud_chrome = None;
         self.pause_menu_chrome = None;
         self.pause_menu_tried_side = None;
+    }
+
+    /// 写入已解析的 [`ra_widgets::skirmish_setup::UiFactionChrome`]（含任意 MixFileIndex）。
+    pub fn set_ui_faction_chrome(&mut self, chrome: Option<ra_widgets::skirmish_setup::UiFactionChrome>) {
+        if self.ui_faction_chrome == chrome {
+            return;
+        }
+        self.ui_faction_chrome = chrome;
+        self.hud_chrome = None;
+        self.pause_menu_chrome = None;
+        self.pause_menu_tried_side = None;
+    }
+
+    /// 当前壳层 chrome（若已注入）。
+    pub fn ui_faction_chrome(&self) -> Option<&ra_widgets::skirmish_setup::UiFactionChrome> {
+        self.ui_faction_chrome.as_ref()
     }
 
     /// 当前对局地图剧院（供壳层挂载 `isotemp` 等）。
@@ -2112,7 +2131,12 @@ impl BattleController {
         if self.hud_chrome.as_ref().is_some_and(|c| c.side == side) {
             return;
         }
-        let chrome = decode_battle_hud_chrome_resolved(source, &side, self.ui_faction_side.as_deref());
+        let chrome = decode_battle_hud_chrome_with(
+            source,
+            &side,
+            self.ui_faction_side.as_deref(),
+            self.ui_faction_chrome.as_ref(),
+        );
         if chrome.has_sidebar_body() {
             let pal_origin = chrome
                 .side1
@@ -2156,10 +2180,11 @@ impl BattleController {
             self.pause_menu_chrome = None;
             return;
         };
-        let decoded = battle_pause_menu::decode_battle_pause_chrome_resolved(
+        let decoded = battle_pause_menu::decode_battle_pause_chrome_with(
             source,
             &side,
             self.ui_faction_side.as_deref(),
+            self.ui_faction_chrome.as_ref(),
         );
         if !decoded.errors.is_empty() {
             tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
