@@ -8,10 +8,11 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, campaign_blocking_capability_message,
-    compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
-    list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
-    mount_theater_mixes, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, TerrainAnimBank,
+    campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots,
+    decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
+    list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes,
+    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
@@ -38,12 +39,14 @@ pub struct BootResult {
     pub session: Option<Session>,
     /// 可选地形预览图（含当前活动层）。
     pub preview: Option<RgbaImage>,
-    /// 不含建筑活动层的预览底图（对局时钟刷新用；可含开局移动单位）。
+    /// 不含建筑/地形活动层的预览底图（对局时钟刷新用；可含开局移动单位）。
     pub preview_base: Option<RgbaImage>,
     /// 无开局移动单位的底图（部署后重组预览用）。
     pub preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub structure_anims: StructureAnimBank,
+    /// 动画地形物件银行（矿柱等）。
+    pub terrain_anims: TerrainAnimBank,
     /// 预览画布原点（世界像素）。
     pub preview_origin: (i32, i32),
     /// 资源链 art INI 逻辑名（对局部署 Buildup 用）。
@@ -72,6 +75,7 @@ impl BootResult {
             preview_base: None,
             preview_clean: None,
             structure_anims: StructureAnimBank::default(),
+            terrain_anims: TerrainAnimBank::default(),
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
@@ -91,6 +95,7 @@ impl BootResult {
             preview_base: None,
             preview_clean: None,
             structure_anims: StructureAnimBank::default(),
+            terrain_anims: TerrainAnimBank::default(),
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
@@ -106,7 +111,7 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesSystem,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, i32, i32)> {
+) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -122,6 +127,7 @@ fn load_map_terrain_preview(
         rgba,
         preview.base_without_anims,
         preview.anim_bank,
+        preview.terrain_anim_bank,
         preview.origin_x,
         preview.origin_y,
     ))
@@ -492,15 +498,17 @@ pub fn boot_world_with_progress(
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
+    let mut terrain_anims = TerrainAnimBank::default();
     let mut preview = match rules
         .as_ref()
         .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
     {
-        Some((name, image, base, bank, ox, oy)) => {
+        Some((name, image, base, bank, terrain_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
             preview_base = Some(base);
             structure_anims = bank;
+            terrain_anims = terrain_bank;
             Some(image)
         }
         None => {
@@ -587,6 +595,7 @@ pub fn boot_world_with_progress(
                     tracing::warn!("开局移动单位未能叠画到预览（VXL/SHP 可能未解析）");
                 }
                 let mut composed = base.clone();
+                paint_terrain_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &terrain_anims, 0);
                 paint_structure_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &structure_anims, 0);
                 preview = Some(composed);
             }
@@ -613,6 +622,7 @@ pub fn boot_world_with_progress(
         preview_base,
         preview_clean,
         structure_anims,
+        terrain_anims,
         preview_origin,
         art_ini: chain.art_ini,
         rules_ini: chain.rules_ini,

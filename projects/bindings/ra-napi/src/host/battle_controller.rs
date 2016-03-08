@@ -33,9 +33,10 @@ use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, Theater, WeatherParticleField,
-    collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip, local_size_preview_rect, paint_mobiles_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, TerrainAnimBank, Theater,
+    WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
+    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
@@ -264,12 +265,14 @@ pub struct BattleController {
     command_hover: Option<usize>,
     /// 命令条按下槽（高亮）。
     command_pressed: Option<usize>,
-    /// 不含建筑活动层的预览底图（可含开局移动单位与已定格建造场）。
+    /// 不含建筑/地形活动层的预览底图（可含开局移动单位与已定格建造场）。
     preview_base: Option<RgbaImage>,
     /// 无开局移动单位、可烘焙已定格动态建筑的底图。
     preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     structure_anims: StructureAnimBank,
+    /// 动画地形物件银行（矿柱等）。
+    terrain_anims: TerrainAnimBank,
     /// art.ini 逻辑名。
     art_ini: &'static str,
     /// rules.ini 逻辑名。
@@ -355,6 +358,7 @@ impl BattleController {
             preview_base: boot.preview_base,
             preview_clean: boot.preview_clean,
             structure_anims: boot.structure_anims,
+            terrain_anims: boot.terrain_anims,
             art_ini: boot.art_ini,
             rules_ini: boot.rules_ini,
             rules: boot.rules,
@@ -532,6 +536,7 @@ impl BattleController {
         self.preview_base = boot.preview_base;
         self.preview_clean = boot.preview_clean;
         self.structure_anims = boot.structure_anims;
+        self.terrain_anims = boot.terrain_anims;
         self.art_ini = boot.art_ini;
         self.rules_ini = boot.rules_ini;
         self.rules = boot.rules;
@@ -2014,6 +2019,13 @@ impl BattleController {
             );
         }
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        paint_terrain_anims_onto_rgba(
+            &mut composed,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            &self.terrain_anims,
+            clock_ms,
+        );
         paint_structure_anims_onto_rgba(
             &mut composed,
             self.preview_origin.0,
@@ -2032,8 +2044,16 @@ impl BattleController {
             return;
         };
         let mut composed = base.clone();
-        if !self.structure_anims.is_empty() {
-            let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        let has_anims = !self.structure_anims.is_empty() || !self.terrain_anims.is_empty();
+        if has_anims {
+            paint_terrain_anims_onto_rgba(
+                &mut composed,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                &self.terrain_anims,
+                clock_ms,
+            );
             paint_structure_anims_onto_rgba(
                 &mut composed,
                 self.preview_origin.0,
@@ -2041,7 +2061,7 @@ impl BattleController {
                 &self.structure_anims,
                 clock_ms,
             );
-            self.last_anim_sig = self.structure_anims.frame_signature(clock_ms);
+            self.last_anim_sig = self.preview_anim_signature(clock_ms);
         }
         else {
             self.last_anim_sig = 0;
@@ -2050,25 +2070,46 @@ impl BattleController {
         renderer.update_map_preview(composed);
     }
 
-    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）与天气粒子，不重置相机。
+    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）、地形矿柱动画与天气粒子，不重置相机。
     fn refresh_structure_anims(&mut self, renderer: &mut Renderer) {
         let Some(base) = self.preview_base.as_ref()
         else {
             return;
         };
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
-        let sig = self.structure_anims.frame_signature(clock_ms);
+        let sig = self.preview_anim_signature(clock_ms);
         let weather_active = self.weather.is_active();
-        if !weather_active && (self.structure_anims.is_empty() || sig == self.last_anim_sig) {
+        let has_anims = !self.structure_anims.is_empty() || !self.terrain_anims.is_empty();
+        if !weather_active && (!has_anims || sig == self.last_anim_sig) {
             return;
         }
         let mut composed = base.clone();
-        if !self.structure_anims.is_empty() {
-            paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
+        if has_anims {
+            paint_terrain_anims_onto_rgba(
+                &mut composed,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                &self.terrain_anims,
+                clock_ms,
+            );
+            paint_structure_anims_onto_rgba(
+                &mut composed,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                &self.structure_anims,
+                clock_ms,
+            );
         }
         self.paint_weather_onto(&mut composed);
         renderer.update_map_preview(composed);
         self.last_anim_sig = sig;
+    }
+
+    /// 建筑 + 地形活动层帧签名（用于跳过无变化上传）。
+    fn preview_anim_signature(&self, clock_ms: u64) -> u64 {
+        let mut h = self.structure_anims.frame_signature(clock_ms);
+        h ^= self.terrain_anims.frame_signature(clock_ms).rotate_left(17);
+        h
     }
 
     /// 按预览尺寸推进并叠画天气粒子。
