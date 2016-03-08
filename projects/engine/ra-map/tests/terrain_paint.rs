@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapInfo, TerrainImage, TerrainObject, paint_map_terrain_objects, terrain_anim_frame, terrain_animation_rate_ms,
+    MapInfo, TerrainImage, TerrainObject, TerrainPaintMode, collect_terrain_anim_bank, paint_map_terrain_objects,
+    paint_terrain_anim_bank, terrain_anim_frame, terrain_animation_rate_ms,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -72,6 +73,10 @@ fn tibtre_map() -> MapInfo {
     map
 }
 
+fn clock(ms: u64) -> TerrainPaintMode {
+    TerrainPaintMode::AllWithClock { anim_clock_ms: ms }
+}
+
 fn first_opaque(image: &TerrainImage) -> [u8; 4] {
     let px = image.image.as_raw();
     let c = px.chunks_exact(4).find(|c| c[3] > 0).expect("painted pixel");
@@ -82,7 +87,7 @@ fn first_opaque(image: &TerrainImage) -> [u8; 4] {
 fn empty_terrain_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
-    assert_eq!(paint_map_terrain_objects(&EmptySource, &map, &mut image, "art.ini", "rules.ini", 0), 0);
+    assert_eq!(paint_map_terrain_objects(&EmptySource, &map, &mut image, "art.ini", "rules.ini", clock(0)), 0);
 }
 
 #[test]
@@ -96,7 +101,7 @@ fn prefers_theater_palette_over_unittem() {
     let source = MapSource { files };
     let map = tree_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", 0), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
     let green = first_opaque(&image);
     assert!(green[1] > green[0] && green[1] > green[2], "expected theater green, got {green:?}");
 }
@@ -110,7 +115,7 @@ fn falls_back_to_unittem_when_theater_palette_missing() {
     let source = MapSource { files };
     let map = tree_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", 0), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
     let red = first_opaque(&image);
     assert!(red[0] > red[1] && red[0] > red[2], "expected unittem red fallback, got {red:?}");
 }
@@ -127,7 +132,7 @@ fn spawns_tiberium_still_uses_isometric_theater_palette() {
     let source = MapSource { files };
     let map = tibtre_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", 0), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
     let grey = first_opaque(&image);
     assert_eq!(grey[0], grey[1], "expected isotem grey, got {grey:?}");
     assert_eq!(grey[1], grey[2], "expected isotem grey, got {grey:?}");
@@ -159,7 +164,7 @@ fn terrain_object_centers_on_iso_diamond() {
     let source = MapSource { files };
     let map = tree_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", 0), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
     let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
     let expect_x = (sx - image.origin_x) as u32;
     let expect_y = (sy - 18 - image.origin_y) as u32;
@@ -201,12 +206,12 @@ fn animated_terrain_selects_body_frame_by_clock() {
     let map = tibtre_map();
 
     let mut image0 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image0, "art.ini", "rules.ini", 0), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image0, "art.ini", "rules.ini", clock(0)), 1);
     let green = first_opaque(&image0);
     assert!(green[1] > green[0], "clock 0 should paint frame 0 green, got {green:?}");
 
     let mut image1 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image1, "art.ini", "rules.ini", 200), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image1, "art.ini", "rules.ini", clock(200)), 1);
     let red = first_opaque(&image1);
     assert!(red[0] > red[1], "clock 200ms should paint frame 1 red, got {red:?}");
 }
@@ -226,7 +231,60 @@ fn static_terrain_ignores_anim_clock() {
     let source = MapSource { files };
     let map = tree_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", 200), 1);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(200)), 1);
     let green = first_opaque(&image);
     assert!(green[1] > green[0], "static terrain must stay on frame 0, got {green:?}");
+}
+
+#[test]
+fn static_only_skips_animated_terrain() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\n".to_vec());
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6]));
+    let source = MapSource { files };
+    let map = tibtre_map();
+    let mut image = TerrainImage::blank(256, 256);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", TerrainPaintMode::StaticOnly),
+        0
+    );
+}
+
+#[test]
+fn terrain_anim_bank_records_hit_and_paints_by_clock() {
+    let mut pal = solid_index_pal(5, 0, 63, 0);
+    pal[6 * 3] = 63;
+    pal[6 * 3 + 1] = 0;
+    pal[6 * 3 + 2] = 0;
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\n".to_vec());
+    files.insert("isotem.pal".into(), pal);
+    files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6]));
+    let source = MapSource { files };
+    let map = tibtre_map();
+
+    let bank = collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    let layer = &bank.layers[0];
+    assert_eq!(layer.file, "tibtre01.tem");
+    assert_eq!(layer.canvas_width, 1);
+    assert_eq!(layer.canvas_height, 1);
+    assert_eq!(layer.frames.len(), 2);
+    assert_eq!(layer.rate_ms, 200);
+    assert_eq!(bank.frame_signature(0), bank.frame_signature(199));
+    assert_ne!(bank.frame_signature(0), bank.frame_signature(200));
+
+    let mut image0 = TerrainImage::blank(256, 256);
+    assert_eq!(paint_terrain_anim_bank(&mut image0, &bank, 0), 1);
+    let green = first_opaque(&image0);
+    assert!(green[1] > green[0], "bank clock 0 should paint frame 0 green, got {green:?}");
+
+    let mut image1 = TerrainImage::blank(256, 256);
+    assert_eq!(paint_terrain_anim_bank(&mut image1, &bank, 200), 1);
+    let red = first_opaque(&image1);
+    assert!(red[0] > red[1], "bank clock 200ms should paint frame 1 red, got {red:?}");
 }
