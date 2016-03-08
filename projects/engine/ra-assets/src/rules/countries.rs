@@ -27,6 +27,10 @@ pub struct CountryDef {
     /// `SuperWeapon=` 则改用该超武的 `UIName`（如美军空降）。
     /// 空串表示无特色可画——原版/模组均允许缺失，装载页应跳过该行。
     pub special_ui_name: String,
+    /// `File.LoadScreen=` 装载背景 SHP（完整文件名）；空串表示走库存国名启发式。
+    pub load_screen: String,
+    /// `File.LoadScreenPAL=` 装载调色板；空串表示走库存国名启发式。
+    pub load_screen_pal: String,
 }
 
 impl CountryDef {
@@ -179,6 +183,8 @@ fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
         multiplay,
         multiplay_obsolete,
         special_ui_name: String::new(),
+        load_screen: get("File.LoadScreen"),
+        load_screen_pal: get("File.LoadScreenPAL"),
     }
 }
 
@@ -394,6 +400,8 @@ MultiplayerScore.Palette=mpsscrnlf.pal
 [Guild1]
 Side=FifthSide
 Multiplay=yes
+File.LoadScreen=ls800haihead.shp
+File.LoadScreenPAL=mplshh.pal
 
 [Sides]
 GDI=Americans
@@ -412,6 +420,9 @@ MultiplayerScore.Palette=mpxscrn.pal
         assert!(!fifth.yuri_file_names);
         assert_eq!(fifth.score_background.as_deref(), Some("mpxscrnl.shp"));
         assert_eq!(fifth.score_palette.as_deref(), Some("mpxscrn.pal"));
+        let guild = reg.get("Guild1").unwrap();
+        assert_eq!(guild.load_screen, "ls800haihead.shp");
+        assert_eq!(guild.load_screen_pal, "mplshh.pal");
     }
 
     #[test]
