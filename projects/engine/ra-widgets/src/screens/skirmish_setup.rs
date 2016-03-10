@@ -466,6 +466,32 @@ pub fn load_screen_background_shp(side: &str, viewport_w: u32) -> String {
     format!("{prefix}{suffix}.shp")
 }
 
+/// 装载背景：优先 rules `File.LoadScreen`（任意国完整文件名），否则库存国名启发式。
+pub fn load_screen_background_shp_resolved(
+    country: &str,
+    viewport_w: u32,
+    rules_shp: Option<&str>,
+) -> String {
+    if let Some(name) = rules_shp.map(str::trim).filter(|s| !s.is_empty()) {
+        return name.to_string();
+    }
+    load_screen_background_shp(country, viewport_w)
+}
+
+/// 装载调色板：优先 rules `File.LoadScreenPAL`（可读时），否则库存启发式。
+pub fn load_screen_palette_resolved(
+    country: &str,
+    rules_pal: Option<&str>,
+    pal_readable: impl Fn(&str) -> bool,
+) -> String {
+    if let Some(p) = rules_pal.map(str::trim).filter(|s| !s.is_empty()) {
+        if pal_readable(p) {
+            return p.to_string();
+        }
+    }
+    load_screen_palette(country, pal_readable).to_string()
+}
+
 /// 是否苏军侧栏索引且非 yuri 文件名（库存推断；请优先用 [`UiFactionChrome`]）。
 pub fn is_soviet_side(side: &str) -> bool {
     let c = UiFactionChrome::from_country(side);

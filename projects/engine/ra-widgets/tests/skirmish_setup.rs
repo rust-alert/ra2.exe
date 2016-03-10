@@ -1,8 +1,8 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_art_suffix, load_screen_background_shp,
-    load_screen_brief_suffix, load_screen_palette, load_screen_preferred_pal, score_screen_background_shp,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_art_suffix, load_screen_background_shp, load_screen_background_shp_resolved,
+    load_screen_brief_suffix, load_screen_palette, load_screen_palette_resolved, load_screen_preferred_pal, score_screen_background_shp,
     score_screen_palette, sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction,
     sidebar_radar_pal, sidebar_radar_shp,
 };
@@ -89,6 +89,14 @@ fn load_screen_maps_lobby_sides_to_country_art() {
     assert_eq!(load_screen_background_shp("Americans", 1024), "ls800ustates.shp");
     assert_eq!(load_screen_background_shp("British", 640), "ls640ukingdom.shp");
     assert_eq!(load_screen_background_shp("YuriCountry", 800), "ls800yuri.shp");
+    assert_eq!(
+        load_screen_background_shp_resolved("Guild1", 800, Some("ls800haihead.shp")),
+        "ls800haihead.shp"
+    );
+    assert_eq!(
+        load_screen_palette_resolved("Guild1", Some("mplshh.pal"), |_| true),
+        "mplshh.pal"
+    );
 }
 
 #[test]

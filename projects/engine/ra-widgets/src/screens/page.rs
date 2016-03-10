@@ -12,8 +12,8 @@ use crate::{
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
-        load_screen_background_shp, load_screen_palette, score_screen_background_candidates,
-        score_screen_palette, score_screen_palette_candidates,
+        load_screen_background_shp_resolved, load_screen_palette_resolved,
+        score_screen_background_candidates, score_screen_palette, score_screen_palette_candidates,
     },
 };
 
@@ -209,13 +209,24 @@ pub fn page_resources_for_battle_pause() -> UiPageResources {
 
 /// 遭遇战装载页资源：按本地阵营与视口宽选择 `ls800*`/`ls640*`；调色板国家盘优先、缺则 `mpls.pal`。
 pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
+    page_resources_for_load_screen_with(side, viewport_w, None, None, readable)
+}
+
+/// 同 [`page_resources_for_load_screen`]，可注入 rules `File.LoadScreen` / `File.LoadScreenPAL`。
+pub fn page_resources_for_load_screen_with(
+    side: &str,
+    viewport_w: u32,
+    rules_shp: Option<&str>,
+    rules_pal: Option<&str>,
+    readable: impl Fn(&str) -> bool,
+) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::LoadScreen)?;
-    let pal = load_screen_palette(side, &readable);
-    let shp = load_screen_background_shp(side, viewport_w);
+    let pal = load_screen_palette_resolved(side, rules_pal, &readable);
+    let shp = load_screen_background_shp_resolved(side, viewport_w, rules_shp);
     Some(UiPageResources {
         screen: OriginalScreen::LoadScreen,
-        background: Some(UiAssetRef::with_palette_frame(shp, pal, page.background_frame)),
-        background_palette: Some(pal.to_string()),
+        background: Some(UiAssetRef::with_palette_frame(&shp, &pal, page.background_frame)),
+        background_palette: Some(pal.clone()),
         movie: None,
         panels: page
             .panels
@@ -224,7 +235,7 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
             .filter(|p| readable(p.shp))
             .map(|p| {
                 // 面板用自身声明的 pal（`progbarm`→`shell.pal`），勿跟背景 `mpls.pal` 绑死。
-                let panel_pal = if readable(p.pal) { p.pal } else { pal };
+                let panel_pal = if readable(p.pal) { p.pal.to_string() } else { pal.clone() };
                 UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
             })
             .collect(),

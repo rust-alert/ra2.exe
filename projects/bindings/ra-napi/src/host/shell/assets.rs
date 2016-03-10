@@ -10,7 +10,7 @@ use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skin::assets::load_menu_ui_assets;
 use ra_widgets::skin::decode;
 use ra_widgets::chrome::movie::MenuMoviePlayer;
-use ra_widgets::screens::page::{page_resources_for_load_screen, page_resources_for_results, page_resources_from_slots_with_edition};
+use ra_widgets::screens::page::{page_resources_for_load_screen_with, page_resources_for_results, page_resources_from_slots_with_edition};
 use ra_widgets::skin::resolve;
 
 use super::Shell;
@@ -60,7 +60,23 @@ impl Shell {
         };
         let edition = assets.edition;
         let page = if self.screen == OriginalScreen::LoadScreen {
-            page_resources_for_load_screen(&self.skirmish.side, self.window_width as u32, |name| source.resolve(name).is_some())
+            let country = self
+                .lobby_countries
+                .iter()
+                .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
+            let rules_shp = country
+                .map(|c| c.load_screen.as_str())
+                .filter(|s| !s.is_empty());
+            let rules_pal = country
+                .map(|c| c.load_screen_pal.as_str())
+                .filter(|s| !s.is_empty());
+            page_resources_for_load_screen_with(
+                &self.skirmish.side,
+                self.window_width as u32,
+                rules_shp,
+                rules_pal,
+                |name| source.resolve(name).is_some(),
+            )
         } else if self.screen == OriginalScreen::Results {
             let house = self
                 .battle_controller
