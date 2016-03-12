@@ -288,3 +288,35 @@ fn terrain_anim_bank_records_hit_and_paints_by_clock() {
     let red = first_opaque(&image1);
     assert!(red[0] > red[1], "bank clock 200ms should paint frame 1 red, got {red:?}");
 }
+
+#[test]
+fn animated_terrain_skips_shadow_half_frames() {
+    // 4 帧：主体绿/红 + 落影半幅（索引 1）。时钟若误用全 4 帧会在 400ms 画到落影蓝。
+    let mut pal = solid_index_pal(5, 0, 63, 0);
+    pal[6 * 3] = 63;
+    pal[6 * 3 + 1] = 0;
+    pal[6 * 3 + 2] = 0;
+    pal[1 * 3] = 0;
+    pal[1 * 3 + 1] = 0;
+    pal[1 * 3 + 2] = 63;
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\n".to_vec());
+    files.insert("isotem.pal".into(), pal);
+    files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6, 1, 1]));
+    let source = MapSource { files };
+    let map = tibtre_map();
+
+    let bank = collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    assert_eq!(bank.layers[0].frames.len(), 2, "body must exclude shadow half");
+
+    let mut image = TerrainImage::blank(256, 256);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(400)), 1);
+    let green = first_opaque(&image);
+    assert!(
+        green[1] > green[0] && green[1] > green[2],
+        "clock 400ms must wrap body frames to green, not shadow blue, got {green:?}"
+    );
+}
