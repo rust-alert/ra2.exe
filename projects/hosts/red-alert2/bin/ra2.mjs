@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 function printUsage() {
     console.log(`Usage:
   ra2 launch --path <game-dir> [--edition ra2|yr] [--screen skirmish|main|campaign|...]
-  ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
+  ra2 extract --path <game-dir> --out <dir> [--edition ra2|yr] [--theater temperate|snow|...] [--palette name.pal] [--decode-shp] [--decode-csf] [--] <name>...
   ra2 unpack --path <game-dir> --out <dir> [--edition ra2|yr] [--names-file <txt>] [--decode-csf]
   ra2 --version
   ra2 --help
@@ -15,6 +15,7 @@ Screens (launch --screen):
 Examples:
   ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-shp -- sdtp.shp title.pcx
+  ra2 extract --path "C:/Games/RA2" --out ./out --edition ra2 --decode-shp --palette isotem.pal -- tibtre01.tem
   ra2 extract --path "C:/Games/RA2" --out ./out --decode-csf -- ra2.csf
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked
   ra2 unpack --path "C:/Games/RA2" --out ./unpacked --names-file ./extra_names.txt --decode-csf`);
@@ -83,6 +84,7 @@ function parseExtractArgs(args) {
     let out = null;
     let edition;
     let palette;
+    let theater;
     let decodeShp = false;
     let decodeCsf = false;
     const names = [];
@@ -114,6 +116,14 @@ function parseExtractArgs(args) {
             edition = args[i + 1];
             if (!edition) {
                 throw new Error('extract: --edition requires a value');
+            }
+            i += 1;
+            continue;
+        }
+        if (!afterSep && a === '--theater') {
+            theater = args[i + 1];
+            if (!theater) {
+                throw new Error('extract: --theater requires a value');
             }
             i += 1;
             continue;
@@ -150,7 +160,7 @@ function parseExtractArgs(args) {
         throw new Error('extract: at least one logical name is required');
     }
 
-    return { path: gamePath, out, edition, palette, decodeShp, decodeCsf, names };
+    return { path: gamePath, out, edition, palette, theater, decodeShp, decodeCsf, names };
 }
 
 async function main() {
@@ -224,6 +234,7 @@ async function main() {
             out: opts.out,
             edition: opts.edition,
             palette: opts.palette,
+            theater: opts.theater,
             decodeShp: opts.decodeShp,
             decodeCsf: opts.decodeCsf,
             names: opts.names,
@@ -232,9 +243,11 @@ async function main() {
             `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} written=${result.written.length} missing=${result.missing.length}`,
         );
         for (const f of result.written) {
+            const size =
+                f.shpWidth != null && f.shpHeight != null ? ` size=${f.shpWidth}x${f.shpHeight}` : '';
             const frames = f.shpFrames != null ? ` frames=${f.shpFrames}` : '';
             const csf = f.csfEntries != null ? ` csf=${f.csfEntries}` : '';
-            console.log(`OK ${f.name} -> ${f.path} (${f.bytes} bytes, ${f.origin})${frames}${csf}`);
+            console.log(`OK ${f.name} -> ${f.path} (${f.bytes} bytes, ${f.origin})${size}${frames}${csf}`);
         }
         for (const name of result.missing) {
             console.log(`MISSING ${name}`);

@@ -60,10 +60,12 @@ pub struct ExtractOptions {
     pub names: Vec<String>,
     /// 可选调色板逻辑名（解码 SHP 时优先）。
     pub palette: Option<String>,
-    /// 为 `.shp` 额外写出各帧 PNG。
+    /// 为 `.shp` / 剧院地形 SHP 额外写出各帧 PNG。
     pub decode_shp: Option<bool>,
     /// 为 `.csf` 额外写出 UTF-8 `KEY=value` 文本表（`name.txt`）。
     pub decode_csf: Option<bool>,
+    /// 可选剧院（挂载 `isotemp.mix` 等）；缺省时从请求名扩展名推断。
+    pub theater: Option<String>,
 }
 
 /// 单个已导出文件（N-API）。
@@ -77,8 +79,12 @@ pub struct ExtractedFileJs {
     pub bytes: u32,
     /// 来源说明。
     pub origin: String,
-    /// SHP 已解码帧数（未解码则为 `null`）。
+    /// SHP 族解析得到的总帧数（未解析则为 `null`）。
     pub shp_frames: Option<u32>,
+    /// SHP 族画布宽（未解析则为 `null`）。
+    pub shp_width: Option<u32>,
+    /// SHP 族画布高（未解析则为 `null`）。
+    pub shp_height: Option<u32>,
     /// CSF 已解码条目数（未解码则为 `null`）。
     pub csf_entries: Option<u32>,
 }
@@ -121,6 +127,7 @@ pub fn extract(options: ExtractOptions) -> Result<ExtractResultJs> {
         palette: options.palette.filter(|s| !s.trim().is_empty()),
         decode_shp: options.decode_shp.unwrap_or(false),
         decode_csf: options.decode_csf.unwrap_or(false),
+        theater: options.theater.filter(|s| !s.trim().is_empty()),
     };
 
     let report = extract_named(&req).map_err(|e| Error::from_reason(format!("{e}")))?;
@@ -134,6 +141,8 @@ pub fn extract(options: ExtractOptions) -> Result<ExtractResultJs> {
                 bytes: f.bytes as u32,
                 origin: f.origin,
                 shp_frames: f.shp_frames.map(|n| n as u32),
+                shp_width: f.shp_width.map(u32::from),
+                shp_height: f.shp_height.map(u32::from),
                 csf_entries: f.csf_entries.map(|n| n as u32),
             })
             .collect(),

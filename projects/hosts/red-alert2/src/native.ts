@@ -19,6 +19,8 @@ export type ExtractOptions = {
     palette?: string;
     decodeShp?: boolean;
     decodeCsf?: boolean;
+    /** 可选剧院（挂载 isotemp.mix 等）；缺省时从请求名扩展名推断。 */
+    theater?: string;
 };
 
 export type ExtractedFile = {
@@ -27,6 +29,8 @@ export type ExtractedFile = {
     bytes: number;
     origin: string;
     shpFrames: number | null;
+    shpWidth: number | null;
+    shpHeight: number | null;
     csfEntries: number | null;
 };
 

@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use ra_adaptor::detect_edition;
 use ra_assets::{CsfFile, MixNameTable, Palette, ShpFile};
+use ra_map::{Theater, mount_theater_mixes, theater_palette};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -29,10 +30,12 @@ pub struct ExtractRequest {
     pub names: Vec<String>,
     /// SHP 解码用调色板逻辑名；缺省按 `shell.pal` → `unittem.pal` 尝试。
     pub palette: Option<String>,
-    /// 为 `.shp` 额外写出 `name.frameNNNN.png`。
+    /// 为 SHP / 剧院地形 SHP（`.tem` 等）额外写出 `name.frameNNNN.png`。
     pub decode_shp: bool,
     /// 为 `.csf` 额外写出 `name.txt`（UTF-8 `KEY=value` 表）。
     pub decode_csf: bool,
+    /// 可选剧院（挂载 `isotemp.mix` 等）；缺省时从请求名扩展名推断。
+    pub theater: Option<String>,
 }
 
 /// 单个已写出文件。
@@ -46,8 +49,12 @@ pub struct ExtractedFile {
     pub bytes: usize,
     /// 来源说明（loose / mix）。
     pub origin: String,
-    /// 若为 SHP 且已解码，帧数。
+    /// 若为 SHP 族且已解析，帧数。
     pub shp_frames: Option<usize>,
+    /// 若为 SHP 族且已解析，画布宽。
+    pub shp_width: Option<u16>,
+    /// 若为 SHP 族且已解析，画布高。
+    pub shp_height: Option<u16>,
     /// 若为 CSF 且已解码，条目数。
     pub csf_entries: Option<usize>,
 }
@@ -84,6 +91,7 @@ impl ExtractRequest {
             palette: None,
             decode_shp: false,
             decode_csf: false,
+            theater: None,
         }
     }
 }
@@ -104,7 +112,19 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
     let manifest = detect_edition(&req.ra2_dir, explicit)?;
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
-    let (mounted_nested, _) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let (mut mounted_nested, _) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+
+    // 剧院地形 SHP（如 `tibtre01.tem`）在 `isotemp.mix` 等嵌套档中；按请求剧院或扩展名挂载。
+    let theaters = resolve_extract_theaters(req)?;
+    for theater in theaters {
+        let n = mount_theater_mixes(theater, &mut |mix| {
+            matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0)
+        });
+        mounted_nested = mounted_nested.saturating_add(n);
+        if n > 0 {
+            tracing::info!(theater = theater.as_str(), mounted = n, "extract 已挂载剧院 MIX");
+        }
+    }
 
     std::fs::create_dir_all(&req.out_dir).map_err(|e| RaError::Io(format!("{}: {e}", req.out_dir.display())))?;
 
@@ -135,11 +155,42 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
         };
 
         let mut shp_frames = None;
+        let mut shp_width = None;
+        let mut shp_height = None;
         let mut csf_entries = None;
-        if req.decode_shp && name.to_ascii_lowercase().ends_with(".shp") {
-            match decode_shp_frames_to_png(&source, name, &hit.bytes, &req.out_dir, &safe, req.palette.as_deref()) {
-                Ok(n) => shp_frames = Some(n),
-                Err(e) => tracing::warn!(name = %name, "SHP 解码跳过 · {e}"),
+        if is_shp_family_name(name) {
+            match ShpFile::parse(&hit.bytes) {
+                Ok(shp) => {
+                    shp_frames = Some(shp.frames.len());
+                    shp_width = Some(shp.width);
+                    shp_height = Some(shp.height);
+                    tracing::info!(
+                        name = %name,
+                        bytes = hit.bytes.len(),
+                        width = shp.width,
+                        height = shp.height,
+                        frames = shp.frames.len(),
+                        %origin,
+                        "extract SHP 族命中"
+                    );
+                    if req.decode_shp {
+                        match decode_shp_frames_to_png(
+                            &source,
+                            name,
+                            &hit.bytes,
+                            &req.out_dir,
+                            &safe,
+                            req.palette.as_deref(),
+                        ) {
+                            Ok(n) => {
+                                // 解码成功帧数可能少于总帧（空帧跳过）；仍保留解析得到的总帧数。
+                                tracing::info!(name = %name, decoded = n, "SHP 帧已解码为 PNG");
+                            }
+                            Err(e) => tracing::warn!(name = %name, "SHP 解码跳过 · {e}"),
+                        }
+                    }
+                }
+                Err(e) => tracing::warn!(name = %name, "SHP 解析跳过 · {e}"),
             }
         }
         if req.decode_csf && name.to_ascii_lowercase().ends_with(".csf") {
@@ -155,11 +206,55 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
             bytes: hit.bytes.len(),
             origin,
             shp_frames,
+            shp_width,
+            shp_height,
             csf_entries,
         });
     }
 
     Ok(ExtractReport { written, missing, edition: manifest.chain.edition.as_str().to_string(), mounted_root, mounted_nested })
+}
+
+/// 解析本次导出应挂载的剧院列表（显式优先，否则按扩展名推断）。
+fn resolve_extract_theaters(req: &ExtractRequest) -> RaResult<Vec<Theater>> {
+    if let Some(raw) = req.theater.as_deref() {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return Ok(vec![Theater::parse(trimmed)?]);
+        }
+    }
+    let mut seen = Vec::new();
+    for name in &req.names {
+        if let Some(theater) = theater_from_logical_name(name) {
+            if !seen.contains(&theater) {
+                seen.push(theater);
+            }
+        }
+    }
+    Ok(seen)
+}
+
+/// 逻辑名是否为 SHP 族（`.shp` 或剧院地形扩展名）。
+fn is_shp_family_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    if lower.ends_with(".shp") {
+        return true;
+    }
+    theater_from_logical_name(&lower).is_some()
+}
+
+/// 从逻辑名扩展名推断剧院（`tibtre01.tem` → 温带）。
+fn theater_from_logical_name(name: &str) -> Option<Theater> {
+    let lower = name.to_ascii_lowercase();
+    let ext = Path::new(&lower).extension().and_then(|e| e.to_str())?;
+    match ext {
+        "tem" => Some(Theater::Temperate),
+        "sno" => Some(Theater::Snow),
+        "urb" => Some(Theater::Urban),
+        "lun" => Some(Theater::Lunar),
+        "des" => Some(Theater::Desert),
+        _ => None,
+    }
 }
 
 fn sanitize_filename(name: &str) -> String {
@@ -200,6 +295,10 @@ fn load_palette_for_shp(source: &GameAssetSource, shp_name: &str, override_pal: 
         candidates.push(p.to_string());
     }
     let lower = shp_name.to_ascii_lowercase();
+    // 剧院地形物件（`*.tem` 等）优先等距剧院调色板，与 `terrain_paint` 一致。
+    if let Some(theater) = theater_from_logical_name(&lower) {
+        candidates.push(theater_palette(theater).to_string());
+    }
     if let Some(stem) = Path::new(&lower).file_stem().and_then(|s| s.to_str()) {
         candidates.push(format!("{stem}.pal"));
     }
