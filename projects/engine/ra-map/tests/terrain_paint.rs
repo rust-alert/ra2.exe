@@ -274,6 +274,7 @@ fn terrain_anim_bank_records_hit_and_paints_by_clock() {
     assert_eq!(layer.canvas_width, 1);
     assert_eq!(layer.canvas_height, 1);
     assert_eq!(layer.frames.len(), 2);
+    assert_eq!(layer.shp_frames, 2);
     assert_eq!(layer.rate_ms, 200);
     assert_eq!(bank.frame_signature(0), bank.frame_signature(199));
     assert_ne!(bank.frame_signature(0), bank.frame_signature(200));
@@ -311,6 +312,7 @@ fn animated_terrain_skips_shadow_half_frames() {
     let bank = collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini");
     assert_eq!(bank.layers.len(), 1);
     assert_eq!(bank.layers[0].frames.len(), 2, "body must exclude shadow half");
+    assert_eq!(bank.layers[0].shp_frames, 4, "shp_frames must keep full count including shadow half");
 
     let mut image = TerrainImage::blank(256, 256);
     assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(400)), 1);

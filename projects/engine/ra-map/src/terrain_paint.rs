@@ -50,6 +50,8 @@ pub struct TerrainAnimLayer {
     pub canvas_width: u16,
     /// SHP 画布高。
     pub canvas_height: u16,
+    /// SHP 总帧数（含落影半幅，便于与 CLI `frames=` 对照）。
+    pub shp_frames: usize,
 }
 
 /// 地图上全部动画地形物件（装载时烘焙，对局按时钟选帧）。
@@ -318,6 +320,7 @@ pub fn collect_terrain_anim_bank(
             file,
             canvas_width: shp.width,
             canvas_height: shp.height,
+            shp_frames: shp.frames.len(),
         });
     }
 

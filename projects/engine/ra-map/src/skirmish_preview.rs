@@ -167,7 +167,12 @@ pub fn compose_boot_preview(
     let terrain_hit = terrain_anim_bank
         .layers
         .first()
-        .map(|l| format!("{} {}x{} frames#{}", l.file, l.canvas_width, l.canvas_height, l.frames.len()))
+        .map(|l| {
+            format!(
+                "{} {}x{} body#{}/{}",
+                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames
+            )
+        })
         .unwrap_or_else(|| "-".into());
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} terrain_anim#{} ({}) struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",
