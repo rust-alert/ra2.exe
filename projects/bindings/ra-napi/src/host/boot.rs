@@ -509,6 +509,9 @@ pub fn boot_world_with_progress(
             preview_base = Some(base);
             structure_anims = bank;
             terrain_anims = terrain_bank;
+            if !terrain_anims.is_empty() {
+                note = format!("{note} · terrainAnim#{}", terrain_anims.layers.len());
+            }
             Some(image)
         }
         None => {
