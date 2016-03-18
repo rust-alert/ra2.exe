@@ -57,7 +57,7 @@ pub use mix::{
 pub use rules::{
     color_schemes::ColorSchemes,
     countries::{
-        resolve_country_special_ui_name, CountryDef, CountryRegistry, SideChromeDef, SideGroup,
+        resolve_country_special_ui_name, CountryDef, CountryRegistry, SideChromeDef, SideGroup, fill_country_ui_gaps, fill_side_chrome_gaps,
     },
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
     overlay::{OverlayTypeRegistry, harvestable_overlay_name},

@@ -27,10 +27,14 @@ pub struct CountryDef {
     /// `SuperWeapon=` 则改用该超武的 `UIName`（如美军空降）。
     /// 空串表示无特色可画——原版/模组均允许缺失，装载页应跳过该行。
     pub special_ui_name: String,
-    /// `File.LoadScreen=` 装载背景 SHP（完整文件名）；空串表示走库存国名启发式。
+    /// `File.LoadScreen=` 装载背景 SHP（完整文件名）；空串由 edition adaptor 补。
     pub load_screen: String,
-    /// `File.LoadScreenPAL=` 装载调色板；空串表示走库存国名启发式。
+    /// `File.LoadScreenPAL=` 装载调色板；空串由 edition adaptor 补。
     pub load_screen_pal: String,
+    /// `File.Flag=` 旗标 PCX；空串由 edition adaptor 补。
+    pub flag: String,
+    /// `LoadScreenText.Brief=` 装载介绍 CSF 键（可含 `LOADBRIEF:` / `STT:` 前缀）；空串由 adaptor 补。
+    pub load_brief: String,
 }
 
 impl CountryDef {
@@ -51,20 +55,22 @@ pub struct SideGroup {
 
 /// 势力壳层 chrome（Side 段键；任意势力 id，不限制阵营数量）。
 ///
-/// 来自 rules 中与 `[Sides]` 键同名的节，例如 `Sidebar.MixFileIndex`、
-/// `MultiplayerScore.Background`。缺键时对应字段为空 / 默认，由上层用库存启发式补全。
+/// 只解析 rules 显式键。缺 `MixFileIndex` / 装载艺术时由 **edition adaptor** 填库存映射，
+/// 内核不猜苏盟二元、不按国名回退。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SideChromeDef {
     /// 势力 id（与 [`SideGroup::id`] 一致）。
     pub id: String,
-    /// `Sidebar.MixFileIndex`（1-based → `sidecNN`）；缺省为 `None`。
+    /// `Sidebar.MixFileIndex`（1-based → `sidecNN`）；缺省为 `None`（交 adaptor）。
     pub mix_file_index: Option<u32>,
-    /// `Sidebar.YuriFileNames`。
+    /// `Sidebar.YuriFileNames`；缺键为 `false`。
     pub yuri_file_names: bool,
     /// `MultiplayerScore.Background`。
     pub score_background: Option<String>,
     /// `MultiplayerScore.Palette`。
     pub score_palette: Option<String>,
+    /// `EVA.Tag`（可空；音频采样键优先用此标签）。
+    pub eva_tag: Option<String>,
 }
 
 /// rules 派生的国家 / 势力注册表。
@@ -185,6 +191,8 @@ fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
         special_ui_name: String::new(),
         load_screen: get("File.LoadScreen"),
         load_screen_pal: get("File.LoadScreenPAL"),
+        flag: get("File.Flag"),
+        load_brief: get("LoadScreenText.Brief"),
     }
 }
 
@@ -287,15 +295,65 @@ fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChrom
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string);
+        let eva_tag = sec
+            .and_then(|s| s.get("EVA.Tag"))
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
         out.push(SideChromeDef {
             id: group.id.clone(),
             mix_file_index,
             yuri_file_names,
             score_background,
             score_palette,
+            eva_tag,
         });
     }
     out
+}
+
+/// 仅填空：把 edition adaptor 提供的库存 Side chrome 写入缺键行。
+pub fn fill_side_chrome_gaps(chromes: &mut [SideChromeDef], stock: &[SideChromeDef]) {
+    for src in stock {
+        let Some(dst) = chromes.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id)) else {
+            continue;
+        };
+        let had_index = dst.mix_file_index.is_some();
+        if !had_index {
+            dst.mix_file_index = src.mix_file_index;
+            dst.yuri_file_names = src.yuri_file_names;
+        }
+        if dst.score_background.is_none() {
+            dst.score_background = src.score_background.clone();
+        }
+        if dst.score_palette.is_none() {
+            dst.score_palette = src.score_palette.clone();
+        }
+        if dst.eva_tag.is_none() {
+            dst.eva_tag = src.eva_tag.clone();
+        }
+    }
+}
+
+/// 仅填空：库存国家装载 / 旗 / 介绍键。
+pub fn fill_country_ui_gaps(countries: &mut [CountryDef], stock: &[CountryDef]) {
+    for src in stock {
+        let Some(dst) = countries.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id)) else {
+            continue;
+        };
+        if dst.load_screen.is_empty() && !src.load_screen.is_empty() {
+            dst.load_screen = src.load_screen.clone();
+        }
+        if dst.load_screen_pal.is_empty() && !src.load_screen_pal.is_empty() {
+            dst.load_screen_pal = src.load_screen_pal.clone();
+        }
+        if dst.flag.is_empty() && !src.flag.is_empty() {
+            dst.flag = src.flag.clone();
+        }
+        if dst.load_brief.is_empty() && !src.load_brief.is_empty() {
+            dst.load_brief = src.load_brief.clone();
+        }
+    }
 }
 
 fn parse_ini_bool_loose(raw: &str) -> bool {
@@ -385,7 +443,7 @@ MultiplayerScore.Palette=mpsscrnlf.pal
         let nod = reg.side_chrome("Nod").unwrap();
         assert_eq!(nod.mix_file_index, Some(2));
         assert!(!nod.yuri_file_names);
-        // ThirdSide 无独立节：仍有占位 chrome，键为空。
+        // ThirdSide 无显式键：内核保持空，由 edition adaptor 填。
         let third = reg.side_chrome("ThirdSide").unwrap();
         assert_eq!(third.mix_file_index, None);
         assert!(!third.yuri_file_names);
@@ -412,6 +470,7 @@ Sidebar.MixFileIndex=5
 Sidebar.YuriFileNames=no
 MultiplayerScore.Background=mpxscrnl.shp
 MultiplayerScore.Palette=mpxscrn.pal
+EVA.Tag=Foehn
 "#;
         let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
         let reg = CountryRegistry::from_rules(&doc);
@@ -420,6 +479,7 @@ MultiplayerScore.Palette=mpxscrn.pal
         assert!(!fifth.yuri_file_names);
         assert_eq!(fifth.score_background.as_deref(), Some("mpxscrnl.shp"));
         assert_eq!(fifth.score_palette.as_deref(), Some("mpxscrn.pal"));
+        assert_eq!(fifth.eva_tag.as_deref(), Some("Foehn"));
         let guild = reg.get("Guild1").unwrap();
         assert_eq!(guild.load_screen, "ls800haihead.shp");
         assert_eq!(guild.load_screen_pal, "mplshh.pal");
