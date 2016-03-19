@@ -14,3 +14,4 @@ publish = false
 
 [dependencies]
 ra-types = { workspace = true }
+ra-adaptor-ra2 = { workspace = true }

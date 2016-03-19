@@ -2,6 +2,8 @@
 
 #![deny(missing_docs)]
 
+pub mod stock_ui;
+
 use ra_types::GameEdition;
 
 /// 与 `ra-adaptor-ra2::ResourceProfile` 同形，避免跨 crate 循环依赖。

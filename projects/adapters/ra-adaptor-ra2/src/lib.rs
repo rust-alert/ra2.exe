@@ -2,6 +2,8 @@
 
 #![deny(missing_docs)]
 
+pub mod stock_ui;
+
 use ra_types::GameEdition;
 
 /// 某一版本期望的文件清单（差异优先当数据）。
