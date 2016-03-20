@@ -204,10 +204,10 @@ pub fn decode_battle_pause_chrome_resolved(
 pub fn decode_battle_pause_chrome_with(
     source: &GameAssetSource,
     side: &str,
-    faction_id: Option<&str>,
+    _faction_id: Option<&str>,
     side_chrome: Option<&UiFactionChrome>,
 ) -> BattlePauseChrome {
-    let chrome = UiFactionChrome::resolve(side, faction_id, side_chrome);
+    let chrome = UiFactionChrome::resolve(side_chrome);
     let mixes_owned = chrome.sidebar_mix_candidates();
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();

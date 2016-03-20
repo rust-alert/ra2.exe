@@ -254,7 +254,7 @@ pub fn country_lobby_display_name(csf: Option<&CsfFile>, id: &str, ui_name: &str
 
 /// 装载页国家介绍 CSF：`LOADBRIEF:{suffix}`。
 pub fn load_screen_brief_csf_key(side: &str) -> String {
-    format!("LOADBRIEF:{}", crate::skirmish_setup::load_screen_brief_suffix(side))
+    crate::skirmish_setup::load_screen_brief_csf_key(side, None)
 }
 
 /// 装载页「载入中」CSF。

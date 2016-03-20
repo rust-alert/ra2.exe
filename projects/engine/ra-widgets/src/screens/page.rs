@@ -12,8 +12,8 @@ use crate::{
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
-        load_screen_background_shp_resolved, load_screen_palette_resolved,
-        score_screen_background_candidates, score_screen_palette, score_screen_palette_candidates,
+        load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
+        score_screen_palette, score_screen_palette_candidates, UiFactionChrome,
     },
 };
 
@@ -214,15 +214,18 @@ pub fn page_resources_for_load_screen(side: &str, viewport_w: u32, readable: imp
 
 /// 同 [`page_resources_for_load_screen`]，可注入 rules `File.LoadScreen` / `File.LoadScreenPAL`。
 pub fn page_resources_for_load_screen_with(
-    side: &str,
+    _side: &str,
     viewport_w: u32,
     rules_shp: Option<&str>,
     rules_pal: Option<&str>,
     readable: impl Fn(&str) -> bool,
 ) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::LoadScreen)?;
-    let pal = load_screen_palette_resolved(side, rules_pal, &readable);
-    let shp = load_screen_background_shp_resolved(side, viewport_w, rules_shp);
+    let pal = load_screen_palette_resolved(rules_pal, &readable)?;
+    let shp = load_screen_background_shp_resolved(viewport_w, rules_shp)?;
+    if !readable(&shp) {
+        return None;
+    }
     Some(UiPageResources {
         screen: OriginalScreen::LoadScreen,
         background: Some(UiAssetRef::with_palette_frame(&shp, &pal, page.background_frame)),
@@ -244,23 +247,32 @@ pub fn page_resources_for_load_screen_with(
     })
 }
 
-/// 结算积分页资源：按 [`crate::skirmish_setup::UiFactionChrome`] 选战报图与调色板。
+/// 结算积分页资源：按已解析 [`UiFactionChrome`] 选战报图与调色板。
 pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
+    page_resources_for_results_with(side, &UiFactionChrome::resolve(None), readable)
+}
+
+/// 同 [`page_resources_for_results`]，注入已解析 chrome（不按国名猜苏盟）。
+pub fn page_resources_for_results_with(
+    _side: &str,
+    chrome: &UiFactionChrome,
+    readable: impl Fn(&str) -> bool,
+) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
-    let bg_candidates = score_screen_background_candidates(side);
+    let bg_candidates = score_screen_background_candidates(chrome);
     let bg_name = bg_candidates
         .iter()
         .map(String::as_str)
         .find(|n| readable(n))
         .unwrap_or("mnscrnl.shp")
         .to_string();
-    let pal_candidates = score_screen_palette_candidates(side);
+    let pal_candidates = score_screen_palette_candidates(chrome);
     let bg_pal = pal_candidates
         .iter()
         .map(String::as_str)
         .find(|p| readable(p))
         .map(str::to_string)
-        .unwrap_or_else(|| score_screen_palette(side));
+        .unwrap_or_else(|| score_screen_palette(chrome));
     Some(UiPageResources {
         screen: OriginalScreen::Results,
         background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),

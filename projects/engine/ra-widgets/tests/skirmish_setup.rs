@@ -1,10 +1,9 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_art_suffix, load_screen_background_shp, load_screen_background_shp_resolved,
-    load_screen_brief_suffix, load_screen_palette, load_screen_palette_resolved, load_screen_preferred_pal, score_screen_background_shp,
-    score_screen_palette, sidebar_chrome_mix, sidebar_chrome_mix_candidates, sidebar_chrome_mix_for_faction,
-    sidebar_radar_pal, sidebar_radar_shp,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_background_shp_resolved,
+    load_screen_brief_csf_key, load_screen_palette_resolved, pick_side_flag_pcx, score_screen_background_shp,
+    score_screen_palette,
 };
 
 fn sample_sides() -> Vec<String> {
@@ -74,101 +73,84 @@ fn cycle_difficulty_advances() {
 }
 
 #[test]
-fn load_screen_maps_lobby_sides_to_country_art() {
-    assert_eq!(load_screen_art_suffix("Americans"), "ustates");
-    assert_eq!(load_screen_art_suffix("French"), "france");
-    assert_eq!(load_screen_art_suffix("YuriCountry"), "yuri");
-    // YR 国家盘优先；RA2 缺盘时由 `load_screen_palette` 回退 `mpls.pal`。
-    assert_eq!(load_screen_preferred_pal("French"), "mplsf.pal");
-    assert_eq!(load_screen_preferred_pal("YuriCountry"), "mpyls.pal");
-    assert_eq!(load_screen_palette("French", |_| false), "mplsf.pal");
-    assert_eq!(load_screen_palette("French", |n| n == "mpls.pal"), "mpls.pal");
-    assert_eq!(load_screen_palette("YuriCountry", |n| n == "mpyls.pal"), "mpyls.pal");
-    assert_eq!(load_screen_brief_suffix("YuriCountry"), "YuriCountry");
-    assert_eq!(load_screen_brief_suffix("Americans"), "USA");
-    assert_eq!(load_screen_background_shp("Americans", 1024), "ls800ustates.shp");
-    assert_eq!(load_screen_background_shp("British", 640), "ls640ukingdom.shp");
-    assert_eq!(load_screen_background_shp("YuriCountry", 800), "ls800yuri.shp");
+fn load_screen_uses_explicit_names_only() {
     assert_eq!(
-        load_screen_background_shp_resolved("Guild1", 800, Some("ls800haihead.shp")),
-        "ls800haihead.shp"
+        load_screen_background_shp_resolved(800, Some("ls800haihead.shp")).as_deref(),
+        Some("ls800haihead.shp")
     );
     assert_eq!(
-        load_screen_palette_resolved("Guild1", Some("mplshh.pal"), |_| true),
-        "mplshh.pal"
+        load_screen_background_shp_resolved(640, Some("ls800haihead.shp")).as_deref(),
+        Some("ls640haihead.shp")
     );
+    assert_eq!(load_screen_background_shp_resolved(800, None), None);
+    assert_eq!(
+        load_screen_palette_resolved(Some("mplshh.pal"), |_| true).as_deref(),
+        Some("mplshh.pal")
+    );
+    assert_eq!(
+        load_screen_palette_resolved(None, |n| n == "mpls.pal").as_deref(),
+        Some("mpls.pal")
+    );
+    assert_eq!(
+        load_screen_brief_csf_key("Guild1", Some("STT:PlayerSideHaihead")),
+        "STT:PlayerSideHaihead"
+    );
+    assert_eq!(load_screen_brief_csf_key("Americans", None), "LOADBRIEF:Americans");
+    assert_eq!(pick_side_flag_pcx(&["haih.pcx"], |_| Some(1)), Some("haih.pcx"));
+    assert_eq!(pick_side_flag_pcx(&[], |_| Some(1)), None);
 }
 
 #[test]
-fn sidebar_chrome_mix_splits_allied_and_soviet() {
-    assert_eq!(sidebar_chrome_mix("Americans"), "sidec01.mix");
-    assert_eq!(sidebar_chrome_mix("French"), "sidec01.mix");
-    assert_eq!(sidebar_chrome_mix("Germans"), "sidec01.mix");
-    assert_eq!(sidebar_chrome_mix("British"), "sidec01.mix");
-    assert_eq!(sidebar_chrome_mix("Russians"), "sidec02.mix");
-    assert_eq!(sidebar_chrome_mix("Iraq"), "sidec02.mix");
-    assert_eq!(sidebar_chrome_mix("Yuri"), "sidec02.mix");
-    assert_eq!(sidebar_chrome_mix_for_faction("GDI"), "sidec01.mix");
-    assert_eq!(sidebar_chrome_mix_for_faction("Nod"), "sidec02.mix");
-    assert_eq!(sidebar_chrome_mix_for_faction("ThirdSide"), "sidec02.mix");
-    assert_eq!(
-        sidebar_chrome_mix_candidates("YuriCountry"),
-        vec!["sidec02md.mix".to_string(), "sidec02.mix".to_string()]
-    );
-    assert_eq!(
-        sidebar_chrome_mix_candidates("Americans"),
-        vec!["sidec01md.mix".to_string(), "sidec01.mix".to_string()]
-    );
-    assert_eq!(sidebar_radar_shp("YuriCountry"), "radary.shp");
-    assert_eq!(sidebar_radar_shp("Russians"), "radar.shp");
-    assert_eq!(sidebar_radar_pal("YuriCountry"), "radaryuri.pal");
-    assert_eq!(sidebar_radar_pal("Russians"), "sidebar.pal");
-}
+fn ui_faction_chrome_is_open_by_mix_index_only() {
+    // 无 Side chrome 时仅回退 DEFAULT_INDEX，不再按国名猜苏盟。
+    assert_eq!(UiFactionChrome::resolve(None).mix_file_index, 1);
+    assert!(!UiFactionChrome::resolve(None).yuri_file_names);
 
-#[test]
-fn ui_faction_chrome_is_open_by_mix_index() {
-    assert_eq!(UiFactionChrome::from_country("Americans").mix_file_index, 1);
-    assert_eq!(UiFactionChrome::from_country("Russians").mix_file_index, 2);
-    assert!(UiFactionChrome::from_country("YuriCountry").yuri_file_names);
-    assert!(UiFactionChrome::from_faction_id("ThirdSide").yuri_file_names);
-    assert_eq!(UiFactionChrome::from_faction_id("Nod").mix_file_index, 2);
-    assert_eq!(score_screen_background_shp("YuriCountry"), "mpyscrnl.shp");
-    assert_eq!(score_screen_palette("YuriCountry"), "mpyscrn.pal");
-    assert_eq!(score_screen_background_shp("Russians"), "mpsscrnl.shp");
-    assert_eq!(score_screen_background_shp("Americans"), "mpascrnl.shp");
-    // 模组未知国名：靠 Side= 库存默认；真正扩展族靠 MixFileIndex。
-    let custom_psi = UiFactionChrome::resolve("CustomPsi", Some("ThirdSide"), None);
-    assert_eq!(custom_psi.mix_file_index, 2);
-    assert!(custom_psi.yuri_file_names);
-    assert_eq!(UiFactionChrome::resolve("CustomNod", Some("Nod"), None).mix_file_index, 2);
-    assert_eq!(UiFactionChrome::resolve("CustomGdi", Some("GDI"), None).mix_file_index, 1);
-    assert_eq!(UiFactionChrome::resolve("TotallyUnknown", None, None).mix_file_index, 1);
-    // 任意多阵营：index 5 / 6 直接生成 sidecNN，不写死族名。
+    let allied = UiFactionChrome::from_mix_index(1, false);
+    assert_eq!(allied.sidebar_mix(), "sidec01.mix");
+    assert_eq!(allied.radar_shp(), "radar.shp");
+    assert_eq!(allied.radar_pal(), "sidebar.pal");
+
+    let yuri_pack = UiFactionChrome::from_mix_index(2, true);
+    assert_eq!(yuri_pack.sidebar_mix(), "sidec02.mix");
+    assert_eq!(yuri_pack.radar_shp(), "radary.shp");
+    assert_eq!(yuri_pack.radar_pal(), "radaryuri.pal");
+
+    // 任意多阵营：index 5 / 6 直接生成 sidecNN。
     let fifth = UiFactionChrome::from_mix_index(5, false);
     assert_eq!(fifth.sidebar_mix(), "sidec05.mix");
     assert_eq!(
         fifth.sidebar_mix_candidates(),
         vec!["sidec05md.mix".to_string(), "sidec05.mix".to_string()]
     );
+
     let sixth = UiFactionChrome::from_side_keys(
         Some(6),
         true,
         Some("mpxscrnl.shp".into()),
         Some("mpxscrn.pal".into()),
+        Some("Foehn".into()),
     )
     .expect("index 6");
     assert_eq!(sixth.sidebar_mix(), "sidec06.mix");
     assert_eq!(sixth.radar_shp(), "radary.shp");
     assert_eq!(sixth.score_background_candidates()[0], "mpxscrnl.shp");
     assert_eq!(sixth.score_palette_candidates()[0], "mpxscrn.pal");
+    assert_eq!(sixth.eva_sample_keys()[0], "Foehn");
+    // 无显式结算键时：候选为空（不猜名字）。
+    assert!(score_screen_background_shp(&fifth).is_empty());
+    assert!(score_screen_palette(&fifth).is_empty());
+
     let from_def = UiFactionChrome::from_side_chrome(&ra_assets::SideChromeDef {
         id: "FifthSide".into(),
         mix_file_index: Some(5),
         yuri_file_names: false,
         score_background: Some("mpxscrnl.shp".into()),
         score_palette: Some("mpxscrn.pal".into()),
+        eva_tag: Some("CustomEva".into()),
     })
     .expect("side chrome");
     assert_eq!(from_def.mix_file_index, 5);
     assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
+    assert_eq!(from_def.eva_tag.as_deref(), Some("CustomEva"));
 }
