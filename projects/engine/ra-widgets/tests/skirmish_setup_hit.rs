@@ -170,32 +170,18 @@ fn player_name_edit_accepts_ascii_and_backspace() {
 }
 
 #[test]
-fn americans_flag_pcx() {
-    assert_eq!(side_flag_pcx("Americans"), "usai.pcx");
-    assert_eq!(side_flag_pcx("Russians"), "rusi.pcx");
-    assert_eq!(side_flag_pcx("Alliance"), "japi.pcx");
-    assert_eq!(side_flag_pcx("Africans"), "lati.pcx");
-    assert_eq!(side_flag_pcx("Arabs"), "arbi.pcx");
-    assert_eq!(side_flag_pcx("Confederation"), "djbi.pcx");
-    assert_eq!(side_flag_pcx("YuriCountry"), "yrii.pcx");
-    assert_eq!(side_flag_pcx_candidates("Africans"), &["lati.pcx", "lybi.pcx"]);
-    assert_eq!(
-        side_flag_pcx_candidates("Confederation"),
-        &["djbi.pcx", "cubi.pcx", "lati.pcx"]
-    );
-}
-
-#[test]
-fn pick_side_flag_prefers_higher_mix_priority() {
-    // 基包只有 djbi；expand 覆盖 lati → 选 lati（共和国之辉中国旗常见布局）。
-    let picked = pick_side_flag_pcx("Confederation", |name| match name {
+fn pick_side_flag_uses_explicit_candidates_only() {
+    assert_eq!(pick_side_flag_pcx(&["usai.pcx"], |_| Some(1)), Some("usai.pcx"));
+    assert_eq!(pick_side_flag_pcx(&[], |_| Some(1)), None);
+    // 基包 djbi；expand 覆盖 lati → 选更高 priority。
+    let picked = pick_side_flag_pcx(&["djbi.pcx", "lati.pcx"], |name| match name {
         "djbi.pcx" => Some(0),
         "lati.pcx" => Some(101),
         _ => None,
     });
     assert_eq!(picked, Some("lati.pcx"));
-    // 同优先级时保留候选表更靠前的 djbi（原版古巴）。
-    let vanilla = pick_side_flag_pcx("Confederation", |name| match name {
+    // 同优先级保留候选表更靠前项。
+    let vanilla = pick_side_flag_pcx(&["djbi.pcx", "lati.pcx"], |name| match name {
         "djbi.pcx" | "lati.pcx" => Some(0),
         _ => None,
     });
