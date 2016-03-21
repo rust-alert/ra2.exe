@@ -337,9 +337,11 @@ pub fn list_install_skirmish_countries() -> (Vec<CountryDef>, Vec<SideGroup>, Ve
         return (Vec::new(), Vec::new(), Vec::new());
     };
     let registry = CountryRegistry::from_rules(&doc);
-    let countries: Vec<CountryDef> = registry.skirmish_countries().into_iter().cloned().collect();
     let sides = registry.sides().to_vec();
-    let chromes = registry.side_chromes().to_vec();
+    let mut countries = registry.countries().to_vec();
+    let mut chromes = registry.side_chromes().to_vec();
+    ra_adaptor::apply_stock_ui_for_chain(&manifest.chain, &mut countries, &mut chromes);
+    let countries: Vec<CountryDef> = countries.into_iter().filter(|c| c.visible_in_skirmish()).collect();
     (countries, sides, chromes)
 }
 

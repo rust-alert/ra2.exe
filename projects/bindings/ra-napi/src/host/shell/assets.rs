@@ -10,7 +10,7 @@ use ra_widgets::original_screen::OriginalScreen;
 use ra_widgets::skin::assets::load_menu_ui_assets;
 use ra_widgets::skin::decode;
 use ra_widgets::chrome::movie::MenuMoviePlayer;
-use ra_widgets::screens::page::{page_resources_for_load_screen_with, page_resources_for_results, page_resources_from_slots_with_edition};
+use ra_widgets::screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition};
 use ra_widgets::skin::resolve;
 
 use super::Shell;
@@ -92,7 +92,20 @@ impl Shell {
                 })
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| self.skirmish.side.clone());
-            page_resources_for_results(&house, |name| source.resolve(name).is_some())
+            {
+                let faction_id = self
+                    .lobby_countries
+                    .iter()
+                    .find(|c| c.id.eq_ignore_ascii_case(house.as_str()))
+                    .map(|c| c.side.as_str())
+                    .filter(|s| !s.is_empty());
+                let chrome = self
+                    .battle_controller
+                    .as_ref()
+                    .and_then(|c| c.ui_faction_chrome().cloned())
+                    .unwrap_or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
+                page_resources_for_results_with(&house, &chrome, |name| source.resolve(name).is_some())
+            }
         } else {
             page_resources_from_slots_with_edition(self.screen, edition)
         };

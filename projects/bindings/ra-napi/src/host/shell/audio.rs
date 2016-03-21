@@ -474,8 +474,6 @@ impl Shell {
         else {
             return Vec::new();
         };
-        let allied = doc.get(event_id, "Allied").unwrap_or("").trim().to_string();
-        let russian = doc.get(event_id, "Russian").unwrap_or("").trim().to_string();
         let chrome = self
             .battle_controller
             .as_ref()
@@ -501,14 +499,10 @@ impl Shell {
                 })
             })
             .unwrap_or_else(|| ra_widgets::skirmish_setup::UiFactionChrome::from_mix_index(1, false));
-        // 库存：index 1 走 Allied 轨，其余走 Russian；模组独立 EVA 键后续接 Side 表。
+        // 按 `EVA.Tag` 再 Allied/Russian 键取采样名，不按苏盟二元猜优先序。
         let mut out = Vec::new();
-        let (first, second) = if chrome.prefers_allied_eva() {
-            (allied, russian)
-        } else {
-            (russian, allied)
-        };
-        for stem in [first, second] {
+        for key in chrome.eva_sample_keys() {
+            let stem = doc.get(event_id, &key).unwrap_or("").trim().to_string();
             if stem.is_empty() {
                 continue;
             }

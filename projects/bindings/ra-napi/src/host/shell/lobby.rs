@@ -51,28 +51,19 @@ impl Shell {
         if need_flag {
             for i in 0..ra_layout::SKIRMISH_ROW_COUNT {
                 let side = self.skirmish.row_side(i);
-                let prefix = self
+                let country = self
                     .lobby_countries
                     .iter()
-                    .find(|c| c.id.eq_ignore_ascii_case(side))
-                    .map(|c| c.prefix.as_str())
-                    .unwrap_or("");
-                // 候选按 MIX / 松散层优先级取胜（expand 覆盖基包）；再试 `{prefix}i.pcx`。
-                let prefix_flag = if prefix.len() >= 3 {
-                    Some(format!("{}i.pcx", prefix[..3].to_ascii_lowercase()))
-                } else {
-                    None
-                };
-                let flag_name = pick_side_flag_pcx(side, |name| {
+                    .find(|c| c.id.eq_ignore_ascii_case(side));
+                let flag = country.map(|c| c.flag.as_str()).unwrap_or("").trim();
+                let candidates: Vec<&str> = if flag.is_empty() { Vec::new() } else { vec![flag] };
+                let flag_name = pick_side_flag_pcx(&candidates, |name| {
                     source.resolve(name).map(|hit| match &hit.origin {
                         ra_widgets::fs_source::AssetOrigin::Mix { priority, .. } => *priority,
                         ra_widgets::fs_source::AssetOrigin::Loose { .. } => ra_adaptor::PRIORITY_USER_OVERRIDE,
                     })
                 });
-                chrome.row_flags[i] = flag_name
-                    .into_iter()
-                    .chain(prefix_flag.as_deref())
-                    .find_map(|name| Self::load_pcx_rgba(source, name));
+                chrome.row_flags[i] = flag_name.and_then(|name| Self::load_pcx_rgba(source, name));
             }
             chrome.flag = chrome.row_flags[0].clone();
             chrome.ai_flag = chrome.row_flags[1].clone();
@@ -203,10 +194,10 @@ impl Shell {
         );
     }
 
-    /// 国家 + `Side=` → 壳层 chrome（优先 rules Side 段，开放任意 MixFileIndex）。
+    /// 国家 + `Side=` → 壳层 chrome（只认 rules Side 段 / 序推断，不按国名猜苏盟）。
     pub(super) fn resolve_ui_faction_chrome(
         &self,
-        country: &str,
+        _country: &str,
         faction_id: Option<&str>,
     ) -> ra_widgets::skirmish_setup::UiFactionChrome {
         use ra_widgets::skirmish_setup::UiFactionChrome;
@@ -216,7 +207,7 @@ impl Shell {
                 .find(|c| c.id.eq_ignore_ascii_case(fid))
                 .and_then(UiFactionChrome::from_side_chrome)
         });
-        UiFactionChrome::resolve(country, faction_id, mapped.as_ref())
+        UiFactionChrome::resolve(mapped.as_ref())
     }
 
     /// 当前选中模式的地图过滤标签；无选中时回退 `standard`。
