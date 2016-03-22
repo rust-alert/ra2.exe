@@ -12,6 +12,7 @@ use ra_widgets::skin::decode;
 use ra_widgets::chrome::movie::MenuMoviePlayer;
 use ra_widgets::screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition};
 use ra_widgets::skin::resolve;
+use ra_widgets::skin::slots::menu_movie_prefer_mix;
 
 use super::Shell;
 
@@ -158,11 +159,17 @@ impl Shell {
         }
 
         if let Some(movie) = page.movie.as_ref() {
-            match source.read(&movie.name) {
-                Ok(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
+            // YR / Mo3：同名 `ra2ts_*.bik` 在 `langmd.mix`（勿误用 `language.mix` 的原版片）。
+            let prefer_mix = menu_movie_prefer_mix(edition);
+            let movie_bytes = prefer_mix
+                .and_then(|mix| source.resolve_preferring(&movie.name, mix).map(|h| h.bytes))
+                .or_else(|| source.read(&movie.name).ok());
+            match movie_bytes {
+                Some(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
                     Ok(player) => {
                         tracing::info!(
                             name = %player.name(),
+                            prefer_mix = ?prefer_mix,
                             "主菜单影片播放器已就绪（自研 Bink）"
                         );
                         banner = format!("{banner} · {} 已解首帧", movie.name);
@@ -176,7 +183,7 @@ impl Shell {
                         self.menu_movie_clock = None;
                     }
                 },
-                Err(_) => {
+                None => {
                     tracing::warn!(name = %movie.name, "影片不可读");
                     self.menu_movie = None;
                     self.menu_movie_clock = None;

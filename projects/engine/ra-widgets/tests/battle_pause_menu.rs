@@ -6,7 +6,7 @@ use ra_widgets::compose::compose_battle_pause_menu_overlay;
 
 #[test]
 fn battle_pause_menu_hits_resume_and_options_from_snapshot() {
-    let metrics = BattleHudChromeMetrics::allied();
+    let metrics = BattleHudChromeMetrics::sidec01();
     assert_eq!(BATTLE_PAUSE_MENU_BUTTON_IDS.len(), 4);
     let rects = button_rects(800, 600, metrics);
     let options = rects[0];
@@ -25,7 +25,7 @@ fn battle_pause_menu_hits_resume_and_options_from_snapshot() {
 
 #[test]
 fn compose_battle_pause_menu_dims_left_and_paints_rail() {
-    let metrics = BattleHudChromeMetrics::allied();
+    let metrics = BattleHudChromeMetrics::sidec01();
     let page =
         compose_battle_pause_menu_overlay(800, 600, None, Some("options"), None, None, None, metrics)
             .unwrap();

@@ -9,6 +9,22 @@ use ra_types::GameEdition;
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen};
 
+/// 主菜单 / 单人页循环片逻辑名（大布局）。
+pub const MENU_MOVIE_BIK_LARGE: &str = "ra2ts_l.bik";
+/// 主菜单循环片逻辑名（640 窄布局）。
+pub const MENU_MOVIE_BIK_SMALL: &str = "ra2ts_s.bik";
+
+/// YR / Mo3 同名片在 `langmd.mix`（覆盖 `language.mix` 的原版 `ra2ts_*`）。
+pub const MENU_MOVIE_PREFER_MIX_MD: &str = "langmd.mix";
+
+/// 资料片主菜单片应优先从哪个 MIX 读取（`None` = 默认全局解析）。
+pub fn menu_movie_prefer_mix(edition: Option<GameEdition>) -> Option<&'static str> {
+    match edition {
+        Some(GameEdition::Yr | GameEdition::Mo3) => Some(MENU_MOVIE_PREFER_MIX_MD),
+        _ => None,
+    }
+}
+
 /// 侧板 / 装饰层槽。
 #[derive(Debug, Clone, Copy)]
 pub struct UiPanelSlot {
@@ -327,7 +343,8 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_pal: Some("shell.pal"),
             background_frame: 0,
             // 大布局默认 `ra2ts_l.bik`；640 窄布局后续切 `ra2ts_s.bik`。
-            movie_bik: Some("ra2ts_l.bik"),
+            // YR 同名片在 `langmd.mix`，装载时经 `menu_movie_prefer_mix` 优先。
+            movie_bik: Some(MENU_MOVIE_BIK_LARGE),
             panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: MAIN_MENU_BUTTONS,
@@ -339,7 +356,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: Some("ra2ts_l.bik"),
+            movie_bik: Some(MENU_MOVIE_BIK_LARGE),
             panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: SINGLE_PLAYER_BUTTONS,
@@ -400,7 +417,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: Some("ra2ts_l.bik"),
+            movie_bik: Some(MENU_MOVIE_BIK_LARGE),
             panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: OPTIONS_BUTTONS,
@@ -412,7 +429,7 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             background_pcx: None,
             background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: Some("ra2ts_l.bik"),
+            movie_bik: Some(MENU_MOVIE_BIK_LARGE),
             panels: EXIT_CONFIRM_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: EXIT_CONFIRM_BUTTONS,

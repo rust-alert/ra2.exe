@@ -742,7 +742,7 @@ const BATTLE_HUD_HIT_IDS: [&str; 8] = [
 
 /// 视口像素命中（侧栏与命令条均走 snapshot）。
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
-    hit_at_with_chrome(snap, None, BattleHudChromeMetrics::allied().power_w, 0, x, y)
+    hit_at_with_chrome(snap, None, BattleHudChromeMetrics::sidec01().power_w, 0, x, y)
 }
 
 /// 带 chrome / cameo 槽数的命中。
@@ -973,7 +973,7 @@ mod tests {
 
     #[test]
     fn hit_tabs_and_cameo_slots() {
-        let metrics = BattleHudChromeMetrics::allied();
+        let metrics = BattleHudChromeMetrics::sidec01();
         let snap = solve_battle_hud_with_metrics(800, 600, metrics);
         let tab0 = rect_px_from_snapshot(&snap, "tab00");
         assert_eq!(

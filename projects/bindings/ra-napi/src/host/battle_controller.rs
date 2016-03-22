@@ -2253,7 +2253,7 @@ impl BattleController {
                     .as_ref()
                     .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
             })
-            .unwrap_or_else(BattleHudChromeMetrics::allied)
+            .unwrap_or_else(BattleHudChromeMetrics::sidec01)
     }
 
     fn refresh_pause_hover(&mut self, window: &Window) {
@@ -2338,7 +2338,7 @@ impl BattleController {
             .hud_chrome
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::allied);
+            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
         solve_battle_hud_with_metrics(w, h, metrics)
     }
 
@@ -2348,7 +2348,7 @@ impl BattleController {
             .hud_chrome
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::allied);
+            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         let cameo_count = self.current_tab_cameo_count(visible);
@@ -2539,7 +2539,7 @@ impl BattleController {
             .hud_chrome
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::allied);
+            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
         let snap = solve_battle_hud_with_metrics(w, h, metrics);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);

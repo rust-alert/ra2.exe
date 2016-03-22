@@ -58,7 +58,7 @@ pub fn compose_battle_hud_overlay(
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
     let metrics = match chrome {
         Some(c) => BattleHudChromeMetrics::for_mix(&c.mix),
-        None => BattleHudChromeMetrics::allied(),
+        None => BattleHudChromeMetrics::sidec01(),
     };
     let snap = solve_battle_hud_with_metrics(w, h, metrics);
     let credits = rect_px_from_snapshot(&snap, "credits");

@@ -2,7 +2,7 @@
 //!
 //! 几何对齐零售对局侧栏：右侧栏贴满屏高；战术区底边留出命令条高度。
 //! 命令条横贯侧栏左侧（`lendcap` / `buttonNN` / `rendcap`），不是选项/外交假底栏。
-//! 盟军 `sidec01` 与苏军 `sidec02` 钮面画布尺寸不同，由 `BattleHudChromeMetrics` 区分。
+//! `sidec01` / `sidec02` 钮面画布尺寸不同，由 `BattleHudChromeMetrics` 区分（按 mix 索引选包，非阵营语义）。
 
 use crate::{
     geometry::{Rect, Size2},
@@ -12,7 +12,7 @@ use crate::{
     shell::{rect_px_from_snapshot, RectPx},
 };
 
-/// 侧栏共用竖向槽位高度（两阵营一致）。
+/// 侧栏共用竖向槽位高度（两套已测 chrome 包一致）。
 const CREDITS_H: i32 = 16;
 const TOP_H: i32 = 32;
 const RADAR_H: i32 = 110;
@@ -34,7 +34,7 @@ pub const COMMAND_BAR_BUTTON_COUNT: usize = 6;
 pub const COMMAND_BAR_BUTTON_IDS: [&str; COMMAND_BAR_BUTTON_COUNT] =
     ["cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5"];
 
-/// 阵营侧栏 chrome 画布尺寸与槽位偏移（像素）。
+/// 侧栏 chrome 画布尺寸与槽位偏移（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BattleHudChromeMetrics {
     /// `repair`/`sell` 画布宽。
@@ -70,8 +70,8 @@ pub struct BattleHudChromeMetrics {
 }
 
 impl BattleHudChromeMetrics {
-    /// 盟军 `sidec01` 画布度量。
-    pub const fn allied() -> Self {
+    /// `sidec01` 嵌套包画布度量（已测）。
+    pub const fn sidec01() -> Self {
         Self {
             repair_sell_w: 64,
             repair_sell_h: 31,
@@ -91,8 +91,8 @@ impl BattleHudChromeMetrics {
         }
     }
 
-    /// 苏军 `sidec02` 画布度量。
-    pub const fn soviet() -> Self {
+    /// `sidec02` 嵌套包画布度量（已测）。
+    pub const fn sidec02() -> Self {
         Self {
             repair_sell_w: 52,
             repair_sell_h: 32,
@@ -112,14 +112,26 @@ impl BattleHudChromeMetrics {
         }
     }
 
-    /// 按嵌套包名选择度量（`sidec02` → 苏军，其余默认盟军）。
+    /// 按 1-based mix 索引选度量；仅 `2` 用 `sidec02` 包，其余（含未测的 3+）用 `sidec01` 包。
+    pub const fn for_mix_index(index: u32) -> Self {
+        if index == 2 {
+            Self::sidec02()
+        } else {
+            Self::sidec01()
+        }
+    }
+
+    /// 从嵌套包名解析 `sidecNN` 索引后选度量；解析失败时用 `sidec01` 包。
     pub fn for_mix(mix: &str) -> Self {
         let lower = mix.to_ascii_lowercase();
-        if lower.contains("sidec02") {
-            Self::soviet()
-        } else {
-            Self::allied()
-        }
+        let idx = lower
+            .strip_prefix("sidec")
+            .and_then(|rest| {
+                let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                digits.parse::<u32>().ok()
+            })
+            .unwrap_or(1);
+        Self::for_mix_index(idx)
     }
 }
 
@@ -316,7 +328,7 @@ pub(crate) fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> Layout
     battle_hud_layout_tree_with_metrics(
         viewport_w,
         viewport_h,
-        BattleHudChromeMetrics::allied(),
+        BattleHudChromeMetrics::sidec01(),
     )
 }
 
@@ -332,7 +344,7 @@ pub(crate) fn battle_hud_layout_tree_with_metrics(
 
 /// 求解对局 HUD snapshot（默认盟军度量）。
 pub fn solve_battle_hud(viewport_w: u32, viewport_h: u32) -> crate::LayoutSnapshot {
-    solve_battle_hud_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::allied())
+    solve_battle_hud_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
 }
 
 /// 求解对局 HUD snapshot（指定阵营度量）。
@@ -420,7 +432,7 @@ mod tests {
 
     #[test]
     fn battle_hud_snap_matches_computed_rects() {
-        let metrics = BattleHudChromeMetrics::allied();
+        let metrics = BattleHudChromeMetrics::sidec01();
         for (vw, vh) in [(640u32, 480u32), (800, 600), (1280, 720), (2560, 1440)] {
             let snap = solve_battle_hud_with_metrics(vw, vh, metrics);
             let expected = compute_battle_hud_rects(vw, vh, metrics);
@@ -465,8 +477,8 @@ mod tests {
 
     #[test]
     fn battle_hud_command_bar_spans_tactical_bottom() {
-        let allied = BattleHudChromeMetrics::allied();
-        let r = compute_battle_hud_rects(800, 600, allied);
+        let sidec01 = BattleHudChromeMetrics::sidec01();
+        let r = compute_battle_hud_rects(800, 600, sidec01);
         assert_eq!(r.sidebar.x as i32, 800 - 168);
         assert_eq!(r.sidebar.width as i32, 168);
         assert_eq!(r.sidebar.height as i32, 600);
@@ -502,41 +514,41 @@ mod tests {
         assert_eq!(r.side1.height as i32, SIDE1_H);
         assert_eq!(r.side3.height as i32, SIDE3_H);
         assert_eq!(r.addon.height as i32, ADDON_H);
-        assert_eq!(r.opt_btn.width as i32, allied.top_btn_w);
-        assert_eq!(r.opt_btn.height as i32, allied.top_btn_h);
-        assert_eq!(r.diplo_btn.width as i32, allied.top_btn_w);
-        assert_eq!(r.repair.width as i32, allied.repair_sell_w);
-        assert_eq!(r.repair.height as i32, allied.repair_sell_h);
-        assert_eq!(r.tabs[0].width as i32, allied.tab_w);
-        assert_eq!(r.tabs[0].height as i32, allied.tab_h);
+        assert_eq!(r.opt_btn.width as i32, sidec01.top_btn_w);
+        assert_eq!(r.opt_btn.height as i32, sidec01.top_btn_h);
+        assert_eq!(r.diplo_btn.width as i32, sidec01.top_btn_w);
+        assert_eq!(r.repair.width as i32, sidec01.repair_sell_w);
+        assert_eq!(r.repair.height as i32, sidec01.repair_sell_h);
+        assert_eq!(r.tabs[0].width as i32, sidec01.tab_w);
+        assert_eq!(r.tabs[0].height as i32, sidec01.tab_h);
     }
 
     #[test]
-    fn allied_and_soviet_chrome_metrics_differ() {
-        let allied = BattleHudChromeMetrics::allied();
-        let soviet = BattleHudChromeMetrics::soviet();
-        assert_ne!(allied.repair_sell_w, soviet.repair_sell_w);
-        assert_ne!(allied.repair_sell_h, soviet.repair_sell_h);
-        assert_ne!(allied.repair_x, soviet.repair_x);
-        assert_ne!(allied.tab_w, soviet.tab_w);
-        assert_ne!(allied.tab_h, soviet.tab_h);
-        assert_ne!(allied.tab_x, soviet.tab_x);
-        assert_ne!(allied.top_btn_h, soviet.top_btn_h);
-        assert_ne!(allied.power_w, soviet.power_w);
+    fn sidec01_and_sidec02_chrome_metrics_differ() {
+        let sidec01 = BattleHudChromeMetrics::sidec01();
+        let sidec02 = BattleHudChromeMetrics::sidec02();
+        assert_ne!(sidec01.repair_sell_w, sidec02.repair_sell_w);
+        assert_ne!(sidec01.repair_sell_h, sidec02.repair_sell_h);
+        assert_ne!(sidec01.repair_x, sidec02.repair_x);
+        assert_ne!(sidec01.tab_w, sidec02.tab_w);
+        assert_ne!(sidec01.tab_h, sidec02.tab_h);
+        assert_ne!(sidec01.tab_x, sidec02.tab_x);
+        assert_ne!(sidec01.top_btn_h, sidec02.top_btn_h);
+        assert_ne!(sidec01.power_w, sidec02.power_w);
 
-        let a = compute_battle_hud_rects(800, 600, allied);
-        let s = compute_battle_hud_rects(800, 600, soviet);
+        let a = compute_battle_hud_rects(800, 600, sidec01);
+        let s = compute_battle_hud_rects(800, 600, sidec02);
         assert_eq!(a.repair.width as i32, 64);
         assert_eq!(a.repair.height as i32, 31);
         assert_eq!(s.repair.width as i32, 52);
         assert_eq!(s.repair.height as i32, 32);
         assert_eq!(
             a.repair.x as i32 - a.sidebar.x as i32,
-            allied.repair_x
+            sidec01.repair_x
         );
         assert_eq!(
             s.repair.x as i32 - s.sidebar.x as i32,
-            soviet.repair_x
+            sidec02.repair_x
         );
         assert_eq!(a.tabs[0].width as i32, 28);
         assert_eq!(a.tabs[0].height as i32, 27);
@@ -546,30 +558,34 @@ mod tests {
         assert_eq!(s.opt_btn.height as i32, 22);
         assert_eq!(
             a.tabs[0].x as i32 - a.sidebar.x as i32,
-            allied.tab_x
+            sidec01.tab_x
         );
         assert_eq!(
             s.tabs[0].x as i32 - s.sidebar.x as i32,
-            soviet.tab_x
+            sidec02.tab_x
         );
 
         assert_eq!(
             BattleHudChromeMetrics::for_mix("sidec01.mix"),
-            allied
+            sidec01
         );
         assert_eq!(
             BattleHudChromeMetrics::for_mix("sidec02.mix"),
-            soviet
+            sidec02
         );
         assert_eq!(
             BattleHudChromeMetrics::for_mix("SIDEC02.MIX"),
-            soviet
+            sidec02
+        );
+        assert_eq!(
+            BattleHudChromeMetrics::for_mix_index(4),
+            sidec01
         );
     }
 
     #[test]
     fn cameo_grid_two_columns_inside_band() {
-        let metrics = BattleHudChromeMetrics::allied();
+        let metrics = BattleHudChromeMetrics::sidec01();
         let snap = solve_battle_hud_with_metrics(800, 600, metrics);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);

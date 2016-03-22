@@ -121,3 +121,12 @@ fn splash_has_no_menu_shell_slots() {
     // 进程启动闪屏不走菜单槽；资源由 `startup_splash` 绑定 `GLSS`/`GLSL`。
     assert!(slots_for(OriginalScreen::Splash).is_none());
 }
+
+#[test]
+fn yr_and_mo3_prefer_langmd_for_menu_movie() {
+    use ra_types::GameEdition;
+    assert_eq!(menu_movie_prefer_mix(Some(GameEdition::Yr)), Some(MENU_MOVIE_PREFER_MIX_MD));
+    assert_eq!(menu_movie_prefer_mix(Some(GameEdition::Mo3)), Some(MENU_MOVIE_PREFER_MIX_MD));
+    assert_eq!(menu_movie_prefer_mix(Some(GameEdition::Ra2)), None);
+    assert_eq!(menu_movie_prefer_mix(None), None);
+}
