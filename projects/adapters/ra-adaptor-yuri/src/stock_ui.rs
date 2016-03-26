@@ -5,7 +5,12 @@
 
 #![allow(missing_docs)]
 
-pub use ra_adaptor_ra2::stock_ui::{StockCountryUi, StockSideChrome};
+pub use ra_adaptor_ra2::stock_ui::{StockCountryUi, StockScoreScreenStyle, StockSideChrome};
+
+/// YR 结算：战报图自带金属底框，关闭原版半透明黑遮罩。
+pub fn score_screen_style() -> StockScoreScreenStyle {
+    StockScoreScreenStyle { stats_shade: false }
+}
 
 /// YR 可对战势力库存 chrome（按原版 `[Sides]` 键；尤里与苏军共用 `sidec02` + yuri 文件名）。
 pub fn stock_side_chromes() -> &'static [StockSideChrome] {

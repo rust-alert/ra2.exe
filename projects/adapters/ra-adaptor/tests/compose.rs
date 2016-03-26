@@ -17,3 +17,10 @@ fn retail_roundtrip() {
     assert_eq!(AdaptorStack::from_edition(GameEdition::Ra2).to_edition(), GameEdition::Ra2);
     assert_eq!(AdaptorStack::from_edition(GameEdition::Yr).to_edition(), GameEdition::Yr);
 }
+
+#[test]
+fn score_screen_shade_differs_by_edition() {
+    assert!(ra_adaptor::score_screen_style(GameEdition::Ra2).stats_shade);
+    assert!(!ra_adaptor::score_screen_style(GameEdition::Yr).stats_shade);
+    assert!(!ra_adaptor::score_screen_style(GameEdition::Mo3).stats_shade);
+}

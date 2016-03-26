@@ -5,6 +5,18 @@ use ra_types::GameEdition;
 
 use crate::ResourceChain;
 
+pub use ra_adaptor_ra2::stock_ui::StockScoreScreenStyle;
+
+/// 按 edition 返回结算页壳层表现（遮罩等；阵营战报图仍走 Side chrome）。
+pub fn score_screen_style(edition: GameEdition) -> StockScoreScreenStyle {
+    match edition {
+        GameEdition::Ra2 => ra_adaptor_ra2::stock_ui::score_screen_style(),
+        GameEdition::Yr => ra_adaptor_yuri::stock_ui::score_screen_style(),
+        // MO 布局贴近资料片战报皮；无独立表前与 YR 同关遮罩。
+        GameEdition::Mo3 => ra_adaptor_yuri::stock_ui::score_screen_style(),
+    }
+}
+
 fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeDef {
     SideChromeDef {
         id: s.id.to_string(),

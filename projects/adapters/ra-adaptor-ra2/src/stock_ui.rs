@@ -5,6 +5,21 @@
 
 #![allow(missing_docs)]
 
+/// 遭遇战结算页壳层表现（edition 级，与阵营战报图分列）。
+///
+/// 战报图（`mpascrnl` / `mpsscrnl` / `mpyscrnl`）自带金属底框；原版偏亮时需半透明遮罩保表文可读，
+/// 资料片画面更暗且底框更醒目时勿再叠「黑框」，否则盖住 adaptor 指定的战报皮。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StockScoreScreenStyle {
+    /// 是否在统计区叠半透明黑底 + 描边。
+    pub stats_shade: bool,
+}
+
+/// 原版 RA2 结算：统计区需要遮罩（战报图中心偏亮）。
+pub fn score_screen_style() -> StockScoreScreenStyle {
+    StockScoreScreenStyle { stats_shade: true }
+}
+
 /// 库存势力 chrome 一行。
 #[derive(Debug, Clone, Copy)]
 pub struct StockSideChrome {

@@ -376,6 +376,14 @@ impl Shell {
                                 rows: rows.as_slice(),
                                 backdrop: self.score_backdrop.as_ref(),
                                 campaign: self.results_is_campaign(),
+                                stats_shade: {
+                                    let edition = self
+                                        .menu_assets
+                                        .as_ref()
+                                        .and_then(|a| a.edition)
+                                        .unwrap_or(ra_types::GameEdition::Ra2);
+                                    ra_adaptor::score_screen_style(edition).stats_shade
+                                },
                             },
                             self.menu_panel_anim_frame,
                         )
