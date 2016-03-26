@@ -485,7 +485,7 @@ impl Shell {
                             .players
                             .iter()
                             .find(|p| p.id == g.world.local_player)
-                            .map(|p| {
+                            .and_then(|p| {
                                 let house = p.house.as_ref();
                                 let fid = self
                                     .lobby_countries
@@ -497,9 +497,11 @@ impl Shell {
                             })
                     })
                 })
-            })
-            .unwrap_or_else(|| ra_widgets::skirmish_setup::UiFactionChrome::from_mix_index(1, false));
-        // 按 `EVA.Tag` 再 Allied/Russian 键取采样名，不按苏盟二元猜优先序。
+            });
+        let Some(chrome) = chrome else {
+            return Vec::new();
+        };
+        // 按 `EVA.Tag` 取采样名；无 chrome 则空列表。
         let mut out = Vec::new();
         for key in chrome.eva_sample_keys() {
             let stem = doc.get(event_id, &key).unwrap_or("").trim().to_string();

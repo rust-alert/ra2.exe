@@ -48,11 +48,14 @@ impl Shell {
         let house = self.results_local_house();
         let faction_owned = self.results_faction_id().map(str::to_string);
         let faction_id = faction_owned.as_deref();
-        let chrome = self
+        let Some(chrome) = self
             .battle_controller
             .as_ref()
             .and_then(|c| c.ui_faction_chrome().cloned())
-            .unwrap_or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
+            .or_else(|| self.resolve_ui_faction_chrome(&house, faction_id))
+        else {
+            return;
+        };
         let want_shp = chrome
             .score_background_candidates()
             .into_iter()
@@ -95,7 +98,7 @@ impl Shell {
             };
             let mut decoded = None;
             for paln in &pal_names {
-                let Some(ph) = source.resolve(paln).or_else(|| source.resolve_preferring(paln, "sidec01.mix"))
+                let Some(ph) = source.resolve(paln)
                 else {
                     continue;
                 };

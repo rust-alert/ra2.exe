@@ -36,7 +36,7 @@ pub const PLAYER_NAME_MAX_CHARS: usize = 12;
 /// - 结算图 / 调色板：优先 rules 显式键，否则共用发现池（**不按盟军/苏军/尤里猜主选**）。
 ///
 /// 禁止再按国名或 `GDI`/`Nod`/`ThirdSide` 字符串做苏盟二元分类；一律走
-/// [`UiFactionChrome::from_side_chrome`] / [`UiFactionChrome::resolve`]。
+/// [`UiFactionChrome::from_side_chrome`]（无表则 `None`，不静默回退 sidec01）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiFactionChrome {
     /// 1-based，对应 `sidecNN` / `sidencNN`。
@@ -52,9 +52,6 @@ pub struct UiFactionChrome {
 }
 
 impl UiFactionChrome {
-    /// 缺省侧栏索引（无 Side chrome 时的最后回退，非「盟军」语义）。
-    pub const DEFAULT_INDEX: u32 = 1;
-
     /// 由 mix 索引构造（无结算 / EVA 覆盖）。
     pub fn from_mix_index(mix_file_index: u32, yuri_file_names: bool) -> Self {
         Self {
@@ -106,11 +103,9 @@ impl UiFactionChrome {
         self
     }
 
-    /// 仅消费已解析的 Side chrome；无表时回退 [`Self::DEFAULT_INDEX`]。
-    pub fn resolve(side_chrome: Option<&UiFactionChrome>) -> Self {
-        side_chrome
-            .cloned()
-            .unwrap_or_else(|| Self::from_mix_index(Self::DEFAULT_INDEX, false))
+    /// 仅克隆已解析的 Side chrome；无表时返回 `None`（不静默回退 sidec01）。
+    pub fn resolve(side_chrome: Option<&UiFactionChrome>) -> Option<Self> {
+        side_chrome.cloned()
     }
 
     /// 对局侧栏基座嵌套包名。

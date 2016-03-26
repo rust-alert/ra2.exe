@@ -104,8 +104,10 @@ impl Shell {
                     .battle_controller
                     .as_ref()
                     .and_then(|c| c.ui_faction_chrome().cloned())
-                    .unwrap_or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
-                page_resources_for_results_with(&house, &chrome, |name| source.resolve(name).is_some())
+                    .or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
+                chrome.as_ref().and_then(|chrome| {
+                    page_resources_for_results_with(&house, chrome, |name| source.resolve(name).is_some())
+                })
             }
         } else {
             page_resources_from_slots_with_edition(self.screen, edition)

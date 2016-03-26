@@ -207,7 +207,18 @@ pub fn decode_battle_pause_chrome_with(
     _faction_id: Option<&str>,
     side_chrome: Option<&UiFactionChrome>,
 ) -> BattlePauseChrome {
-    let chrome = UiFactionChrome::resolve(side_chrome);
+    let Some(chrome) = UiFactionChrome::resolve(side_chrome) else {
+        return BattlePauseChrome {
+            side: side.to_string(),
+            mix: String::new(),
+            radar: None,
+            center_panel: None,
+            button_normal: None,
+            button_pressed: None,
+            button_hover: None,
+            errors: vec!["缺少 Side chrome（无 MixFileIndex）".into()],
+        };
+    };
     let mixes_owned = chrome.sidebar_mix_candidates();
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();

@@ -194,12 +194,12 @@ impl Shell {
         );
     }
 
-    /// 国家 + `Side=` → 壳层 chrome（只认 rules Side 段 / 序推断，不按国名猜苏盟）。
+    /// 国家 + `Side=` → 壳层 chrome（只认 rules Side 段，不按国名猜苏盟；无表则 `None`）。
     pub(super) fn resolve_ui_faction_chrome(
         &self,
         _country: &str,
         faction_id: Option<&str>,
-    ) -> ra_widgets::skirmish_setup::UiFactionChrome {
+    ) -> Option<ra_widgets::skirmish_setup::UiFactionChrome> {
         use ra_widgets::skirmish_setup::UiFactionChrome;
         let mapped = faction_id.and_then(|fid| {
             self.lobby_side_chromes

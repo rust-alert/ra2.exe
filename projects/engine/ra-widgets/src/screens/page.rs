@@ -247,12 +247,12 @@ pub fn page_resources_for_load_screen_with(
     })
 }
 
-/// 结算积分页资源：按已解析 [`UiFactionChrome`] 选战报图与调色板。
-pub fn page_resources_for_results(side: &str, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
-    page_resources_for_results_with(side, &UiFactionChrome::resolve(None), readable)
+/// 结算积分页资源：无 chrome 时返回 `None`（不静默回退 sidec01）。
+pub fn page_resources_for_results(_side: &str, _readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
+    None
 }
 
-/// 同 [`page_resources_for_results`]，注入已解析 chrome（不按国名猜苏盟）。
+/// 同结算资源入口，注入已解析 chrome（不按国名猜苏盟）。
 pub fn page_resources_for_results_with(
     _side: &str,
     chrome: &UiFactionChrome,

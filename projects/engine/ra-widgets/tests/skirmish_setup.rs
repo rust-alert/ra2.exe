@@ -102,9 +102,8 @@ fn load_screen_uses_explicit_names_only() {
 
 #[test]
 fn ui_faction_chrome_is_open_by_mix_index_only() {
-    // 无 Side chrome 时仅回退 DEFAULT_INDEX，不再按国名猜苏盟。
-    assert_eq!(UiFactionChrome::resolve(None).mix_file_index, 1);
-    assert!(!UiFactionChrome::resolve(None).yuri_file_names);
+    // 无 Side chrome 时为 None，不静默回退 sidec01。
+    assert!(UiFactionChrome::resolve(None).is_none());
 
     let allied = UiFactionChrome::from_mix_index(1, false);
     assert_eq!(allied.sidebar_mix(), "sidec01.mix");

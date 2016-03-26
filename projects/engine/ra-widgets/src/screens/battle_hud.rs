@@ -167,7 +167,31 @@ pub fn decode_battle_hud_chrome_with(
     _faction_id: Option<&str>,
     side_chrome: Option<&UiFactionChrome>,
 ) -> BattleHudChrome {
-    let chrome = UiFactionChrome::resolve(side_chrome);
+    let Some(chrome) = UiFactionChrome::resolve(side_chrome) else {
+        return BattleHudChrome {
+            side: side.to_string(),
+            mix: String::new(),
+            credits: None,
+            top: None,
+            radar: None,
+            side1: None,
+            side2: None,
+            side3: None,
+            addon: None,
+            repair: None,
+            sell: None,
+            powerp: None,
+            tabs: [None, None, None, None],
+            optbtn: None,
+            diplobtn: None,
+            lendcap: None,
+            rendcap: None,
+            lspacer: None,
+            command_buttons: std::array::from_fn(|_| None),
+            command_buttons_pressed: std::array::from_fn(|_| None),
+            errors: vec!["缺少 Side chrome（无 MixFileIndex）".into()],
+        };
+    };
     let mixes_owned = chrome.sidebar_mix_candidates();
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
@@ -894,7 +918,6 @@ fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiS
     let pal_hit = source
         .resolve_preferring("cameo.pal", "cameo.mix")
         .or_else(|| source.resolve("cameo.pal"))
-        .or_else(|| source.resolve_preferring("sidebar.pal", "sidec01.mix"))
         .or_else(|| source.resolve("sidebar.pal"))
         .ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("cameo.pal: 解析失败 · {e}"))?;

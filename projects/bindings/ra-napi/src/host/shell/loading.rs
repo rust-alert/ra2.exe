@@ -291,7 +291,7 @@ impl Shell {
         let chrome = self.resolve_ui_faction_chrome(&house, faction_id.as_deref());
         if let Some(ctrl) = self.battle_controller.as_mut() {
             ctrl.set_ui_faction_side(faction_id);
-            ctrl.set_ui_faction_chrome(Some(chrome));
+            ctrl.set_ui_faction_chrome(chrome);
         }
         let ok = self.battle_controller.as_ref().is_some_and(|c| c.has_session());
         let target = self.pending_after_load.take().unwrap_or(OriginalScreen::Battle);
