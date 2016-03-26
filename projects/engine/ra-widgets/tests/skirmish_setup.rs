@@ -105,10 +105,10 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
     // 无 Side chrome 时为 None，不静默回退 sidec01。
     assert!(UiFactionChrome::resolve(None).is_none());
 
-    let allied = UiFactionChrome::from_mix_index(1, false);
-    assert_eq!(allied.sidebar_mix(), "sidec01.mix");
-    assert_eq!(allied.radar_shp(), "radar.shp");
-    assert_eq!(allied.radar_pal(), "sidebar.pal");
+    let sidec01 = UiFactionChrome::from_mix_index(1, false);
+    assert_eq!(sidec01.sidebar_mix(), "sidec01.mix");
+    assert_eq!(sidec01.radar_shp(), "radar.shp");
+    assert_eq!(sidec01.radar_pal(), "sidebar.pal");
 
     let yuri_pack = UiFactionChrome::from_mix_index(2, true);
     assert_eq!(yuri_pack.sidebar_mix(), "sidec02.mix");

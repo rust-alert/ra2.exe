@@ -323,7 +323,7 @@ fn battle_hud_tree_from_rects(viewport_w: u32, viewport_h: u32, r: BattleHudRect
     )
 }
 
-/// 对局 HUD 布局树：右栏 chrome 槽位 + 战术区底边命令条（默认盟军度量）。
+/// 对局 HUD 布局树：右栏 chrome 槽位 + 战术区底边命令条（默认 `sidec01` 度量）。
 pub(crate) fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
     battle_hud_layout_tree_with_metrics(
         viewport_w,
@@ -332,7 +332,7 @@ pub(crate) fn battle_hud_layout_tree(viewport_w: u32, viewport_h: u32) -> Layout
     )
 }
 
-/// 对局 HUD 布局树：按阵营 chrome 度量计算槽位。
+/// 对局 HUD 布局树：按 chrome 度量计算槽位。
 pub(crate) fn battle_hud_layout_tree_with_metrics(
     viewport_w: u32,
     viewport_h: u32,
@@ -342,7 +342,7 @@ pub(crate) fn battle_hud_layout_tree_with_metrics(
     battle_hud_tree_from_rects(viewport_w, viewport_h, r)
 }
 
-/// 求解对局 HUD snapshot（默认盟军度量）。
+/// 求解对局 HUD snapshot（默认 `sidec01` 度量）。
 pub fn solve_battle_hud(viewport_w: u32, viewport_h: u32) -> crate::LayoutSnapshot {
     solve_battle_hud_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
 }

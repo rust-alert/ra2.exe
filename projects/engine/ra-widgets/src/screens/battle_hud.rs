@@ -1,6 +1,6 @@
-//! 对局侧栏 chrome：按阵营从 `sidec01`/`sidec02` 解码并合成。
+//! 对局侧栏 chrome：按已解析 [`UiFactionChrome`] 从 `sidecNN` 解码并合成。
 //!
-//! 文件名与菜单壳层分离；同名 SHP 靠阵营嵌套包区分盟军 / 苏军外观。
+//! 文件名与菜单壳层分离；同名 SHP 靠 `MixFileIndex` 嵌套包区分外观。
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
 use ra_assets::{Palette, ShpFile};
