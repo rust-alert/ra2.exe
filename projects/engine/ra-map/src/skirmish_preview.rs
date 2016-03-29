@@ -169,8 +169,8 @@ pub fn compose_boot_preview(
         .first()
         .map(|l| {
             format!(
-                "{} {}x{} body#{}/{}",
-                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames
+                "{} {}x{} body#{}/{} pal={}",
+                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames, l.palette
             )
         })
         .unwrap_or_else(|| "-".into());

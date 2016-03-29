@@ -13,8 +13,11 @@ use crate::{
     theater::{theater_palette, theater_tmp_extension},
 };
 
-/// FA2 `IsoView` 对地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
+/// FA2 `IsoView` 对普通地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
 const TERRAIN_OBJECT_Y_FUDGE: i32 = -3;
+
+/// `SpawnsTiberium=yes` 矿柱的 `CellHeight` Y 偏移（相对格子钻石中心再偏 −15）。
+const SPAWNS_TIBERIUM_Y_FUDGE: i32 = -15;
 
 /// 逻辑帧率：`rules` 的 `AnimationRate` 以该帧率为单位间隔。
 const TERRAIN_LOGIC_FPS: u32 = 15;
@@ -52,6 +55,8 @@ pub struct TerrainAnimLayer {
     pub canvas_height: u16,
     /// SHP 总帧数（含落影半幅，便于与 CLI `frames=` 对照）。
     pub shp_frames: usize,
+    /// 实际用于解码的调色板逻辑名（如 `unittem.pal` / `isotem.pal`）。
+    pub palette: String,
 }
 
 /// 地图上全部动画地形物件（装载时烘焙，对局按时钟选帧）。
@@ -140,26 +145,23 @@ pub fn paint_map_terrain_objects(
 
     let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
     let rules = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    // `Theater=yes` 地形物件统一使用等距剧院调色板。`SpawnsTiberium` 等玩法字段
-    // 不改变 SHP 的索引语义，矿柱也属于这一资源族。
-    let obj_pal = source
-        .read(theater_palette(map.theater))
-        .ok()
-        .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok()));
-    let Some(obj_pal) = obj_pal
-    else {
+    let theater_pal_name = theater_palette(map.theater);
+    let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
+    let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
+    if theater_pal.is_none() && unit_pal.is_none() {
         return 0;
-    };
+    }
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u16), TileBlit> = HashMap::new();
+    // (image_key, frame_idx, spawns_tiberium)
+    let mut blit_cache: HashMap<(String, u16, bool), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for obj in &map.terrain_objects {
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let animated = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
+        let spawns_tiberium = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
         let anim_clock_ms = match mode {
             TerrainPaintMode::StaticOnly if animated => continue,
             TerrainPaintMode::StaticOnly => 0,
@@ -170,6 +172,10 @@ pub fn paint_map_terrain_objects(
             .and_then(|r| r.get(&obj.name, "AnimationRate"))
             .and_then(parse_u32)
             .unwrap_or(1);
+        let Some(obj_pal) = pick_terrain_palette(spawns_tiberium, theater_pal.as_ref(), unit_pal.as_ref())
+        else {
+            continue;
+        };
         let tint = map.tint_at(obj.x, obj.y, z_at(obj.x, obj.y));
 
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
@@ -197,7 +203,7 @@ pub fn paint_map_terrain_objects(
         } else {
             0
         };
-        let cache_key = (image_key.clone(), frame_idx);
+        let cache_key = (image_key.clone(), frame_idx, spawns_tiberium);
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);
@@ -211,8 +217,11 @@ pub fn paint_map_terrain_objects(
         if frame.frame_width == 0 || frame.frame_height == 0 {
             continue;
         }
-        // 与 overlay / 建筑一致：子帧相对整幅画布裁切，锚在钻石中心（再加 FA2 −3 Y）。
-        let mut blit = frame_to_blit(frame, shp.width, shp.height, &obj_pal);
+        let mut blit = if spawns_tiberium {
+            frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal)
+        } else {
+            frame_to_blit(frame, shp.width, shp.height, obj_pal)
+        };
         blit_cache.insert(cache_key, blit.clone());
         apply_rgba_tint(&mut blit.rgba, tint);
         items.push((obj.x, obj.y, blit));
@@ -244,19 +253,16 @@ pub fn collect_terrain_anim_bank(
             layers: Vec::new(),
         };
     };
-    let obj_pal = source
-        .read(theater_palette(map.theater))
-        .ok()
-        .and_then(|b| Palette::parse(&b).ok())
-        .or_else(|| source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok()));
-    let Some(obj_pal) = obj_pal
-    else {
+    let theater_pal_name = theater_palette(map.theater);
+    let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
+    let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
+    if theater_pal.is_none() && unit_pal.is_none() {
         return TerrainAnimBank {
             lighting: map.lighting.clone(),
             point_lights: map.point_lights.clone(),
             layers: Vec::new(),
         };
-    };
+    }
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
@@ -266,6 +272,16 @@ pub fn collect_terrain_anim_bank(
         if !is_yes(rules.get(&obj.name, "IsAnimated")) {
             continue;
         }
+        let spawns_tiberium = is_yes(rules.get(&obj.name, "SpawnsTiberium"));
+        let Some(obj_pal) = pick_terrain_palette(spawns_tiberium, theater_pal.as_ref(), unit_pal.as_ref())
+        else {
+            continue;
+        };
+        let palette_name = if spawns_tiberium {
+            "unittem.pal".to_string()
+        } else {
+            theater_pal_name.to_string()
+        };
         let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
@@ -305,7 +321,12 @@ pub fn collect_terrain_anim_bank(
                 });
                 continue;
             }
-            frames.push(frame_to_blit(frame, shp.width, shp.height, &obj_pal));
+            let blit = if spawns_tiberium {
+                frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal)
+            } else {
+                frame_to_blit(frame, shp.width, shp.height, obj_pal)
+            };
+            frames.push(blit);
         }
         if frames.iter().all(|f| f.width == 0) {
             continue;
@@ -321,6 +342,7 @@ pub fn collect_terrain_anim_bank(
             canvas_width: shp.width,
             canvas_height: shp.height,
             shp_frames: shp.frames.len(),
+            palette: palette_name,
         });
     }
 
@@ -377,6 +399,7 @@ pub fn paint_terrain_anims_onto_rgba(
 }
 
 fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
+    // 普通树/岩：子帧相对整幅画布裁切，锚在钻石中心（再加 FA2 −3 Y）。
     TileBlit {
         width: u32::from(frame.frame_width),
         height: u32::from(frame.frame_height),
@@ -384,6 +407,54 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
         offset_y: i32::from(frame.frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2 + TERRAIN_OBJECT_Y_FUDGE,
         rgba: frame.to_rgba(pal),
         shadow: None,
+    }
+}
+
+/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 −CellHeight。
+///
+/// `paint_cell_sprites` 以 `iso_to_screen`（钻石包围盒原点）为基准，因此偏移为
+/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 15)`，等价于相对钻石中心的 `(-w/2, −h/2 − 15)`。
+fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
+    let full_w = u32::from(shp_w);
+    let full_h = u32::from(shp_h);
+    let mut rgba = vec![0u8; (full_w * full_h * 4) as usize];
+    let fw = u32::from(frame.frame_width);
+    let fh = u32::from(frame.frame_height);
+    let fx = u32::from(frame.frame_x);
+    let fy = u32::from(frame.frame_y);
+    let src = frame.to_rgba(pal);
+    for y in 0..fh {
+        let dst_y = fy + y;
+        if dst_y >= full_h {
+            break;
+        }
+        let copy_w = fw.min(full_w.saturating_sub(fx));
+        let src_off = (y * fw * 4) as usize;
+        let dst_off = ((dst_y * full_w + fx) * 4) as usize;
+        let bytes = (copy_w * 4) as usize;
+        if src_off + bytes <= src.len() && dst_off + bytes <= rgba.len() {
+            rgba[dst_off..dst_off + bytes].copy_from_slice(&src[src_off..src_off + bytes]);
+        }
+    }
+    TileBlit {
+        width: full_w,
+        height: full_h,
+        offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE,
+        rgba,
+        shadow: None,
+    }
+}
+
+fn pick_terrain_palette<'a>(
+    spawns_tiberium: bool,
+    theater_pal: Option<&'a Palette>,
+    unit_pal: Option<&'a Palette>,
+) -> Option<&'a Palette> {
+    if spawns_tiberium {
+        unit_pal.or(theater_pal)
+    } else {
+        theater_pal.or(unit_pal)
     }
 }
 
