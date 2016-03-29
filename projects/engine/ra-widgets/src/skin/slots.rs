@@ -446,12 +446,12 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             buttons: NETWORK_BUTTONS,
         }),
         OriginalScreen::Battle => None,
-        // 遭遇战积分：壳层右栏 + 本方战报图；槽位默认盟军，实际解码走 `page_resources_for_results`。
+        // 遭遇战积分：壳层右栏；左区战报图由 chrome `MultiplayerScore`（adaptor）注入，槽位不写死盟军皮。
         OriginalScreen::Results => Some(UiPageSlots {
             screen,
-            background_shp: Some("mpascrnl.shp"),
+            background_shp: None,
             background_pcx: None,
-            background_pal: Some("mpascrn.pal"),
+            background_pal: None,
             background_frame: 0,
             movie_bik: None,
             panels: SKIRMISH_SCORE_PANELS,
