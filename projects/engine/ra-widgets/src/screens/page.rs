@@ -13,7 +13,7 @@ use crate::{
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
         load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
-        score_screen_palette, score_screen_palette_candidates, UiFactionChrome,
+        score_screen_palette_candidates, UiFactionChrome,
     },
 };
 
@@ -263,8 +263,7 @@ pub fn page_resources_for_results_with(
     let bg_name = bg_candidates
         .iter()
         .map(String::as_str)
-        .find(|n| readable(n))
-        .unwrap_or("mnscrnl.shp")
+        .find(|n| readable(n))?
         .to_string();
     let pal_candidates = score_screen_palette_candidates(chrome);
     let bg_pal = pal_candidates
@@ -272,7 +271,7 @@ pub fn page_resources_for_results_with(
         .map(String::as_str)
         .find(|p| readable(p))
         .map(str::to_string)
-        .unwrap_or_else(|| score_screen_palette(chrome));
+        .filter(|s| !s.is_empty())?;
     Some(UiPageResources {
         screen: OriginalScreen::Results,
         background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),

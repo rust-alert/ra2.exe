@@ -56,16 +56,19 @@ impl Shell {
         else {
             return;
         };
-        let want_shp = chrome
-            .score_background_candidates()
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| "mpascrnl.shp".to_string());
-        let want_pal = chrome
-            .score_palette_candidates()
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| "mpascrn.pal".to_string());
+        let candidates = chrome.score_background_candidates();
+        let pal_names = chrome.score_palette_candidates();
+        // 战报图名只来自 rules / edition adaptor，禁止静默回退原版 `mpascrnl`。
+        let (Some(want_shp), Some(want_pal)) = (candidates.first(), pal_names.first())
+        else {
+            tracing::debug!(
+                house = %house,
+                "积分页战报图未配置（需 MultiplayerScore 或 adaptor stock）"
+            );
+            self.score_backdrop = None;
+            self.score_backdrop_for = None;
+            return;
+        };
         let want_key = format!(
             "{house}:{}:{}:{want_shp}:{want_pal}",
             faction_id.unwrap_or("-"),
@@ -81,8 +84,6 @@ impl Shell {
         else {
             return;
         };
-        let candidates = chrome.score_background_candidates();
-        let pal_names = chrome.score_palette_candidates();
         for name in &candidates {
             let Some(hit) = source.resolve(name)
             else {
