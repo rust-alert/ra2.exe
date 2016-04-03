@@ -121,21 +121,21 @@ fn falls_back_to_unittem_when_theater_palette_missing() {
 }
 
 #[test]
-fn spawns_tiberium_still_uses_isometric_theater_palette() {
-    // `SpawnsTiberium` 是玩法属性，不改变 `Theater=yes` 地形 SHP 的调色板族。
+fn spawns_tiberium_uses_unittem_palette() {
+    // `SpawnsTiberium=yes` 矿柱使用单位调色板，不是等距剧院色板。
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
     files.insert("rules.ini".into(), b"[TIBTRE01]\nSpawnsTiberium=yes\n".to_vec());
     files.insert("temperat.pal".into(), solid_index_pal(5, 63, 50, 0));
     files.insert("isotem.pal".into(), solid_index_pal(5, 40, 40, 40));
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
     files.insert("tibtre01.tem".into(), raw_one_pixel_shp(5));
     let source = MapSource { files };
     let map = tibtre_map();
     let mut image = TerrainImage::blank(256, 256);
     assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
-    let grey = first_opaque(&image);
-    assert_eq!(grey[0], grey[1], "expected isotem grey, got {grey:?}");
-    assert_eq!(grey[1], grey[2], "expected isotem grey, got {grey:?}");
+    let red = first_opaque(&image);
+    assert!(red[0] > red[1] && red[0] > red[2], "expected unittem red, got {red:?}");
 }
 
 #[test]
@@ -200,7 +200,8 @@ fn animated_terrain_selects_body_frame_by_clock() {
         "rules.ini".into(),
         b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\nSpawnsTiberium=yes\n".to_vec(),
     );
-    files.insert("isotem.pal".into(), pal);
+    files.insert("unittem.pal".into(), pal);
+    files.insert("isotem.pal".into(), solid_index_pal(5, 40, 40, 40));
     files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6]));
     let source = MapSource { files };
     let map = tibtre_map();
@@ -261,8 +262,12 @@ fn terrain_anim_bank_records_hit_and_paints_by_clock() {
 
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
-    files.insert("rules.ini".into(), b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\n".to_vec());
-    files.insert("isotem.pal".into(), pal);
+    files.insert(
+        "rules.ini".into(),
+        b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\nSpawnsTiberium=yes\n".to_vec(),
+    );
+    files.insert("unittem.pal".into(), pal);
+    files.insert("isotem.pal".into(), solid_index_pal(5, 40, 40, 40));
     files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6]));
     let source = MapSource { files };
     let map = tibtre_map();
@@ -275,6 +280,9 @@ fn terrain_anim_bank_records_hit_and_paints_by_clock() {
     assert_eq!(layer.canvas_height, 1);
     assert_eq!(layer.frames.len(), 2);
     assert_eq!(layer.shp_frames, 2);
+    assert_eq!(layer.palette, "unittem.pal");
+    assert_eq!(layer.frames[0].width, 1, "1x1 SHP keeps full-canvas blit size");
+    assert_eq!(layer.frames[0].height, 1);
     assert_eq!(layer.rate_ms, 200);
     assert_eq!(bank.frame_signature(0), bank.frame_signature(199));
     assert_ne!(bank.frame_signature(0), bank.frame_signature(200));
@@ -303,8 +311,11 @@ fn animated_terrain_skips_shadow_half_frames() {
 
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
-    files.insert("rules.ini".into(), b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\n".to_vec());
-    files.insert("isotem.pal".into(), pal);
+    files.insert(
+        "rules.ini".into(),
+        b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\nSpawnsTiberium=yes\n".to_vec(),
+    );
+    files.insert("unittem.pal".into(), pal);
     files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 6, 1, 1]));
     let source = MapSource { files };
     let map = tibtre_map();
@@ -321,4 +332,53 @@ fn animated_terrain_skips_shadow_half_frames() {
         green[1] > green[0] && green[1] > green[2],
         "clock 400ms must wrap body frames to green, not shadow blue, got {green:?}"
     );
+}
+
+#[test]
+fn spawns_tiberium_blits_full_canvas_with_cell_height_y() {
+    // 84×56 画布、子帧 (24,4) 的 1×1。完整画布偏移相对钻石中心为 (-42, -28-15)。
+    // 换算到 iso 原点：offset = (30-42, 15-28-15) = (-12, -28)。
+    let mut data = Vec::new();
+    data.extend_from_slice(&0u16.to_le_bytes());
+    data.extend_from_slice(&84u16.to_le_bytes());
+    data.extend_from_slice(&56u16.to_le_bytes());
+    data.extend_from_slice(&1u16.to_le_bytes());
+    data.extend_from_slice(&24u16.to_le_bytes());
+    data.extend_from_slice(&4u16.to_le_bytes());
+    data.extend_from_slice(&1u16.to_le_bytes());
+    data.extend_from_slice(&1u16.to_le_bytes());
+    data.push(0);
+    data.extend_from_slice(&[0, 0, 0]);
+    data.extend_from_slice(&[0, 0, 0, 0]);
+    data.extend_from_slice(&0u32.to_le_bytes());
+    data.extend_from_slice(&(32u32).to_le_bytes());
+    data.push(5);
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert("rules.ini".into(), b"[TIBTRE01]\nSpawnsTiberium=yes\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("tibtre01.tem".into(), data);
+    let source = MapSource { files };
+    let map = tibtre_map();
+
+    let bank = collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini");
+    // 无 IsAnimated 时银行为空，改用直接叠画检查尺寸与落点。
+    assert!(bank.is_empty());
+
+    let mut image = TerrainImage::blank(256, 256);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", clock(0)), 1);
+
+    let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
+    // 完整画布左上角 + 子帧 (24,4) → 不透明像素相对 iso 原点：
+    // (-12+24, -28+4) = (12, -24)
+    let expect_x = (sx + 12 - image.origin_x) as u32;
+    let expect_y = (sy - 24 - image.origin_y) as u32;
+    let w = image.image.width();
+    let px = image.image.as_raw();
+    let di = ((expect_y * w + expect_x) * 4) as usize;
+    assert!(di + 3 < px.len(), "pixel index in bounds");
+    assert!(px[di + 3] > 0, "expected ore-tree pixel at full-canvas anchor ({expect_x},{expect_y})");
+    assert!(px[di] > px[di + 1], "expected unittem red at ore-tree pixel");
 }
