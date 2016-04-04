@@ -125,13 +125,11 @@ fn decode_preferring(
         errors.push(format!("{name}: 帧 {frame_idx} 不可用"));
         return None;
     }
-    let pal_hit = match source
-        .resolve_preferring(pal_name, mix)
-        .or_else(|| source.resolve(pal_name))
-    {
+    // 与 HUD 同：调色板必须来自 prefer 档案，禁止全局回退串阵营。
+    let pal_hit = match source.resolve_preferring(pal_name, mix) {
         Some(h) => h,
         None => {
-            errors.push(format!("{pal_name}: 调色板不可读"));
+            errors.push(format!("{pal_name}: 调色板不可读（prefer {mix}）"));
             return None;
         }
     };

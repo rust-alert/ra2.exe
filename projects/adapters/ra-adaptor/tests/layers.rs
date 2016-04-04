@@ -159,3 +159,16 @@ fn nested_plan_covers_open_sidebar_mix_indices() {
     assert!(c.nested_mount_plan.iter().any(|n| n.name.eq_ignore_ascii_case("sidec16md.mix")));
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn yr_nested_plan_mounts_load_before_loadmd() {
+    let dir = scratch_dir("yr-load-order");
+    touch(&dir, "langmd.mix");
+    touch(&dir, "ra2md.mix");
+    let c = compose_resource_layers(&dir, &ResourceChain::for_edition(GameEdition::Yr));
+    let names: Vec<_> = c.nested_mount_plan.iter().map(|n| n.name.to_ascii_lowercase()).collect();
+    let load = names.iter().position(|n| n == "load.mix").expect("load.mix");
+    let loadmd = names.iter().position(|n| n == "loadmd.mix").expect("loadmd.mix");
+    assert!(load < loadmd, "基座 load 须先于 loadmd，同优先级后挂载才能让 MD 装载图胜出");
+    let _ = fs::remove_dir_all(&dir);
+}

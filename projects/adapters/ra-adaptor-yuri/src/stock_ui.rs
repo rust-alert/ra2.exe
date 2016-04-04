@@ -5,17 +5,12 @@
 
 #![allow(missing_docs)]
 
-pub use ra_adaptor_ra2::stock_ui::{StockCountryUi, StockScoreScreenStyle, StockSideChrome};
-
-/// YR 结算：战报图自带金属底框，关闭原版半透明黑遮罩。
-pub fn score_screen_style() -> StockScoreScreenStyle {
-    StockScoreScreenStyle { stats_shade: false }
-}
+pub use ra_adaptor_ra2::stock_ui::{StockCountryUi, StockSideChrome};
 
 /// YR 可对战势力库存 chrome（按原版 `[Sides]` 键；尤里与苏军共用 `sidec02` + yuri 文件名）。
 pub fn stock_side_chromes() -> &'static [StockSideChrome] {
     &[
-        // 原版键 `GDI` → 盟军。
+        // 原版键 `GDI` → 盟军：仍用黑底统计区（`mpascrnl` 中心偏亮）。
         StockSideChrome {
             id: "GDI",
             mix_file_index: 1,
@@ -23,6 +18,7 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             score_background: Some("mpascrnl.shp"),
             score_palette: Some("mpascrn.pal"),
             eva_tag: Some("Allied"),
+            score_stats_shade: true,
         },
         // 原版键 `Nod` → 苏军。
         StockSideChrome {
@@ -32,8 +28,9 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             score_background: Some("mpsscrnl.shp"),
             score_palette: Some("mpsscrn.pal"),
             eva_tag: Some("Russian"),
+            score_stats_shade: true,
         },
-        // 原版键 `ThirdSide` → 尤里（非 CNC「第三势力」叙事名，是 YR INI 键）。
+        // 原版键 `ThirdSide` → 尤里：`mpyscrnl` 自带金属底框，勿叠原版黑框。
         StockSideChrome {
             id: "ThirdSide",
             mix_file_index: 2,
@@ -41,11 +38,14 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             score_background: Some("mpyscrnl.shp"),
             score_palette: Some("mpyscrn.pal"),
             eva_tag: Some("Russian"),
+            score_stats_shade: false,
         },
     ]
 }
 
 /// YR 遭遇战国库存装载 / 旗（含尤里）。
+///
+/// 尤里 `ls800yuri.shp` 与 `mpyls.pal` 同在 MD 装载包；其它国仍走 RA2 基表的共享 `mpls.pal`。
 pub fn stock_country_ui() -> &'static [StockCountryUi] {
     const EXTRA: &[StockCountryUi] = &[
         StockCountryUi {

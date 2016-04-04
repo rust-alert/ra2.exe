@@ -31,7 +31,7 @@ pub struct SkirmishScorePaint<'a> {
     pub backdrop: Option<&'a RgbaImage>,
     /// 战役结算用 `GUI:STANDALONESCORE`，否则 `GUI:SKIRMISHSCORE`。
     pub campaign: bool,
-    /// 是否叠统计区半透明遮罩（由 edition adaptor 的 `score_screen_style` 决定）。
+    /// 是否叠统计区半透明遮罩（Side chrome / adaptor `score_stats_shade`；尤里皮关）。
     pub stats_shade: bool,
 }
 
@@ -72,7 +72,7 @@ pub fn compose_skirmish_score_page(
     if let Some(bg) = paint.backdrop {
         blit_stretched(&mut page, bg, background);
     }
-    // 原版 RA2：半透明遮罩保表文可读。YR 等资料片战报图自带金属底框，由 adaptor 关遮罩。
+    // 原版盟军/苏军：半透明黑底保表文可读。尤里 `mpyscrnl` 自带金属底框，由 chrome 关遮罩。
     if paint.stats_shade {
         blend_rect(&mut page, stats, [0, 0, 0, 168]);
         stroke_rect(&mut page, stats, [160, 140, 60, 200]);

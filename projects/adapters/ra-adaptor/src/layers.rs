@@ -351,10 +351,11 @@ pub const SIDEBAR_NESTED_INDEX_MAX: u32 = 16;
 pub fn append_sidebar_nested_specs(plan: &mut Vec<NestedMountSpec>, max_index: u32) {
     let max_index = max_index.max(1);
     for i in 1..=max_index {
+        // 基座侧栏在前、`*md` 在后：同优先级后挂载覆盖，资料片侧栏胜出。
         for name in [
-            format!("sidec{i:02}md.mix"),
             format!("sidec{i:02}.mix"),
             format!("sidenc{i:02}.mix"),
+            format!("sidec{i:02}md.mix"),
         ] {
             if plan.iter().any(|n| n.name.eq_ignore_ascii_case(&name)) {
                 continue;

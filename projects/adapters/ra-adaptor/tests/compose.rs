@@ -19,8 +19,32 @@ fn retail_roundtrip() {
 }
 
 #[test]
-fn score_screen_shade_differs_by_edition() {
-    assert!(ra_adaptor::score_screen_style(GameEdition::Ra2).stats_shade);
-    assert!(!ra_adaptor::score_screen_style(GameEdition::Yr).stats_shade);
-    assert!(!ra_adaptor::score_screen_style(GameEdition::Mo3).stats_shade);
+fn yuri_stock_disables_score_shade_allied_keeps_it() {
+    let yuri = ra_adaptor_yuri::stock_ui::stock_side_chromes()
+        .iter()
+        .find(|s| s.id == "ThirdSide")
+        .unwrap();
+    assert!(!yuri.score_stats_shade);
+    assert_eq!(yuri.score_background, Some("mpyscrnl.shp"));
+    let gdi = ra_adaptor_yuri::stock_ui::stock_side_chromes()
+        .iter()
+        .find(|s| s.id == "GDI")
+        .unwrap();
+    assert!(gdi.score_stats_shade);
+}
+
+#[test]
+fn load_screen_stock_pal_pairs_base_shp_with_shared_mpls() {
+    let americans = ra_adaptor_ra2::stock_ui::stock_country_ui()
+        .iter()
+        .find(|c| c.id == "Americans")
+        .unwrap();
+    assert_eq!(americans.load_screen_pal, "mpls.pal");
+    assert_ne!(americans.load_screen_pal, "mplsu.pal");
+
+    let yuri = ra_adaptor_yuri::stock_ui::stock_country_ui_all()
+        .find(|c| c.id == "YuriCountry")
+        .unwrap();
+    assert_eq!(yuri.load_screen_pal, "mpyls.pal");
+    assert_eq!(yuri.load_screen, "ls800yuri.shp");
 }

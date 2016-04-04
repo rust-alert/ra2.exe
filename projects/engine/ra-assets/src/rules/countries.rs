@@ -71,6 +71,8 @@ pub struct SideChromeDef {
     pub score_palette: Option<String>,
     /// `EVA.Tag`（可空；音频采样键优先用此标签）。
     pub eva_tag: Option<String>,
+    /// 结算统计区是否叠半透明黑底；`None` 交 adaptor 填。
+    pub score_stats_shade: Option<bool>,
 }
 
 /// rules 派生的国家 / 势力注册表。
@@ -307,6 +309,8 @@ fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChrom
             score_background,
             score_palette,
             eva_tag,
+            // rules 无独立键；由 edition adaptor stock 填。
+            score_stats_shade: None,
         });
     }
     out
@@ -331,6 +335,9 @@ pub fn fill_side_chrome_gaps(chromes: &mut [SideChromeDef], stock: &[SideChromeD
         }
         if dst.eva_tag.is_none() {
             dst.eva_tag = src.eva_tag.clone();
+        }
+        if dst.score_stats_shade.is_none() {
+            dst.score_stats_shade = src.score_stats_shade;
         }
     }
 }

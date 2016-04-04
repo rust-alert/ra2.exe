@@ -49,6 +49,8 @@ pub struct UiFactionChrome {
     pub score_palette: Option<String>,
     /// `EVA.Tag`（可空）。
     pub eva_tag: Option<String>,
+    /// 结算统计区是否叠半透明黑底（adaptor / rules；缺省 `true`）。
+    pub score_stats_shade: bool,
 }
 
 impl UiFactionChrome {
@@ -60,6 +62,7 @@ impl UiFactionChrome {
             score_background: None,
             score_palette: None,
             eva_tag: None,
+            score_stats_shade: true,
         }
     }
 
@@ -70,6 +73,7 @@ impl UiFactionChrome {
         score_background: Option<String>,
         score_palette: Option<String>,
         eva_tag: Option<String>,
+        score_stats_shade: Option<bool>,
     ) -> Option<Self> {
         let index = mix_file_index.filter(|n| *n >= 1)?;
         Some(Self {
@@ -78,6 +82,7 @@ impl UiFactionChrome {
             score_background,
             score_palette,
             eva_tag,
+            score_stats_shade: score_stats_shade.unwrap_or(true),
         })
     }
 
@@ -89,6 +94,7 @@ impl UiFactionChrome {
             def.score_background.clone(),
             def.score_palette.clone(),
             def.eva_tag.clone(),
+            def.score_stats_shade,
         )
     }
 

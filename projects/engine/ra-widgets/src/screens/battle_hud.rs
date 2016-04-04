@@ -93,11 +93,10 @@ fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, pre
     }
     let pal_name = asset.palette.as_deref().ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
     // 必须与 SHP 同档案取调色板：`sidec01`/`sidec02` 各有一份，
-    // 全局 `resolve` 常被后挂载的苏军包抢走，盟军 SHP + 苏军调色板会整栏发红。
+    // 不可回退全局 `resolve`（后挂载的苏军包常抢走 `sidebar.pal`）。
     let pal_hit = source
         .resolve_preferring(pal_name, prefer_mix)
-        .or_else(|| source.resolve(pal_name))
-        .ok_or_else(|| format!("{pal_name}: 调色板不可读"))?;
+        .ok_or_else(|| format!("{pal_name}: 调色板不可读（prefer {prefer_mix}）"))?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("{pal_name}: 解析失败 · {e}"))?;
     let frame = &shp.frames[frame_idx];
     let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;

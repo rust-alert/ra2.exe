@@ -38,12 +38,14 @@ fn higher_priority_overrides_lower() {
 }
 
 #[test]
-fn same_priority_later_mount_wins() {
-    let id = rules_id();
+fn same_priority_later_nested_archive_wins_leaf() {
+    let leaf = mix_hash("ls800ustates.shp");
     let mut vfs = MixVfs::new();
-    vfs.mount_bytes("a.mix", old_mix(id, b"AAAA")).unwrap();
-    vfs.mount_bytes("b.mix", old_mix(id, b"BBBB")).unwrap();
-    assert_eq!(vfs.read("rules.ini").unwrap(), b"BBBB");
+    vfs.mount_bytes_with_priority("load.mix", old_mix(leaf, b"RA2-SHP"), 0).unwrap();
+    vfs.mount_bytes_with_priority("loadmd.mix", old_mix(leaf, b"YR-SHP"), 0).unwrap();
+    let hit = vfs.resolve_hit("ls800ustates.shp").unwrap();
+    assert_eq!(hit.archive_name, "loadmd.mix");
+    assert_eq!(hit.bytes, b"YR-SHP");
 }
 
 #[test]
@@ -88,4 +90,36 @@ fn nested_from_all_parents_keeps_file_level_overlay() {
     let hit = vfs.resolve_hit("leaf.bin").unwrap();
     assert_eq!(hit.parent, Some("expand01.mix"));
     assert_eq!(hit.priority, 101);
+}
+
+#[test]
+fn preferring_missing_archive_does_not_steal_other_side_chrome() {
+    let side1 = mix_hash("side1.shp");
+    let mut vfs = MixVfs::new();
+    // 模拟对局侧栏：盟军 / 苏军各有一份同名 SHP；后挂的苏军包在全局解析中胜出。
+    vfs.mount_bytes_with_priority("sidec01.mix", old_mix(side1, b"ALLIED"), 0).unwrap();
+    vfs.mount_bytes_with_priority("sidec02.mix", old_mix(side1, b"SOVIET"), 0).unwrap();
+
+    assert_eq!(vfs.resolve_hit("side1.shp").unwrap().bytes, b"SOVIET");
+
+    // 候选先试未挂载的 md 包：不得静默落到苏军档。
+    assert!(vfs.resolve_hit_preferring("side1.shp", "sidec01md.mix").is_none());
+
+    let allied = vfs.resolve_hit_preferring("side1.shp", "sidec01.mix").unwrap();
+    assert_eq!(allied.archive_name, "sidec01.mix");
+    assert_eq!(allied.bytes, b"ALLIED");
+
+    let soviet = vfs.resolve_hit_preferring("side1.shp", "sidec02.mix").unwrap();
+    assert_eq!(soviet.archive_name, "sidec02.mix");
+    assert_eq!(soviet.bytes, b"SOVIET");
+}
+
+#[test]
+fn preferring_empty_archive_falls_back_to_global() {
+    let side1 = mix_hash("side1.shp");
+    let mut vfs = MixVfs::new();
+    vfs.mount_bytes_with_priority("sidec01.mix", old_mix(side1, b"ALLIED"), 0).unwrap();
+    vfs.mount_bytes_with_priority("sidec02.mix", old_mix(side1, b"SOVIET"), 0).unwrap();
+    let hit = vfs.resolve_hit_preferring("side1.shp", "").unwrap();
+    assert_eq!(hit.bytes, b"SOVIET");
 }

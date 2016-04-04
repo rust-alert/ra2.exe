@@ -156,41 +156,44 @@ impl MixVfs {
         })
     }
 
-    /// 优先从档案名匹配 `prefer_archive`（大小写不敏感）的挂载读取；无命中再回退 [`Self::resolve_hit`]。
+    /// 优先从档案名匹配 `prefer_archive`（大小写不敏感）的挂载读取。
     ///
-    /// 用于对局侧栏：同名 `SIDE1.SHP` 等在 `sidec01` / `sidec02` 各有一份，需按阵营选档。
+    /// `prefer_archive` 非空时：**只**在该档案内查找；未挂载或无该文件则返回 `None`，
+    /// **不**回退 [`Self::resolve_hit`]。调用方若需换档（如 `sidec01md` → `sidec01`）
+    /// 应自行尝试下一候选。同名 `SIDE1.SHP` 等在 `sidec01` / `sidec02` 各有一份，
+    /// 静默全局回退会把盟军侧栏解成苏军图。
+    ///
+    /// `prefer_archive` 为空时等价于 [`Self::resolve_hit`]。
     pub fn resolve_hit_preferring(&self, name: &str, prefer_archive: &str) -> Option<MixResolveHit<'_>> {
         let prefer = prefer_archive.trim();
-        if !prefer.is_empty() {
-            let mut best: Option<(i32, u32, usize)> = None;
-            for (idx, mounted) in self.archives.iter().enumerate() {
-                if !mounted.name.eq_ignore_ascii_case(prefer) {
-                    continue;
-                }
-                if mounted.archive.get_by_name(name).is_none() {
-                    continue;
-                }
-                let key = (mounted.priority, mounted.seq);
-                match best {
-                    None => best = Some((key.0, key.1, idx)),
-                    Some((bp, bs, _)) if key > (bp, bs) => best = Some((key.0, key.1, idx)),
-                    _ => {}
-                }
+        if prefer.is_empty() {
+            return self.resolve_hit(name);
+        }
+        let mut best: Option<(i32, u32, usize)> = None;
+        for (idx, mounted) in self.archives.iter().enumerate() {
+            if !mounted.name.eq_ignore_ascii_case(prefer) {
+                continue;
             }
-            if let Some((_, _, idx)) = best {
-                let mounted = &self.archives[idx];
-                if let Some(bytes) = mounted.archive.get_by_name(name) {
-                    return Some(MixResolveHit {
-                        archive_name: mounted.name.as_str(),
-                        parent: mounted.parent.as_deref(),
-                        layer_id: mounted.layer_id.as_deref(),
-                        priority: mounted.priority,
-                        bytes,
-                    });
-                }
+            if mounted.archive.get_by_name(name).is_none() {
+                continue;
+            }
+            let key = (mounted.priority, mounted.seq);
+            match best {
+                None => best = Some((key.0, key.1, idx)),
+                Some((bp, bs, _)) if key > (bp, bs) => best = Some((key.0, key.1, idx)),
+                _ => {}
             }
         }
-        self.resolve_hit(name)
+        let (_, _, idx) = best?;
+        let mounted = &self.archives[idx];
+        let bytes = mounted.archive.get_by_name(name)?;
+        Some(MixResolveHit {
+            archive_name: mounted.name.as_str(),
+            parent: mounted.parent.as_deref(),
+            layer_id: mounted.layer_id.as_deref(),
+            priority: mounted.priority,
+            bytes,
+        })
     }
 
     /// 若某已挂载档案含嵌套 MIX，则解析并挂上（继承该父档优先级）。

@@ -17,7 +17,7 @@ use super::Shell;
 
 impl Shell {
     /// 本机阵营 house 名（驱动积分页左区装载艺术）。
-    fn results_local_house(&self) -> String {
+    pub(super) fn results_local_house(&self) -> String {
         self.battle_controller
             .as_ref()
             .and_then(|c| c.session.as_ref())
@@ -34,7 +34,7 @@ impl Shell {
     }
 
     /// 本机阵营对应 rules `Side=`（模组扩展国名时驱动 UI 族）。
-    fn results_faction_id(&self) -> Option<&str> {
+    pub(super) fn results_faction_id(&self) -> Option<&str> {
         let house = self.results_local_house();
         self.lobby_countries
             .iter()

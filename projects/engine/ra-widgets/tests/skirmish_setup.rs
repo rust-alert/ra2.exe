@@ -147,9 +147,11 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
         score_background: Some("mpxscrnl.shp".into()),
         score_palette: Some("mpxscrn.pal".into()),
         eva_tag: Some("CustomEva".into()),
+        score_stats_shade: Some(false),
     })
     .expect("side chrome");
     assert_eq!(from_def.mix_file_index, 5);
     assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
     assert_eq!(from_def.eva_tag.as_deref(), Some("CustomEva"));
+    assert!(!from_def.score_stats_shade);
 }

@@ -128,7 +128,8 @@ impl GameAssetSource {
         self.resolve_with_prefer(relative, None)
     }
 
-    /// 同 [`Self::resolve`]，但 MIX 侧可优先指定档案名（如 `sidec02.mix`）。
+    /// 同 [`Self::resolve`]，但 MIX 侧只从指定档案名读取（如 `sidec02.mix`）。
+    /// 该档案未挂载或无此文件时返回 `None`，不静默改读其它阵营的同名条目。
     pub fn resolve_preferring(&self, relative: &str, prefer_archive: &str) -> Option<AssetHit> {
         self.resolve_with_prefer(relative, Some(prefer_archive))
     }
