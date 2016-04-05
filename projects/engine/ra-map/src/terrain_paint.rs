@@ -13,11 +13,11 @@ use crate::{
     theater::{theater_palette, theater_tmp_extension},
 };
 
-/// FA2 `IsoView` 对普通地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
+/// FA2 `IsoView` 对地形物件（树/岩/矿柱）的额外 Y（钻石中心叠画后再偏 −3）。
+///
+/// 矿柱虽用完整画布与 `unittem.pal`，Y 仍走同一 FA2 地形物件公式；
+/// 产矿触发动画是玩法状态机，不改变静止帧锚点。
 const TERRAIN_OBJECT_Y_FUDGE: i32 = -3;
-
-/// `SpawnsTiberium=yes` 矿柱的 `CellHeight` Y 偏移（相对格子钻石中心再偏 −15）。
-const SPAWNS_TIBERIUM_Y_FUDGE: i32 = -15;
 
 /// 逻辑帧率：`rules` 的 `AnimationRate` 以该帧率为单位间隔。
 const TERRAIN_LOGIC_FPS: u32 = 15;
@@ -25,9 +25,9 @@ const TERRAIN_LOGIC_FPS: u32 = 15;
 /// 地形物件叠画模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerrainPaintMode {
-    /// 只画静态物件（`IsAnimated` 以外）；动画物件留给 `TerrainAnimBank`。
+    /// 静态物件 + 矿柱 Idle（第 0 帧）。常循环的 `IsAnimated`（非 `SpawnsTiberium`）留给 `TerrainAnimBank`。
     StaticOnly,
-    /// 静态画第 0 帧；动画物件按 `anim_clock_ms` 选帧并画上。
+    /// 静态与矿柱 Idle 画第 0 帧；仅非产矿的常循环动画按 `anim_clock_ms` 选帧。
     AllWithClock {
         /// 呈现时钟（毫秒）。
         anim_clock_ms: u64,
@@ -125,8 +125,9 @@ pub fn terrain_anim_frame(clock_ms: u64, animation_rate: u32, frame_count: usize
 
 /// 将地形物件叠到合成图上。返回画上的物件数。
 ///
-/// `rules_ini` 提供 `IsAnimated` / `AnimationRate`。
-/// `StaticOnly` 跳过动画物件；`AllWithClock` 按时钟画动画帧。
+/// `rules_ini` 提供 `IsAnimated` / `AnimationRate` / `SpawnsTiberium`。
+/// `SpawnsTiberium` 矿柱动画由产矿状态机触发，预览与底图始终画 Idle 第 0 帧。
+/// `StaticOnly` 跳过常循环动画物件；`AllWithClock` 仅对非产矿的 `IsAnimated` 按时钟选帧。
 pub fn paint_map_terrain_objects(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -162,8 +163,10 @@ pub fn paint_map_terrain_objects(
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let animated = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
         let spawns_tiberium = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
+        // 矿柱：条件动画，底图/预览固定 Idle 帧 0。旗帜等常循环动画才进 bank / 时钟。
+        let loops_with_clock = animated && !spawns_tiberium;
         let anim_clock_ms = match mode {
-            TerrainPaintMode::StaticOnly if animated => continue,
+            TerrainPaintMode::StaticOnly if loops_with_clock => continue,
             TerrainPaintMode::StaticOnly => 0,
             TerrainPaintMode::AllWithClock { anim_clock_ms } => anim_clock_ms,
         };
@@ -198,7 +201,7 @@ pub fn paint_map_terrain_objects(
         if body_n == 0 {
             continue;
         }
-        let frame_idx = if animated {
+        let frame_idx = if loops_with_clock {
             terrain_anim_frame(anim_clock_ms, anim_rate, body_n) as u16
         } else {
             0
@@ -230,7 +233,9 @@ pub fn paint_map_terrain_objects(
     paint_cell_sprites(image, &items, z_at)
 }
 
-/// 收集 `IsAnimated=yes` 地形物件并预解码全部主体帧。
+/// 收集常循环的 `IsAnimated` 地形物件并预解码主体帧。
+///
+/// `SpawnsTiberium` 矿柱不进银行：其动画由产矿概率状态机触发，平时固定 Idle 第 0 帧。
 pub fn collect_terrain_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -272,16 +277,16 @@ pub fn collect_terrain_anim_bank(
         if !is_yes(rules.get(&obj.name, "IsAnimated")) {
             continue;
         }
-        let spawns_tiberium = is_yes(rules.get(&obj.name, "SpawnsTiberium"));
+        // 产矿矿柱：条件动画，不进入呈现时钟循环。
+        if is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
+            continue;
+        }
+        let spawns_tiberium = false;
         let Some(obj_pal) = pick_terrain_palette(spawns_tiberium, theater_pal.as_ref(), unit_pal.as_ref())
         else {
             continue;
         };
-        let palette_name = if spawns_tiberium {
-            "unittem.pal".to_string()
-        } else {
-            theater_pal_name.to_string()
-        };
+        let palette_name = theater_pal_name.to_string();
         let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
@@ -321,12 +326,7 @@ pub fn collect_terrain_anim_bank(
                 });
                 continue;
             }
-            let blit = if spawns_tiberium {
-                frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal)
-            } else {
-                frame_to_blit(frame, shp.width, shp.height, obj_pal)
-            };
-            frames.push(blit);
+            frames.push(frame_to_blit(frame, shp.width, shp.height, obj_pal));
         }
         if frames.iter().all(|f| f.width == 0) {
             continue;
@@ -410,10 +410,10 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
     }
 }
 
-/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 −CellHeight。
+/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 FA2 −3。
 ///
 /// `paint_cell_sprites` 以 `iso_to_screen`（钻石包围盒原点）为基准，因此偏移为
-/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 15)`，等价于相对钻石中心的 `(-w/2, −h/2 − 15)`。
+/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 3)`，等价于相对钻石中心的 `(-w/2, −h/2 − 3)`。
 fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
     let full_w = u32::from(shp_w);
     let full_h = u32::from(shp_h);
@@ -440,7 +440,7 @@ fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h:
         width: full_w,
         height: full_h,
         offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
-        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + TERRAIN_OBJECT_Y_FUDGE,
         rgba,
         shadow: None,
     }
