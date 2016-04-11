@@ -13,11 +13,11 @@ use crate::{
     theater::{theater_palette, theater_tmp_extension},
 };
 
-/// FA2 `IsoView` 对地形物件（树/岩/矿柱）的额外 Y（钻石中心叠画后再偏 −3）。
-///
-/// 矿柱虽用完整画布与 `unittem.pal`，Y 仍走同一 FA2 地形物件公式；
-/// 产矿触发动画是玩法状态机，不改变静止帧锚点。
+/// FA2 `IsoView` 对普通地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
 const TERRAIN_OBJECT_Y_FUDGE: i32 = -3;
+
+/// `SpawnsTiberium=yes` 矿柱相对格子钻石中心的 `CellHeight` Y 偏移（−15）。
+const SPAWNS_TIBERIUM_Y_FUDGE: i32 = -15;
 
 /// 逻辑帧率：`rules` 的 `AnimationRate` 以该帧率为单位间隔。
 const TERRAIN_LOGIC_FPS: u32 = 15;
@@ -235,7 +235,8 @@ pub fn paint_map_terrain_objects(
 
 /// 收集常循环的 `IsAnimated` 地形物件并预解码主体帧。
 ///
-/// `SpawnsTiberium` 矿柱不进银行：其动画由产矿概率状态机触发，平时固定 Idle 第 0 帧。
+/// `SpawnsTiberium` 矿柱不进银行：零售 `AnimationProbability`（如 `.003`）由产矿状态机
+/// 触发一次性播到中点帧，平时固定 Idle 第 0 帧，不得用呈现时钟常循环。
 pub fn collect_terrain_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -410,10 +411,10 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
     }
 }
 
-/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 FA2 −3。
+/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 −CellHeight。
 ///
 /// `paint_cell_sprites` 以 `iso_to_screen`（钻石包围盒原点）为基准，因此偏移为
-/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 3)`，等价于相对钻石中心的 `(-w/2, −h/2 − 3)`。
+/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 15)`，等价于相对钻石中心的 `(-w/2, −h/2 − 15)`。
 fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
     let full_w = u32::from(shp_w);
     let full_h = u32::from(shp_h);
@@ -440,7 +441,7 @@ fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h:
         width: full_w,
         height: full_h,
         offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
-        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + TERRAIN_OBJECT_Y_FUDGE,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE,
         rgba,
         shadow: None,
     }
