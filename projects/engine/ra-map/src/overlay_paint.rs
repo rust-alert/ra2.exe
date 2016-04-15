@@ -212,7 +212,7 @@ pub fn paint_map_overlays(
         else {
             continue;
         };
-        let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data);
+        let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data, item.pal_kind == 2);
         let hsv_key = item
             .tib_hsv
             .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
@@ -320,14 +320,19 @@ fn resolve_overlay_art_keys(
     (image_key, new_theater, theater_yes)
 }
 
+/// 矿石 / 墙 / 箱子相对格子中心的额外 Y（零售 overlay 绘制偏置 −12）。
+const TIBERIUM_OVERLAY_Y_BIAS: i32 = -12;
+
 /// 高桥主体相对格子中心的额外 Y（零售 `Get_Draw_Offset`：NS −16，EW −31）。
-fn overlay_draw_y_adjust(type_name: &str, data: u8) -> i32 {
+fn overlay_draw_y_adjust(type_name: &str, data: u8, is_tiberium: bool) -> i32 {
     if is_high_bridge_body_name(type_name) {
         if (9..=17).contains(&data) {
             -31
         } else {
             -16
         }
+    } else if is_tiberium {
+        TIBERIUM_OVERLAY_Y_BIAS
     } else {
         0
     }
