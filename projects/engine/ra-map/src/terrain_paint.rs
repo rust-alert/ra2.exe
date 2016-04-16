@@ -17,6 +17,8 @@ use crate::{
 const TERRAIN_OBJECT_Y_FUDGE: i32 = -3;
 
 /// `SpawnsTiberium=yes` 矿柱相对格子钻石中心的 `CellHeight` Y 偏移（−15）。
+///
+/// 呈现时再叠加 FA2 地形 −3，与矿石 overlay 的 −12 偏置对齐后，矿柱相对矿田约再高 6px。
 const SPAWNS_TIBERIUM_Y_FUDGE: i32 = -15;
 
 /// 逻辑帧率：`rules` 的 `AnimationRate` 以该帧率为单位间隔。
@@ -411,10 +413,11 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
     }
 }
 
-/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定，再偏 −CellHeight。
+/// `SpawnsTiberium` 矿柱：子帧贴回完整 SHP 画布，相对格子钻石中心锚定。
 ///
-/// `paint_cell_sprites` 以 `iso_to_screen`（钻石包围盒原点）为基准，因此偏移为
-/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 15)`，等价于相对钻石中心的 `(-w/2, −h/2 − 15)`。
+/// Y = −CellHeight(−15) + FA2 地形 fudge(−3)。`paint_cell_sprites` 以 `iso_to_screen`
+/// （钻石包围盒原点）为基准，因此偏移为
+/// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 18)`。
 fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
     let full_w = u32::from(shp_w);
     let full_h = u32::from(shp_h);
@@ -441,7 +444,7 @@ fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h:
         width: full_w,
         height: full_h,
         offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
-        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE + TERRAIN_OBJECT_Y_FUDGE,
         rgba,
         shadow: None,
     }
