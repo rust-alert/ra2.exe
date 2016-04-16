@@ -373,8 +373,8 @@ fn looping_animated_terrain_skips_shadow_half_frames() {
 
 #[test]
 fn spawns_tiberium_blits_full_canvas_with_cell_height_y() {
-    // 84×56 画布、子帧 (24,4) 的 1×1。完整画布相对钻石中心 (-42, -28-15)。
-    // 换算到 iso 原点：offset = (30-42, 15-28-15) = (-12, -28)。
+    // 84×56 画布、子帧 (24,4) 的 1×1。完整画布相对钻石中心 (-42, -28-15-3)。
+    // 换算到 iso 原点：offset = (30-42, 15-28-18) = (-12, -31)。
     let mut data = Vec::new();
     data.extend_from_slice(&0u16.to_le_bytes());
     data.extend_from_slice(&84u16.to_le_bytes());
@@ -413,13 +413,13 @@ fn spawns_tiberium_blits_full_canvas_with_cell_height_y() {
 
     let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
     // 完整画布左上角 + 子帧 (24,4) → 不透明像素相对 iso 原点：
-    // (-12+24, -28+4) = (12, -24)
+    // (-12+24, -31+4) = (12, -27)
     let expect_x = (sx + 12 - image.origin_x) as u32;
-    let expect_y = (sy - 24 - image.origin_y) as u32;
+    let expect_y = (sy - 27 - image.origin_y) as u32;
     let w = image.image.width();
     let px = image.image.as_raw();
     let di = ((expect_y * w + expect_x) * 4) as usize;
     assert!(di + 3 < px.len(), "pixel index in bounds");
-    assert!(px[di + 3] > 0, "expected ore-tree pixel at CellHeight anchor ({expect_x},{expect_y})");
+    assert!(px[di + 3] > 0, "expected ore-tree pixel at CellHeight+FA2 anchor ({expect_x},{expect_y})");
     assert!(px[di] > px[di + 1], "expected unittem red at ore-tree pixel");
 }

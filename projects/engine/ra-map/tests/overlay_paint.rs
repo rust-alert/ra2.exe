@@ -429,3 +429,35 @@ fn is_bridge_overlay_name_matches_families() {
     assert!(ra_map::is_bridge_overlay_name("bridge1"));
     assert!(!ra_map::is_bridge_overlay_name("TIB01"));
 }
+
+#[test]
+fn tiberium_overlay_applies_minus_twelve_y_bias() {
+    // 1×1 画布：offset = (30, 15 + y_adjust)。矿石 y_adjust=-12 → 像素在 iso+(30, 3)。
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n".to_vec());
+    files.insert("temperat.pal".into(), solid_index_pal(5, 0, 0, 63));
+    files.insert("tib01.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+    let map = overlay_map(102, 0);
+    let mut image = TerrainImage::blank(256, 256);
+    let (shp, mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut image,
+        "art.ini",
+        "rules.ini",
+        &|id| (id == 102).then(|| "TIB01".into()),
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::All,
+    );
+    assert_eq!((shp, mark), (1, 0));
+    let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
+    let expect_x = (sx + 30 - image.origin_x) as u32;
+    let expect_y = (sy + 3 - image.origin_y) as u32;
+    let w = image.image.width();
+    let px = image.image.as_raw();
+    let di = ((expect_y * w + expect_x) * 4) as usize;
+    assert!(di + 3 < px.len(), "pixel index in bounds");
+    assert!(px[di + 3] > 0, "expected ore pixel at -12 Y bias ({expect_x},{expect_y})");
+}
