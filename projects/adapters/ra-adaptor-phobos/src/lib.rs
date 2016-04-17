@@ -23,6 +23,8 @@ pub struct ResourceProfile {
     pub ui_ini: &'static str,
     /// 音效 INI 文件名。
     pub sound_ini: &'static str,
+    /// EVA 播报 INI 文件名。
+    pub eva_ini: &'static str,
     /// 多人模式表 INI 文件名。
     pub mpmodes_ini: &'static str,
     /// 遭遇战选图表（`missionsmd.pkt`，含 `[MultiMaps]` 源序）。
@@ -86,6 +88,7 @@ pub fn mo_layout_profile() -> ResourceProfile {
         art_ini: "artmd.ini",
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
+        eva_ini: "evamd.ini",
         mpmodes_ini: "mpmodesmd.ini",
         missions_pkt: "missionsmd.pkt",
         battle_ini: "battlemd.ini",

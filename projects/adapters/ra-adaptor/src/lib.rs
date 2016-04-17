@@ -45,6 +45,8 @@ pub struct ResourceChain {
     pub ui_ini: &'static str,
     /// 音效 INI 在资源链中的逻辑路径。
     pub sound_ini: &'static str,
+    /// EVA 播报 INI 在资源链中的逻辑路径。
+    pub eva_ini: &'static str,
     /// 多人模式表 INI 在资源链中的逻辑路径。
     pub mpmodes_ini: &'static str,
     /// 遭遇战选图表（`missions.pkt` / `missionsmd.pkt`）在资源链中的逻辑路径。
@@ -76,6 +78,7 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        eva_ini: p.eva_ini,
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
@@ -92,6 +95,7 @@ fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        eva_ini: p.eva_ini,
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
@@ -108,6 +112,7 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
         art_ini: p.art_ini,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
+        eva_ini: p.eva_ini,
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,

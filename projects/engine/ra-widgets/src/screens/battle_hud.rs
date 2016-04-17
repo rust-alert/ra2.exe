@@ -473,10 +473,20 @@ pub fn blit_battle_hud_chrome_with_state(
     power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
-    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false);
+    blit_battle_hud_chrome_ex(
+        page,
+        chrome,
+        snap,
+        power_meter_w,
+        command_pressed,
+        false,
+        [true; SIDEBAR_TAB_COUNT],
+    );
 }
 
 /// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
+///
+/// `tabs_visible`：无对应可建造基础的分类页签不绘制。
 pub fn blit_battle_hud_chrome_ex(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
@@ -484,6 +494,7 @@ pub fn blit_battle_hud_chrome_ex(
     power_meter_w: i32,
     command_pressed: Option<usize>,
     pause_menu: bool,
+    tabs_visible: [bool; SIDEBAR_TAB_COUNT],
 ) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
     let credits = rect_px_from_snapshot(snap, "credits");
@@ -578,6 +589,9 @@ pub fn blit_battle_hud_chrome_ex(
     if !pause_menu {
         // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
         for (i, tab) in chrome.tabs.iter().enumerate() {
+            if !tabs_visible.get(i).copied().unwrap_or(false) {
+                continue;
+            }
             if let Some(tab) = tab {
                 blit_button_in_cell(page, &tab.image, tabs[i]);
             }

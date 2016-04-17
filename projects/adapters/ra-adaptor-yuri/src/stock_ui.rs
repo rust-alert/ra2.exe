@@ -37,7 +37,7 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             yuri_file_names: true,
             score_background: Some("mpyscrnl.shp"),
             score_palette: Some("mpyscrn.pal"),
-            eva_tag: Some("Russian"),
+            eva_tag: Some("Yuri"),
             score_stats_shade: false,
         },
     ]

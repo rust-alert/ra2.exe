@@ -78,10 +78,11 @@ impl BattleHudChromeMetrics {
             repair_x: 20,
             sell_x: 84,
             repair_y: 8,
-            tab_w: 28,
-            tab_h: 27,
-            tab_x: 27,
-            tab_gap: 2,
+            // `tab00`…`tab03` 零售画布 32×28；过窄会拉伸挤叠。
+            tab_w: 32,
+            tab_h: 28,
+            tab_x: 20,
+            tab_gap: 0,
             top_btn_w: 72,
             top_btn_h: 18,
             top_btn_x: 12,
@@ -102,7 +103,7 @@ impl BattleHudChromeMetrics {
             tab_w: 32,
             tab_h: 28,
             tab_x: 20,
-            tab_gap: 2,
+            tab_gap: 0,
             top_btn_w: 72,
             top_btn_h: 22,
             top_btn_x: 12,
@@ -530,9 +531,9 @@ mod tests {
         assert_ne!(sidec01.repair_sell_w, sidec02.repair_sell_w);
         assert_ne!(sidec01.repair_sell_h, sidec02.repair_sell_h);
         assert_ne!(sidec01.repair_x, sidec02.repair_x);
-        assert_ne!(sidec01.tab_w, sidec02.tab_w);
-        assert_ne!(sidec01.tab_h, sidec02.tab_h);
-        assert_ne!(sidec01.tab_x, sidec02.tab_x);
+        // 盟军 / 苏军页签画布同为 32×28，差在修理钮与顶栏等。
+        assert_eq!(sidec01.tab_w, sidec02.tab_w);
+        assert_eq!(sidec01.tab_h, sidec02.tab_h);
         assert_ne!(sidec01.top_btn_h, sidec02.top_btn_h);
         assert_ne!(sidec01.power_w, sidec02.power_w);
 
@@ -550,8 +551,8 @@ mod tests {
             s.repair.x as i32 - s.sidebar.x as i32,
             sidec02.repair_x
         );
-        assert_eq!(a.tabs[0].width as i32, 28);
-        assert_eq!(a.tabs[0].height as i32, 27);
+        assert_eq!(a.tabs[0].width as i32, 32);
+        assert_eq!(a.tabs[0].height as i32, 28);
         assert_eq!(s.tabs[0].width as i32, 32);
         assert_eq!(s.tabs[0].height as i32, 28);
         assert_eq!(a.opt_btn.height as i32, 18);
@@ -564,6 +565,9 @@ mod tests {
             s.tabs[0].x as i32 - s.sidebar.x as i32,
             sidec02.tab_x
         );
+        // 四页签并排不越出侧栏。
+        let a_last = a.tabs[3].x as i32 + a.tabs[3].width as i32;
+        assert!(a_last <= a.sidebar.x as i32 + a.sidebar.width as i32);
 
         assert_eq!(
             BattleHudChromeMetrics::for_mix("sidec01.mix"),

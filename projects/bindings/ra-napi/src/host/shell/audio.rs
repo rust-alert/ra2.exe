@@ -426,7 +426,7 @@ impl Shell {
         }
     }
 
-    /// 对局短音效 / EVA：`sound.ini` 或 `eva.ini` → `audio.bag` 或 MIX 内 `.wav`。
+    /// 对局短音效 / EVA：`sound.ini` 或 edition `eva.ini`/`evamd.ini` → `audio.bag` 或 MIX 内 `.wav`。
     ///
     /// 成功解码时返回 PCM（供结算延迟按采样时长对齐）。
     pub(super) fn play_battle_sfx_event(&mut self, event_id: &str) -> Option<ra_assets::PcmAudio> {
@@ -435,21 +435,23 @@ impl Shell {
         }
         self.ensure_audio_bag();
         let mut candidates: Vec<String> = Vec::new();
+        let chrome = self.resolve_battle_ui_faction_chrome();
         if event_id.starts_with("EVA_") || event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
-            candidates.extend(self.eva_sample_names(event_id));
+            candidates.extend(self.eva_sample_names(event_id, chrome.as_ref()));
+            let tag = chrome.as_ref().and_then(|c| c.eva_tag.as_deref());
+            for fallback in ra_widgets::skirmish_setup::eva_fallback_sample_names(event_id, tag) {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(&fallback)) {
+                    candidates.push(fallback);
+                }
+            }
         }
         candidates.extend(self.sound_event_sample_names(event_id));
         // 零售 `[PlaceBuilding] Sounds=uplace`；解析失败时仍走 bag / MIX 名。
-        let fallbacks: &[&str] = match event_id {
-            id if id.eq_ignore_ascii_case("PlaceBuilding") => &["uplace", "UPLACE", "PlaceBuilding"],
-            id if id.eq_ignore_ascii_case("EVA_BattleControlTerminated") => &["ceva015", "csof015", "CEVA015", "CSOF015"],
-            id if id.eq_ignore_ascii_case("EVA_MissionAccomplished") => &["ceva013", "csof013", "CEVA013", "CSOF013"],
-            id if id.eq_ignore_ascii_case("EVA_MissionFailed") => &["ceva014", "csof014", "CEVA014", "CSOF014"],
-            _ => &[],
-        };
-        for fallback in fallbacks {
-            if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
-                candidates.push((*fallback).into());
+        if event_id.eq_ignore_ascii_case("PlaceBuilding") {
+            for fallback in ["uplace", "UPLACE", "PlaceBuilding"] {
+                if !candidates.iter().any(|c| c.eq_ignore_ascii_case(fallback)) {
+                    candidates.push((*fallback).into());
+                }
             }
         }
         if candidates.is_empty() {
@@ -468,14 +470,9 @@ impl Shell {
         Some(pcm)
     }
 
-    /// `eva.ini` 事件 → Allied/Russian 采样名（按本机 UI 阵营族优先）。
-    pub(super) fn eva_sample_names(&self, event_id: &str) -> Vec<String> {
-        let Some(doc) = self.read_ini_doc("eva.ini")
-        else {
-            return Vec::new();
-        };
-        let chrome = self
-            .battle_controller
+    /// 本机对局 UI chrome（含 `EVA.Tag`）；无缓存则按本机 house / `Side=` 解析。
+    pub(super) fn resolve_battle_ui_faction_chrome(&self) -> Option<ra_widgets::skirmish_setup::UiFactionChrome> {
+        self.battle_controller
             .as_ref()
             .and_then(|c| c.ui_faction_chrome().cloned())
             .or_else(|| {
@@ -497,11 +494,35 @@ impl Shell {
                             })
                     })
                 })
-            });
-        let Some(chrome) = chrome else {
+            })
+    }
+
+    /// edition EVA 表（`eva.ini` / `evamd.ini`）事件 → 本机 `EVA.Tag` 列采样名。
+    pub(super) fn eva_sample_names(
+        &self,
+        event_id: &str,
+        chrome: Option<&ra_widgets::skirmish_setup::UiFactionChrome>,
+    ) -> Vec<String> {
+        let eva_ini = self
+            .menu_assets
+            .as_ref()
+            .and_then(|a| a.eva_ini_name)
+            .unwrap_or("eva.ini");
+        let Some(doc) = self.read_ini_doc(eva_ini).or_else(|| {
+            if eva_ini.eq_ignore_ascii_case("eva.ini") {
+                None
+            } else {
+                // MD 表缺失时再试基座表（无 Yuri 列，仅 Allied/Russian）。
+                self.read_ini_doc("eva.ini")
+            }
+        })
+        else {
             return Vec::new();
         };
-        // 按 `EVA.Tag` 取采样名；无 chrome 则空列表。
+        let Some(chrome) = chrome
+        else {
+            return Vec::new();
+        };
         let mut out = Vec::new();
         for key in chrome.eva_sample_keys() {
             let stem = doc.get(event_id, &key).unwrap_or("").trim().to_string();

@@ -1,9 +1,9 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, load_screen_background_shp_resolved,
-    load_screen_brief_csf_key, load_screen_palette_resolved, pick_side_flag_pcx, score_screen_background_shp,
-    score_screen_palette,
+    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, eva_fallback_sample_names, eva_voice_stem_prefix,
+    load_screen_background_shp_resolved, load_screen_brief_csf_key, load_screen_palette_resolved, pick_side_flag_pcx,
+    score_screen_background_shp, score_screen_palette,
 };
 
 fn sample_sides() -> Vec<String> {
@@ -129,6 +129,7 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
         Some("mpxscrnl.shp".into()),
         Some("mpxscrn.pal".into()),
         Some("Foehn".into()),
+        Some(false),
     )
     .expect("index 6");
     assert_eq!(sixth.sidebar_mix(), "sidec06.mix");
@@ -154,4 +155,23 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
     assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
     assert_eq!(from_def.eva_tag.as_deref(), Some("CustomEva"));
     assert!(!from_def.score_stats_shade);
+}
+
+#[test]
+fn eva_fallback_stems_follow_tag_not_allied_first() {
+    assert_eq!(eva_voice_stem_prefix("Allied"), Some("ceva"));
+    assert_eq!(eva_voice_stem_prefix("Russian"), Some("csof"));
+    assert_eq!(eva_voice_stem_prefix("Yuri"), Some("cyur"));
+    assert_eq!(eva_voice_stem_prefix("Foehn"), None);
+
+    assert_eq!(
+        eva_fallback_sample_names("EVA_BattleControlTerminated", Some("Yuri")),
+        vec!["cyur015".to_string(), "CYUR015".to_string()]
+    );
+    assert_eq!(
+        eva_fallback_sample_names("EVA_MissionAccomplished", Some("Russian")),
+        vec!["csof013".to_string(), "CSOF013".to_string()]
+    );
+    assert!(eva_fallback_sample_names("EVA_BattleControlTerminated", Some("Foehn")).is_empty());
+    assert!(eva_fallback_sample_names("EVA_UnitLost", Some("Allied")).is_empty());
 }

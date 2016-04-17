@@ -38,6 +38,8 @@ pub struct BattleHudModel<'a> {
     pub command_tip: Option<&'a str>,
     /// 当前分类页签。
     pub sidebar_tab: usize,
+    /// 四分类页签是否可见（有对应可建造基础才显示）。
+    pub sidebar_tabs_visible: [bool; 4],
     /// 当前页 cameo 列表。
     pub cameos: &'a [crate::battle_hud::BattleCameoPaint<'a>],
 }
@@ -75,15 +77,10 @@ pub fn compose_battle_hud_overlay(
             metrics.power_w,
             paint.command_pressed,
             paint.paused,
+            paint.sidebar_tabs_visible,
         );
         if !paint.paused {
             crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos);
-            // 当前页签描边，区分四分类。
-            let tab_id = format!("tab{:02}", paint.sidebar_tab.min(3));
-            let tab = rect_px_from_snapshot(&snap, &tab_id);
-            if tab.w > 0 && tab.h > 0 {
-                stroke_rect(&mut page, tab, [255, 220, 64, 255]);
-            }
         }
     } else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。

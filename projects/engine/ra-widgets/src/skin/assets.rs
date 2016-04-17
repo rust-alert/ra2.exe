@@ -20,7 +20,11 @@ pub struct MenuUiAssets {
     pub source: Option<GameAssetSource>,
     /// 版本链上的 UI 配置文件名（如 `ui.ini` / `uimd.ini`）。
     pub ui_ini_name: Option<&'static str>,
-    /// 上述文件是否可读。
+    /// 版本链上的音效表文件名（如 `sound.ini` / `soundmd.ini`）。
+    pub sound_ini_name: Option<&'static str>,
+    /// 版本链上的 EVA 播报表文件名（如 `eva.ini` / `evamd.ini`）。
+    pub eva_ini_name: Option<&'static str>,
+    /// 上述 UI 文件是否可读。
     pub ui_ini_readable: bool,
     /// 已解析的 UI INI 文档（有字节且解析成功时）。
     pub ui_ini: Option<IniDocument>,
@@ -43,6 +47,8 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
                 edition: None,
                 source: None,
                 ui_ini_name: None,
+                sound_ini_name: None,
+                eva_ini_name: None,
                 ui_ini_readable: false,
                 ui_ini: None,
                 ui_ini_shp_refs: Vec::new(),
@@ -51,6 +57,8 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
     };
 
     let ui_ini_name = Some(manifest.chain.ui_ini);
+    let sound_ini_name = Some(manifest.chain.sound_ini);
+    let eva_ini_name = Some(manifest.chain.eva_ini);
     let mut source = GameAssetSource::new(manifest.root.clone());
     let (mounted_root, _) = source.mount_root_plan(&manifest.composition.root_mount_plan);
     let (mounted_nested, _) = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
@@ -80,7 +88,17 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
         tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
     }
-    MenuUiAssets { note, edition: Some(manifest.chain.edition), source: Some(source), ui_ini_name, ui_ini_readable, ui_ini, ui_ini_shp_refs }
+    MenuUiAssets {
+        note,
+        edition: Some(manifest.chain.edition),
+        source: Some(source),
+        ui_ini_name,
+        sound_ini_name,
+        eva_ini_name,
+        ui_ini_readable,
+        ui_ini,
+        ui_ini_shp_refs,
+    }
 }
 
 /// 最近邻缩小到不超过 max_w×max_h（已更小则克隆）。

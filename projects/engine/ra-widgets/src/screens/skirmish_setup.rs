@@ -177,13 +177,65 @@ impl UiFactionChrome {
         out
     }
 
-    /// EVA 采样键候选：`EVA.Tag` 优先，再试库存 `Allied` / `Russian` 键（不按阵营猜优先序）。
+    /// EVA 采样 INI 列名：仅 `EVA.Tag`（如 `Allied` / `Russian` / `Yuri` / 模组自定义）。
     pub fn eva_sample_keys(&self) -> Vec<String> {
         let mut out = Vec::new();
         if let Some(tag) = self.eva_tag.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             push_unique_ci(&mut out, tag.to_string());
         }
         out
+    }
+}
+
+/// 零售 EVA 采样名前缀（`eva.ini` / `evamd.ini` 列 → `ceva` / `csof` / `cyur`）。
+///
+/// 未知 `EVA.Tag`（模组自定义列）返回 `None`，勿默回盟军 `ceva`。
+pub fn eva_voice_stem_prefix(eva_tag: &str) -> Option<&'static str> {
+    let tag = eva_tag.trim();
+    if tag.eq_ignore_ascii_case("Allied") {
+        Some("ceva")
+    } else if tag.eq_ignore_ascii_case("Russian") {
+        Some("csof")
+    } else if tag.eq_ignore_ascii_case("Yuri") {
+        Some("cyur")
+    } else {
+        None
+    }
+}
+
+/// 已知对局结束 EVA 事件在零售采样名中的三位序号（如 `ceva015` → `015`）。
+pub fn eva_known_event_index(event_id: &str) -> Option<&'static str> {
+    if event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
+        Some("015")
+    } else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
+        Some("013")
+    } else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
+        Some("014")
+    } else {
+        None
+    }
+}
+
+/// 按 `EVA.Tag` 生成已知事件的 bag 回退名（大小写各一）；无标签或未知事件则空。
+pub fn eva_fallback_sample_names(event_id: &str, eva_tag: Option<&str>) -> Vec<String> {
+    let Some(tag) = eva_tag.map(str::trim).filter(|s| !s.is_empty())
+    else {
+        return Vec::new();
+    };
+    let Some(prefix) = eva_voice_stem_prefix(tag)
+    else {
+        return Vec::new();
+    };
+    let Some(index) = eva_known_event_index(event_id)
+    else {
+        return Vec::new();
+    };
+    let lower = format!("{prefix}{index}");
+    let upper = lower.to_ascii_uppercase();
+    if upper == lower {
+        vec![lower]
+    } else {
+        vec![lower, upper]
     }
 }
 
