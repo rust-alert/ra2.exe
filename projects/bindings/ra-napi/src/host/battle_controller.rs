@@ -1,7 +1,7 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -295,8 +295,14 @@ pub struct BattleController {
     start_view_pending: bool,
     /// 等待本 tick 结算的部署实体（`KeyD` 下发后）。
     deploy_watch: Option<ra_types::EntityId>,
-    /// 对局短音效事件 id 队列（如 `PlaceBuilding`；由壳层按 `sound.ini` 播放）。
+    /// 对局短音效 / EVA 事件 id 队列（如 `PlaceBuilding`、`EVA_UnitLost`；由壳层播放）。
     pending_battle_sfx: Vec<String>,
+    /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
+    eva_low_power_latched: bool,
+    /// 已观测到的本机存活机动单位（用于阵亡边沿 → `EVA_UnitLost`）。
+    eva_alive_local_mobiles: HashSet<EntityId>,
+    /// 是否已用当前存活集播种（首帧只建集、不播报）。
+    eva_alive_seeded: bool,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     outcome_hold_until: Option<Instant>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
@@ -371,6 +377,9 @@ impl BattleController {
             start_view_pending: has_session,
             deploy_watch: None,
             pending_battle_sfx: Vec::new(),
+            eva_low_power_latched: false,
+            eva_alive_local_mobiles: HashSet::new(),
+            eva_alive_seeded: false,
             outcome_hold_until: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
@@ -548,6 +557,9 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
         self.deploy_watch = None;
         self.pending_battle_sfx.clear();
+        self.eva_low_power_latched = false;
+        self.eva_alive_local_mobiles.clear();
+        self.eva_alive_seeded = false;
         self.outcome_hold_until = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
@@ -1369,9 +1381,117 @@ impl BattleController {
                 self.local.prune_dead(game);
             }
         }
+        self.poll_in_battle_eva();
         let nav = self.poll_outcome_nav();
         self.resolve_deploy_watch();
         (nav, started.elapsed())
+    }
+
+    /// 排队对局音效 / EVA（同 id 未播前不重复入队）。
+    fn queue_battle_sfx_once(&mut self, event_id: &str) {
+        if event_id.is_empty() {
+            return;
+        }
+        if self.pending_battle_sfx.iter().any(|e| e.eq_ignore_ascii_case(event_id)) {
+            return;
+        }
+        self.pending_battle_sfx.push(event_id.to_string());
+    }
+
+    /// 局内 EVA：低电 / 资金不足拒绝 / 本机机动单位阵亡边沿。
+    ///
+    /// 结束播报仍由 [`Self::note_outcome_once`] 排队；本函数在已有胜负时跳过。
+    fn poll_in_battle_eva(&mut self) {
+        let mut to_queue: Vec<&'static str> = Vec::new();
+        let mut next_alive: Option<HashSet<EntityId>> = None;
+        let mut seed_alive = false;
+        let mut set_low_latch: Option<bool> = None;
+
+        {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return;
+            };
+            if game.outcome.is_some() {
+                return;
+            }
+
+            let local_id = game.world.local_player;
+            let Some(local) = game.world.players.iter().find(|p| p.id == local_id)
+            else {
+                return;
+            };
+            let local_house = local.house.as_ref();
+            let low_power = local.low_power();
+
+            if game
+                .world
+                .last_rejects()
+                .iter()
+                .any(|r| matches!(r.reason, ra_engine::CommandRejectReason::InsufficientFunds))
+            {
+                to_queue.push("EVA_InsufficientFunds");
+            }
+
+            if !low_power {
+                set_low_latch = Some(false);
+            } else if !self.eva_low_power_latched {
+                set_low_latch = Some(true);
+                to_queue.push("EVA_LowPower");
+            }
+
+            let mut alive_now: HashSet<EntityId> = HashSet::new();
+            for id in game.world.entity_ids() {
+                let Some((_, _, dead)) = game.world.ecs_health(id)
+                else {
+                    continue;
+                };
+                if dead {
+                    continue;
+                }
+                let Some(owner) = game.world.ecs_owner(id)
+                else {
+                    continue;
+                };
+                if !owner.eq_ignore_ascii_case(local_house) {
+                    continue;
+                }
+                let Some((_, kind)) = game.world.ecs_identity(id)
+                else {
+                    continue;
+                };
+                if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                    continue;
+                }
+                alive_now.insert(id);
+            }
+            if !self.eva_alive_seeded {
+                next_alive = Some(alive_now);
+                seed_alive = true;
+            } else {
+                let lost = self
+                    .eva_alive_local_mobiles
+                    .iter()
+                    .any(|id| !alive_now.contains(id));
+                next_alive = Some(alive_now);
+                if lost {
+                    to_queue.push("EVA_UnitLost");
+                }
+            }
+        }
+
+        if let Some(latch) = set_low_latch {
+            self.eva_low_power_latched = latch;
+        }
+        if let Some(alive) = next_alive {
+            self.eva_alive_local_mobiles = alive;
+            if seed_alive {
+                self.eva_alive_seeded = true;
+            }
+        }
+        for event_id in to_queue {
+            self.queue_battle_sfx_once(event_id);
+        }
     }
 
     /// 胜负已定：排队 EVA，留在对局页播报后再 `ToResults`。
@@ -1541,9 +1661,7 @@ impl BattleController {
             BattleOutcome::Victory { .. } => "EVA_MissionAccomplished",
             BattleOutcome::Defeat { .. } => "EVA_BattleControlTerminated",
         };
-        if !self.pending_battle_sfx.iter().any(|e| e.eq_ignore_ascii_case(eva)) {
-            self.pending_battle_sfx.push(eva.into());
-        }
+        self.queue_battle_sfx_once(eva);
     }
 
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
