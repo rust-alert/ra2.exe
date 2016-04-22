@@ -299,10 +299,16 @@ pub struct BattleController {
     pending_battle_sfx: Vec<String>,
     /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
     eva_low_power_latched: bool,
+    /// 本机基地遇袭 EVA 已闩住（本地建筑无 `hit_flash` 后清闩）。
+    eva_base_under_attack_latched: bool,
     /// 已观测到的本机存活机动单位（用于阵亡边沿 → `EVA_UnitLost`）。
     eva_alive_local_mobiles: HashSet<EntityId>,
     /// 是否已用当前存活集播种（首帧只建集、不播报）。
     eva_alive_seeded: bool,
+    /// 上一帧本机工厂仍在生产的实体 id（队列清空边沿 → `EVA_UnitReady`）。
+    eva_producing_factories: HashSet<EntityId>,
+    /// 生产观测是否已播种（首帧只建集、不播报）。
+    eva_producing_seeded: bool,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     outcome_hold_until: Option<Instant>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
@@ -378,8 +384,11 @@ impl BattleController {
             deploy_watch: None,
             pending_battle_sfx: Vec::new(),
             eva_low_power_latched: false,
+            eva_base_under_attack_latched: false,
             eva_alive_local_mobiles: HashSet::new(),
             eva_alive_seeded: false,
+            eva_producing_factories: HashSet::new(),
+            eva_producing_seeded: false,
             outcome_hold_until: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
@@ -558,8 +567,11 @@ impl BattleController {
         self.deploy_watch = None;
         self.pending_battle_sfx.clear();
         self.eva_low_power_latched = false;
+        self.eva_base_under_attack_latched = false;
         self.eva_alive_local_mobiles.clear();
         self.eva_alive_seeded = false;
+        self.eva_producing_factories.clear();
+        self.eva_producing_seeded = false;
         self.outcome_hold_until = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
@@ -1398,14 +1410,19 @@ impl BattleController {
         self.pending_battle_sfx.push(event_id.to_string());
     }
 
-    /// 局内 EVA：低电 / 资金不足拒绝 / 本机机动单位阵亡边沿。
+    /// 局内 EVA：低电 / 资金不足 / 单位阵亡 / 基地遇袭 / 单位出厂。
     ///
     /// 结束播报仍由 [`Self::note_outcome_once`] 排队；本函数在已有胜负时跳过。
+    /// 建造完成由 [`Self::settle_deployed_structure`] 另行排队。
     fn poll_in_battle_eva(&mut self) {
         let mut to_queue: Vec<&'static str> = Vec::new();
         let mut next_alive: Option<HashSet<EntityId>> = None;
         let mut seed_alive = false;
         let mut set_low_latch: Option<bool> = None;
+        let mut set_base_latch: Option<bool> = None;
+        let mut next_producing: Option<HashSet<EntityId>> = None;
+        let mut seed_producing = false;
+        let mut unit_ready = false;
 
         {
             let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -1441,6 +1458,8 @@ impl BattleController {
             }
 
             let mut alive_now: HashSet<EntityId> = HashSet::new();
+            let mut producing_now: HashSet<EntityId> = HashSet::new();
+            let mut base_hit = false;
             for id in game.world.entity_ids() {
                 let Some((_, _, dead)) = game.world.ecs_health(id)
                 else {
@@ -1460,11 +1479,36 @@ impl BattleController {
                 else {
                     continue;
                 };
-                if !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
-                    continue;
+                match kind {
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => {
+                        alive_now.insert(id);
+                    }
+                    MapEntityKind::Structure => {
+                        if game
+                            .world
+                            .ecs_animation(id)
+                            .is_some_and(|(_, hit_flash)| hit_flash > 0)
+                        {
+                            base_hit = true;
+                        }
+                        if game
+                            .world
+                            .ecs_produce_item(id)
+                            .is_some_and(|item| item.is_some())
+                        {
+                            producing_now.insert(id);
+                        }
+                    }
                 }
-                alive_now.insert(id);
             }
+
+            if !base_hit {
+                set_base_latch = Some(false);
+            } else if !self.eva_base_under_attack_latched {
+                set_base_latch = Some(true);
+                to_queue.push("EVA_OurBaseIsUnderAttack");
+            }
+
             if !self.eva_alive_seeded {
                 next_alive = Some(alive_now);
                 seed_alive = true;
@@ -1478,16 +1522,39 @@ impl BattleController {
                     to_queue.push("EVA_UnitLost");
                 }
             }
+
+            if !self.eva_producing_seeded {
+                next_producing = Some(producing_now);
+                seed_producing = true;
+            } else {
+                unit_ready = self
+                    .eva_producing_factories
+                    .iter()
+                    .any(|id| !producing_now.contains(id));
+                next_producing = Some(producing_now);
+            }
         }
 
         if let Some(latch) = set_low_latch {
             self.eva_low_power_latched = latch;
+        }
+        if let Some(latch) = set_base_latch {
+            self.eva_base_under_attack_latched = latch;
         }
         if let Some(alive) = next_alive {
             self.eva_alive_local_mobiles = alive;
             if seed_alive {
                 self.eva_alive_seeded = true;
             }
+        }
+        if let Some(producing) = next_producing {
+            self.eva_producing_factories = producing;
+            if seed_producing {
+                self.eva_producing_seeded = true;
+            }
+        }
+        if unit_ready {
+            to_queue.push("EVA_UnitReady");
         }
         for event_id in to_queue {
             self.queue_battle_sfx_once(event_id);
@@ -1903,6 +1970,23 @@ impl BattleController {
         y: u16,
         clip: Option<&StructureBuildupClip>,
     ) {
+        let local_house = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .and_then(|g| {
+                g.world
+                    .players
+                    .iter()
+                    .find(|p| p.id == g.world.local_player)
+                    .map(|p| p.house.to_string())
+            });
+        if local_house
+            .as_deref()
+            .is_some_and(|house| owner.eq_ignore_ascii_case(house))
+        {
+            self.queue_battle_sfx_once("EVA_ConstructionComplete");
+        }
         let art_ini = self.art_ini;
         let origin = self.preview_origin;
         let painted = {
@@ -2700,6 +2784,7 @@ impl BattleController {
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
+            sidebar_tabs_visible: [true; 4],
             cameos: if show_pause_banner { &[] } else { &cameos },
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
