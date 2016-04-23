@@ -309,6 +309,10 @@ pub struct BattleController {
     eva_producing_factories: HashSet<EntityId>,
     /// 生产观测是否已播种（首帧只建集、不播报）。
     eva_producing_seeded: bool,
+    /// 已见过的侧栏可建造 / 可生产类型（集合增大 → `EVA_NewConstructionOptions`）。
+    eva_known_options: HashSet<String>,
+    /// 建造选项集是否已播种。
+    eva_options_seeded: bool,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     outcome_hold_until: Option<Instant>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
@@ -389,6 +393,8 @@ impl BattleController {
             eva_alive_seeded: false,
             eva_producing_factories: HashSet::new(),
             eva_producing_seeded: false,
+            eva_known_options: HashSet::new(),
+            eva_options_seeded: false,
             outcome_hold_until: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
@@ -572,6 +578,8 @@ impl BattleController {
         self.eva_alive_seeded = false;
         self.eva_producing_factories.clear();
         self.eva_producing_seeded = false;
+        self.eva_known_options.clear();
+        self.eva_options_seeded = false;
         self.outcome_hold_until = None;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
@@ -1410,7 +1418,7 @@ impl BattleController {
         self.pending_battle_sfx.push(event_id.to_string());
     }
 
-    /// 局内 EVA：低电 / 资金不足 / 单位阵亡 / 基地遇袭 / 单位出厂。
+    /// 局内 EVA：低电 / 资金不足 / 单位阵亡 / 基地遇袭 / 单位出厂 / 新建造选项。
     ///
     /// 结束播报仍由 [`Self::note_outcome_once`] 排队；本函数在已有胜负时跳过。
     /// 建造完成由 [`Self::settle_deployed_structure`] 另行排队。
@@ -1423,6 +1431,9 @@ impl BattleController {
         let mut next_producing: Option<HashSet<EntityId>> = None;
         let mut seed_producing = false;
         let mut unit_ready = false;
+        let mut next_options: Option<HashSet<String>> = None;
+        let mut seed_options = false;
+        let mut new_options = false;
 
         {
             let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -1533,6 +1544,27 @@ impl BattleController {
                     .any(|id| !producing_now.contains(id));
                 next_producing = Some(producing_now);
             }
+
+            // 科技/前置解锁使侧栏条目集合变大 → 新建造选项（资金/电力禁用不计入）。
+            let caps = game.snapshot_capabilities(&[]);
+            let mut options_now: HashSet<String> = HashSet::new();
+            for item in caps
+                .build_items
+                .iter()
+                .chain(caps.infantry_items.iter())
+                .chain(caps.vehicle_items.iter())
+            {
+                options_now.insert(item.type_id.as_ref().to_string());
+            }
+            if !self.eva_options_seeded {
+                next_options = Some(options_now);
+                seed_options = true;
+            } else {
+                new_options = options_now
+                    .iter()
+                    .any(|id| !self.eva_known_options.contains(id));
+                next_options = Some(options_now);
+            }
         }
 
         if let Some(latch) = set_low_latch {
@@ -1553,8 +1585,17 @@ impl BattleController {
                 self.eva_producing_seeded = true;
             }
         }
+        if let Some(options) = next_options {
+            self.eva_known_options = options;
+            if seed_options {
+                self.eva_options_seeded = true;
+            }
+        }
         if unit_ready {
             to_queue.push("EVA_UnitReady");
+        }
+        if new_options {
+            to_queue.push("EVA_NewConstructionOptions");
         }
         for event_id in to_queue {
             self.queue_battle_sfx_once(event_id);
