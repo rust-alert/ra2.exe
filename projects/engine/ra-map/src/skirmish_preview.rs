@@ -8,8 +8,9 @@ use crate::{
     MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, TerrainAnimBank, TerrainPaintMode,
     compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles,
     overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures,
-    structure_paint::paint_structure_anim_bank, terrain_paint::collect_terrain_anim_bank, terrain_paint::paint_map_terrain_objects,
-    terrain_paint::paint_terrain_anim_bank, terrain_preview::compose_terrain_preview,
+    structure_paint::paint_structure_anim_bank, terrain_paint::collect_ore_tree_anim_bank, terrain_paint::collect_terrain_anim_bank,
+    terrain_paint::paint_map_terrain_objects, terrain_paint::paint_ore_tree_frames, terrain_paint::paint_terrain_anim_bank,
+    terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -36,12 +37,14 @@ pub struct SkirmishPreviewStats {
 pub struct BootPreviewResult {
     /// 预览图像（已叠当前时钟活动层）。
     pub image: RawRgbaImage,
-    /// 不含建筑/地形活动层的预览底图（对局时钟刷新用）。
+    /// 不含建筑/地形活动层与矿柱的预览底图（对局时钟刷新用）。
     pub base_without_anims: RgbaImage,
     /// 建筑活动层银行。
     pub anim_bank: StructureAnimBank,
-    /// 动画地形物件银行（矿柱等）。
+    /// 动画地形物件银行（旗帜等常循环）。
     pub terrain_anim_bank: TerrainAnimBank,
+    /// 矿柱帧银行（由产矿状态机选帧）。
+    pub ore_tree_anim_bank: TerrainAnimBank,
     /// 画布原点世界 X。
     pub origin_x: i32,
     /// 画布原点世界 Y。
@@ -55,9 +58,9 @@ pub struct BootPreviewResult {
 /// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
 ///
 /// 顺序：地面 overlay → 静态地形物件 → 建筑主体 → 桥 overlay → 移动单位 →
-/// 动画地形 → 建筑活动层。底图不含后两层，供对局按时钟刷新。
+/// 动画地形 → 矿柱 Idle → 建筑活动层。底图不含后三层，供对局按时钟/状态机刷新。
 ///
-/// 返回 `(合成图, 无活动层底图, 统计, 建筑活动层, 地形活动层)`。
+/// 返回 `(合成图, 无活动层底图, 统计, 建筑活动层, 地形活动层, 矿柱银行)`。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -68,7 +71,7 @@ pub fn compose_skirmish_preview(
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
-) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank)> {
+) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank, TerrainAnimBank)> {
     // 预览叠画需要点光源；从 rules 收集后挂到地图副本上（不改调用方 MapInfo）。
     let mut lit_map = map.clone();
     if let Ok(bytes) = source.read(rules_ini) {
@@ -93,6 +96,7 @@ pub fn compose_skirmish_preview(
     let terrain_objects =
         paint_map_terrain_objects(source, map, &mut image, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, art_ini, rules_ini);
+    let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, art_ini, rules_ini);
     let (structures, structure_mark) =
         paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) = paint_map_overlays(
@@ -109,8 +113,10 @@ pub fn compose_skirmish_preview(
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, rules_ini, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
-    // 矿柱等动画地形在刷新时叠在建筑主体之上；矿柱极少与建筑同格，可接受。
+    // 旗帜等常循环地形在刷新时叠在建筑主体之上。
     let terrain_anim_n = paint_terrain_anim_bank(&mut image, &terrain_anim_bank, anim_clock_ms);
+    let ore_idle: Vec<(u16, u16, u16)> = ore_tree_anim_bank.layers.iter().map(|l| (l.x, l.y, 0)).collect();
+    let ore_n = paint_ore_tree_frames(&mut image, &ore_tree_anim_bank, &ore_idle);
     let anim_n = paint_structure_anim_bank(&mut image, &anim_bank, anim_clock_ms);
     Some((
         image,
@@ -118,14 +124,15 @@ pub fn compose_skirmish_preview(
         SkirmishPreviewStats {
             overlay_shp: ground_shp + bridge_shp,
             overlay_mark: ground_mark + bridge_mark,
-            terrain_objects: terrain_objects + terrain_anim_n,
-            terrain_anims: terrain_anim_bank.layers.len(),
+            terrain_objects: terrain_objects + terrain_anim_n + ore_n,
+            terrain_anims: terrain_anim_bank.layers.len() + ore_tree_anim_bank.layers.len(),
             structures: structures + anim_n,
             structure_mark,
             mobiles,
         },
         anim_bank,
         terrain_anim_bank,
+        ore_tree_anim_bank,
     ))
 }
 
@@ -162,7 +169,7 @@ pub fn compose_boot_preview(
     is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, base_without_anims, stats, anim_bank, terrain_anim_bank) =
+    let (image, base_without_anims, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
         compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, &|_| None, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
@@ -174,8 +181,18 @@ pub fn compose_boot_preview(
             )
         })
         .unwrap_or_else(|| "-".into());
+    let ore_hit = ore_tree_anim_bank
+        .layers
+        .first()
+        .map(|l| {
+            format!(
+                "{} {}x{} body#{}/{} pal={}",
+                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames, l.palette
+            )
+        })
+        .unwrap_or_else(|| "-".into());
     let note = format!(
-        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} terrain_anim#{} ({}) struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",
+        "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} terrain_anim#{} ({}) ore_tree#{} ({}) struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",
         map.name,
         map.cells.len(),
         image.drawn,
@@ -185,6 +202,8 @@ pub fn compose_boot_preview(
         stats.terrain_objects,
         stats.terrain_anims,
         terrain_hit,
+        ore_tree_anim_bank.layers.len(),
+        ore_hit,
         stats.structures,
         stats.structure_mark,
         stats.mobiles,
@@ -199,6 +218,7 @@ pub fn compose_boot_preview(
         base_without_anims,
         anim_bank,
         terrain_anim_bank,
+        ore_tree_anim_bank,
         note,
         stats,
     })

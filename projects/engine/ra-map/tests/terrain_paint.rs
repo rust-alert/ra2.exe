@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapInfo, TerrainImage, TerrainObject, TerrainPaintMode, collect_terrain_anim_bank, paint_map_terrain_objects,
-    paint_terrain_anim_bank, terrain_anim_frame, terrain_animation_rate_ms,
+    MapInfo, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
+    ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_terrain_anim_bank,
+    terrain_anim_frame, terrain_animation_rate_ms,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -216,7 +217,7 @@ fn looping_animated_terrain_selects_body_frame_by_clock() {
 
 #[test]
 fn spawns_tiberium_stays_on_idle_frame_zero() {
-    // 矿柱是条件动画：即使有时钟也不循环，始终 Idle 第 0 帧（绿）。
+    // 矿柱是条件动画：时钟不循环；StaticOnly 底图不画，由 ore-tree 银行叠 Idle 0。
     let mut pal = solid_index_pal(5, 0, 63, 0);
     pal[6 * 3] = 63;
     pal[6 * 3 + 1] = 0;
@@ -234,6 +235,10 @@ fn spawns_tiberium_stays_on_idle_frame_zero() {
     let map = tibtre_map();
 
     assert!(collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini").is_empty());
+    let bank = collect_ore_tree_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    assert_eq!(bank.layers[0].frames.len(), 2);
+    assert_eq!(ore_tree_frame_count_hints(&bank), vec![(5, 0, 2)]);
 
     let mut image0 = TerrainImage::blank(256, 256);
     assert_eq!(paint_map_terrain_objects(&source, &map, &mut image0, "art.ini", "rules.ini", clock(0)), 1);
@@ -255,9 +260,19 @@ fn spawns_tiberium_stays_on_idle_frame_zero() {
             "rules.ini",
             TerrainPaintMode::StaticOnly
         ),
-        1,
-        "StaticOnly must still paint Idle ore trees"
+        0,
+        "StaticOnly must leave ore trees to OreTree bank"
     );
+
+    let mut image_bank = TerrainImage::blank(256, 256);
+    assert_eq!(paint_ore_tree_frames(&mut image_bank, &bank, &[(5, 0, 0)]), 1);
+    let green_bank = first_opaque(&image_bank);
+    assert!(green_bank[1] > green_bank[0], "bank frame 0 green, got {green_bank:?}");
+
+    let mut image_f1 = TerrainImage::blank(256, 256);
+    assert_eq!(paint_ore_tree_frames(&mut image_f1, &bank, &[(5, 0, 1)]), 1);
+    let red = first_opaque(&image_f1);
+    assert!(red[0] > red[1], "bank frame 1 red from state machine, got {red:?}");
 }
 
 #[test]
@@ -404,12 +419,14 @@ fn spawns_tiberium_blits_full_canvas_with_cell_height_y() {
     let map = tibtre_map();
 
     assert!(collect_terrain_anim_bank(&source, &map, "art.ini", "rules.ini").is_empty());
+    let bank = collect_ore_tree_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    assert_eq!(bank.layers[0].shp_frames, 1);
+    assert_eq!(bank.layers[0].frames[0].width, 84);
+    assert_eq!(bank.layers[0].frames[0].height, 56);
 
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(
-        paint_map_terrain_objects(&source, &map, &mut image, "art.ini", "rules.ini", TerrainPaintMode::StaticOnly),
-        1
-    );
+    assert_eq!(paint_ore_tree_frames(&mut image, &bank, &[(5, 0, 0)]), 1);
 
     let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
     // 完整画布左上角 + 子帧 (24,4) → 不透明像素相对 iso 原点：

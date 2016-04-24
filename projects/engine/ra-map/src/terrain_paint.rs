@@ -27,7 +27,7 @@ const TERRAIN_LOGIC_FPS: u32 = 15;
 /// 地形物件叠画模式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerrainPaintMode {
-    /// 静态物件 + 矿柱 Idle（第 0 帧）。常循环的 `IsAnimated`（非 `SpawnsTiberium`）留给 `TerrainAnimBank`。
+    /// 静态物件。常循环 `IsAnimated` 与 `SpawnsTiberium` 矿柱均留给活动层银行。
     StaticOnly,
     /// 静态与矿柱 Idle 画第 0 帧；仅非产矿的常循环动画按 `anim_clock_ms` 选帧。
     AllWithClock {
@@ -128,8 +128,8 @@ pub fn terrain_anim_frame(clock_ms: u64, animation_rate: u32, frame_count: usize
 /// 将地形物件叠到合成图上。返回画上的物件数。
 ///
 /// `rules_ini` 提供 `IsAnimated` / `AnimationRate` / `SpawnsTiberium`。
-/// `SpawnsTiberium` 矿柱动画由产矿状态机触发，预览与底图始终画 Idle 第 0 帧。
-/// `StaticOnly` 跳过常循环动画物件；`AllWithClock` 仅对非产矿的 `IsAnimated` 按时钟选帧。
+/// `SpawnsTiberium` 矿柱由产矿状态机选帧，经 `collect_ore_tree_anim_bank` 叠画。
+/// `StaticOnly` 跳过常循环动画与矿柱；`AllWithClock` 仅对非产矿的 `IsAnimated` 按时钟选帧，矿柱仍画 Idle 第 0 帧。
 pub fn paint_map_terrain_objects(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -165,10 +165,10 @@ pub fn paint_map_terrain_objects(
         let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let animated = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
         let spawns_tiberium = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
-        // 矿柱：条件动画，底图/预览固定 Idle 帧 0。旗帜等常循环动画才进 bank / 时钟。
+        // 矿柱：`StaticOnly` 底图不画（由 `OreTree` 银行按状态机帧叠画）；`AllWithClock` 仍可画 Idle 0 供测试。
         let loops_with_clock = animated && !spawns_tiberium;
         let anim_clock_ms = match mode {
-            TerrainPaintMode::StaticOnly if loops_with_clock => continue,
+            TerrainPaintMode::StaticOnly if loops_with_clock || spawns_tiberium => continue,
             TerrainPaintMode::StaticOnly => 0,
             TerrainPaintMode::AllWithClock { anim_clock_ms } => anim_clock_ms,
         };
@@ -397,6 +397,174 @@ pub fn paint_terrain_anims_onto_rgba(
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
     let n = paint_terrain_anim_bank(&mut terrain, bank, clock_ms);
+    *image = terrain.image;
+    n
+}
+
+/// 收集 `SpawnsTiberium` 矿柱并预解码全部主体帧（供产矿状态机选帧）。
+pub fn collect_ore_tree_anim_bank(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    art_ini: &str,
+    rules_ini: &str,
+) -> TerrainAnimBank {
+    if map.terrain_objects.is_empty() {
+        return TerrainAnimBank::default();
+    }
+
+    let z_lookup: HashMap<(u16, u16), u8> =
+        map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
+
+    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let Some(rules) = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok())
+    else {
+        return TerrainAnimBank {
+            lighting: map.lighting.clone(),
+            point_lights: map.point_lights.clone(),
+            layers: Vec::new(),
+        };
+    };
+    let theater_pal_name = theater_palette(map.theater);
+    let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
+    let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
+    if theater_pal.is_none() && unit_pal.is_none() {
+        return TerrainAnimBank {
+            lighting: map.lighting.clone(),
+            point_lights: map.point_lights.clone(),
+            layers: Vec::new(),
+        };
+    }
+
+    let ext = theater_tmp_extension(map.theater);
+    let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
+    let mut layers = Vec::new();
+
+    for obj in &map.terrain_objects {
+        if !is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
+            continue;
+        }
+        let Some(obj_pal) = pick_terrain_palette(true, theater_pal.as_ref(), unit_pal.as_ref())
+        else {
+            continue;
+        };
+        let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
+        let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
+        if !shp_cache.contains_key(&file) {
+            let Ok(bytes) = source.read(&file)
+            else {
+                continue;
+            };
+            let Ok(shp) = ShpFile::parse(&bytes)
+            else {
+                continue;
+            };
+            shp_cache.insert(file.clone(), shp);
+        }
+        let Some(shp) = shp_cache.get(&file)
+        else {
+            continue;
+        };
+        let body_n = shp_body_frame_count(&shp.frames);
+        if body_n == 0 {
+            continue;
+        }
+        let mut frames = Vec::with_capacity(body_n);
+        for idx in 0..body_n {
+            let Some(frame) = shp.frames.get(idx)
+            else {
+                break;
+            };
+            if frame.frame_width == 0 || frame.frame_height == 0 {
+                frames.push(TileBlit {
+                    width: 0,
+                    height: 0,
+                    offset_x: 0,
+                    offset_y: 0,
+                    rgba: Vec::new(),
+                    shadow: None,
+                });
+                continue;
+            }
+            frames.push(frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal));
+        }
+        if frames.iter().all(|f| f.width == 0) {
+            continue;
+        }
+        let cell_z = z_lookup.get(&(obj.x, obj.y)).copied().unwrap_or(0);
+        layers.push(TerrainAnimLayer {
+            x: obj.x,
+            y: obj.y,
+            cell_z,
+            rate_ms: terrain_animation_rate_ms(anim_rate),
+            frames,
+            file,
+            canvas_width: shp.width,
+            canvas_height: shp.height,
+            shp_frames: shp.frames.len(),
+            palette: "unittem.pal".into(),
+        });
+    }
+
+    TerrainAnimBank {
+        lighting: map.lighting.clone(),
+        point_lights: map.point_lights.clone(),
+        layers,
+    }
+}
+
+/// 导出 `(x, y, shp_frames)`，供仿真回写矿柱总帧数。
+pub fn ore_tree_frame_count_hints(bank: &TerrainAnimBank) -> Vec<(u16, u16, u16)> {
+    bank.layers
+        .iter()
+        .map(|l| (l.x, l.y, l.shp_frames.min(u16::MAX as usize) as u16))
+        .collect()
+}
+
+/// 按状态机给出的 `(x, y, frame)` 叠画矿柱。
+pub fn paint_ore_tree_frames(image: &mut TerrainImage, bank: &TerrainAnimBank, frames: &[(u16, u16, u16)]) -> usize {
+    if bank.layers.is_empty() || frames.is_empty() {
+        return 0;
+    }
+    let mut items: Vec<(u16, u16, TileBlit)> = Vec::with_capacity(frames.len());
+    for &(x, y, frame_idx) in frames {
+        let Some(layer) = bank.layers.iter().find(|l| l.x == x && l.y == y)
+        else {
+            continue;
+        };
+        let body_n = layer.frames.len();
+        if body_n == 0 {
+            continue;
+        }
+        let local = usize::from(frame_idx) % body_n;
+        let Some(blit) = layer.frames.get(local)
+        else {
+            continue;
+        };
+        if blit.width == 0 || blit.height == 0 {
+            continue;
+        }
+        let mut painted = blit.clone();
+        apply_rgba_tint(
+            &mut painted.rgba,
+            cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights),
+        );
+        items.push((x, y, painted));
+    }
+    let z_at = |x: u16, y: u16| bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0);
+    paint_cell_sprites(image, &items, z_at)
+}
+
+/// 在已有 RGBA 预览上按状态机帧叠画矿柱。
+pub fn paint_ore_tree_frames_onto_rgba(
+    image: &mut image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    bank: &TerrainAnimBank,
+    frames: &[(u16, u16, u16)],
+) -> usize {
+    let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
+    let n = paint_ore_tree_frames(&mut terrain, bank, frames);
     *image = terrain.image;
     n
 }
