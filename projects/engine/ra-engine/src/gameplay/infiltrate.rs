@@ -108,18 +108,29 @@ impl crate::state::BattleState {
                 .ecs_get::<Identity>(building_id)
                 .map(|i| i.type_id.clone());
             if let Some(type_id) = building_type {
-                self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());
+                let (agent_eva, victim_eva) =
+                    self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());
+                self.push_eva_cue(agent_house.as_ref(), agent_eva);
+                if let Some(victim_event) = victim_eva {
+                    self.push_eva_cue(building_house.as_ref(), victim_event);
+                }
             }
             self.finish_infiltrating_agent(agent_id);
         }
     }
 
-    fn apply_infiltrate_effect(&mut self, agent_house: &str, victim_house: &str, building_type: &str) {
+    /// 结算渗透效果，并返回（行动方 EVA，受害方可选 EVA）。
+    fn apply_infiltrate_effect(
+        &mut self,
+        agent_house: &str,
+        victim_house: &str,
+        building_type: &str,
+    ) -> (&'static str, Option<&'static str>) {
         if is_power_plant(&self.definitions, building_type) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == victim_house) {
                 player.power_blackout_ticks = POWER_BLACKOUT_TICKS.max(player.power_blackout_ticks);
             }
-            return;
+            return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
         }
         if is_refinery(&self.definitions, building_type) {
             let stolen = self
@@ -136,7 +147,7 @@ impl crate::state::BattleState {
                     agent.funds = agent.funds.saturating_add(stolen);
                 }
             }
-            return;
+            return ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"));
         }
         if let Some(prod) = self
             .definitions
@@ -151,7 +162,7 @@ impl crate::state::BattleState {
                     ProductionCategory::Aircraft | ProductionCategory::Building => {}
                 }
             }
-            return;
+            return ("EVA_BuildingInfiltrated", None);
         }
         if self.definitions.prerequisite_groups.is_tech_building(building_type) {
             if let Some(kind) = self.definitions.stolen_tech_by_house.get(victim_house) {
@@ -163,7 +174,9 @@ impl crate::state::BattleState {
                     }
                 }
             }
+            return ("EVA_NewTechnologyAcquired", Some("EVA_BuildingInfiltrated"));
         }
+        ("EVA_BuildingInfiltrated", Some("EVA_BuildingInfiltrated"))
     }
 
     fn finish_infiltrating_agent(&mut self, agent_id: EntityId) {

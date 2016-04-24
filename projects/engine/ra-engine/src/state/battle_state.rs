@@ -119,6 +119,8 @@ pub struct BattleState {
     pub terrain_spawners: Vec<crate::gameplay::TerrainSpawnerState>,
     /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
     pub match_seed: u64,
+    /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
+    pub(crate) pending_eva_cues: Vec<crate::state::EvaCue>,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -222,6 +224,7 @@ impl BattleState {
             ai_trigger_runtime,
             terrain_spawners,
             match_seed: 0,
+            pending_eva_cues: Vec::new(),
             ecs,
         };
         for bundle in seed_bundles {
