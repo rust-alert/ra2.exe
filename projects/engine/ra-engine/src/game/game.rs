@@ -292,6 +292,7 @@ impl BattleSession {
     /// 写入装载时的对局随机种子。
     pub fn set_match_seed(&mut self, match_seed: u64) {
         self.match_seed = match_seed;
+        self.world.match_seed = match_seed;
     }
 
     /// 由世界与装载备注打开一局遭遇战（设置预览原点与指纹）。

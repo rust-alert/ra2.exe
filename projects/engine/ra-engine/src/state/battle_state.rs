@@ -115,6 +115,10 @@ pub struct BattleState {
     pub script_team_runtime: crate::gameplay::ScriptTeamRuntime,
     /// 地图 AITriggerTypes 运行时。
     pub ai_trigger_runtime: crate::gameplay::AiTriggerRuntime,
+    /// `SpawnsTiberium` 矿柱产矿动画状态。
+    pub terrain_spawners: Vec<crate::gameplay::TerrainSpawnerState>,
+    /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
+    pub match_seed: u64,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
     pub(crate) ecs: EcsRegistry,
 }
@@ -193,6 +197,7 @@ impl BattleState {
         let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
         let ai_trigger_runtime =
             crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
+        let terrain_spawners = crate::gameplay::seed_terrain_spawners(&map, &rules.rules);
         let mut world = Self {
             edition,
             tick: 0,
@@ -215,6 +220,8 @@ impl BattleState {
             trigger_runtime,
             script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
             ai_trigger_runtime,
+            terrain_spawners,
+            match_seed: 0,
             ecs,
         };
         for bundle in seed_bundles {
@@ -854,6 +861,7 @@ impl BattleState {
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => self.advance_production(),
                 SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
+                SystemPhase::TerrainSpawn => self.advance_terrain_spawners(),
                 SystemPhase::Triggers => {
                     crate::gameplay::tick_triggers(self);
                     crate::gameplay::tick_ai_triggers(self);

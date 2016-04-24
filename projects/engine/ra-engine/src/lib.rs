@@ -27,8 +27,9 @@ pub use game::{
     encode_commands, encode_scheduled,
 };
 pub use gameplay::{
-    houses_are_allied, AiTriggerRuntime, LightningStormState, ScriptTeamRuntime, TriggerRuntime, start_lightning_storm,
-    tick_lightning_storm, tick_triggers,
+    houses_are_allied, AiTriggerRuntime, LightningStormState, ScriptTeamRuntime, TerrainSpawnerPhase, TerrainSpawnerState,
+    TerrainSpawnerTick, TriggerRuntime, seed_terrain_spawners, start_lightning_storm, terrain_spawn_sample,
+    terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};

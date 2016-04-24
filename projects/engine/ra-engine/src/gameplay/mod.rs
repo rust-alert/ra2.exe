@@ -16,6 +16,8 @@ mod rules;
 mod script_teams;
 mod targeting;
 mod tech_tree;
+mod terrain_spawn;
+mod terrain_spawn_tick;
 mod transport;
 mod triggers;
 
@@ -33,4 +35,8 @@ pub use script_teams::ScriptTeamRuntime;
 pub(crate) use tech_tree::{build_limit_reached, is_type_eligible, living_structure_keys, TechTreePlayer};
 pub(crate) use production::produce_ticks_for;
 pub use powers::{LightningStormState, start_lightning_storm, tick_lightning_storm};
+pub use terrain_spawn::{
+    TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample,
+    terrain_spawner_frame_signature,
+};
 pub use triggers::{TriggerRuntime, tick_triggers};
