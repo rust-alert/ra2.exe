@@ -19,6 +19,8 @@ pub enum SystemPhase {
     Production,
     /// 超武效果（闪电风暴倒计时与光照档切换）。
     Powers,
+    /// `SpawnsTiberium` 矿柱概率动画与邻格产矿。
+    TerrainSpawn,
     /// 地图触发器与脚本动作。
     Triggers,
     /// 重算状态摘要。
@@ -37,6 +39,7 @@ impl SystemPhase {
             Self::RefineryIncome,
             Self::Production,
             Self::Powers,
+            Self::TerrainSpawn,
             Self::Triggers,
             Self::Rehash,
         ]
