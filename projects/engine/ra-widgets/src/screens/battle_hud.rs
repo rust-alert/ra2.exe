@@ -196,8 +196,6 @@ pub fn decode_battle_hud_chrome_with(
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
     let radar_frame = radar_frame_index(source, &mix);
-    let radar_shp = chrome.radar_shp();
-    let radar_pal = chrome.radar_pal();
     let mut tabs = [None, None, None, None];
     for (i, slot) in tabs.iter_mut().enumerate() {
         let name = format!("tab{i:02}.shp");
@@ -217,7 +215,18 @@ pub fn decode_battle_hud_chrome_with(
             command_buttons_pressed[i] = Some(s);
         }
     }
-    let radar = try_decode(source, &mixes, radar_shp, radar_pal, radar_frame, &mut errors);
+    // 按 `YuriFileNames` 优先，再试另一套雷达文件名（模组 sidec 包常与 flags 不一致）。
+    let mut radar = None;
+    let mut radar_errors = Vec::new();
+    for (radar_shp, radar_pal) in chrome.radar_shp_pal_candidates() {
+        if let Some(s) = try_decode(source, &mixes, radar_shp, radar_pal, radar_frame, &mut radar_errors) {
+            radar = Some(s);
+            break;
+        }
+    }
+    if radar.is_none() {
+        errors.extend(radar_errors);
+    }
     BattleHudChrome {
         side: side.to_string(),
         mix: mix.clone(),
@@ -920,18 +929,26 @@ pub fn decode_cameo_sprite(
 }
 
 fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
-    let hit = source
-        .resolve_preferring(name, "cameo.mix")
-        .or_else(|| source.resolve(name))
-        .ok_or_else(|| format!("{name}: 不可读"))?;
+    // MD 优先：模组图标多在 `cameomd`；基座 `cameo.mix` 次之。
+    const CAMEO_MIXES: &[&str] = &["cameomd.mix", "cameo.mix"];
+    let mut hit = None;
+    let mut hit_mix: Option<&str> = None;
+    for mix in CAMEO_MIXES {
+        if let Some(h) = source.resolve_preferring(name, mix) {
+            hit = Some(h);
+            hit_mix = Some(*mix);
+            break;
+        }
+    }
+    let hit = match hit {
+        Some(h) => h,
+        None => source.resolve(name).ok_or_else(|| format!("{name}: 不可读"))?,
+    };
     let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{name}: SHP 解析失败 · {e}"))?;
     if shp.frames.is_empty() {
         return Err(format!("{name}: SHP 无帧"));
     }
-    let pal_hit = source
-        .resolve_preferring("cameo.pal", "cameo.mix")
-        .or_else(|| source.resolve("cameo.pal"))
-        .or_else(|| source.resolve("sidebar.pal"))
+    let pal_hit = resolve_cameo_palette(source, hit_mix)
         .ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("cameo.pal: 解析失败 · {e}"))?;
     let frame = &shp.frames[0];
@@ -944,6 +961,37 @@ fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiS
         canvas: (shp.width, shp.height),
         frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
     })
+}
+
+/// 解析 cameo 调色板：优先与图标同档 / 标准 cameo·cache 包，**禁止**裸全局解析。
+///
+/// 扩展包偶发覆盖同名 `cameo.pal`（内容并非建造栏板），全局胜出后图标会粉噪。
+fn resolve_cameo_palette<'a>(
+    source: &'a GameAssetSource,
+    shp_mix: Option<&str>,
+) -> Option<crate::skin::fs_source::AssetHit> {
+    let mut tried = Vec::<String>::new();
+    let mut try_mix = |mix: &str| -> Option<crate::skin::fs_source::AssetHit> {
+        if tried.iter().any(|t| t.eq_ignore_ascii_case(mix)) {
+            return None;
+        }
+        tried.push(mix.to_string());
+        source.resolve_preferring("cameo.pal", mix)
+    };
+    if let Some(mix) = shp_mix {
+        if let Some(h) = try_mix(mix) {
+            return Some(h);
+        }
+    }
+    for mix in ["cameomd.mix", "cameo.mix", "cachemd.mix", "cache.mix"] {
+        if let Some(h) = try_mix(mix) {
+            return Some(h);
+        }
+    }
+    // 最后才用侧栏板，仍不裸 resolve `cameo.pal`。
+    source
+        .resolve_preferring("sidebar.pal", shp_mix.unwrap_or("cache.mix"))
+        .or_else(|| source.resolve_preferring("sidebar.pal", "cache.mix"))
 }
 
 fn fill_rect_alpha(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
