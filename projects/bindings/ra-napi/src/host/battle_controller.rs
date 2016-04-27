@@ -26,7 +26,7 @@ use ra_widgets::{
 };
 use ra_engine::{
     BattleCapabilitiesSnapshot, CapabilityItem, Engine, HudSnapshot, BattleOutcome, Session, SessionPhase,
-    CELL_MOVE_COST,
+    CELL_MOVE_COST, terrain_spawner_frame_signature,
 };
 use ra_layout::{
     cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
@@ -35,8 +35,9 @@ use ra_layout::{
 use ra_map::{
     MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, TerrainAnimBank, Theater,
     WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
+    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
+    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+    paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
@@ -271,8 +272,10 @@ pub struct BattleController {
     preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     structure_anims: StructureAnimBank,
-    /// 动画地形物件银行（矿柱等）。
+    /// 动画地形物件银行（旗帜等常循环）。
     terrain_anims: TerrainAnimBank,
+    /// 矿柱帧银行（由产矿状态机选帧）。
+    ore_tree_anims: TerrainAnimBank,
     /// art.ini 逻辑名。
     art_ini: &'static str,
     /// rules.ini 逻辑名。
@@ -375,6 +378,7 @@ impl BattleController {
             preview_clean: boot.preview_clean,
             structure_anims: boot.structure_anims,
             terrain_anims: boot.terrain_anims,
+            ore_tree_anims: boot.ore_tree_anims,
             art_ini: boot.art_ini,
             rules_ini: boot.rules_ini,
             rules: boot.rules,
@@ -561,6 +565,7 @@ impl BattleController {
         self.preview_clean = boot.preview_clean;
         self.structure_anims = boot.structure_anims;
         self.terrain_anims = boot.terrain_anims;
+        self.ore_tree_anims = boot.ore_tree_anims;
         self.art_ini = boot.art_ini;
         self.rules_ini = boot.rules_ini;
         self.rules = boot.rules;
@@ -1402,9 +1407,33 @@ impl BattleController {
             }
         }
         self.poll_in_battle_eva();
+        self.drain_engine_eva_cues();
         let nav = self.poll_outcome_nav();
         self.resolve_deploy_watch();
         (nav, started.elapsed())
+    }
+
+    /// 消费引擎 `EvaCue`：仅本机 house 入播报队列。
+    fn drain_engine_eva_cues(&mut self) {
+        let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut())
+        else {
+            return;
+        };
+        let Some(local_house) = game
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == game.world.local_player)
+            .map(|p| p.house.to_string())
+        else {
+            return;
+        };
+        let cues = game.world.take_eva_cues();
+        for cue in cues {
+            if cue.house.eq_ignore_ascii_case(local_house.as_str()) {
+                self.queue_battle_sfx_once(cue.event);
+            }
+        }
     }
 
     /// 排队对局音效 / EVA（同 id 未播前不重复入队）。
@@ -2269,6 +2298,7 @@ impl BattleController {
             &self.terrain_anims,
             clock_ms,
         );
+        self.paint_ore_tree_frames_onto(&mut composed);
         paint_structure_anims_onto_rgba(
             &mut composed,
             self.preview_origin.0,
@@ -2288,7 +2318,7 @@ impl BattleController {
         };
         let mut composed = base.clone();
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
-        let has_anims = !self.structure_anims.is_empty() || !self.terrain_anims.is_empty();
+        let has_anims = self.has_preview_anims();
         if has_anims {
             paint_terrain_anims_onto_rgba(
                 &mut composed,
@@ -2297,6 +2327,7 @@ impl BattleController {
                 &self.terrain_anims,
                 clock_ms,
             );
+            self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(
                 &mut composed,
                 self.preview_origin.0,
@@ -2313,7 +2344,7 @@ impl BattleController {
         renderer.update_map_preview(composed);
     }
 
-    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）、地形矿柱动画与天气粒子，不重置相机。
+    /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）、常循环地形、矿柱状态机帧与天气粒子，不重置相机。
     fn refresh_structure_anims(&mut self, renderer: &mut Renderer) {
         let Some(base) = self.preview_base.as_ref()
         else {
@@ -2322,7 +2353,7 @@ impl BattleController {
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
         let sig = self.preview_anim_signature(clock_ms);
         let weather_active = self.weather.is_active();
-        let has_anims = !self.structure_anims.is_empty() || !self.terrain_anims.is_empty();
+        let has_anims = self.has_preview_anims();
         if !weather_active && (!has_anims || sig == self.last_anim_sig) {
             return;
         }
@@ -2335,6 +2366,7 @@ impl BattleController {
                 &self.terrain_anims,
                 clock_ms,
             );
+            self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(
                 &mut composed,
                 self.preview_origin.0,
@@ -2348,10 +2380,56 @@ impl BattleController {
         self.last_anim_sig = sig;
     }
 
-    /// 建筑 + 地形活动层帧签名（用于跳过无变化上传）。
+    /// 是否有需叠画的活动层（建筑 / 常循环地形 / 矿柱）。
+    fn has_preview_anims(&self) -> bool {
+        !self.structure_anims.is_empty() || !self.terrain_anims.is_empty() || !self.ore_tree_anims.is_empty()
+    }
+
+    /// 从世界矿柱状态机读取当前帧并叠画。
+    fn paint_ore_tree_frames_onto(&self, image: &mut RgbaImage) {
+        if self.ore_tree_anims.is_empty() {
+            return;
+        }
+        let frames = self.ore_tree_render_frames();
+        paint_ore_tree_frames_onto_rgba(
+            image,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            &self.ore_tree_anims,
+            &frames,
+        );
+    }
+
+    /// `(格x, 格y, 帧)`；无会话时回退 Idle 帧 0。
+    fn ore_tree_render_frames(&self) -> Vec<(u16, u16, u16)> {
+        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+            if !game.world.terrain_spawners.is_empty() {
+                return game
+                    .world
+                    .terrain_spawners
+                    .iter()
+                    .map(|s| (s.x, s.y, s.render_frame()))
+                    .collect();
+            }
+        }
+        self.ore_tree_anims
+            .layers
+            .iter()
+            .map(|layer| (layer.x, layer.y, 0))
+            .collect()
+    }
+
+    /// 建筑 + 常循环地形 + 矿柱状态机帧签名（用于跳过无变化上传）。
     fn preview_anim_signature(&self, clock_ms: u64) -> u64 {
         let mut h = self.structure_anims.frame_signature(clock_ms);
         h ^= self.terrain_anims.frame_signature(clock_ms).rotate_left(17);
+        let spawners = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .map(|g| g.world.terrain_spawners.as_slice())
+            .unwrap_or(&[]);
+        h ^= terrain_spawner_frame_signature(spawners).rotate_left(29);
         h
     }
 
