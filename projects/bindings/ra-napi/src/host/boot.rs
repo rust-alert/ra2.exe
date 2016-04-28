@@ -12,7 +12,8 @@ use ra_map::{
     campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots,
     decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
     list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes,
-    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
+    ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
+    paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
@@ -45,8 +46,10 @@ pub struct BootResult {
     pub preview_clean: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub structure_anims: StructureAnimBank,
-    /// 动画地形物件银行（矿柱等）。
+    /// 动画地形物件银行（旗帜等常循环）。
     pub terrain_anims: TerrainAnimBank,
+    /// 矿柱帧银行（由产矿状态机选帧）。
+    pub ore_tree_anims: TerrainAnimBank,
     /// 预览画布原点（世界像素）。
     pub preview_origin: (i32, i32),
     /// 资源链 art INI 逻辑名（对局部署 Buildup 用）。
@@ -76,6 +79,7 @@ impl BootResult {
             preview_clean: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
+            ore_tree_anims: TerrainAnimBank::default(),
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
@@ -96,6 +100,7 @@ impl BootResult {
             preview_clean: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
+            ore_tree_anims: TerrainAnimBank::default(),
             preview_origin: (0, 0),
             art_ini: "art.ini",
             rules_ini: "rules.ini",
@@ -111,7 +116,7 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesSystem,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, i32, i32)> {
+) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -128,6 +133,7 @@ fn load_map_terrain_preview(
         preview.base_without_anims,
         preview.anim_bank,
         preview.terrain_anim_bank,
+        preview.ore_tree_anim_bank,
         preview.origin_x,
         preview.origin_y,
     ))
@@ -501,18 +507,23 @@ pub fn boot_world_with_progress(
     let mut preview_clean: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
+    let mut ore_tree_anims = TerrainAnimBank::default();
     let mut preview = match rules
         .as_ref()
         .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
     {
-        Some((name, image, base, bank, terrain_bank, ox, oy)) => {
+        Some((name, image, base, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
             preview_base = Some(base);
             structure_anims = bank;
             terrain_anims = terrain_bank;
+            ore_tree_anims = ore_bank;
             if !terrain_anims.is_empty() {
                 note = format!("{note} · terrainAnim#{}", terrain_anims.layers.len());
+            }
+            if !ore_tree_anims.is_empty() {
+                note = format!("{note} · oreTree#{}", ore_tree_anims.layers.len());
             }
             Some(image)
         }
@@ -588,6 +599,11 @@ pub fn boot_world_with_progress(
                 opened.session.expect_battle().fingerprint.rules_hash,
                 opened.session.expect_battle().match_seed
             );
+            // SHP 实测帧数回写产矿状态机（否则默认 22 可能与资源不一致）。
+            if !ore_tree_anims.is_empty() {
+                let hints = ore_tree_frame_count_hints(&ore_tree_anims);
+                opened.session.expect_battle_mut().world.apply_ore_tree_frame_counts(&hints);
+            }
             // 航点播种的 MCV 不在地图放置段：保留无 mobile 底图，再叠到对局底图。
             if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
                 preview_clean = Some(base.clone());
@@ -601,6 +617,18 @@ pub fn boot_world_with_progress(
                 }
                 let mut composed = base.clone();
                 paint_terrain_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &terrain_anims, 0);
+                let ore_idle: Vec<(u16, u16, u16)> = ore_tree_anims
+                    .layers
+                    .iter()
+                    .map(|layer| (layer.x, layer.y, 0))
+                    .collect();
+                paint_ore_tree_frames_onto_rgba(
+                    &mut composed,
+                    preview_origin.0,
+                    preview_origin.1,
+                    &ore_tree_anims,
+                    &ore_idle,
+                );
                 paint_structure_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &structure_anims, 0);
                 preview = Some(composed);
             }
@@ -628,6 +656,7 @@ pub fn boot_world_with_progress(
         preview_clean,
         structure_anims,
         terrain_anims,
+        ore_tree_anims,
         preview_origin,
         art_ini: chain.art_ini,
         rules_ini: chain.rules_ini,
