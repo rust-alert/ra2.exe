@@ -176,6 +176,13 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(7);
             h = h.wrapping_mul(1099511628211).wrapping_add(agent.0).wrapping_add(building.0 << 16);
         }
+        GameCommand::CancelProduce { player, ref type_id } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(8);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0));
+            for b in type_id.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
     }
     h
 }

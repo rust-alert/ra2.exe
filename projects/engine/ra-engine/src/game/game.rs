@@ -711,6 +711,50 @@ impl BattleSession {
         self.push_command(GameCommand::Produce { player: self.world.local_player, type_id: type_id.into() });
     }
 
+    /// 本地玩家取消指定类型的在产项（退款并由引擎排队 `EVA_Canceled`）。
+    pub fn order_cancel_produce(&mut self, type_id: impl Into<String>) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::CancelProduce {
+            player: self.world.local_player,
+            type_id: type_id.into(),
+        });
+    }
+
+    /// 本机阵营是否正在生产指定类型。
+    pub fn is_local_producing(&self, type_id: &str) -> bool {
+        let Some(local_house) = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .map(|p| p.house.clone())
+        else {
+            return false;
+        };
+        let needle = type_id.to_ascii_uppercase();
+        self.world.entities.iter().any(|e| {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !self
+                .world
+                .ecs_get::<Owner>(id)
+                .map(|o| o.house.as_ref() == local_house.as_ref())
+                .unwrap_or(false)
+            {
+                return false;
+            }
+            self.world
+                .ecs_get::<ProductionQueue>(id)
+                .and_then(|q| q.item.as_ref())
+                .map(|(queued, _)| queued.as_ref() == needle.as_str())
+                .unwrap_or(false)
+        })
+    }
+
     /// 为指定工厂设置集结点（非工厂由世界拒绝）。
     pub fn order_rally(&mut self, selected: &[EntityId], x: u16, y: u16) {
         if self.outcome.is_some() {

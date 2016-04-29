@@ -22,6 +22,8 @@ pub enum CommandKind {
     PlaceBuilding,
     /// 生产。
     Produce,
+    /// 取消生产。
+    CancelProduce,
     /// 设置集结点。
     SetRally,
     /// 间谍渗透敌方建筑。
@@ -90,6 +92,13 @@ pub enum CommandBody {
         /// 外部类型键。
         type_id: String,
     },
+    /// 取消本方工厂中指定类型的在产项并退款。
+    CancelProduce {
+        /// 出资玩家。
+        player: PlayerId,
+        /// 外部类型键。
+        type_id: String,
+    },
     /// 为工厂设置生产集结点。
     SetRallyPoint {
         /// 工厂实体稳定 ID。
@@ -117,6 +126,7 @@ impl CommandBody {
             Self::Deploy { .. } => CommandKind::Deploy,
             Self::PlaceBuilding { .. } => CommandKind::PlaceBuilding,
             Self::Produce { .. } => CommandKind::Produce,
+            Self::CancelProduce { .. } => CommandKind::CancelProduce,
             Self::SetRallyPoint { .. } => CommandKind::SetRally,
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
         }
@@ -131,7 +141,9 @@ impl CommandBody {
             Self::Attack { target, .. } => CommandTarget::Entity(*target),
             Self::Infiltrate { building, .. } => CommandTarget::Entity(*building),
             Self::Deploy { entity } => CommandTarget::Entity(*entity),
-            Self::Produce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
+            Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
+                CommandTarget::TypeKey(type_id.clone())
+            }
         }
     }
 }

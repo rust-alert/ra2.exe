@@ -1549,6 +1549,10 @@ impl BattleController {
                 to_queue.push("EVA_OurBaseIsUnderAttack");
             }
 
+            let gained_mobile = self.eva_alive_seeded
+                && alive_now
+                    .iter()
+                    .any(|id| !self.eva_alive_local_mobiles.contains(id));
             if !self.eva_alive_seeded {
                 next_alive = Some(alive_now);
                 seed_alive = true;
@@ -1567,10 +1571,13 @@ impl BattleController {
                 next_producing = Some(producing_now);
                 seed_producing = true;
             } else {
-                unit_ready = self
+                // 仅「出厂」视为就绪：队列清空且本机机动单位集合出现新 ID。
+                // 取消生产也会清队列，但不能播 `EVA_UnitReady`。
+                let factory_finished = self
                     .eva_producing_factories
                     .iter()
                     .any(|id| !producing_now.contains(id));
+                unit_ready = factory_finished && gained_mobile;
                 next_producing = Some(producing_now);
             }
 
@@ -2779,8 +2786,13 @@ impl BattleController {
                     1 | 2 => {
                         let type_id = item.type_id.as_ref().to_string();
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            tracing::info!("生产 · {type_id}");
-                            game.order_produce(type_id);
+                            if game.is_local_producing(&type_id) {
+                                tracing::info!("取消生产 · {type_id}");
+                                game.order_cancel_produce(type_id);
+                            } else {
+                                tracing::info!("生产 · {type_id}");
+                                game.order_produce(type_id);
+                            }
                         }
                     }
                     _ => {}

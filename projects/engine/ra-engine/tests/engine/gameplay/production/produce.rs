@@ -110,3 +110,39 @@ fn produce_rejects_without_matching_factory() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 }
+
+#[test]
+fn cancel_produce_refunds_and_clears_queue() {
+    let mut world = factory_world();
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    assert_eq!(world.house_funds("Americans"), Some(10_000 - 200));
+    assert!(world.take_eva_cues().is_empty());
+
+    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    let cues = world.take_eva_cues();
+    assert_eq!(cues.len(), 1);
+    assert_eq!(cues[0].house.as_ref(), "Americans");
+    assert_eq!(cues[0].event, "EVA_Canceled");
+
+    // 取消后可再次排队，并在满 tick 后出兵。
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    for _ in 0..(PRODUCE_TICKS - 1) {
+        world.advance_tick();
+    }
+    assert_eq!(world.entity_count(), 3);
+}
+
+#[test]
+fn cancel_produce_rejects_when_not_queued() {
+    let mut world = factory_world();
+    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
+}

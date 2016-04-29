@@ -77,6 +77,13 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&agent.0.to_be_bytes());
             b.extend_from_slice(&building.0.to_be_bytes());
         }
+        GameCommand::CancelProduce { player, ref type_id } => {
+            b.push(8);
+            b.push(player.0);
+            let id_bytes = type_id.as_bytes();
+            b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
+            b.extend_from_slice(id_bytes);
+        }
     }
     b
 }
@@ -154,6 +161,18 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let agent = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
             let building = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
             Some(GameCommand::Infiltrate { agent, building })
+        }
+        8 => {
+            if bytes.len() < 1 + 1 + 2 {
+                return None;
+            }
+            let player = PlayerId(bytes[1]);
+            let id_len = u16::from_be_bytes(bytes[2..4].try_into().ok()?) as usize;
+            if bytes.len() < 1 + 1 + 2 + id_len {
+                return None;
+            }
+            let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
+            Some(GameCommand::CancelProduce { player, type_id })
         }
         _ => None,
     }
@@ -546,6 +565,54 @@ impl crate::state::BattleState {
                         queue.item = Some((queued, ticks));
                     });
                     self.mark_entity_dirty(factory_id);
+                }
+                GameCommand::CancelProduce { player, ref type_id } => {
+                    if player != scheduled.player {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let house = self.players[player_index].house.clone();
+                    let needle = type_id.to_ascii_uppercase();
+                    let Some(factory_id) = self.entities.iter().find_map(|e| {
+                        let id = e.id;
+                        if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                            return None;
+                        }
+                        if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house.as_ref()).unwrap_or(false) {
+                            return None;
+                        }
+                        let matches = self
+                            .ecs_get::<ProductionQueue>(id)
+                            .and_then(|q| q.item.as_ref())
+                            .map(|(queued, _)| queued.as_ref() == needle.as_str())
+                            .unwrap_or(false);
+                        matches.then_some(id)
+                    })
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let refund = self
+                        .definitions
+                        .techno
+                        .get(needle.as_str())
+                        .map(|tt| tt.cost)
+                        .unwrap_or(0);
+                    let _ = self.with_production_mut(factory_id, |queue| {
+                        queue.item = None;
+                    });
+                    if refund > 0 {
+                        self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
+                        self.players[player_index].funds_spent =
+                            self.players[player_index].funds_spent.saturating_sub(refund);
+                    }
+                    self.mark_entity_dirty(factory_id);
+                    self.push_eva_cue(house.as_ref(), "EVA_Canceled");
                 }
                 GameCommand::SetRallyPoint { factory, x, y } => {
                     let Some(factory_index) = self.entity_index(factory)
