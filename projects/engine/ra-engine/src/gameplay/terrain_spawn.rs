@@ -360,4 +360,64 @@ AnimationProbability=.003
         assert_eq!(seeded[0].animation_probability_micros, 3000);
         assert_eq!(seeded[0].animation_rate_ticks, 3);
     }
+
+    fn ore_overlay_types() -> ra_assets::OverlayTypeRegistry {
+        let doc = IniDocument::parse(
+            br#"
+[OverlayTypes]
+0=BRIDGE1
+1=TIB01
+
+[BRIDGE1]
+Land=Road
+
+[TIB01]
+Tiberium=yes
+"#,
+        )
+        .expect("ini");
+        ra_assets::OverlayTypeRegistry::from_rules(&doc)
+    }
+
+    #[test]
+    fn place_spawned_ore_writes_first_empty_neighbor() {
+        let reg = ore_overlay_types();
+        let mut overlays = Vec::new();
+        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(overlays.len(), 1);
+        assert_eq!(overlays[0].x, 5);
+        assert_eq!(overlays[0].y, 4);
+        assert_eq!(overlays[0].overlay_id, 1);
+        assert_eq!(overlays[0].data, SPAWN_ORE_DENSITY);
+    }
+
+    #[test]
+    fn place_spawned_ore_raises_existing_harvestable_density() {
+        let reg = ore_overlay_types();
+        let mut overlays = vec![OverlayCell {
+            x: 5,
+            y: 4,
+            overlay_id: 1,
+            data: 2,
+        }];
+        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(overlays.len(), 1);
+        assert_eq!(overlays[0].data, 3);
+    }
+
+    #[test]
+    fn place_spawned_ore_skips_non_harvestable_occupied_cell() {
+        let reg = ore_overlay_types();
+        let mut overlays = vec![OverlayCell {
+            x: 5,
+            y: 4,
+            overlay_id: 0,
+            data: 0,
+        }];
+        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(overlays.len(), 2);
+        assert_eq!(overlays[1].x, 6);
+        assert_eq!(overlays[1].y, 4);
+        assert_eq!(overlays[1].overlay_id, 1);
+    }
 }
