@@ -221,9 +221,17 @@ pub fn decode_battle_pause_chrome_with(
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
-    let radar_shp = chrome.radar_shp();
-    let radar_pal = chrome.radar_pal();
-    let radar = decode_candidates(source, &mixes, radar_shp, radar_pal, 0, &mut errors);
+    let mut radar = None;
+    let mut radar_errors = Vec::new();
+    for (radar_shp, radar_pal) in chrome.radar_shp_pal_candidates() {
+        if let Some(s) = decode_candidates(source, &mixes, radar_shp, radar_pal, 0, &mut radar_errors) {
+            radar = Some(s);
+            break;
+        }
+    }
+    if radar.is_none() {
+        errors.extend(radar_errors);
+    }
     let center_panel = radar
         .as_ref()
         .map(|s| crop_radar_emblem(&s.image))

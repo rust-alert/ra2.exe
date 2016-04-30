@@ -127,19 +127,23 @@ impl UiFactionChrome {
 
     /// 侧栏 / 暂停菜单雷达 SHP。
     pub fn radar_shp(&self) -> &'static str {
-        if self.yuri_file_names {
-            "radary.shp"
-        } else {
-            "radar.shp"
-        }
+        self.radar_shp_pal_candidates()[0].0
     }
 
     /// 雷达调色板。
     pub fn radar_pal(&self) -> &'static str {
+        self.radar_shp_pal_candidates()[0].1
+    }
+
+    /// 雷达 SHP / 调色板候选（按 `YuriFileNames` 优先，再试另一套文件名）。
+    ///
+    /// 部分模组侧栏包（如仅含 `radary*` 的 `sidec03`）与 rules 标志不一致，
+    /// 解码时应在同一 `sidecNN` 内按此表依次尝试，避免雷达槽留黑。
+    pub fn radar_shp_pal_candidates(&self) -> [(&'static str, &'static str); 2] {
         if self.yuri_file_names {
-            "radaryuri.pal"
+            [("radary.shp", "radaryuri.pal"), ("radar.shp", "sidebar.pal")]
         } else {
-            "sidebar.pal"
+            [("radar.shp", "sidebar.pal"), ("radary.shp", "radaryuri.pal")]
         }
     }
 
