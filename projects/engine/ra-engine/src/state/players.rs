@@ -35,6 +35,8 @@ pub struct PlayerState {
     pub stolen_soviet_tech: bool,
     /// 已渗透第三势力科技建筑。
     pub stolen_third_tech: bool,
+    /// 资金唠叨剩余 tick（0 表示可再次播报）。
+    pub eva_funds_nag_ticks: u32,
 }
 
 impl PlayerState {
@@ -60,6 +62,7 @@ impl PlayerState {
             stolen_allied_tech: false,
             stolen_soviet_tech: false,
             stolen_third_tech: false,
+            eva_funds_nag_ticks: 0,
         }
     }
 

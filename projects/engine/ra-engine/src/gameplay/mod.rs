@@ -8,6 +8,7 @@ mod definitions_query;
 mod deploy;
 mod economy;
 mod effects;
+pub(crate) mod eva_advice;
 mod infiltrate;
 mod movement;
 mod powers;

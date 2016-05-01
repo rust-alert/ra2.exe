@@ -146,3 +146,54 @@ fn cancel_produce_rejects_when_not_queued() {
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
 }
+
+#[test]
+fn funds_nag_repeats_on_speak_delay_while_broke_with_factory() {
+    let rules_text = b"[AudioVisual]\nSpeakDelay=0.003\n\
+[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=GAPILE\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n";
+    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
+    let rules_db = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "funds_nag");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPILE".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    }];
+    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds("Americans", 50));
+    // SpeakDelay=0.003 → ftol(2.7)=2 tick 周期。
+
+    world.advance_tick();
+    let first = world.take_eva_cues();
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].event, "EVA_InsufficientFunds");
+
+    world.advance_tick();
+    assert!(world.take_eva_cues().is_empty(), "冷却中不应再播");
+
+    world.advance_tick();
+    let again = world.take_eva_cues();
+    assert_eq!(again.len(), 1);
+    assert_eq!(again[0].event, "EVA_InsufficientFunds");
+}
