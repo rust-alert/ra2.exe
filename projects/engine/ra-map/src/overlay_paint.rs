@@ -359,3 +359,46 @@ fn select_overlay_frame_index(shp: &ShpFile, preferred: u8) -> Option<u8> {
     }
     frame_drawable(shp, preferred).then_some(preferred)
 }
+
+/// 将指定 overlay 格叠到预览 RGBA（运行时产矿脏刷新；不重合成整图）。
+///
+/// `cells` 为空时直接返回。会沿用 `map` 的剧院与高程，仅替换 `overlays` 列表。
+pub fn paint_overlays_onto_preview_rgba(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    cells: &[OverlayCell],
+    image: &mut image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+    art_ini: &str,
+    rules_ini: &str,
+    overlay_type_name: &dyn Fn(u8) -> Option<String>,
+    is_tiberium: &dyn Fn(u8) -> bool,
+    tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
+    layer: OverlayLayerFilter,
+) -> (usize, usize) {
+    if cells.is_empty() {
+        return (0, 0);
+    }
+    let mut overlay_map = map.clone();
+    overlay_map.overlays = cells.to_vec();
+    let mut terrain = TerrainImage {
+        image: std::mem::take(image),
+        drawn: 0,
+        origin_x,
+        origin_y,
+    };
+    let n = paint_map_overlays(
+        source,
+        &overlay_map,
+        &mut terrain,
+        art_ini,
+        rules_ini,
+        overlay_type_name,
+        is_tiberium,
+        tiberium_hsv,
+        layer,
+    );
+    *image = terrain.image;
+    n
+}

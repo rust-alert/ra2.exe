@@ -66,7 +66,10 @@ pub use radiation_light::{
 };
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
-pub use overlay_paint::{OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays};
+pub use overlay_paint::{
+    OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays,
+    paint_overlays_onto_preview_rgba,
+};
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};

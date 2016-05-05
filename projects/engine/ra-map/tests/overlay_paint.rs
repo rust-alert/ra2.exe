@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use ra_map::{MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays};
+use ra_map::{
+    MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
+    paint_overlays_onto_preview_rgba,
+};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;
@@ -460,4 +463,35 @@ fn tiberium_overlay_applies_minus_twelve_y_bias() {
     let di = ((expect_y * w + expect_x) * 4) as usize;
     assert!(di + 3 < px.len(), "pixel index in bounds");
     assert!(px[di + 3] > 0, "expected ore pixel at -12 Y bias ({expect_x},{expect_y})");
+}
+
+#[test]
+fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n".to_vec());
+    files.insert("temperat.pal".into(), solid_index_pal(5, 0, 0, 63));
+    files.insert("tib01.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+    let map = overlay_map(102, 0);
+    let cells = map.overlays.clone();
+    let blank = TerrainImage::blank(256, 256);
+    let origin_x = blank.origin_x;
+    let origin_y = blank.origin_y;
+    let mut rgba = blank.image;
+    let (shp, mark) = paint_overlays_onto_preview_rgba(
+        &source,
+        &map,
+        &cells,
+        &mut rgba,
+        origin_x,
+        origin_y,
+        "art.ini",
+        "rules.ini",
+        &|id| (id == 102).then(|| "TIB01".into()),
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::Ground,
+    );
+    assert_eq!((shp, mark), (1, 0));
+    assert!(rgba.as_raw().iter().any(|&b| b > 0));
 }
