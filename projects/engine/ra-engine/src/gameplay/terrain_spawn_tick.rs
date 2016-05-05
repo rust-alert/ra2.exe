@@ -20,8 +20,15 @@ impl BattleState {
         }
         for (x, y) in spawn_cells {
             let in_bounds = |cx: u16, cy: u16| self.pass_grid.in_bounds(cx, cy);
-            place_spawned_ore(&mut self.map.overlays, &self.overlay_types, x, y, in_bounds);
+            if let Some(cell) = place_spawned_ore(&mut self.map.overlays, &self.overlay_types, x, y, in_bounds) {
+                self.overlay_paint_dirty.push(cell);
+            }
         }
+    }
+
+    /// 取出产矿等写入后待叠画的 overlay 格子（呈现层消费）。
+    pub fn take_overlay_paint_dirty(&mut self) -> Vec<(u16, u16)> {
+        std::mem::take(&mut self.overlay_paint_dirty)
     }
 
     /// 用 SHP 实测总帧数回写矿柱（boot 烘焙银行后调用）。

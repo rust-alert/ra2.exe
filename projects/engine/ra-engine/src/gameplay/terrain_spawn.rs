@@ -244,17 +244,16 @@ pub fn terrain_spawner_frame_signature(spawners: &[TerrainSpawnerState]) -> u64 
 }
 
 /// 在矿柱邻格放置一格可采 overlay（已有则抬密度；无空位则跳过）。
+///
+/// 成功时返回被写入的格子坐标，供呈现层脏刷新。
 pub fn place_spawned_ore(
     overlays: &mut Vec<OverlayCell>,
     overlay_types: &ra_assets::OverlayTypeRegistry,
     ox: u16,
     oy: u16,
     pass_in_bounds: impl Fn(u16, u16) -> bool,
-) -> bool {
-    let Some(ore_id) = first_harvestable_id(overlay_types)
-    else {
-        return false;
-    };
+) -> Option<(u16, u16)> {
+    let ore_id = first_harvestable_id(overlay_types)?;
     for (dx, dy) in ADJACENT {
         let x = i32::from(ox) + dx;
         let y = i32::from(oy) + dy;
@@ -268,7 +267,7 @@ pub fn place_spawned_ore(
         if let Some(cell) = overlays.iter_mut().find(|c| c.x == x && c.y == y) {
             if overlay_types.is_harvestable(cell.overlay_id) {
                 cell.data = cell.data.saturating_add(1).min(11);
-                return true;
+                return Some((x, y));
             }
             continue;
         }
@@ -278,9 +277,9 @@ pub fn place_spawned_ore(
             overlay_id: ore_id,
             data: SPAWN_ORE_DENSITY,
         });
-        return true;
+        return Some((x, y));
     }
-    false
+    None
 }
 
 fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
@@ -383,7 +382,10 @@ Tiberium=yes
     fn place_spawned_ore_writes_first_empty_neighbor() {
         let reg = ore_overlay_types();
         let mut overlays = Vec::new();
-        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(
+            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
+            Some((5, 4))
+        );
         assert_eq!(overlays.len(), 1);
         assert_eq!(overlays[0].x, 5);
         assert_eq!(overlays[0].y, 4);
@@ -400,7 +402,10 @@ Tiberium=yes
             overlay_id: 1,
             data: 2,
         }];
-        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(
+            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
+            Some((5, 4))
+        );
         assert_eq!(overlays.len(), 1);
         assert_eq!(overlays[0].data, 3);
     }
@@ -414,7 +419,10 @@ Tiberium=yes
             overlay_id: 0,
             data: 0,
         }];
-        assert!(place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10));
+        assert_eq!(
+            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
+            Some((6, 4))
+        );
         assert_eq!(overlays.len(), 2);
         assert_eq!(overlays[1].x, 6);
         assert_eq!(overlays[1].y, 4);

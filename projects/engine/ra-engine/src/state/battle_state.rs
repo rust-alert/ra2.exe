@@ -117,6 +117,8 @@ pub struct BattleState {
     pub ai_trigger_runtime: crate::gameplay::AiTriggerRuntime,
     /// `SpawnsTiberium` 矿柱产矿动画状态。
     pub terrain_spawners: Vec<crate::gameplay::TerrainSpawnerState>,
+    /// 本局写入后待叠画的 overlay 格（产矿等；呈现层 `take_overlay_paint_dirty` 消费）。
+    pub(crate) overlay_paint_dirty: Vec<(u16, u16)>,
     /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
     pub match_seed: u64,
     /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
@@ -226,6 +228,7 @@ impl BattleState {
             script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
             ai_trigger_runtime,
             terrain_spawners,
+            overlay_paint_dirty: Vec::new(),
             match_seed: 0,
             pending_eva_cues: Vec::new(),
             speak_delay_ticks,

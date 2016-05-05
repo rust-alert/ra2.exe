@@ -62,6 +62,7 @@ fn midpoint_tick_places_ore_on_neighbor() {
     assert_eq!(cell.y, 3);
     assert_eq!(cell.overlay_id, 0);
     assert_eq!(cell.data, 3);
+    assert_eq!(world.take_overlay_paint_dirty(), vec![(4, 3)]);
     assert!(matches!(
         world.terrain_spawners[0].phase,
         ra_engine::TerrainSpawnerPhase::Idle
