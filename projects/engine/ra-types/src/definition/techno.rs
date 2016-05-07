@@ -56,6 +56,8 @@ pub struct TechnoDefinition {
     pub naval: bool,
     /// `Agent=yes`（可渗透敌方建筑）。
     pub agent: bool,
+    /// `Engineer=yes`（可占领敌方可俘建筑）。
+    pub engineer: bool,
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
     /// `Category`（如 `Soldier` / `Dog`）。

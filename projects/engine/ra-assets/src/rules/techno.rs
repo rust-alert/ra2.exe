@@ -33,6 +33,8 @@ pub struct TechnoType {
     pub naval: bool,
     /// `Agent=yes`（可渗透敌方建筑的间谍类单位）。
     pub agent: bool,
+    /// `Engineer=yes`（可占领敌方可俘建筑）。
+    pub engineer: bool,
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
     /// 主武器名（`Primary`）；空表示未配置。
@@ -142,6 +144,9 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let agent = rules
         .get(id, "Agent")
         .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
+    let engineer = rules
+        .get(id, "Engineer")
+        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
     let harvester = rules
         .get(id, "Harvester")
         .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
@@ -162,6 +167,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         category,
         naval,
         agent,
+        engineer,
         harvester,
         primary,
         damage,

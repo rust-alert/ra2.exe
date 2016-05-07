@@ -26,9 +26,9 @@ pub use ai::houses_are_allied;
 pub(crate) use ai_triggers::tick_ai_triggers;
 pub use ai_triggers::AiTriggerRuntime;
 pub(crate) use definitions_query::{
-    building_power, deploy_into_type, factory_matches_category, factory_matches_unit, is_agent, is_construction_yard,
-    is_harvester, is_power_plant, is_production_factory, is_refinery, owner_allows, requires_power_plant,
-    starting_mcv_type_for_house,
+    building_power, deploy_into_type, factory_matches_category, factory_matches_unit, is_agent, is_capturable,
+    is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_refinery, owner_allows,
+    requires_power_plant, starting_mcv_type_for_house,
 };
 pub(crate) use rules::{full_verses, verses_for};
 pub(crate) use script_teams::{flush_pending_team_spawns, tick_script_teams};

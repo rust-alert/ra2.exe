@@ -50,6 +50,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             tech_level: tt.tech_level,
             naval: tt.naval,
             agent: tt.agent,
+            engineer: tt.engineer,
             harvester: tt.harvester,
             category: tt.category.clone(),
             sight: tt.sight,
@@ -96,6 +97,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
         let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
         let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
+        let capturable = ini_bool(&rules.rules, &key, "Capturable").unwrap_or(false);
         let factory = ini_string(&rules.rules, &key, "Factory").map(|s| parse_factory_category(&s));
         let production = factory.map(|category| ProductionProfile { category });
 
@@ -111,6 +113,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
         if refinery {
             capabilities.push(BuiltinCapability::Refinery);
+        }
+        if capturable {
+            capabilities.push(BuiltinCapability::Capturable);
         }
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
@@ -131,6 +136,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             armor: tt.armor.clone(),
             construction_yard,
             refinery,
+            capturable,
             production,
             owner: tt.owner.clone(),
             foundation,

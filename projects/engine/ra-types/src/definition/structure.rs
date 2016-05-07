@@ -43,6 +43,8 @@ pub struct StructureDefinition {
     pub construction_yard: bool,
     /// 是否矿场。
     pub refinery: bool,
+    /// `Capturable=yes`（可被工程师占领）。
+    pub capturable: bool,
     /// 生产配置（若为工厂）。
     pub production: Option<ProductionProfile>,
     /// Owner 串（空表示不限）。

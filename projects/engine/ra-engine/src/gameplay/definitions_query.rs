@@ -7,6 +7,16 @@ pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.techno.get(type_id).is_some_and(|t| t.agent)
 }
 
+/// 单位是否工程师（`Engineer=yes`），可占领敌方可俘建筑。
+pub(crate) fn is_engineer(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    defs.techno.get(type_id).is_some_and(|t| t.engineer)
+}
+
+/// 建筑是否可被工程师占领（`Capturable=yes`）。
+pub(crate) fn is_capturable(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    defs.structures.get(type_id).is_some_and(|s| s.capturable)
+}
+
 /// 单位是否采矿车（`Harvester=yes`）。
 pub(crate) fn is_harvester(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.techno.get(type_id).is_some_and(|t| t.harvester)
