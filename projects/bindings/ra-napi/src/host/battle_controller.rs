@@ -33,11 +33,11 @@ use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, StructureAnimBank, StructureBuildupClip, TerrainAnimBank, Theater,
-    WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
+    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TerrainAnimBank,
+    Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
     local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
-    paint_terrain_anims_onto_rgba,
+    paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
+    paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
@@ -1870,6 +1870,9 @@ impl BattleController {
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
         self.tick_deploy_visuals(assets, renderer);
+        let overlay_patched = assets
+            .map(|a| self.apply_overlay_paint_dirty(a))
+            .unwrap_or(false);
         if self.pending_buildups.is_empty() {
             // 移动单位烤在预览底图上：脏集或仍在滑移时都要重绘（含渲染帧格内插值）。
             let mobiles_moved = match &pending {
@@ -1877,7 +1880,7 @@ impl BattleController {
                 PendingDraw::Full(_) => false,
             };
             let mobiles_sliding = self.any_mobile_sliding();
-            if mobiles_moved || mobiles_sliding {
+            if mobiles_moved || mobiles_sliding || overlay_patched {
                 if let Some(assets) = assets {
                     self.rebuild_preview_base_with_mobiles(assets);
                     self.present_preview_base(renderer);
@@ -2132,6 +2135,59 @@ impl BattleController {
         // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
         self.pending_battle_sfx.push("PlaceBuilding".into());
         self.rebuild_preview_base_with_mobiles(assets);
+    }
+
+    /// 将产矿等写入的 overlay 脏格叠到 `preview_clean`。返回是否实际叠画。
+    fn apply_overlay_paint_dirty(&mut self, assets: &GameAssetSource) -> bool {
+        let Some(overlay_types) = self.rules.as_ref().map(|r| r.overlay_types.clone())
+        else {
+            return false;
+        };
+        let dirty = self
+            .session
+            .as_mut()
+            .and_then(|s| s.battle_mut())
+            .map(|g| g.world.take_overlay_paint_dirty())
+            .unwrap_or_default();
+        if dirty.is_empty() {
+            return false;
+        }
+        let Some((map, cells)) = self.session.as_ref().and_then(|s| s.battle()).map(|g| {
+            let cells: Vec<_> = dirty
+                .iter()
+                .filter_map(|(x, y)| g.world.map.overlays.iter().find(|c| c.x == *x && c.y == *y).copied())
+                .collect();
+            (g.world.map.clone(), cells)
+        })
+        else {
+            return false;
+        };
+        if cells.is_empty() {
+            return false;
+        }
+        let Some(clean) = self.preview_clean.as_mut()
+        else {
+            return false;
+        };
+        let (shp, mark) = paint_overlays_onto_preview_rgba(
+            assets,
+            &map,
+            &cells,
+            clean,
+            self.preview_origin.0,
+            self.preview_origin.1,
+            self.art_ini,
+            self.rules_ini,
+            &|id| overlay_types.name(id).map(str::to_owned),
+            &|id| overlay_types.is_harvestable(id),
+            &|_| None,
+            OverlayLayerFilter::Ground,
+        );
+        if shp + mark == 0 {
+            return false;
+        }
+        self.last_anim_sig = u64::MAX;
+        true
     }
 
     /// `preview_base` = 已定格底图（含展开后的建造场）+ 当前存活移动单位。
