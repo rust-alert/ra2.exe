@@ -39,6 +39,8 @@ pub struct BootPreviewResult {
     pub image: RawRgbaImage,
     /// 不含建筑/地形活动层与矿柱的预览底图（对局时钟刷新用）。
     pub base_without_anims: RgbaImage,
+    /// 不含可采 overlay 的底图（产矿/采集脏刷新 underlay）。
+    pub ore_underlay: RgbaImage,
     /// 建筑活动层银行。
     pub anim_bank: StructureAnimBank,
     /// 动画地形物件银行（旗帜等常循环）。
@@ -57,10 +59,11 @@ pub struct BootPreviewResult {
 
 /// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
 ///
-/// 顺序：地面 overlay → 静态地形物件 → 建筑主体 → 桥 overlay → 移动单位 →
-/// 动画地形 → 矿柱 Idle → 建筑活动层。底图不含后三层，供对局按时钟/状态机刷新。
+/// 顺序：非可采地面 overlay →（快照 `ore_underlay`）→ 可采 overlay → 静态地形物件 →
+/// 建筑主体 → 桥 → 移动单位 → 动画地形 → 矿柱 Idle → 建筑活动层。
+/// 底图不含后三层；`ore_underlay` 仅为地形+非可采地面，供脏刷新按同序重画。
 ///
-/// 返回 `(合成图, 无活动层底图, 统计, 建筑活动层, 地形活动层, 矿柱银行)`。
+/// 返回 `(合成图, 无活动层底图, 矿 underlay, 统计, 建筑活动层, 地形活动层, 矿柱银行)`。
 pub fn compose_skirmish_preview(
     source: &dyn AssetSource,
     map: &MapInfo,
@@ -71,7 +74,15 @@ pub fn compose_skirmish_preview(
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
-) -> Option<(TerrainImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank, TerrainAnimBank)> {
+) -> Option<(
+    TerrainImage,
+    RgbaImage,
+    RgbaImage,
+    SkirmishPreviewStats,
+    StructureAnimBank,
+    TerrainAnimBank,
+    TerrainAnimBank,
+)> {
     // 预览叠画需要点光源；从 rules 收集后挂到地图副本上（不改调用方 MapInfo）。
     let mut lit_map = map.clone();
     if let Ok(bytes) = source.read(rules_ini) {
@@ -81,10 +92,27 @@ pub fn compose_skirmish_preview(
     }
     let map = &lit_map;
 
+    let mut map_non_ore = map.clone();
+    map_non_ore.overlays.retain(|c| !is_tiberium(c.overlay_id));
+    let mut map_ore = map.clone();
+    map_ore.overlays.retain(|c| is_tiberium(c.overlay_id));
+
     let mut image = compose_terrain_preview(source, map)?;
-    let (ground_shp, ground_mark) = paint_map_overlays(
+    let (ground_non_ore_shp, ground_non_ore_mark) = paint_map_overlays(
         source,
-        map,
+        &map_non_ore,
+        &mut image,
+        art_ini,
+        rules_ini,
+        overlay_type_name,
+        is_tiberium,
+        tiberium_hsv,
+        OverlayLayerFilter::Ground,
+    );
+    let ore_underlay = image.image.clone();
+    let (ground_ore_shp, ground_ore_mark) = paint_map_overlays(
+        source,
+        &map_ore,
         &mut image,
         art_ini,
         rules_ini,
@@ -121,9 +149,10 @@ pub fn compose_skirmish_preview(
     Some((
         image,
         base_without_anims,
+        ore_underlay,
         SkirmishPreviewStats {
-            overlay_shp: ground_shp + bridge_shp,
-            overlay_mark: ground_mark + bridge_mark,
+            overlay_shp: ground_non_ore_shp + ground_ore_shp + bridge_shp,
+            overlay_mark: ground_non_ore_mark + ground_ore_mark + bridge_mark,
             terrain_objects: terrain_objects + terrain_anim_n + ore_n,
             terrain_anims: terrain_anim_bank.layers.len() + ore_tree_anim_bank.layers.len(),
             structures: structures + anim_n,
@@ -169,7 +198,7 @@ pub fn compose_boot_preview(
     is_tiberium: &dyn Fn(u8) -> bool,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
-    let (image, base_without_anims, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
+    let (image, base_without_anims, ore_underlay, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
         compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, &|_| None, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
@@ -216,6 +245,7 @@ pub fn compose_boot_preview(
         origin_y: image.origin_y,
         image: RawRgbaImage { label: note.clone(), image: image.image },
         base_without_anims,
+        ore_underlay,
         anim_bank,
         terrain_anim_bank,
         ore_tree_anim_bank,
