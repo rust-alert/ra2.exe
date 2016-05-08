@@ -28,6 +28,8 @@ pub enum CommandKind {
     SetRally,
     /// 间谍渗透敌方建筑。
     Infiltrate,
+    /// 工程师占领敌方可俘建筑。
+    CaptureBuilding,
     /// 其它 / 扩展。
     Other,
 }
@@ -115,6 +117,13 @@ pub enum CommandBody {
         /// 目标建筑实体。
         building: EntityId,
     },
+    /// 工程师占领敌方可俘建筑。
+    CaptureBuilding {
+        /// 工程师实体。
+        engineer: EntityId,
+        /// 目标建筑实体。
+        building: EntityId,
+    },
 }
 
 impl CommandBody {
@@ -129,6 +138,7 @@ impl CommandBody {
             Self::CancelProduce { .. } => CommandKind::CancelProduce,
             Self::SetRallyPoint { .. } => CommandKind::SetRally,
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
+            Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
         }
     }
 
@@ -139,7 +149,9 @@ impl CommandBody {
                 CommandTarget::Cell { x: *x, y: *y }
             }
             Self::Attack { target, .. } => CommandTarget::Entity(*target),
-            Self::Infiltrate { building, .. } => CommandTarget::Entity(*building),
+            Self::Infiltrate { building, .. } | Self::CaptureBuilding { building, .. } => {
+                CommandTarget::Entity(*building)
+            }
             Self::Deploy { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
                 CommandTarget::TypeKey(type_id.clone())

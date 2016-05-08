@@ -84,6 +84,11 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
             b.extend_from_slice(id_bytes);
         }
+        GameCommand::CaptureBuilding { engineer, building } => {
+            b.push(9);
+            b.extend_from_slice(&engineer.0.to_be_bytes());
+            b.extend_from_slice(&building.0.to_be_bytes());
+        }
     }
     b
 }
@@ -174,6 +179,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
             Some(GameCommand::CancelProduce { player, type_id })
         }
+        9 => {
+            if bytes.len() < 1 + 8 + 8 {
+                return None;
+            }
+            let engineer = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let building = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
+            Some(GameCommand::CaptureBuilding { engineer, building })
+        }
         _ => None,
     }
 }
@@ -251,9 +264,9 @@ impl crate::state::BattleState {
         use crate::{
             game::CommandRejectReason,
             gameplay::{
-                building_power, build_limit_reached, deploy_into_type, full_verses, is_agent, is_construction_yard,
-                is_production_factory, is_type_eligible, living_structure_keys, produce_ticks_for, requires_power_plant,
-                TechTreePlayer,
+                building_power, build_limit_reached, deploy_into_type, full_verses, is_agent, is_capturable,
+                is_construction_yard, is_engineer, is_production_factory, is_type_eligible, living_structure_keys,
+                produce_ticks_for, requires_power_plant, TechTreePlayer,
             },
             spatial::is_mobile,
             state::components::{
@@ -290,6 +303,7 @@ impl crate::state::BattleState {
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = None;
+                        attack.capture_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
@@ -340,6 +354,7 @@ impl crate::state::BattleState {
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
                         attack.infiltrate_target = None;
+                        attack.capture_target = None;
                     });
                     let _ = self.with_movement_mut(attacker_id, |movement| {
                         movement.destination_x = Some(target_xf.x);
@@ -497,7 +512,7 @@ impl crate::state::BattleState {
                             attack_verses: full_verses(),
                             techno_kind: Some(TechnoKind::Building),
                         },
-                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
+                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                         production: ProductionQueue { item: None, rally_x: None, rally_y: None },
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -715,6 +730,7 @@ impl crate::state::BattleState {
                     let _ = self.with_attack_mut(agent_id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = Some(building);
+                        attack.capture_target = None;
                     });
                     let _ = self.with_movement_mut(agent_id, |movement| {
                         movement.destination_x = Some(building_xf.x);
@@ -724,6 +740,93 @@ impl crate::state::BattleState {
                     });
                     self.repath_entity_at(agent_index);
                     self.mark_entity_dirty(agent_id);
+                }
+                GameCommand::CaptureBuilding { engineer, building } => {
+                    let Some(engineer_index) = self.entity_index(engineer)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let Some(building_index) = self.entity_index(building)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    if engineer == building {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let engineer_id = self.entities[engineer_index].id;
+                    let building_id = self.entities[building_index].id;
+                    if self.ecs_get::<Health>(engineer_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, engineer_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(engineer_type) = self.ecs_get::<Identity>(engineer_id).map(|i| i.type_id.clone())
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if !is_engineer(&self.definitions, engineer_type.as_ref()) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(engineer_id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    if !self
+                        .ecs_get::<Identity>(building_id)
+                        .map(|i| i.kind == MapEntityKind::Structure)
+                        .unwrap_or(false)
+                    {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let Some(building_type) = self.ecs_get::<Identity>(building_id).map(|i| i.type_id.clone())
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if !is_capturable(&self.definitions, building_type.as_ref()) {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| o.house.clone());
+                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+                    match (engineer_house, building_house) {
+                        (Some(a), Some(b)) if a != b => {}
+                        _ => {
+                            self.reject(command_index, CommandRejectReason::InvalidTarget);
+                            continue;
+                        }
+                    }
+                    let Some(building_xf) = self.ecs_get::<Transform>(building_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let _ = self.with_attack_mut(engineer_id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = Some(building);
+                    });
+                    let _ = self.with_movement_mut(engineer_id, |movement| {
+                        movement.destination_x = Some(building_xf.x);
+                        movement.destination_y = Some(building_xf.y);
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(engineer_index);
+                    self.mark_entity_dirty(engineer_id);
                 }
             }
         }

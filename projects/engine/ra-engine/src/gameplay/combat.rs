@@ -36,8 +36,8 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            // 渗透中的间谍不开火。
-            if attack.infiltrate_target.is_some() {
+            // 渗透 / 占领中的单位不开火。
+            if attack.infiltrate_target.is_some() || attack.capture_target.is_some() {
                 continue;
             }
             let Some(target_id) = attack.target
@@ -192,7 +192,7 @@ impl crate::state::BattleState {
         }
     }
 
-    fn revoke_structure_power(&mut self, house: &str, type_id: &str) {
+    pub(crate) fn revoke_structure_power(&mut self, house: &str, type_id: &str) {
         let power = building_power(&self.definitions, type_id);
         let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house)
         else {

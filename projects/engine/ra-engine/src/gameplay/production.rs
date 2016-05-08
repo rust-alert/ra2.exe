@@ -140,7 +140,7 @@ impl crate::state::BattleState {
                 attack_verses: verses_for(&self.definitions, &tt.warhead),
                 techno_kind: Some(techno_kind),
             },
-            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },

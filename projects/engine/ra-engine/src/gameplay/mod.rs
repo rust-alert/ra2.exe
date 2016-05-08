@@ -4,6 +4,7 @@ pub(crate) mod ai;
 mod ai_triggers;
 mod combat;
 mod construction;
+mod capture;
 mod definitions_query;
 mod deploy;
 mod economy;

@@ -188,7 +188,7 @@ impl BattleState {
                     attack_verses,
                     techno_kind,
                 },
-                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
+                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                 production: ProductionQueue { item: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -865,6 +865,7 @@ impl BattleState {
                 SystemPhase::Combat => {
                     self.resolve_combat();
                     self.resolve_infiltrate();
+                    self.resolve_capture_building();
                     self.tick_power_blackouts();
                 }
                 SystemPhase::Turrets => self.advance_turrets(),
@@ -1039,7 +1040,7 @@ impl BattleState {
                 attack_verses,
                 techno_kind: Some(techno_class_to_kind(class)),
             },
-            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
             production: ProductionQueue { item: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },

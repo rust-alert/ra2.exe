@@ -14,6 +14,7 @@ fn command_codec_roundtrip() {
         GameCommand::SetRallyPoint { factory: EntityId(2), x: 9, y: 3 },
         GameCommand::Infiltrate { agent: EntityId(8), building: EntityId(9) },
         GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() },
+        GameCommand::CaptureBuilding { engineer: EntityId(10), building: EntityId(11) },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));

@@ -185,6 +185,10 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
         }
+        GameCommand::CaptureBuilding { engineer, building } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(9);
+            h = h.wrapping_mul(1099511628211).wrapping_add(engineer.0).wrapping_add(building.0 << 16);
+        }
     }
     h
 }

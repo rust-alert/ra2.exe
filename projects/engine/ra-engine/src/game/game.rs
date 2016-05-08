@@ -677,6 +677,40 @@ impl BattleSession {
         })
     }
 
+    /// 工程师占领敌方可俘建筑（选中中的 Engineer 单位）。
+    pub fn order_capture_building(&mut self, selected: &[EntityId], building: EntityId) {
+        if self.outcome.is_some() {
+            return;
+        }
+        if self.world.entity_index(building).is_none() {
+            return;
+        }
+        for &id in selected {
+            if id != building && self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::CaptureBuilding { engineer: id, building });
+            }
+        }
+    }
+
+    /// 选中是否含工程师（`Engineer=yes`）。
+    pub fn selection_has_engineer(&self, selected: &[EntityId]) -> bool {
+        selected.iter().any(|&id| {
+            self.world
+                .ecs_identity(id)
+                .is_some_and(|(type_id, _)| crate::gameplay::is_engineer(&self.world.definitions, type_id.as_ref()))
+        })
+    }
+
+    /// 建筑类型是否可被工程师占领（`Capturable=yes`）。
+    pub fn is_capturable_structure(&self, id: EntityId) -> bool {
+        self.world
+            .ecs_identity(id)
+            .is_some_and(|(type_id, kind)| {
+                kind == MapEntityKind::Structure
+                    && crate::gameplay::is_capturable(&self.world.definitions, type_id.as_ref())
+            })
+    }
+
     /// 部署指定可展开单位（如 MCV）。
     pub fn order_deploy(&mut self, selected: &[EntityId]) {
         if self.outcome.is_some() {
