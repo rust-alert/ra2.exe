@@ -1049,7 +1049,13 @@ impl BattleController {
                     .world
                     .ecs_identity(target)
                     .is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
-                if is_structure && game.selection_has_agent(&selected) {
+                if is_structure
+                    && game.selection_has_engineer(&selected)
+                    && game.is_capturable_structure(target)
+                {
+                    tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_capture_building(&selected, target);
+                } else if is_structure && game.selection_has_agent(&selected) {
                     tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
                     game.order_infiltrate(&selected, target);
                 } else {
