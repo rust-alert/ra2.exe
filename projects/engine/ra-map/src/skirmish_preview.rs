@@ -39,7 +39,7 @@ pub struct BootPreviewResult {
     pub image: RawRgbaImage,
     /// 不含建筑/地形活动层与矿柱的预览底图（对局时钟刷新用）。
     pub base_without_anims: RgbaImage,
-    /// 不含可采 overlay 的底图（产矿/采集脏刷新 underlay）。
+    /// 不含可采 overlay 的定格底图（已含物件/建筑/桥；产矿与采集脏刷新 underlay）。
     pub ore_underlay: RgbaImage,
     /// 建筑活动层银行。
     pub anim_bank: StructureAnimBank,
@@ -59,9 +59,10 @@ pub struct BootPreviewResult {
 
 /// 合成启动预览图（地形 / overlay / 物件 / 建筑；地图放置段里的移动单位一并叠画）。
 ///
-/// 顺序：非可采地面 overlay →（快照 `ore_underlay`）→ 可采 overlay → 静态地形物件 →
-/// 建筑主体 → 桥 → 移动单位 → 动画地形 → 矿柱 Idle → 建筑活动层。
-/// 底图不含后三层；`ore_underlay` 仅为地形+非可采地面，供脏刷新按同序重画。
+/// 顺序：非可采地面 overlay →（分叉 underlay）→ 可采 overlay（仅主图）→
+/// 静态地形物件 / 建筑 / 桥（主图与 underlay 同步）→ 移动单位（仅主图）→
+/// 动画地形 → 矿柱 Idle → 建筑活动层。
+/// `ore_underlay` = 无可采矿的定格层，脏刷新时 `clone` 后再叠当前可采矿即可。
 ///
 /// 返回 `(合成图, 无活动层底图, 矿 underlay, 统计, 建筑活动层, 地形活动层, 矿柱银行)`。
 pub fn compose_skirmish_preview(
@@ -109,7 +110,12 @@ pub fn compose_skirmish_preview(
         tiberium_hsv,
         OverlayLayerFilter::Ground,
     );
-    let ore_underlay = image.image.clone();
+    let mut underlay = TerrainImage {
+        image: image.image.clone(),
+        drawn: 0,
+        origin_x: image.origin_x,
+        origin_y: image.origin_y,
+    };
     let (ground_ore_shp, ground_ore_mark) = paint_map_overlays(
         source,
         &map_ore,
@@ -123,10 +129,12 @@ pub fn compose_skirmish_preview(
     );
     let terrain_objects =
         paint_map_terrain_objects(source, map, &mut image, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
+    let _ = paint_map_terrain_objects(source, map, &mut underlay, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, art_ini, rules_ini);
     let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, art_ini, rules_ini);
     let (structures, structure_mark) =
         paint_map_structures(source, map, &mut image, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let _ = paint_map_structures(source, map, &mut underlay, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
     let (bridge_shp, bridge_mark) = paint_map_overlays(
         source,
         map,
@@ -138,6 +146,18 @@ pub fn compose_skirmish_preview(
         tiberium_hsv,
         OverlayLayerFilter::Bridge,
     );
+    let _ = paint_map_overlays(
+        source,
+        map,
+        &mut underlay,
+        art_ini,
+        rules_ini,
+        overlay_type_name,
+        is_tiberium,
+        tiberium_hsv,
+        OverlayLayerFilter::Bridge,
+    );
+    let ore_underlay = underlay.image;
     let anim_bank = collect_structure_anim_bank(source, map, art_ini, rules_ini, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, art_ini, rules_ini, remap_owner, &|_| MobilePaintPose::default());
     let base_without_anims = image.image.clone();
