@@ -77,6 +77,7 @@ fn harvester_on_ore_delivers_at_adjacent_refinery() {
     // 采集完成：扣密度并装载，本 tick 不卸货。
     world.advance_tick();
     assert_eq!(world.harvestable_ore_at(3, 2), Some(1));
+    assert_eq!(world.take_overlay_paint_dirty(), vec![(3, 2)]);
     assert_eq!(world.house_funds("Americans"), Some(1_000));
 
     // 邻接矿场：下一 tick 卸货入账。
@@ -95,6 +96,7 @@ fn harvester_on_ore_delivers_at_adjacent_refinery() {
     }
     world.advance_tick();
     assert_eq!(world.harvestable_ore_at(3, 2), None);
+    assert_eq!(world.take_overlay_paint_dirty(), vec![(3, 2)]);
     assert_eq!(
         world.house_funds("Americans"),
         Some(1_000 + ORE_INCOME_PER_TRIP as i32)

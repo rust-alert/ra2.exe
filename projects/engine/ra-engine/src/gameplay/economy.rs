@@ -225,6 +225,7 @@ impl crate::state::BattleState {
         if self.map.overlays[index].data == 0 {
             self.map.overlays.remove(index);
         }
+        self.overlay_paint_dirty.push((x, y));
         true
     }
 
