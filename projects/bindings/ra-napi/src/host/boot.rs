@@ -44,6 +44,8 @@ pub struct BootResult {
     pub preview_base: Option<RgbaImage>,
     /// 无开局移动单位的底图（部署后重组预览用）。
     pub preview_clean: Option<RgbaImage>,
+    /// 无可采矿的定格底图（产矿/采集脏刷新 underlay）。
+    pub preview_ore_underlay: Option<RgbaImage>,
     /// 建筑活动层银行。
     pub structure_anims: StructureAnimBank,
     /// 动画地形物件银行（旗帜等常循环）。
@@ -77,6 +79,7 @@ impl BootResult {
             preview: None,
             preview_base: None,
             preview_clean: None,
+            preview_ore_underlay: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
             ore_tree_anims: TerrainAnimBank::default(),
@@ -98,6 +101,7 @@ impl BootResult {
             preview: t.preview,
             preview_base: None,
             preview_clean: None,
+            preview_ore_underlay: None,
             structure_anims: StructureAnimBank::default(),
             terrain_anims: TerrainAnimBank::default(),
             ore_tree_anims: TerrainAnimBank::default(),
@@ -116,7 +120,17 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesSystem,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(String, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
+) -> Option<(
+    String,
+    RgbaImage,
+    RgbaImage,
+    RgbaImage,
+    StructureAnimBank,
+    TerrainAnimBank,
+    TerrainAnimBank,
+    i32,
+    i32,
+)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -131,6 +145,7 @@ fn load_map_terrain_preview(
         preview.note,
         rgba,
         preview.base_without_anims,
+        preview.ore_underlay,
         preview.anim_bank,
         preview.terrain_anim_bank,
         preview.ore_tree_anim_bank,
@@ -505,6 +520,7 @@ pub fn boot_world_with_progress(
     let lobby_primaries = lobby_house_primaries(request);
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
+    let mut preview_ore_underlay: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
@@ -512,10 +528,11 @@ pub fn boot_world_with_progress(
         .as_ref()
         .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
     {
-        Some((name, image, base, bank, terrain_bank, ore_bank, ox, oy)) => {
+        Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
             preview_base = Some(base);
+            preview_ore_underlay = Some(underlay);
             structure_anims = bank;
             terrain_anims = terrain_bank;
             ore_tree_anims = ore_bank;
@@ -654,6 +671,7 @@ pub fn boot_world_with_progress(
         preview,
         preview_base,
         preview_clean,
+        preview_ore_underlay,
         structure_anims,
         terrain_anims,
         ore_tree_anims,
