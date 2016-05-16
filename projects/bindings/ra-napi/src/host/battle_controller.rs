@@ -1883,6 +1883,9 @@ impl BattleController {
         let overlay_patched = assets
             .map(|a| self.apply_overlay_paint_dirty(a))
             .unwrap_or(false);
+        let structure_patched = assets
+            .map(|a| self.apply_structure_paint_dirty(a))
+            .unwrap_or(false);
         if self.pending_buildups.is_empty() {
             // 移动单位烤在预览底图上：脏集或仍在滑移时都要重绘（含渲染帧格内插值）。
             let mobiles_moved = match &pending {
@@ -1890,7 +1893,7 @@ impl BattleController {
                 PendingDraw::Full(_) => false,
             };
             let mobiles_sliding = self.any_mobile_sliding();
-            if mobiles_moved || mobiles_sliding || overlay_patched {
+            if mobiles_moved || mobiles_sliding || overlay_patched || structure_patched {
                 if let Some(assets) = assets {
                     self.rebuild_preview_base_with_mobiles(assets);
                     self.present_preview_base(renderer);
@@ -2268,6 +2271,105 @@ impl BattleController {
         }
         self.last_anim_sig = u64::MAX;
         true
+    }
+
+    /// 将占领等房主变更的建筑按新房主色烤进 `preview_clean` / underlay，并刷新活动层。
+    fn apply_structure_paint_dirty(&mut self, assets: &GameAssetSource) -> bool {
+        let dirty = self
+            .session
+            .as_mut()
+            .and_then(|s| s.battle_mut())
+            .map(|g| g.world.take_structure_paint_dirty())
+            .unwrap_or_default();
+        if dirty.is_empty() {
+            return false;
+        }
+        let Some(rules) = self.rules.as_ref()
+        else {
+            return false;
+        };
+        let jobs: Vec<(String, String, u16, u16)> = {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                return false;
+            };
+            dirty
+                .iter()
+                .filter_map(|&id| {
+                    if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
+                        return None;
+                    }
+                    let (type_id, kind) = game.world.ecs_identity(id)?;
+                    if kind != MapEntityKind::Structure {
+                        return None;
+                    }
+                    let owner = game.world.ecs_owner(id)?;
+                    let (x, y, _) = game.world.ecs_transform(id)?;
+                    Some((type_id.to_string(), owner.to_string(), x, y))
+                })
+                .collect()
+        };
+        if jobs.is_empty() {
+            return false;
+        }
+        let art_ini = self.art_ini;
+        let origin = self.preview_origin;
+        let lobby = self.lobby_primaries.clone();
+        let mut any = false;
+        for (type_id, owner, x, y) in &jobs {
+            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+            else {
+                break;
+            };
+            let mut one = game.world.map.clone();
+            one.entities.clear();
+            one.entities.push(MapEntity {
+                kind: MapEntityKind::Structure,
+                owner: owner.clone(),
+                type_id: type_id.clone(),
+                health: 256,
+                x: *x,
+                y: *y,
+                facing: 0,
+                sub_cell: 0,
+                mission: String::new(),
+                tag: String::new(),
+            });
+            let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
+            if let Some(clean) = self.preview_clean.as_mut() {
+                let n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    clean,
+                    origin.0,
+                    origin.1,
+                    art_ini,
+                    self.rules_ini,
+                    &remap,
+                );
+                any |= n > 0;
+            }
+            if let Some(underlay) = self.preview_ore_underlay.as_mut() {
+                let n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    underlay,
+                    origin.0,
+                    origin.1,
+                    art_ini,
+                    self.rules_ini,
+                    &remap,
+                );
+                any |= n > 0;
+            }
+            self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
+            let bank = collect_structure_anim_bank(assets, &one, art_ini, self.rules_ini, &remap);
+            self.structure_anims.layers.extend(bank.layers);
+        }
+        if any {
+            self.last_anim_sig = u64::MAX;
+        }
+        any
     }
 
     /// `preview_base` = 已定格底图（含展开后的建造场）+ 当前存活移动单位。
