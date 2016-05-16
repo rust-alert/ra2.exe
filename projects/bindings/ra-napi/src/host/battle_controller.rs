@@ -270,6 +270,8 @@ pub struct BattleController {
     preview_base: Option<RgbaImage>,
     /// 无开局移动单位、可烘焙已定格动态建筑的底图。
     preview_clean: Option<RgbaImage>,
+    /// 无可采矿的定格底图（产矿/采集脏刷新）。
+    preview_ore_underlay: Option<RgbaImage>,
     /// 建筑活动层银行。
     structure_anims: StructureAnimBank,
     /// 动画地形物件银行（旗帜等常循环）。
@@ -376,6 +378,7 @@ impl BattleController {
             command_pressed: None,
             preview_base: boot.preview_base,
             preview_clean: boot.preview_clean,
+            preview_ore_underlay: boot.preview_ore_underlay,
             structure_anims: boot.structure_anims,
             terrain_anims: boot.terrain_anims,
             ore_tree_anims: boot.ore_tree_anims,
@@ -563,6 +566,7 @@ impl BattleController {
         self.command_pressed = None;
         self.preview_base = boot.preview_base;
         self.preview_clean = boot.preview_clean;
+        self.preview_ore_underlay = boot.preview_ore_underlay;
         self.structure_anims = boot.structure_anims;
         self.terrain_anims = boot.terrain_anims;
         self.ore_tree_anims = boot.ore_tree_anims;
@@ -2136,6 +2140,46 @@ impl BattleController {
             (n, bank)
         };
         let (_n, bank) = painted;
+        // underlay 与 clean 同步定格，避免产矿/采集脏刷新丢掉已展开建筑。
+        if let (Some(rules), Some(underlay)) = (self.rules.as_ref(), self.preview_ore_underlay.as_mut()) {
+            if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                let mut one = game.world.map.clone();
+                one.entities.clear();
+                one.entities.push(MapEntity {
+                    kind: MapEntityKind::Structure,
+                    owner: owner.to_string(),
+                    type_id: type_id.to_string(),
+                    health: 256,
+                    x,
+                    y,
+                    facing: 0,
+                    sub_cell: 0,
+                    mission: String::new(),
+                    tag: String::new(),
+                });
+                let lobby = &self.lobby_primaries;
+                let mut n = paint_structures_onto_rgba(
+                    assets,
+                    &one,
+                    underlay,
+                    origin.0,
+                    origin.1,
+                    art_ini,
+                    self.rules_ini,
+                    &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
+                );
+                if n == 0 {
+                    if let Some(clip) = clip {
+                        if let Some(last) = clip.frames.len().checked_sub(1) {
+                            if paint_structure_buildup_onto_rgba(underlay, origin.0, origin.1, clip, last) {
+                                n = 1;
+                            }
+                        }
+                    }
+                }
+                let _ = n;
+            }
+        }
         self.structure_anims.layers.extend(bank.layers);
         self.last_anim_sig = u64::MAX;
         // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
@@ -2143,7 +2187,10 @@ impl BattleController {
         self.rebuild_preview_base_with_mobiles(assets);
     }
 
-    /// 将产矿等写入的 overlay 脏格叠到 `preview_clean`。返回是否实际叠画。
+    /// 将产矿/采集写入的 overlay 脏格刷回 `preview_clean`。返回是否实际更新。
+    ///
+    /// 有 underlay 时：`clean = underlay` + 叠全部可采矿（覆盖加矿与扣矿擦除）。
+    /// 无 underlay 时回退为仅叠仍存在的脏格。
     fn apply_overlay_paint_dirty(&mut self, assets: &GameAssetSource) -> bool {
         let Some(overlay_types) = self.rules.as_ref().map(|r| r.overlay_types.clone())
         else {
@@ -2158,16 +2205,43 @@ impl BattleController {
         if dirty.is_empty() {
             return false;
         }
-        let Some((map, cells)) = self.session.as_ref().and_then(|s| s.battle()).map(|g| {
-            let cells: Vec<_> = dirty
-                .iter()
-                .filter_map(|(x, y)| g.world.map.overlays.iter().find(|c| c.x == *x && c.y == *y).copied())
-                .collect();
-            (g.world.map.clone(), cells)
-        })
+        let Some(map) = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.clone())
         else {
             return false;
         };
+        let harvestable: Vec<_> = map
+            .overlays
+            .iter()
+            .copied()
+            .filter(|c| overlay_types.is_harvestable(c.overlay_id))
+            .collect();
+
+        if let Some(underlay) = self.preview_ore_underlay.as_ref() {
+            let mut clean = underlay.clone();
+            let (shp, mark) = paint_overlays_onto_preview_rgba(
+                assets,
+                &map,
+                &harvestable,
+                &mut clean,
+                self.preview_origin.0,
+                self.preview_origin.1,
+                self.art_ini,
+                self.rules_ini,
+                &|id| overlay_types.name(id).map(str::to_owned),
+                &|id| overlay_types.is_harvestable(id),
+                &|_| None,
+                OverlayLayerFilter::Ground,
+            );
+            let _ = (shp, mark);
+            self.preview_clean = Some(clean);
+            self.last_anim_sig = u64::MAX;
+            return true;
+        }
+
+        let cells: Vec<_> = dirty
+            .iter()
+            .filter_map(|(x, y)| harvestable.iter().find(|c| c.x == *x && c.y == *y).copied())
+            .collect();
         if cells.is_empty() {
             return false;
         }
