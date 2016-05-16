@@ -6,6 +6,17 @@ use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
+fn default_order_runs_terrain_spawn_after_powers() {
+    let order = SystemPhase::default_order();
+    let powers = order.iter().position(|p| *p == SystemPhase::Powers).expect("Powers");
+    let spawn = order.iter().position(|p| *p == SystemPhase::TerrainSpawn).expect("TerrainSpawn");
+    let triggers = order.iter().position(|p| *p == SystemPhase::Triggers).expect("Triggers");
+    assert!(powers < spawn, "TerrainSpawn must follow Powers");
+    assert!(spawn < triggers, "TerrainSpawn must precede Triggers");
+    assert!(SystemSchedule::standard().contains(SystemPhase::TerrainSpawn));
+}
+
+#[test]
 fn omitting_combat_phase_skips_damage() {
     let rules = rules_with_mtnk();
     let mut map = map_with_size();
