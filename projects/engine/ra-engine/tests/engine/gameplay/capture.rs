@@ -129,6 +129,7 @@ fn engineer_captures_power_plant_and_dies() {
         .expect("victim");
     assert_eq!(ally.power_output, 200);
     assert_eq!(victim.power_output, 0);
+    assert_eq!(world.take_structure_paint_dirty(), vec![building]);
     let cues = world.take_eva_cues();
     assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_BuildingCaptured"));
     assert!(cues.iter().any(|c| c.house.as_ref() == "Russians" && c.event == "EVA_BuildingCaptured"));

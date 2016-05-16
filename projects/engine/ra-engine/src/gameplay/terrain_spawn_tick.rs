@@ -31,6 +31,11 @@ impl BattleState {
         std::mem::take(&mut self.overlay_paint_dirty)
     }
 
+    /// 取出房主变更后待重绘的建筑（呈现层消费）。
+    pub fn take_structure_paint_dirty(&mut self) -> Vec<ra_types::EntityId> {
+        std::mem::take(&mut self.structure_paint_dirty)
+    }
+
     /// 用 SHP 实测总帧数回写矿柱（boot 烘焙银行后调用）。
     pub fn apply_ore_tree_frame_counts(&mut self, counts: &[(u16, u16, u16)]) {
         for &(x, y, frames) in counts {

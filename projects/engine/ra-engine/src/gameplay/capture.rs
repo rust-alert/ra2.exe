@@ -139,6 +139,7 @@ impl crate::state::BattleState {
             queue.item = None;
         });
         self.mark_entity_dirty(building_id);
+        self.structure_paint_dirty.push(building_id);
     }
 
     pub(crate) fn grant_structure_power(&mut self, house: &str, type_id: &str) {
