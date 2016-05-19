@@ -2918,14 +2918,21 @@ impl BattleController {
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         let cameo_count = self.current_tab_cameo_count(visible);
-        hit_at_with_chrome(
+        let hit = hit_at_with_chrome(
             &snap,
             self.hud_chrome.as_ref(),
             metrics.power_w,
             cameo_count,
             x,
             y,
-        )
+        );
+        if let Some(BattleHudHit::SidebarTab(tab)) = hit {
+            let tabs_visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
+            if !tabs_visible.get(tab).copied().unwrap_or(false) {
+                return None;
+            }
+        }
+        hit
     }
 
     fn tab_items<'a>(caps: &'a BattleCapabilitiesSnapshot, tab: usize) -> &'a [CapabilityItem] {
@@ -2934,6 +2941,34 @@ impl BattleController {
             1 => caps.infantry_items.as_slice(),
             2 => caps.vehicle_items.as_slice(),
             _ => &[],
+        }
+    }
+
+    /// 无对应可建造基础的分类页签不显示（建筑←建造场，步兵←兵营，载具←战车厂）。
+    fn sidebar_tabs_visible(caps: Option<&BattleCapabilitiesSnapshot>) -> [bool; SIDEBAR_TAB_COUNT] {
+        let Some(caps) = caps
+        else {
+            return [false; SIDEBAR_TAB_COUNT];
+        };
+        [
+            caps.has_construction_yard,
+            caps.has_infantry_factory,
+            caps.has_vehicle_factory,
+            false,
+        ]
+    }
+
+    /// 当前页签若已无基础，切到第一个仍可见的页签。
+    fn sync_sidebar_tab_to_visible(&mut self, visible: [bool; SIDEBAR_TAB_COUNT]) {
+        if visible.get(self.sidebar_tab).copied().unwrap_or(false) {
+            return;
+        }
+        let next = visible.iter().position(|&v| v).unwrap_or(0);
+        if self.sidebar_tab != next {
+            self.sidebar_tab = next;
+            if next != 0 {
+                self.place_mode = None;
+            }
         }
     }
 
@@ -2982,6 +3017,10 @@ impl BattleController {
         match hit {
             BattleHudHit::SidebarTab(tab) => {
                 let tab = tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1));
+                let visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
+                if !visible.get(tab).copied().unwrap_or(false) {
+                    return;
+                }
                 if self.sidebar_tab != tab {
                     self.sidebar_tab = tab;
                     if tab != 0 {
@@ -3061,7 +3100,7 @@ impl BattleController {
     }
 
     fn upload_battle_hud(
-        &self,
+        &mut self,
         renderer: &mut Renderer,
         hud: &HudSnapshot,
         fnt: Option<&FntFile>,
@@ -3106,6 +3145,8 @@ impl BattleController {
         let show_pause_banner = hud.paused && hud.outcome.is_none();
 
         let caps = game.map(|g| g.snapshot_capabilities(&self.local.selected));
+        let tabs_visible = Self::sidebar_tabs_visible(caps.as_ref());
+        self.sync_sidebar_tab_to_visible(tabs_visible);
         let metrics = self
             .hud_chrome
             .as_ref()
@@ -3153,7 +3194,7 @@ impl BattleController {
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
-            sidebar_tabs_visible: [true; 4],
+            sidebar_tabs_visible: tabs_visible,
             cameos: if show_pause_banner { &[] } else { &cameos },
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
