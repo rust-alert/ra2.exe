@@ -213,7 +213,11 @@ fn compute_battle_hud_rects(
     let repair_sell_y =
         side1_y + metrics.repair_y.min(side1_h.saturating_sub(repair_h));
 
-    let tab_w = metrics.tab_w.min(panel_w).max(1);
+    let tab_w = {
+        let row = (panel_w - metrics.tab_x).max(1);
+        // 四页签必须排进侧栏行宽，避免槽位互叠或画出栏外。
+        metrics.tab_w.min(row / SIDEBAR_TAB_COUNT as i32).max(1)
+    };
     let tab_h = metrics.tab_h.min(side1_h).max(1);
     let tab_y = (side1_y + side1_h - tab_h).max(side1_y);
     let mut tab_x = panel_x + metrics.tab_x.min(panel_w.saturating_sub(tab_w));
