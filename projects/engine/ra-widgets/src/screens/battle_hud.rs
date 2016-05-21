@@ -887,9 +887,8 @@ pub fn blit_battle_cameos(
         if !item.enabled {
             fill_rect_alpha(page, cell, [0, 0, 0, 120]);
         }
-        if item.selected {
-            stroke_rect(page, cell, [255, 220, 64, 255]);
-        }
+        // 选中态不再描黄框（原版靠 cameo 自身明暗，不叠矩形描边）。
+        let _ = item.selected;
     }
 }
 
