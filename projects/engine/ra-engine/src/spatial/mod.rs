@@ -5,4 +5,6 @@ mod neighborhood;
 mod occupancy;
 mod visibility;
 
-pub(crate) use navigation::{facing_toward, is_mobile, manhattan, turn_facing_toward};
+pub(crate) use navigation::{
+    facing_toward, is_adjacent_to_footprint, is_mobile, manhattan, nearest_adjacent_to_footprint, turn_facing_toward,
+};

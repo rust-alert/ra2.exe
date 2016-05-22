@@ -268,7 +268,7 @@ impl crate::state::BattleState {
                 is_construction_yard, is_engineer, is_production_factory, is_type_eligible, living_structure_keys,
                 produce_ticks_for, requires_power_plant, TechTreePlayer,
             },
-            spatial::is_mobile,
+            spatial::{is_mobile, nearest_adjacent_to_footprint},
             state::components::{
                 AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity,
                 Locomotor, MovementState, Owner, ProductionQueue, Transform,
@@ -727,14 +727,33 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
+                    let agent_xf = self.ecs_get::<Transform>(agent_id).copied().unwrap_or(building_xf);
+                    let foundation = self
+                        .definitions
+                        .structures
+                        .get(
+                            self.ecs_get::<Identity>(building_id)
+                                .map(|i| i.type_id.as_ref())
+                                .unwrap_or(""),
+                        )
+                        .map(|s| s.foundation.clone())
+                        .unwrap_or_default();
+                    let (dest_x, dest_y) = nearest_adjacent_to_footprint(
+                        agent_xf.x,
+                        agent_xf.y,
+                        building_xf.x,
+                        building_xf.y,
+                        foundation.width,
+                        foundation.height,
+                    );
                     let _ = self.with_attack_mut(agent_id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = Some(building);
                         attack.capture_target = None;
                     });
                     let _ = self.with_movement_mut(agent_id, |movement| {
-                        movement.destination_x = Some(building_xf.x);
-                        movement.destination_y = Some(building_xf.y);
+                        movement.destination_x = Some(dest_x);
+                        movement.destination_y = Some(dest_y);
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -814,14 +833,29 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
+                    let engineer_xf = self.ecs_get::<Transform>(engineer_id).copied().unwrap_or(building_xf);
+                    let foundation = self
+                        .definitions
+                        .structures
+                        .get(building_type.as_ref())
+                        .map(|s| s.foundation.clone())
+                        .unwrap_or_default();
+                    let (dest_x, dest_y) = nearest_adjacent_to_footprint(
+                        engineer_xf.x,
+                        engineer_xf.y,
+                        building_xf.x,
+                        building_xf.y,
+                        foundation.width,
+                        foundation.height,
+                    );
                     let _ = self.with_attack_mut(engineer_id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = Some(building);
                     });
                     let _ = self.with_movement_mut(engineer_id, |movement| {
-                        movement.destination_x = Some(building_xf.x);
-                        movement.destination_y = Some(building_xf.y);
+                        movement.destination_x = Some(dest_x);
+                        movement.destination_y = Some(dest_y);
                         movement.path.clear();
                         movement.move_accum = 0;
                     });

@@ -5,8 +5,8 @@ use ra_types::EntityId;
 use std::sync::Arc;
 
 use crate::{
-    gameplay::{building_power, is_capturable},
-    spatial::manhattan,
+    gameplay::{ai::is_ambient_house, building_power, is_capturable},
+    spatial::{is_adjacent_to_footprint, nearest_adjacent_to_footprint},
     state::components::{AttackState, Health, Identity, Owner, Transform},
 };
 
@@ -86,13 +86,32 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            if manhattan(engineer_xf.x, engineer_xf.y, building_xf.x, building_xf.y) > 1 {
+            let foundation = self
+                .definitions
+                .structures
+                .get(building_type.as_ref())
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            if !is_adjacent_to_footprint(
+                engineer_xf.x,
+                engineer_xf.y,
+                building_xf.x,
+                building_xf.y,
+                foundation.width,
+                foundation.height,
+            ) {
+                let (ax, ay) = nearest_adjacent_to_footprint(
+                    engineer_xf.x,
+                    engineer_xf.y,
+                    building_xf.x,
+                    building_xf.y,
+                    foundation.width,
+                    foundation.height,
+                );
                 let _ = self.with_movement_mut(engineer_id, |movement| {
-                    if movement.destination_x != Some(building_xf.x)
-                        || movement.destination_y != Some(building_xf.y)
-                    {
-                        movement.destination_x = Some(building_xf.x);
-                        movement.destination_y = Some(building_xf.y);
+                    if movement.destination_x != Some(ax) || movement.destination_y != Some(ay) {
+                        movement.destination_x = Some(ax);
+                        movement.destination_y = Some(ay);
                         movement.path.clear();
                         movement.move_accum = 0;
                     }
@@ -116,7 +135,10 @@ impl crate::state::BattleState {
                 "EVA_BuildingCaptured"
             };
             self.push_eva_cue(engineer_house.as_ref(), capturer_eva);
-            self.push_eva_cue(building_house.as_ref(), "EVA_BuildingCaptured");
+            // 中立 / 平民无玩家席位，不播受害方 EVA。
+            if !is_ambient_house(building_house.as_ref()) {
+                self.push_eva_cue(building_house.as_ref(), "EVA_BuildingCaptured");
+            }
             self.finish_capturing_engineer(engineer_id);
         }
     }
@@ -128,6 +150,7 @@ impl crate::state::BattleState {
         from_house: &str,
         to_house: &str,
     ) {
+        // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
         self.revoke_structure_power(from_house, type_id);
         let new_house = Arc::<str>::from(to_house);
         let _ = self.with_owner_mut(building_id, |owner| {

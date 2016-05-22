@@ -5,7 +5,7 @@ use ra_types::{EntityId, ProductionCategory, StolenTechKind};
 
 use crate::{
     gameplay::{is_power_plant, is_refinery},
-    spatial::manhattan,
+    spatial::{is_adjacent_to_footprint, nearest_adjacent_to_footprint},
     state::components::{AttackState, Health, Identity, Owner, Transform},
 };
 
@@ -89,14 +89,34 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            if manhattan(agent_xf.x, agent_xf.y, building_xf.x, building_xf.y) > 1 {
-                // 仍追建筑格（建筑不移动，命令已设目的地；若被清掉则补钉）。
+            let building_type_for_foundation = self
+                .ecs_get::<Identity>(building_id)
+                .map(|i| i.type_id.clone());
+            let foundation = building_type_for_foundation
+                .as_ref()
+                .and_then(|t| self.definitions.structures.get(t.as_ref()))
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            if !is_adjacent_to_footprint(
+                agent_xf.x,
+                agent_xf.y,
+                building_xf.x,
+                building_xf.y,
+                foundation.width,
+                foundation.height,
+            ) {
+                let (ax, ay) = nearest_adjacent_to_footprint(
+                    agent_xf.x,
+                    agent_xf.y,
+                    building_xf.x,
+                    building_xf.y,
+                    foundation.width,
+                    foundation.height,
+                );
                 let _ = self.with_movement_mut(agent_id, |movement| {
-                    if movement.destination_x != Some(building_xf.x)
-                        || movement.destination_y != Some(building_xf.y)
-                    {
-                        movement.destination_x = Some(building_xf.x);
-                        movement.destination_y = Some(building_xf.y);
+                    if movement.destination_x != Some(ax) || movement.destination_y != Some(ay) {
+                        movement.destination_x = Some(ax);
+                        movement.destination_y = Some(ay);
                         movement.path.clear();
                         movement.move_accum = 0;
                     }
@@ -104,9 +124,7 @@ impl crate::state::BattleState {
                 continue;
             }
 
-            let building_type = self
-                .ecs_get::<Identity>(building_id)
-                .map(|i| i.type_id.clone());
+            let building_type = building_type_for_foundation;
             if let Some(type_id) = building_type {
                 let (agent_eva, victim_eva) =
                     self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());

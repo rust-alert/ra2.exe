@@ -26,6 +26,59 @@ pub(crate) fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
     (i32::from(ax) - i32::from(bx)).unsigned_abs() + (i32::from(ay) - i32::from(by)).unsigned_abs()
 }
 
+/// 点到占地矩形（左上锚点 + 宽高）的曼哈顿距离；落在矩形内为 0。
+pub(crate) fn manhattan_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> u32 {
+    let width = width.max(1);
+    let height = height.max(1);
+    let x2 = fx.saturating_add(width.saturating_sub(1));
+    let y2 = fy.saturating_add(height.saturating_sub(1));
+    let cx = px.clamp(fx, x2);
+    let cy = py.clamp(fy, y2);
+    manhattan(px, py, cx, cy)
+}
+
+/// 是否紧贴占地外沿（曼哈顿距离恰为 1）。
+pub(crate) fn is_adjacent_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> bool {
+    manhattan_to_footprint(px, py, fx, fy, width, height) == 1
+}
+
+/// 占地外沿上离 `(px,py)` 最近的邻接格（供移动目的地；不查通行）。
+pub(crate) fn nearest_adjacent_to_footprint(
+    px: u16,
+    py: u16,
+    fx: u16,
+    fy: u16,
+    width: u16,
+    height: u16,
+) -> (u16, u16) {
+    let width = width.max(1);
+    let height = height.max(1);
+    let x1 = i32::from(fx);
+    let y1 = i32::from(fy);
+    let x2 = x1 + i32::from(width) - 1;
+    let y2 = y1 + i32::from(height) - 1;
+    let mut best = (fx, fy);
+    let mut best_d = u32::MAX;
+    for y in (y1 - 1)..=(y2 + 1) {
+        for x in (x1 - 1)..=(x2 + 1) {
+            if x < 0 || y < 0 {
+                continue;
+            }
+            let xu = x as u16;
+            let yu = y as u16;
+            if !is_adjacent_to_footprint(xu, yu, fx, fy, width, height) {
+                continue;
+            }
+            let d = manhattan(px, py, xu, yu);
+            if d < best_d {
+                best_d = d;
+                best = (xu, yu);
+            }
+        }
+    }
+    best
+}
+
 pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
     match ((i32::from(to_x) - i32::from(from_x)).signum(), (i32::from(to_y) - i32::from(from_y)).signum()) {
         (1, 0) => 0,
@@ -37,6 +90,28 @@ pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u
         (0, -1) => 192,
         (1, -1) => 224,
         _ => 0,
+    }
+}
+
+#[cfg(test)]
+mod footprint_tests {
+    use super::{is_adjacent_to_footprint, manhattan_to_footprint, nearest_adjacent_to_footprint};
+
+    #[test]
+    fn footprint_distance_uses_nearest_cell() {
+        // 2x2 锚点 (4,4) 覆盖 (4,4)(5,4)(4,5)(5,5)
+        assert_eq!(manhattan_to_footprint(6, 4, 4, 4, 2, 2), 1);
+        assert_eq!(manhattan_to_footprint(6, 5, 4, 4, 2, 2), 1);
+        assert_eq!(manhattan_to_footprint(7, 4, 4, 4, 2, 2), 2);
+        assert_eq!(manhattan_to_footprint(5, 4, 4, 4, 2, 2), 0);
+        assert!(is_adjacent_to_footprint(6, 4, 4, 4, 2, 2));
+        assert!(!is_adjacent_to_footprint(7, 4, 4, 4, 2, 2));
+    }
+
+    #[test]
+    fn nearest_adjacent_picks_closest_ring_cell() {
+        assert_eq!(nearest_adjacent_to_footprint(7, 4, 4, 4, 2, 2), (6, 4));
+        assert_eq!(nearest_adjacent_to_footprint(3, 4, 4, 4, 2, 2), (3, 4));
     }
 }
 
