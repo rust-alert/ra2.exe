@@ -47,7 +47,13 @@ impl Shell {
             return;
         }
         self.load_kind = LoadKind::Skirmish;
-        self.load_brief_csf = None;
+        self.ensure_lobby_sides();
+        self.load_brief_csf = self
+            .lobby_countries
+            .iter()
+            .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()))
+            .map(|c| c.load_brief.clone())
+            .filter(|s| !s.is_empty());
         self.ensure_lobby_maps();
         self.banner =
             format!("正在装载 {} · {}/{}…", self.selected_map.as_deref().unwrap_or("默认候选图"), self.skirmish.side, self.skirmish.difficulty);
