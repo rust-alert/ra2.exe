@@ -42,7 +42,7 @@ use ra_map::{
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
 use winit::{
-    event::{ElementState, MouseButton, WindowEvent},
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
@@ -233,6 +233,8 @@ pub struct BattleController {
     place_mode: Option<String>,
     /// 侧栏分类页签（0=建筑 / 1=步兵 / 2=载具 / 3=飞行器）。
     sidebar_tab: usize,
+    /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
+    cameo_scroll: usize,
     /// 侧栏按下（页签 / cameo），松手命中一致时生效。
     sidebar_pressed: Option<BattleHudHit>,
     /// 建造栏图标缓存（按类型键；`None` 表示已尝试但缺图，避免每帧重解）。
@@ -360,6 +362,7 @@ impl BattleController {
             ctrl_down: false,
             place_mode: None,
             sidebar_tab: 0,
+            cameo_scroll: 0,
             sidebar_pressed: None,
             cameo_cache: HashMap::new(),
             leave_armed: false,
@@ -552,6 +555,7 @@ impl BattleController {
         self.logged_reject = None;
         self.place_mode = None;
         self.sidebar_tab = 0;
+        self.cameo_scroll = 0;
         self.sidebar_pressed = None;
         self.cameo_cache.clear();
         self.leave_armed = false;
@@ -1209,8 +1213,32 @@ impl BattleController {
                 self.camera_pan_keys.clear();
                 BattleNav::None
             }
-            WindowEvent::MouseWheel { .. } => {
-                // 可玩阶段关闭滚轮缩放，避免越界黑边与选点变换漂移。
+            WindowEvent::MouseWheel { delta, .. } => {
+                if accept_commands && !battle_paused && self.cursor_over_cameo_band(window) {
+                    let steps = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => {
+                            if *y > 0.0 {
+                                -1
+                            } else if *y < 0.0 {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                        MouseScrollDelta::PixelDelta(p) => {
+                            if p.y > 0.0 {
+                                -1
+                            } else if p.y < 0.0 {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                    };
+                    if steps != 0 {
+                        self.scroll_cameos(window, steps);
+                    }
+                }
                 BattleNav::None
             }
             WindowEvent::KeyboardInput { event, .. } => {
@@ -2966,6 +2994,7 @@ impl BattleController {
         let next = visible.iter().position(|&v| v).unwrap_or(0);
         if self.sidebar_tab != next {
             self.sidebar_tab = next;
+            self.cameo_scroll = 0;
             if next != 0 {
                 self.place_mode = None;
             }
@@ -2982,7 +3011,36 @@ impl BattleController {
         else {
             return 0;
         };
-        Self::tab_items(&caps, self.sidebar_tab).len().min(visible_slots)
+        let total = Self::tab_items(&caps, self.sidebar_tab).len();
+        total.min(visible_slots)
+    }
+
+    fn clamp_cameo_scroll(&mut self, visible_slots: usize) {
+        let Some(caps) = self.current_capabilities()
+        else {
+            self.cameo_scroll = 0;
+            return;
+        };
+        let total = Self::tab_items(&caps, self.sidebar_tab).len();
+        let max_scroll = total.saturating_sub(visible_slots);
+        if self.cameo_scroll > max_scroll {
+            self.cameo_scroll = max_scroll;
+        }
+    }
+
+    fn cursor_over_cameo_band(&self, window: &Window) -> bool {
+        let snap = self.hud_snap_for_window(window);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        band.w > 0 && band.h > 0 && band.contains(self.cursor.0 as i32, self.cursor.1 as i32)
+    }
+
+    fn scroll_cameos(&mut self, window: &Window, steps: i32) {
+        let snap = self.hud_snap_for_window(window);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let visible = cameo_visible_slot_count(band.h);
+        let next = self.cameo_scroll as i32 + steps;
+        self.cameo_scroll = next.max(0) as usize;
+        self.clamp_cameo_scroll(visible);
     }
 
     fn ensure_cameo_cache(&mut self, assets: Option<&GameAssetSource>) {
@@ -3023,6 +3081,7 @@ impl BattleController {
                 }
                 if self.sidebar_tab != tab {
                     self.sidebar_tab = tab;
+                    self.cameo_scroll = 0;
                     if tab != 0 {
                         self.place_mode = None;
                     }
@@ -3035,7 +3094,8 @@ impl BattleController {
                     return;
                 };
                 let items = Self::tab_items(&caps, self.sidebar_tab);
-                let Some(item) = items.get(slot)
+                let index = self.cameo_scroll.saturating_add(slot);
+                let Some(item) = items.get(index)
                 else {
                     return;
                 };
@@ -3155,11 +3215,14 @@ impl BattleController {
         let snap = solve_battle_hud_with_metrics(w, h, metrics);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
+        self.clamp_cameo_scroll(visible);
         let items = caps
             .as_ref()
             .map(|c| Self::tab_items(c, self.sidebar_tab))
             .unwrap_or(&[]);
-        let page_items = &items[..items.len().min(visible)];
+        let start = self.cameo_scroll.min(items.len());
+        let end = (start + visible).min(items.len());
+        let page_items = &items[start..end];
         let cameos: Vec<BattleCameoPaint<'_>> = page_items
             .iter()
             .map(|item| {
