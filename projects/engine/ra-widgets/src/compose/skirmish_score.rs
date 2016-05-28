@@ -31,7 +31,10 @@ pub struct SkirmishScorePaint<'a> {
     pub backdrop: Option<&'a RgbaImage>,
     /// 战役结算用 `GUI:STANDALONESCORE`，否则 `GUI:SKIRMISHSCORE`。
     pub campaign: bool,
-    /// 是否叠统计区半透明遮罩（Side chrome / adaptor `score_stats_shade`；尤里皮关）。
+    /// 是否叠原版半透明黑底统计区。
+    ///
+    /// - `true`：原版黑底 + 金边（盟军 / 苏军战报）。
+    /// - `false`：尤里皮——不叠黑底，改画金属描边框（见合成）。
     pub stats_shade: bool,
 }
 
@@ -72,10 +75,14 @@ pub fn compose_skirmish_score_page(
     if let Some(bg) = paint.backdrop {
         blit_stretched(&mut page, bg, background);
     }
-    // 原版盟军/苏军：半透明黑底保表文可读。尤里 `mpyscrnl` 自带金属底框，由 chrome 关遮罩。
+    // 统计区外框由 Side chrome / adaptor 决定：
+    // - 原版：半透明黑底 + 金边（`stats_shade`）
+    // - 尤里：不叠黑底，画银灰金属描边（色取自 `mpyscrnl` 外框采样）
     if paint.stats_shade {
         blend_rect(&mut page, stats, [0, 0, 0, 168]);
         stroke_rect(&mut page, stats, [160, 140, 60, 200]);
+    } else {
+        paint_yuri_score_stats_frame(&mut page, stats);
     }
     if let Some(fnt) = fnt {
         let title_text = {
@@ -225,6 +232,16 @@ pub fn compose_skirmish_score_page(
     }
 
     Some(page)
+}
+
+/// 尤里结算统计区金属框：外暗内亮双描边（银灰取自 `mpyscrnl` 外框），不叠原版黑底。
+fn paint_yuri_score_stats_frame(page: &mut RgbaImage, stats: RectPx) {
+    // 外框偏暗、内框偏亮，形成浅金属斜面。
+    stroke_rect(page, stats, [76, 76, 76, 230]);
+    if stats.w > 4 && stats.h > 4 {
+        let inset = RectPx::new(stats.x + 1, stats.y + 1, stats.w - 2, stats.h - 2);
+        stroke_rect(page, inset, [195, 199, 211, 220]);
+    }
 }
 
 /// 窗口像素经 letterbox 映射后的壳层坐标命中「继续」。

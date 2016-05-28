@@ -50,6 +50,8 @@ pub struct UiFactionChrome {
     /// `EVA.Tag`（可空）。
     pub eva_tag: Option<String>,
     /// 结算统计区是否叠半透明黑底（adaptor / rules；缺省 `true`）。
+    ///
+    /// `false` 时合成改画尤里金属统计框，而不是裸字。
     pub score_stats_shade: bool,
 }
 

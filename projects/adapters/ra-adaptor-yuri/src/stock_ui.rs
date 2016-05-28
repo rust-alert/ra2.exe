@@ -30,7 +30,7 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             eva_tag: Some("Russian"),
             score_stats_shade: true,
         },
-        // 原版键 `ThirdSide` → 尤里：`mpyscrnl` 自带金属底框，勿叠原版黑框。
+        // 原版键 `ThirdSide` → 尤里：关黑底，合成改画金属统计框；战报图 `mpyscrnl`。
         StockSideChrome {
             id: "ThirdSide",
             mix_file_index: 2,
