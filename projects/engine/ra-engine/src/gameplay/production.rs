@@ -121,7 +121,7 @@ impl crate::state::BattleState {
                 mission: String::new(),
                 tag: String::new(),
             },
-            owner: Owner { house: owner },
+            owner: Owner { house: owner.clone() },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed: tt.speed },
@@ -146,6 +146,9 @@ impl crate::state::BattleState {
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
         self.mark_entity_dirty(id);
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == owner.as_ref()) {
+            player.built = player.built.saturating_add(1);
+        }
         if let Some((rx, ry)) = rally {
             let _ = self.with_movement_mut(id, |movement| {
                 movement.destination_x = Some(rx);

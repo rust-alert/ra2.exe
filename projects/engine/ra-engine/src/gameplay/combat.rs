@@ -15,7 +15,7 @@ use ra_assets::armor_index;
 impl crate::state::BattleState {
     pub(crate) fn resolve_combat(&mut self) {
         let n = self.entities.len();
-        let mut damage_events: Vec<(usize, u32)> = Vec::new();
+        let mut damage_events: Vec<(std::sync::Arc<str>, usize, u32)> = Vec::new();
         for i in 0..n {
             let attacker_id = self.entities[i].id;
             let Some(health) = self.ecs_get::<Health>(attacker_id)
@@ -32,6 +32,12 @@ impl crate::state::BattleState {
             if !is_mobile(identity.kind) {
                 continue;
             }
+            let Some(attacker_house) = self
+                .ecs_get::<crate::state::components::Owner>(attacker_id)
+                .map(|o| o.house.clone())
+            else {
+                continue;
+            };
             let Some(attack) = self.ecs_get::<AttackState>(attacker_id)
             else {
                 continue;
@@ -90,15 +96,15 @@ impl crate::state::BattleState {
             let dist = manhattan(attacker_xf.x, attacker_xf.y, target_xf.x, target_xf.y);
             if dist <= stats.attack_range {
                 let dmg = scale_damage(stats.attack_damage, &stats.attack_verses, target_stats.armor.as_str());
-                damage_events.push((ti, dmg));
+                damage_events.push((attacker_house, ti, dmg));
                 let cooldown_max = stats.attack_cooldown_max;
                 let _ = self.with_attack_mut(attacker_id, |attack| {
                     attack.cooldown = cooldown_max;
                 });
             }
         }
-        for (ti, dmg) in damage_events {
-            self.apply_damage(ti, dmg);
+        for (killer_house, ti, dmg) in damage_events {
+            self.apply_damage_credited(ti, dmg, Some(killer_house.as_ref()));
         }
     }
 
@@ -122,6 +128,11 @@ impl crate::state::BattleState {
     }
 
     pub(crate) fn apply_damage(&mut self, index: usize, amount: u32) {
+        self.apply_damage_credited(index, amount, None);
+    }
+
+    /// 造成伤害；若击杀且 `killer_house` 与受害者不同阵营，则给击杀方记 `kills`。
+    pub(crate) fn apply_damage_credited(&mut self, index: usize, amount: u32, killer_house: Option<&str>) {
         if index >= self.entities.len() || amount == 0 {
             return;
         }
@@ -155,6 +166,13 @@ impl crate::state::BattleState {
             });
             self.mark_entity_dirty(dirty_id);
             return;
+        }
+        if let Some(killer) = killer_house {
+            if killer != house.as_ref() {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == killer) {
+                    player.kills = player.kills.saturating_add(1);
+                }
+            }
         }
         let _ = self.with_locomotor_mut(dirty_id, |loco| {
             loco.speed = 0;

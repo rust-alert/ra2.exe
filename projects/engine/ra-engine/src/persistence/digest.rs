@@ -110,7 +110,9 @@ impl BattleState {
                 .wrapping_add(p.funds_spent as u64)
                 .wrapping_add((p.power_output as u64) << 16)
                 .wrapping_add((p.power_drain as u64) << 32)
-                .wrapping_add(u64::from(p.eva_funds_nag_ticks));
+                .wrapping_add(u64::from(p.eva_funds_nag_ticks))
+                .wrapping_add(u64::from(p.kills) << 8)
+                .wrapping_add(u64::from(p.built) << 16);
             for b in p.house.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }

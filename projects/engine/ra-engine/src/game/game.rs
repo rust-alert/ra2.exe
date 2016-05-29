@@ -223,11 +223,11 @@ pub struct BattleStats {
 pub struct PlayerBattleStats {
     /// 阵营 / house 名。
     pub house: String,
-    /// 摧毁数（当前引擎尚未逐击杀记账时为 0）。
+    /// 摧毁数（击杀记账）。
     pub kills: u32,
-    /// 损失单位数。
+    /// 损失单位/建筑数。
     pub losses: u32,
-    /// 建造数（当前用生产花费档位近似；无建造流水时为 0）。
+    /// 建造/生产完成数。
     pub built: u32,
     /// 积分（临时：花费/100 + 摧毁×10 − 损失×5，下限 0）。
     pub score: i32,
@@ -605,8 +605,8 @@ impl BattleSession {
             .iter()
             .map(|p| {
                 let losses = losses_by_house.get(p.house.as_ref()).copied().unwrap_or(0);
-                let kills = 0u32;
-                let built = 0u32;
+                let kills = p.kills;
+                let built = p.built;
                 let score = (p.funds_spent / 100) + (kills as i32) * 10 - (losses as i32) * 5;
                 PlayerBattleStats {
                     house: p.house.to_string(),
