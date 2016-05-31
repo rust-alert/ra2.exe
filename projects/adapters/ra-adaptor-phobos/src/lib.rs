@@ -85,7 +85,8 @@ pub fn mo_layout_profile() -> ResourceProfile {
             "expandmd03.mix",
         ],
         rules_ini: "rulesmo.ini",
-        art_ini: "artmd.ini",
+        // MO 建造栏几乎全是 `CameoPCX=`，在 `artmo.ini`；`artmd.ini` 仍是 YR 基座。
+        art_ini: "artmo.ini",
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
         eva_ini: "evamd.ini",
