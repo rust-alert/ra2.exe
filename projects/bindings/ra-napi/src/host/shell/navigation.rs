@@ -312,7 +312,7 @@ impl Shell {
                 tracing::info!("网络入口未开放（Beta）");
                 self.set_screen(OriginalScreen::Network);
             }
-            MenuAction::OpenOptions => self.open_options_page(),
+            MenuAction::OpenOptions => self.open_options_page(OriginalScreen::MainMenu),
             MenuAction::Exit => {
                 self.banner = "确认退出？".into();
                 self.set_screen(OriginalScreen::ExitConfirm);
@@ -358,10 +358,18 @@ impl Shell {
                 OriginalScreen::Results => {
                     self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
                 }
-                OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::Options | OriginalScreen::ExitConfirm => {
-                    if self.screen == OriginalScreen::Options {
-                        self.discard_options_draft();
+                OriginalScreen::Options => {
+                    // 右栏「主菜单」：丢弃草稿并离开对局回大厅/选边，或回主菜单。
+                    let from_battle = self.options_return_screen == Some(OriginalScreen::Battle);
+                    self.discard_options_draft();
+                    self.options_return_screen = None;
+                    if from_battle {
+                        self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
+                    } else {
+                        self.set_screen(OriginalScreen::MainMenu);
                     }
+                }
+                OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::ExitConfirm => {
                     self.set_screen(OriginalScreen::MainMenu);
                 }
                 OriginalScreen::SkirmishLobby | OriginalScreen::Campaign => {
@@ -394,7 +402,7 @@ impl Shell {
             MenuAction::OptionsAccept => self.apply_options_accept(),
             MenuAction::OptionsCancel => {
                 self.discard_options_draft();
-                self.set_screen(OriginalScreen::MainMenu);
+                self.leave_options_page();
                 self.banner = "选项已取消".into();
                 self.refresh_shell_title();
             }
@@ -481,6 +489,12 @@ impl Shell {
                     self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
                     self.set_screen(OriginalScreen::SkirmishLobby);
                 }
+            },
+            BattleNav::OpenOptions => {
+                self.open_options_page(OriginalScreen::Battle);
+            }
+            BattleNav::ToggleFullscreen => {
+                self.toggle_window_fullscreen();
             },
         }
     }

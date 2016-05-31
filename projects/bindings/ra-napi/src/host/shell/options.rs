@@ -100,7 +100,10 @@ impl Shell {
     }
 
     /// 进入选项页并快照当前显示档 / 音量 / 质感草稿。
-    pub(super) fn open_options_page(&mut self) {
+    ///
+    /// `return_to` 为接受或取消后回到的画面；主菜单入口传 `MainMenu`，暂停菜单传 `Battle`。
+    pub(super) fn open_options_page(&mut self, return_to: OriginalScreen) {
+        self.options_return_screen = Some(return_to);
         let (music, sound) = self.audio.as_ref().map(|a| (a.music_volume(), a.sfx_volume())).unwrap_or((0.4, 0.7));
         self.options_volume_baseline = Some((music, sound));
         self.options_present_baseline = Some(self.present);
@@ -124,13 +127,19 @@ impl Shell {
         self.options_pointer_consumed = false;
     }
 
+    /// 离开选项页：回到 `options_return_screen`（缺省主菜单）。
+    pub(super) fn leave_options_page(&mut self) {
+        let back = self.options_return_screen.take().unwrap_or(OriginalScreen::MainMenu);
+        self.set_screen(back);
+    }
+
     /// 接受选项草稿：音量与质感立刻生效并落盘，分辨率变更则改窗。
     pub(super) fn apply_options_accept(&mut self) {
         let Some(state) = self.options_state.take()
         else {
             self.options_volume_baseline = None;
             self.options_present_baseline = None;
-            self.set_screen(OriginalScreen::MainMenu);
+            self.leave_options_page();
             return;
         };
         self.options_volume_baseline = None;
@@ -152,7 +161,26 @@ impl Shell {
             self.apply_display_mode(state.display_mode);
         }
         self.banner = "选项已保存".into();
-        self.set_screen(OriginalScreen::MainMenu);
+        self.leave_options_page();
+        self.refresh_shell_title();
+    }
+
+    /// 切换无边框全屏（暂停菜单 Fullscreen）。
+    pub(super) fn toggle_window_fullscreen(&mut self) {
+        let Some(window) = self.window.as_ref()
+        else {
+            return;
+        };
+        use winit::window::Fullscreen;
+        if window.fullscreen().is_some() {
+            window.set_fullscreen(None);
+            tracing::info!("已退出全屏");
+            self.banner = "窗口模式".into();
+        } else {
+            window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+            tracing::info!("已进入无边框全屏");
+            self.banner = "全屏".into();
+        }
         self.refresh_shell_title();
     }
 

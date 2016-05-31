@@ -186,6 +186,10 @@ pub enum BattleNav {
     ToResults,
     /// 离开对局/结算：战役回选边，遭遇战回大厅。
     ToMainMenu,
+    /// 暂停菜单打开选项页（对局保持暂停，接受/取消后回到对局）。
+    OpenOptions,
+    /// 切换无边框全屏。
+    ToggleFullscreen,
 }
 
 /// 待播的建筑 Buildup（MCV 展开等）。
@@ -2917,9 +2921,14 @@ impl BattleController {
                 tracing::info!("放弃任务 · 先播报再结算");
                 BattleNav::None
             }
-            BattlePauseMenuHit::Options | BattlePauseMenuHit::Fullscreen => {
-                tracing::info!(entry = hit.entry_id(), "暂停菜单 · 尚未接线");
-                BattleNav::None
+            BattlePauseMenuHit::Options => {
+                self.clear_pause_menu_input();
+                tracing::info!("暂停菜单 · 打开选项");
+                BattleNav::OpenOptions
+            }
+            BattlePauseMenuHit::Fullscreen => {
+                tracing::info!("暂停菜单 · 切换全屏");
+                BattleNav::ToggleFullscreen
             }
         }
     }

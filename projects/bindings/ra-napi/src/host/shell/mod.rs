@@ -206,6 +206,8 @@ pub struct Shell {
     pub(super) options_present_baseline: Option<PresentFeel>,
     /// 本轮按下已由左栏控件消费（释放时勿再走右栏命中）。
     pub(super) options_pointer_consumed: bool,
+    /// 离开选项页后回到的画面（暂停菜单进选项时为 `Battle`；主菜单进则为 `MainMenu`）。
+    pub(super) options_return_screen: Option<OriginalScreen>,
     /// 上次已写入的窗口标题（避免每帧 `set_title` 卡顿）。
     pub(super) last_shell_title: String,
     /// 对局页是否已 `CursorGrabMode::Confined`（暂停/结算/离局时释放）。
