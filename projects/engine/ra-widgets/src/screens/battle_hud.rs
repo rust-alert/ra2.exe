@@ -3,7 +3,7 @@
 //! 文件名与菜单壳层分离；同名 SHP 靠 `MixFileIndex` 嵌套包区分外观。
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
-use ra_assets::{Palette, ShpFile};
+use ra_assets::{parse_pcx, Palette, ShpFile};
 use ra_layout::{
     rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics, LayoutSnapshot,
     Point2, RectPx, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_BUTTON_COUNT, SIDEBAR_TAB_COUNT,
@@ -892,32 +892,37 @@ pub fn blit_battle_cameos(
     }
 }
 
-/// 按 `art.ini` 的 `Cameo=`（及回退名）解码建造栏图标。
+/// 按 `art.ini` 的 `CameoPCX=` / `Cameo=`（及回退名）解码建造栏图标。
+///
+/// 心灵终结等模组几乎只用 `CameoPCX=`；仍兼容原版 `Cameo=` SHP。
 pub fn decode_cameo_sprite(
     source: &GameAssetSource,
     art: Option<&ra_assets::IniDocument>,
     type_id: &str,
 ) -> Option<DecodedUiSprite> {
-    let mut names = Vec::new();
+    let mut pcx_names = Vec::new();
+    let mut shp_names = Vec::new();
     if let Some(art) = art {
-        if let Some(c) = art.get(type_id, "Cameo").map(str::trim).filter(|s| !s.is_empty()) {
-            names.push(format!("{c}.shp"));
-        }
+        push_cameo_pcx_name(&mut pcx_names, art.get(type_id, "CameoPCX"));
+        push_cameo_shp_name(&mut shp_names, art.get(type_id, "Cameo"));
         let image_key = art.get(type_id, "Image").unwrap_or(type_id);
         if !image_key.eq_ignore_ascii_case(type_id) {
-            if let Some(c) = art.get(image_key, "Cameo").map(str::trim).filter(|s| !s.is_empty()) {
-                names.push(format!("{c}.shp"));
-            }
+            push_cameo_pcx_name(&mut pcx_names, art.get(image_key, "CameoPCX"));
+            push_cameo_shp_name(&mut shp_names, art.get(image_key, "Cameo"));
         }
-        if let Some(c) = art.get(type_id, "AltCameo").map(str::trim).filter(|s| !s.is_empty()) {
-            names.push(format!("{c}.shp"));
-        }
+        push_cameo_shp_name(&mut shp_names, art.get(type_id, "AltCameo"));
     }
-    names.push(format!("{type_id}icon.shp"));
-    names.push(format!("{type_id}.shp"));
+    shp_names.push(format!("{type_id}icon.shp"));
+    shp_names.push(format!("{type_id}.shp"));
 
     let mut last_err = None;
-    for name in names {
+    for name in pcx_names {
+        match decode_cameo_pcx(source, &name) {
+            Ok(s) => return Some(s),
+            Err(e) => last_err = Some(e),
+        }
+    }
+    for name in shp_names {
         match decode_cameo_named(source, &name) {
             Ok(s) => return Some(s),
             Err(e) => last_err = Some(e),
@@ -927,27 +932,84 @@ pub fn decode_cameo_sprite(
     None
 }
 
+fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
+    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
+    else {
+        return;
+    };
+    if c.to_ascii_lowercase().ends_with(".shp") {
+        out.push(c.to_string());
+    } else {
+        out.push(format!("{c}.shp"));
+    }
+}
+
+fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
+    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
+    else {
+        return;
+    };
+    if c.to_ascii_lowercase().ends_with(".pcx") {
+        out.push(c.to_string());
+    } else {
+        out.push(format!("{c}.pcx"));
+    }
+}
+
+fn decode_cameo_pcx(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
+    let hit = source
+        .resolve(name)
+        .ok_or_else(|| format!("{name}: 不可读"))?;
+    let pcx = parse_pcx(&hit.bytes).map_err(|e| format!("{name}: PCX 解析失败 · {e}"))?;
+    let mut rgba = pcx.rgba;
+    // 与壳层旗标一致：品红作色键透明。
+    for px in rgba.chunks_exact_mut(4) {
+        if px[0] == 255 && px[1] == 0 && px[2] == 255 {
+            px[3] = 0;
+        }
+    }
+    let image = RgbaImage::from_raw(pcx.width, pcx.height, rgba)
+        .ok_or_else(|| format!("{name}: 画布 RGBA 构造失败"))?;
+    let w = pcx.width.min(u32::from(u16::MAX)) as u16;
+    let h = pcx.height.min(u32::from(u16::MAX)) as u16;
+    Ok(DecodedUiSprite {
+        label: format!("{name}#0"),
+        image,
+        origin: hit.explain(),
+        frame: 0,
+        canvas: (w, h),
+        frame_rect: (0, 0, w, h),
+    })
+}
+
 fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
     // MD 优先：模组图标多在 `cameomd`；基座 `cameo.mix` 次之。
     const CAMEO_MIXES: &[&str] = &["cameomd.mix", "cameo.mix"];
     let mut hit = None;
-    let mut hit_mix: Option<&str> = None;
+    let mut hit_mix: Option<String> = None;
     for mix in CAMEO_MIXES {
         if let Some(h) = source.resolve_preferring(name, mix) {
             hit = Some(h);
-            hit_mix = Some(*mix);
+            hit_mix = Some((*mix).to_string());
             break;
         }
     }
     let hit = match hit {
         Some(h) => h,
-        None => source.resolve(name).ok_or_else(|| format!("{name}: 不可读"))?,
+        None => {
+            let h = source.resolve(name).ok_or_else(|| format!("{name}: 不可读"))?;
+            // 扩展包图标：与 SHP 同档取 `cameo.pal`，避免基座板粉噪。
+            if let crate::fs_source::AssetOrigin::Mix { archive, .. } = &h.origin {
+                hit_mix = Some(archive.clone());
+            }
+            h
+        }
     };
     let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{name}: SHP 解析失败 · {e}"))?;
     if shp.frames.is_empty() {
         return Err(format!("{name}: SHP 无帧"));
     }
-    let pal_hit = resolve_cameo_palette(source, hit_mix)
+    let pal_hit = resolve_cameo_palette(source, hit_mix.as_deref())
         .ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("cameo.pal: 解析失败 · {e}"))?;
     let frame = &shp.frames[0];
