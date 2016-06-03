@@ -1108,6 +1108,7 @@ impl BattleController {
                 self.handle_pause_menu_mouse(*state, window)
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
+                let mut nav = BattleNav::None;
                 match state {
                     ElementState::Pressed => {
                         let x = self.cursor.0 as i32;
@@ -1118,19 +1119,16 @@ impl BattleController {
                                 self.command_pressed = Some(slot);
                                 self.left_gesture = LeftGesture::Idle;
                             }
-                            Some(hit @ (BattleHudHit::SidebarTab(_) | BattleHudHit::Cameo(_))) => {
-                                self.command_pressed = None;
-                                self.sidebar_pressed = Some(hit);
-                                self.left_gesture = LeftGesture::Idle;
-                            }
                             Some(
-                                BattleHudHit::Repair
+                                hit @ (BattleHudHit::SidebarTab(_)
+                                | BattleHudHit::Cameo(_)
+                                | BattleHudHit::Repair
                                 | BattleHudHit::Sell
                                 | BattleHudHit::Options
-                                | BattleHudHit::Diplomacy,
+                                | BattleHudHit::Diplomacy),
                             ) => {
-                                // 入口几何可点；语义动作尚未接线，吞掉以免穿透到地图。
                                 self.command_pressed = None;
+                                self.sidebar_pressed = Some(hit);
                                 self.left_gesture = LeftGesture::Idle;
                             }
                             None => {
@@ -1161,7 +1159,7 @@ impl BattleController {
                             let x = self.cursor.0 as i32;
                             let y = self.cursor.1 as i32;
                             if self.hit_hud_at(window, x, y) == Some(hit) {
-                                self.on_sidebar_hit(hit);
+                                nav = self.on_sidebar_hit(hit);
                             }
                             self.left_gesture = LeftGesture::Idle;
                         } else {
@@ -1177,7 +1175,7 @@ impl BattleController {
                         }
                     }
                 }
-                BattleNav::None
+                nav
             }
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } if !accept_commands => {
                 self.left_gesture = LeftGesture::Idle;
@@ -3091,13 +3089,13 @@ impl BattleController {
         }
     }
 
-    fn on_sidebar_hit(&mut self, hit: BattleHudHit) {
+    fn on_sidebar_hit(&mut self, hit: BattleHudHit) -> BattleNav {
         match hit {
             BattleHudHit::SidebarTab(tab) => {
                 let tab = tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1));
                 let visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
                 if !visible.get(tab).copied().unwrap_or(false) {
-                    return;
+                    return BattleNav::None;
                 }
                 if self.sidebar_tab != tab {
                     self.sidebar_tab = tab;
@@ -3107,17 +3105,18 @@ impl BattleController {
                     }
                     tracing::info!("侧栏页签 · {tab}");
                 }
+                BattleNav::None
             }
             BattleHudHit::Cameo(slot) => {
                 let Some(caps) = self.current_capabilities()
                 else {
-                    return;
+                    return BattleNav::None;
                 };
                 let items = Self::tab_items(&caps, self.sidebar_tab);
                 let index = self.cameo_scroll.saturating_add(slot);
                 let Some(item) = items.get(index)
                 else {
-                    return;
+                    return BattleNav::None;
                 };
                 if !item.enabled {
                     if let Some(reason) = item.disabled_reason {
@@ -3127,7 +3126,7 @@ impl BattleController {
                             reason.as_hud_label()
                         );
                     }
-                    return;
+                    return BattleNav::None;
                 }
                 match self.sidebar_tab {
                     0 => {
@@ -3154,8 +3153,18 @@ impl BattleController {
                     }
                     _ => {}
                 }
+                BattleNav::None
             }
-            _ => {}
+            BattleHudHit::Options => {
+                tracing::info!("侧栏 · 打开选项");
+                BattleNav::OpenOptions
+            }
+            BattleHudHit::Repair | BattleHudHit::Sell | BattleHudHit::Diplomacy => {
+                // 修理 / 出售 / 外交语义随后续引擎命令接线。
+                tracing::info!(?hit, "侧栏按钮 · 尚未接线");
+                BattleNav::None
+            }
+            BattleHudHit::CommandButton(_) => BattleNav::None,
         }
     }
 
