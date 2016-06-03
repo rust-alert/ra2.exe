@@ -1403,8 +1403,7 @@ impl BattleController {
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::KeyX) if !battle_paused => {
-                        // 原版：警戒。引擎命令尚未接线，仅占位避免误绑到部署。
-                        tracing::info!("警戒 · 尚未接线 · {:?}", self.local.selected);
+                        self.guard_selection();
                         BattleNav::None
                     }
                     PhysicalKey::Code(KeyCode::Space) => {
@@ -1749,6 +1748,18 @@ impl BattleController {
         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
             tracing::info!("部署选中 · {:?}", selected);
             game.order_deploy(&selected);
+        }
+    }
+
+    /// 对当前选中下发就地警戒（`X` 键 / 命令条 Guard）。
+    fn guard_selection(&mut self) {
+        let selected = self.local.selected.clone();
+        if selected.is_empty() {
+            return;
+        }
+        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            tracing::info!("警戒选中 · {:?}", selected);
+            game.order_guard(&selected);
         }
     }
 
@@ -3165,7 +3176,13 @@ impl BattleController {
             .unwrap_or("?");
         let tip = command_button_csf_tooltip(slot).unwrap_or("?");
         tracing::info!(slot, name, tip, "命令条按钮");
-        // 语义动作（编队 / 警戒 / 路径点等）随后续对局命令接线补齐；此处先保证按下高亮与可点。
+        match name {
+            "Deploy" => self.deploy_selection(),
+            "Guard" => self.guard_selection(),
+            _ => {
+                // 编队 / 路径点等随后续对局命令接线补齐。
+            }
+        }
     }
 
     fn upload_battle_hud(

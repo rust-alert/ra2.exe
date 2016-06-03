@@ -177,7 +177,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                 }
             }
             SCRIPT_ACTION_GUARD_AREA => {
-                // 就地驻守：清空移动与攻击目标（本 tick 立即生效）。
+                // 就地驻守：清空移动与攻击目标，并写入 `mission=Guard`（本 tick 立即生效）。
                 for id in members {
                     let Some((_, _, dead)) = world.ecs_health(id)
                     else {
@@ -190,6 +190,10 @@ pub fn tick_script_teams(world: &mut BattleState) {
                     let _ = world.with_attack_mut(id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = world.with_identity_mut(id, |identity| {
+                        identity.mission = "Guard".into();
                     });
                 }
             }

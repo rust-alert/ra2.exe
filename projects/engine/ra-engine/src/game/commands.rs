@@ -89,6 +89,10 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&engineer.0.to_be_bytes());
             b.extend_from_slice(&building.0.to_be_bytes());
         }
+        GameCommand::Guard { entity } => {
+            b.push(10);
+            b.extend_from_slice(&entity.0.to_be_bytes());
+        }
     }
     b
 }
@@ -186,6 +190,13 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let engineer = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
             let building = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
             Some(GameCommand::CaptureBuilding { engineer, building })
+        }
+        10 => {
+            if bytes.len() < 1 + 8 {
+                return None;
+            }
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            Some(GameCommand::Guard { entity })
         }
         _ => None,
     }
@@ -300,6 +311,9 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::NotMobile);
                         continue;
                     }
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission.clear();
+                    });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = None;
@@ -351,6 +365,9 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
+                    let _ = self.with_identity_mut(attacker_id, |identity| {
+                        identity.mission.clear();
+                    });
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
                         attack.infiltrate_target = None;
@@ -394,6 +411,7 @@ impl crate::state::BattleState {
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
                         identity.type_id = Arc::clone(&building_type);
+                        identity.mission.clear();
                     });
                     let _ = self.with_locomotor_mut(dirty_id, |loco| {
                         loco.speed = 0;
@@ -747,6 +765,9 @@ impl crate::state::BattleState {
                         foundation.width,
                         foundation.height,
                     );
+                    let _ = self.with_identity_mut(agent_id, |identity| {
+                        identity.mission.clear();
+                    });
                     let _ = self.with_attack_mut(agent_id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = Some(building);
@@ -849,6 +870,9 @@ impl crate::state::BattleState {
                         foundation.width,
                         foundation.height,
                     );
+                    let _ = self.with_identity_mut(engineer_id, |identity| {
+                        identity.mission.clear();
+                    });
                     let _ = self.with_attack_mut(engineer_id, |attack| {
                         attack.target = None;
                         attack.infiltrate_target = None;
@@ -862,6 +886,36 @@ impl crate::state::BattleState {
                     });
                     self.repath_entity_at(engineer_index);
                     self.mark_entity_dirty(engineer_id);
+                }
+                GameCommand::Guard { entity } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    let _ = self.clear_ecs_movement(id);
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission = "Guard".into();
+                    });
+                    self.mark_entity_dirty(id);
                 }
             }
         }

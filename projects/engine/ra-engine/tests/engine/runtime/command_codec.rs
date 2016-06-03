@@ -15,6 +15,7 @@ fn command_codec_roundtrip() {
         GameCommand::Infiltrate { agent: EntityId(8), building: EntityId(9) },
         GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() },
         GameCommand::CaptureBuilding { engineer: EntityId(10), building: EntityId(11) },
+        GameCommand::Guard { entity: EntityId(12) },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));

@@ -30,6 +30,8 @@ pub enum CommandKind {
     Infiltrate,
     /// 工程师占领敌方可俘建筑。
     CaptureBuilding,
+    /// 就地警戒（清移动/攻击目标，写入 `mission=Guard`）。
+    Guard,
     /// 其它 / 扩展。
     Other,
 }
@@ -124,6 +126,11 @@ pub enum CommandBody {
         /// 目标建筑实体。
         building: EntityId,
     },
+    /// 就地警戒：清空移动与攻击目标，并设置 `Identity.mission` 为 `Guard`。
+    Guard {
+        /// 实体稳定 ID。
+        entity: EntityId,
+    },
 }
 
 impl CommandBody {
@@ -139,6 +146,7 @@ impl CommandBody {
             Self::SetRallyPoint { .. } => CommandKind::SetRally,
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
+            Self::Guard { .. } => CommandKind::Guard,
         }
     }
 
@@ -152,7 +160,7 @@ impl CommandBody {
             Self::Infiltrate { building, .. } | Self::CaptureBuilding { building, .. } => {
                 CommandTarget::Entity(*building)
             }
-            Self::Deploy { entity } => CommandTarget::Entity(*entity),
+            Self::Deploy { entity } | Self::Guard { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
                 CommandTarget::TypeKey(type_id.clone())
             }
