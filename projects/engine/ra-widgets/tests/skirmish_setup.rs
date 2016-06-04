@@ -115,6 +115,16 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
     assert_eq!(yuri_pack.radar_shp(), "radary.shp");
     assert_eq!(yuri_pack.radar_pal(), "radaryuri.pal");
 
+    // MO ThirdSide：`MixFileIndex=3` 且未开 YuriFileNames，侧栏包却只有 `radary*`。
+    // 候选表必须仍能落到第二套文件名，否则雷达槽留黑。
+    let epsilon = UiFactionChrome::from_mix_index(3, false);
+    assert_eq!(epsilon.sidebar_mix(), "sidec03.mix");
+    assert_eq!(epsilon.radar_shp(), "radar.shp");
+    assert_eq!(
+        epsilon.radar_shp_pal_candidates()[1],
+        ("radary.shp", "radaryuri.pal")
+    );
+
     // 任意多阵营：index 5 / 6 直接生成 sidecNN。
     let fifth = UiFactionChrome::from_mix_index(5, false);
     assert_eq!(fifth.sidebar_mix(), "sidec05.mix");
