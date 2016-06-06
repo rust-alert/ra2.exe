@@ -179,17 +179,63 @@ impl Shell {
                 })
                 .collect();
         }
-        // 无逐玩家统计时回退：本方一行。
-        let losses = game.battle_stats.as_ref().map(|s| s.units_lost).unwrap_or(0);
-        let rgb = LOBBY_COLORS.first().copied().unwrap_or([255, 255, 255]);
-        vec![SkirmishScoreRow {
-            name: self.skirmish.player_name.clone(),
-            color: [rgb[0], rgb[1], rgb[2], 255],
-            kills: 0,
-            losses,
-            built: 0,
-            score: 0,
-        }]
+        // 无逐玩家统计时回退：按权威 `PlayerState` 填 kills/built，并扫死亡实体估 losses。
+        let mut losses_by_house: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+        for id in game.world.entity_ids() {
+            let Some((_, _, dead)) = game.world.ecs_health(id)
+            else {
+                continue;
+            };
+            if !dead {
+                continue;
+            }
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            let Some((_, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if matches!(
+                kind,
+                ra_map::MapEntityKind::Structure
+                    | ra_map::MapEntityKind::Unit
+                    | ra_map::MapEntityKind::Infantry
+                    | ra_map::MapEntityKind::Aircraft
+            ) {
+                *losses_by_house.entry(owner.to_string()).or_default() += 1;
+            }
+        }
+        game.world
+            .players
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let is_local = p.house.eq_ignore_ascii_case(&local_house);
+                let name = if is_local {
+                    self.skirmish.player_name.clone()
+                } else {
+                    ai_label.clone()
+                };
+                let rgb = LOBBY_COLORS
+                    .get(i % LOBBY_COLORS.len())
+                    .copied()
+                    .unwrap_or([220, 220, 220]);
+                let losses = losses_by_house.get(p.house.as_ref()).copied().unwrap_or(0);
+                let kills = p.kills;
+                let built = p.built;
+                let score = (p.funds_spent / 100) + (kills as i32) * 10 - (losses as i32) * 5;
+                SkirmishScoreRow {
+                    name,
+                    color: [rgb[0], rgb[1], rgb[2], 255],
+                    kills,
+                    losses,
+                    built,
+                    score,
+                }
+            })
+            .collect()
     }
 
     /// 结算时长文案。
