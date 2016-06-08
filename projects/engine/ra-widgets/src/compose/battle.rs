@@ -36,6 +36,10 @@ pub struct BattleHudModel<'a> {
     pub command_hovered: Option<usize>,
     /// 悬停提示文案（已解析 CSF；可含换行）。
     pub command_tip: Option<&'a str>,
+    /// 修理工具是否激活（侧栏拱钮按下帧）。
+    pub repair_active: bool,
+    /// 出售工具是否激活（侧栏拱钮按下帧）。
+    pub sell_active: bool,
     /// 当前分类页签。
     pub sidebar_tab: usize,
     /// 四分类页签是否可见（有对应可建造基础才显示）。
@@ -77,6 +81,8 @@ pub fn compose_battle_hud_overlay(
             metrics.power_w,
             paint.command_pressed,
             paint.paused,
+            paint.repair_active,
+            paint.sell_active,
             paint.sidebar_tabs_visible,
         );
         if !paint.paused {

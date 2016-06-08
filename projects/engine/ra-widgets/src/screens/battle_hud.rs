@@ -46,10 +46,14 @@ pub struct BattleHudChrome {
     pub side3: Option<DecodedUiSprite>,
     /// `addon.shp`。
     pub addon: Option<DecodedUiSprite>,
-    /// `repair.shp`。
+    /// `repair.shp` 常态帧（frame 0）。
     pub repair: Option<DecodedUiSprite>,
-    /// `sell.shp`。
+    /// `repair.shp` 按下高亮帧（frame 1；缺帧时回退常态）。
+    pub repair_pressed: Option<DecodedUiSprite>,
+    /// `sell.shp` 常态帧（frame 0）。
     pub sell: Option<DecodedUiSprite>,
+    /// `sell.shp` 按下高亮帧（frame 1；缺帧时回退常态）。
+    pub sell_pressed: Option<DecodedUiSprite>,
     /// `powerp.shp`（电表）。
     pub powerp: Option<DecodedUiSprite>,
     /// `tab00`…`tab03`。
@@ -178,7 +182,9 @@ pub fn decode_battle_hud_chrome_with(
             side3: None,
             addon: None,
             repair: None,
+            repair_pressed: None,
             sell: None,
+            sell_pressed: None,
             powerp: None,
             tabs: [None, None, None, None],
             optbtn: None,
@@ -238,7 +244,16 @@ pub fn decode_battle_hud_chrome_with(
         side3: try_decode(source, &mixes, "side3.shp", BATTLE_HUD_PAL, 0, &mut errors),
         addon: try_decode(source, &mixes, "addon.shp", BATTLE_HUD_PAL, 0, &mut errors),
         repair: try_decode(source, &mixes, "repair.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        // 缺按下帧不记 errors：回退常态即可。
+        repair_pressed: {
+            let asset = UiAssetRef::with_palette_frame("repair.shp", BATTLE_HUD_PAL, 1);
+            decode_asset_ref_candidates(source, &asset, &mixes).ok()
+        },
         sell: try_decode(source, &mixes, "sell.shp", BATTLE_HUD_PAL, 0, &mut errors),
+        sell_pressed: {
+            let asset = UiAssetRef::with_palette_frame("sell.shp", BATTLE_HUD_PAL, 1);
+            decode_asset_ref_candidates(source, &asset, &mixes).ok()
+        },
         powerp: try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors),
         tabs,
         optbtn: try_decode(source, &mixes, "optbtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
@@ -489,6 +504,8 @@ pub fn blit_battle_hud_chrome_with_state(
         power_meter_w,
         command_pressed,
         false,
+        false,
+        false,
         [true; SIDEBAR_TAB_COUNT],
     );
 }
@@ -496,6 +513,8 @@ pub fn blit_battle_hud_chrome_with_state(
 /// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
 ///
 /// `tabs_visible`：无对应可建造基础的分类页签不绘制。
+///
+/// `repair_active` / `sell_active`：侧栏工具切换态，贴 `repair`/`sell` 按下帧。
 pub fn blit_battle_hud_chrome_ex(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
@@ -503,6 +522,8 @@ pub fn blit_battle_hud_chrome_ex(
     power_meter_w: i32,
     command_pressed: Option<usize>,
     pause_menu: bool,
+    repair_active: bool,
+    sell_active: bool,
     tabs_visible: [bool; SIDEBAR_TAB_COUNT],
 ) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
@@ -572,10 +593,23 @@ pub fn blit_battle_hud_chrome_ex(
         blit_chrome_slot(page, &s.image, addon);
     }
     if !pause_menu {
-        if let Some(s) = &chrome.repair {
+        let repair_sprite = if repair_active {
+            chrome
+                .repair_pressed
+                .as_ref()
+                .or(chrome.repair.as_ref())
+        } else {
+            chrome.repair.as_ref()
+        };
+        if let Some(s) = repair_sprite {
             blit_button_in_cell(page, &s.image, repair);
         }
-        if let Some(s) = &chrome.sell {
+        let sell_sprite = if sell_active {
+            chrome.sell_pressed.as_ref().or(chrome.sell.as_ref())
+        } else {
+            chrome.sell.as_ref()
+        };
+        if let Some(s) = sell_sprite {
             blit_button_in_cell(page, &s.image, sell);
         }
     }

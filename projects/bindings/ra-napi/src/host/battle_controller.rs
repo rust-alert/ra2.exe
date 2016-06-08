@@ -235,7 +235,11 @@ pub struct BattleController {
     ctrl_down: bool,
     /// 建造放置模式（建筑类型键）。
     place_mode: Option<String>,
-    /// 侧栏分类页签（0=建筑 / 1=步兵 / 2=载具 / 3=飞行器）。
+    /// 侧栏修理工具是否激活（与出售互斥；激活时贴按下帧）。
+    repair_mode: bool,
+    /// 侧栏出售工具是否激活（与修理互斥；激活时贴按下帧）。
+    sell_mode: bool,
+    /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具）。
     sidebar_tab: usize,
     /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
     cameo_scroll: usize,
@@ -365,6 +369,8 @@ impl BattleController {
             shift_down: false,
             ctrl_down: false,
             place_mode: None,
+            repair_mode: false,
+            sell_mode: false,
             sidebar_tab: 0,
             cameo_scroll: 0,
             sidebar_pressed: None,
@@ -3135,6 +3141,8 @@ impl BattleController {
                             self.place_mode = None;
                             tracing::info!("建造模式 · 已关闭");
                         } else {
+                            self.repair_mode = false;
+                            self.sell_mode = false;
                             self.place_mode = Some(type_id.to_string());
                             tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                         }
@@ -3159,8 +3167,26 @@ impl BattleController {
                 tracing::info!("侧栏 · 打开选项");
                 BattleNav::OpenOptions
             }
-            BattleHudHit::Repair | BattleHudHit::Sell | BattleHudHit::Diplomacy => {
-                // 修理 / 出售 / 外交语义随后续引擎命令接线。
+            BattleHudHit::Repair => {
+                self.sell_mode = false;
+                self.repair_mode = !self.repair_mode;
+                if self.repair_mode {
+                    self.place_mode = None;
+                }
+                tracing::info!(active = self.repair_mode, "侧栏 · 修理工具");
+                BattleNav::None
+            }
+            BattleHudHit::Sell => {
+                self.repair_mode = false;
+                self.sell_mode = !self.sell_mode;
+                if self.sell_mode {
+                    self.place_mode = None;
+                }
+                tracing::info!(active = self.sell_mode, "侧栏 · 出售工具");
+                BattleNav::None
+            }
+            BattleHudHit::Diplomacy => {
+                // 外交语义随后续引擎命令接线。
                 tracing::info!(?hit, "侧栏按钮 · 尚未接线");
                 BattleNav::None
             }
@@ -3306,6 +3332,8 @@ impl BattleController {
             command_pressed: if show_pause_banner { None } else { self.command_pressed },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
+            repair_active: !show_pause_banner && self.repair_mode,
+            sell_active: !show_pause_banner && self.sell_mode,
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
             sidebar_tabs_visible: tabs_visible,
             cameos: if show_pause_banner { &[] } else { &cameos },
