@@ -29,7 +29,7 @@ pub use locomotor::LocomotorDefinitions;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile};
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
-pub use structure::{HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
+pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use type_definition::TypeDefinitionId;

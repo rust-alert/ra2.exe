@@ -6,6 +6,33 @@ use crate::id::TypeId;
 
 use super::{BuiltinCapability, Foundation, ProductionProfile};
 
+/// 建造栏分类（INI `BuildCat=`）。
+///
+/// 侧栏 Q/W：非 `Combat` 进建筑页，`Combat` 进防御页。缺省视为建筑页。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BuildCat {
+    /// 常规建筑（电厂 / 兵营 / 科技等；含缺省）。
+    #[default]
+    Building,
+    /// 防御建筑与墙体。
+    Combat,
+}
+
+impl BuildCat {
+    /// 解析 INI `BuildCat=`；未知或空串 → [`Self::Building`]。
+    pub fn parse(raw: &str) -> Self {
+        match raw.trim() {
+            s if s.eq_ignore_ascii_case("Combat") => Self::Combat,
+            _ => Self::Building,
+        }
+    }
+
+    /// 是否归入侧栏防御页（W）。
+    pub fn is_defense_tab(self) -> bool {
+        matches!(self, Self::Combat)
+    }
+}
+
 /// 建筑电力配置（正供电 / 耗电分离；是否需电）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PowerProfile {
@@ -43,6 +70,8 @@ pub struct StructureDefinition {
     pub construction_yard: bool,
     /// 是否矿场。
     pub refinery: bool,
+    /// INI `BuildCat=`（侧栏建筑 / 防御分页）。
+    pub build_cat: BuildCat,
     /// `Capturable=yes`（可被工程师占领）。
     pub capturable: bool,
     /// 生产配置（若为工厂）。
@@ -92,5 +121,26 @@ impl StructureDefinitions {
     /// 遍历。
     pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
         self.by_key.values()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BuildCat;
+
+    #[test]
+    fn build_cat_combat_is_defense_tab() {
+        assert_eq!(BuildCat::parse("Combat"), BuildCat::Combat);
+        assert_eq!(BuildCat::parse("combat"), BuildCat::Combat);
+        assert!(BuildCat::Combat.is_defense_tab());
+    }
+
+    #[test]
+    fn build_cat_missing_or_other_goes_to_building_tab() {
+        assert_eq!(BuildCat::parse(""), BuildCat::Building);
+        assert_eq!(BuildCat::parse("Tech"), BuildCat::Building);
+        assert_eq!(BuildCat::parse("Power"), BuildCat::Building);
+        assert_eq!(BuildCat::parse("Resource"), BuildCat::Building);
+        assert!(!BuildCat::Building.is_defense_tab());
     }
 }

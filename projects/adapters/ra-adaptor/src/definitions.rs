@@ -4,7 +4,7 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
+    BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
     ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, TechnoClass, TechnoDefinition, TypeId,
     WarheadDefinition,
 };
@@ -97,6 +97,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
         let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
         let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
+        let build_cat = BuildCat::parse(&ini_string(&rules.rules, &key, "BuildCat").unwrap_or_default());
         let capturable = ini_bool(&rules.rules, &key, "Capturable").unwrap_or(false);
         let factory = ini_string(&rules.rules, &key, "Factory").map(|s| parse_factory_category(&s));
         let production = factory.map(|category| ProductionProfile { category });
@@ -136,6 +137,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             armor: tt.armor.clone(),
             construction_yard,
             refinery,
+            build_cat,
             capturable,
             production,
             owner: tt.owner.clone(),
