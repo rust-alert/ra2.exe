@@ -564,6 +564,8 @@ impl BattleController {
         self.logged_outcome = None;
         self.logged_reject = None;
         self.place_mode = None;
+        self.repair_mode = false;
+        self.sell_mode = false;
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
         self.sidebar_pressed = None;
@@ -1031,8 +1033,7 @@ impl BattleController {
     }
 
     fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
-        if self.place_mode.take().is_some() {
-            tracing::info!("建造模式 · 已关闭");
+        if self.clear_sidebar_tool_modes() {
             return;
         }
         let Some(cell) = self.cursor_cell(renderer, window)
@@ -1322,10 +1323,8 @@ impl BattleController {
                         BattleNav::ToMainMenu
                     }
                     PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
-                        if self.place_mode.is_some() {
-                            self.place_mode = None;
+                        if self.clear_sidebar_tool_modes() {
                             self.clear_pause_menu_input();
-                            tracing::info!("建造模式 · 已关闭");
                             BattleNav::None
                         } else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             // Esc：打开暂停菜单。
@@ -3197,6 +3196,26 @@ impl BattleController {
             }
             BattleHudHit::CommandButton(_) => BattleNav::None,
         }
+    }
+
+    /// 关闭建造放置 / 修理 / 出售工具。有任一处于激活则返回 `true`。
+    fn clear_sidebar_tool_modes(&mut self) -> bool {
+        let mut cleared = false;
+        if self.place_mode.take().is_some() {
+            tracing::info!("建造模式 · 已关闭");
+            cleared = true;
+        }
+        if self.repair_mode {
+            self.repair_mode = false;
+            tracing::info!(active = false, "侧栏 · 修理工具");
+            cleared = true;
+        }
+        if self.sell_mode {
+            self.sell_mode = false;
+            tracing::info!(active = false, "侧栏 · 出售工具");
+            cleared = true;
+        }
+        cleared
     }
 
     fn refresh_command_hover(&mut self, window: &Window) {
