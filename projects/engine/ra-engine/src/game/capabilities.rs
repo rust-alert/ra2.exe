@@ -71,8 +71,10 @@ pub struct BattleCapabilitiesSnapshot {
     pub selected: Vec<EntityId>,
     /// 首个可部署选中项（若有）。
     pub deploy: Option<DeployCapability>,
-    /// 建造栏（绑定建造场存活）。
+    /// 建造栏（绑定建造场存活；非 `BuildCat=Combat`）。
     pub build_items: Vec<CapabilityItem>,
+    /// 防御栏（绑定建造场存活；`BuildCat=Combat`）。
+    pub defense_items: Vec<CapabilityItem>,
     /// 步兵生产（绑定兵营存活）。
     pub infantry_items: Vec<CapabilityItem>,
     /// 载具生产（绑定战车工厂存活）。
@@ -112,7 +114,7 @@ impl BattleSession {
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
-        let build_items = project_build_items(
+        let build_all = project_build_items(
             &self.world,
             tech_player,
             &living,
@@ -120,6 +122,21 @@ impl BattleSession {
             has_construction_yard,
             has_power_plant,
         );
+        let mut build_items = Vec::new();
+        let mut defense_items = Vec::new();
+        for item in build_all {
+            let defense = self
+                .world
+                .definitions
+                .structures
+                .get(item.type_id.as_ref())
+                .is_some_and(|s| s.build_cat.is_defense_tab());
+            if defense {
+                defense_items.push(item);
+            } else {
+                build_items.push(item);
+            }
+        }
         let infantry_items = project_produce_items(
             &self.world,
             tech_player,
@@ -171,6 +188,7 @@ impl BattleSession {
             selected: selected.to_vec(),
             deploy,
             build_items,
+            defense_items,
             infantry_items,
             vehicle_items,
             queues,

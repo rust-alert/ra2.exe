@@ -1632,6 +1632,7 @@ impl BattleController {
             for item in caps
                 .build_items
                 .iter()
+                .chain(caps.defense_items.iter())
                 .chain(caps.infantry_items.iter())
                 .chain(caps.vehicle_items.iter())
             {
@@ -2990,13 +2991,16 @@ impl BattleController {
     fn tab_items<'a>(caps: &'a BattleCapabilitiesSnapshot, tab: usize) -> &'a [CapabilityItem] {
         match tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)) {
             0 => caps.build_items.as_slice(),
-            1 => caps.infantry_items.as_slice(),
-            2 => caps.vehicle_items.as_slice(),
+            1 => caps.defense_items.as_slice(),
+            2 => caps.infantry_items.as_slice(),
+            3 => caps.vehicle_items.as_slice(),
             _ => &[],
         }
     }
 
-    /// 无对应可建造基础的分类页签不显示（建筑←建造场，步兵←兵营，载具←战车厂）。
+    /// 无对应可建造基础的分类页签不显示。
+    ///
+    /// Q/W 建筑与防御均依赖建造场；E 步兵依赖兵营；R 载具依赖战车厂。
     fn sidebar_tabs_visible(caps: Option<&BattleCapabilitiesSnapshot>) -> [bool; SIDEBAR_TAB_COUNT] {
         let Some(caps) = caps
         else {
@@ -3004,9 +3008,9 @@ impl BattleController {
         };
         [
             caps.has_construction_yard,
+            caps.has_construction_yard,
             caps.has_infantry_factory,
             caps.has_vehicle_factory,
-            false,
         ]
     }
 
@@ -3019,7 +3023,7 @@ impl BattleController {
         if self.sidebar_tab != next {
             self.sidebar_tab = next;
             self.cameo_scroll = 0;
-            if next != 0 {
+            if next > 1 {
                 self.place_mode = None;
             }
         }
@@ -3083,6 +3087,7 @@ impl BattleController {
         for item in caps
             .build_items
             .iter()
+            .chain(caps.defense_items.iter())
             .chain(caps.infantry_items.iter())
             .chain(caps.vehicle_items.iter())
         {
@@ -3106,7 +3111,7 @@ impl BattleController {
                 if self.sidebar_tab != tab {
                     self.sidebar_tab = tab;
                     self.cameo_scroll = 0;
-                    if tab != 0 {
+                    if tab > 1 {
                         self.place_mode = None;
                     }
                     tracing::info!("侧栏页签 · {tab}");
@@ -3135,7 +3140,7 @@ impl BattleController {
                     return BattleNav::None;
                 }
                 match self.sidebar_tab {
-                    0 => {
+                    0 | 1 => {
                         let type_id = item.type_id.as_ref();
                         if self.place_mode.as_deref() == Some(type_id) {
                             self.place_mode = None;
@@ -3147,7 +3152,7 @@ impl BattleController {
                             tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                         }
                     }
-                    1 | 2 => {
+                    2 | 3 => {
                         let type_id = item.type_id.as_ref().to_string();
                         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             if game.is_local_producing(&type_id) {
@@ -3311,7 +3316,7 @@ impl BattleController {
                         .and_then(|opt| opt.as_ref())
                         .map(|s| &s.image),
                     enabled: item.enabled,
-                    selected: self.sidebar_tab == 0
+                    selected: matches!(self.sidebar_tab, 0 | 1)
                         && self.place_mode.as_deref() == Some(key),
                 }
             })
