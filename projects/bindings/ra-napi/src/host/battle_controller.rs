@@ -1421,6 +1421,18 @@ impl BattleController {
                         self.guard_selection();
                         BattleNav::None
                     }
+                    PhysicalKey::Code(KeyCode::Digit1) | PhysicalKey::Code(KeyCode::Numpad1)
+                        if !battle_paused =>
+                    {
+                        self.handle_control_team(0);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::Digit2) | PhysicalKey::Code(KeyCode::Numpad2)
+                        if !battle_paused =>
+                    {
+                        self.handle_control_team(1);
+                        BattleNav::None
+                    }
                     PhysicalKey::Code(KeyCode::Space) => {
                         let paused = if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
@@ -3265,9 +3277,34 @@ impl BattleController {
                     self.pulse_action_lines_at(tick);
                 }
             }
+            "Team01" => self.handle_control_team(0),
+            "Team02" => self.handle_control_team(1),
             _ => {
-                // 编队 / 路径点等随后续对局命令接线补齐。
+                // 路径点等随后续对局命令接线补齐。
             }
+        }
+    }
+
+    /// 命令条 / 数字键编队：`Ctrl` 写入当前选中，否则召回。
+    fn handle_control_team(&mut self, slot: usize) {
+        let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+            let tick = game.world.tick;
+            if self.ctrl_down {
+                self.local.assign_team(game, slot);
+                tracing::info!(
+                    slot = slot + 1,
+                    count = self.local.selected.len(),
+                    "编队 · 写入 Team{:02}",
+                    slot + 1
+                );
+            } else {
+                let n = self.local.recall_team(game, slot);
+                tracing::info!(slot = slot + 1, count = n, "编队 · 召回 Team{:02}", slot + 1);
+            }
+            tick
+        });
+        if let Some(tick) = pulse_tick {
+            self.pulse_action_lines_at(tick);
         }
     }
 

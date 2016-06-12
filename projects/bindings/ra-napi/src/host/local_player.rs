@@ -4,11 +4,16 @@ use ra_engine::BattleSession;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
+/// 命令条 `Team01` / `Team02` 编队槽位数。
+pub const CONTROL_TEAM_COUNT: usize = 2;
+
 /// 桌面本地玩家的 UI 选中与命令入口。
 #[derive(Debug, Default, Clone)]
 pub struct LocalPlayerController {
     /// 当前选中实体的稳定 ID。
     pub selected: Vec<EntityId>,
+    /// 控制编队（`Team01`=`0`，`Team02`=`1`）；只存 ID，召回时再剪死亡。
+    teams: [Vec<EntityId>; CONTROL_TEAM_COUNT],
 }
 
 impl LocalPlayerController {
@@ -20,6 +25,34 @@ impl LocalPlayerController {
     /// 去掉已死亡或不存在的选中项。
     pub fn prune_dead(&mut self, battle: &BattleSession) {
         self.selected.retain(|&id| battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead));
+        for team in &mut self.teams {
+            team.retain(|&id| battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead));
+        }
+    }
+
+    /// 把当前选中写入编队槽（仅存活实体）。空选中则清空该槽。
+    pub fn assign_team(&mut self, battle: &BattleSession, slot: usize) {
+        let Some(team) = self.teams.get_mut(slot)
+        else {
+            return;
+        };
+        team.clear();
+        for &id in &self.selected {
+            if battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead) {
+                team.push(id);
+            }
+        }
+    }
+
+    /// 召回编队：剪死亡后替换当前选中。返回召回后的存活数量。
+    pub fn recall_team(&mut self, battle: &BattleSession, slot: usize) -> usize {
+        let Some(team) = self.teams.get_mut(slot)
+        else {
+            return 0;
+        };
+        team.retain(|&id| battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead));
+        self.selected = team.clone();
+        self.selected.len()
     }
 
     /// 单选一个存活实体（单位或建筑）。
@@ -215,8 +248,11 @@ impl LocalPlayerController {
         }
     }
 
-    /// 清空选中。
+    /// 清空选中与编队。
     pub fn clear(&mut self) {
         self.selected.clear();
+        for team in &mut self.teams {
+            team.clear();
+        }
     }
 }
