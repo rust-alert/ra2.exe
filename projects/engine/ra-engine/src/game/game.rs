@@ -757,6 +757,17 @@ impl BattleSession {
         self.push_command(GameCommand::Produce { player: self.world.local_player, type_id: type_id.into() });
     }
 
+    /// 本地玩家出售己方建筑（侧栏出售工具）。
+    pub fn order_sell_building(&mut self, building: EntityId) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::SellBuilding {
+            player: self.world.local_player,
+            building,
+        });
+    }
+
     /// 本地玩家取消指定类型的在产项（退款并由引擎排队 `EVA_Canceled`）。
     pub fn order_cancel_produce(&mut self, type_id: impl Into<String>) {
         if self.outcome.is_some() {

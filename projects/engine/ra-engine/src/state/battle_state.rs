@@ -953,6 +953,27 @@ impl BattleState {
         }
     }
 
+    /// 出售 / 拆除后释放建筑占地通行。
+    pub fn unseal_structure_footprint(&mut self, x: u16, y: u16, width: u16, height: u16) {
+        let width = width.max(1);
+        let height = height.max(1);
+        for dy in 0..height {
+            for dx in 0..width {
+                let Some(cx) = x.checked_add(dx)
+                else {
+                    continue;
+                };
+                let Some(cy) = y.checked_add(dy)
+                else {
+                    continue;
+                };
+                if self.pass_grid.in_bounds(cx, cy) {
+                    self.pass_grid.set_passable(cx, cy, true);
+                }
+            }
+        }
+    }
+
     /// 当前确定性状态哈希（锁步校验用）。
     pub fn state_hash(&self) -> u64 {
         self.state_hash

@@ -195,6 +195,13 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(10);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
         }
+        GameCommand::SellBuilding { player, building } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(11);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(u64::from(player.0))
+                .wrapping_add(building.0 << 8);
+        }
     }
     h
 }

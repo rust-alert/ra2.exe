@@ -32,6 +32,8 @@ pub enum CommandKind {
     CaptureBuilding,
     /// 就地警戒（清移动/攻击目标，写入 `mission=Guard`）。
     Guard,
+    /// 出售己方建筑（侧栏出售工具）。
+    SellBuilding,
     /// 其它 / 扩展。
     Other,
 }
@@ -131,6 +133,13 @@ pub enum CommandBody {
         /// 实体稳定 ID。
         entity: EntityId,
     },
+    /// 出售己方建筑：退还约半价造价并移除建筑。
+    SellBuilding {
+        /// 出资并拥有该建筑的玩家。
+        player: PlayerId,
+        /// 目标建筑实体。
+        building: EntityId,
+    },
 }
 
 impl CommandBody {
@@ -147,6 +156,7 @@ impl CommandBody {
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
             Self::Guard { .. } => CommandKind::Guard,
+            Self::SellBuilding { .. } => CommandKind::SellBuilding,
         }
     }
 
@@ -157,9 +167,9 @@ impl CommandBody {
                 CommandTarget::Cell { x: *x, y: *y }
             }
             Self::Attack { target, .. } => CommandTarget::Entity(*target),
-            Self::Infiltrate { building, .. } | Self::CaptureBuilding { building, .. } => {
-                CommandTarget::Entity(*building)
-            }
+            Self::Infiltrate { building, .. }
+            | Self::CaptureBuilding { building, .. }
+            | Self::SellBuilding { building, .. } => CommandTarget::Entity(*building),
             Self::Deploy { entity } | Self::Guard { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
                 CommandTarget::TypeKey(type_id.clone())

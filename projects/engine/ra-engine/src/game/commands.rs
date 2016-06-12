@@ -93,6 +93,11 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(10);
             b.extend_from_slice(&entity.0.to_be_bytes());
         }
+        GameCommand::SellBuilding { player, building } => {
+            b.push(11);
+            b.push(player.0);
+            b.extend_from_slice(&building.0.to_be_bytes());
+        }
     }
     b
 }
@@ -197,6 +202,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             }
             let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
             Some(GameCommand::Guard { entity })
+        }
+        11 => {
+            if bytes.len() < 1 + 1 + 8 {
+                return None;
+            }
+            let player = PlayerId(bytes[1]);
+            let building = EntityId(u64::from_be_bytes(bytes[2..10].try_into().ok()?));
+            Some(GameCommand::SellBuilding { player, building })
         }
         _ => None,
     }
@@ -916,6 +929,77 @@ impl crate::state::BattleState {
                         identity.mission = "Guard".into();
                     });
                     self.mark_entity_dirty(id);
+                }
+                GameCommand::SellBuilding { player, building } => {
+                    if player != scheduled.player {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let Some(building_index) = self.entity_index(building)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let building_id = self.entities[building_index].id;
+                    if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, building_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(identity) = self.ecs_get::<Identity>(building_id).cloned()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if identity.kind != MapEntityKind::Structure {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let Some(xf) = self.ecs_get::<Transform>(building_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let house = self.players[player_index].house.clone();
+                    let cost = self
+                        .definitions
+                        .techno
+                        .get(identity.type_id.as_ref())
+                        .map(|tt| tt.cost)
+                        .unwrap_or(0);
+                    // 原版侧栏出售约退半价。
+                    let refund = (cost / 2).max(0);
+                    let foundation = self
+                        .definitions
+                        .structures
+                        .get(identity.type_id.as_ref())
+                        .map(|s| s.foundation.clone())
+                        .unwrap_or_default();
+                    let _ = self.with_health_mut(building_id, |health| {
+                        health.current = 0;
+                        health.dead = true;
+                    });
+                    let _ = self.with_production_mut(building_id, |queue| {
+                        queue.item = None;
+                    });
+                    self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
+                    self.revoke_structure_power(house.as_ref(), identity.type_id.as_ref());
+                    if refund > 0 {
+                        self.players[player_index].funds =
+                            self.players[player_index].funds.saturating_add(refund);
+                        self.players[player_index].funds_spent =
+                            self.players[player_index].funds_spent.saturating_sub(refund);
+                    }
+                    self.mark_entity_dirty(building_id);
+                    self.repath_mobiles();
                 }
             }
         }
