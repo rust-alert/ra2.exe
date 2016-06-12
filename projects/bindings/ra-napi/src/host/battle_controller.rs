@@ -233,6 +233,8 @@ pub struct BattleController {
     shift_down: bool,
     /// Ctrl 是否按下。
     ctrl_down: bool,
+    /// Alt 是否按下（全屏等修饰热键）。
+    alt_down: bool,
     /// 建造放置模式（建筑类型键）。
     place_mode: Option<String>,
     /// 侧栏修理工具是否激活（与出售互斥；激活时贴按下帧）。
@@ -368,6 +370,7 @@ impl BattleController {
             logged_reject: None,
             shift_down: false,
             ctrl_down: false,
+            alt_down: false,
             place_mode: None,
             repair_mode: false,
             sell_mode: false,
@@ -1109,6 +1112,7 @@ impl BattleController {
             WindowEvent::ModifiersChanged(mods) => {
                 self.shift_down = mods.state().shift_key();
                 self.ctrl_down = mods.state().control_key();
+                self.alt_down = mods.state().alt_key();
                 BattleNav::None
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
@@ -1275,7 +1279,7 @@ impl BattleController {
                 if event.state != ElementState::Pressed {
                     return BattleNav::None;
                 }
-                // 暂停菜单打开时：只认 Esc / Space 关闭，吞掉其它对局热键。
+                // 暂停菜单打开时：Esc / Space 关闭；Alt+F 仍可切换全屏。
                 if accept_commands && battle_paused {
                     return match event.physical_key {
                         PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Space) => {
@@ -1285,6 +1289,10 @@ impl BattleController {
                             self.clear_pause_menu_input();
                             tracing::info!("继续");
                             BattleNav::None
+                        }
+                        PhysicalKey::Code(KeyCode::KeyF) if self.alt_down => {
+                            tracing::info!("热键 · 切换全屏");
+                            BattleNav::ToggleFullscreen
                         }
                         _ => BattleNav::None,
                     };
@@ -1380,6 +1388,10 @@ impl BattleController {
                             self.pulse_action_lines_at(tick);
                         }
                         BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyF) if self.alt_down => {
+                        tracing::info!("热键 · 切换全屏");
+                        BattleNav::ToggleFullscreen
                     }
                     PhysicalKey::Code(KeyCode::KeyF) if !battle_paused => {
                         let selected = self.local.selected.clone();
