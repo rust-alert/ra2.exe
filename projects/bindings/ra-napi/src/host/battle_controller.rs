@@ -831,6 +831,14 @@ impl BattleController {
         let vp = self.map_viewport(window);
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
 
+        // 出售工具：悬停本方建筑时用点选光标提示可点售。
+        if self.sell_mode {
+            if game.pick_local_structure_near_image(wx, wy, 120.0).is_some() {
+                return BattlePointer::Select;
+            }
+            return BattlePointer::Default;
+        }
+
         if selected.is_empty() {
             if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some()
                 || game.pick_local_structure_near_image(wx, wy, 120.0).is_some()
@@ -912,6 +920,28 @@ impl BattleController {
             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
                 game.order_place_building(type_id, cell.0, cell.1);
+            }
+            return;
+        }
+        if self.sell_mode {
+            let building = game
+                .pick_local_structure_near_image(wx, wy, 120.0)
+                .or_else(|| {
+                    let cell = game.image_to_cell(wx, wy)?;
+                    let house = game
+                        .world
+                        .players
+                        .iter()
+                        .find(|p| p.id == game.world.local_player)
+                        .map(|p| p.house.as_ref())?;
+                    game.pick_structure_at(cell.0, cell.1)
+                        .filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+                });
+            if let Some(building) = building {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("出售建筑 · #{}", building.0);
+                    game.order_sell_building(building);
+                }
             }
             return;
         }
