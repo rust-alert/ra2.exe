@@ -1,0 +1,102 @@
+//! 侧栏修理：按损伤比例扣半价并回满血。
+
+use ra_adaptor::RulesSystem;
+use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_map::{MapEntity, MapEntityKind, MapInfo};
+use ra_types::{GameEdition, PlayerId};
+
+fn yard_with_power() -> BattleState {
+    let rules_text = b"[VehicleTypes]\n0=AMCV\n\
+[BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
+[AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n";
+    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
+    let rules_db = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "repair-building");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    }];
+    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    assert!(world.set_house_funds("Americans", 10_000));
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    world
+}
+
+#[test]
+fn repair_building_restores_health_for_proportional_half_cost() {
+    let mut world = yard_with_power();
+    let power = world.entity_id_at(1).expect("power");
+    assert!(world.set_ecs_health(power, 300, 600, false));
+    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
+
+    world.push_command(GameCommand::RepairBuilding {
+        player: PlayerId(0),
+        building: power,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    let (cur, max, dead) = world.ecs_health(power).expect("health");
+    assert!(!dead);
+    assert_eq!((cur, max), (600, 600));
+    // missing=300, cost=600 → (300*600)/(2*600)=150
+    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 - 150));
+}
+
+#[test]
+fn repair_building_rejects_when_already_full() {
+    let mut world = yard_with_power();
+    let power = world.entity_id_at(1).expect("power");
+    world.push_command(GameCommand::RepairBuilding {
+        player: PlayerId(0),
+        building: power,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
+}
+
+#[test]
+fn repair_building_rejects_insufficient_funds() {
+    let mut world = yard_with_power();
+    let power = world.entity_id_at(1).expect("power");
+    assert!(world.set_ecs_health(power, 300, 600, false));
+    assert!(world.set_house_funds("Americans", 10));
+    world.push_command(GameCommand::RepairBuilding {
+        player: PlayerId(0),
+        building: power,
+    });
+    world.advance_tick();
+    assert_eq!(
+        world.last_rejects()[0].reason,
+        CommandRejectReason::InsufficientFunds
+    );
+    assert_eq!(world.ecs_health(power).map(|h| h.0), Some(300));
+}

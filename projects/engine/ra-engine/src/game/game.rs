@@ -768,6 +768,17 @@ impl BattleSession {
         });
     }
 
+    /// 本地玩家修理己方建筑（侧栏修理工具）。
+    pub fn order_repair_building(&mut self, building: EntityId) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::RepairBuilding {
+            player: self.world.local_player,
+            building,
+        });
+    }
+
     /// 本地玩家取消指定类型的在产项（退款并由引擎排队 `EVA_Canceled`）。
     pub fn order_cancel_produce(&mut self, type_id: impl Into<String>) {
         if self.outcome.is_some() {

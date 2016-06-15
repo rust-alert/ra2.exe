@@ -98,6 +98,11 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(player.0);
             b.extend_from_slice(&building.0.to_be_bytes());
         }
+        GameCommand::RepairBuilding { player, building } => {
+            b.push(12);
+            b.push(player.0);
+            b.extend_from_slice(&building.0.to_be_bytes());
+        }
     }
     b
 }
@@ -210,6 +215,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let player = PlayerId(bytes[1]);
             let building = EntityId(u64::from_be_bytes(bytes[2..10].try_into().ok()?));
             Some(GameCommand::SellBuilding { player, building })
+        }
+        12 => {
+            if bytes.len() < 1 + 1 + 8 {
+                return None;
+            }
+            let player = PlayerId(bytes[1]);
+            let building = EntityId(u64::from_be_bytes(bytes[2..10].try_into().ok()?));
+            Some(GameCommand::RepairBuilding { player, building })
         }
         _ => None,
     }
@@ -1000,6 +1013,76 @@ impl crate::state::BattleState {
                     }
                     self.mark_entity_dirty(building_id);
                     self.repath_mobiles();
+                }
+                GameCommand::RepairBuilding { player, building } => {
+                    if player != scheduled.player {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let Some(building_index) = self.entity_index(building)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let building_id = self.entities[building_index].id;
+                    if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, building_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let Some(identity) = self.ecs_get::<Identity>(building_id).cloned()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if identity.kind != MapEntityKind::Structure {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let Some(health) = self.ecs_get::<Health>(building_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    if health.current >= health.maximum {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let cost = self
+                        .definitions
+                        .techno
+                        .get(identity.type_id.as_ref())
+                        .map(|tt| tt.cost)
+                        .unwrap_or(0);
+                    let missing = health.maximum.saturating_sub(health.current);
+                    // 与出售半价对称：按损伤比例扣约半价造价。
+                    let repair_cost = if health.maximum == 0 || cost == 0 {
+                        0
+                    } else {
+                        ((missing as u64) * (cost as u64) / (2 * health.maximum as u64)) as i32
+                    };
+                    let repair_cost = repair_cost.max(0);
+                    if repair_cost > 0 && self.players[player_index].funds < repair_cost {
+                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
+                        continue;
+                    }
+                    if repair_cost > 0 {
+                        self.players[player_index].funds -= repair_cost;
+                        self.players[player_index].funds_spent =
+                            self.players[player_index].funds_spent.saturating_add(repair_cost);
+                    }
+                    let _ = self.with_health_mut(building_id, |h| {
+                        h.current = h.maximum;
+                    });
+                    self.mark_entity_dirty(building_id);
                 }
             }
         }

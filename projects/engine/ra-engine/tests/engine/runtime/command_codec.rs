@@ -17,6 +17,7 @@ fn command_codec_roundtrip() {
         GameCommand::CaptureBuilding { engineer: EntityId(10), building: EntityId(11) },
         GameCommand::Guard { entity: EntityId(12) },
         GameCommand::SellBuilding { player: PlayerId(0), building: EntityId(13) },
+        GameCommand::RepairBuilding { player: PlayerId(0), building: EntityId(14) },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));

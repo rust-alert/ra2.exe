@@ -34,6 +34,8 @@ pub enum CommandKind {
     Guard,
     /// 出售己方建筑（侧栏出售工具）。
     SellBuilding,
+    /// 修理己方建筑（侧栏修理工具；按损伤比例扣费并回满血）。
+    RepairBuilding,
     /// 其它 / 扩展。
     Other,
 }
@@ -140,6 +142,13 @@ pub enum CommandBody {
         /// 目标建筑实体。
         building: EntityId,
     },
+    /// 修理己方建筑：按损伤比例扣约半价造价并回满生命。
+    RepairBuilding {
+        /// 出资并拥有该建筑的玩家。
+        player: PlayerId,
+        /// 目标建筑实体。
+        building: EntityId,
+    },
 }
 
 impl CommandBody {
@@ -157,6 +166,7 @@ impl CommandBody {
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
             Self::Guard { .. } => CommandKind::Guard,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
+            Self::RepairBuilding { .. } => CommandKind::RepairBuilding,
         }
     }
 
@@ -169,7 +179,8 @@ impl CommandBody {
             Self::Attack { target, .. } => CommandTarget::Entity(*target),
             Self::Infiltrate { building, .. }
             | Self::CaptureBuilding { building, .. }
-            | Self::SellBuilding { building, .. } => CommandTarget::Entity(*building),
+            | Self::SellBuilding { building, .. }
+            | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
             Self::Deploy { entity } | Self::Guard { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
                 CommandTarget::TypeKey(type_id.clone())
