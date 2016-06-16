@@ -241,6 +241,8 @@ pub struct BattleController {
     repair_mode: bool,
     /// 侧栏出售工具是否激活（与修理互斥；激活时贴按下帧）。
     sell_mode: bool,
+    /// 命令条路径点规划模式（激活时命令条贴按下帧；航点队列随后续接线）。
+    planning_mode: bool,
     /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具）。
     sidebar_tab: usize,
     /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
@@ -374,6 +376,7 @@ impl BattleController {
             place_mode: None,
             repair_mode: false,
             sell_mode: false,
+            planning_mode: false,
             sidebar_tab: 0,
             cameo_scroll: 0,
             sidebar_pressed: None,
@@ -569,6 +572,7 @@ impl BattleController {
         self.place_mode = None;
         self.repair_mode = false;
         self.sell_mode = false;
+        self.planning_mode = false;
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
         self.sidebar_pressed = None;
@@ -3230,6 +3234,7 @@ impl BattleController {
                         } else {
                             self.repair_mode = false;
                             self.sell_mode = false;
+                            self.planning_mode = false;
                             self.place_mode = Some(type_id.to_string());
                             tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                         }
@@ -3256,6 +3261,7 @@ impl BattleController {
             }
             BattleHudHit::Repair => {
                 self.sell_mode = false;
+                self.planning_mode = false;
                 self.repair_mode = !self.repair_mode;
                 if self.repair_mode {
                     self.place_mode = None;
@@ -3265,6 +3271,7 @@ impl BattleController {
             }
             BattleHudHit::Sell => {
                 self.repair_mode = false;
+                self.planning_mode = false;
                 self.sell_mode = !self.sell_mode;
                 if self.sell_mode {
                     self.place_mode = None;
@@ -3296,6 +3303,11 @@ impl BattleController {
         if self.sell_mode {
             self.sell_mode = false;
             tracing::info!(active = false, "侧栏 · 出售工具");
+            cleared = true;
+        }
+        if self.planning_mode {
+            self.planning_mode = false;
+            tracing::info!(active = false, "命令条 · 路径点规划");
             cleared = true;
         }
         cleared
@@ -3338,8 +3350,17 @@ impl BattleController {
             }
             "Team01" => self.handle_control_team(0),
             "Team02" => self.handle_control_team(1),
+            "PlanningMode" => {
+                self.planning_mode = !self.planning_mode;
+                if self.planning_mode {
+                    self.place_mode = None;
+                    self.repair_mode = false;
+                    self.sell_mode = false;
+                }
+                tracing::info!(active = self.planning_mode, "命令条 · 路径点规划");
+            }
             _ => {
-                // 路径点等随后续对局命令接线补齐。
+                // 其它命令条槽随后续对局命令接线补齐。
             }
         }
     }
@@ -3461,7 +3482,19 @@ impl BattleController {
             reject,
             paused: show_pause_banner,
             pause_reason: None,
-            command_pressed: if show_pause_banner { None } else { self.command_pressed },
+            command_pressed: if show_pause_banner {
+                None
+            } else {
+                self.command_pressed.or_else(|| {
+                    if self.planning_mode {
+                        ra_widgets::skin::text::SKIRMISH_COMMAND_BAR
+                            .iter()
+                            .position(|&n| n == "PlanningMode")
+                    } else {
+                        None
+                    }
+                })
+            },
             command_hovered: if show_pause_banner { None } else { self.command_hover },
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             repair_active: !show_pause_banner && self.repair_mode,
