@@ -67,6 +67,8 @@ pub struct BattleCapabilitiesSnapshot {
     pub has_infantry_factory: bool,
     /// 是否仍有存活载具工厂。
     pub has_vehicle_factory: bool,
+    /// 是否仍有存活飞行器工厂（机场 / 停机坪）。
+    pub has_aircraft_factory: bool,
     /// 当前选中。
     pub selected: Vec<EntityId>,
     /// 首个可部署选中项（若有）。
@@ -79,6 +81,8 @@ pub struct BattleCapabilitiesSnapshot {
     pub infantry_items: Vec<CapabilityItem>,
     /// 载具生产（绑定战车工厂存活）。
     pub vehicle_items: Vec<CapabilityItem>,
+    /// 飞行器生产（绑定机场 / 停机坪存活）。
+    pub aircraft_items: Vec<CapabilityItem>,
     /// 生产队列摘要。
     pub queues: Vec<SnapshotProduceQueue>,
 }
@@ -109,8 +113,10 @@ impl BattleSession {
         let has_power_plant = self.world.house_has_living_power(house.as_ref());
         let has_infantry_factory = self.world.find_factory(house.as_ref(), TechnoKind::Infantry).is_some();
         let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
+        let has_aircraft_factory = self.world.find_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
         let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Infantry).is_some();
         let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
+        let aircraft_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
@@ -155,6 +161,15 @@ impl BattleSession {
             has_vehicle_factory,
             vehicle_idle,
         );
+        let aircraft_items = project_produce_items(
+            &self.world,
+            tech_player,
+            &living,
+            TechnoClass::Aircraft,
+            funds,
+            has_aircraft_factory,
+            aircraft_idle,
+        );
         let queues = self
             .world
             .entities
@@ -185,12 +200,14 @@ impl BattleSession {
             has_power_plant,
             has_infantry_factory,
             has_vehicle_factory,
+            has_aircraft_factory,
             selected: selected.to_vec(),
             deploy,
             build_items,
             defense_items,
             infantry_items,
             vehicle_items,
+            aircraft_items,
             queues,
         }
     }
