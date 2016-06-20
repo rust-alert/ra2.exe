@@ -1,4 +1,4 @@
-//! 侧栏修理：按损伤比例扣半价并回满血。
+//! 侧栏修理：切换持续修理标记，按 RepairRate / RepairStep / RepairPercent 步进。
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
@@ -51,12 +51,15 @@ fn yard_with_power() -> BattleState {
     world
 }
 
+fn is_repairing(world: &BattleState, id: ra_types::EntityId) -> bool {
+    world.is_repairing(id)
+}
+
 #[test]
-fn repair_building_restores_health_for_proportional_half_cost() {
+fn repair_building_toggles_repairing_marker() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
     assert!(world.set_ecs_health(power, 300, 600, false));
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600));
 
     world.push_command(GameCommand::RepairBuilding {
         player: PlayerId(0),
@@ -64,39 +67,74 @@ fn repair_building_restores_health_for_proportional_half_cost() {
     });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    let (cur, max, dead) = world.ecs_health(power).expect("health");
-    assert!(!dead);
-    assert_eq!((cur, max), (600, 600));
-    // missing=300, cost=600 → (300*600)/(2*600)=150
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 600 - 150));
-}
+    assert!(is_repairing(&world, power));
 
-#[test]
-fn repair_building_rejects_when_already_full() {
-    let mut world = yard_with_power();
-    let power = world.entity_id_at(1).expect("power");
     world.push_command(GameCommand::RepairBuilding {
         player: PlayerId(0),
         building: power,
     });
     world.advance_tick();
-    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
+    assert!(world.last_rejects().is_empty());
+    assert!(!is_repairing(&world, power));
 }
 
 #[test]
-fn repair_building_rejects_insufficient_funds() {
+fn repair_building_heals_over_pulses_with_repair_percent_fee() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
     assert!(world.set_ecs_health(power, 300, 600, false));
-    assert!(world.set_house_funds("Americans", 10));
+    let funds_before = world.house_funds("Americans").expect("funds");
+
     world.push_command(GameCommand::RepairBuilding {
         player: PlayerId(0),
         building: power,
     });
     world.advance_tick();
-    assert_eq!(
-        world.last_rejects()[0].reason,
-        CommandRejectReason::InsufficientFunds
-    );
+    assert!(is_repairing(&world, power));
+
+    // 推进到下一个修理脉冲（间隔 14 tick）。
+    for _ in 0..13 {
+        world.advance_tick();
+    }
+    let (cur, max, _) = world.ecs_health(power).expect("health");
+    assert_eq!(max, 600);
+    assert_eq!(cur, 308); // +8
+    // fee = 600 * 15 * 8 / (100 * 600) = 1（整数除法）
+    assert_eq!(world.house_funds("Americans"), Some(funds_before - 1));
+    assert!(is_repairing(&world, power));
+}
+
+#[test]
+fn repair_building_stops_when_funds_run_out() {
+    let mut world = yard_with_power();
+    let power = world.entity_id_at(1).expect("power");
+    assert!(world.set_ecs_health(power, 300, 600, false));
+    assert!(world.set_house_funds("Americans", 0));
+
+    world.push_command(GameCommand::RepairBuilding {
+        player: PlayerId(0),
+        building: power,
+    });
+    world.advance_tick();
+    assert!(is_repairing(&world, power));
+
+    for _ in 0..13 {
+        world.advance_tick();
+    }
+    assert!(!is_repairing(&world, power));
     assert_eq!(world.ecs_health(power).map(|h| h.0), Some(300));
+    assert_eq!(world.house_funds("Americans"), Some(0));
+}
+
+#[test]
+fn repair_building_rejects_wrong_owner() {
+    let mut world = yard_with_power();
+    let power = world.entity_id_at(1).expect("power");
+    world.push_command(GameCommand::RepairBuilding {
+        player: PlayerId(1),
+        building: power,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
+    assert!(!is_repairing(&world, power));
 }

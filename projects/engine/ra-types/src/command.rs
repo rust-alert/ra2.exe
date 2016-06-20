@@ -34,7 +34,7 @@ pub enum CommandKind {
     Guard,
     /// 出售己方建筑（侧栏出售工具）。
     SellBuilding,
-    /// 修理己方建筑（侧栏修理工具；按损伤比例扣费并回满血）。
+    /// 切换己方建筑的持续修理（侧栏修理工具；对应原版扳手挂/摘修理）。
     RepairBuilding,
     /// 其它 / 扩展。
     Other,
@@ -142,7 +142,7 @@ pub enum CommandBody {
         /// 目标建筑实体。
         building: EntityId,
     },
-    /// 修理己方建筑：按损伤比例扣约半价造价并回满生命。
+    /// 切换己方建筑持续修理：挂上或摘下修理标记，由仿真步进按规则回血扣费。
     RepairBuilding {
         /// 出资并拥有该建筑的玩家。
         player: PlayerId,

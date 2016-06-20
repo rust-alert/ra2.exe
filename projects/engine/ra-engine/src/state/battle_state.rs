@@ -619,6 +619,11 @@ impl BattleState {
         Some((health.current, health.maximum, health.dead))
     }
 
+    /// 建筑是否处于侧栏扳手持续修理中（测试与诊断）。
+    pub fn is_repairing(&self, id: EntityId) -> bool {
+        self.ecs_get::<crate::state::components::Repairing>(id).is_some()
+    }
+
     /// 读取 ECS `Identity`（测试与诊断）。
     pub fn ecs_identity(&self, id: EntityId) -> Option<(std::sync::Arc<str>, ra_map::MapEntityKind)> {
         let identity = self.ecs_get::<crate::state::components::Identity>(id)?;
@@ -875,6 +880,7 @@ impl BattleState {
                 SystemPhase::RefineryIncome => self.advance_refinery_income(),
                 SystemPhase::Production => {
                     self.advance_production();
+                    crate::gameplay::tick_repairs(self);
                     self.tick_eva_funds_nag();
                 }
                 SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),

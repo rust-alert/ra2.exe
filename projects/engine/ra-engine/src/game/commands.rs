@@ -1019,11 +1019,6 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(player_index) = self.players.iter().position(|p| p.id == player)
-                    else {
-                        self.reject(command_index, CommandRejectReason::EntityNotFound);
-                        continue;
-                    };
                     let Some(building_index) = self.entity_index(building)
                     else {
                         self.reject(command_index, CommandRejectReason::EntityNotFound);
@@ -1038,7 +1033,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(identity) = self.ecs_get::<Identity>(building_id).cloned()
+                    let Some(identity) = self.ecs_get::<Identity>(building_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
@@ -1047,41 +1042,20 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    let Some(health) = self.ecs_get::<Health>(building_id).copied()
+                    let Some(handle) = self.ecs.resolve(building_id)
                     else {
-                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
                         continue;
                     };
-                    if health.current >= health.maximum {
-                        self.reject(command_index, CommandRejectReason::InvalidTarget);
-                        continue;
-                    }
-                    let cost = self
-                        .definitions
-                        .techno
-                        .get(identity.type_id.as_ref())
-                        .map(|tt| tt.cost)
-                        .unwrap_or(0);
-                    let missing = health.maximum.saturating_sub(health.current);
-                    // 与出售半价对称：按损伤比例扣约半价造价。
-                    let repair_cost = if health.maximum == 0 || cost == 0 {
-                        0
+                    // 原版扳手：再点同一建筑则取消修理，否则挂上持续修理。
+                    if self.ecs.world().get::<crate::state::components::Repairing>(handle).is_some() {
+                        let _ = self.ecs.world_mut().remove::<crate::state::components::Repairing>(handle);
                     } else {
-                        ((missing as u64) * (cost as u64) / (2 * health.maximum as u64)) as i32
-                    };
-                    let repair_cost = repair_cost.max(0);
-                    if repair_cost > 0 && self.players[player_index].funds < repair_cost {
-                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
-                        continue;
+                        let _ = self
+                            .ecs
+                            .world_mut()
+                            .insert(handle, crate::state::components::Repairing);
                     }
-                    if repair_cost > 0 {
-                        self.players[player_index].funds -= repair_cost;
-                        self.players[player_index].funds_spent =
-                            self.players[player_index].funds_spent.saturating_add(repair_cost);
-                    }
-                    let _ = self.with_health_mut(building_id, |h| {
-                        h.current = h.maximum;
-                    });
                     self.mark_entity_dirty(building_id);
                 }
             }

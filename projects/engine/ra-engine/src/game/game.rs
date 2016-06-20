@@ -768,7 +768,7 @@ impl BattleSession {
         });
     }
 
-    /// 本地玩家修理己方建筑（侧栏修理工具）。
+    /// 本地玩家切换己方建筑的持续修理（侧栏修理工具）。
     pub fn order_repair_building(&mut self, building: EntityId) {
         if self.outcome.is_some() {
             return;

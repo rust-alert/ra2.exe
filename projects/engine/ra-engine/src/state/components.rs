@@ -56,6 +56,12 @@ pub struct Health {
     pub dead: bool,
 }
 
+/// 侧栏扳手修理中：按 `[General]` 的 `RepairRate` / `RepairStep` / `RepairPercent` 持续回血扣费。
+///
+/// 由 `RepairBuilding` 命令挂上或摘下；回满或资金不足时由修理步进摘除。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Repairing;
+
 /// 移动能力（速度等，来自冻结定义播种）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Locomotor {

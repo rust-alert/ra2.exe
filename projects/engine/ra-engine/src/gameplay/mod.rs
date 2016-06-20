@@ -14,6 +14,7 @@ mod infiltrate;
 mod movement;
 mod powers;
 mod production;
+mod repair;
 mod rules;
 mod script_teams;
 mod targeting;
@@ -36,6 +37,7 @@ pub(crate) use script_teams::{flush_pending_team_spawns, tick_script_teams};
 pub use script_teams::ScriptTeamRuntime;
 pub(crate) use tech_tree::{build_limit_reached, is_type_eligible, living_structure_keys, TechTreePlayer};
 pub(crate) use production::produce_ticks_for;
+pub(crate) use repair::tick_repairs;
 pub use powers::{LightningStormState, start_lightning_storm, tick_lightning_storm};
 pub use terrain_spawn::{
     TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample,
