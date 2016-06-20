@@ -243,7 +243,7 @@ pub struct BattleController {
     sell_mode: bool,
     /// 命令条路径点规划模式（激活时命令条贴按下帧；航点队列随后续接线）。
     planning_mode: bool,
-    /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具）。
+    /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具+飞行器）。
     sidebar_tab: usize,
     /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
     cameo_scroll: usize,
@@ -1721,6 +1721,7 @@ impl BattleController {
                 .chain(caps.defense_items.iter())
                 .chain(caps.infantry_items.iter())
                 .chain(caps.vehicle_items.iter())
+                .chain(caps.aircraft_items.iter())
             {
                 options_now.insert(item.type_id.as_ref().to_string());
             }
@@ -3074,19 +3075,23 @@ impl BattleController {
         hit
     }
 
-    fn tab_items<'a>(caps: &'a BattleCapabilitiesSnapshot, tab: usize) -> &'a [CapabilityItem] {
+    fn tab_items(caps: &BattleCapabilitiesSnapshot, tab: usize) -> Vec<CapabilityItem> {
         match tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)) {
-            0 => caps.build_items.as_slice(),
-            1 => caps.defense_items.as_slice(),
-            2 => caps.infantry_items.as_slice(),
-            3 => caps.vehicle_items.as_slice(),
-            _ => &[],
+            0 => caps.build_items.clone(),
+            1 => caps.defense_items.clone(),
+            2 => caps.infantry_items.clone(),
+            3 => {
+                let mut items = caps.vehicle_items.clone();
+                items.extend(caps.aircraft_items.iter().cloned());
+                items
+            }
+            _ => Vec::new(),
         }
     }
 
     /// 无对应可建造基础的分类页签不显示。
     ///
-    /// Q/W 建筑与防御均依赖建造场；E 步兵依赖兵营；R 载具依赖战车厂。
+    /// Q/W 建筑与防御均依赖建造场；E 步兵依赖兵营；R 载具或飞行器厂。
     fn sidebar_tabs_visible(caps: Option<&BattleCapabilitiesSnapshot>) -> [bool; SIDEBAR_TAB_COUNT] {
         let Some(caps) = caps
         else {
@@ -3096,7 +3101,7 @@ impl BattleController {
             caps.has_construction_yard,
             caps.has_construction_yard,
             caps.has_infantry_factory,
-            caps.has_vehicle_factory,
+            caps.has_vehicle_factory || caps.has_aircraft_factory,
         ]
     }
 
@@ -3176,6 +3181,7 @@ impl BattleController {
             .chain(caps.defense_items.iter())
             .chain(caps.infantry_items.iter())
             .chain(caps.vehicle_items.iter())
+            .chain(caps.aircraft_items.iter())
         {
             let key = item.type_id.as_ref();
             if self.cameo_cache.contains_key(key) {
@@ -3448,7 +3454,7 @@ impl BattleController {
         let items = caps
             .as_ref()
             .map(|c| Self::tab_items(c, self.sidebar_tab))
-            .unwrap_or(&[]);
+            .unwrap_or_default();
         let start = self.cameo_scroll.min(items.len());
         let end = (start + visible).min(items.len());
         let page_items = &items[start..end];
