@@ -3286,12 +3286,65 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Diplomacy => {
-                // 外交语义随后续引擎命令接线。
-                tracing::info!(?hit, "侧栏按钮 · 尚未接线");
+                self.log_diplomacy_allies();
                 BattleNav::None
             }
             BattleHudHit::CommandButton(_) => BattleNav::None,
         }
+    }
+
+    /// 外交钮：只读列出本机同盟（遭遇战改盟待接）。
+    fn log_diplomacy_allies(&self) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            tracing::info!("外交 · 无对局");
+            return;
+        };
+        let Some(local) = game
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == game.world.local_player)
+        else {
+            tracing::info!("外交 · 无本机玩家");
+            return;
+        };
+        let allies = if local.allies.is_empty() {
+            "无".to_string()
+        } else {
+            local.allies.join(", ")
+        };
+        let others: Vec<String> = game
+            .world
+            .players
+            .iter()
+            .filter(|p| p.id != local.id)
+            .map(|p| {
+                let allied = local
+                    .allies
+                    .iter()
+                    .any(|a| a.eq_ignore_ascii_case(p.house.as_ref()))
+                    || p.allies
+                        .iter()
+                        .any(|a| a.eq_ignore_ascii_case(local.house.as_ref()));
+                format!(
+                    "{}={}",
+                    p.house,
+                    if allied { "同盟" } else { "敌对" }
+                )
+            })
+            .collect();
+        let roster = if others.is_empty() {
+            "仅本机".to_string()
+        } else {
+            others.join(", ")
+        };
+        tracing::info!(
+            house = %local.house,
+            allies = %allies,
+            roster = %roster,
+            "外交 · 同盟只读（遭遇战改盟待接）"
+        );
     }
 
     /// 关闭建造放置 / 修理 / 出售工具。有任一处于激活则返回 `true`。
