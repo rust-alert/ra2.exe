@@ -44,6 +44,12 @@ pub struct RuntimeDefinitions {
     pub stolen_tech_by_house: HouseStolenTechMap,
     /// 遭遇战 / 多人默认科技上限（`[MultiplayerDialogSettings] TechLevel`，缺省 10）。
     pub default_tech_level: i32,
+    /// `[General] RepairPercent`：完全修好相对造价的百分比（缺省 15）。
+    pub repair_percent: u32,
+    /// `[General] RepairStep`：每修理脉冲回复生命（缺省 8）。
+    pub repair_step: u32,
+    /// `[General] RepairRate`（分钟）换算的脉冲间隔 tick：`ftol(rate * 900)`（缺省 14）。
+    pub repair_interval_ticks: u64,
 }
 
 impl Default for RuntimeDefinitions {
@@ -64,6 +70,9 @@ impl Default for RuntimeDefinitions {
             prerequisite_groups: PrerequisiteGroups::default(),
             stolen_tech_by_house: HouseStolenTechMap::default(),
             default_tech_level: 10,
+            repair_percent: 15,
+            repair_step: 8,
+            repair_interval_ticks: 14,
         }
     }
 }
