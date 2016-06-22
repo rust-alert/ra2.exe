@@ -23,6 +23,17 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
     defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
+    // `[General]` 侧栏扳手：缺键回落原版库存默认。
+    defs.repair_percent = ini_i32(&rules.rules, "General", "RepairPercent")
+        .map(|v| v.max(0) as u32)
+        .unwrap_or(15);
+    defs.repair_step = ini_i32(&rules.rules, "General", "RepairStep")
+        .map(|v| v.max(1) as u32)
+        .unwrap_or(8);
+    defs.repair_interval_ticks = ini_string(&rules.rules, "General", "RepairRate")
+        .and_then(|raw| raw.parse::<f64>().ok())
+        .map(repair_rate_minutes_to_ticks)
+        .unwrap_or(14);
     for country in rules.countries.countries() {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
@@ -204,6 +215,15 @@ fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32
     ini_string(doc, section, key)?.parse().ok()
 }
 
+/// 原版 `RepairRate`（分钟）→ 逻辑 tick：`ftol(rate * 900)`，至少 1。
+fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
+    if !rate_minutes.is_finite() || rate_minutes <= 0.0 {
+        return 14;
+    }
+    let ticks = (rate_minutes * 900.0).trunc() as i64;
+    ticks.max(1) as u64
+}
+
 fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bool> {
     let v = ini_string(doc, section, key)?.to_ascii_lowercase();
     match v.as_str() {
@@ -224,4 +244,56 @@ fn ini_csv_tokens(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Vec
         .filter(|s| !s.is_empty())
         .map(|s| s.to_ascii_uppercase())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ra_assets::{
+        ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
+    };
+    use ra_types::GameEdition;
+
+    fn rules_from(text: &[u8]) -> RulesSystem {
+        let rules = IniDocument::parse(text).expect("test ini");
+        RulesSystem {
+            edition: GameEdition::Ra2,
+            rules: rules.clone(),
+            art: IniDocument::default(),
+            overlay_types: OverlayTypeRegistry::default(),
+            color_schemes: ColorSchemes::default(),
+            countries: CountryRegistry::default(),
+            techno_types: TechnoTypeRegistry::from_rules(&rules),
+            warheads: WarheadRegistry::default(),
+        }
+    }
+
+    #[test]
+    fn repair_rate_minutes_to_ticks_matches_stock_general() {
+        assert_eq!(repair_rate_minutes_to_ticks(0.016), 14);
+        assert_eq!(repair_rate_minutes_to_ticks(0.0), 14);
+        assert_eq!(repair_rate_minutes_to_ticks(-1.0), 14);
+    }
+
+    #[test]
+    fn build_runtime_definitions_reads_general_repair_keys() {
+        let rules = rules_from(
+            b"[General]\nRepairPercent=25\nRepairStep=16\nRepairRate=.032\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\n",
+        );
+        let defs = build_runtime_definitions(&rules);
+        assert_eq!(defs.repair_percent, 25);
+        assert_eq!(defs.repair_step, 16);
+        assert_eq!(defs.repair_interval_ticks, 28);
+    }
+
+    #[test]
+    fn build_runtime_definitions_falls_back_to_stock_repair_defaults() {
+        let rules = rules_from(b"[BuildingTypes]\n0=GAPOWR\n[GAPOWR]\nCost=1\nStrength=1\n");
+        let defs = build_runtime_definitions(&rules);
+        assert_eq!(defs.repair_percent, 15);
+        assert_eq!(defs.repair_step, 8);
+        assert_eq!(defs.repair_interval_ticks, 14);
+    }
 }

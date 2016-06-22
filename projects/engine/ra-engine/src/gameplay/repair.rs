@@ -1,7 +1,7 @@
-//! 侧栏扳手持续修理：按 `[General]` 库存默认步进回血扣费。
+//! 侧栏扳手持续修理：按冻结定义中的 `[General]` 修理键步进回血扣费。
 //!
-//! 原版键：`RepairPercent=15`、`RepairRate=.016`（分钟）、`RepairStep=8`。
-//! 脉冲间隔取 `ftol(RepairRate * 900)`（15Hz 下约 14 tick），与自愈脉冲同一换算。
+//! 原版键：`RepairPercent`、`RepairRate`（分钟）、`RepairStep`。
+//! 脉冲间隔取 `ftol(RepairRate * 900)`（15Hz 下库存 `.016` → 14 tick）。
 
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
@@ -11,18 +11,14 @@ use crate::state::{
     BattleState,
 };
 
-/// 原版 `[General] RepairPercent` 库存默认（完全修好相对造价的百分比）。
-pub(crate) const STOCK_REPAIR_PERCENT: u32 = 15;
-/// 原版 `[General] RepairStep` 库存默认（每脉冲回复生命）。
-pub(crate) const STOCK_REPAIR_STEP: u32 = 8;
-/// 原版 `[General] RepairRate=.016` → `ftol(0.016 * 900)`。
-pub(crate) const STOCK_REPAIR_INTERVAL_TICKS: u64 = 14;
-
 /// 本 tick 若落在修理脉冲上，则对所有挂着 [`Repairing`] 的建筑步进一次。
 pub(crate) fn tick_repairs(world: &mut BattleState) {
-    if world.tick == 0 || world.tick % STOCK_REPAIR_INTERVAL_TICKS != 0 {
+    let interval = world.definitions.repair_interval_ticks.max(1);
+    if world.tick == 0 || world.tick % interval != 0 {
         return;
     }
+    let repair_step = world.definitions.repair_step.max(1);
+    let repair_percent = world.definitions.repair_percent;
 
     let mut jobs: Vec<RepairJob> = Vec::new();
     let mut stop: Vec<EntityId> = Vec::new();
@@ -71,16 +67,16 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             .get(job.type_id.as_str())
             .map(|tt| tt.cost.max(0) as u32)
             .unwrap_or(0);
-        let heal = STOCK_REPAIR_STEP.min(job.maximum.saturating_sub(job.current));
+        let heal = repair_step.min(job.maximum.saturating_sub(job.current));
         if heal == 0 {
             stop.push(job.id);
             continue;
         }
         // 完全修好费用 = Cost * RepairPercent / 100，再按本脉冲回复量分摊。
-        let fee = if cost == 0 {
+        let fee = if cost == 0 || repair_percent == 0 {
             0
         } else {
-            ((cost as u64) * (STOCK_REPAIR_PERCENT as u64) * (heal as u64)
+            ((cost as u64) * (repair_percent as u64) * (heal as u64)
                 / (100u64 * (job.maximum as u64).max(1))) as i32
         };
         if fee > 0 && world.players[player_index].funds < fee {

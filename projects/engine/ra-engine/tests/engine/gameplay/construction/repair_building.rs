@@ -7,7 +7,8 @@ use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
 fn yard_with_power() -> BattleState {
-    let rules_text = b"[VehicleTypes]\n0=AMCV\n\
+    let rules_text = b"[General]\nRepairPercent=15\nRepairStep=8\nRepairRate=.016\n\
+[VehicleTypes]\n0=AMCV\n\
 [BuildingTypes]\n0=GACNST\n1=GAPOWR\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
