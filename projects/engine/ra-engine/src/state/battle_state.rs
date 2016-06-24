@@ -179,6 +179,7 @@ impl BattleState {
                 movement: MovementState {
                     destination_x: None,
                     destination_y: None,
+                    waypoints: Vec::new(),
                     path: Vec::new(),
                     move_accum: 0,
                 },
@@ -765,6 +766,7 @@ impl BattleState {
         self.with_movement_mut(id, |movement| {
             movement.destination_x = None;
             movement.destination_y = None;
+            movement.waypoints.clear();
             movement.path.clear();
             movement.move_accum = 0;
         })
@@ -1059,6 +1061,7 @@ impl BattleState {
             movement: MovementState {
                 destination_x: None,
                 destination_y: None,
+                waypoints: Vec::new(),
                 path: Vec::new(),
                 move_accum: 0,
             },

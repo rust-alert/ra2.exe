@@ -261,9 +261,23 @@ impl crate::state::BattleState {
                 continue;
             };
             if xf.x == tx && xf.y == ty {
-                let _ = self.with_movement_mut(id, |movement| {
+                let advance = self.with_movement_mut(id, |movement| {
                     movement.path.clear();
+                    movement.move_accum = 0;
+                    if let Some((nx, ny)) = movement.waypoints.first().copied() {
+                        movement.waypoints.remove(0);
+                        movement.destination_x = Some(nx);
+                        movement.destination_y = Some(ny);
+                        true
+                    } else {
+                        movement.destination_x = None;
+                        movement.destination_y = None;
+                        false
+                    }
                 });
+                if advance == Some(true) {
+                    self.repath_entity_at(i);
+                }
                 continue;
             }
             let _ = self.with_movement_mut(id, |movement| {

@@ -41,6 +41,16 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
+        GameCommand::MovePath { entity, ref points } => {
+            b.push(13);
+            b.extend_from_slice(&entity.0.to_be_bytes());
+            let n = points.len().min(u16::MAX as usize) as u16;
+            b.extend_from_slice(&n.to_be_bytes());
+            for &(x, y) in points.iter().take(n as usize) {
+                b.extend_from_slice(&x.to_be_bytes());
+                b.extend_from_slice(&y.to_be_bytes());
+            }
+        }
         GameCommand::Attack { attacker, target } => {
             b.push(2);
             b.extend_from_slice(&attacker.0.to_be_bytes());
@@ -224,6 +234,26 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let building = EntityId(u64::from_be_bytes(bytes[2..10].try_into().ok()?));
             Some(GameCommand::RepairBuilding { player, building })
         }
+        13 => {
+            if bytes.len() < 1 + 8 + 2 {
+                return None;
+            }
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let n = u16::from_be_bytes(bytes[9..11].try_into().ok()?) as usize;
+            let need = 1 + 8 + 2 + n * 4;
+            if bytes.len() < need {
+                return None;
+            }
+            let mut points = Vec::with_capacity(n);
+            let mut off = 11;
+            for _ in 0..n {
+                let x = u16::from_be_bytes(bytes[off..off + 2].try_into().ok()?);
+                let y = u16::from_be_bytes(bytes[off + 2..off + 4].try_into().ok()?);
+                points.push((x, y));
+                off += 4;
+            }
+            Some(GameCommand::MovePath { entity, points })
+        }
         _ => None,
     }
 }
@@ -348,6 +378,49 @@ impl crate::state::BattleState {
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
                         movement.destination_y = Some(y);
+                        movement.waypoints.clear();
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(entity_index);
+                }
+                GameCommand::MovePath { entity, ref points } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    let Some(&(x, y)) = points.first()
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let rest: Vec<(u16, u16)> = points.iter().skip(1).copied().collect();
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission.clear();
+                    });
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.destination_x = Some(x);
+                        movement.destination_y = Some(y);
+                        movement.waypoints = rest;
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -402,6 +475,7 @@ impl crate::state::BattleState {
                     let _ = self.with_movement_mut(attacker_id, |movement| {
                         movement.destination_x = Some(target_xf.x);
                         movement.destination_y = Some(target_xf.y);
+                        movement.waypoints.clear();
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -459,6 +533,7 @@ impl crate::state::BattleState {
                     let _ = self.with_movement_mut(dirty_id, |movement| {
                         movement.destination_x = None;
                         movement.destination_y = None;
+                        movement.waypoints.clear();
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -546,6 +621,7 @@ impl crate::state::BattleState {
                         movement: MovementState {
                             destination_x: None,
                             destination_y: None,
+                            waypoints: Vec::new(),
                             path: Vec::new(),
                             move_accum: 0,
                         },
@@ -802,6 +878,7 @@ impl crate::state::BattleState {
                     let _ = self.with_movement_mut(agent_id, |movement| {
                         movement.destination_x = Some(dest_x);
                         movement.destination_y = Some(dest_y);
+                        movement.waypoints.clear();
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
@@ -907,6 +984,7 @@ impl crate::state::BattleState {
                     let _ = self.with_movement_mut(engineer_id, |movement| {
                         movement.destination_x = Some(dest_x);
                         movement.destination_y = Some(dest_y);
+                        movement.waypoints.clear();
                         movement.path.clear();
                         movement.move_accum = 0;
                     });

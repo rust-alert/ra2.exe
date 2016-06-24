@@ -76,6 +76,8 @@ pub struct MovementState {
     pub destination_x: Option<u16>,
     /// 移动目标格 Y。
     pub destination_y: Option<u16>,
+    /// 后续航点（抵达当前目的地后依次弹出为新目的地；路径点规划用）。
+    pub waypoints: Vec<(u16, u16)>,
     /// 剩余路径。
     pub path: Vec<(u16, u16)>,
     /// 累积移动点。

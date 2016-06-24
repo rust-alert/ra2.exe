@@ -128,6 +128,7 @@ impl crate::state::BattleState {
             movement: MovementState {
                 destination_x: None,
                 destination_y: None,
+                waypoints: Vec::new(),
                 path: Vec::new(),
                 move_accum: 0,
             },

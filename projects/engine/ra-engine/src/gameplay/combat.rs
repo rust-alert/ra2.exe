@@ -185,6 +185,7 @@ impl crate::state::BattleState {
         });
         let _ = self.with_movement_mut(dirty_id, |movement| {
             movement.path.clear();
+            movement.waypoints.clear();
             movement.destination_y = None;
             movement.destination_x = None;
             movement.move_accum = 0;

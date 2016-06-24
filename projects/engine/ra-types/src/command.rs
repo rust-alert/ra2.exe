@@ -14,6 +14,8 @@ pub struct CommandId(pub u64);
 pub enum CommandKind {
     /// 移动。
     MoveTo,
+    /// 沿多航点移动（路径点规划）。
+    MovePath,
     /// 攻击。
     Attack,
     /// 部署。
@@ -69,6 +71,13 @@ pub enum CommandBody {
         x: u16,
         /// 目标格 Y。
         y: u16,
+    },
+    /// 沿航点序列移动：首点为当前目的地，其余入 `MovementState.waypoints`。
+    MovePath {
+        /// 实体稳定 ID。
+        entity: EntityId,
+        /// 航点格序列（至少一点）。
+        points: Vec<(u16, u16)>,
     },
     /// 指定攻击目标。
     Attack {
@@ -156,6 +165,7 @@ impl CommandBody {
     pub fn kind(&self) -> CommandKind {
         match self {
             Self::MoveTo { .. } => CommandKind::MoveTo,
+            Self::MovePath { .. } => CommandKind::MovePath,
             Self::Attack { .. } => CommandKind::Attack,
             Self::Deploy { .. } => CommandKind::Deploy,
             Self::PlaceBuilding { .. } => CommandKind::PlaceBuilding,
@@ -176,6 +186,10 @@ impl CommandBody {
             Self::MoveTo { x, y, .. } | Self::SetRallyPoint { x, y, .. } | Self::PlaceBuilding { x, y, .. } => {
                 CommandTarget::Cell { x: *x, y: *y }
             }
+            Self::MovePath { points, .. } => match points.first() {
+                Some(&(x, y)) => CommandTarget::Cell { x, y },
+                None => CommandTarget::None,
+            },
             Self::Attack { target, .. } => CommandTarget::Entity(*target),
             Self::Infiltrate { building, .. }
             | Self::CaptureBuilding { building, .. }

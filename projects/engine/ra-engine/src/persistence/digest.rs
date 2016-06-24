@@ -150,6 +150,16 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(1);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
+        GameCommand::MovePath { entity, ref points } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(13);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
+            for &(x, y) in points {
+                h = h
+                    .wrapping_mul(1099511628211)
+                    .wrapping_add((x as u64) << 16)
+                    .wrapping_add((y as u64) << 32);
+            }
+        }
         GameCommand::Attack { attacker, target } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(2);
             h = h.wrapping_mul(1099511628211).wrapping_add(attacker.0).wrapping_add(target.0 << 16);

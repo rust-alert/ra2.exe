@@ -638,6 +638,22 @@ impl BattleSession {
         }
     }
 
+    /// 指定实体沿航点序列移动（路径点规划；首点为当前目的地）。
+    pub fn order_move_path(&mut self, selected: &[EntityId], points: &[(u16, u16)]) {
+        if self.outcome.is_some() || points.is_empty() {
+            return;
+        }
+        let points = points.to_vec();
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::MovePath {
+                    entity: id,
+                    points: points.clone(),
+                });
+            }
+        }
+    }
+
     /// 指定实体攻击目标。
     pub fn order_attack(&mut self, selected: &[EntityId], target: EntityId) {
         if self.outcome.is_some() {
