@@ -3,7 +3,7 @@
 use super::{
     AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap,
     LocomotorDefinitions, PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions,
-    TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
+    SuperWeaponDefinitions, TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
@@ -38,6 +38,8 @@ pub struct RuntimeDefinitions {
     pub animations: AnimationDefinitions,
     /// 音效。
     pub sounds: SoundDefinitions,
+    /// `[SuperWeaponTypes]` 超级武器表。
+    pub super_weapons: SuperWeaponDefinitions,
     /// `[General]` 通用前置组。
     pub prerequisite_groups: PrerequisiteGroups,
     /// house → 渗透其科技建筑时授予的偷取科技。
@@ -67,6 +69,7 @@ impl Default for RuntimeDefinitions {
             production: ProductionDefinitions::default(),
             animations: AnimationDefinitions::default(),
             sounds: SoundDefinitions::default(),
+            super_weapons: SuperWeaponDefinitions::default(),
             prerequisite_groups: PrerequisiteGroups::default(),
             stolen_tech_by_house: HouseStolenTechMap::default(),
             default_tech_level: 10,

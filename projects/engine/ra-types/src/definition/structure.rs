@@ -80,6 +80,8 @@ pub struct StructureDefinition {
     pub owner: String,
     /// INI `Foundation=` 占地。
     pub foundation: Foundation,
+    /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
+    pub super_weapon: Option<String>,
     /// 定义期能力声明。
     pub capabilities: Vec<BuiltinCapability>,
 }

@@ -14,6 +14,7 @@ mod production;
 mod runtime;
 mod sound;
 mod structure;
+mod super_weapon;
 mod tech_tree;
 mod techno;
 mod type_definition;
@@ -30,6 +31,7 @@ pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfil
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
 pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
+pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
 pub use tech_tree::{HouseStolenTechMap, PrerequisiteGroups, StolenTechKind};
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use type_definition::TypeDefinitionId;

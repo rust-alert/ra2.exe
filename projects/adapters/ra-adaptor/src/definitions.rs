@@ -5,7 +5,7 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, TechnoClass, TechnoDefinition, TypeId,
+    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
     WarheadDefinition,
 };
 
@@ -38,6 +38,35 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
         }
+    }
+
+    for sw_key in list_section_type_keys(&rules.rules, "SuperWeaponTypes") {
+        let id = alloc();
+        let ui_name = ini_string(&rules.rules, &sw_key, "UIName").unwrap_or_default();
+        let kind = ini_string(&rules.rules, &sw_key, "Type")
+            .map(|s| s.to_ascii_uppercase())
+            .unwrap_or_default();
+        let action = ini_string(&rules.rules, &sw_key, "Action")
+            .map(|s| s.to_ascii_uppercase())
+            .unwrap_or_default();
+        let recharge_time = ini_i32(&rules.rules, &sw_key, "RechargeTime").unwrap_or(0).max(0);
+        let sidebar_image = ini_string(&rules.rules, &sw_key, "SidebarImage").unwrap_or_default();
+        let weapon = ini_string(&rules.rules, &sw_key, "Weapon")
+            .map(|s| s.to_ascii_uppercase())
+            .unwrap_or_default();
+        defs.super_weapons.insert(SuperWeaponDefinition {
+            id,
+            type_key: sw_key,
+            ui_name,
+            kind,
+            action,
+            recharge_time,
+            sidebar_image,
+            weapon,
+        });
+    }
+    if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
+        defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
     }
 
     for tt in rules.techno_types.iter() {
@@ -132,6 +161,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
         }
+        let super_weapon = ini_string(&rules.rules, &key, "SuperWeapon").map(|s| s.to_ascii_uppercase());
+        if super_weapon.is_some() {
+            capabilities.push(BuiltinCapability::SuperWeapon);
+            if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
+                defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
+            }
+        }
         for c in &capabilities {
             if !defs.capabilities.builtins.contains(c) {
                 defs.capabilities.builtins.push(*c);
@@ -153,6 +189,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             production,
             owner: tt.owner.clone(),
             foundation,
+            super_weapon,
             capabilities,
         });
     }
@@ -195,6 +232,26 @@ fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups
         proc: ini_csv_tokens(doc, "General", "PrerequisiteProc"),
         proc_alternate: ini_csv_tokens(doc, "General", "PrerequisiteProcAlternate"),
     }
+}
+
+/// 读取列表节（如 `[SuperWeaponTypes]`）的类型键，保序、大写、去空。
+fn list_section_type_keys(doc: &ra_assets::IniDocument, section: &str) -> Vec<String> {
+    let Some(sec) = doc.section(section)
+    else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for (_idx, value) in sec.pairs() {
+        let key = value.trim();
+        if key.is_empty() {
+            continue;
+        }
+        let upper = key.to_ascii_uppercase();
+        if !out.iter().any(|k: &String| k == &upper) {
+            out.push(upper);
+        }
+    }
+    out
 }
 
 fn parse_factory_category(raw: &str) -> ProductionCategory {
@@ -295,5 +352,34 @@ mod tests {
         assert_eq!(defs.repair_percent, 15);
         assert_eq!(defs.repair_step, 8);
         assert_eq!(defs.repair_interval_ticks, 14);
+    }
+
+    #[test]
+    fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
+        let rules = rules_from(
+            b"[SuperWeaponTypes]\n0=LightningStorm\n\
+[LightningStorm]\nUIName=Name:LightningStorm\nType=LightningStorm\nAction=LightningStorm\nRechargeTime=10\nSidebarImage=SSWLSICON\n\
+[BuildingTypes]\n0=GACNST\n1=GATECH\n\
+[GACNST]\nConstructionYard=yes\nCost=2500\nStrength=1000\n\
+[GATECH]\nCost=1500\nStrength=600\nSuperWeapon=LightningStorm\n",
+        );
+        let defs = build_runtime_definitions(&rules);
+        let sw = defs.super_weapons.get("LightningStorm").expect("SW");
+        assert_eq!(sw.ui_name, "Name:LightningStorm");
+        assert_eq!(sw.kind, "LIGHTNINGSTORM");
+        assert_eq!(sw.action, "LIGHTNINGSTORM");
+        assert_eq!(sw.recharge_time, 10);
+        assert_eq!(sw.sidebar_image, "SSWLSICON");
+        assert_eq!(
+            defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()),
+            Some("LIGHTNINGSTORM")
+        );
+        assert!(defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon));
+        assert!(defs
+            .structures
+            .get("GATECH")
+            .expect("tech")
+            .capabilities
+            .contains(&BuiltinCapability::SuperWeapon));
     }
 }
