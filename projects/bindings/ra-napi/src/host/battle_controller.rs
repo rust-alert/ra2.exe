@@ -241,8 +241,10 @@ pub struct BattleController {
     repair_mode: bool,
     /// 侧栏出售工具是否激活（与修理互斥；激活时贴按下帧）。
     sell_mode: bool,
-    /// 命令条路径点规划模式（激活时命令条贴按下帧；航点队列随后续接线）。
+    /// 命令条路径点规划模式（激活时命令条贴按下帧）。
     planning_mode: bool,
+    /// 规划中暂存的航点（关闭规划时对当前选中下发 `order_move_path`）。
+    planning_waypoints: Vec<(u16, u16)>,
     /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具+飞行器）。
     sidebar_tab: usize,
     /// 当前页签 cameo 列表滚动起点（可视槽 0 对应的条目下标）。
@@ -377,6 +379,7 @@ impl BattleController {
             repair_mode: false,
             sell_mode: false,
             planning_mode: false,
+            planning_waypoints: Vec::new(),
             sidebar_tab: 0,
             cameo_scroll: 0,
             sidebar_pressed: None,
@@ -573,6 +576,7 @@ impl BattleController {
         self.repair_mode = false;
         self.sell_mode = false;
         self.planning_mode = false;
+        self.planning_waypoints.clear();
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
         self.sidebar_pressed = None;
@@ -1099,6 +1103,26 @@ impl BattleController {
     }
 
     fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
+        if self.planning_mode {
+            let Some(cell) = self.cursor_cell(renderer, window)
+            else {
+                return;
+            };
+            if self.local.selected.is_empty() {
+                tracing::info!("路径点规划 · 无选中单位，忽略航点");
+                return;
+            };
+            if self.planning_waypoints.last().copied() != Some(cell) {
+                self.planning_waypoints.push(cell);
+            }
+            tracing::info!(
+                count = self.planning_waypoints.len(),
+                x = cell.0,
+                y = cell.1,
+                "路径点规划 · 追加航点"
+            );
+            return;
+        }
         if self.clear_sidebar_tool_modes() {
             return;
         }
@@ -3241,6 +3265,7 @@ impl BattleController {
                             self.repair_mode = false;
                             self.sell_mode = false;
                             self.planning_mode = false;
+                            self.planning_waypoints.clear();
                             self.place_mode = Some(type_id.to_string());
                             tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                         }
@@ -3268,6 +3293,7 @@ impl BattleController {
             BattleHudHit::Repair => {
                 self.sell_mode = false;
                 self.planning_mode = false;
+                self.planning_waypoints.clear();
                 self.repair_mode = !self.repair_mode;
                 if self.repair_mode {
                     self.place_mode = None;
@@ -3278,6 +3304,7 @@ impl BattleController {
             BattleHudHit::Sell => {
                 self.repair_mode = false;
                 self.planning_mode = false;
+                self.planning_waypoints.clear();
                 self.sell_mode = !self.sell_mode;
                 if self.sell_mode {
                     self.place_mode = None;
@@ -3366,7 +3393,8 @@ impl BattleController {
         }
         if self.planning_mode {
             self.planning_mode = false;
-            tracing::info!(active = false, "命令条 · 路径点规划");
+            self.planning_waypoints.clear();
+            tracing::info!(active = false, "命令条 · 路径点规划（已丢弃航点）");
             cleared = true;
         }
         cleared
@@ -3410,13 +3438,16 @@ impl BattleController {
             "Team01" => self.handle_control_team(0),
             "Team02" => self.handle_control_team(1),
             "PlanningMode" => {
-                self.planning_mode = !self.planning_mode;
                 if self.planning_mode {
+                    self.commit_planning_waypoints();
+                } else {
+                    self.planning_mode = true;
+                    self.planning_waypoints.clear();
                     self.place_mode = None;
                     self.repair_mode = false;
                     self.sell_mode = false;
+                    tracing::info!(active = true, "命令条 · 路径点规划");
                 }
-                tracing::info!(active = self.planning_mode, "命令条 · 路径点规划");
             }
             _ => {
                 // 其它命令条槽随后续对局命令接线补齐。
@@ -3445,6 +3476,39 @@ impl BattleController {
         if let Some(tick) = pulse_tick {
             self.pulse_action_lines_at(tick);
         }
+    }
+
+    /// 关闭规划并下发暂存航点；无航点则仅退出规划。
+    fn commit_planning_waypoints(&mut self) {
+        self.planning_mode = false;
+        let points = std::mem::take(&mut self.planning_waypoints);
+        if points.is_empty() {
+            tracing::info!(active = false, "命令条 · 路径点规划（无航点）");
+            return;
+        }
+        let selected = self.local.selected.clone();
+        if selected.is_empty() {
+            tracing::info!(
+                active = false,
+                count = points.len(),
+                "命令条 · 路径点规划（无选中，已丢弃航点）"
+            );
+            return;
+        }
+        let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+            let tick = game.world.tick;
+            tracing::info!(
+                count = points.len(),
+                units = selected.len(),
+                "路径点规划 · 下发 MovePath"
+            );
+            game.order_move_path(&selected, &points);
+            tick
+        });
+        if let Some(tick) = pulse_tick {
+            self.pulse_action_lines_at(tick);
+        }
+        tracing::info!(active = false, "命令条 · 路径点规划");
     }
 
     fn upload_battle_hud(
