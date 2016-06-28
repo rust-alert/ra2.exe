@@ -37,7 +37,7 @@ fn advances_when_ordered_to_move() {
 }
 
 #[test]
-fn move_to_command_sets_target() {
+fn move_path_queues_remaining_waypoints_and_advances() {
     let rules = rules_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
@@ -53,12 +53,23 @@ fn move_to_command_sets_target() {
         tag: String::new(),
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
-    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
-    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
+    let id = world.entity_id_at(0).expect("entity");
+    world.push_command(GameCommand::MovePath {
+        entity: EntityId(1),
+        points: vec![(12, 20), (12, 22)],
+    });
     world.advance_tick();
-    assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, Some(12));
-    assert_eq!(world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, 11);
+    assert_eq!(world.ecs_move_destination(id).expect("dest"), (Some(12), Some(20)));
+    assert_eq!(world.ecs_waypoints(id).expect("wp"), vec![(12, 22)]);
+    // 走到首航点。
+    world.advance_tick();
+    assert_eq!(world.ecs_transform(id).expect("xf").0, 12);
+    // 到达后切到下一航点。
+    world.advance_tick();
+    assert_eq!(world.ecs_move_destination(id).expect("dest"), (Some(12), Some(22)));
+    assert!(world.ecs_waypoints(id).expect("wp").is_empty());
 }
+
 
 #[test]
 fn turret_chases_body_facing() {

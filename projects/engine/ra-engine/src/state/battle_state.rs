@@ -668,6 +668,12 @@ impl BattleState {
         self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.path.clone())
     }
 
+    /// 读取 ECS `MovementState::waypoints`（路径点规划剩余航点）。
+    pub fn ecs_waypoints(&self, id: EntityId) -> Option<Vec<(u16, u16)>> {
+        self.ecs_get::<crate::state::components::MovementState>(id)
+            .map(|m| m.waypoints.clone())
+    }
+
     /// 读取 ECS `MovementState::move_accum`（格内滑移进度）。
     pub fn ecs_move_accum(&self, id: EntityId) -> Option<u32> {
         self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.move_accum)
