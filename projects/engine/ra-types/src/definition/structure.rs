@@ -70,6 +70,8 @@ pub struct StructureDefinition {
     pub construction_yard: bool,
     /// 是否矿场。
     pub refinery: bool,
+    /// INI `Radar=yes`（侧栏雷达开图）。
+    pub radar: bool,
     /// INI `BuildCat=`（侧栏建筑 / 防御分页）。
     pub build_cat: BuildCat,
     /// `Capturable=yes`（可被工程师占领）。

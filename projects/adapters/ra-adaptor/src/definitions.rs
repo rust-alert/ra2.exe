@@ -137,6 +137,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
         let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
         let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
+        let radar = ini_bool(&rules.rules, &key, "Radar").unwrap_or(false);
         let build_cat = BuildCat::parse(&ini_string(&rules.rules, &key, "BuildCat").unwrap_or_default());
         let capturable = ini_bool(&rules.rules, &key, "Capturable").unwrap_or(false);
         let factory = ini_string(&rules.rules, &key, "Factory").map(|s| parse_factory_category(&s));
@@ -154,6 +155,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
         if refinery {
             capabilities.push(BuiltinCapability::Refinery);
+        }
+        if radar {
+            capabilities.push(BuiltinCapability::Radar);
         }
         if capturable {
             capabilities.push(BuiltinCapability::Capturable);
@@ -184,6 +188,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             armor: tt.armor.clone(),
             construction_yard,
             refinery,
+            radar,
             build_cat,
             capturable,
             production,
