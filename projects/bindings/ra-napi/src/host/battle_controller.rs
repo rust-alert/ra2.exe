@@ -3622,6 +3622,9 @@ impl BattleController {
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             repair_active: !show_pause_banner && self.repair_mode,
             sell_active: !show_pause_banner && self.sell_mode,
+            radar_online: !show_pause_banner
+                && !local.map(|p| p.low_power).unwrap_or(false)
+                && caps.as_ref().is_some_and(|c| c.has_radar),
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
             sidebar_tabs_visible: tabs_visible,
             cameos: if show_pause_banner { &[] } else { &cameos },

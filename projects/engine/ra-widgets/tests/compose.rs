@@ -554,6 +554,7 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
             command_tip: None,
             repair_active: false,
             sell_active: false,
+            radar_online: false,
             sidebar_tab: 0,
             sidebar_tabs_visible: [true, true, true, true],
             cameos: &[],

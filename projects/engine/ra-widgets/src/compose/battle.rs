@@ -40,6 +40,8 @@ pub struct BattleHudModel<'a> {
     pub repair_active: bool,
     /// 出售工具是否激活（侧栏拱钮按下帧）。
     pub sell_active: bool,
+    /// 本机雷达开图（有存活雷达且未低电）。
+    pub radar_online: bool,
     /// 当前分类页签。
     pub sidebar_tab: usize,
     /// 四分类页签是否可见（有对应可建造基础才显示）。
@@ -83,6 +85,8 @@ pub fn compose_battle_hud_overlay(
             paint.paused,
             paint.repair_active,
             paint.sell_active,
+            paint.radar_online,
+            paint.tick,
             paint.sidebar_tabs_visible,
         );
         if !paint.paused {

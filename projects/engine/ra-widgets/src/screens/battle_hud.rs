@@ -3,7 +3,7 @@
 //! 文件名与菜单壳层分离；同名 SHP 靠 `MixFileIndex` 嵌套包区分外观。
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
-use ra_assets::{parse_pcx, Palette, ShpFile};
+use ra_assets::{parse_pcx, shp_body_frame_count, Palette, ShpFile};
 use ra_layout::{
     rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics, LayoutSnapshot,
     Point2, RectPx, COMMAND_BAR_BUTTON_IDS, COMMAND_BAR_BUTTON_COUNT, SIDEBAR_TAB_COUNT,
@@ -36,8 +36,10 @@ pub struct BattleHudChrome {
     pub credits: Option<DecodedUiSprite>,
     /// `top.shp`。
     pub top: Option<DecodedUiSprite>,
-    /// `radar.shp`（雷达未开时用末帧）。
+    /// `radar.shp` / `radary.shp` 关图帧（首帧阵营徽）。
     pub radar: Option<DecodedUiSprite>,
+    /// 雷达开图动画帧（色帧中间段；末帧关屏黑块不收录）。
+    pub radar_open: Vec<DecodedUiSprite>,
     /// `side1.shp`。
     pub side1: Option<DecodedUiSprite>,
     /// `side2.shp`（平铺）。
@@ -141,10 +143,103 @@ fn try_decode(source: &GameAssetSource, mixes: &[&str], name: &str, pal: &str, f
     }
 }
 
-fn radar_frame_index(_source: &GameAssetSource, _mix: &str) -> u16 {
-    // 未建雷达时原版显示阵营徽（盟军鹰 / 苏军镰锤 / 尤里 Y），在雷达 SHP 首帧。
-    // 末帧多为关屏黑块，不能当默认态。
-    0
+/// 雷达 SHP 色帧中「开图」动画的下标区间（不含首帧徽与末帧关屏）。
+///
+/// `body_count` 为 [`shp_body_frame_count`]（不含落影半幅）。
+pub fn radar_open_frame_range(body_count: usize) -> std::ops::Range<usize> {
+    if body_count <= 1 {
+        1..1
+    } else if body_count == 2 {
+        1..2
+    } else {
+        1..(body_count - 1)
+    }
+}
+
+/// 开图动画帧推进间隔（逻辑 tick）。
+pub const RADAR_OPEN_FRAME_TICKS: u64 = 2;
+
+fn decode_radar_bundle(
+    source: &GameAssetSource,
+    mixes: &[&str],
+    shp_name: &str,
+    pal_name: &str,
+) -> Result<(DecodedUiSprite, Vec<DecodedUiSprite>), String> {
+    let mut last_err = format!("{shp_name}: 不可读");
+    for mix in mixes {
+        let hit = match source.resolve_preferring(shp_name, mix) {
+            Some(h) => h,
+            None => {
+                last_err = format!("{shp_name}: 不可读（prefer {mix}）");
+                continue;
+            }
+        };
+        let shp = match ShpFile::parse(&hit.bytes) {
+            Ok(s) => s,
+            Err(e) => {
+                last_err = format!("{shp_name}: SHP 解析失败 · {e}");
+                continue;
+            }
+        };
+        if shp.frames.is_empty() {
+            last_err = format!("{shp_name}: SHP 无帧");
+            continue;
+        }
+        let pal_hit = match source.resolve_preferring(pal_name, mix) {
+            Some(h) => h,
+            None => {
+                last_err = format!("{pal_name}: 调色板不可读（prefer {mix}）");
+                continue;
+            }
+        };
+        let palette = match Palette::parse(&pal_hit.bytes) {
+            Ok(p) => p,
+            Err(e) => {
+                last_err = format!("{pal_name}: 解析失败 · {e}");
+                continue;
+            }
+        };
+        let body = shp_body_frame_count(&shp.frames).max(1).min(shp.frames.len());
+        let closed_frame = &shp.frames[0];
+        let closed_image = match frame_to_canvas_rgba(&shp, closed_frame, &palette) {
+            Some(img) => img,
+            None => {
+                last_err = format!("{shp_name}#0: 画布 RGBA 构造失败");
+                continue;
+            }
+        };
+        let closed = DecodedUiSprite {
+            label: format!("{shp_name}#0"),
+            image: closed_image,
+            origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
+            frame: 0,
+            canvas: (shp.width, shp.height),
+            frame_rect: (
+                closed_frame.frame_x,
+                closed_frame.frame_y,
+                closed_frame.frame_width,
+                closed_frame.frame_height,
+            ),
+        };
+        let mut open = Vec::new();
+        for idx in radar_open_frame_range(body) {
+            let frame = &shp.frames[idx];
+            let Some(image) = frame_to_canvas_rgba(&shp, frame, &palette)
+            else {
+                continue;
+            };
+            open.push(DecodedUiSprite {
+                label: format!("{shp_name}#{idx}"),
+                image,
+                origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
+                frame: idx as u16,
+                canvas: (shp.width, shp.height),
+                frame_rect: (frame.frame_x, frame.frame_y, frame.frame_width, frame.frame_height),
+            });
+        }
+        return Ok((closed, open));
+    }
+    Err(last_err)
 }
 
 /// 按本地阵营解码对局 HUD chrome。
@@ -177,6 +272,7 @@ pub fn decode_battle_hud_chrome_with(
             credits: None,
             top: None,
             radar: None,
+            radar_open: Vec::new(),
             side1: None,
             side2: None,
             side3: None,
@@ -201,7 +297,6 @@ pub fn decode_battle_hud_chrome_with(
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
-    let radar_frame = radar_frame_index(source, &mix);
     let mut tabs = [None, None, None, None];
     for (i, slot) in tabs.iter_mut().enumerate() {
         let name = format!("tab{i:02}.shp");
@@ -223,11 +318,16 @@ pub fn decode_battle_hud_chrome_with(
     }
     // 按 `YuriFileNames` 优先，再试另一套雷达文件名（模组 sidec 包常与 flags 不一致）。
     let mut radar = None;
+    let mut radar_open = Vec::new();
     let mut radar_errors = Vec::new();
     for (radar_shp, radar_pal) in chrome.radar_shp_pal_candidates() {
-        if let Some(s) = try_decode(source, &mixes, radar_shp, radar_pal, radar_frame, &mut radar_errors) {
-            radar = Some(s);
-            break;
+        match decode_radar_bundle(source, &mixes, radar_shp, radar_pal) {
+            Ok((closed, open)) => {
+                radar = Some(closed);
+                radar_open = open;
+                break;
+            }
+            Err(e) => radar_errors.push(e),
         }
     }
     if radar.is_none() {
@@ -239,6 +339,7 @@ pub fn decode_battle_hud_chrome_with(
         credits: try_decode(source, &mixes, "credits.shp", BATTLE_HUD_PAL, 0, &mut errors),
         top: try_decode(source, &mixes, "top.shp", BATTLE_HUD_PAL, 0, &mut errors),
         radar,
+        radar_open,
         side1: try_decode(source, &mixes, "side1.shp", BATTLE_HUD_PAL, 0, &mut errors),
         side2: try_decode(source, &mixes, "side2.shp", BATTLE_HUD_PAL, 0, &mut errors),
         side3: try_decode(source, &mixes, "side3.shp", BATTLE_HUD_PAL, 0, &mut errors),
@@ -506,6 +607,8 @@ pub fn blit_battle_hud_chrome_with_state(
         false,
         false,
         false,
+        false,
+        0,
         [true; SIDEBAR_TAB_COUNT],
     );
 }
@@ -515,6 +618,8 @@ pub fn blit_battle_hud_chrome_with_state(
 /// `tabs_visible`：无对应可建造基础的分类页签不绘制。
 ///
 /// `repair_active` / `sell_active`：侧栏工具切换态，贴 `repair`/`sell` 按下帧。
+///
+/// `radar_online`：本机有电且有雷达时播开图帧，否则贴关图徽。
 pub fn blit_battle_hud_chrome_ex(
     page: &mut RgbaImage,
     chrome: &BattleHudChrome,
@@ -524,6 +629,8 @@ pub fn blit_battle_hud_chrome_ex(
     pause_menu: bool,
     repair_active: bool,
     sell_active: bool,
+    radar_online: bool,
+    tick: u64,
     tabs_visible: [bool; SIDEBAR_TAB_COUNT],
 ) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
@@ -562,7 +669,13 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = &chrome.top {
         blit_chrome_slot(page, &s.image, top);
     }
-    if let Some(s) = &chrome.radar {
+    let radar_sprite = if radar_online && !chrome.radar_open.is_empty() {
+        let idx = ((tick / RADAR_OPEN_FRAME_TICKS) as usize) % chrome.radar_open.len();
+        chrome.radar_open.get(idx).or(chrome.radar.as_ref())
+    } else {
+        chrome.radar.as_ref()
+    };
+    if let Some(s) = radar_sprite {
         blit_chrome_slot(page, &s.image, radar);
     }
     if let Some(s) = &chrome.side1 {
@@ -1149,6 +1262,14 @@ mod tests {
     use ra_layout::{
         cameo_slot_rect, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
     };
+
+    #[test]
+    fn radar_open_frame_range_skips_emblem_and_blank_tail() {
+        assert_eq!(radar_open_frame_range(0), 1..1);
+        assert_eq!(radar_open_frame_range(1), 1..1);
+        assert_eq!(radar_open_frame_range(2), 1..2);
+        assert_eq!(radar_open_frame_range(8), 1..7);
+    }
 
     #[test]
     fn hit_tabs_and_cameo_slots() {
