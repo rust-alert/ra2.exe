@@ -32,6 +32,11 @@ pub(crate) fn is_power_plant(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.structures.get(type_id).is_some_and(|s| s.power.output > 0)
 }
 
+/// 建筑是否雷达（`Radar=yes`）。
+pub(crate) fn is_radar(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    defs.structures.get(type_id).is_some_and(|s| s.radar)
+}
+
 /// 建筑是否声明需电前置。
 pub(crate) fn requires_power_plant(defs: &RuntimeDefinitions, type_id: &str) -> bool {
     defs.structures.get(type_id).is_some_and(|s| s.power.requires_power)

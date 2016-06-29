@@ -69,6 +69,8 @@ pub struct BattleCapabilitiesSnapshot {
     pub has_vehicle_factory: bool,
     /// 是否仍有存活飞行器工厂（机场 / 停机坪）。
     pub has_aircraft_factory: bool,
+    /// 是否仍有存活雷达建筑（侧栏开图；低电时 HUD 仍应关图）。
+    pub has_radar: bool,
     /// 当前选中。
     pub selected: Vec<EntityId>,
     /// 首个可部署选中项（若有）。
@@ -114,6 +116,7 @@ impl BattleSession {
         let has_infantry_factory = self.world.find_factory(house.as_ref(), TechnoKind::Infantry).is_some();
         let has_vehicle_factory = self.world.find_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
         let has_aircraft_factory = self.world.find_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
+        let has_radar = self.world.house_has_living_radar(house.as_ref());
         let infantry_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Infantry).is_some();
         let vehicle_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Vehicle).is_some();
         let aircraft_idle = self.world.find_idle_factory(house.as_ref(), TechnoKind::Aircraft).is_some();
@@ -201,6 +204,7 @@ impl BattleSession {
             has_infantry_factory,
             has_vehicle_factory,
             has_aircraft_factory,
+            has_radar,
             selected: selected.to_vec(),
             deploy,
             build_items,

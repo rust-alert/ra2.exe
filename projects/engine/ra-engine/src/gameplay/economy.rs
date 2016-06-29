@@ -6,7 +6,7 @@ use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
 use crate::{
-    gameplay::{is_construction_yard, is_harvester, is_power_plant, is_refinery},
+    gameplay::{is_construction_yard, is_harvester, is_power_plant, is_radar, is_refinery},
     state::{
         ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS,
         components::{Health, Identity, MovementState, Owner, Transform},
@@ -279,6 +279,20 @@ impl crate::state::BattleState {
                 && self
                     .ecs_get::<Identity>(id)
                     .map(|i| is_power_plant(&self.definitions, &i.type_id))
+                    .unwrap_or(false)
+        })
+    }
+
+    /// 本 house 是否仍有存活雷达建筑（`Radar=yes`）。
+    pub(crate) fn house_has_living_radar(&self, house: &str) -> bool {
+        self.entities.iter().any(|e| {
+            let id = e.id;
+            !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| is_radar(&self.definitions, &i.type_id))
                     .unwrap_or(false)
         })
     }

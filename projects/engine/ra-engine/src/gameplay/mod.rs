@@ -29,7 +29,7 @@ pub(crate) use ai_triggers::tick_ai_triggers;
 pub use ai_triggers::AiTriggerRuntime;
 pub(crate) use definitions_query::{
     building_power, deploy_into_type, factory_matches_category, factory_matches_unit, is_agent, is_capturable,
-    is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_refinery, owner_allows,
+    is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_radar, is_refinery, owner_allows,
     requires_power_plant, starting_mcv_type_for_house,
 };
 pub(crate) use rules::{full_verses, verses_for};
@@ -38,7 +38,10 @@ pub use script_teams::ScriptTeamRuntime;
 pub(crate) use tech_tree::{build_limit_reached, is_type_eligible, living_structure_keys, TechTreePlayer};
 pub(crate) use production::produce_ticks_for;
 pub(crate) use repair::tick_repairs;
-pub use powers::{LightningStormState, start_lightning_storm, tick_lightning_storm};
+pub use powers::{
+    FireSuperWeaponError, LightningStormState, SuperWeaponCharge, SuperWeaponRuntime, start_lightning_storm,
+    tick_lightning_storm, tick_super_weapon_charges, try_fire_super_weapon,
+};
 pub use terrain_spawn::{
     TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample,
     terrain_spawner_frame_signature,
