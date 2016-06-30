@@ -172,7 +172,13 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: 
     else {
         return Vec::new();
     };
-    let Some((x, y)) = find_open_near(world, yx, yy)
+    let foundation = world
+        .definitions
+        .structures
+        .get(type_id)
+        .map(|s| s.foundation.clone())
+        .unwrap_or_default();
+    let Some((x, y)) = find_open_near(world, yx, yy, foundation.width, foundation.height)
     else {
         return Vec::new();
     };
@@ -333,34 +339,30 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
     })
 }
 
-fn find_open_near(world: &BattleState, fx: u16, fy: u16) -> Option<(u16, u16)> {
-    const DELTAS: [(i32, i32); 16] = [
-        (1, 0),
-        (0, 1),
-        (-1, 0),
-        (0, -1),
-        (1, 1),
-        (-1, 1),
-        (-1, -1),
-        (1, -1),
-        (2, 0),
-        (0, 2),
-        (-2, 0),
-        (0, -2),
-        (2, 1),
-        (1, 2),
-        (-2, 1),
-        (1, -2),
-    ];
-    for (dx, dy) in DELTAS {
-        let x = i32::from(fx) + dx;
-        let y = i32::from(fy) + dy;
-        if x < 0 || y < 0 {
-            continue;
-        }
-        let (x, y) = (x as u16, y as u16);
-        if world.can_place_structure(x, y) {
-            return Some((x, y));
+/// 在建造场附近按完整占地找可放置格（左上角）。
+///
+/// 旧逻辑只查邻格 `1x1`，真实 `Foundation=2x2` / `3x4` 会在 `PlaceBuilding` 被拒，
+/// 表现为 AI 有钱却造不出建筑、只刷已有兵营的大兵。
+fn find_open_near(world: &BattleState, fx: u16, fy: u16, width: u16, height: u16) -> Option<(u16, u16)> {
+    let width = width.max(1);
+    let height = height.max(1);
+    const MAX_RADIUS: i32 = 16;
+    for radius in 1..=MAX_RADIUS {
+        for dx in -radius..=radius {
+            for dy in -radius..=radius {
+                if dx.abs() != radius && dy.abs() != radius {
+                    continue;
+                }
+                let x = i32::from(fx) + dx;
+                let y = i32::from(fy) + dy;
+                if x < 0 || y < 0 {
+                    continue;
+                }
+                let (x, y) = (x as u16, y as u16);
+                if world.can_place_structure_footprint(x, y, width, height) {
+                    return Some((x, y));
+                }
+            }
         }
     }
     None
