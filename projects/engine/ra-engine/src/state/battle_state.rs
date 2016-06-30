@@ -119,7 +119,7 @@ pub struct BattleState {
     pub terrain_spawners: Vec<crate::gameplay::TerrainSpawnerState>,
     /// 本局写入后待叠画的 overlay 格（产矿等；呈现层 `take_overlay_paint_dirty` 消费）。
     pub(crate) overlay_paint_dirty: Vec<(u16, u16)>,
-    /// 房主变更后待重绘的建筑实体（占领等；呈现层 `take_structure_paint_dirty` 消费）。
+    /// 待重绘的建筑实体（放置 / 部署 / 占领等；呈现层 `take_structure_paint_dirty` 消费）。
     pub(crate) structure_paint_dirty: Vec<EntityId>,
     /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
     pub match_seed: u64,

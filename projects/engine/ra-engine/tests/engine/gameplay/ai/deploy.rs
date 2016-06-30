@@ -63,4 +63,6 @@ fn ai_deploys_mcv_via_command() {
     let identity = session.expect_battle().world.ecs_identity(mcv).expect("id");
     assert_eq!(identity.1, MapEntityKind::Structure);
     assert_eq!(identity.0.as_ref(), "NACNST");
+    let paint = session.expect_battle_mut().world.take_structure_paint_dirty();
+    assert!(paint.contains(&mcv), "Deploy must dirty structure paint so yards appear on preview");
 }

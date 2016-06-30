@@ -66,4 +66,6 @@ fn ai_places_power_near_yard() {
     let dist = (i32::from(px) - 8).unsigned_abs() + (i32::from(py) - 8).unsigned_abs();
     assert!(dist >= 1 && dist <= 3);
     assert_eq!(session.expect_battle_mut().world.house_funds("Soviets"), Some(10_000 - 600));
+    let paint = session.expect_battle_mut().world.take_structure_paint_dirty();
+    assert!(paint.contains(&power_id), "AI PlaceBuilding must dirty structure paint");
 }
