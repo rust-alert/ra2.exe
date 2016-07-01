@@ -14,7 +14,7 @@ fn ai_deploys_mcv_via_command() {
         b"[VehicleTypes]\n0=SMCV\n\
 [BuildingTypes]\n0=NACNST\n1=GACNST\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Soviets\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
-[NACNST]\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nFoundation=4x4\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
     )
     .unwrap();
@@ -63,6 +63,10 @@ fn ai_deploys_mcv_via_command() {
     let identity = session.expect_battle().world.ecs_identity(mcv).expect("id");
     assert_eq!(identity.1, MapEntityKind::Structure);
     assert_eq!(identity.0.as_ref(), "NACNST");
+    let world = &session.expect_battle().world;
+    assert!(!world.pass_grid.is_passable(8, 8));
+    assert!(!world.pass_grid.is_passable(11, 11), "Deploy must seal full Foundation");
+    assert!(world.pass_grid.is_passable(12, 12));
     let paint = session.expect_battle_mut().world.take_structure_paint_dirty();
     assert!(paint.contains(&mcv), "Deploy must dirty structure paint so yards appear on preview");
 }

@@ -537,6 +537,16 @@ impl crate::state::BattleState {
                         movement.path.clear();
                         movement.move_accum = 0;
                     });
+                    // 展开后按建造场 Foundation 封通行，否则邻格仍可走/可放，后续建筑会叠进院子。
+                    if let Some(xf) = self.ecs_get::<Transform>(dirty_id).copied() {
+                        let foundation = self
+                            .definitions
+                            .structures
+                            .get(building_type.as_ref())
+                            .map(|s| s.foundation.clone())
+                            .unwrap_or_default();
+                        self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
+                    }
                     self.mark_entity_dirty(dirty_id);
                     // 展开后离开移动单位层，需烤进建筑底图（含 AI 部署，不依赖本机 deploy_watch）。
                     self.structure_paint_dirty.push(dirty_id);
