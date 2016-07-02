@@ -69,6 +69,42 @@ fn place_power_deducts_funds_and_spawns_structure() {
 }
 
 #[test]
+fn map_seeded_structure_seals_full_foundation() {
+    let rules_text = b"[BuildingTypes]\n0=GACNST\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=3x3\n";
+    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
+    let rules_db = RulesSystem {
+        edition: GameEdition::Ra2,
+        rules: rules.clone(),
+        art: IniDocument::default(),
+        overlay_types: OverlayTypeRegistry::default(),
+        color_schemes: ColorSchemes::default(),
+        countries: CountryRegistry::default(),
+        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        warheads: WarheadRegistry::default(),
+    };
+    let mut map = MapInfo::empty(GameEdition::Ra2, "seed-foundation");
+    map.width = 16;
+    map.height = 16;
+    map.entities = vec![MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 4,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    }];
+    let world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    assert!(!world.pass_grid.is_passable(4, 4));
+    assert!(!world.pass_grid.is_passable(6, 6), "map seed must seal full Foundation");
+    assert!(world.pass_grid.is_passable(7, 7));
+}
+
+#[test]
 fn place_building_rejects_when_footprint_overlaps_obstacle() {
     let mut world = yard_world();
     // 电厂 2x2：左上 (3,3) 会盖住已有建造场 (4,4)。

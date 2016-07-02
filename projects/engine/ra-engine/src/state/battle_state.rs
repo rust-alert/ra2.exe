@@ -240,9 +240,23 @@ impl BattleState {
         };
         for bundle in seed_bundles {
             let id = bundle.identity.entity_id;
+            let kind = bundle.identity.kind;
+            let type_id = Arc::clone(&bundle.identity.type_id);
+            let x = bundle.transform.x;
+            let y = bundle.transform.y;
             let index = world.spawn_from_bundle(bundle);
             world.repath_entity_at(index);
             world.mark_entity_dirty(id);
+            // 地图预放建筑也要按 Foundation 封满，不能只堵左上角一格。
+            if kind == MapEntityKind::Structure {
+                let foundation = world
+                    .definitions
+                    .structures
+                    .get(type_id.as_ref())
+                    .map(|s| s.foundation.clone())
+                    .unwrap_or_default();
+                world.seal_structure_footprint(x, y, foundation.width, foundation.height);
+            }
         }
         world.rehash();
         world
