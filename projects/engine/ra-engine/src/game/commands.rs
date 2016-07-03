@@ -593,6 +593,33 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
+                    let needle = type_id.to_ascii_uppercase();
+                    // 必须先在建造场完工（Produce），再点选落位；费用已在排队时扣除。
+                    let Some(yard_id) = self.entities.iter().find_map(|e| {
+                        let id = e.id;
+                        if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                            return None;
+                        }
+                        if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house.as_ref()).unwrap_or(false) {
+                            return None;
+                        }
+                        if !self
+                            .ecs_get::<Identity>(id)
+                            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, &i.type_id))
+                            .unwrap_or(false)
+                        {
+                            return None;
+                        }
+                        self
+                            .ecs_get::<ProductionQueue>(id)
+                            .and_then(|q| q.ready.as_ref())
+                            .is_some_and(|r| r.as_ref() == needle.as_str())
+                            .then_some(id)
+                    })
+                    else {
+                        self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    };
                     let foundation = self
                         .definitions
                         .structures
@@ -603,17 +630,14 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    let cost = tt.cost;
-                    if self.players[player_index].funds < cost {
-                        self.reject(command_index, CommandRejectReason::InsufficientFunds);
-                        continue;
-                    }
-                    let power = building_power(&self.definitions, type_id);
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor.clone();
+                    let _ = self.with_production_mut(yard_id, |queue| {
+                        queue.ready = None;
+                    });
+                    self.mark_entity_dirty(yard_id);
+                    let power = building_power(&self.definitions, type_id);
                     let id = self.alloc_entity_id();
-                    self.players[player_index].funds -= cost;
-                    self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_add(cost);
                     self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
                     self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
                     self.players[player_index].built = self.players[player_index].built.saturating_add(1);
@@ -646,7 +670,7 @@ impl crate::state::BattleState {
                             techno_kind: Some(TechnoKind::Building),
                         },
                         attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
-                        production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+                        production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0 },
                     });
@@ -671,13 +695,27 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     };
-                    if !matches!(tt.class, TechnoClass::Infantry | TechnoClass::Vehicle) {
+                    if !matches!(
+                        tt.class,
+                        TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft | TechnoClass::Building
+                    ) {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    }
+                    if tt.class == TechnoClass::Building && is_construction_yard(&self.definitions, type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
                     let living = living_structure_keys(self, house.as_ref());
                     if !is_type_eligible(&self.definitions, tech_player, &living, type_id) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
+                        continue;
+                    }
+                    if tt.class == TechnoClass::Building
+                        && requires_power_plant(&self.definitions, type_id)
+                        && !self.house_has_living_power(&house)
+                    {
+                        self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
                     if build_limit_reached(self, house.as_ref(), tt) {
@@ -736,12 +774,16 @@ impl crate::state::BattleState {
                         if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house.as_ref()).unwrap_or(false) {
                             return None;
                         }
-                        let matches = self
-                            .ecs_get::<ProductionQueue>(id)
-                            .and_then(|q| q.item.as_ref())
-                            .map(|(queued, _)| queued.as_ref() == needle.as_str())
-                            .unwrap_or(false);
-                        matches.then_some(id)
+                        let Some(queue) = self.ecs_get::<ProductionQueue>(id)
+                        else {
+                            return None;
+                        };
+                        let in_progress = queue
+                            .item
+                            .as_ref()
+                            .is_some_and(|(queued, _)| queued.as_ref() == needle.as_str());
+                        let ready = queue.ready.as_ref().is_some_and(|r| r.as_ref() == needle.as_str());
+                        (in_progress || ready).then_some(id)
                     })
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
@@ -755,6 +797,7 @@ impl crate::state::BattleState {
                         .unwrap_or(0);
                     let _ = self.with_production_mut(factory_id, |queue| {
                         queue.item = None;
+                        queue.ready = None;
                     });
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);

@@ -53,7 +53,12 @@ pub(crate) fn is_production_factory(defs: &RuntimeDefinitions, type_id: &str) ->
 }
 
 /// 工厂是否可生产给定 techno 大类。
+///
+/// 建筑由建造场产出（`ConstructionYard=yes`），不依赖 `Factory=BuildingType`。
 pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: &str, class: TechnoClass) -> bool {
+    if class == TechnoClass::Building {
+        return is_construction_yard(defs, factory_type);
+    }
     let Some(cat) = class.production_category()
     else {
         return false;

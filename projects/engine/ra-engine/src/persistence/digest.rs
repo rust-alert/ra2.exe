@@ -35,6 +35,7 @@ impl BattleState {
             let attack_damage = self.ecs_get::<CombatStats>(id).map(|s| s.attack_damage).unwrap_or(0);
             let attack_cooldown_max = self.ecs_get::<CombatStats>(id).map(|s| s.attack_cooldown_max).unwrap_or(0);
             let produce_item = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.item.clone());
+            let produce_ready = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.ready.clone());
             let rally_x = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_x);
             let rally_y = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_y);
             let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone());
@@ -84,6 +85,12 @@ impl BattleState {
             if let Some((ref qid, rem)) = produce_item {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(rem));
                 for b in qid.as_bytes() {
+                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+                }
+            }
+            if let Some(ref ready) = produce_ready {
+                h = h.wrapping_mul(1099511628211).wrapping_add(3);
+                for b in ready.as_bytes() {
                     h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
                 }
             }

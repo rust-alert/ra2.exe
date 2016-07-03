@@ -183,11 +183,20 @@ impl BattleSession {
                     return None;
                 }
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                let (type_id, remaining_ticks) = queue.item.as_ref()?;
+                if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
+                    return Some(SnapshotProduceQueue {
+                        factory: id,
+                        type_id: type_id.clone(),
+                        remaining_ticks: *remaining_ticks,
+                        rally_x: queue.rally_x,
+                        rally_y: queue.rally_y,
+                    });
+                }
+                let ready = queue.ready.as_ref()?;
                 Some(SnapshotProduceQueue {
                     factory: id,
-                    type_id: type_id.clone(),
-                    remaining_ticks: *remaining_ticks,
+                    type_id: ready.clone(),
+                    remaining_ticks: 0,
                     rally_x: queue.rally_x,
                     rally_y: queue.rally_y,
                 })
@@ -282,6 +291,10 @@ fn project_build_items(
     has_yard: bool,
     has_power: bool,
 ) -> Vec<CapabilityItem> {
+    let ready = world.house_ready_building(player.house);
+    let yard_idle = world
+        .find_idle_factory(player.house, ra_assets::TechnoKind::Building)
+        .is_some();
     let mut items: Vec<CapabilityItem> = world
         .definitions
         .structures
@@ -296,8 +309,25 @@ fn project_build_items(
             };
             let requires_power = requires_power_plant(&world.definitions, &s.type_key);
             let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
-            let (enabled, disabled_reason) =
-                evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit);
+            let key = s.type_key.as_str();
+            let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
+                // 已完工：可点选落位，不再检查资金。
+                (true, None)
+            } else if world.entities.iter().any(|e| {
+                let id = e.id;
+                !world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != player.house)
+                    && world
+                        .ecs_get::<ProductionQueue>(id)
+                        .and_then(|q| q.item.as_ref())
+                        .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
+            }) {
+                // 建造中：侧栏可点以取消。
+                (true, None)
+            } else if has_yard && !yard_idle {
+                (false, Some(CommandRejectReason::QueueFull))
+            } else {
+                evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
+            };
             CapabilityItem {
                 type_id: Arc::<str>::from(s.type_key.as_str()),
                 cost,

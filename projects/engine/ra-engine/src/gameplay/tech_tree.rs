@@ -208,6 +208,7 @@ mod tests {
             requires_stolen_allied_tech: false,
             requires_stolen_soviet_tech: false,
             requires_stolen_third_tech: false,
+            pixel_selection_bracket_delta: 0,
         }
     }
 

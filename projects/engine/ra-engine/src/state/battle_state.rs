@@ -192,7 +192,7 @@ impl BattleState {
                     techno_kind,
                 },
                 attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
-                production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+                production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
             });
@@ -1094,7 +1094,7 @@ impl BattleState {
                 techno_kind: Some(techno_class_to_kind(class)),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
-            production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+            production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });

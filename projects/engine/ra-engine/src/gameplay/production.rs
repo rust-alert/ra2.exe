@@ -32,7 +32,8 @@ pub(crate) fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
 
 impl crate::state::BattleState {
     pub(crate) fn advance_production(&mut self) {
-        let mut spawns: Vec<(usize, Arc<str>)> = Vec::new();
+        let mut unit_spawns: Vec<(usize, Arc<str>)> = Vec::new();
+        let mut building_ready: Vec<(usize, Arc<str>)> = Vec::new();
         let n = self.entities.len();
         for index in 0..n {
             let id = self.entities[index].id;
@@ -55,10 +56,29 @@ impl crate::state::BattleState {
                 })
                 .flatten();
             if let Some(type_id) = finished {
-                spawns.push((index, type_id));
+                let is_building = self
+                    .definitions
+                    .techno
+                    .get(type_id.as_ref())
+                    .is_some_and(|t| t.class == ra_types::TechnoClass::Building);
+                if is_building {
+                    building_ready.push((index, type_id));
+                } else {
+                    unit_spawns.push((index, type_id));
+                }
             }
         }
-        for (factory_index, type_id) in spawns {
+        for (factory_index, type_id) in building_ready {
+            let factory_id = self.entities[factory_index].id;
+            let _ = self.with_production_mut(factory_id, |queue| {
+                queue.ready = Some(type_id.clone());
+            });
+            self.mark_entity_dirty(factory_id);
+            if let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| o.house.clone()) {
+                self.push_eva_cue(owner.as_ref(), "EVA_ConstructionComplete");
+            }
+        }
+        for (factory_index, type_id) in unit_spawns {
             self.spawn_produced_unit(factory_index, type_id.as_ref());
         }
     }
@@ -142,7 +162,7 @@ impl crate::state::BattleState {
                 techno_kind: Some(techno_kind),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
-            production: ProductionQueue { item: None, rally_x: None, rally_y: None },
+            production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
@@ -198,11 +218,35 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(false)
+                && self
+                    .ecs_get::<ProductionQueue>(id)
+                    .map(|q| q.item.is_none() && q.ready.is_none())
+                    .unwrap_or(false)
                 && self
                     .ecs_get::<Identity>(id)
                     .map(|i| factory_matches_unit(&self.definitions, &i.type_id, class))
                     .unwrap_or(false)
+        })
+    }
+
+    /// 本阵营建造场是否持有待放置的完工建筑。
+    pub fn house_ready_building(&self, house: &str) -> Option<std::sync::Arc<str>> {
+        self.entities.iter().find_map(|e| {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return None;
+            }
+            if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+                return None;
+            }
+            if !self
+                .ecs_get::<Identity>(id)
+                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, &i.type_id))
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready.clone())
         })
     }
 }
@@ -252,6 +296,7 @@ mod tests {
             requires_stolen_allied_tech: false,
             requires_stolen_soviet_tech: false,
             requires_stolen_third_tech: false,
+            pixel_selection_bracket_delta: 0,
         }
     }
 
