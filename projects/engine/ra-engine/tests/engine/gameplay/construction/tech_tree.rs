@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_engine::{CommandRejectReason, GameCommand, BattleState, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -76,6 +76,17 @@ fn allied_build_bar_hides_soviet_structures() {
 #[test]
 fn power_unlocks_prerequisite_power_buildings() {
     let mut world = allied_yard_world();
+    world.push_command(GameCommand::Produce {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+    });
+    world.advance_tick();
+    for _ in 0..=PRODUCE_TICKS {
+        if world.house_ready_building("Americans").is_some() {
+            break;
+        }
+        world.advance_tick();
+    }
     world.push_command(GameCommand::PlaceBuilding {
         player: PlayerId(0),
         type_id: "GAPOWR".into(),
@@ -112,6 +123,17 @@ fn place_rejects_locked_prerequisite() {
 #[test]
 fn losing_power_hides_power_gated_buildings_again() {
     let mut world = allied_yard_world();
+    world.push_command(GameCommand::Produce {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+    });
+    world.advance_tick();
+    for _ in 0..=PRODUCE_TICKS {
+        if world.house_ready_building("Americans").is_some() {
+            break;
+        }
+        world.advance_tick();
+    }
     world.push_command(GameCommand::PlaceBuilding {
         player: PlayerId(0),
         type_id: "GAPOWR".into(),

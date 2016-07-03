@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_engine::{CommandRejectReason, GameCommand, BattleState, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -41,6 +41,17 @@ fn yard_with_power() -> BattleState {
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
+    world.push_command(GameCommand::Produce {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+    });
+    world.advance_tick();
+    for _ in 0..=PRODUCE_TICKS {
+        if world.house_ready_building("Americans").is_some() {
+            break;
+        }
+        world.advance_tick();
+    }
     world.push_command(GameCommand::PlaceBuilding {
         player: PlayerId(0),
         type_id: "GAPOWR".into(),
