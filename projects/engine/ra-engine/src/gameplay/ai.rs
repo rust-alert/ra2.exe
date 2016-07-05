@@ -69,7 +69,7 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
     out
 }
 
-/// 有建造场且无供电时，在建造场邻格放置一座电厂。
+/// 有建造场且无供电时：若电厂已完工则落位，否则排队建造。
 pub fn place_power_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_yard(world, house) || house_has_power(world, house) {
         return Vec::new();
@@ -78,10 +78,10 @@ pub fn place_power_commands(world: &BattleState, house: &str, player: PlayerId) 
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, power_id)
+    build_or_place(world, house, player, power_id)
 }
 
-/// 有供电且无兵营时，在建造场邻格放置一座兵营。
+/// 有供电且无兵营时：若兵营已完工则落位，否则排队建造。
 pub fn place_barracks_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
@@ -90,10 +90,10 @@ pub fn place_barracks_commands(world: &BattleState, house: &str, player: PlayerI
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, barracks_id)
+    build_or_place(world, house, player, barracks_id)
 }
 
-/// 有供电且无战车工厂时，在建造场邻格放置一座战车工厂。
+/// 有供电且无战车工厂时：若车厂已完工则落位，否则排队建造。
 pub fn place_war_factory_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
@@ -102,10 +102,10 @@ pub fn place_war_factory_commands(world: &BattleState, house: &str, player: Play
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, wf_id)
+    build_or_place(world, house, player, wf_id)
 }
 
-/// 有供电且无矿场时，在建造场邻格放置一座矿场。
+/// 有供电且无矿场时：若矿场已完工则落位，否则排队建造。
 pub fn place_refinery_commands(world: &BattleState, house: &str, player: PlayerId) -> Vec<GameCommand> {
     if !house_has_power(world, house) || house_has_refinery(world, house) {
         return Vec::new();
@@ -114,7 +114,7 @@ pub fn place_refinery_commands(world: &BattleState, house: &str, player: PlayerI
     else {
         return Vec::new();
     };
-    place_near_yard(world, house, player, refinery_id)
+    build_or_place(world, house, player, refinery_id)
 }
 
 /// 有空闲兵营时生产一名步兵。
@@ -156,7 +156,19 @@ fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit_id: &st
     vec![GameCommand::Produce { player, type_id: unit_id.to_string() }]
 }
 
-fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
+/// 建造场已有该类型完工件则落位，否则在空闲建造场排队 `Produce`。
+fn build_or_place(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
+    let needle = type_id.to_ascii_uppercase();
+    if let Some(ready) = world.house_ready_building(house) {
+        if ready.as_ref() != needle.as_str() {
+            // 另有完工建筑待落位，先不插队。
+            return Vec::new();
+        }
+        return place_near_yard(world, house, player, type_id);
+    }
+    if !house_has_idle_yard(world, house) {
+        return Vec::new();
+    }
     let Some(cost) = world.techno_cost(type_id)
     else {
         return Vec::new();
@@ -168,6 +180,10 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: 
     if funds < cost as i32 {
         return Vec::new();
     }
+    vec![GameCommand::Produce { player, type_id: type_id.to_string() }]
+}
+
+fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
     let Some((yx, yy)) = yard_cell(world, house)
     else {
         return Vec::new();
@@ -294,6 +310,22 @@ where
 
 fn house_has_yard(world: &BattleState, house: &str) -> bool {
     living_house_structure(world, house, |w, i| is_construction_yard(&w.definitions, &i.type_id))
+}
+
+fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
+    world.entities.iter().any(|e| {
+        let id = e.id;
+        !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
+            && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+            && world
+                .ecs_get::<Identity>(id)
+                .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &i.type_id))
+                .unwrap_or(false)
+            && world
+                .ecs_get::<ProductionQueue>(id)
+                .map(|q| q.item.is_none() && q.ready.is_none())
+                .unwrap_or(false)
+    })
 }
 
 fn house_has_power(world: &BattleState, house: &str) -> bool {

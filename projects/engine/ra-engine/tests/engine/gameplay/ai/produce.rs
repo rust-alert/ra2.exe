@@ -3,7 +3,7 @@
 use crate::common::test_engine;
 use ra_adaptor::RulesSystem;
 use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, Session};
+use ra_engine::{BattleState, Session, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -73,7 +73,17 @@ fn ai_places_barracks_and_produces_infantry() {
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_battle_mut().ai_enabled = true;
-    session.tick(&engine.runtime());
+    for _ in 0..(PRODUCE_TICKS + 4) {
+        session.tick(&engine.runtime());
+        if session
+            .expect_battle()
+            .world
+            .find_entity_id_by_owner_type("Soviets", "NAHAND")
+            .is_some()
+        {
+            break;
+        }
+    }
     assert!(
         session.expect_battle_mut().world.find_entity_id_by_owner_type("Soviets", "NAHAND").is_some(),
         "AI should place barracks"
