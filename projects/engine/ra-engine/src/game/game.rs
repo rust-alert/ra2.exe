@@ -839,6 +839,33 @@ impl BattleSession {
         })
     }
 
+    /// 本机建造场是否持有指定类型的待放置完工件。
+    pub fn is_local_ready_to_place(&self, type_id: &str) -> bool {
+        let Some(local_house) = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .map(|p| p.house.clone())
+        else {
+            return false;
+        };
+        self.world
+            .house_ready_building(local_house.as_ref())
+            .is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id))
+    }
+
+    /// 本机建造场当前待放置的完工件类型（若有）。
+    pub fn local_ready_building(&self) -> Option<std::sync::Arc<str>> {
+        let local_house = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .map(|p| p.house.clone())?;
+        self.world.house_ready_building(local_house.as_ref())
+    }
+
     /// 为指定工厂设置集结点（非工厂由世界拒绝）。
     pub fn order_rally(&mut self, selected: &[EntityId], x: u16, y: u16) {
         if self.outcome.is_some() {
@@ -1245,11 +1272,20 @@ impl BattleSession {
             .filter_map(|e| {
                 let id = e.id;
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                let (type_id, remaining_ticks) = queue.item.as_ref()?;
+                if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
+                    return Some(SnapshotProduceQueue {
+                        factory: id,
+                        type_id: type_id.clone(),
+                        remaining_ticks: *remaining_ticks,
+                        rally_x: queue.rally_x,
+                        rally_y: queue.rally_y,
+                    });
+                }
+                let ready = queue.ready.as_ref()?;
                 Some(SnapshotProduceQueue {
                     factory: id,
-                    type_id: type_id.clone(),
-                    remaining_ticks: *remaining_ticks,
+                    type_id: ready.clone(),
+                    remaining_ticks: 0,
                     rally_x: queue.rally_x,
                     rally_y: queue.rally_y,
                 })
