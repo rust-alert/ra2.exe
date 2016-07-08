@@ -1,10 +1,10 @@
 //! 无窗口遭遇战夹具。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use std::sync::Arc;
 
-use ra_engine::{Engine, EngineConfig, GameCommand, BattleOutcome, BattleState, RenderSnapshot, Session};
+use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
@@ -45,6 +45,29 @@ impl HeadlessCase {
     /// 在指定 tick 之前入队命令；下一次 `tick` 会按产品路径消费。
     pub fn command(&mut self, command: GameCommand) {
         self.session.expect_battle_mut().push_command(command);
+    }
+
+    /// 排队建造至完工再点选落位（费用在 `Produce` 时扣除）。
+    pub fn produce_and_place(&mut self, player: ra_types::PlayerId, type_id: &str, x: u16, y: u16) {
+        use ra_engine::PRODUCE_TICKS;
+        self.command(GameCommand::Produce { player, type_id: type_id.into() });
+        self.advance(1);
+        for _ in 0..=PRODUCE_TICKS {
+            let ready = self
+                .session
+                .expect_battle()
+                .world
+                .players
+                .iter()
+                .find(|p| p.id == player)
+                .and_then(|p| self.session.expect_battle().world.house_ready_building(p.house.as_ref()));
+            if ready.is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
+                break;
+            }
+            self.advance(1);
+        }
+        self.command(GameCommand::PlaceBuilding { player, type_id: type_id.into(), x, y });
+        self.advance(1);
     }
 
     /// 精确推进指定次数，不依赖墙钟、窗口事件或 GPU。
@@ -106,8 +129,8 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -118,8 +141,8 @@ pub fn standard_duel() -> HeadlessCase {
             y: 8,
             facing: 128,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
     ];
     let world = BattleState::new(GameEdition::Ra2, &rules_db, map);
@@ -170,11 +193,11 @@ pub fn yard_open() -> HeadlessCase {
     let slice = alpha_skirmish_v1();
     let rules_text = b"[BuildingTypes]\n0=GACNST\n1=GAPOWR\n2=GAREFN\n3=GAPILE\n\
 [InfantryTypes]\n0=E1\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\n\
-[GAREFN]\nRefinery=yes\nStrength=900\nSight=4\nCost=2000\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\n\
-[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\n";
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
+[GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
+[GAREFN]\nRefinery=yes\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\n\
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n\
+[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\nTechLevel=1\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
@@ -215,13 +238,13 @@ pub fn ai_skirmish_open() -> HeadlessCase {
 [InfantryTypes]\n0=E2\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nArmor=heavy\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
-[NAPOWR]\nPower=200\nOwner=Russians\nStrength=600\nSight=4\nCost=600\nArmor=wood\n\
-[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nArmor=wood\n\
-[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Russians\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\n\
-[NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nArmor=wood\n\
-[E2]\nOwner=Russians\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
+[NAPOWR]\nPower=200\nOwner=Russians\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\n\
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nArmor=wood\nTechLevel=1\n\
+[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Russians\nStrength=1000\nSight=5\nCost=2000\nArmor=wood\nTechLevel=1\n\
+[NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nArmor=wood\nTechLevel=1\n\
+[E2]\nOwner=Russians\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nTechLevel=1\n\
 [90mm]\nDamage=75\nROF=8\nRange=5\nWarhead=AP\n\
 [AP]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n";
     let rules = IniDocument::parse(rules_text).expect("内置测试 INI 必须有效");
@@ -251,8 +274,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 4,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -263,8 +286,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -275,8 +298,8 @@ pub fn ai_skirmish_open() -> HeadlessCase {
             y: 16,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
     ];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);

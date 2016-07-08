@@ -1,19 +1,25 @@
-//! 经 Session 的矿场收入。
+//! 经 Session 建造扣款（矿车采矿入账另测）。
 
-use ra_engine::{GameCommand, ORE_TRIP_TICKS};
 use ra_testing::{alpha_skirmish_v1, yard_open};
 use ra_types::PlayerId;
 
 #[test]
-fn place_refinery_then_ore_trip_credits_through_session() {
+fn produce_and_place_power_and_refinery_deducts_funds() {
     let mut case = yard_open();
     let slice = alpha_skirmish_v1();
-    case.command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
-    case.advance(1);
-    case.command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAREFN".into(), x: 8, y: 4 });
-    case.advance(1);
-    let after_build = case.session.expect_battle_mut().world.house_funds(slice.human_house).expect("应有资金");
+    case.produce_and_place(PlayerId(0), "GAPOWR", 6, 4);
+    case.produce_and_place(PlayerId(0), "GAREFN", 8, 4);
+    let after_build = case
+        .session
+        .expect_battle()
+        .world
+        .house_funds(slice.human_house)
+        .expect("应有资金");
     assert_eq!(after_build, slice.starting_funds - 600 - 2000);
-    case.advance(u64::from(ORE_TRIP_TICKS));
-    assert_eq!(case.session.expect_battle_mut().world.house_funds(slice.human_house), Some(after_build + slice.ore_income_per_trip));
+    assert!(case
+        .session
+        .expect_battle()
+        .world
+        .find_entity_id_by_owner_type(slice.human_house, "GAREFN")
+        .is_some());
 }

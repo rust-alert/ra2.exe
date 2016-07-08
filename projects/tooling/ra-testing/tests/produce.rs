@@ -9,10 +9,8 @@ use ra_types::PlayerId;
 fn produce_infantry_through_session_after_barracks() {
     let mut case = yard_open();
     let slice = alpha_skirmish_v1();
-    case.command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
-    case.advance(1);
-    case.command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPILE".into(), x: 8, y: 4 });
-    case.advance(1);
+    case.produce_and_place(PlayerId(0), "GAPOWR", 6, 4);
+    case.produce_and_place(PlayerId(0), "GAPILE", 8, 4);
     let before = case.session.expect_battle().world.house_funds(slice.human_house).expect("应有资金");
     case.command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     case.advance(1);

@@ -1,5 +1,6 @@
 //! AI 遭遇战：经同一命令路径部署并供电。
 
+use ra_engine::PRODUCE_TICKS;
 use ra_map::MapEntityKind;
 use ra_testing::{ai_skirmish_open, alpha_skirmish_v1};
 
@@ -9,23 +10,20 @@ fn ai_deploys_mcv_and_places_power() {
     let mut case = ai_skirmish_open();
     assert!(case.session.expect_battle_mut().ai_enabled);
     case.advance(1);
-    let yard_id = case
-        .session
-        .expect_battle()
-        .world
-        .find_entity_id_by_owner_type(slice.ai_house, "NACNST")
-        .expect("AI should deploy SMCV into NACNST");
+    let yard_id =
+        case.session.expect_battle().world.find_entity_id_by_owner_type(slice.ai_house, "NACNST").expect("AI should deploy SMCV into NACNST");
     let (type_id, kind) = case.session.expect_battle().world.ecs_identity(yard_id).expect("yard identity");
     assert_eq!(type_id.as_ref(), "NACNST");
     assert_eq!(kind, MapEntityKind::Structure);
 
-    case.advance(1);
+    // Produce 排队 + 完工 + 下一拍 PlaceBuilding。
+    case.advance(u64::from(PRODUCE_TICKS).saturating_add(4));
     let power_id = case
         .session
         .expect_battle()
         .world
         .find_entity_id_by_owner_type(slice.ai_house, "NAPOWR")
-        .expect("AI should place NAPOWR near yard");
+        .expect("AI should place NAPOWR near yard after produce-then-place");
     assert!(case.session.expect_battle().world.has_ecs_entity(power_id));
     assert!(case.observe().outcome.is_none());
 }
