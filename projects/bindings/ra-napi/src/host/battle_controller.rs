@@ -9,38 +9,33 @@ use std::{
 
 use ra_adaptor::RulesSystem;
 use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
-use ra_widgets::{
-    battle_hud::{
-        BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite,
-        hit_at_with_chrome,
-    },
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    compose::{
-        blit_rgba, BattleHudModel, compose_battle_hud_overlay, compose_battle_pause_menu_overlay,
-    },
-    fs_source::GameAssetSource,
-    render::present,
-    skin::decode::DecodedUiSprite,
-    skin::text::{command_button_csf_tooltip, resolve_csf_text},
-};
 use ra_engine::{
-    BattleCapabilitiesSnapshot, CapabilityItem, Engine, HudSnapshot, BattleOutcome, Session, SessionPhase,
-    CELL_MOVE_COST, terrain_spawner_frame_signature,
+    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
+    terrain_spawner_frame_signature,
 };
 use ra_layout::{
-    cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT,
+    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TerrainAnimBank,
-    Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
-    paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba,
-    paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TerrainAnimBank, Theater,
+    WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip, local_size_preview_rect,
+    paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
+use ra_widgets::{
+    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
+    battle_order_icons::load_battle_order_icons,
+    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
+    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
+    fs_source::GameAssetSource,
+    render::present,
+    skin::{
+        decode::DecodedUiSprite,
+        text::{command_button_csf_tooltip, resolve_csf_text},
+    },
+};
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
@@ -48,13 +43,12 @@ use winit::{
 };
 
 use super::{
-    boot::{remap_owner_palette, BootResult},
     battle_input::{
-        edge_scroll_axes, edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-        CameraPanKeys, EdgeScrollCursor, LeftGesture, LeftReleaseAction, ScreenRect,
-        EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, KEYBOARD_PAN_SPEED_PX_PER_SEC,
-        MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX,
+        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
+        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
+        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
     },
+    boot::{BootResult, remap_owner_palette},
     local_player::LocalPlayerController,
 };
 
@@ -66,42 +60,22 @@ const ACTION_LINES_DURATION_TICKS: u64 = 25;
 /// 由权威移动状态计算步兵/载具烤图姿态（含格内滑移偏移）。
 ///
 /// `tick_fraction` 为距下一逻辑 tick 的进度，用于在渲染帧之间继续滑移，避免整格瞬移。
-fn mobile_paint_pose_for(
-    game: &ra_engine::BattleSession,
-    id: EntityId,
-    cell_x: u16,
-    cell_y: u16,
-    tick_fraction: f64,
-) -> MobilePaintPose {
+fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell_x: u16, cell_y: u16, tick_fraction: f64) -> MobilePaintPose {
     let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
-    let moving = game
-        .world
-        .ecs_move_destination(id)
-        .is_some_and(|(dx, _)| dx.is_some())
-        || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
+    let moving =
+        game.world.ecs_move_destination(id).is_some_and(|(dx, _)| dx.is_some()) || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
     let (offset_x, offset_y) = if moving {
         let accum = game.world.ecs_move_accum(id).unwrap_or(0);
         let speed = game.world.ecs_speed(id).unwrap_or(0);
         let path = game.world.ecs_path(id).unwrap_or_default();
-        slide_offset_along_path(
-            cell_x,
-            cell_y,
-            &path,
-            accum,
-            speed,
-            tick_fraction,
-            CELL_MOVE_COST,
-            |x, y| game.world.pass_grid.cell_height(x, y),
-        )
-    } else {
+        slide_offset_along_path(cell_x, cell_y, &path, accum, speed, tick_fraction, CELL_MOVE_COST, |x, y| {
+            game.world.pass_grid.cell_height(x, y)
+        })
+    }
+    else {
         (0, 0)
     };
-    MobilePaintPose {
-        anim_frame,
-        moving,
-        offset_x,
-        offset_y,
-    }
+    MobilePaintPose { anim_frame, moving, offset_x, offset_y }
 }
 
 /// 沿路径用 `move_accum + speed * tick_fraction` 计算相对当前逻辑格的屏幕像素偏移。
@@ -504,12 +478,7 @@ impl BattleController {
         else {
             return false;
         };
-        let tick = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .map(|g| g.world.tick)
-            .unwrap_or(start);
+        let tick = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.tick).unwrap_or(start);
         tick.saturating_sub(start) < ACTION_LINES_DURATION_TICKS
     }
 
@@ -536,12 +505,7 @@ impl BattleController {
             return;
         };
         let map = &game.world.map;
-        let Some((x0, y0, x1, y1)) = local_size_preview_rect(
-            map.size_width,
-            map.local_size,
-            game.preview_origin_x,
-            game.preview_origin_y,
-        )
+        let Some((x0, y0, x1, y1)) = local_size_preview_rect(map.size_width, map.local_size, game.preview_origin_x, game.preview_origin_y)
         else {
             renderer.clear_camera_content_rect();
             return;
@@ -629,12 +593,7 @@ impl BattleController {
         self.weather_last_ms = 0;
         self.start_view_pending = self.has_session();
         if self.has_session() {
-            let edition = self
-                .session
-                .as_ref()
-                .and_then(|s| s.battle())
-                .map(|g| g.world.edition.as_str())
-                .unwrap_or("—");
+            let edition = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.edition.as_str()).unwrap_or("—");
             self.title_base = format!("ra2 ({edition})");
             tracing::info!("重开完成 · {}", boot.note);
             self.bind_local_start();
@@ -763,21 +722,12 @@ impl BattleController {
         let size = window.inner_size();
         let sw = size.width.max(1);
         let sh = size.height.max(1);
-        let (west, east, north, south) =
-            edge_scroll_axes(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX);
+        let (west, east, north, south) = edge_scroll_axes(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX);
         let vp = self.map_viewport(window);
         let (can_west, can_east, can_north, can_south) = self.edge_scroll_can_axes(renderer, vp.proj_w(), vp.proj_h());
-        self.edge_scroll_cursor =
-            edge_scroll_cursor_for(west, east, north, south, can_west, can_east, can_north, can_south);
-        let (mut dx, mut dy) = edge_scroll_screen_delta(
-            self.cursor.0,
-            self.cursor.1,
-            sw,
-            sh,
-            EDGE_SCROLL_MARGIN_PX,
-            EDGE_SCROLL_SPEED_PX_PER_SEC,
-            dt,
-        );
+        self.edge_scroll_cursor = edge_scroll_cursor_for(west, east, north, south, can_west, can_east, can_north, can_south);
+        let (mut dx, mut dy) =
+            edge_scroll_screen_delta(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, dt);
         let (kx, ky) = keyboard_pan_screen_delta(self.camera_pan_keys, KEYBOARD_PAN_SPEED_PX_PER_SEC, dt);
         dx += kx;
         dy += ky;
@@ -809,10 +759,7 @@ impl BattleController {
         else {
             return false;
         };
-        self.local
-            .selected
-            .iter()
-            .any(|&id| game.deploy_target_of(id).is_some())
+        self.local.selected.iter().any(|&id| game.deploy_target_of(id).is_some())
     }
 
     /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack / Deploy 等。
@@ -855,9 +802,7 @@ impl BattleController {
         }
 
         if selected.is_empty() {
-            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some()
-                || game.pick_local_structure_near_image(wx, wy, 120.0).is_some()
-            {
+            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || game.pick_local_structure_near_image(wx, wy, 120.0).is_some() {
                 return BattlePointer::Select;
             }
             return BattlePointer::Default;
@@ -881,13 +826,8 @@ impl BattleController {
             }
         }
 
-        let passable = game.world.pass_grid.in_bounds(cell.0, cell.1)
-            && game.world.pass_grid.is_passable(cell.0, cell.1);
-        if passable {
-            BattlePointer::Move
-        } else {
-            BattlePointer::NoMove
-        }
+        let passable = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_passable(cell.0, cell.1);
+        if passable { BattlePointer::Move } else { BattlePointer::NoMove }
     }
 
     /// 各轴是否还能平移（`pan_screen`：正 dx 减 `center_x`，正 dy 减 `center_y`）。
@@ -907,10 +847,7 @@ impl BattleController {
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
     pub fn wants_cursor_capture(&self) -> bool {
-        self.session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .is_some_and(|g| !g.paused && g.outcome.is_none())
+        self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| !g.paused && g.outcome.is_none())
     }
 
     fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
@@ -936,22 +873,16 @@ impl BattleController {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
                 game.order_place_building(type_id, cell.0, cell.1);
             }
+            // 落位命令已发出；成功则完工件清空，失败仍可再点 cameo 进入放置。
+            self.place_mode = None;
             return;
         }
         if self.sell_mode {
-            let building = game
-                .pick_local_structure_near_image(wx, wy, 120.0)
-                .or_else(|| {
-                    let cell = game.image_to_cell(wx, wy)?;
-                    let house = game
-                        .world
-                        .players
-                        .iter()
-                        .find(|p| p.id == game.world.local_player)
-                        .map(|p| p.house.as_ref())?;
-                    game.pick_structure_at(cell.0, cell.1)
-                        .filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-                });
+            let building = game.pick_local_structure_near_image(wx, wy, 120.0).or_else(|| {
+                let cell = game.image_to_cell(wx, wy)?;
+                let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
+                game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+            });
             if let Some(building) = building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("出售建筑 · #{}", building.0);
@@ -961,19 +892,11 @@ impl BattleController {
             return;
         }
         if self.repair_mode {
-            let building = game
-                .pick_local_structure_near_image(wx, wy, 120.0)
-                .or_else(|| {
-                    let cell = game.image_to_cell(wx, wy)?;
-                    let house = game
-                        .world
-                        .players
-                        .iter()
-                        .find(|p| p.id == game.world.local_player)
-                        .map(|p| p.house.as_ref())?;
-                    game.pick_structure_at(cell.0, cell.1)
-                        .filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-                });
+            let building = game.pick_local_structure_near_image(wx, wy, 120.0).or_else(|| {
+                let cell = game.image_to_cell(wx, wy)?;
+                let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
+                game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+            });
             if let Some(building) = building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("修理建筑 · #{}", building.0);
@@ -985,17 +908,15 @@ impl BattleController {
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
         // 先屏幕距离点本方单位 / 建筑（VXL·SHP 常偏离逻辑格），再回退格点选。
-        let picked = game
-            .pick_local_mobile_near_image(wx, wy, 72.0)
-            .or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
-            .or_else(|| {
+        let picked =
+            game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0)).or_else(|| {
                 let cell = game.image_to_cell(wx, wy)?;
                 if let Some(house) = local_house.as_deref() {
                     game.pick_mobile_at_owned(cell.0, cell.1, Some(house)).or_else(|| {
-                        game.pick_structure_at(cell.0, cell.1)
-                            .filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+                        game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
                     })
-                } else {
+                }
+                else {
                     game.pick_entity_at(cell.0, cell.1)
                 }
             });
@@ -1004,9 +925,7 @@ impl BattleController {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
             let deployable = game.deploy_target_of(id).is_some();
             // 已选中的可部署单位再点一次 → 部署（非双击）。
-            let click_deploy = !add
-                && deployable
-                && self.local.selected.contains(&id);
+            let click_deploy = !add && deployable && self.local.selected.contains(&id);
             if click_deploy {
                 tracing::info!("点击部署 · #{} @({},{})", id.0, cell.0, cell.1);
                 self.deploy_selection();
@@ -1040,12 +959,7 @@ impl BattleController {
         else {
             return;
         };
-        let local_house = game
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == game.world.local_player)
-            .map(|p| p.house.to_string());
+        let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let Some(house) = local_house.as_deref()
         else {
             return;
@@ -1079,9 +993,7 @@ impl BattleController {
             let (cx, cy) = vp.world_to_screen(cam, wx, wy);
             let (hit_cx, hit_cy, half) = match kind {
                 MapEntityKind::Infantry => (cx, cy, MARQUEE_HIT_HALF_INFANTRY_PX),
-                MapEntityKind::Unit | MapEntityKind::Aircraft => {
-                    (cx, cy - MARQUEE_VEHICLE_LIFT_PX, MARQUEE_HIT_HALF_VEHICLE_PX)
-                }
+                MapEntityKind::Unit | MapEntityKind::Aircraft => (cx, cy - MARQUEE_VEHICLE_LIFT_PX, MARQUEE_HIT_HALF_VEHICLE_PX),
                 _ => (cx, cy, MARQUEE_HIT_HALF_INFANTRY_PX),
             };
             let hit = ScreenRect::from_center_half(hit_cx, hit_cy, half);
@@ -1115,12 +1027,7 @@ impl BattleController {
             if self.planning_waypoints.last().copied() != Some(cell) {
                 self.planning_waypoints.push(cell);
             }
-            tracing::info!(
-                count = self.planning_waypoints.len(),
-                x = cell.0,
-                y = cell.1,
-                "路径点规划 · 追加航点"
-            );
+            tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
             return;
         }
         if self.clear_sidebar_tool_modes() {
@@ -1154,20 +1061,16 @@ impl BattleController {
                 })
                 .unwrap_or(false);
             if hostile {
-                let is_structure = game
-                    .world
-                    .ecs_identity(target)
-                    .is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
-                if is_structure
-                    && game.selection_has_engineer(&selected)
-                    && game.is_capturable_structure(target)
-                {
+                let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
+                if is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
                     tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
                     game.order_capture_building(&selected, target);
-                } else if is_structure && game.selection_has_agent(&selected) {
+                }
+                else if is_structure && game.selection_has_agent(&selected) {
                     tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
                     game.order_infiltrate(&selected, target);
-                } else {
+                }
+                else {
                     tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
                     game.order_attack(&selected, target);
                 }
@@ -1183,11 +1086,7 @@ impl BattleController {
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
-        let has_outcome = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .is_some_and(|g| g.outcome.is_some());
+        let has_outcome = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some());
         // EVA 播报窗口：仍在 Battle 页，但不再接受对局/暂停输入。
         if accept_commands && has_outcome {
             if let WindowEvent::CursorMoved { position, .. } = event {
@@ -1234,7 +1133,8 @@ impl BattleController {
                                 let vp = self.map_viewport(window);
                                 if vp.contains_cursor(x, y) {
                                     self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
-                                } else {
+                                }
+                                else {
                                     self.left_gesture = LeftGesture::Idle;
                                 }
                             }
@@ -1253,22 +1153,22 @@ impl BattleController {
                                 self.on_command_button(slot);
                             }
                             self.left_gesture = LeftGesture::Idle;
-                        } else if let Some(hit) = pressed_side {
+                        }
+                        else if let Some(hit) = pressed_side {
                             let x = self.cursor.0 as i32;
                             let y = self.cursor.1 as i32;
                             if self.hit_hud_at(window, x, y) == Some(hit) {
                                 nav = self.on_sidebar_hit(hit);
                             }
                             self.left_gesture = LeftGesture::Idle;
-                        } else {
+                        }
+                        else {
                             let (idle, action) = self.left_gesture.release();
                             self.left_gesture = idle;
                             match action {
                                 LeftReleaseAction::None => {}
                                 LeftReleaseAction::Click => self.handle_left_click(renderer, window),
-                                LeftReleaseAction::Marquee(rect) => {
-                                    self.handle_marquee_select(renderer, window, rect)
-                                }
+                                LeftReleaseAction::Marquee(rect) => self.handle_marquee_select(renderer, window, rect),
                             }
                         }
                     }
@@ -1282,9 +1182,7 @@ impl BattleController {
                 self.pause_pressed = None;
                 BattleNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. }
-                if accept_commands && !battle_paused =>
-            {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands && !battle_paused => {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
                 self.sidebar_pressed = None;
@@ -1296,13 +1194,10 @@ impl BattleController {
                 if battle_paused {
                     self.left_gesture = LeftGesture::Idle;
                     self.refresh_pause_hover(window);
-                } else {
+                }
+                else {
                     // 建造放置模式只认点选，拖拽不升为框选。
-                    if accept_commands
-                        && self.place_mode.is_none()
-                        && self.command_pressed.is_none()
-                        && self.sidebar_pressed.is_none()
-                    {
+                    if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() && self.sidebar_pressed.is_none() {
                         self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
                     }
                     self.refresh_command_hover(window);
@@ -1319,18 +1214,22 @@ impl BattleController {
                         MouseScrollDelta::LineDelta(_, y) => {
                             if *y > 0.0 {
                                 -1
-                            } else if *y < 0.0 {
+                            }
+                            else if *y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }
                         MouseScrollDelta::PixelDelta(p) => {
                             if p.y > 0.0 {
                                 -1
-                            } else if p.y < 0.0 {
+                            }
+                            else if p.y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }
@@ -1344,10 +1243,7 @@ impl BattleController {
             WindowEvent::KeyboardInput { event, .. } => {
                 // 方向键：记录按住态，由 `tick_edge_scroll` 按渲染帧 `dt` 连续平移（勿跟 OS key-repeat 跳 48px）。
                 if let PhysicalKey::Code(code) = event.physical_key {
-                    if matches!(
-                        code,
-                        KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown
-                    ) {
+                    if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
                         if !accept_commands || battle_paused {
                             self.camera_pan_keys.clear();
                             return BattleNav::None;
@@ -1387,28 +1283,21 @@ impl BattleController {
                 match event.physical_key {
                     PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
                         // 结算确认：战役续关（胜 NextMission / 败 AlternateNextMission）或离开。
-                        let continue_campaign = self
-                            .session
-                            .as_ref()
-                            .and_then(|s| s.battle())
-                            .is_some_and(|g| {
-                                if g.boot_kind != ra_engine::SessionBootKind::Campaign {
-                                    return false;
-                                }
-                                match g.outcome.as_ref() {
-                                    Some(ra_engine::BattleOutcome::Victory { .. }) => {
-                                        g.world.map.campaign_continue_scenario(true).is_some()
-                                    }
-                                    Some(ra_engine::BattleOutcome::Defeat { .. }) => {
-                                        g.world.map.campaign_continue_scenario(false).is_some()
-                                    }
-                                    None => false,
-                                }
-                            });
+                        let continue_campaign = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
+                            if g.boot_kind != ra_engine::SessionBootKind::Campaign {
+                                return false;
+                            }
+                            match g.outcome.as_ref() {
+                                Some(ra_engine::BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
+                                Some(ra_engine::BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
+                                None => false,
+                            }
+                        });
                         if continue_campaign {
                             tracing::info!("战役继续 · campaign continue scenario");
                             BattleNav::ContinueCampaign
-                        } else {
+                        }
+                        else {
                             tracing::info!("结算确认 · 离开");
                             BattleNav::ToMainMenu
                         }
@@ -1421,13 +1310,15 @@ impl BattleController {
                         if self.clear_sidebar_tool_modes() {
                             self.clear_pause_menu_input();
                             BattleNav::None
-                        } else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                        }
+                        else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             // Esc：打开暂停菜单。
                             game.toggle_pause();
                             self.clear_pause_menu_input();
                             tracing::info!("暂停菜单");
                             BattleNav::None
-                        } else {
+                        }
+                        else {
                             BattleNav::ToMainMenu
                         }
                     }
@@ -1508,15 +1399,28 @@ impl BattleController {
                         self.guard_selection();
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::Digit1) | PhysicalKey::Code(KeyCode::Numpad1)
-                        if !battle_paused =>
-                    {
+                    // 侧栏 QWER：建筑 / 防御 / 步兵 / 载具·飞行器；有待放置完工件时 Q/W 直接进入落位。
+                    PhysicalKey::Code(KeyCode::KeyQ) if !battle_paused => {
+                        self.hotkey_sidebar_tab(0);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyW) if !battle_paused => {
+                        self.hotkey_sidebar_tab(1);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyE) if !battle_paused => {
+                        self.hotkey_sidebar_tab(2);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyR) if !battle_paused => {
+                        self.hotkey_sidebar_tab(3);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::Digit1) | PhysicalKey::Code(KeyCode::Numpad1) if !battle_paused => {
                         self.handle_control_team(0);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::Digit2) | PhysicalKey::Code(KeyCode::Numpad2)
-                        if !battle_paused =>
-                    {
+                    PhysicalKey::Code(KeyCode::Digit2) | PhysicalKey::Code(KeyCode::Numpad2) if !battle_paused => {
                         self.handle_control_team(1);
                         BattleNav::None
                     }
@@ -1524,13 +1428,15 @@ impl BattleController {
                         let paused = if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
                             game.paused
-                        } else {
+                        }
+                        else {
                             false
                         };
                         self.clear_pause_menu_input();
                         if paused {
                             tracing::info!("暂停菜单");
-                        } else if self.session.as_ref().and_then(|s| s.battle()).is_some() {
+                        }
+                        else if self.session.as_ref().and_then(|s| s.battle()).is_some() {
                             tracing::info!("继续");
                         }
                         BattleNav::None
@@ -1574,12 +1480,7 @@ impl BattleController {
         else {
             return;
         };
-        let Some(local_house) = game
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == game.world.local_player)
-            .map(|p| p.house.to_string())
+        let Some(local_house) = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string())
         else {
             return;
         };
@@ -1636,18 +1537,14 @@ impl BattleController {
             let local_house = local.house.as_ref();
             let low_power = local.low_power();
 
-            if game
-                .world
-                .last_rejects()
-                .iter()
-                .any(|r| matches!(r.reason, ra_engine::CommandRejectReason::InsufficientFunds))
-            {
+            if game.world.last_rejects().iter().any(|r| matches!(r.reason, ra_engine::CommandRejectReason::InsufficientFunds)) {
                 to_queue.push("EVA_InsufficientFunds");
             }
 
             if !low_power {
                 set_low_latch = Some(false);
-            } else if !self.eva_low_power_latched {
+            }
+            else if !self.eva_low_power_latched {
                 set_low_latch = Some(true);
                 to_queue.push("EVA_LowPower");
             }
@@ -1679,18 +1576,10 @@ impl BattleController {
                         alive_now.insert(id);
                     }
                     MapEntityKind::Structure => {
-                        if game
-                            .world
-                            .ecs_animation(id)
-                            .is_some_and(|(_, hit_flash)| hit_flash > 0)
-                        {
+                        if game.world.ecs_animation(id).is_some_and(|(_, hit_flash)| hit_flash > 0) {
                             base_hit = true;
                         }
-                        if game
-                            .world
-                            .ecs_produce_item(id)
-                            .is_some_and(|item| item.is_some())
-                        {
+                        if game.world.ecs_produce_item(id).is_some_and(|item| item.is_some()) {
                             producing_now.insert(id);
                         }
                     }
@@ -1699,23 +1588,19 @@ impl BattleController {
 
             if !base_hit {
                 set_base_latch = Some(false);
-            } else if !self.eva_base_under_attack_latched {
+            }
+            else if !self.eva_base_under_attack_latched {
                 set_base_latch = Some(true);
                 to_queue.push("EVA_OurBaseIsUnderAttack");
             }
 
-            let gained_mobile = self.eva_alive_seeded
-                && alive_now
-                    .iter()
-                    .any(|id| !self.eva_alive_local_mobiles.contains(id));
+            let gained_mobile = self.eva_alive_seeded && alive_now.iter().any(|id| !self.eva_alive_local_mobiles.contains(id));
             if !self.eva_alive_seeded {
                 next_alive = Some(alive_now);
                 seed_alive = true;
-            } else {
-                let lost = self
-                    .eva_alive_local_mobiles
-                    .iter()
-                    .any(|id| !alive_now.contains(id));
+            }
+            else {
+                let lost = self.eva_alive_local_mobiles.iter().any(|id| !alive_now.contains(id));
                 next_alive = Some(alive_now);
                 if lost {
                     to_queue.push("EVA_UnitLost");
@@ -1725,13 +1610,11 @@ impl BattleController {
             if !self.eva_producing_seeded {
                 next_producing = Some(producing_now);
                 seed_producing = true;
-            } else {
+            }
+            else {
                 // 仅「出厂」视为就绪：队列清空且本机机动单位集合出现新 ID。
                 // 取消生产也会清队列，但不能播 `EVA_UnitReady`。
-                let factory_finished = self
-                    .eva_producing_factories
-                    .iter()
-                    .any(|id| !producing_now.contains(id));
+                let factory_finished = self.eva_producing_factories.iter().any(|id| !producing_now.contains(id));
                 unit_ready = factory_finished && gained_mobile;
                 next_producing = Some(producing_now);
             }
@@ -1752,10 +1635,9 @@ impl BattleController {
             if !self.eva_options_seeded {
                 next_options = Some(options_now);
                 seed_options = true;
-            } else {
-                new_options = options_now
-                    .iter()
-                    .any(|id| !self.eva_known_options.contains(id));
+            }
+            else {
+                new_options = options_now.iter().any(|id| !self.eva_known_options.contains(id));
                 next_options = Some(options_now);
             }
         }
@@ -1797,11 +1679,7 @@ impl BattleController {
 
     /// 胜负已定：排队 EVA，留在对局页播报后再 `ToResults`。
     fn poll_outcome_nav(&mut self) -> BattleNav {
-        let has_outcome = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .is_some_and(|g| g.outcome.is_some());
+        let has_outcome = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some());
         if !has_outcome {
             return BattleNav::None;
         }
@@ -1891,19 +1769,12 @@ impl BattleController {
                 self.deploy_watch = None;
                 return;
             };
-            if game
-                .world
-                .last_rejects()
-                .iter()
-                .any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy))
-            {
+            if game.world.last_rejects().iter().any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy)) {
                 Some(Err(ra_engine::CommandRejectReason::CannotDeploy.as_hud_label().to_string()))
             }
             else {
                 match game.world.ecs_identity(id) {
-                    Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => {
-                        Some(Ok(type_id.to_string()))
-                    }
+                    Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => Some(Ok(type_id.to_string())),
                     None => Some(Err("部署目标已消失".into())),
                     _ => None,
                 }
@@ -1914,11 +1785,9 @@ impl BattleController {
                 tracing::info!("部署完成 · {type_id} · #{id}", id = id.0);
                 self.deploy_watch = None;
                 if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
-                    if let (Some((type_id, kind)), Some(owner), Some((x, y, _))) = (
-                        game.world.ecs_identity(id),
-                        game.world.ecs_owner(id),
-                        game.world.ecs_transform(id),
-                    ) {
+                    if let (Some((type_id, kind)), Some(owner), Some((x, y, _))) =
+                        (game.world.ecs_identity(id), game.world.ecs_owner(id), game.world.ecs_transform(id))
+                    {
                         if matches!(kind, MapEntityKind::Structure) {
                             self.deploy_visual_queue.push(DeployVisualJob {
                                 entity: id,
@@ -1953,7 +1822,8 @@ impl BattleController {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "defeat".into()
-                } else {
+                }
+                else {
                     format!("defeat:{reason}")
                 }
             }
@@ -2039,12 +1909,8 @@ impl BattleController {
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
         self.tick_deploy_visuals(assets, renderer);
-        let overlay_patched = assets
-            .map(|a| self.apply_overlay_paint_dirty(a))
-            .unwrap_or(false);
-        let structure_patched = assets
-            .map(|a| self.apply_structure_paint_dirty(a))
-            .unwrap_or(false);
+        let overlay_patched = assets.map(|a| self.apply_overlay_paint_dirty(a)).unwrap_or(false);
+        let structure_patched = assets.map(|a| self.apply_structure_paint_dirty(a)).unwrap_or(false);
         if self.pending_buildups.is_empty() {
             // 移动单位烤在预览底图上：脏集或仍在滑移时都要重绘（含渲染帧格内插值）。
             let mobiles_moved = match &pending {
@@ -2106,8 +1972,7 @@ impl BattleController {
             {
                 return false;
             }
-            game.world.ecs_path(id).is_some_and(|p| !p.is_empty())
-                || game.world.ecs_move_destination(id).is_some_and(|(dx, _)| dx.is_some())
+            game.world.ecs_path(id).is_some_and(|p| !p.is_empty()) || game.world.ecs_move_destination(id).is_some_and(|(dx, _)| dx.is_some())
         })
     }
 
@@ -2147,12 +2012,7 @@ impl BattleController {
         }
         self.pending_buildups = still;
         for done in &finished {
-            tracing::info!(
-                "部署动画结束 · {} @({},{})",
-                done.type_id,
-                done.clip.x,
-                done.clip.y
-            );
+            tracing::info!("部署动画结束 · {} @({},{})", done.type_id, done.clip.x, done.clip.y);
             self.settle_deployed_structure(assets, &done.type_id, &done.owner, done.clip.x, done.clip.y, Some(&done.clip));
         }
         if self.pending_buildups.is_empty() {
@@ -2176,27 +2036,13 @@ impl BattleController {
                 return;
             };
             let lobby = &self.lobby_primaries;
-            load_structure_buildup_clip(
-                assets,
-                &game.world.map,
-                self.art_ini,
-                &job.type_id,
-                &job.owner,
-                job.x,
-                job.y,
-                &|base, owner| remap_owner_palette(rules, Some(lobby), base, owner),
-            )
+            load_structure_buildup_clip(assets, &game.world.map, self.art_ini, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
+                remap_owner_palette(rules, Some(lobby), base, owner)
+            })
         };
         match clip {
             Some(clip) => {
-                tracing::info!(
-                    "部署动画 · {} @({},{}) · {}帧 · {}ms/帧",
-                    job.type_id,
-                    job.x,
-                    job.y,
-                    clip.frames.len(),
-                    clip.rate_ms
-                );
+                tracing::info!("部署动画 · {} @({},{}) · {}帧 · {}ms/帧", job.type_id, job.x, job.y, clip.frames.len(), clip.rate_ms);
                 self.pending_buildups.push(PendingBuildup {
                     entity: job.entity,
                     type_id: job.type_id,
@@ -2226,17 +2072,8 @@ impl BattleController {
             .session
             .as_ref()
             .and_then(|s| s.battle())
-            .and_then(|g| {
-                g.world
-                    .players
-                    .iter()
-                    .find(|p| p.id == g.world.local_player)
-                    .map(|p| p.house.to_string())
-            });
-        if local_house
-            .as_deref()
-            .is_some_and(|house| owner.eq_ignore_ascii_case(house))
-        {
+            .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player).map(|p| p.house.to_string()));
+        if local_house.as_deref().is_some_and(|house| owner.eq_ignore_ascii_case(house)) {
             self.queue_battle_sfx_once("EVA_ConstructionComplete");
         }
         let art_ini = self.art_ini;
@@ -2265,20 +2102,13 @@ impl BattleController {
                 y,
                 facing: 0,
                 sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+                mission: String::new(),
+                tag: String::new(),
             });
             let lobby = &self.lobby_primaries;
-            let mut n = paint_structures_onto_rgba(
-                assets,
-                &one,
-                clean,
-                origin.0,
-                origin.1,
-                art_ini,
-                self.rules_ini,
-                &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
-            );
+            let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
+                remap_owner_palette(rules, Some(lobby), base, own)
+            });
             if n == 0 {
                 if let Some(clip) = clip {
                     if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -2320,16 +2150,9 @@ impl BattleController {
                     tag: String::new(),
                 });
                 let lobby = &self.lobby_primaries;
-                let mut n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    underlay,
-                    origin.0,
-                    origin.1,
-                    art_ini,
-                    self.rules_ini,
-                    &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
-                );
+                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, art_ini, self.rules_ini, &|base, own| {
+                    remap_owner_palette(rules, Some(lobby), base, own)
+                });
                 if n == 0 {
                     if let Some(clip) = clip {
                         if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -2358,12 +2181,7 @@ impl BattleController {
         else {
             return false;
         };
-        let dirty = self
-            .session
-            .as_mut()
-            .and_then(|s| s.battle_mut())
-            .map(|g| g.world.take_overlay_paint_dirty())
-            .unwrap_or_default();
+        let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_overlay_paint_dirty()).unwrap_or_default();
         if dirty.is_empty() {
             return false;
         }
@@ -2371,12 +2189,7 @@ impl BattleController {
         else {
             return false;
         };
-        let harvestable: Vec<_> = map
-            .overlays
-            .iter()
-            .copied()
-            .filter(|c| overlay_types.is_harvestable(c.overlay_id))
-            .collect();
+        let harvestable: Vec<_> = map.overlays.iter().copied().filter(|c| overlay_types.is_harvestable(c.overlay_id)).collect();
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {
             let mut clean = underlay.clone();
@@ -2400,10 +2213,7 @@ impl BattleController {
             return true;
         }
 
-        let cells: Vec<_> = dirty
-            .iter()
-            .filter_map(|(x, y)| harvestable.iter().find(|c| c.x == *x && c.y == *y).copied())
-            .collect();
+        let cells: Vec<_> = dirty.iter().filter_map(|(x, y)| harvestable.iter().find(|c| c.x == *x && c.y == *y).copied()).collect();
         if cells.is_empty() {
             return false;
         }
@@ -2434,12 +2244,7 @@ impl BattleController {
 
     /// 将占领等房主变更的建筑按新房主色烤进 `preview_clean` / underlay，并刷新活动层。
     fn apply_structure_paint_dirty(&mut self, assets: &GameAssetSource) -> bool {
-        let dirty = self
-            .session
-            .as_mut()
-            .and_then(|s| s.battle_mut())
-            .map(|g| g.world.take_structure_paint_dirty())
-            .unwrap_or_default();
+        let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_structure_paint_dirty()).unwrap_or_default();
         if dirty.is_empty() {
             return false;
         }
@@ -2496,29 +2301,11 @@ impl BattleController {
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
             if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    clean,
-                    origin.0,
-                    origin.1,
-                    art_ini,
-                    self.rules_ini,
-                    &remap,
-                );
+                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, art_ini, self.rules_ini, &remap);
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    underlay,
-                    origin.0,
-                    origin.1,
-                    art_ini,
-                    self.rules_ini,
-                    &remap,
-                );
+                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, art_ini, self.rules_ini, &remap);
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
@@ -2570,10 +2357,7 @@ impl BattleController {
             };
             let owner_s = owner.to_string();
             let type_s = type_id.to_string();
-            poses.insert(
-                (x, y, type_s.clone(), owner_s.clone()),
-                mobile_paint_pose_for(game, id, x, y, tick_fraction),
-            );
+            poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
                 owner: owner_s,
@@ -2583,8 +2367,8 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+                mission: String::new(),
+                tag: String::new(),
             });
         }
         let mut base = clean.clone();
@@ -2598,12 +2382,7 @@ impl BattleController {
             self.art_ini,
             self.rules_ini,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
-            &|ent| {
-                poses
-                    .get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone()))
-                    .copied()
-                    .unwrap_or_default()
-            },
+            &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
         self.preview_base = Some(base);
         self.last_anim_sig = u64::MAX;
@@ -2648,10 +2427,7 @@ impl BattleController {
             };
             let owner_s = owner.to_string();
             let type_s = type_id.to_string();
-            poses.insert(
-                (x, y, type_s.clone(), owner_s.clone()),
-                mobile_paint_pose_for(game, id, x, y, tick_fraction),
-            );
+            poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
                 owner: owner_s,
@@ -2661,8 +2437,8 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+                mission: String::new(),
+                tag: String::new(),
             });
         }
         let lobby = self.lobby_primaries.clone();
@@ -2676,40 +2452,17 @@ impl BattleController {
             self.art_ini,
             self.rules_ini,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
-            &|ent| {
-                poses
-                    .get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone()))
-                    .copied()
-                    .unwrap_or_default()
-            },
+            &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
         for pending in &self.pending_buildups {
             let elapsed = pending.started.elapsed().as_millis() as u64;
             let frame = pending.clip.frame_at(elapsed).unwrap_or(0);
-            paint_structure_buildup_onto_rgba(
-                &mut composed,
-                self.preview_origin.0,
-                self.preview_origin.1,
-                &pending.clip,
-                frame,
-            );
+            paint_structure_buildup_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &pending.clip, frame);
         }
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
-        paint_terrain_anims_onto_rgba(
-            &mut composed,
-            self.preview_origin.0,
-            self.preview_origin.1,
-            &self.terrain_anims,
-            clock_ms,
-        );
+        paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
         self.paint_ore_tree_frames_onto(&mut composed);
-        paint_structure_anims_onto_rgba(
-            &mut composed,
-            self.preview_origin.0,
-            self.preview_origin.1,
-            &self.structure_anims,
-            clock_ms,
-        );
+        paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
         renderer.update_map_preview(composed);
         self.last_anim_sig = u64::MAX;
     }
@@ -2724,21 +2477,9 @@ impl BattleController {
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
         let has_anims = self.has_preview_anims();
         if has_anims {
-            paint_terrain_anims_onto_rgba(
-                &mut composed,
-                self.preview_origin.0,
-                self.preview_origin.1,
-                &self.terrain_anims,
-                clock_ms,
-            );
+            paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
             self.paint_ore_tree_frames_onto(&mut composed);
-            paint_structure_anims_onto_rgba(
-                &mut composed,
-                self.preview_origin.0,
-                self.preview_origin.1,
-                &self.structure_anims,
-                clock_ms,
-            );
+            paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
             self.last_anim_sig = self.preview_anim_signature(clock_ms);
         }
         else {
@@ -2763,21 +2504,9 @@ impl BattleController {
         }
         let mut composed = base.clone();
         if has_anims {
-            paint_terrain_anims_onto_rgba(
-                &mut composed,
-                self.preview_origin.0,
-                self.preview_origin.1,
-                &self.terrain_anims,
-                clock_ms,
-            );
+            paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
             self.paint_ore_tree_frames_onto(&mut composed);
-            paint_structure_anims_onto_rgba(
-                &mut composed,
-                self.preview_origin.0,
-                self.preview_origin.1,
-                &self.structure_anims,
-                clock_ms,
-            );
+            paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
         }
         self.paint_weather_onto(&mut composed);
         renderer.update_map_preview(composed);
@@ -2795,44 +2524,24 @@ impl BattleController {
             return;
         }
         let frames = self.ore_tree_render_frames();
-        paint_ore_tree_frames_onto_rgba(
-            image,
-            self.preview_origin.0,
-            self.preview_origin.1,
-            &self.ore_tree_anims,
-            &frames,
-        );
+        paint_ore_tree_frames_onto_rgba(image, self.preview_origin.0, self.preview_origin.1, &self.ore_tree_anims, &frames);
     }
 
     /// `(格x, 格y, 帧)`；无会话时回退 Idle 帧 0。
     fn ore_tree_render_frames(&self) -> Vec<(u16, u16, u16)> {
         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
             if !game.world.terrain_spawners.is_empty() {
-                return game
-                    .world
-                    .terrain_spawners
-                    .iter()
-                    .map(|s| (s.x, s.y, s.render_frame()))
-                    .collect();
+                return game.world.terrain_spawners.iter().map(|s| (s.x, s.y, s.render_frame())).collect();
             }
         }
-        self.ore_tree_anims
-            .layers
-            .iter()
-            .map(|layer| (layer.x, layer.y, 0))
-            .collect()
+        self.ore_tree_anims.layers.iter().map(|layer| (layer.x, layer.y, 0)).collect()
     }
 
     /// 建筑 + 常循环地形 + 矿柱状态机帧签名（用于跳过无变化上传）。
     fn preview_anim_signature(&self, clock_ms: u64) -> u64 {
         let mut h = self.structure_anims.frame_signature(clock_ms);
         h ^= self.terrain_anims.frame_signature(clock_ms).rotate_left(17);
-        let spawners = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .map(|g| g.world.terrain_spawners.as_slice())
-            .unwrap_or(&[]);
+        let spawners = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.terrain_spawners.as_slice()).unwrap_or(&[]);
         h ^= terrain_spawner_frame_signature(spawners).rotate_left(29);
         h
     }
@@ -2897,20 +2606,10 @@ impl BattleController {
         if self.hud_chrome.as_ref().is_some_and(|c| c.side == side) {
             return;
         }
-        let chrome = decode_battle_hud_chrome_with(
-            source,
-            &side,
-            self.ui_faction_side.as_deref(),
-            self.ui_faction_chrome.as_ref(),
-        );
+        let chrome = decode_battle_hud_chrome_with(source, &side, self.ui_faction_side.as_deref(), self.ui_faction_chrome.as_ref());
         if chrome.has_sidebar_body() {
-            let pal_origin = chrome
-                .side1
-                .as_ref()
-                .or(chrome.side2.as_ref())
-                .or(chrome.credits.as_ref())
-                .map(|s| s.origin.as_str())
-                .unwrap_or("-");
+            let pal_origin =
+                chrome.side1.as_ref().or(chrome.side2.as_ref()).or(chrome.credits.as_ref()).map(|s| s.origin.as_str()).unwrap_or("-");
             tracing::info!(
                 side = %chrome.side,
                 faction = ?self.ui_faction_side,
@@ -2946,15 +2645,12 @@ impl BattleController {
             self.pause_menu_chrome = None;
             return;
         };
-        let decoded = battle_pause_menu::decode_battle_pause_chrome_with(
-            source,
-            &side,
-            self.ui_faction_side.as_deref(),
-            self.ui_faction_chrome.as_ref(),
-        );
+        let decoded =
+            battle_pause_menu::decode_battle_pause_chrome_with(source, &side, self.ui_faction_side.as_deref(), self.ui_faction_chrome.as_ref());
         if !decoded.errors.is_empty() {
             tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
-        } else {
+        }
+        else {
             tracing::info!(side = %side, mix = %decoded.mix, "暂停菜单素材已解码");
         }
         self.pause_menu_chrome = Some(decoded);
@@ -2973,25 +2669,16 @@ impl BattleController {
         self.hud_chrome
             .as_ref()
             .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .or_else(|| {
-                self.pause_menu_chrome
-                    .as_ref()
-                    .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            })
+            .or_else(|| self.pause_menu_chrome.as_ref().map(|c| BattleHudChromeMetrics::for_mix(&c.mix)))
             .unwrap_or_else(BattleHudChromeMetrics::sidec01)
     }
 
     fn refresh_pause_hover(&mut self, window: &Window) {
         let size = window.inner_size();
         let metrics = self.pause_hud_metrics();
-        self.pause_hover = battle_pause_menu::hit_at(
-            size.width.max(1),
-            size.height.max(1),
-            metrics,
-            self.cursor.0 as i32,
-            self.cursor.1 as i32,
-        )
-        .map(|h| h.entry_id());
+        self.pause_hover =
+            battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, self.cursor.0 as i32, self.cursor.1 as i32)
+                .map(|h| h.entry_id());
     }
 
     fn handle_pause_menu_mouse(&mut self, state: ElementState, window: &Window) -> BattleNav {
@@ -3001,15 +2688,12 @@ impl BattleController {
         let y = self.cursor.1 as i32;
         match state {
             ElementState::Pressed => {
-                self.pause_pressed =
-                    battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y)
-                        .map(|h| h.entry_id());
+                self.pause_pressed = battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y).map(|h| h.entry_id());
                 BattleNav::None
             }
             ElementState::Released => {
                 let pressed = self.pause_pressed.take();
-                let hit =
-                    battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y);
+                let hit = battle_pause_menu::hit_at(size.width.max(1), size.height.max(1), metrics, x, y);
                 if pressed.is_some_and(|id| hit.is_some_and(|h| h.entry_id() == id)) {
                     if let Some(hit) = hit {
                         return self.on_pause_menu_hit(hit);
@@ -3035,9 +2719,7 @@ impl BattleController {
             BattlePauseMenuHit::Abort => {
                 self.clear_pause_menu_input();
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    game.apply_scripted_outcome(BattleOutcome::Defeat {
-                        reason: "放弃任务".into(),
-                    });
+                    game.apply_scripted_outcome(BattleOutcome::Defeat { reason: "放弃任务".into() });
                     // 关掉暂停菜单输入路径；仿真仍因 `outcome` 停住。
                     if game.paused {
                         game.toggle_pause();
@@ -3064,32 +2746,17 @@ impl BattleController {
         let size = window.inner_size();
         let w = size.width.max(1);
         let h = size.height.max(1);
-        let metrics = self
-            .hud_chrome
-            .as_ref()
-            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
+        let metrics = self.hud_chrome.as_ref().map(|c| BattleHudChromeMetrics::for_mix(&c.mix)).unwrap_or_else(BattleHudChromeMetrics::sidec01);
         solve_battle_hud_with_metrics(w, h, metrics)
     }
 
     fn hit_hud_at(&self, window: &Window, x: i32, y: i32) -> Option<BattleHudHit> {
         let snap = self.hud_snap_for_window(window);
-        let metrics = self
-            .hud_chrome
-            .as_ref()
-            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
+        let metrics = self.hud_chrome.as_ref().map(|c| BattleHudChromeMetrics::for_mix(&c.mix)).unwrap_or_else(BattleHudChromeMetrics::sidec01);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         let cameo_count = self.current_tab_cameo_count(visible);
-        let hit = hit_at_with_chrome(
-            &snap,
-            self.hud_chrome.as_ref(),
-            metrics.power_w,
-            cameo_count,
-            x,
-            y,
-        );
+        let hit = hit_at_with_chrome(&snap, self.hud_chrome.as_ref(), metrics.power_w, cameo_count, x, y);
         if let Some(BattleHudHit::SidebarTab(tab)) = hit {
             let tabs_visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
             if !tabs_visible.get(tab).copied().unwrap_or(false) {
@@ -3127,6 +2794,42 @@ impl BattleController {
             caps.has_infantry_factory,
             caps.has_vehicle_factory || caps.has_aircraft_factory,
         ]
+    }
+
+    /// 热键切页签；建筑/防御页若有待放置完工件则进入落位模式。
+    fn hotkey_sidebar_tab(&mut self, tab: usize) {
+        let tab = tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1));
+        let visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
+        if !visible.get(tab).copied().unwrap_or(false) {
+            return;
+        }
+        if self.sidebar_tab != tab {
+            self.sidebar_tab = tab;
+            self.cameo_scroll = 0;
+            if tab > 1 {
+                self.place_mode = None;
+            }
+            tracing::info!("侧栏页签 · {tab}（热键）");
+        }
+        if matches!(tab, 0 | 1) {
+            if let Some(ready) = self.session.as_ref().and_then(|s| s.battle()).and_then(|g| g.local_ready_building()) {
+                let defense = self
+                    .session
+                    .as_ref()
+                    .and_then(|s| s.battle())
+                    .and_then(|g| g.world.definitions.structures.get(ready.as_ref()))
+                    .is_some_and(|s| s.build_cat.is_defense_tab());
+                let on_tab = if defense { tab == 1 } else { tab == 0 };
+                if on_tab {
+                    self.repair_mode = false;
+                    self.sell_mode = false;
+                    self.planning_mode = false;
+                    self.planning_waypoints.clear();
+                    self.place_mode = Some(ready.as_ref().to_string());
+                    tracing::info!("建造模式 · 热键落位 {ready}");
+                }
+            }
+        }
     }
 
     /// 当前页签若已无基础，切到第一个仍可见的页签。
@@ -3195,9 +2898,7 @@ impl BattleController {
         else {
             return;
         };
-        let art = source
-            .resolve(self.art_ini)
-            .and_then(|hit| IniDocument::parse(&hit.bytes).ok());
+        let art = source.resolve(self.art_ini).and_then(|hit| IniDocument::parse(&hit.bytes).ok());
         let art_ref = art.as_ref();
         for item in caps
             .build_items
@@ -3247,28 +2948,43 @@ impl BattleController {
                 };
                 if !item.enabled {
                     if let Some(reason) = item.disabled_reason {
-                        tracing::info!(
-                            "建造栏不可用 · {} · {}",
-                            item.type_id,
-                            reason.as_hud_label()
-                        );
+                        tracing::info!("建造栏不可用 · {} · {}", item.type_id, reason.as_hud_label());
                     }
                     return BattleNav::None;
                 }
                 match self.sidebar_tab {
                     0 | 1 => {
                         let type_id = item.type_id.as_ref();
-                        if self.place_mode.as_deref() == Some(type_id) {
-                            self.place_mode = None;
-                            tracing::info!("建造模式 · 已关闭");
-                        } else {
-                            self.repair_mode = false;
-                            self.sell_mode = false;
-                            self.planning_mode = false;
-                            self.planning_waypoints.clear();
-                            self.place_mode = Some(type_id.to_string());
-                            tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
+                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                            if game.is_local_ready_to_place(type_id) {
+                                if self.place_mode.as_deref() == Some(type_id) {
+                                    self.place_mode = None;
+                                    tracing::info!("建造模式 · 已关闭");
+                                }
+                                else {
+                                    self.repair_mode = false;
+                                    self.sell_mode = false;
+                                    self.planning_mode = false;
+                                    self.planning_waypoints.clear();
+                                    self.place_mode = Some(type_id.to_string());
+                                    tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
+                                }
+                                return BattleNav::None;
+                            }
+                            if game.is_local_producing(type_id) {
+                                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                                    tracing::info!("取消建造 · {type_id}");
+                                    game.order_cancel_produce(type_id.to_string());
+                                }
+                                self.place_mode = None;
+                                return BattleNav::None;
+                            }
                         }
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                            tracing::info!("开始建造 · {type_id}");
+                            game.order_produce(type_id.to_string());
+                        }
+                        self.place_mode = None;
                     }
                     2 | 3 => {
                         let type_id = item.type_id.as_ref().to_string();
@@ -3276,7 +2992,8 @@ impl BattleController {
                             if game.is_local_producing(&type_id) {
                                 tracing::info!("取消生产 · {type_id}");
                                 game.order_cancel_produce(type_id);
-                            } else {
+                            }
+                            else {
                                 tracing::info!("生产 · {type_id}");
                                 game.order_produce(type_id);
                             }
@@ -3327,45 +3044,24 @@ impl BattleController {
             tracing::info!("外交 · 无对局");
             return;
         };
-        let Some(local) = game
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == game.world.local_player)
+        let Some(local) = game.world.players.iter().find(|p| p.id == game.world.local_player)
         else {
             tracing::info!("外交 · 无本机玩家");
             return;
         };
-        let allies = if local.allies.is_empty() {
-            "无".to_string()
-        } else {
-            local.allies.join(", ")
-        };
+        let allies = if local.allies.is_empty() { "无".to_string() } else { local.allies.join(", ") };
         let others: Vec<String> = game
             .world
             .players
             .iter()
             .filter(|p| p.id != local.id)
             .map(|p| {
-                let allied = local
-                    .allies
-                    .iter()
-                    .any(|a| a.eq_ignore_ascii_case(p.house.as_ref()))
-                    || p.allies
-                        .iter()
-                        .any(|a| a.eq_ignore_ascii_case(local.house.as_ref()));
-                format!(
-                    "{}={}",
-                    p.house,
-                    if allied { "同盟" } else { "敌对" }
-                )
+                let allied = local.allies.iter().any(|a| a.eq_ignore_ascii_case(p.house.as_ref()))
+                    || p.allies.iter().any(|a| a.eq_ignore_ascii_case(local.house.as_ref()));
+                format!("{}={}", p.house, if allied { "同盟" } else { "敌对" })
             })
             .collect();
-        let roster = if others.is_empty() {
-            "仅本机".to_string()
-        } else {
-            others.join(", ")
-        };
+        let roster = if others.is_empty() { "仅本机".to_string() } else { others.join(", ") };
         tracing::info!(
             house = %local.house,
             allies = %allies,
@@ -3411,10 +3107,7 @@ impl BattleController {
     }
 
     fn on_command_button(&mut self, slot: usize) {
-        let name = ra_widgets::skin::text::SKIRMISH_COMMAND_BAR
-            .get(slot)
-            .copied()
-            .unwrap_or("?");
+        let name = ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.get(slot).copied().unwrap_or("?");
         let tip = command_button_csf_tooltip(slot).unwrap_or("?");
         tracing::info!(slot, name, tip, "命令条按钮");
         match name {
@@ -3424,11 +3117,7 @@ impl BattleController {
                 let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                     let tick = game.world.tick;
                     self.local.select_same_type(game);
-                    tracing::info!(
-                        "同类型选中 · {} 个 · {:?}",
-                        self.local.selected.len(),
-                        self.local.selected
-                    );
+                    tracing::info!("同类型选中 · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
                     tick
                 });
                 if let Some(tick) = pulse_tick {
@@ -3440,7 +3129,8 @@ impl BattleController {
             "PlanningMode" => {
                 if self.planning_mode {
                     self.commit_planning_waypoints();
-                } else {
+                }
+                else {
                     self.planning_mode = true;
                     self.planning_waypoints.clear();
                     self.place_mode = None;
@@ -3461,13 +3151,9 @@ impl BattleController {
             let tick = game.world.tick;
             if self.ctrl_down {
                 self.local.assign_team(game, slot);
-                tracing::info!(
-                    slot = slot + 1,
-                    count = self.local.selected.len(),
-                    "编队 · 写入 Team{:02}",
-                    slot + 1
-                );
-            } else {
+                tracing::info!(slot = slot + 1, count = self.local.selected.len(), "编队 · 写入 Team{:02}", slot + 1);
+            }
+            else {
                 let n = self.local.recall_team(game, slot);
                 tracing::info!(slot = slot + 1, count = n, "编队 · 召回 Team{:02}", slot + 1);
             }
@@ -3488,20 +3174,12 @@ impl BattleController {
         }
         let selected = self.local.selected.clone();
         if selected.is_empty() {
-            tracing::info!(
-                active = false,
-                count = points.len(),
-                "命令条 · 路径点规划（无选中，已丢弃航点）"
-            );
+            tracing::info!(active = false, count = points.len(), "命令条 · 路径点规划（无选中，已丢弃航点）");
             return;
         }
         let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
             let tick = game.world.tick;
-            tracing::info!(
-                count = points.len(),
-                units = selected.len(),
-                "路径点规划 · 下发 MovePath"
-            );
+            tracing::info!(count = points.len(), units = selected.len(), "路径点规划 · 下发 MovePath");
             game.order_move_path(&selected, &points);
             tick
         });
@@ -3528,12 +3206,8 @@ impl BattleController {
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
         let nsel = self.local.selected.len();
         let game = self.session.as_ref().and_then(|s| s.battle());
-        let selected_type = self
-            .local
-            .selected
-            .first()
-            .copied()
-            .and_then(|id| game.and_then(|g| g.world.ecs_identity(id).map(|(t, _)| t.to_string())));
+        let selected_type =
+            self.local.selected.first().copied().and_then(|id| game.and_then(|g| g.world.ecs_identity(id).map(|(t, _)| t.to_string())));
         let selected_summary = match (self.local.selected.first().copied(), nsel, selected_type.as_deref()) {
             (Some(id), n, Some(ty)) if n > 1 => format!("#{}+{} {ty}", id.0, n - 1),
             (Some(id), _, Some(ty)) => format!("#{} {ty}", id.0),
@@ -3541,37 +3215,23 @@ impl BattleController {
             (Some(id), _, None) => format!("#{}", id.0),
             _ => "—".into(),
         };
-        let deploy_hint_owned = self
-            .local
-            .selected
-            .first()
-            .copied()
-            .and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
+        let deploy_hint_owned =
+            self.local.selected.first().copied().and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
-        let tip_owned = self
-            .command_hover
-            .and_then(command_button_csf_tooltip)
-            .and_then(|key| resolve_csf_text(csf, key));
+        let tip_owned = self.command_hover.and_then(command_button_csf_tooltip).and_then(|key| resolve_csf_text(csf, key));
         // 暂停菜单打开时不再画「已暂停」横幅文案。
         let show_pause_banner = hud.paused && hud.outcome.is_none();
 
         let caps = game.map(|g| g.snapshot_capabilities(&self.local.selected));
         let tabs_visible = Self::sidebar_tabs_visible(caps.as_ref());
         self.sync_sidebar_tab_to_visible(tabs_visible);
-        let metrics = self
-            .hud_chrome
-            .as_ref()
-            .map(|c| BattleHudChromeMetrics::for_mix(&c.mix))
-            .unwrap_or_else(BattleHudChromeMetrics::sidec01);
+        let metrics = self.hud_chrome.as_ref().map(|c| BattleHudChromeMetrics::for_mix(&c.mix)).unwrap_or_else(BattleHudChromeMetrics::sidec01);
         let snap = solve_battle_hud_with_metrics(w, h, metrics);
         let band = rect_px_from_snapshot(&snap, "cameo_band");
         let visible = cameo_visible_slot_count(band.h);
         self.clamp_cameo_scroll(visible);
-        let items = caps
-            .as_ref()
-            .map(|c| Self::tab_items(c, self.sidebar_tab))
-            .unwrap_or_default();
+        let items = caps.as_ref().map(|c| Self::tab_items(c, self.sidebar_tab)).unwrap_or_default();
         let start = self.cameo_scroll.min(items.len());
         let end = (start + visible).min(items.len());
         let page_items = &items[start..end];
@@ -3581,14 +3241,11 @@ impl BattleController {
                 let key = item.type_id.as_ref();
                 BattleCameoPaint {
                     type_id: key,
-                    image: self
-                        .cameo_cache
-                        .get(key)
-                        .and_then(|opt| opt.as_ref())
-                        .map(|s| &s.image),
+                    image: self.cameo_cache.get(key).and_then(|opt| opt.as_ref()).map(|s| &s.image),
                     enabled: item.enabled,
                     selected: matches!(self.sidebar_tab, 0 | 1)
-                        && self.place_mode.as_deref() == Some(key),
+                        && (self.place_mode.as_deref() == Some(key)
+                            || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
                 }
             })
             .collect();
@@ -3607,13 +3264,13 @@ impl BattleController {
             pause_reason: None,
             command_pressed: if show_pause_banner {
                 None
-            } else {
+            }
+            else {
                 self.command_pressed.or_else(|| {
                     if self.planning_mode {
-                        ra_widgets::skin::text::SKIRMISH_COMMAND_BAR
-                            .iter()
-                            .position(|&n| n == "PlanningMode")
-                    } else {
+                        ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
+                    }
+                    else {
                         None
                     }
                 })
@@ -3622,9 +3279,7 @@ impl BattleController {
             command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
             repair_active: !show_pause_banner && self.repair_mode,
             sell_active: !show_pause_banner && self.sell_mode,
-            radar_online: !show_pause_banner
-                && !local.map(|p| p.low_power).unwrap_or(false)
-                && caps.as_ref().is_some_and(|c| c.has_radar),
+            radar_online: !show_pause_banner && !local.map(|p| p.low_power).unwrap_or(false) && caps.as_ref().is_some_and(|c| c.has_radar),
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
             sidebar_tabs_visible: tabs_visible,
             cameos: if show_pause_banner { &[] } else { &cameos },
@@ -3680,10 +3335,7 @@ impl BattleController {
                     format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
                 }
                 else if hud.paused {
-                    format!(
-                        "{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅",
-                        self.title_base, hud.tick
-                    )
+                    format!("{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅", self.title_base, hud.tick)
                 }
                 else if self.place_mode.is_some() {
                     let nsel = self.local.selected.len();
