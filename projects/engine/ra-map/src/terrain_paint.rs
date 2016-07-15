@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count};
+use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_populated};
 use ra_types::AssetSource;
 
 use crate::{
@@ -39,6 +39,8 @@ pub enum TerrainPaintMode {
 /// 单个动画地形物件的预解码帧序列。
 #[derive(Debug, Clone)]
 pub struct TerrainAnimLayer {
+    /// rules / 地图节名（如 `TIBTRE01`）。
+    pub type_name: String,
     /// 格子 X。
     pub x: u16,
     /// 格子 Y。
@@ -59,6 +61,10 @@ pub struct TerrainAnimLayer {
     pub shp_frames: usize,
     /// 实际用于解码的调色板逻辑名（如 `unittem.pal` / `isotem.pal`）。
     pub palette: String,
+    /// SHP 后半是否为落影半幅（资源侧）。
+    pub has_shadow_frames: bool,
+    /// 主体 `TileBlit` 是否已挂上落影模板（呈现侧）。
+    pub shadow_blit_attached: bool,
 }
 
 /// 地图上全部动画地形物件（装载时烘焙，对局按时钟选帧）。
@@ -335,7 +341,10 @@ pub fn collect_terrain_anim_bank(
             continue;
         }
         let cell_z = z_lookup.get(&(obj.x, obj.y)).copied().unwrap_or(0);
+        let has_shadow_frames = shp_shadow_half_populated(&shp.frames);
+        let shadow_blit_attached = frames.iter().any(|f| f.shadow.is_some());
         layers.push(TerrainAnimLayer {
+            type_name: obj.name.clone(),
             x: obj.x,
             y: obj.y,
             cell_z,
@@ -346,6 +355,8 @@ pub fn collect_terrain_anim_bank(
             canvas_height: shp.height,
             shp_frames: shp.frames.len(),
             palette: palette_name,
+            has_shadow_frames,
+            shadow_blit_attached,
         });
     }
 
@@ -492,7 +503,10 @@ pub fn collect_ore_tree_anim_bank(
             continue;
         }
         let cell_z = z_lookup.get(&(obj.x, obj.y)).copied().unwrap_or(0);
+        let has_shadow_frames = shp_shadow_half_populated(&shp.frames);
+        let shadow_blit_attached = frames.iter().any(|f| f.shadow.is_some());
         layers.push(TerrainAnimLayer {
+            type_name: obj.name.clone(),
             x: obj.x,
             y: obj.y,
             cell_z,
@@ -503,6 +517,8 @@ pub fn collect_ore_tree_anim_bank(
             canvas_height: shp.height,
             shp_frames: shp.frames.len(),
             palette: "unittem.pal".into(),
+            has_shadow_frames,
+            shadow_blit_attached,
         });
     }
 
@@ -519,6 +535,31 @@ pub fn ore_tree_frame_count_hints(bank: &TerrainAnimBank) -> Vec<(u16, u16, u16)
         .iter()
         .map(|l| (l.x, l.y, l.shp_frames.min(u16::MAX as usize) as u16))
         .collect()
+}
+
+/// 矿柱 / 动画地形一层的运行时诊断行（装载与对照用）。
+pub fn format_terrain_anim_layer_diag(
+    layer: &TerrainAnimLayer,
+    selected_frame: u16,
+    static_layer_drawn: bool,
+    anim_bank_drawn: bool,
+) -> String {
+    format!(
+        "type={} file={} palette={} canvas={}x{} shp_frames={} body_frames={} selected_frame={} rate_ms={} static_layer_drawn={} anim_bank_drawn={} has_shadow_frames={} shadow_blit_attached={}",
+        layer.type_name,
+        layer.file,
+        layer.palette,
+        layer.canvas_width,
+        layer.canvas_height,
+        layer.shp_frames,
+        layer.frames.len(),
+        selected_frame,
+        layer.rate_ms,
+        static_layer_drawn,
+        anim_bank_drawn,
+        layer.has_shadow_frames,
+        layer.shadow_blit_attached
+    )
 }
 
 /// 按状态机给出的 `(x, y, frame)` 叠画矿柱。

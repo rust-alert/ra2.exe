@@ -9,8 +9,8 @@ use crate::{
     compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles,
     overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures,
     structure_paint::paint_structure_anim_bank, terrain_paint::collect_ore_tree_anim_bank, terrain_paint::collect_terrain_anim_bank,
-    terrain_paint::paint_map_terrain_objects, terrain_paint::paint_ore_tree_frames, terrain_paint::paint_terrain_anim_bank,
-    terrain_preview::compose_terrain_preview,
+    terrain_paint::format_terrain_anim_layer_diag, terrain_paint::paint_map_terrain_objects, terrain_paint::paint_ore_tree_frames,
+    terrain_paint::paint_terrain_anim_bank, terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -233,12 +233,7 @@ pub fn compose_boot_preview(
     let ore_hit = ore_tree_anim_bank
         .layers
         .first()
-        .map(|l| {
-            format!(
-                "{} {}x{} body#{}/{} pal={}",
-                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames, l.palette
-            )
-        })
+        .map(|l| format_terrain_anim_layer_diag(l, 0, false, true))
         .unwrap_or_else(|| "-".into());
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} terrain_anim#{} ({}) ore_tree#{} ({}) struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",

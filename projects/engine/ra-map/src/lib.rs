@@ -96,8 +96,9 @@ pub use structure_paint::{
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{
     TerrainAnimBank, TerrainAnimLayer, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
-    ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_ore_tree_frames_onto_rgba,
-    paint_terrain_anim_bank, paint_terrain_anims_onto_rgba, terrain_anim_frame, terrain_animation_rate_ms,
+    format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames,
+    paint_ore_tree_frames_onto_rgba, paint_terrain_anim_bank, paint_terrain_anims_onto_rgba, terrain_anim_frame,
+    terrain_animation_rate_ms,
 };
 pub use terrain_preview::compose_terrain_preview;
 pub use theater::{

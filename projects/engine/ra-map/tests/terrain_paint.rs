@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use ra_map::{
     MapInfo, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
-    ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_terrain_anim_bank,
-    terrain_anim_frame, terrain_animation_rate_ms,
+    format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames,
+    paint_terrain_anim_bank, terrain_anim_frame, terrain_animation_rate_ms,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -439,4 +439,100 @@ fn spawns_tiberium_blits_full_canvas_with_cell_height_y() {
     assert!(di + 3 < px.len(), "pixel index in bounds");
     assert!(px[di + 3] > 0, "expected ore-tree pixel at CellHeight+FA2 anchor ({expect_x},{expect_y})");
     assert!(px[di] > px[di + 1], "expected unittem red at ore-tree pixel");
+}
+
+#[test]
+fn ore_tree_diag_reports_static_skip_and_bank_draw() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert(
+        "rules.ini".into(),
+        b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\nSpawnsTiberium=yes\nAnimationProbability=.5\n".to_vec(),
+    );
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 1]));
+    let source = MapSource { files };
+    let map = tibtre_map();
+
+    let mut static_img = TerrainImage::blank(64, 64);
+    let static_n = paint_map_terrain_objects(
+        &source,
+        &map,
+        &mut static_img,
+        "art.ini",
+        "rules.ini",
+        TerrainPaintMode::StaticOnly,
+    );
+    assert_eq!(static_n, 0);
+
+    let bank = collect_ore_tree_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    let layer = &bank.layers[0];
+    assert_eq!(layer.type_name, "TIBTRE01");
+    assert_eq!(layer.palette, "unittem.pal");
+    assert!(layer.has_shadow_frames, "index-1 second half must count as shadow frames");
+    assert!(!layer.shadow_blit_attached, "shadow blit not wired yet");
+
+    let mut bank_img = TerrainImage::blank(256, 256);
+    let bank_n = paint_ore_tree_frames(&mut bank_img, &bank, &[(5, 0, 0)]);
+    assert_eq!(bank_n, 1);
+
+    let line = format_terrain_anim_layer_diag(layer, 0, static_n > 0, bank_n > 0);
+    assert!(line.contains("type=TIBTRE01"));
+    assert!(line.contains("file=tibtre01.tem"));
+    assert!(line.contains("palette=unittem.pal"));
+    assert!(line.contains("static_layer_drawn=false"));
+    assert!(line.contains("anim_bank_drawn=true"));
+    assert!(line.contains("has_shadow_frames=true"));
+    assert!(line.contains("shadow_blit_attached=false"));
+}
+
+#[test]
+fn tibtre_stock_fixture_runtime_diag_when_present() {
+    // 本机 CLI 解出的零售资源：`pnpm exec ra2 extract … -- tibtre01.tem unittem.pal`
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../tmp/tibtre-diag");
+    let tem = dir.join("tibtre01.tem");
+    let pal = dir.join("unittem.pal");
+    if !tem.is_file() || !pal.is_file() {
+        return;
+    }
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert(
+        "rules.ini".into(),
+        b"[TIBTRE01]\nIsAnimated=yes\nAnimationRate=3\nSpawnsTiberium=yes\nAnimationProbability=.003\n".to_vec(),
+    );
+    files.insert("tibtre01.tem".into(), std::fs::read(&tem).expect("tibtre01.tem"));
+    files.insert("unittem.pal".into(), std::fs::read(&pal).expect("unittem.pal"));
+    let source = MapSource { files };
+    let map = tibtre_map();
+
+    let mut static_img = TerrainImage::blank(64, 64);
+    let static_n = paint_map_terrain_objects(
+        &source,
+        &map,
+        &mut static_img,
+        "art.ini",
+        "rules.ini",
+        TerrainPaintMode::StaticOnly,
+    );
+    let bank = collect_ore_tree_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert_eq!(bank.layers.len(), 1);
+    let layer = &bank.layers[0];
+    let mut bank_img = TerrainImage::blank(256, 256);
+    let bank_n = paint_ore_tree_frames(&mut bank_img, &bank, &[(5, 0, 0)]);
+    let line = format_terrain_anim_layer_diag(layer, 0, static_n > 0, bank_n > 0);
+    eprintln!("ore_tree_runtime_diag {line}");
+
+    assert_eq!(layer.canvas_width, 84);
+    assert_eq!(layer.canvas_height, 56);
+    assert_eq!(layer.shp_frames, 22);
+    assert_eq!(layer.frames.len(), 11);
+    assert_eq!(layer.palette, "unittem.pal");
+    assert!(layer.has_shadow_frames);
+    assert!(!layer.shadow_blit_attached);
+    assert_eq!(static_n, 0);
+    assert_eq!(bank_n, 1);
+    assert_eq!(layer.rate_ms, terrain_animation_rate_ms(3));
 }
