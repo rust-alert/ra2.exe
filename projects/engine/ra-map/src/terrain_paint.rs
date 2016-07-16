@@ -2,12 +2,14 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_populated};
+use ra_assets::{
+    IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated,
+};
 use ra_types::AssetSource;
 
 use crate::{
     LightingConfig, MapInfo, PointLight,
-    compose::{TerrainImage, TileBlit, paint_cell_sprites},
+    compose::{ShadowBlit, TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::{TILE_HEIGHT, TILE_WIDTH},
     lighting::{apply_rgba_tint, cell_tint_with_lights},
     theater::{theater_palette, theater_tmp_extension},
@@ -228,10 +230,11 @@ pub fn paint_map_terrain_objects(
         if frame.frame_width == 0 || frame.frame_height == 0 {
             continue;
         }
+        let shadow = shadow_blit_for_body(shp, usize::from(frame_idx), spawns_tiberium);
         let mut blit = if spawns_tiberium {
-            frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal)
+            frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal, shadow)
         } else {
-            frame_to_blit(frame, shp.width, shp.height, obj_pal)
+            frame_to_blit(frame, shp.width, shp.height, obj_pal, shadow)
         };
         blit_cache.insert(cache_key, blit.clone());
         apply_rgba_tint(&mut blit.rgba, tint);
@@ -335,7 +338,8 @@ pub fn collect_terrain_anim_bank(
                 });
                 continue;
             }
-            frames.push(frame_to_blit(frame, shp.width, shp.height, obj_pal));
+            let shadow = shadow_blit_for_body(shp, idx, false);
+            frames.push(frame_to_blit(frame, shp.width, shp.height, obj_pal, shadow));
         }
         if frames.iter().all(|f| f.width == 0) {
             continue;
@@ -497,7 +501,8 @@ pub fn collect_ore_tree_anim_bank(
                 });
                 continue;
             }
-            frames.push(frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal));
+            let shadow = shadow_blit_for_body(shp, idx, true);
+            frames.push(frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal, shadow));
         }
         if frames.iter().all(|f| f.width == 0) {
             continue;
@@ -610,7 +615,13 @@ pub fn paint_ore_tree_frames_onto_rgba(
     n
 }
 
-fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
+fn frame_to_blit(
+    frame: &ra_assets::ShpFrame,
+    shp_w: u16,
+    shp_h: u16,
+    pal: &Palette,
+    shadow: Option<ShadowBlit>,
+) -> TileBlit {
     // 普通树/岩：子帧相对整幅画布裁切，锚在钻石中心（再加 FA2 −3 Y）。
     TileBlit {
         width: u32::from(frame.frame_width),
@@ -618,7 +629,7 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
         offset_x: i32::from(frame.frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2,
         offset_y: i32::from(frame.frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2 + TERRAIN_OBJECT_Y_FUDGE,
         rgba: frame.to_rgba(pal),
-        shadow: None,
+        shadow,
     }
 }
 
@@ -627,15 +638,72 @@ fn frame_to_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Pale
 /// Y = −CellHeight(−15) + FA2 地形 fudge(−3)。`paint_cell_sprites` 以 `iso_to_screen`
 /// （钻石包围盒原点）为基准，因此偏移为
 /// `(TILE_WIDTH/2 − w/2, TILE_HEIGHT/2 − h/2 − 18)`。
-fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, pal: &Palette) -> TileBlit {
+fn frame_to_spawns_tiberium_blit(
+    frame: &ra_assets::ShpFrame,
+    shp_w: u16,
+    shp_h: u16,
+    pal: &Palette,
+    shadow: Option<ShadowBlit>,
+) -> TileBlit {
     let full_w = u32::from(shp_w);
     let full_h = u32::from(shp_h);
     let mut rgba = vec![0u8; (full_w * full_h * 4) as usize];
+    paste_rgba_to_canvas(&frame.to_rgba(pal), frame, full_w, full_h, &mut rgba);
+    TileBlit {
+        width: full_w,
+        height: full_h,
+        offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE + TERRAIN_OBJECT_Y_FUDGE,
+        rgba,
+        shadow,
+    }
+}
+
+fn shadow_blit_for_body(shp: &ShpFile, body_idx: usize, spawns_tiberium: bool) -> Option<ShadowBlit> {
+    if !shp_shadow_half_populated(&shp.frames) {
+        return None;
+    }
+    let base = shp_shadow_half_base(shp.frames.len())?;
+    let frame = shp.frames.get(base + body_idx)?;
+    if frame.frame_width == 0 || frame.frame_height == 0 {
+        return None;
+    }
+    if spawns_tiberium {
+        Some(frame_to_spawns_tiberium_shadow(frame, shp.width, shp.height))
+    } else {
+        Some(frame_to_cropped_shadow(frame, shp.width, shp.height, TERRAIN_OBJECT_Y_FUDGE))
+    }
+}
+
+fn frame_to_cropped_shadow(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16, y_fudge: i32) -> ShadowBlit {
+    ShadowBlit {
+        width: u32::from(frame.frame_width),
+        height: u32::from(frame.frame_height),
+        offset_x: i32::from(frame.frame_x as i16) - i32::from(shp_w) / 2 + TILE_WIDTH / 2,
+        offset_y: i32::from(frame.frame_y as i16) - i32::from(shp_h) / 2 + TILE_HEIGHT / 2 + y_fudge,
+        mask: frame.pixels.clone(),
+    }
+}
+
+fn frame_to_spawns_tiberium_shadow(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h: u16) -> ShadowBlit {
+    let full_w = u32::from(shp_w);
+    let full_h = u32::from(shp_h);
+    let mut mask = vec![0u8; (full_w * full_h) as usize];
+    paste_indices_to_canvas(&frame.pixels, frame, full_w, full_h, &mut mask);
+    ShadowBlit {
+        width: full_w,
+        height: full_h,
+        offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
+        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE + TERRAIN_OBJECT_Y_FUDGE,
+        mask,
+    }
+}
+
+fn paste_rgba_to_canvas(src: &[u8], frame: &ra_assets::ShpFrame, full_w: u32, full_h: u32, rgba: &mut [u8]) {
     let fw = u32::from(frame.frame_width);
     let fh = u32::from(frame.frame_height);
     let fx = u32::from(frame.frame_x);
     let fy = u32::from(frame.frame_y);
-    let src = frame.to_rgba(pal);
     for y in 0..fh {
         let dst_y = fy + y;
         if dst_y >= full_h {
@@ -649,13 +717,36 @@ fn frame_to_spawns_tiberium_blit(frame: &ra_assets::ShpFrame, shp_w: u16, shp_h:
             rgba[dst_off..dst_off + bytes].copy_from_slice(&src[src_off..src_off + bytes]);
         }
     }
-    TileBlit {
-        width: full_w,
-        height: full_h,
-        offset_x: TILE_WIDTH / 2 - i32::from(shp_w) / 2,
-        offset_y: TILE_HEIGHT / 2 - i32::from(shp_h) / 2 + SPAWNS_TIBERIUM_Y_FUDGE + TERRAIN_OBJECT_Y_FUDGE,
-        rgba,
-        shadow: None,
+}
+
+fn paste_indices_to_canvas(src: &[u8], frame: &ra_assets::ShpFrame, full_w: u32, full_h: u32, dst: &mut [u8]) {
+    let fw = u32::from(frame.frame_width);
+    let fh = u32::from(frame.frame_height);
+    let fx = u32::from(frame.frame_x);
+    let fy = u32::from(frame.frame_y);
+    for y in 0..fh {
+        let dst_y = fy + y;
+        if dst_y >= full_h {
+            break;
+        }
+        for x in 0..fw {
+            let dst_x = fx + x;
+            if dst_x >= full_w {
+                break;
+            }
+            let si = (y * fw + x) as usize;
+            let Some(&idx) = src.get(si)
+            else {
+                break;
+            };
+            if idx == 0 {
+                continue;
+            }
+            let di = (dst_y * full_w + dst_x) as usize;
+            if di < dst.len() {
+                dst[di] = 1;
+            }
+        }
     }
 }
 

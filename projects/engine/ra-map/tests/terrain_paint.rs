@@ -471,7 +471,8 @@ fn ore_tree_diag_reports_static_skip_and_bank_draw() {
     assert_eq!(layer.type_name, "TIBTRE01");
     assert_eq!(layer.palette, "unittem.pal");
     assert!(layer.has_shadow_frames, "index-1 second half must count as shadow frames");
-    assert!(!layer.shadow_blit_attached, "shadow blit not wired yet");
+    assert!(layer.shadow_blit_attached, "shadow half must attach to TileBlit");
+    assert!(layer.frames[0].shadow.is_some());
 
     let mut bank_img = TerrainImage::blank(256, 256);
     let bank_n = paint_ore_tree_frames(&mut bank_img, &bank, &[(5, 0, 0)]);
@@ -484,7 +485,7 @@ fn ore_tree_diag_reports_static_skip_and_bank_draw() {
     assert!(line.contains("static_layer_drawn=false"));
     assert!(line.contains("anim_bank_drawn=true"));
     assert!(line.contains("has_shadow_frames=true"));
-    assert!(line.contains("shadow_blit_attached=false"));
+    assert!(line.contains("shadow_blit_attached=true"));
 }
 
 #[test]
@@ -531,8 +532,62 @@ fn tibtre_stock_fixture_runtime_diag_when_present() {
     assert_eq!(layer.frames.len(), 11);
     assert_eq!(layer.palette, "unittem.pal");
     assert!(layer.has_shadow_frames);
-    assert!(!layer.shadow_blit_attached);
+    assert!(layer.shadow_blit_attached);
     assert_eq!(static_n, 0);
     assert_eq!(bank_n, 1);
     assert_eq!(layer.rate_ms, terrain_animation_rate_ms(3));
+}
+
+#[test]
+fn ore_tree_shadow_darkens_underlay_before_body() {
+    // 主体索引 5=红；落影索引 1。落影与主体同格时，先压暗底色再盖主体。
+    let mut pal = solid_index_pal(5, 63, 0, 0);
+    pal[1 * 3] = 0;
+    pal[1 * 3 + 1] = 0;
+    pal[1 * 3 + 2] = 0;
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIBTRE01]\nTheater=yes\n".to_vec());
+    files.insert(
+        "rules.ini".into(),
+        b"[TIBTRE01]\nIsAnimated=yes\nSpawnsTiberium=yes\nAnimationProbability=.5\n".to_vec(),
+    );
+    files.insert("unittem.pal".into(), pal);
+    files.insert("tibtre01.tem".into(), multi_frame_shp(&[5, 1]));
+    let source = MapSource { files };
+    let map = tibtre_map();
+    let bank = collect_ore_tree_anim_bank(&source, &map, "art.ini", "rules.ini");
+    assert!(bank.layers[0].frames[0].shadow.is_some());
+
+    let mut image = TerrainImage::blank(256, 256);
+    // 先铺满亮灰底，便于观察落影折半。
+    for px in image.image.pixels_mut() {
+        *px = image::Rgba([200, 200, 200, 255]);
+    }
+    assert_eq!(paint_ore_tree_frames(&mut image, &bank, &[(5, 0, 0)]), 1);
+
+    let shadow = bank.layers[0].frames[0].shadow.as_ref().unwrap();
+    let (sx, sy) = ra_map::iso_to_screen(5, 0, 0);
+    let ox = sx + shadow.offset_x - image.origin_x;
+    let oy = sy + shadow.offset_y - image.origin_y;
+    let mut dimmed = 0usize;
+    for row in 0..shadow.height as i32 {
+        for col in 0..shadow.width as i32 {
+            let mi = (row as u32 * shadow.width + col as u32) as usize;
+            if shadow.mask.get(mi).copied().unwrap_or(0) == 0 {
+                continue;
+            }
+            let x = ox + col;
+            let y = oy + row;
+            if x < 0 || y < 0 {
+                continue;
+            }
+            let px = image.image.get_pixel(x as u32, y as u32).0;
+            // 落影处：底色被折半（约 100）或被主体红盖住。
+            if px[0] < 200 || px[1] < 200 || px[2] < 200 {
+                dimmed += 1;
+            }
+        }
+    }
+    assert!(dimmed > 0, "expected shadow to darken or be covered by body");
 }
