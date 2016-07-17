@@ -308,6 +308,8 @@ pub struct BattleController {
     eva_known_options: HashSet<String>,
     /// 建造选项集是否已播种。
     eva_options_seeded: bool,
+    /// 已对本机完工件自动进入过落位的类型（Esc 取消后同类型不反复抢焦点）。
+    last_auto_place_ready: Option<String>,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     outcome_hold_until: Option<Instant>,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
@@ -398,6 +400,7 @@ impl BattleController {
             eva_producing_seeded: false,
             eva_known_options: HashSet::new(),
             eva_options_seeded: false,
+            last_auto_place_ready: None,
             outcome_hold_until: None,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
@@ -541,6 +544,7 @@ impl BattleController {
         self.sell_mode = false;
         self.planning_mode = false;
         self.planning_waypoints.clear();
+        self.last_auto_place_ready = None;
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;
         self.sidebar_pressed = None;
@@ -1469,9 +1473,46 @@ impl BattleController {
         }
         self.poll_in_battle_eva();
         self.drain_engine_eva_cues();
+        self.sync_ready_place_mode();
         let nav = self.poll_outcome_nav();
         self.resolve_deploy_watch();
         (nav, started.elapsed())
+    }
+
+    /// 建造场出现新完工件时自动进入落位（Esc 取消后同类型不反复抢焦点）。
+    fn sync_ready_place_mode(&mut self) {
+        let Some(ready) = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .and_then(|g| g.local_ready_building())
+        else {
+            self.last_auto_place_ready = None;
+            return;
+        };
+        let key = ready.as_ref();
+        if self.last_auto_place_ready.as_deref() == Some(key) {
+            return;
+        }
+        self.last_auto_place_ready = Some(key.to_string());
+        let defense = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .and_then(|g| g.world.definitions.structures.get(key))
+            .is_some_and(|s| s.build_cat.is_defense_tab());
+        let tab = if defense { 1 } else { 0 };
+        let visible = Self::sidebar_tabs_visible(self.current_capabilities().as_ref());
+        if visible.get(tab).copied().unwrap_or(false) && self.sidebar_tab != tab {
+            self.sidebar_tab = tab;
+            self.cameo_scroll = 0;
+        }
+        self.repair_mode = false;
+        self.sell_mode = false;
+        self.planning_mode = false;
+        self.planning_waypoints.clear();
+        self.place_mode = Some(key.to_string());
+        tracing::info!("建造模式 · 完工自动落位 {key}（点地图落地，右键/Esc 取消）");
     }
 
     /// 消费引擎 `EvaCue`：仅本机 house 入播报队列。
