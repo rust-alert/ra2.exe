@@ -27,6 +27,10 @@ fn unit(id: u64, x: i32, y: i32) -> SnapshotUnit {
         move_goal_screen: None,
         attack_target: None,
         attack_target_screen: None,
+        foundation_w: 0,
+        foundation_h: 0,
+        art_height: 0,
+        bracket_delta: 0,
     }
 }
 
@@ -58,4 +62,21 @@ fn selection_refresh_without_reprojecting_all() {
     FrameBuilder::apply_dirty_units(&mut world, 1, &[], &[], &[EntityId(2)]);
     assert!(!world.units.get(&1).unwrap().selected);
     assert!(world.units.get(&2).unwrap().selected);
+}
+
+#[test]
+fn hover_refresh_without_reprojecting_all() {
+    let mut world = RenderWorld::default();
+    let a = unit(1, 0, 0);
+    let b = unit(2, 0, 0);
+    FrameBuilder::apply_dirty_units(&mut world, 1, &[EntityId(1), EntityId(2)], &[a, b], &[]);
+    world.hover_id = Some(EntityId(1));
+    FrameBuilder::apply_dirty_units(&mut world, 1, &[], &[], &[]);
+    assert!(world.units.get(&1).unwrap().hovered);
+    assert!(!world.units.get(&2).unwrap().hovered);
+
+    world.hover_id = Some(EntityId(2));
+    FrameBuilder::apply_dirty_units(&mut world, 1, &[], &[], &[]);
+    assert!(!world.units.get(&1).unwrap().hovered);
+    assert!(world.units.get(&2).unwrap().hovered);
 }

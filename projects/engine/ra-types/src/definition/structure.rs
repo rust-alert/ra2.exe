@@ -82,6 +82,8 @@ pub struct StructureDefinition {
     pub owner: String,
     /// INI `Foundation=` 占地。
     pub foundation: Foundation,
+    /// INI / art `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
+    pub height: u16,
     /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
     pub super_weapon: Option<String>,
     /// 定义期能力声明。

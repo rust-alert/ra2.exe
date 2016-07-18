@@ -152,12 +152,25 @@ pub struct SnapshotUnit {
     pub attack_target: Option<EntityId>,
     /// 攻击目标相对预览图的锚点（供选中行动线终点）。
     pub attack_target_screen: Option<(i32, i32)>,
+    /// 建筑占地宽（格）；非建筑为 0。
+    pub foundation_w: u16,
+    /// 建筑占地高（格）；非建筑为 0。
+    pub foundation_h: u16,
+    /// 建筑 `Height`（缺省 2）；非建筑为 0。用于选中框竖向抬升。
+    pub art_height: u16,
+    /// `PixelSelectionBracketDelta`：选中血条竖直像素偏移（负值上移）。
+    pub bracket_delta: i32,
 }
 
 impl SnapshotUnit {
     /// 是否为建筑标记（相对菱形单位用方块绘制）。
     pub fn is_structure(&self) -> bool {
         matches!(self.kind, MapEntityKind::Structure)
+    }
+
+    /// 是否为步兵（影响 `pipbrd` 帧与 pip 段数）。
+    pub fn is_infantry(&self) -> bool {
+        matches!(self.kind, MapEntityKind::Infantry)
     }
 }
 
@@ -1176,6 +1189,24 @@ impl BattleSession {
             let txf = self.world.ecs_get::<Transform>(tid).copied()?;
             Some(self.cell_anchor_screen(txf.x, txf.y))
         });
+        let (foundation_w, foundation_h, art_height) = if matches!(identity.kind, MapEntityKind::Structure) {
+            self.world
+                .definitions
+                .structures
+                .get(identity.type_id.as_ref())
+                .map(|s| (s.foundation.width, s.foundation.height, s.height.max(1)))
+                .unwrap_or((1, 1, 2))
+        }
+        else {
+            (0, 0, 0)
+        };
+        let bracket_delta = self
+            .world
+            .definitions
+            .techno
+            .get(identity.type_id.as_ref())
+            .map(|t| t.pixel_selection_bracket_delta)
+            .unwrap_or(0);
         Some(SnapshotUnit {
             id,
             kind: identity.kind,
@@ -1196,6 +1227,10 @@ impl BattleSession {
             move_goal_screen,
             attack_target,
             attack_target_screen,
+            foundation_w,
+            foundation_h,
+            art_height,
+            bracket_delta,
         })
     }
 

@@ -44,8 +44,24 @@ pub use crate::camera::CameraBounds;
 pub use crate::frame::FrameBuilder;
 /// 表面 sRGB → unorm 视图格式列表。
 pub use crate::gpu::encoded_view_formats;
-/// NDC 粗裁剪（marker stub）。
+/// NDC 粗裁剪。
 pub use crate::markers::ndc_visible;
+/// 建筑血 pip 段数。
+pub use crate::markers::building_pip_count;
+/// 填充 pip 数。
+pub use crate::markers::filled_pip_count;
+/// 血色档位。
+pub use crate::markers::health_pip_tone;
+/// 选中 / 悬停可见性。
+pub use crate::markers::status_visibility;
+/// 血色枚举。
+pub use crate::markers::HealthPipTone;
+/// 建筑 `pips.shp` 帧索引。
+pub use crate::markers::BUILDING_PIP_FRAMES;
+/// 单位 `pips.shp` 帧索引。
+pub use crate::markers::UNIT_PIP_FRAMES;
+/// 选中血条 CPU 解码结果（`pips.shp` / `pipbrd.shp`）。
+pub use crate::markers::DecodedSelectionOverlay;
 /// 命令图标 CPU 解码结果（`mouse.shp` 帧）。
 pub use crate::order_icons::DecodedOrderIcons;
 /// 渲染阶段图。
@@ -95,6 +111,8 @@ pub struct Renderer {
     /// 对局应设为 `[Map] LocalSize` 投影，避免扫到 `Size` 外缘锯齿外的空域。
     camera_content: Option<(f32, f32, f32, f32)>,
     markers: Option<MarkerGpu>,
+    /// 选中血条素材（GPU 未就绪时暂存）。
+    pending_selection_overlay: Option<DecodedSelectionOverlay>,
     /// `mouse.shp` 命令图标图集（移动 / 攻击 / 部署）。
     order_icons: Option<OrderIconGpu>,
     /// GPU 未就绪时暂存的命令图标。
@@ -131,6 +149,7 @@ impl Renderer {
             world_view: None,
             camera_content: None,
             markers: None,
+            pending_selection_overlay: None,
             order_icons: None,
             pending_order_icons: None,
             capture_pending: false,
@@ -178,7 +197,9 @@ impl Renderer {
                 }
             }
             if self.markers.is_none() {
-                self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
+                if let Some(assets) = self.pending_selection_overlay.as_ref() {
+                    self.markers = MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, assets);
+                }
             }
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
@@ -368,11 +389,25 @@ impl Renderer {
             self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
-        self.markers = Some(MarkerGpu::create(&gpu.device, gpu.config.format));
+        self.markers = self
+            .pending_selection_overlay
+            .as_ref()
+            .and_then(|assets| MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, assets));
         if let Some(icons) = self.pending_order_icons.take() {
             self.order_icons = OrderIconGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &icons);
         }
         self.gpu = Some(gpu);
+    }
+
+    /// 装入 `pips.shp` / `pipbrd.shp` 选中血条。GPU 未就绪时暂存。
+    pub fn set_selection_overlay(&mut self, assets: DecodedSelectionOverlay) {
+        if let Some(gpu) = self.gpu.as_ref() {
+            self.markers = MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &assets);
+            self.pending_selection_overlay = Some(assets);
+        } else {
+            self.pending_selection_overlay = Some(assets);
+            self.markers = None;
+        }
     }
 
     /// 装入 `mouse.shp` 命令图标（移动 / 攻击 / 部署）。GPU 未就绪时暂存。
@@ -573,11 +608,19 @@ impl Renderer {
     pub fn clear_match_visuals(&mut self) {
         self.render_world.clear_units();
         self.render_world.action_lines_active = false;
+        self.render_world.hover_id = None;
     }
 
     /// 本帧是否绘制选中行动线（UnitActionLines 窗口）。
     pub fn set_action_lines_active(&mut self, active: bool) {
         self.render_world.action_lines_active = active;
+    }
+
+    /// 写入悬停实体与血色阈值（每显示帧由宿主更新）。
+    pub fn set_selection_status(&mut self, hover: Option<ra_types::EntityId>, condition_yellow: f32, condition_red: f32) {
+        self.render_world.hover_id = hover;
+        self.render_world.condition_yellow = condition_yellow.clamp(0.0, 1.0);
+        self.render_world.condition_red = condition_red.clamp(0.0, 1.0);
     }
 
     fn begin_frame_timings(&mut self) {

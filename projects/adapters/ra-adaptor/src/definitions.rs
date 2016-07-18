@@ -107,6 +107,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             requires_stolen_allied_tech: ini_bool(&rules.rules, &key, "RequiresStolenAlliedTech").unwrap_or(false),
             requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
             requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),
+            pixel_selection_bracket_delta: ini_i32(&rules.rules, &key, "PixelSelectionBracketDelta").unwrap_or(0),
         });
 
         if tt.harvester {
@@ -179,6 +180,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
 
         let foundation = Foundation::parse(&ini_string(&rules.rules, &key, "Foundation").unwrap_or_default());
+        let height = ini_i32(&rules.rules, &key, "Height").unwrap_or(2).max(1) as u16;
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -194,6 +196,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             production,
             owner: tt.owner.clone(),
             foundation,
+            height,
             super_weapon,
             capabilities,
         });

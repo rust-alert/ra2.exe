@@ -28,6 +28,7 @@ use ra_widgets::{
     battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
     battle_order_icons::load_battle_order_icons,
     battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
+    battle_selection_overlay::load_selection_overlay,
     compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
     fs_source::GameAssetSource,
     render::present,
@@ -252,6 +253,12 @@ pub struct BattleController {
     ui_faction_chrome: Option<ra_widgets::skirmish_setup::UiFactionChrome>,
     /// 是否已尝试装入 `mouse.shp` 命令图标。
     order_icons_loaded: bool,
+    /// 是否已尝试装入选中血条 `pips` / `pipbrd`。
+    selection_overlay_loaded: bool,
+    /// `[AudioVisual] ConditionYellow`。
+    condition_yellow: f32,
+    /// `[AudioVisual] ConditionRed`。
+    condition_red: f32,
     /// 命令条悬停槽。
     command_hover: Option<usize>,
     /// 命令条按下槽（高亮）。
@@ -372,6 +379,9 @@ impl BattleController {
             ui_faction_side: None,
             ui_faction_chrome: None,
             order_icons_loaded: false,
+            selection_overlay_loaded: false,
+            condition_yellow: 0.5,
+            condition_red: 0.25,
             command_hover: None,
             command_pressed: None,
             preview_base: boot.preview_base,
@@ -557,6 +567,9 @@ impl BattleController {
         self.last_pump = Instant::now();
         self.hud_chrome = None;
         self.order_icons_loaded = false;
+        self.selection_overlay_loaded = false;
+        self.condition_yellow = 0.5;
+        self.condition_red = 0.25;
         self.command_hover = None;
         self.command_pressed = None;
         self.preview_base = boot.preview_base;
@@ -1940,6 +1953,7 @@ impl BattleController {
         self.ensure_battle_hud_chrome(assets);
         self.ensure_pause_menu_chrome(assets);
         self.ensure_order_icons(renderer, assets);
+        self.ensure_selection_overlay(renderer, assets);
         self.ensure_cameo_cache(assets);
         self.ensure_start_view(renderer);
         let (vw, vh) = window
@@ -1949,6 +1963,8 @@ impl BattleController {
             })
             .unwrap_or((800, 600));
         self.sync_world_view(renderer, vw, vh);
+        let hover = self.tactical_hover_entity(renderer, window);
+        renderer.set_selection_status(hover, self.condition_yellow, self.condition_red);
         self.tick_deploy_visuals(assets, renderer);
         let overlay_patched = assets.map(|a| self.apply_overlay_paint_dirty(a)).unwrap_or(false);
         let structure_patched = assets.map(|a| self.apply_structure_paint_dirty(a)).unwrap_or(false);
@@ -2632,6 +2648,62 @@ impl BattleController {
             }
             None => tracing::warn!("命令图标装入失败 · 缺少 mouse.shp / mousepal.pal"),
         }
+    }
+
+    /// 装入 `pips.shp` / `pipbrd.shp` 选中血条（每局一次）。
+    fn ensure_selection_overlay(&mut self, renderer: &mut Renderer, assets: Option<&GameAssetSource>) {
+        if self.selection_overlay_loaded {
+            return;
+        }
+        self.selection_overlay_loaded = true;
+        self.refresh_condition_thresholds(assets);
+        let Some(source) = assets
+        else {
+            return;
+        };
+        match load_selection_overlay(source) {
+            Some(overlay) => {
+                tracing::info!(
+                    "选中血条 · pipbrd#{} pips#{} · yellow={:.2} red={:.2}",
+                    overlay.pipbrd_frames.len(),
+                    overlay.pips_frames.len(),
+                    self.condition_yellow,
+                    self.condition_red
+                );
+                renderer.set_selection_overlay(overlay);
+            }
+            None => tracing::warn!("选中血条装入失败 · 缺少 pips.shp / pipbrd.shp / palette.pal"),
+        }
+    }
+
+    /// 从 rules 刷新 `ConditionYellow` / `ConditionRed`。
+    fn refresh_condition_thresholds(&mut self, assets: Option<&GameAssetSource>) {
+        use ra_types::AssetSource;
+        let Some(source) = assets
+        else {
+            return;
+        };
+        let Ok(bytes) = source.read(self.rules_ini)
+        else {
+            return;
+        };
+        let Ok(doc) = IniDocument::parse(&bytes)
+        else {
+            return;
+        };
+        let damage = ra_map::StructureDamageRules::from_rules_doc(&doc);
+        self.condition_yellow = damage.yellow;
+        self.condition_red = damage.red;
+    }
+
+    /// 战术区悬停的本方实体（移动优先，其次建筑）。
+    fn tactical_hover_entity(&self, renderer: &Renderer, window: Option<&Arc<Window>>) -> Option<ra_types::EntityId> {
+        let window = window?;
+        let game = self.session.as_ref()?.battle()?;
+        let vp = self.map_viewport(window);
+        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
+        game.pick_local_mobile_near_image(wx, wy, 72.0)
+            .or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。

@@ -18,12 +18,16 @@ impl FrameBuilder {
     pub fn apply_full_snapshot(world: &mut RenderWorld, snap: &RenderSnapshot) {
         world.source_tick = snap.tick;
         let selected: HashSet<u64> = snap.selected.iter().map(|id| id.0).collect();
+        let hover = world.hover_id.map(|h| h.0);
         let mut seen: HashSet<u64> = HashSet::with_capacity(snap.units.len());
         let mut updated = 0u32;
         for u in &snap.units {
             let key = u.id.0;
             seen.insert(key);
-            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key)));
+            world.units.insert(
+                key,
+                render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)),
+            );
             updated += 1;
         }
         world.units.retain(|k, _| seen.contains(k));
@@ -36,12 +40,16 @@ impl FrameBuilder {
     pub fn apply_dirty_units(world: &mut RenderWorld, source_tick: u64, dirty: &[EntityId], units: &[SnapshotUnit], selected: &[EntityId]) {
         world.source_tick = source_tick;
         let selected: HashSet<u64> = selected.iter().map(|id| id.0).collect();
+        let hover = world.hover_id.map(|h| h.0);
         let mut provided: HashSet<u64> = HashSet::with_capacity(units.len());
         let mut updated = 0u32;
         for u in units {
             let key = u.id.0;
             provided.insert(key);
-            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key)));
+            world.units.insert(
+                key,
+                render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)),
+            );
             updated += 1;
         }
         for id in dirty {
@@ -49,28 +57,35 @@ impl FrameBuilder {
                 world.units.remove(&id.0);
             }
         }
-        // 选中集合变化时刷新未出现在 dirty 投影中的槽位选中标记。
+        // 选中 / 悬停变化时刷新未出现在 dirty 投影中的槽位标记。
         for unit in world.units.values_mut() {
             unit.selected = selected.contains(&unit.id.0);
+            unit.hovered = hover == Some(unit.id.0);
         }
         world.dirty_count = updated;
     }
 }
 
-fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool) -> RenderUnit {
+fn render_unit_from_snapshot(u: &SnapshotUnit, selected: bool, hovered: bool) -> RenderUnit {
     RenderUnit {
         id: u.id,
         screen_x: u.screen_x,
         screen_y: u.screen_y,
         is_structure: u.is_structure(),
+        is_infantry: u.is_infantry(),
         dead: u.dead,
         selected,
+        hovered,
         deployable: u.deployable,
         move_goal_screen: u.move_goal_screen,
         attack_target_screen: u.attack_target_screen,
         color: anim_tint(owner_color(u.owner.as_ref()), u.anim_state),
         health: u.health,
         max_health: u.max_health,
+        foundation_w: u.foundation_w,
+        foundation_h: u.foundation_h,
+        art_height: u.art_height,
+        bracket_delta: u.bracket_delta,
     }
 }
 

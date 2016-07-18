@@ -90,6 +90,8 @@ pub struct TechnoDefinition {
     pub requires_stolen_soviet_tech: bool,
     /// `RequiresStolenThirdTech=yes`。
     pub requires_stolen_third_tech: bool,
+    /// INI `PixelSelectionBracketDelta`：选中血条竖直像素偏移（负值上移）。
+    pub pixel_selection_bracket_delta: i32,
 }
 
 /// Techno 定义表。
