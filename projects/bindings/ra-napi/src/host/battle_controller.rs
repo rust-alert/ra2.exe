@@ -17,10 +17,10 @@ use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TerrainAnimBank, Theater,
-    WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip, local_size_preview_rect,
-    paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
+    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
+    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
+    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::{EntityId, PresentFeel};
@@ -3330,6 +3330,11 @@ impl BattleController {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);
             }
+            if !show_pause_banner {
+                if let Some(type_id) = self.place_mode.clone() {
+                    self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
+                }
+            }
             if show_pause_banner {
                 let metrics = self.pause_hud_metrics();
                 if let Some(pause) = compose_battle_pause_menu_overlay(
@@ -3348,6 +3353,77 @@ impl BattleController {
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
             let page = present::present_ui_page(page, present);
             renderer.set_ui_overlay(page);
+        }
+    }
+
+    /// 放置模式下在光标格画占地幽灵：可放绿、不可放红（按格着色）。
+    fn paint_placement_ghost(&self, page: &mut RgbaImage, renderer: &Renderer, window_w: u32, window_h: u32, type_id: &str) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let vp = MapViewport::battle(window_w.max(1), window_h.max(1));
+        if !vp.contains_cursor(self.cursor.0 as i32, self.cursor.1 as i32) {
+            return;
+        }
+        let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
+        let Some((ox, oy)) = game.image_to_cell(wx, wy)
+        else {
+            return;
+        };
+        let foundation = game
+            .world
+            .definitions
+            .structures
+            .get(type_id)
+            .map(|s| s.foundation.clone())
+            .unwrap_or_default();
+        let width = foundation.width.max(1);
+        let height = foundation.height.max(1);
+        let cam = renderer.camera();
+        let half_w = (TILE_WIDTH / 2) as f32;
+        let half_h = (TILE_HEIGHT / 2) as f32;
+        for dy in 0..height {
+            for dx in 0..width {
+                let Some(cx) = ox.checked_add(dx)
+                else {
+                    continue;
+                };
+                let Some(cy) = oy.checked_add(dy)
+                else {
+                    continue;
+                };
+                let ok = game.world.can_place_structure(cx, cy);
+                let fill = if ok {
+                    [40u8, 220, 70, 90]
+                }
+                else {
+                    [220u8, 40, 40, 110]
+                };
+                let stroke = if ok {
+                    [80u8, 255, 100, 230]
+                }
+                else {
+                    [255u8, 70, 70, 240]
+                };
+                let z = game.world.pass_grid.cell_height(cx, cy);
+                let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
+                let center_wx = (sx - game.preview_origin_x) as f32 + half_w;
+                let center_wy = (sy - game.preview_origin_y) as f32 + half_h;
+                let corners_w = [
+                    (center_wx, center_wy - half_h),
+                    (center_wx + half_w, center_wy),
+                    (center_wx, center_wy + half_h),
+                    (center_wx - half_w, center_wy),
+                ];
+                let mut corners_s = [(0i32, 0i32); 4];
+                for (i, (wx, wy)) in corners_w.iter().copied().enumerate() {
+                    let (sx, sy) = vp.world_to_screen(cam, wx, wy);
+                    corners_s[i] = (sx.round() as i32, sy.round() as i32);
+                }
+                fill_screen_diamond(page, &vp, corners_s, fill);
+                stroke_screen_diamond(page, &vp, corners_s, stroke);
+            }
         }
     }
 
@@ -3482,4 +3558,114 @@ fn stroke_marquee_rect(page: &mut RgbaImage, rect: ScreenRect) {
             put(page, x1 - 1, y);
         }
     }
+}
+
+/// 在战术区内半透明填充屏幕空间菱形（四顶点，顺时针或任意凸四边形近似）。
+fn fill_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32, i32); 4], color: [u8; 4]) {
+    let ymin = corners.iter().map(|c| c.1).min().unwrap_or(0);
+    let ymax = corners.iter().map(|c| c.1).max().unwrap_or(0);
+    if ymax < ymin {
+        return;
+    }
+    for y in ymin..=ymax {
+        let mut xs = [i32::MAX, i32::MIN];
+        for i in 0..4 {
+            let (x0, y0) = corners[i];
+            let (x1, y1) = corners[(i + 1) % 4];
+            if (y0 <= y && y1 > y) || (y1 <= y && y0 > y) {
+                let t = (y - y0) as f32 / (y1 - y0) as f32;
+                let x = x0 as f32 + t * (x1 - x0) as f32;
+                let xi = x.round() as i32;
+                xs[0] = xs[0].min(xi);
+                xs[1] = xs[1].max(xi);
+            }
+            else if y0 == y && y1 == y {
+                xs[0] = xs[0].min(x0.min(x1));
+                xs[1] = xs[1].max(x0.max(x1));
+            }
+        }
+        if xs[0] == i32::MAX || xs[1] == i32::MIN {
+            continue;
+        }
+        for x in xs[0]..=xs[1] {
+            if vp.contains_cursor(x, y) {
+                blend_overlay_pixel(page, x, y, color);
+            }
+        }
+    }
+}
+
+/// 描菱形边框。
+fn stroke_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32, i32); 4], color: [u8; 4]) {
+    for i in 0..4 {
+        let (x0, y0) = corners[i];
+        let (x1, y1) = corners[(i + 1) % 4];
+        stroke_screen_line(page, vp, x0, y0, x1, y1, color);
+    }
+}
+
+fn stroke_screen_line(page: &mut RgbaImage, vp: &MapViewport, x0: i32, y0: i32, x1: i32, y1: i32, color: [u8; 4]) {
+    let dx = (x1 - x0).abs();
+    let dy = (y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx - dy;
+    let mut x = x0;
+    let mut y = y0;
+    loop {
+        if vp.contains_cursor(x, y) {
+            blend_overlay_pixel(page, x, y, color);
+        }
+        if x == x1 && y == y1 {
+            break;
+        }
+        let e2 = err * 2;
+        if e2 > -dy {
+            err -= dy;
+            x += sx;
+        }
+        if e2 < dx {
+            err += dx;
+            y += sy;
+        }
+    }
+}
+
+fn blend_overlay_pixel(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
+    let w = page.width() as i32;
+    let h = page.height() as i32;
+    if x < 0 || y < 0 || x >= w || y >= h {
+        return;
+    }
+    let i = ((y as u32 * page.width() + x as u32) * 4) as usize;
+    let px = page.as_mut();
+    let src_a = u32::from(rgba[3]);
+    if src_a == 0 {
+        return;
+    }
+    if src_a >= 255 {
+        px[i] = rgba[0];
+        px[i + 1] = rgba[1];
+        px[i + 2] = rgba[2];
+        px[i + 3] = 255;
+        return;
+    }
+    let dst_a = u32::from(px[i + 3]);
+    let out_a = src_a + dst_a * (255 - src_a) / 255;
+    if out_a == 0 {
+        px[i] = 0;
+        px[i + 1] = 0;
+        px[i + 2] = 0;
+        px[i + 3] = 0;
+        return;
+    }
+    let blend = |s: u8, d: u8| -> u8 {
+        let s = u32::from(s);
+        let d = u32::from(d);
+        ((s * src_a + d * dst_a * (255 - src_a) / 255) / out_a) as u8
+    };
+    px[i] = blend(rgba[0], px[i]);
+    px[i + 1] = blend(rgba[1], px[i + 1]);
+    px[i + 2] = blend(rgba[2], px[i + 2]);
+    px[i + 3] = out_a as u8;
 }
