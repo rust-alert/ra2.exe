@@ -38,6 +38,8 @@ pub enum CommandKind {
     SellBuilding,
     /// 切换己方建筑的持续修理（侧栏修理工具；对应原版扳手挂/摘修理）。
     RepairBuilding,
+    /// 释放超级武器（选点）。
+    FireSuperWeapon,
     /// 其它 / 扩展。
     Other,
 }
@@ -158,6 +160,17 @@ pub enum CommandBody {
         /// 目标建筑实体。
         building: EntityId,
     },
+    /// 释放超级武器到目标格（须本方充能就绪且仍有挂接该超武的存活建筑）。
+    FireSuperWeapon {
+        /// 释放玩家。
+        player: PlayerId,
+        /// 超级武器类型键（`[SuperWeaponTypes]` 节名）。
+        type_id: String,
+        /// 目标格 X。
+        x: u16,
+        /// 目标格 Y。
+        y: u16,
+    },
 }
 
 impl CommandBody {
@@ -177,15 +190,17 @@ impl CommandBody {
             Self::Guard { .. } => CommandKind::Guard,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
             Self::RepairBuilding { .. } => CommandKind::RepairBuilding,
+            Self::FireSuperWeapon { .. } => CommandKind::FireSuperWeapon,
         }
     }
 
     /// 对应的粗粒度主目标（攻击取目标方，移动取格子）。
     pub fn primary_target(&self) -> CommandTarget {
         match self {
-            Self::MoveTo { x, y, .. } | Self::SetRallyPoint { x, y, .. } | Self::PlaceBuilding { x, y, .. } => {
-                CommandTarget::Cell { x: *x, y: *y }
-            }
+            Self::MoveTo { x, y, .. }
+            | Self::SetRallyPoint { x, y, .. }
+            | Self::PlaceBuilding { x, y, .. }
+            | Self::FireSuperWeapon { x, y, .. } => CommandTarget::Cell { x: *x, y: *y },
             Self::MovePath { points, .. } => match points.first() {
                 Some(&(x, y)) => CommandTarget::Cell { x, y },
                 None => CommandTarget::None,

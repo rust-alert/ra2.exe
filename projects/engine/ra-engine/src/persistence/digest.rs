@@ -226,6 +226,22 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
                 .wrapping_add(u64::from(player.0))
                 .wrapping_add(building.0 << 8);
         }
+        GameCommand::FireSuperWeapon {
+            player,
+            ref type_id,
+            x,
+            y,
+        } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(14);
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(u64::from(player.0))
+                .wrapping_add((x as u64) << 8)
+                .wrapping_add((y as u64) << 24);
+            for b in type_id.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
     }
     h
 }

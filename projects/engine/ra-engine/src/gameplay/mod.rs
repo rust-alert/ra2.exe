@@ -38,7 +38,10 @@ pub use script_teams::ScriptTeamRuntime;
 pub(crate) use tech_tree::{build_limit_reached, is_type_eligible, living_structure_keys, TechTreePlayer};
 pub(crate) use production::produce_ticks_for;
 pub(crate) use repair::tick_repairs;
-pub use powers::{LightningStormState, start_lightning_storm, tick_lightning_storm};
+pub use powers::{
+    FireSuperWeaponError, LightningStormState, SuperWeaponRuntime, start_lightning_storm, tick_lightning_storm,
+    tick_super_weapon_charges, try_fire_super_weapon,
+};
 pub use terrain_spawn::{
     TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample,
     terrain_spawner_frame_signature,

@@ -109,6 +109,8 @@ pub struct BattleState {
     pub(crate) presentation_dirty: DirtyEntitySet,
     /// 当前闪电风暴（同时最多一场；驱动 Ion 光照档）。
     pub lightning_storm: Option<crate::gameplay::LightningStormState>,
+    /// 各 house 超级武器充能。
+    pub super_weapon_runtime: crate::gameplay::SuperWeaponRuntime,
     /// 地图触发运行时。
     pub trigger_runtime: crate::gameplay::TriggerRuntime,
     /// 小队 ScriptTypes 运行时。
@@ -227,6 +229,7 @@ impl BattleState {
             state_hash: 0,
             presentation_dirty: DirtyEntitySet::new(),
             lightning_storm: None,
+            super_weapon_runtime: crate::gameplay::SuperWeaponRuntime::default(),
             trigger_runtime,
             script_team_runtime: crate::gameplay::ScriptTeamRuntime::default(),
             ai_trigger_runtime,
@@ -905,7 +908,10 @@ impl BattleState {
                     crate::gameplay::tick_repairs(self);
                     self.tick_eva_funds_nag();
                 }
-                SystemPhase::Powers => crate::gameplay::tick_lightning_storm(self),
+                SystemPhase::Powers => {
+                    crate::gameplay::tick_super_weapon_charges(self);
+                    crate::gameplay::tick_lightning_storm(self);
+                }
                 SystemPhase::TerrainSpawn => self.advance_terrain_spawners(),
                 SystemPhase::Triggers => {
                     crate::gameplay::tick_triggers(self);

@@ -125,6 +125,196 @@ pub fn tick_lightning_storm(world: &mut BattleState) {
     storm.duration_remaining -= 1;
 }
 
+/// `RechargeTime` 原版分钟档 → 逻辑 tick（竖切换算；后续可接速度档）。
+pub const SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT: u32 = 90;
+
+/// 单房主一条超武充能槽。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperWeaponCharge {
+    /// `[SuperWeaponTypes]` 类型键（大写）。
+    pub type_key: String,
+    /// 已累计充能 tick。
+    pub charge_ticks: u32,
+    /// 就绪所需 tick（来自 `RechargeTime` × 换算）。
+    pub required_ticks: u32,
+}
+
+impl SuperWeaponCharge {
+    /// 是否已充能就绪。
+    pub fn is_ready(&self) -> bool {
+        self.required_ticks > 0 && self.charge_ticks >= self.required_ticks
+    }
+}
+
+/// 局内超武充能运行时（按 house → 类型键）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SuperWeaponRuntime {
+    /// house 名 → 该阵营可用超武充能表。
+    by_house: std::collections::BTreeMap<String, Vec<SuperWeaponCharge>>,
+}
+
+impl SuperWeaponRuntime {
+    /// 查询某 house 某超武充能进度。
+    pub fn charge(&self, house: &str, type_key: &str) -> Option<&SuperWeaponCharge> {
+        let key = type_key.to_ascii_uppercase();
+        self.by_house
+            .get(house)
+            .and_then(|list| list.iter().find(|c| c.type_key == key))
+    }
+
+    fn charge_mut(&mut self, house: &str, type_key: &str) -> Option<&mut SuperWeaponCharge> {
+        let key = type_key.to_ascii_uppercase();
+        self.by_house
+            .get_mut(house)
+            .and_then(|list| list.iter_mut().find(|c| c.type_key == key))
+    }
+
+    fn ensure_slot(&mut self, house: &str, type_key: &str, required_ticks: u32) {
+        let house_key = house.to_string();
+        let type_key = type_key.to_ascii_uppercase();
+        let list = self.by_house.entry(house_key).or_default();
+        if let Some(slot) = list.iter_mut().find(|c| c.type_key == type_key) {
+            slot.required_ticks = required_ticks.max(1);
+            return;
+        }
+        list.push(SuperWeaponCharge {
+            type_key,
+            charge_ticks: 0,
+            required_ticks: required_ticks.max(1),
+        });
+    }
+
+    /// 释放成功后清零充能。
+    pub fn reset_charge(&mut self, house: &str, type_key: &str) {
+        if let Some(slot) = self.charge_mut(house, type_key) {
+            slot.charge_ticks = 0;
+        }
+    }
+}
+
+fn required_ticks_for_sw(def: &ra_types::SuperWeaponDefinition) -> u32 {
+    let units = def.recharge_time.max(1) as u32;
+    units.saturating_mul(SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT)
+}
+
+/// 每个逻辑 tick：有挂接超武的存活建筑时推进对应 house 充能。
+pub fn tick_super_weapon_charges(world: &mut BattleState) {
+    use crate::state::components::{Health, Identity, Owner};
+    use ra_map::MapEntityKind;
+
+    let defs = std::sync::Arc::clone(&world.definitions);
+    let mut active: Vec<(String, String, u32)> = Vec::new();
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            continue;
+        };
+        if identity.kind != MapEntityKind::Structure {
+            continue;
+        }
+        let Some(sw_key) = defs
+            .structures
+            .get(identity.type_id.as_ref())
+            .and_then(|s| s.super_weapon.as_ref())
+        else {
+            continue;
+        };
+        let Some(sw_def) = defs.super_weapons.get(sw_key)
+        else {
+            continue;
+        };
+        let Some(owner) = world.ecs_get::<Owner>(id).map(|o| o.house.as_ref().to_string())
+        else {
+            continue;
+        };
+        active.push((owner, sw_key.clone(), required_ticks_for_sw(sw_def)));
+    }
+
+    for (house, sw_key, required) in active {
+        world.super_weapon_runtime.ensure_slot(&house, &sw_key, required);
+        if let Some(slot) = world.super_weapon_runtime.charge_mut(&house, &sw_key) {
+            if slot.charge_ticks < slot.required_ticks {
+                slot.charge_ticks = slot.charge_ticks.saturating_add(1);
+            }
+        }
+    }
+}
+
+/// 尝试释放超武：成功则清零充能并按 `Type=` 触发效果（当前仅 `LightningStorm` 切光照）。
+pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &str, x: u16, y: u16) -> Result<(), FireSuperWeaponError> {
+    use crate::state::components::{Health, Identity, Owner};
+    use ra_map::MapEntityKind;
+
+    let type_key_up = type_key.to_ascii_uppercase();
+    let Some(sw_def) = world.definitions.super_weapons.get(&type_key_up)
+    else {
+        return Err(FireSuperWeaponError::UnknownType);
+    };
+    let has_provider = world.entities.iter().any(|e| {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            return false;
+        }
+        if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+            return false;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            return false;
+        };
+        if identity.kind != MapEntityKind::Structure {
+            return false;
+        }
+        world
+            .definitions
+            .structures
+            .get(identity.type_id.as_ref())
+            .and_then(|s| s.super_weapon.as_ref())
+            .is_some_and(|k| k.eq_ignore_ascii_case(&type_key_up))
+    });
+    if !has_provider {
+        return Err(FireSuperWeaponError::NoProvider);
+    }
+    let ready = world
+        .super_weapon_runtime
+        .charge(house, &type_key_up)
+        .is_some_and(SuperWeaponCharge::is_ready);
+    if !ready {
+        return Err(FireSuperWeaponError::NotReady);
+    }
+
+    match sw_def.kind.as_str() {
+        "LIGHTNINGSTORM" => {
+            // 竖切：立即激活，持续 90 tick。
+            start_lightning_storm(world, x, y, 0, 90);
+        }
+        _ => {
+            // 未接线类型：仍消耗充能并记成功，效果后置（避免静默半可玩用 CapabilityGap 另报）。
+            // 当前拒绝未知玩法类型，迫使后续接线。
+            return Err(FireSuperWeaponError::UnsupportedKind);
+        }
+    }
+    world.super_weapon_runtime.reset_charge(house, &type_key_up);
+    Ok(())
+}
+
+/// 释放超武失败原因（映射到命令拒绝）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FireSuperWeaponError {
+    /// 定义表无此类型。
+    UnknownType,
+    /// 本方无挂接该超武的存活建筑。
+    NoProvider,
+    /// 充能未满。
+    NotReady,
+    /// `Type=` 玩法尚未接线。
+    UnsupportedKind,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -29,6 +29,8 @@ pub enum CommandRejectReason {
     BattleEnded,
     /// 同一 `CommandId` 已处理过（重复调度）。
     DuplicateCommand,
+    /// 超级武器尚未充能就绪。
+    SuperWeaponNotReady,
 }
 
 impl CommandRejectReason {
@@ -48,6 +50,7 @@ impl CommandRejectReason {
             Self::QueueFull => "队列已满",
             Self::BattleEnded => "战斗已结束",
             Self::DuplicateCommand => "重复命令",
+            Self::SuperWeaponNotReady => "超武未就绪",
         }
     }
 }
