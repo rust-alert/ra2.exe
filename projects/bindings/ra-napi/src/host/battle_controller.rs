@@ -886,12 +886,28 @@ impl BattleController {
             else {
                 return;
             };
+            let foundation = game
+                .world
+                .definitions
+                .structures
+                .get(&type_id)
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            if !game
+                .world
+                .can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height)
+            {
+                tracing::debug!("放置跳过 · 占地不可用 {type_id} @({},{})", cell.0, cell.1);
+                return;
+            }
             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                 tracing::info!("放置建筑 {type_id} @({},{})", cell.0, cell.1);
-                game.order_place_building(type_id, cell.0, cell.1);
+                game.order_place_building(type_id.clone(), cell.0, cell.1);
+                // 成功会清掉完工件；失败仍保持落位，便于接着点合法格。
+                if !game.is_local_ready_to_place(&type_id) {
+                    self.place_mode = None;
+                }
             }
-            // 落位命令已发出；成功则完工件清空，失败仍可再点 cameo 进入放置。
-            self.place_mode = None;
             return;
         }
         if self.sell_mode {
