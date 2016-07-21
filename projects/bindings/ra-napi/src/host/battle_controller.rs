@@ -1854,21 +1854,7 @@ impl BattleController {
             Some(Ok(type_id)) => {
                 tracing::info!("部署完成 · {type_id} · #{id}", id = id.0);
                 self.deploy_watch = None;
-                if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
-                    if let (Some((type_id, kind)), Some(owner), Some((x, y, _))) =
-                        (game.world.ecs_identity(id), game.world.ecs_owner(id), game.world.ecs_transform(id))
-                    {
-                        if matches!(kind, MapEntityKind::Structure) {
-                            self.deploy_visual_queue.push(DeployVisualJob {
-                                entity: id,
-                                type_id: type_id.to_string(),
-                                owner: owner.to_string(),
-                                x,
-                                y,
-                            });
-                        }
-                    }
-                }
+                // Buildup 由权威 `structure_buildup_dirty` 驱动，避免与本机队列重复入队。
             }
             Some(Err(label)) => {
                 tracing::info!("部署失败 · {label}");
@@ -2051,6 +2037,7 @@ impl BattleController {
 
     /// 启动 / 推进部署 Buildup，并在播放期间重绘预览（去掉已烤死的 MCV 像素）。
     fn tick_deploy_visuals(&mut self, assets: Option<&GameAssetSource>, renderer: &mut Renderer) {
+        self.enqueue_structure_buildup_jobs();
         let Some(assets) = assets
         else {
             return;
@@ -2093,6 +2080,55 @@ impl BattleController {
         }
         else {
             self.recompose_preview_with_buildups(assets, renderer);
+        }
+    }
+
+    /// 将权威侧新建建筑脏集转入 Buildup 呈现队列（放置 / 部署共用）。
+    fn enqueue_structure_buildup_jobs(&mut self) {
+        let dirty = self
+            .session
+            .as_mut()
+            .and_then(|s| s.battle_mut())
+            .map(|g| g.world.take_structure_buildup_dirty())
+            .unwrap_or_default();
+        if dirty.is_empty() {
+            return;
+        }
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        for id in dirty {
+            if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
+                continue;
+            }
+            let Some((type_id, kind)) = game.world.ecs_identity(id)
+            else {
+                continue;
+            };
+            if kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(owner) = game.world.ecs_owner(id)
+            else {
+                continue;
+            };
+            let Some((x, y, _)) = game.world.ecs_transform(id)
+            else {
+                continue;
+            };
+            if self.deploy_visual_queue.iter().any(|j| j.entity == id)
+                || self.pending_buildups.iter().any(|p| p.entity == id)
+            {
+                continue;
+            }
+            self.deploy_visual_queue.push(DeployVisualJob {
+                entity: id,
+                type_id: type_id.to_string(),
+                owner: owner.to_string(),
+                x,
+                y,
+            });
         }
     }
 
