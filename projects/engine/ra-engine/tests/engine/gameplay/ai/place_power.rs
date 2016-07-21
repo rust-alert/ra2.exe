@@ -78,6 +78,6 @@ fn ai_places_power_near_yard() {
     // 2x2 不得与建造场 4x4 [8..12)×[8..12) 重叠。
     assert!(px + 1 < 8 || px >= 12 || py + 1 < 8 || py >= 12);
     assert_eq!(session.expect_battle_mut().world.house_funds("Soviets"), Some(10_000 - 600));
-    let paint = session.expect_battle_mut().world.take_structure_paint_dirty();
-    assert!(paint.contains(&power_id), "AI PlaceBuilding must dirty structure paint");
+    let paint = session.expect_battle_mut().world.take_structure_buildup_dirty();
+    assert!(paint.contains(&power_id), "AI PlaceBuilding must dirty structure buildup");
 }

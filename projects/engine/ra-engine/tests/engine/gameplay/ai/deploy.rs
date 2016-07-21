@@ -67,6 +67,6 @@ fn ai_deploys_mcv_via_command() {
     assert!(!world.pass_grid.is_passable(8, 8));
     assert!(!world.pass_grid.is_passable(11, 11), "Deploy must seal full Foundation");
     assert!(world.pass_grid.is_passable(12, 12));
-    let paint = session.expect_battle_mut().world.take_structure_paint_dirty();
-    assert!(paint.contains(&mcv), "Deploy must dirty structure paint so yards appear on preview");
+    let paint = session.expect_battle_mut().world.take_structure_buildup_dirty();
+    assert!(paint.contains(&mcv), "Deploy must dirty structure buildup so yards appear on preview");
 }

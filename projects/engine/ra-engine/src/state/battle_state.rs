@@ -121,8 +121,10 @@ pub struct BattleState {
     pub terrain_spawners: Vec<crate::gameplay::TerrainSpawnerState>,
     /// 本局写入后待叠画的 overlay 格（产矿等；呈现层 `take_overlay_paint_dirty` 消费）。
     pub(crate) overlay_paint_dirty: Vec<(u16, u16)>,
-    /// 待重绘的建筑实体（放置 / 部署 / 占领等；呈现层 `take_structure_paint_dirty` 消费）。
+    /// 待重绘的建筑实体（占领换色等；呈现层 `take_structure_paint_dirty` 消费）。
     pub(crate) structure_paint_dirty: Vec<EntityId>,
+    /// 待播 Buildup 的新建建筑（放置 / 部署；呈现层 `take_structure_buildup_dirty` 消费）。
+    pub(crate) structure_buildup_dirty: Vec<EntityId>,
     /// 对局随机种子（产矿掷骰等；由 `BattleSession::set_match_seed` 写入）。
     pub match_seed: u64,
     /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
@@ -236,6 +238,7 @@ impl BattleState {
             terrain_spawners,
             overlay_paint_dirty: Vec::new(),
             structure_paint_dirty: Vec::new(),
+            structure_buildup_dirty: Vec::new(),
             match_seed: 0,
             pending_eva_cues: Vec::new(),
             speak_delay_ticks,

@@ -577,8 +577,8 @@ impl crate::state::BattleState {
                         self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     }
                     self.mark_entity_dirty(dirty_id);
-                    // 展开后离开移动单位层，需烤进建筑底图（含 AI 部署，不依赖本机 deploy_watch）。
-                    self.structure_paint_dirty.push(dirty_id);
+                    // 展开后离开移动单位层，经 Buildup 定格进建筑底图（含 AI 部署）。
+                    self.structure_buildup_dirty.push(dirty_id);
                 }
                 GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
                     if player != scheduled.player {
@@ -704,8 +704,8 @@ impl crate::state::BattleState {
                         animation: AnimationState { hva_frame: 0, hit_flash: 0 },
                     });
                     self.mark_entity_dirty(id);
-                    // 新建筑只在 ECS 落地时不会出现在移动单位重绘层，必须进建筑脏绘。
-                    self.structure_paint_dirty.push(id);
+                    // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
+                    self.structure_buildup_dirty.push(id);
                 }
                 GameCommand::Produce { player, ref type_id } => {
                     if player != scheduled.player {

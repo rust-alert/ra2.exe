@@ -36,6 +36,11 @@ impl BattleState {
         std::mem::take(&mut self.structure_paint_dirty)
     }
 
+    /// 取出待播 Buildup 的新建建筑（放置 / 部署；呈现层消费）。
+    pub fn take_structure_buildup_dirty(&mut self) -> Vec<ra_types::EntityId> {
+        std::mem::take(&mut self.structure_buildup_dirty)
+    }
+
     /// 用 SHP 实测总帧数回写矿柱（boot 烘焙银行后调用）。
     pub fn apply_ore_tree_frame_counts(&mut self, counts: &[(u16, u16, u16)]) {
         for &(x, y, frames) in counts {

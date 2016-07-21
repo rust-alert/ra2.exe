@@ -97,8 +97,8 @@ fn place_power_deducts_funds_and_spawns_structure() {
     assert!(!world.pass_grid.is_passable(7, 5));
     assert_eq!(world.players[0].power_output, 200);
     assert!(world.house_ready_building("Americans").is_none());
-    let paint = world.take_structure_paint_dirty();
-    assert!(paint.contains(&power), "PlaceBuilding must dirty structure paint for host preview");
+    let paint = world.take_structure_buildup_dirty();
+    assert!(paint.contains(&power), "PlaceBuilding must dirty structure buildup for host preview");
 }
 
 #[test]
