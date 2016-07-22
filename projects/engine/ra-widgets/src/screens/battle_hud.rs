@@ -1012,6 +1012,8 @@ pub struct BattleCameoPaint<'a> {
     pub enabled: bool,
     /// 是否处于放置选中态。
     pub selected: bool,
+    /// 生产进度：`None` 空闲；`Some(0.0..1.0)` 建造中（1.0 为完工待放）。
+    pub progress: Option<f32>,
 }
 
 /// 将 cameo 列表画进侧栏内容区。
@@ -1031,11 +1033,46 @@ pub fn blit_battle_cameos(
         } else {
             fill_rect(page, cell, [24, 28, 36, 255]);
         }
+        if let Some(progress) = item.progress {
+            paint_cameo_progress_clock(page, cell, progress.clamp(0.0, 1.0));
+        }
         if !item.enabled {
             fill_rect_alpha(page, cell, [0, 0, 0, 120]);
         }
-        // 选中态不再描黄框（原版靠 cameo 自身明暗，不叠矩形描边）。
-        let _ = item.selected;
+        if item.selected {
+            stroke_rect(page, cell, [220, 220, 80, 220]);
+        }
+    }
+}
+
+/// 原版风格时钟擦除：从 12 点顺时针揭开，未完成扇区半透明压暗。
+fn paint_cameo_progress_clock(page: &mut RgbaImage, cell: RectPx, progress: f32) {
+    if progress >= 1.0 || cell.w <= 0 || cell.h <= 0 {
+        return;
+    }
+    let cx = cell.x as f32 + cell.w as f32 * 0.5;
+    let cy = cell.y as f32 + cell.h as f32 * 0.5;
+    let dark = [0u8, 0, 0, 150];
+    for y in cell.y..cell.y + cell.h {
+        if y < 0 || y as u32 >= page.height() {
+            continue;
+        }
+        for x in cell.x..cell.x + cell.w {
+            if x < 0 || x as u32 >= page.width() {
+                continue;
+            }
+            let dx = x as f32 + 0.5 - cx;
+            let dy = y as f32 + 0.5 - cy;
+            // 0 = 正上，顺时针增大到 1。
+            let ang = dx.atan2(-dy);
+            let mut frac = ang / (std::f32::consts::TAU);
+            if frac < 0.0 {
+                frac += 1.0;
+            }
+            if frac >= progress {
+                blend_px(page, x, y, dark);
+            }
+        }
     }
 }
 
@@ -1248,6 +1285,28 @@ fn stroke_rect(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     }
 }
 
+fn blend_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
+    if x < 0 || y < 0 || x as u32 >= page.width() || y as u32 >= page.height() {
+        return;
+    }
+    let di = ((y as u32 * page.width() + x as u32) * 4) as usize;
+    let sa = rgba[3] as u32;
+    if sa == 0 {
+        return;
+    }
+    if sa == 255 {
+        page.as_mut()[di..di + 4].copy_from_slice(&rgba);
+        return;
+    }
+    let inv = 255 - sa;
+    for c in 0..3 {
+        let s = rgba[c] as u32;
+        let d = page.as_mut()[di + c] as u32;
+        page.as_mut()[di + c] = ((s * sa + d * inv) / 255) as u8;
+    }
+    page.as_mut()[di + 3] = 255;
+}
+
 fn put_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     if x < 0 || y < 0 || x as u32 >= page.width() || y as u32 >= page.height() {
         return;
@@ -1262,6 +1321,25 @@ mod tests {
     use ra_layout::{
         cameo_slot_rect, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
     };
+
+    #[test]
+    fn progress_clock_covers_when_empty() {
+        let mut page = RgbaImage::from_raw(16, 16, vec![200u8; 16 * 16 * 4]).unwrap();
+        paint_cameo_progress_clock(&mut page, RectPx::new(0, 0, 16, 16), 0.0);
+        let px = page.as_raw();
+        // 中心附近应被压暗。
+        let i = ((8u32 * 16 + 8) * 4) as usize;
+        assert!(px[i] < 200, "clock wipe should darken uncovered cells");
+    }
+
+    #[test]
+    fn progress_clock_skips_when_complete() {
+        let mut page = RgbaImage::from_raw(16, 16, vec![200u8; 16 * 16 * 4]).unwrap();
+        paint_cameo_progress_clock(&mut page, RectPx::new(0, 0, 16, 16), 1.0);
+        let px = page.as_raw();
+        let i = ((8u32 * 16 + 8) * 4) as usize;
+        assert_eq!(px[i], 200);
+    }
 
     #[test]
     fn radar_open_frame_range_skips_emblem_and_blank_tail() {
