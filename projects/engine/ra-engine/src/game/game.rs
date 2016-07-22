@@ -103,8 +103,10 @@ pub struct SnapshotProduceQueue {
     pub factory: EntityId,
     /// 正在生产的类型 ID。
     pub type_id: std::sync::Arc<str>,
-    /// 剩余 tick。
+    /// 剩余 tick（完工件为 0）。
     pub remaining_ticks: u32,
+    /// 本单总 tick（来自 `BuildTime`；完工件仍保留开单时口径，缺定义则为 0）。
+    pub total_ticks: u32,
     /// 集结格 X。
     pub rally_x: Option<u16>,
     /// 集结格 Y。
@@ -1308,19 +1310,35 @@ impl BattleSession {
                 let id = e.id;
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
                 if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
+                    let total_ticks = self
+                        .world
+                        .definitions
+                        .techno
+                        .get(type_id.as_ref())
+                        .map(crate::gameplay::produce_ticks_for)
+                        .unwrap_or(0);
                     return Some(SnapshotProduceQueue {
                         factory: id,
                         type_id: type_id.clone(),
                         remaining_ticks: *remaining_ticks,
+                        total_ticks,
                         rally_x: queue.rally_x,
                         rally_y: queue.rally_y,
                     });
                 }
                 let ready = queue.ready.as_ref()?;
+                let total_ticks = self
+                    .world
+                    .definitions
+                    .techno
+                    .get(ready.as_ref())
+                    .map(crate::gameplay::produce_ticks_for)
+                    .unwrap_or(0);
                 Some(SnapshotProduceQueue {
                     factory: id,
                     type_id: ready.clone(),
                     remaining_ticks: 0,
+                    total_ticks,
                     rally_x: queue.rally_x,
                     rally_y: queue.rally_y,
                 })
