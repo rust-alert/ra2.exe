@@ -3404,6 +3404,20 @@ impl BattleController {
             .iter()
             .map(|item| {
                 let key = item.type_id.as_ref();
+                let progress = hud
+                    .produce_queues
+                    .iter()
+                    .filter(|q| q.type_id.as_ref().eq_ignore_ascii_case(key))
+                    .map(|q| {
+                        if q.remaining_ticks == 0 {
+                            1.0
+                        } else if q.total_ticks == 0 {
+                            0.0
+                        } else {
+                            1.0 - (q.remaining_ticks as f32 / q.total_ticks as f32)
+                        }
+                    })
+                    .fold(None, |best: Option<f32>, p| Some(best.map_or(p, |b| b.max(p))));
                 BattleCameoPaint {
                     type_id: key,
                     image: self.cameo_cache.get(key).and_then(|opt| opt.as_ref()).map(|s| &s.image),
@@ -3411,6 +3425,7 @@ impl BattleController {
                     selected: matches!(self.sidebar_tab, 0 | 1)
                         && (self.place_mode.as_deref() == Some(key)
                             || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
+                    progress,
                 }
             })
             .collect();
