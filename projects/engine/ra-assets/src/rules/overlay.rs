@@ -1,6 +1,8 @@
 //! 从 `rules.ini` 的 `[OverlayTypes]` 建立 id → 名称表，并标记可采矿格。
 
 use crate::ini::IniDocument;
+use crate::rules::color_schemes::ColorSchemes;
+use crate::rules::house_remap::Hsv;
 
 /// Overlay 类型注册表。
 ///
@@ -63,7 +65,32 @@ impl OverlayTypeRegistry {
 /// 类型名是否像矿/宝石（无规则节时的回退）。
 pub fn harvestable_overlay_name(name: &str) -> bool {
     let upper = name.to_ascii_uppercase();
-    upper.starts_with("TIB") || upper.starts_with("GEM")
+    (upper.starts_with("TIB") && !upper.starts_with("TIBTRE")) || upper.starts_with("GEM")
+}
+
+/// overlay 类型名对应的 `[Tiberiums]` 条目（矿→`Riparius`，宝石→`Cruentus`）。
+pub fn tiberium_type_for_overlay(name: &str) -> Option<&'static str> {
+    let upper = name.to_ascii_uppercase();
+    if upper.starts_with("GEM") {
+        Some("Cruentus")
+    } else if upper.starts_with("TIB") && !upper.starts_with("TIBTRE") {
+        Some("Riparius")
+    } else {
+        None
+    }
+}
+
+/// 矿石 / 宝石呈现用 HSV：读 `[Tiberiums]` 的 `Color=`，再经 `[Colors]` 解析。
+///
+/// 零售 `NeonGreen=0,0,0` 是矿石哨兵（不可直接 remap），替换为 `Gold`。
+pub fn tiberium_overlay_display_hsv(rules: &IniDocument, colors: &ColorSchemes, overlay_name: &str) -> Option<Hsv> {
+    let tib_type = tiberium_type_for_overlay(overlay_name)?;
+    let scheme = rules.get(tib_type, "Color")?;
+    let hsv = colors.get(scheme)?;
+    if hsv == (Hsv { h: 0, s: 0, v: 0 }) {
+        return Some(colors.get("Gold").unwrap_or(Hsv { h: 41, s: 240, v: 230 }));
+    }
+    Some(hsv)
 }
 
 fn overlay_type_is_harvestable(rules: &IniDocument, name: &str) -> bool {
@@ -92,6 +119,8 @@ fn overlay_type_is_harvestable(rules: &IniDocument, name: &str) -> bool {
 mod tests {
     use super::*;
     use crate::ini::IniDocument;
+    use crate::rules::color_schemes::ColorSchemes;
+    use crate::rules::house_remap::Hsv;
 
     #[test]
     fn marks_tiberium_flag_and_name_prefix() {
@@ -123,5 +152,30 @@ Land=Wall
         assert!(!reg.is_harvestable(1));
         assert!(reg.is_harvestable(2));
         assert!(!reg.is_harvestable(3));
+    }
+
+    #[test]
+    fn tiberium_overlay_hsv_maps_ore_sentinel_to_gold_and_gem_to_neon_blue() {
+        let doc = IniDocument::parse(
+            br#"
+[Colors]
+NeonGreen=0,0,0
+NeonBlue=185,156,238
+Gold=41,240,230
+
+[Riparius]
+Color=NeonGreen
+
+[Cruentus]
+Color=NeonBlue
+"#,
+        )
+        .expect("ini");
+        let colors = ColorSchemes::from_rules(&doc);
+        let ore = tiberium_overlay_display_hsv(&doc, &colors, "TIB01").expect("ore hsv");
+        assert_eq!(ore, Hsv { h: 41, s: 240, v: 230 });
+        let gem = tiberium_overlay_display_hsv(&doc, &colors, "GEM01").expect("gem hsv");
+        assert_eq!(gem, Hsv { h: 185, s: 156, v: 238 });
+        assert!(tiberium_overlay_display_hsv(&doc, &colors, "TIBTRE01").is_none());
     }
 }
