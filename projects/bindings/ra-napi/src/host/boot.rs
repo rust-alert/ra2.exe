@@ -4,23 +4,23 @@ use std::collections::HashMap;
 
 use ra_adaptor::{ResourceChain, RulesSystem, detect_edition, load_rules_chain};
 use ra_assets::{
-    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes,
+    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv,
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, TerrainAnimBank,
-    campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots,
-    decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
-    list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes,
-    ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
-    paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, TerrainAnimBank, campaign_blocking_capability_message,
+    compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
+    list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes, ore_tree_frame_count_hints,
+    paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, RaResult};
-use ra_widgets::load_kind::LoadKind;
-use ra_widgets::campaign_setup::campaign_side_battle_id;
-use ra_widgets::fs_source::GameAssetSource;
-use ra_widgets::skirmish_setup::{LOBBY_COLORS, SkirmishBootRequest};
+use ra_widgets::{
+    campaign_setup::campaign_side_battle_id,
+    fs_source::GameAssetSource,
+    load_kind::LoadKind,
+    skirmish_setup::{LOBBY_COLORS, SkirmishBootRequest},
+};
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 
@@ -120,17 +120,7 @@ fn load_map_terrain_preview(
     chain: &ResourceChain,
     rules: &RulesSystem,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
-) -> Option<(
-    String,
-    RgbaImage,
-    RgbaImage,
-    RgbaImage,
-    StructureAnimBank,
-    TerrainAnimBank,
-    TerrainAnimBank,
-    i32,
-    i32,
-)> {
+) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
         source,
         map,
@@ -138,6 +128,10 @@ fn load_map_terrain_preview(
         chain.rules_ini,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|id| rules.overlay_types.is_harvestable(id),
+        &|id| {
+            let name = rules.overlay_types.name(id)?;
+            tiberium_overlay_display_hsv(&rules.rules, &rules.color_schemes, name)
+        },
         &|base, owner| remap_owner_palette(rules, lobby_primaries, base, owner),
     )?;
     let rgba = preview.image.image;
@@ -236,8 +230,8 @@ fn paint_session_mobiles_onto_preview(
             y,
             facing,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         });
     }
     if paint_map.entities.is_empty() {
@@ -294,7 +288,8 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
             file = %manifest.chain.missions_pkt,
             "遭遇战选图表可读但未产出可解析行，回退扫描"
         );
-    } else {
+    }
+    else {
         tracing::warn!(file = %manifest.chain.missions_pkt, "遭遇战选图表不可读，回退扫描");
     }
     let names = source.discover_skirmish_map_names();
@@ -524,10 +519,7 @@ pub fn boot_world_with_progress(
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
-    let mut preview = match rules
-        .as_ref()
-        .and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries)))
-    {
+    let mut preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries))) {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -568,28 +560,12 @@ pub fn boot_world_with_progress(
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
     let (engine, session) = match rules.as_ref().map(|rules| match request.boot_kind {
-        LoadKind::Campaign => open_campaign_session(
-            &source,
-            chain,
-            rules,
-            map,
-            note.clone(),
-            preview_origin,
-            preferred_house,
-            &ensure_refs,
-            request.match_seed,
-        ),
-        LoadKind::Skirmish => open_skirmish_session(
-            &source,
-            chain,
-            rules,
-            map,
-            note.clone(),
-            preview_origin,
-            preferred_house,
-            &ensure_refs,
-            request.match_seed,
-        ),
+        LoadKind::Campaign => {
+            open_campaign_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house, &ensure_refs, request.match_seed)
+        }
+        LoadKind::Skirmish => {
+            open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house, &ensure_refs, request.match_seed)
+        }
     }) {
         Some(Ok(mut opened)) => {
             note = opened.note;
@@ -634,18 +610,8 @@ pub fn boot_world_with_progress(
                 }
                 let mut composed = base.clone();
                 paint_terrain_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &terrain_anims, 0);
-                let ore_idle: Vec<(u16, u16, u16)> = ore_tree_anims
-                    .layers
-                    .iter()
-                    .map(|layer| (layer.x, layer.y, 0))
-                    .collect();
-                paint_ore_tree_frames_onto_rgba(
-                    &mut composed,
-                    preview_origin.0,
-                    preview_origin.1,
-                    &ore_tree_anims,
-                    &ore_idle,
-                );
+                let ore_idle: Vec<(u16, u16, u16)> = ore_tree_anims.layers.iter().map(|layer| (layer.x, layer.y, 0)).collect();
+                paint_ore_tree_frames_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &ore_tree_anims, &ore_idle);
                 paint_structure_anims_onto_rgba(&mut composed, preview_origin.0, preview_origin.1, &structure_anims, 0);
                 preview = Some(composed);
             }

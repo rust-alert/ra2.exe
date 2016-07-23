@@ -6,11 +6,16 @@ use ra_types::AssetSource;
 
 use crate::{
     MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, TerrainAnimBank, TerrainPaintMode,
-    compose::TerrainImage, fallback_preview::RawRgbaImage, mobile_paint::paint_map_mobiles,
-    overlay_paint::paint_map_overlays, structure_paint::collect_structure_anim_bank, structure_paint::paint_map_structures,
-    structure_paint::paint_structure_anim_bank, terrain_paint::collect_ore_tree_anim_bank, terrain_paint::collect_terrain_anim_bank,
-    terrain_paint::format_terrain_anim_layer_diag, terrain_paint::paint_map_terrain_objects, terrain_paint::paint_ore_tree_frames,
-    terrain_paint::paint_terrain_anim_bank, terrain_preview::compose_terrain_preview,
+    compose::TerrainImage,
+    fallback_preview::RawRgbaImage,
+    mobile_paint::paint_map_mobiles,
+    overlay_paint::paint_map_overlays,
+    structure_paint::{collect_structure_anim_bank, paint_map_structures, paint_structure_anim_bank},
+    terrain_paint::{
+        collect_ore_tree_anim_bank, collect_terrain_anim_bank, format_terrain_anim_layer_diag, paint_map_terrain_objects,
+        paint_ore_tree_frames, paint_terrain_anim_bank,
+    },
+    terrain_preview::compose_terrain_preview,
 };
 
 /// 各叠画层统计（供 boot 注记）。
@@ -75,15 +80,7 @@ pub fn compose_skirmish_preview(
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     anim_clock_ms: u64,
-) -> Option<(
-    TerrainImage,
-    RgbaImage,
-    RgbaImage,
-    SkirmishPreviewStats,
-    StructureAnimBank,
-    TerrainAnimBank,
-    TerrainAnimBank,
-)> {
+) -> Option<(TerrainImage, RgbaImage, RgbaImage, SkirmishPreviewStats, StructureAnimBank, TerrainAnimBank, TerrainAnimBank)> {
     // 预览叠画需要点光源；从 rules 收集后挂到地图副本上（不改调用方 MapInfo）。
     let mut lit_map = map.clone();
     if let Ok(bytes) = source.read(rules_ini) {
@@ -110,12 +107,7 @@ pub fn compose_skirmish_preview(
         tiberium_hsv,
         OverlayLayerFilter::Ground,
     );
-    let mut underlay = TerrainImage {
-        image: image.image.clone(),
-        drawn: 0,
-        origin_x: image.origin_x,
-        origin_y: image.origin_y,
-    };
+    let mut underlay = TerrainImage { image: image.image.clone(), drawn: 0, origin_x: image.origin_x, origin_y: image.origin_y };
     let (ground_ore_shp, ground_ore_mark) = paint_map_overlays(
         source,
         &map_ore,
@@ -127,8 +119,7 @@ pub fn compose_skirmish_preview(
         tiberium_hsv,
         OverlayLayerFilter::Ground,
     );
-    let terrain_objects =
-        paint_map_terrain_objects(source, map, &mut image, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
+    let terrain_objects = paint_map_terrain_objects(source, map, &mut image, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
     let _ = paint_map_terrain_objects(source, map, &mut underlay, art_ini, rules_ini, TerrainPaintMode::StaticOnly);
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, art_ini, rules_ini);
     let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, art_ini, rules_ini);
@@ -216,25 +207,17 @@ pub fn compose_boot_preview(
     rules_ini: &str,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
+    tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<BootPreviewResult> {
     let (image, base_without_anims, ore_underlay, stats, anim_bank, terrain_anim_bank, ore_tree_anim_bank) =
-        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, &|_| None, remap_owner, 0)?;
+        compose_skirmish_preview(source, map, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv, remap_owner, 0)?;
     let terrain_hit = terrain_anim_bank
         .layers
         .first()
-        .map(|l| {
-            format!(
-                "{} {}x{} body#{}/{} pal={}",
-                l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames, l.palette
-            )
-        })
+        .map(|l| format!("{} {}x{} body#{}/{} pal={}", l.file, l.canvas_width, l.canvas_height, l.frames.len(), l.shp_frames, l.palette))
         .unwrap_or_else(|| "-".into());
-    let ore_hit = ore_tree_anim_bank
-        .layers
-        .first()
-        .map(|l| format_terrain_anim_layer_diag(l, 0, false, true))
-        .unwrap_or_else(|| "-".into());
+    let ore_hit = ore_tree_anim_bank.layers.first().map(|l| format_terrain_anim_layer_diag(l, 0, false, true)).unwrap_or_else(|| "-".into());
     let note = format!(
         "map:{} cells={} drawn={} overlay#{} shp#{} mark#{} terrain_shp#{} terrain_anim#{} ({}) ore_tree#{} ({}) struct_shp#{} struct_miss#{} mobile_shp#{} anim#{} {}x{}",
         map.name,

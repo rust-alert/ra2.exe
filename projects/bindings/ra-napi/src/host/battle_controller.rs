@@ -8,7 +8,7 @@ use std::{
 };
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba};
+use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
 use ra_engine::{
     BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
     terrain_spawner_frame_signature,
@@ -886,17 +886,8 @@ impl BattleController {
             else {
                 return;
             };
-            let foundation = game
-                .world
-                .definitions
-                .structures
-                .get(&type_id)
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
-            if !game
-                .world
-                .can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height)
-            {
+            let foundation = game.world.definitions.structures.get(&type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+            if !game.world.can_place_structure_footprint(cell.0, cell.1, foundation.width, foundation.height) {
                 tracing::debug!("放置跳过 · 占地不可用 {type_id} @({},{})", cell.0, cell.1);
                 return;
             }
@@ -1510,11 +1501,7 @@ impl BattleController {
 
     /// 建造场出现新完工件时自动进入落位（Esc 取消后同类型不反复抢焦点）。
     fn sync_ready_place_mode(&mut self) {
-        let Some(ready) = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .and_then(|g| g.local_ready_building())
+        let Some(ready) = self.session.as_ref().and_then(|s| s.battle()).and_then(|g| g.local_ready_building())
         else {
             self.last_auto_place_ready = None;
             return;
@@ -2085,12 +2072,7 @@ impl BattleController {
 
     /// 将权威侧新建建筑脏集转入 Buildup 呈现队列（放置 / 部署共用）。
     fn enqueue_structure_buildup_jobs(&mut self) {
-        let dirty = self
-            .session
-            .as_mut()
-            .and_then(|s| s.battle_mut())
-            .map(|g| g.world.take_structure_buildup_dirty())
-            .unwrap_or_default();
+        let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_structure_buildup_dirty()).unwrap_or_default();
         if dirty.is_empty() {
             return;
         }
@@ -2117,18 +2099,10 @@ impl BattleController {
             else {
                 continue;
             };
-            if self.deploy_visual_queue.iter().any(|j| j.entity == id)
-                || self.pending_buildups.iter().any(|p| p.entity == id)
-            {
+            if self.deploy_visual_queue.iter().any(|j| j.entity == id) || self.pending_buildups.iter().any(|p| p.entity == id) {
                 continue;
             }
-            self.deploy_visual_queue.push(DeployVisualJob {
-                entity: id,
-                type_id: type_id.to_string(),
-                owner: owner.to_string(),
-                x,
-                y,
-            });
+            self.deploy_visual_queue.push(DeployVisualJob { entity: id, type_id: type_id.to_string(), owner: owner.to_string(), x, y });
         }
     }
 
@@ -2286,10 +2260,13 @@ impl BattleController {
     /// 有 underlay 时：`clean = underlay` + 叠全部可采矿（覆盖加矿与扣矿擦除）。
     /// 无 underlay 时回退为仅叠仍存在的脏格。
     fn apply_overlay_paint_dirty(&mut self, assets: &GameAssetSource) -> bool {
-        let Some(overlay_types) = self.rules.as_ref().map(|r| r.overlay_types.clone())
+        let Some(rules) = self.rules.as_ref()
         else {
             return false;
         };
+        let overlay_types = rules.overlay_types.clone();
+        let rules_ini = rules.rules.clone();
+        let color_schemes = rules.color_schemes.clone();
         let dirty = self.session.as_mut().and_then(|s| s.battle_mut()).map(|g| g.world.take_overlay_paint_dirty()).unwrap_or_default();
         if dirty.is_empty() {
             return false;
@@ -2299,6 +2276,10 @@ impl BattleController {
             return false;
         };
         let harvestable: Vec<_> = map.overlays.iter().copied().filter(|c| overlay_types.is_harvestable(c.overlay_id)).collect();
+        let tib_hsv = |id: u8| {
+            let name = overlay_types.name(id)?;
+            tiberium_overlay_display_hsv(&rules_ini, &color_schemes, name)
+        };
 
         if let Some(underlay) = self.preview_ore_underlay.as_ref() {
             let mut clean = underlay.clone();
@@ -2313,7 +2294,7 @@ impl BattleController {
                 self.rules_ini,
                 &|id| overlay_types.name(id).map(str::to_owned),
                 &|id| overlay_types.is_harvestable(id),
-                &|_| None,
+                &tib_hsv,
                 OverlayLayerFilter::Ground,
             );
             let _ = (shp, mark);
@@ -2341,7 +2322,7 @@ impl BattleController {
             self.rules_ini,
             &|id| overlay_types.name(id).map(str::to_owned),
             &|id| overlay_types.is_harvestable(id),
-            &|_| None,
+            &tib_hsv,
             OverlayLayerFilter::Ground,
         );
         if shp + mark == 0 {
@@ -2754,8 +2735,7 @@ impl BattleController {
         let game = self.session.as_ref()?.battle()?;
         let vp = self.map_viewport(window);
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
-        game.pick_local_mobile_near_image(wx, wy, 72.0)
-            .or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
+        game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
@@ -3411,9 +3391,11 @@ impl BattleController {
                     .map(|q| {
                         if q.remaining_ticks == 0 {
                             1.0
-                        } else if q.total_ticks == 0 {
+                        }
+                        else if q.total_ticks == 0 {
                             0.0
-                        } else {
+                        }
+                        else {
                             1.0 - (q.remaining_ticks as f32 / q.total_ticks as f32)
                         }
                     })
@@ -3510,13 +3492,7 @@ impl BattleController {
         else {
             return;
         };
-        let foundation = game
-            .world
-            .definitions
-            .structures
-            .get(type_id)
-            .map(|s| s.foundation.clone())
-            .unwrap_or_default();
+        let foundation = game.world.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
         let width = foundation.width.max(1);
         let height = foundation.height.max(1);
         let cam = renderer.camera();
@@ -3533,18 +3509,8 @@ impl BattleController {
                     continue;
                 };
                 let ok = game.world.can_place_structure(cx, cy);
-                let fill = if ok {
-                    [40u8, 220, 70, 90]
-                }
-                else {
-                    [220u8, 40, 40, 110]
-                };
-                let stroke = if ok {
-                    [80u8, 255, 100, 230]
-                }
-                else {
-                    [255u8, 70, 70, 240]
-                };
+                let fill = if ok { [40u8, 220, 70, 90] } else { [220u8, 40, 40, 110] };
+                let stroke = if ok { [80u8, 255, 100, 230] } else { [255u8, 70, 70, 240] };
                 let z = game.world.pass_grid.cell_height(cx, cy);
                 let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
                 let center_wx = (sx - game.preview_origin_x) as f32 + half_w;
