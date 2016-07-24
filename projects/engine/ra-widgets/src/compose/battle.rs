@@ -90,7 +90,7 @@ pub fn compose_battle_hud_overlay(
             paint.sidebar_tabs_visible,
         );
         if !paint.paused {
-            crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos);
+            crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos, paint.tick);
         }
     } else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。

@@ -1017,11 +1017,14 @@ pub struct BattleCameoPaint<'a> {
 }
 
 /// 将 cameo 列表画进侧栏内容区。
+///
+/// `tick` 用于完工待放 cameo 的闪烁相位。
 pub fn blit_battle_cameos(
     page: &mut RgbaImage,
     snap: &LayoutSnapshot,
     power_meter_w: i32,
     cameos: &[BattleCameoPaint<'_>],
+    tick: u64,
 ) {
     let band = rect_px_from_snapshot(snap, "cameo_band");
     for (slot, item) in cameos.iter().enumerate() {
@@ -1036,13 +1039,27 @@ pub fn blit_battle_cameos(
         if let Some(progress) = item.progress {
             paint_cameo_progress_clock(page, cell, progress.clamp(0.0, 1.0));
         }
+        let ready = item.progress.is_some_and(|p| p >= 1.0);
+        if ready && cameo_ready_flash_on(tick) {
+            fill_rect_alpha(page, cell, [255, 255, 160, 72]);
+        }
         if !item.enabled {
             fill_rect_alpha(page, cell, [0, 0, 0, 120]);
         }
         if item.selected {
-            stroke_rect(page, cell, [220, 220, 80, 220]);
+            let stroke = if ready && cameo_ready_flash_on(tick) {
+                [255, 255, 120, 255]
+            } else {
+                [220, 220, 80, 220]
+            };
+            stroke_rect(page, cell, stroke);
         }
     }
+}
+
+/// 完工待放闪烁：约每 8 逻辑 tick 亮/灭交替。
+fn cameo_ready_flash_on(tick: u64) -> bool {
+    (tick / 8) % 2 == 0
 }
 
 /// 原版风格时钟擦除：从 12 点顺时针揭开，未完成扇区半透明压暗。
@@ -1321,6 +1338,15 @@ mod tests {
     use ra_layout::{
         cameo_slot_rect, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
     };
+
+    #[test]
+    fn ready_flash_toggles_with_tick() {
+        assert!(cameo_ready_flash_on(0));
+        assert!(cameo_ready_flash_on(7));
+        assert!(!cameo_ready_flash_on(8));
+        assert!(!cameo_ready_flash_on(15));
+        assert!(cameo_ready_flash_on(16));
+    }
 
     #[test]
     fn progress_clock_covers_when_empty() {
