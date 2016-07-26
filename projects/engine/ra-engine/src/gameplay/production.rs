@@ -40,12 +40,21 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
+            let tick = self.tick;
+            let low_power = self
+                .ecs_get::<Owner>(id)
+                .and_then(|o| self.players.iter().find(|p| p.house.as_ref() == o.house.as_ref()))
+                .is_some_and(|p| p.low_power());
             let finished = self
                 .with_production_mut(id, |queue| {
                     let Some((type_id, remaining)) = queue.item.as_mut()
                     else {
                         return None;
                     };
+                    // 低电：每隔一 tick 才推进，等效半速（与供电不足反馈一致）。
+                    if low_power && tick % 2 == 1 {
+                        return None;
+                    }
                     if *remaining > 1 {
                         *remaining -= 1;
                         return None;
