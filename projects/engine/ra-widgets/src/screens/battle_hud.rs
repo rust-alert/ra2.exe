@@ -58,8 +58,10 @@ pub struct BattleHudChrome {
     pub sell_pressed: Option<DecodedUiSprite>,
     /// `powerp.shp`（电表）。
     pub powerp: Option<DecodedUiSprite>,
-    /// `tab00`…`tab03`。
+    /// `tab00`…`tab03` 常态帧（frame 0）。
     pub tabs: [Option<DecodedUiSprite>; 4],
+    /// `tab00`…`tab03` 按下高亮帧（frame 1；缺帧时回退常态）。
+    pub tabs_pressed: [Option<DecodedUiSprite>; 4],
     /// `optbtn.shp`。
     pub optbtn: Option<DecodedUiSprite>,
     /// `diplobtn.shp`。
@@ -283,6 +285,7 @@ pub fn decode_battle_hud_chrome_with(
             sell_pressed: None,
             powerp: None,
             tabs: [None, None, None, None],
+            tabs_pressed: [None, None, None, None],
             optbtn: None,
             diplobtn: None,
             lendcap: None,
@@ -298,9 +301,12 @@ pub fn decode_battle_hud_chrome_with(
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
     let mut tabs = [None, None, None, None];
-    for (i, slot) in tabs.iter_mut().enumerate() {
+    let mut tabs_pressed = [None, None, None, None];
+    for i in 0..4 {
         let name = format!("tab{i:02}.shp");
-        *slot = try_decode(source, &mixes, &name, BATTLE_HUD_PAL, 0, &mut errors);
+        tabs[i] = try_decode(source, &mixes, &name, BATTLE_HUD_PAL, 0, &mut errors);
+        let asset1 = UiAssetRef::with_palette_frame(&name, BATTLE_HUD_PAL, 1);
+        tabs_pressed[i] = decode_asset_ref_candidates(source, &asset1, &mixes).ok();
     }
     let mut command_buttons = std::array::from_fn(|_| None);
     let mut command_buttons_pressed = std::array::from_fn(|_| None);
@@ -357,6 +363,7 @@ pub fn decode_battle_hud_chrome_with(
         },
         powerp: try_decode(source, &mixes, "powerp.shp", BATTLE_HUD_PAL, 0, &mut errors),
         tabs,
+        tabs_pressed,
         optbtn: try_decode(source, &mixes, "optbtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
         diplobtn: try_decode(source, &mixes, "diplobtn.shp", BATTLE_HUD_PAL, 0, &mut errors),
         lendcap: try_decode(source, &mixes, "lendcap.shp", BATTLE_HUD_PAL, 0, &mut errors),
@@ -610,12 +617,15 @@ pub fn blit_battle_hud_chrome_with_state(
         false,
         0,
         [true; SIDEBAR_TAB_COUNT],
+        0,
     );
 }
 
 /// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
 ///
 /// `tabs_visible`：无对应可建造基础的分类页签不绘制。
+///
+/// `active_tab`：当前侧栏页签（贴 `tabNN` 按下帧）。
 ///
 /// `repair_active` / `sell_active`：侧栏工具切换态，贴 `repair`/`sell` 按下帧。
 ///
@@ -632,6 +642,7 @@ pub fn blit_battle_hud_chrome_ex(
     radar_online: bool,
     tick: u64,
     tabs_visible: [bool; SIDEBAR_TAB_COUNT],
+    active_tab: usize,
 ) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
     let credits = rect_px_from_snapshot(snap, "credits");
@@ -748,7 +759,13 @@ pub fn blit_battle_hud_chrome_ex(
             if !tabs_visible.get(i).copied().unwrap_or(false) {
                 continue;
             }
-            if let Some(tab) = tab {
+            let pressed = i == active_tab;
+            let sprite = if pressed {
+                chrome.tabs_pressed.get(i).and_then(|t| t.as_ref()).or(tab.as_ref())
+            } else {
+                tab.as_ref()
+            };
+            if let Some(tab) = sprite {
                 blit_button_in_cell(page, &tab.image, tabs[i]);
             }
         }

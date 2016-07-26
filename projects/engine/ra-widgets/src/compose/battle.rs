@@ -88,6 +88,7 @@ pub fn compose_battle_hud_overlay(
             paint.radar_online,
             paint.tick,
             paint.sidebar_tabs_visible,
+            paint.sidebar_tab,
         );
         if !paint.paused {
             crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos, paint.tick);
