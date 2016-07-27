@@ -1,8 +1,8 @@
 //! 兵营 / 战车工厂生产。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState, PRODUCE_TICKS};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
@@ -38,8 +38,8 @@ fn factory_world() -> BattleState {
             y: 4,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -50,8 +50,8 @@ fn factory_world() -> BattleState {
             y: 4,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
     ];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
@@ -196,4 +196,24 @@ fn funds_nag_repeats_on_speak_delay_while_broke_with_factory() {
     let again = world.take_eva_cues();
     assert_eq!(again.len(), 1);
     assert_eq!(again[0].event, "EVA_InsufficientFunds");
+}
+
+#[test]
+fn low_power_halves_production_tick_rate() {
+    let mut world = factory_world();
+    // 工厂种子未记账电力；显式制造低电。
+    world.players[0].power_output = 0;
+    world.players[0].power_drain = 50;
+    assert!(world.players[0].low_power());
+
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.advance_tick();
+    let factory = world.entity_id_at(0).expect("barracks");
+    let start = world.ecs_produce_remaining(factory).expect("queue").expect("item");
+
+    // 满电时这两次都会扣 tick；低电时奇 tick 跳过，只扣一次。
+    world.advance_tick();
+    world.advance_tick();
+    let after = world.ecs_produce_remaining(factory).expect("queue").expect("item");
+    assert_eq!(after, start.saturating_sub(1), "low power should advance production only on even ticks");
 }
