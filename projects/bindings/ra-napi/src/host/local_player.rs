@@ -175,7 +175,7 @@ impl LocalPlayerController {
         }
     }
 
-    /// 在本地玩家存活移动单位间循环选中（`Tab`）。
+    /// 在本地玩家存活移动单位间循环选中（`keyboard.ini` NextObject=`N`）。
     pub fn cycle_selection(&mut self, battle: &BattleSession) {
         let Some(local_house) = battle.world.players.iter().find(|p| p.id == battle.world.local_player).map(|p| p.house.clone())
         else {
@@ -233,12 +233,7 @@ impl LocalPlayerController {
                 else {
                     continue;
                 };
-                if dead
-                    || !matches!(
-                        kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                    )
-                {
+                if dead || !matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure) {
                     continue;
                 }
                 if !self.selected.contains(&id) {

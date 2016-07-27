@@ -947,14 +947,7 @@ impl BattleController {
         let mut pulse = false;
         if let Some(id) = picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-            let deployable = game.deploy_target_of(id).is_some();
-            // 已选中的可部署单位再点一次 → 部署（非双击）。
-            let click_deploy = !add && deployable && self.local.selected.contains(&id);
-            if click_deploy {
-                tracing::info!("点击部署 · #{} @({},{})", id.0, cell.0, cell.1);
-                self.deploy_selection();
-                return;
-            }
+            // 部署走 `D` / 命令条 Deploy，不在此用二次点击发明部署。
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -1286,20 +1279,16 @@ impl BattleController {
                 if event.state != ElementState::Pressed {
                     return BattleNav::None;
                 }
-                // 暂停菜单打开时：Esc / Space 关闭；Alt+F 仍可切换全屏。
+                // 暂停菜单打开时：仅 Esc 关闭（`keyboard.ini` Options=27）。勿用 Space 冒充暂停。
                 if accept_commands && battle_paused {
                     return match event.physical_key {
-                        PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Space) => {
+                        PhysicalKey::Code(KeyCode::Escape) => {
                             if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                                 game.toggle_pause();
                             }
                             self.clear_pause_menu_input();
                             tracing::info!("继续");
                             BattleNav::None
-                        }
-                        PhysicalKey::Code(KeyCode::KeyF) if self.alt_down => {
-                            tracing::info!("热键 · 切换全屏");
-                            BattleNav::ToggleFullscreen
                         }
                         _ => BattleNav::None,
                     };
@@ -1336,7 +1325,7 @@ impl BattleController {
                             BattleNav::None
                         }
                         else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            // Esc：打开暂停菜单。
+                            // Esc：`Options` → 打开暂停菜单。
                             game.toggle_pause();
                             self.clear_pause_menu_input();
                             tracing::info!("暂停菜单");
@@ -1347,7 +1336,8 @@ impl BattleController {
                         }
                     }
                     _ if !accept_commands => BattleNav::None,
-                    PhysicalKey::Code(KeyCode::KeyA) if self.ctrl_down => {
+                    // `keyboard.ini` CombatantSelect=P：全选本方作战单位（不含建筑）。
+                    PhysicalKey::Code(KeyCode::KeyP) if !battle_paused => {
                         if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                             let seed = self.local.selected.first().copied().or_else(|| {
                                 game.world.entity_ids().into_iter().find(|&eid| {
@@ -1359,19 +1349,17 @@ impl BattleController {
                             });
                             if let Some(id) = seed {
                                 self.local.select_all_of_owner(game, id);
-                                tracing::info!("全选同阵营 · {} 个", self.local.selected.len());
+                                tracing::info!("CombatantSelect · {} 个", self.local.selected.len());
                             }
                         }
                         BattleNav::None
                     }
-                    // 镜头平移只用方向键按住态（见上方 KeyboardInput 分支）；此处不再跳格。
-                    PhysicalKey::Code(KeyCode::Equal) | PhysicalKey::Code(KeyCode::NumpadAdd) => BattleNav::None,
-                    PhysicalKey::Code(KeyCode::Minus) | PhysicalKey::Code(KeyCode::NumpadSubtract) => BattleNav::None,
-                    PhysicalKey::Code(KeyCode::Tab) if !battle_paused => {
+                    // `keyboard.ini` NextObject=N（勿用 Tab 冒充）。
+                    PhysicalKey::Code(KeyCode::KeyN) if !battle_paused => {
                         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                             let tick = game.world.tick;
                             self.local.cycle_selection(game);
-                            tracing::info!("Tab 循环选中 · {:?}", self.local.selected);
+                            tracing::info!("NextObject · {:?}", self.local.selected);
                             tick
                         });
                         if let Some(tick) = pulse_tick {
@@ -1379,11 +1367,12 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
+                    // `keyboard.ini` TypeSelect=T。
                     PhysicalKey::Code(KeyCode::KeyT) if !battle_paused => {
                         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                             let tick = game.world.tick;
                             self.local.select_same_type(game);
-                            tracing::info!("同类型选中 · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
+                            tracing::info!("TypeSelect · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
                             tick
                         });
                         if let Some(tick) = pulse_tick {
@@ -1391,39 +1380,17 @@ impl BattleController {
                         }
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyF) if self.alt_down => {
-                        tracing::info!("热键 · 切换全屏");
-                        BattleNav::ToggleFullscreen
-                    }
-                    PhysicalKey::Code(KeyCode::KeyF) if !battle_paused => {
-                        let selected = self.local.selected.clone();
-                        let pulse_tick = {
-                            let mut out = None;
-                            if let Some(&atk) = selected.first() {
-                                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                                    if let Some(tgt) = game.nearest_hostile(atk) {
-                                        let tick = game.world.tick;
-                                        game.order_attack(&selected, tgt);
-                                        out = Some(tick);
-                                    }
-                                }
-                            }
-                            out
-                        };
-                        if let Some(tick) = pulse_tick {
-                            self.pulse_action_lines_at(tick);
-                        }
-                        BattleNav::None
-                    }
+                    // `keyboard.ini` DeployObject=D。
                     PhysicalKey::Code(KeyCode::KeyD) if !battle_paused => {
                         self.deploy_selection();
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::KeyX) if !battle_paused => {
+                    // `keyboard.ini` GuardObject=G（X 是 Scatter，引擎未接则不绑）。
+                    PhysicalKey::Code(KeyCode::KeyG) if !battle_paused => {
                         self.guard_selection();
                         BattleNav::None
                     }
-                    // 侧栏 QWER：建筑 / 防御 / 步兵 / 载具·飞行器；有待放置完工件时 Q/W 直接进入落位。
+                    // `keyboard.ini` StructureTab/DefenseTab/InfantryTab/UnitTab = Q/W/E/R。
                     PhysicalKey::Code(KeyCode::KeyQ) if !battle_paused => {
                         self.hotkey_sidebar_tab(0);
                         BattleNav::None
@@ -1440,6 +1407,51 @@ impl BattleController {
                         self.hotkey_sidebar_tab(3);
                         BattleNav::None
                     }
+                    // `keyboard.ini` ToggleRepair=K / ToggleSell=L。
+                    PhysicalKey::Code(KeyCode::KeyK) if !battle_paused => {
+                        self.sell_mode = false;
+                        self.planning_mode = false;
+                        self.planning_waypoints.clear();
+                        self.repair_mode = !self.repair_mode;
+                        if self.repair_mode {
+                            self.place_mode = None;
+                        }
+                        tracing::info!(active = self.repair_mode, "ToggleRepair");
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::KeyL) if !battle_paused => {
+                        self.repair_mode = false;
+                        self.planning_mode = false;
+                        self.planning_waypoints.clear();
+                        self.sell_mode = !self.sell_mode;
+                        if self.sell_mode {
+                            self.place_mode = None;
+                        }
+                        tracing::info!(active = self.sell_mode, "ToggleSell");
+                        BattleNav::None
+                    }
+                    // `keyboard.ini` PlanningMode=Z。
+                    PhysicalKey::Code(KeyCode::KeyZ) if !battle_paused => {
+                        if self.planning_mode {
+                            self.commit_planning_waypoints();
+                        }
+                        else {
+                            self.planning_mode = true;
+                            self.planning_waypoints.clear();
+                            self.place_mode = None;
+                            self.repair_mode = false;
+                            self.sell_mode = false;
+                            tracing::info!(active = true, "PlanningMode");
+                        }
+                        BattleNav::None
+                    }
+                    // `keyboard.ini` CenterBase=H。
+                    PhysicalKey::Code(KeyCode::KeyH) if !battle_paused => {
+                        self.focus_camera_on_local_start(renderer);
+                        tracing::info!("CenterBase");
+                        BattleNav::None
+                    }
+                    // `keyboard.ini` TeamSelect_1/2；Ctrl+数字为 TeamCreate（见 `handle_control_team`）。
                     PhysicalKey::Code(KeyCode::Digit1) | PhysicalKey::Code(KeyCode::Numpad1) if !battle_paused => {
                         self.handle_control_team(0);
                         BattleNav::None
@@ -1448,33 +1460,8 @@ impl BattleController {
                         self.handle_control_team(1);
                         BattleNav::None
                     }
-                    PhysicalKey::Code(KeyCode::Space) => {
-                        let paused = if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            game.toggle_pause();
-                            game.paused
-                        }
-                        else {
-                            false
-                        };
-                        self.clear_pause_menu_input();
-                        if paused {
-                            tracing::info!("暂停菜单");
-                        }
-                        else if self.session.as_ref().and_then(|s| s.battle()).is_some() {
-                            tracing::info!("继续");
-                        }
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyY) if !battle_paused => {
-                        if let Some(cell) = self.cursor_cell(renderer, window) {
-                            let selected = self.local.selected.clone();
-                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                                tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-                                game.order_rally(&selected, cell.0, cell.1);
-                            }
-                        }
-                        BattleNav::None
-                    }
+                    // `keyboard.ini` CenterOnRadarEvent=Space：雷达事件未接前不绑暂停，也不发明其它行为。
+                    PhysicalKey::Code(KeyCode::Space) => BattleNav::None,
                     _ => BattleNav::None,
                 }
             }
@@ -1802,7 +1789,7 @@ impl BattleController {
         }
     }
 
-    /// 对当前选中下发就地警戒（`X` 键 / 命令条 Guard）。
+    /// 对当前选中下发就地警戒（`G` / 命令条 Guard；`keyboard.ini` GuardObject）。
     fn guard_selection(&mut self) {
         let selected = self.local.selected.clone();
         if selected.is_empty() {
