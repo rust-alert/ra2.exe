@@ -87,29 +87,18 @@ impl Shell {
                     self.request_splash_skip();
                 }
             }
-            OriginalScreen::MainMenu => match key {
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                    self.set_screen(OriginalScreen::SinglePlayerMenu);
-                }
-                PhysicalKey::Code(KeyCode::KeyN) => {
-                    tracing::info!("网络入口未开放（Beta）");
-                    self.set_screen(OriginalScreen::Network);
-                }
-                PhysicalKey::Code(KeyCode::KeyO) => self.set_screen(OriginalScreen::Options),
-                PhysicalKey::Code(KeyCode::Escape) => {
+            OriginalScreen::MainMenu => {
+                // 主菜单导航靠鼠标点按钮；勿用 Enter/N/O 等字母键发明快捷入口。
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
                     self.banner = "确认退出？".into();
                     self.set_screen(OriginalScreen::ExitConfirm);
                 }
-                _ => {}
-            },
-            OriginalScreen::SinglePlayerMenu => match key {
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) | PhysicalKey::Code(KeyCode::KeyS) => {
-                    self.ensure_lobby_maps();
-                    self.set_screen(OriginalScreen::SkirmishLobby);
+            }
+            OriginalScreen::SinglePlayerMenu => {
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.set_screen(OriginalScreen::MainMenu);
                 }
-                PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
-                _ => {}
-            },
+            }
             OriginalScreen::Campaign => {
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
                     self.set_screen(OriginalScreen::SinglePlayerMenu);
@@ -120,38 +109,14 @@ impl Shell {
                     self.skirmish.close_combo();
                     self.refresh_menu_backdrop();
                 }
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                    self.begin_skirmish_load();
-                }
-                PhysicalKey::Code(KeyCode::ArrowLeft) => self.cycle_lobby_map(-1),
-                PhysicalKey::Code(KeyCode::ArrowRight) => self.cycle_lobby_map(1),
-                PhysicalKey::Code(KeyCode::Home) => self.jump_lobby_map_edge(false),
-                PhysicalKey::Code(KeyCode::End) => self.jump_lobby_map_edge(true),
-                PhysicalKey::Code(KeyCode::KeyQ) => {
-                    self.skirmish.cycle_side();
-                    self.banner = format!("阵营 · {}", self.skirmish.side);
-                    self.refresh_menu_backdrop();
-                    self.refresh_shell_title();
-                }
-                PhysicalKey::Code(KeyCode::KeyE) => {
-                    self.skirmish.cycle_difficulty();
-                    self.banner = format!("难度 · {}", self.skirmish.difficulty);
-                    self.refresh_menu_backdrop();
-                    self.refresh_shell_title();
-                }
+                // 大厅改阵营/地图/开局靠鼠标；勿用 Enter/方向键/Q/E 发明快捷键。
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::SinglePlayerMenu),
                 _ => {}
             },
             OriginalScreen::ChooseMap => {
-                match key {
-                    PhysicalKey::Code(KeyCode::Escape) => self.cancel_choose_map(),
-                    PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::PageUp) => {
-                        self.nudge_map_list_scroll(-1);
-                    }
-                    PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::PageDown) => {
-                        self.nudge_map_list_scroll(1);
-                    }
-                    _ => {}
+                // 选图列表滚动靠鼠标；仅 Escape 取消。
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.cancel_choose_map();
                 }
             }
             OriginalScreen::Network | OriginalScreen::Options => {
@@ -169,13 +134,12 @@ impl Shell {
                 PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
                 _ => {}
             },
-            OriginalScreen::LoadScreen => match key {
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                    self.retry_load();
+            OriginalScreen::LoadScreen => {
+                // 加载失败重试靠界面按钮；勿用 Enter 发明快捷键。
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.cancel_load();
                 }
-                PhysicalKey::Code(KeyCode::Escape) => self.cancel_load(),
-                _ => {}
-            },
+            }
             OriginalScreen::Battle | OriginalScreen::Results => {}
         }
     }
