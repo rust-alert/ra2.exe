@@ -801,21 +801,21 @@ impl BattleController {
 
         // 出售工具：悬停本方建筑时用点选光标提示可点售。
         if self.sell_mode {
-            if game.pick_local_structure_near_image(wx, wy, 120.0).is_some() {
+            if Self::pick_local_building_at_image(game, wx, wy).is_some() {
                 return BattlePointer::Select;
             }
             return BattlePointer::Default;
         }
         // 修理工具：悬停本方建筑时用点选光标提示可点修。
         if self.repair_mode {
-            if game.pick_local_structure_near_image(wx, wy, 120.0).is_some() {
+            if Self::pick_local_building_at_image(game, wx, wy).is_some() {
                 return BattlePointer::Select;
             }
             return BattlePointer::Default;
         }
 
         if selected.is_empty() {
-            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || game.pick_local_structure_near_image(wx, wy, 120.0).is_some() {
+            if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || Self::pick_local_building_at_image(game, wx, wy).is_some() {
                 return BattlePointer::Select;
             }
             return BattlePointer::Default;
@@ -898,11 +898,8 @@ impl BattleController {
             return;
         }
         if self.sell_mode {
-            let building = game.pick_local_structure_near_image(wx, wy, 120.0).or_else(|| {
-                let cell = game.image_to_cell(wx, wy)?;
-                let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
-                game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-            });
+            // 出售：先占地格，再立面菱形（与点选同序，勿先软命中再漏格）。
+            let building = Self::pick_local_building_at_image(game, wx, wy);
             if let Some(building) = building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("出售建筑 · #{}", building.0);
@@ -912,11 +909,7 @@ impl BattleController {
             return;
         }
         if self.repair_mode {
-            let building = game.pick_local_structure_near_image(wx, wy, 120.0).or_else(|| {
-                let cell = game.image_to_cell(wx, wy)?;
-                let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
-                game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-            });
+            let building = Self::pick_local_building_at_image(game, wx, wy);
             if let Some(building) = building {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                     tracing::info!("修理建筑 · #{}", building.0);
@@ -927,17 +920,15 @@ impl BattleController {
         }
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
-        // 先屏幕距离点本方单位 / 建筑（VXL·SHP 常偏离逻辑格），再回退格点选。
+        // 单位软命中优先（车身常偏格），再本方建筑占地格，再建筑立面菱形，最后格上单位。
         let picked =
-            game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0)).or_else(|| {
+            game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
                 let cell = game.image_to_cell(wx, wy)?;
                 if let Some(house) = local_house.as_deref() {
-                    game.pick_mobile_at_owned(cell.0, cell.1, Some(house)).or_else(|| {
-                        game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
-                    })
+                    game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
                 }
                 else {
-                    game.pick_entity_at(cell.0, cell.1)
+                    game.pick_mobile_at(cell.0, cell.1)
                 }
             });
         let mut pulse = false;
@@ -1454,6 +1445,28 @@ impl BattleController {
                     }
                     PhysicalKey::Code(KeyCode::Digit2) | PhysicalKey::Code(KeyCode::Numpad2) if !battle_paused => {
                         self.handle_control_team(1);
+                        BattleNav::None
+                    }
+                    // `keyboard.ini` LeftSidebarUp=Home / LeftSidebarDown=End：侧栏 cameo 滚到顶/底。
+                    PhysicalKey::Code(KeyCode::Home) if !battle_paused => {
+                        self.jump_cameo_scroll(window, false);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::End) if !battle_paused => {
+                        self.jump_cameo_scroll(window, true);
+                        BattleNav::None
+                    }
+                    // `keyboard.ini` RightSidebarUp=PageUp / RightSidebarDown=PageDown：按可见槽位翻页。
+                    PhysicalKey::Code(KeyCode::PageUp) if !battle_paused => {
+                        let snap = self.hud_snap_for_window(window);
+                        let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
+                        self.scroll_cameos(window, -page);
+                        BattleNav::None
+                    }
+                    PhysicalKey::Code(KeyCode::PageDown) if !battle_paused => {
+                        let snap = self.hud_snap_for_window(window);
+                        let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
+                        self.scroll_cameos(window, page);
                         BattleNav::None
                     }
                     // `keyboard.ini` CenterOnRadarEvent=Space：雷达事件未接前不绑暂停，也不发明其它行为。
@@ -2685,7 +2698,19 @@ impl BattleController {
         let game = self.session.as_ref()?.battle()?;
         let vp = self.map_viewport(window);
         let (wx, wy) = vp.screen_to_world(renderer.camera(), self.cursor.0 as f32, self.cursor.1 as f32);
-        game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| game.pick_local_structure_near_image(wx, wy, 120.0))
+        game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy))
+    }
+
+    /// 本方建筑点选：先 `Foundation` 占地格，再立面等距菱形（与左键 / 出售 / 修理一致）。
+    fn pick_local_building_at_image(game: &ra_engine::BattleSession, wx: f32, wy: f32) -> Option<EntityId> {
+        if let Some(cell) = game.image_to_cell(wx, wy) {
+            let house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.as_ref())?;
+            if let Some(id) = game.pick_structure_at(cell.0, cell.1).filter(|&id| game.world.ecs_owner(id).is_some_and(|o| o.as_ref() == house))
+            {
+                return Some(id);
+            }
+        }
+        game.pick_local_structure_near_image(wx, wy)
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
@@ -2962,6 +2987,21 @@ impl BattleController {
         let visible = cameo_visible_slot_count(band.h);
         let next = self.cameo_scroll as i32 + steps;
         self.cameo_scroll = next.max(0) as usize;
+        self.clamp_cameo_scroll(visible);
+    }
+
+    /// `Home`/`End`：cameo 列表滚到顶或底（`keyboard.ini` LeftSidebarUp/Down）。
+    fn jump_cameo_scroll(&mut self, window: &Window, to_end: bool) {
+        let snap = self.hud_snap_for_window(window);
+        let band = rect_px_from_snapshot(&snap, "cameo_band");
+        let visible = cameo_visible_slot_count(band.h);
+        if to_end {
+            let total = self.current_capabilities().map(|caps| Self::tab_items(&caps, self.sidebar_tab).len()).unwrap_or(0);
+            self.cameo_scroll = total.saturating_sub(visible);
+        }
+        else {
+            self.cameo_scroll = 0;
+        }
         self.clamp_cameo_scroll(visible);
     }
 

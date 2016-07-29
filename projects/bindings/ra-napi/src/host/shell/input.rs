@@ -1,13 +1,11 @@
 //! 指针命中与菜单前按键。
 
 use ra_layout;
-use ra_widgets::menu_action::MenuAction;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::options_dialog::OptionsHit;
-use ra_widgets::skirmish_setup::hover_entry_at;
-use ra_widgets::input::hit;
-use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::{KeyCode, PhysicalKey};
+use ra_widgets::{input::hit, options_dialog::OptionsHit, original_screen::OriginalScreen, skirmish_setup::hover_entry_at};
+use winit::{
+    event_loop::ActiveEventLoop,
+    keyboard::{KeyCode, PhysicalKey},
+};
 
 use super::Shell;
 
@@ -72,7 +70,7 @@ impl Shell {
         }
     }
 
-    pub(super) fn handle_pre_game_key(&mut self, event_loop: &ActiveEventLoop, key: PhysicalKey) {
+    pub(super) fn handle_pre_game_key(&mut self, _event_loop: &ActiveEventLoop, key: PhysicalKey) {
         if matches!(key, PhysicalKey::Code(KeyCode::F12)) {
             self.queue_screenshot(self.screen.as_str());
             return;
@@ -127,13 +125,12 @@ impl Shell {
                     self.set_screen(OriginalScreen::MainMenu);
                 }
             }
-            OriginalScreen::ExitConfirm => match key {
-                PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
-                    self.apply_menu_action(event_loop, MenuAction::ConfirmExit);
+            OriginalScreen::ExitConfirm => {
+                // 确认退出靠按钮；勿用 Enter 发明快捷确认。
+                if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
+                    self.set_screen(OriginalScreen::MainMenu);
                 }
-                PhysicalKey::Code(KeyCode::Escape) => self.set_screen(OriginalScreen::MainMenu),
-                _ => {}
-            },
+            }
             OriginalScreen::LoadScreen => {
                 // 加载失败重试靠界面按钮；勿用 Enter 发明快捷键。
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {

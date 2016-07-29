@@ -5,13 +5,17 @@ use std::time::Instant;
 use ra_layout;
 use ra_map::mount_theater_mixes;
 use ra_renderer::RgbaImage;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::shell_slide::WaveDirection;
-use ra_widgets::compose::{self};
-use ra_widgets::skin::decode;
-use ra_widgets::render::present;
-use ra_widgets::skin::text::{country_lobby_display_name, resolve_caption, sanitize_csf_display};
-use ra_widgets::RenderPlan;
+use ra_widgets::{
+    RenderPlan,
+    compose::{self},
+    original_screen::OriginalScreen,
+    render::present,
+    shell_slide::WaveDirection,
+    skin::{
+        decode,
+        text::{country_lobby_display_name, resolve_caption, sanitize_csf_display},
+    },
+};
 
 use super::Shell;
 
@@ -30,9 +34,7 @@ impl Shell {
         else {
             return;
         };
-        let n = mount_theater_mixes(theater, &mut |mix| {
-            matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0)
-        });
+        let n = mount_theater_mixes(theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0));
         self.battle_theater_mounted = Some(theater);
         if n > 0 {
             tracing::info!("对局剧院 MIX · {} · 新挂载 {}", theater.as_str(), n);
@@ -78,10 +80,7 @@ impl Shell {
                 self.ensure_lobby_sides();
                 self.ensure_lobby_preview();
             }
-            if matches!(
-                self.screen,
-                OriginalScreen::Campaign | OriginalScreen::SkirmishLobby | OriginalScreen::LoadScreen
-            ) {
+            if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby | OriginalScreen::LoadScreen) {
                 self.ensure_lobby_sides();
                 self.ensure_skirmish_chrome();
             }
@@ -92,13 +91,8 @@ impl Shell {
             let load_progress = self.load_screen_progress();
             let wave_owned = self.current_wave_frames();
             let wave = wave_owned.as_ref().map(|(buttons, tiles)| {
-                let animate_empty_tiles =
-                    self.menu_frame_wave.as_ref().is_some_and(|w| w.direction() == WaveDirection::SlideOut);
-                compose::ShellWaveFrames {
-                    buttons: buttons.as_slice(),
-                    tiles: tiles.as_slice(),
-                    animate_empty_tiles,
-                }
+                let animate_empty_tiles = self.menu_frame_wave.as_ref().is_some_and(|w| w.direction() == WaveDirection::SlideOut);
+                compose::ShellWaveFrames { buttons: buttons.as_slice(), tiles: tiles.as_slice(), animate_empty_tiles }
             });
             if matches!(self.screen, OriginalScreen::Results) {
                 self.ensure_score_backdrop();
@@ -204,7 +198,8 @@ impl Shell {
                             .collect();
                         let local_side_i = if self.skirmish.sides.is_empty() {
                             0
-                        } else {
+                        }
+                        else {
                             usize::from(self.skirmish.row_sides[0]) % self.skirmish.sides.len()
                         };
                         let country_label = side_labels
@@ -213,15 +208,14 @@ impl Shell {
                             .unwrap_or_else(|| country_lobby_display_name(self.menu_csf.as_ref(), &country, ""));
                         let ai_side_i = if self.skirmish.sides.is_empty() {
                             0
-                        } else {
+                        }
+                        else {
                             usize::from(self.skirmish.row_sides[1]) % self.skirmish.sides.len()
                         };
                         let ai_country_label = side_labels
                             .get(ai_side_i)
                             .cloned()
-                            .unwrap_or_else(|| {
-                                country_lobby_display_name(self.menu_csf.as_ref(), self.skirmish.row_side(1), "")
-                            });
+                            .unwrap_or_else(|| country_lobby_display_name(self.menu_csf.as_ref(), self.skirmish.row_side(1), ""));
                         let ai_csf = ra_widgets::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(&self.skirmish.difficulty);
                         let ai_name = self
                             .menu_csf
@@ -284,28 +278,14 @@ impl Shell {
                         let mode_labels: Vec<String> = self
                             .lobby_modes
                             .iter()
-                            .map(|m| {
-                                sanitize_csf_display(&resolve_caption(
-                                    self.menu_csf.as_ref(),
-                                    &m.name_csf,
-                                    Some(&m.name_csf),
-                                ))
-                            })
+                            .map(|m| sanitize_csf_display(&resolve_caption(self.menu_csf.as_ref(), &m.name_csf, Some(&m.name_csf))))
                             .collect();
                         let mode_names: Vec<&str> = mode_labels.iter().map(|s| s.as_str()).collect();
-                        let selected_mode_index = self
-                            .selected_mode_id
-                            .and_then(|id| self.lobby_modes.iter().position(|m| m.id == id));
+                        let selected_mode_index = self.selected_mode_id.and_then(|id| self.lobby_modes.iter().position(|m| m.id == id));
                         let visible_maps = self.maps_matching_selected_mode();
                         let map_labels: Vec<String> = visible_maps
                             .iter()
-                            .map(|m| {
-                                sanitize_csf_display(&resolve_caption(
-                                    self.menu_csf.as_ref(),
-                                    &m.name_csf,
-                                    Some(&m.name_csf),
-                                ))
-                            })
+                            .map(|m| sanitize_csf_display(&resolve_caption(self.menu_csf.as_ref(), &m.name_csf, Some(&m.name_csf))))
                             .collect();
                         let map_names: Vec<&str> = map_labels.iter().map(|s| s.as_str()).collect();
                         let selected_map_index =
@@ -342,24 +322,24 @@ impl Shell {
                             .map(|c| c.special_ui_name.as_str())
                             .filter(|s| !s.is_empty());
                         compose::compose_load_screen_page(
-                        decoded,
-                        self.window_width as u32,
-                        self.window_height as u32,
-                        self.menu_pressed_entry,
-                        self.menu_hovered_entry,
-                        self.menu_font.as_ref(),
-                        self.menu_csf.as_ref(),
-                        compose::LoadScreenPaint {
-                            side: self.skirmish.side.as_str(),
-                            player_name: self.skirmish.player_name.as_str(),
-                            side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
-                            status: load_status.as_deref().unwrap_or(""),
-                            allow_retry: load_allow_retry,
-                            progress: load_progress,
-                            brief_csf_override: self.load_brief_csf.as_deref(),
-                            special_ui_name,
-                        },
-                    )
+                            decoded,
+                            self.window_width as u32,
+                            self.window_height as u32,
+                            self.menu_pressed_entry,
+                            self.menu_hovered_entry,
+                            self.menu_font.as_ref(),
+                            self.menu_csf.as_ref(),
+                            compose::LoadScreenPaint {
+                                side: self.skirmish.side.as_str(),
+                                player_name: self.skirmish.player_name.as_str(),
+                                side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
+                                status: load_status.as_deref().unwrap_or(""),
+                                allow_retry: load_allow_retry,
+                                progress: load_progress,
+                                brief_csf_override: self.load_brief_csf.as_deref(),
+                                special_ui_name,
+                            },
+                        )
                     }
                     OriginalScreen::Results => {
                         let rows = self.skirmish_score_rows();
@@ -443,12 +423,7 @@ impl Shell {
             }
             // 解码缺失时：按设计画布栅格化 snapshot 诊断占位，避免空白 UI 通道。
             if let Some(page) = RenderPlan::diagnostic_for_original_screen(self.screen)
-                .and_then(|plan| {
-                    plan.rasterize_solids(
-                        ra_layout::SHELL_BASE_W as u32,
-                        ra_layout::SHELL_BASE_H as u32,
-                    )
-                })
+                .and_then(|plan| plan.rasterize_solids(ra_layout::SHELL_BASE_W as u32, ra_layout::SHELL_BASE_H as u32))
             {
                 tracing::debug!(
                     screen = self.screen.as_str(),
@@ -480,14 +455,14 @@ impl Shell {
                 format!("ra2 · 闪屏 · {} · Esc/Enter/点击跳过（预处理完成后进主菜单）· F12 截图", self.banner)
             }
             OriginalScreen::MainMenu => {
-                format!("ra2 · 主菜单 · {} · Enter 单人 · N 网络 · O 选项 · Esc 确认退出 · F12 截图", self.banner)
+                format!("ra2 · 主菜单 · {} · 鼠标点选 · Esc 确认退出 · F12 截图", self.banner)
             }
-            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · Enter/S 遭遇战 · Esc 返回 · F12 截图".into(),
+            OriginalScreen::SinglePlayerMenu => "ra2 · 单人游戏 · 鼠标点选 · Esc 返回 · F12 截图".into(),
             OriginalScreen::Campaign => {
                 format!("ra2 · 战役 · {} · Esc 返回 · F12 截图", self.banner)
             }
             OriginalScreen::Results => {
-                format!("ra2 · {} · Enter/继续确认 · Esc 离开 · F12 截图", self.banner)
+                format!("ra2 · {} · 鼠标确认 · Esc 离开 · F12 截图", self.banner)
             }
             OriginalScreen::SkirmishLobby => {
                 let detail = self
@@ -496,10 +471,7 @@ impl Shell {
                     .and_then(|name| self.lobby_maps.iter().find(|m| &m.file_name == name))
                     .map(|m| format!("{} {}x{} {}", m.file_name, m.width, m.height, m.theater.as_str()))
                     .unwrap_or_else(|| "（无可用图）".into());
-                format!(
-                    "ra2 · 遭遇战大厅 · {detail} · {}/{} · ←/→ 图 · Home/End · Q阵营 E难度 · Enter 开始 · Esc 返回 · F12 截图",
-                    self.skirmish.side, self.skirmish.difficulty
-                )
+                format!("ra2 · 遭遇战大厅 · {detail} · {}/{} · 鼠标点选 · Esc 返回 · F12 截图", self.skirmish.side, self.skirmish.difficulty)
             }
             OriginalScreen::ChooseMap => {
                 format!("ra2 · 选图 · {} · Esc 回大厅 · F12 截图", self.selected_map.as_deref().unwrap_or("（未选）"))
@@ -510,14 +482,14 @@ impl Shell {
                     format!("ra2 · 加载 · {} · Esc/点取消 · F12 截图", self.banner)
                 }
                 else {
-                    format!("ra2 · 加载 · {} · Enter/点重试 · Esc 回大厅 · F12 截图", self.banner)
+                    format!("ra2 · 加载 · {} · 点重试 · Esc 回大厅 · F12 截图", self.banner)
                 }
             }
             OriginalScreen::Options => {
                 format!("ra2 · 选项 · {} · 视频循环分辨率 · Esc 返回 · F12 截图", self.banner)
             }
             OriginalScreen::ExitConfirm => {
-                format!("ra2 · 确认退出 · {} · Enter 退出 · Esc 取消 · F12 截图", self.banner)
+                format!("ra2 · 确认退出 · {} · 鼠标确认 · Esc 取消 · F12 截图", self.banner)
             }
             OriginalScreen::Battle => unreachable!(),
         };

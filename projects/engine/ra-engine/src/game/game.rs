@@ -7,7 +7,7 @@ use crate::{
     game::{commands::GameCommand, reject::CommandReject},
     state::{
         BattleState,
-        components::{AttackState, AnimationState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
+        components::{AnimationState, AttackState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
     },
 };
 use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
@@ -573,7 +573,8 @@ impl BattleSession {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "战役失败".into()
-                } else {
+                }
+                else {
                     format!("战役失败 · {reason}")
                 }
             }
@@ -592,11 +593,7 @@ impl BattleSession {
             if !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(false) {
                 continue;
             }
-            let house = self
-                .world
-                .ecs_get::<Owner>(id)
-                .map(|o| o.house.to_string())
-                .unwrap_or_default();
+            let house = self.world.ecs_get::<Owner>(id).map(|o| o.house.to_string()).unwrap_or_default();
             match self.world.ecs_get::<Identity>(id).map(|identity| identity.kind) {
                 Some(MapEntityKind::Structure) => {
                     buildings_lost = buildings_lost.saturating_add(1);
@@ -623,22 +620,10 @@ impl BattleSession {
                 let kills = p.kills;
                 let built = p.built;
                 let score = (p.funds_spent / 100) + (kills as i32) * 10 - (losses as i32) * 5;
-                PlayerBattleStats {
-                    house: p.house.to_string(),
-                    kills,
-                    losses,
-                    built,
-                    score: score.max(0),
-                }
+                PlayerBattleStats { house: p.house.to_string(), kills, losses, built, score: score.max(0) }
             })
             .collect();
-        BattleStats {
-            duration_ticks: self.world.tick,
-            units_lost,
-            buildings_lost,
-            funds_spent,
-            players,
-        }
+        BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent, players }
     }
 
     /// 指定实体移动到目标格。
@@ -661,10 +646,7 @@ impl BattleSession {
         let points = points.to_vec();
         for &id in selected {
             if self.world.entity_index(id).is_some() {
-                self.push_command(GameCommand::MovePath {
-                    entity: id,
-                    points: points.clone(),
-                });
+                self.push_command(GameCommand::MovePath { entity: id, points: points.clone() });
             }
         }
     }
@@ -702,9 +684,7 @@ impl BattleSession {
     /// 选中是否含可渗透的间谍（`Agent=yes`）。
     pub fn selection_has_agent(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world
-                .ecs_identity(id)
-                .is_some_and(|(type_id, _)| crate::gameplay::is_agent(&self.world.definitions, type_id.as_ref()))
+            self.world.ecs_identity(id).is_some_and(|(type_id, _)| crate::gameplay::is_agent(&self.world.definitions, type_id.as_ref()))
         })
     }
 
@@ -726,20 +706,15 @@ impl BattleSession {
     /// 选中是否含工程师（`Engineer=yes`）。
     pub fn selection_has_engineer(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world
-                .ecs_identity(id)
-                .is_some_and(|(type_id, _)| crate::gameplay::is_engineer(&self.world.definitions, type_id.as_ref()))
+            self.world.ecs_identity(id).is_some_and(|(type_id, _)| crate::gameplay::is_engineer(&self.world.definitions, type_id.as_ref()))
         })
     }
 
     /// 建筑类型是否可被工程师占领（`Capturable=yes`）。
     pub fn is_capturable_structure(&self, id: EntityId) -> bool {
-        self.world
-            .ecs_identity(id)
-            .is_some_and(|(type_id, kind)| {
-                kind == MapEntityKind::Structure
-                    && crate::gameplay::is_capturable(&self.world.definitions, type_id.as_ref())
-            })
+        self.world.ecs_identity(id).is_some_and(|(type_id, kind)| {
+            kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, type_id.as_ref())
+        })
     }
 
     /// 部署指定可展开单位（如 MCV）。
@@ -793,10 +768,7 @@ impl BattleSession {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::SellBuilding {
-            player: self.world.local_player,
-            building,
-        });
+        self.push_command(GameCommand::SellBuilding { player: self.world.local_player, building });
     }
 
     /// 本地玩家切换己方建筑的持续修理（侧栏修理工具）。
@@ -804,10 +776,7 @@ impl BattleSession {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::RepairBuilding {
-            player: self.world.local_player,
-            building,
-        });
+        self.push_command(GameCommand::RepairBuilding { player: self.world.local_player, building });
     }
 
     /// 本地玩家取消指定类型的在产项（退款并由引擎排队 `EVA_Canceled`）。
@@ -815,20 +784,12 @@ impl BattleSession {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::CancelProduce {
-            player: self.world.local_player,
-            type_id: type_id.into(),
-        });
+        self.push_command(GameCommand::CancelProduce { player: self.world.local_player, type_id: type_id.into() });
     }
 
     /// 本机阵营是否正在生产指定类型。
     pub fn is_local_producing(&self, type_id: &str) -> bool {
-        let Some(local_house) = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player)
-            .map(|p| p.house.clone())
+        let Some(local_house) = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone())
         else {
             return false;
         };
@@ -838,12 +799,7 @@ impl BattleSession {
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !self
-                .world
-                .ecs_get::<Owner>(id)
-                .map(|o| o.house.as_ref() == local_house.as_ref())
-                .unwrap_or(false)
-            {
+            if !self.world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == local_house.as_ref()).unwrap_or(false) {
                 return false;
             }
             self.world
@@ -856,28 +812,16 @@ impl BattleSession {
 
     /// 本机建造场是否持有指定类型的待放置完工件。
     pub fn is_local_ready_to_place(&self, type_id: &str) -> bool {
-        let Some(local_house) = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player)
-            .map(|p| p.house.clone())
+        let Some(local_house) = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone())
         else {
             return false;
         };
-        self.world
-            .house_ready_building(local_house.as_ref())
-            .is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id))
+        self.world.house_ready_building(local_house.as_ref()).is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id))
     }
 
     /// 本机建造场当前待放置的完工件类型（若有）。
     pub fn local_ready_building(&self) -> Option<std::sync::Arc<str>> {
-        let local_house = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player)
-            .map(|p| p.house.clone())?;
+        let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone())?;
         self.world.house_ready_building(local_house.as_ref())
     }
 
@@ -897,11 +841,7 @@ impl BattleSession {
     pub fn selection_has_structure(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
             !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self
-                    .world
-                    .ecs_get::<Identity>(id)
-                    .map(|identity| identity.kind == MapEntityKind::Structure)
-                    .unwrap_or(false)
+                && self.world.ecs_get::<Identity>(id).map(|identity| identity.kind == MapEntityKind::Structure).unwrap_or(false)
         })
     }
 
@@ -995,31 +935,42 @@ impl BattleSession {
         fallback
     }
 
-    /// 点选格子上或邻近的存活建筑（建造场等多格占地：锚点格附近也算命中）。
+    /// 点选落在建筑 `Foundation` 占地内的存活建筑（锚点为左上角格）。
     pub fn pick_structure_at(&self, x: u16, y: u16) -> Option<EntityId> {
-        const CELL_RADIUS: u32 = 3;
         let mut best: Option<(u32, EntityId)> = None;
         for e in &self.world.entities {
             let id = e.id;
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            if !self
-                .world
-                .ecs_get::<Identity>(id)
-                .map(|identity| identity.kind == MapEntityKind::Structure)
-                .unwrap_or(false)
-            {
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure {
                 continue;
             }
             let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
             else {
                 continue;
             };
-            let dist = (i32::from(xf.x) - i32::from(x)).unsigned_abs() + (i32::from(xf.y) - i32::from(y)).unsigned_abs();
-            if dist > CELL_RADIUS {
+            let (fw, fh) = self
+                .world
+                .definitions
+                .structures
+                .get(identity.type_id.as_ref())
+                .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+                .unwrap_or((1, 1));
+            if x < xf.x || y < xf.y {
                 continue;
             }
+            let dx = u32::from(x - xf.x);
+            let dy = u32::from(y - xf.y);
+            if dx >= u32::from(fw) || dy >= u32::from(fh) {
+                continue;
+            }
+            // 重叠时取离锚点更近的占地。
+            let dist = dx + dy;
             if best.map(|(d, _)| dist < d).unwrap_or(true) {
                 best = Some((dist, id));
             }
@@ -1027,8 +978,15 @@ impl BattleSession {
         best.map(|(_, id)| id)
     }
 
-    /// 按预览图像素点选本地玩家建筑（建造场 SHP 远大于单格，需屏幕距离容忍）。
-    pub fn pick_local_structure_near_image(&self, image_x: f32, image_y: f32, max_dist_px: f32) -> Option<EntityId> {
+    /// 按预览图像素点选本地玩家建筑：命中其 `Foundation` 各格的等距菱形（含向上抬起的主体带）。
+    ///
+    /// 不用「整栋任意半径圆」；格与格之间也不留圆命中空隙。
+    pub fn pick_local_structure_near_image(&self, image_x: f32, image_y: f32) -> Option<EntityId> {
+        /// 等距格半宽/半高（与脚点 `+30,+15` 菱形一致）。
+        const HALF_W: f32 = 30.0;
+        const HALF_H: f32 = 15.0;
+        /// 主体相对脚点上抬采样（贴 SHP/建造场立面，非脚底一点）。
+        const BODY_LIFTS_PX: &[f32] = &[0.0, 12.0, 24.0, 36.0, 48.0];
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player)?.house.clone();
         let mut best: Option<(f32, EntityId)> = None;
         for e in &self.world.entities {
@@ -1054,19 +1012,41 @@ impl BattleSession {
             else {
                 continue;
             };
-            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
-            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
-            // 格心锚点再上移，贴近建筑主体（SHP 画在脚点上方）。
-            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
-            let cy = (sy - self.preview_origin_y) as f32 + 15.0 - 48.0;
-            let dx = cx - image_x;
-            let dy = cy - image_y;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist > max_dist_px {
+            let (fw, fh) = self
+                .world
+                .definitions
+                .structures
+                .get(identity.type_id.as_ref())
+                .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+                .unwrap_or((1, 1));
+            let mut min_dist = f32::INFINITY;
+            let mut hit = false;
+            for oy in 0..fh {
+                for ox in 0..fw {
+                    let cx = xf.x.saturating_add(ox);
+                    let cy = xf.y.saturating_add(oy);
+                    let z = self.world.pass_grid.cell_height(cx, cy);
+                    let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
+                    let foot_x = (sx - self.preview_origin_x) as f32 + 30.0;
+                    let foot_y = (sy - self.preview_origin_y) as f32 + 15.0;
+                    for &lift in BODY_LIFTS_PX {
+                        let px = foot_x;
+                        let py = foot_y - lift;
+                        let dx = ((image_x - px) / HALF_W).abs();
+                        let dy = ((image_y - py) / HALF_H).abs();
+                        if dx + dy <= 1.0 {
+                            hit = true;
+                            let dist = ((image_x - px).powi(2) + (image_y - py).powi(2)).sqrt();
+                            min_dist = min_dist.min(dist);
+                        }
+                    }
+                }
+            }
+            if !hit {
                 continue;
             }
-            if best.map(|(best_dist, _)| dist < best_dist).unwrap_or(true) {
-                best = Some((dist, id));
+            if best.map(|(best_dist, _)| min_dist < best_dist).unwrap_or(true) {
+                best = Some((min_dist, id));
             }
         }
         best.map(|(_, id)| id)
@@ -1092,10 +1072,8 @@ impl BattleSession {
                     return None;
                 }
                 let identity = self.world.ecs_get::<Identity>(id)?;
-                if !matches!(
-                    identity.kind,
-                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                ) {
+                if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
+                {
                     return None;
                 }
                 let other_owner = self.world.ecs_get::<Owner>(id)?;
@@ -1115,12 +1093,7 @@ impl BattleSession {
     /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
     /// `Neutral` / `Civilian` 氛围单位不计入作战力量。
     pub fn sole_victor(&self) -> Option<&str> {
-        let skirmish_houses = self
-            .world
-            .players
-            .iter()
-            .filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref()))
-            .count();
+        let skirmish_houses = self.world.players.iter().filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref())).count();
         if skirmish_houses < 2 {
             return None;
         }
@@ -1154,10 +1127,7 @@ impl BattleSession {
                 .world
                 .ecs_get::<Identity>(id)
                 .map(|identity| {
-                    matches!(
-                        identity.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                    )
+                    matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
                 })
                 .unwrap_or(false)
             {
@@ -1202,13 +1172,7 @@ impl BattleSession {
         else {
             (0, 0, 0)
         };
-        let bracket_delta = self
-            .world
-            .definitions
-            .techno
-            .get(identity.type_id.as_ref())
-            .map(|t| t.pixel_selection_bracket_delta)
-            .unwrap_or(0);
+        let bracket_delta = self.world.definitions.techno.get(identity.type_id.as_ref()).map(|t| t.pixel_selection_bracket_delta).unwrap_or(0);
         Some(SnapshotUnit {
             id,
             kind: identity.kind,
@@ -1310,13 +1274,7 @@ impl BattleSession {
                 let id = e.id;
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
                 if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
-                    let total_ticks = self
-                        .world
-                        .definitions
-                        .techno
-                        .get(type_id.as_ref())
-                        .map(crate::gameplay::produce_ticks_for)
-                        .unwrap_or(0);
+                    let total_ticks = self.world.definitions.techno.get(type_id.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                     return Some(SnapshotProduceQueue {
                         factory: id,
                         type_id: type_id.clone(),
@@ -1327,13 +1285,7 @@ impl BattleSession {
                     });
                 }
                 let ready = queue.ready.as_ref()?;
-                let total_ticks = self
-                    .world
-                    .definitions
-                    .techno
-                    .get(ready.as_ref())
-                    .map(crate::gameplay::produce_ticks_for)
-                    .unwrap_or(0);
+                let total_ticks = self.world.definitions.techno.get(ready.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                 Some(SnapshotProduceQueue {
                     factory: id,
                     type_id: ready.clone(),
@@ -1370,11 +1322,7 @@ fn derive_anim_state(world: &BattleState, id: EntityId) -> AnimState {
     if world.ecs_get::<AttackState>(id).map(|a| a.target.is_some()).unwrap_or(false) {
         return AnimState::Attack;
     }
-    if world
-        .ecs_get::<MovementState>(id)
-        .map(|m| m.destination_x.is_some() || !m.path.is_empty())
-        .unwrap_or(false)
-    {
+    if world.ecs_get::<MovementState>(id).map(|m| m.destination_x.is_some() || !m.path.is_empty()).unwrap_or(false) {
         return AnimState::Move;
     }
     AnimState::Idle
@@ -1403,20 +1351,13 @@ fn is_combat_force(world: &BattleState, id: EntityId) -> bool {
     if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
         return false;
     }
-    if world
-        .ecs_get::<Owner>(id)
-        .map(|o| crate::gameplay::ai::is_ambient_house(o.house.as_ref()))
-        .unwrap_or(false)
-    {
+    if world.ecs_get::<Owner>(id).map(|o| crate::gameplay::ai::is_ambient_house(o.house.as_ref())).unwrap_or(false) {
         return false;
     }
     world
         .ecs_get::<Identity>(id)
         .map(|identity| {
-            matches!(
-                identity.kind,
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-            )
+            matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
         })
         .unwrap_or(false)
 }
