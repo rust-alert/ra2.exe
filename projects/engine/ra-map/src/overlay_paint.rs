@@ -41,7 +41,7 @@ fn layer_allows(filter: OverlayLayerFilter, is_bridge: bool) -> bool {
 /// 平地矿/宝石的显示用类型名（不改资源态 id / 密度帧）。
 ///
 /// 原版在平地格用 `((i16)x * (i16)y) % 12` 在 12 个扁平外形间选图
-///（`TIB01`–`TIB12` / `GEM01`–`GEM12`），其中较高外形即矿柱。
+/// （`TIB01`–`TIB12` / `GEM01`–`GEM12`），其中较高外形即矿柱。
 /// 地图坐标一般为正；负余数按原版再落到 `0..11`。
 pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> String {
     const VARIANT_COUNT: i32 = 12;
@@ -72,8 +72,8 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
 /// `overlay_type_name`：由 rules `[OverlayTypes]` 解析得到的 id→名。
 /// `is_tiberium`：该 id 是否 `Tiberium=yes`（矿/宝石须用剧院地表 pal，如 `temperat.pal`，
 /// 不能用 `isotem.pal`，否则呈灰黑底块）。
-/// `tiberium_hsv`：矿/宝石 `[Tiberiums] Color=` 对应的 HSV（索引 16..=31 remap）；
-/// 原版 `NeonGreen=0,0,0` 为矿石哨兵，调用方应换成可用金色方案。
+/// `tiberium_hsv`：保留参数以兼容调用方；矿石/宝石直接用 `temperat.pal` 色带，
+/// **不再**对索引 16..=31 做 HSV remap（该色带在地表 pal 里已是亮金黄高光）。
 /// `art_ini` / `rules_ini`：art 与 rules 文件名（rules 提供 `Image=`，如 `BRIDGE1`→`BRIDGE`）。
 /// `layer`：地面 / 桥分层（先地面后建筑再桥，避免谷底楼穿桥面）。
 ///
@@ -115,6 +115,7 @@ pub fn paint_map_overlays(
         let mark = paint_overlay_markers(image, &filtered, z_at);
         return (0, mark);
     }
+    let _ = tiberium_hsv;
 
     let ext = theater_tmp_extension(map.theater);
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
@@ -137,19 +138,15 @@ pub fn paint_map_overlays(
             continue;
         }
         let tib = is_tiberium(cell.overlay_id);
-        let tib_hsv = if tib { tiberium_hsv(cell.overlay_id) } else { None };
-        let display_name = if tib {
-            flat_tiberium_display_type_name(&type_name, cell.x, cell.y)
-        } else {
-            type_name.clone()
-        };
-        let (image_key, new_theater, theater_yes) =
-            resolve_overlay_art_keys(art.as_ref(), rules.as_ref(), &type_name, &display_name);
+        let display_name = if tib { flat_tiberium_display_type_name(&type_name, cell.x, cell.y) } else { type_name.clone() };
+        let (image_key, new_theater, theater_yes) = resolve_overlay_art_keys(art.as_ref(), rules.as_ref(), &type_name, &display_name);
         let pal_kind: u8 = if tib {
             2
-        } else if theater_yes && !new_theater {
+        }
+        else if theater_yes && !new_theater {
             1
-        } else {
+        }
+        else {
             0
         };
 
@@ -187,20 +184,10 @@ pub fn paint_map_overlays(
             unresolved.push(*cell);
             continue;
         };
-        resolved.push(ResolvedOverlay {
-            x: cell.x,
-            y: cell.y,
-            data: cell.data,
-            type_name,
-            image_key,
-            file,
-            pal_kind,
-            tib_hsv,
-        });
+        resolved.push(ResolvedOverlay { x: cell.x, y: cell.y, data: cell.data, type_name, image_key, file, pal_kind });
     }
 
-    let mut blit_cache: HashMap<(String, u8, u8, u32, i32), TileBlit> = HashMap::new();
-    let mut tib_pal_cache: HashMap<u32, Palette> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u8, u8, i32), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for item in &resolved {
@@ -213,11 +200,7 @@ pub fn paint_map_overlays(
             continue;
         };
         let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data, item.pal_kind == 2);
-        let hsv_key = item
-            .tib_hsv
-            .map(|h| u32::from(h.h) << 16 | u32::from(h.s) << 8 | u32::from(h.v))
-            .unwrap_or(0);
-        let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, hsv_key, y_adjust);
+        let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, y_adjust);
         let tint = map.tint_at(item.x, item.y, z_at(item.x, item.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
@@ -225,19 +208,8 @@ pub fn paint_map_overlays(
             items.push((item.x, item.y, painted));
             continue;
         }
-        if item.pal_kind == 2 {
-            if let Some(hsv) = item.tib_hsv {
-                if let Some(base) = tib_pal.as_ref().or(theater_pal.as_ref()).or(unit_pal.as_ref()) {
-                    tib_pal_cache.entry(hsv_key).or_insert_with(|| base.with_hsv_remap(hsv));
-                }
-            }
-        }
         let pal: Option<&Palette> = match item.pal_kind {
-            2 => tib_pal_cache
-                .get(&hsv_key)
-                .or(tib_pal.as_ref())
-                .or(theater_pal.as_ref())
-                .or(unit_pal.as_ref()),
+            2 => tib_pal.as_ref().or(theater_pal.as_ref()).or(unit_pal.as_ref()),
             1 => theater_pal.as_ref().or(tib_pal.as_ref()).or(unit_pal.as_ref()),
             _ => unit_pal.as_ref().or(theater_pal.as_ref()).or(tib_pal.as_ref()),
         };
@@ -278,8 +250,8 @@ struct ResolvedOverlay {
     type_name: String,
     image_key: String,
     file: String,
+    /// 0=`unittem`，1=剧院 pal，2=矿石 `temperat`。
     pal_kind: u8,
-    tib_hsv: Option<Hsv>,
 }
 
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
@@ -296,10 +268,7 @@ fn resolve_overlay_art_keys(
     let art_section = art
         .and_then(|a| {
             for candidate in [type_name, rules_image_or_type.as_str(), display_name] {
-                if a.get(candidate, "Theater").is_some()
-                    || a.get(candidate, "NewTheater").is_some()
-                    || a.get(candidate, "Image").is_some()
-                {
+                if a.get(candidate, "Theater").is_some() || a.get(candidate, "NewTheater").is_some() || a.get(candidate, "Image").is_some() {
                     return Some(candidate.to_ascii_uppercase());
                 }
             }
@@ -311,12 +280,8 @@ fn resolve_overlay_art_keys(
         .map(str::to_ascii_uppercase)
         .or(rules_image)
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
-    let new_theater = art
-        .and_then(|a| a.get(&art_section, "NewTheater"))
-        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let theater_yes = art
-        .and_then(|a| a.get(&art_section, "Theater"))
-        .is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let theater_yes = art.and_then(|a| a.get(&art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     (image_key, new_theater, theater_yes)
 }
 
@@ -326,29 +291,22 @@ const TIBERIUM_OVERLAY_Y_BIAS: i32 = -12;
 /// 高桥主体相对格子中心的额外 Y（零售 `Get_Draw_Offset`：NS −16，EW −31）。
 fn overlay_draw_y_adjust(type_name: &str, data: u8, is_tiberium: bool) -> i32 {
     if is_high_bridge_body_name(type_name) {
-        if (9..=17).contains(&data) {
-            -31
-        } else {
-            -16
-        }
-    } else if is_tiberium {
+        if (9..=17).contains(&data) { -31 } else { -16 }
+    }
+    else if is_tiberium {
         TIBERIUM_OVERLAY_Y_BIAS
-    } else {
+    }
+    else {
         0
     }
 }
 
 fn is_high_bridge_body_name(name: &str) -> bool {
-    matches!(
-        name.to_ascii_uppercase().as_str(),
-        "BRIDGE1" | "BRIDGE2" | "BRIDGEB1" | "BRIDGEB2"
-    )
+    matches!(name.to_ascii_uppercase().as_str(), "BRIDGE1" | "BRIDGE2" | "BRIDGEB1" | "BRIDGEB2")
 }
 
 fn frame_drawable(shp: &ShpFile, idx: u8) -> bool {
-    shp.frames
-        .get(usize::from(idx))
-        .is_some_and(|f| f.frame_width > 0 && f.frame_height > 0)
+    shp.frames.get(usize::from(idx)).is_some_and(|f| f.frame_width > 0 && f.frame_height > 0)
 }
 
 /// 只用 OverlayData 指向的主体帧；空帧 / 落影半幅一律不画、不回退。
@@ -382,23 +340,8 @@ pub fn paint_overlays_onto_preview_rgba(
     }
     let mut overlay_map = map.clone();
     overlay_map.overlays = cells.to_vec();
-    let mut terrain = TerrainImage {
-        image: std::mem::take(image),
-        drawn: 0,
-        origin_x,
-        origin_y,
-    };
-    let n = paint_map_overlays(
-        source,
-        &overlay_map,
-        &mut terrain,
-        art_ini,
-        rules_ini,
-        overlay_type_name,
-        is_tiberium,
-        tiberium_hsv,
-        layer,
-    );
+    let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
+    let n = paint_map_overlays(source, &overlay_map, &mut terrain, art_ini, rules_ini, overlay_type_name, is_tiberium, tiberium_hsv, layer);
     *image = terrain.image;
     n
 }

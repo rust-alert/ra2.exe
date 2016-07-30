@@ -124,12 +124,12 @@ fn tiberium_overlay_uses_temperat_palette() {
 }
 
 #[test]
-fn tiberium_overlay_applies_hsv_remap_over_temperat() {
-    // temperat 索引 16 偏暗；传入 Gold HSV 后应对 remap 索引带重新上色。
+fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
+    // 地表 pal 索引 16 已是亮金；传入 Gold HSV 不得改写。
     let mut tib_pal = vec![0u8; 768];
-    tib_pal[16 * 3] = 8;
-    tib_pal[16 * 3 + 1] = 8;
-    tib_pal[16 * 3 + 2] = 8;
+    tib_pal[16 * 3] = 63;
+    tib_pal[16 * 3 + 1] = 58;
+    tib_pal[16 * 3 + 2] = 12;
 
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n".to_vec());
@@ -155,12 +155,12 @@ fn tiberium_overlay_applies_hsv_remap_over_temperat() {
     );
     let plain_px = plain.image.as_raw().chunks_exact(4).find(|c| c[3] > 0).expect("plain");
 
-    let mut remapped = TerrainImage::blank(256, 256);
+    let mut with_hsv = TerrainImage::blank(256, 256);
     assert_eq!(
         paint_map_overlays(
             &source,
             &map,
-            &mut remapped,
+            &mut with_hsv,
             "art.ini",
             "rules.ini",
             &|id| (id == 1).then(|| "TIB01".into()),
@@ -170,9 +170,9 @@ fn tiberium_overlay_applies_hsv_remap_over_temperat() {
         ),
         (1, 0)
     );
-    let gold_px = remapped.image.as_raw().chunks_exact(4).find(|c| c[3] > 0).expect("gold");
-    assert_ne!(gold_px, plain_px, "Gold HSV should remap temperat index colors, plain={plain_px:?} gold={gold_px:?}");
-    assert!(gold_px[0] > plain_px[0] || gold_px[1] > plain_px[1], "remapped ore should brighten, plain={plain_px:?} gold={gold_px:?}");
+    let hsv_px = with_hsv.image.as_raw().chunks_exact(4).find(|c| c[3] > 0).expect("hsv arg");
+    assert_eq!(hsv_px, plain_px, "tiberium must keep temperat colors, plain={plain_px:?} hsv={hsv_px:?}");
+    assert!(plain_px[0] > 200 && plain_px[1] > 180, "expected bright gold from temperat, got {plain_px:?}");
 }
 
 fn two_frame_shp_frame0_empty_frame1_drawable() -> Vec<u8> {
