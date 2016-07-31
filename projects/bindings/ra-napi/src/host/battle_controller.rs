@@ -303,7 +303,7 @@ pub struct BattleController {
     eva_low_power_latched: bool,
     /// 本机基地遇袭 EVA 已闩住（本地建筑无 `hit_flash` 后清闩）。
     eva_base_under_attack_latched: bool,
-    /// 已观测到的本机存活机动单位（用于阵亡边沿 → `EVA_UnitLost`）。
+    /// 已观测到的本机存活机动单位（集合出现新 ID → 配合出厂边沿播 `EVA_UnitReady`）。
     eva_alive_local_mobiles: HashSet<EntityId>,
     /// 是否已用当前存活集播种（首帧只建集、不播报）。
     eva_alive_seeded: bool,
@@ -1523,8 +1523,9 @@ impl BattleController {
         self.pending_battle_sfx.push(event_id.to_string());
     }
 
-    /// 局内 EVA：低电 / 资金不足 / 单位阵亡 / 基地遇袭 / 单位出厂 / 新建造选项。
+    /// 局内 EVA：低电 / 资金不足 / 基地遇袭 / 单位出厂 / 新建造选项。
     ///
+    /// `EVA_UnitLost` 由引擎击杀路径经 [`Self::drain_engine_eva_cues`] 入队。
     /// 结束播报仍由 [`Self::note_outcome_once`] 排队；本函数在已有胜负时跳过。
     /// 建造完成由 [`Self::settle_deployed_structure`] 另行排队。
     fn poll_in_battle_eva(&mut self) {
@@ -1614,17 +1615,14 @@ impl BattleController {
                 to_queue.push("EVA_OurBaseIsUnderAttack");
             }
 
+            // 只跟踪「新增机动单位」供 `EVA_UnitReady`。部署 / 变形会让 id 离开机动集，不能当阵亡。
             let gained_mobile = self.eva_alive_seeded && alive_now.iter().any(|id| !self.eva_alive_local_mobiles.contains(id));
             if !self.eva_alive_seeded {
                 next_alive = Some(alive_now);
                 seed_alive = true;
             }
             else {
-                let lost = self.eva_alive_local_mobiles.iter().any(|id| !alive_now.contains(id));
                 next_alive = Some(alive_now);
-                if lost {
-                    to_queue.push("EVA_UnitLost");
-                }
             }
 
             if !self.eva_producing_seeded {

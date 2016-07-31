@@ -73,6 +73,10 @@ fn deploy_mcv_becomes_construction_yard() {
     assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "GACNST");
     assert_eq!(world.ecs_speed(world.entity_id_at(0).expect("entity")).expect("speed"), 0);
     assert!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0.is_none());
+    assert!(
+        world.take_eva_cues().iter().all(|c| c.event != "EVA_UnitLost"),
+        "Deploy must not announce unit lost"
+    );
 }
 
 #[test]

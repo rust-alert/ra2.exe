@@ -174,6 +174,10 @@ impl crate::state::BattleState {
                 }
             }
         }
+        // 阵亡播报只挂真实击杀。`Deploy` 等同 id 变形不走本路径，故不会误触。
+        if is_mobile(kind) {
+            self.push_eva_cue(house.as_ref(), "EVA_UnitLost");
+        }
         let _ = self.with_locomotor_mut(dirty_id, |loco| {
             loco.speed = 0;
         });

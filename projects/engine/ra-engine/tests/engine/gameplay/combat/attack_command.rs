@@ -54,4 +54,9 @@ fn attack_command_damages_and_kills() {
     assert!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").2);
     assert_eq!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, 0);
     assert_eq!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0, None);
+    let cues = world.take_eva_cues();
+    assert!(
+        cues.iter().any(|c| c.event == "EVA_UnitLost" && c.house.as_ref() == "Russians"),
+        "killing a mobile unit must cue EVA_UnitLost for the victim house: {cues:?}"
+    );
 }
