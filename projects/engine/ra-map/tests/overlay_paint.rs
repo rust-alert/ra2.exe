@@ -175,6 +175,65 @@ fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
     assert!(plain_px[0] > 200 && plain_px[1] > 180, "expected bright gold from temperat, got {plain_px:?}");
 }
 
+#[test]
+fn tiberium_overlay_ignores_cell_lighting_tint() {
+    // 地图 Ambient 压到半亮时，矿石仍应保留 temperat 原色；墙等非矿可被压暗。
+    let mut tib_pal = vec![0u8; 768];
+    tib_pal[16 * 3] = 63;
+    tib_pal[16 * 3 + 1] = 58;
+    tib_pal[16 * 3 + 2] = 12;
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TIB01]\nTheater=yes\n[GAWALL]\nNewTheater=yes\n".to_vec());
+    files.insert("temperat.pal".into(), tib_pal);
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    files.insert("tib01.tem".into(), raw_one_pixel_shp(16));
+    files.insert("gawall.tem".into(), raw_one_pixel_shp(5));
+    let source = MapSource { files };
+
+    let mut ore_map = overlay_map(1, 0);
+    ore_map.lighting.ambient = 0.4;
+    ore_map.lighting.ground = 0.3;
+    let mut ore_img = TerrainImage::blank(256, 256);
+    assert_eq!(
+        paint_map_overlays(
+            &source,
+            &ore_map,
+            &mut ore_img,
+            "art.ini",
+            "rules.ini",
+            &|id| (id == 1).then(|| "TIB01".into()),
+            &|id| id == 1,
+            &|_| None,
+            OverlayLayerFilter::All,
+        ),
+        (1, 0)
+    );
+    let ore_px = ore_img.image.as_raw().chunks_exact(4).find(|c| c[3] > 0).expect("ore");
+    assert!(ore_px[0] > 240 && ore_px[1] > 220, "ore must stay full-bright gold, got {ore_px:?}");
+
+    let mut wall_map = overlay_map(2, 0);
+    wall_map.lighting.ambient = 0.4;
+    wall_map.lighting.ground = 0.3;
+    let mut wall_img = TerrainImage::blank(256, 256);
+    assert_eq!(
+        paint_map_overlays(
+            &source,
+            &wall_map,
+            &mut wall_img,
+            "art.ini",
+            "rules.ini",
+            &|id| (id == 2).then(|| "GAWALL".into()),
+            &|_| false,
+            &|_| None,
+            OverlayLayerFilter::All,
+        ),
+        (1, 0)
+    );
+    let wall_px = wall_img.image.as_raw().chunks_exact(4).find(|c| c[3] > 0).expect("wall");
+    assert!(wall_px[0] < 180, "non-ore overlay should still take cell tint, got {wall_px:?}");
+}
+
 fn two_frame_shp_frame0_empty_frame1_drawable() -> Vec<u8> {
     // SHP(TS)：8 字节头 + 每帧 24 字节帧头；帧 0 空，帧 1 一像素。
     let mut data = Vec::new();

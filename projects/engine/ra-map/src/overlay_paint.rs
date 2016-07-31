@@ -74,6 +74,8 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
 /// 不能用 `isotem.pal`，否则呈灰黑底块）。
 /// `tiberium_hsv`：保留参数以兼容调用方；矿石/宝石直接用 `temperat.pal` 色带，
 /// **不再**对索引 16..=31 做 HSV remap（该色带在地表 pal 里已是亮金黄高光）。
+/// 矿石/宝石叠画时也不乘格子环境光 tint（零售资源亮度固定满档），避免 `Ground`
+/// 压暗把金黄高光压成发灰。
 /// `art_ini` / `rules_ini`：art 与 rules 文件名（rules 提供 `Image=`，如 `BRIDGE1`→`BRIDGE`）。
 /// `layer`：地面 / 桥分层（先地面后建筑再桥，避免谷底楼穿桥面）。
 ///
@@ -201,10 +203,17 @@ pub fn paint_map_overlays(
         };
         let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data, item.pal_kind == 2);
         let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, y_adjust);
-        let tint = map.tint_at(item.x, item.y, z_at(item.x, item.y));
+        // 矿石/宝石：固定满亮，不乘格子 Ambient/Ground tint。
+        let tint = if item.pal_kind == 2 {
+            [1.0, 1.0, 1.0]
+        } else {
+            map.tint_at(item.x, item.y, z_at(item.x, item.y))
+        };
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
-            apply_rgba_tint(&mut painted.rgba, tint);
+            if item.pal_kind != 2 {
+                apply_rgba_tint(&mut painted.rgba, tint);
+            }
             items.push((item.x, item.y, painted));
             continue;
         }
@@ -234,7 +243,9 @@ pub fn paint_map_overlays(
             shadow: None,
         };
         blit_cache.insert(cache_key, blit.clone());
-        apply_rgba_tint(&mut blit.rgba, tint);
+        if item.pal_kind != 2 {
+            apply_rgba_tint(&mut blit.rgba, tint);
+        }
         items.push((item.x, item.y, blit));
     }
 
