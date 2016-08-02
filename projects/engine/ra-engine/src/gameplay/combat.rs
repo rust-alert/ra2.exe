@@ -32,9 +32,7 @@ impl crate::state::BattleState {
             if !is_mobile(identity.kind) {
                 continue;
             }
-            let Some(attacker_house) = self
-                .ecs_get::<crate::state::components::Owner>(attacker_id)
-                .map(|o| o.house.clone())
+            let Some(attacker_house) = self.ecs_get::<crate::state::components::Owner>(attacker_id).map(|o| o.house.clone())
             else {
                 continue;
             };
@@ -160,6 +158,10 @@ impl crate::state::BattleState {
                 }
             })
             .unwrap_or(false);
+        // 建筑受击：引擎排队遇袭 EVA（近距/时间窗去重）。壳层不再用 `hit_flash` 边沿。
+        if kind == MapEntityKind::Structure {
+            self.try_announce_base_under_attack(house.as_ref(), x, y);
+        }
         if !killed {
             let _ = self.with_animation_mut(dirty_id, |anim| {
                 anim.hit_flash = HIT_FLASH_TICKS;

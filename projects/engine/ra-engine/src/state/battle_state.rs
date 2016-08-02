@@ -9,8 +9,8 @@ use ra_types::{CommandId, EntityId, GameEdition, PlayerId, RuntimeDefinitions, S
 
 use super::{
     components::{
-        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
-        MovementState, Owner, ProductionQueue, Transform,
+        AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
+        ProductionQueue, Transform,
     },
     ecs_registry::EcsRegistry,
     entities::WorldEntity,
@@ -129,6 +129,8 @@ pub struct BattleState {
     pub match_seed: u64,
     /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
     pub(crate) pending_eva_cues: Vec<crate::state::EvaCue>,
+    /// 基地遇袭 EVA 近距/时间去重窗口。
+    pub(crate) eva_base_under_attack: Vec<crate::state::EvaBaseUnderAttackGate>,
     /// `[AudioVisual] SpeakDelay` 换算后的资金唠叨周期（逻辑 tick；0 表示关闭）。
     pub(crate) speak_delay_ticks: u32,
     /// 内部 ECS 世界与 `EntityId` 映射（玩法权威；`entities` 仅为投影槽）。
@@ -171,30 +173,11 @@ impl BattleState {
                     tag: e.tag.clone(),
                 },
                 owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
-                transform: Transform {
-                    x: e.x,
-                    y: e.y,
-                    facing: e.facing,
-                    turret_facing: e.facing,
-                    sub_cell: e.sub_cell,
-                },
+                transform: Transform { x: e.x, y: e.y, facing: e.facing, turret_facing: e.facing, sub_cell: e.sub_cell },
                 health: Health { current: health, maximum: max_health, dead: false },
                 locomotor: Locomotor { speed },
-                movement: MovementState {
-                    destination_x: None,
-                    destination_y: None,
-                    waypoints: Vec::new(),
-                    path: Vec::new(),
-                    move_accum: 0,
-                },
-                combat: CombatStats {
-                    armor,
-                    attack_range,
-                    attack_damage,
-                    attack_cooldown_max,
-                    attack_verses,
-                    techno_kind,
-                },
+                movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
+                combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_kind },
                 attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                 production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
@@ -208,8 +191,7 @@ impl BattleState {
             .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
             .collect();
         let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
-        let ai_trigger_runtime =
-            crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
+        let ai_trigger_runtime = crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
         let terrain_spawners = crate::gameplay::seed_terrain_spawners(&map, &rules.rules);
         let speak_delay_ticks = crate::gameplay::eva_advice::parse_speak_delay_ticks(&rules.rules);
         let mut world = Self {
@@ -241,6 +223,7 @@ impl BattleState {
             structure_buildup_dirty: Vec::new(),
             match_seed: 0,
             pending_eva_cues: Vec::new(),
+            eva_base_under_attack: Vec::new(),
             speak_delay_ticks,
             ecs,
         };
@@ -255,12 +238,7 @@ impl BattleState {
             world.mark_entity_dirty(id);
             // 地图预放建筑也要按 Foundation 封满，不能只堵左上角一格。
             if kind == MapEntityKind::Structure {
-                let foundation = world
-                    .definitions
-                    .structures
-                    .get(type_id.as_ref())
-                    .map(|s| s.foundation.clone())
-                    .unwrap_or_default();
+                let foundation = world.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
                 world.seal_structure_footprint(x, y, foundation.width, foundation.height);
             }
         }
@@ -282,11 +260,7 @@ impl BattleState {
     /// 查询格上可采 overlay 的密度字节；无可采矿则 `None`。
     pub fn harvestable_ore_at(&self, x: u16, y: u16) -> Option<u8> {
         self.map.overlays.iter().find_map(|cell| {
-            if cell.x == x && cell.y == y && self.overlay_types.is_harvestable(cell.overlay_id) {
-                Some(cell.data)
-            } else {
-                None
-            }
+            if cell.x == x && cell.y == y && self.overlay_types.is_harvestable(cell.overlay_id) { Some(cell.data) } else { None }
         })
     }
 
@@ -375,10 +349,12 @@ impl BattleState {
 
     /// 将单个实体的全部 ECS 组件投影回 `WorldEntity`。
     pub(crate) fn project_entity_from_ecs(&mut self, id: EntityId) {
-        let Some(handle) = self.ecs.resolve(id) else {
+        let Some(handle) = self.ecs.resolve(id)
+        else {
             return;
         };
-        let Some(index) = self.entity_index(id) else {
+        let Some(index) = self.entity_index(id)
+        else {
             return;
         };
         let identity = self.ecs.world().get::<crate::state::components::Identity>(handle).cloned();
@@ -464,11 +440,7 @@ impl BattleState {
         }
     }
 
-    fn with_component_mut<T: ra_ecs::Component, R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut T) -> R,
-    ) -> Option<R> {
+    fn with_component_mut<T: ra_ecs::Component, R>(&mut self, id: EntityId, f: impl FnOnce(&mut T) -> R) -> Option<R> {
         let handle = self.ecs.resolve(id)?;
         let result = {
             let component = self.ecs.world_mut().get_mut::<T>(handle)?;
@@ -479,29 +451,17 @@ impl BattleState {
     }
 
     /// 以 ECS 为权威修改身份，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_identity_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::Identity) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_identity_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Identity) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
     /// 以 ECS 为权威修改所属房主，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_owner_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::Owner) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_owner_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Owner) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
     /// 以 ECS 为权威修改移动能力，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_locomotor_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::Locomotor) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_locomotor_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Locomotor) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
@@ -515,20 +475,12 @@ impl BattleState {
     }
 
     /// 以 ECS 为权威修改生命，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_health_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::Health) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_health_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Health) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
     /// 以 ECS 为权威修改空间变换，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_transform_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::Transform) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_transform_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::Transform) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
@@ -551,11 +503,7 @@ impl BattleState {
     }
 
     /// 以 ECS 为权威修改攻击状态，并立即投影回 `WorldEntity`。
-    pub(crate) fn with_attack_mut<R>(
-        &mut self,
-        id: EntityId,
-        f: impl FnOnce(&mut crate::state::components::AttackState) -> R,
-    ) -> Option<R> {
+    pub(crate) fn with_attack_mut<R>(&mut self, id: EntityId, f: impl FnOnce(&mut crate::state::components::AttackState) -> R) -> Option<R> {
         self.with_component_mut(id, f)
     }
 
@@ -690,8 +638,7 @@ impl BattleState {
 
     /// 读取 ECS `MovementState::waypoints`（路径点规划剩余航点）。
     pub fn ecs_waypoints(&self, id: EntityId) -> Option<Vec<(u16, u16)>> {
-        self.ecs_get::<crate::state::components::MovementState>(id)
-            .map(|m| m.waypoints.clone())
+        self.ecs_get::<crate::state::components::MovementState>(id).map(|m| m.waypoints.clone())
     }
 
     /// 读取 ECS `MovementState::move_accum`（格内滑移进度）。
@@ -1020,10 +967,7 @@ impl BattleState {
     pub fn bound_techno_count(&self) -> usize {
         use crate::state::components::CombatStats;
 
-        self.entities
-            .iter()
-            .filter(|e| self.ecs_get::<CombatStats>(e.id).and_then(|s| s.techno_kind).is_some())
-            .count()
+        self.entities.iter().filter(|e| self.ecs_get::<CombatStats>(e.id).and_then(|s| s.techno_kind).is_some()).count()
     }
 
     /// 通行表变更后，为全部移动单位重算路径。
@@ -1076,24 +1020,12 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity {
-                entity_id: id,
-                type_id: Arc::<str>::from(type_key),
-                kind,
-                mission: String::new(),
-                tag: String::new(),
-            },
+            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: String::new(), tag: String::new() },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed },
-            movement: MovementState {
-                destination_x: None,
-                destination_y: None,
-                waypoints: Vec::new(),
-                path: Vec::new(),
-                move_accum: 0,
-            },
+            movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats {
                 armor,
                 attack_range,

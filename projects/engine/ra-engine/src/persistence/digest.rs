@@ -5,8 +5,7 @@ use crate::{
     state::{
         BattleState,
         components::{
-            AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, Owner,
-            ProductionQueue, Transform,
+            AnimationState, AttackState, CombatStats, HarvesterState, Health, Identity, Locomotor, Owner, ProductionQueue, Transform,
         },
     },
 };
@@ -125,12 +124,20 @@ impl BattleState {
             }
         }
         h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(self.speak_delay_ticks));
-        h = h
-            .wrapping_mul(1099511628211)
-            .wrapping_add(match self.map.lighting_profile {
-                ra_map::LightingProfile::Normal => 0,
-                ra_map::LightingProfile::Ion => 1,
-            });
+        for g in &self.eva_base_under_attack {
+            h = h
+                .wrapping_mul(1099511628211)
+                .wrapping_add(u64::from(g.x))
+                .wrapping_add((u64::from(g.y)) << 16)
+                .wrapping_add(g.expire_tick.wrapping_mul(0x9E37_79B9));
+            for b in g.house.as_bytes() {
+                h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+            }
+        }
+        h = h.wrapping_mul(1099511628211).wrapping_add(match self.map.lighting_profile {
+            ra_map::LightingProfile::Normal => 0,
+            ra_map::LightingProfile::Ion => 1,
+        });
         if let Some(storm) = &self.lightning_storm {
             h = h
                 .wrapping_mul(1099511628211)
@@ -161,10 +168,7 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(13);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
             for &(x, y) in points {
-                h = h
-                    .wrapping_mul(1099511628211)
-                    .wrapping_add((x as u64) << 16)
-                    .wrapping_add((y as u64) << 32);
+                h = h.wrapping_mul(1099511628211).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
             }
         }
         GameCommand::Attack { attacker, target } => {
@@ -214,30 +218,15 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
         }
         GameCommand::SellBuilding { player, building } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(11);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(player.0))
-                .wrapping_add(building.0 << 8);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0)).wrapping_add(building.0 << 8);
         }
         GameCommand::RepairBuilding { player, building } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(12);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(player.0))
-                .wrapping_add(building.0 << 8);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0)).wrapping_add(building.0 << 8);
         }
-        GameCommand::FireSuperWeapon {
-            player,
-            ref type_id,
-            x,
-            y,
-        } => {
+        GameCommand::FireSuperWeapon { player, ref type_id, x, y } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(14);
-            h = h
-                .wrapping_mul(1099511628211)
-                .wrapping_add(u64::from(player.0))
-                .wrapping_add((x as u64) << 8)
-                .wrapping_add((y as u64) << 24);
+            h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0)).wrapping_add((x as u64) << 8).wrapping_add((y as u64) << 24);
             for b in type_id.as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
             }
