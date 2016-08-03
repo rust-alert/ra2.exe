@@ -4,16 +4,22 @@ use ra_engine::BattleSession;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
-/// 命令条 `Team01` / `Team02` 编队槽位数。
-pub const CONTROL_TEAM_COUNT: usize = 2;
+/// 命令条 / `keyboard.ini` 编队槽位数（`TeamSelect_1`..=`TeamSelect_10`）。
+pub const CONTROL_TEAM_COUNT: usize = 10;
 
 /// 桌面本地玩家的 UI 选中与命令入口。
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct LocalPlayerController {
     /// 当前选中实体的稳定 ID。
     pub selected: Vec<EntityId>,
-    /// 控制编队（`Team01`=`0`，`Team02`=`1`）；只存 ID，召回时再剪死亡。
+    /// 控制编队（槽 `0`=`TeamSelect_1` … `9`=`TeamSelect_10`）；只存 ID，召回时再剪死亡。
     teams: [Vec<EntityId>; CONTROL_TEAM_COUNT],
+}
+
+impl Default for LocalPlayerController {
+    fn default() -> Self {
+        Self { selected: Vec::new(), teams: std::array::from_fn(|_| Vec::new()) }
+    }
 }
 
 impl LocalPlayerController {
@@ -53,6 +59,48 @@ impl LocalPlayerController {
         team.retain(|&id| battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead));
         self.selected = team.clone();
         self.selected.len()
+    }
+
+    /// `TeamAddSelect`：把编队成员并入当前选中（同阵营、去重）。
+    pub fn add_team_to_selection(&mut self, battle: &BattleSession, slot: usize) -> usize {
+        let Some(team) = self.teams.get(slot).cloned()
+        else {
+            return 0;
+        };
+        let mut added = 0;
+        for id in team {
+            let before = self.selected.len();
+            self.select_add(battle, id);
+            if self.selected.len() > before {
+                added += 1;
+            }
+        }
+        added
+    }
+
+    /// 编队槽内第一个存活单位的格子（镜头居中用）。
+    pub fn team_focus_cell(&self, battle: &BattleSession, slot: usize) -> Option<(u16, u16)> {
+        let team = self.teams.get(slot)?;
+        for &id in team {
+            if battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead) {
+                if let Some((x, y, _)) = battle.world.ecs_transform(id) {
+                    return Some((x, y));
+                }
+            }
+        }
+        None
+    }
+
+    /// 当前选中第一个实体的格子。
+    pub fn selection_focus_cell(&self, battle: &BattleSession) -> Option<(u16, u16)> {
+        for &id in &self.selected {
+            if battle.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead) {
+                if let Some((x, y, _)) = battle.world.ecs_transform(id) {
+                    return Some((x, y));
+                }
+            }
+        }
+        None
     }
 
     /// 单选一个存活实体（单位或建筑）。
@@ -190,9 +238,9 @@ impl LocalPlayerController {
                 battle.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
                     && battle.world.ecs_owner(eid).is_some_and(|o| o.as_ref() == local_house.as_ref())
                     && battle
-                        .world
-                        .ecs_identity(eid)
-                        .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                    .world
+                    .ecs_identity(eid)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
             })
             .collect();
         if mobiles.is_empty() {
@@ -223,8 +271,7 @@ impl LocalPlayerController {
         for &id in ids {
             if add {
                 self.select_add(battle, id);
-            }
-            else {
+            } else {
                 let Some((_, kind)) = battle.world.ecs_identity(id)
                 else {
                     continue;

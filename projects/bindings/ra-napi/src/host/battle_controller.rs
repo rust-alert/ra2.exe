@@ -165,6 +165,8 @@ pub enum BattleNav {
     OpenOptions,
     /// 切换无边框全屏。
     ToggleFullscreen,
+    /// 按 `keyboard.ini` ScreenCapture 请求截图。
+    QueueScreenshot,
 }
 
 /// 待播的建筑 Buildup（MCV 展开等）。
@@ -208,8 +210,10 @@ pub struct BattleController {
     shift_down: bool,
     /// Ctrl 是否按下。
     ctrl_down: bool,
-    /// Alt 是否按下（编队居中等修饰；未接前仅跟踪状态）。
+    /// Alt 是否按下（编队居中等修饰）。
     alt_down: bool,
+    /// 对局热键表（`keyboard.ini`，boot 装入）。
+    hotkeys: super::battle_hotkeys::HotkeyMap,
     /// 建造放置模式（建筑类型键）。
     place_mode: Option<String>,
     /// 侧栏修理工具是否激活（与出售互斥；激活时贴按下帧）。
@@ -354,6 +358,7 @@ impl BattleController {
             shift_down: false,
             ctrl_down: false,
             alt_down: false,
+            hotkeys: boot.hotkeys,
             place_mode: None,
             repair_mode: false,
             sell_mode: false,
@@ -575,6 +580,7 @@ impl BattleController {
         self.rules_ini = boot.rules_ini;
         self.rules = boot.rules;
         self.lobby_primaries = boot.lobby_primaries;
+        self.hotkeys = boot.hotkeys;
         self.pending_buildups.clear();
         self.deploy_visual_queue.clear();
         self.preview_origin = boot.preview_origin;
@@ -670,6 +676,20 @@ impl BattleController {
         let wy = (sy - game.preview_origin_y) as f32;
         renderer.focus_camera(wx, wy, BATTLE_START_ZOOM);
         tracing::info!("开局镜头对准 {} @({},{}) zoom={}", local_house, x, y, BATTLE_START_ZOOM);
+    }
+
+    /// 镜头对准地图格（`CenterView` / `TeamCenter` / 选中居中）。
+    fn focus_camera_on_cell(&self, renderer: &mut Renderer, x: u16, y: u16) {
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        let z = game.world.pass_grid.cell_height(x, y);
+        let (sx, sy) = iso_to_screen(i32::from(x), i32::from(y), z);
+        let wx = (sx - game.preview_origin_x) as f32;
+        let wy = (sy - game.preview_origin_y) as f32;
+        let zoom = renderer.camera().zoom;
+        renderer.focus_camera(wx, wy, zoom);
     }
 
     /// 按当前路径再装载一局（同步；事件循环内请改走 `LoadJob`）。
@@ -1241,14 +1261,22 @@ impl BattleController {
                 BattleNav::None
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                // 方向键：记录按住态，由 `tick_edge_scroll` 按渲染帧 `dt` 连续平移（勿跟 OS key-repeat 跳 48px）。
-                if let PhysicalKey::Code(code) = event.physical_key {
-                    if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
-                        if !accept_commands || battle_paused {
-                            self.camera_pan_keys.clear();
-                            return BattleNav::None;
-                        }
-                        let down = event.state == ElementState::Pressed;
+                let PhysicalKey::Code(code) = event.physical_key
+                else {
+                    return BattleNav::None;
+                };
+                let down = event.state == ElementState::Pressed;
+                let vk = super::battle_hotkeys::key_code_to_vk(code);
+                let hotkey = vk.and_then(|vk| self.hotkeys.action_for(vk, self.shift_down, self.ctrl_down, self.alt_down));
+
+                // 方向键：未被 `keyboard.ini` 占用时才作镜头平移；侧栏箭头热键走查表。
+                if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
+                    if !accept_commands || battle_paused {
+                        self.camera_pan_keys.clear();
+                        return BattleNav::None;
+                    }
+                    let claimed = hotkey.is_some();
+                    if !claimed {
                         match code {
                             KeyCode::ArrowLeft => self.camera_pan_keys.left = down,
                             KeyCode::ArrowRight => self.camera_pan_keys.right = down,
@@ -1258,217 +1286,69 @@ impl BattleController {
                         }
                         return BattleNav::None;
                     }
+                    if !down {
+                        match code {
+                            KeyCode::ArrowLeft => self.camera_pan_keys.left = false,
+                            KeyCode::ArrowRight => self.camera_pan_keys.right = false,
+                            KeyCode::ArrowUp => self.camera_pan_keys.up = false,
+                            KeyCode::ArrowDown => self.camera_pan_keys.down = false,
+                            _ => {}
+                        }
+                        return BattleNav::None;
+                    }
                 }
-                if event.state != ElementState::Pressed {
+
+                if !down {
                     return BattleNav::None;
                 }
-                // 暂停菜单打开时：仅 Esc 关闭（`keyboard.ini` Options=27）。勿用 Space 冒充暂停。
-                if accept_commands && battle_paused {
-                    return match event.physical_key {
-                        PhysicalKey::Code(KeyCode::Escape) => {
-                            if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                                game.toggle_pause();
+
+                // 结算页：Enter / Esc 不属于 `[Hotkey]`。
+                if !accept_commands {
+                    return match code {
+                        KeyCode::Enter | KeyCode::NumpadEnter => {
+                            let continue_campaign = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
+                                if g.boot_kind != ra_engine::SessionBootKind::Campaign {
+                                    return false;
+                                }
+                                match g.outcome.as_ref() {
+                                    Some(ra_engine::BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
+                                    Some(ra_engine::BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
+                                    None => false,
+                                }
+                            });
+                            if continue_campaign {
+                                tracing::info!("战役继续 · campaign continue scenario");
+                                BattleNav::ContinueCampaign
                             }
-                            self.clear_pause_menu_input();
-                            tracing::info!("继续");
-                            BattleNav::None
+                            else {
+                                tracing::info!("结算确认 · 离开");
+                                BattleNav::ToMainMenu
+                            }
+                        }
+                        KeyCode::Escape => {
+                            tracing::info!("结算 · 离开");
+                            BattleNav::ToMainMenu
                         }
                         _ => BattleNav::None,
                     };
                 }
-                match event.physical_key {
-                    PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) if !accept_commands => {
-                        // 结算确认：战役续关（胜 NextMission / 败 AlternateNextMission）或离开。
-                        let continue_campaign = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
-                            if g.boot_kind != ra_engine::SessionBootKind::Campaign {
-                                return false;
-                            }
-                            match g.outcome.as_ref() {
-                                Some(ra_engine::BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
-                                Some(ra_engine::BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
-                                None => false,
-                            }
-                        });
-                        if continue_campaign {
-                            tracing::info!("战役继续 · campaign continue scenario");
-                            BattleNav::ContinueCampaign
-                        }
-                        else {
-                            tracing::info!("结算确认 · 离开");
-                            BattleNav::ToMainMenu
-                        }
-                    }
-                    PhysicalKey::Code(KeyCode::Escape) if !accept_commands => {
-                        tracing::info!("结算 · 离开");
-                        BattleNav::ToMainMenu
-                    }
-                    PhysicalKey::Code(KeyCode::Escape) if accept_commands => {
-                        if self.clear_sidebar_tool_modes() {
-                            self.clear_pause_menu_input();
-                            BattleNav::None
-                        }
-                        else if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                            // Esc：`Options` → 打开暂停菜单。
+
+                // 暂停中：仅 `Options`（默认 Esc）关菜单。
+                if battle_paused {
+                    if matches!(hotkey, Some(super::battle_hotkeys::HotkeyAction::Options)) {
+                        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
                             game.toggle_pause();
-                            self.clear_pause_menu_input();
-                            tracing::info!("暂停菜单");
-                            BattleNav::None
                         }
-                        else {
-                            BattleNav::ToMainMenu
-                        }
+                        self.clear_pause_menu_input();
+                        tracing::info!("继续");
                     }
-                    _ if !accept_commands => BattleNav::None,
-                    // `keyboard.ini` CombatantSelect=P：全选本方作战单位（不含建筑）。
-                    PhysicalKey::Code(KeyCode::KeyP) if !battle_paused => {
-                        if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
-                            let seed = self.local.selected.first().copied().or_else(|| {
-                                game.world.entity_ids().into_iter().find(|&eid| {
-                                    game.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
-                                        && game.world.ecs_identity(eid).is_some_and(|(_, kind)| {
-                                            matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-                                        })
-                                })
-                            });
-                            if let Some(id) = seed {
-                                self.local.select_all_of_owner(game, id);
-                                tracing::info!("CombatantSelect · {} 个", self.local.selected.len());
-                            }
-                        }
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` NextObject=N（勿用 Tab 冒充）。
-                    PhysicalKey::Code(KeyCode::KeyN) if !battle_paused => {
-                        let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
-                            let tick = game.world.tick;
-                            self.local.cycle_selection(game);
-                            tracing::info!("NextObject · {:?}", self.local.selected);
-                            tick
-                        });
-                        if let Some(tick) = pulse_tick {
-                            self.pulse_action_lines_at(tick);
-                        }
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` TypeSelect=T。
-                    PhysicalKey::Code(KeyCode::KeyT) if !battle_paused => {
-                        let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
-                            let tick = game.world.tick;
-                            self.local.select_same_type(game);
-                            tracing::info!("TypeSelect · {} 个 · {:?}", self.local.selected.len(), self.local.selected);
-                            tick
-                        });
-                        if let Some(tick) = pulse_tick {
-                            self.pulse_action_lines_at(tick);
-                        }
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` DeployObject=D。
-                    PhysicalKey::Code(KeyCode::KeyD) if !battle_paused => {
-                        self.deploy_selection();
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` GuardObject=G（X 是 Scatter，引擎未接则不绑）。
-                    PhysicalKey::Code(KeyCode::KeyG) if !battle_paused => {
-                        self.guard_selection();
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` StructureTab/DefenseTab/InfantryTab/UnitTab = Q/W/E/R。
-                    PhysicalKey::Code(KeyCode::KeyQ) if !battle_paused => {
-                        self.hotkey_sidebar_tab(0);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyW) if !battle_paused => {
-                        self.hotkey_sidebar_tab(1);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyE) if !battle_paused => {
-                        self.hotkey_sidebar_tab(2);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyR) if !battle_paused => {
-                        self.hotkey_sidebar_tab(3);
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` ToggleRepair=K / ToggleSell=L。
-                    PhysicalKey::Code(KeyCode::KeyK) if !battle_paused => {
-                        self.sell_mode = false;
-                        self.planning_mode = false;
-                        self.planning_waypoints.clear();
-                        self.repair_mode = !self.repair_mode;
-                        if self.repair_mode {
-                            self.place_mode = None;
-                        }
-                        tracing::info!(active = self.repair_mode, "ToggleRepair");
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::KeyL) if !battle_paused => {
-                        self.repair_mode = false;
-                        self.planning_mode = false;
-                        self.planning_waypoints.clear();
-                        self.sell_mode = !self.sell_mode;
-                        if self.sell_mode {
-                            self.place_mode = None;
-                        }
-                        tracing::info!(active = self.sell_mode, "ToggleSell");
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` PlanningMode=Z。
-                    PhysicalKey::Code(KeyCode::KeyZ) if !battle_paused => {
-                        if self.planning_mode {
-                            self.commit_planning_waypoints();
-                        }
-                        else {
-                            self.planning_mode = true;
-                            self.planning_waypoints.clear();
-                            self.place_mode = None;
-                            self.repair_mode = false;
-                            self.sell_mode = false;
-                            tracing::info!(active = true, "PlanningMode");
-                        }
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` CenterBase=H。
-                    PhysicalKey::Code(KeyCode::KeyH) if !battle_paused => {
-                        self.focus_camera_on_local_start(renderer);
-                        tracing::info!("CenterBase");
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` TeamSelect_1/2；Ctrl+数字为 TeamCreate（见 `handle_control_team`）。
-                    PhysicalKey::Code(KeyCode::Digit1) | PhysicalKey::Code(KeyCode::Numpad1) if !battle_paused => {
-                        self.handle_control_team(0);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::Digit2) | PhysicalKey::Code(KeyCode::Numpad2) if !battle_paused => {
-                        self.handle_control_team(1);
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` LeftSidebarUp=Home / LeftSidebarDown=End：侧栏 cameo 滚到顶/底。
-                    PhysicalKey::Code(KeyCode::Home) if !battle_paused => {
-                        self.jump_cameo_scroll(window, false);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::End) if !battle_paused => {
-                        self.jump_cameo_scroll(window, true);
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` RightSidebarUp=PageUp / RightSidebarDown=PageDown：按可见槽位翻页。
-                    PhysicalKey::Code(KeyCode::PageUp) if !battle_paused => {
-                        let snap = self.hud_snap_for_window(window);
-                        let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
-                        self.scroll_cameos(window, -page);
-                        BattleNav::None
-                    }
-                    PhysicalKey::Code(KeyCode::PageDown) if !battle_paused => {
-                        let snap = self.hud_snap_for_window(window);
-                        let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
-                        self.scroll_cameos(window, page);
-                        BattleNav::None
-                    }
-                    // `keyboard.ini` CenterOnRadarEvent=Space：雷达事件未接前不绑暂停，也不发明其它行为。
-                    PhysicalKey::Code(KeyCode::Space) => BattleNav::None,
-                    _ => BattleNav::None,
+                    return BattleNav::None;
                 }
+
+                if let Some(action) = hotkey {
+                    return self.dispatch_hotkey_action(action, renderer, window);
+                }
+                BattleNav::None
             }
             _ => BattleNav::None,
         }
@@ -3239,7 +3119,252 @@ impl BattleController {
         }
     }
 
-    /// 命令条 / 数字键编队：`Ctrl` 写入当前选中，否则召回。
+    /// 查表得到的 `HotkeyAction` 分发（键位来自 `keyboard.ini`，勿再写死 KeyCode）。
+    fn dispatch_hotkey_action(
+        &mut self,
+        action: super::battle_hotkeys::HotkeyAction,
+        renderer: &mut Renderer,
+        window: &Window,
+    ) -> BattleNav {
+        use super::battle_hotkeys::{HotkeyAction, team_slot_index};
+
+        match action {
+            HotkeyAction::Options => {
+                if self.clear_sidebar_tool_modes() {
+                    self.clear_pause_menu_input();
+                    return BattleNav::None;
+                }
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    game.toggle_pause();
+                    self.clear_pause_menu_input();
+                    tracing::info!("暂停菜单");
+                }
+                BattleNav::None
+            }
+            HotkeyAction::ScreenCapture => BattleNav::QueueScreenshot,
+            HotkeyAction::CenterBase => {
+                self.focus_camera_on_local_start(renderer);
+                tracing::info!("CenterBase");
+                BattleNav::None
+            }
+            HotkeyAction::CenterView => {
+                if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                    if let Some((x, y)) = self.local.selection_focus_cell(game) {
+                        self.focus_camera_on_cell(renderer, x, y);
+                        tracing::info!(x, y, "CenterView");
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::CenterOnRadarEvent => {
+                // 雷达事件未接前不发明其它行为。
+                BattleNav::None
+            }
+            HotkeyAction::DeployObject => {
+                self.deploy_selection();
+                BattleNav::None
+            }
+            HotkeyAction::GuardObject => {
+                self.guard_selection();
+                BattleNav::None
+            }
+            HotkeyAction::CombatantSelect => {
+                if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                    let seed = self.local.selected.first().copied().or_else(|| {
+                        game.world.entity_ids().into_iter().find(|&eid| {
+                            game.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
+                                && game.world.ecs_identity(eid).is_some_and(|(_, kind)| {
+                                    matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+                                })
+                        })
+                    });
+                    if let Some(id) = seed {
+                        self.local.select_all_of_owner(game, id);
+                        tracing::info!("CombatantSelect · {} 个", self.local.selected.len());
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::NextObject => {
+                let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                    let tick = game.world.tick;
+                    self.local.cycle_selection(game);
+                    tracing::info!("NextObject · {:?}", self.local.selected);
+                    tick
+                });
+                if let Some(tick) = pulse_tick {
+                    self.pulse_action_lines_at(tick);
+                }
+                BattleNav::None
+            }
+            HotkeyAction::TypeSelect => {
+                let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                    let tick = game.world.tick;
+                    self.local.select_same_type(game);
+                    tracing::info!("TypeSelect · {} 个", self.local.selected.len());
+                    tick
+                });
+                if let Some(tick) = pulse_tick {
+                    self.pulse_action_lines_at(tick);
+                }
+                BattleNav::None
+            }
+            HotkeyAction::StructureTab => {
+                self.hotkey_sidebar_tab(0);
+                BattleNav::None
+            }
+            HotkeyAction::DefenseTab => {
+                self.hotkey_sidebar_tab(1);
+                BattleNav::None
+            }
+            HotkeyAction::InfantryTab => {
+                self.hotkey_sidebar_tab(2);
+                BattleNav::None
+            }
+            HotkeyAction::UnitTab => {
+                self.hotkey_sidebar_tab(3);
+                BattleNav::None
+            }
+            HotkeyAction::ToggleRepair => {
+                self.sell_mode = false;
+                self.planning_mode = false;
+                self.planning_waypoints.clear();
+                self.repair_mode = !self.repair_mode;
+                if self.repair_mode {
+                    self.place_mode = None;
+                }
+                tracing::info!(active = self.repair_mode, "ToggleRepair");
+                BattleNav::None
+            }
+            HotkeyAction::ToggleSell => {
+                self.repair_mode = false;
+                self.planning_mode = false;
+                self.planning_waypoints.clear();
+                self.sell_mode = !self.sell_mode;
+                if self.sell_mode {
+                    self.place_mode = None;
+                }
+                tracing::info!(active = self.sell_mode, "ToggleSell");
+                BattleNav::None
+            }
+            HotkeyAction::PlanningMode => {
+                if self.planning_mode {
+                    self.commit_planning_waypoints();
+                }
+                else {
+                    self.planning_mode = true;
+                    self.planning_waypoints.clear();
+                    self.place_mode = None;
+                    self.repair_mode = false;
+                    self.sell_mode = false;
+                    tracing::info!(active = true, "PlanningMode");
+                }
+                BattleNav::None
+            }
+            HotkeyAction::LeftSidebarUp => {
+                self.jump_cameo_scroll(window, false);
+                BattleNav::None
+            }
+            HotkeyAction::LeftSidebarDown => {
+                self.jump_cameo_scroll(window, true);
+                BattleNav::None
+            }
+            HotkeyAction::RightSidebarUp | HotkeyAction::SidebarPageUp => {
+                let snap = self.hud_snap_for_window(window);
+                let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
+                self.scroll_cameos(window, -page);
+                BattleNav::None
+            }
+            HotkeyAction::RightSidebarDown | HotkeyAction::SidebarPageDown => {
+                let snap = self.hud_snap_for_window(window);
+                let page = cameo_visible_slot_count(rect_px_from_snapshot(&snap, "cameo_band").h).max(1) as i32;
+                self.scroll_cameos(window, page);
+                BattleNav::None
+            }
+            HotkeyAction::SidebarUp => {
+                self.scroll_cameos(window, -2);
+                BattleNav::None
+            }
+            HotkeyAction::SidebarDown => {
+                self.scroll_cameos(window, 2);
+                BattleNav::None
+            }
+            HotkeyAction::TeamSelect(n) => {
+                if let Some(slot) = team_slot_index(n) {
+                    let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                        let tick = game.world.tick;
+                        let count = self.local.recall_team(game, slot);
+                        tracing::info!(slot = n, count, "TeamSelect");
+                        tick
+                    });
+                    if let Some(tick) = pulse_tick {
+                        self.pulse_action_lines_at(tick);
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::TeamCreate(n) => {
+                if let Some(slot) = team_slot_index(n) {
+                    let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                        let tick = game.world.tick;
+                        self.local.assign_team(game, slot);
+                        tracing::info!(slot = n, count = self.local.selected.len(), "TeamCreate");
+                        tick
+                    });
+                    if let Some(tick) = pulse_tick {
+                        self.pulse_action_lines_at(tick);
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::TeamAddSelect(n) => {
+                if let Some(slot) = team_slot_index(n) {
+                    let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+                        let tick = game.world.tick;
+                        let added = self.local.add_team_to_selection(game, slot);
+                        tracing::info!(slot = n, added, "TeamAddSelect");
+                        tick
+                    });
+                    if let Some(tick) = pulse_tick {
+                        self.pulse_action_lines_at(tick);
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::TeamCenter(n) => {
+                if let Some(slot) = team_slot_index(n) {
+                    let cell = if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
+                        let _ = self.local.recall_team(game, slot);
+                        self.local.team_focus_cell(game, slot)
+                    }
+                    else {
+                        None
+                    };
+                    if let Some((x, y)) = cell {
+                        self.focus_camera_on_cell(renderer, x, y);
+                        tracing::info!(slot = n, x, y, "TeamCenter");
+                    }
+                }
+                BattleNav::None
+            }
+            HotkeyAction::StopObject
+            | HotkeyAction::ScatterObject
+            | HotkeyAction::Follow
+            | HotkeyAction::Delete
+            | HotkeyAction::ToggleAlliance
+            | HotkeyAction::PlaceBeacon
+            | HotkeyAction::AllToCheer
+            | HotkeyAction::PageUser
+            | HotkeyAction::View(_)
+            | HotkeyAction::SetView(_)
+            | HotkeyAction::Taunt(_) => {
+                tracing::debug!(?action, "热键已识别，能力未接，忽略");
+                BattleNav::None
+            }
+        }
+    }
+
+    /// 命令条编队：`Ctrl` 写入当前选中，否则召回。
     fn handle_control_team(&mut self, slot: usize) {
         let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
             let tick = game.world.tick;

@@ -3,13 +3,14 @@
 #![allow(missing_docs)]
 
 pub mod audio;
-pub mod boot;
+pub mod battle_controller;
+pub mod battle_hotkeys;
 pub mod battle_input;
+pub mod boot;
 pub mod config;
 pub mod extract;
 pub mod load_job;
 pub mod local_player;
-pub mod battle_controller;
 pub mod preview_job;
 pub mod screenshot;
 pub mod shell;

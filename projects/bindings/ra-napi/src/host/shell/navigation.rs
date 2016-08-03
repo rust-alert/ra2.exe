@@ -3,12 +3,14 @@
 use std::time::{Duration, Instant};
 
 use ra_layout;
-use ra_widgets::load_kind::LoadKind;
-use ra_widgets::menu_action::MenuAction;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::shell_slide::{
-    CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
-    ShellFrameWave, ShellSlideSpec, WAVE_STOWED_FRAME, WaveDirection,
+use ra_widgets::{
+    load_kind::LoadKind,
+    menu_action::MenuAction,
+    original_screen::OriginalScreen,
+    shell_slide::{
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave, ShellSlideSpec,
+        WAVE_STOWED_FRAME, WaveDirection,
+    },
 };
 use winit::event_loop::ActiveEventLoop;
 
@@ -51,11 +53,7 @@ impl Shell {
 
     /// 对局可玩时 confine 光标；暂停 / 结算 / 离开 Battle 时释放。
     pub(super) fn sync_battle_cursor_grab(&mut self) {
-        let want = self.screen == OriginalScreen::Battle
-            && self
-                .battle_controller
-                .as_ref()
-                .is_some_and(|c| c.wants_cursor_capture());
+        let want = self.screen == OriginalScreen::Battle && self.battle_controller.as_ref().is_some_and(|c| c.wants_cursor_capture());
         if want == self.battle_cursor_grabbed {
             return;
         }
@@ -65,11 +63,8 @@ impl Shell {
         };
         use winit::window::CursorGrabMode;
         let result = if want {
-            window
-                .set_cursor_grab(CursorGrabMode::Confined)
-                .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
-        }
-        else {
+            window.set_cursor_grab(CursorGrabMode::Confined).or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
+        } else {
             window.set_cursor_grab(CursorGrabMode::None)
         };
         match result {
@@ -77,8 +72,7 @@ impl Shell {
                 self.battle_cursor_grabbed = want;
                 if want {
                     tracing::debug!("对局光标已捕获（边缘滚屏）");
-                }
-                else {
+                } else {
                     tracing::debug!("对局光标已释放");
                     self.apply_battle_pointer(crate::host::battle_input::BattlePointer::Default);
                 }
@@ -126,16 +120,10 @@ impl Shell {
     }
 
     /// 当前页 snapshot + 右栏按钮 id（波浪按物理平铺格取帧）。
-    pub(super) fn wave_shell_page(
-        screen: OriginalScreen,
-    ) -> Option<(ra_layout::LayoutSnapshot, &'static [&'static str])> {
+    pub(super) fn wave_shell_page(screen: OriginalScreen) -> Option<(ra_layout::LayoutSnapshot, &'static [&'static str])> {
         Some(match screen {
             OriginalScreen::MainMenu => (
-                ra_layout::solve_shell_page(
-                    "main_menu",
-                    &ra_layout::MAIN_MENU_BUTTON_IDS[..5],
-                    Some(ra_layout::MAIN_MENU_BUTTON_IDS[5]),
-                ),
+                ra_layout::solve_shell_page("main_menu", &ra_layout::MAIN_MENU_BUTTON_IDS[..5], Some(ra_layout::MAIN_MENU_BUTTON_IDS[5])),
                 &ra_layout::MAIN_MENU_BUTTON_IDS,
             ),
             OriginalScreen::SinglePlayerMenu => (
@@ -146,18 +134,9 @@ impl Shell {
                 ),
                 &ra_layout::SINGLE_PLAYER_BUTTON_IDS,
             ),
-            OriginalScreen::SkirmishLobby => (
-                ra_layout::solve_skirmish_lobby(),
-                &ra_layout::SKIRMISH_LOBBY_BUTTON_IDS,
-            ),
-            OriginalScreen::Campaign => (
-                ra_layout::solve_campaign(),
-                &ra_layout::CAMPAIGN_BUTTON_IDS,
-            ),
-            OriginalScreen::ChooseMap => (
-                ra_layout::solve_choose_map(),
-                &ra_layout::CHOOSE_MAP_BUTTON_IDS,
-            ),
+            OriginalScreen::SkirmishLobby => (ra_layout::solve_skirmish_lobby(), &ra_layout::SKIRMISH_LOBBY_BUTTON_IDS),
+            OriginalScreen::Campaign => (ra_layout::solve_campaign(), &ra_layout::CAMPAIGN_BUTTON_IDS),
+            OriginalScreen::ChooseMap => (ra_layout::solve_choose_map(), &ra_layout::CHOOSE_MAP_BUTTON_IDS),
             _ => return None,
         })
     }
@@ -177,12 +156,7 @@ impl Shell {
     pub(super) fn stowed_wave_frames(&self) -> Option<(Vec<u16>, Vec<u16>)> {
         let (_snap, ids) = Self::wave_shell_page(self.screen)?;
         let buttons = vec![WAVE_STOWED_FRAME; ids.len()];
-        let tiles = vec![
-            WAVE_STOWED_FRAME;
-            ra_layout::RightPanelChrome::shell_defaults()
-                .tile_count()
-                .max(0) as usize
-        ];
+        let tiles = vec![WAVE_STOWED_FRAME; ra_layout::RightPanelChrome::shell_defaults().tile_count().max(0) as usize];
         Some((buttons, tiles))
     }
 
@@ -200,17 +174,11 @@ impl Shell {
             .enumerate()
             .map(|(i, id)| {
                 let cell = ra_layout::rect_px_from_snapshot(&snap, id);
-                let ti = if cell.w > 0 && cell.h > 0 {
-                    Self::panel_tile_index(panel_tile, cell)
-                } else {
-                    i as u32
-                };
+                let ti = if cell.w > 0 && cell.h > 0 { Self::panel_tile_index(panel_tile, cell) } else { i as u32 };
                 wave.frame_for_slot(ti)
             })
             .collect::<Vec<_>>();
-        let tile_count = ra_layout::RightPanelChrome::shell_defaults()
-            .tile_count()
-            .max(0) as u32;
+        let tile_count = ra_layout::RightPanelChrome::shell_defaults().tile_count().max(0) as u32;
         let tiles = (0..tile_count).map(|ti| wave.frame_for_slot(ti)).collect::<Vec<_>>();
         Some((buttons, tiles))
     }
@@ -235,8 +203,7 @@ impl Shell {
         if gap > 0.0 {
             self.menu_slide_gap_until = Some(Instant::now() + Duration::from_secs_f64(gap));
             self.refresh_menu_backdrop();
-        }
-        else {
+        } else {
             self.maybe_start_slide_in();
         }
     }
@@ -292,12 +259,10 @@ impl Shell {
             if let Some(action) = self.menu_pending_commit.take() {
                 self.commit_menu_action(event_loop, action);
                 self.begin_slide_gap_or_in();
-            }
-            else {
+            } else {
                 self.refresh_menu_backdrop();
             }
-        }
-        else {
+        } else {
             self.refresh_menu_backdrop();
         }
     }
@@ -432,18 +397,10 @@ impl Shell {
         match nav {
             BattleNav::None => {}
             BattleNav::ContinueCampaign => {
-                let next = self
-                    .battle_controller
-                    .as_ref()
-                    .and_then(|c| c.session.as_ref())
-                    .and_then(|s| s.battle())
-                    .and_then(|g| {
-                        let victory = matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }));
-                        g.world
-                            .map
-                            .campaign_continue_scenario(victory)
-                            .map(str::to_string)
-                    });
+                let next = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle()).and_then(|g| {
+                    let victory = matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }));
+                    g.world.map.campaign_continue_scenario(victory).map(str::to_string)
+                });
                 match next {
                     Some(scenario) => {
                         self.load_brief_csf = None;
@@ -471,11 +428,7 @@ impl Shell {
                 self.menu_pressed_entry = None;
                 self.menu_hovered_entry = None;
                 self.set_screen(OriginalScreen::Results);
-                self.banner = if self.results_is_campaign() {
-                    "任务结算".into()
-                } else {
-                    "遭遇战积分".into()
-                };
+                self.banner = if self.results_is_campaign() { "任务结算".into() } else { "遭遇战积分".into() };
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }
@@ -495,7 +448,10 @@ impl Shell {
             }
             BattleNav::ToggleFullscreen => {
                 self.toggle_window_fullscreen();
-            },
+            }
+            BattleNav::QueueScreenshot => {
+                self.queue_screenshot(self.screen.as_str());
+            }
         }
     }
 }
