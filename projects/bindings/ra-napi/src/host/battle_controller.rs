@@ -55,8 +55,18 @@ use super::{
 
 /// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
 const BATTLE_START_ZOOM: f32 = 1.0;
+/// `keyboard.ini` `View1`–`View4` / `SetView` 书签槽数。
+const VIEW_BOOKMARK_COUNT: usize = 4;
 /// 选中行动线可见时长（仿真 tick，对齐原版约 25 帧窗口）。
 const ACTION_LINES_DURATION_TICKS: u64 = 25;
+
+/// 宿主镜头书签（世界中心 + 缩放；不进仿真权威）。
+#[derive(Debug, Clone, Copy)]
+struct ViewBookmark {
+    center_x: f32,
+    center_y: f32,
+    zoom: f32,
+}
 
 /// 由权威移动状态计算步兵/载具烤图姿态（含格内滑移偏移）。
 ///
@@ -214,6 +224,8 @@ pub struct BattleController {
     alt_down: bool,
     /// 对局热键表（`keyboard.ini`，boot 装入）。
     hotkeys: super::battle_hotkeys::HotkeyMap,
+    /// `View1`–`View4` 镜头书签（`SetView` 写入）。
+    view_bookmarks: [Option<ViewBookmark>; VIEW_BOOKMARK_COUNT],
     /// 建造放置模式（建筑类型键）。
     place_mode: Option<String>,
     /// 侧栏修理工具是否激活（与出售互斥；激活时贴按下帧）。
@@ -359,6 +371,7 @@ impl BattleController {
             ctrl_down: false,
             alt_down: false,
             hotkeys: boot.hotkeys,
+            view_bookmarks: [None; VIEW_BOOKMARK_COUNT],
             place_mode: None,
             repair_mode: false,
             sell_mode: false,
@@ -581,6 +594,7 @@ impl BattleController {
         self.rules = boot.rules;
         self.lobby_primaries = boot.lobby_primaries;
         self.hotkeys = boot.hotkeys;
+        self.view_bookmarks = [None; VIEW_BOOKMARK_COUNT];
         self.pending_buildups.clear();
         self.deploy_visual_queue.clear();
         self.preview_origin = boot.preview_origin;
@@ -690,6 +704,36 @@ impl BattleController {
         let wy = (sy - game.preview_origin_y) as f32;
         let zoom = renderer.camera().zoom;
         renderer.focus_camera(wx, wy, zoom);
+    }
+
+    /// `SetView`：把当前镜头写入书签槽（`1..=4`）。
+    fn set_view_bookmark(&mut self, renderer: &Renderer, slot_1_to_4: u8) {
+        let Some(idx) = (1..=VIEW_BOOKMARK_COUNT as u8).contains(&slot_1_to_4).then_some(usize::from(slot_1_to_4 - 1))
+        else {
+            return;
+        };
+        let cam = renderer.camera();
+        self.view_bookmarks[idx] = Some(ViewBookmark {
+            center_x: cam.center_x,
+            center_y: cam.center_y,
+            zoom: cam.zoom,
+        });
+        tracing::info!(slot = slot_1_to_4, x = cam.center_x, y = cam.center_y, zoom = cam.zoom, "SetView");
+    }
+
+    /// `View`：召回书签槽镜头；空槽忽略。
+    fn recall_view_bookmark(&self, renderer: &mut Renderer, slot_1_to_4: u8) {
+        let Some(idx) = (1..=VIEW_BOOKMARK_COUNT as u8).contains(&slot_1_to_4).then_some(usize::from(slot_1_to_4 - 1))
+        else {
+            return;
+        };
+        let Some(bm) = self.view_bookmarks[idx]
+        else {
+            tracing::debug!(slot = slot_1_to_4, "View · 书签为空");
+            return;
+        };
+        renderer.focus_camera(bm.center_x, bm.center_y, bm.zoom);
+        tracing::info!(slot = slot_1_to_4, x = bm.center_x, y = bm.center_y, zoom = bm.zoom, "View");
     }
 
     /// 按当前路径再装载一局（同步；事件循环内请改走 `LoadJob`）。
@@ -3347,6 +3391,14 @@ impl BattleController {
                 }
                 BattleNav::None
             }
+            HotkeyAction::SetView(n) => {
+                self.set_view_bookmark(renderer, n);
+                BattleNav::None
+            }
+            HotkeyAction::View(n) => {
+                self.recall_view_bookmark(renderer, n);
+                BattleNav::None
+            }
             HotkeyAction::StopObject
             | HotkeyAction::ScatterObject
             | HotkeyAction::Follow
@@ -3355,8 +3407,6 @@ impl BattleController {
             | HotkeyAction::PlaceBeacon
             | HotkeyAction::AllToCheer
             | HotkeyAction::PageUser
-            | HotkeyAction::View(_)
-            | HotkeyAction::SetView(_)
             | HotkeyAction::Taunt(_) => {
                 tracing::debug!(?action, "热键已识别，能力未接，忽略");
                 BattleNav::None
