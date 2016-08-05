@@ -11,12 +11,12 @@ use ra_types::{EntityId, TechnoClass};
 use crate::{
     game::{CommandRejectReason, SnapshotProduceQueue},
     gameplay::{
-        build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant,
         TechTreePlayer,
+        build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant,
     },
     state::{
-        components::{Health, Identity, Owner, ProductionQueue},
         BattleState,
+        components::{Health, Identity, Owner, ProductionQueue},
     },
 };
 
@@ -43,6 +43,29 @@ pub struct DeployCapability {
     /// 部署目标建筑类型。
     pub into_type: Arc<str>,
     /// 当前是否可部署。
+    pub enabled: bool,
+    /// 不可用原因。
+    pub disabled_reason: Option<CommandRejectReason>,
+}
+
+/// 本方可释放的超级武器（绑定存活挂接建筑与充能进度）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuperWeaponCapabilityItem {
+    /// `[SuperWeaponTypes]` 类型键。
+    pub type_id: Arc<str>,
+    /// `UIName=` CSF 键（可空）。
+    pub ui_name: Arc<str>,
+    /// `SidebarImage=`（可空）。
+    pub sidebar_image: Arc<str>,
+    /// `Type=` 玩法类型字面（大写）。
+    pub kind: Arc<str>,
+    /// 已充能 tick。
+    pub charge_ticks: u32,
+    /// 就绪所需 tick。
+    pub required_ticks: u32,
+    /// 是否充能完毕。
+    pub ready: bool,
+    /// 当前是否可下发释放命令（就绪且玩法已接线）。
     pub enabled: bool,
     /// 不可用原因。
     pub disabled_reason: Option<CommandRejectReason>,
@@ -85,6 +108,8 @@ pub struct BattleCapabilitiesSnapshot {
     pub vehicle_items: Vec<CapabilityItem>,
     /// 飞行器生产（绑定机场 / 停机坪存活）。
     pub aircraft_items: Vec<CapabilityItem>,
+    /// 超级武器栏（绑定挂接建筑存活与充能）。
+    pub super_weapon_items: Vec<SuperWeaponCapabilityItem>,
     /// 生产队列摘要。
     pub queues: Vec<SnapshotProduceQueue>,
 }
@@ -173,6 +198,7 @@ impl BattleSession {
             has_aircraft_factory,
             aircraft_idle,
         );
+        let super_weapon_items = project_super_weapon_items(&self.world, house.as_ref());
         let queues = self
             .world
             .entities
@@ -237,6 +263,7 @@ impl BattleSession {
             infantry_items,
             vehicle_items,
             aircraft_items,
+            super_weapon_items,
             queues,
         }
     }
@@ -333,9 +360,9 @@ fn project_build_items(
                 let id = e.id;
                 !world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != player.house)
                     && world
-                        .ecs_get::<ProductionQueue>(id)
-                        .and_then(|q| q.item.as_ref())
-                        .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
+                    .ecs_get::<ProductionQueue>(id)
+                    .and_then(|q| q.item.as_ref())
+                    .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
             }) {
                 // 建造中：侧栏可点以取消。
                 (true, None)
@@ -412,6 +439,74 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
     keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
     keys.dedup();
     keys
+}
+
+fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeaponCapabilityItem> {
+    use ra_map::MapEntityKind;
+
+    let mut keys: Vec<String> = Vec::new();
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+            continue;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id) else {
+            continue;
+        };
+        if identity.kind != MapEntityKind::Structure {
+            continue;
+        }
+        let Some(sw_key) = world
+            .definitions
+            .structures
+            .get(identity.type_id.as_ref())
+            .and_then(|s| s.super_weapon.as_ref())
+        else {
+            continue;
+        };
+        let key = sw_key.to_ascii_uppercase();
+        if !keys.iter().any(|k| k == &key) {
+            keys.push(key);
+        }
+    }
+    keys.sort();
+    let mut out = Vec::with_capacity(keys.len());
+    for key in keys {
+        let Some(def) = world.definitions.super_weapons.get(&key) else {
+            continue;
+        };
+        let charge = world.super_weapon_runtime.charge(house, &key);
+        let required_ticks = charge.map(|c| c.required_ticks).unwrap_or_else(|| {
+            let units = def.recharge_time.max(1) as u32;
+            units.saturating_mul(crate::gameplay::SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT)
+        });
+        let charge_ticks = charge.map(|c| c.charge_ticks).unwrap_or(0);
+        let ready = charge.is_some_and(|c| c.is_ready());
+        let supported = def.kind.eq_ignore_ascii_case("LightningStorm");
+        let (enabled, disabled_reason) = if !ready {
+            (false, Some(CommandRejectReason::SuperWeaponNotReady))
+        } else if !supported {
+            // 已就绪但玩法未接线：侧栏可见但不可下发。
+            (false, Some(CommandRejectReason::MissingPrerequisite))
+        } else {
+            (true, None)
+        };
+        out.push(SuperWeaponCapabilityItem {
+            type_id: Arc::<str>::from(key),
+            ui_name: Arc::<str>::from(def.ui_name.as_str()),
+            sidebar_image: Arc::<str>::from(def.sidebar_image.as_str()),
+            kind: Arc::<str>::from(def.kind.as_str()),
+            charge_ticks,
+            required_ticks,
+            ready,
+            enabled,
+            disabled_reason,
+        });
+    }
+    out
 }
 
 #[cfg(test)]

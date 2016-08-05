@@ -23,13 +23,13 @@ pub use game::{
     BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject,
     CommandRejectReason, DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
     PlayerBattleStats, RenderSnapshot, SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
-    decode_command, decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command,
-    encode_commands, encode_scheduled,
+    SuperWeaponCapabilityItem, decode_command, decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive,
+    encode_command, encode_commands, encode_scheduled,
 };
 pub use gameplay::{
     houses_are_allied, AiTriggerRuntime, LightningStormState, ScriptTeamRuntime, TerrainSpawnerPhase, TerrainSpawnerState,
-    TerrainSpawnerTick, TriggerRuntime, seed_terrain_spawners, start_lightning_storm, terrain_spawn_sample,
-    terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
+    TerrainSpawnerTick, TriggerRuntime, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, seed_terrain_spawners, start_lightning_storm,
+    terrain_spawn_sample, terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};

@@ -10,4 +10,5 @@ mod infiltrate;
 mod movement;
 mod powers;
 mod production;
+mod super_weapons;
 mod targeting;
