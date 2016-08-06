@@ -80,9 +80,9 @@ pub struct StructureDefinition {
     pub production: Option<ProductionProfile>,
     /// Owner 串（空表示不限）。
     pub owner: String,
-    /// INI `Foundation=` 占地。
+    /// art / rules `Foundation=` 占地（原版主要在 art.ini）。
     pub foundation: Foundation,
-    /// INI / art `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
+    /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
     pub height: u16,
     /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
     pub super_weapon: Option<String>,
@@ -125,7 +125,7 @@ impl StructureDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item=&StructureDefinition> {
         self.by_key.values()
     }
 }

@@ -179,8 +179,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             }
         }
 
-        let foundation = Foundation::parse(&ini_string(&rules.rules, &key, "Foundation").unwrap_or_default());
-        let height = ini_i32(&rules.rules, &key, "Height").unwrap_or(2).max(1) as u16;
+        // `Foundation` / `Height` 在原版主要写在 art.ini；rules 偶有覆盖。支持 art `Image=` 跳转。
+        let foundation = Foundation::parse(&art_or_rules_string(rules, &key, "Foundation").unwrap_or_default());
+        let height = art_or_rules_i32(rules, &key, "Height").unwrap_or(2).max(1) as u16;
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -276,6 +277,26 @@ fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<
     doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
+/// 先读 art 节，再跟 `Image=` 指向的 art 节，最后回落 rules。
+fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option<String> {
+    if let Some(v) = ini_string(&rules.art, type_key, key) {
+        return Some(v);
+    }
+    if let Some(image) = ini_string(&rules.art, type_key, "Image") {
+        let image = image.to_ascii_uppercase();
+        if !image.eq_ignore_ascii_case(type_key) {
+            if let Some(v) = ini_string(&rules.art, &image, key) {
+                return Some(v);
+            }
+        }
+    }
+    ini_string(&rules.rules, type_key, key)
+}
+
+fn art_or_rules_i32(rules: &RulesSystem, type_key: &str, key: &str) -> Option<i32> {
+    art_or_rules_string(rules, type_key, key)?.parse().ok()
+}
+
 fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32> {
     ini_string(doc, section, key)?.parse().ok()
 }
@@ -320,11 +341,20 @@ mod tests {
     use ra_types::GameEdition;
 
     fn rules_from(text: &[u8]) -> RulesSystem {
-        let rules = IniDocument::parse(text).expect("test ini");
+        rules_from_with_art(text, b"")
+    }
+
+    fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
+        let rules = IniDocument::parse(rules_text).expect("test rules ini");
+        let art = if art_text.is_empty() {
+            IniDocument::default()
+        } else {
+            IniDocument::parse(art_text).expect("test art ini")
+        };
         RulesSystem {
             edition: GameEdition::Ra2,
             rules: rules.clone(),
-            art: IniDocument::default(),
+            art,
             overlay_types: OverlayTypeRegistry::default(),
             color_schemes: ColorSchemes::default(),
             countries: CountryRegistry::default(),
@@ -389,5 +419,44 @@ mod tests {
             .expect("tech")
             .capabilities
             .contains(&BuiltinCapability::SuperWeapon));
+    }
+
+    #[test]
+    fn build_runtime_definitions_reads_foundation_from_art() {
+        let rules = rules_from_with_art(
+            b"[BuildingTypes]\n0=NAWEAP\n\
+[NAWEAP]\nCost=2000\nStrength=1000\nOwner=Russians\n",
+            b"[NAWEAP]\nFoundation=5x3\nHeight=6\n",
+        );
+        let defs = build_runtime_definitions(&rules);
+        let s = defs.structures.get("NAWEAP").expect("NAWEAP");
+        assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
+        assert_eq!(s.height, 6);
+    }
+
+    #[test]
+    fn build_runtime_definitions_foundation_follows_art_image() {
+        let rules = rules_from_with_art(
+            b"[BuildingTypes]\n0=NAWEAP2\n\
+[NAWEAP2]\nCost=2000\nStrength=1000\nOwner=Russians\n",
+            b"[NAWEAP2]\nImage=NAWEAP\n\
+[NAWEAP]\nFoundation=5x3\nHeight=6\n",
+        );
+        let defs = build_runtime_definitions(&rules);
+        let s = defs.structures.get("NAWEAP2").expect("NAWEAP2");
+        assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
+        assert_eq!(s.height, 6);
+    }
+
+    #[test]
+    fn build_runtime_definitions_rules_foundation_fallback_without_art() {
+        let rules = rules_from(
+            b"[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nFoundation=2x2\nHeight=4\n",
+        );
+        let defs = build_runtime_definitions(&rules);
+        let s = defs.structures.get("GAPOWR").expect("GAPOWR");
+        assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
+        assert_eq!(s.height, 4);
     }
 }
