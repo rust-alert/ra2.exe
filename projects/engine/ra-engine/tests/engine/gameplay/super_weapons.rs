@@ -1,8 +1,8 @@
 //! 超武充能进能力快照。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, Session, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{CommandRejectReason, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -14,7 +14,7 @@ fn sw_rules() -> RulesSystem {
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=LightningStorm\n",
     )
-    .expect("测试 INI 必须有效");
+        .expect("测试 INI 必须有效");
     RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
@@ -91,4 +91,42 @@ fn capabilities_project_super_weapon_charge_progress() {
     assert!(ready.ready);
     assert!(ready.enabled);
     assert_eq!(ready.disabled_reason, None);
+}
+
+#[test]
+fn order_fire_super_weapon_starts_lightning_storm() {
+    let mut session = Session::from_state(sw_world(), "sw-fire");
+    for _ in 0..SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT {
+        session.expect_battle_mut().world.advance_tick();
+    }
+    assert!(
+        session
+            .expect_battle()
+            .snapshot_capabilities(&[])
+            .super_weapon_items
+            .iter()
+            .any(|i| i.ready && i.enabled),
+        "expected ready LightningStorm"
+    );
+
+    session
+        .expect_battle_mut()
+        .order_fire_super_weapon("LightningStorm", 8, 8);
+    session.expect_battle_mut().world.advance_tick();
+    assert!(
+        session.expect_battle().world.last_rejects().is_empty(),
+        "{:?}",
+        session.expect_battle().world.last_rejects()
+    );
+    assert!(session.expect_battle().world.lightning_storm.is_some());
+
+    let after = session.expect_battle().snapshot_capabilities(&[]);
+    let item = after
+        .super_weapon_items
+        .iter()
+        .find(|i| i.type_id.as_ref() == "LIGHTNINGSTORM")
+        .expect("sw item");
+    assert!(!item.ready);
+    assert!(item.charge_ticks < item.required_ticks);
+    assert_eq!(item.disabled_reason, Some(CommandRejectReason::SuperWeaponNotReady));
 }

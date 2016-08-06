@@ -375,8 +375,7 @@ impl BattleSession {
         }
         if self.paused {
             self.resume();
-        }
-        else {
+        } else {
             self.pause("已暂停");
         }
     }
@@ -573,8 +572,7 @@ impl BattleSession {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "战役失败".into()
-                }
-                else {
+                } else {
                     format!("战役失败 · {reason}")
                 }
             }
@@ -785,6 +783,19 @@ impl BattleSession {
             return;
         }
         self.push_command(GameCommand::CancelProduce { player: self.world.local_player, type_id: type_id.into() });
+    }
+
+    /// 本地玩家释放超级武器到目标格（须充能就绪且有挂接建筑）。
+    pub fn order_fire_super_weapon(&mut self, type_id: impl Into<String>, x: u16, y: u16) {
+        if self.outcome.is_some() {
+            return;
+        }
+        self.push_command(GameCommand::FireSuperWeapon {
+            player: self.world.local_player,
+            type_id: type_id.into(),
+            x,
+            y,
+        });
     }
 
     /// 本机阵营是否正在生产指定类型。
@@ -1168,8 +1179,7 @@ impl BattleSession {
                 .get(identity.type_id.as_ref())
                 .map(|s| (s.foundation.width, s.foundation.height, s.height.max(1)))
                 .unwrap_or((1, 1, 2))
-        }
-        else {
+        } else {
             (0, 0, 0)
         };
         let bracket_delta = self.world.definitions.techno.get(identity.type_id.as_ref()).map(|t| t.pixel_selection_bracket_delta).unwrap_or(0);
@@ -1332,11 +1342,9 @@ fn derive_anim_state(world: &BattleState, id: EntityId) -> AnimState {
 pub fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
     if difficulty.eq_ignore_ascii_case("Easy") {
         tick % 2 == 1
-    }
-    else if difficulty.eq_ignore_ascii_case("Hard") {
+    } else if difficulty.eq_ignore_ascii_case("Hard") {
         false
-    }
-    else {
+    } else {
         tick % 4 == 3
     }
 }
