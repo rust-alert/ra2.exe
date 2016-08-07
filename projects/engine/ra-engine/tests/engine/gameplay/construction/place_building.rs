@@ -171,6 +171,35 @@ fn place_building_rejects_when_footprint_overlaps_obstacle() {
 }
 
 #[test]
+fn place_building_rejects_overlap_even_if_pass_grid_unsealed() {
+    let mut world = yard_world();
+    queue_until_ready(&mut world, "GAPOWR");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+        x: 6,
+        y: 4,
+    });
+    world.advance_tick();
+    assert!(world.last_rejects().is_empty());
+    // 故意只放开通行、不拆实体：旧逻辑只查锚点格会漏掉非原点重叠。
+    world.pass_grid.set_passable(6, 4, true);
+    world.pass_grid.set_passable(7, 4, true);
+    world.pass_grid.set_passable(6, 5, true);
+    world.pass_grid.set_passable(7, 5, true);
+    queue_until_ready(&mut world, "GAPOWR");
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: "GAPOWR".into(),
+        x: 7,
+        y: 4,
+    });
+    world.advance_tick();
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidPlacement);
+    assert_eq!(world.entity_count(), 2);
+}
+
+#[test]
 fn produce_building_rejects_insufficient_funds() {
     let mut world = yard_world();
     assert!(world.set_house_funds("Americans", 100));
