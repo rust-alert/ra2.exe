@@ -251,8 +251,7 @@ impl BattleState {
         if let Some(p) = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)) {
             self.local_player = p.id;
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -693,7 +692,7 @@ impl BattleState {
         self.with_transform_mut(id, |transform| {
             transform.turret_facing = turret_facing;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 测试 / 调试：写入 ECS `Health` 并投影。
@@ -703,7 +702,7 @@ impl BattleState {
             health.maximum = maximum;
             health.dead = dead;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 攻击参数并投影。
@@ -713,7 +712,7 @@ impl BattleState {
             stats.attack_range = range;
             stats.attack_cooldown_max = cooldown_max;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 身份类型并投影。
@@ -723,7 +722,7 @@ impl BattleState {
             identity.type_id = type_id;
             identity.kind = kind;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 移动速度并投影。
@@ -731,7 +730,7 @@ impl BattleState {
         self.with_locomotor_mut(id, |loco| {
             loco.speed = speed;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 测试 / 调试：清空 ECS 移动目的地与路径并投影。
@@ -743,7 +742,7 @@ impl BattleState {
             movement.path.clear();
             movement.move_accum = 0;
         })
-        .is_some()
+            .is_some()
     }
 
     /// 按 house 名称设置资金（启动与测试播种用）。
@@ -752,8 +751,7 @@ impl BattleState {
             player.funds = funds;
             self.rehash();
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -764,8 +762,7 @@ impl BattleState {
             player.tech_level = tech_level.max(0);
             self.rehash();
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -776,8 +773,7 @@ impl BattleState {
             player.allies = allies;
             self.rehash();
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -832,8 +828,7 @@ impl BattleState {
         for cmd in std::mem::take(&mut self.pending_commands) {
             if cmd.tick.0 <= self.tick {
                 due.push(cmd);
-            }
-            else {
+            } else {
                 deferred.push(cmd);
             }
         }
@@ -884,8 +879,6 @@ impl BattleState {
 
     /// 以 `(x,y)` 为左上角，检查 `width×height` 矩形是否全部可放置。
     pub fn can_place_structure_footprint(&self, x: u16, y: u16, width: u16, height: u16) -> bool {
-        use crate::state::components::{Health, Transform};
-
         let width = width.max(1);
         let height = height.max(1);
         for dy in 0..height {
@@ -904,16 +897,49 @@ impl BattleState {
                 if !self.pass_grid.is_passable(cx, cy) {
                     return false;
                 }
-                if self.entities.iter().any(|e| {
-                    let id = e.id;
-                    !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                        && self.ecs_get::<Transform>(id).map(|t| t.x == cx && t.y == cy).unwrap_or(false)
-                }) {
+                if self.cell_blocked_by_entity(cx, cy) {
                     return false;
                 }
             }
         }
         true
+    }
+
+    /// 格上是否有存活实体占用：机动单位看锚点格，建筑看完整 `Foundation` 矩形。
+    fn cell_blocked_by_entity(&self, cx: u16, cy: u16) -> bool {
+        use crate::state::components::{Health, Identity, Transform};
+        use ra_map::MapEntityKind;
+
+        self.entities.iter().any(|e| {
+            let id = e.id;
+            if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            let Some(xf) = self.ecs_get::<Transform>(id)
+            else {
+                return false;
+            };
+            let is_structure = self
+                .ecs_get::<Identity>(id)
+                .map(|i| i.kind == MapEntityKind::Structure)
+                .unwrap_or(false);
+            if !is_structure {
+                return xf.x == cx && xf.y == cy;
+            }
+            let type_id = self
+                .ecs_get::<Identity>(id)
+                .map(|i| i.type_id.clone())
+                .unwrap_or_default();
+            let foundation = self
+                .definitions
+                .structures
+                .get(type_id.as_ref())
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            let fw = foundation.width.max(1);
+            let fh = foundation.height.max(1);
+            cx >= xf.x && cy >= xf.y && cx < xf.x.saturating_add(fw) && cy < xf.y.saturating_add(fh)
+        })
     }
 
     /// 将建筑占地矩形全部标为不可通行。
