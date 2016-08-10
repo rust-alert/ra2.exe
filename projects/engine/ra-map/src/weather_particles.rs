@@ -8,6 +8,7 @@ use crate::Theater;
 
 /// 天气粒子种类。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[doc(hidden)]
 pub enum WeatherKind {
     /// 无粒子。
     #[default]
@@ -22,39 +23,34 @@ pub enum WeatherKind {
 
 /// 单颗粒子。
 #[derive(Debug, Clone, Copy)]
-struct WeatherParticle {
-    x: f32,
-    y: f32,
-    vx: f32,
-    vy: f32,
+#[doc(hidden)]
+pub struct WeatherParticle {
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
     /// 雪：半径；雨：长度；雾：半径。
-    size: f32,
-    alpha: u8,
+    pub size: f32,
+    pub alpha: u8,
 }
 
 /// 可在预览 RGBA 上叠画的天气粒子场。
 #[derive(Debug, Clone)]
+#[doc(hidden)]
 pub struct WeatherParticleField {
-    kind: WeatherKind,
-    width: u32,
-    height: u32,
-    particles: Vec<WeatherParticle>,
-    rng: u64,
+    pub kind: WeatherKind,
+    pub width: u32,
+    pub height: u32,
+    pub particles: Vec<WeatherParticle>,
+    pub rng: u64,
     /// 累计时间（毫秒），供确定性推进。
-    elapsed_ms: u64,
+    pub elapsed_ms: u64,
 }
 
 impl WeatherParticleField {
     /// 空场（不画）。
     pub fn none() -> Self {
-        Self {
-            kind: WeatherKind::None,
-            width: 0,
-            height: 0,
-            particles: Vec::new(),
-            rng: 0xC0FFEE_u64,
-            elapsed_ms: 0,
-        }
+        Self { kind: WeatherKind::None, width: 0, height: 0, particles: Vec::new(), rng: 0xC0FFEE_u64, elapsed_ms: 0 }
     }
 
     /// 按剧院选默认天气（雪地 → 飘雪）。
@@ -68,14 +64,7 @@ impl WeatherParticleField {
 
     /// 构造指定种类的粒子场。
     pub fn new(kind: WeatherKind, width: u32, height: u32, seed: u64) -> Self {
-        let mut field = Self {
-            kind,
-            width,
-            height,
-            particles: Vec::new(),
-            rng: seed | 1,
-            elapsed_ms: 0,
-        };
+        let mut field = Self { kind, width, height, particles: Vec::new(), rng: seed | 1, elapsed_ms: 0 };
         field.respawn_all();
         field
     }
@@ -133,7 +122,8 @@ impl WeatherParticleField {
                     }
                     if self.particles[i].x < -4.0 {
                         self.particles[i].x = w + 4.0;
-                    } else if self.particles[i].x > w + 4.0 {
+                    }
+                    else if self.particles[i].x > w + 4.0 {
                         self.particles[i].x = -4.0;
                     }
                 }
@@ -142,7 +132,8 @@ impl WeatherParticleField {
                         let ny = self.next_f32() * h;
                         self.particles[i].x = -self.particles[i].size;
                         self.particles[i].y = ny;
-                    } else if self.particles[i].x < -self.particles[i].size {
+                    }
+                    else if self.particles[i].x < -self.particles[i].size {
                         let ny = self.next_f32() * h;
                         self.particles[i].x = w + self.particles[i].size;
                         self.particles[i].y = ny;
@@ -295,63 +286,12 @@ impl WeatherParticleField {
     }
 }
 
-fn blend_add(image: &mut RgbaImage, x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) {
+#[doc(hidden)]
+pub fn blend_add(image: &mut RgbaImage, x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) {
     let px = image.get_pixel_mut(x, y);
     let src_a = f32::from(a) / 255.0;
     let dst_a = 1.0 - src_a;
     px.0[0] = (f32::from(px.0[0]) * dst_a + f32::from(r) * src_a).clamp(0.0, 255.0) as u8;
     px.0[1] = (f32::from(px.0[1]) * dst_a + f32::from(g) * src_a).clamp(0.0, 255.0) as u8;
     px.0[2] = (f32::from(px.0[2]) * dst_a + f32::from(b) * src_a).clamp(0.0, 255.0) as u8;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn snow_theater_spawns_active_field() {
-        let field = WeatherParticleField::for_theater(Theater::Snow, 320, 240);
-        assert_eq!(field.kind(), WeatherKind::Snow);
-        assert!(field.is_active());
-        assert!(field.particles.len() >= 48);
-    }
-
-    #[test]
-    fn temperate_theater_has_no_weather() {
-        let field = WeatherParticleField::for_theater(Theater::Temperate, 320, 240);
-        assert!(!field.is_active());
-    }
-
-    #[test]
-    fn snow_paint_marks_dark_canvas() {
-        let mut field = WeatherParticleField::new(WeatherKind::Snow, 80, 60, 42);
-        let mut img = RgbaImage::from_pixel(80, 60, image::Rgba([10, 10, 20, 255]));
-        field.tick(500);
-        field.paint_onto(&mut img);
-        let bright = img.pixels().filter(|p| p.0[0] > 40 || p.0[2] > 40).count();
-        assert!(bright > 20, "expected snow highlights, bright={bright}");
-    }
-
-    #[test]
-    fn fog_paint_softens_canvas() {
-        let field = WeatherParticleField::new(WeatherKind::Fog, 120, 90, 7);
-        let mut img = RgbaImage::from_pixel(120, 90, image::Rgba([20, 30, 40, 255]));
-        field.paint_onto(&mut img);
-        let lifted = img.pixels().filter(|p| p.0[0] > 25).count();
-        assert!(lifted > 50, "expected fog lift, lifted={lifted}");
-    }
-
-    #[test]
-    fn tick_moves_snow_downward() {
-        let mut field = WeatherParticleField::new(WeatherKind::Snow, 100, 100, 99);
-        let before: Vec<f32> = field.particles.iter().map(|p| p.y).collect();
-        field.tick(200);
-        let moved = field
-            .particles
-            .iter()
-            .zip(before.iter())
-            .filter(|(p, y0)| (p.y - *y0).abs() > 1.0)
-            .count();
-        assert!(moved > 10, "expected particles to fall, moved={moved}");
-    }
 }

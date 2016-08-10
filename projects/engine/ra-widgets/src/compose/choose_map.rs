@@ -93,28 +93,10 @@ pub fn compose_choose_map_page(
     // 右栏信息板：与遭遇战同槽，模式名 / 地图名格内居中（板面只留 chrome）。
     if let Some(fnt) = fnt {
         if let Some(caption) = selected_mode_caption.filter(|s| !s.is_empty()) {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                caption,
-                game_type.x,
-                game_type.y,
-                game_type.w,
-                game_type.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, caption, game_type.x, game_type.y, game_type.w, game_type.h, MENU_TEXT_ENABLED);
         }
         if let Some(caption) = selected_map_caption.filter(|s| !s.is_empty()) {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                caption,
-                map_label.x,
-                map_label.y,
-                map_label.w,
-                map_label.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, caption, map_label.x, map_label.y, map_label.w, map_label.h, MENU_TEXT_ENABLED);
         }
     }
 
@@ -130,27 +112,14 @@ pub fn compose_choose_map_page(
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                name,
-                row.x + 2,
-                row.y,
-                row.w - 4,
-                row.h,
-                CHOOSE_MAP_LIST_TEXT,
-            );
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 2, row.y, row.w - 4, row.h, CHOOSE_MAP_LIST_TEXT);
         }
     }
 
     let visible_rows = choose_map_visible_rows(map_list.h);
     let scroll = clamp_map_list_scroll(map_list_scroll, map_names.len(), visible_rows);
     let map_overflow = map_names.len() > visible_rows && visible_rows > 0;
-    let map_content_w = if map_overflow {
-        (map_list.w - CHOOSE_MAP_SCROLL_W).max(8)
-    } else {
-        map_list.w
-    };
+    let map_content_w = if map_overflow { (map_list.w - CHOOSE_MAP_SCROLL_W).max(8) } else { map_list.w };
     for (row_i, name) in map_names.iter().skip(scroll).take(visible_rows).enumerate() {
         let abs_i = scroll + row_i;
         let row = choose_map_list_row_rect(map_list, row_i, map_content_w);
@@ -158,16 +127,7 @@ pub fn compose_choose_map_page(
             fill_rect(&mut page, row, CHOOSE_MAP_LIST_SELECTED);
         }
         if let Some(fnt) = fnt {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                name,
-                row.x + 2,
-                row.y,
-                (row.w - 4).max(8),
-                row.h,
-                CHOOSE_MAP_LIST_TEXT,
-            );
+            blit_caption_top_left_clipped(&mut page, fnt, name, row.x + 2, row.y, (row.w - 4).max(8), row.h, CHOOSE_MAP_LIST_TEXT);
         }
     }
 
@@ -177,8 +137,7 @@ pub fn compose_choose_map_page(
     if let Some(fnt) = fnt {
         let title_text = resolve_caption(csf, "choose_map", Some(choose_map_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title_text, title);
-        let engagement =
-            resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
+        let engagement = resolve_caption(csf, "select_engagement", choose_map_static_csf_key("select_engagement"));
         blit_caption_in_cell(
             &mut page,
             fnt,
@@ -190,23 +149,9 @@ pub fn compose_choose_map_page(
             MENU_TEXT_ENABLED,
         );
         let game_type_hdr = resolve_caption(csf, "game_type", choose_map_static_csf_key("game_type"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &game_type_hdr,
-            label_game_type.x,
-            label_game_type.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &game_type_hdr, label_game_type.x, label_game_type.y, MENU_TEXT_ENABLED);
         let game_map = resolve_caption(csf, "game_map", choose_map_static_csf_key("game_map"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &game_map,
-            label_game_map.x,
-            label_game_map.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &game_map, label_game_map.x, label_game_map.y, MENU_TEXT_ENABLED);
         if let Some(text) = status_text.filter(|s| !s.is_empty()) {
             blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
         }
@@ -233,10 +178,6 @@ fn paint_choose_map_scrollbar(page: &mut RgbaImage, list: RectPx, total: usize, 
     for (i, dy) in [0i32, 1, 2, 3].into_iter().enumerate() {
         let half = i as i32;
         fill_rect(page, RectPx::new(mid_x - half, track.y + 2 + dy, half * 2 + 1, 1), CHOOSE_MAP_SCROLL_THUMB);
-        fill_rect(
-            page,
-            RectPx::new(mid_x - half, track.y + track.h - 3 - dy, half * 2 + 1, 1),
-            CHOOSE_MAP_SCROLL_THUMB,
-        );
+        fill_rect(page, RectPx::new(mid_x - half, track.y + track.h - 3 - dy, half * 2 + 1, 1), CHOOSE_MAP_SCROLL_THUMB);
     }
 }

@@ -7,28 +7,20 @@ use ra_assets::IniDocument;
 use ra_map::{MapInfo, OverlayCell, TerrainObject};
 
 /// 概率分母（与零售 `random % 1_000_000` 对齐）。
-const PROBABILITY_DENOMINATOR: u32 = 1_000_000;
+pub const PROBABILITY_DENOMINATOR: u32 = 1_000_000;
 
 /// 邻格产矿默认密度等级（`OverlayData`）。
-const SPAWN_ORE_DENSITY: u8 = 3;
+pub const SPAWN_ORE_DENSITY: u8 = 3;
 
 /// 无 SHP 元数据时的零售矿柱总帧数（含落影半幅）。
-const STOCK_TIBTRE_FRAME_COUNT: u16 = 22;
+pub const STOCK_TIBTRE_FRAME_COUNT: u16 = 22;
 
 /// 8 邻方向。
-const ADJACENT: [(i32, i32); 8] = [
-    (0, -1),
-    (1, -1),
-    (1, 0),
-    (1, 1),
-    (0, 1),
-    (-1, 1),
-    (-1, 0),
-    (-1, -1),
-];
+pub const ADJACENT: [(i32, i32); 8] = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)];
 
 /// 单个矿柱的动画相位。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc(hidden)]
 pub enum TerrainSpawnerPhase {
     /// 静止；呈现固定第 0 帧。
     Idle,
@@ -43,6 +35,7 @@ pub enum TerrainSpawnerPhase {
 
 /// 一次 tick 的结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc(hidden)]
 pub enum TerrainSpawnerTick {
     /// 仍在 Idle。
     Idle,
@@ -56,6 +49,7 @@ pub enum TerrainSpawnerTick {
 
 /// 地图上一座 `SpawnsTiberium` 矿柱的运行时状态。
 #[derive(Debug, Clone, PartialEq)]
+#[doc(hidden)]
 pub struct TerrainSpawnerState {
     /// 格子 X。
     pub x: u16,
@@ -104,22 +98,14 @@ impl TerrainSpawnerState {
             TerrainSpawnerPhase::Idle => 0,
             TerrainSpawnerPhase::Active { current_frame, .. } => {
                 let body = self.body_frame_count();
-                if body == 0 {
-                    0
-                } else {
-                    current_frame.min((body - 1) as u16)
-                }
+                if body == 0 { 0 } else { current_frame.min((body - 1) as u16) }
             }
         }
     }
 
     /// 主体帧数（有落影半幅时为前半）。
     pub fn body_frame_count(&self) -> usize {
-        if self.frame_count > 0 && self.frame_count % 2 == 0 {
-            usize::from(self.frame_count / 2)
-        } else {
-            usize::from(self.frame_count.max(1))
-        }
+        if self.frame_count > 0 && self.frame_count % 2 == 0 { usize::from(self.frame_count / 2) } else { usize::from(self.frame_count.max(1)) }
     }
 
     /// 推进一个逻辑 tick。
@@ -130,36 +116,26 @@ impl TerrainSpawnerState {
                     return TerrainSpawnerTick::Idle;
                 }
                 if sample_micros < self.animation_probability_micros {
-                    self.phase = TerrainSpawnerPhase::Active {
-                        current_frame: 0,
-                        ticks_until_next: self.animation_rate_ticks,
-                    };
+                    self.phase = TerrainSpawnerPhase::Active { current_frame: 0, ticks_until_next: self.animation_rate_ticks };
                     TerrainSpawnerTick::Started
-                } else {
+                }
+                else {
                     TerrainSpawnerTick::Idle
                 }
             }
-            TerrainSpawnerPhase::Active {
-                current_frame,
-                ticks_until_next,
-            } => {
+            TerrainSpawnerPhase::Active { current_frame, ticks_until_next } => {
                 let next_timer = ticks_until_next.saturating_sub(1);
                 if next_timer > 0 {
-                    self.phase = TerrainSpawnerPhase::Active {
-                        current_frame,
-                        ticks_until_next: next_timer,
-                    };
+                    self.phase = TerrainSpawnerPhase::Active { current_frame, ticks_until_next: next_timer };
                     return TerrainSpawnerTick::Active;
                 }
                 let next_frame = current_frame.saturating_add(1);
                 if next_frame >= self.midpoint_frame {
                     self.phase = TerrainSpawnerPhase::Idle;
                     TerrainSpawnerTick::SpawnDue
-                } else {
-                    self.phase = TerrainSpawnerPhase::Active {
-                        current_frame: next_frame,
-                        ticks_until_next: self.animation_rate_ticks,
-                    };
+                }
+                else {
+                    self.phase = TerrainSpawnerPhase::Active { current_frame: next_frame, ticks_until_next: self.animation_rate_ticks };
                     TerrainSpawnerTick::Active
                 }
             }
@@ -178,7 +154,8 @@ pub fn seed_terrain_spawners(map: &MapInfo, rules: &IniDocument) -> Vec<TerrainS
     out
 }
 
-fn spawner_from_terrain_object(obj: &TerrainObject, rules: &IniDocument) -> Option<TerrainSpawnerState> {
+#[doc(hidden)]
+pub fn spawner_from_terrain_object(obj: &TerrainObject, rules: &IniDocument) -> Option<TerrainSpawnerState> {
     if !is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
         return None;
     }
@@ -186,22 +163,12 @@ fn spawner_from_terrain_object(obj: &TerrainObject, rules: &IniDocument) -> Opti
         return None;
     }
     let probability = parse_probability_micros(rules.get(&obj.name, "AnimationProbability"));
-    let rate = rules
-        .get(&obj.name, "AnimationRate")
-        .and_then(|v| v.trim().parse::<u16>().ok())
-        .unwrap_or(1)
-        .max(1);
-    Some(TerrainSpawnerState::new(
-        obj.x,
-        obj.y,
-        obj.name.clone(),
-        probability,
-        rate,
-        STOCK_TIBTRE_FRAME_COUNT,
-    ))
+    let rate = rules.get(&obj.name, "AnimationRate").and_then(|v| v.trim().parse::<u16>().ok()).unwrap_or(1).max(1);
+    Some(TerrainSpawnerState::new(obj.x, obj.y, obj.name.clone(), probability, rate, STOCK_TIBTRE_FRAME_COUNT))
 }
 
-fn parse_probability_micros(raw: Option<&str>) -> u32 {
+#[doc(hidden)]
+pub fn parse_probability_micros(raw: Option<&str>) -> u32 {
     let Some(raw) = raw
     else {
         return 0;
@@ -213,16 +180,14 @@ fn parse_probability_micros(raw: Option<&str>) -> u32 {
     0
 }
 
-fn is_yes(raw: Option<&str>) -> bool {
+#[doc(hidden)]
+pub fn is_yes(raw: Option<&str>) -> bool {
     raw.is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"))
 }
 
 /// 确定性掷骰样本（0..1_000_000）。
 pub fn terrain_spawn_sample(match_seed: u64, tick: u64, x: u16, y: u16) -> u32 {
-    let mut h = match_seed
-        ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15)
-        ^ (u64::from(x) << 32)
-        ^ u64::from(y);
+    let mut h = match_seed ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (u64::from(x) << 32) ^ u64::from(y);
     h ^= h >> 30;
     h = h.wrapping_mul(0xBF58_476D_1CE4_E5B9);
     h ^= h >> 27;
@@ -271,18 +236,14 @@ pub fn place_spawned_ore(
             }
             continue;
         }
-        overlays.push(OverlayCell {
-            x,
-            y,
-            overlay_id: ore_id,
-            data: SPAWN_ORE_DENSITY,
-        });
+        overlays.push(OverlayCell { x, y, overlay_id: ore_id, data: SPAWN_ORE_DENSITY });
         return Some((x, y));
     }
     None
 }
 
-fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
+#[doc(hidden)]
+pub fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
     for id in 0..reg.len().min(256) {
         let id = id as u8;
         if reg.is_harvestable(id) {
@@ -290,142 +251,4 @@ fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_assets::IniDocument;
-
-    fn tibtre_rules() -> IniDocument {
-        IniDocument::parse(
-            br#"
-[TIBTRE01]
-SpawnsTiberium=yes
-IsAnimated=yes
-AnimationRate=3
-AnimationProbability=.003
-"#,
-        )
-        .expect("ini")
-    }
-
-    #[test]
-    fn parses_probability_micros() {
-        assert_eq!(parse_probability_micros(Some(".003")), 3000);
-        assert_eq!(parse_probability_micros(Some("1")), 1_000_000);
-        assert_eq!(parse_probability_micros(None), 0);
-    }
-
-    #[test]
-    fn idle_stays_without_roll() {
-        let mut s = TerrainSpawnerState::new(1, 2, "TIBTRE01", 3000, 3, 22);
-        assert_eq!(s.tick(3000), TerrainSpawnerTick::Idle);
-        assert_eq!(s.render_frame(), 0);
-    }
-
-    #[test]
-    fn roll_starts_and_midpoint_spawns() {
-        let mut s = TerrainSpawnerState::new(1, 2, "TIBTRE01", 3000, 3, 22);
-        assert_eq!(s.midpoint_frame, 11);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Started);
-        assert_eq!(s.render_frame(), 0);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Active);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Active);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Active);
-        assert_eq!(s.render_frame(), 1);
-        for _ in 0..(9 * 3) {
-            let _ = s.tick(0);
-        }
-        assert_eq!(s.render_frame(), 10);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Active);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::Active);
-        assert_eq!(s.tick(0), TerrainSpawnerTick::SpawnDue);
-        assert!(matches!(s.phase, TerrainSpawnerPhase::Idle));
-        assert_eq!(s.render_frame(), 0);
-    }
-
-    #[test]
-    fn seeds_from_map_terrain() {
-        let rules = tibtre_rules();
-        let mut map = ra_map::MapInfo::empty(ra_types::GameEdition::Ra2, "t");
-        map.terrain_objects = vec![
-            TerrainObject { x: 5, y: 6, name: "TIBTRE01".into() },
-            TerrainObject { x: 1, y: 1, name: "TREE01".into() },
-        ];
-        let seeded = seed_terrain_spawners(&map, &rules);
-        assert_eq!(seeded.len(), 1);
-        assert_eq!(seeded[0].x, 5);
-        assert_eq!(seeded[0].animation_probability_micros, 3000);
-        assert_eq!(seeded[0].animation_rate_ticks, 3);
-    }
-
-    fn ore_overlay_types() -> ra_assets::OverlayTypeRegistry {
-        let doc = IniDocument::parse(
-            br#"
-[OverlayTypes]
-0=BRIDGE1
-1=TIB01
-
-[BRIDGE1]
-Land=Road
-
-[TIB01]
-Tiberium=yes
-"#,
-        )
-        .expect("ini");
-        ra_assets::OverlayTypeRegistry::from_rules(&doc)
-    }
-
-    #[test]
-    fn place_spawned_ore_writes_first_empty_neighbor() {
-        let reg = ore_overlay_types();
-        let mut overlays = Vec::new();
-        assert_eq!(
-            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
-            Some((5, 4))
-        );
-        assert_eq!(overlays.len(), 1);
-        assert_eq!(overlays[0].x, 5);
-        assert_eq!(overlays[0].y, 4);
-        assert_eq!(overlays[0].overlay_id, 1);
-        assert_eq!(overlays[0].data, SPAWN_ORE_DENSITY);
-    }
-
-    #[test]
-    fn place_spawned_ore_raises_existing_harvestable_density() {
-        let reg = ore_overlay_types();
-        let mut overlays = vec![OverlayCell {
-            x: 5,
-            y: 4,
-            overlay_id: 1,
-            data: 2,
-        }];
-        assert_eq!(
-            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
-            Some((5, 4))
-        );
-        assert_eq!(overlays.len(), 1);
-        assert_eq!(overlays[0].data, 3);
-    }
-
-    #[test]
-    fn place_spawned_ore_skips_non_harvestable_occupied_cell() {
-        let reg = ore_overlay_types();
-        let mut overlays = vec![OverlayCell {
-            x: 5,
-            y: 4,
-            overlay_id: 0,
-            data: 0,
-        }];
-        assert_eq!(
-            place_spawned_ore(&mut overlays, &reg, 5, 5, |x, y| x < 10 && y < 10),
-            Some((6, 4))
-        );
-        assert_eq!(overlays.len(), 2);
-        assert_eq!(overlays[1].x, 6);
-        assert_eq!(overlays[1].y, 4);
-        assert_eq!(overlays[1].overlay_id, 1);
-    }
 }

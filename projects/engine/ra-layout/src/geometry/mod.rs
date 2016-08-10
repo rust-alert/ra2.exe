@@ -39,10 +39,7 @@ impl Rect {
 
     /// 点是否落在矩形内（含左上、不含右下边界约定：`[min, max)`）。
     pub fn contains(&self, point: Point2) -> bool {
-        point.x >= self.x
-            && point.y >= self.y
-            && point.x < self.x + self.width
-            && point.y < self.y + self.height
+        point.x >= self.x && point.y >= self.y && point.x < self.x + self.width && point.y < self.y + self.height
     }
 
     /// 归一化框 `[x0,y0)…(x1,y1]` → 设计像素矩形（相对画布宽高）。

@@ -159,7 +159,8 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
                 if idx < fields.len() {
                     params.push(fields[idx].to_string());
                     idx += 1;
-                } else {
+                }
+                else {
                     params.push(String::new());
                 }
             }
@@ -191,15 +192,7 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
             }
             let kind = MapActionKind::from_code(fields[idx].parse().unwrap_or(0));
             idx += 1;
-            let mut params = [
-                String::new(),
-                String::new(),
-                String::new(),
-                String::new(),
-                String::new(),
-                String::new(),
-                String::new(),
-            ];
+            let mut params = [String::new(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()];
             for p in params.iter_mut() {
                 if idx < fields.len() {
                     *p = fields[idx].to_string();
@@ -227,11 +220,7 @@ pub fn parse_cell_tags(doc: &IniDocument) -> Vec<MapCellTag> {
         };
         let y = (n / 1000) as u16;
         let x = (n % 1000) as u16;
-        out.push(MapCellTag {
-            x,
-            y,
-            tag_id: tag_id.trim().to_string(),
-        });
+        out.push(MapCellTag { x, y, tag_id: tag_id.trim().to_string() });
     }
     out
 }

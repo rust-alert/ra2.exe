@@ -2,7 +2,6 @@ use ra_types::{CommandId, PlayerId, ScheduledCommand, Tick};
 
 use super::codec::{decode_command, encode_command};
 
-
 /// 编码已调度命令：信封 + 载荷。
 pub fn encode_scheduled(cmd: &ScheduledCommand) -> Vec<u8> {
     let mut b = Vec::new();

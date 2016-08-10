@@ -1,8 +1,8 @@
 //! 工程师占领可俘建筑。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -36,14 +36,7 @@ fn capture_world(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16,
     capture_world_owned(engineer_x, engineer_y, building_type, bx, by, "Russians")
 }
 
-fn capture_world_owned(
-    engineer_x: u16,
-    engineer_y: u16,
-    building_type: &str,
-    bx: u16,
-    by: u16,
-    building_owner: &str,
-) -> BattleState {
+fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16, building_owner: &str) -> BattleState {
     let rules_db = capture_rules();
     let mut map = MapInfo::empty(GameEdition::Ra2, "engineer-capture");
     map.width = 16;
@@ -107,10 +100,7 @@ fn non_engineer_cannot_capture() {
     let building = world.entity_id_at(1).expect("building");
     world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
-    assert!(world
-        .last_rejects()
-        .iter()
-        .any(|r| r.reason == CommandRejectReason::InvalidTarget));
+    assert!(world.last_rejects().iter().any(|r| r.reason == CommandRejectReason::InvalidTarget));
 }
 
 #[test]
@@ -118,27 +108,13 @@ fn engineer_captures_power_plant_and_dies() {
     let mut world = capture_world(4, 4, "GAPOWR", 5, 4);
     let engineer = world.entity_id_at(0).expect("engineer");
     let building = world.entity_id_at(1).expect("building");
-    world.push_command(GameCommand::CaptureBuilding {
-        engineer,
-        building,
-    });
+    world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert!(world.ecs_health(engineer).expect("health").2);
-    assert_eq!(
-        world.ecs_owner(building).expect("owner").as_ref(),
-        "Americans"
-    );
-    let ally = world
-        .players
-        .iter()
-        .find(|p| p.house.as_ref() == "Americans")
-        .expect("ally");
-    let victim = world
-        .players
-        .iter()
-        .find(|p| p.house.as_ref() == "Russians")
-        .expect("victim");
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
+    let ally = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
+    let victim = world.players.iter().find(|p| p.house.as_ref() == "Russians").expect("victim");
     assert_eq!(ally.power_output, 200);
     assert_eq!(victim.power_output, 0);
     assert_eq!(world.take_structure_paint_dirty(), vec![building]);
@@ -152,20 +128,12 @@ fn engineer_capturing_tech_building_emits_tech_eva() {
     let mut world = capture_world(4, 4, "GATECH", 5, 4);
     let engineer = world.entity_id_at(0).expect("engineer");
     let building = world.entity_id_at(1).expect("building");
-    world.push_command(GameCommand::CaptureBuilding {
-        engineer,
-        building,
-    });
+    world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(
-        world.ecs_owner(building).expect("owner").as_ref(),
-        "Americans"
-    );
+    assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
     let cues = world.take_eva_cues();
-    assert!(cues
-        .iter()
-        .any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
 }
 
 #[test]
@@ -175,10 +143,7 @@ fn non_capturable_building_rejects_capture() {
     let building = world.entity_id_at(1).expect("building");
     world.push_command(GameCommand::CaptureBuilding { engineer, building });
     world.advance_tick();
-    assert!(world
-        .last_rejects()
-        .iter()
-        .any(|r| r.reason == CommandRejectReason::InvalidTarget));
+    assert!(world.last_rejects().iter().any(|r| r.reason == CommandRejectReason::InvalidTarget));
 }
 
 #[test]
@@ -204,8 +169,6 @@ fn engineer_captures_neutral_tech_building_without_victim_eva() {
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.ecs_owner(building).expect("owner").as_ref(), "Americans");
     let cues = world.take_eva_cues();
-    assert!(cues
-        .iter()
-        .any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
+    assert!(cues.iter().any(|c| c.house.as_ref() == "Americans" && c.event == "EVA_TechBuildingCaptured"));
     assert!(!cues.iter().any(|c| c.house.as_ref().eq_ignore_ascii_case("Neutral")));
 }

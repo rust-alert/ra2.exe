@@ -17,11 +17,7 @@ pub fn compose_options_page(
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_options_page();
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
-    let mut page = RgbaImage::from_raw(
-        canvas.w as u32,
-        canvas.h as u32,
-        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
-    )?;
+    let mut page = RgbaImage::from_raw(canvas.w as u32, canvas.h as u32, vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4])?;
     // 整页黑底，避免残留主菜单影片/大背景。
     fill_rect(&mut page, canvas, [0, 0, 0, 255]);
 
@@ -39,16 +35,11 @@ pub fn compose_options_page(
     let button_ids = &OPTIONS_BUTTON_IDS[..];
     let btn_plan = crate::RenderPlan::options_page_placeholders().button_sprite_plan(button_ids);
     btn_plan.paint_sprites_into(&mut page, |slot| {
-        resolve_button_sprite(
-            decoded,
-            slot,
-            pressed_entry_id == Some(slot),
-            hovered_entry_id == Some(slot),
-        )
-        .map(|s| &s.image)
+        resolve_button_sprite(decoded, slot, pressed_entry_id == Some(slot), hovered_entry_id == Some(slot)).map(|s| &s.image)
     });
     for entry_id in OPTIONS_BUTTON_IDS.iter() {
-        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+        let Some(cell) = btn_plan.rect_px_of(entry_id)
+        else {
             continue;
         };
         if let Some(fnt) = fnt {
@@ -63,16 +54,7 @@ pub fn compose_options_page(
     if let Some(fnt) = fnt {
         let title = resolve_caption(csf, "options", options_dialog_csf_key("title"));
         let title_cell = rect_px_from_snapshot(&snap, "title");
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title,
-            title_cell.x,
-            title_cell.y,
-            title_cell.w,
-            title_cell.h,
-            MENU_TEXT_SECTION,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title, title_cell.x, title_cell.y, title_cell.w, title_cell.h, MENU_TEXT_SECTION);
     }
 
     paint_options_dialog_controls(&mut page, &snap, state, fnt, csf);

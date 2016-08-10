@@ -3,10 +3,7 @@
 //! 文件名与菜单壳层分离；同名 SHP 靠 `MixFileIndex` 嵌套包区分外观。
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
-use crate::{
-    skin::decode::DecodedUiSprite,
-    skirmish_setup::UiFactionChrome,
-};
+use crate::skin::decode::DecodedUiSprite;
 
 /// 对局侧栏调色板。
 
@@ -70,7 +67,6 @@ pub struct BattleHudChrome {
     /// 解码失败说明。
     pub errors: Vec<String>,
 }
-
 
 impl BattleHudChrome {
     /// 是否至少解出右栏主体。

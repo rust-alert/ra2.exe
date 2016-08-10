@@ -4,11 +4,13 @@ use ra_map::{MapEntityKind, PassGrid};
 
 use crate::state::components::{AttackState, CombatStats, Health, Identity, Locomotor, MovementState, Transform};
 
-pub(crate) fn is_mobile(kind: MapEntityKind) -> bool {
+#[doc(hidden)]
+pub fn is_mobile(kind: MapEntityKind) -> bool {
     matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
 }
 
-pub(crate) fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
+#[doc(hidden)]
+pub fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
     if *current == desired || step == 0 {
         return;
     }
@@ -22,12 +24,13 @@ pub(crate) fn turn_facing_toward(current: &mut u8, desired: u8, step: u8) {
     *current = (cur + moved).rem_euclid(256) as u8;
 }
 
-pub(crate) fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
+#[doc(hidden)]
+pub fn manhattan(ax: u16, ay: u16, bx: u16, by: u16) -> u32 {
     (i32::from(ax) - i32::from(bx)).unsigned_abs() + (i32::from(ay) - i32::from(by)).unsigned_abs()
 }
 
 /// 点到占地矩形（左上锚点 + 宽高）的曼哈顿距离；落在矩形内为 0。
-pub(crate) fn manhattan_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> u32 {
+pub fn manhattan_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> u32 {
     let width = width.max(1);
     let height = height.max(1);
     let x2 = fx.saturating_add(width.saturating_sub(1));
@@ -38,19 +41,12 @@ pub(crate) fn manhattan_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: 
 }
 
 /// 是否紧贴占地外沿（曼哈顿距离恰为 1）。
-pub(crate) fn is_adjacent_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> bool {
+pub fn is_adjacent_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> bool {
     manhattan_to_footprint(px, py, fx, fy, width, height) == 1
 }
 
 /// 占地外沿上离 `(px,py)` 最近的邻接格（供移动目的地；不查通行）。
-pub(crate) fn nearest_adjacent_to_footprint(
-    px: u16,
-    py: u16,
-    fx: u16,
-    fy: u16,
-    width: u16,
-    height: u16,
-) -> (u16, u16) {
+pub fn nearest_adjacent_to_footprint(px: u16, py: u16, fx: u16, fy: u16, width: u16, height: u16) -> (u16, u16) {
     let width = width.max(1);
     let height = height.max(1);
     let x1 = i32::from(fx);
@@ -79,7 +75,8 @@ pub(crate) fn nearest_adjacent_to_footprint(
     best
 }
 
-pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
+#[doc(hidden)]
+pub fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u8 {
     match ((i32::from(to_x) - i32::from(from_x)).signum(), (i32::from(to_y) - i32::from(from_y)).signum()) {
         (1, 0) => 0,
         (1, 1) => 32,
@@ -93,31 +90,9 @@ pub(crate) fn facing_toward(from_x: u16, from_y: u16, to_x: u16, to_y: u16) -> u
     }
 }
 
-#[cfg(test)]
-mod footprint_tests {
-    use super::{is_adjacent_to_footprint, manhattan_to_footprint, nearest_adjacent_to_footprint};
-
-    #[test]
-    fn footprint_distance_uses_nearest_cell() {
-        // 2x2 锚点 (4,4) 覆盖 (4,4)(5,4)(4,5)(5,5)
-        assert_eq!(manhattan_to_footprint(6, 4, 4, 4, 2, 2), 1);
-        assert_eq!(manhattan_to_footprint(6, 5, 4, 4, 2, 2), 1);
-        assert_eq!(manhattan_to_footprint(7, 4, 4, 4, 2, 2), 2);
-        assert_eq!(manhattan_to_footprint(5, 4, 4, 4, 2, 2), 0);
-        assert!(is_adjacent_to_footprint(6, 4, 4, 4, 2, 2));
-        assert!(!is_adjacent_to_footprint(7, 4, 4, 4, 2, 2));
-    }
-
-    #[test]
-    fn nearest_adjacent_picks_closest_ring_cell() {
-        assert_eq!(nearest_adjacent_to_footprint(7, 4, 4, 4, 2, 2), (6, 4));
-        assert_eq!(nearest_adjacent_to_footprint(3, 4, 4, 4, 2, 2), (3, 4));
-    }
-}
-
 impl crate::state::BattleState {
     /// 其它存活移动单位是否占用该格（读 ECS）。
-    pub(crate) fn cell_occupied_by_other(&self, self_i: usize, x: u16, y: u16) -> bool {
+    pub fn cell_occupied_by_other(&self, self_i: usize, x: u16, y: u16) -> bool {
         self.entities.iter().enumerate().any(|(j, o)| {
             if j == self_i {
                 return false;
@@ -134,12 +109,9 @@ impl crate::state::BattleState {
     }
 
     /// 根据 ECS 坐标与目的地计算路径（不写入实体）。
-    pub(crate) fn compute_repath_at(&self, i: usize) -> Vec<(u16, u16)> {
+    pub fn compute_repath_at(&self, i: usize) -> Vec<(u16, u16)> {
         let id = self.entities[i].id;
-        let (Some(tx), Some(ty)) = self
-            .ecs_get::<MovementState>(id)
-            .map(|m| (m.destination_x, m.destination_y))
-            .unwrap_or((None, None))
+        let (Some(tx), Some(ty)) = self.ecs_get::<MovementState>(id).map(|m| (m.destination_x, m.destination_y)).unwrap_or((None, None))
         else {
             return Vec::new();
         };
@@ -178,7 +150,8 @@ impl crate::state::BattleState {
     }
 }
 
-fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
+#[doc(hidden)]
+pub fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u16, u16) {
     if grid.is_passable(tx, ty) {
         return (tx, ty);
     }
@@ -207,7 +180,7 @@ fn nearest_free_goal(grid: &PassGrid, sx: u16, sy: u16, tx: u16, ty: u16) -> (u1
 }
 
 /// 弹出路径首格并返回新坐标与朝向（路径写入仍由调用方经 ECS 完成）。
-pub(crate) fn take_path_step(path: &mut Vec<(u16, u16)>, from_x: u16, from_y: u16) -> Option<(u16, u16, u8)> {
+pub fn take_path_step(path: &mut Vec<(u16, u16)>, from_x: u16, from_y: u16) -> Option<(u16, u16, u8)> {
     let (x, y) = path.first().copied()?;
     path.remove(0);
     let facing = facing_toward(from_x, from_y, x, y);
@@ -215,7 +188,8 @@ pub(crate) fn take_path_step(path: &mut Vec<(u16, u16)>, from_x: u16, from_y: u1
 }
 
 impl crate::state::BattleState {
-    pub(crate) fn advance_movement(&mut self) {
+    #[doc(hidden)]
+    pub fn advance_movement(&mut self) {
         let n = self.entities.len();
         for i in 0..n {
             let id = self.entities[i].id;
@@ -235,9 +209,7 @@ impl crate::state::BattleState {
                     let target_dead = self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true);
                     let range = self.ecs_get::<CombatStats>(id).map(|s| s.attack_range).unwrap_or(0);
                     if !target_dead {
-                        if let (Some(ax), Some(tx)) =
-                            (self.ecs_get::<Transform>(id).copied(), self.ecs_get::<Transform>(target_id).copied())
-                        {
+                        if let (Some(ax), Some(tx)) = (self.ecs_get::<Transform>(id).copied(), self.ecs_get::<Transform>(target_id).copied()) {
                             if manhattan(ax.x, ax.y, tx.x, tx.y) <= range {
                                 let _ = self.with_movement_mut(id, |movement| {
                                     movement.path.clear();
@@ -269,7 +241,8 @@ impl crate::state::BattleState {
                         movement.destination_x = Some(nx);
                         movement.destination_y = Some(ny);
                         true
-                    } else {
+                    }
+                    else {
                         movement.destination_x = None;
                         movement.destination_y = None;
                         false

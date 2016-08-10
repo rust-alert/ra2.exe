@@ -9,13 +9,11 @@
 
 use crate::{menu_action::MenuAction, original_screen::OriginalScreen, skin::slots::slots_for};
 use ra_layout::{
-    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H,
-    EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS,
-    OPTIONS_BUTTON_IDS, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_SCORE_BUTTON_IDS,
-    LayoutSnapshot, Point2, Rect, RectPx, choose_map_list_row_rect, choose_map_visible_rows,
-    clamp_map_list_scroll, solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen,
-    solve_network_page, solve_options_page, solve_shell_page, solve_skirmish_lobby, solve_skirmish_score,
-    window_to_shell_px,
+    CAMPAIGN_BUTTON_IDS, CAMPAIGN_SIDE_IDS, CHOOSE_MAP_BUTTON_IDS, CHOOSE_MAP_LIST_ROW_H, EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS,
+    LayoutSnapshot, MAIN_MENU_BUTTON_IDS, NETWORK_BUTTON_IDS, OPTIONS_BUTTON_IDS, Point2, Rect, RectPx, SINGLE_PLAYER_BUTTON_IDS,
+    SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_SCORE_BUTTON_IDS, choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll,
+    solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
+    solve_skirmish_lobby, solve_skirmish_score, window_to_shell_px,
 };
 use ra_map::BootMapCandidate;
 
@@ -94,8 +92,7 @@ pub fn hit_action(
         return hit_exit_confirm_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
     }
     if screen == OriginalScreen::LoadScreen {
-        return hit_load_screen_at(cursor.0, cursor.1, win_w, win_h, load_allow_retry)
-            .map(|(_, action)| action);
+        return hit_load_screen_at(cursor.0, cursor.1, win_w, win_h, load_allow_retry).map(|(_, action)| action);
     }
     if screen == OriginalScreen::Network {
         return hit_network_at(cursor.0, cursor.1, win_w, win_h).map(|(_, action)| action);
@@ -159,49 +156,35 @@ fn shell_point(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<P
         return None;
     }
     let (sx, sy) = window_to_shell_px(cursor_x, cursor_y, win_w, win_h);
-    Some(Point2 {
-        x: sx as f32,
-        y: sy as f32,
-    })
+    Some(Point2 { x: sx as f32, y: sy as f32 })
 }
 
-fn hits_from_slot_ids(
-    screen: OriginalScreen,
-    snap: &LayoutSnapshot,
-    ids: &[&'static str],
-) -> Vec<MenuHit> {
-    let Some(page) = slots_for(screen) else {
+fn hits_from_slot_ids(screen: OriginalScreen, snap: &LayoutSnapshot, ids: &[&'static str]) -> Vec<MenuHit> {
+    let Some(page) = slots_for(screen)
+    else {
         return Vec::new();
     };
     ids.iter()
         .filter_map(|id| {
             let btn = page.buttons.iter().find(|b| b.entry_id == *id)?;
             let el = snap.get(id)?;
-            Some(menu_hit_from_rect(
-                btn.entry_id,
-                btn.action,
-                el.layout.rect,
-                btn.enabled,
-            ))
+            Some(menu_hit_from_rect(btn.entry_id, btn.action, el.layout.rect, btn.enabled))
         })
         .collect()
 }
 
-fn hit_enabled_slot_at(
-    screen: OriginalScreen,
-    snap: &LayoutSnapshot,
-    ids: &[&'static str],
-    point: Point2,
-) -> Option<(usize, MenuAction)> {
+fn hit_enabled_slot_at(screen: OriginalScreen, snap: &LayoutSnapshot, ids: &[&'static str], point: Point2) -> Option<(usize, MenuAction)> {
     let page = slots_for(screen)?;
     for (i, id) in ids.iter().enumerate() {
-        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id) else {
+        let Some(btn) = page.buttons.iter().find(|b| b.entry_id == *id)
+        else {
             continue;
         };
         if !btn.enabled {
             continue;
         }
-        let Some(el) = snap.get(id) else {
+        let Some(el) = snap.get(id)
+        else {
             continue;
         };
         if el.layout.rect.contains(point) {
@@ -221,21 +204,12 @@ fn hover_ids_at(snap: &LayoutSnapshot, ids: &[&'static str], point: Point2) -> O
 }
 
 fn hits_main_menu() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::MainMenu,
-        &main_menu_snapshot(),
-        &MAIN_MENU_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::MainMenu, &main_menu_snapshot(), &MAIN_MENU_BUTTON_IDS)
 }
 
 fn hit_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::MainMenu,
-        &main_menu_snapshot(),
-        &MAIN_MENU_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::MainMenu, &main_menu_snapshot(), &MAIN_MENU_BUTTON_IDS, point)
 }
 
 /// 悬停：含禁用钮（底栏提示仍可显示）。
@@ -245,29 +219,16 @@ fn hover_main_menu_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> O
 }
 
 fn main_menu_snapshot() -> LayoutSnapshot {
-    solve_shell_page(
-        "main_menu",
-        &MAIN_MENU_BUTTON_IDS[..5],
-        Some(MAIN_MENU_BUTTON_IDS[5]),
-    )
+    solve_shell_page("main_menu", &MAIN_MENU_BUTTON_IDS[..5], Some(MAIN_MENU_BUTTON_IDS[5]))
 }
 
 fn hits_single_player() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::SinglePlayerMenu,
-        &single_player_snapshot(),
-        &SINGLE_PLAYER_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::SinglePlayerMenu, &single_player_snapshot(), &SINGLE_PLAYER_BUTTON_IDS)
 }
 
 fn hit_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::SinglePlayerMenu,
-        &single_player_snapshot(),
-        &SINGLE_PLAYER_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::SinglePlayerMenu, &single_player_snapshot(), &SINGLE_PLAYER_BUTTON_IDS, point)
 }
 
 /// 悬停：含禁用钮。
@@ -277,11 +238,7 @@ fn hover_single_player_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) 
 }
 
 fn single_player_snapshot() -> LayoutSnapshot {
-    solve_shell_page(
-        "single_player",
-        &SINGLE_PLAYER_BUTTON_IDS[..3],
-        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
-    )
+    solve_shell_page("single_player", &SINGLE_PLAYER_BUTTON_IDS[..3], Some(SINGLE_PLAYER_BUTTON_IDS[3]))
 }
 
 /// 战役页悬停入口 id（三侧 / 难度轨 / 右栏钮）。
@@ -293,15 +250,9 @@ pub fn campaign_entry_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -
             return Some(id);
         }
     }
-    if snap
-        .get("difficulty")
-        .is_some_and(|el| el.layout.rect.contains(point))
-        || snap
-            .get("difficulty_label")
-            .is_some_and(|el| el.layout.rect.contains(point))
-        || snap
-            .get("difficulty_value")
-            .is_some_and(|el| el.layout.rect.contains(point))
+    if snap.get("difficulty").is_some_and(|el| el.layout.rect.contains(point))
+        || snap.get("difficulty_label").is_some_and(|el| el.layout.rect.contains(point))
+        || snap.get("difficulty_value").is_some_and(|el| el.layout.rect.contains(point))
     {
         return Some("difficulty");
     }
@@ -322,24 +273,16 @@ fn hits_campaign() -> Vec<MenuHit> {
         (CAMPAIGN_SIDE_IDS[2], MenuAction::SelectCampaignSoviet),
     ];
     for (id, action) in side_actions {
-        let Some(el) = snap.get(id) else {
+        let Some(el) = snap.get(id)
+        else {
             continue;
         };
         out.push(menu_hit_from_rect(id, action, el.layout.rect, true));
     }
     if let Some(el) = snap.get("difficulty") {
-        out.push(menu_hit_from_rect(
-            "difficulty",
-            MenuAction::CycleCampaignDifficulty,
-            el.layout.rect,
-            true,
-        ));
+        out.push(menu_hit_from_rect("difficulty", MenuAction::CycleCampaignDifficulty, el.layout.rect, true));
     }
-    out.extend(hits_from_slot_ids(
-        OriginalScreen::Campaign,
-        &snap,
-        &CAMPAIGN_BUTTON_IDS,
-    ));
+    out.extend(hits_from_slot_ids(OriginalScreen::Campaign, &snap, &CAMPAIGN_BUTTON_IDS));
     out
 }
 
@@ -356,26 +299,16 @@ fn hit_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Opti
             return Some((i, *action));
         }
     }
-    if snap
-        .get("difficulty")
-        .is_some_and(|el| el.layout.rect.contains(point))
-    {
+    if snap.get("difficulty").is_some_and(|el| el.layout.rect.contains(point)) {
         return Some((3, MenuAction::CycleCampaignDifficulty));
     }
     // 侧三 + 难度轨占 0..3；右栏钮从 4 起与 `hits_campaign` / hover 序一致。
-    hit_enabled_slot_at(OriginalScreen::Campaign, &snap, &CAMPAIGN_BUTTON_IDS, point)
-        .map(|(i, action)| (4 + i, action))
+    hit_enabled_slot_at(OriginalScreen::Campaign, &snap, &CAMPAIGN_BUTTON_IDS, point).map(|(i, action)| (4 + i, action))
 }
 
 fn hover_campaign_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    let order = [
-        CAMPAIGN_SIDE_IDS[0],
-        CAMPAIGN_SIDE_IDS[1],
-        CAMPAIGN_SIDE_IDS[2],
-        "difficulty",
-        CAMPAIGN_BUTTON_IDS[0],
-    ];
+    let order = [CAMPAIGN_SIDE_IDS[0], CAMPAIGN_SIDE_IDS[1], CAMPAIGN_SIDE_IDS[2], "difficulty", CAMPAIGN_BUTTON_IDS[0]];
     hover_ids_at(&campaign_snapshot(), &order, point)
 }
 
@@ -384,21 +317,12 @@ fn campaign_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_options() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::Options,
-        &options_snapshot(),
-        &OPTIONS_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::Options, &options_snapshot(), &OPTIONS_BUTTON_IDS)
 }
 
 fn hit_options_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::Options,
-        &options_snapshot(),
-        &OPTIONS_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::Options, &options_snapshot(), &OPTIONS_BUTTON_IDS, point)
 }
 
 /// 悬停：含禁用钮。
@@ -412,21 +336,12 @@ fn options_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_exit_confirm() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::ExitConfirm,
-        &exit_confirm_snapshot(),
-        &EXIT_CONFIRM_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::ExitConfirm, &exit_confirm_snapshot(), &EXIT_CONFIRM_BUTTON_IDS)
 }
 
 fn hit_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::ExitConfirm,
-        &exit_confirm_snapshot(),
-        &EXIT_CONFIRM_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::ExitConfirm, &exit_confirm_snapshot(), &EXIT_CONFIRM_BUTTON_IDS, point)
 }
 
 fn hover_exit_confirm_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
@@ -439,21 +354,12 @@ fn exit_confirm_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_network() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::Network,
-        &network_snapshot(),
-        &NETWORK_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::Network, &network_snapshot(), &NETWORK_BUTTON_IDS)
 }
 
 fn hit_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::Network,
-        &network_snapshot(),
-        &NETWORK_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::Network, &network_snapshot(), &NETWORK_BUTTON_IDS, point)
 }
 
 fn hover_network_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<usize> {
@@ -466,21 +372,12 @@ fn network_snapshot() -> LayoutSnapshot {
 }
 
 fn hits_skirmish_score() -> Vec<MenuHit> {
-    hits_from_slot_ids(
-        OriginalScreen::Results,
-        &skirmish_score_snapshot(),
-        &SKIRMISH_SCORE_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::Results, &skirmish_score_snapshot(), &SKIRMISH_SCORE_BUTTON_IDS)
 }
 
 fn hit_skirmish_score_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::Results,
-        &skirmish_score_snapshot(),
-        &SKIRMISH_SCORE_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::Results, &skirmish_score_snapshot(), &SKIRMISH_SCORE_BUTTON_IDS, point)
 }
 
 fn skirmish_score_snapshot() -> LayoutSnapshot {
@@ -492,30 +389,15 @@ fn hits_load_screen(allow_retry: bool) -> Vec<MenuHit> {
     if !allow_retry {
         return Vec::new();
     }
-    hits_from_slot_ids(
-        OriginalScreen::LoadScreen,
-        &load_screen_snapshot(),
-        &LOAD_SCREEN_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::LoadScreen, &load_screen_snapshot(), &LOAD_SCREEN_BUTTON_IDS)
 }
 
-fn hit_load_screen_at(
-    cursor_x: f64,
-    cursor_y: f64,
-    win_w: f64,
-    win_h: f64,
-    allow_retry: bool,
-) -> Option<(usize, MenuAction)> {
+fn hit_load_screen_at(cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64, allow_retry: bool) -> Option<(usize, MenuAction)> {
     if !allow_retry {
         return None;
     }
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::LoadScreen,
-        &load_screen_snapshot(),
-        &LOAD_SCREEN_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::LoadScreen, &load_screen_snapshot(), &LOAD_SCREEN_BUTTON_IDS, point)
 }
 
 fn load_screen_snapshot() -> LayoutSnapshot {
@@ -524,27 +406,12 @@ fn load_screen_snapshot() -> LayoutSnapshot {
 
 fn hits_skirmish_lobby(_maps: &[BootMapCandidate]) -> Vec<MenuHit> {
     // 地图列表不在本页左侧；选图走右栏 `choose_map`（完整模态后续接）。
-    hits_from_slot_ids(
-        OriginalScreen::SkirmishLobby,
-        &skirmish_lobby_snapshot(),
-        &SKIRMISH_LOBBY_BUTTON_IDS,
-    )
+    hits_from_slot_ids(OriginalScreen::SkirmishLobby, &skirmish_lobby_snapshot(), &SKIRMISH_LOBBY_BUTTON_IDS)
 }
 
-fn hit_skirmish_lobby_at(
-    _maps: &[BootMapCandidate],
-    cursor_x: f64,
-    cursor_y: f64,
-    win_w: f64,
-    win_h: f64,
-) -> Option<(usize, MenuAction)> {
+fn hit_skirmish_lobby_at(_maps: &[BootMapCandidate], cursor_x: f64, cursor_y: f64, win_w: f64, win_h: f64) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
-    hit_enabled_slot_at(
-        OriginalScreen::SkirmishLobby,
-        &skirmish_lobby_snapshot(),
-        &SKIRMISH_LOBBY_BUTTON_IDS,
-        point,
-    )
+    hit_enabled_slot_at(OriginalScreen::SkirmishLobby, &skirmish_lobby_snapshot(), &SKIRMISH_LOBBY_BUTTON_IDS, point)
 }
 
 /// 遭遇战大厅几何权威：`solve_skirmish_lobby` → `LayoutSnapshot`。
@@ -557,36 +424,16 @@ fn choose_map_snapshot() -> LayoutSnapshot {
     solve_choose_map()
 }
 
-fn menu_hit_from_rect(
-    entry_id: &'static str,
-    action: MenuAction,
-    rect: Rect,
-    enabled: bool,
-) -> MenuHit {
+fn menu_hit_from_rect(entry_id: &'static str, action: MenuAction, rect: Rect, enabled: bool) -> MenuHit {
     menu_hit_from_rect_px(entry_id, action, rect_px_from_layout_rect(rect), enabled)
 }
 
-fn menu_hit_from_rect_px(
-    entry_id: &'static str,
-    action: MenuAction,
-    rect: RectPx,
-    enabled: bool,
-) -> MenuHit {
-    MenuHit {
-        entry_id,
-        action,
-        rect,
-        enabled,
-    }
+fn menu_hit_from_rect_px(entry_id: &'static str, action: MenuAction, rect: RectPx, enabled: bool) -> MenuHit {
+    MenuHit { entry_id, action, rect, enabled }
 }
 
 fn rect_px_from_layout_rect(rect: Rect) -> RectPx {
-    RectPx::new(
-        rect.x as i32,
-        rect.y as i32,
-        rect.width as i32,
-        rect.height as i32,
-    )
+    RectPx::new(rect.x as i32, rect.y as i32, rect.width as i32, rect.height as i32)
 }
 
 fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll: usize) -> Vec<MenuHit> {
@@ -600,7 +447,8 @@ fn hits_choose_map(maps: &[BootMapCandidate], mode_count: usize, map_list_scroll
             hits.push(menu_hit_from_rect_px("mode_row", MenuAction::SelectMode(i), row, true));
         }
     }
-    let Some(list) = snap.get("map_list") else {
+    let Some(list) = snap.get("map_list")
+    else {
         return hits;
     };
     let list = rect_px_from_layout_rect(list.layout.rect);
@@ -664,10 +512,7 @@ pub fn choose_map_entry_at(
             }
         }
     }
-    if snap
-        .get("map_preview")
-        .is_some_and(|el| el.layout.rect.contains(point))
-    {
+    if snap.get("map_preview").is_some_and(|el| el.layout.rect.contains(point)) {
         return Some("map_preview");
     }
     for id in ["game_type", "map_label"] {
@@ -689,9 +534,7 @@ fn hit_choose_map_at(
 ) -> Option<(usize, MenuAction)> {
     let point = shell_point(cursor_x, cursor_y, win_w, win_h)?;
     let snap = choose_map_snapshot();
-    if let Some(hit) =
-        hit_enabled_slot_at(OriginalScreen::ChooseMap, &snap, &CHOOSE_MAP_BUTTON_IDS, point)
-    {
+    if let Some(hit) = hit_enabled_slot_at(OriginalScreen::ChooseMap, &snap, &CHOOSE_MAP_BUTTON_IDS, point) {
         return Some(hit);
     }
     let mode_base = CHOOSE_MAP_BUTTON_IDS.len();

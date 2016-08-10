@@ -1,7 +1,7 @@
 //! 遭遇战开局指纹：规则字节必须真实可读，禁止空字节污染身份。
 
 use ra_adaptor::{ResourceChain, RulesSystem};
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::MapInfo;
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};

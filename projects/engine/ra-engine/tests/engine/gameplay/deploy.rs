@@ -1,8 +1,8 @@
 //! MCV 部署与资金播种。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -73,10 +73,7 @@ fn deploy_mcv_becomes_construction_yard() {
     assert_eq!(world.ecs_identity(world.entity_id_at(0).expect("entity")).expect("id").0.as_ref(), "GACNST");
     assert_eq!(world.ecs_speed(world.entity_id_at(0).expect("entity")).expect("speed"), 0);
     assert!(world.ecs_attack_state(world.entity_id_at(0).expect("entity")).expect("atk").0.is_none());
-    assert!(
-        world.take_eva_cues().iter().all(|c| c.event != "EVA_UnitLost"),
-        "Deploy must not announce unit lost"
-    );
+    assert!(world.take_eva_cues().iter().all(|c| c.event != "EVA_UnitLost"), "Deploy must not announce unit lost");
 }
 
 #[test]

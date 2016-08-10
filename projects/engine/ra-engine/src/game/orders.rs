@@ -1,11 +1,9 @@
 use crate::{
     game::commands::GameCommand,
-    state::
-    components::{Health, Identity, Owner, ProductionQueue},
+    state::components::{Health, Identity, Owner, ProductionQueue},
 };
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
-
 
 use super::session::BattleSession;
 
@@ -176,12 +174,7 @@ impl BattleSession {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::FireSuperWeapon {
-            player: self.world.local_player,
-            type_id: type_id.into(),
-            x,
-            y,
-        });
+        self.push_command(GameCommand::FireSuperWeapon { player: self.world.local_player, type_id: type_id.into(), x, y });
     }
 
     /// 本机阵营是否正在生产指定类型。

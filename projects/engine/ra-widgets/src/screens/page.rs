@@ -12,8 +12,8 @@ use crate::{
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
-        load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
-        score_screen_palette_candidates, UiFactionChrome,
+        UiFactionChrome, load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
+        score_screen_palette_candidates,
     },
 };
 
@@ -197,11 +197,7 @@ pub fn page_resources_for_battle_pause() -> UiPageResources {
         background: None,
         background_palette: None,
         movie: None,
-        panels: page
-            .panels
-            .iter()
-            .map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame))
-            .collect(),
+        panels: page.panels.iter().map(|p| UiAssetRef::with_palette_frame(p.shp, p.pal, p.frame)).collect(),
         buttons: page.buttons.iter().map(slot_to_button).collect(),
         fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
     }
@@ -253,25 +249,12 @@ pub fn page_resources_for_results(_side: &str, _readable: impl Fn(&str) -> bool)
 }
 
 /// 同结算资源入口，注入已解析 chrome（不按国名猜苏盟）。
-pub fn page_resources_for_results_with(
-    _side: &str,
-    chrome: &UiFactionChrome,
-    readable: impl Fn(&str) -> bool,
-) -> Option<UiPageResources> {
+pub fn page_resources_for_results_with(_side: &str, chrome: &UiFactionChrome, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
     let bg_candidates = score_screen_background_candidates(chrome);
-    let bg_name = bg_candidates
-        .iter()
-        .map(String::as_str)
-        .find(|n| readable(n))?
-        .to_string();
+    let bg_name = bg_candidates.iter().map(String::as_str).find(|n| readable(n))?.to_string();
     let pal_candidates = score_screen_palette_candidates(chrome);
-    let bg_pal = pal_candidates
-        .iter()
-        .map(String::as_str)
-        .find(|p| readable(p))
-        .map(str::to_string)
-        .filter(|s| !s.is_empty())?;
+    let bg_pal = pal_candidates.iter().map(String::as_str).find(|p| readable(p)).map(str::to_string).filter(|s| !s.is_empty())?;
     Some(UiPageResources {
         screen: OriginalScreen::Results,
         background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),

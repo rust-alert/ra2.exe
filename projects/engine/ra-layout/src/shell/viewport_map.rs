@@ -1,8 +1,7 @@
 //! 窗口坐标与壳层设计坐标映射。
 
-use ra_renderer::ViewCamera;
 use super::*;
-
+use ra_renderer::ViewCamera;
 
 /// 与 UI 页上传后相同的 fit 相机（内容 800×600 → 窗口）。
 pub fn shell_fit_camera(win_w: u32, win_h: u32) -> ViewCamera {

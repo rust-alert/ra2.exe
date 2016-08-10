@@ -138,18 +138,10 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     let owner = rules.get(id, "Owner").unwrap_or("").to_string();
     let image = rules.get(id, "Image").unwrap_or(id).to_ascii_uppercase();
     let category = rules.get(id, "Category").unwrap_or("").trim().to_string();
-    let naval = rules
-        .get(id, "Naval")
-        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let agent = rules
-        .get(id, "Agent")
-        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let engineer = rules
-        .get(id, "Engineer")
-        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let harvester = rules
-        .get(id, "Harvester")
-        .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
+    let naval = rules.get(id, "Naval").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
+    let agent = rules.get(id, "Agent").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
+    let engineer = rules.get(id, "Engineer").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
+    let harvester = rules.get(id, "Harvester").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
     let primary = rules.get(id, "Primary").unwrap_or("").trim().to_ascii_uppercase();
     let techno_rof = parse_u32(rules.get(id, "ROF")).unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);

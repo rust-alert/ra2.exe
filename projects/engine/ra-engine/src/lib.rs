@@ -6,34 +6,33 @@
 #![deny(missing_docs)]
 
 mod engine;
-mod game;
-mod gameplay;
+pub mod game;
+pub mod gameplay;
 mod lifecycle;
 mod persistence;
 mod presentation;
 mod session;
-mod spatial;
-mod state;
+pub mod spatial;
+pub mod state;
 
 pub use engine::{
     CapabilityRegistry, Engine, EngineConfig, EngineError, EngineRuntime, EngineVersion, SessionValidationError, SystemPhase, SystemSchedule,
 };
 pub use game::{
-    evaluate_build_availability, evaluate_produce_availability, living_structure_type_keys, AnimState,
-    BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject,
-    CommandRejectReason, DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP,
-    PlayerBattleStats, RenderSnapshot, SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit,
-    SuperWeaponCapabilityItem, decode_command, decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive,
-    encode_command, encode_commands, encode_scheduled,
+    AnimState, BattleCapabilitiesSnapshot, BattleOutcome, BattleSession, BattleStats, CapabilityItem, CommandReject, CommandRejectReason,
+    DEFAULT_TICK_HZ, DeployCapability, GameCommand, HudSnapshot, InputFrame, MAX_TICKS_PER_PUMP, PlayerBattleStats, RenderSnapshot,
+    SessionBootKind, SessionScreen, SnapshotPlayer, SnapshotProduceQueue, SnapshotUnit, SuperWeaponCapabilityItem, decode_command,
+    decode_commands, decode_scheduled, difficulty_extra_produce, difficulty_skips_offensive, encode_command, encode_commands, encode_scheduled,
+    evaluate_build_availability, evaluate_produce_availability, living_structure_type_keys,
 };
 pub use gameplay::{
-    houses_are_allied, AiTriggerRuntime, LightningStormState, ScriptTeamRuntime, TerrainSpawnerPhase, TerrainSpawnerState,
-    TerrainSpawnerTick, TriggerRuntime, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, seed_terrain_spawners, start_lightning_storm,
-    terrain_spawn_sample, terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
+    AiTriggerRuntime, LightningStormState, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, ScriptTeamRuntime, TerrainSpawnerPhase, TerrainSpawnerState,
+    TerrainSpawnerTick, TriggerRuntime, houses_are_allied, seed_terrain_spawners, start_lightning_storm, terrain_spawn_sample,
+    terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
 pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};
 pub use state::{
-    ATTACK_COOLDOWN_TICKS, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, EcsCombatView, HIT_FLASH_TICKS, BattleState,
-    EvaCue, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP,
+    ATTACK_COOLDOWN_TICKS, BattleState, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, EcsCombatView, EvaCue, HIT_FLASH_TICKS,
+    ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP,
 };

@@ -5,8 +5,8 @@
 use std::sync::Arc;
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{Engine, EngineConfig, BattleState};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
@@ -78,8 +78,8 @@ pub fn duel_mtnk_world() -> BattleState {
             y: 8,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -90,8 +90,8 @@ pub fn duel_mtnk_world() -> BattleState {
             y: 8,
             facing: 128,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
     ];
     BattleState::new(GameEdition::Ra2, &rules_db, map)

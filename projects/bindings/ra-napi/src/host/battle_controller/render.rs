@@ -1,61 +1,31 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Instant};
 
-use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
+use ra_assets::{CsfFile, FntFile, tiberium_overlay_display_hsv};
+use ra_engine::{HudSnapshot, terrain_spawner_frame_signature};
 use ra_layout::{
     BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
 };
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, OverlayLayerFilter, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
+    paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structures_onto_rgba,
+    paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
+use ra_types::PresentFeel;
 use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
+    battle_hud::BattleCameoPaint,
     compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
     fs_source::GameAssetSource,
     render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
+    skin::text::{command_button_csf_tooltip, resolve_csf_text},
 };
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey}, 
-    window::Window,
-};
+use winit::window::Window;
 
-use super::super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
-    local_player::LocalPlayerController,
-};
+use super::super::{battle_input::ScreenRect, boot::remap_owner_palette};
 
 use super::BattleController;
-use super::movement::mobile_paint_pose_for;
-
 
 impl BattleController {
     /// 绘制当前对局：首帧或空槽全量同步，其后脏集增量。屏上右侧 HUD 由 `HudSnapshot` 驱动。
@@ -96,7 +66,8 @@ impl BattleController {
                 let hud = game.snapshot_hud();
                 let _ = game.world.take_presentation_dirty();
                 (hud, PendingDraw::Full(snap))
-            } else {
+            }
+            else {
                 let dirty = game.world.take_presentation_dirty();
                 let units = game.project_units(&dirty);
                 let tick = game.world.tick;
@@ -136,7 +107,8 @@ impl BattleController {
                     self.rebuild_preview_base_with_mobiles(assets);
                     self.present_preview_base(renderer);
                 }
-            } else {
+            }
+            else {
                 self.refresh_structure_anims(renderer);
             }
         }
@@ -158,9 +130,9 @@ impl BattleController {
         dirty.iter().any(|&id| {
             game.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
                 && game
-                .world
-                .ecs_identity(id)
-                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                    .world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         })
     }
 
@@ -475,7 +447,7 @@ impl BattleController {
         viewport_w: u32,
         viewport_h: u32,
         present: PresentFeel,
-        screen_label: &str,
+        _screen_label: &str,
     ) {
         let w = viewport_w.max(1);
         let h = viewport_h.max(1);
@@ -523,9 +495,11 @@ impl BattleController {
                     .map(|q| {
                         if q.remaining_ticks == 0 {
                             1.0
-                        } else if q.total_ticks == 0 {
+                        }
+                        else if q.total_ticks == 0 {
                             0.0
-                        } else {
+                        }
+                        else {
                             1.0 - (q.remaining_ticks as f32 / q.total_ticks as f32)
                         }
                     })
@@ -536,7 +510,7 @@ impl BattleController {
                     enabled: item.enabled,
                     selected: matches!(self.sidebar_tab, 0 | 1)
                         && (self.place_mode.as_deref() == Some(key)
-                        || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
+                            || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
                     progress,
                 }
             })
@@ -556,11 +530,13 @@ impl BattleController {
             pause_reason: None,
             command_pressed: if show_pause_banner {
                 None
-            } else {
+            }
+            else {
                 self.command_pressed.or_else(|| {
                     if self.planning_mode {
                         ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
-                    } else {
+                    }
+                    else {
                         None
                     }
                 })
@@ -628,9 +604,11 @@ impl BattleController {
                 let place = self.place_mode.as_deref().unwrap_or("-");
                 if screen_label == "results" {
                     format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
-                } else if hud.paused {
+                }
+                else if hud.paused {
                     format!("{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅", self.title_base, hud.tick)
-                } else if self.place_mode.is_some() {
+                }
+                else if self.place_mode.is_some() {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -643,7 +621,8 @@ impl BattleController {
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
                         self.title_base, hud.tick, zoom
                     )
-                } else {
+                }
+                else {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -657,7 +636,8 @@ impl BattleController {
                         self.title_base, hud.tick, zoom
                     )
                 }
-            } else {
+            }
+            else {
                 format!("{} · [{screen_label}] · z{:.2}", self.title_base, zoom)
             };
             window.set_title(&title);
@@ -673,7 +653,7 @@ impl BattleController {
         }
         if let (Some(path), Some(session)) = (self.status_path.as_ref(), self.session.as_ref()) {
             #[cfg(feature = "test-harness")]
-            super::test_boot::write_status(path, session, &self.local.selected, screen_label, self.leave_armed);
+            super::super::test_boot::write_status(path, session, &self.local.selected, screen_label, self.leave_armed);
             #[cfg(not(feature = "test-harness"))]
             let _ = (path, session);
         }
@@ -739,7 +719,8 @@ fn fill_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32, i
                 let xi = x.round() as i32;
                 xs[0] = xs[0].min(xi);
                 xs[1] = xs[1].max(xi);
-            } else if y0 == y && y1 == y {
+            }
+            else if y0 == y && y1 == y {
                 xs[0] = xs[0].min(x0.min(x1));
                 xs[1] = xs[1].max(x0.max(x1));
             }
@@ -763,7 +744,6 @@ fn stroke_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32,
         stroke_screen_line(page, vp, x0, y0, x1, y1, color);
     }
 }
-
 
 pub(super) fn stroke_screen_line(page: &mut RgbaImage, vp: &MapViewport, x0: i32, y0: i32, x1: i32, y1: i32, color: [u8; 4]) {
     let dx = (x1 - x0).abs();
@@ -791,7 +771,6 @@ pub(super) fn stroke_screen_line(page: &mut RgbaImage, vp: &MapViewport, x0: i32
         }
     }
 }
-
 
 pub(super) fn blend_overlay_pixel(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     let w = page.width() as i32;

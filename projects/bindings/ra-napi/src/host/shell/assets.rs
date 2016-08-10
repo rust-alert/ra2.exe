@@ -5,14 +5,12 @@ use std::time::Instant;
 use ra_assets::{CsfFile, FntFile, IniDocument};
 use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
-use ra_widgets::fs_source::GameAssetSource;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skin::assets::load_menu_ui_assets;
-use ra_widgets::skin::decode;
-use ra_widgets::chrome::movie::MenuMoviePlayer;
-use ra_widgets::screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition};
-use ra_widgets::skin::resolve;
-use ra_widgets::skin::slots::menu_movie_prefer_mix;
+use ra_widgets::{
+    chrome::movie::MenuMoviePlayer,
+    original_screen::OriginalScreen,
+    screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition},
+    skin::{assets::load_menu_ui_assets, decode, resolve, slots::menu_movie_prefer_mix},
+};
 
 use super::Shell;
 
@@ -61,36 +59,20 @@ impl Shell {
         };
         let edition = assets.edition;
         let page = if self.screen == OriginalScreen::LoadScreen {
-            let country = self
-                .lobby_countries
-                .iter()
-                .find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
-            let rules_shp = country
-                .map(|c| c.load_screen.as_str())
-                .filter(|s| !s.is_empty());
-            let rules_pal = country
-                .map(|c| c.load_screen_pal.as_str())
-                .filter(|s| !s.is_empty());
-            page_resources_for_load_screen_with(
-                &self.skirmish.side,
-                self.window_width as u32,
-                rules_shp,
-                rules_pal,
-                |name| source.resolve(name).is_some(),
-            )
-        } else if self.screen == OriginalScreen::Results {
+            let country = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
+            let rules_shp = country.map(|c| c.load_screen.as_str()).filter(|s| !s.is_empty());
+            let rules_pal = country.map(|c| c.load_screen_pal.as_str()).filter(|s| !s.is_empty());
+            page_resources_for_load_screen_with(&self.skirmish.side, self.window_width as u32, rules_shp, rules_pal, |name| {
+                source.resolve(name).is_some()
+            })
+        }
+        else if self.screen == OriginalScreen::Results {
             let house = self
                 .battle_controller
                 .as_ref()
                 .and_then(|c| c.session.as_ref())
                 .and_then(|s| s.battle())
-                .and_then(|g| {
-                    g.world
-                        .players
-                        .iter()
-                        .find(|p| p.id == g.world.local_player)
-                        .map(|p| p.house.to_string())
-                })
+                .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player).map(|p| p.house.to_string()))
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| self.skirmish.side.clone());
             {
@@ -105,11 +87,10 @@ impl Shell {
                     .as_ref()
                     .and_then(|c| c.ui_faction_chrome().cloned())
                     .or_else(|| self.resolve_ui_faction_chrome(&house, faction_id));
-                chrome.as_ref().and_then(|chrome| {
-                    page_resources_for_results_with(&house, chrome, |name| source.resolve(name).is_some())
-                })
+                chrome.as_ref().and_then(|chrome| page_resources_for_results_with(&house, chrome, |name| source.resolve(name).is_some()))
             }
-        } else {
+        }
+        else {
             page_resources_from_slots_with_edition(self.screen, edition)
         };
         let Some(page) = page

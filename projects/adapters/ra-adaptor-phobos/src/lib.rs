@@ -8,6 +8,7 @@ use ra_types::GameEdition;
 
 /// 与 `ra-adaptor-ra2::ResourceProfile` 同形，避免跨 crate 循环依赖。
 #[derive(Debug, Clone)]
+#[doc(hidden)]
 pub struct ResourceProfile {
     /// 对应的 `GameEdition`。
     pub edition: GameEdition,
@@ -119,16 +120,4 @@ pub fn looks_like_mo_layout(root: &std::path::Path) -> bool {
 /// 是否应启用本 adaptor（Phobos DLL 或 MO 布局）。
 pub fn looks_like(root: &std::path::Path) -> bool {
     looks_like_phobos(root) || looks_like_mo_layout(root)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn mo_layout_uses_artmo_ini() {
-        let p = mo_layout_profile();
-        assert_eq!(p.rules_ini, "rulesmo.ini");
-        assert_eq!(p.art_ini, "artmo.ini");
-    }
 }

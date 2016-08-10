@@ -3,9 +3,7 @@
 use ra_map::MapTeamType;
 use ra_types::{EntityId, PlayerId};
 
-use crate::game::GameCommand;
-use crate::gameplay::houses_are_allied;
-use crate::state::BattleState;
+use crate::{game::GameCommand, gameplay::houses_are_allied, state::BattleState};
 
 /// 原版 `[ScriptTypes]` 步骤动作码：攻击航点附近敌方（`argument` = 航点编号）。
 const SCRIPT_ACTION_ATTACK_WAYPOINT: i32 = 1;
@@ -81,12 +79,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                 return (idx, None, Vec::new(), team.step_idx);
             }
             let step = &script.steps[team.step_idx];
-            (
-                idx,
-                Some((step.action, step.argument)),
-                team.members.clone(),
-                script.steps.len(),
-            )
+            (idx, Some((step.action, step.argument)), team.members.clone(), script.steps.len())
         })
         .collect();
 
@@ -125,8 +118,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         else {
                             continue;
                         };
-                        if let Some(target) = nearest_hostile_near(world, house.as_ref(), wp.x, wp.y, ATTACK_WAYPOINT_SEARCH_RADIUS)
-                        {
+                        if let Some(target) = nearest_hostile_near(world, house.as_ref(), wp.x, wp.y, ATTACK_WAYPOINT_SEARCH_RADIUS) {
                             attack_orders.push((player.id, id, target));
                         }
                     }
@@ -202,7 +194,8 @@ pub fn tick_script_teams(world: &mut BattleState) {
                 let target = argument.max(0) as usize;
                 if target >= step_count {
                     remove.push(idx);
-                } else {
+                }
+                else {
                     world.script_team_runtime.active[idx].step_idx = target;
                 }
                 continue;
@@ -236,13 +229,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
 }
 
 /// 在 `(cx,cy)` 附近找距离最近的敌对存活实体（同盟 / 氛围房主除外）。
-fn nearest_hostile_near(
-    world: &BattleState,
-    house: &str,
-    cx: u16,
-    cy: u16,
-    radius: u32,
-) -> Option<EntityId> {
+fn nearest_hostile_near(world: &BattleState, house: &str, cx: u16, cy: u16, radius: u32) -> Option<EntityId> {
     let mut best: Option<(u32, EntityId)> = None;
     for e in &world.entities {
         let id = e.id;
@@ -274,12 +261,7 @@ fn nearest_hostile_near(
     best.map(|(_, id)| id)
 }
 
-fn spawn_team_type(
-    world: &mut BattleState,
-    team: &MapTeamType,
-    forces: &[ra_map::MapTaskForce],
-    waypoints: &[ra_map::Waypoint],
-) {
+fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map::MapTaskForce], waypoints: &[ra_map::Waypoint]) {
     let Some(force) = forces.iter().find(|f| f.id.eq_ignore_ascii_case(&team.task_force))
     else {
         return;
@@ -287,11 +269,7 @@ fn spawn_team_type(
     let house = if team.house.is_empty() { "Neutral" } else { team.house.as_str() };
     world.ensure_house(house);
     // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
-    let spawn_wp = if team.waypoint >= 0 {
-        waypoints.iter().find(|w| w.index as i32 == team.waypoint)
-    } else {
-        None
-    };
+    let spawn_wp = if team.waypoint >= 0 { waypoints.iter().find(|w| w.index as i32 == team.waypoint) } else { None };
     let (wx, wy) = spawn_wp
         .or_else(|| waypoints.iter().find(|w| w.index == 0))
         .map(|w| (w.x, w.y))
@@ -335,7 +313,8 @@ fn spawn_team_type(
             script_id: team.script.clone(),
             step_idx: 0,
         });
-    } else if !members.is_empty() {
+    }
+    else if !members.is_empty() {
         // 无 Script 时仍登记，便于 Destroy Team 回收。
         world.script_team_runtime.active.push(ActiveScriptTeam {
             team_type_id: team.id.clone(),
@@ -348,16 +327,14 @@ fn spawn_team_type(
 
 /// 销毁指定 `TeamType`：取消排队产队，并击杀已生成实例、移出脚本队表。
 pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: &str) {
-    world
-        .trigger_runtime
-        .pending_team_spawns
-        .retain(|id| !id.eq_ignore_ascii_case(team_id));
+    world.trigger_runtime.pending_team_spawns.retain(|id| !id.eq_ignore_ascii_case(team_id));
     let mut kill = Vec::new();
     world.script_team_runtime.active.retain(|team| {
         if team.team_type_id.eq_ignore_ascii_case(team_id) {
             kill.extend(team.members.iter().copied());
             false
-        } else {
+        }
+        else {
             true
         }
     });

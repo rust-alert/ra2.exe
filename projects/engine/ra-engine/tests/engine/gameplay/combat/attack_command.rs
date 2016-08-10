@@ -1,7 +1,7 @@
 //! 单位互殴伤害与击杀。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 

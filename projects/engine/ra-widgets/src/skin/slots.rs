@@ -240,9 +240,7 @@ const SKIRMISH_SCORE_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
 ];
 
-const SKIRMISH_SCORE_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("continue", MenuAction::Back, true),
-];
+const SKIRMISH_SCORE_BUTTONS: &[UiButtonSlot] = &[main_menu_button("continue", MenuAction::Back, true)];
 
 /// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。
 const CHOOSE_MAP_BUTTONS: &[UiButtonSlot] = &[
@@ -260,10 +258,8 @@ const LOAD_SCREEN_PANELS: &[UiPanelSlot] = &[UiPanelSlot {
     frame: 0,
 }];
 
-const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] = &[
-    modal_button("retry", MenuAction::RetryLoad, true),
-    modal_button("cancel", MenuAction::CancelLoad, true),
-];
+const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] =
+    &[modal_button("retry", MenuAction::RetryLoad, true), modal_button("cancel", MenuAction::CancelLoad, true)];
 
 // 命中框占位；实际点击走 `ra_layout` shell helpers 选项页像素格。右栏为接受 / 取消 / 主菜单。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
@@ -298,10 +294,7 @@ const EXIT_CONFIRM_BUTTONS: &[UiButtonSlot] = &[
     modal_button("cancel", MenuAction::Back, true),
 ];
 
-const NETWORK_BUTTONS: &[UiButtonSlot] = &[
-    empty_button("online", MenuAction::Noop, false),
-    empty_button("back", MenuAction::Back, true),
-];
+const NETWORK_BUTTONS: &[UiButtonSlot] = &[empty_button("online", MenuAction::Noop, false), empty_button("back", MenuAction::Back, true)];
 
 /// 对局 Esc 暂停菜单：右栏六钮，与 [`ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS`] 对齐。
 const BATTLE_PAUSE_BUTTONS: &[UiButtonSlot] = &[

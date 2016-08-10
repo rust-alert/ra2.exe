@@ -2,14 +2,17 @@
 
 use std::time::Instant;
 
-use ra_widgets::campaign_setup::{campaign_difficulty_label, campaign_side_lobby_house};
-use ra_widgets::load_kind::LoadKind;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skirmish_setup::SkirmishBootRequest;
+use ra_widgets::{
+    campaign_setup::{campaign_difficulty_label, campaign_side_lobby_house},
+    load_kind::LoadKind,
+    original_screen::OriginalScreen,
+};
 
-use crate::host::boot::{self, BootResult};
-use crate::host::load_job::LoadJob;
-use crate::host::battle_controller::BattleController;
+use crate::host::{
+    battle_controller::BattleController,
+    boot::{self, BootResult},
+    load_job::LoadJob,
+};
 
 use super::Shell;
 
@@ -93,11 +96,7 @@ impl Shell {
             return;
         };
         self.campaign_side = Some(side);
-        self.load_brief_csf = if camp.description_csf.is_empty() {
-            None
-        } else {
-            Some(camp.description_csf.clone())
-        };
+        self.load_brief_csf = if camp.description_csf.is_empty() { None } else { Some(camp.description_csf.clone()) };
         self.begin_campaign_scenario_load(&camp.scenario, Some(camp.id.as_str()));
     }
 
@@ -152,12 +151,7 @@ impl Shell {
         }
         self.load_job = Some(LoadJob::start_install_boot({
             self.ensure_lobby_sides();
-            let house_index = self
-                .skirmish
-                .sides
-                .iter()
-                .position(|s| s.eq_ignore_ascii_case(house))
-                .unwrap_or(0) as u8;
+            let house_index = self.skirmish.sides.iter().position(|s| s.eq_ignore_ascii_case(house)).unwrap_or(0) as u8;
             let mut req = self.skirmish.clone();
             req.preferred_map = Some(scenario.to_string());
             req.side = house.to_string();
@@ -186,9 +180,11 @@ impl Shell {
             LoadKind::Campaign => {
                 if let Some(map) = self.selected_map.clone() {
                     self.begin_campaign_scenario_load(&map, None);
-                } else if let Some(side) = self.campaign_side {
+                }
+                else if let Some(side) = self.campaign_side {
                     self.begin_campaign_load(side);
-                } else {
+                }
+                else {
                     self.banner = "无战役选边可重试 · Esc 回选边".into();
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
@@ -258,7 +254,8 @@ impl Shell {
                 };
                 let stage = if self.pending_load_boot.is_some() {
                     "装载完成，准备进入".into()
-                } else {
+                }
+                else {
                     self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into())
                 };
                 let pct = (self.load_screen_progress() * 100.0).round() as i32;
@@ -288,12 +285,8 @@ impl Shell {
         }
         self.ensure_lobby_sides();
         let house = self.skirmish.side.clone();
-        let faction_id = self
-            .lobby_countries
-            .iter()
-            .find(|c| c.id.eq_ignore_ascii_case(house.as_str()))
-            .map(|c| c.side.clone())
-            .filter(|s| !s.is_empty());
+        let faction_id =
+            self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(house.as_str())).map(|c| c.side.clone()).filter(|s| !s.is_empty());
         let chrome = self.resolve_ui_faction_chrome(&house, faction_id.as_deref());
         if let Some(ctrl) = self.battle_controller.as_mut() {
             ctrl.set_ui_faction_side(faction_id);
@@ -305,7 +298,8 @@ impl Shell {
             self.battle_theater_mounted = None;
             self.ensure_battle_theater_mixes();
             self.set_screen(target);
-        } else {
+        }
+        else {
             let hint = self.load_cancel_hint();
             self.banner = format!("装载失败 · {} · Enter/点重试 · Esc {hint}", self.banner);
             tracing::warn!(kind = self.load_kind.as_str(), "装载失败，停留加载页待重试");

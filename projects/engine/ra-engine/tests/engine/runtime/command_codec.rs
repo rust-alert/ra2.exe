@@ -7,10 +7,7 @@ use ra_types::{CommandId, EntityId, PlayerId, ScheduledCommand, Tick};
 fn command_codec_roundtrip() {
     let cmds = vec![
         GameCommand::MoveTo { entity: EntityId(3), x: 10, y: 20 },
-        GameCommand::MovePath {
-            entity: EntityId(3),
-            points: vec![(10, 20), (12, 22), (14, 18)],
-        },
+        GameCommand::MovePath { entity: EntityId(3), points: vec![(10, 20), (12, 22), (14, 18)] },
         GameCommand::Attack { attacker: EntityId(3), target: EntityId(7) },
         GameCommand::Deploy { entity: EntityId(1) },
         GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 },

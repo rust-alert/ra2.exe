@@ -36,7 +36,6 @@ impl MenuCaptionKind {
     }
 }
 
-
 pub(super) fn find_panel<'a>(decoded: &'a PageDecodeReport, needle: &str, anim_frame: usize) -> Option<&'a DecodedUiSprite> {
     let needle = needle.to_ascii_lowercase();
     let mut matches: Vec<&DecodedUiSprite> = decoded
@@ -78,12 +77,7 @@ pub(super) fn paint_right_panel_chrome(
     blit_right_panel_top(page, decoded, panel_top, warn_anim_frame);
     if let Some(tile) = find_panel(decoded, "sdbtnbkgd.shp", 0) {
         for i in 0..panel_tile_count {
-            let r = RectPx::new(
-                panel_tile.x,
-                panel_tile.y + i * panel_tile.h,
-                panel_tile.w,
-                panel_tile.h,
-            );
+            let r = RectPx::new(panel_tile.x, panel_tile.y + i * panel_tile.h, panel_tile.w, panel_tile.h);
             blit_stretched(page, &tile.image, r);
         }
     }
@@ -101,11 +95,7 @@ pub(super) fn paint_right_panel_chrome(
 pub(super) fn panel_tile_count_from_snap(snap: &LayoutSnapshot) -> i32 {
     let tile = rect_px_from_snapshot(snap, "panel_tile");
     let bottom = rect_px_from_snapshot(snap, "panel_bottom");
-    if tile.h > 0 {
-        ((bottom.y - tile.y) / tile.h).max(0)
-    } else {
-        0
-    }
+    if tile.h > 0 { ((bottom.y - tile.y) / tile.h).max(0) } else { 0 }
 }
 
 /// 遭遇战 / 选图：在壳层 `sdtp` 帧 0 之上叠帧 1 顶栏高亮牌，再贴 `sdmpbtn` 地图名底板。
@@ -152,9 +142,11 @@ pub(super) fn resolve_button_sprite<'a>(
     let normal = find_button_normal(decoded, entry_id)?;
     if pressed {
         Some(find_button_pressed(decoded, entry_id).unwrap_or(normal))
-    } else if hovered {
+    }
+    else if hovered {
         Some(find_button_hover(decoded, entry_id).unwrap_or(normal))
-    } else {
+    }
+    else {
         Some(normal)
     }
 }

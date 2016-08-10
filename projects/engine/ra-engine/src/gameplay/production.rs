@@ -10,8 +10,8 @@ use crate::{
     state::{
         ATTACK_COOLDOWN_TICKS, BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS,
         components::{
-            AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor,
-            MovementState, Owner, ProductionQueue, Transform,
+            AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
+            ProductionQueue, Transform,
         },
     },
 };
@@ -19,19 +19,13 @@ use crate::{
 /// 将冻结定义中的 `BuildTime` 转为生产队列剩余 tick。
 ///
 /// `build_time == 0`（缺省）回退 [`PRODUCE_TICKS`]。否则为 `build_time * BUILD_TIME_TICKS_PER_UNIT`，至少 1。
-pub(crate) fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
-    if techno.build_time == 0 {
-        PRODUCE_TICKS
-    } else {
-        techno
-            .build_time
-            .saturating_mul(BUILD_TIME_TICKS_PER_UNIT)
-            .max(1)
-    }
+pub fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
+    if techno.build_time == 0 { PRODUCE_TICKS } else { techno.build_time.saturating_mul(BUILD_TIME_TICKS_PER_UNIT).max(1) }
 }
 
 impl crate::state::BattleState {
-    pub(crate) fn advance_production(&mut self) {
+    #[doc(hidden)]
+    pub fn advance_production(&mut self) {
         let mut unit_spawns: Vec<(usize, Arc<str>)> = Vec::new();
         let mut building_ready: Vec<(usize, Arc<str>)> = Vec::new();
         let n = self.entities.len();
@@ -65,14 +59,11 @@ impl crate::state::BattleState {
                 })
                 .flatten();
             if let Some(type_id) = finished {
-                let is_building = self
-                    .definitions
-                    .techno
-                    .get(type_id.as_ref())
-                    .is_some_and(|t| t.class == ra_types::TechnoClass::Building);
+                let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == ra_types::TechnoClass::Building);
                 if is_building {
                     building_ready.push((index, type_id));
-                } else {
+                }
+                else {
                     unit_spawns.push((index, type_id));
                 }
             }
@@ -92,7 +83,8 @@ impl crate::state::BattleState {
         }
     }
 
-    pub(crate) fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
+    #[doc(hidden)]
+    pub fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
         let Some(tt) = self.definitions.techno.get(type_id).cloned()
         else {
             return;
@@ -126,21 +118,14 @@ impl crate::state::BattleState {
             ra_types::TechnoClass::Aircraft => TechnoKind::Aircraft,
             ra_types::TechnoClass::Building => return,
         };
-        let promoted = self
-            .players
-            .iter()
-            .find(|p| p.house.as_ref() == owner.as_ref())
-            .is_some_and(|p| match tt.class {
-                ra_types::TechnoClass::Infantry => p.promoted_infantry,
-                ra_types::TechnoClass::Vehicle => p.promoted_vehicle,
-                _ => false,
-            });
+        let promoted = self.players.iter().find(|p| p.house.as_ref() == owner.as_ref()).is_some_and(|p| match tt.class {
+            ra_types::TechnoClass::Infantry => p.promoted_infantry,
+            ra_types::TechnoClass::Vehicle => p.promoted_vehicle,
+            _ => false,
+        });
         let base_health = tt.strength.max(1);
-        let max_health = if promoted {
-            base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1))
-        } else {
-            base_health
-        };
+        let max_health =
+            if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity {
@@ -154,13 +139,7 @@ impl crate::state::BattleState {
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed: tt.speed },
-            movement: MovementState {
-                destination_x: None,
-                destination_y: None,
-                waypoints: Vec::new(),
-                path: Vec::new(),
-                move_accum: 0,
-            },
+            movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats {
                 armor: tt.armor.clone(),
                 attack_range: if tt.range > 0 { tt.range } else { tt.sight.max(1) },
@@ -190,7 +169,8 @@ impl crate::state::BattleState {
         }
     }
 
-    pub(crate) fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
+    #[doc(hidden)]
+    pub fn find_spawn_cell(&self, fx: u16, fy: u16) -> Option<(u16, u16)> {
         const DELTAS: [(i32, i32); 8] = [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
         for (dx, dy) in DELTAS {
             let x = i32::from(fx) + dx;
@@ -206,35 +186,28 @@ impl crate::state::BattleState {
         None
     }
 
-    pub(crate) fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+    #[doc(hidden)]
+    pub fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, &i.type_id, class))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, class)).unwrap_or(false)
         })
     }
 
-    pub(crate) fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
+    #[doc(hidden)]
+    pub fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
         let class = techno_kind_to_class(kind);
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<ProductionQueue>(id)
-                    .map(|q| q.item.is_none() && q.ready.is_none())
-                    .unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, &i.type_id, class))
-                    .unwrap_or(false)
+                && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, class)).unwrap_or(false)
         })
     }
 
@@ -260,63 +233,12 @@ impl crate::state::BattleState {
     }
 }
 
-fn techno_kind_to_class(kind: TechnoKind) -> ra_types::TechnoClass {
+#[doc(hidden)]
+pub fn techno_kind_to_class(kind: TechnoKind) -> ra_types::TechnoClass {
     match kind {
         TechnoKind::Infantry => ra_types::TechnoClass::Infantry,
         TechnoKind::Vehicle => ra_types::TechnoClass::Vehicle,
         TechnoKind::Aircraft => ra_types::TechnoClass::Aircraft,
         TechnoKind::Building => ra_types::TechnoClass::Building,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::produce_ticks_for;
-    use crate::state::{BUILD_TIME_TICKS_PER_UNIT, PRODUCE_TICKS};
-    use ra_types::{TechnoClass, TechnoDefinition, TypeId};
-
-    fn sample(build_time: u32) -> TechnoDefinition {
-        TechnoDefinition {
-            id: TypeId(1),
-            type_key: "E1".into(),
-            class: TechnoClass::Infantry,
-            cost: 200,
-            strength: 125,
-            armor: "none".into(),
-            speed: 4,
-            owner: "Americans".into(),
-            tech_level: 1,
-            naval: false,
-            agent: false,
-            engineer: false,
-            harvester: false,
-            category: String::new(),
-            sight: 5,
-            damage: 0,
-            range: 0,
-            rof: 0,
-            warhead: String::new(),
-            prerequisite: Vec::new(),
-            prerequisite_override: Vec::new(),
-            required_houses: Vec::new(),
-            forbidden_houses: Vec::new(),
-            build_limit: 0,
-            build_time,
-            requires_stolen_allied_tech: false,
-            requires_stolen_soviet_tech: false,
-            requires_stolen_third_tech: false,
-            pixel_selection_bracket_delta: 0,
-        }
-    }
-
-    #[test]
-    fn missing_build_time_falls_back_to_produce_ticks() {
-        assert_eq!(produce_ticks_for(&sample(0)), PRODUCE_TICKS);
-    }
-
-    #[test]
-    fn build_time_scales_to_ticks() {
-        assert_eq!(produce_ticks_for(&sample(5)), 5 * BUILD_TIME_TICKS_PER_UNIT);
-        assert_eq!(produce_ticks_for(&sample(1)), BUILD_TIME_TICKS_PER_UNIT.max(1));
     }
 }

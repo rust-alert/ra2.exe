@@ -31,36 +31,17 @@ pub(super) fn compose_shell_menu_page(
     let panel_tile_count = panel_tile_count_from_snap(snap);
 
     let bg = decoded.background.as_ref()?;
-    let mut page = RgbaImage::from_raw(
-        canvas.w as u32,
-        canvas.h as u32,
-        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
-    )?;
+    let mut page = RgbaImage::from_raw(canvas.w as u32, canvas.h as u32, vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4])?;
 
     blit_rgba(&mut page, &bg.image, background.x, background.y);
     if let Some(frame) = movie {
         blit_stretched(&mut page, frame, movie_rect);
     }
 
-    paint_right_panel_chrome(
-        &mut page,
-        decoded,
-        panel_top,
-        panel_tile,
-        panel_tile_count,
-        panel_bottom,
-        lower_strip,
-        warn_anim_frame,
-    );
+    paint_right_panel_chrome(&mut page, decoded, panel_top, panel_tile, panel_tile_count, panel_bottom, lower_strip, warn_anim_frame);
 
     let btn_plan = shell_button_sprite_plan(captions, button_ids);
-    let tile_occupied = |tile_y: i32| {
-        button_ids.iter().any(|id| {
-            btn_plan
-                .rect_px_of(id)
-                .is_some_and(|b| b.w > 0 && b.h > 0 && b.y == tile_y)
-        })
-    };
+    let tile_occupied = |tile_y: i32| button_ids.iter().any(|id| btn_plan.rect_px_of(id).is_some_and(|b| b.w > 0 && b.h > 0 && b.y == tile_y));
     // 波浪出去：无字平铺格叠 `SDBTNANM`；进来不叠，避免满钮收束后瞬间消失。
     if let Some(wave) = wave {
         if wave.animate_empty_tiles {
@@ -69,10 +50,12 @@ pub(super) fn compose_shell_menu_page(
                 if tile_occupied(tile_y) {
                     continue;
                 }
-                let Some(&frame) = wave.tiles.get(ti as usize) else {
+                let Some(&frame) = wave.tiles.get(ti as usize)
+                else {
                     continue;
                 };
-                let Some(sprite) = decoded.sdbtnanm_frame(frame) else {
+                let Some(sprite) = decoded.sdbtnanm_frame(frame)
+                else {
                     continue;
                 };
                 let cell_x = button_ids
@@ -85,57 +68,22 @@ pub(super) fn compose_shell_menu_page(
         }
     }
 
-    paint_shell_rail_buttons(
-        &mut page,
-        decoded,
-        button_ids,
-        &btn_plan,
-        pressed_entry_id,
-        hovered_entry_id,
-        fnt,
-        csf,
-        captions,
-        wave,
-    )?;
+    paint_shell_rail_buttons(&mut page, decoded, button_ids, &btn_plan, pressed_entry_id, hovered_entry_id, fnt, csf, captions, wave)?;
 
     if let Some(fnt) = fnt {
         let title_text = match captions {
             MenuCaptionKind::Main => Some(resolve_caption(csf, "main_menu", Some("GUI:MainMenu"))),
-            MenuCaptionKind::SinglePlayer => {
-                Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key())))
-            }
+            MenuCaptionKind::SinglePlayer => Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key()))),
             // 战役 / 遭遇战 / 选图 / 积分标题由各自 compose 按对话框锚点另画。
-            MenuCaptionKind::Campaign
-            | MenuCaptionKind::SkirmishLobby
-            | MenuCaptionKind::ChooseMap
-            | MenuCaptionKind::SkirmishScore => None,
+            MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby | MenuCaptionKind::ChooseMap | MenuCaptionKind::SkirmishScore => None,
         };
         if let Some(title_text) = title_text {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                &title_text,
-                title.x,
-                title.y,
-                title.w,
-                title.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, &title_text, title.x, title.y, title.w, title.h, MENU_TEXT_ENABLED);
         }
         // 主菜单 / 单人页底栏：由壳层传入打字机可见切片。
-        if matches!(
-            captions,
-            MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer
-        ) {
+        if matches!(captions, MenuCaptionKind::Main | MenuCaptionKind::SinglePlayer) {
             if let Some(text) = status_text.filter(|s| !s.is_empty()) {
-                blit_text_colored(
-                    &mut page,
-                    fnt,
-                    text,
-                    tooltip.x,
-                    tooltip.y,
-                    MENU_TEXT_ENABLED,
-                );
+                blit_text_colored(&mut page, fnt, text, tooltip.x, tooltip.y, MENU_TEXT_ENABLED);
             }
         }
     }
@@ -157,28 +105,22 @@ pub(super) fn paint_shell_rail_buttons(
     wave: Option<ShellWaveFrames<'_>>,
 ) -> Option<()> {
     for (i, entry_id) in button_ids.iter().enumerate() {
-        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+        let Some(cell) = btn_plan.rect_px_of(entry_id)
+        else {
             continue;
         };
         let normal = find_button_normal(decoded, entry_id)?;
         // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
-        let disabled = matches!(
-            *entry_id,
-            "ww_online" | "network" | "movies" | "load" | "create_random"
-        );
+        let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random");
         let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        } else if disabled {
+        }
+        else if disabled {
             normal
-        } else {
-            resolve_button_sprite(
-                decoded,
-                entry_id,
-                pressed_entry_id == Some(entry_id),
-                hovered_entry_id == Some(entry_id),
-            )
-            .unwrap_or(normal)
+        }
+        else {
+            resolve_button_sprite(decoded, entry_id, pressed_entry_id == Some(entry_id), hovered_entry_id == Some(entry_id)).unwrap_or(normal)
         };
         blit_rgba(page, &sprite.image, cell.x, cell.y);
         // 切页流程：字先消 → 钮进出 → 停稳后再出字。`wave` 有值时只画钮面。
@@ -189,11 +131,7 @@ pub(super) fn paint_shell_rail_buttons(
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            let color = if disabled {
-                MENU_TEXT_DISABLED
-            } else {
-                MENU_TEXT_ENABLED
-            };
+            let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
             let pressed = pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(page, fnt, &caption, tx, ty, tw, th, color);
@@ -205,23 +143,17 @@ pub(super) fn paint_shell_rail_buttons(
 /// 当前壳层页右栏按钮的精灵计划（几何来自对应 `solve_*` snapshot）。
 pub(super) fn shell_button_sprite_plan(captions: MenuCaptionKind, button_ids: &[&str]) -> crate::RenderPlan {
     let base = match captions {
-        MenuCaptionKind::Main => crate::RenderPlan::shell_page_placeholders(
-            "main_menu",
-            &MAIN_MENU_BUTTON_IDS[..5],
-            Some(MAIN_MENU_BUTTON_IDS[5]),
-        ),
-        MenuCaptionKind::SinglePlayer => crate::RenderPlan::shell_page_placeholders(
-            "single_player",
-            &SINGLE_PLAYER_BUTTON_IDS[..3],
-            Some(SINGLE_PLAYER_BUTTON_IDS[3]),
-        ),
+        MenuCaptionKind::Main => {
+            crate::RenderPlan::shell_page_placeholders("main_menu", &MAIN_MENU_BUTTON_IDS[..5], Some(MAIN_MENU_BUTTON_IDS[5]))
+        }
+        MenuCaptionKind::SinglePlayer => {
+            crate::RenderPlan::shell_page_placeholders("single_player", &SINGLE_PLAYER_BUTTON_IDS[..3], Some(SINGLE_PLAYER_BUTTON_IDS[3]))
+        }
         MenuCaptionKind::Campaign => crate::RenderPlan::campaign_placeholders(),
         MenuCaptionKind::SkirmishLobby => crate::RenderPlan::skirmish_lobby_placeholders(),
         MenuCaptionKind::ChooseMap => crate::RenderPlan::choose_map_placeholders(),
         // 必须与 `solve_skirmish_score` 同几何，否则「继续」钮面与命中错位。
-        MenuCaptionKind::SkirmishScore => {
-            crate::RenderPlan::solid_placeholders_from_snapshot(&solve_skirmish_score(), "skirmish_score")
-        }
+        MenuCaptionKind::SkirmishScore => crate::RenderPlan::solid_placeholders_from_snapshot(&solve_skirmish_score(), "skirmish_score"),
     };
     base.button_sprite_plan(button_ids)
 }
@@ -241,11 +173,7 @@ pub fn compose_main_menu_page(
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
-    let snap = ra_layout::solve_shell_page(
-        "main_menu",
-        &MAIN_MENU_BUTTON_IDS[..5],
-        Some(MAIN_MENU_BUTTON_IDS[5]),
-    );
+    let snap = ra_layout::solve_shell_page("main_menu", &MAIN_MENU_BUTTON_IDS[..5], Some(MAIN_MENU_BUTTON_IDS[5]));
     compose_shell_menu_page(
         decoded,
         &snap,
@@ -277,11 +205,7 @@ pub fn compose_single_player_page(
     warn_anim_frame: usize,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
-    let snap = ra_layout::solve_shell_page(
-        "single_player",
-        &SINGLE_PLAYER_BUTTON_IDS[..3],
-        Some(SINGLE_PLAYER_BUTTON_IDS[3]),
-    );
+    let snap = ra_layout::solve_shell_page("single_player", &SINGLE_PLAYER_BUTTON_IDS[..3], Some(SINGLE_PLAYER_BUTTON_IDS[3]));
     compose_shell_menu_page(
         decoded,
         &snap,

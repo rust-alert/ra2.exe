@@ -2,19 +2,15 @@
 //!
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
-use ra_layout::{LayoutSnapshot, solve_skirmish_lobby};
 use ra_layout::{
-    RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT,
-    SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
-    popup_list_below, popup_list_below_min_w,
+    RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_FACE_H, SKIRMISH_ROW_COUNT, solve_skirmish_lobby,
 };
 
 use crate::core::LoadKind;
 
 use super::layout::{
-    ai_list_rect_in, color_list_rect_in, combo_arrow_hit, country_list_rect_in, snap_contains, snap_rect_px,
-    track_pos_from_mouse, track_rect_from_snap,
+    ai_list_rect_in, color_list_rect_in, combo_arrow_hit, country_list_rect_in, snap_contains, snap_rect_px, track_pos_from_mouse,
+    track_rect_from_snap,
 };
 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
@@ -51,7 +47,6 @@ pub enum SkirmishCheckbox {
     BuildOffAlly,
 }
 
-
 impl SkirmishCheckbox {
     const ALL: [Self; 5] = [Self::ShortGame, Self::McvRepacks, Self::Crates, Self::SuperWeapons, Self::BuildOffAlly];
 }
@@ -66,7 +61,6 @@ pub enum SkirmishTrackbar {
     /// `0x50C` 部队数。
     UnitCount,
 }
-
 
 impl SkirmishTrackbar {
     /// 滑条最大值（含）。
@@ -170,7 +164,6 @@ pub struct SkirmishBootRequest {
     pub combo_row: usize,
 }
 
-
 impl SkirmishBootRequest {
     /// 默认：玩家名 `Player`、无指定图（装载时按候选自动选）、普通难度；勾选对齐零售默认。
     ///
@@ -214,9 +207,7 @@ impl SkirmishBootRequest {
         let prev: Vec<String> = (0..SKIRMISH_ROW_COUNT).map(|r| self.row_side(r).to_string()).collect();
         self.sides = sides;
         for row in 0..SKIRMISH_ROW_COUNT {
-            let keep = prev.get(row).and_then(|name| {
-                self.sides.iter().position(|s| s.eq_ignore_ascii_case(name))
-            });
+            let keep = prev.get(row).and_then(|name| self.sides.iter().position(|s| s.eq_ignore_ascii_case(name)));
             let index = keep.unwrap_or(row % self.sides.len());
             self.row_sides[row] = index as u8;
         }
@@ -330,7 +321,8 @@ impl SkirmishBootRequest {
     pub fn set_row_side_by_name(&mut self, row: usize, name: &str) {
         if let Some(index) = self.sides.iter().position(|s| s.eq_ignore_ascii_case(name)) {
             self.set_row_side(row, index);
-        } else if row == 0 {
+        }
+        else if row == 0 {
             self.side = name.to_string();
         }
     }
@@ -475,15 +467,14 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickCountry(choice));
             }
-            if self.combo_row < SKIRMISH_ROW_COUNT
-                && snap_contains(&snap, &format!("side_face_{}", self.combo_row), x, y)
-            {
+            if self.combo_row < SKIRMISH_ROW_COUNT && snap_contains(&snap, &format!("side_face_{}", self.combo_row), x, y) {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleCountryCombo);
             }
             self.open_combo = None;
-        } else if self.open_combo == Some(SkirmishComboKind::Color) {
+        }
+        else if self.open_combo == Some(SkirmishComboKind::Color) {
             let list = color_list_rect_in(&snap, self.combo_row);
             if list.contains(x, y) {
                 let choice = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_COLORS.len() as i32 - 1) as usize;
@@ -492,18 +483,18 @@ impl SkirmishBootRequest {
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::PickColor(choice));
             }
-            if self.combo_row < SKIRMISH_ROW_COUNT
-                && snap_contains(&snap, &format!("color_face_{}", self.combo_row), x, y)
-            {
+            if self.combo_row < SKIRMISH_ROW_COUNT && snap_contains(&snap, &format!("color_face_{}", self.combo_row), x, y) {
                 self.open_combo = None;
                 self.player_name_editing = false;
                 return Some(SkirmishLobbyHit::ToggleColorCombo);
             }
             self.open_combo = None;
-        } else if self.open_combo == Some(SkirmishComboKind::Ai) {
+        }
+        else if self.open_combo == Some(SkirmishComboKind::Ai) {
             if ai_rows == 0 {
                 self.open_combo = None;
-            } else {
+            }
+            else {
                 let list = ai_list_rect_in(&snap);
                 if list.contains(x, y) {
                     let row = ((y - list.y) / SKIRMISH_COMBO_FACE_H).clamp(0, LOBBY_DIFFICULTIES.len() as i32 - 1) as usize;
@@ -529,23 +520,13 @@ impl SkirmishBootRequest {
         // 点到其它左栏控件时退出编辑。
         self.player_name_editing = false;
 
-        const CHECKBOX_IDS: &[&str] = &[
-            "checkbox_quick",
-            "checkbox_1",
-            "checkbox_2",
-            "checkbox_3",
-            "checkbox_4",
-        ];
+        const CHECKBOX_IDS: &[&str] = &["checkbox_quick", "checkbox_1", "checkbox_2", "checkbox_3", "checkbox_4"];
         for (i, id) in SkirmishCheckbox::ALL.iter().enumerate() {
-            let Some(rect) = snap_rect_px(&snap, CHECKBOX_IDS[i]) else {
+            let Some(rect) = snap_rect_px(&snap, CHECKBOX_IDS[i])
+            else {
                 continue;
             };
-            let icon = RectPx::new(
-                rect.x,
-                rect.y,
-                SKIRMISH_CHECK_W,
-                SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)),
-            );
+            let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
             // 图标或整行标签区均可点（对齐零售勾选行为）。
             if icon.contains(x, y) || rect.contains(x, y) {
                 self.set_checkbox(*id, !self.checkbox_value(*id));
@@ -553,7 +534,8 @@ impl SkirmishBootRequest {
             }
         }
         for id in [SkirmishTrackbar::GameSpeed, SkirmishTrackbar::Credits, SkirmishTrackbar::UnitCount] {
-            let Some(rect) = track_rect_from_snap(&snap, id) else {
+            let Some(rect) = track_rect_from_snap(&snap, id)
+            else {
                 continue;
             };
             if rect.contains(x, y) {
@@ -585,11 +567,7 @@ impl SkirmishBootRequest {
         if ai_rows > 0 {
             if let Some(face) = snap_rect_px(&snap, "ai_face_0") {
                 if combo_arrow_hit(face).contains(x, y) {
-                    self.open_combo = if self.open_combo == Some(SkirmishComboKind::Ai) {
-                        None
-                    } else {
-                        Some(SkirmishComboKind::Ai)
-                    };
+                    self.open_combo = if self.open_combo == Some(SkirmishComboKind::Ai) { None } else { Some(SkirmishComboKind::Ai) };
                     return Some(SkirmishLobbyHit::ToggleAiCombo);
                 }
             }
@@ -603,7 +581,8 @@ impl SkirmishBootRequest {
         else {
             return false;
         };
-        let Some(rect) = track_rect_from_snap(&solve_skirmish_lobby(), id) else {
+        let Some(rect) = track_rect_from_snap(&solve_skirmish_lobby(), id)
+        else {
             return false;
         };
         let next = track_pos_from_mouse(rect, x, id);
@@ -620,11 +599,9 @@ impl SkirmishBootRequest {
     }
 }
 
-
 fn is_player_name_char(ch: char) -> bool {
     matches!(ch, ' '..='~')
 }
-
 
 fn default_row_colors() -> [u8; SKIRMISH_ROW_COUNT] {
     let mut colors = [0u8; SKIRMISH_ROW_COUNT];

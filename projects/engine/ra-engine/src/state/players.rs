@@ -74,11 +74,7 @@ impl PlayerState {
 
     /// 断电期间有效供电为 0。
     pub fn effective_power_output(&self) -> i32 {
-        if self.power_blackout_ticks > 0 {
-            0
-        } else {
-            self.power_output
-        }
+        if self.power_blackout_ticks > 0 { 0 } else { self.power_output }
     }
 
     /// 是否处于低电（耗电大于有效供电）。

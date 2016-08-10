@@ -1,7 +1,7 @@
 //! 共享航点邻域排队。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
@@ -40,8 +40,14 @@ fn shared_waypoint_queues_on_neighbor() {
     for _ in 0..30 {
         world.advance_tick();
     }
-    let a = (world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1);
-    let b = (world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1);
+    let a = (
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1,
+    );
+    let b = (
+        world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1,
+    );
     assert_ne!(a, b);
     // 一车占目标，另一车停在曼哈顿距离 ≤2 的邻域。
     let on_wp = |p: (u16, u16)| p == (12, 10);

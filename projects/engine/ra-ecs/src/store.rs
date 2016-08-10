@@ -84,7 +84,8 @@ impl<T> ComponentStore<T> {
     }
 
     pub(crate) fn clear_slot(&mut self, slot: u32) {
-        let Some(idx) = self.sparse.get(slot as usize).copied().flatten() else {
+        let Some(idx) = self.sparse.get(slot as usize).copied().flatten()
+        else {
             return;
         };
         let idx = idx as usize;

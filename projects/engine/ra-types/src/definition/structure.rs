@@ -10,6 +10,7 @@ use super::{BuiltinCapability, Foundation, ProductionProfile};
 ///
 /// 侧栏 Q/W：非 `Combat` 进建筑页，`Combat` 进防御页。缺省视为建筑页。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[doc(hidden)]
 pub enum BuildCat {
     /// 常规建筑（电厂 / 兵营 / 科技等；含缺省）。
     #[default]
@@ -35,6 +36,7 @@ impl BuildCat {
 
 /// 建筑电力配置（正供电 / 耗电分离；是否需电）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[doc(hidden)]
 pub struct PowerProfile {
     /// 供电量（≥0）。
     pub output: i32,
@@ -53,6 +55,7 @@ impl PowerProfile {
 
 /// 单条建筑静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct StructureDefinition {
     /// 稳定类型编号。
     pub id: TypeId,
@@ -92,6 +95,7 @@ pub struct StructureDefinition {
 
 /// 阵营 / 房屋定义集合（骨架）。
 #[derive(Debug, Clone, Default)]
+#[doc(hidden)]
 pub struct HouseDefinitions {
     /// 条目数占位。
     pub count: u32,
@@ -99,6 +103,7 @@ pub struct HouseDefinitions {
 
 /// 建筑定义表（按外部 type_key 查询）。
 #[derive(Debug, Clone, Default)]
+#[doc(hidden)]
 pub struct StructureDefinitions {
     by_key: BTreeMap<String, StructureDefinition>,
 }
@@ -125,28 +130,7 @@ impl StructureDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item=&StructureDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
         self.by_key.values()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::BuildCat;
-
-    #[test]
-    fn build_cat_combat_is_defense_tab() {
-        assert_eq!(BuildCat::parse("Combat"), BuildCat::Combat);
-        assert_eq!(BuildCat::parse("combat"), BuildCat::Combat);
-        assert!(BuildCat::Combat.is_defense_tab());
-    }
-
-    #[test]
-    fn build_cat_missing_or_other_goes_to_building_tab() {
-        assert_eq!(BuildCat::parse(""), BuildCat::Building);
-        assert_eq!(BuildCat::parse("Tech"), BuildCat::Building);
-        assert_eq!(BuildCat::parse("Power"), BuildCat::Building);
-        assert_eq!(BuildCat::parse("Resource"), BuildCat::Building);
-        assert!(!BuildCat::Building.is_defense_tab());
     }
 }

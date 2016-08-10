@@ -30,7 +30,8 @@ impl RenderPlan {
         for cmd in &self.commands {
             match cmd {
                 RenderCommand::SpriteRect { rect, slot, .. } => {
-                    let Some(src) = resolve(slot.as_str()) else {
+                    let Some(src) = resolve(slot.as_str())
+                    else {
                         continue;
                     };
                     blit_rgba_1to1(dst, src, rect.x.round() as i32, rect.y.round() as i32);

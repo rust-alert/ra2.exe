@@ -52,18 +52,7 @@ impl MapEntity {
         facing: u8,
         sub_cell: u8,
     ) -> Self {
-        Self {
-            kind,
-            owner: owner.into(),
-            type_id: type_id.into(),
-            health,
-            x,
-            y,
-            facing,
-            sub_cell,
-            mission: String::new(),
-            tag: String::new(),
-        }
+        Self { kind, owner: owner.into(), type_id: type_id.into(), health, x, y, facing, sub_cell, mission: String::new(), tag: String::new() }
     }
 }
 

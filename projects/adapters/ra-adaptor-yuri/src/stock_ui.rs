@@ -69,7 +69,5 @@ pub fn stock_country_ui() -> &'static [StockCountryUi] {
 
 /// YR 完整国家 UI：RA2 基表 + 尤里扩展（调用方顺序拼接）。
 pub fn stock_country_ui_all() -> impl Iterator<Item = &'static StockCountryUi> {
-    ra_adaptor_ra2::stock_ui::stock_country_ui()
-        .iter()
-        .chain(stock_country_ui().iter())
+    ra_adaptor_ra2::stock_ui::stock_country_ui().iter().chain(stock_country_ui().iter())
 }

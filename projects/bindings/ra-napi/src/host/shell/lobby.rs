@@ -2,17 +2,13 @@
 
 use ra_layout;
 use ra_map::map_matches_game_mode_filter;
-use ra_renderer::RgbaImage;
-use ra_types::AssetSource;
-use ra_widgets::fs_source::GameAssetSource;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skirmish_setup::{self, hover_entry_at, pick_side_flag_pcx};
-use ra_widgets::compose::{self, SkirmishChromeSprites};
-use winit::event::KeyEvent;
+use ra_widgets::{original_screen::OriginalScreen, skirmish_setup::pick_side_flag_pcx};
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use crate::host::boot::{self, BootMapCandidate};
-use crate::host::preview_job::PreviewJob;
+use crate::host::{
+    boot::{self, BootMapCandidate},
+    preview_job::PreviewJob,
+};
 
 use super::Shell;
 
@@ -20,10 +16,7 @@ impl Shell {
     /// 惰性加载遭遇战勾选 / 滑条拇指 / 旗标 PCX。
     pub(super) fn ensure_skirmish_chrome(&mut self) {
         self.ensure_menu_assets();
-        let flag_key = (0..ra_layout::SKIRMISH_ROW_COUNT)
-            .map(|i| self.skirmish.row_side(i).to_string())
-            .collect::<Vec<_>>()
-            .join(",");
+        let flag_key = (0..ra_layout::SKIRMISH_ROW_COUNT).map(|i| self.skirmish.row_side(i).to_string()).collect::<Vec<_>>().join(",");
         let need_flag = self.skirmish_chrome_side.as_deref() != Some(flag_key.as_str());
         let need_base = self
             .skirmish_chrome
@@ -51,10 +44,7 @@ impl Shell {
         if need_flag {
             for i in 0..ra_layout::SKIRMISH_ROW_COUNT {
                 let side = self.skirmish.row_side(i);
-                let country = self
-                    .lobby_countries
-                    .iter()
-                    .find(|c| c.id.eq_ignore_ascii_case(side));
+                let country = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(side));
                 let flag = country.map(|c| c.flag.as_str()).unwrap_or("").trim();
                 let candidates: Vec<&str> = if flag.is_empty() { Vec::new() } else { vec![flag] };
                 let flag_name = pick_side_flag_pcx(&candidates, |name| {
@@ -162,7 +152,8 @@ impl Shell {
         self.lobby_modes = boot::list_install_skirmish_modes();
         if self.selected_mode_id.is_none() {
             self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
-        } else if let Some(id) = self.selected_mode_id {
+        }
+        else if let Some(id) = self.selected_mode_id {
             if !self.lobby_modes.iter().any(|m| m.id == id) {
                 self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
             }
@@ -202,39 +193,25 @@ impl Shell {
     ) -> Option<ra_widgets::skirmish_setup::UiFactionChrome> {
         use ra_widgets::skirmish_setup::UiFactionChrome;
         let mapped = faction_id.and_then(|fid| {
-            self.lobby_side_chromes
-                .iter()
-                .find(|c| c.id.eq_ignore_ascii_case(fid))
-                .and_then(UiFactionChrome::from_side_chrome)
+            self.lobby_side_chromes.iter().find(|c| c.id.eq_ignore_ascii_case(fid)).and_then(UiFactionChrome::from_side_chrome)
         });
         UiFactionChrome::resolve(mapped.as_ref())
     }
 
     /// 当前选中模式的地图过滤标签；无选中时回退 `standard`。
     pub(super) fn selected_mode_map_filter(&self) -> &str {
-        self.selected_mode_id
-            .and_then(|id| self.lobby_modes.iter().find(|m| m.id == id))
-            .map(|m| m.map_filter.as_str())
-            .unwrap_or("standard")
+        self.selected_mode_id.and_then(|id| self.lobby_modes.iter().find(|m| m.id == id)).map(|m| m.map_filter.as_str()).unwrap_or("standard")
     }
 
     /// 匹配当前模式 `map_filter` 的大厅地图（保序）。
     pub(super) fn maps_matching_selected_mode(&self) -> Vec<BootMapCandidate> {
         let filter = self.selected_mode_map_filter();
-        self.lobby_maps
-            .iter()
-            .filter(|m| map_matches_game_mode_filter(&m.game_modes, filter))
-            .cloned()
-            .collect()
+        self.lobby_maps.iter().filter(|m| map_matches_game_mode_filter(&m.game_modes, filter)).cloned().collect()
     }
 
     /// 菜单命中用的地图列表：选图页按模式过滤，其它页用完整大厅表。
     pub(super) fn maps_for_menu_hit(&self) -> Vec<BootMapCandidate> {
-        if self.screen == OriginalScreen::ChooseMap {
-            self.maps_matching_selected_mode()
-        } else {
-            self.lobby_maps.clone()
-        }
+        if self.screen == OriginalScreen::ChooseMap { self.maps_matching_selected_mode() } else { self.lobby_maps.clone() }
     }
 
     /// 若当前选中地图不匹配模式过滤，改选第一张匹配图（可能清空）。
@@ -248,11 +225,7 @@ impl Shell {
         if still_ok {
             return;
         }
-        self.selected_map = self
-            .lobby_maps
-            .iter()
-            .find(|m| map_matches_game_mode_filter(&m.game_modes, &filter))
-            .map(|m| m.file_name.clone());
+        self.selected_map = self.lobby_maps.iter().find(|m| map_matches_game_mode_filter(&m.game_modes, &filter)).map(|m| m.file_name.clone());
         if self.screen == OriginalScreen::ChooseMap {
             self.ensure_lobby_preview();
         }
@@ -417,13 +390,8 @@ impl Shell {
     pub(super) fn sync_map_list_scroll_to_selection(&mut self) {
         let maps = self.maps_matching_selected_mode();
         let visible = self.choose_map_visible_row_count();
-        let index = self
-            .selected_map
-            .as_ref()
-            .and_then(|sel| maps.iter().position(|m| &m.file_name == sel))
-            .unwrap_or(0);
-        self.map_list_scroll =
-            ra_layout::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
+        let index = self.selected_map.as_ref().and_then(|sel| maps.iter().position(|m| &m.file_name == sel)).unwrap_or(0);
+        self.map_list_scroll = ra_layout::scroll_map_list_to_reveal(self.map_list_scroll, index, maps.len(), visible);
     }
 
     /// 选图页滚轮 / 快捷键微调列表偏移。

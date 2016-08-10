@@ -11,14 +11,13 @@ description = "UI 组件语义与画面组合（无宿主窗口，不直调 wgpu
 keywords = ["red-alert-2", "ui", "components"]
 categories = ["game-development", "gui"]
 publish = false
-
-[lib]
-path = "src/lib.rs"
-
 # 本机 dump/probe example 不得被默认发现编译进 CI。
 autoexamples = false
 autotests = true
 autobenches = false
+
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 ra-types = { workspace = true }

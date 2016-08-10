@@ -6,7 +6,10 @@ members = [
     "projects/bindings/*",
     "projects/tooling/*",
 ]
-default-members = ["projects/bindings/ra-napi"]
+default-members = [
+    "projects/bindings/ra-napi",
+    "projects/bindings/ra-wasm"
+]
 
 [workspace.package]
 version = "0.1.0"

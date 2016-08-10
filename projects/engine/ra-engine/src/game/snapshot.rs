@@ -1,19 +1,18 @@
 use crate::{
-    engine::EngineRuntime,
-    game::{commands::GameCommand, reject::CommandReject},
+    game::reject::CommandReject,
     state::{
         BattleState,
         components::{AnimationState, AttackState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
     },
 };
-use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
-use ra_net::{MatchFingerprint, StateDigest};
+use ra_map::{MapEntityKind, iso_to_screen};
 use ra_types::{EntityId, GameEdition};
 
-
-use super::outcome::{BattleOutcome, BattleStats};
-use super::session::BattleSession;
-use super::types::{AnimState, SessionScreen};
+use super::{
+    outcome::{BattleOutcome, BattleStats},
+    session::BattleSession,
+    types::{AnimState, SessionScreen},
+};
 
 /// 一帧呈现用的不可变快照（渲染器应逐步只消费此类数据）。
 #[derive(Debug, Clone)]
@@ -150,7 +149,6 @@ pub struct SnapshotUnit {
     pub bracket_delta: i32,
 }
 
-
 impl SnapshotUnit {
     /// 是否为建筑标记（相对菱形单位用方块绘制）。
     pub fn is_structure(&self) -> bool {
@@ -218,7 +216,8 @@ impl BattleSession {
                 .get(identity.type_id.as_ref())
                 .map(|s| (s.foundation.width, s.foundation.height, s.height.max(1)))
                 .unwrap_or((1, 1, 2))
-        } else {
+        }
+        else {
             (0, 0, 0)
         };
         let bracket_delta = self.world.definitions.techno.get(identity.type_id.as_ref()).map(|t| t.pixel_selection_bracket_delta).unwrap_or(0);
@@ -357,7 +356,6 @@ impl BattleSession {
         }
     }
 }
-
 
 fn derive_anim_state(world: &BattleState, id: EntityId) -> AnimState {
     if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {

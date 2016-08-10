@@ -88,10 +88,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             if fields.len() < 2 {
                 continue;
             }
-            entries.push(MapTaskForceEntry {
-                count: fields[0].parse().unwrap_or(1),
-                type_id: fields[1].to_ascii_uppercase(),
-            });
+            entries.push(MapTaskForceEntry { count: fields[0].parse().unwrap_or(1), type_id: fields[1].to_ascii_uppercase() });
         }
         out.push(MapTaskForce {
             id,
@@ -122,16 +119,9 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
             if fields.len() < 2 {
                 continue;
             }
-            steps.push(MapScriptStep {
-                action: fields[0].parse().unwrap_or(0),
-                argument: fields[1].parse().unwrap_or(0),
-            });
+            steps.push(MapScriptStep { action: fields[0].parse().unwrap_or(0), argument: fields[1].parse().unwrap_or(0) });
         }
-        out.push(MapScriptType {
-            id,
-            name: sec.get("Name").unwrap_or("").trim().to_string(),
-            steps,
-        });
+        out.push(MapScriptType { id, name: sec.get("Name").unwrap_or("").trim().to_string(), steps });
     }
     out
 }
@@ -166,8 +156,5 @@ fn list_ids(doc: &IniDocument, section: &str) -> Vec<String> {
     else {
         return Vec::new();
     };
-    sec.pairs()
-        .map(|(_, v)| v.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
+    sec.pairs().map(|(_, v)| v.trim().to_string()).filter(|s| !s.is_empty()).collect()
 }

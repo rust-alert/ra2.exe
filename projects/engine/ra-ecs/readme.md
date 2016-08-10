@@ -103,13 +103,13 @@ ra-ecs = { workspace = true }
 
 ### `EcsWorld` 与 `EcsCommandBuffer`
 
-| 方法       | 行为                                       |
-|------------|--------------------------------------------|
-| `spawn`    | 立即分配存活实体                           |
-| `despawn`  | 立即销毁并清除全部组件，旧句柄失效         |
-| `insert` / `get` / `remove` | 按类型操作稀疏集合组件       |
-| `commands` | 返回空缓冲，供阶段内入队结构变更           |
-| `apply`    | 按入队顺序提交 spawn / despawn / insert / remove |
+| 方法                        | 行为                                             |
+|-----------------------------|--------------------------------------------------|
+| `spawn`                     | 立即分配存活实体                                 |
+| `despawn`                   | 立即销毁并清除全部组件，旧句柄失效               |
+| `insert` / `get` / `remove` | 按类型操作稀疏集合组件                           |
+| `commands`                  | 返回空缓冲，供阶段内入队结构变更                 |
+| `apply`                     | 按入队顺序提交 spawn / despawn / insert / remove |
 
 ```mermaid
 flowchart LR

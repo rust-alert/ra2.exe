@@ -4,16 +4,14 @@
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
 use ra_layout::{
-    BattleHudChromeMetrics, COMMAND_BAR_BUTTON_IDS, LayoutSnapshot, RectPx, SIDEBAR_TAB_COUNT, cameo_slot_rect,
-    rect_px_from_snapshot, solve_battle_hud_with_metrics,
+    BattleHudChromeMetrics, COMMAND_BAR_BUTTON_IDS, LayoutSnapshot, RectPx, SIDEBAR_TAB_COUNT, cameo_slot_rect, rect_px_from_snapshot,
+    solve_battle_hud_with_metrics,
 };
 use ra_renderer::RgbaImage;
 
-
-use super::chrome::BattleHudChrome;
-use super::command_bar::command_bar_shp_index_for_visual;
-use super::decode::RADAR_OPEN_FRAME_TICKS;
-use super::hit_test::BattleCameoPaint;
+use super::{
+    chrome::BattleHudChrome, command_bar::command_bar_shp_index_for_visual, decode::RADAR_OPEN_FRAME_TICKS, hit_test::BattleCameoPaint,
+};
 
 pub(super) fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     if src.width() == 0 || src.height() == 0 || dst.width() == 0 || dst.height() == 0 {
@@ -50,7 +48,6 @@ pub(super) fn blit_rgba(dst: &mut RgbaImage, src: &RgbaImage, x: i32, y: i32) {
     }
 }
 
-
 pub(super) fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx) {
     if rect.w <= 0 || rect.h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
@@ -76,15 +73,7 @@ pub(super) fn blit_stretched(dst: &mut RgbaImage, src: &RgbaImage, rect: RectPx)
 }
 
 /// 从源图矩形拷到目标（宽度 1:1；高度按 `dst_h` 对齐，同高则不拉伸）。
-pub(super) fn blit_src_cols(
-    dst: &mut RgbaImage,
-    src: &RgbaImage,
-    src_x: u32,
-    src_w: u32,
-    dst_x: i32,
-    dst_y: i32,
-    dst_h: i32,
-) {
+pub(super) fn blit_src_cols(dst: &mut RgbaImage, src: &RgbaImage, src_x: u32, src_w: u32, dst_x: i32, dst_y: i32, dst_h: i32) {
     if src_w == 0 || dst_h <= 0 || src.width() == 0 || src.height() == 0 {
         return;
     }
@@ -92,11 +81,7 @@ pub(super) fn blit_src_cols(
     let src_w = src_w.min(src.width().saturating_sub(src_x));
     let sh = src.height();
     for row in 0..dst_h as u32 {
-        let sy = if dst_h as u32 == sh {
-            row
-        } else {
-            row * sh / dst_h as u32
-        };
+        let sy = if dst_h as u32 == sh { row } else { row * sh / dst_h as u32 };
         let dy = dst_y + row as i32;
         if dy < 0 || dy as u32 >= dst.height() {
             continue;
@@ -139,15 +124,7 @@ pub(super) fn blit_lspacer_gap(dst: &mut RgbaImage, src: &RgbaImage, gap: RectPx
     let tile_x = body_x + (body_w - tile_w) / 2;
     while written < gap.w {
         let chunk = ((gap.w - written) as u32).min(tile_w);
-        blit_src_cols(
-            dst,
-            src,
-            tile_x,
-            chunk,
-            gap.x + written,
-            gap.y,
-            gap.h,
-        );
+        blit_src_cols(dst, src, tile_x, chunk, gap.x + written, gap.y, gap.h);
         written += chunk as i32;
     }
 }
@@ -159,7 +136,8 @@ pub(super) fn blit_chrome_slot(dst: &mut RgbaImage, src: &RgbaImage, slot: RectP
     }
     if src.width() as i32 == slot.w && src.height() as i32 == slot.h {
         blit_rgba(dst, src, slot.x, slot.y);
-    } else {
+    }
+    else {
         blit_stretched(dst, src, slot);
     }
 }
@@ -175,11 +153,11 @@ pub(super) fn blit_button_in_cell(dst: &mut RgbaImage, src: &RgbaImage, cell: Re
         let x = cell.x + (cell.w - sw) / 2;
         let y = cell.y + (cell.h - sh) / 2;
         blit_rgba(dst, src, x, y);
-    } else {
+    }
+    else {
         blit_stretched(dst, src, cell);
     }
 }
-
 
 pub(super) fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
@@ -207,7 +185,6 @@ pub(super) fn fill_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     }
 }
 
-
 pub(super) fn sample_opaque_rgb(img: &RgbaImage) -> Option<[u8; 4]> {
     let raw = img.as_raw();
     let mut sr = 0u64;
@@ -231,12 +208,7 @@ pub(super) fn sample_opaque_rgb(img: &RgbaImage) -> Option<[u8; 4]> {
 }
 
 /// 把已解码 chrome 画进透明页（左战术区保持透明，供地图透出）。
-pub fn blit_battle_hud_chrome(
-    page: &mut RgbaImage,
-    chrome: &BattleHudChrome,
-    snap: &LayoutSnapshot,
-    power_meter_w: i32,
-) {
+pub fn blit_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, snap: &LayoutSnapshot, power_meter_w: i32) {
     blit_battle_hud_chrome_with_state(page, chrome, snap, power_meter_w, None);
 }
 
@@ -248,20 +220,7 @@ pub fn blit_battle_hud_chrome_with_state(
     power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
-    blit_battle_hud_chrome_ex(
-        page,
-        chrome,
-        snap,
-        power_meter_w,
-        command_pressed,
-        false,
-        false,
-        false,
-        false,
-        0,
-        [true; SIDEBAR_TAB_COUNT],
-        0,
-    );
+    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false, false, false, false, 0, [true; SIDEBAR_TAB_COUNT], 0);
 }
 
 /// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
@@ -326,7 +285,8 @@ pub fn blit_battle_hud_chrome_ex(
     let radar_sprite = if radar_online && !chrome.radar_open.is_empty() {
         let idx = ((tick / RADAR_OPEN_FRAME_TICKS) as usize) % chrome.radar_open.len();
         chrome.radar_open.get(idx).or(chrome.radar.as_ref())
-    } else {
+    }
+    else {
         chrome.radar.as_ref()
     };
     if let Some(s) = radar_sprite {
@@ -346,12 +306,7 @@ pub fn blit_battle_hud_chrome_ex(
         }
     }
     // 底脚只在右栏内铺色，禁止横贯战术区。
-    let bottom_fill = chrome
-        .addon
-        .as_ref()
-        .or(chrome.side3.as_ref())
-        .and_then(|s| sample_opaque_rgb(&s.image))
-        .unwrap_or(sidebar_fill);
+    let bottom_fill = chrome.addon.as_ref().or(chrome.side3.as_ref()).and_then(|s| sample_opaque_rgb(&s.image)).unwrap_or(sidebar_fill);
     fill_rect(page, bottom_strip, bottom_fill);
     if let Some(s) = &chrome.side3 {
         blit_chrome_slot(page, &s.image, side3);
@@ -360,22 +315,11 @@ pub fn blit_battle_hud_chrome_ex(
         blit_chrome_slot(page, &s.image, addon);
     }
     if !pause_menu {
-        let repair_sprite = if repair_active {
-            chrome
-                .repair_pressed
-                .as_ref()
-                .or(chrome.repair.as_ref())
-        } else {
-            chrome.repair.as_ref()
-        };
+        let repair_sprite = if repair_active { chrome.repair_pressed.as_ref().or(chrome.repair.as_ref()) } else { chrome.repair.as_ref() };
         if let Some(s) = repair_sprite {
             blit_button_in_cell(page, &s.image, repair);
         }
-        let sell_sprite = if sell_active {
-            chrome.sell_pressed.as_ref().or(chrome.sell.as_ref())
-        } else {
-            chrome.sell.as_ref()
-        };
+        let sell_sprite = if sell_active { chrome.sell_pressed.as_ref().or(chrome.sell.as_ref()) } else { chrome.sell.as_ref() };
         if let Some(s) = sell_sprite {
             blit_button_in_cell(page, &s.image, sell);
         }
@@ -388,11 +332,7 @@ pub fn blit_battle_hud_chrome_ex(
         let bottom = cameo_band.y + cameo_band.h;
         while y < bottom {
             let h = (bottom - y).min(strip_h);
-            blit_stretched(
-                page,
-                &s.image,
-                RectPx::new(sidebar.x, y, meter_w, h),
-            );
+            blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
             y += strip_h;
         }
     }
@@ -403,11 +343,7 @@ pub fn blit_battle_hud_chrome_ex(
                 continue;
             }
             let pressed = i == active_tab;
-            let sprite = if pressed {
-                chrome.tabs_pressed.get(i).and_then(|t| t.as_ref()).or(tab.as_ref())
-            } else {
-                tab.as_ref()
-            };
+            let sprite = if pressed { chrome.tabs_pressed.get(i).and_then(|t| t.as_ref()).or(tab.as_ref()) } else { tab.as_ref() };
             if let Some(tab) = sprite {
                 blit_button_in_cell(page, &tab.image, tabs[i]);
             }
@@ -420,9 +356,10 @@ pub fn blit_battle_hud_chrome_ex(
             blit_button_in_cell(page, &s.image, opt_btn);
         }
         blit_command_bar(page, chrome, snap, command_pressed);
-    } else {
+    }
+    else {
         // 暂停：整段命令轨保留金属细节，不露编队/部署钮。
-        blit_command_bar_track(page, chrome, snap, /*with_buttons*/ false, None);
+        blit_command_bar_track(page, chrome, snap, /* with_buttons */ false, None);
     }
 }
 
@@ -436,21 +373,17 @@ pub fn paint_battle_hud_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome) {
 /// 将 cameo 列表画进侧栏内容区。
 ///
 /// `tick` 用于完工待放 cameo 的闪烁相位。
-pub fn blit_battle_cameos(
-    page: &mut RgbaImage,
-    snap: &LayoutSnapshot,
-    power_meter_w: i32,
-    cameos: &[BattleCameoPaint<'_>],
-    tick: u64,
-) {
+pub fn blit_battle_cameos(page: &mut RgbaImage, snap: &LayoutSnapshot, power_meter_w: i32, cameos: &[BattleCameoPaint<'_>], tick: u64) {
     let band = rect_px_from_snapshot(snap, "cameo_band");
     for (slot, item) in cameos.iter().enumerate() {
-        let Some(cell) = cameo_slot_rect(band, power_meter_w, slot) else {
+        let Some(cell) = cameo_slot_rect(band, power_meter_w, slot)
+        else {
             break;
         };
         if let Some(img) = item.image {
             blit_button_in_cell(page, img, cell);
-        } else {
+        }
+        else {
             fill_rect(page, cell, [24, 28, 36, 255]);
         }
         if let Some(progress) = item.progress {
@@ -464,23 +397,19 @@ pub fn blit_battle_cameos(
             fill_rect_alpha(page, cell, [0, 0, 0, 120]);
         }
         if item.selected {
-            let stroke = if ready && cameo_ready_flash_on(tick) {
-                [255, 255, 120, 255]
-            } else {
-                [220, 220, 80, 220]
-            };
+            let stroke = if ready && cameo_ready_flash_on(tick) { [255, 255, 120, 255] } else { [220, 220, 80, 220] };
             stroke_rect(page, cell, stroke);
         }
     }
 }
 
 /// 完工待放闪烁：约每 8 逻辑 tick 亮/灭交替。
-pub(super) fn cameo_ready_flash_on(tick: u64) -> bool {
+pub fn cameo_ready_flash_on(tick: u64) -> bool {
     (tick / 8) % 2 == 0
 }
 
 /// 原版风格时钟擦除：从 12 点顺时针揭开，未完成扇区半透明压暗。
-pub(super) fn paint_cameo_progress_clock(page: &mut RgbaImage, cell: RectPx, progress: f32) {
+pub fn paint_cameo_progress_clock(page: &mut RgbaImage, cell: RectPx, progress: f32) {
     if progress >= 1.0 || cell.w <= 0 || cell.h <= 0 {
         return;
     }
@@ -509,7 +438,6 @@ pub(super) fn paint_cameo_progress_clock(page: &mut RgbaImage, cell: RectPx, pro
         }
     }
 }
-
 
 pub(super) fn fill_rect_alpha(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
@@ -543,7 +471,6 @@ pub(super) fn fill_rect_alpha(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4])
     }
 }
 
-
 pub(super) fn stroke_rect(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
         return;
@@ -557,7 +484,6 @@ pub(super) fn stroke_rect(page: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
         put_px(page, rect.x + rect.w - 1, y, rgba);
     }
 }
-
 
 pub(super) fn blend_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     if x < 0 || y < 0 || x as u32 >= page.width() || y as u32 >= page.height() {
@@ -581,7 +507,6 @@ pub(super) fn blend_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     page.as_mut()[di + 3] = 255;
 }
 
-
 pub(super) fn put_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     if x < 0 || y < 0 || x as u32 >= page.width() || y as u32 >= page.height() {
         return;
@@ -590,14 +515,8 @@ pub(super) fn put_px(page: &mut RgbaImage, x: i32, y: i32, rgba: [u8; 4]) {
     page.as_mut()[di..di + 4].copy_from_slice(&rgba);
 }
 
-
-fn blit_command_bar(
-    page: &mut RgbaImage,
-    chrome: &BattleHudChrome,
-    snap: &LayoutSnapshot,
-    pressed_slot: Option<usize>,
-) {
-    blit_command_bar_track(page, chrome, snap, /*with_buttons*/ true, pressed_slot);
+fn blit_command_bar(page: &mut RgbaImage, chrome: &BattleHudChrome, snap: &LayoutSnapshot, pressed_slot: Option<usize>) {
+    blit_command_bar_track(page, chrome, snap, /* with_buttons */ true, pressed_slot);
 }
 
 /// 底边命令条：端盖 + `lspacer` 轨身（白顶/红底细线）。
@@ -632,19 +551,18 @@ pub fn blit_command_bar_track(
             if cell.w <= 0 {
                 continue;
             }
-            let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
+            let Some(shp_i) = command_bar_shp_index_for_visual(visual)
+            else {
                 continue;
             };
-            let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()) else {
+            let Some(normal) = chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref())
+            else {
                 continue;
             };
             let sprite = if pressed_slot == Some(visual) {
-                chrome
-                    .command_buttons_pressed
-                    .get(shp_i)
-                    .and_then(|s| s.as_ref())
-                    .unwrap_or(normal)
-            } else {
+                chrome.command_buttons_pressed.get(shp_i).and_then(|s| s.as_ref()).unwrap_or(normal)
+            }
+            else {
                 normal
             };
             blit_button_in_cell(page, &sprite.image, cell);
@@ -656,7 +574,8 @@ pub fn blit_command_bar_track(
                 blit_lspacer_gap(page, &s.image, RectPx::new(last_btn_right, bar.y, gap_w, bar.h));
             }
         }
-    } else {
+    }
+    else {
         let gap_w = (track_right - track_left).max(0);
         if gap_w > 0 {
             if let Some(s) = &chrome.lspacer {
@@ -669,4 +588,3 @@ pub fn blit_command_bar_track(
         blit_button_in_cell(page, &s.image, rendcap);
     }
 }
-

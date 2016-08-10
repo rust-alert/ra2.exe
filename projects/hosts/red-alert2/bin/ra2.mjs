@@ -243,8 +243,7 @@ async function main() {
             `edition=${result.edition} root_mix=${result.mountedRoot} nested=${result.mountedNested} written=${result.written.length} missing=${result.missing.length}`,
         );
         for (const f of result.written) {
-            const size =
-                f.shpWidth != null && f.shpHeight != null ? ` size=${f.shpWidth}x${f.shpHeight}` : '';
+            const size = f.shpWidth != null && f.shpHeight != null ? ` size=${f.shpWidth}x${f.shpHeight}` : '';
             const frames = f.shpFrames != null ? ` frames=${f.shpFrames}` : '';
             const csf = f.csfEntries != null ? ` csf=${f.csfEntries}` : '';
             console.log(`OK ${f.name} -> ${f.path} (${f.bytes} bytes, ${f.origin})${size}${frames}${csf}`);

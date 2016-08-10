@@ -2,12 +2,14 @@
 
 use crate::{
     geometry::Rect,
-    policy::{bottom_cover_button, RightPanelChrome},
-    reference::from_template::shell_design_size,
-    reference::shell_chrome::{shell_chrome_children, solve_with_shell_defaults},
-    snapshot::LayoutSnapshot,
-    spec::{fixed_rect_leaf, root_with_fixed_children, LayoutNode},
+    policy::{RightPanelChrome, bottom_cover_button},
+    reference::{
+        from_template::shell_design_size,
+        shell_chrome::{shell_chrome_children, solve_with_shell_defaults},
+    },
     shell::SKIRMISH_SCORE_BUTTON_IDS,
+    snapshot::LayoutSnapshot,
+    spec::{LayoutNode, fixed_rect_leaf, root_with_fixed_children},
 };
 
 /// 遭遇战积分整页：壳层 chrome + 统计区 + 右栏「继续」。

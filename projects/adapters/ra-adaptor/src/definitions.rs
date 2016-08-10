@@ -24,12 +24,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
     defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
     // `[General]` 侧栏扳手：缺键回落原版库存默认。
-    defs.repair_percent = ini_i32(&rules.rules, "General", "RepairPercent")
-        .map(|v| v.max(0) as u32)
-        .unwrap_or(15);
-    defs.repair_step = ini_i32(&rules.rules, "General", "RepairStep")
-        .map(|v| v.max(1) as u32)
-        .unwrap_or(8);
+    defs.repair_percent = ini_i32(&rules.rules, "General", "RepairPercent").map(|v| v.max(0) as u32).unwrap_or(15);
+    defs.repair_step = ini_i32(&rules.rules, "General", "RepairStep").map(|v| v.max(1) as u32).unwrap_or(8);
     defs.repair_interval_ticks = ini_string(&rules.rules, "General", "RepairRate")
         .and_then(|raw| raw.parse::<f64>().ok())
         .map(repair_rate_minutes_to_ticks)
@@ -43,27 +39,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     for sw_key in list_section_type_keys(&rules.rules, "SuperWeaponTypes") {
         let id = alloc();
         let ui_name = ini_string(&rules.rules, &sw_key, "UIName").unwrap_or_default();
-        let kind = ini_string(&rules.rules, &sw_key, "Type")
-            .map(|s| s.to_ascii_uppercase())
-            .unwrap_or_default();
-        let action = ini_string(&rules.rules, &sw_key, "Action")
-            .map(|s| s.to_ascii_uppercase())
-            .unwrap_or_default();
+        let kind = ini_string(&rules.rules, &sw_key, "Type").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
+        let action = ini_string(&rules.rules, &sw_key, "Action").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
         let recharge_time = ini_i32(&rules.rules, &sw_key, "RechargeTime").unwrap_or(0).max(0);
         let sidebar_image = ini_string(&rules.rules, &sw_key, "SidebarImage").unwrap_or_default();
-        let weapon = ini_string(&rules.rules, &sw_key, "Weapon")
-            .map(|s| s.to_ascii_uppercase())
-            .unwrap_or_default();
-        defs.super_weapons.insert(SuperWeaponDefinition {
-            id,
-            type_key: sw_key,
-            ui_name,
-            kind,
-            action,
-            recharge_time,
-            sidebar_image,
-            weapon,
-        });
+        let weapon = ini_string(&rules.rules, &sw_key, "Weapon").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
+        defs.super_weapons.insert(SuperWeaponDefinition { id, type_key: sw_key, ui_name, kind, action, recharge_time, sidebar_image, weapon });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
         defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
@@ -231,7 +212,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs
 }
 
-fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
+#[doc(hidden)]
+pub fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
     PrerequisiteGroups {
         power: ini_csv_tokens(doc, "General", "PrerequisitePower"),
         factory: ini_csv_tokens(doc, "General", "PrerequisiteFactory"),
@@ -244,7 +226,7 @@ fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups
 }
 
 /// 读取列表节（如 `[SuperWeaponTypes]`）的类型键，保序、大写、去空。
-fn list_section_type_keys(doc: &ra_assets::IniDocument, section: &str) -> Vec<String> {
+pub fn list_section_type_keys(doc: &ra_assets::IniDocument, section: &str) -> Vec<String> {
     let Some(sec) = doc.section(section)
     else {
         return Vec::new();
@@ -263,7 +245,8 @@ fn list_section_type_keys(doc: &ra_assets::IniDocument, section: &str) -> Vec<St
     out
 }
 
-fn parse_factory_category(raw: &str) -> ProductionCategory {
+#[doc(hidden)]
+pub fn parse_factory_category(raw: &str) -> ProductionCategory {
     match raw.trim().to_ascii_lowercase().as_str() {
         "infantrytype" | "infantry" => ProductionCategory::Infantry,
         "unittype" | "vehicle" | "unit" => ProductionCategory::Vehicle,
@@ -273,12 +256,13 @@ fn parse_factory_category(raw: &str) -> ProductionCategory {
     }
 }
 
-fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
+#[doc(hidden)]
+pub fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
     doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
 }
 
 /// 先读 art 节，再跟 `Image=` 指向的 art 节，最后回落 rules。
-fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option<String> {
+pub fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option<String> {
     if let Some(v) = ini_string(&rules.art, type_key, key) {
         return Some(v);
     }
@@ -293,16 +277,18 @@ fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option
     ini_string(&rules.rules, type_key, key)
 }
 
-fn art_or_rules_i32(rules: &RulesSystem, type_key: &str, key: &str) -> Option<i32> {
+#[doc(hidden)]
+pub fn art_or_rules_i32(rules: &RulesSystem, type_key: &str, key: &str) -> Option<i32> {
     art_or_rules_string(rules, type_key, key)?.parse().ok()
 }
 
-fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32> {
+#[doc(hidden)]
+pub fn ini_i32(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<i32> {
     ini_string(doc, section, key)?.parse().ok()
 }
 
 /// 原版 `RepairRate`（分钟）→ 逻辑 tick：`ftol(rate * 900)`，至少 1。
-fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
+pub fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
     if !rate_minutes.is_finite() || rate_minutes <= 0.0 {
         return 14;
     }
@@ -310,7 +296,8 @@ fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
     ticks.max(1) as u64
 }
 
-fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bool> {
+#[doc(hidden)]
+pub fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bool> {
     let v = ini_string(doc, section, key)?.to_ascii_lowercase();
     match v.as_str() {
         "yes" | "true" | "1" => Some(true),
@@ -320,143 +307,10 @@ fn ini_bool(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<bo
 }
 
 /// 逗号 / 分号分隔 token，统一大写；空段丢弃。
-fn ini_csv_tokens(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Vec<String> {
+pub fn ini_csv_tokens(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Vec<String> {
     let Some(raw) = ini_string(doc, section, key)
     else {
         return Vec::new();
     };
-    raw.split(|c| c == ',' || c == ';')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_ascii_uppercase())
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_assets::{
-        ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
-    };
-    use ra_types::GameEdition;
-
-    fn rules_from(text: &[u8]) -> RulesSystem {
-        rules_from_with_art(text, b"")
-    }
-
-    fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
-        let rules = IniDocument::parse(rules_text).expect("test rules ini");
-        let art = if art_text.is_empty() {
-            IniDocument::default()
-        } else {
-            IniDocument::parse(art_text).expect("test art ini")
-        };
-        RulesSystem {
-            edition: GameEdition::Ra2,
-            rules: rules.clone(),
-            art,
-            overlay_types: OverlayTypeRegistry::default(),
-            color_schemes: ColorSchemes::default(),
-            countries: CountryRegistry::default(),
-            techno_types: TechnoTypeRegistry::from_rules(&rules),
-            warheads: WarheadRegistry::default(),
-        }
-    }
-
-    #[test]
-    fn repair_rate_minutes_to_ticks_matches_stock_general() {
-        assert_eq!(repair_rate_minutes_to_ticks(0.016), 14);
-        assert_eq!(repair_rate_minutes_to_ticks(0.0), 14);
-        assert_eq!(repair_rate_minutes_to_ticks(-1.0), 14);
-    }
-
-    #[test]
-    fn build_runtime_definitions_reads_general_repair_keys() {
-        let rules = rules_from(
-            b"[General]\nRepairPercent=25\nRepairStep=16\nRepairRate=.032\n\
-[BuildingTypes]\n0=GAPOWR\n\
-[GAPOWR]\nCost=600\nStrength=600\n",
-        );
-        let defs = build_runtime_definitions(&rules);
-        assert_eq!(defs.repair_percent, 25);
-        assert_eq!(defs.repair_step, 16);
-        assert_eq!(defs.repair_interval_ticks, 28);
-    }
-
-    #[test]
-    fn build_runtime_definitions_falls_back_to_stock_repair_defaults() {
-        let rules = rules_from(b"[BuildingTypes]\n0=GAPOWR\n[GAPOWR]\nCost=1\nStrength=1\n");
-        let defs = build_runtime_definitions(&rules);
-        assert_eq!(defs.repair_percent, 15);
-        assert_eq!(defs.repair_step, 8);
-        assert_eq!(defs.repair_interval_ticks, 14);
-    }
-
-    #[test]
-    fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
-        let rules = rules_from(
-            b"[SuperWeaponTypes]\n0=LightningStorm\n\
-[LightningStorm]\nUIName=Name:LightningStorm\nType=LightningStorm\nAction=LightningStorm\nRechargeTime=10\nSidebarImage=SSWLSICON\n\
-[BuildingTypes]\n0=GACNST\n1=GATECH\n\
-[GACNST]\nConstructionYard=yes\nCost=2500\nStrength=1000\n\
-[GATECH]\nCost=1500\nStrength=600\nSuperWeapon=LightningStorm\n",
-        );
-        let defs = build_runtime_definitions(&rules);
-        let sw = defs.super_weapons.get("LightningStorm").expect("SW");
-        assert_eq!(sw.ui_name, "Name:LightningStorm");
-        assert_eq!(sw.kind, "LIGHTNINGSTORM");
-        assert_eq!(sw.action, "LIGHTNINGSTORM");
-        assert_eq!(sw.recharge_time, 10);
-        assert_eq!(sw.sidebar_image, "SSWLSICON");
-        assert_eq!(
-            defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()),
-            Some("LIGHTNINGSTORM")
-        );
-        assert!(defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon));
-        assert!(defs
-            .structures
-            .get("GATECH")
-            .expect("tech")
-            .capabilities
-            .contains(&BuiltinCapability::SuperWeapon));
-    }
-
-    #[test]
-    fn build_runtime_definitions_reads_foundation_from_art() {
-        let rules = rules_from_with_art(
-            b"[BuildingTypes]\n0=NAWEAP\n\
-[NAWEAP]\nCost=2000\nStrength=1000\nOwner=Russians\n",
-            b"[NAWEAP]\nFoundation=5x3\nHeight=6\n",
-        );
-        let defs = build_runtime_definitions(&rules);
-        let s = defs.structures.get("NAWEAP").expect("NAWEAP");
-        assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
-        assert_eq!(s.height, 6);
-    }
-
-    #[test]
-    fn build_runtime_definitions_foundation_follows_art_image() {
-        let rules = rules_from_with_art(
-            b"[BuildingTypes]\n0=NAWEAP2\n\
-[NAWEAP2]\nCost=2000\nStrength=1000\nOwner=Russians\n",
-            b"[NAWEAP2]\nImage=NAWEAP\n\
-[NAWEAP]\nFoundation=5x3\nHeight=6\n",
-        );
-        let defs = build_runtime_definitions(&rules);
-        let s = defs.structures.get("NAWEAP2").expect("NAWEAP2");
-        assert_eq!((s.foundation.width, s.foundation.height), (5, 3));
-        assert_eq!(s.height, 6);
-    }
-
-    #[test]
-    fn build_runtime_definitions_rules_foundation_fallback_without_art() {
-        let rules = rules_from(
-            b"[BuildingTypes]\n0=GAPOWR\n\
-[GAPOWR]\nCost=600\nStrength=600\nFoundation=2x2\nHeight=4\n",
-        );
-        let defs = build_runtime_definitions(&rules);
-        let s = defs.structures.get("GAPOWR").expect("GAPOWR");
-        assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
-        assert_eq!(s.height, 4);
-    }
+    raw.split(|c| c == ',' || c == ';').map(str::trim).filter(|s| !s.is_empty()).map(|s| s.to_ascii_uppercase()).collect()
 }

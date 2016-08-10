@@ -15,7 +15,7 @@ mod id;
 mod math;
 mod present_feel;
 mod time;
-mod ui_profile;
+pub mod ui_profile;
 mod vga_expand;
 
 pub use asset_source::AssetSource;
@@ -23,9 +23,9 @@ pub use command::{CommandBody, CommandId, CommandKind, CommandTarget, ScheduledC
 pub use definition::{
     AnimationDefinitions, BuildCat, BuiltinCapability, CapabilitySet, ContentFingerprint, DeployableDefinition, DeployableDefinitions,
     DeploymentPlacement, Foundation, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions, StolenTechKind,
-    StructureDefinition, StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition,
-    TechnoDefinitions, TypeDefinitionId, WarheadDefinition, WarheadDefinitions, WeaponDefinitions,
+    ProductionCategory, ProductionDefinitions, ProductionProfile, RuntimeDefinitions, SoundDefinitions, StolenTechKind, StructureDefinition,
+    StructureDefinitions, SuperWeaponDefinition, SuperWeaponDefinitions, TechnoClass, TechnoDefinition, TechnoDefinitions, TypeDefinitionId,
+    WarheadDefinition, WarheadDefinitions, WeaponDefinitions,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
@@ -35,7 +35,7 @@ pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};
 pub use ui_profile::{
-    dialog_template_0x102, dialog_template_0x6b, AssetRole, ControlId, ControlPlacement, DialogControlDesc,
-    DialogTemplate, RuntimeUiProfile, TextKey, UiCapabilities,
+    AssetRole, ControlId, ControlPlacement, DialogControlDesc, DialogTemplate, RuntimeUiProfile, TextKey, UiCapabilities, dialog_template_0x6b,
+    dialog_template_0x102,
 };
 pub use vga_expand::VgaExpandMode;

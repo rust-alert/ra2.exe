@@ -2,8 +2,10 @@
 
 mod hit;
 
-use crate::geometry::{Point2, Rect};
-use crate::spec::LayoutId;
+use crate::{
+    geometry::{Point2, Rect},
+    spec::LayoutId,
+};
 
 /// 单节点布局盒。
 #[derive(Debug, Clone, PartialEq)]

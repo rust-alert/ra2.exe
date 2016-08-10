@@ -23,16 +23,11 @@ pub fn apply_overlay_land_to_pass_grid(
         else {
             continue;
         };
-        let no_use = rules
-            .get(&name, "NoUseTileLandType")
-            .is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+        let no_use = rules.get(&name, "NoUseTileLandType").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
         if !no_use {
             continue;
         }
-        let land = rules
-            .get(&name, "Land")
-            .and_then(LandType::parse_name)
-            .unwrap_or(LandType::Clear);
+        let land = rules.get(&name, "Land").and_then(LandType::parse_name).unwrap_or(LandType::Clear);
         let passable = land_passable(land);
         if grid.is_passable(cell.x, cell.y) == passable {
             continue;

@@ -13,7 +13,7 @@ use ra_types::RaResult;
 use super::document::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 
 /// 解析 Westwood 方言 INI：非 UTF-8 先转码，再走 UTF-8 行式解析。
-pub(crate) fn parse_westwood(bytes: &[u8], source: SourceId) -> RaResult<IniDocument> {
+pub fn parse_westwood(bytes: &[u8], source: SourceId) -> RaResult<IniDocument> {
     let text = decode_westwood_text(bytes);
     Ok(parse_utf8(&text, source))
 }
@@ -21,7 +21,7 @@ pub(crate) fn parse_westwood(bytes: &[u8], source: SourceId) -> RaResult<IniDocu
 /// 将原版 / 资料片 INI 字节转为 UTF-8 文本。
 ///
 /// 优先按 UTF-8（可带 BOM）；否则按 Windows-1252（`encoding_rs`）解码。
-pub(crate) fn decode_westwood_text(bytes: &[u8]) -> String {
+pub fn decode_westwood_text(bytes: &[u8]) -> String {
     let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
@@ -30,7 +30,8 @@ pub(crate) fn decode_westwood_text(bytes: &[u8]) -> String {
     cow.into_owned()
 }
 
-fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
+#[doc(hidden)]
+pub fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
     let mut leading: Vec<IniEntry> = Vec::new();
     let mut sections: Vec<IniSection> = Vec::new();
     let mut current: Option<IniSection> = None;
@@ -56,11 +57,7 @@ fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
                 name_raw,
                 name_key,
                 entries: Vec::new(),
-                span: Some(SourceSpan {
-                    source,
-                    start: line_start,
-                    end: line_start + body.len(),
-                }),
+                span: Some(SourceSpan { source, start: line_start, end: line_start + body.len() }),
             });
             continue;
         }
@@ -70,15 +67,12 @@ fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
                 key_key: key_raw.to_ascii_uppercase(),
                 key_raw,
                 value_raw,
-                span: Some(SourceSpan {
-                    source,
-                    start: line_start,
-                    end: line_start + body.len(),
-                }),
+                span: Some(SourceSpan { source, start: line_start, end: line_start + body.len() }),
             };
             if let Some(sec) = current.as_mut() {
                 sec.entries.push(entry);
-            } else {
+            }
+            else {
                 leading.push(entry);
             }
             continue;
@@ -95,7 +89,7 @@ fn parse_utf8(text: &str, source: SourceId) -> IniDocument {
 }
 
 /// 去掉行尾 `;` / `//` 注释；双引号内与 `://` 不截断。
-fn strip_line_comment(line: &str) -> &str {
+pub fn strip_line_comment(line: &str) -> &str {
     let bytes = line.as_bytes();
     let mut i = 0usize;
     let mut in_quotes = false;
@@ -124,7 +118,8 @@ fn strip_line_comment(line: &str) -> &str {
     line
 }
 
-fn parse_section_name(code: &str) -> Option<String> {
+#[doc(hidden)]
+pub fn parse_section_name(code: &str) -> Option<String> {
     let code = code.trim();
     if !code.starts_with('[') {
         return None;
@@ -141,7 +136,8 @@ fn parse_section_name(code: &str) -> Option<String> {
     Some(name.to_string())
 }
 
-fn parse_property(code: &str) -> Option<(String, String)> {
+#[doc(hidden)]
+pub fn parse_property(code: &str) -> Option<(String, String)> {
     let eq = code.find('=')?;
     let key = code[..eq].trim();
     if key.is_empty() {
@@ -149,71 +145,4 @@ fn parse_property(code: &str) -> Option<(String, String)> {
     }
     let value = code[eq + 1..].trim();
     Some((key.to_string(), value.to_string()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn section_trailing_slash_slash_comment() {
-        let raw = "[MirageWH]    // Supposed to be a heat ray.\nVerses=100%,100%,80%\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        assert!(doc.has_section("MirageWH"));
-        assert_eq!(doc.get("MirageWH", "Verses"), Some("100%,100%,80%"));
-    }
-
-    #[test]
-    fn drops_decorative_lines_without_equal() {
-        let raw = "[General]\n***Crazy Ivan stuff***\nStrength=100\n// PCG comment\nName=Foo\n842-GAWETH_ED\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        assert_eq!(doc.get("General", "Strength"), Some("100"));
-        assert_eq!(doc.get("General", "Name"), Some("Foo"));
-        assert_eq!(doc.section("General").unwrap().entries.len(), 2);
-    }
-
-    #[test]
-    fn empty_value_and_semicolon_comment() {
-        let raw = "[A]\nEmpty=\nName=Tank ; unit name\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        assert_eq!(doc.get("A", "Empty"), Some(""));
-        assert_eq!(doc.get("A", "Name"), Some("Tank"));
-    }
-
-    #[test]
-    fn keeps_url_like_double_slash_in_value() {
-        let raw = "[Net]\nUrl=http://example.com/path\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        assert_eq!(doc.get("Net", "Url"), Some("http://example.com/path"));
-    }
-
-    #[test]
-    fn leading_properties_before_first_section() {
-        let raw = "Pre=1\n[S]\nK=2\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        assert_eq!(doc.leading.len(), 1);
-        assert_eq!(doc.leading[0].key_raw, "Pre");
-        assert_eq!(doc.get("S", "K"), Some("2"));
-    }
-
-    #[test]
-    fn span_uses_decoded_utf8_offsets() {
-        let raw = "[A]\nKey=1\n";
-        let doc = parse_westwood(raw.as_bytes(), SourceId::default()).unwrap();
-        let sec = doc.section("A").unwrap();
-        let span = sec.span.unwrap();
-        assert_eq!(&raw[span.start..span.end], "[A]");
-        let entry = &sec.entries[0];
-        let es = entry.span.unwrap();
-        assert_eq!(&raw[es.start..es.end], "Key=1");
-    }
-
-    #[test]
-    fn windows_1252_high_bytes_decode_before_parse() {
-        // `0x85` 在 Windows-1252 为省略号；非法 UTF-8。
-        let raw = b"[VOX]\nText=battlefield control\x85standby.\nRussian=csof016\n";
-        let doc = parse_westwood(raw, SourceId::default()).unwrap();
-        assert_eq!(doc.get("VOX", "Text"), Some("battlefield control\u{2026}standby."));
-        assert_eq!(doc.get("VOX", "Russian"), Some("csof016"));
-    }
 }

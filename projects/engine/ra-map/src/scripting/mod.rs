@@ -1,20 +1,19 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
 pub use ai_triggers::{MapAiTrigger, parse_ai_triggers};
+pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map_scripting_capability_gaps};
 pub use houses::{MapHouse, parse_map_houses};
 pub use kinds::{MapActionKind, MapEventKind};
 pub use script_teams::{
-    MapScriptStep, MapScriptType, MapTaskForce, MapTaskForceEntry, MapTeamType, parse_script_types, parse_task_forces,
-    parse_team_types,
+    MapScriptStep, MapScriptType, MapTaskForce, MapTaskForceEntry, MapTeamType, parse_script_types, parse_task_forces, parse_team_types,
 };
 pub use triggers::{
-    MapAction, MapActionCommand, MapCellTag, MapEvent, MapEventCondition, MapTag, MapTrigger, parse_actions, parse_cell_tags,
-    parse_events, parse_tags, parse_triggers,
+    MapAction, MapActionCommand, MapCellTag, MapEvent, MapEventCondition, MapTag, MapTrigger, parse_actions, parse_cell_tags, parse_events,
+    parse_tags, parse_triggers,
 };
-pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map_scripting_capability_gaps};
 
 mod ai_triggers;
-mod capability;
+pub mod capability;
 mod houses;
 mod kinds;
 mod script_teams;
@@ -139,11 +138,7 @@ fn scripting_named_object_section(doc: &IniDocument, name: &str) -> bool {
         // 行内 CSV 的键是触发 id，值不是节名；仅当值无逗号时当作分节引用。
         if sec.pairs().any(|(k, v)| {
             let v = v.trim();
-            if v.contains(',') {
-                k.eq_ignore_ascii_case(name)
-            } else {
-                v.eq_ignore_ascii_case(name)
-            }
+            if v.contains(',') { k.eq_ignore_ascii_case(name) } else { v.eq_ignore_ascii_case(name) }
         }) {
             return true;
         }

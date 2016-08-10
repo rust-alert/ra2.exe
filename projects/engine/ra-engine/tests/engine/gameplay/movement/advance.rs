@@ -1,7 +1,7 @@
 //! 移动命令推进。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
@@ -54,10 +54,7 @@ fn move_path_queues_remaining_waypoints_and_advances() {
     });
     let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
     let id = world.entity_id_at(0).expect("entity");
-    world.push_command(GameCommand::MovePath {
-        entity: EntityId(1),
-        points: vec![(12, 20), (12, 22)],
-    });
+    world.push_command(GameCommand::MovePath { entity: EntityId(1), points: vec![(12, 20), (12, 22)] });
     world.advance_tick();
     assert_eq!(world.ecs_move_destination(id).expect("dest"), (Some(12), Some(20)));
     assert_eq!(world.ecs_waypoints(id).expect("wp"), vec![(12, 22)]);
@@ -69,7 +66,6 @@ fn move_path_queues_remaining_waypoints_and_advances() {
     assert_eq!(world.ecs_move_destination(id).expect("dest"), (Some(12), Some(22)));
     assert!(world.ecs_waypoints(id).expect("wp").is_empty());
 }
-
 
 #[test]
 fn turret_chases_body_facing() {

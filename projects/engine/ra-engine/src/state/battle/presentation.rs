@@ -1,8 +1,6 @@
 use super::types::BattleState;
-use crate::
-presentation::DirtyEntitySet;
+use crate::presentation::DirtyEntitySet;
 use ra_types::EntityId;
-
 
 impl BattleState {
     /// 标记实体对呈现层变脏。

@@ -1,10 +1,8 @@
-use super::super::
-components::{
-    Health, Identity, Owner, Transform,
+use super::{
+    super::components::{Identity, Owner},
+    types::{BattleState, EcsCombatView},
 };
-use super::types::{BattleState, EcsCombatView};
 use ra_types::EntityId;
-
 
 impl BattleState {
     /// 按稳定 ID 查找实体下标。

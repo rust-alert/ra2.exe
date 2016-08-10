@@ -29,11 +29,6 @@ impl RectPx {
 
 /// 从 `LayoutSnapshot` 取整数像素矩形（缺省为零矩形）。
 pub fn rect_px_from_snapshot(snap: &LayoutSnapshot, id: &str) -> RectPx {
-    let Rect {
-        x,
-        y,
-        width,
-        height,
-    } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
+    let Rect { x, y, width, height } = snap.get(id).map(|e| e.layout.rect).unwrap_or_default();
     RectPx::new(x as i32, y as i32, width as i32, height as i32)
 }

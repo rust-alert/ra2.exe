@@ -4,10 +4,7 @@
 
 use ra_types::{DisplayMode, PresentFeel, PresentMode};
 
-use ra_layout::{
-    popup_row_below, rect_px_from_snapshot, solve_options_page, LayoutSnapshot, RectPx,
-    OPTIONS_RESOLUTION_ROW_H,
-};
+use ra_layout::{LayoutSnapshot, OPTIONS_RESOLUTION_ROW_H, RectPx, popup_row_below, rect_px_from_snapshot, solve_options_page};
 
 /// 右栏按钮入口 id（与 [`crate::skin::slots`] 一致）。
 pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
@@ -195,11 +192,7 @@ impl OptionsDialogState {
                 OptionsCheckbox::Scanlines => self.scanlines = !self.scanlines,
                 OptionsCheckbox::ShowDamage => self.show_damage = !self.show_damage,
                 OptionsCheckbox::Present16bit => {
-                    self.present.mode = if self.present.is_active() {
-                        PresentMode::Off
-                    } else {
-                        PresentMode::Bit16
-                    };
+                    self.present.mode = if self.present.is_active() { PresentMode::Off } else { PresentMode::Bit16 };
                 }
             },
             OptionsHit::Track(id) => {
@@ -222,7 +215,8 @@ impl OptionsDialogState {
 
     /// 拖动中更新滑条；档位变化时返回 `true`。
     pub fn on_drag(&mut self, x: i32, _y: i32) -> bool {
-        let Some(id) = self.dragging else {
+        let Some(id) = self.dragging
+        else {
             return false;
         };
         let snap = solve_options_page();
@@ -242,11 +236,7 @@ impl OptionsDialogState {
         let max = id.max();
         let inner = (track.w - 12).max(1);
         let rel = (x - track.x - 6).clamp(0, inner);
-        let pos = if max == 0 {
-            0
-        } else {
-            ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8
-        };
+        let pos = if max == 0 { 0 } else { ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8 };
         let pos = pos.min(max);
         *self.track_value_mut(id) = pos;
     }
@@ -254,11 +244,7 @@ impl OptionsDialogState {
 
 /// 分辨率下拉展开后的行矩形。
 pub fn resolution_row_rect(snap: &LayoutSnapshot, index: usize) -> RectPx {
-    popup_row_below(
-        rect_px_from_snapshot(snap, "resolution"),
-        OPTIONS_RESOLUTION_ROW_H,
-        index,
-    )
+    popup_row_below(rect_px_from_snapshot(snap, "resolution"), OPTIONS_RESOLUTION_ROW_H, index)
 }
 
 /// 壳层像素命中。`resolution_open` 为真时才命中下拉行。
@@ -282,12 +268,7 @@ pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32, resolution_open: bool) -> O
     if rect_px_from_snapshot(snap, "resolution").contains(x, y) {
         return Some(OptionsHit::ResolutionCombo);
     }
-    for id in [
-        OptionsCheckbox::Tooltips,
-        OptionsCheckbox::Scanlines,
-        OptionsCheckbox::ShowDamage,
-        OptionsCheckbox::Present16bit,
-    ] {
+    for id in [OptionsCheckbox::Tooltips, OptionsCheckbox::Scanlines, OptionsCheckbox::ShowDamage, OptionsCheckbox::Present16bit] {
         if rect_px_from_snapshot(snap, id.layout_id()).contains(x, y) {
             return Some(OptionsHit::Toggle(id));
         }

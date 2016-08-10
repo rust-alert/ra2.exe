@@ -1,38 +1,25 @@
 //! 壳层会话与平台宿主：页面导航、窗口生命周期；对局逻辑委托 `BattleController`。
 
-use std::{path::PathBuf, sync::Arc, time::{Duration, Instant}};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
-use ra_assets::{AudioIndex, CsfFile, FntFile, IniDocument, PcmAudio, decode_audio_bytes};
+use ra_assets::{AudioIndex, CsfFile, FntFile, PcmAudio};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{AssetSource, DisplayMode, PresentFeel, RaError, RaResult};
-use winit::{
-    application::ApplicationHandler,
-    event::{ElementState, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowId},
-};
+use ra_types::{DisplayMode, PresentFeel};
+use winit::window::Window;
 
-use super::{
-    boot::BootResult,
-    load_job::LoadJob,
-    battle_controller::{BattleController, BattleNav},
-    preview_job::PreviewJob,
-};
+use super::{battle_controller::BattleController, boot::BootResult, load_job::LoadJob, preview_job::PreviewJob};
 use ra_widgets::{
     animation::typewriter::TypewriterText,
     chrome::movie::MenuMoviePlayer,
+    compose::SkirmishChromeSprites,
     load_kind::LoadKind,
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     shell_slide::ShellFrameWave,
-    skin::assets::MenuUiAssets,
-    skin::decode,
+    skin::{assets::MenuUiAssets, decode},
     skirmish_setup::SkirmishBootRequest,
     startup_splash::StartupSplashPresentation,
-    compose::SkirmishChromeSprites,
 };
-use ra_layout;
 
 /// 外壳持有的可导航壳层会话状态。
 pub struct Shell {
@@ -224,27 +211,25 @@ pub struct Shell {
     pub(super) battle_theater_mounted: Option<ra_map::Theater>,
 }
 
-impl Shell {
+impl Shell {}
 
-}
-
-mod construct;
-mod host;
-mod audio;
-mod splash;
-mod options;
-mod lobby;
-mod campaign;
-mod score;
 mod assets;
+mod audio;
 mod battle_cursors;
+mod campaign;
+mod construct;
 mod diagnostics;
-mod navigation;
-mod loading;
-mod input;
-mod redraw;
 mod event_loop;
+mod host;
+mod input;
 mod launch;
+mod loading;
+mod lobby;
+mod navigation;
+mod options;
+mod redraw;
+mod score;
+mod splash;
 
 pub use host::Host;
 pub use launch::{campaign_difficulty_from_track_x, run_shell};

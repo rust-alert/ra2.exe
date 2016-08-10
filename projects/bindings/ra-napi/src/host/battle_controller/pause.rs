@@ -1,60 +1,13 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use ra_engine::BattleOutcome;
+use ra_layout::BattleHudChromeMetrics;
+use ra_widgets::battle_pause_menu::{self, BattlePauseMenuHit};
+use winit::{event::ElementState, window::Window};
 
-use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
-use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-};
-use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
-};
-use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
-use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
-    fs_source::GameAssetSource,
-    render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
-};
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey}, 
-    window::Window,
-};
-
-use super::super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
-    local_player::LocalPlayerController,
-};
+use super::super::battle_input::LeftGesture;
 
 use super::{BattleController, BattleNav};
-
 
 impl BattleController {
     pub(super) fn clear_pause_menu_input(&mut self) {

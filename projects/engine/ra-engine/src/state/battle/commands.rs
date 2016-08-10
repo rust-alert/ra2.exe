@@ -1,8 +1,6 @@
 use super::types::BattleState;
-use crate::
-game::{CommandReject, GameCommand, InputFrame};
+use crate::game::{CommandReject, GameCommand, InputFrame};
 use ra_types::{CommandId, PlayerId, ScheduledCommand, Tick};
-
 
 impl BattleState {
     /// 入队命令载荷；自动包装为 [`ScheduledCommand`]（发出者为本地玩家，tick 为下一消费 tick）。

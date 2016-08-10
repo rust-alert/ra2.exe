@@ -7,11 +7,7 @@ use crate::{
 };
 
 /// 根节点铺满设计视口，子节点为绝对定位叶子。
-pub fn root_with_fixed_children(
-    root_id: impl Into<String>,
-    _design: Size2,
-    children: Vec<LayoutNode>,
-) -> LayoutNode {
+pub fn root_with_fixed_children(root_id: impl Into<String>, _design: Size2, children: Vec<LayoutNode>) -> LayoutNode {
     root_with_children(root_id, children)
 }
 
@@ -19,11 +15,7 @@ pub fn root_with_fixed_children(
 pub fn root_with_children(root_id: impl Into<String>, children: Vec<LayoutNode>) -> LayoutNode {
     LayoutNode {
         id: LayoutId(root_id.into()),
-        rules: LayoutRules {
-            horizontal: HorizontalRule::Stretch,
-            vertical: VerticalRule::Stretch,
-            ..LayoutRules::default()
-        },
+        rules: LayoutRules { horizontal: HorizontalRule::Stretch, vertical: VerticalRule::Stretch, ..LayoutRules::default() },
         children,
     }
 }
@@ -46,28 +38,16 @@ pub fn fixed_rect_leaf(id: impl Into<String>, rect: Rect) -> LayoutNode {
 pub fn sized_leaf(id: impl Into<String>, width: f32, height: f32) -> LayoutNode {
     LayoutNode::leaf(
         id,
-        LayoutRules {
-            width: SizeRule::Fixed(width.max(0.0)),
-            height: SizeRule::Fixed(height.max(0.0)),
-            ..LayoutRules::default()
-        },
+        LayoutRules { width: SizeRule::Fixed(width.max(0.0)), height: SizeRule::Fixed(height.max(0.0)), ..LayoutRules::default() },
     )
 }
 
 /// 纵向流式容器：固有尺寸由子树决定，不参与命中。
 pub fn column(id: impl Into<String>, gap: f32, children: Vec<LayoutNode>) -> LayoutNode {
-    LayoutNode {
-        id: LayoutId(id.into()),
-        rules: LayoutRules::flow_container(LayoutFlow::Column { gap: gap.max(0.0) }),
-        children,
-    }
+    LayoutNode { id: LayoutId(id.into()), rules: LayoutRules::flow_container(LayoutFlow::Column { gap: gap.max(0.0) }), children }
 }
 
 /// 横向流式容器：固有尺寸由子树决定，不参与命中。
 pub fn row(id: impl Into<String>, gap: f32, children: Vec<LayoutNode>) -> LayoutNode {
-    LayoutNode {
-        id: LayoutId(id.into()),
-        rules: LayoutRules::flow_container(LayoutFlow::Row { gap: gap.max(0.0) }),
-        children,
-    }
+    LayoutNode { id: LayoutId(id.into()), rules: LayoutRules::flow_container(LayoutFlow::Row { gap: gap.max(0.0) }), children }
 }

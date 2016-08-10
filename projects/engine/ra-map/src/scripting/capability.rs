@@ -5,6 +5,7 @@ use crate::MapInfo;
 
 /// 一条地图域能力缺口。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct MapCapabilityGap {
     /// 机器可读码（如 `map.action.42 unsupported`）。
     pub code: String,
@@ -17,12 +18,12 @@ pub fn map_scripting_capability_gaps(map: &MapInfo) -> Vec<MapCapabilityGap> {
     gaps_from_scripting(&map.scripting)
 }
 
-fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
+#[doc(hidden)]
+pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
     let mut out = Vec::new();
     for name in &scripting.unknown_sections {
         out.push(MapCapabilityGap {
-            code: format!("map.section.{name} unsupported"),
-            message: format!("地图节 [{name}] 当前引擎未建模"),
+            code: format!("map.section.{name} unsupported"), message: format!("地图节 [{name}] 当前引擎未建模")
         });
     }
     let mut seen_actions = Vec::new();
@@ -37,8 +38,7 @@ fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
             seen_actions.push(cmd.kind);
             let code = cmd.kind.code();
             out.push(MapCapabilityGap {
-                code: format!("map.action.{code} unsupported"),
-                message: format!("触发动作码 {code} 当前引擎未执行"),
+                code: format!("map.action.{code} unsupported"), message: format!("触发动作码 {code} 当前引擎未执行")
             });
         }
     }
@@ -49,31 +49,10 @@ fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
 /// 战役开局：存在未接线动作时返回拒绝说明。
 pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
     let reports = map_scripting_capability_gaps(map);
-    let blocking: Vec<&MapCapabilityGap> = reports
-        .iter()
-        .filter(|r| r.code.starts_with("map.action."))
-        .collect();
+    let blocking: Vec<&MapCapabilityGap> = reports.iter().filter(|r| r.code.starts_with("map.action.")).collect();
     if blocking.is_empty() {
         return None;
     }
-    let summary = blocking
-        .iter()
-        .map(|r| r.code.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
+    let summary = blocking.iter().map(|r| r.code.as_str()).collect::<Vec<_>>().join(", ");
     Some(format!("战役地图含未实现剧本能力，拒绝静默开局: {summary}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::MapActionKind;
-
-    #[test]
-    fn supported_action_kinds_cover_enum_table() {
-        assert!(MapActionKind::Win.is_supported());
-        assert!(MapActionKind::DestroyAllLandUnitsOf.is_supported());
-        assert!(!MapActionKind::from_code(99).is_supported());
-        assert!(matches!(MapActionKind::from_code(99), MapActionKind::Unknown(99)));
-        assert_eq!(MapActionKind::SUPPORTED.len(), 43);
-    }
 }

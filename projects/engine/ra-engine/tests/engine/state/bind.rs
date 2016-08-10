@@ -2,7 +2,7 @@
 
 use crate::common::{map_with_size, rules_with_mtnk};
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoKind, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{ATTACK_COOLDOWN_TICKS, BattleState};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;

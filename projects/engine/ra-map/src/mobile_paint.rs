@@ -17,6 +17,7 @@ use crate::{
 
 /// 移动单位绘制姿态：行走循环帧 + 是否移动中 + 格内像素偏移。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct MobilePaintPose {
     /// 行走 / 待机循环索引（仿真 `hva_frame`）。
     pub anim_frame: u16,
@@ -29,9 +30,8 @@ pub struct MobilePaintPose {
 }
 
 /// 步兵朝向槽表（零售 32 项），由 [`infantry_facing_slot`] 索引。
-const INFANTRY_FACING_SLOT_TABLE: [u8; 32] = [
-    7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 7, 7,
-];
+pub const INFANTRY_FACING_SLOT_TABLE: [u8; 32] =
+    [7, 7, 6, 6, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 7, 7];
 
 /// 叠画单位 / 步兵 / 飞行器。`remap_owner` 提供房屋色调色板。
 ///
@@ -112,12 +112,9 @@ pub fn paint_map_mobiles(
     paint_cell_sprites(image, &items, z_at)
 }
 
-fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
-    rules
-        .and_then(|r| r.get(type_id, "Image"))
-        .or_else(|| art.and_then(|a| a.get(type_id, "Image")))
-        .unwrap_or(type_id)
-        .to_ascii_uppercase()
+#[doc(hidden)]
+pub fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+    rules.and_then(|r| r.get(type_id, "Image")).or_else(|| art.and_then(|a| a.get(type_id, "Image"))).unwrap_or(type_id).to_ascii_uppercase()
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。
@@ -127,7 +124,7 @@ pub fn infantry_facing_slot(facing: u8) -> u16 {
 }
 
 /// 解析 art 序列值 `Start,Count,FacingsOrMultiplier`；第三字段为朝向步长。
-fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
+pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
     if parts.len() < 3 {
         return None;
@@ -138,13 +135,13 @@ fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     Some((start, count, multiplier))
 }
 
-fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<String> {
-    art.get(image_key, "Sequence")
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty())
+#[doc(hidden)]
+pub fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<String> {
+    art.get(image_key, "Sequence").map(|s| s.trim().to_ascii_uppercase()).filter(|s| !s.is_empty())
 }
 
-fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]) -> Option<&'a str> {
+#[doc(hidden)]
+pub fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]) -> Option<&'a str> {
     for key in keys {
         if let Some(v) = art.get(seq_section, key) {
             return Some(v);
@@ -154,7 +151,7 @@ fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]) ->
 }
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
-fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
+pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
     let Some(art) = art
     else {
         return u16::from(ent.facing / 32);
@@ -167,12 +164,7 @@ fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &Ma
     else {
         return infantry_facing_slot(ent.facing);
     };
-    let seq_keys: &[&str] = if pose.moving {
-        &["Walk", "Panic"]
-    }
-    else {
-        &["Ready", "Guard"]
-    };
+    let seq_keys: &[&str] = if pose.moving { &["Walk", "Panic"] } else { &["Ready", "Guard"] };
     let Some(raw) = sequence_value(art, &seq_section, seq_keys)
     else {
         return infantry_facing_slot(ent.facing);
@@ -189,7 +181,8 @@ fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &Ma
     start.saturating_add(slot.saturating_mul(multiplier)).saturating_add(step)
 }
 
-fn load_mobile_vxl_layers(
+#[doc(hidden)]
+pub fn load_mobile_vxl_layers(
     source: &dyn AssetSource,
     stem: &str,
     pal: &Palette,
@@ -238,13 +231,7 @@ fn load_mobile_vxl_layers(
                 *px = 1;
             }
         }
-        ShadowBlit {
-            width: s.width,
-            height: s.height,
-            offset_x: s.offset_x + TILE_WIDTH / 2,
-            offset_y: s.offset_y + TILE_HEIGHT / 2,
-            mask,
-        }
+        ShadowBlit { width: s.width, height: s.height, offset_x: s.offset_x + TILE_WIDTH / 2, offset_y: s.offset_y + TILE_HEIGHT / 2, mask }
     });
     Some(TileBlit {
         width: sprite.width,
@@ -256,7 +243,8 @@ fn load_mobile_vxl_layers(
     })
 }
 
-fn load_mobile_shp(
+#[doc(hidden)]
+pub fn load_mobile_shp(
     source: &dyn AssetSource,
     art: &Option<IniDocument>,
     image_key: &str,
@@ -309,42 +297,4 @@ fn load_mobile_shp(
         rgba: frame.to_rgba(obj_pal),
         shadow: None,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn walk_sequence_frame_matches_gi_layout() {
-        // Walk=8,6,6 → start 8, count 6, multiplier 6；朝向槽 0 + 步 2 → 帧 10。
-        let start = 8u16;
-        let mult = 6u16;
-        let slot = 0u16;
-        let step = 2u16;
-        assert_eq!(start + slot * mult + step, 10);
-        assert!(infantry_facing_slot(0) < 8);
-    }
-
-    #[test]
-    fn parse_walk_triple() {
-        assert_eq!(parse_sequence_triple("8,6,6"), Some((8, 6, 6)));
-        assert_eq!(parse_sequence_triple("0,1,1"), Some((0, 1, 1)));
-    }
-
-    #[test]
-    fn pose_slide_offset_is_added_to_blit_origin() {
-        // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
-        let pose = MobilePaintPose {
-            anim_frame: 0,
-            moving: true,
-            offset_x: 12,
-            offset_y: -8,
-        };
-        let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
-        blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
-        blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
-        assert_eq!(blit.offset_x, 15);
-        assert_eq!(blit.offset_y, -3);
-    }
 }

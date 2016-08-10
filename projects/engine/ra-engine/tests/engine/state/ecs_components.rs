@@ -7,10 +7,21 @@ use ra_engine::{GameCommand, SystemPhase, SystemSchedule};
 fn seed_writes_identity_transform_health_components() {
     let world = duel_mtnk_world();
     let id = world.entity_id_at(0).expect("entity");
-    assert_eq!(world.ecs_health(id), Some((world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").0, world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").1, false)));
+    assert_eq!(
+        world.ecs_health(id),
+        Some((
+            world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").0,
+            world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").1,
+            false
+        ))
+    );
     assert_eq!(
         world.ecs_transform(id),
-        Some((world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").2))
+        Some((
+            world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0,
+            world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1,
+            world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").2
+        ))
     );
     assert_eq!(world.ecs_move_destination(id), Some((None, None)));
     assert_eq!(world.ecs_attack_state(id), Some((None, 0)));
@@ -33,7 +44,11 @@ fn tick_sync_updates_health_after_combat() {
     assert!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").2);
     assert_eq!(
         world.ecs_health(target),
-        Some((world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0, world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").1, true))
+        Some((
+            world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").0,
+            world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").1,
+            true
+        ))
     );
 }
 
@@ -41,7 +56,10 @@ fn tick_sync_updates_health_after_combat() {
 fn tick_sync_updates_move_destination() {
     let mut world = duel_mtnk_world();
     let id = world.entity_id_at(0).expect("entity");
-    let (x, y) = (world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1);
+    let (x, y) = (
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1,
+    );
     let dest_x = x.saturating_add(3);
     world.push_command(GameCommand::MoveTo { entity: id, x: dest_x, y });
     world.advance_tick();
@@ -87,7 +105,10 @@ fn combat_writes_health_through_ecs_authority() {
 fn movement_writes_transform_through_ecs_authority() {
     let mut world = duel_mtnk_world();
     let id = world.entity_id_at(0).expect("entity");
-    let (x, y) = (world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1);
+    let (x, y) = (
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1,
+    );
     let start = world.ecs_transform(id).unwrap();
     world.push_command(GameCommand::MoveTo { entity: id, x: x.saturating_add(3), y });
     for _ in 0..32 {

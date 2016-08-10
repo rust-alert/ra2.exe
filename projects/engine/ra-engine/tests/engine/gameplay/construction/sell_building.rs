@@ -1,8 +1,8 @@
 //! 侧栏出售：退半价并移除己方建筑。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState, PRODUCE_TICKS};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -40,10 +40,7 @@ fn yard_with_power() -> BattleState {
     }];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "GAPOWR".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
     world.advance_tick();
     for _ in 0..=PRODUCE_TICKS {
         if world.house_ready_building("Americans").is_some() {
@@ -51,12 +48,7 @@ fn yard_with_power() -> BattleState {
         }
         world.advance_tick();
     }
-    world.push_command(GameCommand::PlaceBuilding {
-        player: PlayerId(0),
-        type_id: "GAPOWR".into(),
-        x: 6,
-        y: 4,
-    });
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     world
@@ -71,10 +63,7 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
     assert!(!world.pass_grid.is_passable(6, 4));
     assert!(!world.pass_grid.is_passable(7, 5));
 
-    world.push_command(GameCommand::SellBuilding {
-        player: PlayerId(0),
-        building: power,
-    });
+    world.push_command(GameCommand::SellBuilding { player: PlayerId(0), building: power });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert!(world.ecs_health(power).expect("health").2);
@@ -90,10 +79,7 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
 fn sell_building_rejects_wrong_owner() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
-    world.push_command(GameCommand::SellBuilding {
-        player: PlayerId(1),
-        building: power,
-    });
+    world.push_command(GameCommand::SellBuilding { player: PlayerId(1), building: power });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::WrongOwner);
     assert!(!world.ecs_health(power).expect("health").2);

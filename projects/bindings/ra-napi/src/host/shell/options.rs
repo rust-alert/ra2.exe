@@ -1,7 +1,6 @@
 //! 选项页草稿与提交。
 
 use ra_types::{DisplayMode, PresentFeel};
-use ra_widgets::options_dialog;
 use ra_widgets::original_screen::OriginalScreen;
 
 use super::Shell;
@@ -85,11 +84,7 @@ impl Shell {
     /// 选项页拖动滑条。
     pub(super) fn handle_options_drag(&mut self) -> bool {
         let (x, y) = self.shell_cursor_px();
-        let dragged = self
-            .options_state
-            .as_mut()
-            .map(|state| state.dragging.is_some() && state.on_drag(x, y))
-            .unwrap_or(false);
+        let dragged = self.options_state.as_mut().map(|state| state.dragging.is_some() && state.on_drag(x, y)).unwrap_or(false);
         if !dragged {
             return false;
         }
@@ -176,7 +171,8 @@ impl Shell {
             window.set_fullscreen(None);
             tracing::info!("已退出全屏");
             self.banner = "窗口模式".into();
-        } else {
+        }
+        else {
             window.set_fullscreen(Some(Fullscreen::Borderless(None)));
             tracing::info!("已进入无边框全屏");
             self.banner = "全屏".into();

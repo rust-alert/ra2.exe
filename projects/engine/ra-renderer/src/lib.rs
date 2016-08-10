@@ -12,11 +12,11 @@
 
 #![deny(missing_docs)]
 
-mod camera;
+pub mod camera;
 mod capture;
 mod frame;
 mod gpu;
-mod markers;
+pub mod markers;
 mod order_icons;
 mod pass;
 mod png_out;
@@ -29,10 +29,10 @@ use ra_engine::RenderSnapshot;
 use ra_types::{GameEdition, RaResult};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
-use winit::window::Window;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
+#[cfg(not(target_arch = "wasm32"))]
+use winit::window::Window;
 
 use crate::{camera::Camera, gpu::GpuContext, markers::MarkerGpu, order_icons::OrderIconGpu, sprite::SpriteGpu};
 
@@ -44,24 +44,24 @@ pub use crate::camera::CameraBounds;
 pub use crate::frame::FrameBuilder;
 /// 表面 sRGB → unorm 视图格式列表。
 pub use crate::gpu::encoded_view_formats;
-/// NDC 粗裁剪。
-pub use crate::markers::ndc_visible;
+/// 建筑 `pips.shp` 帧索引。
+pub use crate::markers::BUILDING_PIP_FRAMES;
+/// 选中血条 CPU 解码结果（`pips.shp` / `pipbrd.shp`）。
+pub use crate::markers::DecodedSelectionOverlay;
+/// 血色枚举。
+pub use crate::markers::HealthPipTone;
+/// 单位 `pips.shp` 帧索引。
+pub use crate::markers::UNIT_PIP_FRAMES;
 /// 建筑血 pip 段数。
 pub use crate::markers::building_pip_count;
 /// 填充 pip 数。
 pub use crate::markers::filled_pip_count;
 /// 血色档位。
 pub use crate::markers::health_pip_tone;
+/// NDC 粗裁剪。
+pub use crate::markers::ndc_visible;
 /// 选中 / 悬停可见性。
 pub use crate::markers::status_visibility;
-/// 血色枚举。
-pub use crate::markers::HealthPipTone;
-/// 建筑 `pips.shp` 帧索引。
-pub use crate::markers::BUILDING_PIP_FRAMES;
-/// 单位 `pips.shp` 帧索引。
-pub use crate::markers::UNIT_PIP_FRAMES;
-/// 选中血条 CPU 解码结果（`pips.shp` / `pipbrd.shp`）。
-pub use crate::markers::DecodedSelectionOverlay;
 /// 命令图标 CPU 解码结果（`mouse.shp` 帧）。
 pub use crate::order_icons::DecodedOrderIcons;
 /// 渲染阶段图。
@@ -389,10 +389,8 @@ impl Renderer {
             self.sprite = Some(SpriteGpu::create(&gpu.device, &gpu.queue, gpu.config.format, image));
             self.reset_camera_to_fit(gpu.config.width, gpu.config.height, image.width(), image.height());
         }
-        self.markers = self
-            .pending_selection_overlay
-            .as_ref()
-            .and_then(|assets| MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, assets));
+        self.markers =
+            self.pending_selection_overlay.as_ref().and_then(|assets| MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, assets));
         if let Some(icons) = self.pending_order_icons.take() {
             self.order_icons = OrderIconGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &icons);
         }
@@ -404,7 +402,8 @@ impl Renderer {
         if let Some(gpu) = self.gpu.as_ref() {
             self.markers = MarkerGpu::create(&gpu.device, &gpu.queue, gpu.config.format, &assets);
             self.pending_selection_overlay = Some(assets);
-        } else {
+        }
+        else {
             self.pending_selection_overlay = Some(assets);
             self.markers = None;
         }
@@ -519,15 +518,7 @@ impl Renderer {
             Some(r) => r,
             None => (0.0, 0.0, preview.width() as f32, preview.height() as f32),
         };
-        Some(crate::camera::CameraBounds::from_content_rect(
-            x0,
-            y0,
-            x1,
-            y1,
-            viewport_w.max(1.0),
-            viewport_h.max(1.0),
-            self.camera.zoom,
-        ))
+        Some(crate::camera::CameraBounds::from_content_rect(x0, y0, x1, y1, viewport_w.max(1.0), viewport_h.max(1.0), self.camera.zoom))
     }
 
     /// 当前预览世界与表面尺寸下的相机边界；无预览或未绑定 GPU 时为 `None`。
@@ -670,9 +661,11 @@ impl Renderer {
         let world_sprite = if overlay { self.sprite.as_ref() } else { self.ui_sprite.as_ref().or(self.sprite.as_ref()) };
         let encoded_menu_ui = !overlay && self.ui_sprite.as_ref().is_some_and(SpriteGpu::is_encoded_bytes);
         let srgb_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let unorm_view = self.ui_sprite.as_ref().filter(|s| s.is_encoded_bytes()).map(|ui| {
-            frame.texture.create_view(&wgpu::TextureViewDescriptor { format: Some(ui.target_format()), ..Default::default() })
-        });
+        let unorm_view = self
+            .ui_sprite
+            .as_ref()
+            .filter(|s| s.is_encoded_bytes())
+            .map(|ui| frame.texture.create_view(&wgpu::TextureViewDescriptor { format: Some(ui.target_format()), ..Default::default() }));
 
         if let Some(sprite) = world_sprite {
             sprite.write_vertices(&gpu.queue, &self.camera, world_proj.0, world_proj.1);
@@ -698,13 +691,7 @@ impl Renderer {
         if let Some(markers) = self.markers.as_mut() {
             let draw_markers = self.render_world.unit_count() > 0 && (overlay || self.ui_sprite.is_none());
             if draw_markers {
-                markers.write_from_world(
-                    &gpu.queue,
-                    &self.render_world,
-                    &self.camera,
-                    world_proj.0,
-                    world_proj.1,
-                );
+                markers.write_from_world(&gpu.queue, &self.render_world, &self.camera, world_proj.0, world_proj.1);
             }
             else {
                 markers.clear();
@@ -713,13 +700,7 @@ impl Renderer {
         if let Some(icons) = self.order_icons.as_mut() {
             let draw_icons = self.render_world.unit_count() > 0 && (overlay || self.ui_sprite.is_none());
             if draw_icons {
-                icons.write_from_world(
-                    &gpu.queue,
-                    &self.render_world,
-                    &self.camera,
-                    world_proj.0,
-                    world_proj.1,
-                );
+                icons.write_from_world(&gpu.queue, &self.render_world, &self.camera, world_proj.0, world_proj.1);
             }
             else {
                 icons.clear();

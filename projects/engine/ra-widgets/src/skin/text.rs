@@ -363,27 +363,11 @@ pub fn skirmish_score_fallback_label(entry_id: &str) -> &str {
     }
 }
 
-
 /// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
-pub const SKIRMISH_COMMAND_BAR: &[&str] = &[
-    "Team01",
-    "Team02",
-    "TypeSelect",
-    "Deploy",
-    "Guard",
-    "PlanningMode",
-];
+pub const SKIRMISH_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "PlanningMode"];
 
 /// 多人命令条（对齐 `[MultiplayerAdvancedCommandBar]`）。
-pub const MULTIPLAYER_COMMAND_BAR: &[&str] = &[
-    "Team01",
-    "Team02",
-    "TypeSelect",
-    "Deploy",
-    "Guard",
-    "PlanningMode",
-    "Beacon",
-];
+pub const MULTIPLAYER_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "PlanningMode", "Beacon"];
 
 /// 零售 `buttonNN.shp` 编号（按素材内容，不是 `ButtonList` 顺序）。
 pub fn command_bar_shp_index(name: &str) -> Option<usize> {
@@ -529,16 +513,7 @@ pub fn blit_caption_top_left_clipped(
 }
 
 /// 在矩形内左上锚点逐行绘制（按字宽折行；显式 `\n` 换行）。
-pub fn blit_caption_wrapped(
-    dst: &mut RgbaImage,
-    fnt: &FntFile,
-    text: &str,
-    cell_x: i32,
-    cell_y: i32,
-    cell_w: i32,
-    cell_h: i32,
-    rgba: [u8; 4],
-) {
+pub fn blit_caption_wrapped(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell_x: i32, cell_y: i32, cell_w: i32, cell_h: i32, rgba: [u8; 4]) {
     if cell_w <= 0 || cell_h <= 0 || text.is_empty() {
         return;
     }

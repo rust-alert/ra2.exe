@@ -96,9 +96,7 @@ impl OriginalScreen {
                 ));
             }
             other => {
-                return Err(format!(
-                    "未知 screen `{other}`（可用: splash, main, single, campaign, skirmish, choose_map, options）"
-                ));
+                return Err(format!("未知 screen `{other}`（可用: splash, main, single, campaign, skirmish, choose_map, options）"));
             }
         };
         Ok(screen)

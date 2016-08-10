@@ -238,9 +238,9 @@ impl LocalPlayerController {
                 battle.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
                     && battle.world.ecs_owner(eid).is_some_and(|o| o.as_ref() == local_house.as_ref())
                     && battle
-                    .world
-                    .ecs_identity(eid)
-                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                        .world
+                        .ecs_identity(eid)
+                        .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
             })
             .collect();
         if mobiles.is_empty() {
@@ -271,7 +271,8 @@ impl LocalPlayerController {
         for &id in ids {
             if add {
                 self.select_add(battle, id);
-            } else {
+            }
+            else {
                 let Some((_, kind)) = battle.world.ecs_identity(id)
                 else {
                     continue;

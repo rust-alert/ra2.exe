@@ -57,12 +57,7 @@ fn produce_until_ready(session: &mut Session, engine: &ra_engine::Engine, type_i
         session.expect_battle().world.last_rejects()
     );
     for _ in 0..=PRODUCE_TICKS {
-        if session
-            .expect_battle()
-            .world
-            .house_ready_building("Americans")
-            .is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id))
-        {
+        if session.expect_battle().world.house_ready_building("Americans").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
             return;
         }
         session.tick(&engine.runtime());

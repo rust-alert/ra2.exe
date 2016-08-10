@@ -1,10 +1,4 @@
-use super::super::
-components::{
-    Health, Identity, Transform,
-};
 use super::types::BattleState;
-use ra_map::MapEntityKind;
-
 
 impl BattleState {
     /// 目标格是否可放置单格建筑（界内、可通行、无占用实体）。
@@ -54,23 +48,12 @@ impl BattleState {
             else {
                 return false;
             };
-            let is_structure = self
-                .ecs_get::<Identity>(id)
-                .map(|i| i.kind == MapEntityKind::Structure)
-                .unwrap_or(false);
+            let is_structure = self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
             if !is_structure {
                 return xf.x == cx && xf.y == cy;
             }
-            let type_id = self
-                .ecs_get::<Identity>(id)
-                .map(|i| i.type_id.clone())
-                .unwrap_or_default();
-            let foundation = self
-                .definitions
-                .structures
-                .get(type_id.as_ref())
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
+            let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone()).unwrap_or_default();
+            let foundation = self.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
             let fw = foundation.width.max(1);
             let fh = foundation.height.max(1);
             cx >= xf.x && cy >= xf.y && cx < xf.x.saturating_add(fw) && cy < xf.y.saturating_add(fh)

@@ -48,11 +48,7 @@ pub fn compose_load_screen_page(
     let player_flag = rect_px_from_snapshot(&snap, "player_flag");
     let player_name = rect_px_from_snapshot(&snap, "player_name");
 
-    let mut page = RgbaImage::from_raw(
-        canvas.w as u32,
-        canvas.h as u32,
-        vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4],
-    )?;
+    let mut page = RgbaImage::from_raw(canvas.w as u32, canvas.h as u32, vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4])?;
     fill_rect(&mut page, canvas, [0, 0, 0, 255]);
     if let Some(bg) = decoded.background.as_ref() {
         blit_stretched(&mut page, &bg.image, canvas);
@@ -60,11 +56,7 @@ pub fn compose_load_screen_page(
 
     if let Some(fnt) = fnt {
         // 特色名：rules 派生 UIName → 胜出 CSF。键空或 CSF 无文案则整行省略。
-        if let Some(special_key) = paint
-            .special_ui_name
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(special_key) = paint.special_ui_name.map(str::trim).filter(|s| !s.is_empty()) {
             if let Some(special_text) = resolve_csf_text(csf, special_key) {
                 blit_caption_top_left_clipped(
                     &mut page,
@@ -79,50 +71,19 @@ pub fn compose_load_screen_page(
             }
         }
 
-        let brief_key = paint
-            .brief_csf_override
-            .map(str::to_string)
-            .unwrap_or_else(|| load_screen_brief_csf_key(paint.side));
+        let brief_key = paint.brief_csf_override.map(str::to_string).unwrap_or_else(|| load_screen_brief_csf_key(paint.side));
         if let Some(brief_text) = resolve_csf_text(csf, &brief_key) {
-            blit_caption_wrapped(
-                &mut page,
-                fnt,
-                &brief_text,
-                brief.x,
-                brief.y,
-                brief.w,
-                brief.h,
-                LOAD_SCREEN_TEXT,
-            );
+            blit_caption_wrapped(&mut page, fnt, &brief_text, brief.x, brief.y, brief.w, brief.h, LOAD_SCREEN_TEXT);
         }
 
         let name_key = load_screen_name_csf_key(paint.side);
         if let Some(name_text) = resolve_csf_text(csf, &name_key) {
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                &name_text,
-                name.x,
-                name.y,
-                name.w,
-                name.h,
-                LOAD_SCREEN_TEXT_TITLE,
-            );
+            blit_caption_top_left_clipped(&mut page, fnt, &name_text, name.x, name.y, name.w, name.h, LOAD_SCREEN_TEXT_TITLE);
         }
 
         if !paint.allow_retry {
-            let loading =
-                resolve_csf_text(csf, load_screen_loading_csf_key()).unwrap_or_else(|| "Loading..".into());
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                &loading,
-                status.x,
-                status.y,
-                status.w,
-                status.h,
-                LOAD_SCREEN_TEXT,
-            );
+            let loading = resolve_csf_text(csf, load_screen_loading_csf_key()).unwrap_or_else(|| "Loading..".into());
+            blit_caption_top_left_clipped(&mut page, fnt, &loading, status.x, status.y, status.w, status.h, LOAD_SCREEN_TEXT);
             blit_caption_top_left_clipped(
                 &mut page,
                 fnt,
@@ -145,32 +106,29 @@ pub fn compose_load_screen_page(
     let ratio = paint.progress.clamp(0.0, 1.0);
     if let Some(bar) = find_panel(decoded, "progbarm.shp", 0) {
         let clip_w = ((bar.image.width() as f32) * ratio).round() as u32;
-        blit_rgba_clipped_width(
-            &mut page,
-            &bar.image,
-            progress.x,
-            progress.y,
-            clip_w,
-        );
+        blit_rgba_clipped_width(&mut page, &bar.image, progress.x, progress.y, clip_w);
     }
 
     // 失败时只露操作钮；不再叠中区假对话框（状态在窗口标题）。
     if paint.allow_retry {
-        let btn_plan =
-            crate::RenderPlan::load_screen_placeholders().button_sprite_plan(&LOAD_SCREEN_BUTTON_IDS);
+        let btn_plan = crate::RenderPlan::load_screen_placeholders().button_sprite_plan(&LOAD_SCREEN_BUTTON_IDS);
         for entry_id in LOAD_SCREEN_BUTTON_IDS.iter() {
-            let Some(rect) = btn_plan.rect_px_of(entry_id) else {
+            let Some(rect) = btn_plan.rect_px_of(entry_id)
+            else {
                 continue;
             };
             let enabled = *entry_id != "retry" || paint.allow_retry;
             let normal = find_button_normal(decoded, entry_id);
             let sprite = if !enabled {
                 find_button_pressed(decoded, entry_id).or(normal)
-            } else if pressed_entry_id == Some(*entry_id) {
+            }
+            else if pressed_entry_id == Some(*entry_id) {
                 find_button_pressed(decoded, entry_id).or(normal)
-            } else if hovered_entry_id == Some(*entry_id) {
+            }
+            else if hovered_entry_id == Some(*entry_id) {
                 find_button_hover(decoded, entry_id).or(normal)
-            } else {
+            }
+            else {
                 normal
             };
             if let Some(sprite) = sprite {
@@ -179,49 +137,24 @@ pub fn compose_load_screen_page(
                 blit_rgba(&mut page, &sprite.image, bx, by);
                 if let Some(fnt) = fnt {
                     let label = if *entry_id == "retry" { "重试" } else { "取消" };
-                    let color = if enabled {
-                        MENU_TEXT_ENABLED
-                    } else {
-                        MENU_TEXT_DISABLED
-                    };
+                    let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
                     let pressed = enabled && pressed_entry_id == Some(*entry_id);
-                    let cell = RectPx::new(
-                        bx,
-                        by,
-                        sprite.image.width() as i32,
-                        sprite.image.height() as i32,
-                    );
+                    let cell = RectPx::new(bx, by, sprite.image.width() as i32, sprite.image.height() as i32);
                     let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
                     blit_caption_in_cell(&mut page, fnt, label, tx, ty, tw, th, color);
                 }
                 if !enabled {
                     dim_rect(&mut page, rect, 110);
                 }
-            } else {
-                let fill = if enabled {
-                    [120, 24, 24, 255]
-                } else {
-                    [48, 40, 40, 255]
-                };
+            }
+            else {
+                let fill = if enabled { [120, 24, 24, 255] } else { [48, 40, 40, 255] };
                 fill_rect(&mut page, rect, fill);
                 stroke_rect(&mut page, rect, [200, 40, 40, 255]);
                 if let Some(fnt) = fnt {
                     let label = if *entry_id == "retry" { "重试" } else { "取消" };
-                    let color = if enabled {
-                        MENU_TEXT_ENABLED
-                    } else {
-                        MENU_TEXT_DISABLED
-                    };
-                    blit_caption_in_cell(
-                        &mut page,
-                        fnt,
-                        label,
-                        rect.x + 8,
-                        rect.y + 8,
-                        rect.w - 16,
-                        rect.h - 16,
-                        color,
-                    );
+                    let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
+                    blit_caption_in_cell(&mut page, fnt, label, rect.x + 8, rect.y + 8, rect.w - 16, rect.h - 16, color);
                 }
             }
         }

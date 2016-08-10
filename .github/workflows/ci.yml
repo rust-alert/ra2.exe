@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, dev]
+    branches: [ master, dev ]
   pull_request:
-    branches: [master, dev]
+    branches: [ master, dev ]
 
 jobs:
   # 三端：原生 Rust 构建 / 测试 / N-API。不跑 Wasm。
@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7

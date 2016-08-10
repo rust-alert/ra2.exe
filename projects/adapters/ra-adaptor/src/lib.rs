@@ -5,11 +5,11 @@
 
 mod adaptor_api;
 mod compose;
-mod definitions;
+pub mod definitions;
 mod layers;
 mod rules;
-mod ui_profile;
 mod stock_ui;
+pub mod ui_profile;
 
 use std::path::{Path, PathBuf};
 
@@ -25,8 +25,8 @@ pub use layers::{
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use rules::{RulesSystem, load_rules, load_rules_chain};
-pub use ui_profile::{dialog_template_0x102, dialog_template_0x6b, shell_runtime_ui_profile};
 pub use stock_ui::{apply_edition_stock_ui, apply_stock_ui_for_chain};
+pub use ui_profile::{dialog_template_0x6b, dialog_template_0x102, shell_runtime_ui_profile};
 
 /// 统一资源表视图（由各 edition adaptor 填入）。
 #[derive(Debug, Clone)]

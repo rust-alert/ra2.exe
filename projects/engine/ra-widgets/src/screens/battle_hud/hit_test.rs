@@ -4,17 +4,12 @@
 //! 战术区铺到命令条顶边；chrome 含右侧栏与底边命令条。
 
 use ra_layout::{
-    BattleHudChromeMetrics, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, LayoutSnapshot,
-    Point2, SIDEBAR_TAB_COUNT, hit_cameo_slot,
+    BattleHudChromeMetrics, COMMAND_BAR_BUTTON_COUNT, COMMAND_BAR_BUTTON_IDS, LayoutSnapshot, Point2, SIDEBAR_TAB_COUNT, hit_cameo_slot,
     rect_px_from_snapshot,
 };
 use ra_renderer::RgbaImage;
 
-use crate::
-skirmish_setup::UiFactionChrome;
-
 /// 对局侧栏调色板。
-
 use super::chrome::BattleHudChrome;
 use super::command_bar::command_bar_shp_index_for_visual;
 
@@ -36,7 +31,6 @@ pub enum BattleHudHit {
     /// 当前页可视 cameo 槽。
     Cameo(usize),
 }
-
 
 impl BattleHudHit {
     /// 由 snapshot 控件 id 解析。
@@ -76,25 +70,12 @@ impl BattleHudHit {
             Self::SidebarTab(3) => "tab03",
             Self::SidebarTab(_) => "tab00",
             Self::Cameo(_) => "cameo_band",
-            Self::CommandButton(slot) => COMMAND_BAR_BUTTON_IDS
-                .get(slot)
-                .copied()
-                .unwrap_or(COMMAND_BAR_BUTTON_IDS[0]),
+            Self::CommandButton(slot) => COMMAND_BAR_BUTTON_IDS.get(slot).copied().unwrap_or(COMMAND_BAR_BUTTON_IDS[0]),
         }
     }
 }
 
-
-const BATTLE_HUD_HIT_IDS: [&str; 8] = [
-    "repair",
-    "sell",
-    "opt_btn",
-    "diplo_btn",
-    "tab00",
-    "tab01",
-    "tab02",
-    "tab03",
-];
+const BATTLE_HUD_HIT_IDS: [&str; 8] = ["repair", "sell", "opt_btn", "diplo_btn", "tab00", "tab01", "tab02", "tab03"];
 
 pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<BattleHudHit> {
     hit_at_with_chrome(snap, None, BattleHudChromeMetrics::sidec01().power_w, 0, x, y)
@@ -112,21 +93,16 @@ pub fn hit_at_with_chrome(
     if let Some(chrome) = chrome {
         let bar = rect_px_from_snapshot(snap, "command_bar");
         if bar.contains(x, y) {
-            let point = Point2 {
-                x: x as f32,
-                y: y as f32,
-            };
+            let point = Point2 { x: x as f32, y: y as f32 };
             for (visual, id) in COMMAND_BAR_BUTTON_IDS.iter().enumerate() {
-                let Some(shp_i) = command_bar_shp_index_for_visual(visual) else {
+                let Some(shp_i) = command_bar_shp_index_for_visual(visual)
+                else {
                     continue;
                 };
                 if chrome.command_buttons.get(shp_i).and_then(|s| s.as_ref()).is_none() {
                     continue;
                 }
-                if snap
-                    .get(id)
-                    .is_some_and(|el| el.layout.rect.width > 0.0 && el.layout.rect.contains(point))
-                {
+                if snap.get(id).is_some_and(|el| el.layout.rect.width > 0.0 && el.layout.rect.contains(point)) {
                     return Some(BattleHudHit::CommandButton(visual));
                 }
             }
@@ -135,15 +111,9 @@ pub fn hit_at_with_chrome(
         }
     }
 
-    let point = Point2 {
-        x: x as f32,
-        y: y as f32,
-    };
+    let point = Point2 { x: x as f32, y: y as f32 };
     for id in BATTLE_HUD_HIT_IDS {
-        if snap
-            .get(id)
-            .is_some_and(|el| el.layout.rect.contains(point))
-        {
+        if snap.get(id).is_some_and(|el| el.layout.rect.contains(point)) {
             return BattleHudHit::from_entry_id(id);
         }
     }

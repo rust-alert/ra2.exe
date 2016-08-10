@@ -7,9 +7,9 @@
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use std::cell::RefCell;
-#[cfg(target_arch = "wasm32")]
 use ra_renderer::Renderer;
+#[cfg(target_arch = "wasm32")]
+use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
 use web_sys::HtmlCanvasElement;
 
@@ -58,10 +58,7 @@ pub async fn attach_canvas(canvas: HtmlCanvasElement) -> Result<(), JsValue> {
     let width = canvas.width().max(1);
     let height = canvas.height().max(1);
     let mut renderer = Renderer::new();
-    renderer
-        .attach_canvas(canvas)
-        .await
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    renderer.attach_canvas(canvas).await.map_err(|e| JsValue::from_str(&e.to_string()))?;
     renderer.resize(width, height);
     renderer.draw_frame(None);
     PRESENT.with(|slot| {

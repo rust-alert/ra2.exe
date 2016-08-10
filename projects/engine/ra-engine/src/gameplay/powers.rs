@@ -8,10 +8,11 @@ use ra_map::LightingProfile;
 use crate::state::BattleState;
 
 /// 结束态标记：持续时间耗尽后保留一帧 Ion，再清场并切回 Normal。
-const ENDING_DURATION_SENTINEL: i32 = i32::MIN;
+pub const ENDING_DURATION_SENTINEL: i32 = i32::MIN;
 
 /// 全局唯一的闪电风暴状态（同时最多一场）。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct LightningStormState {
     /// 风暴中心格 X。
     pub target_x: u16,
@@ -26,12 +27,7 @@ pub struct LightningStormState {
 impl LightningStormState {
     /// 构造一场风暴。
     pub fn new(target_x: u16, target_y: u16, deferment: i32, duration: i32) -> Self {
-        Self {
-            target_x,
-            target_y,
-            deferment_remaining: deferment.max(0),
-            duration_remaining: duration,
-        }
+        Self { target_x, target_y, deferment_remaining: deferment.max(0), duration_remaining: duration }
     }
 }
 
@@ -53,7 +49,8 @@ pub fn start_lightning_storm(world: &mut BattleState, target_x: u16, target_y: u
                 }
                 storm.duration_remaining = duration;
                 storm.deferment_remaining == 0
-            } else {
+            }
+            else {
                 false
             }
         };
@@ -71,11 +68,13 @@ pub fn start_lightning_storm(world: &mut BattleState, target_x: u16, target_y: u
     }
 }
 
-fn begin_lightning_storm(world: &mut BattleState) {
+#[doc(hidden)]
+pub fn begin_lightning_storm(world: &mut BattleState) {
     world.map.set_lighting_profile(LightingProfile::Ion);
 }
 
-fn end_lightning_storm(world: &mut BattleState) {
+#[doc(hidden)]
+pub fn end_lightning_storm(world: &mut BattleState) {
     world.lightning_storm = None;
     world.map.set_lighting_profile(LightingProfile::Normal);
 }
@@ -99,21 +98,13 @@ pub fn tick_lightning_storm(world: &mut BattleState) {
         return;
     }
 
-    let duration = world
-        .lightning_storm
-        .as_ref()
-        .expect("风暴在延迟处理后仍应存在")
-        .duration_remaining;
+    let duration = world.lightning_storm.as_ref().expect("风暴在延迟处理后仍应存在").duration_remaining;
     if duration == ENDING_DURATION_SENTINEL {
         end_lightning_storm(world);
         return;
     }
     if duration == 0 {
-        world
-            .lightning_storm
-            .as_mut()
-            .expect("进入结束态时风暴仍应存在")
-            .duration_remaining = ENDING_DURATION_SENTINEL;
+        world.lightning_storm.as_mut().expect("进入结束态时风暴仍应存在").duration_remaining = ENDING_DURATION_SENTINEL;
         return;
     }
     if duration < 0 {
@@ -130,6 +121,7 @@ pub const SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT: u32 = 90;
 
 /// 单房主一条超武充能槽。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct SuperWeaponCharge {
     /// `[SuperWeaponTypes]` 类型键（大写）。
     pub type_key: String,
@@ -148,6 +140,7 @@ impl SuperWeaponCharge {
 
 /// 局内超武充能运行时（按 house → 类型键）。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct SuperWeaponRuntime {
     /// house 名 → 该阵营可用超武充能表。
     by_house: std::collections::BTreeMap<String, Vec<SuperWeaponCharge>>,
@@ -157,16 +150,12 @@ impl SuperWeaponRuntime {
     /// 查询某 house 某超武充能进度。
     pub fn charge(&self, house: &str, type_key: &str) -> Option<&SuperWeaponCharge> {
         let key = type_key.to_ascii_uppercase();
-        self.by_house
-            .get(house)
-            .and_then(|list| list.iter().find(|c| c.type_key == key))
+        self.by_house.get(house).and_then(|list| list.iter().find(|c| c.type_key == key))
     }
 
     fn charge_mut(&mut self, house: &str, type_key: &str) -> Option<&mut SuperWeaponCharge> {
         let key = type_key.to_ascii_uppercase();
-        self.by_house
-            .get_mut(house)
-            .and_then(|list| list.iter_mut().find(|c| c.type_key == key))
+        self.by_house.get_mut(house).and_then(|list| list.iter_mut().find(|c| c.type_key == key))
     }
 
     fn ensure_slot(&mut self, house: &str, type_key: &str, required_ticks: u32) {
@@ -177,11 +166,7 @@ impl SuperWeaponRuntime {
             slot.required_ticks = required_ticks.max(1);
             return;
         }
-        list.push(SuperWeaponCharge {
-            type_key,
-            charge_ticks: 0,
-            required_ticks: required_ticks.max(1),
-        });
+        list.push(SuperWeaponCharge { type_key, charge_ticks: 0, required_ticks: required_ticks.max(1) });
     }
 
     /// 释放成功后清零充能。
@@ -192,7 +177,8 @@ impl SuperWeaponRuntime {
     }
 }
 
-fn required_ticks_for_sw(def: &ra_types::SuperWeaponDefinition) -> u32 {
+#[doc(hidden)]
+pub fn required_ticks_for_sw(def: &ra_types::SuperWeaponDefinition) -> u32 {
     let units = def.recharge_time.max(1) as u32;
     units.saturating_mul(SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT)
 }
@@ -216,10 +202,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(sw_key) = defs
-            .structures
-            .get(identity.type_id.as_ref())
-            .and_then(|s| s.super_weapon.as_ref())
+        let Some(sw_key) = defs.structures.get(identity.type_id.as_ref()).and_then(|s| s.super_weapon.as_ref())
         else {
             continue;
         };
@@ -279,10 +262,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
     if !has_provider {
         return Err(FireSuperWeaponError::NoProvider);
     }
-    let ready = world
-        .super_weapon_runtime
-        .charge(house, &type_key_up)
-        .is_some_and(SuperWeaponCharge::is_ready);
+    let ready = world.super_weapon_runtime.charge(house, &type_key_up).is_some_and(SuperWeaponCharge::is_ready);
     if !ready {
         return Err(FireSuperWeaponError::NotReady);
     }
@@ -304,6 +284,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
 
 /// 释放超武失败原因（映射到命令拒绝）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc(hidden)]
 pub enum FireSuperWeaponError {
     /// 定义表无此类型。
     UnknownType,
@@ -313,71 +294,4 @@ pub enum FireSuperWeaponError {
     NotReady,
     /// `Type=` 玩法尚未接线。
     UnsupportedKind,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_adaptor::RulesSystem;
-    use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-    use ra_map::{LightingConfig, LightingProfile};
-    use ra_types::GameEdition;
-
-    fn empty_rules() -> RulesSystem {
-        RulesSystem {
-            edition: GameEdition::Ra2,
-            rules: IniDocument::default(),
-            art: IniDocument::default(),
-            overlay_types: OverlayTypeRegistry::default(),
-            color_schemes: ColorSchemes::default(),
-            countries: CountryRegistry::default(),
-            techno_types: TechnoTypeRegistry::default(),
-            warheads: WarheadRegistry::default(),
-        }
-    }
-
-    fn world_with_ion_keys() -> BattleState {
-        let bytes = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
-IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n";
-        let mut map = ra_map::MapInfo::parse_ini(GameEdition::Ra2, "storm.map", bytes).expect("map");
-        // 无压暗便于断言。
-        map.lighting = LightingConfig {
-            ambient: 1.0,
-            ground: 0.0,
-            level: 0.0,
-            ..LightingConfig::identity()
-        };
-        BattleState::new(GameEdition::Ra2, &empty_rules(), map)
-    }
-
-    #[test]
-    fn deferment_then_duration_switches_ion_and_back() {
-        let mut world = world_with_ion_keys();
-        assert_eq!(world.map.lighting_profile, LightingProfile::Normal);
-        start_lightning_storm(&mut world, 5, 5, 1, 2);
-        assert_eq!(world.map.lighting_profile, LightingProfile::Normal);
-        tick_lightning_storm(&mut world);
-        assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
-        let ion_tint = world.map.tint_at(0, 0, 0);
-        tick_lightning_storm(&mut world); // duration 2→1
-        assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
-        tick_lightning_storm(&mut world); // duration 1→0
-        assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
-        tick_lightning_storm(&mut world); // → ending sentinel
-        assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
-        assert!(world.lightning_storm.is_some());
-        tick_lightning_storm(&mut world); // cleanup
-        assert!(world.lightning_storm.is_none());
-        assert_eq!(world.map.lighting_profile, LightingProfile::Normal);
-        let normal_tint = world.map.tint_at(0, 0, 0);
-        assert!(ion_tint[0] < normal_tint[0], "ion={ion_tint:?} normal={normal_tint:?}");
-        assert!(ion_tint[2] > ion_tint[0]);
-    }
-
-    #[test]
-    fn zero_deferment_starts_on_ion() {
-        let mut world = world_with_ion_keys();
-        start_lightning_storm(&mut world, 1, 1, 0, 1);
-        assert_eq!(world.map.lighting_profile, LightingProfile::Ion);
-    }
 }

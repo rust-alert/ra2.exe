@@ -4,6 +4,7 @@ use crate::ini::IniDocument;
 
 /// 一个国家（house）定义。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct CountryDef {
     /// 节名 / house id（如 `Americans`）。
     pub id: String,
@@ -46,6 +47,7 @@ impl CountryDef {
 
 /// 一条 `[Sides]` 势力分组。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct SideGroup {
     /// 势力 id（节内键，如 `GDI` / `Nod` / `ThirdSide`）。
     pub id: String,
@@ -58,6 +60,7 @@ pub struct SideGroup {
 /// 只解析 rules 显式键。缺 `MixFileIndex` / 装载艺术时由 **edition adaptor** 填库存映射，
 /// 内核不猜苏盟二元、不按国名回退。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct SideChromeDef {
     /// 势力 id（与 [`SideGroup::id`] 一致）。
     pub id: String,
@@ -77,6 +80,7 @@ pub struct SideChromeDef {
 
 /// rules 派生的国家 / 势力注册表。
 #[derive(Debug, Clone, Default)]
+#[doc(hidden)]
 pub struct CountryRegistry {
     countries: Vec<CountryDef>,
     sides: Vec<SideGroup>,
@@ -92,11 +96,7 @@ impl CountryRegistry {
         }
         let sides = parse_sides(rules);
         let side_chromes = parse_side_chromes(rules, &sides);
-        Self {
-            countries,
-            sides,
-            side_chromes,
-        }
+        Self { countries, sides, side_chromes }
     }
 
     /// 全部国家（`[Countries]` 列表序）。
@@ -116,9 +116,7 @@ impl CountryRegistry {
 
     /// 按势力 id 查找 chrome（大小写不敏感）。
     pub fn side_chrome(&self, side_id: &str) -> Option<&SideChromeDef> {
-        self.side_chromes
-            .iter()
-            .find(|c| c.id.eq_ignore_ascii_case(side_id))
+        self.side_chromes.iter().find(|c| c.id.eq_ignore_ascii_case(side_id))
     }
 
     /// 遭遇战可选国家（`Multiplay` 且非 `MultiplayObsolete`）。
@@ -143,7 +141,8 @@ impl CountryRegistry {
     }
 }
 
-fn parse_countries(rules: &IniDocument) -> Vec<CountryDef> {
+#[doc(hidden)]
+pub fn parse_countries(rules: &IniDocument) -> Vec<CountryDef> {
     let Some(list) = rules.section("Countries")
     else {
         return Vec::new();
@@ -173,14 +172,12 @@ fn parse_countries(rules: &IniDocument) -> Vec<CountryDef> {
     out
 }
 
-fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
+#[doc(hidden)]
+pub fn parse_country(rules: &IniDocument, list_index: u32, id: &str) -> CountryDef {
     let sec = rules.section(id);
     let get = |key: &str| sec.and_then(|s| s.get(key)).unwrap_or("").trim().to_string();
     let multiplay = sec.and_then(|s| s.get("Multiplay")).map(parse_ini_bool_loose).unwrap_or(false);
-    let multiplay_obsolete = sec
-        .and_then(|s| s.get("MultiplayObsolete"))
-        .map(parse_ini_bool_loose)
-        .unwrap_or(false);
+    let multiplay_obsolete = sec.and_then(|s| s.get("MultiplayObsolete")).map(parse_ini_bool_loose).unwrap_or(false);
     CountryDef {
         id: id.to_string(),
         list_index,
@@ -223,12 +220,7 @@ pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) ->
             // 建筑特色常是「空指部挂空降」：优先超武 UIName，避免画出建筑名。
             if list == "BuildingTypes" {
                 if let Some(sw) = techno.get("SuperWeapon").map(str::trim).filter(|s| !s.is_empty()) {
-                    if let Some(sw_ui) = rules
-                        .section(sw)
-                        .and_then(|s| s.get("UIName"))
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty())
-                    {
+                    if let Some(sw_ui) = rules.section(sw).and_then(|s| s.get("UIName")).map(str::trim).filter(|s| !s.is_empty()) {
                         return sw_ui.to_string();
                     }
                 }
@@ -241,16 +233,14 @@ pub fn resolve_country_special_ui_name(rules: &IniDocument, country_id: &str) ->
     String::new()
 }
 
-fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
-    let houses: Vec<&str> = raw
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect();
+#[doc(hidden)]
+pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
+    let houses: Vec<&str> = raw.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
     houses.len() == 1 && houses[0].eq_ignore_ascii_case(country_id)
 }
 
-fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
+#[doc(hidden)]
+pub fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
     let Some(sec) = rules.section("Sides")
     else {
         return Vec::new();
@@ -261,47 +251,23 @@ fn parse_sides(rules: &IniDocument) -> Vec<SideGroup> {
         if id.is_empty() {
             continue;
         }
-        let countries: Vec<String> = value
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .collect();
-        out.push(SideGroup {
-            id: id.to_string(),
-            countries,
-        });
+        let countries: Vec<String> = value.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect();
+        out.push(SideGroup { id: id.to_string(), countries });
     }
     out
 }
 
-fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChromeDef> {
+#[doc(hidden)]
+pub fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChromeDef> {
     let mut out = Vec::with_capacity(sides.len());
     for group in sides {
         let sec = rules.section(&group.id);
-        let mix_file_index = sec
-            .and_then(|s| s.get("Sidebar.MixFileIndex"))
-            .and_then(|v| v.trim().parse::<u32>().ok())
-            .filter(|n| *n >= 1);
-        let yuri_file_names = sec
-            .and_then(|s| s.get("Sidebar.YuriFileNames"))
-            .map(parse_ini_bool_loose)
-            .unwrap_or(false);
-        let score_background = sec
-            .and_then(|s| s.get("MultiplayerScore.Background"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        let score_palette = sec
-            .and_then(|s| s.get("MultiplayerScore.Palette"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
-        let eva_tag = sec
-            .and_then(|s| s.get("EVA.Tag"))
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
+        let mix_file_index = sec.and_then(|s| s.get("Sidebar.MixFileIndex")).and_then(|v| v.trim().parse::<u32>().ok()).filter(|n| *n >= 1);
+        let yuri_file_names = sec.and_then(|s| s.get("Sidebar.YuriFileNames")).map(parse_ini_bool_loose).unwrap_or(false);
+        let score_background =
+            sec.and_then(|s| s.get("MultiplayerScore.Background")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+        let score_palette = sec.and_then(|s| s.get("MultiplayerScore.Palette")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+        let eva_tag = sec.and_then(|s| s.get("EVA.Tag")).map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
         out.push(SideChromeDef {
             id: group.id.clone(),
             mix_file_index,
@@ -319,7 +285,8 @@ fn parse_side_chromes(rules: &IniDocument, sides: &[SideGroup]) -> Vec<SideChrom
 /// 仅填空：把 edition adaptor 提供的库存 Side chrome 写入缺键行。
 pub fn fill_side_chrome_gaps(chromes: &mut [SideChromeDef], stock: &[SideChromeDef]) {
     for src in stock {
-        let Some(dst) = chromes.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id)) else {
+        let Some(dst) = chromes.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id))
+        else {
             continue;
         };
         let had_index = dst.mix_file_index.is_some();
@@ -345,7 +312,8 @@ pub fn fill_side_chrome_gaps(chromes: &mut [SideChromeDef], stock: &[SideChromeD
 /// 仅填空：库存国家装载 / 旗 / 介绍键。
 pub fn fill_country_ui_gaps(countries: &mut [CountryDef], stock: &[CountryDef]) {
     for src in stock {
-        let Some(dst) = countries.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id)) else {
+        let Some(dst) = countries.iter_mut().find(|c| c.id.eq_ignore_ascii_case(&src.id))
+        else {
             continue;
         };
         if dst.load_screen.is_empty() && !src.load_screen.is_empty() {
@@ -363,183 +331,7 @@ pub fn fill_country_ui_gaps(countries: &mut [CountryDef], stock: &[CountryDef]) 
     }
 }
 
-fn parse_ini_bool_loose(raw: &str) -> bool {
+#[doc(hidden)]
+pub fn parse_ini_bool_loose(raw: &str) -> bool {
     matches!(raw.trim().to_ascii_lowercase().as_str(), "true" | "yes" | "1")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SAMPLE: &str = r#"
-[Countries]
-0=Americans
-1=French
-2=Russians
-3=Unused
-4=YuriCountry
-
-[Americans]
-UIName=Name:Americans
-Prefix=USA
-Color=Gold
-Side=GDI
-Multiplay=yes
-
-[French]
-UIName=Name:French
-Prefix=FRA
-Color=LightBlue
-Side=GDI
-Multiplay=yes
-
-[Russians]
-UIName=Name:Russians
-Prefix=RUS
-Color=DarkRed
-Side=Nod
-Multiplay=yes
-
-[Unused]
-Multiplay=no
-
-[YuriCountry]
-UIName=Name:Yuri
-Prefix=YUR
-Color=Purple
-Side=ThirdSide
-Multiplay=yes
-MultiplayObsolete=no
-
-[Sides]
-GDI=Americans,French
-Nod=Russians
-ThirdSide=YuriCountry
-Civilian=Neutral
-
-[GDI]
-Sidebar.MixFileIndex=1
-Sidebar.YuriFileNames=yes
-
-[Nod]
-Sidebar.MixFileIndex=2
-
-[FourthSide]
-Sidebar.MixFileIndex=4
-Sidebar.YuriFileNames=yes
-MultiplayerScore.Background=mpfscrnl.shp
-MultiplayerScore.Palette=mpsscrnlf.pal
-"#;
-
-    #[test]
-    fn parses_countries_and_sides_in_list_order() {
-        let doc = IniDocument::parse(SAMPLE.as_bytes()).unwrap();
-        let reg = CountryRegistry::from_rules(&doc);
-        assert_eq!(reg.len(), 5);
-        assert_eq!(reg.countries()[0].id, "Americans");
-        assert_eq!(reg.countries()[0].prefix, "USA");
-        assert_eq!(reg.countries()[0].side, "GDI");
-        assert!(reg.countries()[0].multiplay);
-        assert!(!reg.countries()[3].multiplay);
-        assert_eq!(reg.sides().len(), 4);
-        assert_eq!(reg.sides()[0].id, "GDI");
-        assert_eq!(reg.sides()[0].countries, vec!["Americans", "French"]);
-        let gdi = reg.side_chrome("GDI").unwrap();
-        assert_eq!(gdi.mix_file_index, Some(1));
-        assert!(gdi.yuri_file_names);
-        let nod = reg.side_chrome("Nod").unwrap();
-        assert_eq!(nod.mix_file_index, Some(2));
-        assert!(!nod.yuri_file_names);
-        // ThirdSide 无显式键：内核保持空，由 edition adaptor 填。
-        let third = reg.side_chrome("ThirdSide").unwrap();
-        assert_eq!(third.mix_file_index, None);
-        assert!(!third.yuri_file_names);
-    }
-
-    #[test]
-    fn parses_open_side_chrome_score_overrides() {
-        const RULES: &str = r#"
-[Countries]
-0=Guild1
-
-[Guild1]
-Side=FifthSide
-Multiplay=yes
-File.LoadScreen=ls800haihead.shp
-File.LoadScreenPAL=mplshh.pal
-
-[Sides]
-GDI=Americans
-FifthSide=Guild1
-
-[FifthSide]
-Sidebar.MixFileIndex=5
-Sidebar.YuriFileNames=no
-MultiplayerScore.Background=mpxscrnl.shp
-MultiplayerScore.Palette=mpxscrn.pal
-EVA.Tag=Foehn
-"#;
-        let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
-        let reg = CountryRegistry::from_rules(&doc);
-        let fifth = reg.side_chrome("FifthSide").unwrap();
-        assert_eq!(fifth.mix_file_index, Some(5));
-        assert!(!fifth.yuri_file_names);
-        assert_eq!(fifth.score_background.as_deref(), Some("mpxscrnl.shp"));
-        assert_eq!(fifth.score_palette.as_deref(), Some("mpxscrn.pal"));
-        assert_eq!(fifth.eva_tag.as_deref(), Some("Foehn"));
-        let guild = reg.get("Guild1").unwrap();
-        assert_eq!(guild.load_screen, "ls800haihead.shp");
-        assert_eq!(guild.load_screen_pal, "mplshh.pal");
-    }
-
-    #[test]
-    fn skirmish_filter_drops_non_multiplay() {
-        let doc = IniDocument::parse(SAMPLE.as_bytes()).unwrap();
-        let reg = CountryRegistry::from_rules(&doc);
-        let ids: Vec<_> = reg.skirmish_countries().iter().map(|c| c.id.as_str()).collect();
-        assert_eq!(ids, vec!["Americans", "French", "Russians", "YuriCountry"]);
-    }
-
-    #[test]
-    fn special_ui_name_from_required_houses_and_superweapon() {
-        const RULES: &str = r#"
-[Countries]
-0=Americans
-1=Confederation
-
-[Americans]
-Multiplay=yes
-[Confederation]
-Multiplay=yes
-
-[InfantryTypes]
-0=TERROR
-1=E1
-
-[TERROR]
-UIName=Name:TERROR
-RequiredHouses=Confederation
-
-[E1]
-UIName=Name:E1
-
-[BuildingTypes]
-0=GAPILE
-
-[GAPILE]
-UIName=Name:GAPILE
-RequiredHouses=Americans
-SuperWeapon=ParaDrop
-
-[SuperWeaponTypes]
-0=ParaDrop
-
-[ParaDrop]
-UIName=Name:PARA
-"#;
-        let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
-        let reg = CountryRegistry::from_rules(&doc);
-        assert_eq!(reg.get("Confederation").unwrap().special_ui_name, "Name:TERROR");
-        assert_eq!(reg.get("Americans").unwrap().special_ui_name, "Name:PARA");
-    }
 }

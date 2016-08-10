@@ -3,9 +3,9 @@
 use ra_types::{RaError, RaResult};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
 use pollster::FutureExt as _;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::window::Window;
 
@@ -51,9 +51,8 @@ impl GpuContext {
             backends: wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL,
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
-        let surface = instance
-            .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
-            .map_err(|e| RaError::Msg(format!("创建 wgpu 画布表面失败: {e}")))?;
+        let surface =
+            instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)).map_err(|e| RaError::Msg(format!("创建 wgpu 画布表面失败: {e}")))?;
         Self::finish(instance, surface, width.max(1), height.max(1), SurfaceUsageKind::Web).await
     }
 

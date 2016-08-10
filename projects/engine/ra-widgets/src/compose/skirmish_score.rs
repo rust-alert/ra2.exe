@@ -81,69 +81,32 @@ pub fn compose_skirmish_score_page(
     if paint.stats_shade {
         blend_rect(&mut page, stats, [0, 0, 0, 168]);
         stroke_rect(&mut page, stats, [160, 140, 60, 200]);
-    } else {
+    }
+    else {
         paint_yuri_score_stats_frame(&mut page, stats);
     }
     if let Some(fnt) = fnt {
         let title_text = {
-            let key = if paint.campaign {
-                Some("GUI:STANDALONESCORE")
-            } else {
-                skirmish_score_csf_label("title")
-            };
+            let key = if paint.campaign { Some("GUI:STANDALONESCORE") } else { skirmish_score_csf_label("title") };
             let from = resolve_caption(csf, "title", key);
             if from == "title" {
-                if paint.campaign {
-                    "任务积分".to_string()
-                } else {
-                    skirmish_score_fallback_label("title").to_string()
-                }
-            } else {
+                if paint.campaign { "任务积分".to_string() } else { skirmish_score_fallback_label("title").to_string() }
+            }
+            else {
                 from
             }
         };
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title_text,
-            title.x,
-            title.y,
-            title.w,
-            title.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title_text, title.x, title.y, title.w, title.h, MENU_TEXT_ENABLED);
 
         let game_text = format!("游戏:{}", paint.game_index.max(1));
-        blit_caption_top_left_clipped(
-            &mut page,
-            fnt,
-            &game_text,
-            game_label.x,
-            game_label.y,
-            game_label.w,
-            game_label.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_left_clipped(&mut page, fnt, &game_text, game_label.x, game_label.y, game_label.w, game_label.h, MENU_TEXT_ENABLED);
         let time_key = skirmish_score_csf_label("time");
         let time_caption = {
             let from = resolve_caption(csf, "time", time_key);
-            if from == "time" {
-                skirmish_score_fallback_label("time").to_string()
-            } else {
-                from
-            }
+            if from == "time" { skirmish_score_fallback_label("time").to_string() } else { from }
         };
         let time_text = format!("{time_caption}:{}", paint.time_text);
-        blit_caption_top_right_clipped(
-            &mut page,
-            fnt,
-            &time_text,
-            time_label.x,
-            time_label.y,
-            time_label.w,
-            time_label.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_right_clipped(&mut page, fnt, &time_text, time_label.x, time_label.y, time_label.w, time_label.h, MENU_TEXT_ENABLED);
 
         // 原版积分表：名列左齐，数值列与表头同右缘；五列均分剩余宽。
         let headers = ["player", "kills", "losses", "built", "score"];
@@ -156,34 +119,13 @@ pub fn compose_skirmish_score_page(
         for (i, id) in headers.iter().enumerate() {
             let label = {
                 let from = resolve_caption(csf, id, skirmish_score_csf_label(id));
-                if from == *id {
-                    skirmish_score_fallback_label(id).to_string()
-                } else {
-                    from
-                }
+                if from == *id { skirmish_score_fallback_label(id).to_string() } else { from }
             };
             if i == 0 {
-                blit_caption_top_left_clipped(
-                    &mut page,
-                    fnt,
-                    &label,
-                    x,
-                    table.y,
-                    col_w[i],
-                    row_h,
-                    MENU_TEXT_SECTION,
-                );
-            } else {
-                blit_caption_top_right_clipped(
-                    &mut page,
-                    fnt,
-                    &label,
-                    x,
-                    table.y,
-                    col_w[i],
-                    row_h,
-                    MENU_TEXT_SECTION,
-                );
+                blit_caption_top_left_clipped(&mut page, fnt, &label, x, table.y, col_w[i], row_h, MENU_TEXT_SECTION);
+            }
+            else {
+                blit_caption_top_right_clipped(&mut page, fnt, &label, x, table.y, col_w[i], row_h, MENU_TEXT_SECTION);
             }
             x += col_w[i];
         }
@@ -194,36 +136,13 @@ pub fn compose_skirmish_score_page(
                 break;
             }
             let mut cx = table.x;
-            let cells = [
-                row.name.as_str(),
-                &row.kills.to_string(),
-                &row.losses.to_string(),
-                &row.built.to_string(),
-                &row.score.to_string(),
-            ];
+            let cells = [row.name.as_str(), &row.kills.to_string(), &row.losses.to_string(), &row.built.to_string(), &row.score.to_string()];
             for (i, cell) in cells.iter().enumerate() {
                 if i == 0 {
-                    blit_caption_top_left_clipped(
-                        &mut page,
-                        fnt,
-                        cell,
-                        cx,
-                        y,
-                        col_w[i],
-                        row_h,
-                        row.color,
-                    );
-                } else {
-                    blit_caption_top_right_clipped(
-                        &mut page,
-                        fnt,
-                        cell,
-                        cx,
-                        y,
-                        col_w[i],
-                        row_h,
-                        row.color,
-                    );
+                    blit_caption_top_left_clipped(&mut page, fnt, cell, cx, y, col_w[i], row_h, row.color);
+                }
+                else {
+                    blit_caption_top_right_clipped(&mut page, fnt, cell, cx, y, col_w[i], row_h, row.color);
                 }
                 cx += col_w[i];
             }
@@ -248,11 +167,7 @@ fn paint_yuri_score_stats_frame(page: &mut RgbaImage, stats: RectPx) {
 pub fn skirmish_score_hit_at(x: i32, y: i32) -> Option<&'static str> {
     let snap = solve_skirmish_score();
     let cell = rect_px_from_snapshot(&snap, "continue");
-    if x >= cell.x && y >= cell.y && x < cell.x + cell.w && y < cell.y + cell.h {
-        Some("continue")
-    } else {
-        None
-    }
+    if x >= cell.x && y >= cell.y && x < cell.x + cell.w && y < cell.y + cell.h { Some("continue") } else { None }
 }
 
 /// tick → `HH:MM:SS`（按 15Hz 估算秒）。

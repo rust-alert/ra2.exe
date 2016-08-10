@@ -1,8 +1,8 @@
 //! 工厂集结点。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState, PRODUCE_TICKS};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 

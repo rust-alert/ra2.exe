@@ -22,27 +22,16 @@ impl LayoutEngine {
     }
 
     fn solve_node(node: &LayoutNode, parent: Rect, z_base: i32, out: &mut Vec<LayoutElement>) {
-        let parent_size = Size2 {
-            width: parent.width,
-            height: parent.height,
-        };
+        let parent_size = Size2 { width: parent.width, height: parent.height };
         let measured = measure_border(node, parent_size);
         let rect = resolve_rect_measured(&node.rules, parent, measured);
         let content = content_box(rect, &node.rules);
         out.push(LayoutElement {
             id: node.id.clone(),
-            layout: LayoutBox {
-                rect,
-                clip: None,
-                baseline: None,
-            },
+            layout: LayoutBox { rect, clip: None, baseline: None },
             z_index: z_base,
             hit_region: HitRegion { rect },
-            hit_test: if node.rules.hit_test {
-                HitTestMode::Rect
-            } else {
-                HitTestMode::None
-            },
+            hit_test: if node.rules.hit_test { HitTestMode::Rect } else { HitTestMode::None },
         });
 
         match node.rules.flow {
@@ -60,18 +49,9 @@ impl LayoutEngine {
         }
     }
 
-    fn solve_column(
-        node: &LayoutNode,
-        content: Rect,
-        gap: f32,
-        z_base: i32,
-        out: &mut Vec<LayoutElement>,
-    ) {
+    fn solve_column(node: &LayoutNode, content: Rect, gap: f32, z_base: i32, out: &mut Vec<LayoutElement>) {
         let mut cursor_y = content.y;
-        let parent_size = Size2 {
-            width: content.width,
-            height: content.height,
-        };
+        let parent_size = Size2 { width: content.width, height: content.height };
         for (i, child) in node.children.iter().enumerate() {
             let measured = measure_border(child, parent_size);
             let margin = child.rules.margin;
@@ -83,12 +63,8 @@ impl LayoutEngine {
             let height = measured.height;
             let x = match child.rules.horizontal {
                 HorizontalRule::Start(offset) => content.x + margin.left + offset,
-                HorizontalRule::Center(offset) => {
-                    content.x + margin.left + (avail_w - width) * 0.5 + offset
-                }
-                HorizontalRule::End(offset) => {
-                    content.x + content.width - margin.right - width - offset
-                }
+                HorizontalRule::Center(offset) => content.x + margin.left + (avail_w - width) * 0.5 + offset,
+                HorizontalRule::End(offset) => content.x + content.width - margin.right - width - offset,
                 HorizontalRule::Stretch => content.x + margin.left,
             };
             let y = cursor_y + margin.top;
@@ -116,18 +92,9 @@ impl LayoutEngine {
         }
     }
 
-    fn solve_row(
-        node: &LayoutNode,
-        content: Rect,
-        gap: f32,
-        z_base: i32,
-        out: &mut Vec<LayoutElement>,
-    ) {
+    fn solve_row(node: &LayoutNode, content: Rect, gap: f32, z_base: i32, out: &mut Vec<LayoutElement>) {
         let mut cursor_x = content.x;
-        let parent_size = Size2 {
-            width: content.width,
-            height: content.height,
-        };
+        let parent_size = Size2 { width: content.width, height: content.height };
         for (i, child) in node.children.iter().enumerate() {
             let measured = measure_border(child, parent_size);
             let margin = child.rules.margin;
@@ -139,12 +106,8 @@ impl LayoutEngine {
             let width = measured.width;
             let y = match child.rules.vertical {
                 VerticalRule::Top(offset) => content.y + margin.top + offset,
-                VerticalRule::Center(offset) => {
-                    content.y + margin.top + (avail_h - height) * 0.5 + offset
-                }
-                VerticalRule::Bottom(offset) => {
-                    content.y + content.height - margin.bottom - height - offset
-                }
+                VerticalRule::Center(offset) => content.y + margin.top + (avail_h - height) * 0.5 + offset,
+                VerticalRule::Bottom(offset) => content.y + content.height - margin.bottom - height - offset,
                 VerticalRule::Stretch => content.y + margin.top,
             };
             let x = cursor_x + margin.left;
@@ -173,7 +136,7 @@ impl LayoutEngine {
     }
 }
 
-fn content_box(rect: Rect, rules: &LayoutRules) -> Rect {
+pub fn content_box(rect: Rect, rules: &LayoutRules) -> Rect {
     let pad = rules.padding;
     Rect::from_xywh(
         rect.x + pad.left,
@@ -183,21 +146,17 @@ fn content_box(rect: Rect, rules: &LayoutRules) -> Rect {
     )
 }
 
-fn resolve_size(rule: SizeRule, parent_extent: f32, content_extent: f32) -> f32 {
+pub fn resolve_size(rule: SizeRule, parent_extent: f32, content_extent: f32) -> f32 {
     match rule {
         SizeRule::Content => content_extent.max(0.0),
         SizeRule::Fixed(v) => v.max(0.0),
         SizeRule::Relative(t) => (parent_extent * t).max(0.0),
-        SizeRule::Clamp {
-            min,
-            preferred,
-            max,
-        } => preferred.clamp(min, max).max(0.0),
+        SizeRule::Clamp { min, preferred, max } => preferred.clamp(min, max).max(0.0),
     }
 }
 
 /// 测量节点边框盒（不含自身 margin；含 padding 与流式子树）。
-fn measure_border(node: &LayoutNode, parent_size: Size2) -> Size2 {
+pub fn measure_border(node: &LayoutNode, parent_size: Size2) -> Size2 {
     let pad = node.rules.padding;
     let (flow_w, flow_h) = match node.rules.flow {
         LayoutFlow::None => (0.0, 0.0),
@@ -247,7 +206,8 @@ fn measure_border(node: &LayoutNode, parent_size: Size2) -> Size2 {
         if ratio > 0.0 {
             if size.width > 0.0 {
                 size.height = size.width / ratio;
-            } else if size.height > 0.0 {
+            }
+            else if size.height > 0.0 {
                 size.width = size.height * ratio;
             }
         }
@@ -255,7 +215,7 @@ fn measure_border(node: &LayoutNode, parent_size: Size2) -> Size2 {
     size
 }
 
-fn resolve_rect_measured(rules: &LayoutRules, parent: Rect, measured: Size2) -> Rect {
+pub fn resolve_rect_measured(rules: &LayoutRules, parent: Rect, measured: Size2) -> Rect {
     let margin = rules.margin;
     let avail_w = (parent.width - margin.left - margin.right).max(0.0);
     let avail_h = (parent.height - margin.top - margin.bottom).max(0.0);
@@ -273,9 +233,11 @@ fn resolve_rect_measured(rules: &LayoutRules, parent: Rect, measured: Size2) -> 
         if ratio > 0.0 {
             if width > 0.0 && matches!(rules.vertical, VerticalRule::Stretch) {
                 // 锁宽时不强制改已拉伸的高。
-            } else if width > 0.0 && height <= 0.0 {
+            }
+            else if width > 0.0 && height <= 0.0 {
                 height = width / ratio;
-            } else if height > 0.0 && width <= 0.0 {
+            }
+            else if height > 0.0 && width <= 0.0 {
                 width = height * ratio;
             }
         }
@@ -283,220 +245,16 @@ fn resolve_rect_measured(rules: &LayoutRules, parent: Rect, measured: Size2) -> 
 
     let x = match rules.horizontal {
         HorizontalRule::Start(offset) => parent.x + margin.left + offset,
-        HorizontalRule::Center(offset) => {
-            parent.x + margin.left + (avail_w - width) * 0.5 + offset
-        }
+        HorizontalRule::Center(offset) => parent.x + margin.left + (avail_w - width) * 0.5 + offset,
         HorizontalRule::End(offset) => parent.x + parent.width - margin.right - width - offset,
         HorizontalRule::Stretch => parent.x + margin.left,
     };
     let y = match rules.vertical {
         VerticalRule::Top(offset) => parent.y + margin.top + offset,
-        VerticalRule::Center(offset) => {
-            parent.y + margin.top + (avail_h - height) * 0.5 + offset
-        }
+        VerticalRule::Center(offset) => parent.y + margin.top + (avail_h - height) * 0.5 + offset,
         VerticalRule::Bottom(offset) => parent.y + parent.height - margin.bottom - height - offset,
         VerticalRule::Stretch => parent.y + margin.top,
     };
 
     Rect::from_xywh(x, y, width, height)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        geometry::Point2,
-        spec::{column, row, sized_leaf, LayoutId},
-    };
-
-    #[test]
-    fn solve_fixed_child_relative_to_viewport() {
-        let engine = LayoutEngine;
-        let root = LayoutNode {
-            id: LayoutId("root".into()),
-            rules: LayoutRules {
-                horizontal: HorizontalRule::Stretch,
-                vertical: VerticalRule::Stretch,
-                ..LayoutRules::default()
-            },
-            children: vec![LayoutNode::leaf(
-                "btn",
-                LayoutRules {
-                    horizontal: HorizontalRule::Start(10.0),
-                    vertical: VerticalRule::Top(20.0),
-                    width: SizeRule::Fixed(100.0),
-                    height: SizeRule::Fixed(40.0),
-                    ..LayoutRules::default()
-                },
-            )],
-        };
-        let vp = Viewport {
-            size: Size2 {
-                width: 800.0,
-                height: 600.0,
-            },
-            ..Viewport::default()
-        };
-        let snap = engine.solve(vp, &root);
-        assert_eq!(snap.elements.len(), 2);
-        let btn = snap.get("btn").expect("btn");
-        assert_eq!(btn.layout.rect, Rect::from_xywh(10.0, 20.0, 100.0, 40.0));
-        assert_eq!(btn.hit_region.rect, btn.layout.rect);
-        assert!(snap
-            .hit_test(Point2 { x: 15.0, y: 25.0 })
-            .is_some_and(|e| e.id.0 == "btn"));
-    }
-
-    #[test]
-    fn column_stacks_with_gap_and_content_size() {
-        let engine = LayoutEngine;
-        let root = LayoutNode {
-            id: LayoutId("root".into()),
-            rules: LayoutRules {
-                horizontal: HorizontalRule::Stretch,
-                vertical: VerticalRule::Stretch,
-                ..LayoutRules::default()
-            },
-            children: vec![column(
-                "col",
-                8.0,
-                vec![
-                    sized_leaf("a", 40.0, 10.0),
-                    sized_leaf("b", 20.0, 10.0),
-                ],
-            )],
-        };
-        let snap = engine.solve(
-            Viewport {
-                size: Size2 {
-                    width: 200.0,
-                    height: 200.0,
-                },
-                ..Viewport::default()
-            },
-            &root,
-        );
-        let col = snap.get("col").expect("col");
-        assert_eq!(col.layout.rect, Rect::from_xywh(0.0, 0.0, 40.0, 28.0));
-        assert_eq!(col.hit_test, HitTestMode::None);
-        assert_eq!(
-            snap.get("a").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(0.0, 0.0, 40.0, 10.0))
-        );
-        assert_eq!(
-            snap.get("b").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(0.0, 18.0, 20.0, 10.0))
-        );
-    }
-
-    #[test]
-    fn row_centers_in_parent_and_aligns_cross_axis() {
-        let engine = LayoutEngine;
-        let mut form = row(
-            "form",
-            4.0,
-            vec![
-                sized_leaf("l", 30.0, 10.0),
-                sized_leaf("r", 30.0, 20.0),
-            ],
-        );
-        form.rules.horizontal = HorizontalRule::Center(0.0);
-        form.rules.vertical = VerticalRule::Center(0.0);
-        let root = LayoutNode {
-            id: LayoutId("root".into()),
-            rules: LayoutRules {
-                horizontal: HorizontalRule::Stretch,
-                vertical: VerticalRule::Stretch,
-                ..LayoutRules::default()
-            },
-            children: vec![form],
-        };
-        let snap = engine.solve(
-            Viewport {
-                size: Size2 {
-                    width: 200.0,
-                    height: 100.0,
-                },
-                ..Viewport::default()
-            },
-            &root,
-        );
-        // form 固有 30+4+30=64 宽、20 高，居中于 200x100 → (68, 40)
-        assert_eq!(
-            snap.get("form").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(68.0, 40.0, 64.0, 20.0))
-        );
-        assert_eq!(
-            snap.get("l").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(68.0, 40.0, 30.0, 10.0))
-        );
-        assert_eq!(
-            snap.get("r").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(102.0, 40.0, 30.0, 20.0))
-        );
-    }
-
-    #[test]
-    fn column_cross_align_center() {
-        let engine = LayoutEngine;
-        let mut a = sized_leaf("a", 10.0, 10.0);
-        a.rules.horizontal = HorizontalRule::Center(0.0);
-        let col = column("col", 0.0, vec![a, sized_leaf("b", 40.0, 10.0)]);
-        let root = LayoutNode {
-            id: LayoutId("root".into()),
-            rules: LayoutRules {
-                horizontal: HorizontalRule::Stretch,
-                vertical: VerticalRule::Stretch,
-                ..LayoutRules::default()
-            },
-            children: vec![col],
-        };
-        let snap = engine.solve(
-            Viewport {
-                size: Size2 {
-                    width: 100.0,
-                    height: 100.0,
-                },
-                ..Viewport::default()
-            },
-            &root,
-        );
-        // col 宽 40；a 居中 → x=15
-        assert_eq!(
-            snap.get("a").map(|e| e.layout.rect),
-            Some(Rect::from_xywh(15.0, 0.0, 10.0, 10.0))
-        );
-    }
-
-    #[test]
-    fn flow_container_skips_hit_test() {
-        let engine = LayoutEngine;
-        let root = LayoutNode {
-            id: LayoutId("root".into()),
-            rules: LayoutRules {
-                horizontal: HorizontalRule::Stretch,
-                vertical: VerticalRule::Stretch,
-                ..LayoutRules::default()
-            },
-            children: vec![column("col", 0.0, vec![sized_leaf("a", 20.0, 20.0)])],
-        };
-        let snap = engine.solve(
-            Viewport {
-                size: Size2 {
-                    width: 100.0,
-                    height: 100.0,
-                },
-                ..Viewport::default()
-            },
-            &root,
-        );
-        assert_eq!(
-            snap.hit_test(Point2 { x: 5.0, y: 5.0 }).map(|e| e.id.0.as_str()),
-            Some("a")
-        );
-        assert_ne!(
-            snap.hit_test(Point2 { x: 5.0, y: 5.0 }).map(|e| e.id.0.as_str()),
-            Some("col")
-        );
-    }
 }

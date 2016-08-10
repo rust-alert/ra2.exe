@@ -2,7 +2,7 @@
 
 use crate::common::test_engine;
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -47,12 +47,6 @@ AT1=Strike,TM1,Russians,0\n\
     assert!(session.expect_battle().world.ai_trigger_runtime.enabled);
 
     session.tick(&engine.runtime());
-    let e1 = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
-        .count();
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(e1 >= 2, "AITrigger should enqueue Create Team on first tick, got {e1}");
 }

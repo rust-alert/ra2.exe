@@ -3,7 +3,8 @@
 本 crate 负责 **按安装布局识别游戏版本、组合扩展能力、装配统一资源表，并按资源链装载规则数据库**。它是内容进入 **
 `ra-engine`** 之前的编排层：把磁盘上的 MIX 与 INI 文件名映射成可执行的 `ResourceChain` 与 `RulesSystem`，再交给桌面壳挂载与开局。
 
-**硬边界**：本 crate **不依赖** `ra-engine`，也不持有对局 tick 或实体状态。冻结的运行时定义契约经 **`ra-types::RuntimeDefinitions`**
+**硬边界**：本 crate **不依赖** `ra-engine`，也不持有对局 tick 或实体状态。冻结的运行时定义契约经 **
+`ra-types::RuntimeDefinitions`**
 单向流入引擎；adaptor 只产出规则快照与版本元数据，不参与仿真推进。
 
 ```mermaid
@@ -139,7 +140,8 @@ flowchart TB
 `CapabilityReport` 记录已探测但引擎尚未实现的能力（如某扩展特性）， **不得静默忽略**。`AdaptorStack::from_edition` 可从历史互斥
 `GameEdition` 推导初始栈；`to_edition` 在扩展细节不完全保留时映射回当前仍在用的枚举值。
 
-冻结定义与 adaptor 输出的衔接经 **`ra-types::RuntimeDefinitions`**：`RulesSystem` 中的 techno / overlay 等投影最终会收敛为引擎消费的不可变契约，避免引擎反向引用
+冻结定义与 adaptor 输出的衔接经 **`ra-types::RuntimeDefinitions`**：`RulesSystem` 中的 techno / overlay
+等投影最终会收敛为引擎消费的不可变契约，避免引擎反向引用
 adaptor 内部类型。
 
 ## `EditionManifest` 与 `find_ci_file`

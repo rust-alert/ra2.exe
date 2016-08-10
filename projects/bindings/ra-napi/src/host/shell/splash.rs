@@ -2,11 +2,12 @@
 
 use std::time::Instant;
 
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::startup_splash::{self, StartupSplashPresentation};
-use ra_widgets::skin::decode;
-use ra_widgets::screens::page::page_resources_from_slots_with_edition;
-use ra_widgets::skin::resolve;
+use ra_widgets::{
+    original_screen::OriginalScreen,
+    screens::page::page_resources_from_slots_with_edition,
+    skin::{decode, resolve},
+    startup_splash::{self, StartupSplashPresentation},
+};
 
 use super::Shell;
 

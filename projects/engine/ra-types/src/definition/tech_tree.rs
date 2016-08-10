@@ -60,10 +60,7 @@ impl PrerequisiteGroups {
 
     /// `PROC` 判定用的全部类型键（主列表 + alternate）。
     pub fn proc_all(&self) -> impl Iterator<Item = &str> {
-        self.proc
-            .iter()
-            .chain(self.proc_alternate.iter())
-            .map(String::as_str)
+        self.proc.iter().chain(self.proc_alternate.iter()).map(String::as_str)
     }
 
     /// 类型键是否属于 `TECH` 通用组（作战实验室等）。

@@ -1,8 +1,6 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
-use ra_assets::{
-    ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
-};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_types::{AssetSource, GameEdition, RaResult};
 
 use crate::ResourceChain;
@@ -31,28 +29,17 @@ pub struct RulesSystem {
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
 pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
     let rules_bytes = source.read(chain.rules_ini)?;
-    let rules = IniDocument::parse(&rules_bytes).map_err(|e| {
-        ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len()))
-    })?;
+    let rules = IniDocument::parse(&rules_bytes)
+        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?;
     let art_bytes = source.read(chain.art_ini)?;
-    let art = IniDocument::parse(&art_bytes).map_err(|e| {
-        ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len()))
-    })?;
+    let art =
+        IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
     let overlay_types = OverlayTypeRegistry::from_rules(&rules);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = TechnoTypeRegistry::from_rules(&rules);
     let warheads = WarheadRegistry::from_names(&rules, techno_types.iter().map(|t| t.warhead.as_str()));
-    Ok(RulesSystem {
-        edition: chain.edition,
-        rules,
-        art,
-        overlay_types,
-        color_schemes,
-        countries,
-        techno_types,
-        warheads,
-    })
+    Ok(RulesSystem { edition: chain.edition, rules, art, overlay_types, color_schemes, countries, techno_types, warheads })
 }
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。
 pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<RulesSystem> {

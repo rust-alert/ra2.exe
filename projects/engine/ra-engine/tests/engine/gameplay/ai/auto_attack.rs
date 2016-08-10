@@ -2,7 +2,7 @@
 
 use crate::common::test_engine;
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -97,9 +97,7 @@ fn ai_issues_attack_via_commands() {
         session.tick(&engine.runtime());
     }
     let game = session.expect_battle();
-    assert!(
-        game.world.ecs_attack_state(enemy).expect("atk").0 == Some(ally) || game.world.ecs_health(ally).expect("health").0 < before
-    );
+    assert!(game.world.ecs_attack_state(enemy).expect("atk").0 == Some(ally) || game.world.ecs_health(ally).expect("health").0 < before);
     assert!(game.world.ecs_health(ally).expect("health").0 < before);
 }
 
@@ -243,18 +241,10 @@ fn guard_mission_skips_ai_auto_attack() {
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "guard");
     session.expect_battle_mut().ai_enabled = true;
     let engine = test_engine();
-    let guard = session
-        .expect_battle()
-        .world
-        .find_entity_id_by_owner_type("Americans", "MTNK")
-        .expect("guard tank");
+    let guard = session.expect_battle().world.find_entity_id_by_owner_type("Americans", "MTNK").expect("guard tank");
     assert_eq!(session.expect_battle().world.ecs_mission(guard).as_deref(), Some("Guard"));
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
-    assert_eq!(
-        session.expect_battle().world.ecs_attack_state(guard).expect("atk").0,
-        None,
-        "Guard mission must not AI auto-attack"
-    );
+    assert_eq!(session.expect_battle().world.ecs_attack_state(guard).expect("atk").0, None, "Guard mission must not AI auto-attack");
 }

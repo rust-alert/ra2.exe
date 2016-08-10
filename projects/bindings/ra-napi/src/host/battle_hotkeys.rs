@@ -129,14 +129,7 @@ impl HotkeyMap {
 
     /// 按当前按键和弦反查动作。
     pub fn action_for(&self, vk: u8, shift: bool, ctrl: bool, alt: bool) -> Option<HotkeyAction> {
-        self.by_chord
-            .get(&HotkeyChord {
-                vk,
-                shift,
-                ctrl,
-                alt,
-            })
-            .copied()
+        self.by_chord.get(&HotkeyChord { vk, shift, ctrl, alt }).copied()
     }
 
     fn insert(&mut self, action: HotkeyAction, chord: HotkeyChord) {
@@ -272,7 +265,7 @@ pub fn key_code_to_vk(code: KeyCode) -> Option<u8> {
 }
 
 /// 零售 RA2 `[Hotkey]` 默认值（名称 → 编码）。来源：原版安装根 `keyboard.ini`。
-const STOCK_RA2_HOTKEYS: &[(&str, i32)] = &[
+pub const STOCK_RA2_HOTKEYS: &[(&str, i32)] = &[
     ("CenterView", 12),
     ("Options", 27),
     ("CenterOnRadarEvent", 32),
@@ -364,7 +357,7 @@ const STOCK_RA2_HOTKEYS: &[(&str, i32)] = &[
     ("SidebarDown", 2088),
 ];
 
-fn parse_hotkey_action(name: &str) -> Option<HotkeyAction> {
+pub fn parse_hotkey_action(name: &str) -> Option<HotkeyAction> {
     let lower = name.to_ascii_lowercase();
     Some(match lower.as_str() {
         "centerview" => HotkeyAction::CenterView,
@@ -427,53 +420,17 @@ fn parse_hotkey_action(name: &str) -> Option<HotkeyAction> {
     })
 }
 
-fn team_slot(s: &str) -> Option<u8> {
+pub fn team_slot(s: &str) -> Option<u8> {
     let n: u8 = s.parse().ok()?;
     (1..=10).contains(&n).then_some(n)
 }
 
-fn view_slot(s: &str) -> Option<u8> {
+pub fn view_slot(s: &str) -> Option<u8> {
     let n: u8 = s.parse().ok()?;
     (1..=4).contains(&n).then_some(n)
 }
 
-fn taunt_slot(s: &str) -> Option<u8> {
+pub fn taunt_slot(s: &str) -> Option<u8> {
     let n: u8 = s.parse().ok()?;
     (1..=8).contains(&n).then_some(n)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stock_defaults_match_retail_codes() {
-        let map = HotkeyMap::stock_ra2();
-        assert_eq!(map.action_for(68, false, false, false), Some(HotkeyAction::DeployObject));
-        assert_eq!(map.action_for(81, false, false, false), Some(HotkeyAction::StructureTab));
-        assert_eq!(map.action_for(49, false, false, false), Some(HotkeyAction::TeamSelect(1)));
-        assert_eq!(map.action_for(49, false, true, false), Some(HotkeyAction::TeamCreate(1)));
-        assert_eq!(map.action_for(49, true, false, false), Some(HotkeyAction::TeamAddSelect(1)));
-        assert_eq!(map.action_for(48, false, false, false), Some(HotkeyAction::TeamSelect(10)));
-        assert_eq!(map.action_for(27, false, false, false), Some(HotkeyAction::Options));
-        assert_eq!(map.action_for(37, false, false, false), Some(HotkeyAction::SidebarPageUp));
-    }
-
-    #[test]
-    fn mod_ini_overrides_deploy() {
-        let bytes = b"[Hotkey]\nDeployObject=70\n";
-        let overlay = parse_keyboard_ini(bytes).expect("parse");
-        let mut map = HotkeyMap::stock_ra2();
-        map.merge_overlay(overlay);
-        assert_eq!(map.action_for(70, false, false, false), Some(HotkeyAction::DeployObject));
-        assert_eq!(map.action_for(68, false, false, false), None);
-        assert_eq!(map.action_for(71, false, false, false), Some(HotkeyAction::GuardObject));
-    }
-
-    #[test]
-    fn key_code_to_vk_letters() {
-        assert_eq!(key_code_to_vk(KeyCode::KeyD), Some(68));
-        assert_eq!(key_code_to_vk(KeyCode::Digit1), Some(49));
-        assert_eq!(key_code_to_vk(KeyCode::Escape), Some(27));
-    }
 }

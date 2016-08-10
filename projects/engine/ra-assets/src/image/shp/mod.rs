@@ -40,15 +40,11 @@ pub struct ShpFrame {
 
 /// 偶数帧时后半为落影半幅的起点（`frame_count / 2`）；奇数或空文件返回 `None`。
 pub fn shp_shadow_half_base(frame_count: usize) -> Option<usize> {
-    if frame_count == 0 || frame_count % 2 != 0 {
-        None
-    } else {
-        Some(frame_count / 2)
-    }
+    if frame_count == 0 || frame_count % 2 != 0 { None } else { Some(frame_count / 2) }
 }
 
 /// 后半幅是否为落影：存在非零像素，且不透明像素几乎全是索引 `1`
-///（零售落影掩码；彩色半幅动画不得被误切）。
+/// （零售落影掩码；彩色半幅动画不得被误切）。
 pub fn shp_shadow_half_populated(frames: &[ShpFrame]) -> bool {
     let Some(base) = shp_shadow_half_base(frames.len())
     else {
@@ -71,11 +67,7 @@ pub fn shp_shadow_half_populated(frames: &[ShpFrame]) -> bool {
 
 /// 可绘制主体帧数：有落影半幅时为前半，否则为全部。
 pub fn shp_body_frame_count(frames: &[ShpFrame]) -> usize {
-    if shp_shadow_half_populated(frames) {
-        shp_shadow_half_base(frames.len()).unwrap_or(frames.len())
-    } else {
-        frames.len()
-    }
+    if shp_shadow_half_populated(frames) { shp_shadow_half_base(frames.len()).unwrap_or(frames.len()) } else { frames.len() }
 }
 
 impl ShpFile {

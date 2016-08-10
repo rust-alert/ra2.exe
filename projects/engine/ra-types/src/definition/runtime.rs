@@ -1,9 +1,9 @@
 //! 对局级冻结定义集。
 
 use super::{
-    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap,
-    LocomotorDefinitions, PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions,
-    SuperWeaponDefinitions, TechnoDefinitions, WarheadDefinitions, WeaponDefinitions,
+    AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
+    PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions,
+    WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。

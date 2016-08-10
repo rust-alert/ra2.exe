@@ -5,7 +5,7 @@ mod camera;
 mod deployment;
 mod hud;
 mod input;
-mod movement;
+pub mod movement;
 mod pause;
 mod render;
 mod tick;
@@ -15,56 +15,26 @@ mod tick;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
-use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-};
-use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
-};
+use ra_assets::Rgba;
+use ra_engine::{Engine, Session};
+use ra_map::{StructureAnimBank, TerrainAnimBank, Theater, WeatherParticleField};
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
+use ra_types::EntityId;
 use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
-    fs_source::GameAssetSource,
-    render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
-};
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey}, 
-    window::Window,
+    battle_hud::{BattleHudChrome, BattleHudHit},
+    battle_pause_menu::BattlePauseChrome,
+    skin::decode::DecodedUiSprite,
 };
 
 use super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
+    battle_input::{CameraPanKeys, EdgeScrollCursor, LeftGesture},
+    boot::BootResult,
     local_player::LocalPlayerController,
 };
-
 
 /// 遭遇战开局默认缩放（1 屏幕像素 ≈ 1 预览像素；禁止整图 fit）。
 pub(super) const BATTLE_START_ZOOM: f32 = 1.0;
@@ -389,7 +359,8 @@ impl BattleController {
             if let Some(id) = self.local.select_local_start(game) {
                 tracing::info!("开局已选中本方单位 #{}", id.0);
                 Some(game.world.tick)
-            } else {
+            }
+            else {
                 tracing::warn!("开局未找到可本方选中的移动单位");
                 None
             }
@@ -489,7 +460,8 @@ impl BattleController {
             tracing::info!("重开完成 · {}", boot.note);
             self.bind_local_start();
             self.ensure_start_view(renderer);
-        } else {
+        }
+        else {
             tracing::error!("重开失败 · {}", boot.note);
         }
     }

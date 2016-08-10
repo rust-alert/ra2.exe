@@ -1,8 +1,8 @@
 //! 间谍渗透：Agent 邻接敌建筑后结算并阵亡。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, PlayerId};
 
@@ -50,8 +50,8 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             y: spy_y,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -62,8 +62,8 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             y: by,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -74,8 +74,8 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             y: 1,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -86,8 +86,8 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             y: 1,
             facing: 0,
             sub_cell: 0,
-        mission: String::new(),
-        tag: String::new(),
+            mission: String::new(),
+            tag: String::new(),
         },
     ];
     let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
@@ -108,10 +108,7 @@ fn non_agent_cannot_infiltrate() {
     let building = world.entity_id_at(1).expect("building");
     world.push_command(GameCommand::Infiltrate { agent: spy, building });
     world.advance_tick();
-    assert!(world
-        .last_rejects()
-        .iter()
-        .any(|r| r.reason == CommandRejectReason::InvalidTarget));
+    assert!(world.last_rejects().iter().any(|r| r.reason == CommandRejectReason::InvalidTarget));
 }
 
 #[test]
@@ -159,19 +156,14 @@ fn spy_infiltrates_barracks_promotes_infantry() {
     let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
     assert!(americans.promoted_infantry);
 
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     // 推进生产完成。
     let mut produced = None;
     for _ in 0..600 {
         world.advance_tick();
         produced = world.entity_ids().into_iter().find(|&id| {
             world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
-                && world
-                    .ecs_identity(id)
-                    .is_some_and(|(t, k)| k == MapEntityKind::Infantry && t.as_ref() == "E1")
+                && world.ecs_identity(id).is_some_and(|(t, k)| k == MapEntityKind::Infantry && t.as_ref() == "E1")
         });
         if produced.is_some() {
             break;
@@ -189,15 +181,9 @@ fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
     let lab = world.entity_id_at(1).expect("lab");
 
     // 未偷科技前 SEAL 不可生产。
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "SEAL".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "SEAL".into() });
     world.advance_tick();
-    assert_eq!(
-        world.last_rejects()[0].reason,
-        CommandRejectReason::MissingPrerequisite
-    );
+    assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 
     world.push_command(GameCommand::Infiltrate { agent: spy, building: lab });
     world.advance_tick();
@@ -205,16 +191,9 @@ fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
     let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
     assert!(americans.stolen_soviet_tech);
 
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "SEAL".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "SEAL".into() });
     world.advance_tick();
-    assert!(
-        world.last_rejects().is_empty(),
-        "SEAL should queue after stolen soviet tech: {:?}",
-        world.last_rejects()
-    );
+    assert!(world.last_rejects().is_empty(), "SEAL should queue after stolen soviet tech: {:?}", world.last_rejects());
 }
 
 /// 测试辅助：实体是否已死亡。

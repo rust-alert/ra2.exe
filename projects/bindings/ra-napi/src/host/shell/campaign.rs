@@ -1,8 +1,8 @@
 //! 战役页交互。
 
-use ra_layout::{rect_px_from_snapshot, solve_campaign, RectPx};
+use ra_layout::{RectPx, rect_px_from_snapshot, solve_campaign};
 
-use super::{campaign_difficulty_from_track_x, Shell};
+use super::{Shell, campaign_difficulty_from_track_x};
 
 impl Shell {
     /// 战役难度滑条按下：按轨坐标落档并开始拖动。

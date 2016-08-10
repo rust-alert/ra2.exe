@@ -1,6 +1,5 @@
 //! 壳层布局常量。
 
-
 /// 壳层设计宽。
 pub const SHELL_BASE_W: i32 = 800;
 
@@ -141,8 +140,7 @@ pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 /// 战斗暂停菜单右侧按钮入口 id（与 `battle_pause_menu` / 合成顺序一致）。
 ///
 /// 顺序对齐原版遭遇战 Esc 菜单：选项 → 全屏 → 放弃任务；「回到任务」贴底。
-pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 4] =
-    ["options", "fullscreen", "abort", "resume"];
+pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 4] = ["options", "fullscreen", "abort", "resume"];
 
 /// 遭遇战积分页右栏按钮（仅「继续」贴底）。
 pub const SKIRMISH_SCORE_BUTTON_IDS: [&str; 1] = ["continue"];

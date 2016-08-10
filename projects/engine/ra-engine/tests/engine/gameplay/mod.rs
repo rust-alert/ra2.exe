@@ -6,6 +6,7 @@ mod combat;
 mod construction;
 mod deploy;
 mod economy;
+mod eva_advice;
 mod infiltrate;
 mod movement;
 mod powers;

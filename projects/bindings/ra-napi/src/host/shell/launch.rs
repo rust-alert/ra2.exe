@@ -32,20 +32,9 @@ pub fn run_shell() -> RaResult<()> {
         #[cfg(feature = "test-harness")]
         LaunchMode::DirectBattle(boot) => {
             if let Some(game) = boot.session.as_ref().and_then(|s| s.battle()) {
-                tracing::info!(
-                    "preview_origin=({}, {}) entities={}",
-                    game.preview_origin_x,
-                    game.preview_origin_y,
-                    game.world.entity_count()
-                );
+                tracing::info!("preview_origin=({}, {}) entities={}", game.preview_origin_x, game.preview_origin_y, game.world.entity_count());
             }
-            Shell::with_match(
-                boot,
-                display_mode.size().0 as f64,
-                display_mode.size().1 as f64,
-                status_path,
-                test_scene,
-            )
+            Shell::with_match(boot, display_mode.size().0 as f64, display_mode.size().1 as f64, status_path, test_scene)
         }
         LaunchMode::MainMenu => {
             let _ = (status_path, test_scene);
@@ -90,10 +79,7 @@ fn resolve_launch() -> RaResult<(
                 "test-harness scene={scene} window={}x{} status={}",
                 window_width,
                 window_height,
-                status_path
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "—".into())
+                status_path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "—".into())
             );
             let t = crate::host::test_boot::boot_scene(&scene)?;
             tracing::info!("boot: {} · session=ok", t.note);

@@ -4,7 +4,6 @@ use ra_types::ScheduledCommand;
 
 use super::types::GameCommand;
 
-
 impl crate::state::BattleState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
         use ra_assets::TechnoKind;
@@ -14,15 +13,14 @@ impl crate::state::BattleState {
         use crate::{
             game::CommandRejectReason,
             gameplay::{
-                TechTreePlayer, build_limit_reached,
-                building_power, deploy_into_type, full_verses, is_agent, is_capturable,
-                is_construction_yard, is_engineer, is_production_factory, is_type_eligible, living_structure_keys,
-                produce_ticks_for, requires_power_plant,
+                TechTreePlayer, build_limit_reached, building_power, deploy_into_type, full_verses, is_agent, is_capturable,
+                is_construction_yard, is_engineer, is_production_factory, is_type_eligible, living_structure_keys, produce_ticks_for,
+                requires_power_plant,
             },
             spatial::{is_mobile, nearest_adjacent_to_footprint},
             state::components::{
-                AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity,
-                Locomotor, MovementState, Owner, ProductionQueue, Transform,
+                AnimationState, AttackState, CombatStats, EntitySpawnBundle, HarvesterState, Health, Identity, Locomotor, MovementState, Owner,
+                ProductionQueue, Transform,
             },
         };
 
@@ -223,12 +221,8 @@ impl crate::state::BattleState {
                     });
                     // 展开后按建造场 Foundation 封通行，否则邻格仍可走/可放，后续建筑会叠进院子。
                     if let Some(xf) = self.ecs_get::<Transform>(dirty_id).copied() {
-                        let foundation = self
-                            .definitions
-                            .structures
-                            .get(building_type.as_ref())
-                            .map(|s| s.foundation.clone())
-                            .unwrap_or_default();
+                        let foundation =
+                            self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
                         self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     }
                     self.mark_entity_dirty(dirty_id);
@@ -294,8 +288,7 @@ impl crate::state::BattleState {
                         {
                             return None;
                         }
-                        self
-                            .ecs_get::<ProductionQueue>(id)
+                        self.ecs_get::<ProductionQueue>(id)
                             .and_then(|q| q.ready.as_ref())
                             .is_some_and(|r| r.as_ref() == needle.as_str())
                             .then_some(id)
@@ -304,12 +297,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     };
-                    let foundation = self
-                        .definitions
-                        .structures
-                        .get(type_id)
-                        .map(|s| s.foundation.clone())
-                        .unwrap_or_default();
+                    let foundation = self.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
                     if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
@@ -379,10 +367,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     };
-                    if !matches!(
-                        tt.class,
-                        TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft | TechnoClass::Building
-                    ) {
+                    if !matches!(tt.class, TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft | TechnoClass::Building) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -417,7 +402,8 @@ impl crate::state::BattleState {
                         let has_busy = self.find_factory(&house, kind).is_some();
                         if has_busy {
                             self.reject(command_index, CommandRejectReason::QueueFull);
-                        } else {
+                        }
+                        else {
                             self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         }
                         continue;
@@ -461,10 +447,7 @@ impl crate::state::BattleState {
                         else {
                             return None;
                         };
-                        let in_progress = queue
-                            .item
-                            .as_ref()
-                            .is_some_and(|(queued, _)| queued.as_ref() == needle.as_str());
+                        let in_progress = queue.item.as_ref().is_some_and(|(queued, _)| queued.as_ref() == needle.as_str());
                         let ready = queue.ready.as_ref().is_some_and(|r| r.as_ref() == needle.as_str());
                         (in_progress || ready).then_some(id)
                     })
@@ -472,20 +455,14 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    let refund = self
-                        .definitions
-                        .techno
-                        .get(needle.as_str())
-                        .map(|tt| tt.cost)
-                        .unwrap_or(0);
+                    let refund = self.definitions.techno.get(needle.as_str()).map(|tt| tt.cost).unwrap_or(0);
                     let _ = self.with_production_mut(factory_id, |queue| {
                         queue.item = None;
                         queue.ready = None;
                     });
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
-                        self.players[player_index].funds_spent =
-                            self.players[player_index].funds_spent.saturating_sub(refund);
+                        self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
                     }
                     self.mark_entity_dirty(factory_id);
                     self.push_eva_cue(house.as_ref(), "EVA_Canceled");
@@ -566,11 +543,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    if !self
-                        .ecs_get::<Identity>(building_id)
-                        .map(|i| i.kind == MapEntityKind::Structure)
-                        .unwrap_or(false)
-                    {
+                    if !self.ecs_get::<Identity>(building_id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -592,11 +565,7 @@ impl crate::state::BattleState {
                     let foundation = self
                         .definitions
                         .structures
-                        .get(
-                            self.ecs_get::<Identity>(building_id)
-                                .map(|i| i.type_id.as_ref())
-                                .unwrap_or(""),
-                        )
+                        .get(self.ecs_get::<Identity>(building_id).map(|i| i.type_id.as_ref()).unwrap_or(""))
                         .map(|s| s.foundation.clone())
                         .unwrap_or_default();
                     let (dest_x, dest_y) = nearest_adjacent_to_footprint(
@@ -667,11 +636,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    if !self
-                        .ecs_get::<Identity>(building_id)
-                        .map(|i| i.kind == MapEntityKind::Structure)
-                        .unwrap_or(false)
-                    {
+                    if !self.ecs_get::<Identity>(building_id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -699,12 +664,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let engineer_xf = self.ecs_get::<Transform>(engineer_id).copied().unwrap_or(building_xf);
-                    let foundation = self
-                        .definitions
-                        .structures
-                        .get(building_type.as_ref())
-                        .map(|s| s.foundation.clone())
-                        .unwrap_or_default();
+                    let foundation = self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
                     let (dest_x, dest_y) = nearest_adjacent_to_footprint(
                         engineer_xf.x,
                         engineer_xf.y,
@@ -800,20 +760,11 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let cost = self
-                        .definitions
-                        .techno
-                        .get(identity.type_id.as_ref())
-                        .map(|tt| tt.cost)
-                        .unwrap_or(0);
+                    let cost = self.definitions.techno.get(identity.type_id.as_ref()).map(|tt| tt.cost).unwrap_or(0);
                     // 原版侧栏出售约退半价。
                     let refund = (cost / 2).max(0);
-                    let foundation = self
-                        .definitions
-                        .structures
-                        .get(identity.type_id.as_ref())
-                        .map(|s| s.foundation.clone())
-                        .unwrap_or_default();
+                    let foundation =
+                        self.definitions.structures.get(identity.type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
                     let _ = self.with_health_mut(building_id, |health| {
                         health.current = 0;
                         health.dead = true;
@@ -824,10 +775,8 @@ impl crate::state::BattleState {
                     self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     self.revoke_structure_power(house.as_ref(), identity.type_id.as_ref());
                     if refund > 0 {
-                        self.players[player_index].funds =
-                            self.players[player_index].funds.saturating_add(refund);
-                        self.players[player_index].funds_spent =
-                            self.players[player_index].funds_spent.saturating_sub(refund);
+                        self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
+                        self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);
                     }
                     self.mark_entity_dirty(building_id);
                     self.repath_mobiles();
@@ -868,20 +817,13 @@ impl crate::state::BattleState {
                     // 原版扳手：再点同一建筑则取消修理，否则挂上持续修理。
                     if self.ecs.world().get::<crate::state::components::Repairing>(handle).is_some() {
                         let _ = self.ecs.world_mut().remove::<crate::state::components::Repairing>(handle);
-                    } else {
-                        let _ = self
-                            .ecs
-                            .world_mut()
-                            .insert(handle, crate::state::components::Repairing);
+                    }
+                    else {
+                        let _ = self.ecs.world_mut().insert(handle, crate::state::components::Repairing);
                     }
                     self.mark_entity_dirty(building_id);
                 }
-                GameCommand::FireSuperWeapon {
-                    player,
-                    ref type_id,
-                    x,
-                    y,
-                } => {
+                GameCommand::FireSuperWeapon { player, ref type_id, x, y } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
@@ -896,8 +838,7 @@ impl crate::state::BattleState {
                         Err(crate::gameplay::FireSuperWeaponError::NotReady) => {
                             self.reject(command_index, CommandRejectReason::SuperWeaponNotReady);
                         }
-                        Err(crate::gameplay::FireSuperWeaponError::UnknownType)
-                        | Err(crate::gameplay::FireSuperWeaponError::NoProvider) => {
+                        Err(crate::gameplay::FireSuperWeaponError::UnknownType) | Err(crate::gameplay::FireSuperWeaponError::NoProvider) => {
                             self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         }
                         Err(crate::gameplay::FireSuperWeaponError::UnsupportedKind) => {
@@ -916,9 +857,7 @@ impl crate::state::BattleState {
             return false;
         };
         let id = self.entities[entity_index].id;
-        self.ecs_get::<crate::state::components::Owner>(id)
-            .map(|o| o.house.as_ref() == p.house.as_ref())
-            .unwrap_or(false)
+        self.ecs_get::<crate::state::components::Owner>(id).map(|o| o.house.as_ref() == p.house.as_ref()).unwrap_or(false)
     }
 
     pub(crate) fn reject(&mut self, command_index: usize, reason: crate::game::CommandRejectReason) {

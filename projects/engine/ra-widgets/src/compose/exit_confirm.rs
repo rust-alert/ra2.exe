@@ -37,36 +37,23 @@ pub fn compose_exit_confirm_page(
     dim_rect(&mut page, canvas, 160);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dialog.x, dialog.y);
-    } else {
+    }
+    else {
         // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
         fill_rect(&mut page, dialog, [40, 24, 24, 255]);
     }
     if let Some(fnt) = fnt {
         let text = resolve_caption(csf, "exit_confirm", Some(exit_confirm_prompt_csf_key()));
-        blit_caption_top_left_clipped(
-            &mut page,
-            fnt,
-            &text,
-            prompt.x,
-            prompt.y,
-            prompt.w,
-            prompt.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_left_clipped(&mut page, fnt, &text, prompt.x, prompt.y, prompt.w, prompt.h, MENU_TEXT_ENABLED);
     }
     let button_ids = &EXIT_CONFIRM_BUTTON_IDS[..];
     let btn_plan = crate::RenderPlan::exit_confirm_placeholders().button_sprite_plan(button_ids);
     btn_plan.paint_sprites_into(&mut page, |slot| {
-        resolve_button_sprite(
-            decoded,
-            slot,
-            pressed_entry_id == Some(slot),
-            hovered_entry_id == Some(slot),
-        )
-        .map(|s| &s.image)
+        resolve_button_sprite(decoded, slot, pressed_entry_id == Some(slot), hovered_entry_id == Some(slot)).map(|s| &s.image)
     });
     for entry_id in EXIT_CONFIRM_BUTTON_IDS.iter() {
-        let Some(cell) = btn_plan.rect_px_of(entry_id) else {
+        let Some(cell) = btn_plan.rect_px_of(entry_id)
+        else {
             continue;
         };
         if let Some(fnt) = fnt {

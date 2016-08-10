@@ -11,15 +11,15 @@
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
-    battle_hud_world_viewport, rect_px_from_snapshot, solve_battle_hud_with_metrics, BattleHudChromeMetrics,
-    LayoutSnapshot, RectPx, BATTLE_PAUSE_MENU_BUTTON_IDS,
+    BATTLE_PAUSE_MENU_BUTTON_IDS, BattleHudChromeMetrics, LayoutSnapshot, RectPx, battle_hud_world_viewport, rect_px_from_snapshot,
+    solve_battle_hud_with_metrics,
 };
 use ra_renderer::RgbaImage;
 
 use crate::{
     fs_source::GameAssetSource,
     screens::page::UiAssetRef,
-    skin::decode::{frame_to_canvas_rgba, DecodedUiSprite},
+    skin::decode::{DecodedUiSprite, frame_to_canvas_rgba},
     skirmish_setup::UiFactionChrome,
 };
 
@@ -154,12 +154,7 @@ fn decode_preferring(
         origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
         frame: frame_idx as u16,
         canvas: (shp.width, shp.height),
-        frame_rect: (
-            frame_ref.frame_x,
-            frame_ref.frame_y,
-            frame_ref.frame_width,
-            frame_ref.frame_height,
-        ),
+        frame_rect: (frame_ref.frame_x, frame_ref.frame_y, frame_ref.frame_width, frame_ref.frame_height),
     })
 }
 
@@ -190,11 +185,7 @@ pub fn decode_battle_pause_chrome(source: &GameAssetSource, side: &str) -> Battl
 }
 
 /// 同 [`decode_battle_pause_chrome`]，可带 rules `Side=`。
-pub fn decode_battle_pause_chrome_resolved(
-    source: &GameAssetSource,
-    side: &str,
-    faction_id: Option<&str>,
-) -> BattlePauseChrome {
+pub fn decode_battle_pause_chrome_resolved(source: &GameAssetSource, side: &str, faction_id: Option<&str>) -> BattlePauseChrome {
     decode_battle_pause_chrome_with(source, side, faction_id, None)
 }
 
@@ -205,7 +196,8 @@ pub fn decode_battle_pause_chrome_with(
     _faction_id: Option<&str>,
     side_chrome: Option<&UiFactionChrome>,
 ) -> BattlePauseChrome {
-    let Some(chrome) = UiFactionChrome::resolve(side_chrome) else {
+    let Some(chrome) = UiFactionChrome::resolve(side_chrome)
+    else {
         return BattlePauseChrome {
             side: side.to_string(),
             mix: String::new(),
@@ -232,24 +224,11 @@ pub fn decode_battle_pause_chrome_with(
     if radar.is_none() {
         errors.extend(radar_errors);
     }
-    let center_panel = radar
-        .as_ref()
-        .map(|s| crop_radar_emblem(&s.image))
-        .or_else(|| radar.as_ref().map(|s| s.image.clone()));
+    let center_panel = radar.as_ref().map(|s| crop_radar_emblem(&s.image)).or_else(|| radar.as_ref().map(|s| s.image.clone()));
     let button_normal = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
     let button_pressed = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 1, &mut errors);
-    let button_hover = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors)
-        .or_else(|| button_normal.clone());
-    BattlePauseChrome {
-        side: side.to_string(),
-        mix,
-        radar,
-        center_panel,
-        button_normal,
-        button_pressed,
-        button_hover,
-        errors,
-    }
+    let button_hover = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors).or_else(|| button_normal.clone());
+    BattlePauseChrome { side: side.to_string(), mix, radar, center_panel, button_normal, button_pressed, button_hover, errors }
 }
 
 fn pause_snap(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> LayoutSnapshot {
@@ -264,8 +243,7 @@ fn crop_radar_emblem(src: &RgbaImage) -> RgbaImage {
     let x0 = rail;
     let x1 = w.saturating_sub(rail).max(x0 + 1);
     let nw = x1 - x0;
-    let mut out = RgbaImage::from_raw(nw, h, vec![0u8; (nw as usize) * (h as usize) * 4])
-        .unwrap_or_else(|| src.clone());
+    let mut out = RgbaImage::from_raw(nw, h, vec![0u8; (nw as usize) * (h as usize) * 4]).unwrap_or_else(|| src.clone());
     let raw = src.as_raw();
     for y in 0..h {
         for x in 0..nw {
@@ -278,11 +256,7 @@ fn crop_radar_emblem(src: &RgbaImage) -> RgbaImage {
 }
 
 /// 暂停时菜单钮落点带：`side1` + `cameo_band`（chrome 仍由 HUD 保留，不在此整带涂黑）。
-pub fn menu_strip_rect(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> RectPx {
+pub fn menu_strip_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
     let snap = pause_snap(viewport_w, viewport_h, metrics);
     let side1 = rect_px_from_snapshot(&snap, "side1");
     let cameo = rect_px_from_snapshot(&snap, "cameo_band");
@@ -292,28 +266,15 @@ pub fn menu_strip_rect(
 }
 
 /// 暂停时仅盖住的 cameo 内芯（留边轨给 `side2`）。
-pub fn cameo_clear_rect(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> RectPx {
+pub fn cameo_clear_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
     let snap = pause_snap(viewport_w, viewport_h, metrics);
     let cameo = rect_px_from_snapshot(&snap, "cameo_band");
     let inset = CAMEO_RAIL_INSET.min(cameo.w / 4).max(0);
-    RectPx::new(
-        cameo.x + inset,
-        cameo.y,
-        (cameo.w - inset * 2).max(1),
-        cameo.h.max(1),
-    )
+    RectPx::new(cameo.x + inset, cameo.y, (cameo.w - inset * 2).max(1), cameo.h.max(1))
 }
 
 /// 暂停四钮在窗口像素中的矩形（落在 side1+cameo 带内；resume 贴底）。
-pub fn button_rects(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> [RectPx; 4] {
+pub fn button_rects(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> [RectPx; 4] {
     let snap = pause_snap(viewport_w, viewport_h, metrics);
     let sidebar = rect_px_from_snapshot(&snap, "sidebar");
     let strip = menu_strip_rect(viewport_w, viewport_h, metrics);
@@ -334,13 +295,7 @@ pub fn button_rects(
 }
 
 /// 窗口像素命中（与合成同口径；装饰板不可点）。
-pub fn hit_at(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-    x: i32,
-    y: i32,
-) -> Option<BattlePauseMenuHit> {
+pub fn hit_at(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
     let rects = button_rects(viewport_w, viewport_h, metrics);
     for (id, rect) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
         if x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h {
@@ -357,23 +312,13 @@ pub fn dim_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetric
 }
 
 /// 暂停时盖住命令条（战术区底栏），避免露出可点命令槽。
-pub fn command_bar_cover_rect(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> RectPx {
+pub fn command_bar_cover_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
     let snap = pause_snap(viewport_w, viewport_h, metrics);
     rect_px_from_snapshot(&snap, "command_bar")
 }
 
 /// 中心阵营徽目标矩形（战术区居中，按短边占比缩放，保持宽高比）。
-pub fn center_panel_dest_rect(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-    panel_w: u32,
-    panel_h: u32,
-) -> RectPx {
+pub fn center_panel_dest_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics, panel_w: u32, panel_h: u32) -> RectPx {
     let world = dim_rect(viewport_w, viewport_h, metrics);
     let pw = panel_w.max(1) as f32;
     let ph = panel_h.max(1) as f32;
@@ -392,16 +337,14 @@ pub fn button_ids() -> &'static [&'static str; 4] {
 }
 
 /// 供合成选帧（仅 cameo 菜单列）。
-pub fn resolve_sidebttn<'a>(
-    chrome: &'a BattlePauseChrome,
-    pressed: bool,
-    hovered: bool,
-) -> Option<&'a DecodedUiSprite> {
+pub fn resolve_sidebttn<'a>(chrome: &'a BattlePauseChrome, pressed: bool, hovered: bool) -> Option<&'a DecodedUiSprite> {
     if pressed {
         chrome.button_pressed.as_ref().or(chrome.button_normal.as_ref())
-    } else if hovered {
+    }
+    else if hovered {
         chrome.button_hover.as_ref().or(chrome.button_normal.as_ref())
-    } else {
+    }
+    else {
         chrome.button_normal.as_ref()
     }
 }

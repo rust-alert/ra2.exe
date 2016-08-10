@@ -1,6 +1,5 @@
 use super::types::BattleState;
 
-
 impl BattleState {
     /// 按 house 名称设置资金（启动与测试播种用）。
     pub fn set_house_funds(&mut self, house: &str, funds: i32) -> bool {
@@ -8,7 +7,8 @@ impl BattleState {
             player.funds = funds;
             self.rehash();
             true
-        } else {
+        }
+        else {
             false
         }
     }
@@ -19,7 +19,8 @@ impl BattleState {
             player.tech_level = tech_level.max(0);
             self.rehash();
             true
-        } else {
+        }
+        else {
             false
         }
     }
@@ -30,7 +31,8 @@ impl BattleState {
             player.allies = allies;
             self.rehash();
             true
-        } else {
+        }
+        else {
             false
         }
     }

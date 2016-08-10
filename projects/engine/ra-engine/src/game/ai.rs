@@ -47,9 +47,11 @@ impl BattleSession {
 pub fn difficulty_skips_offensive(difficulty: &str, tick: u64) -> bool {
     if difficulty.eq_ignore_ascii_case("Easy") {
         tick % 2 == 1
-    } else if difficulty.eq_ignore_ascii_case("Hard") {
+    }
+    else if difficulty.eq_ignore_ascii_case("Hard") {
         false
-    } else {
+    }
+    else {
         tick % 4 == 3
     }
 }

@@ -21,11 +21,7 @@ pub struct AiTriggerRuntime {
 impl AiTriggerRuntime {
     /// 从地图播种：有条目则默认启用。
     pub fn from_map(has_triggers: bool) -> Self {
-        Self {
-            enabled: has_triggers,
-            cooldowns: HashMap::new(),
-            disabled_houses: Vec::new(),
-        }
+        Self { enabled: has_triggers, cooldowns: HashMap::new(), disabled_houses: Vec::new() }
     }
 }
 
@@ -50,32 +46,17 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         if at.team.trim().is_empty() {
             continue;
         }
-        if !at.owner_house.is_empty()
-            && world
-                .ai_trigger_runtime
-                .disabled_houses
-                .iter()
-                .any(|h| h.eq_ignore_ascii_case(&at.owner_house))
-        {
+        if !at.owner_house.is_empty() && world.ai_trigger_runtime.disabled_houses.iter().any(|h| h.eq_ignore_ascii_case(&at.owner_house)) {
             continue;
         }
         if !at.owner_house.is_empty() {
             world.ensure_house(&at.owner_house);
-            let tech = world
-                .players
-                .iter()
-                .find(|p| p.house.as_ref().eq_ignore_ascii_case(&at.owner_house))
-                .map(|p| p.tech_level)
-                .unwrap_or(0);
+            let tech = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(&at.owner_house)).map(|p| p.tech_level).unwrap_or(0);
             if tech < at.tech_level {
                 continue;
             }
         }
-        let rem = world
-            .ai_trigger_runtime
-            .cooldowns
-            .entry(at.id.clone())
-            .or_insert(0);
+        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id.clone()).or_insert(0);
         if *rem > 0 {
             continue;
         }
@@ -92,16 +73,9 @@ pub fn set_ai_triggers_for_house(world: &mut BattleState, house: Option<&str>, e
         }
         Some(h) => {
             if enabled {
-                world
-                    .ai_trigger_runtime
-                    .disabled_houses
-                    .retain(|x| !x.eq_ignore_ascii_case(h));
-            } else if !world
-                .ai_trigger_runtime
-                .disabled_houses
-                .iter()
-                .any(|x| x.eq_ignore_ascii_case(h))
-            {
+                world.ai_trigger_runtime.disabled_houses.retain(|x| !x.eq_ignore_ascii_case(h));
+            }
+            else if !world.ai_trigger_runtime.disabled_houses.iter().any(|x| x.eq_ignore_ascii_case(h)) {
                 world.ai_trigger_runtime.disabled_houses.push(h.to_string());
             }
         }

@@ -1,11 +1,12 @@
 //! 对局 HUD 叠层合成。
 
 use super::*;
-use crate::battle_pause_menu::{
-    button_rects, cameo_clear_rect, center_panel_dest_rect, dim_rect, menu_strip_rect,
-    resolve_sidebttn, BattlePauseChrome,
+use crate::{
+    battle_pause_menu::{
+        BattlePauseChrome, button_rects, cameo_clear_rect, center_panel_dest_rect, dim_rect, menu_strip_rect, resolve_sidebttn,
+    },
+    skin::text::battle_pause_menu_fallback_label,
 };
-use crate::skin::text::battle_pause_menu_fallback_label;
 
 pub struct BattleHudModel<'a> {
     /// 仿真 tick。
@@ -93,20 +94,11 @@ pub fn compose_battle_hud_overlay(
         if !paint.paused {
             crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos, paint.tick);
         }
-    } else {
+    }
+    else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
         crate::RenderPlan::battle_hud_placeholders(w, h)
-            .excluding_ids(&[
-                "command_bar",
-                "lendcap",
-                "rendcap",
-                "cmd0",
-                "cmd1",
-                "cmd2",
-                "cmd3",
-                "cmd4",
-                "cmd5",
-            ])
+            .excluding_ids(&["command_bar", "lendcap", "rendcap", "cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5"])
             .paint_solids_into(&mut page);
     }
 
@@ -116,30 +108,25 @@ pub fn compose_battle_hud_overlay(
     if let Some(fnt) = fnt {
         // 零售资金条为亮青（非青绿青绿），且不带 `$ ` 前缀。
         let credit_color = [0, 220, 255, 255];
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &funds_line,
-            credits.x,
-            credits.y,
-            credits.w,
-            credits.h,
-            credit_color,
-        );
+        blit_caption_in_cell(&mut page, fnt, &funds_line, credits.x, credits.y, credits.w, credits.h, credit_color);
         if !used_chrome {
             blit_text_colored(&mut page, fnt, &power_line, sidebar.x + 8, credits.y + credits.h + 8, {
-                if paint.low_power {
-                    [255, 80, 80, 255]
-                }
-                else {
-                    MENU_TEXT_ENABLED
-                }
+                if paint.low_power { [255, 80, 80, 255] } else { MENU_TEXT_ENABLED }
             });
             let mut y = radar.y + 8;
             let line_h = 18;
             let text_x = sidebar.x + 8;
             let text_w = sidebar.w - 16;
-            blit_caption_top_left_clipped(&mut page, fnt, &format!("选中 {}", paint.selected_summary), text_x, y, text_w, line_h, MENU_TEXT_ENABLED);
+            blit_caption_top_left_clipped(
+                &mut page,
+                fnt,
+                &format!("选中 {}", paint.selected_summary),
+                text_x,
+                y,
+                text_w,
+                line_h,
+                MENU_TEXT_ENABLED,
+            );
             y += line_h + 4;
             if let Some(hint) = paint.deploy_hint {
                 blit_caption_top_left_clipped(&mut page, fnt, hint, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
@@ -161,7 +148,8 @@ pub fn compose_battle_hud_overlay(
                 y += line_h + 4;
             }
             let _ = (y, bottom_strip);
-        } else if !paint.paused {
+        }
+        else if !paint.paused {
             // 有 chrome 且非暂停：只在底脚条带写少量诊断（避免盖住 cameo / 暂停钮）。
             let x = sidebar.x + 8;
             let mut y = bottom_strip.y + 4;
@@ -174,15 +162,14 @@ pub fn compose_battle_hud_overlay(
                 y += 14;
             }
             let _ = y;
-        } else {
+        }
+        else {
             // 暂停菜单打开：资金条仍画，底脚/侧栏诊断文案一律不写，留给暂停钮与 chrome。
         }
     }
 
     if !paint.paused {
-        if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) =
-            (paint.command_tip, paint.command_hovered, chrome, fnt)
-        {
+        if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) = (paint.command_tip, paint.command_hovered, chrome, fnt) {
             let snap = solve_battle_hud_with_metrics(w, h, metrics);
             let cell = rect_px_from_snapshot(&snap, &format!("cmd{slot}"));
             if cell.w > 0 && cell.h > 0 {
@@ -194,14 +181,7 @@ pub fn compose_battle_hud_overlay(
     Some(page)
 }
 
-fn paint_command_tip(
-    page: &mut RgbaImage,
-    fnt: &FntFile,
-    tip: &str,
-    cell: RectPx,
-    page_w: i32,
-    page_h: i32,
-) {
+fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectPx, page_w: i32, page_h: i32) {
     let lines: Vec<&str> = tip.lines().filter(|l| !l.is_empty()).collect();
     if lines.is_empty() {
         return;
@@ -274,9 +254,9 @@ pub fn compose_battle_pause_menu_overlay(
         if let Some(panel) = pause.center_panel.as_ref() {
             let dest = center_panel_dest_rect(w, h, hud_metrics, panel.width(), panel.height());
             blit_stretched(&mut page, panel, dest);
-        } else if let Some(radar) = pause.radar.as_ref() {
-            let dest =
-                center_panel_dest_rect(w, h, hud_metrics, radar.image.width(), radar.image.height());
+        }
+        else if let Some(radar) = pause.radar.as_ref() {
+            let dest = center_panel_dest_rect(w, h, hud_metrics, radar.image.width(), radar.image.height());
             blit_stretched(&mut page, &radar.image, dest);
         }
     }
@@ -314,12 +294,15 @@ pub fn compose_battle_pause_menu_overlay(
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_stretched(&mut page, &sprite.image, *cell);
-        } else {
+        }
+        else {
             let fill = if pressed {
                 [40, 40, 80, 255]
-            } else if hovered {
+            }
+            else if hovered {
                 [30, 30, 60, 255]
-            } else {
+            }
+            else {
                 [16, 24, 48, 255]
             };
             fill_rect(&mut page, *cell, fill);
@@ -327,13 +310,8 @@ pub fn compose_battle_pause_menu_overlay(
         }
         if let Some(fnt) = fnt {
             let caption = {
-                let from_csf =
-                    resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
-                if from_csf == entry_id.replace('_', " ") {
-                    battle_pause_menu_fallback_label(entry_id).to_string()
-                } else {
-                    from_csf
-                }
+                let from_csf = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
+                if from_csf == entry_id.replace('_', " ") { battle_pause_menu_fallback_label(entry_id).to_string() } else { from_csf }
             };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);

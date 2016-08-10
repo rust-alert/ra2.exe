@@ -152,7 +152,8 @@ impl crate::state::BattleState {
                 if health.current == 0 {
                     health.dead = true;
                     true
-                } else {
+                }
+                else {
                     false
                 }
             })
@@ -211,12 +212,7 @@ impl crate::state::BattleState {
             });
         }
         if kind == MapEntityKind::Structure {
-            let foundation = self
-                .definitions
-                .structures
-                .get(type_id.as_ref())
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
+            let foundation = self.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
             self.unseal_structure_footprint(x, y, foundation.width, foundation.height);
             self.revoke_structure_power(&house, &type_id);
         }
@@ -251,13 +247,16 @@ impl crate::state::BattleState {
                 if let Some(target_xf) = self.ecs_get::<Transform>(target_id).copied() {
                     if !self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true) {
                         facing_toward(self_xf.x, self_xf.y, target_xf.x, target_xf.y)
-                    } else {
+                    }
+                    else {
                         self_xf.facing
                     }
-                } else {
+                }
+                else {
                     self_xf.facing
                 }
-            } else {
+            }
+            else {
                 self_xf.facing
             };
             let before = self_xf.turret_facing;

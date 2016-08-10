@@ -1,7 +1,4 @@
-use super::super::
-components::CombatStats;
 use super::types::BattleState;
-
 
 impl BattleState {
     /// 当前确定性状态哈希（锁步校验用）。

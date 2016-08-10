@@ -1,19 +1,15 @@
 //! `Shell` 构造。
 
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
 
 use ra_renderer::Renderer;
 use ra_types::{DisplayMode, PresentFeel};
-use ra_widgets::load_kind::LoadKind;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skirmish_setup::SkirmishBootRequest;
-use ra_widgets::startup_splash;
-use ra_widgets::animation::typewriter::TypewriterText;
+use ra_widgets::{
+    animation::typewriter::TypewriterText, load_kind::LoadKind, original_screen::OriginalScreen, skirmish_setup::SkirmishBootRequest,
+    startup_splash,
+};
 
-use crate::host::battle_controller::BattleController;
-use crate::host::boot::BootResult;
+use crate::host::{battle_controller::BattleController, boot::BootResult};
 
 use super::Shell;
 
@@ -97,7 +93,7 @@ impl Shell {
             campaign_side_sfx: [None, None, None],
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
-            auto_screenshots: super::screenshot::AutoScreenshotTracker::default(),
+            auto_screenshots: super::super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
             choose_map_revert: None,
             map_list_scroll: 0,
@@ -146,11 +142,7 @@ impl Shell {
             screen: start_screen,
             battle_controller: None,
             renderer: Renderer::new(),
-            banner: if skip_splash {
-                format!("启动 · {}", start_screen.as_str())
-            } else {
-                "闪屏 · 预处理中".into()
-            },
+            banner: if skip_splash { format!("启动 · {}", start_screen.as_str()) } else { "闪屏 · 预处理中".into() },
             window_width,
             window_height,
             display_mode,
@@ -209,7 +201,7 @@ impl Shell {
             campaign_side_sfx: [None, None, None],
             pending_screenshot: None,
             #[cfg(feature = "test-harness")]
-            auto_screenshots: super::screenshot::AutoScreenshotTracker::default(),
+            auto_screenshots: super::super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
             choose_map_revert: None,
             map_list_scroll: 0,

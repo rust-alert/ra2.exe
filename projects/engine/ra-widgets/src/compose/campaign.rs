@@ -64,11 +64,7 @@ pub fn compose_campaign_page(
         warn_anim_frame,
     )?;
 
-    let sides = [
-        ("allied", "fsalg.shp", allied),
-        ("tutorial", "fsbclg.shp", tutorial),
-        ("soviet", "fsslg.shp", soviet),
-    ];
+    let sides = [("allied", "fsalg.shp", allied), ("tutorial", "fsbclg.shp", tutorial), ("soviet", "fsslg.shp", soviet)];
     for (id, shp, rect) in sides {
         // `fsbkgdlg` 已烘焙静态徽标。勿整幅不透明拉伸侧图（近黑空区 → 黑块重影）。
         // 悬停/已选：1:1 近黑透叠箭头动画帧。
@@ -78,26 +74,14 @@ pub fn compose_campaign_page(
             let base = find_panel(decoded, shp, 0);
             let frame = paint.side_anim_frame.max(1);
             if let Some(sprite) = find_panel(decoded, shp, frame) {
-                blit_rgba_diff_from_base(
-                    &mut page,
-                    &sprite.image,
-                    base.map(|b| &b.image),
-                    rect.x,
-                    rect.y,
-                    CAMPAIGN_SIDE_NEAR_BLACK_SUM,
-                );
+                blit_rgba_diff_from_base(&mut page, &sprite.image, base.map(|b| &b.image), rect.x, rect.y, CAMPAIGN_SIDE_NEAR_BLACK_SUM);
             }
         }
     }
 
     // 难度轨：底槽 + 档位拇指（优先安装内 `trakgrip.pcx`，控件 `0x50F`）。
     fill_rect(&mut page, difficulty_track, [64, 16, 16, 255]);
-    let inner = RectPx::new(
-        difficulty_track.x + 2,
-        difficulty_track.y + 2,
-        (difficulty_track.w - 4).max(1),
-        (difficulty_track.h - 4).max(1),
-    );
+    let inner = RectPx::new(difficulty_track.x + 2, difficulty_track.y + 2, (difficulty_track.w - 4).max(1), (difficulty_track.h - 4).max(1));
     fill_rect(&mut page, inner, [12, 12, 16, 255]);
     let level = i32::from(paint.difficulty.min(2));
     let thumb_w = paint.track_thumb.map(|t| t.width() as i32).unwrap_or(10);
@@ -106,57 +90,20 @@ pub fn compose_campaign_page(
     if let Some(thumb) = paint.track_thumb {
         let ty = difficulty_track.y + (difficulty_track.h - thumb.height() as i32) / 2;
         blit_rgba(&mut page, thumb, thumb_x, ty);
-    } else {
-        fill_rect(
-            &mut page,
-            RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2),
-            [220, 40, 40, 255],
-        );
+    }
+    else {
+        fill_rect(&mut page, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
     }
 
     if let Some(fnt) = fnt {
         let title_text = resolve_caption(csf, "campaign", Some(campaign_title_csf_key()));
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &title_text,
-            title.x,
-            title.y,
-            title.w,
-            title.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_in_cell(&mut page, fnt, &title_text, title.x, title.y, title.w, title.h, MENU_TEXT_ENABLED);
         let diff_label = resolve_caption(csf, "difficulty", Some("GUI:Difficulty"));
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &diff_label,
-            difficulty_label.x,
-            difficulty_label.y,
-            MENU_TEXT_ENABLED,
-        );
-        let diff_value = resolve_caption(
-            csf,
-            "difficulty_value",
-            Some(campaign_difficulty_csf_key(paint.difficulty)),
-        );
-        blit_text_colored(
-            &mut page,
-            fnt,
-            &diff_value,
-            difficulty_value.x,
-            difficulty_value.y,
-            MENU_TEXT_ENABLED,
-        );
+        blit_text_colored(&mut page, fnt, &diff_label, difficulty_label.x, difficulty_label.y, MENU_TEXT_ENABLED);
+        let diff_value = resolve_caption(csf, "difficulty_value", Some(campaign_difficulty_csf_key(paint.difficulty)));
+        blit_text_colored(&mut page, fnt, &diff_value, difficulty_value.x, difficulty_value.y, MENU_TEXT_ENABLED);
         if let Some(text) = status_text.filter(|s| !s.is_empty()) {
-            blit_text_colored(
-                &mut page,
-                fnt,
-                text,
-                status_help.x,
-                status_help.y,
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(&mut page, fnt, text, status_help.x, status_help.y, MENU_TEXT_ENABLED);
         }
     }
 

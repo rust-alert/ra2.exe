@@ -9,17 +9,17 @@
 flowchart TB
     ini[.map INI]
     pack[IsoMapPack / Overlay / …]
-    info[MapInfo]
-    pass[PassGrid]
-    prev[compose_boot_preview]
-    eng[ra-engine open_skirmish]
+info[MapInfo]
+pass[PassGrid]
+prev[compose_boot_preview]
+eng[ra-engine open_skirmish]
 
-    ini --> info
-    pack --> info
-    info --> pass
-    info --> prev
-    info --> eng
-    pass --> eng
+ini --> info
+pack --> info
+info --> pass
+info --> prev
+info --> eng
+pass --> eng
 ```
 
 ## 在仓库中的位置
@@ -30,7 +30,6 @@ sequenceDiagram
     participant Map as ra-map
     participant As as ra-assets
     participant Eng as ra-engine
-
     Desk ->> Map: find_first_boot_map(VFS)
     Map ->> As: 读 .map / tileset / TMP
     Map -->> Desk: MapInfo + BootPreviewResult
@@ -132,13 +131,13 @@ flowchart LR
 
 启动阶段桌面需要一张 RGBA 图交给 `ra-renderer::set_preview`，优先级在壳层编排，核心 API 在本 crate：
 
-| API                                          | 作用                                     |
-|----------------------------------------------|------------------------------------------|
+| API                                          | 作用                                      |
+|----------------------------------------------|-------------------------------------------|
 | `compose_boot_preview`                       | 地图地形合成；失败为 `None`（不静默换砖） |
-| `compose_skirmish_preview`                   | 遭遇战布局预览（单位/建筑绘制统计）      |
-| `compose_terrain_rgba`                       | 底层地形 blit 列表                       |
-| `paint_map_structures` / `paint_map_mobiles` | 预放置实体精灵                           |
-| `load_fallback_theater_tile`                 | 显式单砖探测（不由 boot 预览自动调用）   |
+| `compose_skirmish_preview`                   | 遭遇战布局预览（单位/建筑绘制统计）       |
+| `compose_terrain_rgba`                       | 底层地形 blit 列表                        |
+| `paint_map_structures` / `paint_map_mobiles` | 预放置实体精灵                            |
+| `load_fallback_theater_tile`                 | 显式单砖探测（不由 boot 预览自动调用）    |
 
 `iso_math` 提供等距格与屏幕像素换算（`TILE_WIDTH` / `TILE_HEIGHT` / `HEIGHT_STEP`），预览与将来相机共用同一套数学约定。
 

@@ -1,60 +1,21 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-
-use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
-use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-};
-use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
-};
-use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
-use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
-    fs_source::GameAssetSource,
-    render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
-};
+use ra_layout::{cameo_visible_slot_count, rect_px_from_snapshot};
+use ra_map::{MapEntityKind, iso_to_screen};
+use ra_renderer::Renderer;
+use ra_types::EntityId;
+use ra_widgets::battle_hud::BattleHudHit;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey}, 
+    keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
 
-use super::super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
-    local_player::LocalPlayerController,
+use super::super::battle_input::{
+    LeftGesture, LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect,
 };
 
 use super::{BattleController, BattleNav};
-
 
 impl BattleController {
     /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack / Deploy 等。
@@ -193,7 +154,8 @@ impl BattleController {
                 let cell = game.image_to_cell(wx, wy)?;
                 if let Some(house) = local_house.as_deref() {
                     game.pick_mobile_at_owned(cell.0, cell.1, Some(house))
-                } else {
+                }
+                else {
                     game.pick_mobile_at(cell.0, cell.1)
                 }
             });
@@ -204,12 +166,14 @@ impl BattleController {
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
-            } else {
+            }
+            else {
                 self.local.select_only(game, id);
                 tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
             pulse = true;
-        } else if !add {
+        }
+        else if !add {
             self.local.clear();
             if let Some(cell) = game.image_to_cell(wx, wy) {
                 tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
@@ -333,10 +297,12 @@ impl BattleController {
                 if is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
                     tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
                     game.order_capture_building(&selected, target);
-                } else if is_structure && game.selection_has_agent(&selected) {
+                }
+                else if is_structure && game.selection_has_agent(&selected) {
                     tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
                     game.order_infiltrate(&selected, target);
-                } else {
+                }
+                else {
                     tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
                     game.order_attack(&selected, target);
                 }
@@ -399,7 +365,8 @@ impl BattleController {
                                 let vp = self.map_viewport(window);
                                 if vp.contains_cursor(x, y) {
                                     self.left_gesture = LeftGesture::begin(self.cursor.0, self.cursor.1);
-                                } else {
+                                }
+                                else {
                                     self.left_gesture = LeftGesture::Idle;
                                 }
                             }
@@ -418,14 +385,16 @@ impl BattleController {
                                 self.on_command_button(slot);
                             }
                             self.left_gesture = LeftGesture::Idle;
-                        } else if let Some(hit) = pressed_side {
+                        }
+                        else if let Some(hit) = pressed_side {
                             let x = self.cursor.0 as i32;
                             let y = self.cursor.1 as i32;
                             if self.hit_hud_at(window, x, y) == Some(hit) {
                                 nav = self.on_sidebar_hit(hit);
                             }
                             self.left_gesture = LeftGesture::Idle;
-                        } else {
+                        }
+                        else {
                             let (idle, action) = self.left_gesture.release();
                             self.left_gesture = idle;
                             match action {
@@ -457,7 +426,8 @@ impl BattleController {
                 if battle_paused {
                     self.left_gesture = LeftGesture::Idle;
                     self.refresh_pause_hover(window);
-                } else {
+                }
+                else {
                     // 建造放置模式只认点选，拖拽不升为框选。
                     if accept_commands && self.place_mode.is_none() && self.command_pressed.is_none() && self.sidebar_pressed.is_none() {
                         self.left_gesture = self.left_gesture.on_cursor_moved(position.x, position.y);
@@ -476,18 +446,22 @@ impl BattleController {
                         MouseScrollDelta::LineDelta(_, y) => {
                             if *y > 0.0 {
                                 -1
-                            } else if *y < 0.0 {
+                            }
+                            else if *y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }
                         MouseScrollDelta::PixelDelta(p) => {
                             if p.y > 0.0 {
                                 -1
-                            } else if p.y < 0.0 {
+                            }
+                            else if p.y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }
@@ -557,7 +531,8 @@ impl BattleController {
                             if continue_campaign {
                                 tracing::info!("战役继续 · campaign continue scenario");
                                 BattleNav::ContinueCampaign
-                            } else {
+                            }
+                            else {
                                 tracing::info!("结算确认 · 离开");
                                 BattleNav::ToMainMenu
                             }
@@ -646,8 +621,8 @@ impl BattleController {
                         game.world.entity_ids().into_iter().find(|&eid| {
                             game.world.ecs_health(eid).is_some_and(|(_, _, dead)| !dead)
                                 && game.world.ecs_identity(eid).is_some_and(|(_, kind)| {
-                                matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-                            })
+                                    matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+                                })
                         })
                     });
                     if let Some(id) = seed {
@@ -722,7 +697,8 @@ impl BattleController {
             HotkeyAction::PlanningMode => {
                 if self.planning_mode {
                     self.commit_planning_waypoints();
-                } else {
+                }
+                else {
                     self.planning_mode = true;
                     self.planning_waypoints.clear();
                     self.place_mode = None;
@@ -807,7 +783,8 @@ impl BattleController {
                     let cell = if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                         let _ = self.local.recall_team(game, slot);
                         self.local.team_focus_cell(game, slot)
-                    } else {
+                    }
+                    else {
                         None
                     };
                     if let Some((x, y)) = cell {

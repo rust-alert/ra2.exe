@@ -5,11 +5,12 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ra_widgets::battle_order_icons::{
-    load_battle_edge_cursors, DecodedBattleEdgeCursors, DecodedMouseCursorFrame, MOUSE_CURSOR_ANIM_MS,
-    MOUSE_SCROLL_DIR_COUNT,
+    DecodedBattleEdgeCursors, DecodedMouseCursorFrame, MOUSE_CURSOR_ANIM_MS, MOUSE_SCROLL_DIR_COUNT, load_battle_edge_cursors,
 };
-use winit::event_loop::ActiveEventLoop;
-use winit::window::{Cursor, CursorIcon, CustomCursor};
+use winit::{
+    event_loop::ActiveEventLoop,
+    window::{Cursor, CursorIcon, CustomCursor},
+};
 
 use crate::host::battle_input::{BattlePointer, EdgeScrollCursor, EdgeScrollDir};
 
@@ -68,11 +69,9 @@ impl Shell {
             return;
         };
         let cur = if self.screen == ra_widgets::original_screen::OriginalScreen::Battle {
-            self.battle_controller
-                .as_ref()
-                .map(|c| c.battle_pointer(&self.renderer, &window))
-                .unwrap_or(BattlePointer::Default)
-        } else {
+            self.battle_controller.as_ref().map(|c| c.battle_pointer(&self.renderer, &window)).unwrap_or(BattlePointer::Default)
+        }
+        else {
             BattlePointer::Default
         };
         self.apply_battle_pointer(cur);
@@ -120,21 +119,15 @@ impl BattleMouseCursorSet {
 
     fn cursor_for(&self, cur: BattlePointer, anim: usize) -> Option<CustomCursor> {
         match cur {
-            BattlePointer::Default | BattlePointer::Edge(EdgeScrollCursor::Default) => {
-                Some(self.default.clone())
-            }
+            BattlePointer::Default | BattlePointer::Edge(EdgeScrollCursor::Default) => Some(self.default.clone()),
             BattlePointer::Select => pick_anim(&self.select, anim),
             BattlePointer::Move => pick_anim(&self.move_ok, anim),
             BattlePointer::NoMove => Some(self.no_move.clone()),
             BattlePointer::Attack => pick_anim(&self.attack, anim),
             BattlePointer::Deploy => pick_anim(&self.deploy, anim),
             BattlePointer::NoDeploy => Some(self.no_deploy.clone()),
-            BattlePointer::Edge(EdgeScrollCursor::Scroll(dir)) => {
-                dir_index(dir).map(|i| self.scroll[i].clone())
-            }
-            BattlePointer::Edge(EdgeScrollCursor::Blocked(dir)) => {
-                dir_index(dir).map(|i| self.blocked[i].clone())
-            }
+            BattlePointer::Edge(EdgeScrollCursor::Scroll(dir)) => dir_index(dir).map(|i| self.scroll[i].clone()),
+            BattlePointer::Edge(EdgeScrollCursor::Blocked(dir)) => dir_index(dir).map(|i| self.blocked[i].clone()),
         }
     }
 
@@ -161,26 +154,16 @@ fn anim_frame_index(cur: BattlePointer, set: Option<&BattleMouseCursorSet>) -> u
     if len <= 1 {
         return 0;
     }
-    let ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
+    let ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
     ((ms / MOUSE_CURSOR_ANIM_MS) as usize % len) as u32
 }
 
-fn create_seq_cursors(
-    event_loop: &ActiveEventLoop,
-    frames: &[DecodedMouseCursorFrame],
-) -> Option<Vec<CustomCursor>> {
+fn create_seq_cursors(event_loop: &ActiveEventLoop, frames: &[DecodedMouseCursorFrame]) -> Option<Vec<CustomCursor>> {
     let mut out = Vec::with_capacity(frames.len());
     for frame in frames {
         out.push(create_custom_cursor(event_loop, frame)?);
     }
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
 fn create_dir_cursors(
@@ -194,10 +177,7 @@ fn create_dir_cursors(
     out.try_into().ok()
 }
 
-fn create_custom_cursor(
-    event_loop: &ActiveEventLoop,
-    frame: &DecodedMouseCursorFrame,
-) -> Option<CustomCursor> {
+fn create_custom_cursor(event_loop: &ActiveEventLoop, frame: &DecodedMouseCursorFrame) -> Option<CustomCursor> {
     let w = u16::try_from(frame.image.width()).ok()?;
     let h = u16::try_from(frame.image.height()).ok()?;
     if w == 0 || h == 0 {

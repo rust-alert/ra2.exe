@@ -5,18 +5,22 @@
 
 /// 稳定控件标识（配置字符串，非显示文案）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[doc(hidden)]
 pub struct ControlId(pub String);
 
 /// 文案键（如 CSF 标签）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[doc(hidden)]
 pub struct TextKey(pub String);
 
 /// 逻辑资源角色（如右栏顶盖、地图预览槽）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[doc(hidden)]
 pub struct AssetRole(pub String);
 
 /// 控件相对壳层 chrome 的放置策略（求解器解释，页面不写像素公式）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[doc(hidden)]
 pub enum ControlPlacement {
     /// DLU 直接换算为设计像素。
     #[default]
@@ -37,6 +41,7 @@ pub enum ControlPlacement {
 
 /// 对话框模板中的单个控件描述（DLU，尚未求解）。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct DialogControlDesc {
     /// 控件 id。
     pub id: ControlId,
@@ -55,38 +60,18 @@ pub struct DialogControlDesc {
 impl DialogControlDesc {
     /// 构造保留 DLU 的控件。
     pub fn preserve(id: impl Into<String>, x: i32, y: i32, w: i32, h: i32) -> Self {
-        Self {
-            id: ControlId(id.into()),
-            dlu_x: x,
-            dlu_y: y,
-            dlu_w: w,
-            dlu_h: h,
-            placement: ControlPlacement::PreserveDlu,
-        }
+        Self { id: ControlId(id.into()), dlu_x: x, dlu_y: y, dlu_w: w, dlu_h: h, placement: ControlPlacement::PreserveDlu }
     }
 
     /// 构造带放置策略的控件。
-    pub fn with_placement(
-        id: impl Into<String>,
-        x: i32,
-        y: i32,
-        w: i32,
-        h: i32,
-        placement: ControlPlacement,
-    ) -> Self {
-        Self {
-            id: ControlId(id.into()),
-            dlu_x: x,
-            dlu_y: y,
-            dlu_w: w,
-            dlu_h: h,
-            placement,
-        }
+    pub fn with_placement(id: impl Into<String>, x: i32, y: i32, w: i32, h: i32, placement: ControlPlacement) -> Self {
+        Self { id: ControlId(id.into()), dlu_x: x, dlu_y: y, dlu_w: w, dlu_h: h, placement }
     }
 }
 
 /// 一份 `RT_DIALOG` 模板摘要。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct DialogTemplate {
     /// 资源对话框 id（如 `0x6B`、`0x102`）。
     pub dialog_id: u16,
@@ -96,6 +81,7 @@ pub struct DialogTemplate {
 
 /// 运行时 UI 能力开关（缺资源时的降级由 adaptor 填入）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[doc(hidden)]
 pub struct UiCapabilities {
     /// 是否允许随机地图创建入口。
     pub create_random_map: bool,
@@ -105,6 +91,7 @@ pub struct UiCapabilities {
 
 /// Adaptor 解析后的不可变 UI 配置。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[doc(hidden)]
 pub struct RuntimeUiProfile {
     /// 资源检索链（逻辑名，非绝对路径）。
     pub resource_chain: Vec<String>,
@@ -129,7 +116,9 @@ impl RuntimeUiProfile {
     }
 }
 
-fn ctrl(id: &str, x: i32, y: i32, w: i32, h: i32, placement: ControlPlacement) -> DialogControlDesc {
+/// 构造对话框控件描述（壳层 / 测试共用）。
+#[doc(hidden)]
+pub fn ctrl(id: &str, x: i32, y: i32, w: i32, h: i32, placement: ControlPlacement) -> DialogControlDesc {
     DialogControlDesc::with_placement(id, x, y, w, h, placement)
 }
 
@@ -186,86 +175,13 @@ pub fn dialog_template_0x102() -> DialogTemplate {
     // 行 y DLU：本地 11，其后每行 +16。
     for i in 0..8 {
         let y = 11 + (i as i32) * 16;
-        controls.push(ctrl(
-            &format!("flag_{i}"),
-            143,
-            y,
-            32,
-            12,
-            ControlPlacement::ComboFace,
-        ));
-        controls.push(ctrl(
-            &format!("side_face_{i}"),
-            180,
-            y,
-            78,
-            74,
-            ControlPlacement::ComboFace,
-        ));
-        controls.push(ctrl(
-            &format!("color_face_{i}"),
-            264,
-            y,
-            35,
-            73,
-            ControlPlacement::ComboFace,
-        ));
+        controls.push(ctrl(&format!("flag_{i}"), 143, y, 32, 12, ControlPlacement::ComboFace));
+        controls.push(ctrl(&format!("side_face_{i}"), 180, y, 78, 74, ControlPlacement::ComboFace));
+        controls.push(ctrl(&format!("color_face_{i}"), 264, y, 35, 73, ControlPlacement::ComboFace));
     }
     for i in 0..7 {
         let y = 11 + ((i + 1) as i32) * 16;
-        controls.push(ctrl(
-            &format!("ai_face_{i}"),
-            35,
-            y,
-            100,
-            74,
-            ControlPlacement::ComboFace,
-        ));
+        controls.push(ctrl(&format!("ai_face_{i}"), 35, y, 100, 74, ControlPlacement::ComboFace));
     }
-    DialogTemplate {
-        dialog_id: 0x102,
-        controls,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_profile_has_no_dialogs() {
-        let profile = RuntimeUiProfile::default();
-        assert!(profile.dialog(0x6B).is_none());
-    }
-
-    #[test]
-    fn dialog_lookup_by_id() {
-        let profile = RuntimeUiProfile {
-            dialog_templates: vec![DialogTemplate {
-                dialog_id: 0x6B,
-                controls: vec![DialogControlDesc::with_placement(
-                    "use_map",
-                    318,
-                    122,
-                    108,
-                    23,
-                    ControlPlacement::TileSnap,
-                )],
-            }],
-            ..RuntimeUiProfile::default()
-        };
-        assert_eq!(profile.dialog(0x6B).map(|t| t.controls.len()), Some(1));
-        assert_eq!(
-            profile.dialog(0x6B).unwrap().controls[0].placement,
-            ControlPlacement::TileSnap
-        );
-    }
-
-    #[test]
-    fn shell_dialog_templates_expose_expected_ids() {
-        assert!(dialog_template_0x6b().controls.iter().any(|c| c.id.0 == "map_list"));
-        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "start"));
-        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "flag_0"));
-        assert!(dialog_template_0x102().controls.iter().any(|c| c.id.0 == "ai_face_6"));
-    }
+    DialogTemplate { dialog_id: 0x102, controls }
 }

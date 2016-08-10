@@ -28,25 +28,17 @@ impl crate::state::BattleState {
             .collect();
 
         for engineer_id in engineers {
-            let Some(building_id) = self
-                .ecs_get::<AttackState>(engineer_id)
-                .and_then(|a| a.capture_target)
+            let Some(building_id) = self.ecs_get::<AttackState>(engineer_id).and_then(|a| a.capture_target)
             else {
                 continue;
             };
-            if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true)
-                || self.entity_index(building_id).is_none()
-            {
+            if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) || self.entity_index(building_id).is_none() {
                 let _ = self.with_attack_mut(engineer_id, |attack| {
                     attack.capture_target = None;
                 });
                 continue;
             }
-            if !self
-                .ecs_get::<Identity>(building_id)
-                .map(|i| i.kind == MapEntityKind::Structure)
-                .unwrap_or(false)
-            {
+            if !self.ecs_get::<Identity>(building_id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
                 let _ = self.with_attack_mut(engineer_id, |attack| {
                     attack.capture_target = None;
                 });
@@ -86,20 +78,8 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            let foundation = self
-                .definitions
-                .structures
-                .get(building_type.as_ref())
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
-            if !is_adjacent_to_footprint(
-                engineer_xf.x,
-                engineer_xf.y,
-                building_xf.x,
-                building_xf.y,
-                foundation.width,
-                foundation.height,
-            ) {
+            let foundation = self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+            if !is_adjacent_to_footprint(engineer_xf.x, engineer_xf.y, building_xf.x, building_xf.y, foundation.width, foundation.height) {
                 let (ax, ay) = nearest_adjacent_to_footprint(
                     engineer_xf.x,
                     engineer_xf.y,
@@ -119,19 +99,11 @@ impl crate::state::BattleState {
                 continue;
             }
 
-            self.transfer_structure_owner(
-                building_id,
-                building_type.as_ref(),
-                building_house.as_ref(),
-                engineer_house.as_ref(),
-            );
-            let capturer_eva = if self
-                .definitions
-                .prerequisite_groups
-                .is_tech_building(building_type.as_ref())
-            {
+            self.transfer_structure_owner(building_id, building_type.as_ref(), building_house.as_ref(), engineer_house.as_ref());
+            let capturer_eva = if self.definitions.prerequisite_groups.is_tech_building(building_type.as_ref()) {
                 "EVA_TechBuildingCaptured"
-            } else {
+            }
+            else {
                 "EVA_BuildingCaptured"
             };
             self.push_eva_cue(engineer_house.as_ref(), capturer_eva);
@@ -143,13 +115,7 @@ impl crate::state::BattleState {
         }
     }
 
-    fn transfer_structure_owner(
-        &mut self,
-        building_id: EntityId,
-        type_id: &str,
-        from_house: &str,
-        to_house: &str,
-    ) {
+    fn transfer_structure_owner(&mut self, building_id: EntityId, type_id: &str, from_house: &str, to_house: &str) {
         // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
         self.revoke_structure_power(from_house, type_id);
         let new_house = Arc::<str>::from(to_house);

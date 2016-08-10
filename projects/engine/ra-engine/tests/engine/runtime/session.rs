@@ -1,7 +1,7 @@
 //! 会话 tick、命令、快照与联机摘要集成测试。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{GameCommand, MAX_TICKS_PER_PUMP, BattleOutcome, BattleState, Session};
+use ra_engine::{BattleOutcome, BattleState, GameCommand, MAX_TICKS_PER_PUMP, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{EntityId, GameEdition};
 

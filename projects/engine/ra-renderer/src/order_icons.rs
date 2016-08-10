@@ -173,11 +173,7 @@ impl OrderIconGpu {
         queue.write_texture(
             wgpu::TexelCopyTextureInfo { texture: &texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
             atlas.as_raw(),
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * atlas_w),
-                rows_per_image: Some(atlas_h),
-            },
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * atlas_w), rows_per_image: Some(atlas_h) },
             size,
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -230,7 +226,8 @@ impl OrderIconGpu {
                         let fi = self.attack_range.start + (tick % u64::from(self.attack_range.count.max(1))) as u32;
                         push_icon_quad(&mut verts, camera, sw, sh, ax as f32, ay as f32, fi, self);
                     }
-                } else if let Some((gx, gy)) = u.move_goal_screen {
+                }
+                else if let Some((gx, gy)) = u.move_goal_screen {
                     if self.move_range.count > 0 {
                         let fi = self.move_range.start + (tick % u64::from(self.move_range.count.max(1))) as u32;
                         push_icon_quad(&mut verts, camera, sw, sh, gx as f32, gy as f32, fi, self);

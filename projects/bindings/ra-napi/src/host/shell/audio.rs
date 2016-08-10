@@ -1,6 +1,6 @@
 //! 壳层音频：BGM、UI 音效与音量。
 
-use ra_assets::{AudioIndex, IniDocument, PcmAudio, decode_audio_bytes};
+use ra_assets::{AudioIndex, PcmAudio, decode_audio_bytes};
 use ra_types::AssetSource;
 use ra_widgets::original_screen::OriginalScreen;
 
@@ -295,7 +295,8 @@ impl Shell {
         self.ensure_score_bgm();
         let want_kind: Option<&'static str> = if self.screen == OriginalScreen::Results {
             Some("score")
-        } else if matches!(
+        }
+        else if matches!(
             self.screen,
             OriginalScreen::MainMenu
                 | OriginalScreen::SinglePlayerMenu
@@ -307,7 +308,8 @@ impl Shell {
                 | OriginalScreen::Network
         ) {
             Some("menu")
-        } else {
+        }
+        else {
             None
         };
         if self.shell_bgm_kind == want_kind && (want_kind.is_none() || self.menu_bgm_playing) {
@@ -354,7 +356,8 @@ impl Shell {
         if let Some(pcm) = self.decode_theme_track(&stem) {
             tracing::info!(%stem, "已装载结算主题曲");
             self.score_bgm = Some(pcm);
-        } else {
+        }
+        else {
             tracing::debug!(%stem, "结算主题曲不可用");
         }
     }
@@ -472,46 +475,32 @@ impl Shell {
 
     /// 本机对局 UI chrome（含 `EVA.Tag`）；无缓存则按本机 house / `Side=` 解析。
     pub(super) fn resolve_battle_ui_faction_chrome(&self) -> Option<ra_widgets::skirmish_setup::UiFactionChrome> {
-        self.battle_controller
-            .as_ref()
-            .and_then(|c| c.ui_faction_chrome().cloned())
-            .or_else(|| {
-                self.battle_controller.as_ref().and_then(|c| {
-                    c.session.as_ref().and_then(|s| s.battle()).and_then(|g| {
-                        g.world
-                            .players
+        self.battle_controller.as_ref().and_then(|c| c.ui_faction_chrome().cloned()).or_else(|| {
+            self.battle_controller.as_ref().and_then(|c| {
+                c.session.as_ref().and_then(|s| s.battle()).and_then(|g| {
+                    g.world.players.iter().find(|p| p.id == g.world.local_player).and_then(|p| {
+                        let house = p.house.as_ref();
+                        let fid = self
+                            .lobby_countries
                             .iter()
-                            .find(|p| p.id == g.world.local_player)
-                            .and_then(|p| {
-                                let house = p.house.as_ref();
-                                let fid = self
-                                    .lobby_countries
-                                    .iter()
-                                    .find(|c| c.id.eq_ignore_ascii_case(house))
-                                    .map(|c| c.side.as_str())
-                                    .filter(|s| !s.is_empty());
-                                self.resolve_ui_faction_chrome(house, fid)
-                            })
+                            .find(|c| c.id.eq_ignore_ascii_case(house))
+                            .map(|c| c.side.as_str())
+                            .filter(|s| !s.is_empty());
+                        self.resolve_ui_faction_chrome(house, fid)
                     })
                 })
             })
+        })
     }
 
     /// edition EVA 表（`eva.ini` / `evamd.ini`）事件 → 本机 `EVA.Tag` 列采样名。
-    pub(super) fn eva_sample_names(
-        &self,
-        event_id: &str,
-        chrome: Option<&ra_widgets::skirmish_setup::UiFactionChrome>,
-    ) -> Vec<String> {
-        let eva_ini = self
-            .menu_assets
-            .as_ref()
-            .and_then(|a| a.eva_ini_name)
-            .unwrap_or("eva.ini");
+    pub(super) fn eva_sample_names(&self, event_id: &str, chrome: Option<&ra_widgets::skirmish_setup::UiFactionChrome>) -> Vec<String> {
+        let eva_ini = self.menu_assets.as_ref().and_then(|a| a.eva_ini_name).unwrap_or("eva.ini");
         let Some(doc) = self.read_ini_doc(eva_ini).or_else(|| {
             if eva_ini.eq_ignore_ascii_case("eva.ini") {
                 None
-            } else {
+            }
+            else {
                 // MD 表缺失时再试基座表（无 Yuri 列，仅 Allied/Russian）。
                 self.read_ini_doc("eva.ini")
             }

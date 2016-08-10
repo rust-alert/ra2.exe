@@ -2,7 +2,6 @@ use ra_types::{EntityId, PlayerId};
 
 use super::types::GameCommand;
 
-
 /// 编码单条命令载荷为网络 `payload` 字节（不含调度信封）。
 pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
     let mut b = Vec::new();
@@ -85,12 +84,7 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(player.0);
             b.extend_from_slice(&building.0.to_be_bytes());
         }
-        GameCommand::FireSuperWeapon {
-            player,
-            ref type_id,
-            x,
-            y,
-        } => {
+        GameCommand::FireSuperWeapon { player, ref type_id, x, y } => {
             b.push(14);
             b.push(player.0);
             let id_bytes = type_id.as_bytes();

@@ -2,7 +2,7 @@
 
 use crate::common::test_engine;
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -96,14 +96,7 @@ fn create_team_script_action_3_orders_move_to_waypoint() {
     let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "team-script");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
-    let ids: Vec<_> = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .filter(|u| u.type_id.as_ref() == "E1")
-        .map(|u| u.id)
-        .collect();
+    let ids: Vec<_> = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1").map(|u| u.id).collect();
     assert_eq!(ids.len(), 1, "expected one reinforced E1");
     session.tick(&engine.runtime());
     let dest = session.expect_battle().world.ecs_move_destination(ids[0]);
@@ -149,26 +142,12 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let russian = snap
-        .units
-        .iter()
-        .find(|u| u.owner.as_ref() == "Russians")
-        .map(|u| u.id)
-        .expect("reinforced Russian");
-    let american = snap
-        .units
-        .iter()
-        .find(|u| u.owner.as_ref() == "Americans")
-        .map(|u| u.id)
-        .expect("preplaced American");
+    let russian = snap.units.iter().find(|u| u.owner.as_ref() == "Russians").map(|u| u.id).expect("reinforced Russian");
+    let american = snap.units.iter().find(|u| u.owner.as_ref() == "Americans").map(|u| u.id).expect("preplaced American");
 
     session.tick(&engine.runtime());
     let attack = session.expect_battle().world.ecs_attack_state(russian);
-    assert_eq!(
-        attack.map(|(t, _)| t),
-        Some(Some(american)),
-        "script action 1 should Attack hostile near waypoint 1"
-    );
+    assert_eq!(attack.map(|(t, _)| t), Some(Some(american)), "script action 1 should Attack hostile near waypoint 1");
 }
 
 #[test]
@@ -210,20 +189,18 @@ fn create_team_script_action_6_deploys_mcv() {
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime());
-    let amcv = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .filter(|u| u.type_id.as_ref() == "AMCV")
-        .count();
+    let amcv = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "AMCV").count();
     assert_eq!(amcv, 1, "expected reinforced AMCV");
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
     let yards = snap.units.iter().filter(|u| u.type_id.as_ref() == "GACNST").count();
     let left = snap.units.iter().filter(|u| u.type_id.as_ref() == "AMCV").count();
-    assert!(yards >= 1, "script action 6 should Deploy AMCV into GACNST, units={:?}", snap.units.iter().map(|u| u.type_id.as_ref()).collect::<Vec<_>>());
+    assert!(
+        yards >= 1,
+        "script action 6 should Deploy AMCV into GACNST, units={:?}",
+        snap.units.iter().map(|u| u.type_id.as_ref()).collect::<Vec<_>>()
+    );
     assert_eq!(left, 0, "AMCV should be gone after deploy");
 }
 
@@ -249,23 +226,12 @@ fn create_team_script_action_8_jumps_then_moves() {
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + jump to step 1
-    let id = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .find(|u| u.type_id.as_ref() == "E1")
-        .map(|u| u.id)
-        .expect("E1");
+    let id = session.expect_battle().snapshot(&[]).units.iter().find(|u| u.type_id.as_ref() == "E1").map(|u| u.id).expect("E1");
     assert_eq!(session.expect_battle().world.ecs_move_destination(id), Some((None, None)));
 
     session.tick(&engine.runtime()); // execute move step
     session.tick(&engine.runtime()); // apply MoveTo
-    assert_eq!(
-        session.expect_battle().world.ecs_move_destination(id),
-        Some((Some(10), Some(10))),
-        "script action 8 should jump to move step"
-    );
+    assert_eq!(session.expect_battle().world.ecs_move_destination(id), Some((Some(10), Some(10))), "script action 8 should jump to move step");
 }
 
 #[test]
@@ -290,23 +256,12 @@ fn create_team_script_action_7_clears_move_after_waypoint() {
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
 
     session.tick(&engine.runtime()); // spawn + enqueue MoveTo
-    let id = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .find(|u| u.type_id.as_ref() == "E1")
-        .map(|u| u.id)
-        .expect("E1");
+    let id = session.expect_battle().snapshot(&[]).units.iter().find(|u| u.type_id.as_ref() == "E1").map(|u| u.id).expect("E1");
     session.tick(&engine.runtime()); // apply MoveTo + run Guard (clears dest)
     assert_eq!(
         session.expect_battle().world.ecs_move_destination(id),
         Some((None, None)),
         "script action 7 Guard should clear MoveTo destination"
     );
-    assert_eq!(
-        session.expect_battle().world.ecs_mission(id).as_deref(),
-        Some("Guard"),
-        "script action 7 Guard should set mission"
-    );
+    assert_eq!(session.expect_battle().world.ecs_mission(id).as_deref(), Some("Guard"), "script action 7 Guard should set mission");
 }

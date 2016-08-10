@@ -211,9 +211,7 @@ impl CommandBody {
             | Self::SellBuilding { building, .. }
             | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
             Self::Deploy { entity } | Self::Guard { entity } => CommandTarget::Entity(*entity),
-            Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => {
-                CommandTarget::TypeKey(type_id.clone())
-            }
+            Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
         }
     }
 }

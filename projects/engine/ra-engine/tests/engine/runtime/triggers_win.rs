@@ -1,8 +1,8 @@
 //! 触发器：计时条件可驱动 Win。
 
-use crate::common::{test_engine};
+use crate::common::test_engine;
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleOutcome, BattleState, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -46,12 +46,7 @@ fn timer_trigger_fires_win_on_campaign() {
             break;
         }
     }
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -83,12 +78,7 @@ TRA=1,15,0,0,0,0,0,0,A\n\
 
     // tick1：Allow Win 清阻塞 → 兑现延后胜利。
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -121,16 +111,10 @@ TRE=1,38,0,0,0,0,0,0,Russians\n\
     assert!(!houses_are_allied(&session.expect_battle().world, "Americans", "Russians"));
 
     session.tick(&engine.runtime());
-    assert!(
-        houses_are_allied(&session.expect_battle().world, "Americans", "Russians"),
-        "action 37 should ally trigger house with param house"
-    );
+    assert!(houses_are_allied(&session.expect_battle().world, "Americans", "Russians"), "action 37 should ally trigger house with param house");
 
     session.tick(&engine.runtime());
-    assert!(
-        !houses_are_allied(&session.expect_battle().world, "Americans", "Russians"),
-        "action 38 should break the alliance"
-    );
+    assert!(!houses_are_allied(&session.expect_battle().world, "Americans", "Russians"), "action 38 should break the alliance");
 }
 
 #[test]
@@ -253,16 +237,8 @@ fn destroy_all_of_house_kills_living_entities() {
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let russians_alive = snap
-        .units
-        .iter()
-        .filter(|u| u.owner.eq_ignore_ascii_case("Russians") && !u.dead)
-        .count();
-    let americans_alive = snap
-        .units
-        .iter()
-        .filter(|u| u.owner.eq_ignore_ascii_case("Americans") && !u.dead)
-        .count();
+    let russians_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("Russians") && !u.dead).count();
+    let americans_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("Americans") && !u.dead).count();
     assert_eq!(russians_alive, 0, "action 119 should wipe the target house");
     assert!(americans_alive >= 1, "other houses must remain");
 }
@@ -302,12 +278,7 @@ fn cell_tag_entered_fires_win_on_campaign() {
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -346,20 +317,11 @@ fn destroyed_tagged_entity_fires_win_on_campaign() {
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
 
-    let id = session
-        .expect_battle()
-        .world
-        .find_entity_id_by_type("NACNST")
-        .expect("tagged structure");
+    let id = session.expect_battle().world.find_entity_id_by_type("NACNST").expect("tagged structure");
     assert!(session.expect_battle_mut().world.set_ecs_health(id, 0, 1, true));
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -398,20 +360,11 @@ fn destroyed_all_of_house_event_fires_win() {
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
 
-    let id = session
-        .expect_battle()
-        .world
-        .find_entity_id_by_type("NACNST")
-        .expect("enemy structure");
+    let id = session.expect_battle().world.find_entity_id_by_type("NACNST").expect("enemy structure");
     assert!(session.expect_battle_mut().world.set_ecs_health(id, 0, 1, true));
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -440,12 +393,7 @@ fn credits_exceed_event_fires_win() {
         p.funds = 1000;
     }
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -470,12 +418,7 @@ fn credits_below_event_fires_when_broke() {
         p.funds = 50;
     }
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Defeat {
-            reason: "Broke".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Defeat { reason: "Broke".into() }));
 }
 
 #[test]
@@ -504,12 +447,7 @@ fn low_power_event_fires_when_drain_exceeds_output() {
         p.power_drain = 50;
     }
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Defeat {
-            reason: "LowPower".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Defeat { reason: "LowPower".into() }));
 }
 
 #[test]
@@ -540,12 +478,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     assert!(session.expect_battle().outcome.is_none(), "disabled TR2 must not win on first tick");
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -572,12 +505,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -613,12 +541,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
 
     // tick2：TR2 归零 → Win。
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -657,12 +580,7 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -691,19 +609,11 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     // tick0：TRW 3→2，TRE +2 → rem=4。无 Extend 时约 tick2 胜利；有 Extend 更晚。
     for i in 0..4 {
         session.tick(&engine.runtime());
-        assert!(
-            session.expect_battle().outcome.is_none(),
-            "extend should delay win at tick {i}"
-        );
+        assert!(session.expect_battle().outcome.is_none(), "extend should delay win at tick {i}");
     }
     // rem 4 再经 tick1..4 变为 0：第 5 次 tick（下标 4 之后）触发 Win。
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -735,12 +645,7 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     if session.expect_battle().outcome.is_none() {
         session.tick(&engine.runtime());
     }
-    assert_eq!(
-        session.expect_battle().outcome,
-        Some(BattleOutcome::Victory {
-            owner: "Americans".into()
-        })
-    );
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
 }
 
 #[test]
@@ -769,10 +674,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     for _ in 0..5 {
         session.tick(&engine.runtime());
     }
-    assert!(
-        session.expect_battle().outcome.is_none(),
-        "TR1 should disable TR2 before its timer reaches zero"
-    );
+    assert!(session.expect_battle().outcome.is_none(), "TR1 should disable TR2 before its timer reaches zero");
 }
 
 #[test]
@@ -801,10 +703,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     for _ in 0..5 {
         session.tick(&engine.runtime());
     }
-    assert!(
-        session.expect_battle().outcome.is_none(),
-        "TR1 should destroy TR2 so its Win never fires"
-    );
+    assert!(session.expect_battle().outcome.is_none(), "TR1 should destroy TR2 so its Win never fires");
 }
 
 #[test]
@@ -841,22 +740,11 @@ fn change_house_action_reassigns_tagged_entities() {
     session.expect_battle_mut().world.ensure_house("Russians");
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
-    let id = session
-        .expect_battle()
-        .world
-        .find_entity_id_by_type("E1")
-        .expect("tagged infantry");
-    assert_eq!(
-        session.expect_battle().world.ecs_owner(id).as_deref(),
-        Some("Russians")
-    );
+    let id = session.expect_battle().world.find_entity_id_by_type("E1").expect("tagged infantry");
+    assert_eq!(session.expect_battle().world.ecs_owner(id).as_deref(), Some("Russians"));
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().world.ecs_owner(id).as_deref(),
-        Some("Americans"),
-        "Change House should reassign tagged objects"
-    );
+    assert_eq!(session.expect_battle().world.ecs_owner(id).as_deref(), Some("Americans"), "Change House should reassign tagged objects");
 }
 
 #[test]
@@ -891,19 +779,11 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
     session.expect_battle_mut().world.ensure_house("Americans");
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
-    let id = session
-        .expect_battle()
-        .world
-        .find_entity_id_by_type("NACNST")
-        .expect("tagged structure");
+    let id = session.expect_battle().world.find_entity_id_by_type("NACNST").expect("tagged structure");
     assert_eq!(session.expect_battle().world.ecs_health(id).map(|(_, _, d)| d), Some(false));
 
     session.tick(&engine.runtime());
-    assert_eq!(
-        session.expect_battle().world.ecs_health(id).map(|(_, _, d)| d),
-        Some(true),
-        "action 32 should destroy Tag-bound objects"
-    );
+    assert_eq!(session.expect_battle().world.ecs_health(id).map(|(_, _, d)| d), Some(true), "action 32 should destroy Tag-bound objects");
 }
 
 #[test]
@@ -951,16 +831,8 @@ fn destroy_tag_action_kills_named_tag_entities() {
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let obj_dead = snap
-        .units
-        .iter()
-        .find(|u| u.type_id.as_ref() == "NACNST")
-        .map(|u| u.dead)
-        .unwrap_or(true);
-    let e1_alive = snap
-        .units
-        .iter()
-        .any(|u| u.type_id.as_ref() == "E1" && !u.dead);
+    let obj_dead = snap.units.iter().find(|u| u.type_id.as_ref() == "NACNST").map(|u| u.dead).unwrap_or(true);
+    let e1_alive = snap.units.iter().any(|u| u.type_id.as_ref() == "E1" && !u.dead);
     assert!(obj_dead, "action 70 should destroy entities with Tag OBJ");
     assert!(e1_alive, "untagged entities must remain");
 }
@@ -1009,23 +881,11 @@ TR2=1,5,0,TM1,0,0,0,0,A\n\
     let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
 
     session.tick(&engine.runtime());
-    let living = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
-        .count();
+    let living = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(living >= 1, "Create Team should spawn members before Destroy Team");
 
     session.tick(&engine.runtime());
-    let living_after = session
-        .expect_battle()
-        .snapshot(&[])
-        .units
-        .iter()
-        .filter(|u| u.type_id.as_ref() == "E1" && !u.dead)
-        .count();
+    let living_after = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert_eq!(living_after, 0, "action 5 should destroy spawned TeamType members");
 }
 

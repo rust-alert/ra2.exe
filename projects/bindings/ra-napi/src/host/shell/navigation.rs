@@ -64,7 +64,8 @@ impl Shell {
         use winit::window::CursorGrabMode;
         let result = if want {
             window.set_cursor_grab(CursorGrabMode::Confined).or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
-        } else {
+        }
+        else {
             window.set_cursor_grab(CursorGrabMode::None)
         };
         match result {
@@ -72,7 +73,8 @@ impl Shell {
                 self.battle_cursor_grabbed = want;
                 if want {
                     tracing::debug!("对局光标已捕获（边缘滚屏）");
-                } else {
+                }
+                else {
                     tracing::debug!("对局光标已释放");
                     self.apply_battle_pointer(crate::host::battle_input::BattlePointer::Default);
                 }
@@ -203,7 +205,8 @@ impl Shell {
         if gap > 0.0 {
             self.menu_slide_gap_until = Some(Instant::now() + Duration::from_secs_f64(gap));
             self.refresh_menu_backdrop();
-        } else {
+        }
+        else {
             self.maybe_start_slide_in();
         }
     }
@@ -259,10 +262,12 @@ impl Shell {
             if let Some(action) = self.menu_pending_commit.take() {
                 self.commit_menu_action(event_loop, action);
                 self.begin_slide_gap_or_in();
-            } else {
+            }
+            else {
                 self.refresh_menu_backdrop();
             }
-        } else {
+        }
+        else {
             self.refresh_menu_backdrop();
         }
     }
@@ -330,7 +335,8 @@ impl Shell {
                     self.options_return_screen = None;
                     if from_battle {
                         self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
-                    } else {
+                    }
+                    else {
                         self.set_screen(OriginalScreen::MainMenu);
                     }
                 }

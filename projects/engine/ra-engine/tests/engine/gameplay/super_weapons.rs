@@ -100,32 +100,17 @@ fn order_fire_super_weapon_starts_lightning_storm() {
         session.expect_battle_mut().world.advance_tick();
     }
     assert!(
-        session
-            .expect_battle()
-            .snapshot_capabilities(&[])
-            .super_weapon_items
-            .iter()
-            .any(|i| i.ready && i.enabled),
+        session.expect_battle().snapshot_capabilities(&[]).super_weapon_items.iter().any(|i| i.ready && i.enabled),
         "expected ready LightningStorm"
     );
 
-    session
-        .expect_battle_mut()
-        .order_fire_super_weapon("LightningStorm", 8, 8);
+    session.expect_battle_mut().order_fire_super_weapon("LightningStorm", 8, 8);
     session.expect_battle_mut().world.advance_tick();
-    assert!(
-        session.expect_battle().world.last_rejects().is_empty(),
-        "{:?}",
-        session.expect_battle().world.last_rejects()
-    );
+    assert!(session.expect_battle().world.last_rejects().is_empty(), "{:?}", session.expect_battle().world.last_rejects());
     assert!(session.expect_battle().world.lightning_storm.is_some());
 
     let after = session.expect_battle().snapshot_capabilities(&[]);
-    let item = after
-        .super_weapon_items
-        .iter()
-        .find(|i| i.type_id.as_ref() == "LIGHTNINGSTORM")
-        .expect("sw item");
+    let item = after.super_weapon_items.iter().find(|i| i.type_id.as_ref() == "LIGHTNINGSTORM").expect("sw item");
     assert!(!item.ready);
     assert!(item.charge_ticks < item.required_ticks);
     assert_eq!(item.disabled_reason, Some(CommandRejectReason::SuperWeaponNotReady));

@@ -1,7 +1,7 @@
 //! `SystemSchedule` 驱动 tick 阶段。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState, SystemPhase, SystemSchedule};
+use ra_engine::{BattleState, GameCommand, SystemPhase, SystemSchedule};
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::{EntityId, GameEdition};
 

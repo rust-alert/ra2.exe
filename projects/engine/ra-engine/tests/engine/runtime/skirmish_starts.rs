@@ -1,7 +1,7 @@
 //! 遭遇战开局：席位航点放置 MCV。
 
 use ra_adaptor::{ResourceChain, RulesSystem};
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
@@ -32,10 +32,7 @@ fn map_with_starts() -> MapInfo {
     let mut map = MapInfo::empty(GameEdition::Ra2, "starts");
     map.width = 32;
     map.height = 32;
-    map.waypoints = vec![
-        Waypoint { index: 0, x: 4, y: 4 },
-        Waypoint { index: 1, x: 20, y: 20 },
-    ];
+    map.waypoints = vec![Waypoint { index: 0, x: 4, y: 4 }, Waypoint { index: 1, x: 20, y: 20 }];
     map
 }
 
@@ -45,7 +42,8 @@ impl AssetSource for RulesBytesSource {
         let chain = ResourceChain::for_edition(GameEdition::Ra2);
         if relative.eq_ignore_ascii_case(chain.rules_ini) {
             Ok(b"[General]\n".to_vec())
-        } else {
+        }
+        else {
             Err(RaError::MissingFile(relative.to_string()))
         }
     }

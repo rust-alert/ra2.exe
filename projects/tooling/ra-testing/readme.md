@@ -10,11 +10,11 @@
 
 RTS 引擎的质量依赖三类验证：
 
-| 层次          | 本 crate 提供                      | 断言依据                                       |
-|---------------|------------------------------------|------------------------------------------------|
+| 层次          | 本 crate 提供                      | 断言依据                                        |
+|---------------|------------------------------------|-------------------------------------------------|
 | Headless 逻辑 | `HeadlessCase`、`standard_duel` 等 | `state_hash`、`BattleOutcome`、`RenderSnapshot` |
-| 冻结竖切      | `alpha_skirmish_v1`                | 建筑/单位/经济常量清单                         |
-| GUI 自动化    | `GuiAutomationPlan`                | 窗口标题、截图基线、`TestStatus` 旁路          |
+| 冻结竖切      | `alpha_skirmish_v1`                | 建筑/单位/经济常量清单                          |
+| GUI 自动化    | `GuiAutomationPlan`                | 窗口标题、截图基线、`TestStatus` 旁路           |
 
 Headless 是 **世界正确性的权威来源**。GUI 自动化用于「壳层 + GPU + 输入栈」冒烟与回归截图； **不能以渲染帧数或像素 alone
 证明仿真正确**——仍应以 headless 摘要为准。
@@ -101,7 +101,7 @@ let case = mcv_deploy_open(); // 盟军 MCV + 冻结初始资金
 |--------------|---------------------------------------------|
 | `tick`       | 当前世界逻辑 tick                           |
 | `state_hash` | `World::state_hash()`                       |
-| `outcome`    | 若已结束，`BattleOutcome`                    |
+| `outcome`    | 若已结束，`BattleOutcome`                   |
 | `snapshot`   | `RenderSnapshot`（无 GPU 也可检查实体列表） |
 
 `HeadlessCase::command` 在下一 `tick` 前入队；`advance` 精确推进指定 tick 数，遇 `outcome` 提前停止。无墙钟、无事件泵。
@@ -132,8 +132,10 @@ let plan: GuiAutomationPlan = standard_duel_gui_plan();
 `GuiAction` / `GuiExpectation` **平台无关**；Windows 第一版执行器应使用 UI Automation，在 **带桌面会话的 CI 作业**运行，独立於
 `ra-napi` 主 binary。
 
-`TestStatus` 解析 `RA2_TEST_STATUS_PATH` 旁路文件（`tick` / `hash` / `outcome` / `selected` / `difficulty` / `screen` 等键），供 GUI 测试轮询引擎状态而无需
-OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可直接承接 `GuiAction::WaitStatus`（例如 `screen=results` / `leave_armed=true`）。
+`TestStatus` 解析 `RA2_TEST_STATUS_PATH` 旁路文件（`tick` / `hash` / `outcome` / `selected` / `difficulty` / `screen`
+等键），供 GUI 测试轮询引擎状态而无需
+OCR HUD。`TestStatus::wait_until` 按 `matches_expect` 轮询直至超时，可直接承接 `GuiAction::WaitStatus`（例如
+`screen=results` / `leave_armed=true`）。
 
 ```mermaid
 sequenceDiagram

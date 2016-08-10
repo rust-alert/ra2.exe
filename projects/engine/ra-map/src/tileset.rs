@@ -36,11 +36,7 @@ impl TilesetLookup {
 
 /// 将 IsoMapPack 砖引用归一化：`0xFFFF` → Clear（`tile_num=0`，`sub_tile=0`）。
 pub fn normalize_tile_ref(tile_num: i32, sub_tile: u8) -> (i32, u8) {
-    if tile_num == CLEAR_TILE_SENTINEL {
-        (0, 0)
-    } else {
-        (tile_num, sub_tile)
-    }
+    if tile_num == CLEAR_TILE_SENTINEL { (0, 0) } else { (tile_num, sub_tile) }
 }
 
 fn is_blank_filename(filename: &str) -> bool {

@@ -20,9 +20,11 @@ fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeD
 fn country_from_stock(s: &ra_adaptor_ra2::stock_ui::StockCountryUi) -> CountryDef {
     let brief = if s.load_brief_suffix.is_empty() {
         String::new()
-    } else if s.load_brief_suffix.contains(':') {
+    }
+    else if s.load_brief_suffix.contains(':') {
         s.load_brief_suffix.to_string()
-    } else {
+    }
+    else {
         format!("LOADBRIEF:{}", s.load_brief_suffix)
     };
     CountryDef {
@@ -48,25 +50,14 @@ fn country_from_stock(s: &ra_adaptor_ra2::stock_ui::StockCountryUi) -> CountryDe
 pub fn apply_edition_stock_ui(edition: GameEdition, countries: &mut [CountryDef], chromes: &mut [SideChromeDef]) {
     match edition {
         GameEdition::Ra2 => {
-            let sides: Vec<_> = ra_adaptor_ra2::stock_ui::stock_side_chromes()
-                .iter()
-                .map(side_from_stock)
-                .collect();
-            let ui: Vec<_> = ra_adaptor_ra2::stock_ui::stock_country_ui()
-                .iter()
-                .map(country_from_stock)
-                .collect();
+            let sides: Vec<_> = ra_adaptor_ra2::stock_ui::stock_side_chromes().iter().map(side_from_stock).collect();
+            let ui: Vec<_> = ra_adaptor_ra2::stock_ui::stock_country_ui().iter().map(country_from_stock).collect();
             fill_side_chrome_gaps(chromes, &sides);
             fill_country_ui_gaps(countries, &ui);
         }
         GameEdition::Yr => {
-            let sides: Vec<_> = ra_adaptor_yuri::stock_ui::stock_side_chromes()
-                .iter()
-                .map(side_from_stock)
-                .collect();
-            let ui: Vec<_> = ra_adaptor_yuri::stock_ui::stock_country_ui_all()
-                .map(country_from_stock)
-                .collect();
+            let sides: Vec<_> = ra_adaptor_yuri::stock_ui::stock_side_chromes().iter().map(side_from_stock).collect();
+            let ui: Vec<_> = ra_adaptor_yuri::stock_ui::stock_country_ui_all().map(country_from_stock).collect();
             fill_side_chrome_gaps(chromes, &sides);
             fill_country_ui_gaps(countries, &ui);
         }

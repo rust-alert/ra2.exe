@@ -54,13 +54,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             });
         }
         else {
-            out.push(MapAiTrigger {
-                id,
-                name: String::new(),
-                team: String::new(),
-                owner_house: String::new(),
-                tech_level: 0,
-            });
+            out.push(MapAiTrigger { id, name: String::new(), team: String::new(), owner_house: String::new(), tech_level: 0 });
         }
     }
     out

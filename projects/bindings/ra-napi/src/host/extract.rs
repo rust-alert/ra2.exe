@@ -117,9 +117,7 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
     // 剧院地形 SHP（如 `tibtre01.tem`）在 `isotemp.mix` 等嵌套档中；按请求剧院或扩展名挂载。
     let theaters = resolve_extract_theaters(req)?;
     for theater in theaters {
-        let n = mount_theater_mixes(theater, &mut |mix| {
-            matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0)
-        });
+        let n = mount_theater_mixes(theater, &mut |mix| matches!(source.vfs.mount_nested_all_from_parents(mix), Ok(count) if count > 0));
         mounted_nested = mounted_nested.saturating_add(n);
         if n > 0 {
             tracing::info!(theater = theater.as_str(), mounted = n, "extract 已挂载剧院 MIX");
@@ -174,14 +172,7 @@ pub fn extract_named(req: &ExtractRequest) -> RaResult<ExtractReport> {
                         "extract SHP 族命中"
                     );
                     if req.decode_shp {
-                        match decode_shp_frames_to_png(
-                            &source,
-                            name,
-                            &hit.bytes,
-                            &req.out_dir,
-                            &safe,
-                            req.palette.as_deref(),
-                        ) {
+                        match decode_shp_frames_to_png(&source, name, &hit.bytes, &req.out_dir, &safe, req.palette.as_deref()) {
                             Ok(n) => {
                                 // 解码成功帧数可能少于总帧（空帧跳过）；仍保留解析得到的总帧数。
                                 tracing::info!(name = %name, decoded = n, "SHP 帧已解码为 PNG");

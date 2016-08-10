@@ -13,14 +13,9 @@ use super::super::{
     ecs_registry::EcsRegistry,
     players::PlayerState,
 };
-use crate::{
-    game::InputFrame,
-    gameplay::verses_for,
-    presentation::DirtyEntitySet,
-};
+use crate::{game::InputFrame, gameplay::verses_for, presentation::DirtyEntitySet};
 
 use super::types::{ATTACK_COOLDOWN_TICKS, BattleState};
-
 
 impl BattleState {
     /// 由规则与地图播种新世界，并为移动单位预计算路径。
@@ -136,7 +131,8 @@ impl BattleState {
         if let Some(p) = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)) {
             self.local_player = p.id;
             true
-        } else {
+        }
+        else {
             false
         }
     }
@@ -227,7 +223,6 @@ impl BattleState {
         Ok(id)
     }
 }
-
 
 fn techno_class_to_kind(class: TechnoClass) -> TechnoKind {
     match class {

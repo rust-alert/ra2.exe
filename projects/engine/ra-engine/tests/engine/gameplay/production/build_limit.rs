@@ -1,8 +1,8 @@
 //! BuildLimit：同类型存活数达上限后不可再建/再生产。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{CommandRejectReason, GameCommand, BattleState};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -59,10 +59,7 @@ fn limit_world() -> BattleState {
 #[test]
 fn produce_rejects_when_build_limit_reached() {
     let mut world = limit_world();
-    world.push_command(GameCommand::Produce {
-        player: PlayerId(0),
-        type_id: "E1".into(),
-    });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::QueueFull);
 }

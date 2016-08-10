@@ -1,9 +1,11 @@
 //! 截图与状态栏诊断。
 
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::skin::text::{
-    campaign_csf_tooltip, choose_map_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text,
-    single_player_csf_tooltip, skirmish_lobby_csf_tooltip,
+use ra_widgets::{
+    original_screen::OriginalScreen,
+    skin::text::{
+        campaign_csf_tooltip, choose_map_csf_tooltip, main_menu_csf_tooltip, resolve_csf_text, single_player_csf_tooltip,
+        skirmish_lobby_csf_tooltip,
+    },
 };
 
 use crate::host::screenshot;

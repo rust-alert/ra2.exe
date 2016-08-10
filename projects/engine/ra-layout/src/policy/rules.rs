@@ -113,21 +113,11 @@ impl Default for LayoutRules {
 impl LayoutRules {
     /// 固定宽高并贴左上。
     pub fn fixed_size(size: Size2) -> Self {
-        Self {
-            width: SizeRule::Fixed(size.width),
-            height: SizeRule::Fixed(size.height),
-            ..Self::default()
-        }
+        Self { width: SizeRule::Fixed(size.width), height: SizeRule::Fixed(size.height), ..Self::default() }
     }
 
     /// 流式容器：固有尺寸由子树决定，不参与命中。
     pub fn flow_container(flow: LayoutFlow) -> Self {
-        Self {
-            width: SizeRule::Content,
-            height: SizeRule::Content,
-            flow,
-            hit_test: false,
-            ..Self::default()
-        }
+        Self { width: SizeRule::Content, height: SizeRule::Content, flow, hit_test: false, ..Self::default() }
     }
 }

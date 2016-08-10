@@ -24,11 +24,7 @@ impl MapViewport {
         let sh = window_h.max(1);
         let snap = solve_battle_hud(sw, sh);
         let tactical = battle_hud_world_viewport(&snap);
-        Self {
-            tactical,
-            surface_w: sw,
-            surface_h: sh,
-        }
+        Self { tactical, surface_w: sw, surface_h: sh }
     }
 
     /// 投影宽（战术区），供 `Camera` / `CameraBounds` 使用。
@@ -48,26 +44,12 @@ impl MapViewport {
 
     /// 窗口像素 → 世界（预览图像素）。
     pub fn screen_to_world(&self, cam: &ViewCamera, sx: f32, sy: f32) -> (f32, f32) {
-        cam.screen_to_world_in(
-            sx,
-            sy,
-            self.tactical.x as f32,
-            self.tactical.y as f32,
-            self.proj_w(),
-            self.proj_h(),
-        )
+        cam.screen_to_world_in(sx, sy, self.tactical.x as f32, self.tactical.y as f32, self.proj_w(), self.proj_h())
     }
 
     /// 世界像素 → 窗口像素。
     pub fn world_to_screen(&self, cam: &ViewCamera, wx: f32, wy: f32) -> (f32, f32) {
-        cam.world_to_screen_in(
-            wx,
-            wy,
-            self.tactical.x as f32,
-            self.tactical.y as f32,
-            self.proj_w(),
-            self.proj_h(),
-        )
+        cam.world_to_screen_in(wx, wy, self.tactical.x as f32, self.tactical.y as f32, self.proj_w(), self.proj_h())
     }
 
     /// 与战术区投影同口径的相机中心夹紧范围。
@@ -77,75 +59,6 @@ impl MapViewport {
 
     /// wgpu `set_viewport` / `set_scissor_rect` 用的像素矩形 `(x, y, w, h)`。
     pub fn clip_rect_u32(&self) -> (u32, u32, u32, u32) {
-        (
-            self.tactical.x.max(0) as u32,
-            self.tactical.y.max(0) as u32,
-            self.tactical.w.max(0) as u32,
-            self.tactical.h.max(0) as u32,
-        )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{battle_hud_world_viewport, solve_battle_hud};
-    use ra_renderer::ViewCamera;
-
-    #[test]
-    fn battle_tactical_matches_hud_world_viewport() {
-        let vp = MapViewport::battle(1280, 720);
-        let snap = solve_battle_hud(1280, 720);
-        let world = battle_hud_world_viewport(&snap);
-        assert_eq!(vp.tactical, world);
-        assert_eq!(vp.surface_w, 1280);
-        assert_eq!(vp.surface_h, 720);
-        assert!(vp.proj_w() < 1280.0);
-        assert!((vp.proj_h() - (720.0 - crate::COMMAND_BAR_H as f32)).abs() < 1e-3);
-    }
-
-    #[test]
-    fn screen_world_roundtrip_uses_tactical_center() {
-        let vp = MapViewport::battle(1280, 720);
-        let cam = ViewCamera {
-            center_x: 400.0,
-            center_y: 300.0,
-            zoom: 1.0,
-        };
-        let cx = vp.tactical.x as f32 + vp.proj_w() * 0.5;
-        let cy = vp.tactical.y as f32 + vp.proj_h() * 0.5;
-        let (wx, wy) = vp.screen_to_world(&cam, cx, cy);
-        assert!((wx - 400.0).abs() < 1e-3);
-        assert!((wy - 300.0).abs() < 1e-3);
-        let (sx, sy) = vp.world_to_screen(&cam, 400.0, 300.0);
-        assert!((sx - cx).abs() < 1e-3);
-        assert!((sy - cy).abs() < 1e-3);
-    }
-
-    #[test]
-    fn full_window_center_is_not_tactical_center() {
-        // 整窗中心落在侧栏内或偏右时，不得再当作地图投影中心。
-        let vp = MapViewport::battle(1280, 720);
-        let cam = ViewCamera {
-            center_x: 400.0,
-            center_y: 300.0,
-            zoom: 1.0,
-        };
-        let full_cx = 1280.0 * 0.5;
-        let full_cy = 720.0 * 0.5;
-        let (wx_full, _) = cam.screen_to_world(full_cx, full_cy, 1280.0, 720.0);
-        let (wx_tac, _) = vp.screen_to_world(&cam, full_cx, full_cy);
-        assert!((wx_full - 400.0).abs() < 1e-3);
-        assert!((wx_tac - wx_full).abs() > 1.0, "sidebar offset must shift hit X");
-    }
-
-    #[test]
-    fn camera_bounds_match_tactical_proj() {
-        let vp = MapViewport::battle(1280, 720);
-        let bounds = vp.camera_bounds(2000.0, 2000.0, 1.0);
-        let expected = CameraBounds::from_world_and_viewport(2000.0, 2000.0, vp.proj_w(), vp.proj_h(), 1.0);
-        assert_eq!(bounds, expected);
-        let visible_left = bounds.min_center_x - vp.proj_w() * 0.5;
-        assert!(visible_left >= -1e-3);
+        (self.tactical.x.max(0) as u32, self.tactical.y.max(0) as u32, self.tactical.w.max(0) as u32, self.tactical.h.max(0) as u32)
     }
 }

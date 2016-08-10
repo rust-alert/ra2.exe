@@ -3,24 +3,24 @@
 #![deny(missing_docs)]
 
 mod boot_map;
-mod compose;
+pub mod compose;
 mod fallback_preview;
 mod iso_math;
 mod iso_pack;
 mod land;
-mod lighting;
-mod mobile_paint;
+pub mod lighting;
+pub mod mobile_paint;
 mod overlay;
 mod overlay_paint;
 mod overlay_pass;
 mod pass_grid;
 mod placements;
-mod playfield;
+pub mod playfield;
 mod preview_pack;
-mod radiation_light;
-mod scripting;
+pub mod radiation_light;
+pub mod scripting;
 mod skirmish_preview;
-mod structure_damage;
+pub mod structure_damage;
 mod structure_paint;
 mod terrain_objects;
 mod terrain_paint;
@@ -28,8 +28,8 @@ mod terrain_preview;
 mod theater;
 mod tileset;
 mod tmp_pass;
-mod waypoints;
-mod weather_particles;
+pub mod waypoints;
+pub mod weather_particles;
 
 /// Base64 编解码（地图二进制段）。
 pub mod base64;
@@ -44,8 +44,8 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
-    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt,
-    list_parseable_maps_from_names, mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
+    find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
+    mount_theater_mixes, resolve_boot_map_name_csf, skirmish_ai_row_count, try_parse_boot_map,
 };
 pub use compose::{
     ShadowBlit, TerrainImage, TileBlit, compose_terrain_rgba, paint_cell_sprites, paint_overlay_markers, paint_structure_missing_markers,
@@ -55,32 +55,28 @@ pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_t
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use lighting::{
-    LightingConfig, LightingProfile, MapLightingProfiles, PointLight, apply_rgba_tint, cell_light_scalar,
-    cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting,
-    parse_map_lighting, point_light_at, point_light_from_rules, radiation_point_light, terrain_tint,
-    LEPTONS_PER_CELL,
-};
-pub use radiation_light::{
-    RadiationLightRules, RadiationLightSite, collect_radiation_lights, parse_radiation_light_rules,
-    radiation_light_epoch, radiation_site_light, radiation_site_radius_leptons,
+    LEPTONS_PER_CELL, LightingConfig, LightingProfile, MapLightingProfiles, PointLight, apply_rgba_tint, cell_light_scalar, cell_tint,
+    cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting, parse_map_lighting, point_light_at,
+    point_light_from_rules, radiation_point_light, terrain_tint,
 };
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{
-    OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays,
-    paint_overlays_onto_preview_rgba,
+    OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
-pub use scripting::{
-    MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition,
-    MapEventKind, MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType,
-    MapTrigger, campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_scripting,
+pub use preview_pack::{MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size};
+pub use radiation_light::{
+    RadiationLightRules, RadiationLightSite, collect_radiation_lights, parse_radiation_light_rules, radiation_light_epoch,
+    radiation_site_light, radiation_site_radius_leptons,
 };
-pub use preview_pack::{
-    MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size,
+pub use scripting::{
+    MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapEventKind,
+    MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
+    campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_scripting,
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
@@ -89,16 +85,15 @@ pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
 };
 pub use structure_paint::{
-    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index,
-    collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, collect_structure_anim_bank,
+    load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{
-    TerrainAnimBank, TerrainAnimLayer, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
-    format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames,
-    paint_ore_tree_frames_onto_rgba, paint_terrain_anim_bank, paint_terrain_anims_onto_rgba, terrain_anim_frame,
-    terrain_animation_rate_ms,
+    TerrainAnimBank, TerrainAnimLayer, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank, format_terrain_anim_layer_diag,
+    ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_ore_tree_frames_onto_rgba, paint_terrain_anim_bank,
+    paint_terrain_anims_onto_rgba, terrain_anim_frame, terrain_animation_rate_ms,
 };
 pub use terrain_preview::compose_terrain_preview;
 pub use theater::{
@@ -213,16 +208,8 @@ impl MapInfo {
         let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
         let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
         let next_mission = doc.get("Basic", "NextMission").unwrap_or("").trim().to_string();
-        let alternate_next_mission = doc
-            .get("Basic", "AlternateNextMission")
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let starting_credits = doc
-            .get("Basic", "StartingCredits")
-            .and_then(|raw| raw.trim().parse::<i32>().ok())
-            .unwrap_or(0)
-            .max(0);
+        let alternate_next_mission = doc.get("Basic", "AlternateNextMission").unwrap_or("").trim().to_string();
+        let starting_credits = doc.get("Basic", "StartingCredits").and_then(|raw| raw.trim().parse::<i32>().ok()).unwrap_or(0).max(0);
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
@@ -267,17 +254,9 @@ impl MapInfo {
 
     /// 战役结算后续关 scenario：胜用 `NextMission`，败用 `AlternateNextMission`；空则 `None`。
     pub fn campaign_continue_scenario(&self, victory: bool) -> Option<&str> {
-        let raw = if victory {
-            self.next_mission.as_str()
-        } else {
-            self.alternate_next_mission.as_str()
-        };
+        let raw = if victory { self.next_mission.as_str() } else { self.alternate_next_mission.as_str() };
         let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
+        if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
     /// 当前档的环境光配置。
@@ -307,8 +286,7 @@ impl MapInfo {
 
     fn rebuild_point_lights(&mut self) {
         self.point_lights.clear();
-        self.point_lights
-            .reserve(self.structure_point_lights.len() + self.radiation_point_lights.len());
+        self.point_lights.reserve(self.structure_point_lights.len() + self.radiation_point_lights.len());
         self.point_lights.extend_from_slice(&self.structure_point_lights);
         self.point_lights.extend_from_slice(&self.radiation_point_lights);
     }
@@ -325,11 +303,7 @@ pub fn parse_game_modes(raw: Option<&str>) -> Vec<String> {
     else {
         return Vec::new();
     };
-    raw.split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .collect()
+    raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
 }
 
 /// 地图是否匹配模式表中的 `map_filter`。
@@ -371,25 +345,12 @@ fn parse_local_size(raw: &str) -> RaResult<LocalSize> {
     if parts.len() < 4 {
         return Err(RaError::Parse(format!("无效 LocalSize: {raw}")));
     }
-    let left: i32 = parts[0]
-        .parse()
-        .map_err(|_| RaError::Parse(format!("LocalSize left 无效: {}", parts[0])))?;
-    let top: i32 = parts[1]
-        .parse()
-        .map_err(|_| RaError::Parse(format!("LocalSize top 无效: {}", parts[1])))?;
-    let width: i32 = parts[2]
-        .parse()
-        .map_err(|_| RaError::Parse(format!("LocalSize 宽无效: {}", parts[2])))?;
-    let height: i32 = parts[3]
-        .parse()
-        .map_err(|_| RaError::Parse(format!("LocalSize 高无效: {}", parts[3])))?;
+    let left: i32 = parts[0].parse().map_err(|_| RaError::Parse(format!("LocalSize left 无效: {}", parts[0])))?;
+    let top: i32 = parts[1].parse().map_err(|_| RaError::Parse(format!("LocalSize top 无效: {}", parts[1])))?;
+    let width: i32 = parts[2].parse().map_err(|_| RaError::Parse(format!("LocalSize 宽无效: {}", parts[2])))?;
+    let height: i32 = parts[3].parse().map_err(|_| RaError::Parse(format!("LocalSize 高无效: {}", parts[3])))?;
     if width <= 0 || height <= 0 {
         return Err(RaError::Parse(format!("LocalSize 宽高须为正: {raw}")));
     }
-    Ok(LocalSize {
-        left,
-        top,
-        width,
-        height,
-    })
+    Ok(LocalSize { left, top, width, height })
 }

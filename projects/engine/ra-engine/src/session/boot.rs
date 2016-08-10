@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ra_adaptor::{ResourceChain, RulesSystem};
-use ra_map::{MapInfo, MapEntityKind, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
+use ra_map::{MapEntityKind, MapInfo, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
 use ra_types::{AssetSource, RaResult};
 
 use crate::{
@@ -149,12 +149,8 @@ fn open_session_common(
         }
     }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
-    let overlay_land = apply_overlay_land_to_pass_grid(
-        &state.map,
-        &rules.rules,
-        &|id| rules.overlay_types.name(id).map(str::to_string),
-        &mut state.pass_grid,
-    );
+    let overlay_land =
+        apply_overlay_land_to_pass_grid(&state.map, &rules.rules, &|id| rules.overlay_types.name(id).map(str::to_string), &mut state.pass_grid);
     if land_sealed > 0 || overlay_land > 0 {
         state.repath_mobiles();
     }
@@ -266,12 +262,7 @@ fn apply_basic_starting_credits(state: &mut BattleState) -> bool {
     if credits <= 0 {
         return false;
     }
-    let needy: Vec<std::sync::Arc<str>> = state
-        .players
-        .iter()
-        .filter(|p| p.funds <= 0)
-        .map(|p| p.house.clone())
-        .collect();
+    let needy: Vec<std::sync::Arc<str>> = state.players.iter().filter(|p| p.funds <= 0).map(|p| p.house.clone()).collect();
     if needy.is_empty() {
         return false;
     }
@@ -295,9 +286,7 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
         };
         let Some(mcv) = starting_mcv_type_for_house(&state.definitions, house).map(str::to_owned)
         else {
-            return Err(ra_types::RaError::Msg(format!(
-                "阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）"
-            )));
+            return Err(ra_types::RaError::Msg(format!("阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）")));
         };
         let id = state.spawn_unit_at(house, &mcv, wp.x, wp.y).map_err(ra_types::RaError::Msg)?;
         parts.push(format!("{house}@{slot}:({},{})={mcv}#{:?}", wp.x, wp.y, id));

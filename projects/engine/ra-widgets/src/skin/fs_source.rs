@@ -4,8 +4,7 @@
 //! [`ra_adaptor::PRIORITY_USER_OVERRIDE`]，与 `MixVfs` 胜出结果比较后再读字节，
 //! 避免「日志说来自 MIX、实际读了磁盘」的分裂。
 
-use std::collections::HashSet;
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 use ra_adaptor::{MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_USER_OVERRIDE, find_ci_file};
 use ra_assets::{MixResolveHit, MixVfs};

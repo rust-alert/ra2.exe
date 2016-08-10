@@ -3,7 +3,6 @@
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
 /// 大厅可选难度标签（写入装载请求；引擎按 Easy/Normal/Hard 调节 AI 节奏）。
-
 use super::chrome::UiFactionChrome;
 
 /// 装载图回退调色板：共享 `mpls.pal`（非国家猜测）。
@@ -26,10 +25,7 @@ pub fn load_screen_background_shp_resolved(viewport_w: u32, rules_shp: Option<&s
 }
 
 /// 装载调色板：仅显式名；不可读则共享 [`LOAD_SCREEN_FALLBACK_PAL`]；皆无则 `None`。
-pub fn load_screen_palette_resolved(
-    rules_pal: Option<&str>,
-    pal_readable: impl Fn(&str) -> bool,
-) -> Option<String> {
+pub fn load_screen_palette_resolved(rules_pal: Option<&str>, pal_readable: impl Fn(&str) -> bool) -> Option<String> {
     if let Some(p) = rules_pal.map(str::trim).filter(|s| !s.is_empty()) {
         if pal_readable(p) {
             return Some(p.to_string());

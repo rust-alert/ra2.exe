@@ -188,24 +188,12 @@ pub(super) fn paint_skirmish_lobby_controls(
                 paint.country_combo_open && paint.combo_row == human_row,
             );
             let rgb = row_color_rgb(paint, human_row);
-            draw_color_combo_face(
-                page,
-                row_r("color_face", human_row),
-                rgb,
-                chrome,
-                paint.color_combo_open && paint.combo_row == human_row,
-            );
+            draw_color_combo_face(page, row_r("color_face", human_row), rgb, chrome, paint.color_combo_open && paint.combo_row == human_row);
             blit_flag(page, row_flag(chrome, human_row), row_r("flag", human_row));
         }
     }
 
-    const CHECK_IDS: [&str; 5] = [
-        "checkbox_quick",
-        "checkbox_1",
-        "checkbox_2",
-        "checkbox_3",
-        "checkbox_4",
-    ];
+    const CHECK_IDS: [&str; 5] = ["checkbox_quick", "checkbox_1", "checkbox_2", "checkbox_3", "checkbox_4"];
     let checks = [paint.short_game, paint.mcv_repacks, paint.crates, paint.superweapons, paint.build_off_ally];
     for (i, checked) in checks.iter().enumerate() {
         draw_skirmish_checkbox(page, r(CHECK_IDS[i]), *checked, chrome);
@@ -240,14 +228,7 @@ pub(super) fn paint_skirmish_lobby_controls(
             let human_row = i + 1;
             if human_row < SKIRMISH_ROW_COUNT {
                 let side = row_r("side_face", human_row);
-                blit_text_colored(
-                    page,
-                    fnt,
-                    row_side_name(paint, human_row),
-                    side.x + 4,
-                    text_y_centered(fnt, side),
-                    MENU_TEXT_ENABLED,
-                );
+                blit_text_colored(page, fnt, row_side_name(paint, human_row), side.x + 4, text_y_centered(fnt, side), MENU_TEXT_ENABLED);
             }
         }
 
@@ -261,14 +242,7 @@ pub(super) fn paint_skirmish_lobby_controls(
         for (i, (key, fb)) in check_labels.iter().enumerate() {
             let box_r = r(CHECK_IDS[i]);
             let check_cell = RectPx::new(box_r.x, box_r.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(box_r.h.max(SKIRMISH_CHECK_H)));
-            blit_text_colored(
-                page,
-                fnt,
-                &label(key, fb),
-                box_r.x + SKIRMISH_CHECK_W + 8,
-                text_y_centered(fnt, check_cell),
-                MENU_TEXT_ENABLED,
-            );
+            blit_text_colored(page, fnt, &label(key, fb), box_r.x + SKIRMISH_CHECK_W + 8, text_y_centered(fnt, check_cell), MENU_TEXT_ENABLED);
         }
 
         let label_speed = r("label_speed");
@@ -294,7 +268,8 @@ pub(super) fn paint_skirmish_lobby_controls(
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = if paint.sides.is_empty() {
             ""
-        } else {
+        }
+        else {
             let i = paint.row_side_indices[paint.combo_row.min(paint.row_side_indices.len() - 1)] as usize % paint.sides.len();
             paint.sides[i].as_str()
         };
@@ -304,14 +279,16 @@ pub(super) fn paint_skirmish_lobby_controls(
             if selected {
                 fill_rect(page, row, [48, 28, 8, 255]);
             }
-            let label = paint
-                .side_labels
-                .get(i)
-                .map(String::as_str)
-                .filter(|s| !s.is_empty())
-                .unwrap_or(side.as_str());
+            let label = paint.side_labels.get(i).map(String::as_str).filter(|s| !s.is_empty()).unwrap_or(side.as_str());
             if let Some(fnt) = fnt {
-                blit_text_colored(page, fnt, label, row.x + 4, text_y_centered(fnt, row), if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
+                blit_text_colored(
+                    page,
+                    fnt,
+                    label,
+                    row.x + 4,
+                    text_y_centered(fnt, row),
+                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
+                );
             }
         }
     }
@@ -343,7 +320,14 @@ pub(super) fn paint_skirmish_lobby_controls(
             }
             if let Some(fnt) = fnt {
                 let label = resolve_caption(csf, diff, Some(crate::skirmish_setup::SkirmishBootRequest::ai_difficulty_csf_key(diff)));
-                blit_text_colored(page, fnt, &label, row.x + 4, text_y_centered(fnt, row), if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED });
+                blit_text_colored(
+                    page,
+                    fnt,
+                    &label,
+                    row.x + 4,
+                    text_y_centered(fnt, row),
+                    if selected { MENU_TEXT_ACCENT } else { MENU_TEXT_ENABLED },
+                );
             }
         }
     }
@@ -397,28 +381,10 @@ pub fn compose_skirmish_lobby_page(
         let title_text = resolve_caption(csf, "skirmish", Some(skirmish_title_csf_key()));
         blit_shell_static_title(&mut page, fnt, &title_text, title);
         if !paint.game_type_name.is_empty() {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                paint.game_type_name,
-                game_type.x,
-                game_type.y,
-                game_type.w,
-                game_type.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, paint.game_type_name, game_type.x, game_type.y, game_type.w, game_type.h, MENU_TEXT_ENABLED);
         }
         if !paint.map_name.is_empty() {
-            blit_caption_in_cell(
-                &mut page,
-                fnt,
-                paint.map_name,
-                map_label.x,
-                map_label.y,
-                map_label.w,
-                map_label.h,
-                MENU_TEXT_ENABLED,
-            );
+            blit_caption_in_cell(&mut page, fnt, paint.map_name, map_label.x, map_label.y, map_label.w, map_label.h, MENU_TEXT_ENABLED);
         }
     }
 

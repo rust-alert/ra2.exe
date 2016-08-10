@@ -9,8 +9,7 @@ mod players;
 mod resources;
 mod rng;
 
-pub use battle::BattleState;
-pub use battle::*;
+pub use battle::{BattleState, *};
 pub(crate) use eva::EvaBaseUnderAttackGate;
 pub use eva::EvaCue;
 pub use players::PlayerState;

@@ -3,10 +3,10 @@
 //! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
 
 use crate::{
-    GameCommand, BattleState,
+    BattleState, GameCommand,
     gameplay::{
-        deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible,
-        living_structure_keys, TechTreePlayer,
+        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible,
+        living_structure_keys,
     },
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
@@ -188,12 +188,7 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: 
     else {
         return Vec::new();
     };
-    let foundation = world
-        .definitions
-        .structures
-        .get(type_id)
-        .map(|s| s.foundation.clone())
-        .unwrap_or_default();
+    let foundation = world.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
     let Some((x, y)) = find_open_near(world, yx, yy, foundation.width, foundation.height)
     else {
         return Vec::new();
@@ -231,11 +226,7 @@ pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand
             continue;
         }
         // 地图放置 `mission=Guard`：驻守，不参与 AI 主动追打。
-        if world
-            .ecs_get::<Identity>(id)
-            .map(|i| i.mission.eq_ignore_ascii_case("Guard"))
-            .unwrap_or(false)
-        {
+        if world.ecs_get::<Identity>(id).map(|i| i.mission.eq_ignore_ascii_case("Guard")).unwrap_or(false) {
             continue;
         }
         let Some(target_index) = nearest_enemy(world, attacker_index, house)
@@ -261,11 +252,7 @@ where
         .definitions
         .structures
         .iter()
-        .filter(|s| {
-            pred(s)
-                && !s.construction_yard
-                && is_type_eligible(&world.definitions, tech, &living, &s.type_key)
-        })
+        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible(&world.definitions, tech, &living, &s.type_key))
         .map(|s| s.type_key.as_str())
         .next()
 }
@@ -321,10 +308,7 @@ fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
                 .ecs_get::<Identity>(id)
                 .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &i.type_id))
                 .unwrap_or(false)
-            && world
-                .ecs_get::<ProductionQueue>(id)
-                .map(|q| q.item.is_none() && q.ready.is_none())
-                .unwrap_or(false)
+            && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
     })
 }
 
@@ -343,10 +327,7 @@ fn house_has_idle_factory(world: &BattleState, house: &str, category: Production
             && world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
             && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(true)
-            && world
-                .ecs_get::<Identity>(id)
-                .map(|i| factory_matches_category(&world.definitions, &i.type_id, category))
-                .unwrap_or(false)
+            && world.ecs_get::<Identity>(id).map(|i| factory_matches_category(&world.definitions, &i.type_id, category)).unwrap_or(false)
     })
 }
 
@@ -415,11 +396,7 @@ fn nearest_enemy(world: &BattleState, from: usize, house: &str) -> Option<usize>
         if world.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
             continue;
         }
-        if world
-            .ecs_get::<Owner>(id)
-            .map(|o| houses_are_allied(world, house, o.house.as_ref()))
-            .unwrap_or(false)
-        {
+        if world.ecs_get::<Owner>(id).map(|o| houses_are_allied(world, house, o.house.as_ref())).unwrap_or(false) {
             continue;
         }
         if world.ecs_get::<Owner>(id).map(|o| is_ambient_house(o.house.as_ref())).unwrap_or(false) {

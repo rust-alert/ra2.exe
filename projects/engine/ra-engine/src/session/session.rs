@@ -4,7 +4,7 @@ use ra_types::BuiltinCapability;
 
 use crate::{
     engine::EngineRuntime,
-    game::{DEFAULT_TICK_HZ, BattleSession, MAX_TICKS_PER_PUMP},
+    game::{BattleSession, DEFAULT_TICK_HZ, MAX_TICKS_PER_PUMP},
     state::BattleState,
 };
 
@@ -95,7 +95,8 @@ impl Session {
 
     /// 强制推进恰好一个仿真 tick（测试 / 单步）。
     pub fn tick(&mut self, runtime: &EngineRuntime<'_>) {
-        let Some(battle) = self.battle.as_mut() else {
+        let Some(battle) = self.battle.as_mut()
+        else {
             return;
         };
         if battle.outcome.is_some() {
@@ -106,7 +107,8 @@ impl Session {
 
     /// 按真实时间推进 0..=`MAX_TICKS_PER_PUMP` 个仿真 tick。
     pub fn pump(&mut self, runtime: &EngineRuntime<'_>, dt_secs: f64) -> u32 {
-        let Some(battle) = self.battle.as_mut() else {
+        let Some(battle) = self.battle.as_mut()
+        else {
             return 0;
         };
         if battle.paused || battle.outcome.is_some() || self.tick_hz == 0 {

@@ -1,60 +1,15 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
 use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
+    collections::HashSet,
     time::{Duration, Instant},
 };
 
-use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
-use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-};
-use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
-};
-use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
-use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
-    fs_source::GameAssetSource,
-    render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
-};
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey},
-    window::Window,
-};
-
-use super::super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
-    local_player::LocalPlayerController,
-};
+use ra_engine::{BattleOutcome, SessionPhase};
+use ra_map::MapEntityKind;
+use ra_types::EntityId;
 
 use super::{BattleController, BattleNav};
-
 
 impl BattleController {
     /// 推进仿真（仅对局页调用）并检测是否应进入结算。返回导航与本段耗时。
@@ -142,7 +97,8 @@ impl BattleController {
 
             if !low_power {
                 set_low_latch = Some(false);
-            } else if !self.eva_low_power_latched {
+            }
+            else if !self.eva_low_power_latched {
                 set_low_latch = Some(true);
                 to_queue.push("EVA_LowPower");
             }
@@ -185,14 +141,16 @@ impl BattleController {
             if !self.eva_alive_seeded {
                 next_alive = Some(alive_now);
                 seed_alive = true;
-            } else {
+            }
+            else {
                 next_alive = Some(alive_now);
             }
 
             if !self.eva_producing_seeded {
                 next_producing = Some(producing_now);
                 seed_producing = true;
-            } else {
+            }
+            else {
                 // 仅「出厂」视为就绪：队列清空且本机机动单位集合出现新 ID。
                 // 取消生产也会清队列，但不能播 `EVA_UnitReady`。
                 let factory_finished = self.eva_producing_factories.iter().any(|id| !producing_now.contains(id));
@@ -216,7 +174,8 @@ impl BattleController {
             if !self.eva_options_seeded {
                 next_options = Some(options_now);
                 seed_options = true;
-            } else {
+            }
+            else {
                 new_options = options_now.iter().any(|id| !self.eva_known_options.contains(id));
                 next_options = Some(options_now);
             }
@@ -314,7 +273,8 @@ impl BattleController {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "defeat".into()
-                } else {
+                }
+                else {
                     format!("defeat:{reason}")
                 }
             }

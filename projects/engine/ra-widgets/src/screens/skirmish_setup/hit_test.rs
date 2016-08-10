@@ -2,12 +2,7 @@
 //!
 //! 控件几何一律来自 `solve_skirmish_lobby` snapshot；本模块只持状态与命中。
 
-use ra_layout::{LayoutSnapshot, solve_skirmish_lobby};
-use ra_layout::{
-    RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H,
-    SKIRMISH_CHECK_W, SKIRMISH_ROW_COUNT,
-};
-
+use ra_layout::{LayoutSnapshot, RectPx, SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_ROW_COUNT, solve_skirmish_lobby};
 
 use super::layout::{snap_contains, snap_rect_px};
 
@@ -15,7 +10,6 @@ use super::layout::{snap_contains, snap_rect_px};
 pub fn hover_entry_at(x: i32, y: i32) -> Option<&'static str> {
     hover_entry_in(&solve_skirmish_lobby(), x, y)
 }
-
 
 fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str> {
     if snap_contains(snap, "player_name", x, y) {
@@ -50,12 +44,7 @@ fn hover_entry_in(snap: &LayoutSnapshot, x: i32, y: i32) -> Option<&'static str>
     ];
     for (snap_id, entry) in CHECKBOXES {
         if let Some(rect) = snap_rect_px(snap, snap_id) {
-            let icon = RectPx::new(
-                rect.x,
-                rect.y,
-                SKIRMISH_CHECK_W,
-                SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)),
-            );
+            let icon = RectPx::new(rect.x, rect.y, SKIRMISH_CHECK_W, SKIRMISH_CHECK_H.min(rect.h.max(SKIRMISH_CHECK_H)));
             if icon.contains(x, y) || rect.contains(x, y) {
                 return Some(*entry);
             }

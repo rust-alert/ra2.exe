@@ -4,16 +4,11 @@ use ra_assets::TechnoKind;
 use ra_map::{MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand};
 
-use super::super::{
-    ecs_registry::EcsRegistry,
-    entities::WorldEntity,
-    players::PlayerState,
-};
+use super::super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{
     game::{CommandReject, InputFrame},
     presentation::DirtyEntitySet,
 };
-
 
 /// 走一格所需的移动点（预览用常量，非零售精确换算）。
 pub const CELL_MOVE_COST: u32 = 64;

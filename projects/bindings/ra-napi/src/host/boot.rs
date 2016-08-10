@@ -292,7 +292,8 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
             file = %manifest.chain.missions_pkt,
             "遭遇战选图表可读但未产出可解析行，回退扫描"
         );
-    } else {
+    }
+    else {
         tracing::warn!(file = %manifest.chain.missions_pkt, "遭遇战选图表不可读，回退扫描");
     }
     let names = source.discover_skirmish_map_names();
@@ -474,7 +475,8 @@ pub fn boot_world_with_progress(
 
     if let Some(hit) = source.resolve(chain.rules_ini) {
         tracing::info!("资源组合 resolved: rules={} · {}", chain.rules_ini, hit.explain());
-    } else {
+    }
+    else {
         tracing::warn!("资源组合 resolved: rules=(missing) {}", chain.rules_ini);
     }
 
@@ -606,7 +608,8 @@ pub fn boot_world_with_progress(
                     paint_session_mobiles_onto_preview(&source, chain, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
-                } else {
+                }
+                else {
                     tracing::warn!("开局移动单位未能叠画到预览（VXL/SHP 可能未解析）");
                 }
                 let mut composed = base.clone();
@@ -627,7 +630,8 @@ pub fn boot_world_with_progress(
 
     if session.as_ref().and_then(|s| s.battle()).is_some() {
         report(1.0, "完成");
-    } else {
+    }
+    else {
         report(1.0, "装载失败");
     }
     Ok(BootResult {

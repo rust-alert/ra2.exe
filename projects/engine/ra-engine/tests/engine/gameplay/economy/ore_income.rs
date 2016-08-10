@@ -27,12 +27,7 @@ fn mining_world() -> BattleState {
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-income");
     map.width = 8;
     map.height = 8;
-    map.overlays = vec![OverlayCell {
-        x: 3,
-        y: 2,
-        overlay_id: 0,
-        data: 2,
-    }];
+    map.overlays = vec![OverlayCell { x: 3, y: 2, overlay_id: 0, data: 2 }];
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -82,30 +77,18 @@ fn harvester_on_ore_delivers_at_adjacent_refinery() {
 
     // 邻接矿场：下一 tick 卸货入账。
     world.advance_tick();
-    assert_eq!(
-        world.house_funds("Americans"),
-        Some(1_000 + ORE_INCOME_PER_TRIP as i32)
-    );
+    assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
 
     for _ in 0..(ORE_TRIP_TICKS - 1) {
         world.advance_tick();
-        assert_eq!(
-            world.house_funds("Americans"),
-            Some(1_000 + ORE_INCOME_PER_TRIP as i32)
-        );
+        assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
     }
     world.advance_tick();
     assert_eq!(world.harvestable_ore_at(3, 2), None);
     assert_eq!(world.take_overlay_paint_dirty(), vec![(3, 2)]);
-    assert_eq!(
-        world.house_funds("Americans"),
-        Some(1_000 + ORE_INCOME_PER_TRIP as i32)
-    );
+    assert_eq!(world.house_funds("Americans"), Some(1_000 + ORE_INCOME_PER_TRIP as i32));
     world.advance_tick();
-    assert_eq!(
-        world.house_funds("Americans"),
-        Some(1_000 + 2 * ORE_INCOME_PER_TRIP as i32)
-    );
+    assert_eq!(world.house_funds("Americans"), Some(1_000 + 2 * ORE_INCOME_PER_TRIP as i32));
 }
 
 #[test]
@@ -143,12 +126,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
     let mut map = MapInfo::empty(GameEdition::Ra2, "ore-seek");
     map.width = 8;
     map.height = 8;
-    map.overlays = vec![OverlayCell {
-        x: 3,
-        y: 2,
-        overlay_id: 0,
-        data: 1,
-    }];
+    map.overlays = vec![OverlayCell { x: 3, y: 2, overlay_id: 0, data: 1 }];
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -180,11 +158,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
     let id = world.entity_id_at(1).expect("harvester");
 
     world.advance_tick();
-    assert_eq!(
-        world.ecs_move_destination(id).expect("dest"),
-        (Some(3), Some(2)),
-        "空闲空载应指向最近矿格"
-    );
+    assert_eq!(world.ecs_move_destination(id).expect("dest"), (Some(3), Some(2)), "空闲空载应指向最近矿格");
 
     // Speed=4 · CELL_MOVE_COST=64 → 每格 16 tick；两格约 32 tick，再加采集与卸货。
     for _ in 0..200 {
@@ -193,11 +167,5 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
             return;
         }
     }
-    panic!(
-        "expected one ore delivery after auto seek/return, funds={:?} pos={:?}",
-        world.house_funds("Americans"),
-        world.ecs_transform(id)
-    );
+    panic!("expected one ore delivery after auto seek/return, funds={:?} pos={:?}", world.house_funds("Americans"), world.ecs_transform(id));
 }
-
-

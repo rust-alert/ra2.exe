@@ -52,14 +52,7 @@ pub fn parse_map_houses(doc: &IniDocument) -> Vec<MapHouse> {
             });
             continue;
         };
-        let allies = sec
-            .get("Allies")
-            .unwrap_or("")
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .collect();
+        let allies = sec.get("Allies").unwrap_or("").split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect();
         out.push(MapHouse {
             name: name.to_string(),
             country: sec.get("Country").unwrap_or("").trim().to_string(),

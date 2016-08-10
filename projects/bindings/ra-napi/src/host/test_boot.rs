@@ -70,7 +70,8 @@ pub fn write_status(path: &std::path::Path, session: &Session, selected: &[ra_ty
         Some(ra_engine::BattleOutcome::Defeat { reason }) => {
             if reason.is_empty() {
                 "defeat".into()
-            } else {
+            }
+            else {
                 format!("defeat:{reason}")
             }
         }

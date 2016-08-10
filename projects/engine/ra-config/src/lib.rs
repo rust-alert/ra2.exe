@@ -152,11 +152,7 @@ pub fn resolve_optional_install_root(search_from: &Path) -> Option<(PathBuf, Opt
             return Some((root, std::env::var("RA2_EDITION").ok().filter(|s| !s.trim().is_empty())));
         }
     }
-    let mut dir = if search_from.is_file() {
-        search_from.parent().unwrap_or(search_from).to_path_buf()
-    } else {
-        search_from.to_path_buf()
-    };
+    let mut dir = if search_from.is_file() { search_from.parent().unwrap_or(search_from).to_path_buf() } else { search_from.to_path_buf() };
     loop {
         let cfg = dir.join(RUST_ALERT_TOML);
         if cfg.is_file() {

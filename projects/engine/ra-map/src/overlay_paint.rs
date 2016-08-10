@@ -204,11 +204,7 @@ pub fn paint_map_overlays(
         let y_adjust = overlay_draw_y_adjust(&item.type_name, item.data, item.pal_kind == 2);
         let cache_key = (item.image_key.clone(), frame_idx, item.pal_kind, y_adjust);
         // 矿石/宝石：固定满亮，不乘格子 Ambient/Ground tint。
-        let tint = if item.pal_kind == 2 {
-            [1.0, 1.0, 1.0]
-        } else {
-            map.tint_at(item.x, item.y, z_at(item.x, item.y))
-        };
+        let tint = if item.pal_kind == 2 { [1.0, 1.0, 1.0] } else { map.tint_at(item.x, item.y, z_at(item.x, item.y)) };
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             if item.pal_kind != 2 {

@@ -14,15 +14,11 @@ use crate::{
 };
 
 /// 对局侧栏调色板。
-
 use super::chrome::{BATTLE_HUD_PAL, BattleHudChrome, COMMAND_BUTTON_SLOTS};
-
 
 fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, prefer_mix: &str) -> Result<DecodedUiSprite, String> {
     let frame_idx = asset.frame.unwrap_or(0) as usize;
-    let hit = source
-        .resolve_preferring(&asset.name, prefer_mix)
-        .ok_or_else(|| format!("{}: 不可读", asset.name))?;
+    let hit = source.resolve_preferring(&asset.name, prefer_mix).ok_or_else(|| format!("{}: 不可读", asset.name))?;
     let shp = ShpFile::parse(&hit.bytes).map_err(|e| format!("{}: SHP 解析失败 · {e}", asset.name))?;
     if shp.frames.is_empty() {
         return Err(format!("{}: SHP 无帧", asset.name));
@@ -33,9 +29,7 @@ fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, pre
     let pal_name = asset.palette.as_deref().ok_or_else(|| format!("{}: 未指定调色板", asset.name))?;
     // 必须与 SHP 同档案取调色板：`sidec01`/`sidec02` 各有一份，
     // 不可回退全局 `resolve`（后挂载的苏军包常抢走 `sidebar.pal`）。
-    let pal_hit = source
-        .resolve_preferring(pal_name, prefer_mix)
-        .ok_or_else(|| format!("{pal_name}: 调色板不可读（prefer {prefer_mix}）"))?;
+    let pal_hit = source.resolve_preferring(pal_name, prefer_mix).ok_or_else(|| format!("{pal_name}: 调色板不可读（prefer {prefer_mix}）"))?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("{pal_name}: 解析失败 · {e}"))?;
     let frame = &shp.frames[frame_idx];
     let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{}#{}: 画布 RGBA 构造失败", asset.name, frame_idx))?;
@@ -50,11 +44,7 @@ fn decode_asset_ref_preferring(source: &GameAssetSource, asset: &UiAssetRef, pre
 }
 
 /// 按候选嵌套包依次 `resolve_preferring`；皆无则失败。
-fn decode_asset_ref_candidates(
-    source: &GameAssetSource,
-    asset: &UiAssetRef,
-    prefer_mixes: &[&str],
-) -> Result<DecodedUiSprite, String> {
+fn decode_asset_ref_candidates(source: &GameAssetSource, asset: &UiAssetRef, prefer_mixes: &[&str]) -> Result<DecodedUiSprite, String> {
     let mut last_err = format!("{}: 不可读", asset.name);
     for mix in prefer_mixes {
         match decode_asset_ref_preferring(source, asset, mix) {
@@ -65,8 +55,14 @@ fn decode_asset_ref_candidates(
     Err(last_err)
 }
 
-
-fn try_decode(source: &GameAssetSource, mixes: &[&str], name: &str, pal: &str, frame: u16, errors: &mut Vec<String>) -> Option<DecodedUiSprite> {
+fn try_decode(
+    source: &GameAssetSource,
+    mixes: &[&str],
+    name: &str,
+    pal: &str,
+    frame: u16,
+    errors: &mut Vec<String>,
+) -> Option<DecodedUiSprite> {
     let asset = UiAssetRef::with_palette_frame(name, pal, frame);
     match decode_asset_ref_candidates(source, &asset, mixes) {
         Ok(s) => Some(s),
@@ -83,16 +79,17 @@ fn try_decode(source: &GameAssetSource, mixes: &[&str], name: &str, pal: &str, f
 pub fn radar_open_frame_range(body_count: usize) -> std::ops::Range<usize> {
     if body_count <= 1 {
         1..1
-    } else if body_count == 2 {
+    }
+    else if body_count == 2 {
         1..2
-    } else {
+    }
+    else {
         1..(body_count - 1)
     }
 }
 
 /// 开图动画帧推进间隔（逻辑 tick）。
 pub const RADAR_OPEN_FRAME_TICKS: u64 = 2;
-
 
 fn decode_radar_bundle(
     source: &GameAssetSource,
@@ -149,12 +146,7 @@ fn decode_radar_bundle(
             origin: format!("{} · pal {}", hit.explain(), pal_hit.explain()),
             frame: 0,
             canvas: (shp.width, shp.height),
-            frame_rect: (
-                closed_frame.frame_x,
-                closed_frame.frame_y,
-                closed_frame.frame_width,
-                closed_frame.frame_height,
-            ),
+            frame_rect: (closed_frame.frame_x, closed_frame.frame_y, closed_frame.frame_width, closed_frame.frame_height),
         };
         let mut open = Vec::new();
         for idx in radar_open_frame_range(body) {
@@ -185,11 +177,7 @@ pub fn decode_battle_hud_chrome(source: &GameAssetSource, side: &str) -> BattleH
 }
 
 /// 同 [`decode_battle_hud_chrome`]，可带 `Side=` 与可选 Side chrome。
-pub fn decode_battle_hud_chrome_resolved(
-    source: &GameAssetSource,
-    side: &str,
-    faction_id: Option<&str>,
-) -> BattleHudChrome {
+pub fn decode_battle_hud_chrome_resolved(source: &GameAssetSource, side: &str, faction_id: Option<&str>) -> BattleHudChrome {
     decode_battle_hud_chrome_with(source, side, faction_id, None)
 }
 
@@ -200,7 +188,8 @@ pub fn decode_battle_hud_chrome_with(
     _faction_id: Option<&str>,
     side_chrome: Option<&UiFactionChrome>,
 ) -> BattleHudChrome {
-    let Some(chrome) = UiFactionChrome::resolve(side_chrome) else {
+    let Some(chrome) = UiFactionChrome::resolve(side_chrome)
+    else {
         return BattleHudChrome {
             side: side.to_string(),
             mix: String::new(),
@@ -311,11 +300,7 @@ pub fn decode_battle_hud_chrome_with(
 /// 按 `art.ini` 的 `CameoPCX=` / `Cameo=`（及回退名）解码建造栏图标。
 ///
 /// 心灵终结等模组几乎只用 `CameoPCX=`；仍兼容原版 `Cameo=` SHP。
-pub fn decode_cameo_sprite(
-    source: &GameAssetSource,
-    art: Option<&ra_assets::IniDocument>,
-    type_id: &str,
-) -> Option<DecodedUiSprite> {
+pub fn decode_cameo_sprite(source: &GameAssetSource, art: Option<&ra_assets::IniDocument>, type_id: &str) -> Option<DecodedUiSprite> {
     let mut pcx_names = Vec::new();
     let mut shp_names = Vec::new();
     if let Some(art) = art {
@@ -348,7 +333,6 @@ pub fn decode_cameo_sprite(
     None
 }
 
-
 fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
     let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
     else {
@@ -356,11 +340,11 @@ fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
     };
     if c.to_ascii_lowercase().ends_with(".shp") {
         out.push(c.to_string());
-    } else {
+    }
+    else {
         out.push(format!("{c}.shp"));
     }
 }
-
 
 fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
     let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
@@ -369,16 +353,14 @@ fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
     };
     if c.to_ascii_lowercase().ends_with(".pcx") {
         out.push(c.to_string());
-    } else {
+    }
+    else {
         out.push(format!("{c}.pcx"));
     }
 }
 
-
 fn decode_cameo_pcx(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
-    let hit = source
-        .resolve(name)
-        .ok_or_else(|| format!("{name}: 不可读"))?;
+    let hit = source.resolve(name).ok_or_else(|| format!("{name}: 不可读"))?;
     let pcx = parse_pcx(&hit.bytes).map_err(|e| format!("{name}: PCX 解析失败 · {e}"))?;
     let mut rgba = pcx.rgba;
     // 与壳层旗标一致：品红作色键透明。
@@ -387,20 +369,11 @@ fn decode_cameo_pcx(source: &GameAssetSource, name: &str) -> Result<DecodedUiSpr
             px[3] = 0;
         }
     }
-    let image = RgbaImage::from_raw(pcx.width, pcx.height, rgba)
-        .ok_or_else(|| format!("{name}: 画布 RGBA 构造失败"))?;
+    let image = RgbaImage::from_raw(pcx.width, pcx.height, rgba).ok_or_else(|| format!("{name}: 画布 RGBA 构造失败"))?;
     let w = pcx.width.min(u32::from(u16::MAX)) as u16;
     let h = pcx.height.min(u32::from(u16::MAX)) as u16;
-    Ok(DecodedUiSprite {
-        label: format!("{name}#0"),
-        image,
-        origin: hit.explain(),
-        frame: 0,
-        canvas: (w, h),
-        frame_rect: (0, 0, w, h),
-    })
+    Ok(DecodedUiSprite { label: format!("{name}#0"), image, origin: hit.explain(), frame: 0, canvas: (w, h), frame_rect: (0, 0, w, h) })
 }
-
 
 fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
     // MD 优先：模组图标多在 `cameomd`；基座 `cameo.mix` 次之。
@@ -429,8 +402,7 @@ fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiS
     if shp.frames.is_empty() {
         return Err(format!("{name}: SHP 无帧"));
     }
-    let pal_hit = resolve_cameo_palette(source, hit_mix.as_deref())
-        .ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
+    let pal_hit = resolve_cameo_palette(source, hit_mix.as_deref()).ok_or_else(|| "cameo.pal: 调色板不可读".to_string())?;
     let palette = Palette::parse(&pal_hit.bytes).map_err(|e| format!("cameo.pal: 解析失败 · {e}"))?;
     let frame = &shp.frames[0];
     let image = frame_to_canvas_rgba(&shp, frame, &palette).ok_or_else(|| format!("{name}#0: 画布 RGBA 构造失败"))?;
@@ -447,10 +419,7 @@ fn decode_cameo_named(source: &GameAssetSource, name: &str) -> Result<DecodedUiS
 /// 解析 cameo 调色板：优先与图标同档 / 标准 cameo·cache 包，**禁止**裸全局解析。
 ///
 /// 扩展包偶发覆盖同名 `cameo.pal`（内容并非建造栏板），全局胜出后图标会粉噪。
-fn resolve_cameo_palette<'a>(
-    source: &'a GameAssetSource,
-    shp_mix: Option<&str>,
-) -> Option<crate::skin::fs_source::AssetHit> {
+fn resolve_cameo_palette<'a>(source: &'a GameAssetSource, shp_mix: Option<&str>) -> Option<crate::skin::fs_source::AssetHit> {
     let mut tried = Vec::<String>::new();
     let mut try_mix = |mix: &str| -> Option<crate::skin::fs_source::AssetHit> {
         if tried.iter().any(|t| t.eq_ignore_ascii_case(mix)) {
@@ -470,7 +439,5 @@ fn resolve_cameo_palette<'a>(
         }
     }
     // 最后才用侧栏板，仍不裸 resolve `cameo.pal`。
-    source
-        .resolve_preferring("sidebar.pal", shp_mix.unwrap_or("cache.mix"))
-        .or_else(|| source.resolve_preferring("sidebar.pal", "cache.mix"))
+    source.resolve_preferring("sidebar.pal", shp_mix.unwrap_or("cache.mix")).or_else(|| source.resolve_preferring("sidebar.pal", "cache.mix"))
 }

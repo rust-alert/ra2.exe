@@ -1,12 +1,6 @@
-use super::super::{
-    components::Identity,
-    entities::WorldEntity,
-};
-use super::types::BattleState;
-use crate::
-spatial::is_mobile;
+use super::{super::entities::WorldEntity, types::BattleState};
+use crate::spatial::is_mobile;
 use ra_types::EntityId;
-
 
 impl BattleState {
     /// 分配下一枚稳定实体 ID（供后续生成建筑/单位使用）。
@@ -218,7 +212,7 @@ impl BattleState {
         self.with_transform_mut(id, |transform| {
             transform.turret_facing = turret_facing;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 测试 / 调试：写入 ECS `Health` 并投影。
@@ -228,7 +222,7 @@ impl BattleState {
             health.maximum = maximum;
             health.dead = dead;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 攻击参数并投影。
@@ -238,7 +232,7 @@ impl BattleState {
             stats.attack_range = range;
             stats.attack_cooldown_max = cooldown_max;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 身份类型并投影。
@@ -248,7 +242,7 @@ impl BattleState {
             identity.type_id = type_id;
             identity.kind = kind;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 测试 / 调试：写入 ECS 移动速度并投影。
@@ -256,7 +250,7 @@ impl BattleState {
         self.with_locomotor_mut(id, |loco| {
             loco.speed = speed;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 测试 / 调试：清空 ECS 移动目的地与路径并投影。
@@ -268,7 +262,7 @@ impl BattleState {
             movement.path.clear();
             movement.move_accum = 0;
         })
-            .is_some()
+        .is_some()
     }
 
     /// 通行表变更后，为全部移动单位重算路径。

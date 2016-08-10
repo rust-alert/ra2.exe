@@ -1,6 +1,8 @@
 # ra-types
 
-全体 `ra-*` crate 共享的 **基类型、命令载荷形状与冻结运行时定义契约**。本 crate 无解析器、无窗口、无 `std::fs`——只有标识符、定点数、版本枚举、统一错误、`AssetSource` 与 `RuntimeDefinitions`。它是原生壳、Wasm 壳、 **`ra-engine`**、adaptor 与格式库之间的 **最小公共语言**。
+全体 `ra-*` crate 共享的 **基类型、命令载荷形状与冻结运行时定义契约**。本 crate 无解析器、无窗口、无 `std::fs`
+——只有标识符、定点数、版本枚举、统一错误、`AssetSource` 与 `RuntimeDefinitions`。它是原生壳、Wasm 壳、 **`ra-engine`**、adaptor
+与格式库之间的 **最小公共语言**。
 
 一旦基类型开始读盘或创建窗口，桌面与浏览器目标就无法共用同一套边界；因此 MIX/SHP/地图/GPU 均** deliberately 不在此
 crate**。定义归本 crate，适配归 `ra-adaptor`，执行归 `ra-engine`——不存在独立的 `ra-definition` / `ra-rules`。
@@ -41,7 +43,8 @@ src/asset_source.rs        AssetSource
 
 ## `RuntimeDefinitions`
 
-对局创建后不可变的内容定义集，是 adaptor / engine / renderer / desktop / testing / net 的共同语言。由 `ra-adaptor` 填充，**不**单独拆 `ra-definition` crate。集合不含 ECS、实体、资金、tick、文件路径或 GPU 句柄。
+对局创建后不可变的内容定义集，是 adaptor / engine / renderer / desktop / testing / net 的共同语言。由 `ra-adaptor` 填充，
+**不**单独拆 `ra-definition` crate。集合不含 ECS、实体、资金、tick、文件路径或 GPU 句柄。
 
 ```rust
 use ra_types::RuntimeDefinitions;
@@ -162,11 +165,11 @@ pub trait AssetSource {
 
 **平台 I/O 边界**：由壳实现；解析器只看见字节。
 
-| 实现方                        | 行为                    |
-|-------------------------------|-------------------------|
+| 实现方                     | 行为                    |
+|----------------------------|-------------------------|
 | `ra-napi::GameAssetSource` | 松散文件优先 → `MixVfs` |
-| 未来 `ra-webui`               | fetch / 打包资源 → 内存 |
-| 测试夹具                      | `HashMap` 或内联字节    |
+| 未来 `ra-webui`            | fetch / 打包资源 → 内存 |
+| 测试夹具                   | `HashMap` 或内联字节    |
 
 `ra-assets`、`ra-adaptor::load_rules_chain`、`ra-map` 均只接受 `&dyn AssetSource`，不直接 `std::fs::read`。
 
@@ -178,7 +181,7 @@ pub trait AssetSource {
 |----------------------------------|----------------------|
 | MIX / SHP / TMP / VXL / INI 解析 | `ra-assets`          |
 | 安装目录探测                     | `ra-adaptor`         |
-| `RulesSystem` 装载                   | `ra-adaptor`         |
+| `RulesSystem` 装载               | `ra-adaptor`         |
 | 地图 IsoMapPack                  | `ra-map`             |
 | GPU / 窗口                       | `ra-renderer` / 壳层 |
 | 对局 tick / 命令                 | **`ra-engine`**      |

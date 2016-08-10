@@ -3,8 +3,10 @@
 use crate::{engine::EngineRuntime, game::commands::GameCommand, state::BattleState};
 use ra_net::{MatchFingerprint, StateDigest};
 
-use super::outcome::{BattleOutcome, BattleStats};
-use super::types::SessionBootKind;
+use super::{
+    outcome::{BattleOutcome, BattleStats},
+    types::SessionBootKind,
+};
 
 /// 一场 RTS 权威战斗会话。
 #[derive(Debug)]
@@ -49,11 +51,7 @@ impl BattleSession {
             pause_reason: None,
             outcome: None,
             battle_stats: None,
-            fingerprint: MatchFingerprint {
-                edition: String::new(),
-                map: String::new(),
-                rules_hash: 0,
-            },
+            fingerprint: MatchFingerprint { edition: String::new(), map: String::new(), rules_hash: 0 },
             match_seed: 0,
             ai_enabled: false,
             difficulty: "Normal".into(),
@@ -73,12 +71,7 @@ impl BattleSession {
     }
 
     /// 由世界与装载备注打开一局遭遇战（设置预览原点与指纹）。
-    pub fn open_skirmish(
-        world: BattleState,
-        boot_note: impl Into<String>,
-        preview_origin: (i32, i32),
-        fingerprint: MatchFingerprint,
-    ) -> Self {
+    pub fn open_skirmish(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
@@ -88,12 +81,7 @@ impl BattleSession {
     }
 
     /// 由世界与装载备注打开一局战役（保留预放单位；AI 默认关，剧本小队另行驱动）。
-    pub fn open_campaign(
-        world: BattleState,
-        boot_note: impl Into<String>,
-        preview_origin: (i32, i32),
-        fingerprint: MatchFingerprint,
-    ) -> Self {
+    pub fn open_campaign(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
@@ -147,17 +135,15 @@ impl BattleSession {
         }
         if self.paused {
             self.resume();
-        } else {
+        }
+        else {
             self.pause("已暂停");
         }
     }
 
     /// 本地状态摘要（联机上报用）。
     pub fn local_digest(&self) -> StateDigest {
-        StateDigest {
-            tick: self.world.tick,
-            hash: self.world.state_hash(),
-        }
+        StateDigest { tick: self.world.tick, hash: self.world.state_hash() }
     }
 
     /// 与远端摘要比对。
@@ -173,10 +159,7 @@ impl BattleSession {
             return true;
         }
         self.paused = true;
-        self.pause_reason = Some(format!(
-            "摘要不一致 tick={} local={:#x} remote={:#x}",
-            local.tick, local.hash, remote.hash
-        ));
+        self.pause_reason = Some(format!("摘要不一致 tick={} local={:#x} remote={:#x}", local.tick, local.hash, remote.hash));
         false
     }
 

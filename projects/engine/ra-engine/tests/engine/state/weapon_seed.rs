@@ -1,7 +1,7 @@
 //! 主武器 Damage / Range 播种到世界实体。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{CountryRegistry, ColorSchemes, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::BattleState;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;

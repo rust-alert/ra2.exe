@@ -4,6 +4,7 @@ use ra_assets::IniDocument;
 
 /// 一个航点。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct Waypoint {
     /// 航点编号。
     pub index: u32,
@@ -42,20 +43,4 @@ pub fn parse_waypoints(doc: &IniDocument) -> Vec<Waypoint> {
 /// 按航点编号精确匹配；缺失时返回 `None`（不得静默改用其它编号）。
 pub fn skirmish_start_waypoint(waypoints: &[Waypoint], slot: u32) -> Option<Waypoint> {
     waypoints.iter().copied().find(|w| w.index == slot)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ra_assets::IniDocument;
-
-    #[test]
-    fn skirmish_start_waypoint_matches_slot_index() {
-        let doc = IniDocument::parse(b"[Waypoints]\n0=5002\n1=8005\n8=100\n").expect("ini");
-        let wps = parse_waypoints(&doc);
-        assert_eq!(skirmish_start_waypoint(&wps, 0), Some(Waypoint { index: 0, x: 2, y: 5 }));
-        assert_eq!(skirmish_start_waypoint(&wps, 1), Some(Waypoint { index: 1, x: 5, y: 8 }));
-        assert_eq!(skirmish_start_waypoint(&wps, 2), None);
-        assert_eq!(skirmish_start_waypoint(&wps, 8), Some(Waypoint { index: 8, x: 100, y: 0 }));
-    }
 }

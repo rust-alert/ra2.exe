@@ -26,10 +26,7 @@ pub fn load_selection_overlay(source: &GameAssetSource) -> Option<DecodedSelecti
 }
 
 fn load_palette(source: &GameAssetSource) -> Option<Palette> {
-    let bytes = source
-        .read("palette.pal")
-        .or_else(|_| source.read("unittem.pal"))
-        .ok()?;
+    let bytes = source.read("palette.pal").or_else(|_| source.read("unittem.pal")).ok()?;
     Palette::parse(&bytes).ok()
 }
 

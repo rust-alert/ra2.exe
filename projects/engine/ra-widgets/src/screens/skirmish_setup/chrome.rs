@@ -28,7 +28,6 @@ pub struct UiFactionChrome {
     pub score_stats_shade: bool,
 }
 
-
 impl UiFactionChrome {
     /// 由 mix 索引构造（无结算 / EVA 覆盖）。
     pub fn from_mix_index(mix_file_index: u32, yuri_file_names: bool) -> Self {
@@ -118,25 +117,20 @@ impl UiFactionChrome {
     pub fn radar_shp_pal_candidates(&self) -> [(&'static str, &'static str); 2] {
         if self.yuri_file_names {
             [("radary.shp", "radaryuri.pal"), ("radar.shp", "sidebar.pal")]
-        } else {
+        }
+        else {
             [("radar.shp", "sidebar.pal"), ("radary.shp", "radaryuri.pal")]
         }
     }
 
     /// 结算战报图首选名。
     pub fn score_background_shp(&self) -> String {
-        self.score_background_candidates()
-            .into_iter()
-            .next()
-            .unwrap_or_default()
+        self.score_background_candidates().into_iter().next().unwrap_or_default()
     }
 
     /// 结算战报调色板首选名。
     pub fn score_palette(&self) -> String {
-        self.score_palette_candidates()
-            .into_iter()
-            .next()
-            .unwrap_or_default()
+        self.score_palette_candidates().into_iter().next().unwrap_or_default()
     }
 
     /// 结算战报图候选：仅显式 `MultiplayerScore.Background`（缺则空，由 adaptor 填）。
@@ -174,11 +168,14 @@ pub fn eva_voice_stem_prefix(eva_tag: &str) -> Option<&'static str> {
     let tag = eva_tag.trim();
     if tag.eq_ignore_ascii_case("Allied") {
         Some("ceva")
-    } else if tag.eq_ignore_ascii_case("Russian") {
+    }
+    else if tag.eq_ignore_ascii_case("Russian") {
         Some("csof")
-    } else if tag.eq_ignore_ascii_case("Yuri") {
+    }
+    else if tag.eq_ignore_ascii_case("Yuri") {
         Some("cyur")
-    } else {
+    }
+    else {
         None
     }
 }
@@ -187,11 +184,14 @@ pub fn eva_voice_stem_prefix(eva_tag: &str) -> Option<&'static str> {
 pub fn eva_known_event_index(event_id: &str) -> Option<&'static str> {
     if event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
         Some("015")
-    } else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
         Some("013")
-    } else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
         Some("014")
-    } else {
+    }
+    else {
         None
     }
 }
@@ -212,13 +212,8 @@ pub fn eva_fallback_sample_names(event_id: &str, eva_tag: Option<&str>) -> Vec<S
     };
     let lower = format!("{prefix}{index}");
     let upper = lower.to_ascii_uppercase();
-    if upper == lower {
-        vec![lower]
-    } else {
-        vec![lower, upper]
-    }
+    if upper == lower { vec![lower] } else { vec![lower, upper] }
 }
-
 
 fn push_unique_ci(out: &mut Vec<String>, name: String) {
     if out.iter().any(|s| s.eq_ignore_ascii_case(&name)) {
@@ -237,17 +232,15 @@ fn push_unique_ci(out: &mut Vec<String>, name: String) {
 /// 在候选旗标中按「可读且 MIX/松散层优先级最高」选取；同优先级保留候选表更靠前的项。
 ///
 /// 候选必须由调用方提供（rules `File.Flag` 或 edition adaptor 填空），本函数不猜国名。
-pub fn pick_side_flag_pcx<'a>(
-    candidates: &[&'a str],
-    mut resolve_priority: impl FnMut(&str) -> Option<i32>,
-) -> Option<&'a str> {
+pub fn pick_side_flag_pcx<'a>(candidates: &[&'a str], mut resolve_priority: impl FnMut(&str) -> Option<i32>) -> Option<&'a str> {
     let mut best: Option<(i32, usize, &'a str)> = None;
     for (index, name) in candidates.iter().copied().enumerate() {
         let name = name.trim();
         if name.is_empty() {
             continue;
         }
-        let Some(priority) = resolve_priority(name) else {
+        let Some(priority) = resolve_priority(name)
+        else {
             continue;
         };
         let rank = (priority, usize::MAX - index);

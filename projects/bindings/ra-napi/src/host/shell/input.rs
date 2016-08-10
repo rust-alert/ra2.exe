@@ -1,7 +1,7 @@
 //! 指针命中与菜单前按键。
 
 use ra_layout;
-use ra_widgets::{input::hit, options_dialog::OptionsHit, original_screen::OriginalScreen, skirmish_setup::hover_entry_at};
+use ra_widgets::{input::hit, original_screen::OriginalScreen, skirmish_setup::hover_entry_at};
 use winit::{
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},

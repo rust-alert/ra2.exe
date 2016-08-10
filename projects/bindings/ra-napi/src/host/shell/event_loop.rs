@@ -2,15 +2,14 @@
 
 use std::sync::Arc;
 
-use ra_widgets::menu_action::MenuAction;
-use ra_widgets::options_dialog::OptionsHit;
-use ra_widgets::original_screen::OriginalScreen;
-use ra_widgets::input::hit;
-use winit::application::ApplicationHandler;
-use winit::event::{ElementState, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::{KeyCode, PhysicalKey};
-use winit::window::{Window, WindowId};
+use ra_widgets::{input::hit, original_screen::OriginalScreen};
+use winit::{
+    application::ApplicationHandler,
+    event::{ElementState, WindowEvent},
+    event_loop::ActiveEventLoop,
+    keyboard::{KeyCode, PhysicalKey},
+    window::{Window, WindowId},
+};
 
 use super::Shell;
 
@@ -199,18 +198,22 @@ impl ApplicationHandler for Shell {
                         winit::event::MouseScrollDelta::LineDelta(_, y) => {
                             if *y > 0.0 {
                                 -1
-                            } else if *y < 0.0 {
+                            }
+                            else if *y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }
                         winit::event::MouseScrollDelta::PixelDelta(p) => {
                             if p.y > 0.0 {
                                 -1
-                            } else if p.y < 0.0 {
+                            }
+                            else if p.y < 0.0 {
                                 1
-                            } else {
+                            }
+                            else {
                                 0
                             }
                         }

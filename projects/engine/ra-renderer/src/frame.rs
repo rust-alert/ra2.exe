@@ -24,10 +24,7 @@ impl FrameBuilder {
         for u in &snap.units {
             let key = u.id.0;
             seen.insert(key);
-            world.units.insert(
-                key,
-                render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)),
-            );
+            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)));
             updated += 1;
         }
         world.units.retain(|k, _| seen.contains(k));
@@ -46,10 +43,7 @@ impl FrameBuilder {
         for u in units {
             let key = u.id.0;
             provided.insert(key);
-            world.units.insert(
-                key,
-                render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)),
-            );
+            world.units.insert(key, render_unit_from_snapshot(u, selected.contains(&key), hover == Some(key)));
             updated += 1;
         }
         for id in dirty {

@@ -41,9 +41,7 @@ impl crate::state::BattleState {
                 continue;
             };
 
-            let cargo = self
-                .with_harvester_mut(id, |h| h.cargo)
-                .unwrap_or(0);
+            let cargo = self.with_harvester_mut(id, |h| h.cargo).unwrap_or(0);
 
             if cargo == 0 {
                 if self.harvestable_ore_at(xf.x, xf.y).is_none() {
@@ -63,7 +61,8 @@ impl crate::state::BattleState {
                         if h.ore_trip_accum >= ORE_TRIP_TICKS {
                             h.ore_trip_accum = 0;
                             true
-                        } else {
+                        }
+                        else {
                             false
                         }
                     })
@@ -83,7 +82,8 @@ impl crate::state::BattleState {
                             h.cargo = 0;
                             h.ore_trip_accum = 0;
                             true
-                        } else {
+                        }
+                        else {
                             false
                         }
                     })
@@ -91,7 +91,8 @@ impl crate::state::BattleState {
                 if unloaded {
                     deliveries.push((owner, ORE_INCOME_PER_TRIP as i32));
                 }
-            } else if self.harvester_movement_idle(id, xf.x, xf.y) {
+            }
+            else if self.harvester_movement_idle(id, xf.x, xf.y) {
                 if let Some((tx, ty)) = self.nearest_unload_cell(owner.as_ref(), xf.x, xf.y) {
                     auto_moves.push((index, id, tx, ty));
                 }
@@ -185,17 +186,7 @@ impl crate::state::BattleState {
     }
 
     fn refinery_approach_cells(&self, rx: u16, ry: u16) -> Vec<(u16, u16)> {
-        const DELTAS: [(i32, i32); 9] = [
-            (0, 0),
-            (1, 0),
-            (0, 1),
-            (-1, 0),
-            (0, -1),
-            (1, 1),
-            (-1, 1),
-            (-1, -1),
-            (1, -1),
-        ];
+        const DELTAS: [(i32, i32); 9] = [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1), (-1, -1), (1, -1)];
         let mut out = Vec::new();
         for (dx, dy) in DELTAS {
             let x = i32::from(rx) + dx;
@@ -213,9 +204,8 @@ impl crate::state::BattleState {
 
     /// 扣减一格可采矿密度；密度归零则移除该 overlay。
     fn consume_one_ore_at(&mut self, x: u16, y: u16) -> bool {
-        let Some(index) = self.map.overlays.iter().position(|cell| {
-            cell.x == x && cell.y == y && self.overlay_types.is_harvestable(cell.overlay_id)
-        })
+        let Some(index) =
+            self.map.overlays.iter().position(|cell| cell.x == x && cell.y == y && self.overlay_types.is_harvestable(cell.overlay_id))
         else {
             return false;
         };
@@ -263,10 +253,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_construction_yard(&self.definitions, &i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_construction_yard(&self.definitions, &i.type_id)).unwrap_or(false)
         })
     }
 
@@ -276,10 +263,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_power_plant(&self.definitions, &i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_power_plant(&self.definitions, &i.type_id)).unwrap_or(false)
         })
     }
 
@@ -290,10 +274,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_radar(&self.definitions, &i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_radar(&self.definitions, &i.type_id)).unwrap_or(false)
         })
     }
 }

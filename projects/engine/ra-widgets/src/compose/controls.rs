@@ -56,11 +56,7 @@ pub fn paint_options_dialog_controls(
 
     // 左板：深色底板（原版黑底 + 地图水印未接前用纯色占位）。
     fill_rect(page, content, [8, 10, 14, 255]);
-    fill_rect(
-        page,
-        RectPx::new(content.x + 2, content.y + 2, content.w - 4, content.h - 4),
-        [18, 22, 32, 255],
-    );
+    fill_rect(page, RectPx::new(content.x + 2, content.y + 2, content.w - 4, content.h - 4), [18, 22, 32, 255]);
 
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
     // 滑条标签画在滑条上方，与 `SEC_TO_TRACK` 留白对齐。
@@ -70,14 +66,7 @@ pub fn paint_options_dialog_controls(
         blit_text_colored(page, fnt, &label("display", "Display Options"), sec_display.x, sec_display.y, MENU_TEXT_SECTION);
         draw_section_rule(page, sec_display);
         blit_text_colored(page, fnt, &label("detail", "Visual Details"), track_detail.x, track_detail.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-        blit_text_colored(
-            page,
-            fnt,
-            &label("resolution", "Set Game Resolution"),
-            resolution.x,
-            resolution.y - LABEL_ABOVE,
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, &label("resolution", "Set Game Resolution"), resolution.x, resolution.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
         blit_text_colored(
             page,
             fnt,
@@ -140,36 +129,16 @@ pub fn paint_options_dialog_controls(
         blit_text_colored(page, fnt, &label("tooltips", "Tooltips"), tx, check_tooltips.y + 4, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("scanlines", "Target Lines"), tx, check_scanlines.y + 4, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("damage", "See Hidden Objects"), tx, check_damage.y + 4, MENU_TEXT_ACCENT);
-        blit_text_colored(
-            page,
-            fnt,
-            &label("present_16bit", "16-bit Present"),
-            check_present.x + 22,
-            check_present.y + 4,
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, &label("present_16bit", "16-bit Present"), check_present.x + 22, check_present.y + 4, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("music", "Music Volume"), track_music.x, track_music.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("sound", "Sound Volume"), track_sound.x, track_sound.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
         blit_text_colored(page, fnt, &label("voice", "Voice Volume"), track_voice.x, track_voice.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
     }
 
     fill_rect(page, resolution, [120, 24, 24, 255]);
-    fill_rect(
-        page,
-        RectPx::new(resolution.x + 2, resolution.y + 2, resolution.w - 4, resolution.h - 4),
-        [8, 8, 12, 255],
-    );
+    fill_rect(page, RectPx::new(resolution.x + 2, resolution.y + 2, resolution.w - 4, resolution.h - 4), [8, 8, 12, 255]);
     if let Some(fnt) = fnt {
-        blit_caption_in_cell(
-            page,
-            fnt,
-            state.display_mode.as_str(),
-            resolution.x,
-            resolution.y,
-            resolution.w,
-            resolution.h,
-            MENU_TEXT_ACCENT,
-        );
+        blit_caption_in_cell(page, fnt, state.display_mode.as_str(), resolution.x, resolution.y, resolution.w, resolution.h, MENU_TEXT_ACCENT);
     }
     if state.resolution_open {
         for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {
@@ -182,7 +151,6 @@ pub fn paint_options_dialog_controls(
         }
     }
 }
-
 
 pub(super) fn draw_bevel_frame(dst: &mut RgbaImage, rect: RectPx, inset_fill: Option<[u8; 4]>) {
     if rect.w <= 0 || rect.h <= 0 {
@@ -222,7 +190,13 @@ pub(super) fn draw_combo_face(dst: &mut RgbaImage, rect: RectPx, fill: [u8; 4], 
 }
 
 /// 颜色下拉塌陷面：非箭头区色块 + 箭头。
-pub(super) fn draw_color_combo_face(dst: &mut RgbaImage, rect: RectPx, rgb: [u8; 3], chrome: Option<&SkirmishChromeSprites>, arrow_pressed: bool) {
+pub(super) fn draw_color_combo_face(
+    dst: &mut RgbaImage,
+    rect: RectPx,
+    rgb: [u8; 3],
+    chrome: Option<&SkirmishChromeSprites>,
+    arrow_pressed: bool,
+) {
     let body_w = (rect.w - SKIRMISH_COMBO_ARROW_RESERVE).max(1);
     draw_bevel_frame(dst, rect, Some([8, 8, 12, 255]));
     let swatch = RectPx::new(rect.x + 2, rect.y + 2, (body_w - 2).max(1), (rect.h - 4).max(1));
@@ -257,8 +231,7 @@ pub(super) fn track_plaque_rect(track: RectPx) -> RectPx {
 }
 
 pub(super) fn blit_track_plaque(dst: &mut RgbaImage, plaque: RectPx, chrome: Option<&SkirmishChromeSprites>) {
-    let Some((cap_l, cap_m, cap_r)) =
-        chrome.and_then(|c| Some((c.track_cap_l.as_ref()?, c.track_cap_m.as_ref()?, c.track_cap_r.as_ref()?)))
+    let Some((cap_l, cap_m, cap_r)) = chrome.and_then(|c| Some((c.track_cap_l.as_ref()?, c.track_cap_m.as_ref()?, c.track_cap_r.as_ref()?)))
     else {
         fill_rect(dst, RectPx::new(plaque.x, plaque.y + 1, plaque.w, (plaque.h - 2).max(1)), [40, 12, 12, 255]);
         stroke_rect(dst, RectPx::new(plaque.x, plaque.y + 1, plaque.w, (plaque.h - 2).max(1)), [180, 40, 40, 255]);

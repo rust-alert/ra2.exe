@@ -41,25 +41,17 @@ impl crate::state::BattleState {
             .collect();
 
         for agent_id in agents {
-            let Some(building_id) = self
-                .ecs_get::<AttackState>(agent_id)
-                .and_then(|a| a.infiltrate_target)
+            let Some(building_id) = self.ecs_get::<AttackState>(agent_id).and_then(|a| a.infiltrate_target)
             else {
                 continue;
             };
-            if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true)
-                || self.entity_index(building_id).is_none()
-            {
+            if self.ecs_get::<Health>(building_id).map(|h| h.dead).unwrap_or(true) || self.entity_index(building_id).is_none() {
                 let _ = self.with_attack_mut(agent_id, |attack| {
                     attack.infiltrate_target = None;
                 });
                 continue;
             }
-            if !self
-                .ecs_get::<Identity>(building_id)
-                .map(|i| i.kind == MapEntityKind::Structure)
-                .unwrap_or(false)
-            {
+            if !self.ecs_get::<Identity>(building_id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
                 let _ = self.with_attack_mut(agent_id, |attack| {
                     attack.infiltrate_target = None;
                 });
@@ -89,30 +81,15 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            let building_type_for_foundation = self
-                .ecs_get::<Identity>(building_id)
-                .map(|i| i.type_id.clone());
+            let building_type_for_foundation = self.ecs_get::<Identity>(building_id).map(|i| i.type_id.clone());
             let foundation = building_type_for_foundation
                 .as_ref()
                 .and_then(|t| self.definitions.structures.get(t.as_ref()))
                 .map(|s| s.foundation.clone())
                 .unwrap_or_default();
-            if !is_adjacent_to_footprint(
-                agent_xf.x,
-                agent_xf.y,
-                building_xf.x,
-                building_xf.y,
-                foundation.width,
-                foundation.height,
-            ) {
-                let (ax, ay) = nearest_adjacent_to_footprint(
-                    agent_xf.x,
-                    agent_xf.y,
-                    building_xf.x,
-                    building_xf.y,
-                    foundation.width,
-                    foundation.height,
-                );
+            if !is_adjacent_to_footprint(agent_xf.x, agent_xf.y, building_xf.x, building_xf.y, foundation.width, foundation.height) {
+                let (ax, ay) =
+                    nearest_adjacent_to_footprint(agent_xf.x, agent_xf.y, building_xf.x, building_xf.y, foundation.width, foundation.height);
                 let _ = self.with_movement_mut(agent_id, |movement| {
                     if movement.destination_x != Some(ax) || movement.destination_y != Some(ay) {
                         movement.destination_x = Some(ax);
@@ -126,8 +103,7 @@ impl crate::state::BattleState {
 
             let building_type = building_type_for_foundation;
             if let Some(type_id) = building_type {
-                let (agent_eva, victim_eva) =
-                    self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());
+                let (agent_eva, victim_eva) = self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());
                 self.push_eva_cue(agent_house.as_ref(), agent_eva);
                 if let Some(victim_event) = victim_eva {
                     self.push_eva_cue(building_house.as_ref(), victim_event);
@@ -138,12 +114,7 @@ impl crate::state::BattleState {
     }
 
     /// 结算渗透效果，并返回（行动方 EVA，受害方可选 EVA）。
-    fn apply_infiltrate_effect(
-        &mut self,
-        agent_house: &str,
-        victim_house: &str,
-        building_type: &str,
-    ) -> (&'static str, Option<&'static str>) {
+    fn apply_infiltrate_effect(&mut self, agent_house: &str, victim_house: &str, building_type: &str) -> (&'static str, Option<&'static str>) {
         if is_power_plant(&self.definitions, building_type) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == victim_house) {
                 player.power_blackout_ticks = POWER_BLACKOUT_TICKS.max(player.power_blackout_ticks);
@@ -151,12 +122,8 @@ impl crate::state::BattleState {
             return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
         }
         if is_refinery(&self.definitions, building_type) {
-            let stolen = self
-                .players
-                .iter()
-                .find(|p| p.house.as_ref() == victim_house)
-                .map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0))
-                .unwrap_or(0);
+            let stolen =
+                self.players.iter().find(|p| p.house.as_ref() == victim_house).map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0)).unwrap_or(0);
             if stolen > 0 {
                 if let Some(victim) = self.players.iter_mut().find(|p| p.house.as_ref() == victim_house) {
                     victim.funds -= stolen;
@@ -167,12 +134,7 @@ impl crate::state::BattleState {
             }
             return ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"));
         }
-        if let Some(prod) = self
-            .definitions
-            .structures
-            .get(building_type)
-            .and_then(|s| s.production.as_ref())
-        {
+        if let Some(prod) = self.definitions.structures.get(building_type).and_then(|s| s.production.as_ref()) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == agent_house) {
                 match prod.category {
                     ProductionCategory::Infantry => player.promoted_infantry = true,

@@ -217,7 +217,6 @@ pub(super) fn blend_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     }
 }
 
-
 pub(super) fn stroke_rect(dst: &mut RgbaImage, rect: RectPx, rgba: [u8; 4]) {
     if rect.w <= 0 || rect.h <= 0 {
         return;

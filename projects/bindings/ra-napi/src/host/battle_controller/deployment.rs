@@ -1,61 +1,19 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, time::Instant};
 
-use ra_adaptor::RulesSystem;
-use ra_assets::{CsfFile, FntFile, IniDocument, Rgba, tiberium_overlay_display_hsv};
-use ra_engine::{
-    BattleCapabilitiesSnapshot, BattleOutcome, CELL_MOVE_COST, CapabilityItem, Engine, HudSnapshot, Session, SessionPhase,
-    terrain_spawner_frame_signature,
-};
-use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
-};
 use ra_map::{
-    MapEntity, MapEntityKind, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureBuildupClip, TILE_HEIGHT, TILE_WIDTH,
-    TerrainAnimBank, Theater, WeatherParticleField, collect_structure_anim_bank, iso_to_screen, load_structure_buildup_clip,
-    local_size_preview_rect, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_overlays_onto_preview_rgba,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MobilePaintPose, StructureBuildupClip, collect_structure_anim_bank, load_structure_buildup_clip,
+    paint_mobiles_onto_preview_rgba, paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba,
+    paint_terrain_anims_onto_rgba,
 };
-use ra_renderer::{Renderer, RgbaImage};
-use ra_types::{EntityId, PresentFeel};
-use ra_widgets::{
-    battle_hud::{BattleCameoPaint, BattleHudChrome, BattleHudHit, decode_battle_hud_chrome_with, decode_cameo_sprite, hit_at_with_chrome},
-    battle_order_icons::load_battle_order_icons,
-    battle_pause_menu::{self, BattlePauseChrome, BattlePauseMenuHit},
-    battle_selection_overlay::load_selection_overlay,
-    compose::{BattleHudModel, blit_rgba, compose_battle_hud_overlay, compose_battle_pause_menu_overlay},
-    fs_source::GameAssetSource,
-    render::present,
-    skin::{
-        decode::DecodedUiSprite,
-        text::{command_button_csf_tooltip, resolve_csf_text},
-    },
-};
-use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey}, 
-    window::Window,
-};
+use ra_renderer::Renderer;
+use ra_types::EntityId;
+use ra_widgets::fs_source::GameAssetSource;
 
-use super::super::{
-    battle_input::{
-        CameraPanKeys, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, EdgeScrollCursor, KEYBOARD_PAN_SPEED_PX_PER_SEC, LeftGesture,
-        LeftReleaseAction, MARQUEE_HIT_HALF_INFANTRY_PX, MARQUEE_HIT_HALF_VEHICLE_PX, MARQUEE_VEHICLE_LIFT_PX, ScreenRect, edge_scroll_axes,
-        edge_scroll_cursor_for, edge_scroll_screen_delta, keyboard_pan_screen_delta,
-    },
-    boot::{BootResult, remap_owner_palette},
-    local_player::LocalPlayerController,
-};
+use super::super::boot::remap_owner_palette;
 
-use super::BattleController;
-use super::movement::mobile_paint_pose_for;
-
+use super::{BattleController, movement::mobile_paint_pose_for};
 
 /// 待播的建筑 Buildup（MCV 展开等）。
 pub(super) struct PendingBuildup {
@@ -125,7 +83,8 @@ impl BattleController {
             };
             if game.world.last_rejects().iter().any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy)) {
                 Some(Err(ra_engine::CommandRejectReason::CannotDeploy.as_hud_label().to_string()))
-            } else {
+            }
+            else {
                 match game.world.ecs_identity(id) {
                     Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => Some(Ok(type_id.to_string())),
                     None => Some(Err("部署目标已消失".into())),
@@ -177,7 +136,8 @@ impl BattleController {
             let elapsed = pending.started.elapsed().as_millis() as u64;
             if pending.clip.frame_at(elapsed).is_none() {
                 finished.push(pending);
-            } else {
+            }
+            else {
                 still.push(pending);
             }
         }
@@ -188,7 +148,8 @@ impl BattleController {
         }
         if self.pending_buildups.is_empty() {
             self.present_preview_base(renderer);
-        } else {
+        }
+        else {
             self.recompose_preview_with_buildups(assets, renderer);
         }
     }
@@ -324,7 +285,8 @@ impl BattleController {
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 tracing::info!("定格 · {} 主体 SHP", type_id);
             }
             if n == 0 {
@@ -540,7 +502,8 @@ impl BattleController {
             self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
             self.last_anim_sig = self.preview_anim_signature(clock_ms);
-        } else {
+        }
+        else {
             self.last_anim_sig = 0;
         }
         self.paint_weather_onto(&mut composed);

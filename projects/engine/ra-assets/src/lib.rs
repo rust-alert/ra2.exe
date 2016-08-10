@@ -40,13 +40,10 @@ pub use image::{
     fnt::{FONT_MAGIC, FntFile, FntGlyph},
     pal::{Palette, Rgba, default_vga_expand, set_default_vga_expand},
     pcx::{PcxImage, parse_pcx},
-    shp::{
-        ShpFile, ShpFrame, decode_rle_frame, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated,
-    },
+    shp::{ShpFile, ShpFrame, decode_rle_frame, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated},
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
 pub use ini::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
-pub use mpmodes::{MpMode, parse_mpmodes};
 pub use mix::{
     archive::{MixArchive, MixEntry},
     crypto::blowfish_decrypt_ecb,
@@ -54,15 +51,14 @@ pub use mix::{
     names::MixNameTable,
     vfs::{MixRawEntry, MixResolveHit, MixVfs},
 };
+pub use mpmodes::{MpMode, parse_mpmodes};
 pub use rules::{
     color_schemes::ColorSchemes,
     countries::{
-        resolve_country_special_ui_name, CountryDef, CountryRegistry, SideChromeDef, SideGroup, fill_country_ui_gaps, fill_side_chrome_gaps,
+        CountryDef, CountryRegistry, SideChromeDef, SideGroup, fill_country_ui_gaps, fill_side_chrome_gaps, resolve_country_special_ui_name,
     },
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::{
-        OverlayTypeRegistry, harvestable_overlay_name, tiberium_overlay_display_hsv, tiberium_type_for_overlay,
-    },
+    overlay::{OverlayTypeRegistry, harvestable_overlay_name, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
     warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index},
 };

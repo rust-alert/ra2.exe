@@ -95,10 +95,7 @@ pub const TMP_TERRAIN_TO_LAND: [LandType; 16] = [
 
 /// 将 TMP `terrain_type` 字节映射为规范陆地类型；越界按 `Clear`。
 pub fn tmp_terrain_to_land_type(tmp_terrain_type: u8) -> LandType {
-    TMP_TERRAIN_TO_LAND
-        .get(usize::from(tmp_terrain_type))
-        .copied()
-        .unwrap_or(LandType::Clear)
+    TMP_TERRAIN_TO_LAND.get(usize::from(tmp_terrain_type)).copied().unwrap_or(LandType::Clear)
 }
 
 /// 规范陆地类型是否允许地面单位通行。

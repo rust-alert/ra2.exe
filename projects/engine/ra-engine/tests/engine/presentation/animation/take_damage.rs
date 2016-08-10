@@ -1,7 +1,7 @@
 //! 受击闪白派生 TakeDamage 动画状态。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, BattleState, Session};
+use ra_engine::{AnimState, BattleState, GameCommand, HIT_FLASH_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 

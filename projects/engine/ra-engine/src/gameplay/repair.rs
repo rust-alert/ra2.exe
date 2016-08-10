@@ -7,8 +7,8 @@ use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
 use crate::state::{
-    components::{Health, Identity, Owner, Repairing},
     BattleState,
+    components::{Health, Identity, Owner, Repairing},
 };
 
 /// 本 tick 若落在修理脉冲上，则对所有挂着 [`Repairing`] 的建筑步进一次。
@@ -46,13 +46,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             stop.push(id);
             continue;
         };
-        jobs.push(RepairJob {
-            id,
-            house,
-            type_id: identity.type_id.as_ref().to_string(),
-            current: health.current,
-            maximum: health.maximum,
-        });
+        jobs.push(RepairJob { id, house, type_id: identity.type_id.as_ref().to_string(), current: health.current, maximum: health.maximum });
     }
 
     for job in jobs {
@@ -61,12 +55,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             stop.push(job.id);
             continue;
         };
-        let cost = world
-            .definitions
-            .techno
-            .get(job.type_id.as_str())
-            .map(|tt| tt.cost.max(0) as u32)
-            .unwrap_or(0);
+        let cost = world.definitions.techno.get(job.type_id.as_str()).map(|tt| tt.cost.max(0) as u32).unwrap_or(0);
         let heal = repair_step.min(job.maximum.saturating_sub(job.current));
         if heal == 0 {
             stop.push(job.id);
@@ -75,9 +64,9 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
         // 完全修好费用 = Cost * RepairPercent / 100，再按本脉冲回复量分摊。
         let fee = if cost == 0 || repair_percent == 0 {
             0
-        } else {
-            ((cost as u64) * (repair_percent as u64) * (heal as u64)
-                / (100u64 * (job.maximum as u64).max(1))) as i32
+        }
+        else {
+            ((cost as u64) * (repair_percent as u64) * (heal as u64) / (100u64 * (job.maximum as u64).max(1))) as i32
         };
         if fee > 0 && world.players[player_index].funds < fee {
             stop.push(job.id);
@@ -85,8 +74,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
         }
         if fee > 0 {
             world.players[player_index].funds -= fee;
-            world.players[player_index].funds_spent =
-                world.players[player_index].funds_spent.saturating_add(fee);
+            world.players[player_index].funds_spent = world.players[player_index].funds_spent.saturating_add(fee);
         }
         let _ = world.with_health_mut(job.id, |h| {
             h.current = (h.current + heal).min(h.maximum);

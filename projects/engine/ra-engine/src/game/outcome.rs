@@ -1,18 +1,11 @@
-use crate::{
-    engine::EngineRuntime,
-    game::{commands::GameCommand, reject::CommandReject},
-    state::{
-        BattleState,
-        components::{AnimationState, AttackState, Health, Identity, MovementState, Owner, ProductionQueue, Transform},
-    },
+use crate::state::{
+    BattleState,
+    components::{Health, Identity, Owner},
 };
-use ra_map::{MapEntityKind, iso_to_screen, screen_to_iso};
-use ra_net::{MatchFingerprint, StateDigest};
-use ra_types::{EntityId, GameEdition};
+use ra_map::MapEntityKind;
+use ra_types::EntityId;
 
-
-use super::session::BattleSession;
-use super::types::SessionBootKind;
+use super::{session::BattleSession, types::SessionBootKind};
 
 /// 对局结束结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,7 +87,8 @@ impl BattleSession {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "战役失败".into()
-                } else {
+                }
+                else {
                     format!("战役失败 · {reason}")
                 }
             }

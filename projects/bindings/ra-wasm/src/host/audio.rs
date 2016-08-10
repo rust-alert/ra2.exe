@@ -21,11 +21,7 @@ thread_local! {
 pub fn is_ready() -> bool {
     #[cfg(target_arch = "wasm32")]
     {
-        AUDIO.with(|slot| {
-            slot.borrow()
-                .as_ref()
-                .is_some_and(|ctx| ctx.state() == AudioContextState::Running)
-        })
+        AUDIO.with(|slot| slot.borrow().as_ref().is_some_and(|ctx| ctx.state() == AudioContextState::Running))
     }
     #[cfg(not(target_arch = "wasm32"))]
     {

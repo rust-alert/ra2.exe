@@ -1,451 +1,462 @@
 <!doctype html>
 <html lang="zh-CN">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>ra2 playground</title>
-        <style>
-            :root {
-                color-scheme: dark;
-                --bg: #0c121a;
-                --panel: #101820;
-                --line: #2a3b52;
-                --text: #e7eef8;
-                --muted: #8fa3bd;
-                --accent: #3d8bfd;
-            }
-            * {
-                box-sizing: border-box;
-            }
-            body {
-                margin: 0;
-                min-height: 100vh;
-                font-family: "Segoe UI", "PingFang SC", sans-serif;
-                background:
-                    radial-gradient(1200px 600px at 20% -10%, #1a2a40 0%, transparent 55%),
-                    var(--bg);
-                color: var(--text);
-            }
-            main {
-                width: min(44rem, 94vw);
-                margin: 0 auto;
-                padding: 2.5rem 0 3rem;
-                display: grid;
-                gap: 1rem;
-            }
-            h1 {
-                margin: 0;
-                font-size: 1.35rem;
-                letter-spacing: 0.02em;
-            }
-            p {
-                margin: 0;
-                color: var(--muted);
-                line-height: 1.5;
-            }
-            .row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.75rem;
-                align-items: center;
-            }
-            label.btn,
-            button {
-                appearance: none;
-                border: 1px solid var(--line);
-                background: var(--panel);
-                color: var(--text);
-                padding: 0.55rem 0.9rem;
-                border-radius: 0.35rem;
-                cursor: pointer;
-                font: inherit;
-            }
-            label.btn:hover,
-            button:hover {
-                border-color: var(--accent);
-            }
-            input[type="file"] {
-                display: none;
-            }
-            select {
-                background: var(--panel);
-                color: var(--text);
-                border: 1px solid var(--line);
-                border-radius: 0.35rem;
-                padding: 0.45rem 0.6rem;
-                font: inherit;
-            }
-            #log {
-                margin: 0;
-                padding: 1rem 1.1rem;
-                border: 1px solid var(--line);
-                background: #070b10;
-                white-space: pre-wrap;
-                min-height: 12rem;
-                overflow: auto;
-            }
-            #game {
-                width: min(40rem, 100%);
-                aspect-ratio: 16 / 9;
-                height: auto;
-                border: 1px solid var(--line);
-                background: #000;
-                display: block;
-            }
-        </style>
-    </head>
-    <body>
-        <main>
-            <h1>ra2 playground</h1>
-            <p>
-                浏览器产品面：自备正版安装文件，经
-                <code>@game-gpt/red-alert2/wasm</code>
-                摄入并挂载（支持散文件、安装目录或 zip 包；可用 OPFS 缓存）。画布经
-                <code>attachCanvas</code>
-                接 wgpu；对局环尚未接线。
-            </p>
-            <canvas id="game" width="640" height="360" aria-label="wgpu present"></canvas>
-            <div class="row">
-                <label class="btn">
-                    选择文件
-                    <input id="files" type="file" multiple />
-                </label>
-                <label class="btn">
-                    选择安装目录
-                    <input id="dir" type="file" webkitdirectory multiple />
-                </label>
-                <label class="btn">
-                    选择 zip 安装包
-                    <input id="zip" type="file" accept=".zip,application/zip" />
-                </label>
-                <label>
-                    edition
-                    <select id="edition">
-                        <option value="">auto</option>
-                        <option value="ra2">ra2</option>
-                        <option value="yr">yr</option>
-                        <option value="mo3">mo3</option>
-                    </select>
-                </label>
-                <button id="prepare" type="button">prepare</button>
-                <button id="clear" type="button">clear</button>
-                <button id="audio" type="button">resume audio</button>
-                <button id="saveCache" type="button">save OPFS</button>
-                <button id="restoreCache" type="button">restore OPFS</button>
-                <button id="clearCache" type="button">clear OPFS</button>
-            </div>
-            <pre id="log">boot…</pre>
-        </main>
-        <script type="module">
-            import {
-                init,
-                version,
-                engineName,
-                supportsPresent,
-                attachCanvas,
-                resizePresent,
-                presentFrame,
-                presentBackend,
-                resumeAudio,
-                audioReady,
-                audioState,
-                InstallSession,
-                loadJobBusy,
-                loadJobProgress,
-            } from "@game-gpt/red-alert2/wasm";
-            import { unzipSync } from "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js";
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>ra2 playground</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0c121a;
+            --panel: #101820;
+            --line: #2a3b52;
+            --text: #e7eef8;
+            --muted: #8fa3bd;
+            --accent: #3d8bfd;
+        }
 
-            const logEl = document.getElementById("log");
-            const canvasEl = document.getElementById("game");
-            const filesEl = document.getElementById("files");
-            const dirEl = document.getElementById("dir");
-            const zipEl = document.getElementById("zip");
-            const editionEl = document.getElementById("edition");
-            const prepareEl = document.getElementById("prepare");
-            const clearEl = document.getElementById("clear");
-            const audioEl = document.getElementById("audio");
-            const saveCacheEl = document.getElementById("saveCache");
-            const restoreCacheEl = document.getElementById("restoreCache");
-            const clearCacheEl = document.getElementById("clearCache");
+        * {
+            box-sizing: border-box;
+        }
 
-            const lines = [];
-            const say = (s) => {
-                lines.push(s);
-                logEl.textContent = lines.join("\n");
-            };
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "PingFang SC", sans-serif;
+            background: radial-gradient(1200px 600px at 20% -10%, #1a2a40 0%, transparent 55%),
+            var(--bg);
+            color: var(--text);
+        }
 
-            /** @type {InstallSession | null} */
-            let session = null;
-            /** @type {Map<string, { name: string, bytes: Uint8Array }>} */
-            const installBag = new Map();
-            let presentReady = false;
-            let resizeQueued = false;
-            let rafId = 0;
+        main {
+            width: min(44rem, 94vw);
+            margin: 0 auto;
+            padding: 2.5rem 0 3rem;
+            display: grid;
+            gap: 1rem;
+        }
 
-            function baseName(path) {
-                return String(path).split(/[/\\]/).pop() || String(path);
-            }
+        h1 {
+            margin: 0;
+            font-size: 1.35rem;
+            letter-spacing: 0.02em;
+        }
 
-            function rememberFile(path, bytes) {
-                const name = baseName(path);
-                installBag.set(name.toLowerCase(), { name, bytes });
-            }
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.5;
+        }
 
-            function ingestTracked(path, bytes) {
-                if (!session) return;
-                session.ingestFile(path, bytes);
-                rememberFile(path, bytes);
-            }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+        }
 
-            async function opfsInstallDir(create = true) {
-                if (!navigator.storage || !navigator.storage.getDirectory) {
-                    throw new Error("OPFS unavailable in this browser");
-                }
-                const root = await navigator.storage.getDirectory();
-                return root.getDirectoryHandle("ra2-install", { create });
-            }
+        label.btn,
+        button {
+            appearance: none;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--text);
+            padding: 0.55rem 0.9rem;
+            border-radius: 0.35rem;
+            cursor: pointer;
+            font: inherit;
+        }
 
-            async function saveInstallToOpfs() {
-                const dir = await opfsInstallDir(true);
-                let n = 0;
-                for (const { name, bytes } of installBag.values()) {
-                    const handle = await dir.getFileHandle(name, { create: true });
-                    const writable = await handle.createWritable();
-                    await writable.write(bytes);
-                    await writable.close();
-                    n += 1;
-                }
-                return n;
-            }
+        label.btn:hover,
+        button:hover {
+            border-color: var(--accent);
+        }
 
-            async function restoreInstallFromOpfs() {
-                if (!session) return 0;
-                const dir = await opfsInstallDir(false);
-                let n = 0;
-                for await (const [name, handle] of dir.entries()) {
-                    if (handle.kind !== "file") continue;
-                    const file = await handle.getFile();
-                    const bytes = new Uint8Array(await file.arrayBuffer());
-                    ingestTracked(name, bytes);
-                    n += 1;
-                }
-                return n;
-            }
+        input[type="file"] {
+            display: none;
+        }
 
-            async function clearInstallOpfs() {
-                if (!navigator.storage || !navigator.storage.getDirectory) {
-                    throw new Error("OPFS unavailable in this browser");
-                }
-                const root = await navigator.storage.getDirectory();
-                try {
-                    await root.removeEntry("ra2-install", { recursive: true });
-                } catch (err) {
-                    if (err && err.name === "NotFoundError") return;
-                    throw err;
-                }
-            }
+        select {
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 0.35rem;
+            padding: 0.45rem 0.6rem;
+            font: inherit;
+        }
 
-            function syncPresentSize(log = false) {
-                if (!presentReady || !supportsPresent()) return;
-                const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-                const cssW = Math.max(1, Math.floor(canvasEl.clientWidth));
-                const cssH = Math.max(1, Math.floor(canvasEl.clientHeight || cssW * (360 / 640)));
-                const w = Math.max(1, Math.floor(cssW * dpr));
-                const h = Math.max(1, Math.floor(cssH * dpr));
-                if (canvasEl.width === w && canvasEl.height === h) return;
-                canvasEl.width = w;
-                canvasEl.height = h;
-                resizePresent(w, h);
-                if (log) say(`resizePresent ${w}x${h} (css ${cssW}x${cssH} dpr=${dpr.toFixed(2)})`);
-            }
+        #log {
+            margin: 0;
+            padding: 1rem 1.1rem;
+            border: 1px solid var(--line);
+            background: #070b10;
+            white-space: pre-wrap;
+            min-height: 12rem;
+            overflow: auto;
+        }
 
-            function queuePresentResize() {
-                if (resizeQueued) return;
-                resizeQueued = true;
-                requestAnimationFrame(() => {
-                    resizeQueued = false;
-                    try {
-                        syncPresentSize(true);
-                    } catch (err) {
-                        say(`resizePresent ERROR ${err instanceof Error ? err.message : String(err)}`);
-                    }
-                });
-            }
+        #game {
+            width: min(40rem, 100%);
+            aspect-ratio: 16 / 9;
+            height: auto;
+            border: 1px solid var(--line);
+            background: #000;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>ra2 playground</h1>
+    <p>
+        浏览器产品面：自备正版安装文件，经
+        <code>@game-gpt/red-alert2/wasm</code>
+        摄入并挂载（支持散文件、安装目录或 zip 包；可用 OPFS 缓存）。画布经
+        <code>attachCanvas</code>
+        接 wgpu；对局环尚未接线。
+    </p>
+    <canvas id="game" width="640" height="360" aria-label="wgpu present"></canvas>
+    <div class="row">
+        <label class="btn">
+            选择文件
+            <input id="files" type="file" multiple/>
+        </label>
+        <label class="btn">
+            选择安装目录
+            <input id="dir" type="file" webkitdirectory multiple/>
+        </label>
+        <label class="btn">
+            选择 zip 安装包
+            <input id="zip" type="file" accept=".zip,application/zip"/>
+        </label>
+        <label>
+            edition
+            <select id="edition">
+                <option value="">auto</option>
+                <option value="ra2">ra2</option>
+                <option value="yr">yr</option>
+                <option value="mo3">mo3</option>
+            </select>
+        </label>
+        <button id="prepare" type="button">prepare</button>
+        <button id="clear" type="button">clear</button>
+        <button id="audio" type="button">resume audio</button>
+        <button id="saveCache" type="button">save OPFS</button>
+        <button id="restoreCache" type="button">restore OPFS</button>
+        <button id="clearCache" type="button">clear OPFS</button>
+    </div>
+    <pre id="log">boot…</pre>
+</main>
+<script type="module">
+    import {
+        init,
+        version,
+        engineName,
+        supportsPresent,
+        attachCanvas,
+        resizePresent,
+        presentFrame,
+        presentBackend,
+        resumeAudio,
+        audioReady,
+        audioState,
+        InstallSession,
+        loadJobBusy,
+        loadJobProgress,
+    } from "@game-gpt/red-alert2/wasm";
+    import {unzipSync} from "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js";
 
-            function tickPresent() {
-                rafId = requestAnimationFrame(tickPresent);
-                if (!presentReady || !supportsPresent()) return;
-                try {
-                    presentFrame();
-                } catch (err) {
-                    cancelAnimationFrame(rafId);
-                    rafId = 0;
-                    say(`presentFrame ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            }
+    const logEl = document.getElementById("log");
+    const canvasEl = document.getElementById("game");
+    const filesEl = document.getElementById("files");
+    const dirEl = document.getElementById("dir");
+    const zipEl = document.getElementById("zip");
+    const editionEl = document.getElementById("edition");
+    const prepareEl = document.getElementById("prepare");
+    const clearEl = document.getElementById("clear");
+    const audioEl = document.getElementById("audio");
+    const saveCacheEl = document.getElementById("saveCache");
+    const restoreCacheEl = document.getElementById("restoreCache");
+    const clearCacheEl = document.getElementById("clearCache");
 
-            function isZipName(name) {
-                return /\.zip$/i.test(name);
-            }
+    const lines = [];
+    const say = (s) => {
+        lines.push(s);
+        logEl.textContent = lines.join("\n");
+    };
 
-            async function ingestZipBuffer(label, bytes) {
-                if (!session) return;
-                say(`unzip ${label} (${bytes.byteLength} bytes) …`);
-                const entries = unzipSync(bytes);
-                let n = 0;
-                for (const [path, data] of Object.entries(entries)) {
-                    if (!data || path.endsWith("/")) continue;
-                    ingestTracked(path, data);
-                    n += 1;
-                }
-                say(`unzip ${label}: ingested ${n} entries`);
-                say(`fileCount=${session.fileCount()}`);
-            }
+    /** @type {InstallSession | null} */
+    let session = null;
+    /** @type {Map<string, { name: string, bytes: Uint8Array }>} */
+    const installBag = new Map();
+    let presentReady = false;
+    let resizeQueued = false;
+    let rafId = 0;
 
-            async function ingestList(fileList) {
-                if (!session) return;
-                const list = Array.from(fileList || []);
-                for (const file of list) {
-                    const name = file.webkitRelativePath || file.name;
-                    const buf = new Uint8Array(await file.arrayBuffer());
-                    if (isZipName(name)) {
-                        await ingestZipBuffer(name, buf);
-                        continue;
-                    }
-                    ingestTracked(name, buf);
-                    say(`ingest ${name} (${buf.byteLength} bytes)`);
-                }
-                say(`fileCount=${session.fileCount()}`);
-            }
+    function baseName(path) {
+        return String(path).split(/[/\\]/).pop() || String(path);
+    }
 
+    function rememberFile(path, bytes) {
+        const name = baseName(path);
+        installBag.set(name.toLowerCase(), {name, bytes});
+    }
+
+    function ingestTracked(path, bytes) {
+        if (!session) return;
+        session.ingestFile(path, bytes);
+        rememberFile(path, bytes);
+    }
+
+    async function opfsInstallDir(create = true) {
+        if (!navigator.storage || !navigator.storage.getDirectory) {
+            throw new Error("OPFS unavailable in this browser");
+        }
+        const root = await navigator.storage.getDirectory();
+        return root.getDirectoryHandle("ra2-install", {create});
+    }
+
+    async function saveInstallToOpfs() {
+        const dir = await opfsInstallDir(true);
+        let n = 0;
+        for (const {name, bytes} of installBag.values()) {
+            const handle = await dir.getFileHandle(name, {create: true});
+            const writable = await handle.createWritable();
+            await writable.write(bytes);
+            await writable.close();
+            n += 1;
+        }
+        return n;
+    }
+
+    async function restoreInstallFromOpfs() {
+        if (!session) return 0;
+        const dir = await opfsInstallDir(false);
+        let n = 0;
+        for await (const [name, handle] of dir.entries()) {
+            if (handle.kind !== "file") continue;
+            const file = await handle.getFile();
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            ingestTracked(name, bytes);
+            n += 1;
+        }
+        return n;
+    }
+
+    async function clearInstallOpfs() {
+        if (!navigator.storage || !navigator.storage.getDirectory) {
+            throw new Error("OPFS unavailable in this browser");
+        }
+        const root = await navigator.storage.getDirectory();
+        try {
+            await root.removeEntry("ra2-install", {recursive: true});
+        } catch (err) {
+            if (err && err.name === "NotFoundError") return;
+            throw err;
+        }
+    }
+
+    function syncPresentSize(log = false) {
+        if (!presentReady || !supportsPresent()) return;
+        const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        const cssW = Math.max(1, Math.floor(canvasEl.clientWidth));
+        const cssH = Math.max(1, Math.floor(canvasEl.clientHeight || cssW * (360 / 640)));
+        const w = Math.max(1, Math.floor(cssW * dpr));
+        const h = Math.max(1, Math.floor(cssH * dpr));
+        if (canvasEl.width === w && canvasEl.height === h) return;
+        canvasEl.width = w;
+        canvasEl.height = h;
+        resizePresent(w, h);
+        if (log) say(`resizePresent ${w}x${h} (css ${cssW}x${cssH} dpr=${dpr.toFixed(2)})`);
+    }
+
+    function queuePresentResize() {
+        if (resizeQueued) return;
+        resizeQueued = true;
+        requestAnimationFrame(() => {
+            resizeQueued = false;
             try {
-                say("init @game-gpt/red-alert2/wasm …");
-                await init();
-                say(`version=${version()}`);
-                say(`engineName=${engineName()}`);
-                say(`supportsPresent(before)=${supportsPresent()}`);
-                say("attachCanvas …");
-                await attachCanvas(canvasEl);
-                presentReady = true;
                 syncPresentSize(true);
-                tickPresent();
-                say(`supportsPresent(after)=${supportsPresent()}`);
-                say(`presentBackend=${presentBackend()}`);
-                say("presentFrame rAF loop running");
-                say(`audioReady=${audioReady()} state=${audioState()}`);
-                session = new InstallSession();
-                say("InstallSession ready — pick files, folder, or zip, then prepare");
-                try {
-                    const n = await restoreInstallFromOpfs();
-                    if (n > 0) say(`OPFS restored ${n} files → fileCount=${session.fileCount()} hasInstallInput=${session.hasInstallInput()}`);
-                    else say("OPFS install cache empty");
-                } catch (err) {
-                    say(`OPFS restore skipped: ${err instanceof Error ? err.message : String(err)}`);
-                }
             } catch (err) {
-                say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
+                say(`resizePresent ERROR ${err instanceof Error ? err.message : String(err)}`);
             }
+        });
+    }
 
-            window.addEventListener("resize", queuePresentResize);
-            if (typeof ResizeObserver !== "undefined") {
-                new ResizeObserver(queuePresentResize).observe(canvasEl);
+    function tickPresent() {
+        rafId = requestAnimationFrame(tickPresent);
+        if (!presentReady || !supportsPresent()) return;
+        try {
+            presentFrame();
+        } catch (err) {
+            cancelAnimationFrame(rafId);
+            rafId = 0;
+            say(`presentFrame ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    function isZipName(name) {
+        return /\.zip$/i.test(name);
+    }
+
+    async function ingestZipBuffer(label, bytes) {
+        if (!session) return;
+        say(`unzip ${label} (${bytes.byteLength} bytes) …`);
+        const entries = unzipSync(bytes);
+        let n = 0;
+        for (const [path, data] of Object.entries(entries)) {
+            if (!data || path.endsWith("/")) continue;
+            ingestTracked(path, data);
+            n += 1;
+        }
+        say(`unzip ${label}: ingested ${n} entries`);
+        say(`fileCount=${session.fileCount()}`);
+    }
+
+    async function ingestList(fileList) {
+        if (!session) return;
+        const list = Array.from(fileList || []);
+        for (const file of list) {
+            const name = file.webkitRelativePath || file.name;
+            const buf = new Uint8Array(await file.arrayBuffer());
+            if (isZipName(name)) {
+                await ingestZipBuffer(name, buf);
+                continue;
             }
+            ingestTracked(name, buf);
+            say(`ingest ${name} (${buf.byteLength} bytes)`);
+        }
+        say(`fileCount=${session.fileCount()}`);
+    }
 
-            filesEl.addEventListener("change", async () => {
-                await ingestList(filesEl.files);
-                filesEl.value = "";
-            });
+    try {
+        say("init @game-gpt/red-alert2/wasm …");
+        await init();
+        say(`version=${version()}`);
+        say(`engineName=${engineName()}`);
+        say(`supportsPresent(before)=${supportsPresent()}`);
+        say("attachCanvas …");
+        await attachCanvas(canvasEl);
+        presentReady = true;
+        syncPresentSize(true);
+        tickPresent();
+        say(`supportsPresent(after)=${supportsPresent()}`);
+        say(`presentBackend=${presentBackend()}`);
+        say("presentFrame rAF loop running");
+        say(`audioReady=${audioReady()} state=${audioState()}`);
+        session = new InstallSession();
+        say("InstallSession ready — pick files, folder, or zip, then prepare");
+        try {
+            const n = await restoreInstallFromOpfs();
+            if (n > 0) say(`OPFS restored ${n} files → fileCount=${session.fileCount()} hasInstallInput=${session.hasInstallInput()}`);
+            else say("OPFS install cache empty");
+        } catch (err) {
+            say(`OPFS restore skipped: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    } catch (err) {
+        say(`ERROR ${err instanceof Error ? err.stack || err.message : String(err)}`);
+    }
 
-            dirEl.addEventListener("change", async () => {
-                await ingestList(dirEl.files);
-                dirEl.value = "";
-            });
+    window.addEventListener("resize", queuePresentResize);
+    if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(queuePresentResize).observe(canvasEl);
+    }
 
-            zipEl.addEventListener("change", async () => {
-                const file = zipEl.files && zipEl.files[0];
-                zipEl.value = "";
-                if (!file || !session) return;
-                try {
-                    const buf = new Uint8Array(await file.arrayBuffer());
-                    await ingestZipBuffer(file.name, buf);
-                } catch (err) {
-                    say(`unzip ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
+    filesEl.addEventListener("change", async () => {
+        await ingestList(filesEl.files);
+        filesEl.value = "";
+    });
 
-            prepareEl.addEventListener("click", () => {
-                if (!session) return;
-                try {
-                    const edition = editionEl.value || null;
-                    const report = session.prepareEdition(edition);
-                    say("--- prepare ---");
-                    say(`edition=${report.edition}`);
-                    say(`fileCount=${report.fileCount}`);
-                    say(`mountedRoot=${report.mountedRoot}`);
-                    say(`skippedRoot=${report.skippedRoot}`);
-                    say(`nestedMounted=${report.nestedMounted}`);
-                    say(`presentRoot=${report.presentRoot.join(", ") || "(none)"}`);
-                    say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
-                    const progress = loadJobProgress();
-                    say(`loadJob busy=${loadJobBusy()} ratio=${progress.ratio.toFixed(2)} stage=${progress.stage}`);
-                    say(`hasInstallInput=${session.hasInstallInput()} canBoot=${session.canBoot()}`);
-                    for (const name of ["rules.ini", "art.ini", "ui.ini"]) {
-                        const bytes = session.readLogical(name);
-                        say(bytes ? `readLogical ${name}: ${bytes.length} bytes` : `readLogical ${name}: missing`);
-                    }
-                } catch (err) {
-                    say(`prepare ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
+    dirEl.addEventListener("change", async () => {
+        await ingestList(dirEl.files);
+        dirEl.value = "";
+    });
 
-            clearEl.addEventListener("click", () => {
-                if (!session) return;
-                session.clear();
-                installBag.clear();
-                say("cleared session bag");
-                say(`fileCount=${session.fileCount()}`);
-            });
+    zipEl.addEventListener("change", async () => {
+        const file = zipEl.files && zipEl.files[0];
+        zipEl.value = "";
+        if (!file || !session) return;
+        try {
+            const buf = new Uint8Array(await file.arrayBuffer());
+            await ingestZipBuffer(file.name, buf);
+        } catch (err) {
+            say(`unzip ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
 
-            audioEl.addEventListener("click", async () => {
-                try {
-                    const state = await resumeAudio();
-                    say(`resumeAudio → ${state} ready=${audioReady()}`);
-                } catch (err) {
-                    say(`resumeAudio ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
+    prepareEl.addEventListener("click", () => {
+        if (!session) return;
+        try {
+            const edition = editionEl.value || null;
+            const report = session.prepareEdition(edition);
+            say("--- prepare ---");
+            say(`edition=${report.edition}`);
+            say(`fileCount=${report.fileCount}`);
+            say(`mountedRoot=${report.mountedRoot}`);
+            say(`skippedRoot=${report.skippedRoot}`);
+            say(`nestedMounted=${report.nestedMounted}`);
+            say(`presentRoot=${report.presentRoot.join(", ") || "(none)"}`);
+            say(`missingBase=${report.missingBase.join(", ") || "(none)"}`);
+            const progress = loadJobProgress();
+            say(`loadJob busy=${loadJobBusy()} ratio=${progress.ratio.toFixed(2)} stage=${progress.stage}`);
+            say(`hasInstallInput=${session.hasInstallInput()} canBoot=${session.canBoot()}`);
+            for (const name of ["rules.ini", "art.ini", "ui.ini"]) {
+                const bytes = session.readLogical(name);
+                say(bytes ? `readLogical ${name}: ${bytes.length} bytes` : `readLogical ${name}: missing`);
+            }
+        } catch (err) {
+            say(`prepare ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
 
-            saveCacheEl.addEventListener("click", async () => {
-                try {
-                    if (installBag.size === 0) {
-                        say("OPFS save skipped: bag empty");
-                        return;
-                    }
-                    const n = await saveInstallToOpfs();
-                    say(`OPFS saved ${n} files`);
-                } catch (err) {
-                    say(`OPFS save ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
+    clearEl.addEventListener("click", () => {
+        if (!session) return;
+        session.clear();
+        installBag.clear();
+        say("cleared session bag");
+        say(`fileCount=${session.fileCount()}`);
+    });
 
-            restoreCacheEl.addEventListener("click", async () => {
-                if (!session) return;
-                try {
-                    const n = await restoreInstallFromOpfs();
-                    say(`OPFS restored ${n} files → fileCount=${session.fileCount()}`);
-                } catch (err) {
-                    say(`OPFS restore ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
+    audioEl.addEventListener("click", async () => {
+        try {
+            const state = await resumeAudio();
+            say(`resumeAudio → ${state} ready=${audioReady()}`);
+        } catch (err) {
+            say(`resumeAudio ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
 
-            clearCacheEl.addEventListener("click", async () => {
-                try {
-                    await clearInstallOpfs();
-                    say("OPFS install cache cleared");
-                } catch (err) {
-                    say(`OPFS clear ERROR ${err instanceof Error ? err.message : String(err)}`);
-                }
-            });
-        </script>
-    </body>
+    saveCacheEl.addEventListener("click", async () => {
+        try {
+            if (installBag.size === 0) {
+                say("OPFS save skipped: bag empty");
+                return;
+            }
+            const n = await saveInstallToOpfs();
+            say(`OPFS saved ${n} files`);
+        } catch (err) {
+            say(`OPFS save ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
+
+    restoreCacheEl.addEventListener("click", async () => {
+        if (!session) return;
+        try {
+            const n = await restoreInstallFromOpfs();
+            say(`OPFS restored ${n} files → fileCount=${session.fileCount()}`);
+        } catch (err) {
+            say(`OPFS restore ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
+
+    clearCacheEl.addEventListener("click", async () => {
+        try {
+            await clearInstallOpfs();
+            say("OPFS install cache cleared");
+        } catch (err) {
+            say(`OPFS clear ERROR ${err instanceof Error ? err.message : String(err)}`);
+        }
+    });
+</script>
+</body>
 </html>

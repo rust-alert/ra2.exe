@@ -10,10 +10,7 @@ use ra_types::{EntityId, TechnoClass};
 
 use crate::{
     game::{CommandRejectReason, SnapshotProduceQueue},
-    gameplay::{
-        TechTreePlayer,
-        build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant,
-    },
+    gameplay::{TechTreePlayer, build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant},
     state::{
         BattleState,
         components::{Health, Identity, Owner, ProductionQueue},
@@ -24,6 +21,7 @@ use super::BattleSession;
 
 /// 单条可建造 / 可生产能力。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct CapabilityItem {
     /// 规则类型键。
     pub type_id: Arc<str>,
@@ -37,6 +35,7 @@ pub struct CapabilityItem {
 
 /// 选中实体的部署能力。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct DeployCapability {
     /// 实体。
     pub entity: EntityId,
@@ -50,6 +49,7 @@ pub struct DeployCapability {
 
 /// 本方可释放的超级武器（绑定存活挂接建筑与充能进度）。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct SuperWeaponCapabilityItem {
     /// `[SuperWeaponTypes]` 类型键。
     pub type_id: Arc<str>,
@@ -73,6 +73,7 @@ pub struct SuperWeaponCapabilityItem {
 
 /// 由权威世界投影的对局能力（HUD / host intent 唯一来源）。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
 pub struct BattleCapabilitiesSnapshot {
     /// 本地阵营。
     pub house: Arc<str>,
@@ -117,14 +118,8 @@ pub struct BattleCapabilitiesSnapshot {
 impl BattleSession {
     /// 按选中与本地阵营投影能力。前置一律查**当前存活建筑**。
     pub fn snapshot_capabilities(&self, selected: &[EntityId]) -> BattleCapabilitiesSnapshot {
-        let local = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player);
-        let house = local
-            .map(|p| p.house.clone())
-            .unwrap_or_else(|| Arc::<str>::from(""));
+        let local = self.world.players.iter().find(|p| p.id == self.world.local_player);
+        let house = local.map(|p| p.house.clone()).unwrap_or_else(|| Arc::<str>::from(""));
         let funds = local.map(|p| p.funds).unwrap_or(0);
         let power_output = local.map(|p| p.power_output).unwrap_or(0);
         let power_drain = local.map(|p| p.power_drain).unwrap_or(0);
@@ -148,56 +143,24 @@ impl BattleSession {
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
-        let build_all = project_build_items(
-            &self.world,
-            tech_player,
-            &living,
-            funds,
-            has_construction_yard,
-            has_power_plant,
-        );
+        let build_all = project_build_items(&self.world, tech_player, &living, funds, has_construction_yard, has_power_plant);
         let mut build_items = Vec::new();
         let mut defense_items = Vec::new();
         for item in build_all {
-            let defense = self
-                .world
-                .definitions
-                .structures
-                .get(item.type_id.as_ref())
-                .is_some_and(|s| s.build_cat.is_defense_tab());
+            let defense = self.world.definitions.structures.get(item.type_id.as_ref()).is_some_and(|s| s.build_cat.is_defense_tab());
             if defense {
                 defense_items.push(item);
-            } else {
+            }
+            else {
                 build_items.push(item);
             }
         }
-        let infantry_items = project_produce_items(
-            &self.world,
-            tech_player,
-            &living,
-            TechnoClass::Infantry,
-            funds,
-            has_infantry_factory,
-            infantry_idle,
-        );
-        let vehicle_items = project_produce_items(
-            &self.world,
-            tech_player,
-            &living,
-            TechnoClass::Vehicle,
-            funds,
-            has_vehicle_factory,
-            vehicle_idle,
-        );
-        let aircraft_items = project_produce_items(
-            &self.world,
-            tech_player,
-            &living,
-            TechnoClass::Aircraft,
-            funds,
-            has_aircraft_factory,
-            aircraft_idle,
-        );
+        let infantry_items =
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, funds, has_infantry_factory, infantry_idle);
+        let vehicle_items =
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Vehicle, funds, has_vehicle_factory, vehicle_idle);
+        let aircraft_items =
+            project_produce_items(&self.world, tech_player, &living, TechnoClass::Aircraft, funds, has_aircraft_factory, aircraft_idle);
         let super_weapon_items = project_super_weapon_items(&self.world, house.as_ref());
         let queues = self
             .world
@@ -210,13 +173,7 @@ impl BattleSession {
                 }
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
                 if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
-                    let total_ticks = self
-                        .world
-                        .definitions
-                        .techno
-                        .get(type_id.as_ref())
-                        .map(crate::gameplay::produce_ticks_for)
-                        .unwrap_or(0);
+                    let total_ticks = self.world.definitions.techno.get(type_id.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                     return Some(SnapshotProduceQueue {
                         factory: id,
                         type_id: type_id.clone(),
@@ -227,13 +184,7 @@ impl BattleSession {
                     });
                 }
                 let ready = queue.ready.as_ref()?;
-                let total_ticks = self
-                    .world
-                    .definitions
-                    .techno
-                    .get(ready.as_ref())
-                    .map(crate::gameplay::produce_ticks_for)
-                    .unwrap_or(0);
+                let total_ticks = self.world.definitions.techno.get(ready.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
                 Some(SnapshotProduceQueue {
                     factory: id,
                     type_id: ready.clone(),
@@ -273,12 +224,7 @@ impl BattleSession {
             return None;
         }
         let into = self.deploy_target_of(id)?;
-        Some(DeployCapability {
-            entity: id,
-            into_type: Arc::<str>::from(into),
-            enabled: true,
-            disabled_reason: None,
-        })
+        Some(DeployCapability { entity: id, into_type: Arc::<str>::from(into), enabled: true, disabled_reason: None })
     }
 }
 
@@ -326,7 +272,8 @@ pub fn evaluate_produce_availability(
     (true, None)
 }
 
-fn project_build_items(
+#[doc(hidden)]
+pub fn project_build_items(
     world: &BattleState,
     player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<String>,
@@ -335,9 +282,7 @@ fn project_build_items(
     has_power: bool,
 ) -> Vec<CapabilityItem> {
     let ready = world.house_ready_building(player.house);
-    let yard_idle = world
-        .find_idle_factory(player.house, ra_assets::TechnoKind::Building)
-        .is_some();
+    let yard_idle = world.find_idle_factory(player.house, ra_assets::TechnoKind::Building).is_some();
     let mut items: Vec<CapabilityItem> = world
         .definitions
         .structures
@@ -345,45 +290,40 @@ fn project_build_items(
         .filter(|s| is_type_eligible(&world.definitions, player, living, &s.type_key))
         .map(|s| {
             let techno = world.definitions.techno.get(&s.type_key);
-            let cost = if s.cost > 0 {
-                s.cost
-            } else {
-                techno.map(|t| t.cost).unwrap_or(0)
-            };
+            let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
             let requires_power = requires_power_plant(&world.definitions, &s.type_key);
             let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
             let key = s.type_key.as_str();
             let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
                 // 已完工：可点选落位，不再检查资金。
                 (true, None)
-            } else if world.entities.iter().any(|e| {
+            }
+            else if world.entities.iter().any(|e| {
                 let id = e.id;
                 !world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != player.house)
                     && world
-                    .ecs_get::<ProductionQueue>(id)
-                    .and_then(|q| q.item.as_ref())
-                    .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
+                        .ecs_get::<ProductionQueue>(id)
+                        .and_then(|q| q.item.as_ref())
+                        .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
             }) {
                 // 建造中：侧栏可点以取消。
                 (true, None)
-            } else if has_yard && !yard_idle {
+            }
+            else if has_yard && !yard_idle {
                 (false, Some(CommandRejectReason::QueueFull))
-            } else {
+            }
+            else {
                 evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
             };
-            CapabilityItem {
-                type_id: Arc::<str>::from(s.type_key.as_str()),
-                cost,
-                enabled,
-                disabled_reason,
-            }
+            CapabilityItem { type_id: Arc::<str>::from(s.type_key.as_str()), cost, enabled, disabled_reason }
         })
         .collect();
     items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
     items
 }
 
-fn project_produce_items(
+#[doc(hidden)]
+pub fn project_produce_items(
     world: &BattleState,
     player: TechTreePlayer<'_>,
     living: &std::collections::HashSet<String>,
@@ -402,14 +342,8 @@ fn project_produce_items(
         .filter(|t| deploy_into_type(&world.definitions, &t.type_key).is_none())
         .map(|t| {
             let limit_hit = build_limit_reached(world, player.house, t);
-            let (enabled, disabled_reason) =
-                evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);
-            CapabilityItem {
-                type_id: Arc::<str>::from(t.type_key.as_str()),
-                cost: t.cost,
-                enabled,
-                disabled_reason,
-            }
+            let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);
+            CapabilityItem { type_id: Arc::<str>::from(t.type_key.as_str()), cost: t.cost, enabled, disabled_reason }
         })
         .collect();
     items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
@@ -441,7 +375,8 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
     keys
 }
 
-fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeaponCapabilityItem> {
+#[doc(hidden)]
+pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeaponCapabilityItem> {
     use ra_map::MapEntityKind;
 
     let mut keys: Vec<String> = Vec::new();
@@ -453,17 +388,14 @@ fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeap
         if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
             continue;
         }
-        let Some(identity) = world.ecs_get::<Identity>(id) else {
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
             continue;
         };
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(sw_key) = world
-            .definitions
-            .structures
-            .get(identity.type_id.as_ref())
-            .and_then(|s| s.super_weapon.as_ref())
+        let Some(sw_key) = world.definitions.structures.get(identity.type_id.as_ref()).and_then(|s| s.super_weapon.as_ref())
         else {
             continue;
         };
@@ -475,7 +407,8 @@ fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeap
     keys.sort();
     let mut out = Vec::with_capacity(keys.len());
     for key in keys {
-        let Some(def) = world.definitions.super_weapons.get(&key) else {
+        let Some(def) = world.definitions.super_weapons.get(&key)
+        else {
             continue;
         };
         let charge = world.super_weapon_runtime.charge(house, &key);
@@ -488,10 +421,12 @@ fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeap
         let supported = def.kind.eq_ignore_ascii_case("LightningStorm");
         let (enabled, disabled_reason) = if !ready {
             (false, Some(CommandRejectReason::SuperWeaponNotReady))
-        } else if !supported {
+        }
+        else if !supported {
             // 已就绪但玩法未接线：侧栏可见但不可下发。
             (false, Some(CommandRejectReason::MissingPrerequisite))
-        } else {
+        }
+        else {
             (true, None)
         };
         out.push(SuperWeaponCapabilityItem {
@@ -507,40 +442,4 @@ fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeap
         });
     }
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn losing_construction_yard_disables_all_build_tech() {
-        let (ok, reason) = evaluate_build_availability(true, true, 5000, 800, false, false);
-        assert!(ok);
-        assert_eq!(reason, None);
-
-        let (ok, reason) = evaluate_build_availability(false, true, 5000, 800, false, false);
-        assert!(!ok);
-        assert_eq!(reason, Some(CommandRejectReason::MissingPrerequisite));
-    }
-
-    #[test]
-    fn losing_power_plant_blocks_power_gated_buildings_only() {
-        let (ok, _) = evaluate_build_availability(true, false, 5000, 800, false, false);
-        assert!(ok);
-        let (ok, reason) = evaluate_build_availability(true, false, 5000, 800, true, false);
-        assert!(!ok);
-        assert_eq!(reason, Some(CommandRejectReason::InsufficientPower));
-    }
-
-    #[test]
-    fn losing_factory_disables_produce_tech() {
-        let (ok, reason) = evaluate_produce_availability(false, true, 500, 200, false);
-        assert!(!ok);
-        assert_eq!(reason, Some(CommandRejectReason::MissingPrerequisite));
-
-        let (ok, reason) = evaluate_produce_availability(true, false, 500, 200, false);
-        assert!(!ok);
-        assert_eq!(reason, Some(CommandRejectReason::QueueFull));
-    }
 }

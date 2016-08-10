@@ -156,11 +156,7 @@ pub fn paint_overlay_markers(image: &mut TerrainImage, overlays: &[crate::Overla
 /// 主体 SHP 缺失时的建筑占位色块（品红，区别于 overlay 青绿/金）。
 ///
 /// `cells` 为 `(x, y)`；色块约 12×12，落在钻石中心。
-pub fn paint_structure_missing_markers(
-    image: &mut TerrainImage,
-    cells: &[(u16, u16)],
-    mut cell_z: impl FnMut(u16, u16) -> u8,
-) -> usize {
+pub fn paint_structure_missing_markers(image: &mut TerrainImage, cells: &[(u16, u16)], mut cell_z: impl FnMut(u16, u16) -> u8) -> usize {
     const MARK: [u8; 4] = [240, 80, 200, 230];
     const SIZE: i32 = 12;
     let mut painted = 0usize;
@@ -188,7 +184,13 @@ pub fn paint_cell_sprites(image: &mut TerrainImage, items: &[(u16, u16, TileBlit
     for (x, y, blit) in items {
         let z = cell_z(*x, *y);
         let (sx, sy) = iso_to_screen(i32::from(*x), i32::from(*y), z);
-        prepared.push((sx - image.origin_x, sy - image.origin_y, sx + blit.offset_x - image.origin_x, sy + blit.offset_y - image.origin_y, blit));
+        prepared.push((
+            sx - image.origin_x,
+            sy - image.origin_y,
+            sx + blit.offset_x - image.origin_x,
+            sy + blit.offset_y - image.origin_y,
+            blit,
+        ));
     }
     prepared.sort_by_key(|(_, _, bx, by, _)| (*by, *bx));
     let mut painted = 0usize;

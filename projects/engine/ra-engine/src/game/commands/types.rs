@@ -1,6 +1,5 @@
 use ra_types::{CommandBody, ScheduledCommand};
 
-
 /// 可执行命令载荷（跨层与 `ra_types::CommandBody` 共用）。
 pub type GameCommand = CommandBody;
 
@@ -14,7 +13,6 @@ pub struct InputFrame {
     /// 本 tick 消费的已调度命令（可为空）。
     pub commands: Vec<ScheduledCommand>,
 }
-
 
 impl InputFrame {
     /// 构造仅含 tick、无命令的空输入帧。

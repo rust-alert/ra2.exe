@@ -1,7 +1,7 @@
 //! 每 tick 记录输入帧（含空帧）。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_types::{EntityId, GameEdition};
 
 #[test]

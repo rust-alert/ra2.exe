@@ -5,10 +5,14 @@ use std::collections::{HashMap, HashSet};
 use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind, MapScripting};
 use ra_types::EntityId;
 
-use crate::game::{BattleOutcome, GameCommand};
-use crate::gameplay::{ai::is_ambient_house, houses_are_allied};
-use crate::state::BattleState;
-use crate::state::components::{Health, Identity, Owner, Transform};
+use crate::{
+    game::{BattleOutcome, GameCommand},
+    gameplay::{ai::is_ambient_house, houses_are_allied},
+    state::{
+        BattleState,
+        components::{Health, Identity, Owner, Transform},
+    },
+};
 
 /// 地图触发事件/动作类型见 [`MapEventKind`] / [`MapActionKind`]（`ra-map`）。
 
@@ -43,22 +47,16 @@ pub struct TriggerRuntime {
 impl TriggerRuntime {
     /// 从地图剧本播种；无触发则空运行时。
     pub fn from_scripting(scripting: &MapScripting) -> Self {
-        let events_by_id: HashMap<&str, &ra_map::MapEvent> =
-            scripting.events.iter().map(|e| (e.id.as_str(), e)).collect();
+        let events_by_id: HashMap<&str, &ra_map::MapEvent> = scripting.events.iter().map(|e| (e.id.as_str(), e)).collect();
         let mut states = Vec::with_capacity(scripting.triggers.len());
         for tr in &scripting.triggers {
             let timer_remaining = events_by_id.get(tr.id.as_str()).and_then(|ev| {
-                ev.conditions.iter().find(|c| c.kind == MapEventKind::TimeElapse).map(|c| {
-                    c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0)
-                })
+                ev.conditions
+                    .iter()
+                    .find(|c| c.kind == MapEventKind::TimeElapse)
+                    .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
-            states.push(TriggerRuntimeState {
-                id: tr.id.clone(),
-                disabled: tr.disabled,
-                fired: false,
-                timer_remaining,
-                timer_paused: false,
-            });
+            states.push(TriggerRuntimeState { id: tr.id.clone(), disabled: tr.disabled, fired: false, timer_remaining, timer_paused: false });
         }
         Self {
             states,
@@ -88,18 +86,11 @@ pub fn tick_triggers(world: &mut BattleState) {
         return;
     }
 
-    let events_by_id: HashMap<String, ra_map::MapEvent> =
-        scripting.events.iter().cloned().map(|e| (e.id.clone(), e)).collect();
-    let actions_by_id: HashMap<String, ra_map::MapAction> =
-        scripting.actions.iter().cloned().map(|a| (a.id.clone(), a)).collect();
+    let events_by_id: HashMap<String, ra_map::MapEvent> = scripting.events.iter().cloned().map(|e| (e.id.clone(), e)).collect();
+    let actions_by_id: HashMap<String, ra_map::MapAction> = scripting.actions.iter().cloned().map(|a| (a.id.clone(), a)).collect();
     let tags = scripting.tags.clone();
     let cell_tags = scripting.cell_tags.clone();
-    let local_house = world
-        .players
-        .iter()
-        .find(|p| p.id == world.local_player)
-        .map(|p| p.house.clone())
-        .unwrap_or_default();
+    let local_house = world.players.iter().find(|p| p.id == world.local_player).map(|p| p.house.clone()).unwrap_or_default();
 
     // 先推进计时器（暂停中的不扣减）。
     for st in &mut world.trigger_runtime.states {
@@ -212,12 +203,7 @@ fn condition_met(
         }
         MapEventKind::LowPower => {
             let house = event_house_param(c).unwrap_or_else(|| local_house.to_string());
-            world
-                .players
-                .iter()
-                .find(|p| p.house.as_ref().eq_ignore_ascii_case(&house))
-                .map(|p| p.low_power())
-                .unwrap_or(false)
+            world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(&house)).map(|p| p.low_power()).unwrap_or(false)
         }
         MapEventKind::Unknown(_) => false,
     }
@@ -238,12 +224,7 @@ fn event_numeric_param(c: &MapEventCondition) -> Option<u32> {
 }
 
 fn house_funds(world: &BattleState, house: &str) -> i32 {
-    world
-        .players
-        .iter()
-        .find(|p| p.house.as_ref().eq_ignore_ascii_case(house))
-        .map(|p| p.funds)
-        .unwrap_or(0)
+    world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(house)).map(|p| p.funds).unwrap_or(0)
 }
 
 /// 事件条件中的 house 参数（常见在 `params[1]`）。
@@ -275,11 +256,7 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if !world
-            .ecs_get::<Owner>(id)
-            .map(|o| o.house.eq_ignore_ascii_case(house))
-            .unwrap_or(false)
-        {
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)
@@ -301,31 +278,17 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
 }
 
 fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String> {
-    tags.iter()
-        .filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id))
-        .map(|t| t.id.clone())
-        .collect()
+    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.clone()).collect()
 }
 
 /// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。
 fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
-    scripting
-        .actions
-        .iter()
-        .filter(|a| a.commands.iter().any(|c| c.kind == MapActionKind::AllowWin))
-        .count() as u32
+    scripting.actions.iter().filter(|a| a.commands.iter().any(|c| c.kind == MapActionKind::AllowWin)).count() as u32
 }
 
 /// 查找触发器所属 house（`[Triggers]` 行首字段）。
 fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
-    world
-        .map
-        .scripting
-        .triggers
-        .iter()
-        .find(|t| t.id.eq_ignore_ascii_case(trigger_id))
-        .map(|t| t.house.clone())
-        .filter(|h| !h.is_empty())
+    world.map.scripting.triggers.iter().find(|t| t.id.eq_ignore_ascii_case(trigger_id)).map(|t| t.house.clone()).filter(|h| !h.is_empty())
 }
 
 /// 双向结盟或解盟：写入双方 `PlayerState.allies`。
@@ -344,7 +307,8 @@ fn set_houses_allied(world: &mut BattleState, a: &str, b: &str, allied: bool) {
             if !player.allies.iter().any(|x| x.eq_ignore_ascii_case(other)) {
                 player.allies.push(other.to_string());
             }
-        } else {
+        }
+        else {
             player.allies.retain(|x| !x.eq_ignore_ascii_case(other));
         }
     }
@@ -368,17 +332,8 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
     false
 }
 
-fn cell_entered_by_house(
-    world: &BattleState,
-    cell_tags: &[ra_map::MapCellTag],
-    bound_tags: &HashSet<String>,
-    house: &str,
-) -> bool {
-    let cells: Vec<(u16, u16)> = cell_tags
-        .iter()
-        .filter(|c| bound_tags.contains(&c.tag_id))
-        .map(|c| (c.x, c.y))
-        .collect();
+fn cell_entered_by_house(world: &BattleState, cell_tags: &[ra_map::MapCellTag], bound_tags: &HashSet<String>, house: &str) -> bool {
+    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(&c.tag_id)).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }
@@ -427,25 +382,26 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             world.trigger_runtime.win_blockers = world.trigger_runtime.win_blockers.saturating_sub(1);
             if world.trigger_runtime.win_blockers == 0 {
                 if let Some(house) = world.trigger_runtime.deferred_victory_house.take() {
-                    world.trigger_runtime.pending_outcome =
-                        Some(BattleOutcome::Victory { owner: house });
+                    world.trigger_runtime.pending_outcome = Some(BattleOutcome::Victory { owner: house });
                 }
             }
         }
         MapActionKind::CreateTeam | MapActionKind::Reinforcement | MapActionKind::ReinforcementAtWaypoint => {
             if let Some(team) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()) {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
-            } else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
-            {
+            }
+            else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
                 world.trigger_runtime.pending_team_spawns.push(team.to_string());
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
         MapActionKind::DestroyTeam => {
             if let Some(team) = action_team_id_param(cmd) {
                 super::script_teams::destroy_team_type(world, &team);
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -470,7 +426,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                     st.disabled = true;
                     st.fired = true;
                 }
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -524,7 +481,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         MapActionKind::ForceTrigger => {
             if let Some(id) = action_trigger_id_param(cmd) {
                 force_fire_trigger(world, &id, local_house);
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -588,7 +546,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
                     st.disabled = false;
                 }
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -597,7 +556,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
                     st.disabled = true;
                 }
-            } else {
+            }
+            else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -610,7 +570,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             let house = action_house_param(cmd);
             if house.is_none() {
                 world.ai_trigger_runtime.enabled = false;
-            } else {
+            }
+            else {
                 super::ai_triggers::set_ai_triggers_for_house(world, house.as_deref(), false);
             }
         }
@@ -647,10 +608,7 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world
-                .ecs_get::<Identity>(id)
-                .map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag))
-                .unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag)).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -674,10 +632,7 @@ fn change_all_house_entities(world: &mut BattleState, from_house: &str, new_hous
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world
-                .ecs_get::<Owner>(id)
-                .map(|o| o.house.eq_ignore_ascii_case(from_house))
-                .unwrap_or(false)
+            world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(from_house)).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -704,11 +659,7 @@ fn destroy_house_entities(world: &mut BattleState, house: &str, filter: DestroyH
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !world
-                .ecs_get::<Owner>(id)
-                .map(|o| o.house.eq_ignore_ascii_case(house))
-                .unwrap_or(false)
-            {
+            if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
                 return false;
             }
             let Some(identity) = world.ecs_get::<Identity>(id)
@@ -744,10 +695,7 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world
-                .ecs_get::<Identity>(id)
-                .map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag))
-                .unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag)).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -766,10 +714,7 @@ fn destroy_entities_with_tag(world: &mut BattleState, tag_id: &str) {
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world
-                .ecs_get::<Identity>(id)
-                .map(|identity| identity.tag.eq_ignore_ascii_case(tag_id))
-                .unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| identity.tag.eq_ignore_ascii_case(tag_id)).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -801,12 +746,7 @@ fn all_house_units_hunt(world: &mut BattleState, house: &str) {
             }
             world
                 .ecs_get::<Identity>(id)
-                .map(|identity| {
-                    matches!(
-                        identity.kind,
-                        MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft
-                    )
-                })
+                .map(|identity| matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
                 .unwrap_or(false)
         })
         .collect();
@@ -857,13 +797,7 @@ fn nearest_hostile_from(world: &BattleState, house: &str, cx: u16, cy: u16) -> O
 
 /// 强制执行目标触发的 Actions（跳过 Events；已触发过则忽略，避免环）。
 fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
-    let already = world
-        .trigger_runtime
-        .states
-        .iter()
-        .find(|s| s.id.eq_ignore_ascii_case(id))
-        .map(|s| s.fired)
-        .unwrap_or(true);
+    let already = world.trigger_runtime.states.iter().find(|s| s.id.eq_ignore_ascii_case(id)).map(|s| s.fired).unwrap_or(true);
     if already {
         return;
     }
@@ -871,14 +805,7 @@ fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
         st.disabled = false;
         st.fired = true;
     }
-    let commands = world
-        .map
-        .scripting
-        .actions
-        .iter()
-        .find(|a| a.id.eq_ignore_ascii_case(id))
-        .map(|a| a.commands.clone())
-        .unwrap_or_default();
+    let commands = world.map.scripting.actions.iter().find(|a| a.id.eq_ignore_ascii_case(id)).map(|a| a.commands.clone()).unwrap_or_default();
     for cmd in &commands {
         apply_action(world, id, cmd, local_house);
         if world.trigger_runtime.pending_outcome.is_some() {
@@ -907,11 +834,7 @@ fn action_team_id_param(cmd: &MapActionCommand) -> Option<String> {
     if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
         return Some(id.to_string());
     }
-    cmd.params
-        .first()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty() && s.parse::<i32>().is_err())
-        .map(|s| s.to_string())
+    cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()).map(|s| s.to_string())
 }
 
 /// Destroy Tag：Tag id（通常在 `params[1]`）。

@@ -2,9 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count,
-};
+use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
 use ra_types::AssetSource;
 
 use crate::{
@@ -68,11 +66,7 @@ pub struct StructureAnimBank {
 
 impl Default for StructureAnimBank {
     fn default() -> Self {
-        Self {
-            lighting: crate::LightingConfig::default(),
-            point_lights: Vec::new(),
-            layers: Vec::new(),
-        }
+        Self { lighting: crate::LightingConfig::default(), point_lights: Vec::new(), layers: Vec::new() }
     }
 }
 
@@ -179,8 +173,7 @@ pub fn collect_structure_anim_bank(
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater =
-                art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let anim_new_theater = art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             let loop_start = art
                 .as_ref()
                 .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
@@ -188,11 +181,8 @@ pub fn collect_structure_anim_bank(
                 .unwrap_or(0);
             let loop_end = art.as_ref().and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
             let rate_ms = art.as_ref().and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
-            let anim_remapable = art
-                .as_ref()
-                .and_then(|a| a.get(&anim_name, "Remapable"))
-                .map(|v| !v.eq_ignore_ascii_case("no"))
-                .unwrap_or(remapable);
+            let anim_remapable =
+                art.as_ref().and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
             let Some(shp) = load_shp(source, map, &anim_image, anim_new_theater, &mut shp_cache)
@@ -212,7 +202,7 @@ pub fn collect_structure_anim_bank(
                 let Some(blit) = frame_to_blit(shp, frame_idx, 0, &anim_pal)
                 else {
                     // 空帧占位，保持下标对齐。
-                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: 0, rgba: Vec::new(), shadow: None, });
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: 0, offset_y: 0, rgba: Vec::new(), shadow: None });
                     continue;
                 };
                 frames.push(blit);
@@ -220,15 +210,7 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer {
-                x: ent.x,
-                y: ent.y,
-                cell_z,
-                rate_ms,
-                loop_start,
-                loop_end: end,
-                frames,
-            });
+            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start, loop_end: end, frames });
         }
 
         // 黄血及以下：按 art `DamageFireOffset*` 叠 `DamageFireTypes` 火焰。
@@ -245,13 +227,8 @@ pub fn collect_structure_anim_bank(
                 continue;
             };
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
-            let fire_image = art
-                .as_ref()
-                .and_then(|a| a.get(fire_name, "Image"))
-                .unwrap_or(fire_name.as_str())
-                .to_ascii_uppercase();
-            let fire_new_theater =
-                art.as_ref().and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let fire_image = art.as_ref().and_then(|a| a.get(fire_name, "Image")).unwrap_or(fire_name.as_str()).to_ascii_uppercase();
+            let fire_new_theater = art.as_ref().and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             let rate_ms = art.as_ref().and_then(|a| a.get(fire_name, "Rate")).and_then(parse_u32).unwrap_or(80);
             let Some(shp) = load_shp(source, map, &fire_image, fire_new_theater, &mut shp_cache)
             else {
@@ -268,7 +245,7 @@ pub fn collect_structure_anim_bank(
                 for frame_idx in 0..body_n {
                     let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                     else {
-                        frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None, });
+                        frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None });
                         continue;
                     };
                     blit.offset_x += ox;
@@ -278,15 +255,7 @@ pub fn collect_structure_anim_bank(
                 if frames.iter().all(|f| f.width == 0) {
                     continue;
                 }
-                layers.push(StructureAnimLayer {
-                    x: ent.x,
-                    y: ent.y,
-                    cell_z,
-                    rate_ms,
-                    loop_start: 0,
-                    loop_end: body_n,
-                    frames,
-                });
+                layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start: 0, loop_end: body_n, frames });
                 continue;
             };
             let body_n = shp_body_frame_count(&shp.frames) as u16;
@@ -297,7 +266,7 @@ pub fn collect_structure_anim_bank(
             for frame_idx in 0..body_n {
                 let Some(mut blit) = frame_to_blit(shp, frame_idx, 0, &fire_pal)
                 else {
-                    frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None, });
+                    frames.push(TileBlit { width: 0, height: 0, offset_x: ox, offset_y: oy, rgba: Vec::new(), shadow: None });
                     continue;
                 };
                 blit.offset_x += ox;
@@ -307,23 +276,11 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer {
-                x: ent.x,
-                y: ent.y,
-                cell_z,
-                rate_ms,
-                loop_start: 0,
-                loop_end: body_n,
-                frames,
-            });
+            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms, loop_start: 0, loop_end: body_n, frames });
         }
     }
 
-    StructureAnimBank {
-        lighting: map.active_lighting(),
-        point_lights: map.point_lights.clone(),
-        layers,
-    }
+    StructureAnimBank { lighting: map.active_lighting(), point_lights: map.point_lights.clone(), layers }
 }
 
 /// 按时钟把活动层叠到地形图上。
@@ -343,15 +300,10 @@ pub fn paint_structure_anim_bank(image: &mut TerrainImage, bank: &StructureAnimB
             continue;
         }
         let mut painted = blit.clone();
-        apply_rgba_tint(
-            &mut painted.rgba,
-            cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights),
-        );
+        apply_rgba_tint(&mut painted.rgba, cell_tint_with_lights(&bank.lighting, layer.cell_z, layer.x, layer.y, &bank.point_lights));
         items.push((layer.x, layer.y, painted));
     }
-    let z_at = |x: u16, y: u16| {
-        bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0)
-    };
+    let z_at = |x: u16, y: u16| bank.layers.iter().find(|l| l.x == x && l.y == y).map(|l| l.cell_z).unwrap_or(0);
     paint_cell_sprites(image, &items, z_at)
 }
 
@@ -398,11 +350,7 @@ pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) ->
     }
     let rate = u64::from(rate_ms.max(1));
     let idx = (elapsed_ms / rate) as usize;
-    if idx >= frame_count {
-        None
-    } else {
-        Some(idx)
-    }
+    if idx >= frame_count { None } else { Some(idx) }
 }
 
 /// 从 art `Buildup=` 装入一次性展开序列。无 `Buildup` 或资源缺失时返回 `None`。
@@ -422,10 +370,7 @@ pub fn load_structure_buildup_clip(
     let parent_new_theater = art.get(&art_section, "NewTheater").is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     // 无独立 `[GACNSTMK]` 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
     let image_key = art.get(&buildup_key, "Image").unwrap_or(buildup_key.as_str()).to_ascii_uppercase();
-    let new_theater = art
-        .get(&buildup_key, "NewTheater")
-        .map(|v| v.eq_ignore_ascii_case("yes"))
-        .unwrap_or(parent_new_theater);
+    let new_theater = art.get(&buildup_key, "NewTheater").map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(parent_new_theater);
     let rate_ms = art.get(&buildup_key, "Rate").and_then(parse_u32).unwrap_or(100);
     let remapable = is_remapable(Some(&art), &art_section, true);
     let obj_pal = load_object_palette(source, map)?;
@@ -448,12 +393,7 @@ pub fn load_structure_buildup_clip(
     if frames.is_empty() {
         return None;
     }
-    let cell_z = map
-        .cells
-        .iter()
-        .find(|c| c.x == x as i16 && c.y == y as i16)
-        .map(|c| c.z)
-        .unwrap_or(0);
+    let cell_z = map.cells.iter().find(|c| c.x == x as i16 && c.y == y as i16).map(|c| c.z).unwrap_or(0);
     Some(StructureBuildupClip { x, y, cell_z, rate_ms, frames })
 }
 
@@ -537,52 +477,30 @@ fn paint_map_structures_inner(
         let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
         if paint_body {
-            let body_new_theater =
-                art.as_ref().and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let body_new_theater = art.as_ref().and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             // Bib 垫在主体下（同格、帧 0）；科技前哨等靠它补齐地基。
             if let Some(bib_key) = art_get_building(art.as_ref(), &ent.type_id, &art_section, "BibShape").map(str::to_ascii_uppercase) {
-                let bib_new_theater = art
-                    .as_ref()
-                    .and_then(|a| a.get(&bib_key, "NewTheater"))
-                    .map(|v| v.eq_ignore_ascii_case("yes"))
-                    .unwrap_or(body_new_theater);
-                if let Some(mut blit) = load_structure_blit(
-                    source,
-                    map,
-                    &bib_key,
-                    bib_new_theater,
-                    0,
-                    0,
-                    &pal,
-                    &mut shp_cache,
-                    &mut blit_cache,
-                    &ent.owner,
-                ) {
+                let bib_new_theater =
+                    art.as_ref().and_then(|a| a.get(&bib_key, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater);
+                if let Some(mut blit) =
+                    load_structure_blit(source, map, &bib_key, bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
+                {
                     apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                     items.push((ent.x, ent.y, blit));
                 }
             }
             let body_key = art.as_ref().and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
-            let body_frames = load_shp(source, map, &body_key, body_new_theater, &mut shp_cache)
-                .map(|shp| shp_body_frame_count(&shp.frames))
-                .unwrap_or(1);
+            let body_frames =
+                load_shp(source, map, &body_key, body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
             let tech = structure_tech_level(rules_doc.as_ref(), &ent.type_id);
             let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, tech, body_frames);
-            if let Some(mut blit) = load_structure_blit(
-                source,
-                map,
-                &body_key,
-                body_new_theater,
-                frame_idx,
-                0,
-                &pal,
-                &mut shp_cache,
-                &mut blit_cache,
-                &ent.owner,
-            ) {
+            if let Some(mut blit) =
+                load_structure_blit(source, map, &body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
+            {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
-            } else {
+            }
+            else {
                 missing.push((ent.x, ent.y));
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
@@ -604,8 +522,7 @@ fn paint_map_structures_inner(
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
             let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater =
-                art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let anim_new_theater = art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             let loop_start = art
                 .as_ref()
                 .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
@@ -614,11 +531,8 @@ fn paint_map_structures_inner(
             let loop_end = art.as_ref().and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
             let rate_ms = art.as_ref().and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
             let frame_idx = structure_anim_frame(clock_ms, rate_ms, loop_start, loop_end);
-            let anim_remapable = art
-                .as_ref()
-                .and_then(|a| a.get(&anim_name, "Remapable"))
-                .map(|v| !v.eq_ignore_ascii_case("no"))
-                .unwrap_or(remapable);
+            let anim_remapable =
+                art.as_ref().and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
             if let Some(mut blit) = load_structure_blit(
                 source,
@@ -639,11 +553,7 @@ fn paint_map_structures_inner(
     }
 
     let shp_n = paint_cell_sprites(image, &items, z_at);
-    let mark_n = if missing.is_empty() {
-        0
-    } else {
-        crate::paint_structure_missing_markers(image, &missing, z_at)
-    };
+    let mark_n = if missing.is_empty() { 0 } else { crate::paint_structure_missing_markers(image, &missing, z_at) };
     (shp_n, mark_n)
 }
 
@@ -665,9 +575,11 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
         let image_key = a.get(type_id, "Image").unwrap_or(type_id);
         if a.section(image_key).is_some() {
             Some(image_key.to_ascii_uppercase())
-        } else if a.section(type_id).is_some() {
+        }
+        else if a.section(type_id).is_some() {
             Some(type_id.to_ascii_uppercase())
-        } else {
+        }
+        else {
             None
         }
     })
@@ -677,13 +589,7 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
 /// 建筑键优先读类型节，再回退 `Image=` 目标节（`DamageFireOffset*` 等挂在类型节）。
 fn art_get_building<'a>(art: Option<&'a IniDocument>, type_id: &str, art_section: &str, key: &str) -> Option<&'a str> {
     let art = art?;
-    art.get(type_id, key).or_else(|| {
-        if art_section.eq_ignore_ascii_case(type_id) {
-            None
-        } else {
-            art.get(art_section, key)
-        }
-    })
+    art.get(type_id, key).or_else(|| if art_section.eq_ignore_ascii_case(type_id) { None } else { art.get(art_section, key) })
 }
 
 /// 黄血时优先 `ActiveAnimDamaged` / `ActiveAnimTwoDamaged`，否则用正常活动层。
@@ -720,7 +626,8 @@ fn load_shp<'a>(
 ) -> Option<&'a ShpFile> {
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
-    } else {
+    }
+    else {
         vec![format!("{}.shp", image_key.to_ascii_lowercase()), new_theater_shp_name(image_key, map.theater)]
     };
     let mut loaded: Option<String> = None;
@@ -761,7 +668,8 @@ fn frame_to_blit(shp: &ShpFile, frame_idx: u16, z_adjust: i32, pal: &Palette) ->
         offset_x: i32::from(frame.frame_x as i16) - i32::from(shp.width) / 2 + TILE_WIDTH / 2,
         offset_y: i32::from(frame.frame_y as i16) - i32::from(shp.height) / 2 + z_adjust,
         rgba: frame.to_rgba(pal),
-     shadow: None, })
+        shadow: None,
+    })
 }
 
 fn load_structure_blit(
@@ -799,9 +707,7 @@ fn load_structure_turret_vxl(
     pal: &Palette,
 ) -> Option<TileBlit> {
     let rules = rules?;
-    let is_voxel = rules
-        .get(type_id, "TurretAnimIsVoxel")
-        .is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+    let is_voxel = rules.get(type_id, "TurretAnimIsVoxel").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
     if !is_voxel {
         return None;
     }
@@ -816,12 +722,7 @@ fn load_structure_turret_vxl(
     let body_bytes = source.read(&format!("{stem}.vxl")).ok()?;
     let body = VxlFile::parse(&body_bytes).ok()?;
     let body_hva = source.read(&format!("{stem}.hva")).ok().and_then(|b| HvaFile::parse(&b).ok());
-    let layers = [VxlLayerPose {
-        vxl: &body,
-        hva: body_hva.as_ref(),
-        facing,
-        frame: 0,
-    }];
+    let layers = [VxlLayerPose { vxl: &body, hva: body_hva.as_ref(), facing, frame: 0 }];
     let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl.as_ref())?;
     // 建筑锚点与主体 SHP 同口径（钻石顶边中点）；再加 rules 像素偏移。
     Some(TileBlit {
@@ -830,7 +731,8 @@ fn load_structure_turret_vxl(
         offset_x: sprite.offset_x + TILE_WIDTH / 2 + anim_x,
         offset_y: sprite.offset_y + anim_y,
         rgba: sprite.rgba,
-     shadow: None, })
+        shadow: None,
+    })
 }
 
 fn parse_i32(raw: &str) -> Option<i32> {

@@ -1,7 +1,7 @@
 //! 绕静态障碍寻路。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
@@ -50,4 +50,26 @@ fn bfs_detours_around_structure() {
     }
     assert_eq!(world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, 14);
     assert_eq!(world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1, 10);
+}
+
+// 自顶层 `spatial__navigation_footprint_tests.rs` 并入。
+
+// 自 engine/ra-engine/src/spatial/navigation.rs :: footprint_tests
+use ra_engine::spatial::navigation::{is_adjacent_to_footprint, manhattan_to_footprint, nearest_adjacent_to_footprint};
+
+#[test]
+fn footprint_distance_uses_nearest_cell() {
+    // 2x2 锚点 (4,4) 覆盖 (4,4)(5,4)(4,5)(5,5)
+    assert_eq!(manhattan_to_footprint(6, 4, 4, 4, 2, 2), 1);
+    assert_eq!(manhattan_to_footprint(6, 5, 4, 4, 2, 2), 1);
+    assert_eq!(manhattan_to_footprint(7, 4, 4, 4, 2, 2), 2);
+    assert_eq!(manhattan_to_footprint(5, 4, 4, 4, 2, 2), 0);
+    assert!(is_adjacent_to_footprint(6, 4, 4, 4, 2, 2));
+    assert!(!is_adjacent_to_footprint(7, 4, 4, 4, 2, 2));
+}
+
+#[test]
+fn nearest_adjacent_picks_closest_ring_cell() {
+    assert_eq!(nearest_adjacent_to_footprint(7, 4, 4, 4, 2, 2), (6, 4));
+    assert_eq!(nearest_adjacent_to_footprint(3, 4, 4, 4, 2, 2), (3, 4));
 }

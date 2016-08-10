@@ -45,11 +45,7 @@ pub fn boot_map_name_csf_key(file_name: &str) -> String {
 /// 解析大厅显示用 CSF 键：优先 `[Basic] Description`，否则按文件名推导。
 pub fn resolve_boot_map_name_csf(file_name: &str, description_csf: &str) -> String {
     let trimmed = description_csf.trim();
-    if trimmed.is_empty() {
-        boot_map_name_csf_key(file_name)
-    } else {
-        trimmed.to_string()
-    }
+    if trimmed.is_empty() { boot_map_name_csf_key(file_name) } else { trimmed.to_string() }
 }
 
 /// 统计遭遇战开局席位：优先航点编号 `< 8`，否则从文件名 `tN` 推断，再否则 4。
@@ -128,11 +124,7 @@ pub fn list_parseable_maps_from_names(
 /// - 显示名 CSF 键与模式过滤取自各 stem 对应 PKT 小节的 `Description` / `GameMode`。
 /// - 地图文件不可读或解析失败则跳过该项，不改动其余项顺序。
 /// - `pkt_bytes` 无法解析或缺 `[MultiMaps]` 时返回空表。
-pub fn list_parseable_maps_from_missions_pkt(
-    edition: GameEdition,
-    source: &dyn AssetSource,
-    pkt_bytes: &[u8],
-) -> Vec<BootMapCandidate> {
+pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn AssetSource, pkt_bytes: &[u8]) -> Vec<BootMapCandidate> {
     let Ok(pkt) = IniDocument::parse(pkt_bytes)
     else {
         return Vec::new();
@@ -166,12 +158,7 @@ pub fn list_parseable_maps_from_missions_pkt(
     out
 }
 
-fn candidate_from_parsed_map(
-    file_name: &str,
-    map: &MapInfo,
-    pkt_description: Option<&str>,
-    pkt_game_mode: Option<&str>,
-) -> BootMapCandidate {
+fn candidate_from_parsed_map(file_name: &str, map: &MapInfo, pkt_description: Option<&str>, pkt_game_mode: Option<&str>) -> BootMapCandidate {
     let name_csf = match pkt_description.map(str::trim).filter(|s| !s.is_empty()) {
         Some(desc) => desc.to_string(),
         None => resolve_boot_map_name_csf(file_name, &map.description_csf),
@@ -202,14 +189,7 @@ pub fn list_parseable_boot_maps(edition: GameEdition, source: &dyn AssetSource) 
 pub fn find_boot_map_named(edition: GameEdition, source: &dyn AssetSource, name: &str) -> Option<BootMapResult> {
     let bytes = source.read(name).ok()?;
     let map = try_parse_boot_map(edition, name, &bytes).ok()?;
-    let mut note = format!(
-        "map:{name} size={}x{} grid={}x{} {}",
-        map.size_width,
-        map.size_height,
-        map.width,
-        map.height,
-        map.theater.as_str()
-    );
+    let mut note = format!("map:{name} size={}x{} grid={}x{} {}", map.size_width, map.size_height, map.width, map.height, map.theater.as_str());
     note.push_str(&map_content_note(&map));
     Some(BootMapResult { map, note })
 }
@@ -226,13 +206,13 @@ pub fn find_first_boot_map(edition: GameEdition, source: &dyn AssetSource) -> Op
         match try_parse_boot_map(edition, name, &bytes) {
             Ok(map) => {
                 let mut note = format!(
-        "map:{name} size={}x{} grid={}x{} {}",
-        map.size_width,
-        map.size_height,
-        map.width,
-        map.height,
-        map.theater.as_str()
-    );
+                    "map:{name} size={}x{} grid={}x{} {}",
+                    map.size_width,
+                    map.size_height,
+                    map.width,
+                    map.height,
+                    map.theater.as_str()
+                );
                 note.push_str(&map_content_note(&map));
                 return Some(BootMapResult { map, note });
             }

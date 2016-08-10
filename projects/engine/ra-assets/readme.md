@@ -106,13 +106,14 @@ TMP 仍在演进中。
 
 ## VXL 与 HVA：体素单位
 
-| 格式 | 职责 |
-|------|------|
-| `VxlFile` / `VxlVoxel` | 体素 limb 与体素列 |
-| `voxel::raster` | 按层/姿态光栅化为 RGBA 精灵 |
-| `HvaFile` | 体素动画段（帧间变换） |
+| 格式                   | 职责                        |
+|------------------------|-----------------------------|
+| `VxlFile` / `VxlVoxel` | 体素 limb 与体素列          |
+| `voxel::raster`        | 按层/姿态光栅化为 RGBA 精灵 |
+| `HvaFile`              | 体素动画段（帧间变换）      |
 
-VXL/HVA 是 RA2 3D 单位在 2D 等距视图中的数据来源。解析在本 crate；呈现批次在 `ra-renderer` 演进；逻辑身份与状态在 **`ra-engine`**。
+VXL/HVA 是 RA2 3D 单位在 2D 等距视图中的数据来源。解析在本 crate；呈现批次在 `ra-renderer` 演进；逻辑身份与状态在 **
+`ra-engine`**。
 
 ```mermaid
 flowchart LR

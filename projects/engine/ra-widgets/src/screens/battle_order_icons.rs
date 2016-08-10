@@ -140,17 +140,8 @@ pub fn load_battle_order_icons(source: &GameAssetSource) -> Option<DecodedOrderI
     let move_frames = decode_range(&shp, &pal, MOUSE_MOVE_START, MOUSE_MOVE_LEN)?;
     let attack_frames = decode_range(&shp, &pal, MOUSE_ATTACK_START, MOUSE_ATTACK_LEN)?;
     let deploy_frames = decode_range(&shp, &pal, MOUSE_DEPLOY_START, MOUSE_DEPLOY_LEN)?;
-    let (canvas_w, canvas_h) = move_frames
-        .first()
-        .map(|f| (f.width(), f.height()))
-        .unwrap_or((u32::from(shp.width), u32::from(shp.height)));
-    Some(DecodedOrderIcons {
-        canvas_w,
-        canvas_h,
-        move_frames,
-        attack_frames,
-        deploy_frames,
-    })
+    let (canvas_w, canvas_h) = move_frames.first().map(|f| (f.width(), f.height())).unwrap_or((u32::from(shp.width), u32::from(shp.height)));
+    Some(DecodedOrderIcons { canvas_w, canvas_h, move_frames, attack_frames, deploy_frames })
 }
 
 /// 从同一份 `mouse.shp` 加载对局软件光标。失败返回 `None`。
@@ -165,52 +156,24 @@ pub fn load_battle_edge_cursors(source: &GameAssetSource) -> Option<DecodedBattl
     let no_deploy = decode_one(&shp, &pal, MOUSE_NO_DEPLOY_START, MouseCursorHotspot::CenterMiddle)?;
     let scroll = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_START)?;
     let blocked = decode_dir_ring(&shp, &pal, MOUSE_SCROLL_BLOCKED_START)?;
-    Some(DecodedBattleEdgeCursors {
-        default,
-        select,
-        move_ok,
-        no_move,
-        attack,
-        deploy,
-        no_deploy,
-        scroll,
-        blocked,
-    })
+    Some(DecodedBattleEdgeCursors { default, select, move_ok, no_move, attack, deploy, no_deploy, scroll, blocked })
 }
 
-fn open_mouse_shp(source: &GameAssetSource) -> Option<(ShpFile, Palette)> {
+pub fn open_mouse_shp(source: &GameAssetSource) -> Option<(ShpFile, Palette)> {
     let shp_bytes = source.read("mouse.shp").ok()?;
     let shp = ShpFile::parse(&shp_bytes).ok()?;
-    let pal_bytes = source
-        .read("mousepal.pal")
-        .or_else(|_| source.read("mouse.pal"))
-        .ok()?;
+    let pal_bytes = source.read("mousepal.pal").or_else(|_| source.read("mouse.pal")).ok()?;
     let pal = Palette::parse(&pal_bytes).ok()?;
     Some((shp, pal))
 }
 
-fn decode_one(
-    shp: &ShpFile,
-    pal: &Palette,
-    index: usize,
-    hotspot: MouseCursorHotspot,
-) -> Option<DecodedMouseCursorFrame> {
+pub fn decode_one(shp: &ShpFile, pal: &Palette, index: usize, hotspot: MouseCursorHotspot) -> Option<DecodedMouseCursorFrame> {
     let img = frame_to_canvas_rgba(shp, shp.frames.get(index)?, pal)?;
     let (hx, hy) = hotspot.to_px(img.width(), img.height());
-    Some(DecodedMouseCursorFrame {
-        image: img,
-        hotspot_x: hx,
-        hotspot_y: hy,
-    })
+    Some(DecodedMouseCursorFrame { image: img, hotspot_x: hx, hotspot_y: hy })
 }
 
-fn decode_seq(
-    shp: &ShpFile,
-    pal: &Palette,
-    start: usize,
-    len: usize,
-    hotspot: MouseCursorHotspot,
-) -> Option<Vec<DecodedMouseCursorFrame>> {
+pub fn decode_seq(shp: &ShpFile, pal: &Palette, start: usize, len: usize, hotspot: MouseCursorHotspot) -> Option<Vec<DecodedMouseCursorFrame>> {
     if len == 0 || start >= shp.frames.len() {
         return None;
     }
@@ -219,24 +182,12 @@ fn decode_seq(
     for i in start..end {
         let img = frame_to_canvas_rgba(shp, &shp.frames[i], pal)?;
         let (hx, hy) = hotspot.to_px(img.width(), img.height());
-        out.push(DecodedMouseCursorFrame {
-            image: img,
-            hotspot_x: hx,
-            hotspot_y: hy,
-        });
+        out.push(DecodedMouseCursorFrame { image: img, hotspot_x: hx, hotspot_y: hy });
     }
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
+    if out.is_empty() { None } else { Some(out) }
 }
 
-fn decode_dir_ring(
-    shp: &ShpFile,
-    pal: &Palette,
-    start: usize,
-) -> Option<[DecodedMouseCursorFrame; MOUSE_SCROLL_DIR_COUNT]> {
+pub fn decode_dir_ring(shp: &ShpFile, pal: &Palette, start: usize) -> Option<[DecodedMouseCursorFrame; MOUSE_SCROLL_DIR_COUNT]> {
     let mut frames: Vec<DecodedMouseCursorFrame> = Vec::with_capacity(MOUSE_SCROLL_DIR_COUNT);
     for i in 0..MOUSE_SCROLL_DIR_COUNT {
         frames.push(decode_one(shp, pal, start + i, MOUSE_SCROLL_HOTSPOTS[i])?);
@@ -244,12 +195,7 @@ fn decode_dir_ring(
     frames.try_into().ok()
 }
 
-fn decode_range(
-    shp: &ShpFile,
-    pal: &Palette,
-    start: usize,
-    len: usize,
-) -> Option<Vec<RgbaImage>> {
+pub fn decode_range(shp: &ShpFile, pal: &Palette, start: usize, len: usize) -> Option<Vec<RgbaImage>> {
     if start >= shp.frames.len() || len == 0 {
         return None;
     }
@@ -259,35 +205,5 @@ fn decode_range(
         let img = frame_to_canvas_rgba(shp, &shp.frames[i], pal)?;
         out.push(img);
     }
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
-    }
-}
-
-#[cfg(test)]
-mod hotspot_tests {
-    use super::*;
-
-    #[test]
-    fn scroll_hotspot_center_top_on_even_canvas() {
-        let (x, y) = MouseCursorHotspot::CenterTop.to_px(64, 48);
-        assert_eq!((x, y), (32, 0));
-    }
-
-    #[test]
-    fn scroll_ring_frame_offsets_match_table() {
-        assert_eq!(MOUSE_SCROLL_START + 7, 9);
-        assert_eq!(MOUSE_SCROLL_BLOCKED_START + 7, 17);
-    }
-
-    #[test]
-    fn core_gameplay_frame_table() {
-        assert_eq!(MOUSE_SELECT_START + MOUSE_SELECT_LEN - 1, 30);
-        assert_eq!(MOUSE_MOVE_START + MOUSE_MOVE_LEN - 1, 40);
-        assert_eq!(MOUSE_NO_MOVE_START, 41);
-        assert_eq!(MOUSE_ATTACK_START + MOUSE_ATTACK_LEN - 1, 57);
-        assert_eq!(MOUSE_NO_DEPLOY_START, 119);
-    }
+    if out.is_empty() { None } else { Some(out) }
 }

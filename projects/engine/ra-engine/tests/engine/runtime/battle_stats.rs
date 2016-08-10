@@ -1,7 +1,7 @@
 //! 胜负时锁定 BattleStats。
 
 use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{GameCommand, BattleOutcome, BattleState, Session};
+use ra_engine::{BattleOutcome, BattleState, GameCommand, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 

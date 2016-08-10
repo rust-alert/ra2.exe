@@ -1,7 +1,5 @@
 use super::types::BattleState;
-use crate::
-game::InputFrame;
-
+use crate::game::InputFrame;
 
 impl BattleState {
     /// 推进一个逻辑 tick（使用默认 [`SystemSchedule`]）。
@@ -21,7 +19,8 @@ impl BattleState {
         for cmd in std::mem::take(&mut self.pending_commands) {
             if cmd.tick.0 <= self.tick {
                 due.push(cmd);
-            } else {
+            }
+            else {
                 deferred.push(cmd);
             }
         }

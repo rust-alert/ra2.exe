@@ -24,15 +24,7 @@ pub struct RightPanelChrome {
 impl RightPanelChrome {
     /// 与壳层常量一致的默认度量。
     pub fn shell_defaults() -> Self {
-        Self {
-            shell_w: 800.0,
-            shell_h: 600.0,
-            panel_w: 168.0,
-            panel_top_h: 199.0,
-            tile_h: 42.0,
-            button_w: 156.0,
-            button_h: 42.0,
-        }
+        Self { shell_w: 800.0, shell_h: 600.0, panel_w: 168.0, panel_top_h: 199.0, tile_h: 42.0, button_w: 156.0, button_h: 42.0 }
     }
 
     /// 右栏左缘 X。
@@ -67,20 +59,10 @@ pub fn tile_snap_button(source: Rect, chrome: RightPanelChrome) -> Rect {
     let tile_h = chrome.tile_h.max(1.0);
     let tile_y = chrome.tile_y();
     let tile_index = ((source.y - tile_y + tile_h * 0.5) / tile_h).floor().max(0.0);
-    Rect::from_xywh(
-        chrome.button_x(),
-        tile_y + tile_index * tile_h,
-        chrome.button_w,
-        chrome.button_h,
-    )
+    Rect::from_xywh(chrome.button_x(), tile_y + tile_index * tile_h, chrome.button_w, chrome.button_h)
 }
 
 /// 贴底盖上沿的一行按钮格。
 pub fn bottom_cover_button(chrome: RightPanelChrome) -> Rect {
-    Rect::from_xywh(
-        chrome.button_x(),
-        chrome.panel_bottom_y() - chrome.button_h,
-        chrome.button_w,
-        chrome.button_h,
-    )
+    Rect::from_xywh(chrome.button_x(), chrome.panel_bottom_y() - chrome.button_h, chrome.button_w, chrome.button_h)
 }

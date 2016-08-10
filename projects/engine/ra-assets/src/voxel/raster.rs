@@ -205,13 +205,7 @@ pub fn rasterize_vxl_shadow_layer_poses(layers: &[VxlLayerPose<'_>]) -> Option<V
     }
 
     // 与车身同样按包围盒居中，但保留光向 X 偏移，避免「先加偏移再居中」被抵消。
-    Some(VxlSprite {
-        width,
-        height,
-        offset_x: -(width as i32) / 2 + VXL_SHADOW_LIGHT_OFFSET_X,
-        offset_y: -(height as i32) / 2,
-        rgba,
-    })
+    Some(VxlSprite { width, height, offset_x: -(width as i32) / 2 + VXL_SHADOW_LIGHT_OFFSET_X, offset_y: -(height as i32) / 2, rgba })
 }
 
 /// 节局部点：`bounds_min + bone(section_scale * grid)`。

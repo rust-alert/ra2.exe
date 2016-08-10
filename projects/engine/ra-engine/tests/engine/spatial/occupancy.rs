@@ -1,7 +1,7 @@
 //! 移动体互斥占格绕行。
 
 use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{GameCommand, BattleState};
+use ra_engine::{BattleState, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
@@ -41,13 +41,26 @@ fn mobiles_detour_around_each_other() {
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });
     world.advance_tick();
     assert!(!world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").is_empty());
-    assert!(!world.ecs_path(world.entity_id_at(1).expect("entity")).expect("path").iter().any(|&(x, y)| x == world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0 && y == world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1));
+    assert!(
+        !world
+            .ecs_path(world.entity_id_at(1).expect("entity"))
+            .expect("path")
+            .iter()
+            .any(|&(x, y)| x == world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0
+                && y == world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1)
+    );
     for _ in 0..40 {
         world.advance_tick();
     }
     // 至少一车抵达或贴近目标；且不同时占同一格。
-    let a = (world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1);
-    let b = (world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0, world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1);
+    let a = (
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(0).expect("entity")).expect("xf").1,
+    );
+    let b = (
+        world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0,
+        world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").1,
+    );
     assert_ne!(a, b);
     assert!(a == (14, 10) || b == (14, 10) || a.0.max(b.0) >= 13);
 }

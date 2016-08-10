@@ -53,7 +53,5 @@ pub fn compose_terrain_preview(source: &dyn AssetSource, map: &MapInfo) -> Optio
         Some(blit)
     };
 
-    compose_terrain_rgba(&map.cells, &mut resolve, |x, y, _z| {
-        map.tint_at(x as u16, y as u16, 0)
-    })
+    compose_terrain_rgba(&map.cells, &mut resolve, |x, y, _z| map.tint_at(x as u16, y as u16, 0))
 }
