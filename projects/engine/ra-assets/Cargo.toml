@@ -17,5 +17,9 @@ ra-types = { workspace = true }
 blowfish = { workspace = true }
 byteorder = { workspace = true }
 num-bigint = { workspace = true }
+serde = { workspace = true }
 symphonia = { workspace = true, features = ["wav", "pcm"] }
 encoding_rs = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
