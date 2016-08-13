@@ -1,6 +1,8 @@
-//! 从 rules 列表节解析 TechnoType 注册表。
+//! 从 rules 列表节解析 TechnoType 注册表（节字段经 Serde 一次解码）。
 
 use std::collections::HashMap;
+
+use serde::Deserialize;
 
 use crate::ini::IniDocument;
 
@@ -125,42 +127,87 @@ impl TechnoTypeRegistry {
     }
 }
 
+/// 类型节字段（一次 Serde 解码；缺省与归一化在组装 `TechnoType` 时完成）。
+#[derive(Debug, Deserialize)]
+struct TechnoSectionFields {
+    #[serde(rename = "Strength")]
+    strength: Option<u32>,
+    #[serde(rename = "Armor")]
+    armor: Option<String>,
+    #[serde(rename = "Speed")]
+    speed: Option<u32>,
+    #[serde(rename = "Sight")]
+    sight: Option<u32>,
+    #[serde(rename = "Cost")]
+    cost: Option<u32>,
+    #[serde(rename = "TechLevel")]
+    tech_level: Option<i32>,
+    #[serde(rename = "Owner")]
+    owner: Option<String>,
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "Category")]
+    category: Option<String>,
+    #[serde(rename = "Naval")]
+    naval: Option<bool>,
+    #[serde(rename = "Agent")]
+    agent: Option<bool>,
+    #[serde(rename = "Engineer")]
+    engineer: Option<bool>,
+    #[serde(rename = "Harvester")]
+    harvester: Option<bool>,
+    #[serde(rename = "Primary")]
+    primary: Option<String>,
+    #[serde(rename = "ROF")]
+    rof: Option<u32>,
+}
+
+/// 武器节字段。
+#[derive(Debug, Deserialize)]
+struct WeaponSectionFields {
+    #[serde(rename = "Damage")]
+    damage: Option<u32>,
+    #[serde(rename = "Range")]
+    range: Option<u32>,
+    #[serde(rename = "ROF")]
+    rof: Option<u32>,
+    #[serde(rename = "Warhead")]
+    warhead: Option<String>,
+}
+
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    if !rules.has_section(id) {
-        return None;
-    }
-    let strength = parse_u32(rules.get(id, "Strength")).unwrap_or(1);
-    let armor = rules.get(id, "Armor").unwrap_or("none").to_string();
-    let speed = parse_u32(rules.get(id, "Speed")).unwrap_or(0);
-    let sight = parse_u32(rules.get(id, "Sight")).unwrap_or(0);
-    let cost = parse_u32(rules.get(id, "Cost")).unwrap_or(0);
-    let tech_level = rules.get(id, "TechLevel").and_then(|s| s.parse().ok()).unwrap_or(-1);
-    let owner = rules.get(id, "Owner").unwrap_or("").to_string();
-    let image = rules.get(id, "Image").unwrap_or(id).to_ascii_uppercase();
-    let category = rules.get(id, "Category").unwrap_or("").trim().to_string();
-    let naval = rules.get(id, "Naval").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let agent = rules.get(id, "Agent").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let engineer = rules.get(id, "Engineer").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let harvester = rules.get(id, "Harvester").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"));
-    let primary = rules.get(id, "Primary").unwrap_or("").trim().to_ascii_uppercase();
-    let techno_rof = parse_u32(rules.get(id, "ROF")).unwrap_or(0);
+    let section = rules.section(id)?;
+    let fields: TechnoSectionFields = section.deserialize().ok()?;
+    let primary = fields
+        .primary
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
+    let techno_rof = fields.rof.unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
+    let image = fields
+        .image
+        .as_deref()
+        .unwrap_or(id)
+        .trim()
+        .to_ascii_uppercase();
     Some(TechnoType {
         id: id.to_string(),
         kind,
-        strength,
-        armor,
-        speed,
-        sight,
-        cost,
-        tech_level,
-        owner,
+        strength: fields.strength.unwrap_or(1),
+        armor: fields.armor.unwrap_or_else(|| "none".into()),
+        speed: fields.speed.unwrap_or(0),
+        sight: fields.sight.unwrap_or(0),
+        cost: fields.cost.unwrap_or(0),
+        tech_level: fields.tech_level.unwrap_or(-1),
+        owner: fields.owner.unwrap_or_default(),
         image,
-        category,
-        naval,
-        agent,
-        engineer,
-        harvester,
+        category: fields.category.unwrap_or_default().trim().to_string(),
+        naval: fields.naval.unwrap_or(false),
+        agent: fields.agent.unwrap_or(false),
+        engineer: fields.engineer.unwrap_or(false),
+        harvester: fields.harvester.unwrap_or(false),
         primary,
         damage,
         range,
@@ -169,19 +216,26 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     })
 }
 
-/// 从 `Primary` 武器节读取 `Damage` / `Range` / `ROF` / `Warhead`；缺省时保留类型节 ROF。
+/// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
 fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
-    if primary.is_empty() || !rules.has_section(primary) {
+    if primary.is_empty() {
         return (0, 0, techno_rof, String::new());
     }
-    let damage = parse_u32(rules.get(primary, "Damage")).unwrap_or(0);
-    let range = parse_u32(rules.get(primary, "Range")).unwrap_or(0);
-    let weapon_rof = parse_u32(rules.get(primary, "ROF")).unwrap_or(0);
+    let Some(section) = rules.section(primary)
+    else {
+        return (0, 0, techno_rof, String::new());
+    };
+    let Ok(w) = section.deserialize::<WeaponSectionFields>()
+    else {
+        return (0, 0, techno_rof, String::new());
+    };
+    let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    let warhead = rules.get(primary, "Warhead").unwrap_or("").trim().to_ascii_uppercase();
-    (damage, range, rof, warhead)
-}
-
-fn parse_u32(raw: Option<&str>) -> Option<u32> {
-    raw?.trim().parse().ok()
+    let warhead = w
+        .warhead
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
+    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, warhead)
 }

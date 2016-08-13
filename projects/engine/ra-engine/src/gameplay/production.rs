@@ -1,9 +1,9 @@
 //! 工厂生产队列、出厂与集结。
 
-use ra_assets::TechnoKind;
-use ra_map::MapEntityKind;
-use ra_types::TechnoDefinition;
 use std::sync::Arc;
+
+use ra_map::MapEntityKind;
+use ra_types::{TechnoClass, TechnoDefinition};
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
@@ -59,7 +59,7 @@ impl crate::state::BattleState {
                 })
                 .flatten();
             if let Some(type_id) = finished {
-                let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == ra_types::TechnoClass::Building);
+                let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
                     building_ready.push((index, type_id));
                 }
@@ -107,20 +107,15 @@ impl crate::state::BattleState {
             return;
         };
         let kind = match tt.class {
-            ra_types::TechnoClass::Infantry => MapEntityKind::Infantry,
-            ra_types::TechnoClass::Vehicle => MapEntityKind::Unit,
-            ra_types::TechnoClass::Aircraft => MapEntityKind::Aircraft,
-            ra_types::TechnoClass::Building => return,
+            TechnoClass::Infantry => MapEntityKind::Infantry,
+            TechnoClass::Vehicle => MapEntityKind::Unit,
+            TechnoClass::Aircraft => MapEntityKind::Aircraft,
+            TechnoClass::Building => return,
         };
-        let techno_kind = match tt.class {
-            ra_types::TechnoClass::Infantry => TechnoKind::Infantry,
-            ra_types::TechnoClass::Vehicle => TechnoKind::Vehicle,
-            ra_types::TechnoClass::Aircraft => TechnoKind::Aircraft,
-            ra_types::TechnoClass::Building => return,
-        };
+        let techno_class = tt.class;
         let promoted = self.players.iter().find(|p| p.house.as_ref() == owner.as_ref()).is_some_and(|p| match tt.class {
-            ra_types::TechnoClass::Infantry => p.promoted_infantry,
-            ra_types::TechnoClass::Vehicle => p.promoted_vehicle,
+            TechnoClass::Infantry => p.promoted_infantry,
+            TechnoClass::Vehicle => p.promoted_vehicle,
             _ => false,
         });
         let base_health = tt.strength.max(1);
@@ -147,7 +142,7 @@ impl crate::state::BattleState {
                 attack_damage: tt.damage,
                 attack_cooldown_max: if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS },
                 attack_verses: verses_for(&self.definitions, &tt.warhead),
-                techno_kind: Some(techno_kind),
+                techno_class: Some(techno_class),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
             production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
@@ -187,27 +182,25 @@ impl crate::state::BattleState {
     }
 
     #[doc(hidden)]
-    pub fn find_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
-        let class = techno_kind_to_class(kind);
+    pub fn find_factory(&self, house: &str, kind: TechnoClass) -> Option<usize> {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, class)).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
         })
     }
 
     #[doc(hidden)]
-    pub fn find_idle_factory(&self, house: &str, kind: TechnoKind) -> Option<usize> {
-        let class = techno_kind_to_class(kind);
+    pub fn find_idle_factory(&self, house: &str, kind: TechnoClass) -> Option<usize> {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, class)).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
         })
     }
 
@@ -230,15 +223,5 @@ impl crate::state::BattleState {
             }
             self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready.clone())
         })
-    }
-}
-
-#[doc(hidden)]
-pub fn techno_kind_to_class(kind: TechnoKind) -> ra_types::TechnoClass {
-    match kind {
-        TechnoKind::Infantry => ra_types::TechnoClass::Infantry,
-        TechnoKind::Vehicle => ra_types::TechnoClass::Vehicle,
-        TechnoKind::Aircraft => ra_types::TechnoClass::Aircraft,
-        TechnoKind::Building => ra_types::TechnoClass::Building,
     }
 }

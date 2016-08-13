@@ -2,11 +2,11 @@
 
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::ini::IniDocument;
 
-/// RA2 护甲名在 `Verses` 列表中的固定顺序（11 项）。
-pub const ARMOR_ORDER: [&str; 11] =
-    ["none", "flak", "plate", "light", "medium", "heavy", "wood", "steel", "concrete", "special_1", "special_2"];
+pub use ra_types::{ARMOR_ORDER, armor_index};
 
 /// 弹头：对各护甲的伤害百分比（默认全 100）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,23 +55,20 @@ impl WarheadRegistry {
     }
 }
 
-/// 护甲名 → `Verses` 下标；未知护甲按 `none`（0）。
-pub fn armor_index(armor: &str) -> usize {
-    let key = armor.trim().to_ascii_lowercase();
-    ARMOR_ORDER.iter().position(|a| *a == key).unwrap_or(0)
+#[derive(Debug, Deserialize)]
+struct WarheadSectionFields {
+    #[serde(rename = "Verses", default)]
+    verses: Vec<String>,
 }
 
 fn parse_warhead(rules: &IniDocument, id: &str) -> Option<Warhead> {
-    if !rules.has_section(id) {
-        return None;
-    }
+    let section = rules.section(id)?;
+    let fields: WarheadSectionFields = section.deserialize().ok()?;
     let mut verses = [100u32; 11];
-    if let Some(raw) = rules.get(id, "Verses") {
-        for (i, part) in raw.split(',').enumerate().take(11) {
-            let s = part.trim().trim_end_matches('%').trim();
-            if let Ok(v) = s.parse::<u32>() {
-                verses[i] = v;
-            }
+    for (i, part) in fields.verses.iter().enumerate().take(11) {
+        let s = part.trim().trim_end_matches('%').trim();
+        if let Ok(v) = s.parse::<u32>() {
+            verses[i] = v;
         }
     }
     Some(Warhead { id: id.to_string(), verses })

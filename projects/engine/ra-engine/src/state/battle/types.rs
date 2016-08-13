@@ -1,8 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
-use ra_assets::TechnoKind;
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand};
+use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass};
 
 use super::super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -55,7 +54,7 @@ pub struct EcsCombatView {
     /// 弹头对各护甲的伤害百分比。
     pub attack_verses: [u32; 11],
     /// 对应 techno 种类。
-    pub techno_kind: Option<TechnoKind>,
+    pub techno_class: Option<TechnoClass>,
 }
 
 /// 确定性仿真世界：实体、通行格与按 tick 消费的命令。

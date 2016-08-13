@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use ra_assets::TechnoKind;
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
+use ra_types::TechnoClass;
 
 /// 稳定身份与内容类型引用。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,7 +98,7 @@ pub struct CombatStats {
     /// 弹头对各护甲的伤害百分比。
     pub attack_verses: [u32; 11],
     /// 对应 techno 种类。
-    pub techno_kind: Option<TechnoKind>,
+    pub techno_class: Option<TechnoClass>,
 }
 
 /// 攻击目标与开火冷却。

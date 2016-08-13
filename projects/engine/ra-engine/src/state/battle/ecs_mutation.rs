@@ -77,7 +77,7 @@ impl BattleState {
             entity.attack_damage = stats.attack_damage;
             entity.attack_cooldown_max = stats.attack_cooldown_max;
             entity.attack_verses = stats.attack_verses;
-            entity.techno_kind = stats.techno_kind;
+            entity.techno_class = stats.techno_class;
         }
         if let Some(attack) = attack {
             entity.attack_target = attack.target;

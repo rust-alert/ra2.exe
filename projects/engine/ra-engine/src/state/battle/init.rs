@@ -1,7 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_adaptor::{RulesSystem, build_runtime_definitions};
-use ra_assets::TechnoKind;
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
 use ra_types::{EntityId, GameEdition, PlayerId, TechnoClass};
 
@@ -41,7 +40,7 @@ impl BattleState {
             let attack_cooldown_max = tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
             let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
             let attack_verses = tt.map(|t| verses_for(&definitions, &t.warhead)).unwrap_or([0; 11]);
-            let techno_kind = tt.map(|t| techno_class_to_kind(t.class));
+            let techno_class = tt.map(|t| t.class);
             let id = EntityId(next_entity_id);
             next_entity_id = next_entity_id.saturating_add(1);
             seed_bundles.push(EntitySpawnBundle {
@@ -57,7 +56,7 @@ impl BattleState {
                 health: Health { current: health, maximum: max_health, dead: false },
                 locomotor: Locomotor { speed },
                 movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
-                combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_kind },
+                combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class },
                 attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                 production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
@@ -208,7 +207,7 @@ impl BattleState {
                 attack_damage,
                 attack_cooldown_max,
                 attack_verses,
-                techno_kind: Some(techno_class_to_kind(class)),
+                techno_class: Some(class),
             },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
             production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
@@ -221,14 +220,5 @@ impl BattleState {
         }
         self.rehash();
         Ok(id)
-    }
-}
-
-fn techno_class_to_kind(class: TechnoClass) -> TechnoKind {
-    match class {
-        TechnoClass::Infantry => TechnoKind::Infantry,
-        TechnoClass::Vehicle => TechnoKind::Vehicle,
-        TechnoClass::Aircraft => TechnoKind::Aircraft,
-        TechnoClass::Building => TechnoKind::Building,
     }
 }

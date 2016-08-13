@@ -10,7 +10,7 @@ use crate::{
         components::{AnimationState, AttackState, CombatStats, Health, Identity, Transform},
     },
 };
-use ra_assets::armor_index;
+use ra_types::armor_index;
 
 impl crate::state::BattleState {
     pub(crate) fn resolve_combat(&mut self) {

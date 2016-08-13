@@ -6,8 +6,7 @@ use super::types::GameCommand;
 
 impl crate::state::BattleState {
     pub(crate) fn apply_commands(&mut self, cmds: &[ScheduledCommand]) {
-        use ra_assets::TechnoKind;
-        use ra_map::MapEntityKind;
+                use ra_map::MapEntityKind;
         use ra_types::TechnoClass;
 
         use crate::{
@@ -203,7 +202,7 @@ impl crate::state::BattleState {
                         stats.attack_damage = 0;
                         stats.attack_verses = full_verses();
                         stats.armor = armor;
-                        stats.techno_kind = Some(TechnoKind::Building);
+                        stats.techno_class = Some(TechnoClass::Building);
                     });
                     let _ = self.with_animation_mut(dirty_id, |anim| {
                         anim.hva_frame = 0;
@@ -339,7 +338,7 @@ impl crate::state::BattleState {
                             attack_damage: 0,
                             attack_cooldown_max: 0,
                             attack_verses: full_verses(),
-                            techno_kind: Some(TechnoKind::Building),
+                            techno_class: Some(TechnoClass::Building),
                         },
                         attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                         production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
@@ -391,12 +390,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::QueueFull);
                         continue;
                     }
-                    let kind = match tt.class {
-                        TechnoClass::Infantry => TechnoKind::Infantry,
-                        TechnoClass::Vehicle => TechnoKind::Vehicle,
-                        TechnoClass::Aircraft => TechnoKind::Aircraft,
-                        TechnoClass::Building => TechnoKind::Building,
-                    };
+                    let kind = tt.class;
                     let Some(factory_index) = self.find_idle_factory(&house, kind)
                     else {
                         let has_busy = self.find_factory(&house, kind).is_some();
