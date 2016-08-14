@@ -5,8 +5,8 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
-    WarheadDefinition,
+    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition,
+    TerrainSpawnerDefinition, TypeId, WarheadDefinition,
 };
 
 use crate::RulesSystem;
@@ -30,6 +30,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         .and_then(|raw| raw.parse::<f64>().ok())
         .map(repair_rate_minutes_to_ticks)
         .unwrap_or(14);
+    defs.speak_delay_ticks = {
+        let raw = ini_string(&rules.rules, "AudioVisual", "SpeakDelay")
+            .or_else(|| ini_string(&rules.rules, "General", "SpeakDelay"));
+        let minutes = raw.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+        speak_delay_minutes_to_ticks(minutes)
+    };
     for country in rules.countries.countries() {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
@@ -209,7 +215,50 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
     }
 
+    fill_terrain_spawners(&mut defs, &rules.rules);
+    defs.overlays = rules.overlay_types.clone();
+
     defs
+}
+
+const TERRAIN_SPAWN_PROBABILITY_DENOMINATOR: f32 = 1_000_000.0;
+
+#[derive(Debug, serde::Deserialize)]
+struct TerrainSpawnerSectionFields {
+    #[serde(rename = "SpawnsTiberium")]
+    spawns_tiberium: Option<bool>,
+    #[serde(rename = "IsAnimated")]
+    is_animated: Option<bool>,
+    #[serde(rename = "AnimationProbability")]
+    animation_probability: Option<f32>,
+    #[serde(rename = "AnimationRate")]
+    animation_rate: Option<u16>,
+}
+
+fn fill_terrain_spawners(defs: &mut RuntimeDefinitions, rules: &ra_assets::IniDocument) {
+    for section in &rules.sections {
+        let Ok(fields) = section.deserialize::<TerrainSpawnerSectionFields>()
+        else {
+            continue;
+        };
+        if fields.spawns_tiberium != Some(true) || fields.is_animated != Some(true) {
+            continue;
+        }
+        let probability = fields
+            .animation_probability
+            .map(|v| (v.clamp(0.0, 1.0) * TERRAIN_SPAWN_PROBABILITY_DENOMINATOR).round() as u32)
+            .unwrap_or(0);
+        let rate = fields.animation_rate.unwrap_or(1).max(1);
+        let type_key = section.name_raw.trim().to_ascii_uppercase();
+        if type_key.is_empty() {
+            continue;
+        }
+        defs.terrain_spawners.insert(TerrainSpawnerDefinition {
+            type_key,
+            animation_probability_micros: probability,
+            animation_rate_ticks: rate,
+        });
+    }
 }
 
 #[doc(hidden)]
@@ -294,6 +343,14 @@ pub fn repair_rate_minutes_to_ticks(rate_minutes: f64) -> u64 {
     }
     let ticks = (rate_minutes * 900.0).trunc() as i64;
     ticks.max(1) as u64
+}
+
+/// `[AudioVisual] SpeakDelay`（分钟）× 900 → 逻辑 tick；非正数则为 0。
+pub fn speak_delay_minutes_to_ticks(minutes: f64) -> u32 {
+    if !(minutes > 0.0) {
+        return 0;
+    }
+    (minutes * 900.0) as u32
 }
 
 #[doc(hidden)]

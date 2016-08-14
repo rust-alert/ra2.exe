@@ -52,13 +52,14 @@ pub use mix::{
     vfs::{MixRawEntry, MixResolveHit, MixVfs},
 };
 pub use mpmodes::{MpMode, parse_mpmodes};
+pub use ra_types::OverlayTypeRegistry;
 pub use rules::{
     color_schemes::ColorSchemes,
     countries::{
         CountryDef, CountryRegistry, SideChromeDef, SideGroup, fill_country_ui_gaps, fill_side_chrome_gaps, resolve_country_special_ui_name,
     },
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::{OverlayTypeRegistry, harvestable_overlay_name, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
+    overlay::{harvestable_overlay_name, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
     warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index},
 };

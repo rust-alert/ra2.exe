@@ -1,7 +1,7 @@
 //! 矿柱产矿状态机：中点触发后写入邻格可采 overlay。
 
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::BattleState;
 use ra_map::{MapInfo, TerrainObject};
 use ra_types::GameEdition;
@@ -25,7 +25,7 @@ AnimationProbability=1
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
-        overlay_types: OverlayTypeRegistry::from_rules(&rules),
+        overlay_types: overlay_types_from_rules(&rules),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),
@@ -67,26 +67,7 @@ fn midpoint_tick_places_ore_on_neighbor() {
 // 自 engine/ra-engine/src/gameplay/terrain_spawn.rs :: tests
 use ra_engine::gameplay::terrain_spawn::*;
 use ra_map::OverlayCell;
-
-fn tibtre_rules() -> IniDocument {
-    IniDocument::parse(
-        br#"
-[TIBTRE01]
-SpawnsTiberium=yes
-IsAnimated=yes
-AnimationRate=3
-AnimationProbability=.003
-"#,
-    )
-    .expect("ini")
-}
-
-#[test]
-fn parses_probability_micros() {
-    assert_eq!(parse_probability_micros(Some(".003")), 3000);
-    assert_eq!(parse_probability_micros(Some("1")), 1_000_000);
-    assert_eq!(parse_probability_micros(None), 0);
-}
+use ra_types::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
 
 #[test]
 fn idle_stays_without_roll() {
@@ -118,17 +99,22 @@ fn roll_starts_and_midpoint_spawns() {
 
 #[test]
 fn seeds_from_map_terrain() {
-    let rules = tibtre_rules();
+    let mut defs = TerrainSpawnerDefinitions::default();
+    defs.insert(TerrainSpawnerDefinition {
+        type_key: "TIBTRE01".into(),
+        animation_probability_micros: 3000,
+        animation_rate_ticks: 3,
+    });
     let mut map = ra_map::MapInfo::empty(ra_types::GameEdition::Ra2, "t");
     map.terrain_objects = vec![TerrainObject { x: 5, y: 6, name: "TIBTRE01".into() }, TerrainObject { x: 1, y: 1, name: "TREE01".into() }];
-    let seeded = seed_terrain_spawners(&map, &rules);
+    let seeded = seed_terrain_spawners(&map, &defs);
     assert_eq!(seeded.len(), 1);
     assert_eq!(seeded[0].x, 5);
     assert_eq!(seeded[0].animation_probability_micros, 3000);
     assert_eq!(seeded[0].animation_rate_ticks, 3);
 }
 
-fn ore_overlay_types() -> ra_assets::OverlayTypeRegistry {
+fn ore_overlay_types() -> OverlayTypeRegistry {
     let doc = IniDocument::parse(
         br#"
 [OverlayTypes]
@@ -143,7 +129,7 @@ Tiberium=yes
 "#,
     )
     .expect("ini");
-    ra_assets::OverlayTypeRegistry::from_rules(&doc)
+    overlay_types_from_rules(&doc)
 }
 
 #[test]

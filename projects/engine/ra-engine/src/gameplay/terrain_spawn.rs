@@ -3,8 +3,8 @@
 //! Idle 时每 tick 按 `AnimationProbability` 掷骰；命中后从第 0 帧播到中点，
 //! 中点触发邻格产矿并回到 Idle。呈现只读 [`TerrainSpawnerState::render_frame`]。
 
-use ra_assets::IniDocument;
 use ra_map::{MapInfo, OverlayCell, TerrainObject};
+use ra_types::{OverlayTypeRegistry, TerrainSpawnerDefinitions};
 
 /// 概率分母（与零售 `random % 1_000_000` 对齐）。
 pub const PROBABILITY_DENOMINATOR: u32 = 1_000_000;
@@ -143,11 +143,11 @@ impl TerrainSpawnerState {
     }
 }
 
-/// 从地图 `[Terrain]` 与 rules 播种矿柱状态。
-pub fn seed_terrain_spawners(map: &MapInfo, rules: &IniDocument) -> Vec<TerrainSpawnerState> {
+/// 从地图 `[Terrain]` 与冻结产矿定义播种矿柱状态。
+pub fn seed_terrain_spawners(map: &MapInfo, spawners: &TerrainSpawnerDefinitions) -> Vec<TerrainSpawnerState> {
     let mut out = Vec::new();
     for obj in &map.terrain_objects {
-        if let Some(state) = spawner_from_terrain_object(obj, rules) {
+        if let Some(state) = spawner_from_terrain_object(obj, spawners) {
             out.push(state);
         }
     }
@@ -155,34 +155,16 @@ pub fn seed_terrain_spawners(map: &MapInfo, rules: &IniDocument) -> Vec<TerrainS
 }
 
 #[doc(hidden)]
-pub fn spawner_from_terrain_object(obj: &TerrainObject, rules: &IniDocument) -> Option<TerrainSpawnerState> {
-    if !is_yes(rules.get(&obj.name, "SpawnsTiberium")) {
-        return None;
-    }
-    if !is_yes(rules.get(&obj.name, "IsAnimated")) {
-        return None;
-    }
-    let probability = parse_probability_micros(rules.get(&obj.name, "AnimationProbability"));
-    let rate = rules.get(&obj.name, "AnimationRate").and_then(|v| v.trim().parse::<u16>().ok()).unwrap_or(1).max(1);
-    Some(TerrainSpawnerState::new(obj.x, obj.y, obj.name.clone(), probability, rate, STOCK_TIBTRE_FRAME_COUNT))
-}
-
-#[doc(hidden)]
-pub fn parse_probability_micros(raw: Option<&str>) -> u32 {
-    let Some(raw) = raw
-    else {
-        return 0;
-    };
-    let trimmed = raw.trim();
-    if let Ok(v) = trimmed.parse::<f32>() {
-        return (v.clamp(0.0, 1.0) * PROBABILITY_DENOMINATOR as f32).round() as u32;
-    }
-    0
-}
-
-#[doc(hidden)]
-pub fn is_yes(raw: Option<&str>) -> bool {
-    raw.is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1"))
+pub fn spawner_from_terrain_object(obj: &TerrainObject, spawners: &TerrainSpawnerDefinitions) -> Option<TerrainSpawnerState> {
+    let def = spawners.get(&obj.name)?;
+    Some(TerrainSpawnerState::new(
+        obj.x,
+        obj.y,
+        obj.name.clone(),
+        def.animation_probability_micros,
+        def.animation_rate_ticks,
+        STOCK_TIBTRE_FRAME_COUNT,
+    ))
 }
 
 /// 确定性掷骰样本（0..1_000_000）。
@@ -213,7 +195,7 @@ pub fn terrain_spawner_frame_signature(spawners: &[TerrainSpawnerState]) -> u64 
 /// 成功时返回被写入的格子坐标，供呈现层脏刷新。
 pub fn place_spawned_ore(
     overlays: &mut Vec<OverlayCell>,
-    overlay_types: &ra_assets::OverlayTypeRegistry,
+    overlay_types: &OverlayTypeRegistry,
     ox: u16,
     oy: u16,
     pass_in_bounds: impl Fn(u16, u16) -> bool,
@@ -243,7 +225,7 @@ pub fn place_spawned_ore(
 }
 
 #[doc(hidden)]
-pub fn first_harvestable_id(reg: &ra_assets::OverlayTypeRegistry) -> Option<u8> {
+pub fn first_harvestable_id(reg: &OverlayTypeRegistry) -> Option<u8> {
     for id in 0..reg.len().min(256) {
         let id = id as u8;
         if reg.is_harvestable(id) {

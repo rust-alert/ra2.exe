@@ -12,18 +12,13 @@ use crate::{
 pub const FUNDS_NAG_CREDITS: i32 = 100;
 
 /// `[AudioVisual] SpeakDelay`（分钟）× 900 → 逻辑 tick（15fps 基线，暂不按游戏速度归一）。
+///
+/// 装载期由 adaptor 写入 [`ra_types::RuntimeDefinitions::speak_delay_ticks`]；本函数仅供换算单测。
 pub fn speak_delay_ticks_from_minutes(minutes: f64) -> u32 {
     if !(minutes > 0.0) {
         return 0;
     }
     (minutes * 900.0) as u32
-}
-
-/// 从 rules INI 解析 `SpeakDelay`（优先 `[AudioVisual]`，其次 `[General]`）。
-pub fn parse_speak_delay_ticks(rules: &ra_assets::IniDocument) -> u32 {
-    let raw = rules.get("AudioVisual", "SpeakDelay").or_else(|| rules.get("General", "SpeakDelay")).map(str::trim).filter(|s| !s.is_empty());
-    let minutes = raw.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    speak_delay_ticks_from_minutes(minutes)
 }
 
 impl crate::state::BattleState {

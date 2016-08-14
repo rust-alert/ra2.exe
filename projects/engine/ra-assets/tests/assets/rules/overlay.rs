@@ -30,7 +30,7 @@ Land=Wall
 "#,
     )
     .expect("ini");
-    let reg = OverlayTypeRegistry::from_rules(&doc);
+    let reg = overlay_types_from_rules(&doc);
     assert_eq!(reg.name(0), Some("TIB01"));
     assert!(reg.is_harvestable(0));
     assert!(!reg.is_harvestable(1));

@@ -6,7 +6,7 @@ use ra_assets::*;
 fn declaration_order_not_numeric_keys() {
     // 键乱序且有空洞时，id 仍是「第几个值」，不是键上的数字。
     let doc = IniDocument::parse(b"[OverlayTypes]\n3=GAWALL\n105=TIB01\n1=GASAND\n").unwrap();
-    let reg = OverlayTypeRegistry::from_rules(&doc);
+    let reg = overlay_types_from_rules(&doc);
     assert_eq!(reg.len(), 3);
     assert_eq!(reg.name(0), Some("GAWALL"));
     assert_eq!(reg.name(1), Some("TIB01"));
@@ -37,7 +37,7 @@ fn missing_key_zero_shifts_gems_and_ore_like_retail() {
         body.push_str(&format!("{}=TIB{i:02}\n", 105 + i - 1));
     }
     let doc = IniDocument::parse(body.as_bytes()).unwrap();
-    let reg = OverlayTypeRegistry::from_rules(&doc);
+    let reg = overlay_types_from_rules(&doc);
     assert_eq!(reg.name(0), Some("GASAND"));
     assert_eq!(reg.name(26), Some("NAWALL"));
     assert_eq!(reg.name(27), Some("GEM01"));

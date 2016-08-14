@@ -2,8 +2,8 @@
 
 use super::{
     AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
-    PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions, TechnoDefinitions,
-    WarheadDefinitions, WeaponDefinitions,
+    OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, SoundDefinitions, StructureDefinitions, SuperWeaponDefinitions,
+    TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
 
 /// 全体层共享的冻结运行时定义。
@@ -52,6 +52,12 @@ pub struct RuntimeDefinitions {
     pub repair_step: u32,
     /// `[General] RepairRate`（分钟）换算的脉冲间隔 tick：`ftol(rate * 900)`（缺省 14）。
     pub repair_interval_ticks: u64,
+    /// `[AudioVisual]` / `[General] SpeakDelay`（分钟）× 900 → 逻辑 tick；0 表示关闭。
+    pub speak_delay_ticks: u32,
+    /// `SpawnsTiberium` 动画地形产矿表。
+    pub terrain_spawners: TerrainSpawnerDefinitions,
+    /// `[OverlayTypes]` 声明序类型表（含可采标记）。
+    pub overlays: OverlayTypeRegistry,
 }
 
 impl Default for RuntimeDefinitions {
@@ -76,6 +82,9 @@ impl Default for RuntimeDefinitions {
             repair_percent: 15,
             repair_step: 8,
             repair_interval_ticks: 14,
+            speak_delay_ticks: 0,
+            terrain_spawners: TerrainSpawnerDefinitions::default(),
+            overlays: OverlayTypeRegistry::default(),
         }
     }
 }
