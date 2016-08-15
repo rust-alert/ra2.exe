@@ -1,7 +1,7 @@
 //! 胜负时锁定 BattleStats。
 
-use crate::common::{rules_with_mtnk, test_engine};
-use ra_engine::{BattleOutcome, BattleState, GameCommand, Session};
+use crate::common::{rules_with_mtnk, test_engine, battle_from_rules};
+use ra_engine::{BattleOutcome, GameCommand, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -36,7 +36,7 @@ fn victory_locks_battle_stats() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "stats");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "stats");
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
     let target = session.expect_battle().world.entity_id_at(1).expect("entity");
     assert!(session.expect_battle_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));

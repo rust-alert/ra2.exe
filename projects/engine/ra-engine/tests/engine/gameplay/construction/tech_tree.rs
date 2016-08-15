@@ -1,6 +1,7 @@
 //! 科技树：Owner 隔离、Prerequisite 解锁链、侧栏 Eligible 隐藏。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -54,7 +55,7 @@ fn allied_yard_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &tech_rules(), map);
+    let mut world = battle_from_rules(&tech_rules(), map);
     assert!(world.set_house_funds("Americans", 20_000));
     world
 }

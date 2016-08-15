@@ -1,9 +1,9 @@
 //! 快照中的经济与生产队列。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, CommandRejectReason, GameCommand, Session};
+use ra_engine::{CommandRejectReason, GameCommand, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, PlayerId};
 
@@ -40,7 +40,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 5_000));
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;

@@ -1,9 +1,9 @@
 //! AI 放置兵营并生产步兵。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, PRODUCE_TICKS, Session};
+use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -69,7 +69,7 @@ fn ai_places_barracks_and_produces_infantry() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     assert!(world.set_house_funds("Soviets", 10_000));
     let mut session = Session::from_state(world, "ai-barracks");
     session.expect_battle_mut().ai_enabled = true;
@@ -179,7 +179,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     assert!(world.set_house_funds("Americans", 20_000));
     assert!(world.prefer_local_house("Soviets"));
     let mut session = Session::from_state(world, "ai-filter");

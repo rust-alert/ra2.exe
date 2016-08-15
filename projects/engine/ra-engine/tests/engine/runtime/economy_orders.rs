@@ -1,9 +1,9 @@
 //! 会话层部署 / 建造 / 生产命令。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, PRODUCE_TICKS, Session};
+use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -42,7 +42,7 @@ fn economy_session() -> Session {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
     Session::from_state(world, "orders")
 }

@@ -1,6 +1,7 @@
 //! 遭遇战开局：席位航点放置 MCV。
+use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem};
+use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::open_skirmish_session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
@@ -52,10 +53,7 @@ impl AssetSource for RulesBytesSource {
 #[test]
 fn open_skirmish_places_mcv_at_seat_waypoints() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_skirmish_session(
-        &RulesBytesSource,
-        &chain,
-        &mcv_rules(),
+    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
         map_with_starts(),
         "t".into(),
         (0, 0),
@@ -115,10 +113,7 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         mission: String::new(),
         tag: String::new(),
     });
-    let opened = open_skirmish_session(
-        &RulesBytesSource,
-        &chain,
-        &mcv_rules(),
+    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
         map,
         "t".into(),
         (0, 0),
@@ -140,10 +135,7 @@ fn open_skirmish_fails_when_start_waypoint_missing() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let mut map = map_with_starts();
     map.waypoints.retain(|w| w.index == 0);
-    let err = open_skirmish_session(
-        &RulesBytesSource,
-        &chain,
-        &mcv_rules(),
+    let err = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
         map,
         "t".into(),
         (0, 0),

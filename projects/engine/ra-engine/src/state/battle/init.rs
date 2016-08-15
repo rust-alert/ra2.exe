@@ -1,8 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
-use ra_adaptor::{RulesSystem, build_runtime_definitions};
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, TechnoClass};
+use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions, TechnoClass};
 
 use super::super::{
     components::{
@@ -17,10 +16,9 @@ use crate::{game::InputFrame, gameplay::verses_for, presentation::DirtyEntitySet
 use super::types::{ATTACK_COOLDOWN_TICKS, BattleState};
 
 impl BattleState {
-    /// 由规则与地图播种新世界，并为移动单位预计算路径。
-    pub fn new(edition: GameEdition, rules: &RulesSystem, map: MapInfo) -> Self {
+    /// 由冻结运行时定义与地图播种新世界，并为移动单位预计算路径。
+    pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> Self {
         let pass_grid = PassGrid::from_map(&map);
-        let definitions = Arc::new(build_runtime_definitions(rules));
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let ecs = EcsRegistry::new();

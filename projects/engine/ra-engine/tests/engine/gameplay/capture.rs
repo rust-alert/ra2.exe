@@ -1,6 +1,7 @@
 //! 工程师占领可俘建筑。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -79,7 +80,7 @@ fn capture_world_owned(engineer_x: u16, engineer_y: u16, building_type: &str, bx
             tag: String::new(),
         },
     ];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     world.set_all_players_funds(10_000);
     if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {
         p.power_output = 200;

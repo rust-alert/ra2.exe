@@ -1,6 +1,7 @@
 //! 矿车采集矿格后邻接矿场卸货入账。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::{BattleState, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, OverlayCell};
@@ -54,7 +55,7 @@ fn mining_world() -> BattleState {
             tag: String::new(),
         },
     ];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 1_000));
     world
 }
@@ -153,7 +154,7 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
             tag: String::new(),
         },
     ];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 1_000));
     let id = world.entity_id_at(1).expect("harvester");
 

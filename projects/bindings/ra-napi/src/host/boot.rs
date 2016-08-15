@@ -1,8 +1,9 @@
 //! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `BattleController`）。
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem, detect_edition, load_rules_chain};
+use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain};
 use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv,
 };
@@ -563,12 +564,33 @@ pub fn boot_world_with_progress(
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
-    let (engine, session) = match rules.as_ref().map(|rules| match request.boot_kind {
-        LoadKind::Campaign => {
-            open_campaign_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house, &ensure_refs, request.match_seed)
-        }
-        LoadKind::Skirmish => {
-            open_skirmish_session(&source, chain, rules, map, note.clone(), preview_origin, preferred_house, &ensure_refs, request.match_seed)
+    let (engine, session) = match rules.as_ref().map(|rules| {
+        let definitions = Arc::new(build_runtime_definitions(rules));
+        match request.boot_kind {
+            LoadKind::Campaign => open_campaign_session(
+                &source,
+                chain.edition,
+                chain.rules_ini,
+                definitions,
+                map,
+                note.clone(),
+                preview_origin,
+                preferred_house,
+                &ensure_refs,
+                request.match_seed,
+            ),
+            LoadKind::Skirmish => open_skirmish_session(
+                &source,
+                chain.edition,
+                chain.rules_ini,
+                definitions,
+                map,
+                note.clone(),
+                preview_origin,
+                preferred_house,
+                &ensure_refs,
+                request.match_seed,
+            ),
         }
     }) {
         Some(Ok(mut opened)) => {

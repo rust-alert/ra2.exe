@@ -1,9 +1,9 @@
 //! 单位互殴伤害与击杀。
 
-use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{BattleState, GameCommand};
+use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::{EntityId, GameEdition};
+use ra_types::EntityId;
 
 #[test]
 fn attack_command_damages_and_kills() {
@@ -33,7 +33,7 @@ fn attack_command_damages_and_kills() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     // 取消航点游荡，专注开火。
     let a = world.entity_id_at(0).expect("entity");
     let b = world.entity_id_at(1).expect("entity");

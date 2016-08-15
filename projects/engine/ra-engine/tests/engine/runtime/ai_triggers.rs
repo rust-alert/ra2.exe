@@ -1,9 +1,9 @@
 //! AITriggerTypes 最小执行：按冷却排队产队。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, Session, SessionBootKind};
+use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 
@@ -42,7 +42,7 @@ AT1=Strike,TM1,Russians,0\n\
     assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 
     let engine = test_engine();
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules_with_e1(), map), "ai");
+    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "ai");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     assert!(session.expect_battle().world.ai_trigger_runtime.enabled);
 

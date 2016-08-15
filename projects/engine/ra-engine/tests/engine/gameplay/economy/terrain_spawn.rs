@@ -1,6 +1,7 @@
 //! 矿柱产矿状态机：中点触发后写入邻格可采 overlay。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
 use ra_engine::BattleState;
 use ra_map::{MapInfo, TerrainObject};
@@ -35,7 +36,7 @@ AnimationProbability=1
     map.width = 8;
     map.height = 8;
     map.terrain_objects = vec![TerrainObject { x: 4, y: 4, name: "TIBTRE01".into() }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert_eq!(world.terrain_spawners.len(), 1);
     // 两帧：中点 = 1，Started 后下一帧即 SpawnDue。
     world.apply_ore_tree_frame_counts(&[(4, 4, 2)]);

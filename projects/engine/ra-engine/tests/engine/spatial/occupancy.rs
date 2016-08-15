@@ -1,9 +1,9 @@
 //! 移动体互斥占格绕行。
 
-use crate::common::{map_with_size, rules_with_mtnk};
-use ra_engine::{BattleState, GameCommand};
+use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::{EntityId, GameEdition};
+use ra_types::EntityId;
 
 #[test]
 fn mobiles_detour_around_each_other() {
@@ -35,7 +35,7 @@ fn mobiles_detour_around_each_other() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     // 两车都朝同一目标；后者路径不得踩前者当前格。
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 14, y: 10 });
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });

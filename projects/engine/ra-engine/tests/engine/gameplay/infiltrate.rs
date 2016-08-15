@@ -1,6 +1,7 @@
 //! 间谍渗透：Agent 邻接敌建筑后结算并阵亡。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -90,7 +91,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             tag: String::new(),
         },
     ];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     world.set_all_players_funds(10_000);
     // 受害方有耗电，便于验证断电后低电。
     if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {

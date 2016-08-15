@@ -1,9 +1,9 @@
 //! AI 经 Deploy 展开 MCV。
 
-use crate::common::test_engine;
+use crate::common::{test_engine, battle_from_rules};
 use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, Session};
+use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -56,7 +56,7 @@ fn ai_deploys_mcv_via_command() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ai-deploy");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "ai-deploy");
     session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
     let mcv = session.expect_battle().world.entity_id_at(1).expect("entity");

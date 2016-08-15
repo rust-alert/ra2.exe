@@ -1,6 +1,7 @@
 //! MCV 部署与资金播种。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -38,7 +39,7 @@ fn mcv_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    BattleState::new(GameEdition::Ra2, &rules_db, map)
+    battle_from_rules(&rules_db, map)
 }
 
 #[test]

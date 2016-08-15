@@ -1,6 +1,7 @@
 //! 建筑：先 `Produce` 完工，再 `PlaceBuilding` 落位。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -39,7 +40,7 @@ fn yard_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let mut world = battle_from_rules(&rules_db, map);
     assert!(world.set_house_funds("Americans", 10_000));
     world
 }
@@ -126,7 +127,7 @@ fn map_seeded_structure_seals_full_foundation() {
         mission: String::new(),
         tag: String::new(),
     }];
-    let world = BattleState::new(GameEdition::Ra2, &rules_db, map);
+    let world = battle_from_rules(&rules_db, map);
     assert!(!world.pass_grid.is_passable(4, 4));
     assert!(!world.pass_grid.is_passable(6, 6), "map seed must seal full Foundation");
     assert!(world.pass_grid.is_passable(7, 7));

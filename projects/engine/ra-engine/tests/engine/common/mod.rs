@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::RulesSystem;
+use ra_adaptor::{RulesSystem, build_runtime_definitions};
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
@@ -14,6 +14,12 @@ use ra_types::{GameEdition, RuntimeDefinitions};
 pub fn test_engine() -> Engine {
     Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
 }
+
+/// 测试边界：规则快照投影为冻结定义后再播种世界。
+pub fn battle_from_rules(rules: &RulesSystem, map: MapInfo) -> BattleState {
+    BattleState::new(rules.edition, Arc::new(build_runtime_definitions(rules)), map)
+}
+
 
 /// 含 MTNK 坦克类型的最小规则库（Strength=400，带主武器）。
 pub fn rules_with_mtnk() -> RulesSystem {
@@ -94,5 +100,5 @@ pub fn duel_mtnk_world() -> BattleState {
             tag: String::new(),
         },
     ];
-    BattleState::new(GameEdition::Ra2, &rules_db, map)
+    battle_from_rules(&rules_db, map)
 }

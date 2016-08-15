@@ -1,7 +1,7 @@
 //! 胜负计入建筑作战力量。
 
-use crate::common::rules_with_mtnk;
-use ra_engine::{BattleState, Session};
+use crate::common::{rules_with_mtnk, battle_from_rules};
+use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
@@ -36,7 +36,7 @@ fn living_structure_prevents_sole_victor() {
         tag: String::new(),
     });
     // 结构体借用 MTNK 规则仅作 Strength；种类为 Structure 即计入作战力量。
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "victory");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "victory");
     let enemy = session.expect_battle().world.entity_id_at(1).expect("entity");
     let max = session.expect_battle().world.ecs_health(session.expect_battle().world.entity_id_at(1).expect("entity")).expect("health").1;
     assert!(session.expect_battle_mut().world.set_ecs_type_id(enemy, "NACNST", MapEntityKind::Structure));
@@ -88,7 +88,7 @@ fn ambient_units_do_not_block_sole_victor() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(BattleState::new(GameEdition::Ra2, &rules, map), "ambient-victory");
+    let mut session = Session::from_state(battle_from_rules(&rules, map), "ambient-victory");
     assert_eq!(session.expect_battle().world.players.len(), 3);
     assert!(session.expect_battle().sole_victor().is_none());
     let enemy = session.expect_battle().world.entity_id_at(1).expect("entity");

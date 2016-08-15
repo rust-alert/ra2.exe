@@ -1,8 +1,9 @@
 //! 攻击建筑：伤害、死亡清格与电力回收。
 
 use ra_adaptor::RulesSystem;
+use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
-use ra_engine::{BattleState, GameCommand};
+use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
@@ -56,7 +57,7 @@ fn attack_structure_kills_and_frees_cell() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     world.pass_grid.set_passable(6, 4, false);
     world.players[1].power_output = 200;
     assert!(!world.pass_grid.is_passable(6, 4));
@@ -122,7 +123,7 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = BattleState::new(GameEdition::Ra2, &rules, map);
+    let mut world = battle_from_rules(&rules, map);
     world.pass_grid.set_passable(6, 4, false);
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
 
