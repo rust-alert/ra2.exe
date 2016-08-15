@@ -18,6 +18,7 @@ pub fn overlay_types_from_rules(rules: &IniDocument) -> OverlayTypeRegistry {
     };
     let mut names = Vec::new();
     let mut harvestable = Vec::new();
+    let mut land_pass_override = Vec::new();
     for (_key, value) in section.pairs() {
         let name = value.trim();
         if name.is_empty() {
@@ -25,10 +26,12 @@ pub fn overlay_types_from_rules(rules: &IniDocument) -> OverlayTypeRegistry {
         }
         let name_up = name.to_ascii_uppercase();
         let can_harvest = overlay_type_is_harvestable(rules, &name_up);
+        let pass_override = overlay_land_pass_override(rules, &name_up);
         names.push(name_up);
         harvestable.push(can_harvest);
+        land_pass_override.push(pass_override);
     }
-    OverlayTypeRegistry::from_entries(names, harvestable)
+    OverlayTypeRegistry::from_entries(names, harvestable, land_pass_override)
 }
 
 /// 类型名是否像矿/宝石（无规则节时的回退）。
@@ -62,6 +65,23 @@ pub fn tiberium_overlay_display_hsv(rules: &IniDocument, colors: &ColorSchemes, 
         return Some(colors.get("Gold").unwrap_or(Hsv { h: 41, s: 240, v: 230 }));
     }
     Some(hsv)
+}
+
+/// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。
+///
+/// 通行粗判与 `ra-map` 的 `land_passable` 对齐：水 / 岩 / 墙不可走，缺键按 Clear（可走）。
+fn overlay_land_pass_override(rules: &IniDocument, name: &str) -> Option<bool> {
+    let no_use = rules
+        .get(name, "NoUseTileLandType")
+        .is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+    if !no_use {
+        return None;
+    }
+    let land = rules.get(name, "Land").unwrap_or("Clear");
+    Some(match land.trim().to_ascii_lowercase().as_str() {
+        "water" | "rock" | "wall" => false,
+        _ => true,
+    })
 }
 
 #[doc(hidden)]

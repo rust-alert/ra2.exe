@@ -9,13 +9,16 @@ pub struct OverlayTypeRegistry {
     names: Vec<String>,
     /// 与 `names` 对齐：该 id 是否可采（矿/宝石）。
     harvestable: Vec<bool>,
+    /// 与 `names` 对齐：`NoUseTileLandType` 时按 `Land=` 得到的通行覆盖；`None` 表示不改 TMP 封格。
+    land_pass_override: Vec<Option<bool>>,
 }
 
 impl OverlayTypeRegistry {
-    /// 由已解析的名称与可采标记构造（装载层填充）。
-    pub fn from_entries(names: Vec<String>, harvestable: Vec<bool>) -> Self {
+    /// 由已解析的名称、可采标记与通行覆盖构造（装载层填充）。
+    pub fn from_entries(names: Vec<String>, harvestable: Vec<bool>, land_pass_override: Vec<Option<bool>>) -> Self {
         debug_assert_eq!(names.len(), harvestable.len());
-        Self { names, harvestable }
+        debug_assert_eq!(names.len(), land_pass_override.len());
+        Self { names, harvestable, land_pass_override }
     }
 
     /// 已登记的类型数量。
@@ -36,5 +39,10 @@ impl OverlayTypeRegistry {
     /// 该 overlay id 是否可采矿/宝石。
     pub fn is_harvestable(&self, id: u8) -> bool {
         self.harvestable.get(usize::from(id)).copied().unwrap_or(false)
+    }
+
+    /// `NoUseTileLandType` 覆盖下的目标通行性；无覆盖则 `None`。
+    pub fn land_pass_override(&self, id: u8) -> Option<bool> {
+        self.land_pass_override.get(usize::from(id)).copied().flatten()
     }
 }

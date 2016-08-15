@@ -149,8 +149,7 @@ fn open_session_common(
         }
     }
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
-    let overlay_land =
-        apply_overlay_land_to_pass_grid(&state.map, &rules.rules, &|id| rules.overlay_types.name(id).map(str::to_string), &mut state.pass_grid);
+    let overlay_land = apply_overlay_land_to_pass_grid(&state.map, &state.overlay_types, &mut state.pass_grid);
     if land_sealed > 0 || overlay_land > 0 {
         state.repath_mobiles();
     }
