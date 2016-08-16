@@ -3,7 +3,7 @@
 //! 本模块只负责探测版本、按计划挂载与读 `ui.ini`；页面合成见 `compose`，命中见 [`crate::input::hit`]。
 
 use ra_adaptor::detect_edition;
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, collect_shp_refs};
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition};
 
@@ -76,7 +76,7 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
             None
         }
     });
-    let ui_ini_shp_refs = ui_ini.as_ref().map(|d| d.collect_shp_refs()).unwrap_or_default();
+    let ui_ini_shp_refs = ui_ini.as_ref().map(collect_shp_refs).unwrap_or_default();
     let ui_bit = match (&ui_ini, ui_ini_readable) {
         (Some(doc), _) => {
             format!("{} sections={} shp_refs={}", manifest.chain.ui_ini, doc.sections.len(), ui_ini_shp_refs.len())

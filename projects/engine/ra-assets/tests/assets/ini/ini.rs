@@ -1,11 +1,11 @@
 //! `IniDocument`（Westwood 方言）行为。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, collect_shp_refs, numbered_section_concat};
 
 #[test]
 fn numbered_concat_sorts_numerically() {
     let doc = IniDocument::parse(b"[IsoMapPack5]\n10=C\n2=B\n1=A\n").unwrap();
-    assert_eq!(doc.numbered_section_concat("IsoMapPack5").as_deref(), Some("ABC"));
+    assert_eq!(numbered_section_concat(&doc, "IsoMapPack5").as_deref(), Some("ABC"));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn preserves_list_values_with_commas() {
 #[test]
 fn collect_shp_refs_dedupes_and_keeps_order() {
     let doc = IniDocument::parse(b"[A]\nBg=Menu.shp\nBtn=ok.shp, Menu.shp\nOther=readme.txt\n[B]\nX=\"Hover.SHP\"\n").unwrap();
-    assert_eq!(doc.collect_shp_refs(), vec!["Menu.shp", "ok.shp", "Hover.SHP"]);
+    assert_eq!(collect_shp_refs(&doc), vec!["Menu.shp", "ok.shp", "Hover.SHP"]);
 }
 
 #[test]
