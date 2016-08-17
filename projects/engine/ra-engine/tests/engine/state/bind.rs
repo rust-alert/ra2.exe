@@ -2,7 +2,7 @@
 
 use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
 use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{MapEntity, MapEntityKind};
 use ra_types::GameEdition;
@@ -77,11 +77,13 @@ fn seeds_structure_health_from_map_ratio() {
         edition: GameEdition::Ra2,
         rules: doc.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
     let mut map = map_with_size();
     map.entities.push(MapEntity {

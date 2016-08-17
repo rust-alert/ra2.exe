@@ -2,7 +2,7 @@
 
 // 自 adapters/ra-adaptor/src/definitions.rs :: tests
 use ra_adaptor::{RulesSystem, definitions::*};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_types::{BuiltinCapability, GameEdition};
 
 fn rules_from(text: &[u8]) -> RulesSystem {
@@ -12,15 +12,19 @@ fn rules_from(text: &[u8]) -> RulesSystem {
 fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
     let rules = IniDocument::parse(rules_text).expect("test rules ini");
     let art = if art_text.is_empty() { IniDocument::default() } else { IniDocument::parse(art_text).expect("test art ini") };
+    let mut techno_types = TechnoTypeRegistry::from_rules(&rules);
+    techno_types.apply_art_geometry(&art);
     RulesSystem {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art,
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
+        techno_types,
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
     }
 }
 
@@ -111,4 +115,25 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
     let s = defs.structures.get("GAPOWR").expect("GAPOWR");
     assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
     assert_eq!(s.height, 4);
+}
+
+#[test]
+fn build_runtime_definitions_projects_techno_fields_without_rescanning_section() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=FV\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[FV]\nCost=600\nStrength=200\nPrerequisite=GAWEAP,POWER\nBuildLimit=2\nDeploysInto=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nPower=150\nConstructionYard=yes\nFactory=BuildingType\nCapturable=yes\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let fv = defs.techno.get("FV").expect("FV");
+    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
+    assert_eq!(fv.build_limit, 2);
+    let deploy = defs.deployables.iter().find(|d| d.source_key == "FV").expect("deploy");
+    assert_eq!(deploy.target_key, "GAPOWR");
+    let power = defs.structures.get("GAPOWR").expect("GAPOWR");
+    assert_eq!(power.power.output, 150);
+    assert!(power.construction_yard);
+    assert!(power.capturable);
+    assert!(power.production.is_some());
 }

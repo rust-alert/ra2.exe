@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, start_lightning_storm};
 use ra_map::{LightingConfig, LightingProfile};
 use ra_types::GameEdition;
@@ -12,11 +12,13 @@ fn empty_rules() -> RulesSystem {
         edition: GameEdition::Ra2,
         rules: IniDocument::default(),
         art: IniDocument::default(),
+        globals: RulesGlobals::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     }
 }
 
@@ -60,11 +62,13 @@ fn gameplay_powers_empty_rules() -> RulesSystem {
         edition: GameEdition::Ra2,
         rules: IniDocument::default(),
         art: IniDocument::default(),
+        globals: RulesGlobals::default(),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     }
 }
 

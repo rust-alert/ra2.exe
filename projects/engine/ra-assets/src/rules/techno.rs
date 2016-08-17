@@ -49,6 +49,50 @@ pub struct TechnoType {
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
     pub warhead: String,
+    /// `Prerequisite` token（大写）。
+    pub prerequisite: Vec<String>,
+    /// `PrerequisiteOverride` token（大写）。
+    pub prerequisite_override: Vec<String>,
+    /// `RequiredHouses` token（大写）。
+    pub required_houses: Vec<String>,
+    /// `ForbiddenHouses` token（大写）。
+    pub forbidden_houses: Vec<String>,
+    /// `BuildLimit`；`0` 表示不限。
+    pub build_limit: i32,
+    /// `BuildTime`；`0` 表示缺省。
+    pub build_time: u32,
+    /// `RequiresStolenAlliedTech`。
+    pub requires_stolen_allied_tech: bool,
+    /// `RequiresStolenSovietTech`。
+    pub requires_stolen_soviet_tech: bool,
+    /// `RequiresStolenThirdTech`。
+    pub requires_stolen_third_tech: bool,
+    /// `PixelSelectionBracketDelta`。
+    pub pixel_selection_bracket_delta: i32,
+    /// `DeploysInto` 目标类型键（大写）；空表示无。
+    pub deploys_into: String,
+    /// `Power` 原始值（正产电、负耗电）。
+    pub power: i32,
+    /// `Powered`；缺省时由耗电推导。
+    pub powered: Option<bool>,
+    /// `ConstructionYard`。
+    pub construction_yard: bool,
+    /// `Refinery`。
+    pub refinery: bool,
+    /// `Radar`。
+    pub radar: bool,
+    /// `BuildCat` 原文。
+    pub build_cat: String,
+    /// `Capturable`。
+    pub capturable: bool,
+    /// `Factory` 原文。
+    pub factory: String,
+    /// `SuperWeapon` 键（大写）；空表示无。
+    pub super_weapon: String,
+    /// `Foundation` 原文（优先 art，否则 rules）；空表示未写。
+    pub foundation: String,
+    /// `Height`（优先 art，否则 rules）；`None` 表示未写。
+    pub height: Option<u16>,
 }
 
 /// Techno 大类，对应 rules 列表节。
@@ -125,6 +169,23 @@ impl TechnoTypeRegistry {
     pub fn iter(&self) -> impl Iterator<Item = &TechnoType> {
         self.by_id.values()
     }
+
+    /// 用 art（含 `Image=` 跳转）覆盖建筑的 `Foundation` / `Height`，缺键保留 rules。
+    pub fn apply_art_geometry(&mut self, art: &IniDocument) {
+        for tt in self.by_id.values_mut() {
+            if tt.kind != TechnoKind::Building {
+                continue;
+            }
+            if let Some(v) = art_geometry_string(art, &tt.id, "Foundation") {
+                tt.foundation = v;
+            }
+            if let Some(v) = art_geometry_string(art, &tt.id, "Height") {
+                if let Ok(h) = v.parse::<i32>() {
+                    tt.height = Some(h.max(1) as u16);
+                }
+            }
+        }
+    }
 }
 
 /// 类型节字段（一次 Serde 解码；缺省与归一化在组装 `TechnoType` 时完成）。
@@ -160,6 +221,50 @@ struct TechnoSectionFields {
     primary: Option<String>,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
+    #[serde(rename = "Prerequisite", default)]
+    prerequisite: Vec<String>,
+    #[serde(rename = "PrerequisiteOverride", default)]
+    prerequisite_override: Vec<String>,
+    #[serde(rename = "RequiredHouses", default)]
+    required_houses: Vec<String>,
+    #[serde(rename = "ForbiddenHouses", default)]
+    forbidden_houses: Vec<String>,
+    #[serde(rename = "BuildLimit")]
+    build_limit: Option<i32>,
+    #[serde(rename = "BuildTime")]
+    build_time: Option<i32>,
+    #[serde(rename = "RequiresStolenAlliedTech")]
+    requires_stolen_allied_tech: Option<bool>,
+    #[serde(rename = "RequiresStolenSovietTech")]
+    requires_stolen_soviet_tech: Option<bool>,
+    #[serde(rename = "RequiresStolenThirdTech")]
+    requires_stolen_third_tech: Option<bool>,
+    #[serde(rename = "PixelSelectionBracketDelta")]
+    pixel_selection_bracket_delta: Option<i32>,
+    #[serde(rename = "DeploysInto")]
+    deploys_into: Option<String>,
+    #[serde(rename = "Power")]
+    power: Option<i32>,
+    #[serde(rename = "Powered")]
+    powered: Option<bool>,
+    #[serde(rename = "ConstructionYard")]
+    construction_yard: Option<bool>,
+    #[serde(rename = "Refinery")]
+    refinery: Option<bool>,
+    #[serde(rename = "Radar")]
+    radar: Option<bool>,
+    #[serde(rename = "BuildCat")]
+    build_cat: Option<String>,
+    #[serde(rename = "Capturable")]
+    capturable: Option<bool>,
+    #[serde(rename = "Factory")]
+    factory: Option<String>,
+    #[serde(rename = "SuperWeapon")]
+    super_weapon: Option<String>,
+    #[serde(rename = "Foundation")]
+    foundation: Option<String>,
+    #[serde(rename = "Height")]
+    height: Option<i32>,
 }
 
 /// 武器节字段。
@@ -173,6 +278,14 @@ struct WeaponSectionFields {
     rof: Option<u32>,
     #[serde(rename = "Warhead")]
     warhead: Option<String>,
+}
+
+fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
+    items
+        .into_iter()
+        .map(|s| s.trim().to_ascii_uppercase())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
@@ -213,7 +326,55 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         range,
         rof,
         warhead,
+        prerequisite: uppercase_tokens(fields.prerequisite),
+        prerequisite_override: uppercase_tokens(fields.prerequisite_override),
+        required_houses: uppercase_tokens(fields.required_houses),
+        forbidden_houses: uppercase_tokens(fields.forbidden_houses),
+        build_limit: fields.build_limit.unwrap_or(0).max(0),
+        build_time: fields.build_time.unwrap_or(0).max(0) as u32,
+        requires_stolen_allied_tech: fields.requires_stolen_allied_tech.unwrap_or(false),
+        requires_stolen_soviet_tech: fields.requires_stolen_soviet_tech.unwrap_or(false),
+        requires_stolen_third_tech: fields.requires_stolen_third_tech.unwrap_or(false),
+        pixel_selection_bracket_delta: fields.pixel_selection_bracket_delta.unwrap_or(0),
+        deploys_into: fields
+            .deploys_into
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_uppercase(),
+        power: fields.power.unwrap_or(0),
+        powered: fields.powered,
+        construction_yard: fields.construction_yard.unwrap_or(false),
+        refinery: fields.refinery.unwrap_or(false),
+        radar: fields.radar.unwrap_or(false),
+        build_cat: fields.build_cat.unwrap_or_default(),
+        capturable: fields.capturable.unwrap_or(false),
+        factory: fields.factory.unwrap_or_default(),
+        super_weapon: fields
+            .super_weapon
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_uppercase(),
+        foundation: fields.foundation.unwrap_or_default().trim().to_string(),
+        height: fields.height.map(|h| h.max(1) as u16),
     })
+}
+
+fn section_string(doc: &IniDocument, section: &str, key: &str) -> Option<String> {
+    doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+/// 先读 art 本节，再跟 `Image=` 指向的 art 节。
+fn art_geometry_string(art: &IniDocument, type_key: &str, key: &str) -> Option<String> {
+    if let Some(v) = section_string(art, type_key, key) {
+        return Some(v);
+    }
+    let image = section_string(art, type_key, "Image")?.to_ascii_uppercase();
+    if image.eq_ignore_ascii_case(type_key) {
+        return None;
+    }
+    section_string(art, &image, key)
 }
 
 /// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。

@@ -1,7 +1,7 @@
 //! 无窗口遭遇战夹具。
 
 use ra_adaptor::{RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use std::sync::Arc;
 
 use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
@@ -113,11 +113,13 @@ pub fn standard_duel() -> HeadlessCase {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-duel");
@@ -165,11 +167,13 @@ pub fn mcv_deploy_open() -> HeadlessCase {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-mcv-deploy");
@@ -207,11 +211,13 @@ pub fn yard_open() -> HeadlessCase {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
         warheads: WarheadRegistry::default(),
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-yard-open");
@@ -258,11 +264,13 @@ pub fn ai_skirmish_open() -> HeadlessCase {
         edition: GameEdition::Ra2,
         rules: rules.clone(),
         art: IniDocument::default(),
+        globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
         warheads,
+        super_weapons: SuperWeaponTypeRegistry::default(),
     };
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "testing-ai-skirmish");

@@ -21,36 +21,40 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         id
     };
 
-    defs.prerequisite_groups = parse_prerequisite_groups(&rules.rules);
-    defs.default_tech_level = ini_i32(&rules.rules, "MultiplayerDialogSettings", "TechLevel").unwrap_or(10).max(0);
-    // `[General]` 侧栏扳手：缺键回落原版库存默认。
-    defs.repair_percent = ini_i32(&rules.rules, "General", "RepairPercent").map(|v| v.max(0) as u32).unwrap_or(15);
-    defs.repair_step = ini_i32(&rules.rules, "General", "RepairStep").map(|v| v.max(1) as u32).unwrap_or(8);
-    defs.repair_interval_ticks = ini_string(&rules.rules, "General", "RepairRate")
-        .and_then(|raw| raw.parse::<f64>().ok())
-        .map(repair_rate_minutes_to_ticks)
-        .unwrap_or(14);
-    defs.speak_delay_ticks = {
-        let raw = ini_string(&rules.rules, "AudioVisual", "SpeakDelay")
-            .or_else(|| ini_string(&rules.rules, "General", "SpeakDelay"));
-        let minutes = raw.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-        speak_delay_minutes_to_ticks(minutes)
+    let g = &rules.globals;
+    defs.prerequisite_groups = PrerequisiteGroups {
+        power: g.prerequisite_power.clone(),
+        factory: g.prerequisite_factory.clone(),
+        barracks: g.prerequisite_barracks.clone(),
+        radar: g.prerequisite_radar.clone(),
+        tech: g.prerequisite_tech.clone(),
+        proc: g.prerequisite_proc.clone(),
+        proc_alternate: g.prerequisite_proc_alternate.clone(),
     };
+    defs.default_tech_level = g.multiplayer_tech_level.unwrap_or(10).max(0);
+    // `[General]` 侧栏扳手：缺键回落原版库存默认。
+    defs.repair_percent = g.repair_percent.map(|v| v.max(0) as u32).unwrap_or(15);
+    defs.repair_step = g.repair_step.map(|v| v.max(1) as u32).unwrap_or(8);
+    defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
+    defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     for country in rules.countries.countries() {
         if let Some(kind) = StolenTechKind::from_side(&country.side) {
             defs.stolen_tech_by_house.insert(&country.id, kind);
         }
     }
 
-    for sw_key in list_section_type_keys(&rules.rules, "SuperWeaponTypes") {
+    for sw in rules.super_weapons.iter() {
         let id = alloc();
-        let ui_name = ini_string(&rules.rules, &sw_key, "UIName").unwrap_or_default();
-        let kind = ini_string(&rules.rules, &sw_key, "Type").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        let action = ini_string(&rules.rules, &sw_key, "Action").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        let recharge_time = ini_i32(&rules.rules, &sw_key, "RechargeTime").unwrap_or(0).max(0);
-        let sidebar_image = ini_string(&rules.rules, &sw_key, "SidebarImage").unwrap_or_default();
-        let weapon = ini_string(&rules.rules, &sw_key, "Weapon").map(|s| s.to_ascii_uppercase()).unwrap_or_default();
-        defs.super_weapons.insert(SuperWeaponDefinition { id, type_key: sw_key, ui_name, kind, action, recharge_time, sidebar_image, weapon });
+        defs.super_weapons.insert(SuperWeaponDefinition {
+            id,
+            type_key: sw.id.clone(),
+            ui_name: sw.ui_name.clone(),
+            kind: sw.kind.clone(),
+            action: sw.action.clone(),
+            recharge_time: sw.recharge_time,
+            sidebar_image: sw.sidebar_image.clone(),
+            weapon: sw.weapon.clone(),
+        });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
         defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
@@ -85,16 +89,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             range: tt.range,
             rof: tt.rof,
             warhead: tt.warhead.to_ascii_uppercase(),
-            prerequisite: ini_csv_tokens(&rules.rules, &key, "Prerequisite"),
-            prerequisite_override: ini_csv_tokens(&rules.rules, &key, "PrerequisiteOverride"),
-            required_houses: ini_csv_tokens(&rules.rules, &key, "RequiredHouses"),
-            forbidden_houses: ini_csv_tokens(&rules.rules, &key, "ForbiddenHouses"),
-            build_limit: ini_i32(&rules.rules, &key, "BuildLimit").unwrap_or(0).max(0),
-            build_time: ini_i32(&rules.rules, &key, "BuildTime").unwrap_or(0).max(0) as u32,
-            requires_stolen_allied_tech: ini_bool(&rules.rules, &key, "RequiresStolenAlliedTech").unwrap_or(false),
-            requires_stolen_soviet_tech: ini_bool(&rules.rules, &key, "RequiresStolenSovietTech").unwrap_or(false),
-            requires_stolen_third_tech: ini_bool(&rules.rules, &key, "RequiresStolenThirdTech").unwrap_or(false),
-            pixel_selection_bracket_delta: ini_i32(&rules.rules, &key, "PixelSelectionBracketDelta").unwrap_or(0),
+            prerequisite: tt.prerequisite.clone(),
+            prerequisite_override: tt.prerequisite_override.clone(),
+            required_houses: tt.required_houses.clone(),
+            forbidden_houses: tt.forbidden_houses.clone(),
+            build_limit: tt.build_limit,
+            build_time: tt.build_time,
+            requires_stolen_allied_tech: tt.requires_stolen_allied_tech,
+            requires_stolen_soviet_tech: tt.requires_stolen_soviet_tech,
+            requires_stolen_third_tech: tt.requires_stolen_third_tech,
+            pixel_selection_bracket_delta: tt.pixel_selection_bracket_delta,
         });
 
         if tt.harvester {
@@ -105,8 +109,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上
-            if let Some(target) = ini_string(&rules.rules, &key, "DeploysInto") {
-                let target_key = target.to_ascii_uppercase();
+            if !tt.deploys_into.is_empty() {
+                let target_key = tt.deploys_into.clone();
                 let target_id = defs.techno.get(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
                 defs.deployables.insert(DeployableDefinition {
                     source: id,
@@ -120,15 +124,19 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             continue;
         }
 
-        let power_raw = ini_i32(&rules.rules, &key, "Power").unwrap_or(0);
+        let power_raw = tt.power;
         let (output, drain) = if power_raw >= 0 { (power_raw, 0) } else { (0, -power_raw) };
-        let powered = ini_bool(&rules.rules, &key, "Powered").unwrap_or(drain > 0);
-        let construction_yard = ini_bool(&rules.rules, &key, "ConstructionYard").unwrap_or(false);
-        let refinery = ini_bool(&rules.rules, &key, "Refinery").unwrap_or(false);
-        let radar = ini_bool(&rules.rules, &key, "Radar").unwrap_or(false);
-        let build_cat = BuildCat::parse(&ini_string(&rules.rules, &key, "BuildCat").unwrap_or_default());
-        let capturable = ini_bool(&rules.rules, &key, "Capturable").unwrap_or(false);
-        let factory = ini_string(&rules.rules, &key, "Factory").map(|s| parse_factory_category(&s));
+        let powered = tt.powered.unwrap_or(drain > 0);
+        let construction_yard = tt.construction_yard;
+        let refinery = tt.refinery;
+        let radar = tt.radar;
+        let build_cat = BuildCat::parse(&tt.build_cat);
+        let capturable = tt.capturable;
+        let factory = if tt.factory.trim().is_empty() {
+            None
+        } else {
+            Some(parse_factory_category(&tt.factory))
+        };
         let production = factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
@@ -153,7 +161,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
         }
-        let super_weapon = ini_string(&rules.rules, &key, "SuperWeapon").map(|s| s.to_ascii_uppercase());
+        let super_weapon = if tt.super_weapon.is_empty() {
+            None
+        } else {
+            Some(tt.super_weapon.clone())
+        };
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -166,9 +178,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             }
         }
 
-        // `Foundation` / `Height` 在原版主要写在 art.ini；rules 偶有覆盖。支持 art `Image=` 跳转。
-        let foundation = Foundation::parse(&art_or_rules_string(rules, &key, "Foundation").unwrap_or_default());
-        let height = art_or_rules_i32(rules, &key, "Height").unwrap_or(2).max(1) as u16;
+        // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
+        let foundation = Foundation::parse(&tt.foundation);
+        let height = tt.height.unwrap_or(2).max(1);
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -263,14 +275,15 @@ fn fill_terrain_spawners(defs: &mut RuntimeDefinitions, rules: &ra_assets::IniDo
 
 #[doc(hidden)]
 pub fn parse_prerequisite_groups(doc: &ra_assets::IniDocument) -> PrerequisiteGroups {
+    let g = ra_assets::RulesGlobals::from_rules(doc);
     PrerequisiteGroups {
-        power: ini_csv_tokens(doc, "General", "PrerequisitePower"),
-        factory: ini_csv_tokens(doc, "General", "PrerequisiteFactory"),
-        barracks: ini_csv_tokens(doc, "General", "PrerequisiteBarracks"),
-        radar: ini_csv_tokens(doc, "General", "PrerequisiteRadar"),
-        tech: ini_csv_tokens(doc, "General", "PrerequisiteTech"),
-        proc: ini_csv_tokens(doc, "General", "PrerequisiteProc"),
-        proc_alternate: ini_csv_tokens(doc, "General", "PrerequisiteProcAlternate"),
+        power: g.prerequisite_power,
+        factory: g.prerequisite_factory,
+        barracks: g.prerequisite_barracks,
+        radar: g.prerequisite_radar,
+        tech: g.prerequisite_tech,
+        proc: g.prerequisite_proc,
+        proc_alternate: g.prerequisite_proc_alternate,
     }
 }
 
@@ -308,27 +321,6 @@ pub fn parse_factory_category(raw: &str) -> ProductionCategory {
 #[doc(hidden)]
 pub fn ini_string(doc: &ra_assets::IniDocument, section: &str, key: &str) -> Option<String> {
     doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
-}
-
-/// 先读 art 节，再跟 `Image=` 指向的 art 节，最后回落 rules。
-pub fn art_or_rules_string(rules: &RulesSystem, type_key: &str, key: &str) -> Option<String> {
-    if let Some(v) = ini_string(&rules.art, type_key, key) {
-        return Some(v);
-    }
-    if let Some(image) = ini_string(&rules.art, type_key, "Image") {
-        let image = image.to_ascii_uppercase();
-        if !image.eq_ignore_ascii_case(type_key) {
-            if let Some(v) = ini_string(&rules.art, &image, key) {
-                return Some(v);
-            }
-        }
-    }
-    ini_string(&rules.rules, type_key, key)
-}
-
-#[doc(hidden)]
-pub fn art_or_rules_i32(rules: &RulesSystem, type_key: &str, key: &str) -> Option<i32> {
-    art_or_rules_string(rules, type_key, key)?.parse().ok()
 }
 
 #[doc(hidden)]
