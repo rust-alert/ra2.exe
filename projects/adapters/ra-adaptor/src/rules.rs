@@ -2,9 +2,9 @@
 
 use ra_assets::{
     ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
-    overlay_types_from_rules,
+    overlay_types_from_rules, terrain_spawners_from_rules,
 };
-use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult};
+use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainSpawnerDefinitions};
 
 use crate::ResourceChain;
 
@@ -21,6 +21,8 @@ pub struct RulesSystem {
     pub globals: RulesGlobals,
     /// 从 rules 派生的 overlay 类型注册表。
     pub overlay_types: OverlayTypeRegistry,
+    /// 从 rules 派生的动画产矿地形表。
+    pub terrain_spawners: TerrainSpawnerDefinitions,
     /// 从 rules 派生的配色方案表。
     pub color_schemes: ColorSchemes,
     /// 从 rules 派生的国家 / 势力表。
@@ -43,6 +45,7 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
         IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
     let globals = RulesGlobals::from_rules(&rules);
     let overlay_types = overlay_types_from_rules(&rules);
+    let terrain_spawners = terrain_spawners_from_rules(&rules);
     let color_schemes = ColorSchemes::from_rules(&rules);
     let countries = CountryRegistry::from_rules(&rules);
     let techno_types = {
@@ -58,6 +61,7 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
         art,
         globals,
         overlay_types,
+        terrain_spawners,
         color_schemes,
         countries,
         techno_types,

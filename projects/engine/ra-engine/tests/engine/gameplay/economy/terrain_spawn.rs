@@ -2,7 +2,7 @@
 
 use ra_adaptor::RulesSystem;
 use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules};
+use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_rules, terrain_spawners_from_rules};
 use ra_engine::BattleState;
 use ra_map::{MapInfo, TerrainObject};
 use ra_types::GameEdition;
@@ -28,6 +28,7 @@ AnimationProbability=1
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: overlay_types_from_rules(&rules),
+        terrain_spawners: terrain_spawners_from_rules(&rules),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),

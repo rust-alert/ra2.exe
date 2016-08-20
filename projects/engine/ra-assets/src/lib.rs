@@ -66,6 +66,7 @@ pub use rules::{
     overlay::{harvestable_overlay_name, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     super_weapons::{SuperWeaponType, SuperWeaponTypeRegistry},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
+    terrain_spawners::terrain_spawners_from_rules,
     warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index},
 };
 pub use voxel::{

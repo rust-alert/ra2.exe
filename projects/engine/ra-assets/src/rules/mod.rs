@@ -7,4 +7,5 @@ pub mod house_remap;
 pub mod overlay;
 pub mod super_weapons;
 pub mod techno;
+pub mod terrain_spawners;
 pub mod warheads;

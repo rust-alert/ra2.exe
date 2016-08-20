@@ -5,7 +5,7 @@ use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition};
+use ra_types::{EntityId, GameEdition, TerrainSpawnerDefinitions};
 
 fn mcv_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n1=MTNK\n\
@@ -20,6 +20,7 @@ fn mcv_world() -> BattleState {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),

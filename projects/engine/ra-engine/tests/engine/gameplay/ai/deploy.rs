@@ -5,7 +5,7 @@ use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, TerrainSpawnerDefinitions};
 
 #[test]
 fn ai_deploys_mcv_via_command() {
@@ -24,6 +24,7 @@ fn ai_deploys_mcv_via_command() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&doc),

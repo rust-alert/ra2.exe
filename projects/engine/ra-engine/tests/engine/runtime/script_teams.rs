@@ -5,7 +5,7 @@ use ra_adaptor::RulesSystem;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
-use ra_types::GameEdition;
+use ra_types::{GameEdition, TerrainSpawnerDefinitions};
 
 fn rules_with_e1() -> RulesSystem {
     let rules = IniDocument::parse(
@@ -19,6 +19,7 @@ fn rules_with_e1() -> RulesSystem {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),
@@ -167,6 +168,7 @@ fn create_team_script_action_6_deploys_mcv() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),

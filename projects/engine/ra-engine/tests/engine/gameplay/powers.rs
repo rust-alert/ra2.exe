@@ -5,7 +5,7 @@ use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, start_lightning_storm};
 use ra_map::{LightingConfig, LightingProfile};
-use ra_types::GameEdition;
+use ra_types::{GameEdition, TerrainSpawnerDefinitions};
 
 fn empty_rules() -> RulesSystem {
     RulesSystem {
@@ -14,6 +14,7 @@ fn empty_rules() -> RulesSystem {
         art: IniDocument::default(),
         globals: RulesGlobals::default(),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),
@@ -64,6 +65,7 @@ fn gameplay_powers_empty_rules() -> RulesSystem {
         art: IniDocument::default(),
         globals: RulesGlobals::default(),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::default(),

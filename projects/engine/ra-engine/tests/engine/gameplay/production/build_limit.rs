@@ -5,7 +5,7 @@ use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, PlayerId};
+use ra_types::{GameEdition, PlayerId, TerrainSpawnerDefinitions};
 
 fn limit_world() -> BattleState {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
@@ -19,6 +19,7 @@ fn limit_world() -> BattleState {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types: TechnoTypeRegistry::from_rules(&rules),

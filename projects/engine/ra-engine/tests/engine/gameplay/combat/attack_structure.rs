@@ -5,7 +5,7 @@ use crate::common::battle_from_rules;
 use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition};
+use ra_types::{EntityId, GameEdition, TerrainSpawnerDefinitions};
 
 #[test]
 fn attack_structure_kills_and_frees_cell() {
@@ -26,6 +26,7 @@ fn attack_structure_kills_and_frees_cell() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
@@ -94,6 +95,7 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
         art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
+        terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
         countries: CountryRegistry::default(),
         techno_types,
