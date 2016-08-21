@@ -44,8 +44,8 @@ pub use image::{
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
 pub use ini::{
-    IniDeError, IniDocument, IniEntry, IniSection, IniValue, SourceId, SourceSpan, collect_shp_refs, concat_numbered_values, from_section,
-    numbered_section_concat,
+    EntryMergePolicy, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView, LayeredSectionView, SourceId,
+    SourceSpan, collect_shp_refs, concat_numbered_values, from_layered_section, from_section, numbered_section_concat,
 };
 pub use mix::{
     archive::{MixArchive, MixEntry},
@@ -63,10 +63,10 @@ pub use rules::{
     },
     globals::RulesGlobals,
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::{harvestable_overlay_name, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
+    overlay::{harvestable_overlay_name, overlay_types_from_layered, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_type_for_overlay},
     super_weapons::{SuperWeaponType, SuperWeaponTypeRegistry},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
-    terrain_spawners::terrain_spawners_from_rules,
+    terrain_spawners::{terrain_spawners_from_layered, terrain_spawners_from_rules},
     warheads::{ARMOR_ORDER, Warhead, WarheadRegistry, armor_index},
 };
 pub use voxel::{

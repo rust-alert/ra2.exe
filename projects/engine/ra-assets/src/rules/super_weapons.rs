@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 
 /// 超武类型（装载期资源侧记录）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,14 +35,25 @@ pub struct SuperWeaponTypeRegistry {
 impl SuperWeaponTypeRegistry {
     /// 扫描 `[SuperWeaponTypes]` 列表并解码各类型节。
     pub fn from_rules(rules: &IniDocument) -> Self {
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        Self::from_layered(LayeredIniView::new(docs, &policy))
+    }
+
+    /// 从层叠 rules 视图扫描列表并解码各类型节。
+    pub fn from_layered(view: LayeredIniView<'_>) -> Self {
         let mut items = Vec::new();
         let mut by_id = HashMap::new();
-        let Some(list) = rules.section("SuperWeaponTypes")
+        let Some(list) = view.section("SuperWeaponTypes")
         else {
             return Self { items, by_id };
         };
-        for (_key, name) in list.pairs() {
-            let id = name.trim();
+        for key in list.keys() {
+            let Some(name_val) = list.get(key)
+            else {
+                continue;
+            };
+            let id = name_val.trimmed().raw;
             if id.is_empty() {
                 continue;
             }
@@ -50,7 +61,7 @@ impl SuperWeaponTypeRegistry {
             if by_id.contains_key(&id_up) {
                 continue;
             }
-            let Some(sw) = parse_super_weapon(rules, &id_up)
+            let Some(sw) = parse_super_weapon(view, &id_up)
             else {
                 continue;
             };
@@ -99,8 +110,8 @@ struct SuperWeaponSectionFields {
     weapon: Option<String>,
 }
 
-fn parse_super_weapon(rules: &IniDocument, id: &str) -> Option<SuperWeaponType> {
-    let section = rules.section(id)?;
+fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponType> {
+    let section = view.section(id)?;
     let fields: SuperWeaponSectionFields = section.deserialize().ok()?;
     Some(SuperWeaponType {
         id: id.to_string(),

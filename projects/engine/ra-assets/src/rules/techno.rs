@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::IniDocument;
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +117,13 @@ pub struct TechnoTypeRegistry {
 impl TechnoTypeRegistry {
     /// 扫描 `[InfantryTypes]` / `[VehicleTypes]` / `[AircraftTypes]` / `[BuildingTypes]`。
     pub fn from_rules(rules: &IniDocument) -> Self {
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        Self::from_layered(LayeredIniView::new(docs, &policy))
+    }
+
+    /// 从层叠 rules 视图扫描列表节并解码各类型（字段按视图策略合并）。
+    pub fn from_layered(view: LayeredIniView<'_>) -> Self {
         let mut by_id = HashMap::new();
         for (section, kind) in [
             ("InfantryTypes", TechnoKind::Infantry),
@@ -124,12 +131,16 @@ impl TechnoTypeRegistry {
             ("AircraftTypes", TechnoKind::Aircraft),
             ("BuildingTypes", TechnoKind::Building),
         ] {
-            let Some(list) = rules.section(section)
+            let Some(list) = view.section(section)
             else {
                 continue;
             };
-            for (_key, name) in list.pairs() {
-                let id = name.trim();
+            for key in list.keys() {
+                let Some(name_val) = list.get(key)
+                else {
+                    continue;
+                };
+                let id = name_val.trimmed().raw;
                 if id.is_empty() {
                     continue;
                 }
@@ -137,7 +148,7 @@ impl TechnoTypeRegistry {
                 if by_id.contains_key(&id_up) {
                     continue;
                 }
-                if let Some(tt) = parse_techno(rules, &id_up, kind) {
+                if let Some(tt) = parse_techno(view, &id_up, kind) {
                     by_id.insert(id_up, tt);
                 }
             }
@@ -172,6 +183,13 @@ impl TechnoTypeRegistry {
 
     /// 用 art（含 `Image=` 跳转）覆盖建筑的 `Foundation` / `Height`，缺键保留 rules。
     pub fn apply_art_geometry(&mut self, art: &IniDocument) {
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(art);
+        self.apply_art_geometry_layered(LayeredIniView::new(docs, &policy));
+    }
+
+    /// 用层叠 art 覆盖建筑几何字段。
+    pub fn apply_art_geometry_layered(&mut self, art: LayeredIniView<'_>) {
         for tt in self.by_id.values_mut() {
             if tt.kind != TechnoKind::Building {
                 continue;
@@ -288,8 +306,8 @@ fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    let section = rules.section(id)?;
+fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
+    let section = view.section(id)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields
         .primary
@@ -298,7 +316,7 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
         .trim()
         .to_ascii_uppercase();
     let techno_rof = fields.rof.unwrap_or(0);
-    let (damage, range, rof, warhead) = resolve_primary_weapon(rules, &primary, techno_rof);
+    let (damage, range, rof, warhead) = resolve_primary_weapon(view, &primary, techno_rof);
     let image = fields
         .image
         .as_deref()
@@ -361,28 +379,32 @@ fn parse_techno(rules: &IniDocument, id: &str, kind: TechnoKind) -> Option<Techn
     })
 }
 
-fn section_string(doc: &IniDocument, section: &str, key: &str) -> Option<String> {
-    doc.get(section, key).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
-}
-
 /// 先读 art 本节，再跟 `Image=` 指向的 art 节。
-fn art_geometry_string(art: &IniDocument, type_key: &str, key: &str) -> Option<String> {
-    if let Some(v) = section_string(art, type_key, key) {
-        return Some(v);
+fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Option<String> {
+    if let Some(v) = art.get(type_key, key) {
+        let t = v.trimmed();
+        if !t.raw.is_empty() {
+            return Some(t.raw.to_string());
+        }
     }
-    let image = section_string(art, type_key, "Image")?.to_ascii_uppercase();
+    let image = art.get(type_key, "Image")?.trimmed().raw.to_ascii_uppercase();
     if image.eq_ignore_ascii_case(type_key) {
         return None;
     }
-    section_string(art, &image, key)
+    let v = art.get(&image, key)?.trimmed();
+    if v.raw.is_empty() {
+        None
+    } else {
+        Some(v.raw.to_string())
+    }
 }
 
 /// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(rules: &IniDocument, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
+fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
     if primary.is_empty() {
         return (0, 0, techno_rof, String::new());
     }
-    let Some(section) = rules.section(primary)
+    let Some(section) = view.section(primary)
     else {
         return (0, 0, techno_rof, String::new());
     };

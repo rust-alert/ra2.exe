@@ -59,6 +59,14 @@ impl IniSection {
         self.entries.iter().rev().find(|e| e.key_key == key).map(|e| e.value_raw.as_str())
     }
 
+    /// 按比较键取最后一次出现的 [`super::IniValue`]（含节名 / 键名 / span）。
+    pub fn value<'a>(&'a self, key: &str) -> Option<super::IniValue<'a>> {
+        let key_up = key.to_ascii_uppercase();
+        self.entries.iter().rev().find(|e| e.key_key == key_up).map(|e| {
+            super::IniValue::new(e.value_raw.as_str(), e.span, self.name_raw.as_str(), e.key_raw.as_str())
+        })
+    }
+
     /// 将本节一次性反序列化为强类型（字段名需与 INI 键拼写一致，可用 `serde(rename)`）。
     pub fn deserialize<'de, T>(&'de self) -> Result<T, super::de::IniDeError>
     where

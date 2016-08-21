@@ -3,7 +3,10 @@
 use std::collections::HashMap;
 
 use super::house_remap::Hsv;
-use crate::{image::pal::Palette, ini::IniDocument};
+use crate::{
+    image::pal::Palette,
+    ini::{IniDocument, IniMergePolicy, LayeredIniView},
+};
 
 /// 零售 `[Colors]` 表。
 #[derive(Debug, Clone, Default)]
@@ -14,14 +17,25 @@ pub struct ColorSchemes {
 impl ColorSchemes {
     /// 从 rules 文档解析；缺节则空表。
     pub fn from_rules(doc: &IniDocument) -> Self {
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(doc);
+        Self::from_layered(LayeredIniView::new(docs, &policy))
+    }
+
+    /// 从层叠 rules 视图解析 `[Colors]`。
+    pub fn from_layered(view: LayeredIniView<'_>) -> Self {
         let mut by_name = HashMap::new();
-        let Some(sec) = doc.section("Colors")
+        let Some(sec) = view.section("Colors")
         else {
             return Self { by_name };
         };
-        for (name, value) in sec.pairs() {
-            if let Some(hsv) = parse_hsv(value) {
-                by_name.insert(name.to_ascii_uppercase(), hsv);
+        for key in sec.keys() {
+            let Some(value) = sec.get(key)
+            else {
+                continue;
+            };
+            if let Some(hsv) = parse_hsv(value.trimmed().raw) {
+                by_name.insert(key.to_ascii_uppercase(), hsv);
             }
         }
         Self { by_name }
@@ -34,7 +48,14 @@ impl ColorSchemes {
 
     /// 阵营节 `Color=` → HSV（含 `Neutral` / `Special` / `Civilian` 的 Grey 等方案）。
     pub fn hsv_for_house(&self, rules: &IniDocument, house: &str) -> Option<Hsv> {
-        let scheme = rules.get(house, "Color")?;
+        let policy = IniMergePolicy::last_wins();
+        let docs = std::slice::from_ref(rules);
+        self.hsv_for_house_layered(LayeredIniView::new(docs, &policy), house)
+    }
+
+    /// 层叠 rules 下阵营节 `Color=` → HSV。
+    pub fn hsv_for_house_layered(&self, view: LayeredIniView<'_>, house: &str) -> Option<Hsv> {
+        let scheme = view.get(house, "Color")?.trimmed().raw;
         self.get(scheme)
     }
 

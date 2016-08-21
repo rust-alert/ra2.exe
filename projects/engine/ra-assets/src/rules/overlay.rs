@@ -3,7 +3,7 @@
 use ra_types::OverlayTypeRegistry;
 
 use crate::{
-    ini::IniDocument,
+    ini::{IniDocument, IniMergePolicy, LayeredIniView},
     rules::{color_schemes::ColorSchemes, house_remap::Hsv},
 };
 
@@ -12,21 +12,32 @@ use crate::{
 /// 可采判定优先读类型节 `Tiberium=yes` / `SpawnsTiberium=yes` / `Land=`，
 /// 再回退类型名前缀 `TIB*` / `GEM*`。
 pub fn overlay_types_from_rules(rules: &IniDocument) -> OverlayTypeRegistry {
-    let Some(section) = rules.section("OverlayTypes")
+    let policy = IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(rules);
+    overlay_types_from_layered(LayeredIniView::new(docs, &policy))
+}
+
+/// 从层叠 rules 视图解析 `[OverlayTypes]`。
+pub fn overlay_types_from_layered(view: LayeredIniView<'_>) -> OverlayTypeRegistry {
+    let Some(section) = view.section("OverlayTypes")
     else {
         return OverlayTypeRegistry::default();
     };
     let mut names = Vec::new();
     let mut harvestable = Vec::new();
     let mut land_pass_override = Vec::new();
-    for (_key, value) in section.pairs() {
-        let name = value.trim();
+    for key in section.keys() {
+        let Some(value) = section.get(key)
+        else {
+            continue;
+        };
+        let name = value.trimmed().raw;
         if name.is_empty() {
             continue;
         }
         let name_up = name.to_ascii_uppercase();
-        let can_harvest = overlay_type_is_harvestable(rules, &name_up);
-        let pass_override = overlay_land_pass_override(rules, &name_up);
+        let can_harvest = overlay_type_is_harvestable(view, &name_up);
+        let pass_override = overlay_land_pass_override(view, &name_up);
         names.push(name_up);
         harvestable.push(can_harvest);
         land_pass_override.push(pass_override);
@@ -58,8 +69,15 @@ pub fn tiberium_type_for_overlay(name: &str) -> Option<&'static str> {
 ///
 /// 零售 `NeonGreen=0,0,0` 是矿石哨兵（不可直接 remap），替换为 `Gold`。
 pub fn tiberium_overlay_display_hsv(rules: &IniDocument, colors: &ColorSchemes, overlay_name: &str) -> Option<Hsv> {
+    let policy = IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(rules);
+    tiberium_overlay_display_hsv_layered(LayeredIniView::new(docs, &policy), colors, overlay_name)
+}
+
+/// 层叠 rules 下的矿石 / 宝石呈现 HSV。
+pub fn tiberium_overlay_display_hsv_layered(view: LayeredIniView<'_>, colors: &ColorSchemes, overlay_name: &str) -> Option<Hsv> {
     let tib_type = tiberium_type_for_overlay(overlay_name)?;
-    let scheme = rules.get(tib_type, "Color")?;
+    let scheme = view.get(tib_type, "Color")?.trimmed().raw;
     let hsv = colors.get(scheme)?;
     if hsv == (Hsv { h: 0, s: 0, v: 0 }) {
         return Some(colors.get("Gold").unwrap_or(Hsv { h: 41, s: 240, v: 230 }));
@@ -70,29 +88,38 @@ pub fn tiberium_overlay_display_hsv(rules: &IniDocument, colors: &ColorSchemes, 
 /// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。
 ///
 /// 通行粗判与 `ra-map` 的 `land_passable` 对齐：水 / 岩 / 墙不可走，缺键按 Clear（可走）。
-fn overlay_land_pass_override(rules: &IniDocument, name: &str) -> Option<bool> {
-    let no_use = rules
-        .get(name, "NoUseTileLandType")
-        .is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
+fn overlay_land_pass_override(view: LayeredIniView<'_>, name: &str) -> Option<bool> {
+    let no_use = view.get(name, "NoUseTileLandType").is_some_and(|v| {
+        let t = v.trimmed().raw;
+        t.eq_ignore_ascii_case("yes") || t == "1"
+    });
     if !no_use {
         return None;
     }
-    let land = rules.get(name, "Land").unwrap_or("Clear");
+    let land = view
+        .get(name, "Land")
+        .map(|v| v.trimmed().raw.to_string())
+        .unwrap_or_else(|| "Clear".into());
     Some(match land.trim().to_ascii_lowercase().as_str() {
         "water" | "rock" | "wall" => false,
         _ => true,
     })
 }
 
-#[doc(hidden)]
-pub fn overlay_type_is_harvestable(rules: &IniDocument, name: &str) -> bool {
-    if rules.get(name, "Tiberium").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1")) {
+fn overlay_type_is_harvestable(view: LayeredIniView<'_>, name: &str) -> bool {
+    if view.get(name, "Tiberium").is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "yes" | "true" | "1")) {
         return true;
     }
-    if rules.get(name, "SpawnsTiberium").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "yes" | "true" | "1")) {
+    if view
+        .get(name, "SpawnsTiberium")
+        .is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "yes" | "true" | "1"))
+    {
         return true;
     }
-    if rules.get(name, "Land").is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "tiberium" | "ore" | "gems")) {
+    if view
+        .get(name, "Land")
+        .is_some_and(|v| matches!(v.trimmed().raw.to_ascii_lowercase().as_str(), "tiberium" | "ore" | "gems"))
+    {
         return true;
     }
     harvestable_overlay_name(name)

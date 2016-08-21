@@ -43,3 +43,24 @@ fn missing_key_zero_shifts_gems_and_ore_like_retail() {
     assert_eq!(reg.name(27), Some("GEM01"));
     assert_eq!(reg.name(102), Some("TIB01"));
 }
+
+#[test]
+fn from_layered_appends_overlay_list_and_merges_flags() {
+    let base = IniDocument::parse(b"[OverlayTypes]\n0=TIB01\n[TIB01]\nLand=Clear\n").unwrap();
+    let top = IniDocument::parse(
+        b"[OverlayTypes]\n1=GEM01\n\
+[TIB01]\nTiberium=yes\n\
+[GEM01]\nLand=Gems\n",
+    )
+    .unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let docs = [base, top];
+    let reg = overlay_types_from_layered(LayeredIniView::new(&docs, &policy));
+    assert_eq!(reg.len(), 2);
+    assert_eq!(reg.name(0), Some("TIB01"));
+    assert_eq!(reg.name(1), Some("GEM01"));
+    assert!(reg.is_harvestable(0));
+    assert!(reg.is_harvestable(1));
+}

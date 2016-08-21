@@ -18,6 +18,19 @@ fn parse_colors_and_house() {
 }
 
 #[test]
+fn from_layered_overrides_color_hsv() {
+    let base = IniDocument::parse(b"[Colors]\nGold=41,240,230\n").unwrap();
+    let top = IniDocument::parse(b"[Colors]\nGold=10,20,30\nDarkRed=0,230,255\n").unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let docs = [base, top];
+    let schemes = ColorSchemes::from_layered(LayeredIniView::new(&docs, &policy));
+    assert_eq!(schemes.get("Gold"), Some(Hsv { h: 10, s: 20, v: 30 }));
+    assert_eq!(schemes.get("DarkRed"), Some(Hsv { h: 0, s: 230, v: 255 }));
+}
+
+#[test]
 fn palette_falls_back_without_hsv() {
     let doc = IniDocument::parse(b"[Colors]\nGrey=0,0,131\n[Neutral]\nColor=Grey\n").unwrap();
     let schemes = ColorSchemes::from_rules(&doc);

@@ -1,7 +1,7 @@
 //! 自 `engine/ra-assets/src/rules/countries.rs` 迁出的单元测试（集成测试 crate）。
 
 // 自 engine/ra-assets/src/rules/countries.rs :: tests
-use ra_assets::{IniDocument, rules::countries::*};
+use ra_assets::{EntryMergePolicy, IniDocument, IniMergePolicy, LayeredIniView, rules::countries::*};
 
 const SAMPLE: &str = r#"
 [Countries]
@@ -130,6 +130,34 @@ fn skirmish_filter_drops_non_multiplay() {
     let reg = CountryRegistry::from_rules(&doc);
     let ids: Vec<_> = reg.skirmish_countries().iter().map(|c| c.id.as_str()).collect();
     assert_eq!(ids, vec!["Americans", "French", "Russians", "YuriCountry"]);
+}
+
+#[test]
+fn from_layered_overrides_country_fields() {
+    let base = IniDocument::parse(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nUIName=Name:Americans\nPrefix=USA\nColor=Gold\nSide=GDI\nMultiplay=yes\n\
+[Sides]\nGDI=Americans\n\
+[GDI]\nSidebar.MixFileIndex=1\n",
+    )
+    .unwrap();
+    let top = IniDocument::parse(
+        b"[Americans]\nColor=LightBlue\nMultiplay=no\n\
+[GDI]\nSidebar.MixFileIndex=9\nSidebar.YuriFileNames=yes\n",
+    )
+    .unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let docs = [base, top];
+    let reg = CountryRegistry::from_layered(LayeredIniView::new(&docs, &policy));
+    let usa = reg.get("Americans").unwrap();
+    assert_eq!(usa.color, "LightBlue");
+    assert!(!usa.multiplay);
+    assert_eq!(usa.prefix, "USA");
+    let gdi = reg.side_chrome("GDI").unwrap();
+    assert_eq!(gdi.mix_file_index, Some(9));
+    assert!(gdi.yuri_file_names);
 }
 
 #[test]
