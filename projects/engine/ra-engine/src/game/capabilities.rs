@@ -394,11 +394,18 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(sw_key) = world.definitions.structures.get(identity.type_id.as_ref()).and_then(|s| s.super_weapon.as_ref())
+        let Some(structure) = world.definitions.structures.get(identity.type_id.as_ref())
         else {
             continue;
         };
-        let key = sw_key.to_ascii_uppercase();
+        let Some(def) = structure
+            .super_weapon_id
+            .and_then(|id| world.definitions.super_weapons.get_by_id(id))
+            .or_else(|| structure.super_weapon.as_ref().and_then(|k| world.definitions.super_weapons.get(k)))
+        else {
+            continue;
+        };
+        let key = def.type_key.clone();
         if !keys.iter().any(|k| k == &key) {
             keys.push(key);
         }

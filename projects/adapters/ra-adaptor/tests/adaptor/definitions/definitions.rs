@@ -75,8 +75,11 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(sw.recharge_time, 10);
     assert_eq!(sw.sidebar_image, "SSWLSICON");
     assert_eq!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()), Some("LIGHTNINGSTORM"));
+    let gatech = defs.structures.get("GATECH").expect("tech");
+    let sw_id = gatech.super_weapon_id.expect("bound SW id");
+    assert_eq!(defs.super_weapons.get_by_id(sw_id).map(|d| d.type_key.as_str()), Some("LIGHTNINGSTORM"));
     assert!(defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon));
-    assert!(defs.structures.get("GATECH").expect("tech").capabilities.contains(&BuiltinCapability::SuperWeapon));
+    assert!(gatech.capabilities.contains(&BuiltinCapability::SuperWeapon));
 }
 
 #[test]
@@ -116,6 +119,33 @@ fn build_runtime_definitions_rules_foundation_fallback_without_art() {
     let s = defs.structures.get("GAPOWR").expect("GAPOWR");
     assert_eq!((s.foundation.width, s.foundation.height), (2, 2));
     assert_eq!(s.height, 4);
+}
+
+#[test]
+fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    let mut rules = rules;
+    rules.warheads = WarheadRegistry::from_names(&rules.rules, rules.techno_types.iter().map(|t| t.warhead.as_str()));
+    let defs = build_runtime_definitions(&rules);
+    let mtnk = defs.techno.get("MTNK").expect("MTNK");
+    assert_eq!(mtnk.primary, "90MM");
+    assert_ne!(mtnk.primary_id, ra_types::WeaponId(0));
+    assert_eq!(mtnk.warhead, "SA");
+    assert_ne!(mtnk.warhead_id, ra_types::WarheadId(0));
+    let weapon = defs.weapons.get_by_id(mtnk.primary_id).expect("bound weapon");
+    assert_eq!(weapon.type_key, "90MM");
+    assert_eq!(weapon.damage, 50);
+    assert_eq!(weapon.range, 6);
+    assert_eq!(weapon.rof, 8);
+    assert_eq!(weapon.warhead_id, mtnk.warhead_id);
+    let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
+    assert_eq!(wh.type_key, "SA");
+    assert_eq!(wh.verses, [100; 11]);
 }
 
 #[test]

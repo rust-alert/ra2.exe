@@ -8,10 +8,14 @@ use crate::{
     ini::{IniDocument, IniMergePolicy, LayeredIniView},
 };
 
-/// 零售 `[Colors]` 表。
+/// 零售 `[Colors]` 表，以及装载期绑定的阵营 / 矿石呈现 HSV。
 #[derive(Debug, Clone, Default)]
 pub struct ColorSchemes {
     by_name: HashMap<String, Hsv>,
+    /// 阵营 / 房屋 id（大写）→ 已解析 HSV（装载期写入，运行时不再读 INI）。
+    house_hsv: HashMap<String, Hsv>,
+    /// `[Tiberiums]` 类型名（大写，如 `RIPARIUS`）→ 呈现用 HSV（含 NeonGreen→Gold 哨兵替换）。
+    tiberium_display_hsv: HashMap<String, Hsv>,
 }
 
 impl ColorSchemes {
@@ -27,7 +31,11 @@ impl ColorSchemes {
         let mut by_name = HashMap::new();
         let Some(sec) = view.section("Colors")
         else {
-            return Self { by_name };
+            return Self {
+                by_name,
+                house_hsv: HashMap::new(),
+                tiberium_display_hsv: HashMap::new(),
+            };
         };
         for key in sec.keys() {
             let Some(value) = sec.get(key)
@@ -38,7 +46,11 @@ impl ColorSchemes {
                 by_name.insert(key.to_ascii_uppercase(), hsv);
             }
         }
-        Self { by_name }
+        Self {
+            by_name,
+            house_hsv: HashMap::new(),
+            tiberium_display_hsv: HashMap::new(),
+        }
     }
 
     /// 按方案名取 HSV（大小写不敏感）。
@@ -46,8 +58,42 @@ impl ColorSchemes {
         self.by_name.get(&name.to_ascii_uppercase()).copied()
     }
 
+    /// 将阵营节 `Color=` 解析并记入 `house_hsv`（方案名须已在 `[Colors]` 中）。
+    pub fn bind_house_scheme(&mut self, house: &str, scheme: &str) {
+        let Some(hsv) = self.get(scheme)
+        else {
+            return;
+        };
+        self.house_hsv.insert(house.to_ascii_uppercase(), hsv);
+    }
+
+    /// 从层叠视图为给定房屋 id 列表绑定 `Color=`。
+    pub fn bind_houses_from_layered(&mut self, view: LayeredIniView<'_>, houses: impl IntoIterator<Item = impl AsRef<str>>) {
+        for house in houses {
+            let id = house.as_ref();
+            if id.is_empty() {
+                continue;
+            }
+            let Some(scheme) = view.get(id, "Color")
+            else {
+                continue;
+            };
+            self.bind_house_scheme(id, scheme.trimmed().raw);
+        }
+    }
+
+    /// 已绑定阵营 id → HSV（装载期表）。
+    pub fn hsv_for_house_id(&self, house: &str) -> Option<Hsv> {
+        self.house_hsv.get(&house.to_ascii_uppercase()).copied()
+    }
+
     /// 阵营节 `Color=` → HSV（含 `Neutral` / `Special` / `Civilian` 的 Grey 等方案）。
+    ///
+    /// 优先读装载期 `house_hsv`；未绑定再回退到文档查询（测试 / 旧调用）。
     pub fn hsv_for_house(&self, rules: &IniDocument, house: &str) -> Option<Hsv> {
+        if let Some(hsv) = self.hsv_for_house_id(house) {
+            return Some(hsv);
+        }
         let policy = IniMergePolicy::last_wins();
         let docs = std::slice::from_ref(rules);
         self.hsv_for_house_layered(LayeredIniView::new(docs, &policy), house)
@@ -55,6 +101,9 @@ impl ColorSchemes {
 
     /// 层叠 rules 下阵营节 `Color=` → HSV。
     pub fn hsv_for_house_layered(&self, view: LayeredIniView<'_>, house: &str) -> Option<Hsv> {
+        if let Some(hsv) = self.hsv_for_house_id(house) {
+            return Some(hsv);
+        }
         let scheme = view.get(house, "Color")?.trimmed().raw;
         self.get(scheme)
     }
@@ -67,6 +116,39 @@ impl ColorSchemes {
             return base.with_hsv_remap(hsv);
         }
         base.for_owner(owner)
+    }
+
+    /// 仅用装载期绑定表做 remap（运行时路径，不持有 `IniDocument`）。
+    pub fn palette_for_house_id(&self, base: &Palette, owner: &str) -> Palette {
+        if let Some(hsv) = self.hsv_for_house_id(owner) {
+            return base.with_hsv_remap(hsv);
+        }
+        base.for_owner(owner)
+    }
+
+    /// 装载 `[Tiberiums]` 呈现色（`Riparius` / `Cruentus` 等节的 `Color=`）。
+    ///
+    /// `NeonGreen=0,0,0` 哨兵替换为 `Gold`（与 `tiberium_overlay_display_hsv` 一致）。
+    pub fn bind_tiberium_display_from_layered(&mut self, view: LayeredIniView<'_>) {
+        for tib_type in ["Riparius", "Cruentus"] {
+            let Some(scheme) = view.get(tib_type, "Color")
+            else {
+                continue;
+            };
+            let Some(mut hsv) = self.get(scheme.trimmed().raw)
+            else {
+                continue;
+            };
+            if hsv == (Hsv { h: 0, s: 0, v: 0 }) {
+                hsv = self.get("Gold").unwrap_or(Hsv { h: 41, s: 240, v: 230 });
+            }
+            self.tiberium_display_hsv.insert(tib_type.to_ascii_uppercase(), hsv);
+        }
+    }
+
+    /// 已绑定的 Tiberiums 类型 → 呈现 HSV。
+    pub fn tiberium_display_hsv(&self, tib_type: &str) -> Option<Hsv> {
+        self.tiberium_display_hsv.get(&tib_type.to_ascii_uppercase()).copied()
     }
 
     /// 已登记方案数。

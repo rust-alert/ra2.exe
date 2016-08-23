@@ -6,7 +6,7 @@ use ra_assets::TechnoKind;
 use ra_types::{
     BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
     ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
-    WarheadDefinition,
+    WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
 };
 
 use crate::RulesSystem;
@@ -18,6 +18,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     let mut alloc = || {
         let id = TypeId(next_id);
         next_id = next_id.saturating_add(1);
+        id
+    };
+    let mut next_weapon = 1u32;
+    let mut alloc_weapon = || {
+        let id = WeaponId(next_weapon);
+        next_weapon = next_weapon.saturating_add(1);
+        id
+    };
+    let mut next_warhead = 1u32;
+    let mut alloc_warhead = || {
+        let id = WarheadId(next_warhead);
+        next_warhead = next_warhead.saturating_add(1);
         id
     };
 
@@ -88,7 +100,10 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             damage: tt.damage,
             range: tt.range,
             rof: tt.rof,
+            primary: tt.primary.clone(),
+            primary_id: WeaponId(0),
             warhead: tt.warhead.to_ascii_uppercase(),
+            warhead_id: WarheadId(0),
             prerequisite: tt.prerequisite.clone(),
             prerequisite_override: tt.prerequisite_override.clone(),
             required_houses: tt.required_houses.clone(),
@@ -166,6 +181,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         } else {
             Some(tt.super_weapon.clone())
         };
+        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k).map(|sw| sw.id));
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -198,6 +214,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             foundation,
             height,
             super_weapon,
+            super_weapon_id,
             capabilities,
         });
     }
@@ -218,13 +235,58 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    let mut warhead_keys: Vec<String> = defs.techno.iter().map(|t| t.warhead.clone()).filter(|w| !w.is_empty()).collect();
+    // 武器表：按 techno `Primary` 去重投影，再绑弹头 id。
+    for tt in rules.techno_types.iter() {
+        let key = tt.primary.trim().to_ascii_uppercase();
+        if key.is_empty() || defs.weapons.get(&key).is_some() {
+            continue;
+        }
+        let id = alloc_weapon();
+        defs.weapons.insert(WeaponDefinition {
+            id,
+            type_key: key,
+            damage: tt.damage,
+            range: tt.range,
+            rof: tt.rof,
+            warhead: tt.warhead.to_ascii_uppercase(),
+            warhead_id: WarheadId(0),
+        });
+    }
+
+    let mut warhead_keys: Vec<String> = defs
+        .weapons
+        .iter()
+        .map(|w| w.warhead.clone())
+        .chain(defs.techno.iter().map(|t| t.warhead.clone()))
+        .filter(|w| !w.is_empty())
+        .collect();
     warhead_keys.sort();
     warhead_keys.dedup();
     for key in warhead_keys {
         let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
-        let id = alloc();
+        let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
+    }
+    for weapon in defs.weapons.iter_mut() {
+        weapon.warhead_id = if weapon.warhead.is_empty() {
+            WarheadId(0)
+        } else {
+            defs.warheads.get(&weapon.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
+    }
+    for techno in defs.techno.iter_mut() {
+        techno.primary_id = if techno.primary.is_empty() {
+            WeaponId(0)
+        } else {
+            defs.weapons.get(&techno.primary).map(|w| w.id).unwrap_or(WeaponId(0))
+        };
+        techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
+            w.warhead_id
+        } else if techno.warhead.is_empty() {
+            WarheadId(0)
+        } else {
+            defs.warheads.get(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
     }
 
     defs.terrain_spawners = rules.terrain_spawners.clone();

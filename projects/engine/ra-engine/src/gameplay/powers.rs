@@ -202,11 +202,14 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(sw_key) = defs.structures.get(identity.type_id.as_ref()).and_then(|s| s.super_weapon.as_ref())
+        let Some(structure) = defs.structures.get(identity.type_id.as_ref())
         else {
             continue;
         };
-        let Some(sw_def) = defs.super_weapons.get(sw_key)
+        let Some(sw_def) = structure
+            .super_weapon_id
+            .and_then(|id| defs.super_weapons.get_by_id(id))
+            .or_else(|| structure.super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k)))
         else {
             continue;
         };
@@ -214,7 +217,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
-        active.push((owner, sw_key.clone(), required_ticks_for_sw(sw_def)));
+        active.push((owner, sw_def.type_key.clone(), required_ticks_for_sw(sw_def)));
     }
 
     for (house, sw_key, required) in active {
@@ -256,8 +259,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
             .definitions
             .structures
             .get(identity.type_id.as_ref())
-            .and_then(|s| s.super_weapon.as_ref())
-            .is_some_and(|k| k.eq_ignore_ascii_case(&type_key_up))
+            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id) || s.super_weapon.as_ref().is_some_and(|k| k.eq_ignore_ascii_case(&type_key_up)))
     });
     if !has_provider {
         return Err(FireSuperWeaponError::NoProvider);

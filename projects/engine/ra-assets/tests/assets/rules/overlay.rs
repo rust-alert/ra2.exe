@@ -62,3 +62,36 @@ Color=NeonBlue
     assert_eq!(gem, Hsv { h: 185, s: 156, v: 238 });
     assert!(tiberium_overlay_display_hsv(&doc, &colors, "TIBTRE01").is_none());
 }
+
+#[test]
+fn tiberium_display_bound_matches_document_lookup() {
+    let doc = IniDocument::parse(
+        br#"
+[Colors]
+NeonGreen=0,0,0
+NeonBlue=185,156,238
+Gold=41,240,230
+
+[Riparius]
+Color=NeonGreen
+
+[Cruentus]
+Color=NeonBlue
+"#,
+    )
+    .expect("ini");
+    let policy = ra_assets::IniMergePolicy::last_wins();
+    let docs = std::slice::from_ref(&doc);
+    let view = ra_assets::LayeredIniView::new(docs, &policy);
+    let mut colors = ColorSchemes::from_layered(view);
+    colors.bind_tiberium_display_from_layered(view);
+    assert_eq!(
+        tiberium_overlay_display_hsv_bound(&colors, "TIB01"),
+        Some(Hsv { h: 41, s: 240, v: 230 })
+    );
+    assert_eq!(
+        tiberium_overlay_display_hsv_bound(&colors, "GEM01"),
+        Some(Hsv { h: 185, s: 156, v: 238 })
+    );
+    assert!(tiberium_overlay_display_hsv_bound(&colors, "TIBTRE01").is_none());
+}

@@ -89,6 +89,8 @@ pub struct StructureDefinition {
     pub height: u16,
     /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
     pub super_weapon: Option<String>,
+    /// 挂接超武的稳定 id；装载期绑定，执行侧优先于此。
+    pub super_weapon_id: Option<TypeId>,
     /// 定义期能力声明。
     pub capabilities: Vec<BuiltinCapability>,
 }
