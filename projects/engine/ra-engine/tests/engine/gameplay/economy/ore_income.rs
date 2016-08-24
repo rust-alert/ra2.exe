@@ -17,8 +17,6 @@ fn mining_world() -> BattleState {
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: overlay_types_from_rules(&rules),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
@@ -119,8 +117,6 @@ fn idle_harvester_seeks_ore_then_returns_to_refinery() {
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: overlay_types_from_rules(&rules),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

@@ -11,8 +11,6 @@ fn empty_rules() -> RulesSystem {
     let rules = IniDocument::parse(b"[General]\n").unwrap();
     RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
@@ -867,8 +865,6 @@ TR2=1,5,0,TM1,0,0,0,0,A\n\
         .unwrap();
         RulesSystem {
             edition: GameEdition::Ra2,
-            rules: doc.clone(),
-            art: IniDocument::default(),
             globals: RulesGlobals::from_rules(&doc),
             overlay_types: OverlayTypeRegistry::default(),
             terrain_spawners: TerrainSpawnerDefinitions::default(),

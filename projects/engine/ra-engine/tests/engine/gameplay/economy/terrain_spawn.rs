@@ -24,8 +24,6 @@ AnimationProbability=1
     let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
     let rules_db = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: rules.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&rules),
         overlay_types: overlay_types_from_rules(&rules),
         terrain_spawners: terrain_spawners_from_rules(&rules),

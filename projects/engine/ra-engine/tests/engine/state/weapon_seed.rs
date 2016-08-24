@@ -16,8 +16,6 @@ fn seeds_attack_stats_from_primary_weapon() {
     .unwrap();
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
@@ -58,8 +56,6 @@ fn weaponless_unit_keeps_zero_attack_damage() {
     .unwrap();
     let rules = RulesSystem {
         edition: GameEdition::Ra2,
-        rules: doc.clone(),
-        art: IniDocument::default(),
         globals: RulesGlobals::from_rules(&doc),
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),

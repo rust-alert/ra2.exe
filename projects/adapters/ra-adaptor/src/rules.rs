@@ -8,15 +8,11 @@ use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainS
 
 use crate::ResourceChain;
 
-/// 一局装载用的规则快照。
+/// 一局装载用的规则快照（装载期内容模型；不再长期持有 `IniDocument`）。
 #[derive(Debug, Clone)]
 pub struct RulesSystem {
     /// 规则来源对应的 `GameEdition`。
     pub edition: GameEdition,
-    /// 解析后的 `rules` INI 文档。
-    pub rules: IniDocument,
-    /// 解析后的 `art` INI 文档。
-    pub art: IniDocument,
     /// `[General]` / 对话 / 语音等装载期全局字段。
     pub globals: RulesGlobals,
     /// 从 rules 派生的 overlay 类型注册表。
@@ -69,8 +65,6 @@ pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaRe
     let super_weapons = SuperWeaponTypeRegistry::from_layered(rules_view);
     Ok(RulesSystem {
         edition: chain.edition,
-        rules,
-        art,
         globals,
         overlay_types,
         terrain_spawners,
