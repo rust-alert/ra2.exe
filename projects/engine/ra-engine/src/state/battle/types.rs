@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, OverlayTypeRegistry, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass};
+use ra_types::{ArmorKind, EntityId, GameEdition, OverlayTypeRegistry, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass};
 
 use super::super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -43,8 +43,8 @@ pub const BUILD_TIME_TICKS_PER_UNIT: u32 = 4;
 /// ECS 战斗静态参数只读视图（测试与诊断）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EcsCombatView {
-    /// 护甲名。
-    pub armor: String,
+    /// 护甲种类。
+    pub armor: ArmorKind,
     /// 攻击射程。
     pub attack_range: u32,
     /// 单次基础伤害。

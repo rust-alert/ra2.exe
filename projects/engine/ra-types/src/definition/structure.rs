@@ -1,10 +1,14 @@
 //! 建筑与阵营定义表。
 
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
 
 use crate::id::TypeId;
 
-use super::{BuiltinCapability, Foundation, ProductionProfile};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -31,6 +35,53 @@ impl BuildCat {
     /// 是否归入侧栏防御页（W）。
     pub fn is_defense_tab(self) -> bool {
         matches!(self, Self::Combat)
+    }
+}
+
+impl<'de> Deserialize<'de> for BuildCat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BuildCatVisitor;
+
+        impl<'de> Visitor<'de> for BuildCatVisitor {
+            type Value = BuildCat;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("BuildCat= Building or Combat")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::parse(v))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::parse(&v))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::Building)
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(BuildCat::Building)
+            }
+        }
+
+        deserializer.deserialize_any(BuildCatVisitor)
     }
 }
 
@@ -67,8 +118,8 @@ pub struct StructureDefinition {
     pub cost: i32,
     /// 生命上限。
     pub strength: u32,
-    /// 护甲名。
-    pub armor: String,
+    /// 护甲种类（装载期由 `Armor=` 绑定）。
+    pub armor: ArmorKind,
     /// 是否建造场。
     pub construction_yard: bool,
     /// 是否矿场。
@@ -81,14 +132,14 @@ pub struct StructureDefinition {
     pub capturable: bool,
     /// 生产配置（若为工厂）。
     pub production: Option<ProductionProfile>,
-    /// Owner 串（空表示不限）。
-    pub owner: String,
+    /// `Owner=`：空名单 = 不限阵营。
+    pub owner: HouseAllowList,
     /// art / rules `Foundation=` 占地（原版主要在 art.ini）。
     pub foundation: Foundation,
     /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
     pub height: u16,
-    /// INI `SuperWeapon=`：挂到该建筑的超级武器类型键（大写；无则 `None`）。
-    pub super_weapon: Option<String>,
+    /// INI `SuperWeapon=`：挂到该建筑的超级武器名（无则 `None`）。
+    pub super_weapon: Option<SuperWeaponName>,
     /// 挂接超武的稳定 id；装载期绑定，执行侧优先于此。
     pub super_weapon_id: Option<TypeId>,
     /// 定义期能力声明。

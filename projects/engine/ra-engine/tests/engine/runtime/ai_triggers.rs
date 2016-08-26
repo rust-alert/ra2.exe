@@ -1,29 +1,13 @@
 //! AITriggerTypes 最小执行：按冷却排队产队。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::GameEdition;
 
-fn rules_with_e1() -> RulesSystem {
-    let rules = IniDocument::parse(
-        b"[InfantryTypes]\n0=E1\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",
-    )
-    .unwrap();
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+fn defs_with_e1() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",)
 }
 
 #[test]
@@ -43,7 +27,7 @@ AT1=Strike,TM1,Russians,0\n\
     assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 
     let engine = test_engine();
-    let mut session = Session::from_state(battle_from_rules(&rules_with_e1(), map), "ai");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "ai");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     assert!(session.expect_battle().world.ai_trigger_runtime.enabled);
 

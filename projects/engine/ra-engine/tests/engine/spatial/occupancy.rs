@@ -1,13 +1,13 @@
 //! 移动体互斥占格绕行。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::EntityId;
+use ra_types::{GameEdition, EntityId};
 
 #[test]
 fn mobiles_detour_around_each_other() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.waypoints.push(Waypoint { index: 0, x: 14, y: 10 });
     // 挡在直线上的静止单位（Speed=0 用建筑外的占格：另一辆坦克无目标则不移动）。
@@ -35,7 +35,7 @@ fn mobiles_detour_around_each_other() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     // 两车都朝同一目标；后者路径不得踩前者当前格。
     world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 14, y: 10 });
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });

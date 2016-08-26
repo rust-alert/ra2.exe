@@ -1,11 +1,9 @@
 //! 建筑：先 `Produce` 完工，再 `PlaceBuilding` 落位。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition, PlayerId, TerrainSpawnerDefinitions};
+use ra_types::{EntityId, GameEdition, PlayerId};
 
 fn yard_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -14,18 +12,7 @@ fn yard_world() -> BattleState {
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n\
 [GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nFoundation=3x4\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    let defs = defs_from_rules_ini(rules_text);
     let mut map = MapInfo::empty(GameEdition::Ra2, "place-building");
     map.width = 16;
     map.height = 16;
@@ -41,7 +28,7 @@ fn yard_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 10_000));
     world
 }
@@ -102,18 +89,7 @@ fn place_building_rejects_without_ready_queue() {
 fn map_seeded_structure_seals_full_foundation() {
     let rules_text = b"[BuildingTypes]\n0=GACNST\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\nFoundation=3x3\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    let defs = defs_from_rules_ini(rules_text);
     let mut map = MapInfo::empty(GameEdition::Ra2, "seed-foundation");
     map.width = 16;
     map.height = 16;
@@ -129,7 +105,7 @@ fn map_seeded_structure_seals_full_foundation() {
         mission: String::new(),
         tag: String::new(),
     }];
-    let world = battle_from_rules(&rules_db, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(!world.pass_grid.is_passable(4, 4));
     assert!(!world.pass_grid.is_passable(6, 6), "map seed must seal full Foundation");
     assert!(world.pass_grid.is_passable(7, 7));

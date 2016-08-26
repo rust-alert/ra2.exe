@@ -1,6 +1,12 @@
 //! 科技树相关冻结定义（前置组、偷取科技与默认科技上限）。
 
 use std::collections::BTreeMap;
+use std::fmt;
+
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::Deserialize;
+
+use crate::id::TypeId;
 
 /// 渗透作战实验室后可获得的偷取科技类别（对齐 `RequiresStolen*Tech`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,6 +28,220 @@ impl StolenTechKind {
             "THIRDSIDE" | "THIRD" => Some(Self::Third),
             _ => None,
         }
+    }
+}
+
+/// `[General]` 通用前置组名（`Prerequisite=` 中的 `POWER` / `FACTORY` 等）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PrerequisiteGroupKind {
+    /// `POWER`
+    Power,
+    /// `FACTORY`
+    Factory,
+    /// `BARRACKS`
+    Barracks,
+    /// `RADAR`
+    Radar,
+    /// `TECH`
+    Tech,
+    /// `PROC`（含 alternate 列表）
+    Proc,
+}
+
+impl PrerequisiteGroupKind {
+    /// 解析通用组 token；非组名返回 `None`。
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_uppercase().as_str() {
+            "POWER" => Some(Self::Power),
+            "FACTORY" => Some(Self::Factory),
+            "BARRACKS" => Some(Self::Barracks),
+            "RADAR" => Some(Self::Radar),
+            "TECH" => Some(Self::Tech),
+            "PROC" => Some(Self::Proc),
+            _ => None,
+        }
+    }
+}
+
+/// 装载期绑定后的前置 token（执行侧只认此枚举）。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PrerequisiteToken {
+    /// 通用组：组内任一存活建筑即可。
+    Group(PrerequisiteGroupKind),
+    /// 已解析到 techno 表的类型引用。
+    Type(TypeId),
+    /// 未在 techno 表中找到的类型键（大写）；按存活建筑类型键比对。
+    UnboundType(String),
+}
+
+impl PrerequisiteToken {
+    /// 由 INI token 初解析：组名 → [`Self::Group`]，其余 → [`Self::UnboundType`]。
+    pub fn parse_raw(raw: &str) -> Option<Self> {
+        let upper = raw.trim().to_ascii_uppercase();
+        if upper.is_empty() {
+            return None;
+        }
+        if let Some(group) = PrerequisiteGroupKind::parse(&upper) {
+            return Some(Self::Group(group));
+        }
+        Some(Self::UnboundType(upper))
+    }
+
+    /// 将 [`Self::UnboundType`] 升级为 [`Self::Type`]（若类型表有该键）。
+    pub fn bind_type_id(self, resolve: &impl Fn(&str) -> Option<TypeId>) -> Self {
+        match self {
+            Self::UnboundType(key) => resolve(&key).map(Self::Type).unwrap_or(Self::UnboundType(key)),
+            other => other,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PrerequisiteToken {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TokenVisitor;
+
+        impl<'de> Visitor<'de> for TokenVisitor {
+            type Value = PrerequisiteToken;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("prerequisite token")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                PrerequisiteToken::parse_raw(v).ok_or_else(|| E::custom("empty prerequisite token"))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                PrerequisiteToken::parse_raw(&v).ok_or_else(|| E::custom("empty prerequisite token"))
+            }
+        }
+
+        deserializer.deserialize_any(TokenVisitor)
+    }
+}
+
+/// `Prerequisite=` / `PrerequisiteOverride=` 列表（装载期一次解码）。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PrerequisiteList {
+    tokens: Vec<PrerequisiteToken>,
+}
+
+impl PrerequisiteList {
+    /// 空列表。
+    pub fn empty() -> Self {
+        Self { tokens: Vec::new() }
+    }
+
+    /// 由 token 构造。
+    pub fn from_tokens(tokens: impl IntoIterator<Item = PrerequisiteToken>) -> Self {
+        Self {
+            tokens: tokens.into_iter().collect(),
+        }
+    }
+
+    /// 是否为空。
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
+    /// 长度。
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
+    /// 迭代。
+    pub fn iter(&self) -> impl Iterator<Item = &PrerequisiteToken> {
+        self.tokens.iter()
+    }
+
+    /// 取出内部列表（投影 / 绑定用）。
+    pub fn into_vec(self) -> Vec<PrerequisiteToken> {
+        self.tokens
+    }
+
+    /// 绑定类型引用后返回新列表。
+    pub fn bind_type_ids(self, resolve: &impl Fn(&str) -> Option<TypeId>) -> Self {
+        Self {
+            tokens: self.tokens.into_iter().map(|t| t.bind_type_id(resolve)).collect(),
+        }
+    }
+}
+
+impl From<PrerequisiteList> for Vec<PrerequisiteToken> {
+    fn from(value: PrerequisiteList) -> Self {
+        value.tokens
+    }
+}
+
+impl<'de> Deserialize<'de> for PrerequisiteList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ListVisitor;
+
+        impl<'de> Visitor<'de> for ListVisitor {
+            type Value = PrerequisiteList;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("comma-separated prerequisite tokens")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::from_tokens(
+                    v.split(|c| c == ',' || c == ';' || c == '|')
+                        .filter_map(PrerequisiteToken::parse_raw),
+                ))
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                self.visit_str(&v)
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut tokens = Vec::new();
+                while let Some(part) = seq.next_element::<String>()? {
+                    if let Some(token) = PrerequisiteToken::parse_raw(&part) {
+                        tokens.push(token);
+                    }
+                }
+                Ok(PrerequisiteList::from_tokens(tokens))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::empty())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(PrerequisiteList::empty())
+            }
+        }
+
+        deserializer.deserialize_any(ListVisitor)
     }
 }
 
@@ -47,14 +267,21 @@ pub struct PrerequisiteGroups {
 impl PrerequisiteGroups {
     /// 按通用 token 名取类型键列表（大小写不敏感）。未知 token 返回空切片。
     pub fn types_for_token(&self, token: &str) -> &[String] {
-        match token.trim().to_ascii_uppercase().as_str() {
-            "POWER" => self.power.as_slice(),
-            "FACTORY" => self.factory.as_slice(),
-            "BARRACKS" => self.barracks.as_slice(),
-            "RADAR" => self.radar.as_slice(),
-            "TECH" => self.tech.as_slice(),
-            "PROC" => self.proc.as_slice(),
-            _ => &[],
+        match PrerequisiteGroupKind::parse(token) {
+            Some(kind) => self.types_for_kind(kind),
+            None => &[],
+        }
+    }
+
+    /// 按组枚举取类型键列表（`Proc` 仅主列表，完整判定用 [`Self::proc_all`]）。
+    pub fn types_for_kind(&self, kind: PrerequisiteGroupKind) -> &[String] {
+        match kind {
+            PrerequisiteGroupKind::Power => self.power.as_slice(),
+            PrerequisiteGroupKind::Factory => self.factory.as_slice(),
+            PrerequisiteGroupKind::Barracks => self.barracks.as_slice(),
+            PrerequisiteGroupKind::Radar => self.radar.as_slice(),
+            PrerequisiteGroupKind::Tech => self.tech.as_slice(),
+            PrerequisiteGroupKind::Proc => self.proc.as_slice(),
         }
     }
 

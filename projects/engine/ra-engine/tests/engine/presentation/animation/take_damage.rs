@@ -1,6 +1,6 @@
 //! 受击闪白派生 TakeDamage 动画状态。
 
-use crate::common::{rules_with_mtnk, test_engine, battle_from_rules};
+use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
 use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -8,7 +8,7 @@ use ra_types::{EntityId, GameEdition};
 #[test]
 fn snapshot_anim_state_take_damage_then_die() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "hit");
     map.width = 16;
     map.height = 16;
@@ -36,7 +36,7 @@ fn snapshot_anim_state_take_damage_then_die() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "hit");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "hit");
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
     let target = session.expect_battle().world.entity_id_at(1).expect("entity");
     assert!(session.expect_battle_mut().world.set_ecs_health(target, 30, 30, false));

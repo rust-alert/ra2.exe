@@ -1,13 +1,13 @@
 //! 快照包含建筑实体。
 
-use crate::common::{rules_with_mtnk, battle_from_rules};
+use crate::common::{defs_with_mtnk, battle_from_defs};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn snapshot_includes_structures() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "struct");
     map.width = 12;
     map.height = 12;
@@ -23,7 +23,7 @@ fn snapshot_includes_structures() {
         mission: String::new(),
         tag: String::new(),
     });
-    let session = Session::from_state(battle_from_rules(&rules, map), "struct");
+    let session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "struct");
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.units.len(), 1);
     assert_eq!(snap.units[0].kind, MapEntityKind::Structure);

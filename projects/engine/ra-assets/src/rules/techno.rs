@@ -5,6 +5,10 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use ra_types::{
+    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, SuperWeaponName, TechnoName, WarheadName, WeaponName,
+    deserialize_optional_factory,
+};
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,8 +19,8 @@ pub struct TechnoType {
     pub kind: TechnoKind,
     /// `Strength` 生命值。
     pub strength: u32,
-    /// `Armor` 护甲名。
-    pub armor: String,
+    /// `Armor` 护甲种类（装载期一次解码）。
+    pub armor: ra_types::ArmorKind,
     /// `Speed` 移动速度。
     pub speed: u32,
     /// `Sight` 视野。
@@ -25,8 +29,8 @@ pub struct TechnoType {
     pub cost: u32,
     /// `TechLevel`；缺省为 -1。
     pub tech_level: i32,
-    /// `Owner` 所属阵营串。
-    pub owner: String,
+    /// `Owner` 所属阵营名单（装载期一次解码；空 = 不限）。
+    pub owner: HouseAllowList,
     /// `Image` 资源名（缺省等于 id）。
     pub image: String,
     /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
@@ -40,7 +44,7 @@ pub struct TechnoType {
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
     /// 主武器名（`Primary`）；空表示未配置。
-    pub primary: String,
+    pub primary: WeaponName,
     /// 主武器伤害（来自武器节 `Damage`）；0 表示未配置。
     pub damage: u32,
     /// 主武器射程（来自武器节 `Range`，格）；0 表示未配置。
@@ -48,15 +52,15 @@ pub struct TechnoType {
     /// 射速间隔（tick）；优先武器节 `ROF`，否则类型节；0 表示未配置。
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
-    pub warhead: String,
-    /// `Prerequisite` token（大写）。
-    pub prerequisite: Vec<String>,
-    /// `PrerequisiteOverride` token（大写）。
-    pub prerequisite_override: Vec<String>,
-    /// `RequiredHouses` token（大写）。
-    pub required_houses: Vec<String>,
-    /// `ForbiddenHouses` token（大写）。
-    pub forbidden_houses: Vec<String>,
+    pub warhead: WarheadName,
+    /// `Prerequisite`（装载期一次解码）。
+    pub prerequisite: PrerequisiteList,
+    /// `PrerequisiteOverride`（装载期一次解码）。
+    pub prerequisite_override: PrerequisiteList,
+    /// `RequiredHouses`（装载期一次解码；空 = 不限制）。
+    pub required_houses: HouseAllowList,
+    /// `ForbiddenHouses`（装载期一次解码；空 = 不禁止）。
+    pub forbidden_houses: HouseAllowList,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
     /// `BuildTime`；`0` 表示缺省。
@@ -69,8 +73,8 @@ pub struct TechnoType {
     pub requires_stolen_third_tech: bool,
     /// `PixelSelectionBracketDelta`。
     pub pixel_selection_bracket_delta: i32,
-    /// `DeploysInto` 目标类型键（大写）；空表示无。
-    pub deploys_into: String,
+    /// `DeploysInto` 目标类型名；空表示无。
+    pub deploys_into: TechnoName,
     /// `Power` 原始值（正产电、负耗电）。
     pub power: i32,
     /// `Powered`；缺省时由耗电推导。
@@ -81,16 +85,16 @@ pub struct TechnoType {
     pub refinery: bool,
     /// `Radar`。
     pub radar: bool,
-    /// `BuildCat` 原文。
-    pub build_cat: String,
+    /// `BuildCat`（装载期一次解码）。
+    pub build_cat: BuildCat,
     /// `Capturable`。
     pub capturable: bool,
-    /// `Factory` 原文。
-    pub factory: String,
-    /// `SuperWeapon` 键（大写）；空表示无。
-    pub super_weapon: String,
-    /// `Foundation` 原文（优先 art，否则 rules）；空表示未写。
-    pub foundation: String,
+    /// `Factory` 生产类别（装载期一次解码；`None` = 非工厂）。
+    pub factory: Option<ProductionCategory>,
+    /// `SuperWeapon` 名；空表示无。
+    pub super_weapon: SuperWeaponName,
+    /// `Foundation`（优先 art，否则 rules；装载期一次解码）。
+    pub foundation: Foundation,
     /// `Height`（优先 art，否则 rules）；`None` 表示未写。
     pub height: Option<u16>,
 }
@@ -195,7 +199,7 @@ impl TechnoTypeRegistry {
                 continue;
             }
             if let Some(v) = art_geometry_string(art, &tt.id, "Foundation") {
-                tt.foundation = v;
+                tt.foundation = Foundation::parse(&v);
             }
             if let Some(v) = art_geometry_string(art, &tt.id, "Height") {
                 if let Ok(h) = v.parse::<i32>() {
@@ -211,8 +215,8 @@ impl TechnoTypeRegistry {
 struct TechnoSectionFields {
     #[serde(rename = "Strength")]
     strength: Option<u32>,
-    #[serde(rename = "Armor")]
-    armor: Option<String>,
+    #[serde(rename = "Armor", default)]
+    armor: ra_types::ArmorKind,
     #[serde(rename = "Speed")]
     speed: Option<u32>,
     #[serde(rename = "Sight")]
@@ -221,8 +225,8 @@ struct TechnoSectionFields {
     cost: Option<u32>,
     #[serde(rename = "TechLevel")]
     tech_level: Option<i32>,
-    #[serde(rename = "Owner")]
-    owner: Option<String>,
+    #[serde(rename = "Owner", default)]
+    owner: HouseAllowList,
     #[serde(rename = "Image")]
     image: Option<String>,
     #[serde(rename = "Category")]
@@ -235,18 +239,18 @@ struct TechnoSectionFields {
     engineer: Option<bool>,
     #[serde(rename = "Harvester")]
     harvester: Option<bool>,
-    #[serde(rename = "Primary")]
-    primary: Option<String>,
+    #[serde(rename = "Primary", default)]
+    primary: WeaponName,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
-    prerequisite: Vec<String>,
+    prerequisite: PrerequisiteList,
     #[serde(rename = "PrerequisiteOverride", default)]
-    prerequisite_override: Vec<String>,
+    prerequisite_override: PrerequisiteList,
     #[serde(rename = "RequiredHouses", default)]
-    required_houses: Vec<String>,
+    required_houses: HouseAllowList,
     #[serde(rename = "ForbiddenHouses", default)]
-    forbidden_houses: Vec<String>,
+    forbidden_houses: HouseAllowList,
     #[serde(rename = "BuildLimit")]
     build_limit: Option<i32>,
     #[serde(rename = "BuildTime")]
@@ -259,8 +263,8 @@ struct TechnoSectionFields {
     requires_stolen_third_tech: Option<bool>,
     #[serde(rename = "PixelSelectionBracketDelta")]
     pixel_selection_bracket_delta: Option<i32>,
-    #[serde(rename = "DeploysInto")]
-    deploys_into: Option<String>,
+    #[serde(rename = "DeploysInto", default)]
+    deploys_into: TechnoName,
     #[serde(rename = "Power")]
     power: Option<i32>,
     #[serde(rename = "Powered")]
@@ -271,16 +275,16 @@ struct TechnoSectionFields {
     refinery: Option<bool>,
     #[serde(rename = "Radar")]
     radar: Option<bool>,
-    #[serde(rename = "BuildCat")]
-    build_cat: Option<String>,
+    #[serde(rename = "BuildCat", default)]
+    build_cat: BuildCat,
     #[serde(rename = "Capturable")]
     capturable: Option<bool>,
-    #[serde(rename = "Factory")]
-    factory: Option<String>,
-    #[serde(rename = "SuperWeapon")]
-    super_weapon: Option<String>,
-    #[serde(rename = "Foundation")]
-    foundation: Option<String>,
+    #[serde(rename = "Factory", default, deserialize_with = "deserialize_optional_factory")]
+    factory: Option<ProductionCategory>,
+    #[serde(rename = "SuperWeapon", default)]
+    super_weapon: SuperWeaponName,
+    #[serde(rename = "Foundation", default)]
+    foundation: Foundation,
     #[serde(rename = "Height")]
     height: Option<i32>,
 }
@@ -294,27 +298,14 @@ struct WeaponSectionFields {
     range: Option<u32>,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
-    #[serde(rename = "Warhead")]
-    warhead: Option<String>,
-}
-
-fn uppercase_tokens(items: Vec<String>) -> Vec<String> {
-    items
-        .into_iter()
-        .map(|s| s.trim().to_ascii_uppercase())
-        .filter(|s| !s.is_empty())
-        .collect()
+    #[serde(rename = "Warhead", default)]
+    warhead: WarheadName,
 }
 
 fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
     let section = view.section(id)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
-    let primary = fields
-        .primary
-        .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
+    let primary = fields.primary;
     let techno_rof = fields.rof.unwrap_or(0);
     let (damage, range, rof, warhead) = resolve_primary_weapon(view, &primary, techno_rof);
     let image = fields
@@ -327,12 +318,12 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         id: id.to_string(),
         kind,
         strength: fields.strength.unwrap_or(1),
-        armor: fields.armor.unwrap_or_else(|| "none".into()),
+        armor: fields.armor,
         speed: fields.speed.unwrap_or(0),
         sight: fields.sight.unwrap_or(0),
         cost: fields.cost.unwrap_or(0),
         tech_level: fields.tech_level.unwrap_or(-1),
-        owner: fields.owner.unwrap_or_default(),
+        owner: fields.owner,
         image,
         category: fields.category.unwrap_or_default().trim().to_string(),
         naval: fields.naval.unwrap_or(false),
@@ -344,37 +335,27 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         range,
         rof,
         warhead,
-        prerequisite: uppercase_tokens(fields.prerequisite),
-        prerequisite_override: uppercase_tokens(fields.prerequisite_override),
-        required_houses: uppercase_tokens(fields.required_houses),
-        forbidden_houses: uppercase_tokens(fields.forbidden_houses),
+        prerequisite: fields.prerequisite,
+        prerequisite_override: fields.prerequisite_override,
+        required_houses: fields.required_houses,
+        forbidden_houses: fields.forbidden_houses,
         build_limit: fields.build_limit.unwrap_or(0).max(0),
         build_time: fields.build_time.unwrap_or(0).max(0) as u32,
         requires_stolen_allied_tech: fields.requires_stolen_allied_tech.unwrap_or(false),
         requires_stolen_soviet_tech: fields.requires_stolen_soviet_tech.unwrap_or(false),
         requires_stolen_third_tech: fields.requires_stolen_third_tech.unwrap_or(false),
         pixel_selection_bracket_delta: fields.pixel_selection_bracket_delta.unwrap_or(0),
-        deploys_into: fields
-            .deploys_into
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
+        deploys_into: fields.deploys_into,
         power: fields.power.unwrap_or(0),
         powered: fields.powered,
         construction_yard: fields.construction_yard.unwrap_or(false),
         refinery: fields.refinery.unwrap_or(false),
         radar: fields.radar.unwrap_or(false),
-        build_cat: fields.build_cat.unwrap_or_default(),
+        build_cat: fields.build_cat,
         capturable: fields.capturable.unwrap_or(false),
-        factory: fields.factory.unwrap_or_default(),
-        super_weapon: fields
-            .super_weapon
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_uppercase(),
-        foundation: fields.foundation.unwrap_or_default().trim().to_string(),
+        factory: fields.factory,
+        super_weapon: fields.super_weapon,
+        foundation: fields.foundation,
         height: fields.height.map(|h| h.max(1) as u16),
     })
 }
@@ -400,25 +381,19 @@ fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Op
 }
 
 /// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &str, techno_rof: u32) -> (u32, u32, u32, String) {
+fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &WeaponName, techno_rof: u32) -> (u32, u32, u32, WarheadName) {
     if primary.is_empty() {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     }
-    let Some(section) = view.section(primary)
+    let Some(section) = view.section(primary.as_str())
     else {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, techno_rof, String::new());
+        return (0, 0, techno_rof, WarheadName::default());
     };
     let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    let warhead = w
-        .warhead
-        .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_ascii_uppercase();
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, warhead)
+    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, w.warhead)
 }

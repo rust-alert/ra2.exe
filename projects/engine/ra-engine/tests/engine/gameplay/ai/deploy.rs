@@ -1,34 +1,18 @@
 //! AI 经 Deploy 展开 MCV。
 
-use crate::common::{test_engine, battle_from_rules};
-use ra_adaptor::RulesSystem;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition};
 
 #[test]
 fn ai_deploys_mcv_via_command() {
     let engine = test_engine();
-    let doc = IniDocument::parse(
-        b"[VehicleTypes]\n0=SMCV\n\
+    let defs = defs_from_rules_ini(b"[VehicleTypes]\n0=SMCV\n\
 [BuildingTypes]\n0=NACNST\n1=GACNST\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Soviets\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nFoundation=4x4\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
-    )
-    .unwrap();
-    let rules = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&doc),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&doc),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",);
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-deploy");
     map.width = 16;
     map.height = 16;
@@ -57,7 +41,7 @@ fn ai_deploys_mcv_via_command() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "ai-deploy");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ai-deploy");
     session.expect_battle_mut().ai_enabled = true;
     session.tick(&engine.runtime());
     let mcv = session.expect_battle().world.entity_id_at(1).expect("entity");

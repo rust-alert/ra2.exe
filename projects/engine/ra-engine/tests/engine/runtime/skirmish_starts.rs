@@ -1,33 +1,18 @@
 //! 遭遇战开局：席位航点放置 MCV。
-use std::sync::Arc;
 
-use ra_adaptor::{ResourceChain, RulesSystem, build_runtime_definitions};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::defs_from_rules_ini;
+use ra_adaptor::ResourceChain;
 use ra_engine::open_skirmish_session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
-use ra_types::{AssetSource, GameEdition, RaError, RaResult, TerrainSpawnerDefinitions};
+use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
-fn mcv_rules() -> RulesSystem {
-    let rules = IniDocument::parse(
-        b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
+fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",
-    )
-    .expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",)
 }
 
 fn map_with_starts() -> MapInfo {
@@ -54,7 +39,7 @@ impl AssetSource for RulesBytesSource {
 #[test]
 fn open_skirmish_places_mcv_at_seat_waypoints() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
+    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
         map_with_starts(),
         "t".into(),
         (0, 0),
@@ -114,7 +99,7 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         mission: String::new(),
         tag: String::new(),
     });
-    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
+    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
         map,
         "t".into(),
         (0, 0),
@@ -136,7 +121,7 @@ fn open_skirmish_fails_when_start_waypoint_missing() {
     let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let mut map = map_with_starts();
     map.waypoints.retain(|w| w.index == 0);
-    let err = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, Arc::new(build_runtime_definitions(&mcv_rules())),
+    let err = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
         map,
         "t".into(),
         (0, 0),

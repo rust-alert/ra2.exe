@@ -1,6 +1,6 @@
 //! 会话 tick、命令、快照与联机摘要集成测试。
 
-use crate::common::{rules_with_mtnk, test_engine, battle_from_rules};
+use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
 use ra_engine::{BattleOutcome, GameCommand, MAX_TICKS_PER_PUMP, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{EntityId, GameEdition};
@@ -8,7 +8,7 @@ use ra_types::{EntityId, GameEdition};
 #[test]
 fn session_tick_and_snapshot() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
@@ -25,7 +25,7 @@ fn session_tick_and_snapshot() {
         mission: String::new(),
         tag: String::new(),
     });
-    let world = battle_from_rules(&rules, map);
+    let world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let mut session = Session::from_state(world, "test");
     session.expect_battle_mut().push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 10 });
     session.tick(&engine.runtime());
@@ -38,7 +38,7 @@ fn session_tick_and_snapshot() {
 #[test]
 fn order_attack_and_detects_victor() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
@@ -66,7 +66,7 @@ fn order_attack_and_detects_victor() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     {
         let world = &mut session.expect_battle_mut().world;
         let a = world.entity_id_at(0).expect("entity");
@@ -93,11 +93,11 @@ fn order_attack_and_detects_victor() {
 
 #[test]
 fn image_to_cell_uses_preview_origin() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     session.expect_battle_mut().set_preview_origin(-100, -50);
     let (sx, sy) = ra_map::iso_to_screen(5, 4, 0);
     let cx = (sx + ra_map::TILE_WIDTH / 2) as f32;
@@ -109,7 +109,7 @@ fn image_to_cell_uses_preview_origin() {
 
 #[test]
 fn snapshot_includes_screen_coords_and_selection() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 20;
     map.height = 30;
@@ -125,7 +125,7 @@ fn snapshot_includes_screen_coords_and_selection() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     session.expect_battle_mut().set_preview_origin(-100, -50);
     let snap = session.expect_battle().snapshot(&[EntityId(1)]);
     assert_eq!(snap.selected, vec![EntityId(1)]);
@@ -141,9 +141,9 @@ fn snapshot_includes_screen_coords_and_selection() {
 #[test]
 fn pump_advances_fixed_hz_ticks() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     session.tick_hz = 10;
     assert_eq!(session.pump(&engine.runtime(), 0.05), 0);
     assert_eq!(session.expect_battle().world.tick, 0);
@@ -155,9 +155,9 @@ fn pump_advances_fixed_hz_ticks() {
 #[test]
 fn remote_digest_mismatch_pauses() {
     let engine = test_engine();
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     session.tick(&engine.runtime());
     let mut bad = session.expect_battle().local_digest();
     bad.hash ^= 0xff;
@@ -172,9 +172,9 @@ fn remote_digest_mismatch_pauses() {
 
 #[test]
 fn remote_digest_tick_mismatch_is_not_success() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let map = MapInfo::empty(GameEdition::Ra2, "t");
-    let mut session = Session::from_state(battle_from_rules(&rules, map), "t");
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
     let local = session.expect_battle().local_digest();
     let remote = ra_net::StateDigest { tick: local.tick.wrapping_add(1), hash: local.hash };
     assert!(!session.expect_battle_mut().apply_remote_digest(&remote));

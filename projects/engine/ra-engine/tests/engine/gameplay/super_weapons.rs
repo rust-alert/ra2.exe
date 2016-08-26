@@ -1,32 +1,16 @@
 //! 超武充能进能力快照。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{CommandRejectReason, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, TerrainSpawnerDefinitions};
+use ra_types::GameEdition;
 
-fn sw_rules() -> RulesSystem {
-    let rules = IniDocument::parse(
-        b"[BuildingTypes]\n0=GACNST\n1=GAPILE\n\
+fn sw_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[BuildingTypes]\n0=GACNST\n1=GAPILE\n\
 [SuperWeaponTypes]\n0=LightningStorm\n\
 [LightningStorm]\nUIName=NAME:LS\nType=LightningStorm\nRechargeTime=1\nSidebarImage=SSWLSICON\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=LightningStorm\n",
-    )
-        .expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
-    }
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nSuperWeapon=LightningStorm\n",)
 }
 
 fn sw_world() -> ra_engine::BattleState {
@@ -59,7 +43,7 @@ fn sw_world() -> ra_engine::BattleState {
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&sw_rules(), map);
+    let mut world = battle_from_defs(GameEdition::Ra2, sw_defs(), map);
     assert!(world.set_house_funds("Americans", 10_000));
     world
 }

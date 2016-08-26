@@ -8,6 +8,7 @@ fn parse_super_weapon_types_list() {
         b"[SuperWeaponTypes]\n0=LightningStorm\n1=Nuke\n\
 [LightningStorm]\nUIName=Name:LightningStorm\nType=LightningStorm\nAction=LightningStorm\n\
 RechargeTime=10\nSidebarImage=SSWLSICON\nWeapon=LightningBolt\n\
+[LightningBolt]\nDamage=250\nROF=1\nRange=8\nWarhead=SA\n\
 [Nuke]\nUIName=Name:Nuke\nType=MultiMissile\nRechargeTime=5\n",
     )
     .unwrap();
@@ -20,6 +21,10 @@ RechargeTime=10\nSidebarImage=SSWLSICON\nWeapon=LightningBolt\n\
     assert_eq!(ls.recharge_time, 10);
     assert_eq!(ls.sidebar_image, "SSWLSICON");
     assert_eq!(ls.weapon, "LIGHTNINGBOLT");
+    assert_eq!(ls.weapon_damage, 250);
+    assert_eq!(ls.weapon_range, 8);
+    assert_eq!(ls.weapon_rof, 1);
+    assert_eq!(ls.weapon_warhead, "SA");
     assert_eq!(reg.get("NUKE").unwrap().kind, "MULTIMISSILE");
     assert_eq!(reg.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["LIGHTNINGSTORM", "NUKE"]);
 }

@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use ra_map::MapEntityKind;
-use ra_types::{RuntimeDefinitions, TechnoClass, TechnoDefinition};
+use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition};
 
 use crate::{
     gameplay::owner_allows,
@@ -88,26 +88,23 @@ pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefi
 }
 
 #[doc(hidden)]
-pub fn house_list_allows(list: &[String], house: &str) -> bool {
-    list.iter().any(|h| h.eq_ignore_ascii_case(house))
-}
-
-#[doc(hidden)]
 pub fn owns_any(living: &HashSet<String>, types: impl IntoIterator<Item = impl AsRef<str>>) -> bool {
     types.into_iter().any(|t| living.contains(&t.as_ref().to_ascii_uppercase()))
 }
 
 #[doc(hidden)]
-pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<String>, token: &str) -> bool {
-    let token = token.trim();
-    if token.is_empty() {
-        return true;
-    }
-    let upper = token.to_ascii_uppercase();
-    match upper.as_str() {
-        "POWER" | "FACTORY" | "BARRACKS" | "RADAR" | "TECH" => owns_any(living, defs.prerequisite_groups.types_for_token(&upper)),
-        "PROC" => owns_any(living, defs.prerequisite_groups.proc_all()),
-        _ => living.contains(&upper),
+pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<String>, token: &PrerequisiteToken) -> bool {
+    match token {
+        PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any(living, defs.prerequisite_groups.proc_all()),
+        PrerequisiteToken::Group(kind) => owns_any(living, defs.prerequisite_groups.types_for_kind(*kind)),
+        PrerequisiteToken::Type(id) => defs.techno.get_by_id(*id).is_some_and(|t| living.contains(&t.type_key)),
+        PrerequisiteToken::UnboundType(key) => {
+            if key.is_empty() {
+                true
+            } else {
+                living.contains(key)
+            }
+        }
     }
 }
 
@@ -131,10 +128,10 @@ pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, l
     if !owner_allows(&techno.owner, player.house) {
         return false;
     }
-    if !techno.required_houses.is_empty() && !house_list_allows(&techno.required_houses, player.house) {
+    if !techno.required_houses.required_allows(player.house) {
         return false;
     }
-    if !techno.forbidden_houses.is_empty() && house_list_allows(&techno.forbidden_houses, player.house) {
+    if techno.forbidden_houses.forbids(player.house) {
         return false;
     }
     if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {

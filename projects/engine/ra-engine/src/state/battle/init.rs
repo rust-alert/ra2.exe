@@ -33,17 +33,16 @@ impl BattleState {
             let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
             let speed = tt.map(|t| t.speed).unwrap_or(0);
             // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
+            // 战斗数值只来自武器表；无主武器则保持 0。
             let attack_range = weapon
                 .map(|w| if w.range > 0 { w.range } else { tt.map(|t| t.sight.max(1)).unwrap_or(1) })
-                .or_else(|| tt.map(|t| if t.range > 0 { t.range } else { t.sight.max(1) }))
                 .unwrap_or(0);
             // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害（否则平民车会参与自动进攻）。
-            let attack_damage = weapon.map(|w| w.damage).or_else(|| tt.map(|t| t.damage)).unwrap_or(0);
+            let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
             let attack_cooldown_max = weapon
                 .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-                .or_else(|| tt.map(|t| if t.rof > 0 { t.rof } else { ATTACK_COOLDOWN_TICKS }))
                 .unwrap_or(0);
-            let armor = tt.map(|t| t.armor.clone()).unwrap_or_else(|| "none".into());
+            let armor = tt.map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
             let warhead_id = weapon.map(|w| w.warhead_id).or_else(|| tt.map(|t| t.warhead_id)).unwrap_or(ra_types::WarheadId(0));
             let attack_verses = if tt.is_some() {
                 verses_for(&definitions, warhead_id)
@@ -189,17 +188,17 @@ impl BattleState {
         }
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
-        let armor = tt.armor.clone();
+        let armor = tt.armor;
         let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
         let class = tt.class;
         let attack_range = weapon
             .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
-            .unwrap_or_else(|| if tt.range > 0 { tt.range } else { tt.sight.max(1) });
+            .unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
-        let attack_damage = weapon.map(|w| w.damage).unwrap_or(tt.damage);
+        let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
         let attack_cooldown_max = weapon
             .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-            .unwrap_or_else(|| if tt.rof > 0 { tt.rof } else { ATTACK_COOLDOWN_TICKS });
+            .unwrap_or(0);
         let warhead_id = weapon.map(|w| w.warhead_id).unwrap_or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();

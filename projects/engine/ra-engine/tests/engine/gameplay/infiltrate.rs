@@ -1,14 +1,12 @@
 //! 间谍渗透：Agent 邻接敌建筑后结算并阵亡。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition, PlayerId, TerrainSpawnerDefinitions};
+use ra_types::{EntityId, GameEdition, PlayerId};
 
-fn spy_rules() -> RulesSystem {
-    let rules_text = b"[Countries]\n0=Americans\n1=Russians\n\
+fn spy_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
+    defs_from_rules_ini(b"[Countries]\n0=Americans\n1=Russians\n\
 [Americans]\nSide=GDI\nMultiplay=yes\n\
 [Russians]\nSide=Nod\nMultiplay=yes\n\
 [General]\nPrerequisiteTech=GATECH,NATECH\n\
@@ -22,23 +20,11 @@ fn spy_rules() -> RulesSystem {
 [GAPILE]\nFactory=InfantryType\nOwner=Americans,Russians\nStrength=600\nSight=5\nCost=500\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GATECH]\nOwner=Americans\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
-[NATECH]\nOwner=Russians\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::from_rules(&rules),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    }
+[NATECH]\nOwner=Russians\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n")
 }
 
 fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> BattleState {
-    let rules_db = spy_rules();
+    let defs = spy_defs();
     let mut map = MapInfo::empty(GameEdition::Ra2, "spy-infiltrate");
     map.width = 16;
     map.height = 16;
@@ -92,7 +78,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             tag: String::new(),
         },
     ];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     world.set_all_players_funds(10_000);
     // 受害方有耗电，便于验证断电后低电。
     if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {

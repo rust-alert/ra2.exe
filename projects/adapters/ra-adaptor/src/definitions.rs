@@ -4,12 +4,13 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuildCat, BuiltinCapability, DeployableDefinition, DeploymentPlacement, Foundation, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId,
-    WarheadDefinition, WarheadId, WeaponDefinition, WeaponId,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, PowerProfile, PrerequisiteGroups, ProductionCategory,
+    ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
+    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
 };
+use std::collections::HashMap;
 
-use crate::RulesSystem;
+use crate::{RulesSystem, rules_system_from_ini_bytes};
 
 /// 由已装载规则快照构建冻结运行时定义。
 pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
@@ -66,6 +67,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             recharge_time: sw.recharge_time,
             sidebar_image: sw.sidebar_image.clone(),
             weapon: sw.weapon.clone(),
+            weapon_id: WeaponId(0),
         });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -87,7 +89,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             class,
             cost: tt.cost as i32,
             strength: tt.strength,
-            armor: tt.armor.clone(),
+            armor: tt.armor,
             speed: tt.speed,
             owner: tt.owner.clone(),
             tech_level: tt.tech_level,
@@ -97,15 +99,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             harvester: tt.harvester,
             category: tt.category.clone(),
             sight: tt.sight,
-            damage: tt.damage,
-            range: tt.range,
-            rof: tt.rof,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),
-            warhead: tt.warhead.to_ascii_uppercase(),
+            warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
-            prerequisite: tt.prerequisite.clone(),
-            prerequisite_override: tt.prerequisite_override.clone(),
+            prerequisite: tt.prerequisite.clone().into_vec(),
+            prerequisite_override: tt.prerequisite_override.clone().into_vec(),
             required_houses: tt.required_houses.clone(),
             forbidden_houses: tt.forbidden_houses.clone(),
             build_limit: tt.build_limit,
@@ -125,7 +124,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         if tt.kind != TechnoKind::Building {
             // 部署关系可挂在载具上
             if !tt.deploys_into.is_empty() {
-                let target_key = tt.deploys_into.clone();
+                let target_key = tt.deploys_into.as_str().to_string();
                 let target_id = defs.techno.get(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
                 defs.deployables.insert(DeployableDefinition {
                     source: id,
@@ -145,14 +144,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         let construction_yard = tt.construction_yard;
         let refinery = tt.refinery;
         let radar = tt.radar;
-        let build_cat = BuildCat::parse(&tt.build_cat);
+        let build_cat = tt.build_cat;
         let capturable = tt.capturable;
-        let factory = if tt.factory.trim().is_empty() {
-            None
-        } else {
-            Some(parse_factory_category(&tt.factory))
-        };
-        let production = factory.map(|category| ProductionProfile { category });
+        let production = tt.factory.map(|category| ProductionProfile { category });
 
         let mut capabilities = vec![BuiltinCapability::Structure];
         if output > 0 {
@@ -181,7 +175,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         } else {
             Some(tt.super_weapon.clone())
         };
-        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k).map(|sw| sw.id));
+        let super_weapon_id = super_weapon.as_ref().and_then(|k| defs.super_weapons.get(k.as_str()).map(|sw| sw.id));
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
             if !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -195,7 +189,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         }
 
         // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
-        let foundation = Foundation::parse(&tt.foundation);
+        let foundation = tt.foundation.clone();
         let height = tt.height.unwrap_or(2).max(1);
         defs.structures.insert(StructureDefinition {
             id,
@@ -203,7 +197,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             power: PowerProfile { output, drain, requires_power: powered },
             cost: tt.cost as i32,
             strength: tt.strength.max(1),
-            armor: tt.armor.clone(),
+            armor: tt.armor,
             construction_yard,
             refinery,
             radar,
@@ -233,11 +227,25 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         defs.deployables.insert(d);
     }
 
+    // 前置 token：UnboundType → TypeId（全部 techno 已入库后）。
+    let type_ids: HashMap<String, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
+    let resolve = |key: &str| type_ids.get(&key.to_ascii_uppercase()).copied();
+    for techno in defs.techno.iter_mut() {
+        techno.prerequisite = std::mem::take(&mut techno.prerequisite)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
+        techno.prerequisite_override = std::mem::take(&mut techno.prerequisite_override)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
+    }
+
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
-        let key = tt.primary.trim().to_ascii_uppercase();
+        let key = tt.primary.as_str().to_string();
         if key.is_empty() || defs.weapons.get(&key).is_some() {
             continue;
         }
@@ -248,44 +256,71 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             damage: tt.damage,
             range: tt.range,
             rof: tt.rof,
-            warhead: tt.warhead.to_ascii_uppercase(),
+            warhead: tt.warhead.clone(),
+            warhead_id: WarheadId(0),
+        });
+    }
+    for sw in rules.super_weapons.iter() {
+        let key = sw.weapon.as_str().to_string();
+        if key.is_empty() || defs.weapons.get(&key).is_some() {
+            continue;
+        }
+        let id = alloc_weapon();
+        defs.weapons.insert(WeaponDefinition {
+            id,
+            type_key: key,
+            damage: sw.weapon_damage,
+            range: sw.weapon_range,
+            rof: sw.weapon_rof,
+            warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
         });
     }
 
-    let mut warhead_keys: Vec<String> = defs
+    let mut warhead_keys: Vec<WarheadName> = defs
         .weapons
         .iter()
         .map(|w| w.warhead.clone())
         .chain(defs.techno.iter().map(|t| t.warhead.clone()))
         .filter(|w| !w.is_empty())
         .collect();
-    warhead_keys.sort();
+    warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     warhead_keys.dedup();
     for key in warhead_keys {
-        let verses = rules.warheads.get(&key).map(|w| w.verses).unwrap_or([100; 11]);
+        let verses = rules.warheads.get(key.as_str()).map(|w| w.verses).unwrap_or_default();
         let id = alloc_warhead();
-        defs.warheads.insert(WarheadDefinition { id, type_key: key, verses });
+        defs.warheads.insert(WarheadDefinition {
+            id,
+            type_key: key.as_str().to_string(),
+            verses,
+        });
     }
     for weapon in defs.weapons.iter_mut() {
         weapon.warhead_id = if weapon.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(&weapon.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get(weapon.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
         };
     }
     for techno in defs.techno.iter_mut() {
         techno.primary_id = if techno.primary.is_empty() {
             WeaponId(0)
         } else {
-            defs.weapons.get(&techno.primary).map(|w| w.id).unwrap_or(WeaponId(0))
+            defs.weapons.get(techno.primary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
             w.warhead_id
         } else if techno.warhead.is_empty() {
             WarheadId(0)
         } else {
-            defs.warheads.get(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
+            defs.warheads.get(techno.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
+    }
+    for sw in defs.super_weapons.iter_mut() {
+        sw.weapon_id = if sw.weapon.is_empty() {
+            WeaponId(0)
+        } else {
+            defs.weapons.get(sw.weapon.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
     }
 
@@ -295,15 +330,19 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs
 }
 
+/// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。
+pub fn runtime_definitions_from_ini_bytes(
+    edition: GameEdition,
+    rules_ini: &[u8],
+    art_ini: Option<&[u8]>,
+) -> RaResult<RuntimeDefinitions> {
+    let rules = rules_system_from_ini_bytes(edition, rules_ini, art_ini)?;
+    Ok(build_runtime_definitions(&rules))
+}
+
 #[doc(hidden)]
 pub fn parse_factory_category(raw: &str) -> ProductionCategory {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "infantrytype" | "infantry" => ProductionCategory::Infantry,
-        "unittype" | "vehicle" | "unit" => ProductionCategory::Vehicle,
-        "aircrafttype" | "aircraft" => ProductionCategory::Aircraft,
-        "buildingtype" | "building" => ProductionCategory::Building,
-        _ => ProductionCategory::Vehicle,
-    }
+    ProductionCategory::parse(raw)
 }
 
 /// 原版 `RepairRate`（分钟）→ 逻辑 tick：`ftol(rate * 900)`，至少 1。

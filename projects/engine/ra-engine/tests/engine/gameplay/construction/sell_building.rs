@@ -1,11 +1,9 @@
 //! 侧栏出售：退半价并移除己方建筑。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, PlayerId, TerrainSpawnerDefinitions};
+use ra_types::{GameEdition, PlayerId};
 
 fn yard_with_power() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -13,18 +11,7 @@ fn yard_with_power() -> BattleState {
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+    let defs = defs_from_rules_ini(rules_text);
     let mut map = MapInfo::empty(GameEdition::Ra2, "sell-building");
     map.width = 16;
     map.height = 16;
@@ -40,7 +27,7 @@ fn yard_with_power() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    let mut world = battle_from_rules(&rules_db, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 10_000));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
     world.advance_tick();

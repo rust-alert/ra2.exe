@@ -15,6 +15,7 @@ fn parse_vehicle_list() {
     assert_eq!(reg.count_kind(TechnoKind::Vehicle), 2);
     let m = reg.get("mtnk").unwrap();
     assert_eq!(m.strength, 300);
+    assert_eq!(m.armor, ra_types::ArmorKind::Heavy);
     assert_eq!(m.speed, 6);
     assert_eq!(m.cost, 800);
     assert_eq!(m.image, "MTNK");
@@ -23,6 +24,20 @@ fn parse_vehicle_list() {
     assert_eq!(m.range, 0);
     assert!(m.primary.is_empty());
     assert_eq!(reg.get("htnk").unwrap().rof, 0);
+}
+
+#[test]
+fn missing_armor_defaults_to_none() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().armor, ra_types::ArmorKind::None);
+}
+
+#[test]
+fn unknown_armor_falls_back_to_none() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nArmor=not-a-kind\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().armor, ra_types::ArmorKind::None);
 }
 
 #[test]
@@ -76,10 +91,25 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     .unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);
     let fv = reg.get("FV").unwrap();
-    assert_eq!(fv.prerequisite, vec!["GAWEAP".to_string(), "POWER".to_string()]);
-    assert_eq!(fv.prerequisite_override, vec!["GACNST".to_string()]);
-    assert_eq!(fv.required_houses, vec!["AMERICANS".to_string(), "ALLIANCE".to_string()]);
-    assert_eq!(fv.forbidden_houses, vec!["RUSSIANS".to_string()]);
+    assert_eq!(
+        fv.prerequisite.iter().cloned().collect::<Vec<_>>(),
+        vec![
+            ra_types::PrerequisiteToken::UnboundType("GAWEAP".into()),
+            ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
+        ]
+    );
+    assert_eq!(
+        fv.prerequisite_override.iter().cloned().collect::<Vec<_>>(),
+        vec![ra_types::PrerequisiteToken::UnboundType("GACNST".into())]
+    );
+    assert_eq!(
+        fv.required_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
+        vec!["ALLIANCE", "AMERICANS"]
+    );
+    assert_eq!(
+        fv.forbidden_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
+        vec!["RUSSIANS"]
+    );
     assert_eq!(fv.build_limit, 1);
     assert_eq!(fv.build_time, 50);
     assert!(fv.requires_stolen_allied_tech);
@@ -90,14 +120,14 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
     let power = reg.get("GAPOWR").unwrap();
     assert_eq!(power.power, 200);
     assert_eq!(power.powered, Some(false));
-    assert_eq!(power.build_cat, "Combat");
+    assert_eq!(power.build_cat, ra_types::BuildCat::Combat);
     assert!(power.capturable);
 
     let yard = reg.get("GACNST").unwrap();
     assert!(yard.construction_yard);
     assert!(!yard.refinery);
     assert!(yard.radar);
-    assert_eq!(yard.factory, "BuildingType");
+    assert_eq!(yard.factory, Some(ra_types::ProductionCategory::Building));
     assert_eq!(yard.super_weapon, "NUKE");
     assert_eq!(yard.power, -50);
 }
@@ -116,14 +146,18 @@ fn apply_art_geometry_overrides_rules_and_follows_image() {
     )
     .unwrap();
     let mut reg = TechnoTypeRegistry::from_rules(&rules);
-    assert_eq!(reg.get("NAWEAP").unwrap().foundation, "2x2");
+    assert_eq!(
+        (reg.get("NAWEAP").unwrap().foundation.width, reg.get("NAWEAP").unwrap().foundation.height),
+        (2, 2)
+    );
     assert_eq!(reg.get("NAWEAP").unwrap().height, Some(3));
     reg.apply_art_geometry(&art);
     let a = reg.get("NAWEAP").unwrap();
-    assert_eq!(a.foundation, "5x3");
+    assert_eq!((a.foundation.width, a.foundation.height), (5, 3));
+    assert_eq!(a.foundation.raw, "5X3");
     assert_eq!(a.height, Some(6));
     let b = reg.get("NAWEAP2").unwrap();
-    assert_eq!(b.foundation, "5x3");
+    assert_eq!((b.foundation.width, b.foundation.height), (5, 3));
     assert_eq!(b.height, Some(6));
 }
 
@@ -152,4 +186,19 @@ fn from_layered_merges_techno_fields_and_list() {
     assert_eq!(m.cost, 700);
     assert_eq!(m.damage, 50);
     assert_eq!(reg.get("HTNK").unwrap().strength, 600);
+}
+
+#[test]
+fn owner_list_decodes_once_and_allows() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans,Alliance\nRequiredHouses=\nForbiddenHouses=Russians\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let m = reg.get("MTNK").unwrap();
+    assert!(m.owner.owner_allows("americans"));
+    assert!(m.owner.owner_allows("Alliance"));
+    assert!(!m.owner.owner_allows("Russians"));
+    assert!(m.required_houses.is_empty());
+    assert!(m.forbidden_houses.forbids("russians"));
 }

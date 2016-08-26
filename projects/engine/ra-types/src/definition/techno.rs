@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::ProductionCategory;
+use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, WarheadName, WeaponName};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,12 +44,12 @@ pub struct TechnoDefinition {
     pub cost: i32,
     /// 生命。
     pub strength: u32,
-    /// 护甲。
-    pub armor: String,
+    /// 护甲种类（装载期由 `Armor=` 绑定）。
+    pub armor: ArmorKind,
     /// 速度。
     pub speed: u32,
-    /// Owner 串。
-    pub owner: String,
+    /// `Owner=`：空名单 = 不限阵营。
+    pub owner: HouseAllowList,
     /// `TechLevel`；`< 0` 表示不可建造。
     pub tech_level: i32,
     /// `Naval=yes`。
@@ -62,30 +62,24 @@ pub struct TechnoDefinition {
     pub harvester: bool,
     /// `Category`（如 `Soldier` / `Dog`）。
     pub category: String,
-    /// 视野（格）；缺省攻击射程回退用。
+    /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。
     pub sight: u32,
-    /// 主武器伤害；0 表示未配置。
-    pub damage: u32,
-    /// 主武器射程（格）；0 表示未配置。
-    pub range: u32,
-    /// 射速间隔（tick）；0 表示未配置。
-    pub rof: u32,
-    /// 主武器键（`Primary`）；空表示未配置。
-    pub primary: String,
+    /// 主武器名（`Primary`）；空表示未配置。
+    pub primary: WeaponName,
     /// 主武器稳定 id；`WeaponId(0)` 表示未绑定。
     pub primary_id: WeaponId,
-    /// 主武器弹头键；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
-    pub warhead: String,
+    /// 主武器弹头名；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
+    pub warhead: WarheadName,
     /// 主武器弹头稳定 id；`WarheadId(0)` 表示未绑定。
     pub warhead_id: WarheadId,
-    /// `Prerequisite` 逗号分隔 token（类型键或通用组名）；空 = 无前置。
-    pub prerequisite: Vec<String>,
+    /// `Prerequisite`：装载期绑定后的 token 列表；空 = 无前置。
+    pub prerequisite: Vec<PrerequisiteToken>,
     /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。
-    pub prerequisite_override: Vec<String>,
-    /// `RequiredHouses`：非空时 house 必须命中其一。
-    pub required_houses: Vec<String>,
-    /// `ForbiddenHouses`：命中任一则不可造。
-    pub forbidden_houses: Vec<String>,
+    pub prerequisite_override: Vec<PrerequisiteToken>,
+    /// `RequiredHouses=`：空名单 = 不限制；非空则 house 须命中其一。
+    pub required_houses: HouseAllowList,
+    /// `ForbiddenHouses=`：命中任一则不可造；空名单 = 不禁止。
+    pub forbidden_houses: HouseAllowList,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
     /// INI `BuildTime`（原版分钟档语义的整数）；`0` 表示缺省，生产侧回退默认 tick。
@@ -115,6 +109,11 @@ impl TechnoDefinitions {
     /// 按键查找。
     pub fn get(&self, type_key: &str) -> Option<&TechnoDefinition> {
         self.by_key.get(&type_key.to_ascii_uppercase())
+    }
+
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: TypeId) -> Option<&TechnoDefinition> {
+        self.by_key.values().find(|t| t.id == id)
     }
 
     /// 条目数。

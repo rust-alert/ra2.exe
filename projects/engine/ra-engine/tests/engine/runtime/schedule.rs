@@ -1,9 +1,9 @@
 //! `SystemSchedule` 驱动 tick 阶段。
 
-use crate::common::{map_with_size, rules_with_mtnk, battle_from_rules};
+use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
 use ra_engine::{GameCommand, SystemPhase, SystemSchedule};
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::EntityId;
+use ra_types::{GameEdition, EntityId};
 
 #[test]
 fn default_order_runs_terrain_spawn_after_powers() {
@@ -18,7 +18,7 @@ fn default_order_runs_terrain_spawn_after_powers() {
 
 #[test]
 fn omitting_combat_phase_skips_damage() {
-    let rules = rules_with_mtnk();
+    let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -44,7 +44,7 @@ fn omitting_combat_phase_skips_damage() {
         mission: String::new(),
         tag: String::new(),
     });
-    let mut world = battle_from_rules(&rules, map);
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let a = world.entity_id_at(0).expect("entity");
     let b = world.entity_id_at(1).expect("entity");
     assert!(world.clear_ecs_movement(a));

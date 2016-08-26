@@ -10,7 +10,7 @@ use crate::{
         components::{AnimationState, AttackState, CombatStats, Health, Identity, Transform},
     },
 };
-use ra_types::armor_index;
+use ra_types::ArmorKind;
 
 impl crate::state::BattleState {
     pub(crate) fn resolve_combat(&mut self) {
@@ -93,7 +93,7 @@ impl crate::state::BattleState {
             };
             let dist = manhattan(attacker_xf.x, attacker_xf.y, target_xf.x, target_xf.y);
             if dist <= stats.attack_range {
-                let dmg = scale_damage(stats.attack_damage, &stats.attack_verses, target_stats.armor.as_str());
+                let dmg = scale_damage(stats.attack_damage, &stats.attack_verses, target_stats.armor);
                 damage_events.push((attacker_house, ti, dmg));
                 let cooldown_max = stats.attack_cooldown_max;
                 let _ = self.with_attack_mut(attacker_id, |attack| {
@@ -270,7 +270,7 @@ impl crate::state::BattleState {
     }
 }
 
-fn scale_damage(base: u32, verses: &[u32; 11], armor: &str) -> u32 {
-    let pct = verses[armor_index(armor)];
+fn scale_damage(base: u32, verses: &[u32; 11], armor: ArmorKind) -> u32 {
+    let pct = verses[armor.index()];
     ((u64::from(base) * u64::from(pct)) / 100) as u32
 }

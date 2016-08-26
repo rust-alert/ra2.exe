@@ -4,15 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::WarheadId;
 
-/// 护甲名在 `Verses` 列表中的固定顺序（11 项）。
-pub const ARMOR_ORDER: [&str; 11] =
-    ["none", "flak", "plate", "light", "medium", "heavy", "wood", "steel", "concrete", "special_1", "special_2"];
-
-/// 护甲名 → `Verses` 下标；未知护甲按 `none`（0）。
-pub fn armor_index(armor: &str) -> usize {
-    let key = armor.trim().to_ascii_lowercase();
-    ARMOR_ORDER.iter().position(|a| *a == key).unwrap_or(0)
-}
+use super::WarheadVerses;
 
 /// 单条弹头定义（对各护甲的伤害百分比）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,8 +13,8 @@ pub struct WarheadDefinition {
     pub id: WarheadId,
     /// 外部弹头键。
     pub type_key: String,
-    /// 对应 [`ARMOR_ORDER`] 的百分比倍率。
-    pub verses: [u32; 11],
+    /// 对应 [`super::ARMOR_ORDER`] 的百分比倍率。
+    pub verses: WarheadVerses,
 }
 
 /// 弹头定义表。

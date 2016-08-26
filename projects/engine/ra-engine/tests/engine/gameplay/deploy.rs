@@ -1,30 +1,18 @@
 //! MCV 部署与资金播种。
 
-use ra_adaptor::RulesSystem;
-use crate::common::battle_from_rules;
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition, TerrainSpawnerDefinitions};
+use ra_types::{EntityId, GameEdition};
 
 fn mcv_world() -> BattleState {
-    let rules_text = b"[VehicleTypes]\n0=AMCV\n1=MTNK\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=AMCV\n1=MTNK\n\
 [BuildingTypes]\n0=GACNST\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [MTNK]\nStrength=200\nSpeed=64\nSight=6\nCost=800\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n";
-    let rules = IniDocument::parse(rules_text).expect("测试 INI 必须有效");
-    let rules_db = RulesSystem {
-        edition: GameEdition::Ra2,
-        globals: RulesGlobals::from_rules(&rules),
-        overlay_types: OverlayTypeRegistry::default(),
-        terrain_spawners: TerrainSpawnerDefinitions::default(),
-        color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
-        techno_types: TechnoTypeRegistry::from_rules(&rules),
-        warheads: WarheadRegistry::default(),
-        super_weapons: SuperWeaponTypeRegistry::default(),
-    };
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "mcv-deploy");
     map.width = 16;
     map.height = 16;
@@ -40,7 +28,7 @@ fn mcv_world() -> BattleState {
         mission: String::new(),
         tag: String::new(),
     }];
-    battle_from_rules(&rules_db, map)
+    battle_from_defs(GameEdition::Ra2, defs, map)
 }
 
 #[test]

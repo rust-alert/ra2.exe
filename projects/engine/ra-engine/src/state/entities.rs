@@ -6,8 +6,7 @@
 use std::sync::Arc;
 
 use ra_map::MapEntityKind;
-use ra_types::EntityId;
-use ra_types::TechnoClass;
+use ra_types::{ArmorKind, EntityId, TechnoClass};
 
 /// 实体的 ECS → 投影缓存（字段与组件对应，非权威存储）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,8 +35,8 @@ pub(crate) struct WorldEntity {
     pub max_health: u32,
     /// 每 tick 累加的移动速度。
     pub speed: u32,
-    /// 护甲名。
-    pub armor: String,
+    /// 护甲种类。
+    pub armor: ArmorKind,
     /// 攻击射程。
     pub attack_range: u32,
     /// 单次基础伤害。
@@ -92,7 +91,7 @@ impl WorldEntity {
             health: 0,
             max_health: 0,
             speed: 0,
-            armor: String::new(),
+            armor: ArmorKind::None,
             attack_range: 0,
             attack_damage: 0,
             attack_cooldown_max: 0,

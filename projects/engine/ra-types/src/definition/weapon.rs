@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 
 use crate::id::{WarheadId, WeaponId};
 
-/// 单条武器静态定义（由 techno `Primary` / `Secondary` 引用）。
+use super::WarheadName;
+
+/// 单条武器静态定义（由 techno `Primary` / 超武 `Weapon=` 等引用）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WeaponDefinition {
     /// 稳定武器编号。
@@ -17,8 +19,8 @@ pub struct WeaponDefinition {
     pub range: u32,
     /// `ROF`（tick）。
     pub rof: u32,
-    /// 弹头键；空表示未配置。
-    pub warhead: String,
+    /// 弹头名；空表示未配置。
+    pub warhead: WarheadName,
     /// 弹头稳定 id；`WarheadId(0)` 表示未绑定。
     pub warhead_id: WarheadId,
 }
