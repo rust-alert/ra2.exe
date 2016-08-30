@@ -4,12 +4,12 @@ use serde::de::{self, IntoDeserializer, SeqAccess, Visitor};
 
 use super::IniDeError;
 
-pub(super) struct ScalarDeserializer<'a> {
-    pub raw: &'a str,
+pub(super) struct ScalarDeserializer {
+    pub raw: String,
     pub key: Option<String>,
 }
 
-impl<'a> ScalarDeserializer<'a> {
+impl ScalarDeserializer {
     fn err(&self, msg: impl std::fmt::Display) -> IniDeError {
         let e = IniDeError::custom(msg);
         match &self.key {
@@ -29,7 +29,7 @@ impl<'a> ScalarDeserializer<'a> {
     }
 }
 
-impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
+impl<'de> de::Deserializer<'de> for ScalarDeserializer {
     type Error = IniDeError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -142,7 +142,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.raw.trim())
+        visitor.visit_str(self.raw.trim())
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -202,15 +202,16 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let parts: Vec<&'de str> = self
+        let parts: Vec<String> = self
             .raw
             .split(|c| c == ',' || c == ';')
             .map(str::trim)
             .filter(|s| !s.is_empty())
+            .map(str::to_string)
             .collect();
         visitor.visit_seq(CommaSep {
             parts: parts.into_iter(),
-            key: self.key.clone(),
+            key: self.key,
         })
     }
 
@@ -263,7 +264,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_borrowed_str(self.raw.trim())
+        visitor.visit_str(self.raw.trim())
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -274,12 +275,12 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     }
 }
 
-struct CommaSep<'a> {
-    parts: std::vec::IntoIter<&'a str>,
+struct CommaSep {
+    parts: std::vec::IntoIter<String>,
     key: Option<String>,
 }
 
-impl<'de> SeqAccess<'de> for CommaSep<'de> {
+impl<'de> SeqAccess<'de> for CommaSep {
     type Error = IniDeError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>

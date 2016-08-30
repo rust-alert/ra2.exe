@@ -1,5 +1,6 @@
 //! 多层 `IniDocument` 的字段级有效值视图（无 edition 语义）。
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use crate::ini::document::{IniDocument, IniSection};
@@ -16,7 +17,7 @@ pub enum EntryMergePolicy {
     ReplaceSection,
     /// 节内按键合并：未写的键保留下层，已写的键按 `LastValue`。
     MergeSection,
-    /// 列表语义：追加各层同键值（骨架：暂与 `LastValue` 相同，待 schema 声明后启用）。
+    /// 列表语义：自底向顶追加各层同键值（逗号拼接后供一次类型解码）。
     AppendValues,
     /// 编号索引列表：按索引替换（骨架：暂与 `LastValue` 相同）。
     IndexedValues,
@@ -48,6 +49,15 @@ impl IniMergePolicy {
     }
 }
 
+/// 带层来源的有效字段值（诊断用）。
+#[derive(Debug, Clone, Copy)]
+pub struct ResolvedIniValue<'a> {
+    /// 字段值。
+    pub value: IniValue<'a>,
+    /// 来自 `LayeredIniView::documents` 的层下标（0 = 最底）。
+    pub layer: usize,
+}
+
 /// 多层文档的只读视图：`documents[0]` 为最底层，末元素为最顶层。
 #[derive(Debug, Clone, Copy)]
 pub struct LayeredIniView<'a> {
@@ -66,10 +76,10 @@ impl<'a> LayeredIniView<'a> {
     /// 按节名取层叠节视图；各层都无该节则 `None`。
     pub fn section(&self, name: &str) -> Option<LayeredSectionView<'a>> {
         let name_key = name.to_ascii_uppercase();
-        let mut layers: Vec<&'a IniSection> = Vec::new();
-        for doc in self.documents {
+        let mut layers: Vec<(usize, &'a IniSection)> = Vec::new();
+        for (layer, doc) in self.documents.iter().enumerate() {
             if let Some(sec) = doc.section(&name_key) {
-                layers.push(sec);
+                layers.push((layer, sec));
             }
         }
         if layers.is_empty() {
@@ -104,46 +114,63 @@ impl<'a> LayeredIniView<'a> {
 /// 同一逻辑节在多层中的叠合视图。
 #[derive(Debug, Clone)]
 pub struct LayeredSectionView<'a> {
-    /// 从底到顶出现过该节名的各层节。
-    layers: Vec<&'a IniSection>,
+    /// 从底到顶出现过该节名的各层：`(layer_index, section)`。
+    layers: Vec<(usize, &'a IniSection)>,
     policy: EntryMergePolicy,
 }
 
 impl<'a> LayeredSectionView<'a> {
     /// 节名（取最顶层原始拼写；若只要比较名可用 `name_key`）。
     pub fn name_raw(&self) -> &'a str {
-        self.layers.last().map(|s| s.name_raw.as_str()).unwrap_or("")
+        self.layers.last().map(|(_, s)| s.name_raw.as_str()).unwrap_or("")
     }
 
     /// 比较用节名。
     pub fn name_key(&self) -> &'a str {
-        self.layers.last().map(|s| s.name_key.as_str()).unwrap_or("")
+        self.layers.last().map(|(_, s)| s.name_key.as_str()).unwrap_or("")
     }
 
-    /// 按策略取有效键值。
-    pub fn get(&self, key: &str) -> Option<IniValue<'a>> {
+    /// 当前节合并策略。
+    pub fn policy(&self) -> EntryMergePolicy {
+        self.policy
+    }
+
+    /// 自底向顶收集同键在各层的取值（缺层跳过）。
+    pub fn all_resolved(&self, key: &str) -> Vec<ResolvedIniValue<'a>> {
+        let key_up = key.to_ascii_uppercase();
+        let mut out = Vec::new();
+        for &(layer, sec) in &self.layers {
+            if let Some(value) = sec.value(&key_up) {
+                out.push(ResolvedIniValue { value, layer });
+            }
+        }
+        out
+    }
+
+    /// 按策略解析带来源层的有效值（`AppendValues` 取顶层出现值，完整列表见 [`Self::all_resolved`]）。
+    pub fn resolved(&self, key: &str) -> Option<ResolvedIniValue<'a>> {
         let key_up = key.to_ascii_uppercase();
         match self.policy {
             EntryMergePolicy::FirstValue => {
-                for sec in &self.layers {
-                    if let Some(v) = sec.value(&key_up) {
-                        return Some(v);
+                for &(layer, sec) in &self.layers {
+                    if let Some(value) = sec.value(&key_up) {
+                        return Some(ResolvedIniValue { value, layer });
                     }
                 }
                 None
             }
             EntryMergePolicy::ReplaceSection => {
-                // 整节替换：只看最顶层有该节的那一份（layers 末元素）。
-                self.layers.last().and_then(|sec| sec.value(&key_up))
+                let &(layer, sec) = self.layers.last()?;
+                sec.value(&key_up).map(|value| ResolvedIniValue { value, layer })
             }
             EntryMergePolicy::MergeSection
             | EntryMergePolicy::LastValue
             | EntryMergePolicy::AppendValues
             | EntryMergePolicy::IndexedValues
             | EntryMergePolicy::NumberedPack => {
-                for sec in self.layers.iter().rev() {
-                    if let Some(v) = sec.value(&key_up) {
-                        return Some(v);
+                for &(layer, sec) in self.layers.iter().rev() {
+                    if let Some(value) = sec.value(&key_up) {
+                        return Some(ResolvedIniValue { value, layer });
                     }
                 }
                 None
@@ -151,11 +178,38 @@ impl<'a> LayeredSectionView<'a> {
         }
     }
 
+    /// 按策略取有效键值（借用视图；`AppendValues` 请用 [`Self::effective_raw`]）。
+    pub fn get(&self, key: &str) -> Option<IniValue<'a>> {
+        self.resolved(key).map(|r| r.value)
+    }
+
+    /// 供 Serde / 列表解码使用的有效原文：`AppendValues` 自底向顶逗号拼接。
+    pub fn effective_raw(&self, key: &str) -> Option<Cow<'a, str>> {
+        match self.policy {
+            EntryMergePolicy::AppendValues => {
+                let parts: Vec<&str> = self
+                    .all_resolved(key)
+                    .into_iter()
+                    .map(|r| r.value.raw.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if parts.is_empty() {
+                    None
+                } else if parts.len() == 1 {
+                    Some(Cow::Borrowed(parts[0]))
+                } else {
+                    Some(Cow::Owned(parts.join(",")))
+                }
+            }
+            _ => self.get(key).map(|v| Cow::Borrowed(v.raw)),
+        }
+    }
+
     /// 合并后可见的比较键集合（保序：底层先出现的键在前，顶层新键追加）。
     pub fn keys(&self) -> Vec<&'a str> {
         match self.policy {
             EntryMergePolicy::ReplaceSection => {
-                let Some(top) = self.layers.last()
+                let Some((_, top)) = self.layers.last()
                 else {
                     return Vec::new();
                 };
@@ -171,7 +225,7 @@ impl<'a> LayeredSectionView<'a> {
             EntryMergePolicy::FirstValue => {
                 let mut out = Vec::new();
                 let mut seen = std::collections::HashSet::new();
-                for sec in &self.layers {
+                for (_, sec) in &self.layers {
                     for e in &sec.entries {
                         if seen.insert(e.key_key.as_str()) {
                             out.push(e.key_raw.as_str());
@@ -187,8 +241,7 @@ impl<'a> LayeredSectionView<'a> {
             | EntryMergePolicy::NumberedPack => {
                 let mut out = Vec::new();
                 let mut seen = std::collections::HashSet::new();
-                // 先扫底层定序，再让顶层新键追加；取值仍由 get 做 LastValue。
-                for sec in &self.layers {
+                for (_, sec) in &self.layers {
                     for e in &sec.entries {
                         if seen.insert(e.key_key.as_str()) {
                             out.push(e.key_raw.as_str());

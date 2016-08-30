@@ -44,7 +44,8 @@ pub use image::{
     tmp::{TILE_HEADER_SIZE, TmpFile, TmpTile, diamond_byte_count},
 };
 pub use ini::{
-    EntryMergePolicy, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView, LayeredSectionView, SourceId,
+    EntryMergePolicy, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView, LayeredSectionView,
+    ResolvedIniValue, SourceId,
     SourceSpan, collect_shp_refs, concat_numbered_values, from_layered_section, from_section, numbered_section_concat,
 };
 pub use mix::{
