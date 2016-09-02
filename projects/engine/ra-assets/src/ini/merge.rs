@@ -1,7 +1,7 @@
 //! 多层 `IniDocument` 的字段级有效值视图（无 edition 语义）。
 
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::ini::document::{IniDocument, IniSection};
 use crate::ini::value::IniValue;
@@ -21,7 +21,7 @@ pub enum EntryMergePolicy {
     AppendValues,
     /// 编号索引列表：按索引替换（骨架：暂与 `LastValue` 相同）。
     IndexedValues,
-    /// 编号 pack 串接（骨架：暂与 `LastValue` 相同）。
+    /// 编号 pack 串接：同索引后写覆盖，再按索引序拼接（地图 IsoMapPack 等）。
     NumberedPack,
 }
 
@@ -46,6 +46,35 @@ impl IniMergePolicy {
         Self {
             default_entry: EntryMergePolicy::LastValue,
         }
+    }
+}
+
+/// 节内按键合并策略覆盖（由 adaptor schema 声明；未列出的键走节默认策略）。
+#[derive(Debug, Clone, Default)]
+pub struct FieldMergeOverrides {
+    by_key: HashMap<String, EntryMergePolicy>,
+}
+
+impl FieldMergeOverrides {
+    /// 空覆盖表。
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 为比较键设置策略（大小写不敏感）。
+    pub fn set(&mut self, key: &str, policy: EntryMergePolicy) -> &mut Self {
+        self.by_key.insert(key.to_ascii_uppercase(), policy);
+        self
+    }
+
+    /// 查询键策略。
+    pub fn get(&self, key: &str) -> Option<EntryMergePolicy> {
+        self.by_key.get(&key.to_ascii_uppercase()).copied()
+    }
+
+    /// 是否无任何覆盖。
+    pub fn is_empty(&self) -> bool {
+        self.by_key.is_empty()
     }
 }
 
@@ -75,6 +104,15 @@ impl<'a> LayeredIniView<'a> {
 
     /// 按节名取层叠节视图；各层都无该节则 `None`。
     pub fn section(&self, name: &str) -> Option<LayeredSectionView<'a>> {
+        self.section_with_overrides(name, None)
+    }
+
+    /// 按节名取层叠节视图，并附带按键策略覆盖。
+    pub fn section_with_overrides(
+        &self,
+        name: &str,
+        overrides: Option<&'a FieldMergeOverrides>,
+    ) -> Option<LayeredSectionView<'a>> {
         let name_key = name.to_ascii_uppercase();
         let mut layers: Vec<(usize, &'a IniSection)> = Vec::new();
         for (layer, doc) in self.documents.iter().enumerate() {
@@ -88,12 +126,18 @@ impl<'a> LayeredIniView<'a> {
         Some(LayeredSectionView {
             layers,
             policy: self.policy.default_entry,
+            overrides,
         })
     }
 
     /// 直接取有效字段值。
     pub fn get(&self, section: &str, key: &str) -> Option<IniValue<'a>> {
         self.section(section)?.get(key)
+    }
+
+    /// 对指定节执行编号 pack 拼接（需策略为 [`EntryMergePolicy::NumberedPack`]，或任意策略下按索引后写覆盖）。
+    pub fn numbered_pack_concat(&self, section: &str) -> Option<String> {
+        self.section(section)?.numbered_pack_concat()
     }
 
     /// 各层出现过的节比较名（底层先出现者在前，顶层新节追加）。
@@ -116,7 +160,10 @@ impl<'a> LayeredIniView<'a> {
 pub struct LayeredSectionView<'a> {
     /// 从底到顶出现过该节名的各层：`(layer_index, section)`。
     layers: Vec<(usize, &'a IniSection)>,
+    /// 节默认策略（无覆盖时使用）。
     policy: EntryMergePolicy,
+    /// 可选按键策略覆盖。
+    overrides: Option<&'a FieldMergeOverrides>,
 }
 
 impl<'a> LayeredSectionView<'a> {
@@ -130,9 +177,14 @@ impl<'a> LayeredSectionView<'a> {
         self.layers.last().map(|(_, s)| s.name_key.as_str()).unwrap_or("")
     }
 
-    /// 当前节合并策略。
+    /// 节默认合并策略。
     pub fn policy(&self) -> EntryMergePolicy {
         self.policy
+    }
+
+    /// 解析某键实际生效的合并策略。
+    pub fn policy_for(&self, key: &str) -> EntryMergePolicy {
+        self.overrides.and_then(|o| o.get(key)).unwrap_or(self.policy)
     }
 
     /// 自底向顶收集同键在各层的取值（缺层跳过）。
@@ -147,10 +199,50 @@ impl<'a> LayeredSectionView<'a> {
         out
     }
 
-    /// 按策略解析带来源层的有效值（`AppendValues` 取顶层出现值，完整列表见 [`Self::all_resolved`]）。
+    /// 编号键按索引解析：自底向顶写入，同索引后层覆盖；节默认/`ReplaceSection` 只看顶层节。
+    pub fn numbered_resolved(&self) -> Vec<(u32, ResolvedIniValue<'a>)> {
+        use std::collections::BTreeMap;
+
+        let mut by_index: BTreeMap<u32, ResolvedIniValue<'a>> = BTreeMap::new();
+        let layers: &[(usize, &IniSection)] = match self.policy {
+            EntryMergePolicy::ReplaceSection => self.layers.last().map(std::slice::from_ref).unwrap_or(&[]),
+            _ => self.layers.as_slice(),
+        };
+        for &(layer, sec) in layers {
+            for (k, v) in sec.pairs() {
+                let Ok(index) = k.parse::<u32>()
+                else {
+                    continue;
+                };
+                by_index.insert(
+                    index,
+                    ResolvedIniValue {
+                        value: IniValue::new(v, None, sec.name_raw.as_str(), k),
+                        layer,
+                    },
+                );
+            }
+        }
+        by_index.into_iter().collect()
+    }
+
+    /// 编号 pack 有效文本：索引排序后无分隔符拼接（base64 块串）。
+    pub fn numbered_pack_concat(&self) -> Option<String> {
+        let entries = self.numbered_resolved();
+        if entries.is_empty() {
+            return None;
+        }
+        let mut out = String::new();
+        for (_, r) in entries {
+            out.push_str(r.value.raw);
+        }
+        Some(out)
+    }
+
+    /// 按键策略解析带来源层的有效值（`AppendValues` 取顶层出现值，完整列表见 [`Self::all_resolved`]）。
     pub fn resolved(&self, key: &str) -> Option<ResolvedIniValue<'a>> {
         let key_up = key.to_ascii_uppercase();
-        match self.policy {
+        match self.policy_for(key) {
             EntryMergePolicy::FirstValue => {
                 for &(layer, sec) in &self.layers {
                     if let Some(value) = sec.value(&key_up) {
@@ -185,7 +277,7 @@ impl<'a> LayeredSectionView<'a> {
 
     /// 供 Serde / 列表解码使用的有效原文：`AppendValues` 自底向顶逗号拼接。
     pub fn effective_raw(&self, key: &str) -> Option<Cow<'a, str>> {
-        match self.policy {
+        match self.policy_for(key) {
             EntryMergePolicy::AppendValues => {
                 let parts: Vec<&str> = self
                     .all_resolved(key)
