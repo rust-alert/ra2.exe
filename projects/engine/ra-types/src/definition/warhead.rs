@@ -15,6 +15,10 @@ pub struct WarheadDefinition {
     pub type_key: String,
     /// 对应 [`super::ARMOR_ORDER`] 的百分比倍率。
     pub verses: WarheadVerses,
+    /// `Spread=` 溅射半径（格）；缺省 0。
+    pub spread: u32,
+    /// `ProneDamage=` 对卧倒单位的伤害百分比；缺省 100。
+    pub prone_damage: u32,
 }
 
 /// 弹头定义表。

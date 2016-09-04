@@ -11,13 +11,17 @@ use ra_types::WarheadVerses;
 
 pub use ra_types::{ARMOR_ORDER, armor_index};
 
-/// 弹头：对各护甲的伤害百分比（默认全 100）。
+/// 弹头：对各护甲的伤害百分比（默认全 100）及溅射 / 卧倒倍率。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Warhead {
     /// 弹头 id（大写）。
     pub id: String,
     /// 对应 [`ARMOR_ORDER`] 的百分比倍率。
     pub verses: WarheadVerses,
+    /// `Spread=` 溅射半径（格）；缺省 0。
+    pub spread: u32,
+    /// `ProneDamage=` 对卧倒单位的伤害百分比；缺省 100。
+    pub prone_damage: u32,
 }
 
 /// `warhead_id` → 解析后的弹头。
@@ -70,6 +74,14 @@ struct WarheadSectionFields {
     /// `Verses=`：逗号列表一次落到 [`WarheadVerses`]，不再经 `Vec<String>`。
     #[serde(rename = "Verses", default, deserialize_with = "deserialize_warhead_verses")]
     verses: WarheadVerses,
+    #[serde(rename = "Spread", default)]
+    spread: u32,
+    #[serde(rename = "ProneDamage", default = "default_prone_damage")]
+    prone_damage: u32,
+}
+
+fn default_prone_damage() -> u32 {
+    100
 }
 
 fn parse_warhead(view: LayeredIniView<'_>, id: &str) -> Option<Warhead> {
@@ -78,6 +90,8 @@ fn parse_warhead(view: LayeredIniView<'_>, id: &str) -> Option<Warhead> {
     Some(Warhead {
         id: id.to_string(),
         verses: fields.verses,
+        spread: fields.spread,
+        prone_damage: fields.prone_damage,
     })
 }
 

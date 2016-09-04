@@ -147,6 +147,12 @@ ini_name!(
 );
 
 ini_name!(
+    /// 抛射体节名（`Projectile=`）；空 = 未配置。
+    ProjectileName,
+    "projectile section name"
+);
+
+ini_name!(
     /// 房屋 / 阵营名（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=` 等）；空 = 未配置。
     HouseName,
     "house / country name"
@@ -156,6 +162,12 @@ ini_name!(
     /// Techno 类型名（`DeploysInto=` 等类型引用）；空 = 未配置。
     TechnoName,
     "techno type name"
+);
+
+ini_name!(
+    /// 美术 `Image=` 资源名（缺省常等于类型 id）；空 = 未写。
+    ImageName,
+    "art Image= name"
 );
 
 ini_name!(

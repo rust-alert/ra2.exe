@@ -26,6 +26,8 @@ fn sample(build_time: u32) -> TechnoDefinition {
         sight: 5,
         primary: ra_types::WeaponName::default(),
         primary_id: ra_types::WeaponId(0),
+        secondary: ra_types::WeaponName::default(),
+        secondary_id: ra_types::WeaponId(0),
         warhead: ra_types::WarheadName::default(),
         warhead_id: ra_types::WarheadId(0),
         prerequisite: Vec::new(),

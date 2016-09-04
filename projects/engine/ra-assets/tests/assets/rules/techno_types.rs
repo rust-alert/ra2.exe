@@ -27,6 +27,13 @@ fn parse_vehicle_list() {
 }
 
 #[test]
+fn missing_image_defaults_to_type_id() {
+    let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    assert_eq!(reg.get("MTNK").unwrap().image, "MTNK");
+}
+
+#[test]
 fn missing_armor_defaults_to_none() {
     let doc = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nStrength=100\n").unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);
@@ -74,6 +81,26 @@ fn parse_primary_weapon_damage_and_range() {
     assert_eq!(m.range, 5);
     assert_eq!(m.rof, 20);
     assert_eq!(m.warhead, "AP");
+    assert_eq!(m.projectile, "INVISIBLE");
+}
+
+#[test]
+fn parse_secondary_weapon_once() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=FV\n\
+[FV]\nPrimary=HoverMissile\nSecondary=Repair\n\
+[HoverMissile]\nDamage=50\nROF=40\nRange=6\nWarhead=SA\n\
+[Repair]\nDamage=0\nROF=20\nRange=3\nWarhead=SA\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let fv = reg.get("FV").unwrap();
+    assert_eq!(fv.primary, "HOVERMISSILE");
+    assert_eq!(fv.secondary, "REPAIR");
+    assert_eq!(fv.secondary_damage, 0);
+    assert_eq!(fv.secondary_range, 3);
+    assert_eq!(fv.secondary_rof, 20);
+    assert_eq!(fv.secondary_warhead, "SA");
 }
 
 #[test]
@@ -186,6 +213,23 @@ fn from_layered_merges_techno_fields_and_list() {
     assert_eq!(m.cost, 700);
     assert_eq!(m.damage, 50);
     assert_eq!(reg.get("HTNK").unwrap().strength, 600);
+}
+
+#[test]
+fn field_overrides_append_owner_while_cost_last_wins() {
+    let base = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans\nCost=700\n").unwrap();
+    let top = IniDocument::parse(b"[MTNK]\nOwner=Alliance\nCost=800\n").unwrap();
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let mut overrides = FieldMergeOverrides::new();
+    overrides.set("Owner", EntryMergePolicy::AppendValues);
+    let docs = [base, top];
+    let reg = TechnoTypeRegistry::from_layered_with_overrides(LayeredIniView::new(&docs, &policy), Some(&overrides));
+    let m = reg.get("MTNK").unwrap();
+    assert!(m.owner.owner_allows("Americans"));
+    assert!(m.owner.owner_allows("Alliance"));
+    assert_eq!(m.cost, 800);
 }
 
 #[test]

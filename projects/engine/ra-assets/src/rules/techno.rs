@@ -4,10 +4,10 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{
-    BuildCat, Foundation, HouseAllowList, PrerequisiteList, ProductionCategory, SuperWeaponName, TechnoName, WarheadName, WeaponName,
-    deserialize_optional_factory,
+    BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoName,
+    WarheadName, WeaponName, deserialize_optional_factory,
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
@@ -31,8 +31,8 @@ pub struct TechnoType {
     pub tech_level: i32,
     /// `Owner` 所属阵营名单（装载期一次解码；空 = 不限）。
     pub owner: HouseAllowList,
-    /// `Image` 资源名（缺省等于 id）。
-    pub image: String,
+    /// `Image` 资源名（装载期一次解码；缺省等于类型 id）。
+    pub image: ImageName,
     /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
     pub category: String,
     /// `Naval=yes`。
@@ -53,6 +53,20 @@ pub struct TechnoType {
     pub rof: u32,
     /// 主武器弹头名（武器节 `Warhead`）；空表示未配置。
     pub warhead: WarheadName,
+    /// 主武器抛射体名（武器节 `Projectile`）；空表示未配置。
+    pub projectile: ProjectileName,
+    /// 副武器名（`Secondary`）；空表示未配置。
+    pub secondary: WeaponName,
+    /// 副武器伤害（来自武器节 `Damage`）；0 表示未配置。
+    pub secondary_damage: u32,
+    /// 副武器射程（来自武器节 `Range`，格）；0 表示未配置。
+    pub secondary_range: u32,
+    /// 副武器射速间隔（tick）；0 表示未配置。
+    pub secondary_rof: u32,
+    /// 副武器弹头名；空表示未配置。
+    pub secondary_warhead: WarheadName,
+    /// 副武器抛射体名；空表示未配置。
+    pub secondary_projectile: ProjectileName,
     /// `Prerequisite`（装载期一次解码）。
     pub prerequisite: PrerequisiteList,
     /// `PrerequisiteOverride`（装载期一次解码）。
@@ -126,8 +140,13 @@ impl TechnoTypeRegistry {
         Self::from_layered(LayeredIniView::new(docs, &policy))
     }
 
-    /// 从层叠 rules 视图扫描列表节并解码各类型（字段按视图策略合并）。
+    /// 从层叠 rules 视图扫描列表节并解码各类型（字段按视图默认策略合并）。
     pub fn from_layered(view: LayeredIniView<'_>) -> Self {
+        Self::from_layered_with_overrides(view, None)
+    }
+
+    /// 从层叠 rules 视图扫描并解码；`overrides` 由 adaptor schema 声明列表等字段的合并策略。
+    pub fn from_layered_with_overrides(view: LayeredIniView<'_>, overrides: Option<&FieldMergeOverrides>) -> Self {
         let mut by_id = HashMap::new();
         for (section, kind) in [
             ("InfantryTypes", TechnoKind::Infantry),
@@ -152,7 +171,7 @@ impl TechnoTypeRegistry {
                 if by_id.contains_key(&id_up) {
                     continue;
                 }
-                if let Some(tt) = parse_techno(view, &id_up, kind) {
+                if let Some(tt) = parse_techno(view, &id_up, kind, overrides) {
                     by_id.insert(id_up, tt);
                 }
             }
@@ -227,8 +246,8 @@ struct TechnoSectionFields {
     tech_level: Option<i32>,
     #[serde(rename = "Owner", default)]
     owner: HouseAllowList,
-    #[serde(rename = "Image")]
-    image: Option<String>,
+    #[serde(rename = "Image", default)]
+    image: ImageName,
     #[serde(rename = "Category")]
     category: Option<String>,
     #[serde(rename = "Naval")]
@@ -241,6 +260,8 @@ struct TechnoSectionFields {
     harvester: Option<bool>,
     #[serde(rename = "Primary", default)]
     primary: WeaponName,
+    #[serde(rename = "Secondary", default)]
+    secondary: WeaponName,
     #[serde(rename = "ROF")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
@@ -300,20 +321,38 @@ struct WeaponSectionFields {
     rof: Option<u32>,
     #[serde(rename = "Warhead", default)]
     warhead: WarheadName,
+    #[serde(rename = "Projectile", default)]
+    projectile: ProjectileName,
 }
 
-fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<TechnoType> {
-    let section = view.section(id)?;
+/// 装载期解析出的武器节字段包。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct ResolvedWeaponFields {
+    damage: u32,
+    range: u32,
+    rof: u32,
+    warhead: WarheadName,
+    projectile: ProjectileName,
+}
+
+fn parse_techno(
+    view: LayeredIniView<'_>,
+    id: &str,
+    kind: TechnoKind,
+    overrides: Option<&FieldMergeOverrides>,
+) -> Option<TechnoType> {
+    let section = view.section_with_overrides(id, overrides)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields.primary;
+    let secondary = fields.secondary;
     let techno_rof = fields.rof.unwrap_or(0);
-    let (damage, range, rof, warhead) = resolve_primary_weapon(view, &primary, techno_rof);
-    let image = fields
-        .image
-        .as_deref()
-        .unwrap_or(id)
-        .trim()
-        .to_ascii_uppercase();
+    let primary_w = resolve_weapon(view, &primary, techno_rof);
+    let secondary_w = resolve_weapon(view, &secondary, 0);
+    let image = if fields.image.is_empty() {
+        ImageName::parse(id)
+    } else {
+        fields.image
+    };
     Some(TechnoType {
         id: id.to_string(),
         kind,
@@ -331,10 +370,17 @@ fn parse_techno(view: LayeredIniView<'_>, id: &str, kind: TechnoKind) -> Option<
         engineer: fields.engineer.unwrap_or(false),
         harvester: fields.harvester.unwrap_or(false),
         primary,
-        damage,
-        range,
-        rof,
-        warhead,
+        damage: primary_w.damage,
+        range: primary_w.range,
+        rof: primary_w.rof,
+        warhead: primary_w.warhead,
+        projectile: primary_w.projectile,
+        secondary,
+        secondary_damage: secondary_w.damage,
+        secondary_range: secondary_w.range,
+        secondary_rof: secondary_w.rof,
+        secondary_warhead: secondary_w.warhead,
+        secondary_projectile: secondary_w.projectile,
         prerequisite: fields.prerequisite,
         prerequisite_override: fields.prerequisite_override,
         required_houses: fields.required_houses,
@@ -380,20 +426,35 @@ fn art_geometry_string(art: LayeredIniView<'_>, type_key: &str, key: &str) -> Op
     }
 }
 
-/// 从 `Primary` 武器节读取伤害 / 射程 / ROF / 弹头；缺省时保留类型节 ROF。
-fn resolve_primary_weapon(view: LayeredIniView<'_>, primary: &WeaponName, techno_rof: u32) -> (u32, u32, u32, WarheadName) {
-    if primary.is_empty() {
-        return (0, 0, techno_rof, WarheadName::default());
+/// 从武器节读取伤害 / 射程 / ROF / 弹头 / 抛射体；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。
+fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u32) -> ResolvedWeaponFields {
+    if weapon.is_empty() {
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     }
-    let Some(section) = view.section(primary.as_str())
+    let Some(section) = view.section(weapon.as_str())
     else {
-        return (0, 0, techno_rof, WarheadName::default());
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, techno_rof, WarheadName::default());
+        return ResolvedWeaponFields {
+            rof: fallback_rof,
+            ..ResolvedWeaponFields::default()
+        };
     };
     let weapon_rof = w.rof.unwrap_or(0);
-    let rof = if weapon_rof > 0 { weapon_rof } else { techno_rof };
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), rof, w.warhead)
+    let rof = if weapon_rof > 0 { weapon_rof } else { fallback_rof };
+    ResolvedWeaponFields {
+        damage: w.damage.unwrap_or(0),
+        range: w.range.unwrap_or(0),
+        rof,
+        warhead: w.warhead,
+        projectile: w.projectile,
+    }
 }

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use crate::id::{WarheadId, WeaponId};
 
 use super::WarheadName;
+use super::ProjectileName;
 
 /// 单条武器静态定义（由 techno `Primary` / 超武 `Weapon=` 等引用）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +24,8 @@ pub struct WeaponDefinition {
     pub warhead: WarheadName,
     /// 弹头稳定 id；`WarheadId(0)` 表示未绑定。
     pub warhead_id: WarheadId,
+    /// 抛射体名（`Projectile=`）；空表示未配置。
+    pub projectile: ProjectileName,
 }
 
 /// 武器定义表。

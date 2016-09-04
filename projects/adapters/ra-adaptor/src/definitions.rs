@@ -101,6 +101,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             sight: tt.sight,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),
+            secondary: tt.secondary.clone(),
+            secondary_id: WeaponId(0),
             warhead: tt.warhead.clone(),
             warhead_id: WarheadId(0),
             prerequisite: tt.prerequisite.clone().into_vec(),
@@ -243,22 +245,41 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
     for tt in rules.techno_types.iter() {
-        let key = tt.primary.as_str().to_string();
-        if key.is_empty() || defs.weapons.get(&key).is_some() {
-            continue;
+        for (key, damage, range, rof, warhead, projectile) in [
+            (
+                tt.primary.as_str().to_string(),
+                tt.damage,
+                tt.range,
+                tt.rof,
+                tt.warhead.clone(),
+                tt.projectile.clone(),
+            ),
+            (
+                tt.secondary.as_str().to_string(),
+                tt.secondary_damage,
+                tt.secondary_range,
+                tt.secondary_rof,
+                tt.secondary_warhead.clone(),
+                tt.secondary_projectile.clone(),
+            ),
+        ] {
+            if key.is_empty() || defs.weapons.get(&key).is_some() {
+                continue;
+            }
+            let id = alloc_weapon();
+            defs.weapons.insert(WeaponDefinition {
+                id,
+                type_key: key,
+                damage,
+                range,
+                rof,
+                warhead,
+                warhead_id: WarheadId(0),
+                projectile,
+            });
         }
-        let id = alloc_weapon();
-        defs.weapons.insert(WeaponDefinition {
-            id,
-            type_key: key,
-            damage: tt.damage,
-            range: tt.range,
-            rof: tt.rof,
-            warhead: tt.warhead.clone(),
-            warhead_id: WarheadId(0),
-        });
     }
     for sw in rules.super_weapons.iter() {
         let key = sw.weapon.as_str().to_string();
@@ -274,6 +295,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             rof: sw.weapon_rof,
             warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
+            projectile: sw.weapon_projectile.clone(),
         });
     }
 
@@ -282,17 +304,23 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         .iter()
         .map(|w| w.warhead.clone())
         .chain(defs.techno.iter().map(|t| t.warhead.clone()))
+        .chain(rules.techno_types.iter().map(|t| t.secondary_warhead.clone()))
         .filter(|w| !w.is_empty())
         .collect();
     warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     warhead_keys.dedup();
     for key in warhead_keys {
-        let verses = rules.warheads.get(key.as_str()).map(|w| w.verses).unwrap_or_default();
+        let loaded = rules.warheads.get(key.as_str());
+        let verses = loaded.map(|w| w.verses).unwrap_or_default();
+        let spread = loaded.map(|w| w.spread).unwrap_or(0);
+        let prone_damage = loaded.map(|w| w.prone_damage).unwrap_or(100);
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition {
             id,
             type_key: key.as_str().to_string(),
             verses,
+            spread,
+            prone_damage,
         });
     }
     for weapon in defs.weapons.iter_mut() {
@@ -307,6 +335,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             WeaponId(0)
         } else {
             defs.weapons.get(techno.primary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
+        };
+        techno.secondary_id = if techno.secondary.is_empty() {
+            WeaponId(0)
+        } else {
+            defs.weapons.get(techno.secondary.as_str()).map(|w| w.id).unwrap_or(WeaponId(0))
         };
         techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
             w.warhead_id

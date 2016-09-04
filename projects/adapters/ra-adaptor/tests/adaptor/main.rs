@@ -3,4 +3,5 @@
 mod compose;
 mod definitions;
 mod layers;
+mod rules;
 mod ui;

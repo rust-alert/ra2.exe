@@ -144,6 +144,8 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         sight: 0,
         primary: ra_types::WeaponName::default(),
         primary_id: ra_types::WeaponId(0),
+        secondary: ra_types::WeaponName::default(),
+        secondary_id: ra_types::WeaponId(0),
         warhead: ra_types::WarheadName::default(),
         warhead_id: ra_types::WarheadId(0),
         prerequisite: prerequisite.iter().filter_map(|s| PrerequisiteToken::parse_raw(s)).collect(),

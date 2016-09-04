@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{SuperWeaponActionName, SuperWeaponKindName, WarheadName, WeaponName};
+use ra_types::{ProjectileName, SuperWeaponActionName, SuperWeaponKindName, WarheadName, WeaponName};
 
 /// 超武类型（装载期资源侧记录）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +32,8 @@ pub struct SuperWeaponType {
     pub weapon_rof: u32,
     /// `Weapon=` 节 `Warhead` 名；空表示未写。
     pub weapon_warhead: WarheadName,
+    /// `Weapon=` 节 `Projectile` 名；空表示未写。
+    pub weapon_projectile: ProjectileName,
 }
 
 /// 保序的超武类型表。
@@ -129,28 +131,36 @@ struct WeaponSectionFields {
     rof: Option<u32>,
     #[serde(rename = "Warhead", default)]
     warhead: WarheadName,
+    #[serde(rename = "Projectile", default)]
+    projectile: ProjectileName,
 }
 
-fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u32, WarheadName) {
+fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u32, WarheadName, ProjectileName) {
     if weapon.is_empty() {
-        return (0, 0, 0, WarheadName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
     }
     let Some(section) = view.section(weapon.as_str())
     else {
-        return (0, 0, 0, WarheadName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, 0, WarheadName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
     };
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), w.rof.unwrap_or(0), w.warhead)
+    (
+        w.damage.unwrap_or(0),
+        w.range.unwrap_or(0),
+        w.rof.unwrap_or(0),
+        w.warhead,
+        w.projectile,
+    )
 }
 
 fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponType> {
     let section = view.section(id)?;
     let fields: SuperWeaponSectionFields = section.deserialize().ok()?;
     let weapon = fields.weapon;
-    let (weapon_damage, weapon_range, weapon_rof, weapon_warhead) = resolve_weapon(view, &weapon);
+    let (weapon_damage, weapon_range, weapon_rof, weapon_warhead, weapon_projectile) = resolve_weapon(view, &weapon);
     Some(SuperWeaponType {
         id: id.to_string(),
         ui_name: fields.ui_name.unwrap_or_default(),
@@ -163,5 +173,6 @@ fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponT
         weapon_range,
         weapon_rof,
         weapon_warhead,
+        weapon_projectile,
     })
 }

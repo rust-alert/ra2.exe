@@ -68,6 +68,10 @@ pub struct TechnoDefinition {
     pub primary: WeaponName,
     /// 主武器稳定 id；`WeaponId(0)` 表示未绑定。
     pub primary_id: WeaponId,
+    /// 副武器名（`Secondary`）；空表示未配置。
+    pub secondary: WeaponName,
+    /// 副武器稳定 id；`WeaponId(0)` 表示未绑定。
+    pub secondary_id: WeaponId,
     /// 主武器弹头名；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
     pub warhead: WarheadName,
     /// 主武器弹头稳定 id；`WarheadId(0)` 表示未绑定。
