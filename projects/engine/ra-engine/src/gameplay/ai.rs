@@ -11,7 +11,7 @@ use crate::{
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
 };
 use ra_map::MapEntityKind;
-use ra_types::{PlayerId, ProductionCategory};
+use ra_types::{PlayerId, ProductionCategory, TechnoCategory};
 
 /// 地图氛围房主（平民装饰），不参与遭遇战 AI，也不计入胜负作战力量。
 pub fn is_ambient_house(house: &str) -> bool {
@@ -275,7 +275,7 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
                 // 陆地工厂不造海军单位（否则 DEST 等会从战车厂刷出）。
                 && !t.naval
                 // 警犬等 Category=Dog 不进常规量产。
-                && !t.category.eq_ignore_ascii_case("Dog")
+                && t.category != TechnoCategory::Dog
                 && deploy_into_type(&world.definitions, &t.type_key).is_none()
         })
         // 同科技等级下优先较便宜的基础单位；再按类型键稳定排序。

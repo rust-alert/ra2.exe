@@ -187,3 +187,9 @@ ini_name!(
     SuperWeaponActionName,
     "super weapon Action= name"
 );
+
+ini_name!(
+    /// CSF / `UIName=` 文案键（装载期大写归一，与 CSF 表一致）；空 = 未写。
+    UiName,
+    "UIName= CSF label"
+);

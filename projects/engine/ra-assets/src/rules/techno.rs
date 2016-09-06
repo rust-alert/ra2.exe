@@ -6,8 +6,8 @@ use serde::Deserialize;
 
 use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{
-    BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoName,
-    WarheadName, WeaponName, deserialize_optional_factory,
+    BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoCategory,
+    TechnoName, WarheadName, WeaponName, deserialize_optional_factory,
 };
 
 /// 步兵 / 载具 / 飞行器 / 建筑的共用类型字段。
@@ -33,8 +33,8 @@ pub struct TechnoType {
     pub owner: HouseAllowList,
     /// `Image` 资源名（装载期一次解码；缺省等于类型 id）。
     pub image: ImageName,
-    /// `Category`（如 `Soldier` / `Dog`）；空表示未写。
-    pub category: String,
+    /// `Category=`（装载期一次解码；空表示未写）。
+    pub category: TechnoCategory,
     /// `Naval=yes`。
     pub naval: bool,
     /// `Agent=yes`（可渗透敌方建筑的间谍类单位）。
@@ -248,8 +248,8 @@ struct TechnoSectionFields {
     owner: HouseAllowList,
     #[serde(rename = "Image", default)]
     image: ImageName,
-    #[serde(rename = "Category")]
-    category: Option<String>,
+    #[serde(rename = "Category", default)]
+    category: TechnoCategory,
     #[serde(rename = "Naval")]
     naval: Option<bool>,
     #[serde(rename = "Agent")]
@@ -364,7 +364,7 @@ fn parse_techno(
         tech_level: fields.tech_level.unwrap_or(-1),
         owner: fields.owner,
         image,
-        category: fields.category.unwrap_or_default().trim().to_string(),
+        category: fields.category,
         naval: fields.naval.unwrap_or(false),
         agent: fields.agent.unwrap_or(false),
         engineer: fields.engineer.unwrap_or(false),

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WeaponId};
 
-use super::{SuperWeaponActionName, SuperWeaponKindName, WeaponName};
+use super::{ImageName, SuperWeaponActionName, SuperWeaponKindName, UiName, WeaponName};
 
 /// 单条超级武器静态定义（adaptor 冻结；引擎只读查询）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,16 +13,16 @@ pub struct SuperWeaponDefinition {
     pub id: TypeId,
     /// 外部类型键（INI 节名，大写）。
     pub type_key: String,
-    /// `UIName=` CSF 键（可空）。
-    pub ui_name: String,
+    /// `UIName=` CSF 键（装载期一次解码）；空表示未写。
+    pub ui_name: UiName,
     /// `Type=` 玩法类型名（可空）。
     pub kind: SuperWeaponKindName,
     /// `Action=` 动作名（可空）。
     pub action: SuperWeaponActionName,
     /// `RechargeTime=` 原版充能档（整数；`0` 表示缺省/未写）。
     pub recharge_time: i32,
-    /// `SidebarImage=` 侧栏图标名（可空）。
-    pub sidebar_image: String,
+    /// `SidebarImage=`（装载期一次解码）；空表示未写。
+    pub sidebar_image: ImageName,
     /// `Weapon=` 关联武器名（可空，诊断用）。
     pub weapon: WeaponName,
     /// `Weapon=` 绑定到武器表的稳定 id；`WeaponId(0)` 表示未配置或未命中。

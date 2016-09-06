@@ -6,9 +6,9 @@ use std::fmt;
 use serde::de::{self, Deserializer, Visitor};
 use serde::Deserialize;
 
-use crate::id::TypeId;
+use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SuperWeaponName};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, StolenTechKind, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -146,12 +146,57 @@ pub struct StructureDefinition {
     pub capabilities: Vec<BuiltinCapability>,
 }
 
-/// 阵营 / 房屋定义集合（骨架）。
+/// 单条阵营 / 房屋静态定义（由 rules `[Countries]` 投影）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HouseDefinition {
+    /// 稳定房屋编号。
+    pub id: HouseId,
+    /// 外部房屋键（国家节名，大写）。
+    pub type_key: String,
+    /// `Side=` 原文（大写）；空表示未写。
+    pub side: String,
+    /// 由 `Side=` 推导的偷取科技类别；未知 Side 为 `None`。
+    pub stolen_tech: Option<StolenTechKind>,
+    /// 可出现在多人 / 遭遇战选用表。
+    pub multiplay: bool,
+}
+
+/// 阵营 / 房屋定义表。
 #[derive(Debug, Clone, Default)]
-#[doc(hidden)]
 pub struct HouseDefinitions {
-    /// 条目数占位。
-    pub count: u32,
+    by_key: BTreeMap<String, HouseDefinition>,
+}
+
+impl HouseDefinitions {
+    /// 插入。
+    pub fn insert(&mut self, def: HouseDefinition) {
+        self.by_key.insert(def.type_key.clone(), def);
+    }
+
+    /// 按外部键查找（大小写不敏感）。
+    pub fn get(&self, type_key: &str) -> Option<&HouseDefinition> {
+        self.by_key.get(&type_key.to_ascii_uppercase())
+    }
+
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: HouseId) -> Option<&HouseDefinition> {
+        self.by_key.values().find(|h| h.id == id)
+    }
+
+    /// 条目数。
+    pub fn len(&self) -> usize {
+        self.by_key.len()
+    }
+
+    /// 是否空表。
+    pub fn is_empty(&self) -> bool {
+        self.by_key.is_empty()
+    }
+
+    /// 遍历。
+    pub fn iter(&self) -> impl Iterator<Item = &HouseDefinition> {
+        self.by_key.values()
+    }
 }
 
 /// 建筑定义表（按外部 type_key 查询）。

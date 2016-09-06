@@ -7,6 +7,7 @@
 mod animation;
 mod armor;
 mod capability;
+mod category;
 mod deployable;
 mod fingerprint;
 pub mod foundation;
@@ -15,6 +16,7 @@ mod locomotor;
 mod names;
 mod overlay;
 mod production;
+mod projectile;
 mod runtime;
 mod sound;
 pub mod structure;
@@ -30,20 +32,22 @@ mod weapon;
 pub use animation::AnimationDefinitions;
 pub use armor::{ARMOR_ORDER, ArmorKind, armor_index};
 pub use capability::{BuiltinCapability, CapabilitySet};
+pub use category::TechnoCategory;
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
 pub use locomotor::LocomotorDefinitions;
 pub use names::{
-    HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, WarheadName,
+    HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
     WeaponName,
 };
 pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};
+pub use projectile::{ProjectileDefinition, ProjectileDefinitions};
 pub use runtime::RuntimeDefinitions;
 pub use sound::SoundDefinitions;
-pub use structure::{BuildCat, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
+pub use structure::{BuildCat, HouseDefinition, HouseDefinitions, PowerProfile, StructureDefinition, StructureDefinitions};
 pub use super_weapon::{SuperWeaponDefinition, SuperWeaponDefinitions};
 pub use tech_tree::{
     HouseStolenTechMap, PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, StolenTechKind,

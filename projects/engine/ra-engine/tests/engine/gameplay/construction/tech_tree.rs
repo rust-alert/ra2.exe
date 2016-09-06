@@ -140,7 +140,7 @@ fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequis
         agent: false,
         engineer: false,
         harvester: false,
-        category: String::new(),
+        category: ra_types::TechnoCategory::Unspecified,
         sight: 0,
         primary: ra_types::WeaponName::default(),
         primary_id: ra_types::WeaponId(0),

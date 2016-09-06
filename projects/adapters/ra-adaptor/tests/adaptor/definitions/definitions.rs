@@ -26,7 +26,7 @@ fn rules_from_with_art(rules_text: &[u8], art_text: &[u8]) -> RulesSystem {
         overlay_types: OverlayTypeRegistry::default(),
         terrain_spawners: TerrainSpawnerDefinitions::default(),
         color_schemes: ColorSchemes::default(),
-        countries: CountryRegistry::default(),
+        countries: CountryRegistry::from_rules(&rules),
         techno_types,
         warheads,
         super_weapons: SuperWeaponTypeRegistry::from_rules(&rules),
@@ -75,7 +75,7 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     );
     let defs = build_runtime_definitions(&rules);
     let sw = defs.super_weapons.get("LightningStorm").expect("SW");
-    assert_eq!(sw.ui_name, "Name:LightningStorm");
+    assert_eq!(sw.ui_name, "NAME:LIGHTNINGSTORM");
     assert_eq!(sw.kind, "LIGHTNINGSTORM");
     assert_eq!(sw.action, "LIGHTNINGSTORM");
     assert_eq!(sw.recharge_time, 10);
@@ -156,11 +156,28 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.rof, 8);
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     assert!(weapon.projectile.is_empty());
+    assert_eq!(weapon.projectile_id, ra_types::ProjectileId(0));
     let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
     assert_eq!(*wh.verses, [100; 11]);
     assert_eq!(wh.spread, 0);
     assert_eq!(wh.prone_damage, 100);
+}
+
+#[test]
+fn build_runtime_definitions_binds_projectile_id() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nPrimary=90mm\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\nProjectile=Invisible\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    let weapon = defs.weapons.get("90MM").expect("weapon");
+    assert_eq!(weapon.projectile, "INVISIBLE");
+    assert_ne!(weapon.projectile_id, ra_types::ProjectileId(0));
+    let projectile = defs.projectiles.get_by_id(weapon.projectile_id).expect("projectile");
+    assert_eq!(projectile.type_key, "INVISIBLE");
 }
 
 #[test]
@@ -208,4 +225,24 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
     assert!(power.construction_yard);
     assert!(power.capturable);
     assert!(power.production.is_some());
+}
+
+#[test]
+fn build_runtime_definitions_freezes_countries_into_house_table() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n1=Russians\n\
+[Americans]\nUIName=Name:Americans\nSide=GDI\nMultiplay=yes\n\
+[Russians]\nUIName=Name:Russians\nSide=Nod\nMultiplay=yes\nMultiplayObsolete=yes\n",
+    );
+    let defs = build_runtime_definitions(&rules);
+    assert_eq!(defs.houses.len(), 2);
+    let usa = defs.houses.get("Americans").expect("Americans");
+    assert_ne!(usa.id, ra_types::HouseId(0));
+    assert_eq!(usa.side, "GDI");
+    assert_eq!(usa.stolen_tech, Some(ra_types::StolenTechKind::Allied));
+    assert!(usa.multiplay);
+    let rus = defs.houses.get("Russians").expect("Russians");
+    assert_eq!(rus.stolen_tech, Some(ra_types::StolenTechKind::Soviet));
+    assert!(!rus.multiplay);
+    assert_eq!(defs.stolen_tech_by_house.get("Americans"), Some(ra_types::StolenTechKind::Allied));
 }

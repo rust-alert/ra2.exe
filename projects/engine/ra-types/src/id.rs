@@ -20,6 +20,10 @@ pub struct WeaponId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct WarheadId(pub u32);
 
+/// 抛射体定义编号。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct ProjectileId(pub u32);
+
 /// 阵营 / 房屋定义编号。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HouseId(pub u32);

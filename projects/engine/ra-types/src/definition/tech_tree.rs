@@ -8,6 +8,8 @@ use serde::Deserialize;
 
 use crate::id::TypeId;
 
+use super::TechnoName;
+
 /// 渗透作战实验室后可获得的偷取科技类别（对齐 `RequiresStolen*Tech`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StolenTechKind {
@@ -249,24 +251,24 @@ impl<'de> Deserialize<'de> for PrerequisiteList {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrerequisiteGroups {
     /// `PrerequisitePower` → token `POWER`。
-    pub power: Vec<String>,
+    pub power: Vec<TechnoName>,
     /// `PrerequisiteFactory` → token `FACTORY`。
-    pub factory: Vec<String>,
+    pub factory: Vec<TechnoName>,
     /// `PrerequisiteBarracks` → token `BARRACKS`。
-    pub barracks: Vec<String>,
+    pub barracks: Vec<TechnoName>,
     /// `PrerequisiteRadar` → token `RADAR`。
-    pub radar: Vec<String>,
+    pub radar: Vec<TechnoName>,
     /// `PrerequisiteTech` → token `TECH`。
-    pub tech: Vec<String>,
+    pub tech: Vec<TechnoName>,
     /// `PrerequisiteProc` → token `PROC`。
-    pub proc: Vec<String>,
+    pub proc: Vec<TechnoName>,
     /// `PrerequisiteProcAlternate`（并入 `PROC` 判定）。
-    pub proc_alternate: Vec<String>,
+    pub proc_alternate: Vec<TechnoName>,
 }
 
 impl PrerequisiteGroups {
     /// 按通用 token 名取类型键列表（大小写不敏感）。未知 token 返回空切片。
-    pub fn types_for_token(&self, token: &str) -> &[String] {
+    pub fn types_for_token(&self, token: &str) -> &[TechnoName] {
         match PrerequisiteGroupKind::parse(token) {
             Some(kind) => self.types_for_kind(kind),
             None => &[],
@@ -274,7 +276,7 @@ impl PrerequisiteGroups {
     }
 
     /// 按组枚举取类型键列表（`Proc` 仅主列表，完整判定用 [`Self::proc_all`]）。
-    pub fn types_for_kind(&self, kind: PrerequisiteGroupKind) -> &[String] {
+    pub fn types_for_kind(&self, kind: PrerequisiteGroupKind) -> &[TechnoName] {
         match kind {
             PrerequisiteGroupKind::Power => self.power.as_slice(),
             PrerequisiteGroupKind::Factory => self.factory.as_slice(),
@@ -287,13 +289,13 @@ impl PrerequisiteGroups {
 
     /// `PROC` 判定用的全部类型键（主列表 + alternate）。
     pub fn proc_all(&self) -> impl Iterator<Item = &str> {
-        self.proc.iter().chain(self.proc_alternate.iter()).map(String::as_str)
+        self.proc.iter().chain(self.proc_alternate.iter()).map(TechnoName::as_str)
     }
 
     /// 类型键是否属于 `TECH` 通用组（作战实验室等）。
     pub fn is_tech_building(&self, type_key: &str) -> bool {
-        let want = type_key.to_ascii_uppercase();
-        self.tech.iter().any(|t| t.eq_ignore_ascii_case(&want))
+        let want = TechnoName::parse(type_key);
+        self.tech.iter().any(|t| t == &want)
     }
 }
 

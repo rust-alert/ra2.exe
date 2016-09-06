@@ -18,8 +18,11 @@ PrerequisitePower=GAPOWR,NAPOWR\nPrerequisiteFactory=GAWEAP\n\
     assert_eq!(g.multiplayer_tech_level, Some(7));
     // AudioVisual 优先于 General。
     assert!((g.speak_delay_minutes.unwrap() - 0.2).abs() < 1e-9);
-    assert_eq!(g.prerequisite_power, vec!["GAPOWR".to_string(), "NAPOWR".to_string()]);
-    assert_eq!(g.prerequisite_factory, vec!["GAWEAP".to_string()]);
+    assert_eq!(
+        g.prerequisite_power,
+        vec![ra_types::TechnoName::parse("GAPOWR"), ra_types::TechnoName::parse("NAPOWR")]
+    );
+    assert_eq!(g.prerequisite_factory, vec![ra_types::TechnoName::parse("GAWEAP")]);
 }
 
 #[test]

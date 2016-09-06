@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, WarheadName, WeaponName};
+use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, TechnoCategory, WarheadName, WeaponName};
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -60,8 +60,8 @@ pub struct TechnoDefinition {
     pub engineer: bool,
     /// `Harvester=yes`（采矿车）。
     pub harvester: bool,
-    /// `Category`（如 `Soldier` / `Dog`）。
-    pub category: String,
+    /// `Category=`（装载期一次解码）。
+    pub category: TechnoCategory,
     /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。
     pub sight: u32,
     /// 主武器名（`Primary`）；空表示未配置。

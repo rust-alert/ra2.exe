@@ -4,9 +4,10 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, PowerProfile, PrerequisiteGroups, ProductionCategory,
-    ProductionProfile, RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, SuperWeaponDefinition, TechnoClass,
-    TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
+    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind,
+    StructureDefinition, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TypeId, WarheadDefinition, WarheadId, WarheadName,
+    WeaponDefinition, WeaponId,
 };
 use std::collections::HashMap;
 
@@ -33,6 +34,19 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         next_warhead = next_warhead.saturating_add(1);
         id
     };
+    let mut next_projectile = 1u32;
+    let mut alloc_projectile = || {
+        let id = ProjectileId(next_projectile);
+        next_projectile = next_projectile.saturating_add(1);
+        id
+    };
+
+    let mut next_house = 1u32;
+    let mut alloc_house = || {
+        let id = HouseId(next_house);
+        next_house = next_house.saturating_add(1);
+        id
+    };
 
     let g = &rules.globals;
     defs.prerequisite_groups = PrerequisiteGroups {
@@ -51,9 +65,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
     defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     for country in rules.countries.countries() {
-        if let Some(kind) = StolenTechKind::from_side(&country.side) {
+        let stolen_tech = StolenTechKind::from_side(&country.side);
+        if let Some(kind) = stolen_tech {
             defs.stolen_tech_by_house.insert(&country.id, kind);
         }
+        let id = alloc_house();
+        defs.houses.insert(HouseDefinition {
+            id,
+            type_key: country.id.to_ascii_uppercase(),
+            side: country.side.trim().to_ascii_uppercase(),
+            stolen_tech,
+            multiplay: country.visible_in_skirmish(),
+        });
     }
 
     for sw in rules.super_weapons.iter() {
@@ -97,7 +120,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             agent: tt.agent,
             engineer: tt.engineer,
             harvester: tt.harvester,
-            category: tt.category.clone(),
+            category: tt.category,
             sight: tt.sight,
             primary: tt.primary.clone(),
             primary_id: WeaponId(0),
@@ -245,7 +268,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
-    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 id。
+    // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 / 抛射体 id。
     for tt in rules.techno_types.iter() {
         for (key, damage, range, rof, warhead, projectile) in [
             (
@@ -278,6 +301,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
                 warhead,
                 warhead_id: WarheadId(0),
                 projectile,
+                projectile_id: ProjectileId(0),
             });
         }
     }
@@ -296,6 +320,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             warhead: sw.weapon_warhead.clone(),
             warhead_id: WarheadId(0),
             projectile: sw.weapon_projectile.clone(),
+            projectile_id: ProjectileId(0),
         });
     }
 
@@ -323,11 +348,38 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
             prone_damage,
         });
     }
+
+    let mut projectile_keys: Vec<ProjectileName> = defs
+        .weapons
+        .iter()
+        .map(|w| w.projectile.clone())
+        .chain(rules.techno_types.iter().map(|t| t.projectile.clone()))
+        .chain(rules.techno_types.iter().map(|t| t.secondary_projectile.clone()))
+        .filter(|p| !p.is_empty())
+        .collect();
+    projectile_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    projectile_keys.dedup();
+    for key in projectile_keys {
+        let id = alloc_projectile();
+        defs.projectiles.insert(ProjectileDefinition {
+            id,
+            type_key: key.as_str().to_string(),
+        });
+    }
+
     for weapon in defs.weapons.iter_mut() {
         weapon.warhead_id = if weapon.warhead.is_empty() {
             WarheadId(0)
         } else {
             defs.warheads.get(weapon.warhead.as_str()).map(|w| w.id).unwrap_or(WarheadId(0))
+        };
+        weapon.projectile_id = if weapon.projectile.is_empty() {
+            ProjectileId(0)
+        } else {
+            defs.projectiles
+                .get(weapon.projectile.as_str())
+                .map(|p| p.id)
+                .unwrap_or(ProjectileId(0))
         };
     }
     for techno in defs.techno.iter_mut() {
