@@ -9,7 +9,7 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, TerrainAnimBank, campaign_blocking_capability_message,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, StructureLightTable, TerrainAnimBank, campaign_blocking_capability_message,
     compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map, list_parseable_maps_from_missions_pkt,
     list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes, ore_tree_frame_count_hints,
     paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
@@ -124,6 +124,7 @@ fn load_map_terrain_preview(
     map: &MapInfo,
     chain: &ResourceChain,
     rules: &RulesSystem,
+    structure_lights: &StructureLightTable,
     lobby_primaries: Option<&HashMap<String, Rgba>>,
 ) -> Option<(String, RgbaImage, RgbaImage, RgbaImage, StructureAnimBank, TerrainAnimBank, TerrainAnimBank, i32, i32)> {
     let preview = compose_boot_preview(
@@ -131,6 +132,7 @@ fn load_map_terrain_preview(
         map,
         chain.art_ini,
         chain.rules_ini,
+        structure_lights,
         &|id| rules.overlay_types.name(id).map(str::to_owned),
         &|id| rules.overlay_types.is_harvestable(id),
         &|id| {
@@ -518,13 +520,20 @@ pub fn boot_world_with_progress(
 
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
+    let definitions = rules.as_ref().map(|rules| Arc::new(build_runtime_definitions(rules)));
+    let structure_lights = definitions
+        .as_ref()
+        .map(|defs| StructureLightTable::from_structures(&defs.structures))
+        .unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
     let mut preview_ore_underlay: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
-    let mut preview = match rules.as_ref().and_then(|rules| load_map_terrain_preview(&source, &map, chain, rules, Some(&lobby_primaries))) {
+    let mut preview = match rules.as_ref().and_then(|rules| {
+        load_map_terrain_preview(&source, &map, chain, rules, &structure_lights, Some(&lobby_primaries))
+    }) {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -564,35 +573,33 @@ pub fn boot_world_with_progress(
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
-    let (engine, session) = match rules.as_ref().map(|rules| {
-        let definitions = Arc::new(build_runtime_definitions(rules));
-        match request.boot_kind {
-            LoadKind::Campaign => open_campaign_session(
-                &source,
-                chain.edition,
-                chain.rules_ini,
-                definitions,
-                map,
-                note.clone(),
-                preview_origin,
-                preferred_house,
-                &ensure_refs,
-                request.match_seed,
-            ),
-            LoadKind::Skirmish => open_skirmish_session(
-                &source,
-                chain.edition,
-                chain.rules_ini,
-                definitions,
-                map,
-                note.clone(),
-                preview_origin,
-                preferred_house,
-                &ensure_refs,
-                request.match_seed,
-            ),
-        }
-    }) {
+    let session_result = definitions.map(|definitions| match request.boot_kind {
+        LoadKind::Campaign => open_campaign_session(
+            &source,
+            chain.edition,
+            chain.rules_ini,
+            definitions,
+            map,
+            note.clone(),
+            preview_origin,
+            preferred_house,
+            &ensure_refs,
+            request.match_seed,
+        ),
+        LoadKind::Skirmish => open_skirmish_session(
+            &source,
+            chain.edition,
+            chain.rules_ini,
+            definitions,
+            map,
+            note.clone(),
+            preview_origin,
+            preferred_house,
+            &ensure_refs,
+            request.match_seed,
+        ),
+    });
+    let (engine, session) = match session_result {
         Some(Ok(mut opened)) => {
             note = opened.note;
             note = format!(

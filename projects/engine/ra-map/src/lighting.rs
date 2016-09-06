@@ -7,6 +7,7 @@
 //! （Ambient≈0.87、偏蓝紫通道、Ground/Level=0）。
 
 use ra_assets::IniDocument;
+use serde::Deserialize;
 
 use crate::placements::{MapEntity, MapEntityKind};
 
@@ -112,6 +113,97 @@ pub struct PointLight {
     pub tint: [i32; 3],
 }
 
+/// `[Lighting]` 节字段（一次 Serde；缺键保持 `None`，由缺省档填充）。
+#[derive(Debug, Default, Deserialize)]
+struct LightingSectionFields {
+    #[serde(rename = "Ambient")]
+    ambient: Option<f32>,
+    #[serde(rename = "Red")]
+    red: Option<f32>,
+    #[serde(rename = "Green")]
+    green: Option<f32>,
+    #[serde(rename = "Blue")]
+    blue: Option<f32>,
+    #[serde(rename = "Ground")]
+    ground: Option<f32>,
+    #[serde(rename = "Level")]
+    level: Option<f32>,
+    #[serde(rename = "IonAmbient")]
+    ion_ambient: Option<f32>,
+    #[serde(rename = "IonRed")]
+    ion_red: Option<f32>,
+    #[serde(rename = "IonGreen")]
+    ion_green: Option<f32>,
+    #[serde(rename = "IonBlue")]
+    ion_blue: Option<f32>,
+    #[serde(rename = "IonGround")]
+    ion_ground: Option<f32>,
+    #[serde(rename = "IonLevel")]
+    ion_level: Option<f32>,
+}
+
+impl LightingSectionFields {
+    fn has_normal(&self) -> bool {
+        self.ambient.is_some()
+            || self.red.is_some()
+            || self.green.is_some()
+            || self.blue.is_some()
+            || self.ground.is_some()
+            || self.level.is_some()
+    }
+
+    fn has_ion(&self) -> bool {
+        self.ion_ambient.is_some()
+            || self.ion_red.is_some()
+            || self.ion_green.is_some()
+            || self.ion_blue.is_some()
+            || self.ion_ground.is_some()
+            || self.ion_level.is_some()
+    }
+
+    fn apply_normal(&self, cfg: &mut LightingConfig) {
+        if let Some(v) = self.ambient {
+            cfg.ambient = v;
+        }
+        if let Some(v) = self.red {
+            cfg.red = v;
+        }
+        if let Some(v) = self.green {
+            cfg.green = v;
+        }
+        if let Some(v) = self.blue {
+            cfg.blue = v;
+        }
+        if let Some(v) = self.ground {
+            cfg.ground = v;
+        }
+        if let Some(v) = self.level {
+            cfg.level = v;
+        }
+    }
+
+    fn apply_ion(&self, cfg: &mut LightingConfig) {
+        if let Some(v) = self.ion_ambient {
+            cfg.ambient = v;
+        }
+        if let Some(v) = self.ion_red {
+            cfg.red = v;
+        }
+        if let Some(v) = self.ion_green {
+            cfg.green = v;
+        }
+        if let Some(v) = self.ion_blue {
+            cfg.blue = v;
+        }
+        if let Some(v) = self.ion_ground {
+            cfg.ground = v;
+        }
+        if let Some(v) = self.ion_level {
+            cfg.level = v;
+        }
+    }
+}
+
 /// 从地图 INI 解析 `[Lighting]` 普通档；缺节或缺键用零售缺省。
 ///
 /// 仅读 Ambient/RGB/Ground/Level。Ion 档请用 [`parse_map_lighting`]。
@@ -122,51 +214,24 @@ pub fn parse_lighting(doc: &IniDocument) -> LightingConfig {
 /// 从地图 INI 解析普通 + Ion 两套环境光。
 pub fn parse_map_lighting(doc: &IniDocument) -> MapLightingProfiles {
     let mut out = MapLightingProfiles::default();
-    let has_normal = lighting_key_present(doc, &["Ambient", "Red", "Green", "Blue", "Ground", "Level"]);
-    let has_ion = lighting_key_present(doc, &["IonAmbient", "IonRed", "IonGreen", "IonBlue", "IonGround", "IonLevel"]);
-    if !has_normal && !has_ion {
+    let Some(section) = doc.section("Lighting")
+    else {
+        return out;
+    };
+    let Ok(fields) = section.deserialize::<LightingSectionFields>()
+    else {
+        return out;
+    };
+    if !fields.has_normal() && !fields.has_ion() {
         return out;
     }
-    if has_normal {
-        fill_lighting_keys(doc, "", &mut out.normal);
+    if fields.has_normal() {
+        fields.apply_normal(&mut out.normal);
     }
-    if has_ion {
-        fill_lighting_keys(doc, "Ion", &mut out.ion);
+    if fields.has_ion() {
+        fields.apply_ion(&mut out.ion);
     }
     out
-}
-
-#[doc(hidden)]
-pub fn lighting_key_present(doc: &IniDocument, keys: &[&str]) -> bool {
-    keys.iter().any(|k| doc.get("Lighting", k).is_some())
-}
-
-#[doc(hidden)]
-pub fn fill_lighting_keys(doc: &IniDocument, prefix: &str, cfg: &mut LightingConfig) {
-    let key = |name: &str| -> String { if prefix.is_empty() { name.to_string() } else { format!("{prefix}{name}") } };
-    if let Some(v) = doc.get("Lighting", &key("Ambient")).and_then(parse_f32) {
-        cfg.ambient = v;
-    }
-    if let Some(v) = doc.get("Lighting", &key("Red")).and_then(parse_f32) {
-        cfg.red = v;
-    }
-    if let Some(v) = doc.get("Lighting", &key("Green")).and_then(parse_f32) {
-        cfg.green = v;
-    }
-    if let Some(v) = doc.get("Lighting", &key("Blue")).and_then(parse_f32) {
-        cfg.blue = v;
-    }
-    if let Some(v) = doc.get("Lighting", &key("Ground")).and_then(parse_f32) {
-        cfg.ground = v;
-    }
-    if let Some(v) = doc.get("Lighting", &key("Level")).and_then(parse_f32) {
-        cfg.level = v;
-    }
-}
-
-#[doc(hidden)]
-pub fn parse_f32(raw: &str) -> Option<f32> {
-    raw.trim().parse::<f32>().ok()
 }
 
 #[doc(hidden)]
@@ -189,43 +254,64 @@ pub fn integer_sqrt(value: i64) -> i64 {
     (value as f64).sqrt() as i64
 }
 
-/// 从 rules 建筑节收集点光源（`LightIntensity≠0` 且 `LightVisibility>0`）。
-pub fn collect_structure_point_lights(entities: &[MapEntity], rules: &IniDocument) -> Vec<PointLight> {
-    let mut lights = Vec::new();
+/// 从冻结建筑光表收集点光源。
+pub fn collect_structure_point_lights(entities: &[MapEntity], lights: &StructureLightTable) -> Vec<PointLight> {
+    let mut out = Vec::new();
     for ent in entities {
         if ent.kind != MapEntityKind::Structure {
             continue;
         }
-        if let Some(light) = point_light_from_rules(rules, &ent.type_id, ent.x, ent.y) {
-            lights.push(light);
+        if let Some(light) = point_light_from_profile(lights.get(&ent.type_id), ent.x, ent.y) {
+            out.push(light);
         }
     }
-    lights
+    out
 }
 
-/// 由 rules 类型节构造格点光源。
-pub fn point_light_from_rules(rules: &IniDocument, type_id: &str, x: u16, y: u16) -> Option<PointLight> {
-    let intensity = rules.get(type_id, "LightIntensity").and_then(parse_f32).unwrap_or(0.0);
-    let intensity_u = light_value_to_units(intensity);
-    if intensity_u == 0 {
+/// 由冻结光资料构造格点光源。
+pub fn point_light_from_profile(profile: Option<&ra_types::StructureLightProfile>, x: u16, y: u16) -> Option<PointLight> {
+    let profile = profile?;
+    if profile.intensity == 0 || profile.radius_leptons <= 0 {
         return None;
     }
-    let visibility = rules.get(type_id, "LightVisibility").and_then(|v| v.trim().parse::<i32>().ok()).unwrap_or(5000).max(0);
-    if visibility == 0 {
-        return None;
-    }
-    let red = rules.get(type_id, "LightRedTint").and_then(parse_f32).unwrap_or(1.0);
-    let green = rules.get(type_id, "LightGreenTint").and_then(parse_f32).unwrap_or(1.0);
-    let blue = rules.get(type_id, "LightBlueTint").and_then(parse_f32).unwrap_or(1.0);
     Some(PointLight {
         x,
         y,
         center_x: i32::from(x) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
         center_y: i32::from(y) * LEPTONS_PER_CELL + HALF_CELL_LEPTONS,
-        radius_leptons: visibility,
-        intensity: intensity_u,
-        tint: [light_value_to_units(red), light_value_to_units(green), light_value_to_units(blue)],
+        radius_leptons: profile.radius_leptons,
+        intensity: profile.intensity,
+        tint: profile.tint,
     })
+}
+
+/// 类型键 → 建筑点光源（大写键）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StructureLightTable {
+    by_key: std::collections::BTreeMap<String, ra_types::StructureLightProfile>,
+}
+
+impl StructureLightTable {
+    /// 从冻结建筑表投影发光条目。
+    pub fn from_structures(structures: &ra_types::StructureDefinitions) -> Self {
+        let mut by_key = std::collections::BTreeMap::new();
+        for s in structures.iter() {
+            if let Some(light) = s.light {
+                by_key.insert(s.type_key.clone(), light);
+            }
+        }
+        Self { by_key }
+    }
+
+    /// 插入或覆盖一条类型光资料（键转大写）。
+    pub fn insert(&mut self, type_key: impl Into<String>, profile: ra_types::StructureLightProfile) {
+        self.by_key.insert(type_key.into().to_ascii_uppercase(), profile);
+    }
+
+    /// 按类型键查找。
+    pub fn get(&self, type_key: &str) -> Option<&ra_types::StructureLightProfile> {
+        self.by_key.get(&type_key.to_ascii_uppercase())
+    }
 }
 
 /// 手动构造测试用点光源（强度 / 染色为浮点）。

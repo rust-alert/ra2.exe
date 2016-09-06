@@ -4,6 +4,7 @@
 //! 染色按 `remaining_at_step / duration` 比例淡出。
 
 use ra_assets::IniDocument;
+use serde::Deserialize;
 
 use crate::lighting::{self, LIGHT_CLAMP_MAX, LIGHT_UNIT, PointLight};
 
@@ -62,19 +63,40 @@ pub fn radiation_site_radius_leptons(spread: i32) -> i32 {
     spread.saturating_mul(lighting::LEPTONS_PER_CELL).saturating_add(lighting::LEPTONS_PER_CELL / 2)
 }
 
+/// `[Radiation]` 光相关键（一次 Serde；缺键保持 `None`）。
+#[derive(Debug, Default, Deserialize)]
+struct RadiationLightSectionFields {
+    #[serde(rename = "RadLightDelay")]
+    light_delay: Option<i32>,
+    #[serde(rename = "RadLightFactor")]
+    light_factor: Option<f32>,
+    #[serde(rename = "RadTintFactor")]
+    tint_factor: Option<f32>,
+    #[serde(rename = "RadColor")]
+    color: Option<String>,
+}
+
 /// 从 rules INI 解析 `[Radiation]` 光相关键。
 pub fn parse_radiation_light_rules(doc: &IniDocument) -> RadiationLightRules {
     let mut rules = RadiationLightRules::default();
-    if let Some(v) = doc.get("Radiation", "RadLightDelay").and_then(parse_i32) {
+    let Some(section) = doc.section("Radiation")
+    else {
+        return rules;
+    };
+    let Ok(fields) = section.deserialize::<RadiationLightSectionFields>()
+    else {
+        return rules;
+    };
+    if let Some(v) = fields.light_delay {
         rules.light_delay = v.max(1);
     }
-    if let Some(v) = doc.get("Radiation", "RadLightFactor").and_then(parse_f32) {
+    if let Some(v) = fields.light_factor {
         rules.light_factor = v;
     }
-    if let Some(v) = doc.get("Radiation", "RadTintFactor").and_then(parse_f32) {
+    if let Some(v) = fields.tint_factor {
         rules.tint_factor = v;
     }
-    if let Some(raw) = doc.get("Radiation", "RadColor") {
+    if let Some(raw) = fields.color.as_deref() {
         if let Some(rgb) = parse_rgb_triplet(raw) {
             rules.color = rgb;
         }
@@ -82,18 +104,7 @@ pub fn parse_radiation_light_rules(doc: &IniDocument) -> RadiationLightRules {
     rules
 }
 
-#[doc(hidden)]
-pub fn parse_f32(raw: &str) -> Option<f32> {
-    raw.trim().parse::<f32>().ok()
-}
-
-#[doc(hidden)]
-pub fn parse_i32(raw: &str) -> Option<i32> {
-    raw.trim().parse::<i32>().ok()
-}
-
-#[doc(hidden)]
-pub fn parse_rgb_triplet(raw: &str) -> Option<(u8, u8, u8)> {
+fn parse_rgb_triplet(raw: &str) -> Option<(u8, u8, u8)> {
     let mut it = raw.split(',').map(|p| p.trim().parse::<u8>());
     match (it.next(), it.next(), it.next()) {
         (Some(Ok(r)), Some(Ok(g)), Some(Ok(b))) => Some((r, g, b)),
