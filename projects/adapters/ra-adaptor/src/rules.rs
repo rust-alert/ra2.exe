@@ -1,8 +1,8 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
 use ra_assets::{
-    ColorSchemes, CountryRegistry, IniDocument, IniMergePolicy, LayeredIniView, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry,
-    WarheadRegistry, overlay_types_from_layered, terrain_spawners_from_layered,
+    ColorSchemes, CountryRegistry, EntryMergePolicy, IniDocument, IniMergePolicy, LayeredIniView, RulesGlobals,
+    SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_layered, terrain_spawners_from_layered,
 };
 use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainSpawnerDefinitions};
 
@@ -32,11 +32,13 @@ pub struct RulesSystem {
     pub super_weapons: SuperWeaponTypeRegistry,
 }
 
-fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocument) -> RulesSystem {
-    // 当前链仍可能是单份 rules/art；经 LayeredIniView 统一入口，便于后续叠 MP / mod 层。
-    let policy = IniMergePolicy::last_wins();
-    let rules_view = LayeredIniView::new(std::slice::from_ref(rules), &policy);
-    let art_view = LayeredIniView::new(std::slice::from_ref(art), &policy);
+/// 层叠 rules/art 文档装载（`documents[0]` 最底，末元素最顶；便于叠 MD / MP / mod）。
+fn build_rules_system_layered(edition: GameEdition, rules_docs: &[IniDocument], art_docs: &[IniDocument]) -> RulesSystem {
+    let policy = IniMergePolicy {
+        default_entry: EntryMergePolicy::MergeSection,
+    };
+    let rules_view = LayeredIniView::new(rules_docs, &policy);
+    let art_view = LayeredIniView::new(art_docs, &policy);
     let techno_overrides = techno_section_field_overrides();
 
     let globals = RulesGlobals::from_layered(rules_view);
@@ -75,6 +77,10 @@ fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocume
     }
 }
 
+fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocument) -> RulesSystem {
+    build_rules_system_layered(edition, std::slice::from_ref(rules), std::slice::from_ref(art))
+}
+
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
 pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
     let rules_bytes = source.read(chain.rules_ini)?;
@@ -99,10 +105,40 @@ pub fn rules_system_from_ini_bytes(
     rules_ini: &[u8],
     art_ini: Option<&[u8]>,
 ) -> RaResult<RulesSystem> {
-    let rules = IniDocument::parse(rules_ini).map_err(|e| ra_types::RaError::Parse(format!("rules.ini: {e}")))?;
-    let art = match art_ini {
-        Some(bytes) => IniDocument::parse(bytes).map_err(|e| ra_types::RaError::Parse(format!("art.ini: {e}")))?,
-        None => IniDocument::default(),
-    };
-    Ok(build_rules_system(edition, &rules, &art))
+    let art = art_ini.unwrap_or(b"");
+    rules_system_from_layered_ini_bytes(edition, &[rules_ini], &[art])
+}
+
+/// 从自底向顶的多份 rules/art 字节构造装载期快照（MP / mod 覆盖入口）。
+///
+/// - `rules_layers` / `art_layers`：索引 0 为最底层，末元素覆盖其上
+/// - 空 `art_layers` 视为无 art 文档
+/// - techno 列表键合并策略见 [`crate::techno_section_field_overrides`]
+pub fn rules_system_from_layered_ini_bytes(
+    edition: GameEdition,
+    rules_layers: &[&[u8]],
+    art_layers: &[&[u8]],
+) -> RaResult<RulesSystem> {
+    if rules_layers.is_empty() {
+        return Err(ra_types::RaError::Parse("rules layers must not be empty".into()));
+    }
+    let mut rules_docs = Vec::with_capacity(rules_layers.len());
+    for (i, bytes) in rules_layers.iter().enumerate() {
+        let doc = IniDocument::parse(bytes).map_err(|e| ra_types::RaError::Parse(format!("rules layer {i}: {e}")))?;
+        rules_docs.push(doc);
+    }
+    let mut art_docs = Vec::with_capacity(art_layers.len().max(1));
+    if art_layers.is_empty() {
+        art_docs.push(IniDocument::default());
+    } else {
+        for (i, bytes) in art_layers.iter().enumerate() {
+            let doc = if bytes.is_empty() {
+                IniDocument::default()
+            } else {
+                IniDocument::parse(bytes).map_err(|e| ra_types::RaError::Parse(format!("art layer {i}: {e}")))?
+            };
+            art_docs.push(doc);
+        }
+    }
+    Ok(build_rules_system_layered(edition, &rules_docs, &art_docs))
 }
