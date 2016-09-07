@@ -48,7 +48,8 @@ pub use image::{
 pub use ini::{
     EntryMergePolicy, FieldMergeOverrides, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView,
     LayeredSectionView, ResolvedIniValue, SourceId,
-    SourceSpan, collect_shp_refs, concat_numbered_values, from_layered_section, from_section, numbered_section_concat,
+    SourceSpan, collect_shp_refs, concat_numbered_values, from_layered_section, from_section, numbered_pairs,
+    numbered_section_concat,
 };
 pub use mix::{
     archive::{MixArchive, MixEntry},

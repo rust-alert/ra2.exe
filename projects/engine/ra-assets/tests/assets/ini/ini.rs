@@ -1,11 +1,18 @@
 //! `IniDocument`（Westwood 方言）行为。
 
-use ra_assets::{IniDocument, collect_shp_refs, numbered_section_concat};
+use ra_assets::{IniDocument, collect_shp_refs, numbered_pairs, numbered_section_concat};
 
 #[test]
 fn numbered_concat_sorts_numerically() {
     let doc = IniDocument::parse(b"[IsoMapPack5]\n10=C\n2=B\n1=A\n").unwrap();
     assert_eq!(numbered_section_concat(&doc, "IsoMapPack5").as_deref(), Some("ABC"));
+}
+
+#[test]
+fn numbered_pairs_sorts_and_skips_named_keys() {
+    let doc = IniDocument::parse(b"[TF]\nName=Alpha\n2=1,GI\n0=2,E1\nGroup=-1\n").unwrap();
+    let sec = doc.section("TF").unwrap();
+    assert_eq!(numbered_pairs(sec), vec![(0, "2,E1"), (2, "1,GI")]);
 }
 
 #[test]
