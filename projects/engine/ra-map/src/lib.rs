@@ -13,6 +13,9 @@ pub mod mobile_paint;
 mod overlay;
 mod overlay_paint;
 mod overlay_pass;
+mod packed_cell;
+mod paint_ini;
+mod numbered_pack;
 mod pass_grid;
 mod placements;
 pub mod playfield;
@@ -38,8 +41,9 @@ pub mod lcw;
 /// LZO1X 解压（IsoMapPack5）。
 pub mod lzo;
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_row};
 use ra_types::{GameEdition, RaError, RaResult};
+use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
 pub use boot_map::{
@@ -65,10 +69,13 @@ pub use overlay_paint::{
     OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
+pub use paint_ini::{PaintIniDocs, read_optional_ini};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
-pub use preview_pack::{MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, parse_preview_size};
+pub use preview_pack::{
+    MapPreviewImage, decode_preview_from_ini, decode_preview_from_map_bytes, decode_preview_pack, decode_preview_pack_bytes, parse_preview_size,
+};
 pub use radiation_light::{
     RadiationLightRules, RadiationLightSite, collect_radiation_lights, parse_radiation_light_rules, radiation_light_epoch,
     radiation_site_light, radiation_site_radius_leptons,
@@ -76,7 +83,7 @@ pub use radiation_light::{
 pub use scripting::{
     MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapEventKind,
     MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
-    campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_scripting,
+    campaign_blocking_capability_message, map_scripting_capability_gaps, parse_map_houses, parse_map_scripting,
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
@@ -195,21 +202,30 @@ impl MapInfo {
     /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码地形与覆盖层。
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
-        let size = doc.get("Map", "Size").ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
-        let (size_width, size_height) = parse_size(size)?;
-        let local_size = doc
-            .get("Map", "LocalSize")
+        let map_fields = doc
+            .section("Map")
+            .and_then(|s| s.deserialize::<MapSectionFields>().ok())
+            .unwrap_or_default();
+        let size_raw = map_fields.size.as_deref().ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
+        let (size_width, size_height) = parse_size(size_raw)?;
+        let local_size = map_fields
+            .local_size
+            .as_deref()
             .and_then(|raw| parse_local_size(raw).ok())
             .unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
         // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
         let side = game_cell_grid_side(size_width, size_height);
-        let theater_raw = doc.get("Map", "Theater").unwrap_or("TEMPERATE");
+        let theater_raw = map_fields.theater.as_deref().unwrap_or("TEMPERATE");
         let theater = Theater::parse(theater_raw)?;
-        let game_modes = parse_game_modes(doc.get("Basic", "GameModes"));
-        let description_csf = doc.get("Basic", "Description").unwrap_or("").trim().to_string();
-        let next_mission = doc.get("Basic", "NextMission").unwrap_or("").trim().to_string();
-        let alternate_next_mission = doc.get("Basic", "AlternateNextMission").unwrap_or("").trim().to_string();
-        let starting_credits = doc.get("Basic", "StartingCredits").and_then(|raw| raw.trim().parse::<i32>().ok()).unwrap_or(0).max(0);
+        let basic = doc
+            .section("Basic")
+            .and_then(|s| s.deserialize::<BasicSectionFields>().ok())
+            .unwrap_or_default();
+        let game_modes = parse_game_modes(basic.game_modes.as_deref());
+        let description_csf = basic.description.unwrap_or_default().trim().to_string();
+        let next_mission = basic.next_mission.unwrap_or_default().trim().to_string();
+        let alternate_next_mission = basic.alternate_next_mission.unwrap_or_default().trim().to_string();
+        let starting_credits = basic.starting_credits.unwrap_or(0).max(0);
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
             Ok(c) => c,
@@ -328,29 +344,61 @@ pub fn game_cell_grid_side(size_width: u32, size_height: u32) -> u32 {
     size_height.saturating_add(size_width.max(size_height))
 }
 
+/// `[Map]` 节字段（一次 Serde；`Size` / `LocalSize` 仍为 CSV 字符串再进行解码）。
+#[derive(Debug, Default, Deserialize)]
+struct MapSectionFields {
+    #[serde(rename = "Size")]
+    size: Option<String>,
+    #[serde(rename = "LocalSize")]
+    local_size: Option<String>,
+    #[serde(rename = "Theater")]
+    theater: Option<String>,
+}
+
+/// `[Basic]` 节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct BasicSectionFields {
+    #[serde(rename = "GameModes")]
+    game_modes: Option<String>,
+    #[serde(rename = "Description")]
+    description: Option<String>,
+    #[serde(rename = "NextMission")]
+    next_mission: Option<String>,
+    #[serde(rename = "AlternateNextMission")]
+    alternate_next_mission: Option<String>,
+    #[serde(rename = "StartingCredits")]
+    starting_credits: Option<i32>,
+}
+
+/// `Size=x,y,width,height` 行（前两列原点，后两列宽高）。
+#[derive(Debug, Deserialize)]
+struct MapSizeRow {
+    _origin_x: i32,
+    _origin_y: i32,
+    width: u32,
+    height: u32,
+}
+
+/// `LocalSize=left,top,width,height` 行。
+#[derive(Debug, Deserialize)]
+struct LocalSizeRow {
+    left: i32,
+    top: i32,
+    width: i32,
+    height: i32,
+}
+
 /// 解析 `Size=x,y,width,height` 中的宽高。
 fn parse_size(raw: &str) -> RaResult<(u32, u32)> {
-    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
-    if parts.len() < 4 {
-        return Err(RaError::Parse(format!("无效 Size: {raw}")));
-    }
-    let width: u32 = parts[2].parse().map_err(|_| RaError::Parse(format!("Size 宽无效: {}", parts[2])))?;
-    let height: u32 = parts[3].parse().map_err(|_| RaError::Parse(format!("Size 高无效: {}", parts[3])))?;
-    Ok((width, height))
+    let row: MapSizeRow = from_row(raw).map_err(|e| RaError::Parse(format!("无效 Size: {raw} ({e})")))?;
+    Ok((row.width, row.height))
 }
 
 /// 解析 `LocalSize=left,top,width,height`。
 fn parse_local_size(raw: &str) -> RaResult<LocalSize> {
-    let parts: Vec<&str> = raw.split(',').map(str::trim).collect();
-    if parts.len() < 4 {
-        return Err(RaError::Parse(format!("无效 LocalSize: {raw}")));
-    }
-    let left: i32 = parts[0].parse().map_err(|_| RaError::Parse(format!("LocalSize left 无效: {}", parts[0])))?;
-    let top: i32 = parts[1].parse().map_err(|_| RaError::Parse(format!("LocalSize top 无效: {}", parts[1])))?;
-    let width: i32 = parts[2].parse().map_err(|_| RaError::Parse(format!("LocalSize 宽无效: {}", parts[2])))?;
-    let height: i32 = parts[3].parse().map_err(|_| RaError::Parse(format!("LocalSize 高无效: {}", parts[3])))?;
-    if width <= 0 || height <= 0 {
+    let row: LocalSizeRow = from_row(raw).map_err(|e| RaError::Parse(format!("无效 LocalSize: {raw} ({e})")))?;
+    if row.width <= 0 || row.height <= 0 {
         return Err(RaError::Parse(format!("LocalSize 宽高须为正: {raw}")));
     }
-    Ok(LocalSize { left, top, width, height })
+    Ok(LocalSize { left: row.left, top: row.top, width: row.width, height: row.height })
 }

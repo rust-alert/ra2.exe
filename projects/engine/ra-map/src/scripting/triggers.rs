@@ -1,6 +1,8 @@
 //! `[Tags]` / `[Triggers]` / `[Events]` / `[Actions]` / `[CellTags]`。
 
-use ra_assets::IniDocument;
+use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
+use serde::Deserialize;
+use serde::de::{self, Deserializer};
 
 use super::{MapActionKind, MapEventKind};
 
@@ -85,6 +87,77 @@ pub struct MapCellTag {
     pub tag_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct TagCsvRow {
+    persistence: u8,
+    name: String,
+    trigger_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TriggerCsvRow {
+    house: String,
+    linked: String,
+    name: String,
+    #[serde(deserialize_with = "flag_is_one")]
+    disabled: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    easy: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    normal: bool,
+    #[serde(deserialize_with = "flag_not_zero")]
+    hard: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct EventConditionCsvRow {
+    kind: i32,
+    #[serde(default)]
+    p1: String,
+    #[serde(default)]
+    p2: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActionCommandCsvRow {
+    kind: i32,
+    #[serde(default)]
+    p0: String,
+    #[serde(default)]
+    p1: String,
+    #[serde(default)]
+    p2: String,
+    #[serde(default)]
+    p3: String,
+    #[serde(default)]
+    p4: String,
+    #[serde(default)]
+    p5: String,
+    #[serde(default)]
+    p6: String,
+}
+
+/// `1` 为真，其余为假。
+fn flag_is_one<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(raw.trim() == "1")
+}
+
+/// 非 `0` 为真（缺列由上层行长校验兜住）。
+fn flag_not_zero<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw.is_empty() {
+        return Err(de::Error::custom("缺难度开关列"));
+    }
+    Ok(raw.trim() != "0")
+}
+
 /// 解析 `[Tags]`。
 pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
     let Some(sec) = doc.section("Tags")
@@ -93,15 +166,15 @@ pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.len() < 3 {
+        let Ok(row) = from_row::<TagCsvRow>(value)
+        else {
             continue;
-        }
+        };
         out.push(MapTag {
             id: id.to_string(),
-            persistence: fields[0].parse().unwrap_or(0),
-            name: fields[1].to_string(),
-            trigger_id: fields[2].to_string(),
+            persistence: row.persistence,
+            name: row.name,
+            trigger_id: row.trigger_id,
         });
     }
     out
@@ -115,19 +188,19 @@ pub fn parse_triggers(doc: &IniDocument) -> Vec<MapTrigger> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.len() < 7 {
+        let Ok(row) = from_row::<TriggerCsvRow>(value)
+        else {
             continue;
-        }
+        };
         out.push(MapTrigger {
             id: id.to_string(),
-            house: fields[0].to_string(),
-            linked: fields[1].to_string(),
-            name: fields[2].to_string(),
-            disabled: fields[3] == "1",
-            easy: fields[4] != "0",
-            normal: fields.get(5).map(|v| *v != "0").unwrap_or(true),
-            hard: fields.get(6).map(|v| *v != "0").unwrap_or(true),
+            house: row.house,
+            linked: row.linked,
+            name: row.name,
+            disabled: row.disabled,
+            easy: row.easy,
+            normal: row.normal,
+            hard: row.hard,
         });
     }
     out
@@ -141,30 +214,27 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.is_empty() {
+        let row = parse_westwood_csv_line(value);
+        if row.is_empty() {
             continue;
         }
-        let count: usize = fields[0].parse().unwrap_or(0);
+        let count: usize = row.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
         let mut conditions = Vec::new();
         let mut idx = 1usize;
         for _ in 0..count {
-            if idx >= fields.len() {
+            if idx >= row.len() {
                 break;
             }
-            let kind = MapEventKind::from_code(fields[idx].parse().unwrap_or(0));
-            idx += 1;
-            let mut params = Vec::new();
-            for _ in 0..2 {
-                if idx < fields.len() {
-                    params.push(fields[idx].to_string());
-                    idx += 1;
-                }
-                else {
-                    params.push(String::new());
-                }
-            }
-            conditions.push(MapEventCondition { kind, params });
+            let chunk = csv_slice(&row, idx, 3);
+            idx += chunk.len();
+            let Ok(cond) = from_csv_row::<EventConditionCsvRow>(&chunk)
+            else {
+                continue;
+            };
+            conditions.push(MapEventCondition {
+                kind: MapEventKind::from_code(cond.kind),
+                params: vec![cond.p1, cond.p2],
+            });
         }
         out.push(MapEvent { id: id.to_string(), conditions });
     }
@@ -179,31 +249,43 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
     };
     let mut out = Vec::new();
     for (id, value) in sec.pairs() {
-        let fields: Vec<&str> = value.split(',').map(str::trim).collect();
-        if fields.is_empty() {
+        let row = parse_westwood_csv_line(value);
+        if row.is_empty() {
             continue;
         }
-        let count: usize = fields[0].parse().unwrap_or(0);
+        let count: usize = row.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
         let mut commands = Vec::new();
         let mut idx = 1usize;
         for _ in 0..count {
-            if idx >= fields.len() {
+            if idx >= row.len() {
                 break;
             }
-            let kind = MapActionKind::from_code(fields[idx].parse().unwrap_or(0));
-            idx += 1;
-            let mut params = [String::new(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()];
-            for p in params.iter_mut() {
-                if idx < fields.len() {
-                    *p = fields[idx].to_string();
-                    idx += 1;
-                }
-            }
-            commands.push(MapActionCommand { kind, params });
+            let chunk = csv_slice(&row, idx, 8);
+            idx += chunk.len();
+            let Ok(cmd) = from_csv_row::<ActionCommandCsvRow>(&chunk)
+            else {
+                continue;
+            };
+            commands.push(MapActionCommand {
+                kind: MapActionKind::from_code(cmd.kind),
+                params: [cmd.p0, cmd.p1, cmd.p2, cmd.p3, cmd.p4, cmd.p5, cmd.p6],
+            });
         }
         out.push(MapAction { id: id.to_string(), commands });
     }
     out
+}
+
+fn csv_slice(row: &CsvRow, start: usize, max_len: usize) -> CsvRow {
+    let end = (start + max_len).min(row.len());
+    CsvRow {
+        fields: row.fields[start..end]
+            .iter()
+            .map(|f| CsvField {
+                value: f.value.clone(),
+            })
+            .collect(),
+    }
 }
 
 /// 解析 `[CellTags]`（键 = `y * 1000 + x`）。
@@ -214,12 +296,10 @@ pub fn parse_cell_tags(doc: &IniDocument) -> Vec<MapCellTag> {
     };
     let mut out = Vec::new();
     for (packed, tag_id) in sec.pairs() {
-        let Ok(n) = packed.parse::<u32>()
+        let Some((x, y)) = crate::packed_cell::parse_packed_cell(packed)
         else {
             continue;
         };
-        let y = (n / 1000) as u16;
-        let x = (n % 1000) as u16;
         out.push(MapCellTag { x, y, tag_id: tag_id.trim().to_string() });
     }
     out

@@ -1,9 +1,9 @@
-//! IsoMapPack5：base64 → LZO 分块 → 11 字节地形单元。
+//! IsoMapPack5：编号 pack → base64 → LZO 分块 → 11 字节地形单元。
 
-use ra_assets::{IniDocument, numbered_section_concat};
-use ra_types::{RaError, RaResult};
+use ra_assets::IniDocument;
+use ra_types::RaResult;
 
-use crate::{base64, lzo};
+use crate::{lzo, numbered_pack::decode_numbered_base64_pack};
 
 const CELL_RECORD_SIZE: usize = 11;
 
@@ -26,9 +26,8 @@ pub struct IsoCell {
 
 /// 从场景 INI 的 `[IsoMapPack5]` 解码全部单元（丢弃 x=y=0 填充）。
 pub fn decode_iso_map_pack(doc: &IniDocument) -> RaResult<Vec<IsoCell>> {
-    let b64 = numbered_section_concat(doc, "IsoMapPack5").ok_or_else(|| RaError::Parse("缺少 [IsoMapPack5]".into()))?;
-    let compressed = base64::base64_decode(&b64).map_err(|e| RaError::Parse(e))?;
-    let raw = lzo::decompress_chunks(&compressed).map_err(|e| RaError::Parse(e.to_string()))?;
+    let compressed = decode_numbered_base64_pack(doc, "IsoMapPack5")?;
+    let raw = lzo::decompress_chunks(&compressed).map_err(|e| ra_types::RaError::Parse(e.to_string()))?;
     Ok(parse_iso_cells(&raw))
 }
 

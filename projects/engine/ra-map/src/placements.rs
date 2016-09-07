@@ -1,6 +1,10 @@
 //! 地图放置段：`[Structures]` / `[Units]` / `[Infantry]` / `[Aircraft]`。
+//!
+//! 行值是 Westwood CSV，经 [`ra_assets::from_row`] 按列序反序列化。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_row};
+use serde::Deserialize;
+use serde::de::{self, Deserializer};
 
 /// 放置类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +56,18 @@ impl MapEntity {
         facing: u8,
         sub_cell: u8,
     ) -> Self {
-        Self { kind, owner: owner.into(), type_id: type_id.into(), health, x, y, facing, sub_cell, mission: String::new(), tag: String::new() }
+        Self {
+            kind,
+            owner: owner.into(),
+            type_id: type_id.into(),
+            health,
+            x,
+            y,
+            facing,
+            sub_cell,
+            mission: String::new(),
+            tag: String::new(),
+        }
     }
 }
 
@@ -79,61 +94,137 @@ fn parse_section(doc: &IniDocument, section: &str, kind: MapEntityKind, out: &mu
 }
 
 fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
-    let fields: Vec<&str> = value.split(',').map(str::trim).collect();
     match kind {
         MapEntityKind::Infantry => {
             // HOUSE,ID,HEALTH,X,Y,SUBCELL,MISSION,FACING[,TAG,…]
-            if fields.len() < 8 {
-                return None;
-            }
+            let row: InfantryRow = from_row(value).ok()?;
             Some(MapEntity {
                 kind,
-                owner: fields[0].to_string(),
-                type_id: fields[1].to_ascii_uppercase(),
-                health: fields[2].parse().unwrap_or(256).min(256),
-                x: fields[3].parse().ok()?,
-                y: fields[4].parse().ok()?,
-                sub_cell: fields[5].parse().unwrap_or(0).min(4),
-                mission: fields[6].to_string(),
-                facing: fields[7].parse::<u16>().unwrap_or(0).min(255) as u8,
-                tag: fields.get(8).unwrap_or(&"").to_string(),
+                owner: row.owner,
+                type_id: row.type_id.to_ascii_uppercase(),
+                health: row.health,
+                x: row.x,
+                y: row.y,
+                sub_cell: row.sub_cell,
+                mission: row.mission,
+                facing: row.facing,
+                tag: row.tag,
             })
         }
         MapEntityKind::Unit | MapEntityKind::Aircraft => {
             // HOUSE,ID,HEALTH,X,Y,FACING[,MISSION[,TAG,…]]
-            if fields.len() < 6 {
-                return None;
-            }
+            let row: MobileRow = from_row(value).ok()?;
             Some(MapEntity {
                 kind,
-                owner: fields[0].to_string(),
-                type_id: fields[1].to_ascii_uppercase(),
-                health: fields[2].parse().unwrap_or(256).min(256),
-                x: fields[3].parse().ok()?,
-                y: fields[4].parse().ok()?,
-                facing: fields[5].parse::<u16>().unwrap_or(0).min(255) as u8,
+                owner: row.owner,
+                type_id: row.type_id.to_ascii_uppercase(),
+                health: row.health,
+                x: row.x,
+                y: row.y,
+                facing: row.facing,
                 sub_cell: 0,
-                mission: fields.get(6).unwrap_or(&"").to_string(),
-                tag: fields.get(7).unwrap_or(&"").to_string(),
+                mission: row.mission,
+                tag: row.tag,
             })
         }
         MapEntityKind::Structure => {
             // HOUSE,ID,HEALTH,X,Y,FACING[,TAG,…]
-            if fields.len() < 6 {
-                return None;
-            }
+            let row: StructureRow = from_row(value).ok()?;
             Some(MapEntity {
                 kind,
-                owner: fields[0].to_string(),
-                type_id: fields[1].to_ascii_uppercase(),
-                health: fields[2].parse().unwrap_or(256).min(256),
-                x: fields[3].parse().ok()?,
-                y: fields[4].parse().ok()?,
-                facing: fields[5].parse::<u16>().unwrap_or(0).min(255) as u8,
+                owner: row.owner,
+                type_id: row.type_id.to_ascii_uppercase(),
+                health: row.health,
+                x: row.x,
+                y: row.y,
+                facing: row.facing,
                 sub_cell: 0,
                 mission: String::new(),
-                tag: fields.get(6).unwrap_or(&"").to_string(),
+                tag: row.tag,
             })
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct InfantryRow {
+    owner: String,
+    type_id: String,
+    #[serde(deserialize_with = "placement_health")]
+    health: u16,
+    x: u16,
+    y: u16,
+    #[serde(deserialize_with = "placement_sub_cell")]
+    sub_cell: u8,
+    mission: String,
+    #[serde(deserialize_with = "placement_facing")]
+    facing: u8,
+    #[serde(default)]
+    tag: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MobileRow {
+    owner: String,
+    type_id: String,
+    #[serde(deserialize_with = "placement_health")]
+    health: u16,
+    x: u16,
+    y: u16,
+    #[serde(deserialize_with = "placement_facing")]
+    facing: u8,
+    #[serde(default)]
+    mission: String,
+    #[serde(default)]
+    tag: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct StructureRow {
+    owner: String,
+    type_id: String,
+    #[serde(deserialize_with = "placement_health")]
+    health: u16,
+    x: u16,
+    y: u16,
+    #[serde(deserialize_with = "placement_facing")]
+    facing: u8,
+    #[serde(default)]
+    tag: String,
+}
+
+/// 放置血量：非法回落 256并钳到 `0..=256`；空列失败（行不够长）。
+fn placement_health<'de, D>(deserializer: D) -> Result<u16, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw.is_empty() {
+        return Err(de::Error::custom("缺 health 列"));
+    }
+    Ok(raw.parse().unwrap_or(256).min(256))
+}
+
+/// 朝向：非法回落 0，钳到 `u8`；空列失败。
+fn placement_facing<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw.is_empty() {
+        return Err(de::Error::custom("缺 facing 列"));
+    }
+    Ok(raw.parse::<u16>().unwrap_or(0).min(255) as u8)
+}
+
+/// 步兵子格：非法回落 0，钳到 `0..=4`；空列失败。
+fn placement_sub_cell<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    if raw.is_empty() {
+        return Err(de::Error::custom("缺 sub_cell 列"));
+    }
+    Ok(raw.parse().unwrap_or(0).min(4))
 }

@@ -1,6 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
+use serde::Deserialize;
 
 /// TaskForce 成员槽。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +70,48 @@ pub struct MapTeamType {
     pub veteran_level: i32,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct TeamTypeSectionFields {
+    #[serde(rename = "Name")]
+    name: Option<String>,
+    #[serde(rename = "House")]
+    house: Option<String>,
+    #[serde(rename = "Script")]
+    script: Option<String>,
+    #[serde(rename = "TaskForce")]
+    task_force: Option<String>,
+    #[serde(rename = "Tag")]
+    tag: Option<String>,
+    #[serde(rename = "Waypoint")]
+    waypoint: Option<i32>,
+    #[serde(rename = "Max")]
+    max: Option<i32>,
+    #[serde(rename = "Priority")]
+    priority: Option<i32>,
+    #[serde(rename = "VeteranLevel")]
+    veteran_level: Option<i32>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct NamedGroupSectionFields {
+    #[serde(rename = "Name")]
+    name: Option<String>,
+    #[serde(rename = "Group")]
+    group: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TaskForceEntryRow {
+    count: u16,
+    type_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ScriptStepRow {
+    action: i32,
+    argument: i32,
+}
+
 /// 解析全部 TaskForce。
 pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
     let ids = list_ids(doc, "TaskForces");
@@ -78,23 +121,27 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
         else {
             continue;
         };
+        let meta = sec.deserialize::<NamedGroupSectionFields>().unwrap_or_default();
         let mut entries = Vec::new();
         for i in 0..6 {
             let Some(raw) = sec.get(&i.to_string())
             else {
                 continue;
             };
-            let fields: Vec<&str> = raw.split(',').map(str::trim).collect();
-            if fields.len() < 2 {
+            let Ok(row) = from_csv_row::<TaskForceEntryRow>(&parse_westwood_csv_line(raw))
+            else {
                 continue;
-            }
-            entries.push(MapTaskForceEntry { count: fields[0].parse().unwrap_or(1), type_id: fields[1].to_ascii_uppercase() });
+            };
+            entries.push(MapTaskForceEntry {
+                count: row.count.max(1),
+                type_id: row.type_id.to_ascii_uppercase(),
+            });
         }
         out.push(MapTaskForce {
             id,
-            name: sec.get("Name").unwrap_or("").trim().to_string(),
+            name: meta.name.unwrap_or_default().trim().to_string(),
             entries,
-            group: sec.get("Group").and_then(|v| v.parse().ok()).unwrap_or(-1),
+            group: meta.group.unwrap_or(-1),
         });
     }
     out
@@ -109,19 +156,24 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
         else {
             continue;
         };
+        let meta = sec.deserialize::<NamedGroupSectionFields>().unwrap_or_default();
         let mut steps = Vec::new();
         for i in 0..50 {
             let Some(raw) = sec.get(&i.to_string())
             else {
                 continue;
             };
-            let fields: Vec<&str> = raw.split(',').map(str::trim).collect();
-            if fields.len() < 2 {
+            let Ok(row) = from_csv_row::<ScriptStepRow>(&parse_westwood_csv_line(raw))
+            else {
                 continue;
-            }
-            steps.push(MapScriptStep { action: fields[0].parse().unwrap_or(0), argument: fields[1].parse().unwrap_or(0) });
+            };
+            steps.push(MapScriptStep { action: row.action, argument: row.argument });
         }
-        out.push(MapScriptType { id, name: sec.get("Name").unwrap_or("").trim().to_string(), steps });
+        out.push(MapScriptType {
+            id,
+            name: meta.name.unwrap_or_default().trim().to_string(),
+            steps,
+        });
     }
     out
 }
@@ -135,17 +187,18 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
         else {
             continue;
         };
+        let fields = sec.deserialize::<TeamTypeSectionFields>().unwrap_or_default();
         out.push(MapTeamType {
             id,
-            name: sec.get("Name").unwrap_or("").trim().to_string(),
-            house: sec.get("House").unwrap_or("").trim().to_string(),
-            script: sec.get("Script").unwrap_or("").trim().to_string(),
-            task_force: sec.get("TaskForce").unwrap_or("").trim().to_string(),
-            tag: sec.get("Tag").unwrap_or("").trim().to_string(),
-            waypoint: sec.get("Waypoint").and_then(|v| v.parse().ok()).unwrap_or(-1),
-            max: sec.get("Max").and_then(|v| v.parse().ok()).unwrap_or(0),
-            priority: sec.get("Priority").and_then(|v| v.parse().ok()).unwrap_or(0),
-            veteran_level: sec.get("VeteranLevel").and_then(|v| v.parse().ok()).unwrap_or(0),
+            name: fields.name.unwrap_or_default().trim().to_string(),
+            house: fields.house.unwrap_or_default().trim().to_string(),
+            script: fields.script.unwrap_or_default().trim().to_string(),
+            task_force: fields.task_force.unwrap_or_default().trim().to_string(),
+            tag: fields.tag.unwrap_or_default().trim().to_string(),
+            waypoint: fields.waypoint.unwrap_or(-1),
+            max: fields.max.unwrap_or(0),
+            priority: fields.priority.unwrap_or(0),
+            veteran_level: fields.veteran_level.unwrap_or(0),
         });
     }
     out

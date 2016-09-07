@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::AssetSource;
 
 use crate::{
@@ -149,8 +149,9 @@ pub fn paint_map_terrain_objects(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let rules = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let rules = docs.rules;
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -244,8 +245,9 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_in
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let Some(rules) = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok())
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let Some(rules) = docs.rules
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
@@ -386,8 +388,9 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_i
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = source.read(art_ini).ok().and_then(|b| IniDocument::parse(&b).ok());
-    let Some(rules) = source.read(rules_ini).ok().and_then(|b| IniDocument::parse(&b).ok())
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
+    let art = docs.art;
+    let Some(rules) = docs.rules
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };

@@ -3,7 +3,7 @@
 //! 不依赖战斗 sim；调用方传入当前存活站点即可。强度按 `RadLightDelay` 阶梯衰减，
 //! 染色按 `remaining_at_step / duration` 比例淡出。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use serde::Deserialize;
 
 use crate::lighting::{self, LIGHT_CLAMP_MAX, LIGHT_UNIT, PointLight};
@@ -104,12 +104,16 @@ pub fn parse_radiation_light_rules(doc: &IniDocument) -> RadiationLightRules {
     rules
 }
 
+#[derive(Debug, Deserialize)]
+struct RgbTripletRow {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
 fn parse_rgb_triplet(raw: &str) -> Option<(u8, u8, u8)> {
-    let mut it = raw.split(',').map(|p| p.trim().parse::<u8>());
-    match (it.next(), it.next(), it.next()) {
-        (Some(Ok(r)), Some(Ok(g)), Some(Ok(b))) => Some((r, g, b)),
-        _ => None,
-    }
+    let row = from_csv_row::<RgbTripletRow>(&parse_westwood_csv_line(raw)).ok()?;
+    Some((row.r, row.g, row.b))
 }
 
 /// 由单个辐射站点推导绿光；寿命无效或已完全熄灭时返回 `None`。

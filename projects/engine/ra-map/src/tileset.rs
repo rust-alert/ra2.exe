@@ -2,6 +2,7 @@
 
 use ra_assets::IniDocument;
 use ra_types::{RaError, RaResult};
+use serde::Deserialize;
 
 /// IsoMapPack5 中「无砖」哨兵；装载时应换成 Clear（全局索引 0）。
 pub const CLEAR_TILE_SENTINEL: i32 = 0xFFFF;
@@ -43,6 +44,15 @@ fn is_blank_filename(filename: &str) -> bool {
     filename.is_empty() || filename.eq_ignore_ascii_case("blank")
 }
 
+/// `[TileSetNNNN]` 节字段（一次 Serde）。
+#[derive(Debug, Default, Deserialize)]
+struct TileSetSectionFields {
+    #[serde(rename = "TilesInSet")]
+    tiles_in_set: Option<i32>,
+    #[serde(rename = "FileName")]
+    file_name: Option<String>,
+}
+
 /// 解析剧院 INI 的 `[TileSetNNNN]` 序列。
 ///
 /// 文件名规则：`{FileName}{NN:02}.{extension}`，NN 从 1 起。
@@ -53,15 +63,22 @@ pub fn parse_tileset_ini(ini_data: &[u8], extension: &str) -> RaResult<TilesetLo
     let mut idx = 0u32;
     loop {
         let section = format!("TileSet{idx:04}");
-        let Some(tiles_raw) = doc.get(&section, "TilesInSet")
+        let Some(sec) = doc.section(&section)
         else {
             break;
         };
-        let tiles_in_set: i32 = tiles_raw.parse().unwrap_or(-1);
+        let Ok(fields) = sec.deserialize::<TileSetSectionFields>()
+        else {
+            break;
+        };
+        let Some(tiles_in_set) = fields.tiles_in_set
+        else {
+            break;
+        };
         if tiles_in_set < 0 {
             break;
         }
-        let filename = doc.get(&section, "FileName").unwrap_or("");
+        let filename = fields.file_name.as_deref().unwrap_or("");
         let count = tiles_in_set as usize;
         if is_blank_filename(filename) {
             for _ in 0..count {

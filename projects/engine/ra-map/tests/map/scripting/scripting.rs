@@ -1,7 +1,7 @@
 //! 自顶层 `scripting.rs`。
 
 use ra_assets::IniDocument;
-use ra_map::{MapActionKind, MapEntityKind, MapEventKind, MapInfo, parse_map_entities, parse_map_scripting};
+use ra_map::{MapActionKind, MapEntityKind, MapEventKind, MapInfo, parse_map_entities, parse_map_houses, parse_map_scripting};
 use ra_types::GameEdition;
 
 #[test]
@@ -118,4 +118,39 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
     assert_eq!(t.owner_house, "Russians");
     assert_eq!(t.tech_level, 1);
     assert!(map.scripting.unknown_sections.iter().all(|s| !s.eq_ignore_ascii_case("AITriggerTypes")));
+}
+
+#[test]
+fn parse_map_houses_through_section_serde() {
+    let text = b"\
+[Houses]\n\
+0=Americans\n\
+1=Ghosts\n\
+[Americans]\n\
+Country=Americans\n\
+TechLevel=10\n\
+Credits=100\n\
+IQ=5\n\
+Edge=North\n\
+PlayerControl=yes\n\
+Color=Gold\n\
+Allies=GDI, Allies\n\
+";
+    let doc = IniDocument::parse(text).unwrap();
+    let houses = parse_map_houses(&doc);
+    assert_eq!(houses.len(), 2);
+    let usa = &houses[0];
+    assert_eq!(usa.name, "Americans");
+    assert_eq!(usa.country, "Americans");
+    assert_eq!(usa.tech_level, 10);
+    assert_eq!(usa.credits, 100);
+    assert_eq!(usa.iq, 5);
+    assert_eq!(usa.edge, "North");
+    assert!(usa.player_control);
+    assert_eq!(usa.color, "Gold");
+    assert_eq!(usa.allies, vec!["GDI".to_string(), "Allies".to_string()]);
+    let ghost = &houses[1];
+    assert_eq!(ghost.name, "Ghosts");
+    assert!(ghost.country.is_empty());
+    assert_eq!(ghost.tech_level, 0);
 }

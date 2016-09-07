@@ -2,6 +2,8 @@
 
 use ra_assets::IniDocument;
 
+use crate::packed_cell::parse_packed_cell;
+
 /// 一处地形物件。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerrainObject {
@@ -21,7 +23,7 @@ pub fn parse_terrain_objects(doc: &IniDocument) -> Vec<TerrainObject> {
     };
     let mut out = Vec::new();
     for (key, value) in section.pairs() {
-        let Ok(pos) = key.parse::<u32>()
+        let Some((x, y)) = parse_packed_cell(key)
         else {
             continue;
         };
@@ -29,8 +31,6 @@ pub fn parse_terrain_objects(doc: &IniDocument) -> Vec<TerrainObject> {
         if name.is_empty() {
             continue;
         }
-        let y = (pos / 1000) as u16;
-        let x = (pos % 1000) as u16;
         out.push(TerrainObject { x, y, name: name.to_ascii_uppercase() });
     }
     out
