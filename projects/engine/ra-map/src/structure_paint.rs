@@ -115,8 +115,7 @@ pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> (usize, usize) {
@@ -124,15 +123,14 @@ pub fn paint_map_structures(
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, art_ini, rules_ini, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, docs, remap_owner, paint_body, clock_ms)
 }
 
 /// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
 pub fn collect_structure_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> StructureAnimBank {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
@@ -143,8 +141,7 @@ pub fn collect_structure_anim_bank(
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
+    let art = docs.art.as_ref();
     let damage = docs.rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
@@ -156,29 +153,29 @@ pub fn collect_structure_anim_bank(
     let mut layers = Vec::new();
 
     for ent in structures {
-        let art_section = resolve_art_section(art.as_ref(), &ent.type_id);
-        let remapable = is_remapable(art.as_ref(), &art_section, true);
+        let art_section = resolve_art_section(art, &ent.type_id);
+        let remapable = is_remapable(art, &art_section, true);
         let cell_z = z_lookup.get(&(ent.x, ent.y)).copied().unwrap_or(0);
         let yellow = damage.is_yellow(ent.health);
 
         for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
+            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
-            let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater = art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let anim_image = art.and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
+            let anim_new_theater = art.and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             let loop_start = art
                 .as_ref()
                 .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
                 .and_then(parse_u16)
                 .unwrap_or(0);
-            let loop_end = art.as_ref().and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-            let rate_ms = art.as_ref().and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
+            let loop_end = art.and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
+            let rate_ms = art.and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
             let anim_remapable =
-                art.as_ref().and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
+                art.and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
             let Some(shp) = load_shp(source, map, &anim_image, anim_new_theater, &mut shp_cache)
@@ -214,7 +211,7 @@ pub fn collect_structure_anim_bank(
             continue;
         }
         for i in 0..8u8 {
-            let Some(raw) = art_get_building(art.as_ref(), &ent.type_id, &art_section, &format!("DamageFireOffset{i}"))
+            let Some(raw) = art_get_building(art, &ent.type_id, &art_section, &format!("DamageFireOffset{i}"))
             else {
                 continue;
             };
@@ -223,9 +220,9 @@ pub fn collect_structure_anim_bank(
                 continue;
             };
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
-            let fire_image = art.as_ref().and_then(|a| a.get(fire_name, "Image")).unwrap_or(fire_name.as_str()).to_ascii_uppercase();
-            let fire_new_theater = art.as_ref().and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-            let rate_ms = art.as_ref().and_then(|a| a.get(fire_name, "Rate")).and_then(parse_u32).unwrap_or(80);
+            let fire_image = art.and_then(|a| a.get(fire_name, "Image")).unwrap_or(fire_name.as_str()).to_ascii_uppercase();
+            let fire_new_theater = art.and_then(|a| a.get(fire_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let rate_ms = art.and_then(|a| a.get(fire_name, "Rate")).and_then(parse_u32).unwrap_or(80);
             let Some(shp) = load_shp(source, map, &fire_image, fire_new_theater, &mut shp_cache)
             else {
                 // 无节时仍尝试直接按类型名读 SHP。
@@ -424,8 +421,9 @@ pub fn paint_structures_onto_rgba(
     rules_ini: &str,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
+    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, art_ini, rules_ini, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, &docs, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -434,8 +432,7 @@ fn paint_map_structures_inner(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
@@ -449,10 +446,9 @@ fn paint_map_structures_inner(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let rules_doc = docs.rules;
-    let damage = rules_doc.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
+    let art = docs.art.as_ref();
+    let rules_doc = docs.rules.as_ref();
+    let damage = rules_doc.map(StructureDamageRules::from_rules_doc).unwrap_or_default();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         if !paint_body {
@@ -469,16 +465,16 @@ fn paint_map_structures_inner(
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
-        let art_section = resolve_art_section(art.as_ref(), &ent.type_id);
-        let remapable = is_remapable(art.as_ref(), &art_section, true);
+        let art_section = resolve_art_section(art, &ent.type_id);
+        let remapable = is_remapable(art, &art_section, true);
         let pal = if remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
         if paint_body {
-            let body_new_theater = art.as_ref().and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let body_new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             // Bib 垫在主体下（同格、帧 0）；科技前哨等靠它补齐地基。
-            if let Some(bib_key) = art_get_building(art.as_ref(), &ent.type_id, &art_section, "BibShape").map(str::to_ascii_uppercase) {
+            if let Some(bib_key) = art_get_building(art, &ent.type_id, &art_section, "BibShape").map(str::to_ascii_uppercase) {
                 let bib_new_theater =
-                    art.as_ref().and_then(|a| a.get(&bib_key, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater);
+                    art.and_then(|a| a.get(&bib_key, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater);
                 if let Some(mut blit) =
                     load_structure_blit(source, map, &bib_key, bib_new_theater, 0, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
                 {
@@ -486,10 +482,10 @@ fn paint_map_structures_inner(
                     items.push((ent.x, ent.y, blit));
                 }
             }
-            let body_key = art.as_ref().and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
+            let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
             let body_frames =
                 load_shp(source, map, &body_key, body_new_theater, &mut shp_cache).map(|shp| shp_body_frame_count(&shp.frames)).unwrap_or(1);
-            let tech = structure_tech_level(rules_doc.as_ref(), &ent.type_id);
+            let tech = structure_tech_level(rules_doc, &ent.type_id);
             let frame_idx = damaged_body_frame(ent.health, damage.yellow, damage.red, tech, body_frames);
             if let Some(mut blit) =
                 load_structure_blit(source, map, &body_key, body_new_theater, frame_idx, 0, &pal, &mut shp_cache, &mut blit_cache, &ent.owner)
@@ -500,7 +496,7 @@ fn paint_map_structures_inner(
             else {
                 missing.push((ent.x, ent.y));
             }
-            if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc.as_ref(), &ent.type_id, ent.facing, &pal) {
+            if let Some(mut blit) = load_structure_turret_vxl(source, rules_doc, &ent.type_id, ent.facing, &pal) {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
             }
@@ -512,24 +508,24 @@ fn paint_map_structures_inner(
         };
         let yellow = damage.is_yellow(ent.health);
         for &(anim_key, damaged_key, z_key) in STRUCTURE_LOOP_ANIM_KEYS {
-            let Some(anim_name) = resolve_structure_anim_name(art.as_ref(), &ent.type_id, &art_section, anim_key, damaged_key, yellow)
+            let Some(anim_name) = resolve_structure_anim_name(art, &ent.type_id, &art_section, anim_key, damaged_key, yellow)
             else {
                 continue;
             };
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
-            let anim_image = art.as_ref().and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
-            let anim_new_theater = art.as_ref().and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+            let anim_image = art.and_then(|a| a.get(&anim_name, "Image")).unwrap_or(anim_name.as_str()).to_ascii_uppercase();
+            let anim_new_theater = art.and_then(|a| a.get(&anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
             let loop_start = art
                 .as_ref()
                 .and_then(|a| a.get(&anim_name, "LoopStart").or_else(|| a.get(&anim_name, "Start")))
                 .and_then(parse_u16)
                 .unwrap_or(0);
-            let loop_end = art.as_ref().and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-            let rate_ms = art.as_ref().and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
+            let loop_end = art.and_then(|a| a.get(&anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
+            let rate_ms = art.and_then(|a| a.get(&anim_name, "Rate")).and_then(parse_u32).unwrap_or(300);
             let frame_idx = structure_anim_frame(clock_ms, rate_ms, loop_start, loop_end);
             let anim_remapable =
-                art.as_ref().and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
+                art.and_then(|a| a.get(&anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no")).unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
             if let Some(mut blit) = load_structure_blit(
                 source,

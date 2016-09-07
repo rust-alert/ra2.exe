@@ -137,8 +137,7 @@ pub fn paint_map_terrain_objects(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     mode: TerrainPaintMode,
 ) -> usize {
     if map.terrain_objects.is_empty() {
@@ -149,9 +148,8 @@ pub fn paint_map_terrain_objects(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let rules = docs.rules;
+    let art = docs.art.as_ref();
+    let rules = docs.rules.as_ref();
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -166,9 +164,9 @@ pub fn paint_map_terrain_objects(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for obj in &map.terrain_objects {
-        let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
-        let animated = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
-        let spawns_tiberium = rules.as_ref().is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
+        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let animated = rules.is_some_and(|r| is_yes(r.get(&obj.name, "IsAnimated")));
+        let spawns_tiberium = rules.is_some_and(|r| is_yes(r.get(&obj.name, "SpawnsTiberium")));
         // 矿柱：`StaticOnly` 底图不画（由 `OreTree` 银行按状态机帧叠画）；`AllWithClock` 仍可画 Idle 0 供测试。
         let loops_with_clock = animated && !spawns_tiberium;
         let anim_clock_ms = match mode {
@@ -176,7 +174,7 @@ pub fn paint_map_terrain_objects(
             TerrainPaintMode::StaticOnly => 0,
             TerrainPaintMode::AllWithClock { anim_clock_ms } => anim_clock_ms,
         };
-        let anim_rate = rules.as_ref().and_then(|r| r.get(&obj.name, "AnimationRate")).and_then(parse_u32).unwrap_or(1);
+        let anim_rate = rules.and_then(|r| r.get(&obj.name, "AnimationRate")).and_then(parse_u32).unwrap_or(1);
         let Some(obj_pal) = pick_terrain_palette(spawns_tiberium, theater_pal.as_ref(), unit_pal.as_ref())
         else {
             continue;
@@ -237,7 +235,7 @@ pub fn paint_map_terrain_objects(
 ///
 /// `SpawnsTiberium` 矿柱不进银行：零售 `AnimationProbability`（如 `.003`）由产矿状态机
 /// 触发一次性播到中点帧，平时固定 Idle 第 0 帧，不得用呈现时钟常循环。
-pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_ini: &str, rules_ini: &str) -> TerrainAnimBank {
+pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: &crate::PaintIniDocs) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -245,9 +243,8 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_in
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let Some(rules) = docs.rules
+    let art = docs.art.as_ref();
+    let Some(rules) = docs.rules.as_ref()
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
@@ -277,7 +274,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_in
         };
         let palette_name = theater_pal_name.to_string();
         let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
-        let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
         if !shp_cache.contains_key(&file) {
             let Ok(bytes) = source.read(&file)
@@ -380,7 +377,7 @@ pub fn paint_terrain_anims_onto_rgba(
 }
 
 /// 收集 `SpawnsTiberium` 矿柱并预解码全部主体帧（供产矿状态机选帧）。
-pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_ini: &str, rules_ini: &str) -> TerrainAnimBank {
+pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: &crate::PaintIniDocs) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -388,9 +385,8 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_i
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
-    let art = docs.art;
-    let Some(rules) = docs.rules
+    let art = docs.art.as_ref();
+    let Some(rules) = docs.rules.as_ref()
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
@@ -414,7 +410,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_i
             continue;
         };
         let anim_rate = rules.get(&obj.name, "AnimationRate").and_then(parse_u32).unwrap_or(1);
-        let image_key = art.as_ref().and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
+        let image_key = art.and_then(|a| a.get(&obj.name, "Image")).unwrap_or(obj.name.as_str()).to_ascii_uppercase();
         let file = format!("{}.{ext}", image_key.to_ascii_lowercase());
         if !shp_cache.contains_key(&file) {
             let Ok(bytes) = source.read(&file)
