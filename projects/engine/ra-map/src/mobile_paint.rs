@@ -15,6 +15,33 @@ use crate::{
     theater::{new_theater_shp_name, theater_palette},
 };
 
+/// 移动单位叠画所需的 rules / art 提示（按类型 id 去重一次）。
+#[derive(Debug, Clone)]
+struct MobileTypePaintHints {
+    image_key: String,
+    prefer_voxel: bool,
+    new_theater: bool,
+}
+
+fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
+    let image_key = resolve_mobile_image_key(rules, art, type_id);
+    let prefer_voxel = art.and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    let new_theater = art.and_then(|a| a.get(&image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+    MobileTypePaintHints { image_key, prefer_voxel, new_theater }
+}
+
+fn collect_mobile_type_paint_hints(
+    rules: Option<&IniDocument>,
+    art: Option<&IniDocument>,
+    mobiles: &[&MapEntity],
+) -> HashMap<String, MobileTypePaintHints> {
+    let mut out = HashMap::new();
+    for ent in mobiles {
+        out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, &ent.type_id));
+    }
+    out
+}
+
 /// 移动单位绘制姿态：行走循环帧 + 是否移动中 + 格内像素偏移。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[doc(hidden)]
@@ -59,6 +86,7 @@ pub fn paint_map_mobiles(
 
     let art = docs.art.as_ref();
     let rules = docs.rules.as_ref();
+    let type_hints = collect_mobile_type_paint_hints(rules, art, &mobiles);
     let obj_pal = source
         .read("unittem.pal")
         .ok()
@@ -75,8 +103,12 @@ pub fn paint_map_mobiles(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
-        let image_key = resolve_mobile_image_key(rules, art, &ent.type_id);
-        let prefer_voxel = art.and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
+        let Some(hint) = type_hints.get(&ent.type_id)
+        else {
+            continue;
+        };
+        let image_key = hint.image_key.clone();
+        let prefer_voxel = hint.prefer_voxel;
         let pose = pose_of(ent);
         let frame_index = resolve_mobile_shp_frame(art, &image_key, ent, pose);
         let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
@@ -93,10 +125,10 @@ pub fn paint_map_mobiles(
         let pal = remap_owner(&obj_pal, &ent.owner);
         let blit = if prefer_voxel {
             load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
-                .or_else(|| load_mobile_shp(source, art, &image_key, map, &pal, frame_index, &mut shp_cache))
+                .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
-            load_mobile_shp(source, art, &image_key, map, &pal, frame_index, &mut shp_cache)
+            load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
         if let Some(mut blit) = blit {
@@ -245,14 +277,13 @@ pub fn load_mobile_vxl_layers(
 #[doc(hidden)]
 pub fn load_mobile_shp(
     source: &dyn AssetSource,
-    art: Option<&IniDocument>,
+    new_theater: bool,
     image_key: &str,
     map: &MapInfo,
     obj_pal: &Palette,
     frame_index: u16,
     shp_cache: &mut HashMap<String, ShpFile>,
 ) -> Option<TileBlit> {
-    let new_theater = art.and_then(|a| a.get(image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
     }
