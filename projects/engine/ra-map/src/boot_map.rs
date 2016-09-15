@@ -1,6 +1,6 @@
 //! Alpha 遭遇战启动用地图探测。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, parse_numbered_key};
 use ra_types::{AssetSource, GameEdition};
 use serde::Deserialize;
 
@@ -136,7 +136,7 @@ pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn 
     };
     let mut out = Vec::new();
     for (key, stem) in multimaps.pairs() {
-        if !is_numbered_multimap_key(key) {
+        if parse_numbered_key(key).is_none() {
             continue;
         }
         let stem = stem.trim();
@@ -161,11 +161,6 @@ pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn 
         out.push(candidate_from_parsed_map(&file_name, &map, pkt_desc, pkt_modes));
     }
     out
-}
-
-/// `[MultiMaps]` 编号键（非数字行忽略）。
-fn is_numbered_multimap_key(key: &str) -> bool {
-    key.trim().parse::<u32>().is_ok()
 }
 
 /// 选图表中单图小节字段。

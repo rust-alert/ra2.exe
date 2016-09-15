@@ -126,6 +126,7 @@ pub fn paint_map_overlays(
     // 「同图锚点邻格」挡不住这种串画。
     let mut resolved: Vec<ResolvedOverlay> = Vec::new();
     let mut unresolved: Vec<OverlayCell> = Vec::new();
+    let mut art_hints: HashMap<(String, String), OverlayArtHints> = HashMap::new();
 
     for cell in &map.overlays {
         let Some(type_name) = overlay_type_name(cell.overlay_id)
@@ -140,7 +141,12 @@ pub fn paint_map_overlays(
         }
         let tib = is_tiberium(cell.overlay_id);
         let display_name = if tib { flat_tiberium_display_type_name(&type_name, cell.x, cell.y) } else { type_name.clone() };
-        let (image_key, new_theater, theater_yes) = resolve_overlay_art_keys(art, rules, &type_name, &display_name);
+        let hint_key = (type_name.clone(), display_name.clone());
+        let hint = art_hints
+            .entry(hint_key)
+            .or_insert_with(|| resolve_overlay_art_keys(art, rules, &type_name, &display_name))
+            .clone();
+        let OverlayArtHints { image_key, new_theater, theater_yes } = hint;
         let pal_kind: u8 = if tib {
             2
         }
@@ -260,6 +266,14 @@ struct ResolvedOverlay {
     pal_kind: u8,
 }
 
+/// overlay 类型在 art / rules 中解析出的叠画键（按类型名 + 显示名去重）。
+#[derive(Debug, Clone)]
+struct OverlayArtHints {
+    image_key: String,
+    new_theater: bool,
+    theater_yes: bool,
+}
+
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
 ///
 /// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
@@ -268,7 +282,7 @@ fn resolve_overlay_art_keys(
     rules: Option<&IniDocument>,
     type_name: &str,
     display_name: &str,
-) -> (String, bool, bool) {
+) -> OverlayArtHints {
     let rules_image = rules.and_then(|r| r.get(type_name, "Image")).map(str::to_ascii_uppercase);
     let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
     let art_section = art
@@ -288,7 +302,7 @@ fn resolve_overlay_art_keys(
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
     let new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     let theater_yes = art.and_then(|a| a.get(&art_section, "Theater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    (image_key, new_theater, theater_yes)
+    OverlayArtHints { image_key, new_theater, theater_yes }
 }
 
 /// 矿石 / 墙 / 箱子相对格子中心的额外 Y（零售 overlay 绘制偏置 −12）。

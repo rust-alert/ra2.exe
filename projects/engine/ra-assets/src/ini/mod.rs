@@ -14,5 +14,5 @@ pub use document::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 pub use merge::{
     EntryMergePolicy, FieldMergeOverrides, IniMergePolicy, LayeredIniView, LayeredSectionView, ResolvedIniValue,
 };
-pub use numbered::{concat_numbered_values, numbered_pairs, numbered_section_concat};
+pub use numbered::{concat_numbered_values, numbered_pairs, numbered_section_concat, parse_numbered_key};
 pub use value::IniValue;
