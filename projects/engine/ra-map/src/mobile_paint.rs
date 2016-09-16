@@ -21,13 +21,31 @@ struct MobileTypePaintHints {
     image_key: String,
     prefer_voxel: bool,
     new_theater: bool,
+    /// 移动序列 `Start,Count,Multiplier`（`Walk` / `Panic`）。
+    walk_triple: Option<(u16, u16, u16)>,
+    /// 待机序列 `Start,Count,Multiplier`（`Ready` / `Guard`）。
+    ready_triple: Option<(u16, u16, u16)>,
 }
 
 fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
     let image_key = resolve_mobile_image_key(rules, art, type_id);
     let prefer_voxel = art.and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
     let new_theater = art.and_then(|a| a.get(&image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    MobileTypePaintHints { image_key, prefer_voxel, new_theater }
+    let sequence_section = art.and_then(|a| sequence_section_name(a, &image_key));
+    let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
+        (Some(art), Some(seq)) => (
+            sequence_value(art, seq, &["Walk", "Panic"]).and_then(parse_sequence_triple),
+            sequence_value(art, seq, &["Ready", "Guard"]).and_then(parse_sequence_triple),
+        ),
+        _ => (None, None),
+    };
+    MobileTypePaintHints {
+        image_key,
+        prefer_voxel,
+        new_theater,
+        walk_triple,
+        ready_triple,
+    }
 }
 
 fn collect_mobile_type_paint_hints(
@@ -110,7 +128,7 @@ pub fn paint_map_mobiles(
         let image_key = hint.image_key.clone();
         let prefer_voxel = hint.prefer_voxel;
         let pose = pose_of(ent);
-        let frame_index = resolve_mobile_shp_frame(art, &image_key, ent, pose);
+        let frame_index = resolve_mobile_shp_frame_from_hints(hint, ent, pose);
         let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
         let tint = map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
@@ -183,24 +201,28 @@ pub fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
-    let Some(art) = art
-    else {
-        return u16::from(ent.facing / 32);
+    let hints = MobileTypePaintHints {
+        image_key: image_key.to_string(),
+        prefer_voxel: false,
+        new_theater: false,
+        walk_triple: art.and_then(|a| {
+            let seq = sequence_section_name(a, image_key)?;
+            sequence_value(a, &seq, &["Walk", "Panic"]).and_then(parse_sequence_triple)
+        }),
+        ready_triple: art.and_then(|a| {
+            let seq = sequence_section_name(a, image_key)?;
+            sequence_value(a, &seq, &["Ready", "Guard"]).and_then(parse_sequence_triple)
+        }),
     };
+    resolve_mobile_shp_frame_from_hints(&hints, ent, pose)
+}
+
+fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
     // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。
     if ent.kind != MapEntityKind::Infantry {
         return u16::from(ent.facing / 32);
     }
-    let Some(seq_section) = sequence_section_name(art, image_key)
-    else {
-        return infantry_facing_slot(ent.facing);
-    };
-    let seq_keys: &[&str] = if pose.moving { &["Walk", "Panic"] } else { &["Ready", "Guard"] };
-    let Some(raw) = sequence_value(art, &seq_section, seq_keys)
-    else {
-        return infantry_facing_slot(ent.facing);
-    };
-    let Some((start, count, multiplier)) = parse_sequence_triple(raw)
+    let Some((start, count, multiplier)) = (if pose.moving { hint.walk_triple } else { hint.ready_triple })
     else {
         return infantry_facing_slot(ent.facing);
     };

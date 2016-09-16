@@ -42,7 +42,10 @@ pub mod lcw;
 pub mod lzo;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::{GameEdition, MapDefinition, RaError, RaResult};
+use ra_types::{
+    GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
+    MapWaypoint, RaError, RaResult,
+};
 use serde::Deserialize;
 
 pub use base64::{base64_decode, base64_encode};
@@ -275,12 +278,18 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（不含格子 / 实体 / 脚本载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形物件 / 预放实体 / 地形与覆盖层格 / 地图房屋；不含完整脚本载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
             size_width: self.size_width,
             size_height: self.size_height,
+            local_size: MapLocalSize {
+                left: self.local_size.left,
+                top: self.local_size.top,
+                width: self.local_size.width,
+                height: self.local_size.height,
+            },
             cell_side: self.width,
             theater: self.theater.as_str().to_ascii_uppercase(),
             description_csf: self.description_csf.clone(),
@@ -288,6 +297,42 @@ impl MapInfo {
             next_mission: self.next_mission.clone(),
             alternate_next_mission: self.alternate_next_mission.clone(),
             starting_credits: self.starting_credits,
+            lighting: map_lighting_from_config(&self.lighting),
+            ion_lighting: map_lighting_from_config(&self.ion_lighting),
+            waypoints: self
+                .waypoints
+                .iter()
+                .map(|w| MapWaypoint { index: w.index, x: w.x, y: w.y })
+                .collect(),
+            terrain_objects: self
+                .terrain_objects
+                .iter()
+                .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
+                .collect(),
+            entities: self.entities.iter().map(map_entity_to_placed).collect(),
+            cells: self
+                .cells
+                .iter()
+                .map(|c| MapIsoCell {
+                    x: c.x,
+                    y: c.y,
+                    tile_num: c.tile_num,
+                    sub_tile: c.sub_tile,
+                    z: c.z,
+                    flags: c.flags,
+                })
+                .collect(),
+            overlays: self
+                .overlays
+                .iter()
+                .map(|o| MapOverlayCell {
+                    x: o.x,
+                    y: o.y,
+                    overlay_id: o.overlay_id,
+                    data: o.data,
+                })
+                .collect(),
+            houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
         }
     }
 
@@ -393,6 +438,51 @@ struct MapSizeRow {
     _origin_y: i32,
     width: u32,
     height: u32,
+}
+
+fn map_entity_to_placed(ent: &MapEntity) -> MapPlacedEntity {
+    MapPlacedEntity {
+        kind: match ent.kind {
+            MapEntityKind::Structure => MapPlacedEntityKind::Structure,
+            MapEntityKind::Unit => MapPlacedEntityKind::Unit,
+            MapEntityKind::Infantry => MapPlacedEntityKind::Infantry,
+            MapEntityKind::Aircraft => MapPlacedEntityKind::Aircraft,
+        },
+        owner: ent.owner.clone(),
+        type_id: ent.type_id.clone(),
+        health: ent.health,
+        x: ent.x,
+        y: ent.y,
+        facing: ent.facing,
+        sub_cell: ent.sub_cell,
+        mission: ent.mission.clone(),
+        tag: ent.tag.clone(),
+    }
+}
+
+fn map_house_to_definition(house: &crate::scripting::MapHouse) -> ra_types::MapHouse {
+    ra_types::MapHouse {
+        name: house.name.clone(),
+        country: house.country.clone(),
+        tech_level: house.tech_level,
+        credits: house.credits,
+        iq: house.iq,
+        edge: house.edge.clone(),
+        player_control: house.player_control,
+        color: house.color.clone(),
+        allies: house.allies.clone(),
+    }
+}
+
+fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {
+    MapLighting {
+        ambient: cfg.ambient,
+        red: cfg.red,
+        green: cfg.green,
+        blue: cfg.blue,
+        ground: cfg.ground,
+        level: cfg.level,
+    }
 }
 
 /// `LocalSize=left,top,width,height` 行。
