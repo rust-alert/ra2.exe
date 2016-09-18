@@ -2,10 +2,17 @@
 //!
 //! `ra-map` loader 产出语义结构后迁入本契约；adaptor 绑定规则得到 [`PreparedMap`]。
 //! 不含 `IniDocument`、文件路径、MIX/GPU 句柄或对局可变状态。
+//!
+//! # 与磁盘 / INI 的关系
+//!
+//! 本模块类型是**运行期最优形状**，不是地图文件或 Westwood INI 的存储镜像。
+//! 字段布局、命名与嵌套可随时改为更利于引擎执行的形式（稳定 ID、稠密表、拆分索引等）。
+//! 兼容原版内容的职责在 loader / adaptor：把文件格式**投影**进本契约，而不是把本契约钉死成文件 schema。
 
 /// 冻结的完整静态地图（装载期产出，对局与绘制只读）。
 ///
 /// 当前为骨架：字段随地图语义层收口逐步迁入，禁止在运行路径回查地图 INI。
+/// 结构可演进；同名于 `ra-map::scripting` 的解析类型只是装载侧中间态，不必与本契约字段一一同构。
 #[derive(Debug, Clone, PartialEq)]
 pub struct MapDefinition {
     /// 地图逻辑名（场景名 / 文件 stem）。
@@ -46,6 +53,12 @@ pub struct MapDefinition {
     pub overlays: Vec<MapOverlayCell>,
     /// `[Houses]` 地图各方。
     pub houses: Vec<MapHouse>,
+    /// `[Tags]` 触发器绑定标签。
+    pub tags: Vec<MapTag>,
+    /// `[Triggers]` 触发器定义。
+    pub triggers: Vec<MapTrigger>,
+    /// `[CellTags]` 格子绑定的 Tag。
+    pub cell_tags: Vec<MapCellTag>,
 }
 
 impl Default for MapDefinition {
@@ -70,6 +83,9 @@ impl Default for MapDefinition {
             cells: Vec::new(),
             overlays: Vec::new(),
             houses: Vec::new(),
+            tags: Vec::new(),
+            triggers: Vec::new(),
+            cell_tags: Vec::new(),
         }
     }
 }
@@ -207,7 +223,9 @@ pub struct MapOverlayCell {
     pub data: u8,
 }
 
-/// 地图一方（战役 / 遭遇均可出现；规则绑定前仍用名称字符串）。
+/// 地图一方（运行契约；规则绑定前仍可用名称字符串）。
+///
+/// 形状可改为稳定 house id 等；不保证与地图 INI 节字段同构。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapHouse {
     /// 节名（常为 `Player House` 等）。
@@ -230,9 +248,61 @@ pub struct MapHouse {
     pub allies: Vec<String>,
 }
 
+/// Tag 绑定（运行契约；来自地图 `[Tags]` 语义，非 INI 行镜像）。
+///
+/// 可改为指向 trigger 的稳定 id / 索引；装载侧同名类型见 `ra-map` 解析层。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTag {
+    /// Tag id。
+    pub id: String,
+    /// 持久性：0 volatile / 1 semi / 2 persistent。
+    pub persistence: u8,
+    /// 编辑器名。
+    pub name: String,
+    /// 关联 Trigger id。
+    pub trigger_id: String,
+}
+
+/// Trigger 定义（运行契约；来自地图 `[Triggers]` 语义，非 INI 行镜像）。
+///
+/// 可改为稠密表或稳定 id；装载侧同名类型见 `ra-map` 解析层。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTrigger {
+    /// Trigger id。
+    pub id: String,
+    /// 所属 house。
+    pub house: String,
+    /// 链接的另一 trigger（`<none>` 表示无）。
+    pub linked: String,
+    /// 编辑器名。
+    pub name: String,
+    /// `1` = 初始禁用。
+    pub disabled: bool,
+    /// Easy 难度启用。
+    pub easy: bool,
+    /// Normal 难度启用。
+    pub normal: bool,
+    /// Hard 难度启用。
+    pub hard: bool,
+}
+
+/// 格子上的 Tag 绑定（运行契约；来自 `[CellTags]` 语义）。
+///
+/// 可改为按格索引的稠密表；装载侧同名类型见 `ra-map` 解析层。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapCellTag {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// Tag id。
+    pub tag_id: String,
+}
+
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
 /// 当前为骨架：通行网格、占格、渲染资源清单等在准备层收口后填入。
+/// 与 [`MapDefinition`] 一样，本类型是运行最优形状，可随时改，不绑定磁盘格式。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PreparedMap {
     /// 已冻结的静态地图。
