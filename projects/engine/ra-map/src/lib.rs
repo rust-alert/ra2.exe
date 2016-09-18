@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags / Triggers；不含 Events/Actions 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags / Triggers / Events / Actions；不含队伍与 AI 载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -335,6 +335,8 @@ impl MapInfo {
             houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
             tags: self.scripting.tags.iter().map(map_tag_to_definition).collect(),
             triggers: self.scripting.triggers.iter().map(map_trigger_to_definition).collect(),
+            events: self.scripting.events.iter().map(map_event_to_definition).collect(),
+            actions: self.scripting.actions.iter().map(map_action_to_definition).collect(),
             cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
         }
     }
@@ -496,6 +498,34 @@ fn map_trigger_to_definition(trigger: &crate::scripting::MapTrigger) -> ra_types
         easy: trigger.easy,
         normal: trigger.normal,
         hard: trigger.hard,
+    }
+}
+
+fn map_event_to_definition(event: &crate::scripting::MapEvent) -> ra_types::MapEvent {
+    ra_types::MapEvent {
+        id: event.id.clone(),
+        conditions: event
+            .conditions
+            .iter()
+            .map(|c| ra_types::MapEventCondition {
+                kind_code: c.kind.code(),
+                params: c.params.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn map_action_to_definition(action: &crate::scripting::MapAction) -> ra_types::MapAction {
+    ra_types::MapAction {
+        id: action.id.clone(),
+        commands: action
+            .commands
+            .iter()
+            .map(|c| ra_types::MapActionCommand {
+                kind_code: c.kind.code(),
+                params: c.params.clone(),
+            })
+            .collect(),
     }
 }
 

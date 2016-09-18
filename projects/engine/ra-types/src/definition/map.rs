@@ -57,6 +57,10 @@ pub struct MapDefinition {
     pub tags: Vec<MapTag>,
     /// `[Triggers]` 触发器定义。
     pub triggers: Vec<MapTrigger>,
+    /// `[Events]`（与 trigger id 对齐）。
+    pub events: Vec<MapEvent>,
+    /// `[Actions]`（与 trigger id 对齐）。
+    pub actions: Vec<MapAction>,
     /// `[CellTags]` 格子绑定的 Tag。
     pub cell_tags: Vec<MapCellTag>,
 }
@@ -85,6 +89,8 @@ impl Default for MapDefinition {
             houses: Vec::new(),
             tags: Vec::new(),
             triggers: Vec::new(),
+            events: Vec::new(),
+            actions: Vec::new(),
             cell_tags: Vec::new(),
         }
     }
@@ -284,6 +290,46 @@ pub struct MapTrigger {
     pub normal: bool,
     /// Hard 难度启用。
     pub hard: bool,
+}
+
+/// 单条事件条件（运行契约；`kind_code` 为原版事件表整数码）。
+///
+/// 可改为枚举或稳定条件 id；装载侧见 `ra-map::MapEventCondition`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapEventCondition {
+    /// 原版事件类型码。
+    pub kind_code: i32,
+    /// 参数（通常 2 个；变长事件保留原文）。
+    pub params: Vec<String>,
+}
+
+/// 与某 trigger 对齐的事件表（运行契约）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapEvent {
+    /// Trigger id。
+    pub id: String,
+    /// 条件列表。
+    pub conditions: Vec<MapEventCondition>,
+}
+
+/// 单条动作（运行契约；`kind_code` 为原版动作表整数码）。
+///
+/// 可改为枚举或稳定动作 id；装载侧见 `ra-map::MapActionCommand`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapActionCommand {
+    /// 原版动作类型码。
+    pub kind_code: i32,
+    /// 七个参数槽（含航点字母等）。
+    pub params: [String; 7],
+}
+
+/// 与某 trigger 对齐的动作表（运行契约）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapAction {
+    /// Trigger id。
+    pub id: String,
+    /// 动作列表。
+    pub commands: Vec<MapActionCommand>,
 }
 
 /// 格子上的 Tag 绑定（运行契约；来自 `[CellTags]` 语义）。

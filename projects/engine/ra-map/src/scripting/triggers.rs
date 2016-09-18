@@ -40,7 +40,7 @@ pub struct MapTrigger {
     pub hard: bool,
 }
 
-/// 单条事件条件。
+/// 单条事件条件（装载解析中间态；投影进 `ra_types::MapEventCondition`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEventCondition {
     /// 事件类型（未知原版码为 [`MapEventKind::Unknown`]）。
@@ -49,7 +49,7 @@ pub struct MapEventCondition {
     pub params: Vec<String>,
 }
 
-/// `[Events]` 中与某 trigger 对齐的事件表。
+/// `[Events]` 中与某 trigger 对齐的事件表（装载解析中间态；投影进 `ra_types::MapEvent`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEvent {
     /// Trigger id。
@@ -58,7 +58,7 @@ pub struct MapEvent {
     pub conditions: Vec<MapEventCondition>,
 }
 
-/// 单条动作。
+/// 单条动作（装载解析中间态；投影进 `ra_types::MapActionCommand`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapActionCommand {
     /// 动作类型（未知原版码为 [`MapActionKind::Unknown`]）。
@@ -67,7 +67,7 @@ pub struct MapActionCommand {
     pub params: [String; 7],
 }
 
-/// `[Actions]` 中与某 trigger 对齐的动作表。
+/// `[Actions]` 中与某 trigger 对齐的动作表（装载解析中间态；投影进 `ra_types::MapAction`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAction {
     /// Trigger id。
