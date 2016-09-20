@@ -63,6 +63,14 @@ pub struct MapDefinition {
     pub actions: Vec<MapAction>,
     /// `[CellTags]` 格子绑定的 Tag。
     pub cell_tags: Vec<MapCellTag>,
+    /// `[TaskForces]` 编队成员表。
+    pub task_forces: Vec<MapTaskForce>,
+    /// `[ScriptTypes]` 脚本步骤表。
+    pub script_types: Vec<MapScriptType>,
+    /// `[TeamTypes]` 产队定义。
+    pub team_types: Vec<MapTeamType>,
+    /// `[AITriggerTypes]` AI 产队触发（字段子集）。
+    pub ai_triggers: Vec<MapAiTrigger>,
 }
 
 impl Default for MapDefinition {
@@ -92,6 +100,10 @@ impl Default for MapDefinition {
             events: Vec::new(),
             actions: Vec::new(),
             cell_tags: Vec::new(),
+            task_forces: Vec::new(),
+            script_types: Vec::new(),
+            team_types: Vec::new(),
+            ai_triggers: Vec::new(),
         }
     }
 }
@@ -343,6 +355,96 @@ pub struct MapCellTag {
     pub y: u16,
     /// Tag id。
     pub tag_id: String,
+}
+
+/// TaskForce 成员槽（运行契约；规则绑定前仍用类型名字符串）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTaskForceEntry {
+    /// 数量。
+    pub count: u16,
+    /// 类型 id。
+    pub type_id: String,
+}
+
+/// TaskForce 编队（运行契约；来自 `[TaskForces]` 语义）。
+///
+/// 可改为稳定 type id / 稠密成员表；装载侧见 `ra-map::MapTaskForce`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTaskForce {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// 成员（最多 6）。
+    pub entries: Vec<MapTaskForceEntry>,
+    /// `Group=`。
+    pub group: i32,
+}
+
+/// Script 一步（运行契约；`action` / `argument` 为原版 ScriptTypes 整数码）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MapScriptStep {
+    /// 动作码（例如 `1` = 攻击航点，`3` = 移动）。
+    pub action: i32,
+    /// 参数（含义随 `action`）。
+    pub argument: i32,
+}
+
+/// ScriptTypes 脚本（运行契约；来自 `[ScriptTypes]` 语义）。
+///
+/// 可改为稳定动作枚举；装载侧见 `ra-map::MapScriptType`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapScriptType {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// 步骤。
+    pub steps: Vec<MapScriptStep>,
+}
+
+/// TeamType 产队（运行契约；来自 `[TeamTypes]` 语义子集）。
+///
+/// 可改为稳定 house / script / task_force id；装载侧见 `ra-map::MapTeamType`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapTeamType {
+    /// id。
+    pub id: String,
+    /// 名称。
+    pub name: String,
+    /// `House=`。
+    pub house: String,
+    /// `Script=`。
+    pub script: String,
+    /// `TaskForce=`。
+    pub task_force: String,
+    /// `Tag=`（可空）。
+    pub tag: String,
+    /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
+    pub waypoint: i32,
+    /// `Max=`。
+    pub max: i32,
+    /// `Priority=`。
+    pub priority: i32,
+    /// `VeteranLevel=`。
+    pub veteran_level: i32,
+}
+
+/// AI 触发（运行契约；来自 `[AITriggerTypes]` 语义子集）。
+///
+/// 可改为稳定 team / house id；装载侧见 `ra-map::MapAiTrigger`。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapAiTrigger {
+    /// 触发 id。
+    pub id: String,
+    /// 显示名。
+    pub name: String,
+    /// 关联 TeamType。
+    pub team: String,
+    /// 所属 House。
+    pub owner_house: String,
+    /// 科技等级门槛。
+    pub tech_level: i32,
 }
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。

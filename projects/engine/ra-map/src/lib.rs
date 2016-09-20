@@ -278,7 +278,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含航点 / 地形 / 预放 / 房屋 / Tags / Triggers / Events / Actions；不含队伍与 AI 载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AITriggerTypes；不含天气与预览等外围载荷）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -338,6 +338,10 @@ impl MapInfo {
             events: self.scripting.events.iter().map(map_event_to_definition).collect(),
             actions: self.scripting.actions.iter().map(map_action_to_definition).collect(),
             cell_tags: self.scripting.cell_tags.iter().map(map_cell_tag_to_definition).collect(),
+            task_forces: self.scripting.task_forces.iter().map(map_task_force_to_definition).collect(),
+            script_types: self.scripting.script_types.iter().map(map_script_type_to_definition).collect(),
+            team_types: self.scripting.team_types.iter().map(map_team_type_to_definition).collect(),
+            ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
         }
     }
 
@@ -531,6 +535,62 @@ fn map_action_to_definition(action: &crate::scripting::MapAction) -> ra_types::M
 
 fn map_cell_tag_to_definition(cell: &crate::scripting::MapCellTag) -> ra_types::MapCellTag {
     ra_types::MapCellTag { x: cell.x, y: cell.y, tag_id: cell.tag_id.clone() }
+}
+
+fn map_task_force_to_definition(tf: &crate::scripting::MapTaskForce) -> ra_types::MapTaskForce {
+    ra_types::MapTaskForce {
+        id: tf.id.clone(),
+        name: tf.name.clone(),
+        entries: tf
+            .entries
+            .iter()
+            .map(|e| ra_types::MapTaskForceEntry {
+                count: e.count,
+                type_id: e.type_id.clone(),
+            })
+            .collect(),
+        group: tf.group,
+    }
+}
+
+fn map_script_type_to_definition(script: &crate::scripting::MapScriptType) -> ra_types::MapScriptType {
+    ra_types::MapScriptType {
+        id: script.id.clone(),
+        name: script.name.clone(),
+        steps: script
+            .steps
+            .iter()
+            .map(|s| ra_types::MapScriptStep {
+                action: s.action,
+                argument: s.argument,
+            })
+            .collect(),
+    }
+}
+
+fn map_team_type_to_definition(team: &crate::scripting::MapTeamType) -> ra_types::MapTeamType {
+    ra_types::MapTeamType {
+        id: team.id.clone(),
+        name: team.name.clone(),
+        house: team.house.clone(),
+        script: team.script.clone(),
+        task_force: team.task_force.clone(),
+        tag: team.tag.clone(),
+        waypoint: team.waypoint,
+        max: team.max,
+        priority: team.priority,
+        veteran_level: team.veteran_level,
+    }
+}
+
+fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_types::MapAiTrigger {
+    ra_types::MapAiTrigger {
+        id: trigger.id.clone(),
+        name: trigger.name.clone(),
+        team: trigger.team.clone(),
+        owner_house: trigger.owner_house.clone(),
+        tech_level: trigger.tech_level,
+    }
 }
 
 fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {

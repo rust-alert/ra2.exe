@@ -3,7 +3,7 @@
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use serde::Deserialize;
 
-/// 一条 AI 触发（字段子集，供缺口诊断与后续执行）。
+/// 一条 AI 触发（装载解析中间态；投影进 `ra_types::MapAiTrigger`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAiTrigger {
     /// 触发 id（列表键或节名）。
