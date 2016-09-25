@@ -296,12 +296,10 @@ const EXIT_CONFIRM_BUTTONS: &[UiButtonSlot] = &[
 
 const NETWORK_BUTTONS: &[UiButtonSlot] = &[empty_button("online", MenuAction::Noop, false), empty_button("back", MenuAction::Back, true)];
 
-/// 对局 Esc 暂停菜单：右栏六钮，与 [`ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS`] 对齐。
+/// 对局 Esc 暂停菜单：右缘四钮，与 [`ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS`] 对齐。
 const BATTLE_PAUSE_BUTTONS: &[UiButtonSlot] = &[
     main_menu_button("options", MenuAction::OpenOptions, true),
-    main_menu_button("load", MenuAction::Noop, true),
-    main_menu_button("save", MenuAction::Noop, true),
-    main_menu_button("restart", MenuAction::Noop, true),
+    main_menu_button("fullscreen", MenuAction::Noop, true),
     main_menu_button("abort", MenuAction::Back, true),
     main_menu_button("resume", MenuAction::Noop, true),
 ];

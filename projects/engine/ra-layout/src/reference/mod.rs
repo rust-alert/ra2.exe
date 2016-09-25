@@ -17,7 +17,7 @@ pub use battle_hud::{
     COMMAND_BAR_H, COMMAND_BUTTON_W, COMMAND_LENDCAP_W, COMMAND_RENDCAP_W, SIDEBAR_TAB_COUNT, battle_hud_world_viewport, cameo_content_rect,
     cameo_slot_rect, cameo_visible_slot_count, hit_cameo_slot, solve_battle_hud, solve_battle_hud_with_metrics,
 };
-pub use battle_pause::solve_battle_pause;
+pub use battle_pause::{solve_battle_pause, solve_battle_pause_at};
 pub use campaign_page::solve_campaign;
 pub use dlu::{DluRect, FontBaseUnits, MS_SANS_SERIF_8PT, mul_div_round};
 pub use exit_confirm_page::solve_exit_confirm;

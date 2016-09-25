@@ -561,7 +561,6 @@ impl BattleController {
                 }
             }
             if show_pause_banner {
-                let metrics = self.pause_hud_metrics();
                 if let Some(pause) = compose_battle_pause_menu_overlay(
                     w,
                     h,
@@ -570,7 +569,6 @@ impl BattleController {
                     fnt,
                     csf,
                     self.pause_menu_chrome.as_ref(),
-                    metrics,
                 ) {
                     blit_rgba(&mut page, &pause, 0, 0);
                 }

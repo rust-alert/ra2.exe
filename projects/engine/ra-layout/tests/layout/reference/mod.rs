@@ -1,6 +1,7 @@
 //! reference 域测试。
 
 mod battle_hud;
+mod battle_pause;
 mod campaign_page;
 mod dlu;
 mod exit_confirm_page;

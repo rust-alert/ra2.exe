@@ -19,9 +19,9 @@ fn battle_pause_placeholders_rasterize_opaque_rail_pixel() {
 #[test]
 fn excluding_ids_drops_named_commands() {
     let plan = RenderPlan::battle_pause_placeholders();
-    assert!(plan.rect_of("background").is_some());
-    let filtered = plan.excluding_ids(&["background", "movie"]);
-    assert!(filtered.rect_of("background").is_none());
+    assert!(plan.rect_of("dim").is_some());
+    let filtered = plan.excluding_ids(&["dim"]);
+    assert!(filtered.rect_of("dim").is_none());
     assert!(filtered.rect_of("resume").is_some());
 }
 
