@@ -1,6 +1,7 @@
 //! rules `[Countries]` / `[Sides]`：国家与势力表（INI 字段解释，供大厅 / 装载使用）。
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use crate::parse_westwood_csv_line;
 use serde::Deserialize;
 
 /// 一个国家（house）定义。
@@ -274,7 +275,12 @@ fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id:
 
 #[doc(hidden)]
 pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
-    let houses: Vec<&str> = raw.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    let houses: Vec<String> = parse_westwood_csv_line(raw)
+        .fields
+        .into_iter()
+        .map(|f| f.value)
+        .filter(|s| !s.is_empty())
+        .collect();
     houses.len() == 1 && houses[0].eq_ignore_ascii_case(country_id)
 }
 
@@ -294,12 +300,11 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
         else {
             continue;
         };
-        let countries: Vec<String> = value
-            .raw
-            .split(',')
-            .map(str::trim)
+        let countries: Vec<String> = parse_westwood_csv_line(value.raw)
+            .fields
+            .into_iter()
+            .map(|f| f.value)
             .filter(|s| !s.is_empty())
-            .map(str::to_string)
             .collect();
         out.push(SideGroup { id: id.to_string(), countries });
     }
