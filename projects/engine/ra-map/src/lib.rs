@@ -168,6 +168,10 @@ pub struct MapInfo {
     pub waypoints: Vec<Waypoint>,
     /// 剧本节（Triggers / Teams / Houses 等）。
     pub scripting: MapScripting,
+    /// `[Preview] Size` 宽（缺节或无效为 0；不含像素载荷）。
+    pub preview_width: u32,
+    /// `[Preview] Size` 高（缺节或无效为 0；不含像素载荷）。
+    pub preview_height: u32,
 }
 
 impl MapInfo {
@@ -199,6 +203,8 @@ impl MapInfo {
             entities: Vec::new(),
             waypoints: Vec::new(),
             scripting: MapScripting::default(),
+            preview_width: 0,
+            preview_height: 0,
         }
     }
 
@@ -242,6 +248,11 @@ impl MapInfo {
         let entities = parse_map_entities(&doc);
         let waypoints = parse_waypoints(&doc);
         let scripting = parse_map_scripting(&doc);
+        let (preview_width, preview_height) = doc
+            .section("Preview")
+            .and_then(|s| s.deserialize::<PreviewSizeSectionFields>().ok())
+            .and_then(|f| f.size.as_deref().and_then(parse_preview_size))
+            .unwrap_or((0, 0));
         Ok(Self {
             edition,
             name: name.into(),
@@ -268,6 +279,8 @@ impl MapInfo {
             entities,
             waypoints,
             scripting,
+            preview_width,
+            preview_height,
         })
     }
 
@@ -278,7 +291,7 @@ impl MapInfo {
         if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
-    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AITriggerTypes；不含天气与预览等外围载荷）。
+    /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸；不含预览像素与天气粒子）。
     pub fn to_map_definition(&self) -> MapDefinition {
         MapDefinition {
             name: self.name.clone(),
@@ -342,6 +355,8 @@ impl MapInfo {
             script_types: self.scripting.script_types.iter().map(map_script_type_to_definition).collect(),
             team_types: self.scripting.team_types.iter().map(map_team_type_to_definition).collect(),
             ai_triggers: self.scripting.ai_triggers.iter().map(map_ai_trigger_to_definition).collect(),
+            preview_width: self.preview_width,
+            preview_height: self.preview_height,
         }
     }
 
@@ -440,6 +455,13 @@ struct BasicSectionFields {
     alternate_next_mission: Option<String>,
     #[serde(rename = "StartingCredits")]
     starting_credits: Option<i32>,
+}
+
+/// `[Preview]` 尺寸字段（一次 Serde；像素包仍走 PreviewPack 解码）。
+#[derive(Debug, Default, Deserialize)]
+struct PreviewSizeSectionFields {
+    #[serde(rename = "Size")]
+    size: Option<String>,
 }
 
 /// `Size=x,y,width,height` 行（前两列原点，后两列宽高）。
