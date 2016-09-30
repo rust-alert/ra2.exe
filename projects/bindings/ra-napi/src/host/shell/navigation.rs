@@ -430,7 +430,6 @@ impl Shell {
                     }
                 }
                 self.renderer.clear_ui_page();
-                self.ensure_score_backdrop();
                 self.menu_pressed_entry = None;
                 self.menu_hovered_entry = None;
                 self.set_screen(OriginalScreen::Results);

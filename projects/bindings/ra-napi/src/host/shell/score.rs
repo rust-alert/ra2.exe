@@ -1,11 +1,10 @@
 //! 遭遇战 / 战役结算页：积分表数据与交互。
 
-use ra_assets::{Palette, ShpFile};
 use ra_engine::{BattleOutcome, SessionBootKind};
 use ra_widgets::{
     compose::{SkirmishScoreRow, format_score_time, skirmish_score_hit_at},
     load_kind::LoadKind,
-    skin::{decode::frame_to_canvas_rgba, text::resolve_csf_text},
+    skin::text::resolve_csf_text,
     skirmish_setup::LOBBY_COLORS,
 };
 use winit::{
@@ -18,104 +17,6 @@ use crate::host::battle_controller::BattleNav;
 use super::Shell;
 
 impl Shell {
-    /// 本机阵营 house 名（驱动积分页左区装载艺术）。
-    pub(super) fn results_local_house(&self) -> String {
-        self.battle_controller
-            .as_ref()
-            .and_then(|c| c.session.as_ref())
-            .and_then(|s| s.battle())
-            .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player).map(|p| p.house.to_string()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| self.skirmish.side.clone())
-    }
-
-    /// 本机阵营对应 rules `Side=`（模组扩展国名时驱动 UI 族）。
-    pub(super) fn results_faction_id(&self) -> Option<&str> {
-        let house = self.results_local_house();
-        self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(house.as_str())).map(|c| c.side.as_str()).filter(|s| !s.is_empty())
-    }
-
-    /// 惰性解码积分页左区战报图（按 [`ra_widgets::skirmish_setup::UiFactionChrome`]）。
-    pub(super) fn ensure_score_backdrop(&mut self) {
-        let house = self.results_local_house();
-        let faction_owned = self.results_faction_id().map(str::to_string);
-        let faction_id = faction_owned.as_deref();
-        let Some(chrome) = self
-            .battle_controller
-            .as_ref()
-            .and_then(|c| c.ui_faction_chrome().cloned())
-            .or_else(|| self.resolve_ui_faction_chrome(&house, faction_id))
-        else {
-            return;
-        };
-        let candidates = chrome.score_background_candidates();
-        let pal_names = chrome.score_palette_candidates();
-        // 战报图名只来自 rules / edition adaptor，禁止静默回退原版 `mpascrnl`。
-        let (Some(want_shp), Some(want_pal)) = (candidates.first(), pal_names.first())
-        else {
-            tracing::debug!(
-                house = %house,
-                "积分页战报图未配置（需 MultiplayerScore 或 adaptor stock）"
-            );
-            self.score_backdrop = None;
-            self.score_backdrop_for = None;
-            return;
-        };
-        let want_key = format!("{house}:{}:{}:{want_shp}:{want_pal}", faction_id.unwrap_or("-"), chrome.mix_file_index);
-        if self.score_backdrop.is_some() && self.score_backdrop_for.as_deref() == Some(want_key.as_str()) {
-            return;
-        }
-        self.score_backdrop = None;
-        self.score_backdrop_for = Some(want_key);
-        self.ensure_menu_assets();
-        let Some(source) = self.menu_assets.as_ref().and_then(|a| a.source.as_ref())
-        else {
-            return;
-        };
-        for name in &candidates {
-            let Some(hit) = source.resolve(name)
-            else {
-                continue;
-            };
-            let Ok(shp) = ShpFile::parse(&hit.bytes)
-            else {
-                continue;
-            };
-            let Some(frame) = shp.frames.first()
-            else {
-                continue;
-            };
-            let mut decoded = None;
-            for paln in &pal_names {
-                let Some(ph) = source.resolve(paln)
-                else {
-                    continue;
-                };
-                let Ok(pal) = Palette::parse(&ph.bytes)
-                else {
-                    continue;
-                };
-                if let Some(img) = frame_to_canvas_rgba(&shp, frame, &pal) {
-                    tracing::info!(
-                        %name,
-                        %paln,
-                        house = %house,
-                        w = img.width(),
-                        h = img.height(),
-                        "已装载积分页战报图"
-                    );
-                    decoded = Some(img);
-                    break;
-                }
-            }
-            if let Some(img) = decoded {
-                self.score_backdrop = Some(img);
-                return;
-            }
-        }
-        tracing::debug!(house = %house, "积分页战报图不可读");
-    }
-
     /// 从当前对局快照拼积分表行。
     pub(super) fn skirmish_score_rows(&self) -> Vec<SkirmishScoreRow> {
         let Some(game) = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle())
