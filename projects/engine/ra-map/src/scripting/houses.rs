@@ -1,6 +1,6 @@
 //! `[Houses]` 与各方 House 节。
 
-use ra_assets::IniDocument;
+use ra_assets::{IniDocument, numbered_pairs};
 use serde::Deserialize;
 
 /// 地图一方（装载解析中间态；投影进 `ra_types::MapHouse` 后由运行契约消费）。
@@ -76,7 +76,7 @@ pub fn parse_map_houses(doc: &IniDocument) -> Vec<MapHouse> {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (_key, name) in list.pairs() {
+    for (_index, name) in numbered_pairs(list) {
         let name = name.trim();
         if name.is_empty() {
             continue;
