@@ -231,15 +231,7 @@ const SKIRMISH_LOBBY_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
 ];
 
-/// 遭遇战积分：壳层右栏（含 WARNING 表头区）+ 底栏「继续」。
-const SKIRMISH_SCORE_PANELS: &[UiPanelSlot] = &[
-    UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
-    UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
-];
-
+/// 遭遇战积分：右栏钮槽（壳层面板复用 `MAIN_MENU_PANELS`）。
 const SKIRMISH_SCORE_BUTTONS: &[UiButtonSlot] = &[main_menu_button("continue", MenuAction::Back, true)];
 
 /// 选图页：使用地图 / 创建随机地图（未实现，仍可点以播反馈）/ 取消。
@@ -437,15 +429,15 @@ pub fn slots_for(screen: OriginalScreen) -> Option<UiPageSlots> {
             buttons: NETWORK_BUTTONS,
         }),
         OriginalScreen::Battle => None,
-        // 遭遇战积分：壳层右栏；左区战报图由 chrome `MultiplayerScore`（adaptor）注入，槽位不写死盟军皮。
+        // 遭遇战积分：与选项同主菜单壳（`mnscrnl` + 右栏 chrome + 影片）；表内容叠在壳上。
         OriginalScreen::Results => Some(UiPageSlots {
             screen,
-            background_shp: None,
+            background_shp: Some("mnscrnl.shp"),
             background_pcx: None,
-            background_pal: None,
+            background_pal: Some("shell.pal"),
             background_frame: 0,
-            movie_bik: None,
-            panels: SKIRMISH_SCORE_PANELS,
+            movie_bik: Some(MENU_MOVIE_BIK_LARGE),
+            panels: MAIN_MENU_PANELS,
             fonts: MAIN_MENU_FONTS,
             buttons: SKIRMISH_SCORE_BUTTONS,
         }),

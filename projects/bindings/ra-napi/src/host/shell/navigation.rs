@@ -34,7 +34,11 @@ impl Shell {
             // `menu_frame_wave` / `menu_slide_gap_until` 由切页状态机显式启停，不在此清空。
             if !matches!(
                 next,
-                OriginalScreen::MainMenu | OriginalScreen::SinglePlayerMenu | OriginalScreen::Options | OriginalScreen::ExitConfirm
+                OriginalScreen::MainMenu
+                    | OriginalScreen::SinglePlayerMenu
+                    | OriginalScreen::Options
+                    | OriginalScreen::ExitConfirm
+                    | OriginalScreen::Results
             ) {
                 self.menu_movie = None;
                 self.menu_movie_clock = None;
