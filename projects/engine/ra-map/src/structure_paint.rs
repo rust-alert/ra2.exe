@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
 use ra_types::AssetSource;
+use serde::Deserialize;
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
@@ -104,11 +105,30 @@ fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow
 fn structure_buildup_hints(art: Option<&IniDocument>, art_section: &str, parent_new_theater: bool) -> Option<StructureBuildupHints> {
     let art = art?;
     let buildup_key = art.get(art_section, "Buildup")?.to_ascii_uppercase();
+    let fields = art
+        .section(&buildup_key)
+        .and_then(|s| s.deserialize::<BuildupSectionFields>().ok())
+        .unwrap_or_default();
     // 无独立 Buildup 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
-    let image_key = art.get(&buildup_key, "Image").unwrap_or(buildup_key.as_str()).to_ascii_uppercase();
-    let new_theater = art.get(&buildup_key, "NewTheater").map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(parent_new_theater);
-    let rate_ms = art.get(&buildup_key, "Rate").and_then(parse_u32).unwrap_or(100);
+    let image_key = fields
+        .image
+        .as_deref()
+        .unwrap_or(buildup_key.as_str())
+        .trim()
+        .to_ascii_uppercase();
+    let new_theater = fields.new_theater.unwrap_or(parent_new_theater);
+    let rate_ms = fields.rate_ms.unwrap_or(100);
     Some(StructureBuildupHints { image_key, new_theater, rate_ms })
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct BuildupSectionFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "Rate")]
+    rate_ms: Option<u32>,
 }
 
 fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(u8, i32, i32)> {
@@ -129,19 +149,34 @@ fn structure_damage_fire_offsets(art: Option<&IniDocument>, type_id: &str, art_s
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
     let rules = rules?;
-    let is_voxel = rules.get(type_id, "TurretAnimIsVoxel").is_some_and(|v| v.eq_ignore_ascii_case("yes") || v == "1");
-    if !is_voxel {
+    let fields = rules
+        .section(type_id)
+        .and_then(|s| s.deserialize::<TurretVoxelSectionFields>().ok())
+        .unwrap_or_default();
+    if !fields.is_voxel.unwrap_or(false) {
         return None;
     }
-    let stem = rules.get(type_id, "TurretAnim")?.trim().to_ascii_lowercase();
+    let stem = fields.anim.as_deref()?.trim().to_ascii_lowercase();
     if stem.is_empty() {
         return None;
     }
     Some(StructureTurretVoxelHints {
         stem,
-        anim_x: rules.get(type_id, "TurretAnimX").and_then(parse_i32).unwrap_or(0),
-        anim_y: rules.get(type_id, "TurretAnimY").and_then(parse_i32).unwrap_or(0),
+        anim_x: fields.anim_x.unwrap_or(0),
+        anim_y: fields.anim_y.unwrap_or(0),
     })
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct TurretVoxelSectionFields {
+    #[serde(rename = "TurretAnimIsVoxel")]
+    is_voxel: Option<bool>,
+    #[serde(rename = "TurretAnim")]
+    anim: Option<String>,
+    #[serde(rename = "TurretAnimX")]
+    anim_x: Option<i32>,
+    #[serde(rename = "TurretAnimY")]
+    anim_y: Option<i32>,
 }
 
 fn collect_structure_type_paint_hints(
@@ -169,23 +204,44 @@ struct StructureAnimSectionHints {
 }
 
 fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
-    let image_key = art.and_then(|a| a.get(anim_name, "Image")).unwrap_or(anim_name).to_ascii_uppercase();
-    let new_theater = art.and_then(|a| a.get(anim_name, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let loop_start = art
-        .and_then(|a| a.get(anim_name, "LoopStart").or_else(|| a.get(anim_name, "Start")))
-        .and_then(parse_u16)
-        .unwrap_or(0);
-    let loop_end = art.and_then(|a| a.get(anim_name, "LoopEnd")).and_then(parse_u16).unwrap_or(loop_start + 1);
-    let rate_ms = art.and_then(|a| a.get(anim_name, "Rate")).and_then(parse_u32).unwrap_or(default_rate_ms);
-    let remapable_override = art.and_then(|a| a.get(anim_name, "Remapable")).map(|v| !v.eq_ignore_ascii_case("no"));
+    let fields = art
+        .and_then(|a| a.section(anim_name))
+        .and_then(|s| s.deserialize::<AnimSectionFields>().ok())
+        .unwrap_or_default();
+    let image_key = fields
+        .image
+        .as_deref()
+        .unwrap_or(anim_name)
+        .trim()
+        .to_ascii_uppercase();
+    let loop_start = fields.loop_start.or(fields.start).unwrap_or(0);
+    let loop_end = fields.loop_end.unwrap_or(loop_start.saturating_add(1));
     StructureAnimSectionHints {
         image_key,
-        new_theater,
+        new_theater: fields.new_theater.unwrap_or(false),
         loop_start,
         loop_end,
-        rate_ms,
-        remapable_override,
+        rate_ms: fields.rate_ms.unwrap_or(default_rate_ms),
+        remapable_override: fields.remapable,
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AnimSectionFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "LoopStart")]
+    loop_start: Option<u16>,
+    #[serde(rename = "Start")]
+    start: Option<u16>,
+    #[serde(rename = "LoopEnd")]
+    loop_end: Option<u16>,
+    #[serde(rename = "Rate")]
+    rate_ms: Option<u32>,
+    #[serde(rename = "Remapable")]
+    remapable: Option<bool>,
 }
 
 fn cached_anim_section_hint<'a>(
@@ -882,16 +938,4 @@ fn load_structure_turret_vxl(
         rgba: sprite.rgba,
         shadow: None,
     })
-}
-
-fn parse_i32(raw: &str) -> Option<i32> {
-    raw.trim().parse().ok()
-}
-
-fn parse_u16(raw: &str) -> Option<u16> {
-    raw.trim().parse().ok()
-}
-
-fn parse_u32(raw: &str) -> Option<u32> {
-    raw.trim().parse().ok()
 }
