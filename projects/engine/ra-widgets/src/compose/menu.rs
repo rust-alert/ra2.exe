@@ -74,8 +74,12 @@ pub(super) fn compose_shell_menu_page(
         let title_text = match captions {
             MenuCaptionKind::Main => Some(resolve_caption(csf, "main_menu", Some("GUI:MainMenu"))),
             MenuCaptionKind::SinglePlayer => Some(resolve_caption(csf, "single_player", Some(single_player_title_csf_key()))),
-            // 战役 / 遭遇战 / 选图 / 积分标题由各自 compose 按对话框锚点另画。
-            MenuCaptionKind::Campaign | MenuCaptionKind::SkirmishLobby | MenuCaptionKind::ChooseMap | MenuCaptionKind::SkirmishScore => None,
+            // 战役 / 遭遇战 / 选图 / 积分 / 选项标题由各自 compose 按对话框锚点另画。
+            MenuCaptionKind::Campaign
+            | MenuCaptionKind::SkirmishLobby
+            | MenuCaptionKind::ChooseMap
+            | MenuCaptionKind::SkirmishScore
+            | MenuCaptionKind::Options => None,
         };
         if let Some(title_text) = title_text {
             blit_caption_in_cell(&mut page, fnt, &title_text, title.x, title.y, title.w, title.h, MENU_TEXT_ENABLED);
@@ -154,6 +158,7 @@ pub(super) fn shell_button_sprite_plan(captions: MenuCaptionKind, button_ids: &[
         MenuCaptionKind::ChooseMap => crate::RenderPlan::choose_map_placeholders(),
         // 必须与 `solve_skirmish_score` 同几何，否则「继续」钮面与命中错位。
         MenuCaptionKind::SkirmishScore => crate::RenderPlan::solid_placeholders_from_snapshot(&solve_skirmish_score(), "skirmish_score"),
+        MenuCaptionKind::Options => crate::RenderPlan::options_page_placeholders(),
     };
     base.button_sprite_plan(button_ids)
 }

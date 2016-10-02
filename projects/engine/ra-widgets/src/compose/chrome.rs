@@ -21,6 +21,7 @@ pub(super) enum MenuCaptionKind {
     SkirmishLobby,
     ChooseMap,
     SkirmishScore,
+    Options,
 }
 
 impl MenuCaptionKind {
@@ -32,6 +33,7 @@ impl MenuCaptionKind {
             Self::SkirmishLobby => skirmish_lobby_csf_label(entry_id),
             Self::ChooseMap => choose_map_csf_label(entry_id),
             Self::SkirmishScore => skirmish_score_csf_label(entry_id),
+            Self::Options => options_csf_label(entry_id),
         }
     }
 }

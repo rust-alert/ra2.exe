@@ -258,7 +258,7 @@ fn compose_options_uses_main_menu_id() {
     };
     let state =
         ra_widgets::options_dialog::OptionsDialogState::from_shell(ra_types::DisplayMode::W800H600, 0.4, 0.7, ra_types::PresentFeel::DEFAULT);
-    let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, 0).unwrap();
+    let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, None, 0).unwrap();
     let cell = rect_px_from_snapshot(&ra_layout::solve_options_page(), "main_menu");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[200, 200, 0, 255]);
