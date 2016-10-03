@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::AssetSource;
+use serde::Deserialize;
 
 use crate::{
     LightingConfig, MapInfo, PointLight, TerrainObject,
@@ -23,12 +24,41 @@ struct TerrainObjectPaintHints {
 }
 
 fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
+    let art_fields = art
+        .and_then(|a| a.section(name))
+        .and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok())
+        .unwrap_or_default();
+    let rules_fields = rules
+        .and_then(|r| r.section(name))
+        .and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok())
+        .unwrap_or_default();
     TerrainObjectPaintHints {
-        image_key: art.and_then(|a| a.get(name, "Image")).unwrap_or(name).to_ascii_uppercase(),
-        is_animated: rules.is_some_and(|r| is_yes(r.get(name, "IsAnimated"))),
-        spawns_tiberium: rules.is_some_and(|r| is_yes(r.get(name, "SpawnsTiberium"))),
-        animation_rate: rules.and_then(|r| r.get(name, "AnimationRate")).and_then(parse_u32).unwrap_or(1),
+        image_key: art_fields
+            .image
+            .as_deref()
+            .unwrap_or(name)
+            .trim()
+            .to_ascii_uppercase(),
+        is_animated: rules_fields.is_animated.unwrap_or(false),
+        spawns_tiberium: rules_fields.spawns_tiberium.unwrap_or(false),
+        animation_rate: rules_fields.animation_rate.unwrap_or(1).max(1),
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct TerrainArtSectionFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct TerrainRulesSectionFields {
+    #[serde(rename = "IsAnimated")]
+    is_animated: Option<bool>,
+    #[serde(rename = "SpawnsTiberium")]
+    spawns_tiberium: Option<bool>,
+    #[serde(rename = "AnimationRate")]
+    animation_rate: Option<u32>,
 }
 
 fn collect_terrain_object_paint_hints(
@@ -712,12 +742,4 @@ fn paste_indices_to_canvas(src: &[u8], frame: &ra_assets::ShpFrame, full_w: u32,
 
 fn pick_terrain_palette<'a>(spawns_tiberium: bool, theater_pal: Option<&'a Palette>, unit_pal: Option<&'a Palette>) -> Option<&'a Palette> {
     if spawns_tiberium { unit_pal.or(theater_pal) } else { theater_pal.or(unit_pal) }
-}
-
-fn is_yes(raw: Option<&str>) -> bool {
-    raw.is_some_and(|v| v.eq_ignore_ascii_case("yes"))
-}
-
-fn parse_u32(raw: &str) -> Option<u32> {
-    raw.trim().parse().ok()
 }
