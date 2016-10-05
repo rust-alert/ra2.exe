@@ -374,6 +374,21 @@ impl MapInfo {
         }
     }
 
+    /// 提取 [`ra_types::PreparedMap`] 骨架：冻结定义 + 由 [`PassGrid::from_map`] 灌入的通行层。
+    ///
+    /// 不含 overlay 陆地封格、渲染清单或规则绑定；对局路径仍可继续用 `PassGrid` 直至准备层收口。
+    pub fn to_prepared_map_skeleton(&self) -> ra_types::PreparedMap {
+        let definition = self.to_map_definition();
+        let (pass_width, pass_height, passable, cell_heights) = PassGrid::from_map(self).to_prepared_pass_layers();
+        ra_types::PreparedMap {
+            definition,
+            pass_width,
+            pass_height,
+            passable,
+            cell_heights,
+        }
+    }
+
     /// 当前档的环境光配置。
     pub fn active_lighting(&self) -> LightingConfig {
         match self.lighting_profile {
