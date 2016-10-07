@@ -31,14 +31,20 @@ struct MobileTypePaintHints {
 
 fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
     let image_key = resolve_mobile_image_key(rules, art, type_id);
-    let prefer_voxel = art.and_then(|a| a.get(&image_key, "Voxel")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let new_theater = art.and_then(|a| a.get(&image_key, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let sequence_section = art.and_then(|a| sequence_section_name(a, &image_key));
+    let art_fields = art
+        .and_then(|a| a.section(&image_key))
+        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
+        .unwrap_or_default();
+    let prefer_voxel = art_fields.voxel.unwrap_or(false);
+    let new_theater = art_fields.new_theater.unwrap_or(false);
+    let sequence_section = art_fields
+        .sequence
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_ascii_uppercase());
     let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
-        (Some(art), Some(seq)) => (
-            sequence_value(art, seq, &["Walk", "Panic"]).and_then(parse_sequence_triple),
-            sequence_value(art, seq, &["Ready", "Guard"]).and_then(parse_sequence_triple),
-        ),
+        (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
         _ => (None, None),
     };
     MobileTypePaintHints {
@@ -48,6 +54,24 @@ fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument
         walk_triple,
         ready_triple,
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct MobileArtImageFields {
+    #[serde(rename = "Voxel")]
+    voxel: Option<bool>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "Sequence")]
+    sequence: Option<String>,
+    #[serde(rename = "Image")]
+    image: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct MobileRulesImageFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
 }
 
 fn collect_mobile_type_paint_hints(
@@ -165,7 +189,20 @@ pub fn paint_map_mobiles(
 
 #[doc(hidden)]
 pub fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
-    rules.and_then(|r| r.get(type_id, "Image")).or_else(|| art.and_then(|a| a.get(type_id, "Image"))).unwrap_or(type_id).to_ascii_uppercase()
+    let from_rules = rules
+        .and_then(|r| r.section(type_id))
+        .and_then(|s| s.deserialize::<MobileRulesImageFields>().ok())
+        .and_then(|f| f.image);
+    let from_art = art
+        .and_then(|a| a.section(type_id))
+        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
+        .and_then(|f| f.image);
+    from_rules
+        .or(from_art)
+        .as_deref()
+        .unwrap_or(type_id)
+        .trim()
+        .to_ascii_uppercase()
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。
@@ -189,7 +226,11 @@ struct SequenceTripleRow {
 
 #[doc(hidden)]
 pub fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<String> {
-    art.get(image_key, "Sequence").map(|s| s.trim().to_ascii_uppercase()).filter(|s| !s.is_empty())
+    art.section(image_key)
+        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
+        .and_then(|f| f.sequence)
+        .map(|s| s.trim().to_ascii_uppercase())
+        .filter(|s| !s.is_empty())
 }
 
 #[doc(hidden)]
@@ -202,6 +243,28 @@ pub fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]
     None
 }
 
+fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+    let fields = art
+        .section(seq_section)
+        .and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok())
+        .unwrap_or_default();
+    let walk_triple = fields.walk.or(fields.panic).as_deref().and_then(parse_sequence_triple);
+    let ready_triple = fields.ready.or(fields.guard).as_deref().and_then(parse_sequence_triple);
+    (walk_triple, ready_triple)
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct MobileSequenceSectionFields {
+    #[serde(rename = "Walk")]
+    walk: Option<String>,
+    #[serde(rename = "Panic")]
+    panic: Option<String>,
+    #[serde(rename = "Ready")]
+    ready: Option<String>,
+    #[serde(rename = "Guard")]
+    guard: Option<String>,
+}
+
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
     let hints = MobileTypePaintHints {
@@ -210,11 +273,11 @@ pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent:
         new_theater: false,
         walk_triple: art.and_then(|a| {
             let seq = sequence_section_name(a, image_key)?;
-            sequence_value(a, &seq, &["Walk", "Panic"]).and_then(parse_sequence_triple)
+            sequence_triples_from_section(a, &seq).0
         }),
         ready_triple: art.and_then(|a| {
             let seq = sequence_section_name(a, image_key)?;
-            sequence_value(a, &seq, &["Ready", "Guard"]).and_then(parse_sequence_triple)
+            sequence_triples_from_section(a, &seq).1
         }),
     };
     resolve_mobile_shp_frame_from_hints(&hints, ent, pose)
