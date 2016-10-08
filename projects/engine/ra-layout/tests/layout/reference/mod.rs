@@ -2,6 +2,7 @@
 
 mod battle_hud;
 mod battle_pause;
+mod battle_pause_submenus;
 mod campaign_page;
 mod dlu;
 mod exit_confirm_page;

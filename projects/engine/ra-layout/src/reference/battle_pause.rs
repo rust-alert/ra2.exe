@@ -36,14 +36,15 @@ const RESUME_DLU: DluRect = DluRect::new(425, 346, 108, 23);
 
 const BUTTON_DLUS: [DluRect; 4] = [OPTIONS_DLU, FULLSCREEN_DLU, ABORT_DLU, RESUME_DLU];
 
-fn center_offset(screen: f32, base: f32) -> f32 {
+/// 相对 800×600 基准的垂直居中偏移（宽屏 / 高屏）。
+pub fn battle_pause_center_offset(screen: f32, base: f32) -> f32 {
     ((screen - base) * 0.5).max(0.0)
 }
 
 /// 将资源 DLU 换成 owner-draw 钮：右缘钉死，宽高钉 `SIDEBTTN`，Y 取 DLU + 相对 800×600 的居中偏移。
-fn sidebttn_rect(screen_w: f32, screen_h: f32, dlu: DluRect) -> Rect {
+pub fn battle_sidebttn_rect(screen_w: f32, screen_h: f32, dlu: DluRect) -> Rect {
     let origin = dlu.to_design_px(MS_SANS_SERIF_8PT);
-    let dy = center_offset(screen_h, BATTLE_PAUSE_BASE_H);
+    let dy = battle_pause_center_offset(screen_h, BATTLE_PAUSE_BASE_H);
     let x = (screen_w - BATTLE_PAUSE_BUTTON_RIGHT_INSET).max(0.0);
     let y = (origin.y + dy).max(0.0);
     Rect::from_xywh(x, y, BATTLE_PAUSE_BUTTON_W, BATTLE_PAUSE_BUTTON_H)
@@ -55,7 +56,7 @@ pub fn battle_pause_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode 
     let h = viewport_h.max(1) as f32;
     let mut children = vec![fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h))];
     for (id, dlu) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(BUTTON_DLUS.iter()) {
-        children.push(fixed_rect_leaf(*id, sidebttn_rect(w, h, *dlu)));
+        children.push(fixed_rect_leaf(*id, battle_sidebttn_rect(w, h, *dlu)));
     }
     root_with_fixed_children("battle_pause", crate::geometry::Size2 { width: w, height: h }, children)
 }

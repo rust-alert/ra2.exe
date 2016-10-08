@@ -253,8 +253,14 @@ impl BattleController {
                 BattleNav::None
             }
             BattleHudHit::Options => {
-                tracing::info!("侧栏 · 打开选项");
-                BattleNav::OpenOptions
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    if !game.paused {
+                        game.toggle_pause();
+                    }
+                }
+                self.open_pause_menu_layer();
+                tracing::info!("侧栏 · 打开暂停菜单");
+                BattleNav::None
             }
             BattleHudHit::Repair => {
                 self.sell_mode = false;

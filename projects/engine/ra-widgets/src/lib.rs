@@ -19,6 +19,7 @@ pub use animation::shell_slide;
 pub use core::{load_kind, menu_action, original_screen};
 pub use render::{RenderCommand, RenderPlan};
 pub use screens::{
-    battle_hud, battle_order_icons, battle_pause_menu, battle_selection_overlay, campaign_setup, options_dialog, skirmish_setup, startup_splash,
+    battle_abort_confirm, battle_hud, battle_in_game_options, battle_order_icons, battle_pause_layer, battle_pause_menu,
+    battle_selection_overlay, campaign_setup, options_dialog, skirmish_setup, startup_splash,
 };
 pub use skin::fs_source;
