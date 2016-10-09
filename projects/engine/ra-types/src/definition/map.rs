@@ -77,6 +77,8 @@ pub struct MapDefinition {
     pub preview_width: u32,
     /// `[Preview] Size` 高（缺节或无效为 0）。
     pub preview_height: u32,
+    /// `[Digest]` 编号键按序拼接的校验摘要（缺节为空）。
+    pub digest: String,
     /// 装载期天气种类（剧院默认投影；粒子场由呈现层按此实例化）。
     pub weather: MapWeatherKind,
 }
@@ -115,6 +117,7 @@ impl Default for MapDefinition {
             ai_triggers: Vec::new(),
             preview_width: 0,
             preview_height: 0,
+            digest: String::new(),
             weather: MapWeatherKind::None,
         }
     }

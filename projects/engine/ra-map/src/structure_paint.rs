@@ -60,14 +60,24 @@ struct StructureBuildupHints {
 
 fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
     let art_section = resolve_art_section(art, type_id);
-    let remapable = is_remapable(art, &art_section, true);
-    let body_new_theater = art.and_then(|a| a.get(&art_section, "NewTheater")).is_some_and(|v| v.eq_ignore_ascii_case("yes"));
-    let bib_key = art_get_building(art, type_id, &art_section, "BibShape").map(str::to_ascii_uppercase);
+    let body = structure_body_art_fields(art, type_id, &art_section);
+    let remapable = body.remapable.unwrap_or(true);
+    let body_new_theater = body.new_theater.unwrap_or(false);
+    let bib_key = body.bib_shape.as_deref().map(str::to_ascii_uppercase).filter(|s| !s.is_empty());
     let bib_new_theater = match bib_key.as_ref() {
-        Some(bib) => art.and_then(|a| a.get(bib, "NewTheater")).map(|v| v.eq_ignore_ascii_case("yes")).unwrap_or(body_new_theater),
+        Some(bib) => art
+            .and_then(|a| a.section(bib))
+            .and_then(|s| s.deserialize::<BibShapeSectionFields>().ok())
+            .and_then(|f| f.new_theater)
+            .unwrap_or(body_new_theater),
         None => body_new_theater,
     };
-    let body_key = art.and_then(|a| a.get(&art_section, "Image")).unwrap_or(art_section.as_str()).to_ascii_uppercase();
+    let body_key = body
+        .image
+        .as_deref()
+        .unwrap_or(art_section.as_str())
+        .trim()
+        .to_ascii_uppercase();
     StructureTypePaintHints {
         remapable,
         body_key,
@@ -77,21 +87,89 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         tech_level: structure_tech_level(rules, type_id),
         turret_voxel: structure_turret_voxel_hints(rules, type_id),
         fire_offsets: structure_damage_fire_offsets(art, type_id, &art_section),
-        buildup: structure_buildup_hints(art, &art_section, body_new_theater),
-        loop_anims: structure_loop_anim_names(art, type_id, &art_section),
+        buildup: structure_buildup_hints(art, body.buildup.as_deref(), body_new_theater),
+        loop_anims: structure_loop_anim_names(&body),
     }
 }
 
-fn structure_loop_anim_names(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> Vec<(Option<String>, Option<String>)> {
-    STRUCTURE_LOOP_ANIM_KEYS
-        .iter()
-        .map(|&(anim_key, damaged_key, _)| {
-            (
-                art_get_building(art, type_id, art_section, anim_key).map(str::to_ascii_uppercase),
-                art_get_building(art, type_id, art_section, damaged_key).map(str::to_ascii_uppercase),
-            )
-        })
-        .collect()
+fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
+    let art = match art {
+        Some(a) => a,
+        None => return StructureBodyArtFields::default(),
+    };
+    let type_fields = art
+        .section(type_id)
+        .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
+        .unwrap_or_default();
+    if art_section.eq_ignore_ascii_case(type_id) {
+        return type_fields;
+    }
+    let section_fields = art
+        .section(art_section)
+        .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
+        .unwrap_or_default();
+    // 类型节优先（`DamageFireOffset*` / 活动层名常挂在类型节），缺键再回退 `Image=` 目标节。
+    StructureBodyArtFields {
+        image: type_fields.image.or(section_fields.image),
+        new_theater: type_fields.new_theater.or(section_fields.new_theater),
+        remapable: type_fields.remapable.or(section_fields.remapable),
+        bib_shape: type_fields.bib_shape.or(section_fields.bib_shape),
+        buildup: type_fields.buildup.or(section_fields.buildup),
+        active_anim: type_fields.active_anim.or(section_fields.active_anim),
+        active_anim_damaged: type_fields.active_anim_damaged.or(section_fields.active_anim_damaged),
+        active_anim_two: type_fields.active_anim_two.or(section_fields.active_anim_two),
+        active_anim_two_damaged: type_fields.active_anim_two_damaged.or(section_fields.active_anim_two_damaged),
+        idle_anim: type_fields.idle_anim.or(section_fields.idle_anim),
+        idle_anim_damaged: type_fields.idle_anim_damaged.or(section_fields.idle_anim_damaged),
+        idle_anim_two: type_fields.idle_anim_two.or(section_fields.idle_anim_two),
+        idle_anim_two_damaged: type_fields.idle_anim_two_damaged.or(section_fields.idle_anim_two_damaged),
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct StructureBodyArtFields {
+    #[serde(rename = "Image")]
+    image: Option<String>,
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+    #[serde(rename = "Remapable")]
+    remapable: Option<bool>,
+    #[serde(rename = "BibShape")]
+    bib_shape: Option<String>,
+    #[serde(rename = "Buildup")]
+    buildup: Option<String>,
+    #[serde(rename = "ActiveAnim")]
+    active_anim: Option<String>,
+    #[serde(rename = "ActiveAnimDamaged")]
+    active_anim_damaged: Option<String>,
+    #[serde(rename = "ActiveAnimTwo")]
+    active_anim_two: Option<String>,
+    #[serde(rename = "ActiveAnimTwoDamaged")]
+    active_anim_two_damaged: Option<String>,
+    #[serde(rename = "IdleAnim")]
+    idle_anim: Option<String>,
+    #[serde(rename = "IdleAnimDamaged")]
+    idle_anim_damaged: Option<String>,
+    #[serde(rename = "IdleAnimTwo")]
+    idle_anim_two: Option<String>,
+    #[serde(rename = "IdleAnimTwoDamaged")]
+    idle_anim_two_damaged: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct BibShapeSectionFields {
+    #[serde(rename = "NewTheater")]
+    new_theater: Option<bool>,
+}
+
+fn structure_loop_anim_names(body: &StructureBodyArtFields) -> Vec<(Option<String>, Option<String>)> {
+    let upper = |s: &Option<String>| s.as_deref().map(str::to_ascii_uppercase).filter(|v| !v.is_empty());
+    vec![
+        (upper(&body.active_anim), upper(&body.active_anim_damaged)),
+        (upper(&body.active_anim_two), upper(&body.active_anim_two_damaged)),
+        (upper(&body.idle_anim), upper(&body.idle_anim_damaged)),
+        (upper(&body.idle_anim_two), upper(&body.idle_anim_two_damaged)),
+    ]
 }
 
 fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow: bool) -> Option<&str> {
@@ -102,9 +180,12 @@ fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow
     }
 }
 
-fn structure_buildup_hints(art: Option<&IniDocument>, art_section: &str, parent_new_theater: bool) -> Option<StructureBuildupHints> {
+fn structure_buildup_hints(art: Option<&IniDocument>, buildup: Option<&str>, parent_new_theater: bool) -> Option<StructureBuildupHints> {
     let art = art?;
-    let buildup_key = art.get(art_section, "Buildup")?.to_ascii_uppercase();
+    let buildup_key = buildup?.trim().to_ascii_uppercase();
+    if buildup_key.is_empty() {
+        return None;
+    }
     let fields = art
         .section(&buildup_key)
         .and_then(|s| s.deserialize::<BuildupSectionFields>().ok())
@@ -802,14 +883,16 @@ fn load_anim_palette(source: &dyn AssetSource) -> Option<Palette> {
 
 fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
     art.and_then(|a| {
-        let image_key = a.get(type_id, "Image").unwrap_or(type_id);
-        if a.section(image_key).is_some() {
+        let image_key = a
+            .section(type_id)
+            .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
+            .and_then(|f| f.image)
+            .unwrap_or_else(|| type_id.to_string());
+        if a.section(&image_key).is_some() {
             Some(image_key.to_ascii_uppercase())
-        }
-        else if a.section(type_id).is_some() {
+        } else if a.section(type_id).is_some() {
             Some(type_id.to_ascii_uppercase())
-        }
-        else {
+        } else {
             None
         }
     })
@@ -820,14 +903,6 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
 fn art_get_building<'a>(art: Option<&'a IniDocument>, type_id: &str, art_section: &str, key: &str) -> Option<&'a str> {
     let art = art?;
     art.get(type_id, key).or_else(|| if art_section.eq_ignore_ascii_case(type_id) { None } else { art.get(art_section, key) })
-}
-
-fn is_remapable(art: Option<&IniDocument>, section: &str, default_yes: bool) -> bool {
-    match art.and_then(|a| a.get(section, "Remapable")) {
-        Some(v) if v.eq_ignore_ascii_case("no") => false,
-        Some(_) => true,
-        None => default_yes,
-    }
 }
 
 fn load_shp<'a>(
