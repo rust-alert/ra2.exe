@@ -202,9 +202,9 @@ impl BattleController {
         let vp = self.map_viewport(window);
         let (can_west, can_east, can_north, can_south) = self.edge_scroll_can_axes(renderer, vp.proj_w(), vp.proj_h());
         self.edge_scroll_cursor = edge_scroll_cursor_for(west, east, north, south, can_west, can_east, can_north, can_south);
-        let (mut dx, mut dy) =
-            edge_scroll_screen_delta(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX, EDGE_SCROLL_SPEED_PX_PER_SEC, dt);
-        let (kx, ky) = keyboard_pan_screen_delta(self.camera_pan_keys, KEYBOARD_PAN_SPEED_PX_PER_SEC, dt);
+        let speed = EDGE_SCROLL_SPEED_PX_PER_SEC * self.scroll_rate_speed_scale();
+        let (mut dx, mut dy) = edge_scroll_screen_delta(self.cursor.0, self.cursor.1, sw, sh, EDGE_SCROLL_MARGIN_PX, speed, dt);
+        let (kx, ky) = keyboard_pan_screen_delta(self.camera_pan_keys, KEYBOARD_PAN_SPEED_PX_PER_SEC * self.scroll_rate_speed_scale(), dt);
         dx += kx;
         dy += ky;
         if dx > 0.0 && !can_west {

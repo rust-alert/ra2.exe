@@ -3,6 +3,7 @@
 mod battle_hud;
 mod battle_order_icons;
 mod battle_pause_menu;
+mod battle_pause_submenus;
 mod campaign_setup;
 mod choose_map_scroll;
 mod discover_maps;

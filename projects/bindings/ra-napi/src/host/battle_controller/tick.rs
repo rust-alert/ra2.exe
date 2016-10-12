@@ -15,8 +15,13 @@ impl BattleController {
     /// 推进仿真（仅对局页调用）并检测是否应进入结算。返回导航与本段耗时。
     pub fn pump(&mut self, dt: f64) -> (BattleNav, std::time::Duration) {
         let started = Instant::now();
+        let sim_dt = if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
+            0.0
+        } else {
+            dt * self.game_speed_dt_scale()
+        };
         if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
-            let _ = session.pump(&engine.runtime(), dt);
+            let _ = session.pump(&engine.runtime(), sim_dt);
             if let Some(game) = session.battle() {
                 self.local.prune_dead(game);
             }
