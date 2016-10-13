@@ -75,3 +75,30 @@ fn from_map_loads_iso_heights() {
     assert_eq!(grid.cell_height(1, 0), 4);
     assert!(grid.find_path(0, 0, 1, 0).is_some());
 }
+
+#[test]
+fn prepared_map_skeleton_seeds_anchor_occupancy() {
+    use ra_map::TerrainObject;
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 3;
+    map.height = 2;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 1,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.terrain_objects.push(TerrainObject { x: 2, y: 1, name: "TREE1".into() });
+    let prepared = map.to_prepared_map_skeleton();
+    assert_eq!(prepared.occupancy.len(), 6);
+    assert_eq!(prepared.occupancy[1], 1);
+    assert_eq!(prepared.occupancy[1 * 3 + 1], 0);
+    assert_eq!(prepared.occupancy[1 * 3 + 2], 2);
+}
