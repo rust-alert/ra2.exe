@@ -514,7 +514,7 @@ fn parse_map_digest(doc: &IniDocument) -> String {
         .join("")
 }
 
-/// 建筑锚点=`1`、地形物件=`2`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
+/// 建筑锚点=`1`、地形物件=`2`、污迹=`3`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
 fn prepared_occupancy_from_map(map: &MapInfo) -> Vec<u8> {
     let width = map.width.max(1) as usize;
     let height = map.height.max(1) as usize;
@@ -537,6 +537,9 @@ fn prepared_occupancy_from_map(map: &MapInfo) -> Vec<u8> {
     }
     for obj in &map.terrain_objects {
         mark(&mut occupancy, obj.x, obj.y, 2);
+    }
+    for smudge in &map.smudges {
+        mark(&mut occupancy, smudge.x, smudge.y, 3);
     }
     occupancy
 }

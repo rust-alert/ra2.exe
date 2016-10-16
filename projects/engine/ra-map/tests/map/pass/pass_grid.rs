@@ -1,6 +1,6 @@
 //! 自顶层 `pass_grid.rs`。
 
-use ra_map::{IsoCell, MapEntity, MapEntityKind, MapInfo, PassGrid};
+use ra_map::{IsoCell, MapEntity, MapEntityKind, MapInfo, MapSmudge, PassGrid, TerrainObject};
 use ra_types::GameEdition;
 
 #[test]
@@ -78,8 +78,6 @@ fn from_map_loads_iso_heights() {
 
 #[test]
 fn prepared_map_skeleton_seeds_anchor_occupancy() {
-    use ra_map::TerrainObject;
-
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 3;
     map.height = 2;
@@ -96,9 +94,11 @@ fn prepared_map_skeleton_seeds_anchor_occupancy() {
         tag: String::new(),
     });
     map.terrain_objects.push(TerrainObject { x: 2, y: 1, name: "TREE1".into() });
+    map.smudges.push(MapSmudge { x: 0, y: 1, name: "CRATER1".into() });
     let prepared = map.to_prepared_map_skeleton();
     assert_eq!(prepared.occupancy.len(), 6);
     assert_eq!(prepared.occupancy[1], 1);
     assert_eq!(prepared.occupancy[1 * 3 + 1], 0);
     assert_eq!(prepared.occupancy[1 * 3 + 2], 2);
+    assert_eq!(prepared.occupancy[1 * 3], 3);
 }
