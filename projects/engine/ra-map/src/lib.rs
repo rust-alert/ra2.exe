@@ -384,8 +384,21 @@ impl MapInfo {
     ///
     /// 不含 overlay 陆地封格、Foundation 展开、渲染清单或规则绑定；对局路径仍可继续用 `PassGrid` 直至准备层收口。
     pub fn to_prepared_map_skeleton(&self) -> ra_types::PreparedMap {
+        self.prepared_map_from_pass_grid(PassGrid::from_map(self))
+    }
+
+    /// 在 [`Self::to_prepared_map_skeleton`] 基础上，用 overlay `Land=` / `NoUseTileLandType` 覆写通行层。
+    ///
+    /// 仍不含 Foundation 展开或渲染清单；调用方需已装载 [`ra_types::OverlayTypeRegistry`]。
+    pub fn to_prepared_map_skeleton_with_overlays(&self, overlays: &ra_types::OverlayTypeRegistry) -> ra_types::PreparedMap {
+        let mut grid = PassGrid::from_map(self);
+        apply_overlay_land_to_pass_grid(self, overlays, &mut grid);
+        self.prepared_map_from_pass_grid(grid)
+    }
+
+    fn prepared_map_from_pass_grid(&self, grid: PassGrid) -> ra_types::PreparedMap {
         let definition = self.to_map_definition();
-        let (pass_width, pass_height, passable, cell_heights) = PassGrid::from_map(self).to_prepared_pass_layers();
+        let (pass_width, pass_height, passable, cell_heights) = grid.to_prepared_pass_layers();
         let occupancy = prepared_occupancy_from_map(self);
         ra_types::PreparedMap {
             definition,

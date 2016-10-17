@@ -33,3 +33,31 @@ fn overlay_without_no_use_leaves_cell() {
     assert_eq!(n, 0);
     assert!(!grid.is_passable(0, 0));
 }
+
+#[test]
+fn prepared_skeleton_with_overlays_opens_bridge_cell() {
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 4;
+    // `PassGrid::from_map` 默认全可走；先放建筑封死，再靠桥面 overlay 重开。
+    map.entities.push(ra_map::MapEntity {
+        kind: ra_map::MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "DUMMY".into(),
+        health: 256,
+        x: 1,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    map.overlays.push(OverlayCell { x: 1, y: 2, overlay_id: 0, data: 0 });
+    let rules = IniDocument::parse(b"[OverlayTypes]\n0=LOBRDG01\n[LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n").expect("rules");
+    let overlays = overlay_types_from_rules(&rules);
+    let prepared = map.to_prepared_map_skeleton_with_overlays(&overlays);
+    let i = 2 * 4 + 1;
+    assert_eq!(prepared.passable[i], 1);
+    let bare = map.to_prepared_map_skeleton();
+    assert_eq!(bare.passable[i], 0);
+}
