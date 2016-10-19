@@ -489,7 +489,7 @@ pub struct MapAiTrigger {
 
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
-/// 当前为骨架：通行格与粗占格已可由装载侧灌入；Foundation 封通行、渲染资源清单等仍待准备层收口。
+/// 当前为骨架：通行格与粗占格已可由装载侧灌入；渲染资源清单等仍待准备层收口。
 /// 与 [`MapDefinition`] 一样，本类型是运行最优形状，可随时改，不绑定磁盘格式。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PreparedMap {

@@ -1,8 +1,10 @@
 //! `[Tags]` / `[Triggers]` / `[Events]` / `[Actions]` / `[CellTags]`。
 
+use std::fmt;
+
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
 use serde::Deserialize;
-use serde::de::{self, Deserializer};
+use serde::de::{self, Deserializer, Visitor};
 
 use super::{MapActionKind, MapEventKind};
 
@@ -152,8 +154,33 @@ fn flag_is_one<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    Ok(raw.trim() == "1")
+    struct FlagIsOne;
+
+    impl<'de> Visitor<'de> for FlagIsOne {
+        type Value = bool;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("trigger disabled flag (1 = true)")
+        }
+
+        fn visit_bool<E: de::Error>(self, v: bool) -> Result<bool, E> {
+            Ok(v)
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<bool, E> {
+            Ok(v == 1)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<bool, E> {
+            Ok(v == 1)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<bool, E> {
+            Ok(v.trim() == "1")
+        }
+    }
+
+    deserializer.deserialize_any(FlagIsOne)
 }
 
 /// 非 `0` 为真（缺列由上层行长校验兜住）。
@@ -161,11 +188,37 @@ fn flag_not_zero<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    if raw.is_empty() {
-        return Err(de::Error::custom("缺难度开关列"));
+    struct FlagNotZero;
+
+    impl<'de> Visitor<'de> for FlagNotZero {
+        type Value = bool;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("trigger difficulty switch (non-zero = true)")
+        }
+
+        fn visit_bool<E: de::Error>(self, v: bool) -> Result<bool, E> {
+            Ok(v)
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<bool, E> {
+            Ok(v != 0)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<bool, E> {
+            Ok(v != 0)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<bool, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Err(E::custom("缺难度开关列"));
+            }
+            Ok(t != "0")
+        }
     }
-    Ok(raw.trim() != "0")
+
+    deserializer.deserialize_any(FlagNotZero)
 }
 
 /// 解析 `[Tags]`。
