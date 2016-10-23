@@ -161,3 +161,73 @@ fn prepared_map_skeleton_expands_structure_foundation() {
     assert_eq!(prepared.passable[2 * 4 + 2], 0);
     assert_eq!(bare.passable[1 * 4 + 2], 1);
 }
+
+#[test]
+fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
+    use ra_assets::{IniDocument, overlay_types_from_rules};
+    use ra_map::OverlayCell;
+    use ra_types::{
+        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 4;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    // 桥面覆盖在 Foundation 外一格，应被 overlay land 重开（若先被封）。
+    map.overlays.push(OverlayCell { x: 0, y: 0, overlay_id: 0, data: 0 });
+    let mut structures = StructureDefinitions::default();
+    structures.insert(StructureDefinition {
+        id: TypeId(1),
+        type_key: "GAPOWR".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: false,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        foundation: Foundation::parse("2x2"),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    let rules = IniDocument::parse(b"[OverlayTypes]\n0=LOBRDG01\n[LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n").expect("rules");
+    let overlays = overlay_types_from_rules(&rules);
+    // 先手动封 (0,0)，再经 bound 路径用 bridge overlay 重开，同时 Foundation 封 (1,1)..(2,2)。
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "UNKNOWN".into(),
+        health: 256,
+        x: 0,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+        mission: String::new(),
+        tag: String::new(),
+    });
+    let prepared = map.to_prepared_map_skeleton_bound(&overlays, &structures);
+    assert_eq!(prepared.occupancy[1 * 4 + 1], 1);
+    assert_eq!(prepared.occupancy[2 * 4 + 2], 1);
+    assert_eq!(prepared.passable[1 * 4 + 1], 0);
+    assert_eq!(prepared.passable[2 * 4 + 2], 0);
+    assert_eq!(prepared.passable[0], 1, "bridge overlay should reopen sealed cell");
+}
