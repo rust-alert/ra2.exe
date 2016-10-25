@@ -487,6 +487,18 @@ pub struct MapAiTrigger {
     pub tech_level: i32,
 }
 
+/// 行优先粗占格码（与 [`PreparedMap::occupancy`] 元素语义对齐）。
+pub mod occupancy_kind {
+    /// 空格。
+    pub const EMPTY: u8 = 0;
+    /// 建筑占地（锚点或 `Foundation` 展开）。
+    pub const STRUCTURE: u8 = 1;
+    /// 地形物件。
+    pub const TERRAIN: u8 = 2;
+    /// 污迹。
+    pub const SMUDGE: u8 = 3;
+}
+
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
 /// 当前为骨架：通行格与粗占格已可由装载侧灌入；渲染资源清单等仍待准备层收口。
@@ -503,7 +515,7 @@ pub struct PreparedMap {
     pub passable: Vec<u8>,
     /// 行优先格高度档，与 [`Self::passable`] 同长或空。
     pub cell_heights: Vec<u8>,
-    /// 行优先粗占格：`0` 空，`1` 建筑占地，`2` 地形物件，`3` 污迹。空表示尚未填充。
+    /// 行优先粗占格：见 [`occupancy_kind`]。空表示尚未填充。
     ///
     /// 绑定 `StructureDefinitions` 时可按 `Foundation=` 多格展开；裸骨架仅锚点 `1x1`。
     pub occupancy: Vec<u8>,
