@@ -17,6 +17,7 @@ fn abort_confirm_hits_leave_and_cancel() {
     let leave = rects[0];
     let cancel = rects[1];
     assert!(cancel.y > leave.y);
+    assert!(leave.x > 200, "leave must be centered");
     assert_eq!(abort_hit(800, 600, leave.x + 4, leave.y + 4), Some(BattleAbortConfirmHit::Leave));
     assert_eq!(abort_hit(800, 600, cancel.x + 4, cancel.y + 4), Some(BattleAbortConfirmHit::Cancel));
 }

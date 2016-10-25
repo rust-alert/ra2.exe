@@ -137,9 +137,9 @@ pub const EXIT_CONFIRM_BUTTON_W: i32 = 126;
 /// MessageBox 按钮艺术高（安装内 `mnbttn.shp` 画布）。
 pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 
-/// 战斗暂停菜单右侧按钮入口 id（与 `battle_pause_menu` / 合成顺序一致）。
+/// 战斗暂停菜单居中卡片按钮入口 id（与 `battle_pause_menu` / 合成顺序一致）。
 ///
-/// 顺序对齐原版遭遇战 Esc 菜单：选项 → 全屏 → 放弃任务；「回到任务」贴底。
+/// 顺序：选项 → 全屏 → 放弃任务 → 回到任务（竖排于居中卡片内，不是 HUD 侧栏）。
 pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 4] = ["options", "fullscreen", "abort", "resume"];
 
 /// 遭遇战积分页右栏按钮（仅「继续」贴底）。
