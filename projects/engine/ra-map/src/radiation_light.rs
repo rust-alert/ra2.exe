@@ -3,7 +3,7 @@
 //! 不依赖战斗 sim；调用方传入当前存活站点即可。强度按 `RadLightDelay` 阶梯衰减，
 //! 染色按 `remaining_at_step / duration` 比例淡出。
 
-use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
+use ra_assets::IniDocument;
 use serde::Deserialize;
 
 use crate::lighting::{self, LIGHT_CLAMP_MAX, LIGHT_UNIT, PointLight};
@@ -72,19 +72,9 @@ struct RadiationLightSectionFields {
     light_factor: Option<f32>,
     #[serde(rename = "RadTintFactor")]
     tint_factor: Option<f32>,
-    #[serde(rename = "RadColor", default, deserialize_with = "deserialize_optional_rgb")]
+    /// `RadColor=r,g,b`：INI 逗号序列一次落到三元组。
+    #[serde(rename = "RadColor")]
     color: Option<(u8, u8, u8)>,
-}
-
-fn deserialize_optional_rgb<'de, D>(deserializer: D) -> Result<Option<(u8, u8, u8)>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let Some(raw) = Option::<String>::deserialize(deserializer)?
-    else {
-        return Ok(None);
-    };
-    Ok(parse_rgb_triplet(&raw))
 }
 
 /// 从 rules INI 解析 `[Radiation]` 光相关键。
@@ -111,18 +101,6 @@ pub fn parse_radiation_light_rules(doc: &IniDocument) -> RadiationLightRules {
         rules.color = rgb;
     }
     rules
-}
-
-#[derive(Debug, Deserialize)]
-struct RgbTripletRow {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-fn parse_rgb_triplet(raw: &str) -> Option<(u8, u8, u8)> {
-    let row = from_csv_row::<RgbTripletRow>(&parse_westwood_csv_line(raw)).ok()?;
-    Some((row.r, row.g, row.b))
 }
 
 /// 由单个辐射站点推导绿光；寿命无效或已完全熄灭时返回 `None`。

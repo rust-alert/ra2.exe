@@ -97,11 +97,50 @@ fn deserialize_optional_condition_percent<'de, D>(deserializer: D) -> Result<Opt
 where
     D: Deserializer<'de>,
 {
-    let Some(raw) = Option::<String>::deserialize(deserializer)?
-    else {
-        return Ok(None);
-    };
-    Ok(parse_condition_percent(&raw))
+    struct ConditionPercentVisitor;
+
+    impl<'de> Visitor<'de> for ConditionPercentVisitor {
+        type Value = Option<f32>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("condition percent like 50% / 0.5 / 50")
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            let v = v as f32;
+            if v > 1.0 {
+                Ok(Some((v / 100.0).clamp(0.0, 1.0)))
+            } else {
+                Ok(Some(v.clamp(0.0, 1.0)))
+            }
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            self.visit_f64(v as f64)
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            self.visit_f64(v as f64)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            Ok(parse_condition_percent(v))
+        }
+
+        fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+            Ok(parse_condition_percent(&v))
+        }
+    }
+
+    deserializer.deserialize_any(ConditionPercentVisitor)
 }
 
 fn deserialize_optional_fire_type_list<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
