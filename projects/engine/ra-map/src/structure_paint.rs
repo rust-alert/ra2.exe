@@ -12,7 +12,7 @@ use crate::{
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
     lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
-    structure_damage::{StructureDamageRules, damaged_body_frame, parse_damage_fire_offset, structure_tech_level},
+    structure_damage::{StructureDamageRules, damaged_body_frame, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -262,8 +262,11 @@ fn de_opt_damage_fire_offset<'de, D>(deserializer: D) -> Result<Option<(i32, i32
 where
     D: Deserializer<'de>,
 {
-    let raw = String::deserialize(deserializer)?;
-    Ok(parse_damage_fire_offset(&raw))
+    // 非法偏移软跳过（与旧 `parse_damage_fire_offset` 失败行为一致）。
+    match <(i32, i32)>::deserialize(deserializer) {
+        Ok(xy) => Ok(Some(xy)),
+        Err(_) => Ok(None),
+    }
 }
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
