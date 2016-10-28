@@ -1,8 +1,11 @@
 //! rules `[Countries]` / `[Sides]`：国家与势力表（INI 字段解释，供大厅 / 装载使用）。
 
+use std::fmt;
+
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 use crate::parse_westwood_csv_line;
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
 
 /// 一个国家（house）定义。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -350,17 +353,46 @@ struct SideChromeSectionFields {
 
 fn deserialize_optional_mix_file_index<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
 where
-    D: serde::Deserializer<'de>,
+    D: Deserializer<'de>,
 {
-    let Some(raw) = Option::<String>::deserialize(deserializer)?
-    else {
-        return Ok(None);
-    };
-    let Ok(n) = raw.trim().parse::<u32>()
-    else {
-        return Ok(None);
-    };
-    if n >= 1 { Ok(Some(n)) } else { Ok(None) }
+    struct MixIndexVisitor;
+
+    impl<'de> Visitor<'de> for MixIndexVisitor {
+        type Value = Option<u32>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("Sidebar.MixFileIndex >= 1")
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(if v >= 1 { Some(v as u32) } else { None })
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            if v < 1 {
+                return Ok(None);
+            }
+            Ok(Some(v as u32))
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let Ok(n) = v.trim().parse::<u32>()
+            else {
+                return Ok(None);
+            };
+            Ok(if n >= 1 { Some(n) } else { None })
+        }
+    }
+
+    deserializer.deserialize_any(MixIndexVisitor)
 }
 
 /// 仅填空：把 edition adaptor 提供的库存 Side chrome 写入缺键行。
