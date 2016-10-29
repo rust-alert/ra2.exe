@@ -3,7 +3,6 @@
 use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use crate::parse_westwood_csv_line;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -278,10 +277,10 @@ fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id:
 
 #[doc(hidden)]
 pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
-    let houses: Vec<String> = parse_westwood_csv_line(raw)
-        .fields
+    let houses: Vec<String> = crate::from_row::<Vec<String>>(raw)
+        .unwrap_or_default()
         .into_iter()
-        .map(|f| f.value)
+        .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
     houses.len() == 1 && houses[0].eq_ignore_ascii_case(country_id)
@@ -303,10 +302,10 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
         else {
             continue;
         };
-        let countries: Vec<String> = parse_westwood_csv_line(value.raw)
-            .fields
+        let countries: Vec<String> = crate::from_row::<Vec<String>>(value.raw)
+            .unwrap_or_default()
             .into_iter()
-            .map(|f| f.value)
+            .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect();
         out.push(SideGroup { id: id.to_string(), countries });
