@@ -46,12 +46,6 @@ struct GeneralDamageFireFields {
     damage_fire_names: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
-struct FireOffsetRow {
-    x: i32,
-    y: i32,
-}
-
 impl StructureDamageRules {
     /// 从 rules 文档读取 `[AudioVisual]` 阈值与火焰类型。
     pub fn from_rules_doc(doc: &IniDocument) -> Self {
@@ -262,6 +256,5 @@ pub fn damaged_body_frame(health_256: u16, yellow: f32, red: f32, tech_level: i3
 
 /// 解析 `DamageFireOffsetN=x,y`。
 pub fn parse_damage_fire_offset(raw: &str) -> Option<(i32, i32)> {
-    let row: FireOffsetRow = from_row(raw).ok()?;
-    Some((row.x, row.y))
+    from_row::<(i32, i32)>(raw).ok()
 }
