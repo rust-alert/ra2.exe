@@ -29,38 +29,37 @@ pub struct MapHouse {
 /// 单方 House 节字段（一次 Serde）。
 #[derive(Debug, Default, Deserialize)]
 struct MapHouseSectionFields {
-    #[serde(rename = "Country")]
-    country: Option<String>,
+    #[serde(rename = "Country", default)]
+    country: String,
     #[serde(rename = "TechLevel")]
     tech_level: Option<i32>,
     #[serde(rename = "Credits")]
     credits: Option<i32>,
     #[serde(rename = "IQ")]
     iq: Option<i32>,
-    #[serde(rename = "Edge")]
-    edge: Option<String>,
+    #[serde(rename = "Edge", default)]
+    edge: String,
     #[serde(rename = "PlayerControl")]
     player_control: Option<bool>,
-    #[serde(rename = "Color")]
-    color: Option<String>,
-    #[serde(rename = "Allies")]
-    allies: Option<Vec<String>>,
+    #[serde(rename = "Color", default)]
+    color: String,
+    #[serde(rename = "Allies", default)]
+    allies: Vec<String>,
 }
 
 impl MapHouseSectionFields {
     fn into_house(self, name: String) -> MapHouse {
         MapHouse {
             name,
-            country: self.country.unwrap_or_default().trim().to_string(),
+            country: self.country.trim().to_string(),
             tech_level: self.tech_level.unwrap_or(0),
             credits: self.credits.unwrap_or(0),
             iq: self.iq.unwrap_or(0),
-            edge: self.edge.unwrap_or_default().trim().to_string(),
+            edge: self.edge.trim().to_string(),
             player_control: self.player_control.unwrap_or(false),
-            color: self.color.unwrap_or_default().trim().to_string(),
+            color: self.color.trim().to_string(),
             allies: self
                 .allies
-                .unwrap_or_default()
                 .into_iter()
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
