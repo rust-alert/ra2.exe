@@ -3,6 +3,7 @@
 use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use ra_types::HouseAllowList;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -277,13 +278,8 @@ fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id:
 
 #[doc(hidden)]
 pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
-    let houses: Vec<String> = crate::from_row::<Vec<String>>(raw)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
-    houses.len() == 1 && houses[0].eq_ignore_ascii_case(country_id)
+    let list = HouseAllowList::parse_csv(raw);
+    list.len() == 1 && list.required_allows(country_id)
 }
 
 #[doc(hidden)]
