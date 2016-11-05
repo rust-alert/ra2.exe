@@ -80,6 +80,10 @@ impl Shell {
                 self.ensure_lobby_sides();
                 self.ensure_lobby_preview();
             }
+            // 装载页右下 `mmpb` 区合成选中图预览；沿用大厅缩略图，避免白框空窗。
+            if self.screen == OriginalScreen::LoadScreen {
+                self.ensure_lobby_preview();
+            }
             if matches!(self.screen, OriginalScreen::Campaign | OriginalScreen::SkirmishLobby | OriginalScreen::LoadScreen) {
                 self.ensure_lobby_sides();
                 self.ensure_skirmish_chrome();
@@ -331,6 +335,7 @@ impl Shell {
                                 side: self.skirmish.side.as_str(),
                                 player_name: self.skirmish.player_name.as_str(),
                                 side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
+                                map_preview: self.lobby_preview.as_ref(),
                                 status: load_status.as_deref().unwrap_or(""),
                                 allow_retry: load_allow_retry,
                                 progress: load_progress,
@@ -394,6 +399,7 @@ impl Shell {
                         side: self.skirmish.side.as_str(),
                         player_name: self.skirmish.player_name.as_str(),
                         side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
+                        map_preview: self.lobby_preview.as_ref(),
                         status: load_status.as_deref().unwrap_or(self.banner.as_str()),
                         allow_retry: load_allow_retry,
                         progress: load_progress,
@@ -640,6 +646,10 @@ impl Shell {
                     let map = self.selected_map.as_deref().unwrap_or("?");
                     self.banner = format!("预览生成中… {map}");
                 }
+            }
+            // 装载页只静默收预览结果，勿改写装载进度 banner。
+            if self.screen == OriginalScreen::LoadScreen && self.poll_lobby_preview() {
+                self.refresh_menu_backdrop();
             }
             self.renderer.draw_frame(None);
             self.refresh_shell_title();

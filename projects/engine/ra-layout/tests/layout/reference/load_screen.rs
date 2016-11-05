@@ -18,6 +18,7 @@ fn load_screen_tree_matches_compose_constants() {
         ("progress", 56, 332, 200, 16),
         ("player_flag", 150, 324, 40, 24),
         ("player_name", 202, 328, 120, 20),
+        ("map_preview", 499, 379, 216, 166),
     ] {
         let got = snap.get(id).expect(id).layout.rect;
         assert_eq!(got.x as i32, x, "{id} x");
