@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
-use ra_types::AssetSource;
+use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
 use crate::{
@@ -35,10 +35,10 @@ fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
     TerrainObjectPaintHints {
         image_key: art_fields
             .image
-            .as_deref()
-            .unwrap_or(name)
-            .trim()
-            .to_ascii_uppercase(),
+            .as_ref()
+            .filter(|n| !n.is_empty())
+            .map(|n| n.as_str().to_string())
+            .unwrap_or_else(|| name.trim().to_ascii_uppercase()),
         is_animated: rules_fields.is_animated.unwrap_or(false),
         spawns_tiberium: rules_fields.spawns_tiberium.unwrap_or(false),
         animation_rate: rules_fields.animation_rate.unwrap_or(1).max(1),
@@ -48,7 +48,7 @@ fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
 #[derive(Debug, Default, Deserialize)]
 struct TerrainArtSectionFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
 }
 
 #[derive(Debug, Default, Deserialize)]

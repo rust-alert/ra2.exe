@@ -152,21 +152,21 @@ struct StructureBodyArtFields {
     #[serde(rename = "Buildup")]
     buildup: Option<ImageName>,
     #[serde(rename = "ActiveAnim")]
-    active_anim: Option<String>,
+    active_anim: Option<ImageName>,
     #[serde(rename = "ActiveAnimDamaged")]
-    active_anim_damaged: Option<String>,
+    active_anim_damaged: Option<ImageName>,
     #[serde(rename = "ActiveAnimTwo")]
-    active_anim_two: Option<String>,
+    active_anim_two: Option<ImageName>,
     #[serde(rename = "ActiveAnimTwoDamaged")]
-    active_anim_two_damaged: Option<String>,
+    active_anim_two_damaged: Option<ImageName>,
     #[serde(rename = "IdleAnim")]
-    idle_anim: Option<String>,
+    idle_anim: Option<ImageName>,
     #[serde(rename = "IdleAnimDamaged")]
-    idle_anim_damaged: Option<String>,
+    idle_anim_damaged: Option<ImageName>,
     #[serde(rename = "IdleAnimTwo")]
-    idle_anim_two: Option<String>,
+    idle_anim_two: Option<ImageName>,
     #[serde(rename = "IdleAnimTwoDamaged")]
-    idle_anim_two_damaged: Option<String>,
+    idle_anim_two_damaged: Option<ImageName>,
     #[serde(rename = "DamageFireOffset0", default, deserialize_with = "de_opt_damage_fire_offset")]
     damage_fire_offset0: Option<(i32, i32)>,
     #[serde(rename = "DamageFireOffset1", default, deserialize_with = "de_opt_damage_fire_offset")]
@@ -192,12 +192,12 @@ struct BibShapeSectionFields {
 }
 
 fn structure_loop_anim_names(body: &StructureBodyArtFields) -> Vec<(Option<String>, Option<String>)> {
-    let upper = |s: &Option<String>| s.as_deref().map(str::to_ascii_uppercase).filter(|v| !v.is_empty());
+    let name = |s: &Option<ImageName>| s.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string());
     vec![
-        (upper(&body.active_anim), upper(&body.active_anim_damaged)),
-        (upper(&body.active_anim_two), upper(&body.active_anim_two_damaged)),
-        (upper(&body.idle_anim), upper(&body.idle_anim_damaged)),
-        (upper(&body.idle_anim_two), upper(&body.idle_anim_two_damaged)),
+        (name(&body.active_anim), name(&body.active_anim_damaged)),
+        (name(&body.active_anim_two), name(&body.active_anim_two_damaged)),
+        (name(&body.idle_anim), name(&body.idle_anim_damaged)),
+        (name(&body.idle_anim_two), name(&body.idle_anim_two_damaged)),
     ]
 }
 
@@ -336,10 +336,10 @@ fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, defa
         .unwrap_or_default();
     let image_key = fields
         .image
-        .as_deref()
-        .unwrap_or(anim_name)
-        .trim()
-        .to_ascii_uppercase();
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
+        .unwrap_or_else(|| anim_name.trim().to_ascii_uppercase());
     let loop_start = fields.loop_start.or(fields.start).unwrap_or(0);
     let loop_end = fields.loop_end.unwrap_or(loop_start.saturating_add(1));
     StructureAnimSectionHints {
@@ -355,7 +355,7 @@ fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, defa
 #[derive(Debug, Default, Deserialize)]
 struct AnimSectionFields {
     #[serde(rename = "Image")]
-    image: Option<String>,
+    image: Option<ImageName>,
     #[serde(rename = "NewTheater")]
     new_theater: Option<bool>,
     #[serde(rename = "LoopStart")]
