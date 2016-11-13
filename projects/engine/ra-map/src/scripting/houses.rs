@@ -1,6 +1,7 @@
 //! `[Houses]` 与各方 House 节。
 
 use ra_assets::{IniDocument, numbered_pairs};
+use ra_types::HouseName;
 use serde::Deserialize;
 
 /// 地图一方（装载解析中间态；投影进 `ra_types::MapHouse` 后由运行契约消费）。
@@ -8,8 +9,8 @@ use serde::Deserialize;
 pub struct MapHouse {
     /// 节名（常为 `Player House` 等）。
     pub name: String,
-    /// `Country=`。
-    pub country: String,
+    /// `Country=`（装载期一次解码为大写国家键）。
+    pub country: HouseName,
     /// `TechLevel=`。
     pub tech_level: i32,
     /// `Credits=`（地图单位常为百计资金）。
@@ -30,7 +31,7 @@ pub struct MapHouse {
 #[derive(Debug, Default, Deserialize)]
 struct MapHouseSectionFields {
     #[serde(rename = "Country", default)]
-    country: String,
+    country: HouseName,
     #[serde(rename = "TechLevel")]
     tech_level: Option<i32>,
     #[serde(rename = "Credits")]
@@ -51,7 +52,7 @@ impl MapHouseSectionFields {
     fn into_house(self, name: String) -> MapHouse {
         MapHouse {
             name,
-            country: self.country.trim().to_string(),
+            country: self.country,
             tech_level: self.tech_level.unwrap_or(0),
             credits: self.credits.unwrap_or(0),
             iq: self.iq.unwrap_or(0),

@@ -141,7 +141,7 @@ Allies=GDI, Allies\n\
     assert_eq!(houses.len(), 2);
     let usa = &houses[0];
     assert_eq!(usa.name, "Americans");
-    assert_eq!(usa.country, "Americans");
+    assert_eq!(usa.country, "AMERICANS");
     assert_eq!(usa.tech_level, 10);
     assert_eq!(usa.credits, 100);
     assert_eq!(usa.iq, 5);

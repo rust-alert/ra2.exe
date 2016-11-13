@@ -288,8 +288,8 @@ pub struct MapOverlayCell {
 pub struct MapHouse {
     /// 节名（常为 `Player House` 等）。
     pub name: String,
-    /// `Country=`。
-    pub country: String,
+    /// `Country=`（装载期一次解码为大写国家键）。
+    pub country: crate::HouseName,
     /// `TechLevel=`。
     pub tech_level: i32,
     /// `Credits=`（地图单位常为百计资金）。
