@@ -3,6 +3,7 @@
 use std::fmt;
 
 use ra_assets::{IniDocument, from_row};
+use ra_types::ImageName;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -14,8 +15,8 @@ pub struct StructureDamageRules {
     pub yellow: f32,
     /// `ConditionRed`（0..=1），默认 0.25。
     pub red: f32,
-    /// `DamageFireTypes`（如 `FIRE01,FIRE02,FIRE03`）。
-    pub fire_types: Vec<String>,
+    /// `DamageFireTypes`（装载期一次解码为艺术名，如 `FIRE01`）。
+    pub fire_types: Vec<ImageName>,
 }
 
 impl Default for StructureDamageRules {
@@ -32,18 +33,18 @@ struct AudioVisualDamageFields {
     #[serde(rename = "ConditionRed", default, deserialize_with = "deserialize_optional_condition_percent")]
     condition_red: Option<f32>,
     #[serde(rename = "DamageFireTypes", default, deserialize_with = "deserialize_optional_fire_type_list")]
-    damage_fire_types: Option<Vec<String>>,
+    damage_fire_types: Option<Vec<ImageName>>,
     #[serde(rename = "DamageFireNames", default, deserialize_with = "deserialize_optional_fire_type_list")]
-    damage_fire_names: Option<Vec<String>>,
+    damage_fire_names: Option<Vec<ImageName>>,
 }
 
 /// `[General]` 火焰类型键。
 #[derive(Debug, Default, Deserialize)]
 struct GeneralDamageFireFields {
     #[serde(rename = "DamageFireTypes", default, deserialize_with = "deserialize_optional_fire_type_list")]
-    damage_fire_types: Option<Vec<String>>,
+    damage_fire_types: Option<Vec<ImageName>>,
     #[serde(rename = "DamageFireNames", default, deserialize_with = "deserialize_optional_fire_type_list")]
-    damage_fire_names: Option<Vec<String>>,
+    damage_fire_names: Option<Vec<ImageName>>,
 }
 
 impl StructureDamageRules {
@@ -137,14 +138,14 @@ where
     deserializer.deserialize_any(ConditionPercentVisitor)
 }
 
-fn deserialize_optional_fire_type_list<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+fn deserialize_optional_fire_type_list<'de, D>(deserializer: D) -> Result<Option<Vec<ImageName>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct FireListVisitor;
 
     impl<'de> Visitor<'de> for FireListVisitor {
-        type Value = Option<Vec<String>>;
+        type Value = Option<Vec<ImageName>>;
 
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_str("comma-separated fire type names")
@@ -184,9 +185,9 @@ where
         {
             let mut out = Vec::new();
             while let Some(part) = seq.next_element::<String>()? {
-                let name = part.trim();
+                let name = ImageName::parse(&part);
                 if !name.is_empty() {
-                    out.push(name.to_ascii_uppercase());
+                    out.push(name);
                 }
             }
             Ok(Some(out))
@@ -196,11 +197,10 @@ where
     deserializer.deserialize_any(FireListVisitor)
 }
 
-fn parse_fire_type_list(raw: &str) -> Vec<String> {
+fn parse_fire_type_list(raw: &str) -> Vec<ImageName> {
     raw.split(',')
-        .map(str::trim)
+        .map(ImageName::parse)
         .filter(|s| !s.is_empty())
-        .map(|s| s.to_ascii_uppercase())
         .collect()
 }
 
