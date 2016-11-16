@@ -177,7 +177,7 @@ struct MissionsPktMapFields {
 fn candidate_from_parsed_map(file_name: &str, map: &MapInfo, pkt_description: Option<&str>, pkt_game_mode: Option<&str>) -> BootMapCandidate {
     let name_csf = match pkt_description.map(str::trim).filter(|s| !s.is_empty()) {
         Some(desc) => desc.to_string(),
-        None => resolve_boot_map_name_csf(file_name, &map.description_csf),
+                None => resolve_boot_map_name_csf(file_name, map.description_csf.as_str()),
     };
     let game_modes = match pkt_game_mode {
         Some(raw) => parse_game_modes(Some(raw)),

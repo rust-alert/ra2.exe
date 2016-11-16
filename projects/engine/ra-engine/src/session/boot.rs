@@ -245,9 +245,10 @@ fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
             }
         }
         if !h.allies.is_empty() {
-            let _ = state.set_house_allies(primary, h.allies.clone());
+            let allies: Vec<String> = h.allies.iter().map(|a| a.as_str().to_string()).collect();
+            let _ = state.set_house_allies(primary, allies.clone());
             if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
-                let _ = state.set_house_allies(section, h.allies.clone());
+                let _ = state.set_house_allies(section, allies);
             }
         }
         if h.player_control {

@@ -115,7 +115,7 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
     assert_eq!(t.id, "AT1");
     assert_eq!(t.name, "Strike");
     assert_eq!(t.team, "TM1");
-    assert_eq!(t.owner_house, "Russians");
+    assert_eq!(t.owner_house, "RUSSIANS");
     assert_eq!(t.tech_level, 1);
     assert!(map.scripting.unknown_sections.iter().all(|s| !s.eq_ignore_ascii_case("AITriggerTypes")));
 }
@@ -145,10 +145,10 @@ Allies=GDI, Allies\n\
     assert_eq!(usa.tech_level, 10);
     assert_eq!(usa.credits, 100);
     assert_eq!(usa.iq, 5);
-    assert_eq!(usa.edge, "North");
+    assert_eq!(usa.edge, ra_types::MapEdge::North);
     assert!(usa.player_control);
-    assert_eq!(usa.color, "Gold");
-    assert_eq!(usa.allies, vec!["GDI".to_string(), "Allies".to_string()]);
+    assert_eq!(usa.color, "GOLD");
+    assert_eq!(usa.allies, vec![ra_types::HouseName::parse("GDI"), ra_types::HouseName::parse("Allies")]);
     let ghost = &houses[1];
     assert_eq!(ghost.name, "Ghosts");
     assert!(ghost.country.is_empty());

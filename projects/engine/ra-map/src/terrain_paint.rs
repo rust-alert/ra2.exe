@@ -68,7 +68,7 @@ fn collect_terrain_object_paint_hints(
 ) -> HashMap<String, TerrainObjectPaintHints> {
     let mut out = HashMap::new();
     for obj in objects {
-        out.entry(obj.name.clone()).or_insert_with(|| terrain_object_paint_hints(art, rules, &obj.name));
+        out.entry(obj.name.to_string()).or_insert_with(|| terrain_object_paint_hints(art, rules, obj.name.as_str()));
     }
     out
 }
@@ -225,7 +225,7 @@ pub fn paint_map_terrain_objects(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(&obj.name)
+        let Some(hint) = hints.get(obj.name.as_str())
         else {
             continue;
         };
@@ -326,7 +326,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(&obj.name)
+        let Some(hint) = hints.get(obj.name.as_str())
         else {
             continue;
         };
@@ -381,7 +381,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
         let has_shadow_frames = shp_shadow_half_populated(&shp.frames);
         let shadow_blit_attached = frames.iter().any(|f| f.shadow.is_some());
         layers.push(TerrainAnimLayer {
-            type_name: obj.name.clone(),
+            type_name: obj.name.to_string(),
             x: obj.x,
             y: obj.y,
             cell_z,
@@ -469,7 +469,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs:
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(&obj.name)
+        let Some(hint) = hints.get(obj.name.as_str())
         else {
             continue;
         };
@@ -522,7 +522,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs:
         let has_shadow_frames = shp_shadow_half_populated(&shp.frames);
         let shadow_blit_attached = frames.iter().any(|f| f.shadow.is_some());
         layers.push(TerrainAnimLayer {
-            type_name: obj.name.clone(),
+            type_name: obj.name.to_string(),
             x: obj.x,
             y: obj.y,
             cell_z,

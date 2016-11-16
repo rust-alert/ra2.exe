@@ -127,8 +127,8 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let russian = snap.units.iter().find(|u| u.owner.as_ref() == "Russians").map(|u| u.id).expect("reinforced Russian");
-    let american = snap.units.iter().find(|u| u.owner.as_ref() == "Americans").map(|u| u.id).expect("preplaced American");
+    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Russians")).map(|u| u.id).expect("reinforced Russian");
+    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Americans")).map(|u| u.id).expect("preplaced American");
 
     session.tick(&engine.runtime());
     let attack = session.expect_battle().world.ecs_attack_state(russian);

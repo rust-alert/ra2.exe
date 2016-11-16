@@ -193,3 +193,51 @@ ini_name!(
     UiName,
     "UIName= CSF label"
 );
+
+ini_name!(
+    /// 房屋 / 阵营 `Color=` 方案名（装载期大写，对齐 rules `[Colors]` 键）；空 = 未写。
+    ColorName,
+    "Color= scheme name"
+);
+
+ini_name!(
+    /// 地图 `[Terrain]` 物件类型名（装载期大写，对齐 rules 地形节）；空 = 未写。
+    TerrainName,
+    "terrain type name"
+);
+
+ini_name!(
+    /// 地图 `[Smudge]` 污迹类型名（装载期大写）；空 = 未写。
+    SmudgeName,
+    "smudge type name"
+);
+
+ini_name!(
+    /// 地图 `Script=` / `[ScriptTypes]` 引用名（装载期大写）；空 = 未写。
+    ScriptTypeName,
+    "ScriptTypes id"
+);
+
+ini_name!(
+    /// 地图 `TaskForce=` / `[TaskForces]` 引用名（装载期大写）；空 = 未写。
+    TaskForceName,
+    "TaskForces id"
+);
+
+ini_name!(
+    /// 地图 `Team=` / `[TeamTypes]` 引用名（装载期大写）；空 = 未写。
+    TeamTypeName,
+    "TeamTypes id"
+);
+
+ini_name!(
+    /// 地图 `[Triggers]` / Tag 关联 Trigger id（装载期大写）；空 = 未写。
+    TriggerName,
+    "Triggers id"
+);
+
+ini_name!(
+    /// 地图 `[Tags]` / CellTag / 实体 Tag id（装载期大写）；空 = 未写。
+    TagName,
+    "Tags id"
+);

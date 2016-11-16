@@ -1,6 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
+use ra_types::{HouseName, ScriptTypeName, TagName, TaskForceName, TechnoName};
 use serde::Deserialize;
 
 /// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
@@ -8,8 +9,8 @@ use serde::Deserialize;
 pub struct MapTaskForceEntry {
     /// 数量。
     pub count: u16,
-    /// 类型 id。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写 techno 键）。
+    pub type_id: TechnoName,
 }
 
 /// `[TaskForces]` 一项（装载解析中间态；投影进 `ra_types::MapTaskForce`）。
@@ -52,14 +53,14 @@ pub struct MapTeamType {
     pub id: String,
     /// 名称。
     pub name: String,
-    /// `House=`。
-    pub house: String,
-    /// `Script=`。
-    pub script: String,
-    /// `TaskForce=`。
-    pub task_force: String,
-    /// `Tag=`（可空）。
-    pub tag: String,
+    /// `House=`（装载期一次解码为大写）。
+    pub house: HouseName,
+    /// `Script=`（装载期一次解码为大写 ScriptTypes 键）。
+    pub script: ScriptTypeName,
+    /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
+    pub task_force: TaskForceName,
+    /// `Tag=`（装载期一次解码为大写 Tags 键；可空）。
+    pub tag: TagName,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定（运行时回退 index 0）。
     pub waypoint: i32,
     /// `Max=`。
@@ -74,14 +75,14 @@ pub struct MapTeamType {
 struct TeamTypeSectionFields {
     #[serde(rename = "Name")]
     name: Option<String>,
-    #[serde(rename = "House")]
-    house: Option<String>,
-    #[serde(rename = "Script")]
-    script: Option<String>,
-    #[serde(rename = "TaskForce")]
-    task_force: Option<String>,
-    #[serde(rename = "Tag")]
-    tag: Option<String>,
+    #[serde(rename = "House", default)]
+    house: HouseName,
+    #[serde(rename = "Script", default)]
+    script: ScriptTypeName,
+    #[serde(rename = "TaskForce", default)]
+    task_force: TaskForceName,
+    #[serde(rename = "Tag", default)]
+    tag: TagName,
     #[serde(rename = "Waypoint")]
     waypoint: Option<i32>,
     #[serde(rename = "Max")]
@@ -103,7 +104,7 @@ struct NamedGroupSectionFields {
 #[derive(Debug, Deserialize)]
 struct TaskForceEntryRow {
     count: u16,
-    type_id: String,
+    type_id: TechnoName,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,7 +134,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             };
             entries.push(MapTaskForceEntry {
                 count: row.count.max(1),
-                type_id: row.type_id.to_ascii_uppercase(),
+                type_id: row.type_id,
             });
         }
         out.push(MapTaskForce {
@@ -189,10 +190,10 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
         out.push(MapTeamType {
             id,
             name: fields.name.unwrap_or_default().trim().to_string(),
-            house: fields.house.unwrap_or_default().trim().to_string(),
-            script: fields.script.unwrap_or_default().trim().to_string(),
-            task_force: fields.task_force.unwrap_or_default().trim().to_string(),
-            tag: fields.tag.unwrap_or_default().trim().to_string(),
+            house: fields.house,
+            script: fields.script,
+            task_force: fields.task_force,
+            tag: fields.tag,
             waypoint: fields.waypoint.unwrap_or(-1),
             max: fields.max.unwrap_or(0),
             priority: fields.priority.unwrap_or(0),

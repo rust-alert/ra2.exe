@@ -278,7 +278,7 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
 }
 
 fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String> {
-    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.clone()).collect()
+    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.to_string()).collect()
 }
 
 /// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。
@@ -288,7 +288,14 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
 
 /// 查找触发器所属 house（`[Triggers]` 行首字段）。
 fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
-    world.map.scripting.triggers.iter().find(|t| t.id.eq_ignore_ascii_case(trigger_id)).map(|t| t.house.clone()).filter(|h| !h.is_empty())
+    world
+        .map
+        .scripting
+        .triggers
+        .iter()
+        .find(|t| t.id.eq_ignore_ascii_case(trigger_id))
+        .map(|t| t.house.as_str().to_string())
+        .filter(|h| !h.is_empty())
 }
 
 /// 双向结盟或解盟：写入双方 `PlayerState.allies`。
@@ -333,7 +340,7 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
 }
 
 fn cell_entered_by_house(world: &BattleState, cell_tags: &[ra_map::MapCellTag], bound_tags: &HashSet<String>, house: &str) -> bool {
-    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(&c.tag_id)).map(|c| (c.x, c.y)).collect();
+    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(c.tag_id.as_str())).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }

@@ -15,8 +15,10 @@ mod deployable;
 mod fingerprint;
 pub mod foundation;
 mod house_list;
+mod land;
 mod locomotor;
 mod map;
+mod map_edge;
 mod names;
 mod overlay;
 mod production;
@@ -28,6 +30,7 @@ mod super_weapon;
 mod tech_tree;
 mod techno;
 mod terrain_spawner;
+mod theater;
 mod type_definition;
 mod warhead;
 mod warhead_verses;
@@ -41,15 +44,17 @@ pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlac
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
 pub use house_list::HouseAllowList;
+pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
     MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapHouse, MapIsoCell, MapLighting,
     MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce,
     MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, occupancy_kind,
 };
+pub use map_edge::MapEdge;
 pub use names::{
-    HouseName, ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, TechnoName, UiName, WarheadName,
-    WeaponName,
+    ColorName, HouseName, ImageName, ProjectileName, ScriptTypeName, SmudgeName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName,
+    TagName, TaskForceName, TeamTypeName, TechnoName, TerrainName, TriggerName, UiName, WarheadName, WeaponName,
 };
 pub use overlay::OverlayTypeRegistry;
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};
@@ -65,6 +70,7 @@ pub use tech_tree::{
 };
 pub use techno::{TechnoClass, TechnoDefinition, TechnoDefinitions};
 pub use terrain_spawner::{TerrainSpawnerDefinition, TerrainSpawnerDefinitions};
+pub use theater::Theater;
 pub use type_definition::TypeDefinitionId;
 pub use warhead::{WarheadDefinition, WarheadDefinitions};
 pub use warhead_verses::WarheadVerses;

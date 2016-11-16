@@ -25,10 +25,10 @@ pub struct MapDefinition {
     pub local_size: MapLocalSize,
     /// 游戏格网边长（与 iso / 航点 / 覆盖层同一坐标系）。
     pub cell_side: u32,
-    /// 剧院名（大写，如 `TEMPERATE`）。
-    pub theater: String,
-    /// `[Basic] Description` CSF 键（可空）。
-    pub description_csf: String,
+    /// 剧院（装载期一次解码为枚举）。
+    pub theater: crate::Theater,
+    /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空）。
+    pub description_csf: crate::UiName,
     /// `[Basic] GameModes` 标签。
     pub game_modes: Vec<String>,
     /// `[Basic] NextMission`（可空）。
@@ -91,8 +91,8 @@ impl Default for MapDefinition {
             size_height: 0,
             local_size: MapLocalSize::default(),
             cell_side: 0,
-            theater: String::new(),
-            description_csf: String::new(),
+            theater: crate::Theater::Temperate,
+            description_csf: crate::UiName::default(),
             game_modes: Vec::new(),
             next_mission: String::new(),
             alternate_next_mission: String::new(),
@@ -198,8 +198,8 @@ pub struct MapTerrainObject {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// 物件类型名（通常已大写）。
-    pub name: String,
+    /// 物件类型名（装载期一次解码为大写地形键）。
+    pub name: crate::TerrainName,
 }
 
 /// `[Smudge]` 污迹占位（运行契约；装载侧见 `ra-map::MapSmudge`）。
@@ -209,8 +209,8 @@ pub struct MapSmudge {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// 污迹类型名（通常已大写）。
-    pub name: String,
+    /// 污迹类型名（装载期一次解码为大写污迹键）。
+    pub name: crate::SmudgeName,
 }
 
 /// 预放实体类别。
@@ -231,8 +231,8 @@ pub enum MapPlacedEntityKind {
 pub struct MapPlacedEntity {
     /// 放置类别。
     pub kind: MapPlacedEntityKind,
-    /// 所属方名称。
-    pub owner: String,
+    /// 所属方名称（装载期一次解码为大写）。
+    pub owner: crate::HouseName,
     /// 类型 id（通常已大写）。
     pub type_id: String,
     /// 0..=256；原版常写 256 表示满血。
@@ -296,14 +296,14 @@ pub struct MapHouse {
     pub credits: i32,
     /// `IQ=`。
     pub iq: i32,
-    /// `Edge=`。
-    pub edge: String,
+    /// `Edge=`（装载期一次解码）。
+    pub edge: crate::MapEdge,
     /// `PlayerControl=`。
     pub player_control: bool,
-    /// `Color=`。
-    pub color: String,
-    /// `Allies=` 逗号列表。
-    pub allies: Vec<String>,
+    /// `Color=`（装载期一次解码为大写方案名）。
+    pub color: crate::ColorName,
+    /// `Allies=` 逗号列表（装载期一次解码为大写房屋键）。
+    pub allies: Vec<crate::HouseName>,
 }
 
 /// Tag 绑定（运行契约；来自地图 `[Tags]` 语义，非 INI 行镜像）。
@@ -311,14 +311,14 @@ pub struct MapHouse {
 /// 可改为指向 trigger 的稳定 id / 索引；装载侧同名类型见 `ra-map` 解析层。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
-    /// Tag id。
-    pub id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub id: crate::TagName,
     /// 持久性：0 volatile / 1 semi / 2 persistent。
     pub persistence: u8,
     /// 编辑器名。
     pub name: String,
-    /// 关联 Trigger id。
-    pub trigger_id: String,
+    /// 关联 Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub trigger_id: crate::TriggerName,
 }
 
 /// Trigger 定义（运行契约；来自地图 `[Triggers]` 语义，非 INI 行镜像）。
@@ -328,10 +328,10 @@ pub struct MapTag {
 pub struct MapTrigger {
     /// Trigger id。
     pub id: String,
-    /// 所属 house。
-    pub house: String,
-    /// 链接的另一 trigger（`<none>` 表示无）。
-    pub linked: String,
+    /// 所属 house（装载期一次解码为大写）。
+    pub house: crate::HouseName,
+    /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
+    pub linked: crate::TriggerName,
     /// 编辑器名。
     pub name: String,
     /// `1` = 初始禁用。
@@ -393,8 +393,8 @@ pub struct MapCellTag {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// Tag id。
-    pub tag_id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub tag_id: crate::TagName,
 }
 
 /// TaskForce 成员槽（运行契约；规则绑定前仍用类型名字符串）。
@@ -402,8 +402,8 @@ pub struct MapCellTag {
 pub struct MapTaskForceEntry {
     /// 数量。
     pub count: u16,
-    /// 类型 id。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写 techno 键）。
+    pub type_id: crate::TechnoName,
 }
 
 /// TaskForce 编队（运行契约；来自 `[TaskForces]` 语义）。
@@ -452,14 +452,14 @@ pub struct MapTeamType {
     pub id: String,
     /// 名称。
     pub name: String,
-    /// `House=`。
-    pub house: String,
-    /// `Script=`。
-    pub script: String,
-    /// `TaskForce=`。
-    pub task_force: String,
-    /// `Tag=`（可空）。
-    pub tag: String,
+    /// `House=`（装载期一次解码为大写）。
+    pub house: crate::HouseName,
+    /// `Script=`（装载期一次解码为大写 ScriptTypes 键）。
+    pub script: crate::ScriptTypeName,
+    /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
+    pub task_force: crate::TaskForceName,
+    /// `Tag=`（装载期一次解码为大写 Tags 键；可空）。
+    pub tag: crate::TagName,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
     pub waypoint: i32,
     /// `Max=`。
@@ -479,10 +479,10 @@ pub struct MapAiTrigger {
     pub id: String,
     /// 显示名。
     pub name: String,
-    /// 关联 TeamType。
-    pub team: String,
-    /// 所属 House。
-    pub owner_house: String,
+    /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。
+    pub team: crate::TeamTypeName,
+    /// 所属 House（装载期一次解码为大写）。
+    pub owner_house: crate::HouseName,
     /// 科技等级门槛。
     pub tech_level: i32,
 }

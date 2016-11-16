@@ -3,7 +3,7 @@ use super::types::BattleState;
 impl BattleState {
     /// 按 house 名称设置资金（启动与测试播种用）。
     pub fn set_house_funds(&mut self, house: &str, funds: i32) -> bool {
-        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house)) {
             player.funds = funds;
             self.rehash();
             true
@@ -15,7 +15,7 @@ impl BattleState {
 
     /// 按 house 名称设置科技上限（战役地图 `[Houses]` 播种）。
     pub fn set_house_tech_level(&mut self, house: &str, tech_level: i32) -> bool {
-        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house)) {
             player.tech_level = tech_level.max(0);
             self.rehash();
             true
@@ -27,7 +27,7 @@ impl BattleState {
 
     /// 按 house 名称设置同盟列表（战役地图 `[Houses]` `Allies=`）。
     pub fn set_house_allies(&mut self, house: &str, allies: Vec<String>) -> bool {
-        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house) {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house)) {
             player.allies = allies;
             self.rehash();
             true
@@ -62,7 +62,7 @@ impl BattleState {
 
     /// 按 house 名称读取资金。
     pub fn house_funds(&self, house: &str) -> Option<i32> {
-        self.players.iter().find(|p| p.house.as_ref() == house).map(|p| p.funds)
+        self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).map(|p| p.funds)
     }
 
     /// 查询规则造价；未知类型为 `None`。

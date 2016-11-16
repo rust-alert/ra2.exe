@@ -13,7 +13,7 @@ use ra_map::{
     paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::{Renderer, RgbaImage};
-use ra_types::PresentFeel;
+use ra_types::{HouseName, PresentFeel};
 use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
@@ -287,7 +287,7 @@ impl BattleController {
             one.entities.clear();
             one.entities.push(MapEntity {
                 kind: MapEntityKind::Structure,
-                owner: owner.clone(),
+                owner: HouseName::parse(owner),
                 type_id: type_id.clone(),
                 health: 256,
                 x: *x,

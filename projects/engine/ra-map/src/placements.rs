@@ -5,6 +5,7 @@
 use std::fmt;
 
 use ra_assets::{IniDocument, from_row};
+use ra_types::HouseName;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -26,8 +27,8 @@ pub enum MapEntityKind {
 pub struct MapEntity {
     /// 放置类别。
     pub kind: MapEntityKind,
-    /// 所属方名称。
-    pub owner: String,
+    /// 所属方名称（装载期一次解码为大写）。
+    pub owner: HouseName,
     /// 类型 id（通常已大写）。
     pub type_id: String,
     /// 0..=256，零售常用 256 表示满血。
@@ -50,7 +51,7 @@ impl MapEntity {
     /// 测试 / 工具用：无 mission / tag 的放置。
     pub fn plain(
         kind: MapEntityKind,
-        owner: impl Into<String>,
+        owner: impl Into<HouseName>,
         type_id: impl Into<String>,
         health: u16,
         x: u16,
@@ -150,7 +151,7 @@ fn parse_line(kind: MapEntityKind, value: &str) -> Option<MapEntity> {
 
 #[derive(Debug, Deserialize)]
 struct InfantryRow {
-    owner: String,
+    owner: HouseName,
     type_id: String,
     #[serde(deserialize_with = "placement_health")]
     health: u16,
@@ -167,7 +168,7 @@ struct InfantryRow {
 
 #[derive(Debug, Deserialize)]
 struct MobileRow {
-    owner: String,
+    owner: HouseName,
     type_id: String,
     #[serde(deserialize_with = "placement_health")]
     health: u16,
@@ -183,7 +184,7 @@ struct MobileRow {
 
 #[derive(Debug, Deserialize)]
 struct StructureRow {
-    owner: String,
+    owner: HouseName,
     type_id: String,
     #[serde(deserialize_with = "placement_health")]
     health: u16,

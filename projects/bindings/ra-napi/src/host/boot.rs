@@ -15,7 +15,7 @@ use ra_map::{
     paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
-use ra_types::{AssetSource, GameEdition, RaResult};
+use ra_types::{AssetSource, GameEdition, HouseName, RaResult};
 use ra_widgets::{
     campaign_setup::campaign_side_battle_id,
     fs_source::GameAssetSource,
@@ -230,7 +230,7 @@ fn paint_session_mobiles_onto_preview(
         }
         paint_map.entities.push(MapEntity {
             kind,
-            owner: owner.to_string(),
+            owner: HouseName::parse(owner.as_ref()),
             type_id: type_id.to_string(),
             health: 256,
             x,

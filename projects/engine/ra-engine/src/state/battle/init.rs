@@ -24,8 +24,8 @@ impl BattleState {
         let ecs = EcsRegistry::new();
         let mut seed_bundles: Vec<EntitySpawnBundle> = Vec::with_capacity(map.entities.len());
         for e in &map.entities {
-            if !house_order.iter().any(|h| h == &e.owner) {
-                house_order.push(e.owner.clone());
+            if !house_order.iter().any(|h| h.eq_ignore_ascii_case(e.owner.as_str())) {
+                house_order.push(e.owner.as_str().to_string());
             }
             let tt = definitions.techno.get(&e.type_id);
             let weapon = tt.and_then(|t| definitions.weapons.get_by_id(t.primary_id));

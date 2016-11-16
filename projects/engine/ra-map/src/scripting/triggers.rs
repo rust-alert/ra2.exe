@@ -3,6 +3,7 @@
 use std::fmt;
 
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
+use ra_types::{HouseName, TagName, TriggerName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -11,14 +12,14 @@ use super::{MapActionKind, MapEventKind};
 /// `[Tags]` 一行（装载解析中间态；投影进 `ra_types::MapTag` 后由运行契约消费）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
-    /// Tag id。
-    pub id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub id: TagName,
     /// 持久性：0 volatile / 1 semi / 2 persistent。
     pub persistence: u8,
     /// 编辑器名。
     pub name: String,
-    /// 关联 Trigger id。
-    pub trigger_id: String,
+    /// 关联 Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub trigger_id: TriggerName,
 }
 
 /// `[Triggers]` 一行（装载解析中间态；投影进 `ra_types::MapTrigger` 后由运行契约消费）。
@@ -26,10 +27,10 @@ pub struct MapTag {
 pub struct MapTrigger {
     /// Trigger id。
     pub id: String,
-    /// 所属 house。
-    pub house: String,
-    /// 链接的另一 trigger（`<none>` 表示无）。
-    pub linked: String,
+    /// 所属 house（装载期一次解码为大写）。
+    pub house: HouseName,
+    /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
+    pub linked: TriggerName,
     /// 编辑器名。
     pub name: String,
     /// `1` = 初始禁用。
@@ -85,21 +86,21 @@ pub struct MapCellTag {
     pub x: u16,
     /// 格子 Y。
     pub y: u16,
-    /// Tag id。
-    pub tag_id: String,
+    /// Tag id（装载期一次解码为大写 Tags 键）。
+    pub tag_id: TagName,
 }
 
 #[derive(Debug, Deserialize)]
 struct TagCsvRow {
     persistence: u8,
     name: String,
-    trigger_id: String,
+    trigger_id: TriggerName,
 }
 
 #[derive(Debug, Deserialize)]
 struct TriggerCsvRow {
-    house: String,
-    linked: String,
+    house: HouseName,
+    linked: TriggerName,
     name: String,
     #[serde(deserialize_with = "flag_is_one")]
     disabled: bool,
@@ -234,7 +235,7 @@ pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
             continue;
         };
         out.push(MapTag {
-            id: id.to_string(),
+            id: TagName::parse(id),
             persistence: row.persistence,
             name: row.name,
             trigger_id: row.trigger_id,
@@ -363,7 +364,7 @@ pub fn parse_cell_tags(doc: &IniDocument) -> Vec<MapCellTag> {
         else {
             continue;
         };
-        out.push(MapCellTag { x, y, tag_id: tag_id.trim().to_string() });
+        out.push(MapCellTag { x, y, tag_id: TagName::parse(tag_id) });
     }
     out
 }
