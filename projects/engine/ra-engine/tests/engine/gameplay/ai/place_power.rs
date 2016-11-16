@@ -25,7 +25,7 @@ fn ai_places_power_near_yard() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -37,7 +37,7 @@ fn ai_places_power_near_yard() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     // 模拟建造场已封满 4x4：旧 AI 只在半径 2 内查 1x1，会选到无法放下 2x2 的邻格。

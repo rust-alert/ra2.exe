@@ -50,7 +50,7 @@ fn prepared_skeleton_with_overlays_opens_bridge_cell() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.overlays.push(OverlayCell { x: 1, y: 2, overlay_id: 0, data: 0 });
     let rules = IniDocument::parse(b"[OverlayTypes]\n0=LOBRDG01\n[LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n").expect("rules");

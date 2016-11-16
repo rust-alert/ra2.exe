@@ -21,7 +21,7 @@ fn mobiles_detour_around_each_other() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -33,7 +33,7 @@ fn mobiles_detour_around_each_other() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     // 两车都朝同一目标；后者路径不得踩前者当前格。

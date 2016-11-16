@@ -5,7 +5,7 @@
 use std::fmt;
 
 use ra_assets::{IniDocument, from_row};
-use ra_types::HouseName;
+use ra_types::{HouseName, TagName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -43,8 +43,8 @@ pub struct MapEntity {
     pub sub_cell: u8,
     /// 初始任务（如 `Guard`）；空表示未指定。
     pub mission: String,
-    /// 绑定的 Tag id；空表示无。
-    pub tag: String,
+    /// 绑定的 Tag id（装载期一次解码为大写 Tags 键；空表示无）。
+    pub tag: TagName,
 }
 
 impl MapEntity {
@@ -69,7 +69,7 @@ impl MapEntity {
             facing,
             sub_cell,
             mission: String::new(),
-            tag: String::new(),
+            tag: TagName::default(),
         }
     }
 }
@@ -163,7 +163,7 @@ struct InfantryRow {
     #[serde(deserialize_with = "placement_facing")]
     facing: u8,
     #[serde(default)]
-    tag: String,
+    tag: TagName,
 }
 
 #[derive(Debug, Deserialize)]
@@ -179,7 +179,7 @@ struct MobileRow {
     #[serde(default)]
     mission: String,
     #[serde(default)]
-    tag: String,
+    tag: TagName,
 }
 
 #[derive(Debug, Deserialize)]
@@ -193,7 +193,7 @@ struct StructureRow {
     #[serde(deserialize_with = "placement_facing")]
     facing: u8,
     #[serde(default)]
-    tag: String,
+    tag: TagName,
 }
 
 /// 放置血量：非法回落 256 并钳到 `0..=256`；空列失败（行不够长）。

@@ -22,7 +22,7 @@ fn snapshot_anim_state_moves_when_ordered() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "anim");
     assert_eq!(session.expect_battle().snapshot(&[]).units[0].anim_state, AnimState::Idle);

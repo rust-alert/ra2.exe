@@ -28,7 +28,7 @@ fn ai_places_barracks_and_produces_infantry() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -40,7 +40,7 @@ fn ai_places_barracks_and_produces_infantry() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -52,7 +52,7 @@ fn ai_places_barracks_and_produces_infantry() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Soviets", 10_000));
@@ -101,7 +101,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -113,7 +113,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -125,7 +125,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -137,7 +137,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -149,7 +149,7 @@ fn ai_skips_dog_and_naval_when_picking_produce() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 20_000));

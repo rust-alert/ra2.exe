@@ -19,7 +19,7 @@ fn advances_when_ordered_to_move() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     assert_eq!(world.ecs_move_destination(world.entity_id_at(0).expect("entity")).expect("dest").0, None);
@@ -50,7 +50,7 @@ fn move_path_queues_remaining_waypoints_and_advances() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let id = world.entity_id_at(0).expect("entity");
@@ -82,7 +82,7 @@ fn turret_chases_body_facing() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let id0 = world.entity_id_at(0).expect("entity");

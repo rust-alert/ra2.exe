@@ -247,8 +247,8 @@ pub struct MapPlacedEntity {
     pub sub_cell: u8,
     /// 初始任务（如 `Guard`）；空表示未指定。
     pub mission: String,
-    /// 绑定的 Tag id；空表示无。
-    pub tag: String,
+    /// 绑定的 Tag id（装载期一次解码为大写 Tags 键；空表示无）。
+    pub tag: crate::TagName,
 }
 
 /// 等距地形单元（自 IsoMapPack 解码）。

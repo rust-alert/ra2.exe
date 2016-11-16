@@ -28,7 +28,7 @@ fn factory_world() -> BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -40,7 +40,7 @@ fn factory_world() -> BattleState {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
@@ -157,7 +157,7 @@ fn funds_nag_repeats_on_speak_delay_while_broke_with_factory() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 50));

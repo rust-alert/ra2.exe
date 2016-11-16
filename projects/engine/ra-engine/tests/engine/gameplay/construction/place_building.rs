@@ -26,7 +26,7 @@ fn yard_world() -> BattleState {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("Americans", 10_000));
@@ -103,7 +103,7 @@ fn map_seeded_structure_seals_full_foundation() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(!world.pass_grid.is_passable(4, 4));

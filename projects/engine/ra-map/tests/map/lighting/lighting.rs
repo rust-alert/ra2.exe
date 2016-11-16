@@ -123,7 +123,7 @@ fn refresh_point_lights_from_structure_light_table() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.refresh_point_lights(&lights);
     assert_eq!(map.point_lights.len(), 1);
@@ -164,7 +164,7 @@ fn refresh_radiation_lights_merges_green_glow() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.refresh_point_lights(&struct_lights);
     assert_eq!(map.structure_point_lights.len(), 1);
@@ -261,7 +261,7 @@ fn collect_structure_lights_from_light_table() {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -273,7 +273,7 @@ fn collect_structure_lights_from_light_table() {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Unit,
@@ -285,7 +285,7 @@ fn collect_structure_lights_from_light_table() {
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let lights = collect_structure_point_lights(&entities, &table);

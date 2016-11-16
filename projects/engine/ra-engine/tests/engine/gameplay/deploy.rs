@@ -26,7 +26,7 @@ fn mcv_world() -> BattleState {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     }];
     battle_from_defs(GameEdition::Ra2, defs, map)
 }

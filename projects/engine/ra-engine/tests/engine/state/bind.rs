@@ -19,7 +19,7 @@ fn binds_strength_and_speed() {
         facing: 64,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert_eq!(world.entity_count(), 1);
@@ -50,7 +50,7 @@ fn unbound_techno_gets_zero_combat_stats() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
     let id = world.entity_id_at(0).expect("entity");
@@ -80,7 +80,7 @@ fn seeds_structure_health_from_map_ratio() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
     let id = world.entity_id_at(0).expect("entity");

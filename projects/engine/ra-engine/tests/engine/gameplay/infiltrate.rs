@@ -39,7 +39,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -51,7 +51,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -63,7 +63,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
@@ -75,7 +75,7 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
             facing: 0,
             sub_cell: 0,
             mission: String::new(),
-            tag: String::new(),
+            tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);

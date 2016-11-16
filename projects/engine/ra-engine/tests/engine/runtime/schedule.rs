@@ -30,7 +30,7 @@ fn omitting_combat_phase_skips_damage() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -42,7 +42,7 @@ fn omitting_combat_phase_skips_damage() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     let a = world.entity_id_at(0).expect("entity");

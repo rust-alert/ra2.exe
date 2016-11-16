@@ -22,7 +22,7 @@ fn victory_locks_battle_stats() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -34,7 +34,7 @@ fn victory_locks_battle_stats() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "stats");
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");

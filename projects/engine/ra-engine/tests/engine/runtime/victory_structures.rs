@@ -21,7 +21,7 @@ fn living_structure_prevents_sole_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -33,7 +33,7 @@ fn living_structure_prevents_sole_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     // 结构体借用 MTNK 规则仅作 Strength；种类为 Structure 即计入作战力量。
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "victory");
@@ -62,7 +62,7 @@ fn ambient_units_do_not_block_sole_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -74,7 +74,7 @@ fn ambient_units_do_not_block_sole_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
@@ -86,7 +86,7 @@ fn ambient_units_do_not_block_sole_victor() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "ambient-victory");
     assert_eq!(session.expect_battle().world.players.len(), 3);

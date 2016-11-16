@@ -21,7 +21,7 @@ fn nearest_hostile_includes_structures() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -33,7 +33,7 @@ fn nearest_hostile_includes_structures() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "hostile-bldg");
     let enemy = session.expect_battle().world.entity_id_at(1).expect("entity");

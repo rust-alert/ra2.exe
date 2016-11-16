@@ -129,7 +129,7 @@ fn all_change_house_reassigns_entire_house() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -141,7 +141,7 @@ fn all_change_house_reassigns_entire_house() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "all-house");
@@ -190,7 +190,7 @@ fn destroy_all_of_house_kills_living_entities() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -202,7 +202,7 @@ fn destroy_all_of_house_kills_living_entities() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -214,7 +214,7 @@ fn destroy_all_of_house_kills_living_entities() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "wipe");
@@ -256,7 +256,7 @@ fn cell_tag_entered_fires_win_on_campaign() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     assert_eq!(map.scripting.cell_tags.len(), 1);
     let engine = test_engine();
@@ -336,7 +336,7 @@ fn destroyed_all_of_house_event_fires_win() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "house-dead");
@@ -824,7 +824,7 @@ fn destroy_tag_action_kills_named_tag_entities() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "destroy-tag");
@@ -903,7 +903,7 @@ fn all_to_hunt_action_orders_house_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
@@ -915,7 +915,7 @@ fn all_to_hunt_action_orders_house_attack() {
         facing: 0,
         sub_cell: 0,
         mission: String::new(),
-        tag: String::new(),
+        tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "hunt");
