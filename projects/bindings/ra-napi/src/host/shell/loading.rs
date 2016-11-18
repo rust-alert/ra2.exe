@@ -96,8 +96,12 @@ impl Shell {
             return;
         };
         self.campaign_side = Some(side);
-        self.load_brief_csf = if camp.description_csf.is_empty() { None } else { Some(camp.description_csf.clone()) };
-        self.begin_campaign_scenario_load(&camp.scenario, Some(camp.id.as_str()));
+        self.load_brief_csf = if camp.description_csf.is_empty() {
+            None
+        } else {
+            Some(camp.description_csf.to_string())
+        };
+        self.begin_campaign_scenario_load(camp.scenario.as_str(), Some(camp.id.as_str()));
     }
 
     /// 按指定 scenario 装载战役局（重开当前关 / 进入 NextMission）。
