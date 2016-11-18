@@ -326,8 +326,8 @@ pub struct MapTag {
 /// 可改为稠密表或稳定 id；装载侧同名类型见 `ra-map` 解析层。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTrigger {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 所属 house（装载期一次解码为大写）。
     pub house: crate::HouseName,
     /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
@@ -358,8 +358,8 @@ pub struct MapEventCondition {
 /// 与某 trigger 对齐的事件表（运行契约）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEvent {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 条件列表。
     pub conditions: Vec<MapEventCondition>,
 }
@@ -378,8 +378,8 @@ pub struct MapActionCommand {
 /// 与某 trigger 对齐的动作表（运行契约）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAction {
-    /// Trigger id。
-    pub id: String,
+    /// Trigger id（装载期一次解码为大写 Triggers 键）。
+    pub id: crate::TriggerName,
     /// 动作列表。
     pub commands: Vec<MapActionCommand>,
 }
@@ -411,8 +411,8 @@ pub struct MapTaskForceEntry {
 /// 可改为稳定 type id / 稠密成员表；装载侧见 `ra-map::MapTaskForce`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TaskForces 键）。
+    pub id: crate::TaskForceName,
     /// 名称。
     pub name: String,
     /// 成员（最多 6）。
@@ -435,8 +435,8 @@ pub struct MapScriptStep {
 /// 可改为稳定动作枚举；装载侧见 `ra-map::MapScriptType`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 ScriptTypes 键）。
+    pub id: crate::ScriptTypeName,
     /// 名称。
     pub name: String,
     /// 步骤。
@@ -448,8 +448,8 @@ pub struct MapScriptType {
 /// 可改为稳定 house / script / task_force id；装载侧见 `ra-map::MapTeamType`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTeamType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TeamTypes 键）。
+    pub id: crate::TeamTypeName,
     /// 名称。
     pub name: String,
     /// `House=`（装载期一次解码为大写）。
@@ -475,8 +475,8 @@ pub struct MapTeamType {
 /// 可改为稳定 team / house id；装载侧见 `ra-map::MapAiTrigger`。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAiTrigger {
-    /// 触发 id。
-    pub id: String,
+    /// 触发 id（装载期一次解码为大写 AITriggerTypes 键）。
+    pub id: crate::AiTriggerName,
     /// 显示名。
     pub name: String,
     /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。

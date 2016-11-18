@@ -1,7 +1,7 @@
 //! `[TaskForces]` / `[ScriptTypes]` / `[TeamTypes]`。
 
 use ra_assets::{IniDocument, from_csv_row, numbered_pairs, parse_westwood_csv_line};
-use ra_types::{HouseName, ScriptTypeName, TagName, TaskForceName, TechnoName};
+use ra_types::{HouseName, ScriptTypeName, TagName, TaskForceName, TeamTypeName, TechnoName};
 use serde::Deserialize;
 
 /// TaskForce 成员槽（装载解析中间态；投影进 `ra_types::MapTaskForceEntry`）。
@@ -16,8 +16,8 @@ pub struct MapTaskForceEntry {
 /// `[TaskForces]` 一项（装载解析中间态；投影进 `ra_types::MapTaskForce`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TaskForces 键）。
+    pub id: TaskForceName,
     /// 名称。
     pub name: String,
     /// 成员（最多 6）。
@@ -38,8 +38,8 @@ pub struct MapScriptStep {
 /// `[ScriptTypes]` 一项（装载解析中间态；投影进 `ra_types::MapScriptType`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 ScriptTypes 键）。
+    pub id: ScriptTypeName,
     /// 名称。
     pub name: String,
     /// 步骤。
@@ -49,8 +49,8 @@ pub struct MapScriptType {
 /// `[TeamTypes]` 一项（装载解析中间态；投影进 `ra_types::MapTeamType`）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTeamType {
-    /// id。
-    pub id: String,
+    /// id（装载期一次解码为大写 TeamTypes 键）。
+    pub id: TeamTypeName,
     /// 名称。
     pub name: String,
     /// `House=`（装载期一次解码为大写）。
@@ -138,7 +138,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             });
         }
         out.push(MapTaskForce {
-            id,
+            id: TaskForceName::parse(&id),
             name: meta.name.unwrap_or_default().trim().to_string(),
             entries,
             group: meta.group.unwrap_or(-1),
@@ -169,7 +169,7 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
             steps.push(MapScriptStep { action: row.action, argument: row.argument });
         }
         out.push(MapScriptType {
-            id,
+            id: ScriptTypeName::parse(&id),
             name: meta.name.unwrap_or_default().trim().to_string(),
             steps,
         });
@@ -188,7 +188,7 @@ pub fn parse_team_types(doc: &IniDocument) -> Vec<MapTeamType> {
         };
         let fields = sec.deserialize::<TeamTypeSectionFields>().unwrap_or_default();
         out.push(MapTeamType {
-            id,
+            id: TeamTypeName::parse(&id),
             name: fields.name.unwrap_or_default().trim().to_string(),
             house: fields.house,
             script: fields.script,

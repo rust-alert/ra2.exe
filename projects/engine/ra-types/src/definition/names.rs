@@ -241,3 +241,9 @@ ini_name!(
     TagName,
     "Tags id"
 );
+
+ini_name!(
+    /// 地图 `[AITriggerTypes]` 触发 id（装载期大写）；空 = 未写。
+    AiTriggerName,
+    "AITriggerTypes id"
+);

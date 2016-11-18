@@ -316,7 +316,7 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
 
     if !members.is_empty() && !team.script.is_empty() {
         world.script_team_runtime.active.push(ActiveScriptTeam {
-            team_type_id: team.id.clone(),
+            team_type_id: team.id.to_string(),
             members,
             script_id: team.script.to_string(),
             step_idx: 0,
@@ -325,7 +325,7 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
     else if !members.is_empty() {
         // 无 Script 时仍登记，便于 Destroy Team 回收。
         world.script_team_runtime.active.push(ActiveScriptTeam {
-            team_type_id: team.id.clone(),
+            team_type_id: team.id.to_string(),
             members,
             script_id: String::new(),
             step_idx: 0,
