@@ -1,7 +1,7 @@
 //! Alpha 遭遇战启动用地图探测。
 
 use ra_assets::{IniDocument, parse_numbered_key};
-use ra_types::{AssetSource, GameEdition};
+use ra_types::{AssetSource, GameEdition, GameModeName};
 use serde::Deserialize;
 
 use crate::{MapInfo, Theater, parse_game_modes, theater::theater_mix_names};
@@ -33,8 +33,8 @@ pub struct BootMapCandidate {
     pub theater: Theater,
     /// 遭遇战开局席位数（2..=8；来自航点 0..7 或文件名 `tN`）。
     pub start_slots: u8,
-    /// `[Basic] GameModes` 标签（空表示仅匹配 `standard`）。
-    pub game_modes: Vec<String>,
+    /// `[Basic] GameModes` 标签（装载期一次解码为大写；空表示仅匹配 `standard`）。
+    pub game_modes: Vec<GameModeName>,
 }
 
 /// 遭遇战地图名 CSF 键：`DESC:{STEM}`（如 `mp03t4.map` → `DESC:MP03T4`）。

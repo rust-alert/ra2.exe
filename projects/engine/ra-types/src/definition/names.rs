@@ -254,6 +254,12 @@ ini_name!(
     "battle campaign id"
 );
 
+ini_name!(
+    /// 地图 `[Basic] GameModes` / `missions.pkt` `GameMode` 标签（装载期大写）；空 = 未写。
+    GameModeName,
+    "map game mode tag"
+);
+
 /// 地图 / 战役 scenario 文件名（装载期只修剪，保留盘上大小写）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct MapFileName(String);

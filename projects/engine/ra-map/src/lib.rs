@@ -44,9 +44,8 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
-    GameEdition, MapDefinition, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapTerrainObject,
-    MapWeatherKind,
-    MapWaypoint, RaError, RaResult,
+    GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
+    MapTerrainObject, MapWeatherKind, MapWaypoint, RaError, RaResult,
 };
 use serde::Deserialize;
 use serde::de::Deserializer;
@@ -139,14 +138,14 @@ pub struct MapInfo {
     pub height: u32,
     /// 剧院。
     pub theater: Theater,
-    /// `[Basic] GameModes` 标签（逗号分隔解析；空表示仅匹配 `standard`）。
-    pub game_modes: Vec<String>,
+    /// `[Basic] GameModes` 标签（装载期一次解码为大写；空表示仅匹配 `standard`）。
+    pub game_modes: Vec<GameModeName>,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空；官方遭遇图常省略）。
     pub description_csf: ra_types::UiName,
-    /// `[Basic] NextMission`：战役胜利后下一关地图文件名（可空）。
-    pub next_mission: String,
-    /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（可空）。
-    pub alternate_next_mission: String,
+    /// `[Basic] NextMission`：战役胜利后下一关地图文件名（装载期只修剪，保留盘上大小写；可空）。
+    pub next_mission: MapFileName,
+    /// `[Basic] AlternateNextMission`：战役失败后下一关 / 分支地图文件名（装载期只修剪，保留盘上大小写；可空）。
+    pub alternate_next_mission: MapFileName,
     /// `[Basic] StartingCredits`：开局资金；`0` 表示节内未写或显式为 0。
     pub starting_credits: i32,
     /// `[Lighting]` 全局环境光（缺节用零售缺省，含 `Ground=0.20`）。
@@ -197,8 +196,8 @@ impl MapInfo {
             theater: Theater::Temperate,
             game_modes: Vec::new(),
             description_csf: ra_types::UiName::default(),
-            next_mission: String::new(),
-            alternate_next_mission: String::new(),
+            next_mission: MapFileName::default(),
+            alternate_next_mission: MapFileName::default(),
             starting_credits: 0,
             lighting: LightingConfig::default(),
             ion_lighting: LightingConfig::ion_default(),
@@ -244,8 +243,8 @@ impl MapInfo {
             .unwrap_or_default();
         let game_modes = basic.game_modes;
         let description_csf = basic.description;
-        let next_mission = basic.next_mission.unwrap_or_default().trim().to_string();
-        let alternate_next_mission = basic.alternate_next_mission.unwrap_or_default().trim().to_string();
+        let next_mission = basic.next_mission;
+        let alternate_next_mission = basic.alternate_next_mission;
         let starting_credits = basic.starting_credits.unwrap_or(0).max(0);
         let profiles = parse_map_lighting(&doc);
         let cells = match decode_iso_map_pack(&doc) {
@@ -303,8 +302,7 @@ impl MapInfo {
     /// 战役结算后续关 scenario：胜用 `NextMission`，败用 `AlternateNextMission`；空则 `None`。
     pub fn campaign_continue_scenario(&self, victory: bool) -> Option<&str> {
         let raw = if victory { self.next_mission.as_str() } else { self.alternate_next_mission.as_str() };
-        let trimmed = raw.trim();
-        if trimmed.is_empty() { None } else { Some(trimmed) }
+        if raw.is_empty() { None } else { Some(raw) }
     }
 
     /// 提取冻结 [`MapDefinition`] 骨架（含触发链 / 队伍脚本 / AI / Preview 尺寸 / Digest / Smudge / 天气种类；不含预览像素与粒子场）。
@@ -475,29 +473,29 @@ impl MapInfo {
     }
 }
 
-/// 解析逗号分隔的游戏模式标签（去空白、丢空段）。
+/// 解析逗号分隔的游戏模式标签（去空白、丢空段、一次解码为大写）。
 ///
 /// 地图 `[Basic] GameModes` 已由节 Serde 直接落到 `Vec`；本函数供 missions.pkt 等外层字符串入口复用。
-pub fn parse_game_modes(raw: Option<&str>) -> Vec<String> {
+pub fn parse_game_modes(raw: Option<&str>) -> Vec<GameModeName> {
     let Some(raw) = raw
     else {
         return Vec::new();
     };
-    raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
+    raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(GameModeName::parse).collect()
 }
 
 /// 地图是否匹配模式表中的 `map_filter`。
 ///
 /// 空 `game_modes` 只接受过滤标签 `standard`（大小写不敏感）。
-pub fn map_matches_game_mode_filter(game_modes: &[String], filter: &str) -> bool {
-    let filter = filter.trim();
+pub fn map_matches_game_mode_filter(game_modes: &[GameModeName], filter: &str) -> bool {
+    let filter = GameModeName::parse(filter);
     if filter.is_empty() {
         return false;
     }
     if game_modes.is_empty() {
-        return filter.eq_ignore_ascii_case("standard");
+        return filter == "STANDARD";
     }
-    game_modes.iter().any(|m| m.eq_ignore_ascii_case(filter))
+    game_modes.iter().any(|m| m == &filter)
 }
 
 /// 由 `[Map] Size` 宽高得到方形游戏格网边长。
@@ -523,13 +521,13 @@ struct MapSectionFields {
 #[derive(Debug, Default, Deserialize)]
 struct BasicSectionFields {
     #[serde(rename = "GameModes", default)]
-    game_modes: Vec<String>,
+    game_modes: Vec<GameModeName>,
     #[serde(rename = "Description", default)]
     description: ra_types::UiName,
-    #[serde(rename = "NextMission")]
-    next_mission: Option<String>,
-    #[serde(rename = "AlternateNextMission")]
-    alternate_next_mission: Option<String>,
+    #[serde(rename = "NextMission", default)]
+    next_mission: MapFileName,
+    #[serde(rename = "AlternateNextMission", default)]
+    alternate_next_mission: MapFileName,
     #[serde(rename = "StartingCredits")]
     starting_credits: Option<i32>,
 }

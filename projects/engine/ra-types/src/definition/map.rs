@@ -29,12 +29,12 @@ pub struct MapDefinition {
     pub theater: crate::Theater,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空）。
     pub description_csf: crate::UiName,
-    /// `[Basic] GameModes` 标签。
-    pub game_modes: Vec<String>,
-    /// `[Basic] NextMission`（可空）。
-    pub next_mission: String,
-    /// `[Basic] AlternateNextMission`（可空）。
-    pub alternate_next_mission: String,
+    /// `[Basic] GameModes` 标签（装载期一次解码为大写）。
+    pub game_modes: Vec<crate::GameModeName>,
+    /// `[Basic] NextMission`（装载期只修剪，保留盘上大小写；可空）。
+    pub next_mission: crate::MapFileName,
+    /// `[Basic] AlternateNextMission`（装载期只修剪，保留盘上大小写；可空）。
+    pub alternate_next_mission: crate::MapFileName,
     /// `[Basic] StartingCredits`。
     pub starting_credits: i32,
     /// `[Lighting]` 普通环境光。
@@ -94,8 +94,8 @@ impl Default for MapDefinition {
             theater: crate::Theater::Temperate,
             description_csf: crate::UiName::default(),
             game_modes: Vec::new(),
-            next_mission: String::new(),
-            alternate_next_mission: String::new(),
+            next_mission: crate::MapFileName::default(),
+            alternate_next_mission: crate::MapFileName::default(),
             starting_credits: 0,
             lighting: MapLighting::default(),
             ion_lighting: MapLighting::ion_default(),
