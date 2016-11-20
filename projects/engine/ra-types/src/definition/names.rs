@@ -63,25 +63,25 @@ macro_rules! ini_name {
 
         impl PartialEq<str> for $name {
             fn eq(&self, other: &str) -> bool {
-                self.0 == other
+                self.0.eq_ignore_ascii_case(other.trim())
             }
         }
 
         impl PartialEq<&str> for $name {
             fn eq(&self, other: &&str) -> bool {
-                self.0 == *other
+                self.0.eq_ignore_ascii_case(other.trim())
             }
         }
 
         impl PartialEq<$name> for str {
             fn eq(&self, other: &$name) -> bool {
-                self == other.0.as_str()
+                other.0.eq_ignore_ascii_case(self.trim())
             }
         }
 
         impl PartialEq<$name> for &str {
             fn eq(&self, other: &$name) -> bool {
-                *self == other.0.as_str()
+                other.0.eq_ignore_ascii_case(self.trim())
             }
         }
 

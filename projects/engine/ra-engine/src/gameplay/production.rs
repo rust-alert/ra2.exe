@@ -139,7 +139,7 @@ impl crate::state::BattleState {
                 type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                 kind,
                 mission: String::new(),
-                tag: String::new(),
+                tag: ra_types::TagName::default(),
             },
             owner: Owner { house: owner.clone() },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },

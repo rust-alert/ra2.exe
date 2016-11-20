@@ -332,7 +332,7 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
         else {
             continue;
         };
-        if !identity.tag.is_empty() && tags.contains(&identity.tag) {
+        if !identity.tag.is_empty() && tags.contains(identity.tag.as_str()) {
             return true;
         }
     }
@@ -615,7 +615,7 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag)).unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(identity.tag.as_str())).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -702,7 +702,7 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(&identity.tag)).unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(identity.tag.as_str())).unwrap_or(false)
         })
         .collect();
     for id in ids {
