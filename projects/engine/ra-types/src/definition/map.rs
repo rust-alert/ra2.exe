@@ -9,6 +9,934 @@
 //! 字段布局、命名与嵌套可随时改为更利于引擎执行的形式（稳定 ID、稠密表、拆分索引等）。
 //! 兼容原版内容的职责在 loader / adaptor：把文件格式**投影**进本契约，而不是把本契约钉死成文件 schema。
 
+use std::fmt;
+use std::ops::Deref;
+
+use serde::Deserialize;
+
+use super::ini_string::{deserialize_trim, deserialize_upper, parse_trim, parse_upper};
+use super::{ColorName, HouseName, MapEdge, TechnoName, UiName};
+
+/// 地图 `[Terrain]` 物件类型名（装载期大写，对齐 rules 地形节）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TerrainName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TerrainName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TerrainName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TerrainName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TerrainName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TerrainName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TerrainName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TerrainName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TerrainName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TerrainName> for str {
+    fn eq(&self, other: &TerrainName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TerrainName> for &str {
+    fn eq(&self, other: &TerrainName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TerrainName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `[Smudge]` 污迹类型名（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SmudgeName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl SmudgeName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for SmudgeName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for SmudgeName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for SmudgeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for SmudgeName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for SmudgeName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for SmudgeName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for SmudgeName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<SmudgeName> for str {
+    fn eq(&self, other: &SmudgeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<SmudgeName> for &str {
+    fn eq(&self, other: &SmudgeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for SmudgeName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `Script=` / `[ScriptTypes]` 引用名（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ScriptTypeName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl ScriptTypeName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for ScriptTypeName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for ScriptTypeName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for ScriptTypeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for ScriptTypeName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for ScriptTypeName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for ScriptTypeName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for ScriptTypeName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<ScriptTypeName> for str {
+    fn eq(&self, other: &ScriptTypeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<ScriptTypeName> for &str {
+    fn eq(&self, other: &ScriptTypeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for ScriptTypeName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `TaskForce=` / `[TaskForces]` 引用名（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TaskForceName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TaskForceName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TaskForceName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TaskForceName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TaskForceName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TaskForceName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TaskForceName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TaskForceName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TaskForceName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TaskForceName> for str {
+    fn eq(&self, other: &TaskForceName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TaskForceName> for &str {
+    fn eq(&self, other: &TaskForceName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TaskForceName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `Team=` / `[TeamTypes]` 引用名（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TeamTypeName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TeamTypeName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TeamTypeName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TeamTypeName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TeamTypeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TeamTypeName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TeamTypeName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TeamTypeName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TeamTypeName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TeamTypeName> for str {
+    fn eq(&self, other: &TeamTypeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TeamTypeName> for &str {
+    fn eq(&self, other: &TeamTypeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TeamTypeName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `[Triggers]` / Tag 关联 Trigger id（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TriggerName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TriggerName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TriggerName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TriggerName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TriggerName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TriggerName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TriggerName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TriggerName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TriggerName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TriggerName> for str {
+    fn eq(&self, other: &TriggerName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TriggerName> for &str {
+    fn eq(&self, other: &TriggerName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TriggerName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `[Tags]` / CellTag / 实体 Tag id（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TagName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TagName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TagName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TagName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TagName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TagName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TagName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TagName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TagName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TagName> for str {
+    fn eq(&self, other: &TagName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TagName> for &str {
+    fn eq(&self, other: &TagName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TagName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `[AITriggerTypes]` 触发 id（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct AiTriggerName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl AiTriggerName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for AiTriggerName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for AiTriggerName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for AiTriggerName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for AiTriggerName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for AiTriggerName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for AiTriggerName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for AiTriggerName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<AiTriggerName> for str {
+    fn eq(&self, other: &AiTriggerName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<AiTriggerName> for &str {
+    fn eq(&self, other: &AiTriggerName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for AiTriggerName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 地图 `[Basic] GameModes` / `missions.pkt` `GameMode` 标签（装载期大写）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct GameModeName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl GameModeName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for GameModeName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for GameModeName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for GameModeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for GameModeName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for GameModeName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for GameModeName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for GameModeName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<GameModeName> for str {
+    fn eq(&self, other: &GameModeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<GameModeName> for &str {
+    fn eq(&self, other: &GameModeName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for GameModeName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+
+/// 地图 / 战役 scenario 文件名（装载期只修剪，保留盘上大小写）。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct MapFileName {
+    /// 文件名文本。
+    pub name: String,
+}
+
+impl MapFileName {
+    /// 修剪空白；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_trim(raw) }
+    }
+
+    /// 底层文件名文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for MapFileName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for MapFileName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for MapFileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for MapFileName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for MapFileName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for MapFileName {
+    fn eq(&self, other: &str) -> bool {
+        self.name == other
+    }
+}
+
+impl PartialEq<&str> for MapFileName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name == *other
+    }
+}
+
+impl PartialEq<MapFileName> for str {
+    fn eq(&self, other: &MapFileName) -> bool {
+        self == other.name.as_str()
+    }
+}
+
+impl PartialEq<MapFileName> for &str {
+    fn eq(&self, other: &MapFileName) -> bool {
+        *self == other.name.as_str()
+    }
+}
+
+impl<'de> Deserialize<'de> for MapFileName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_trim(deserializer)?,
+        })
+    }
+}
+
 /// 冻结的完整静态地图（装载期产出，对局与绘制只读）。
 ///
 /// 当前为骨架：字段随地图语义层收口逐步迁入，禁止在运行路径回查地图 INI。
@@ -28,13 +956,13 @@ pub struct MapDefinition {
     /// 剧院（装载期一次解码为枚举）。
     pub theater: crate::Theater,
     /// `[Basic] Description` CSF 键（装载期一次解码为大写；可空）。
-    pub description_csf: crate::UiName,
+    pub description_csf: UiName,
     /// `[Basic] GameModes` 标签（装载期一次解码为大写）。
-    pub game_modes: Vec<crate::GameModeName>,
+    pub game_modes: Vec<GameModeName>,
     /// `[Basic] NextMission`（装载期只修剪，保留盘上大小写；可空）。
-    pub next_mission: crate::MapFileName,
+    pub next_mission: MapFileName,
     /// `[Basic] AlternateNextMission`（装载期只修剪，保留盘上大小写；可空）。
-    pub alternate_next_mission: crate::MapFileName,
+    pub alternate_next_mission: MapFileName,
     /// `[Basic] StartingCredits`。
     pub starting_credits: i32,
     /// `[Lighting]` 普通环境光。
@@ -92,10 +1020,10 @@ impl Default for MapDefinition {
             local_size: MapLocalSize::default(),
             cell_side: 0,
             theater: crate::Theater::Temperate,
-            description_csf: crate::UiName::default(),
+            description_csf: UiName::default(),
             game_modes: Vec::new(),
-            next_mission: crate::MapFileName::default(),
-            alternate_next_mission: crate::MapFileName::default(),
+            next_mission: MapFileName::default(),
+            alternate_next_mission: MapFileName::default(),
             starting_credits: 0,
             lighting: MapLighting::default(),
             ion_lighting: MapLighting::ion_default(),
@@ -199,7 +1127,7 @@ pub struct MapTerrainObject {
     /// 格子 Y。
     pub y: u16,
     /// 物件类型名（装载期一次解码为大写地形键）。
-    pub name: crate::TerrainName,
+    pub name: TerrainName,
 }
 
 /// `[Smudge]` 污迹占位（运行契约；装载侧见 `ra-map::MapSmudge`）。
@@ -210,7 +1138,7 @@ pub struct MapSmudge {
     /// 格子 Y。
     pub y: u16,
     /// 污迹类型名（装载期一次解码为大写污迹键）。
-    pub name: crate::SmudgeName,
+    pub name: SmudgeName,
 }
 
 /// 预放实体类别。
@@ -232,7 +1160,7 @@ pub struct MapPlacedEntity {
     /// 放置类别。
     pub kind: MapPlacedEntityKind,
     /// 所属方名称（装载期一次解码为大写）。
-    pub owner: crate::HouseName,
+    pub owner: HouseName,
     /// 类型 id（通常已大写）。
     pub type_id: String,
     /// 0..=256；原版常写 256 表示满血。
@@ -248,7 +1176,7 @@ pub struct MapPlacedEntity {
     /// 初始任务（如 `Guard`）；空表示未指定。
     pub mission: String,
     /// 绑定的 Tag id（装载期一次解码为大写 Tags 键；空表示无）。
-    pub tag: crate::TagName,
+    pub tag: TagName,
 }
 
 /// 等距地形单元（自 IsoMapPack 解码）。
@@ -289,7 +1217,7 @@ pub struct MapHouse {
     /// 节名（常为 `Player House` 等）。
     pub name: String,
     /// `Country=`（装载期一次解码为大写国家键）。
-    pub country: crate::HouseName,
+    pub country: HouseName,
     /// `TechLevel=`。
     pub tech_level: i32,
     /// `Credits=`（地图单位常为百计资金）。
@@ -297,13 +1225,13 @@ pub struct MapHouse {
     /// `IQ=`。
     pub iq: i32,
     /// `Edge=`（装载期一次解码）。
-    pub edge: crate::MapEdge,
+    pub edge: MapEdge,
     /// `PlayerControl=`。
     pub player_control: bool,
     /// `Color=`（装载期一次解码为大写方案名）。
-    pub color: crate::ColorName,
+    pub color: ColorName,
     /// `Allies=` 逗号列表（装载期一次解码为大写房屋键）。
-    pub allies: Vec<crate::HouseName>,
+    pub allies: Vec<HouseName>,
 }
 
 /// Tag 绑定（运行契约；来自地图 `[Tags]` 语义，非 INI 行镜像）。
@@ -312,13 +1240,13 @@ pub struct MapHouse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTag {
     /// Tag id（装载期一次解码为大写 Tags 键）。
-    pub id: crate::TagName,
+    pub id: TagName,
     /// 持久性：0 volatile / 1 semi / 2 persistent。
     pub persistence: u8,
     /// 编辑器名。
     pub name: String,
     /// 关联 Trigger id（装载期一次解码为大写 Triggers 键）。
-    pub trigger_id: crate::TriggerName,
+    pub trigger_id: TriggerName,
 }
 
 /// Trigger 定义（运行契约；来自地图 `[Triggers]` 语义，非 INI 行镜像）。
@@ -327,11 +1255,11 @@ pub struct MapTag {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTrigger {
     /// Trigger id（装载期一次解码为大写 Triggers 键）。
-    pub id: crate::TriggerName,
+    pub id: TriggerName,
     /// 所属 house（装载期一次解码为大写）。
-    pub house: crate::HouseName,
+    pub house: HouseName,
     /// 链接的另一 trigger（装载期一次解码为大写；`<none>` / 空表示无）。
-    pub linked: crate::TriggerName,
+    pub linked: TriggerName,
     /// 编辑器名。
     pub name: String,
     /// `1` = 初始禁用。
@@ -359,7 +1287,7 @@ pub struct MapEventCondition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapEvent {
     /// Trigger id（装载期一次解码为大写 Triggers 键）。
-    pub id: crate::TriggerName,
+    pub id: TriggerName,
     /// 条件列表。
     pub conditions: Vec<MapEventCondition>,
 }
@@ -379,7 +1307,7 @@ pub struct MapActionCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAction {
     /// Trigger id（装载期一次解码为大写 Triggers 键）。
-    pub id: crate::TriggerName,
+    pub id: TriggerName,
     /// 动作列表。
     pub commands: Vec<MapActionCommand>,
 }
@@ -394,7 +1322,7 @@ pub struct MapCellTag {
     /// 格子 Y。
     pub y: u16,
     /// Tag id（装载期一次解码为大写 Tags 键）。
-    pub tag_id: crate::TagName,
+    pub tag_id: TagName,
 }
 
 /// TaskForce 成员槽（运行契约；规则绑定前仍用类型名字符串）。
@@ -403,7 +1331,7 @@ pub struct MapTaskForceEntry {
     /// 数量。
     pub count: u16,
     /// 类型 id（装载期一次解码为大写 techno 键）。
-    pub type_id: crate::TechnoName,
+    pub type_id: TechnoName,
 }
 
 /// TaskForce 编队（运行契约；来自 `[TaskForces]` 语义）。
@@ -412,7 +1340,7 @@ pub struct MapTaskForceEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTaskForce {
     /// id（装载期一次解码为大写 TaskForces 键）。
-    pub id: crate::TaskForceName,
+    pub id: TaskForceName,
     /// 名称。
     pub name: String,
     /// 成员（最多 6）。
@@ -436,7 +1364,7 @@ pub struct MapScriptStep {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapScriptType {
     /// id（装载期一次解码为大写 ScriptTypes 键）。
-    pub id: crate::ScriptTypeName,
+    pub id: ScriptTypeName,
     /// 名称。
     pub name: String,
     /// 步骤。
@@ -449,17 +1377,17 @@ pub struct MapScriptType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapTeamType {
     /// id（装载期一次解码为大写 TeamTypes 键）。
-    pub id: crate::TeamTypeName,
+    pub id: TeamTypeName,
     /// 名称。
     pub name: String,
     /// `House=`（装载期一次解码为大写）。
-    pub house: crate::HouseName,
+    pub house: HouseName,
     /// `Script=`（装载期一次解码为大写 ScriptTypes 键）。
-    pub script: crate::ScriptTypeName,
+    pub script: ScriptTypeName,
     /// `TaskForce=`（装载期一次解码为大写 TaskForces 键）。
-    pub task_force: crate::TaskForceName,
+    pub task_force: TaskForceName,
     /// `Tag=`（装载期一次解码为大写 Tags 键；可空）。
-    pub tag: crate::TagName,
+    pub tag: TagName,
     /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
     pub waypoint: i32,
     /// `Max=`。
@@ -476,13 +1404,13 @@ pub struct MapTeamType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapAiTrigger {
     /// 触发 id（装载期一次解码为大写 AITriggerTypes 键）。
-    pub id: crate::AiTriggerName,
+    pub id: AiTriggerName,
     /// 显示名。
     pub name: String,
     /// 关联 TeamType（装载期一次解码为大写 TeamTypes 键）。
-    pub team: crate::TeamTypeName,
+    pub team: TeamTypeName,
     /// 所属 House（装载期一次解码为大写）。
-    pub owner_house: crate::HouseName,
+    pub owner_house: HouseName,
     /// 科技等级门槛。
     pub tech_level: i32,
 }

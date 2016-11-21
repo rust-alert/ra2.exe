@@ -1,8 +1,106 @@
 //! 抛射体定义表（由武器 `Projectile=` 引用）。
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::ops::Deref;
+
+use serde::Deserialize;
 
 use crate::id::ProjectileId;
+
+use super::ini_string::{deserialize_upper, parse_upper};
+
+
+/// 抛射体节名（`Projectile=`）；空 = 未配置。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ProjectileName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl ProjectileName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for ProjectileName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for ProjectileName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for ProjectileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for ProjectileName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for ProjectileName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for ProjectileName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for ProjectileName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<ProjectileName> for str {
+    fn eq(&self, other: &ProjectileName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<ProjectileName> for &str {
+    fn eq(&self, other: &ProjectileName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for ProjectileName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
 
 /// 单条抛射体静态定义（装载期按名入库；字段可后续从节补齐）。
 #[derive(Debug, Clone, PartialEq, Eq)]

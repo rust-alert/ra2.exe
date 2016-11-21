@@ -1,10 +1,199 @@
 //! 单位 / 载具 / 步兵等 techno 定义表。
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::ops::Deref;
+
+use serde::Deserialize;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
+use super::ini_string::{deserialize_upper, parse_upper};
 use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, TechnoCategory, WarheadName, WeaponName};
+
+
+/// Techno 类型名（`DeploysInto=` 等类型引用）；空 = 未配置。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct TechnoName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl TechnoName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for TechnoName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for TechnoName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for TechnoName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for TechnoName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for TechnoName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for TechnoName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for TechnoName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<TechnoName> for str {
+    fn eq(&self, other: &TechnoName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<TechnoName> for &str {
+    fn eq(&self, other: &TechnoName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for TechnoName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 美术 `Image=` 资源名（缺省常等于类型 id）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ImageName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl ImageName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for ImageName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for ImageName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for ImageName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for ImageName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for ImageName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for ImageName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for ImageName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<ImageName> for str {
+    fn eq(&self, other: &ImageName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<ImageName> for &str {
+    fn eq(&self, other: &ImageName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for ImageName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
 
 /// Techno 大类（与内容列表节对应）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

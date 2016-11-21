@@ -1,11 +1,196 @@
 //! 阵营 / 房屋允许名单（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=`）。
 
 use std::fmt;
+use std::ops::Deref;
 
 use serde::de::{self, Deserializer, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use super::HouseName;
+use super::ini_string::{deserialize_upper, parse_upper};
+
+
+/// 房屋 / 阵营名（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=` 等）；空 = 未配置。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct HouseName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl HouseName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for HouseName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for HouseName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for HouseName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for HouseName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for HouseName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for HouseName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for HouseName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<HouseName> for str {
+    fn eq(&self, other: &HouseName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<HouseName> for &str {
+    fn eq(&self, other: &HouseName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for HouseName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
+/// 房屋 / 阵营 `Color=` 方案名（装载期大写，对齐 rules `[Colors]` 键）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct ColorName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl ColorName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for ColorName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for ColorName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for ColorName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for ColorName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for ColorName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for ColorName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for ColorName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<ColorName> for str {
+    fn eq(&self, other: &ColorName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<ColorName> for &str {
+    fn eq(&self, other: &ColorName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for ColorName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
 
 /// 装载期一次解码后的房屋名单；空名单语义由字段约定（见各字段文档）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
