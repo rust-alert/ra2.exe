@@ -1,6 +1,6 @@
 //! 受击闪白派生 TakeDamage 动画状态。
 
-use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, test_engine};
 use ra_engine::{AnimState, GameCommand, HIT_FLASH_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -14,26 +14,26 @@ fn snapshot_anim_state_take_damage_then_die() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 5,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "hit");
@@ -47,8 +47,7 @@ fn snapshot_anim_state_take_damage_then_die() {
     let tgt = snap.units.iter().find(|u| u.id == EntityId(2)).unwrap();
     if tgt.dead {
         assert_eq!(tgt.anim_state, AnimState::Die);
-    }
-    else {
+    } else {
         assert_eq!(tgt.anim_state, AnimState::TakeDamage);
         let flash = session.expect_battle().world.ecs_animation(target).expect("anim").1;
         assert!(flash <= HIT_FLASH_TICKS);

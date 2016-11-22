@@ -16,7 +16,7 @@ fn sample(build_time: u32) -> TechnoDefinition {
         strength: 125,
         armor: ra_types::ArmorKind::None,
         speed: 4,
-        owner: ra_types::HouseAllowList::parse_owner("Americans"),
+        owner: ra_types::HouseAllowList::parse_owner("AMERICANS"),
         tech_level: 1,
         naval: false,
         agent: false,

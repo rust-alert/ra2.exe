@@ -1,6 +1,6 @@
 //! 触发器：计时条件可驱动 Win。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::{BattleOutcome, Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
@@ -25,8 +25,8 @@ fn timer_trigger_fires_win_on_campaign() {
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "trig");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     for _ in 0..5 {
         session.tick(&engine.runtime());
@@ -34,7 +34,7 @@ fn timer_trigger_fires_win_on_campaign() {
             break;
         }
     }
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -57,8 +57,8 @@ TRA=1,15,0,0,0,0,0,0,A\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "allow-win");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // tick0：Win 触发但 Allow Win 阻塞，延后胜利。
     session.tick(&engine.runtime());
@@ -66,7 +66,7 @@ TRA=1,15,0,0,0,0,0,0,A\n\
 
     // tick1：Allow Win 清阻塞 → 兑现延后胜利。
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -92,17 +92,17 @@ TRE=1,38,0,0,0,0,0,0,Russians\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "ally");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
-    assert!(!houses_are_allied(&session.expect_battle().world, "Americans", "Russians"));
-
-    session.tick(&engine.runtime());
-    assert!(houses_are_allied(&session.expect_battle().world, "Americans", "Russians"), "action 37 should ally trigger house with param house");
+    assert!(!houses_are_allied(&session.expect_battle().world, "AMERICANS", "RUSSIANS"));
 
     session.tick(&engine.runtime());
-    assert!(!houses_are_allied(&session.expect_battle().world, "Americans", "Russians"), "action 38 should break the alliance");
+    assert!(houses_are_allied(&session.expect_battle().world, "AMERICANS", "RUSSIANS"), "action 37 should ally trigger house with param house");
+
+    session.tick(&engine.runtime());
+    assert!(!houses_are_allied(&session.expect_battle().world, "AMERICANS", "RUSSIANS"), "action 38 should break the alliance");
 }
 
 #[test]
@@ -121,34 +121,34 @@ fn all_change_house_reassigns_entire_house() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "all-house.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 5,
         y: 5,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "all-house");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     let owners: Vec<_> = session
@@ -161,7 +161,7 @@ fn all_change_house_reassigns_entire_house() {
         .collect();
     assert!(!owners.is_empty());
     assert!(
-        owners.iter().all(|o| o.eq_ignore_ascii_case("Americans")),
+        owners.iter().all(|o| o.eq_ignore_ascii_case("AMERICANS")),
         "action 36 should reassign all entities of the trigger house: {owners:?}"
     );
 }
@@ -182,51 +182,51 @@ fn destroy_all_of_house_kills_living_entities() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "wipe.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 3,
         y: 3,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 6,
         y: 6,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "wipe");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let russians_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("Russians") && !u.dead).count();
-    let americans_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("Americans") && !u.dead).count();
+    let russians_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("RUSSIANS") && !u.dead).count();
+    let americans_alive = snap.units.iter().filter(|u| u.owner.eq_ignore_ascii_case("AMERICANS") && !u.dead).count();
     assert_eq!(russians_alive, 0, "action 119 should wipe the target house");
     assert!(americans_alive >= 1, "other houses must remain");
 }
@@ -248,25 +248,25 @@ fn cell_tag_entered_fires_win_on_campaign() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "cell.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 5,
         y: 5,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     assert_eq!(map.scripting.cell_tags.len(), 1);
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "cell");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -285,21 +285,21 @@ fn destroyed_tagged_entity_fires_win_on_campaign() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "dead.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: "OBJ".into(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "dead");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // 存活目标时不应立刻胜利。
     session.tick(&engine.runtime());
@@ -309,7 +309,7 @@ fn destroyed_tagged_entity_fires_win_on_campaign() {
     assert!(session.expect_battle_mut().world.set_ecs_health(id, 0, 1, true));
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -328,22 +328,22 @@ fn destroyed_all_of_house_event_fires_win() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "house-dead.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "house-dead");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
@@ -352,7 +352,7 @@ fn destroyed_all_of_house_event_fires_win() {
     assert!(session.expect_battle_mut().world.set_ecs_health(id, 0, 1, true));
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -369,8 +369,8 @@ fn credits_exceed_event_fires_win() {
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "credits");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // 默认资金不足。
     session.tick(&engine.runtime());
@@ -381,7 +381,7 @@ fn credits_exceed_event_fires_win() {
         p.funds = 1000;
     }
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -398,8 +398,8 @@ fn credits_below_event_fires_when_broke() {
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "broke");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     let player = session.expect_battle_mut().world.local_player;
     if let Some(p) = session.expect_battle_mut().world.players.iter_mut().find(|p| p.id == player) {
@@ -423,8 +423,8 @@ fn low_power_event_fires_when_drain_exceeds_output() {
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "power");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
@@ -459,14 +459,14 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "enable");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none(), "disabled TR2 must not win on first tick");
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -489,11 +489,11 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "force");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -516,8 +516,8 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "timer-set");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // tick0：TR1 将 TR2 计时器设为 2（不立刻胜利）。
     session.tick(&engine.runtime());
@@ -529,7 +529,7 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
 
     // tick2：TR2 归零 → Win。
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -555,8 +555,8 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "timer-pause");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // tick0：扣减后 TRW rem=1，TRS 暂停；tick1 仍暂停。
     session.tick(&engine.runtime());
@@ -568,7 +568,7 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     session.tick(&engine.runtime());
     assert!(session.expect_battle().outcome.is_none());
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -591,8 +591,8 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "timer-ext");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // tick0：TRW 3→2，TRE +2 → rem=4。无 Extend 时约 tick2 胜利；有 Extend 更晚。
     for i in 0..4 {
@@ -601,7 +601,7 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     }
     // rem 4 再经 tick1..4 变为 0：第 5 次 tick（下标 4 之后）触发 Win。
     session.tick(&engine.runtime());
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -624,8 +624,8 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "timer-short");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     // tick0：TRW 5→4，Shorten -4 → rem=0 → 同 tick 若 TRW 已在 to_fire 则可能未改到；
     // Shorten 在 apply 阶段把 rem 设为 0 并 fired=false，下一 tick 才会 Win。
@@ -633,7 +633,7 @@ TRW=1,1,0,0,0,0,0,0,Americans\n\
     if session.expect_battle().outcome.is_none() {
         session.tick(&engine.runtime());
     }
-    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "Americans".into() }));
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
 }
 
 #[test]
@@ -656,8 +656,8 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "disable");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     for _ in 0..5 {
         session.tick(&engine.runtime());
@@ -685,8 +685,8 @@ TR2=1,1,0,0,0,0,0,0,Americans\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "destroy-trig");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     for _ in 0..5 {
         session.tick(&engine.runtime());
@@ -711,22 +711,22 @@ fn change_house_action_reassigns_tagged_entities() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "change-house.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: "OBJ".into(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "change-house");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     let id = session.expect_battle().world.find_entity_id_by_type("E1").expect("tagged infantry");
     assert!(
@@ -735,7 +735,7 @@ fn change_house_action_reassigns_tagged_entities() {
             .world
             .ecs_owner(id)
             .as_deref()
-            .is_some_and(|o| o.eq_ignore_ascii_case("Russians"))
+            .is_some_and(|o| o.eq_ignore_ascii_case("RUSSIANS"))
     );
 
     session.tick(&engine.runtime());
@@ -745,7 +745,7 @@ fn change_house_action_reassigns_tagged_entities() {
             .world
             .ecs_owner(id)
             .as_deref()
-            .is_some_and(|o| o.eq_ignore_ascii_case("Americans")),
+            .is_some_and(|o| o.eq_ignore_ascii_case("AMERICANS")),
         "Change House should reassign tagged objects"
     );
 }
@@ -766,21 +766,21 @@ fn destroy_attached_objects_action_kills_tagged_entities() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-attached.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 6,
         y: 6,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: "OBJ".into(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "destroy-attached");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     let id = session.expect_battle().world.find_entity_id_by_type("NACNST").expect("tagged structure");
     assert_eq!(session.expect_battle().world.ecs_health(id).map(|(_, _, d)| d), Some(false));
@@ -804,33 +804,33 @@ fn destroy_tag_action_kills_named_tag_entities() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "destroy-tag.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "NACNST".into(),
         health: 256,
         x: 6,
         y: 6,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: "OBJ".into(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 7,
         y: 7,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "destroy-tag");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
@@ -867,8 +867,8 @@ TR2=1,5,0,TM1,0,0,0,0,A\n\
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "destroy-team");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    let _ = session.expect_battle_mut().world.prefer_local_house("Americans");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     session.tick(&engine.runtime());
     let living = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
@@ -895,37 +895,37 @@ fn all_to_hunt_action_orders_house_attack() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "hunt.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 3,
         y: 3,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 8,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, empty_defs(), map), "hunt");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
 
     let snap = session.expect_battle().snapshot(&[]);
-    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Russians")).map(|u| u.id).expect("RU");
-    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Americans")).map(|u| u.id).expect("US");
+    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("RUSSIANS")).map(|u| u.id).expect("RU");
+    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("AMERICANS")).map(|u| u.id).expect("US");
 
     session.tick(&engine.runtime());
     // All to Hunt queues Attack for next tick apply.

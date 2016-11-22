@@ -49,7 +49,7 @@ fn prepared_skeleton_with_overlays_opens_bridge_cell() {
         y: 2,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.overlays.push(OverlayCell { x: 1, y: 2, overlay_id: 0, data: 0 });

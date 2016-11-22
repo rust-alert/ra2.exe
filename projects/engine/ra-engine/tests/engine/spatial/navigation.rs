@@ -1,9 +1,9 @@
 //! 绕静态障碍寻路。
 
-use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, map_with_size};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
-use ra_types::{GameEdition, EntityId};
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn bfs_detours_around_structure() {
@@ -12,31 +12,31 @@ fn bfs_detours_around_structure() {
     map.waypoints.push(Waypoint { index: 0, x: 14, y: 10 });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Neutral".into(),
+        owner: "NEUTRAL".into(),
         type_id: "GAWALL".into(),
         health: 256,
         x: 12,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
     // 墙体属 Neutral，先入房主序会把本地玩家落在 Neutral；命令需切到美国人。
-    assert!(world.prefer_local_house("Americans"));
+    assert!(world.prefer_local_house("AMERICANS"));
     assert!(!world.pass_grid.is_passable(12, 10));
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 14, y: 10 });
     world.advance_tick();

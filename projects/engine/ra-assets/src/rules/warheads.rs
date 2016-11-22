@@ -7,15 +7,15 @@ use serde::Deserialize;
 use serde::de::{self, Deserializer, SeqAccess, Visitor};
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::WarheadVerses;
+use ra_types::{WarheadName, WarheadVerses};
 
 pub use ra_types::{ARMOR_ORDER, armor_index};
 
 /// 弹头：对各护甲的伤害百分比（默认全 100）及溅射 / 卧倒倍率。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Warhead {
-    /// 弹头 id（大写）。
-    pub id: String,
+    /// 弹头 id（装载期一次解码为大写）。
+    pub id: WarheadName,
     /// 对应 [`ARMOR_ORDER`] 的百分比倍率。
     pub verses: WarheadVerses,
     /// `Spread=` 溅射半径（格）；缺省 0。
@@ -32,14 +32,14 @@ pub struct WarheadRegistry {
 
 impl WarheadRegistry {
     /// 解析指定弹头名列表（大小写不敏感节名）。
-    pub fn from_names(rules: &IniDocument, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+    pub fn from_names(rules: &IniDocument, names: impl IntoIterator<Item=impl AsRef<str>>) -> Self {
         let policy = IniMergePolicy::last_wins();
         let docs = std::slice::from_ref(rules);
         Self::from_names_layered(LayeredIniView::new(docs, &policy), names)
     }
 
     /// 从层叠 rules 视图解析指定弹头名列表。
-    pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+    pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item=impl AsRef<str>>) -> Self {
         let mut by_id = HashMap::new();
         for name in names {
             let id = name.as_ref().trim().to_ascii_uppercase();
@@ -88,7 +88,7 @@ fn parse_warhead(view: LayeredIniView<'_>, id: &str) -> Option<Warhead> {
     let section = view.section(id)?;
     let fields: WarheadSectionFields = section.deserialize().ok()?;
     Some(Warhead {
-        id: id.to_string(),
+        id: WarheadName::parse(id),
         verses: fields.verses,
         spread: fields.spread,
         prone_damage: fields.prone_damage,

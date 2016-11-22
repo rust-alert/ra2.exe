@@ -152,8 +152,7 @@ impl Shell {
         self.lobby_modes = boot::list_install_skirmish_modes();
         if self.selected_mode_id.is_none() {
             self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
-        }
-        else if let Some(id) = self.selected_mode_id {
+        } else if let Some(id) = self.selected_mode_id {
             if !self.lobby_modes.iter().any(|m| m.id == id) {
                 self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
             }
@@ -174,7 +173,7 @@ impl Shell {
         self.lobby_side_groups = sides;
         self.lobby_side_chromes = chromes;
         self.lobby_countries = countries;
-        let ids: Vec<String> = self.lobby_countries.iter().map(|c| c.id.clone()).collect();
+        let ids: Vec<String> = self.lobby_countries.iter().map(|c| c.id.as_str().to_string()).collect();
         self.skirmish.set_lobby_sides(ids);
         tracing::info!(
             countries = self.lobby_countries.len(),

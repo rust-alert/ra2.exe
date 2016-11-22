@@ -24,26 +24,26 @@ fn atk_structure_world(strength: &str, map_name: &str) -> ra_engine::BattleState
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "GAPOWR".into(),
         health: 256,
         x: 6,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     battle_from_defs(GameEdition::Ra2, defs, map)
@@ -77,7 +77,7 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
     for _ in 0..8 {
         world.advance_tick();
         let cues = world.take_eva_cues();
-        let hit = cues.iter().any(|c| c.event == "EVA_OurBaseIsUnderAttack" && c.house.as_ref() == "Soviets");
+        let hit = cues.iter().any(|c| c.event == "EVA_OurBaseIsUnderAttack" && c.house.as_ref() == "SOVIETS");
         if hit {
             first_hit = true;
             break;
@@ -89,7 +89,7 @@ fn structure_damage_cues_base_under_attack_once_per_suppress_window() {
     for _ in 0..30 {
         world.advance_tick();
         let cues = world.take_eva_cues();
-        if cues.iter().any(|c| c.event == "EVA_OurBaseIsUnderAttack" && c.house.as_ref() == "Soviets") {
+        if cues.iter().any(|c| c.event == "EVA_OurBaseIsUnderAttack" && c.house.as_ref() == "SOVIETS") {
             repeats = repeats.saturating_add(1);
         }
     }

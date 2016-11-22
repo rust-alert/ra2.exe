@@ -19,18 +19,18 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     map.height = 12;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GAPILE".into(),
         health: 256,
         x: 3,
         y: 3,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 5_000));
+    assert!(world.set_house_funds("AMERICANS", 5_000));
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;
     let mut session = Session::from_state(world, "hud");

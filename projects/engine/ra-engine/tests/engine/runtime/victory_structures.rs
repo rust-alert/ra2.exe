@@ -1,6 +1,6 @@
 //! 胜负计入建筑作战力量。
 
-use crate::common::{defs_with_mtnk, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -13,26 +13,26 @@ fn living_structure_prevents_sole_victor() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 8,
         y: 8,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     // 结构体借用 MTNK 规则仅作 Strength；种类为 Structure 即计入作战力量。
@@ -54,38 +54,38 @@ fn ambient_units_do_not_block_sole_victor() {
     map.height = 16;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Soviets".into(),
+        owner: "SOVIETS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 8,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Neutral".into(),
+        owner: "NEUTRAL".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 12,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "ambient-victory");

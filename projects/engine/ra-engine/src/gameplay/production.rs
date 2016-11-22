@@ -37,7 +37,7 @@ impl crate::state::BattleState {
             let tick = self.tick;
             let low_power = self
                 .ecs_get::<Owner>(id)
-                .and_then(|o| self.players.iter().find(|p| p.house.as_ref() == o.house.as_ref()))
+                .and_then(|o| self.players.iter().find(|p| p.house.eq_ignore_ascii_case(o.house.as_ref())))
                 .is_some_and(|p| p.low_power());
             let finished = self
                 .with_production_mut(id, |queue| {
@@ -62,8 +62,7 @@ impl crate::state::BattleState {
                 let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
                     building_ready.push((index, type_id));
-                }
-                else {
+                } else {
                     unit_spawns.push((index, type_id));
                 }
             }
@@ -113,7 +112,7 @@ impl crate::state::BattleState {
             TechnoClass::Building => return,
         };
         let techno_class = tt.class;
-        let promoted = self.players.iter().find(|p| p.house.as_ref() == owner.as_ref()).is_some_and(|p| match tt.class {
+        let promoted = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(owner.as_ref())).is_some_and(|p| match tt.class {
             TechnoClass::Infantry => p.promoted_infantry,
             TechnoClass::Vehicle => p.promoted_vehicle,
             _ => false,
@@ -138,7 +137,7 @@ impl crate::state::BattleState {
                 entity_id: id,
                 type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                 kind,
-                mission: String::new(),
+                mission: Default::default(),
                 tag: ra_types::TagName::default(),
             },
             owner: Owner { house: owner.clone() },
@@ -160,7 +159,7 @@ impl crate::state::BattleState {
             animation: AnimationState { hva_frame: 0, hit_flash: 0 },
         });
         self.mark_entity_dirty(id);
-        if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == owner.as_ref()) {
+        if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(owner.as_ref())) {
             player.built = player.built.saturating_add(1);
         }
         if let Some((rx, ry)) = rally {
@@ -196,7 +195,7 @@ impl crate::state::BattleState {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
         })
@@ -207,7 +206,7 @@ impl crate::state::BattleState {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
@@ -221,7 +220,7 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return None;
             }
-            if !self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == house).unwrap_or(false) {
+            if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
                 return None;
             }
             if !self

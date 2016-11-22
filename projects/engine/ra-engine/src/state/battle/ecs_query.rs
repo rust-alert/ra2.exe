@@ -29,8 +29,8 @@ impl BattleState {
     pub fn find_entity_id_by_owner_type(&self, owner: &str, type_id: &str) -> Option<EntityId> {
         self.entities.iter().find_map(|e| {
             let id = e.id;
-            let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house.as_ref() == owner).unwrap_or(false);
-            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id.as_ref() == type_id).unwrap_or(false);
+            let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(owner)).unwrap_or(false);
+            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id.eq_ignore_ascii_case(type_id)).unwrap_or(false);
             (house_ok && type_ok).then_some(id)
         })
     }
@@ -76,7 +76,7 @@ impl BattleState {
     }
 
     /// 读取 ECS `Identity.mission`（地图放置任务态；测试与诊断）。
-    pub fn ecs_mission(&self, id: EntityId) -> Option<String> {
+    pub fn ecs_mission(&self, id: EntityId) -> Option<ra_types::MissionName> {
         self.ecs_get::<crate::state::components::Identity>(id).map(|i| i.mission.clone())
     }
 

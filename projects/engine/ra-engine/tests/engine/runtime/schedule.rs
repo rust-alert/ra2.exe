@@ -1,9 +1,9 @@
 //! `SystemSchedule` 驱动 tick 阶段。
 
-use crate::common::{map_with_size, defs_with_mtnk, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, map_with_size};
 use ra_engine::{GameCommand, SystemPhase, SystemSchedule};
 use ra_map::{MapEntity, MapEntityKind};
-use ra_types::{GameEdition, EntityId};
+use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn default_order_runs_terrain_spawn_after_powers() {
@@ -22,26 +22,26 @@ fn omitting_combat_phase_skips_damage() {
     let mut map = map_with_size();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Russians".into(),
+        owner: "RUSSIANS".into(),
         type_id: "MTNK".into(),
         health: 256,
         x: 12,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);

@@ -8,7 +8,7 @@ use ra_map::{
     paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::Renderer;
-use ra_types::{EntityId, HouseName};
+use ra_types::{EntityId, HouseName, TechnoName};
 use ra_widgets::fs_source::GameAssetSource;
 
 use super::super::boot::remap_owner_palette;
@@ -83,8 +83,7 @@ impl BattleController {
             };
             if game.world.last_rejects().iter().any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy)) {
                 Some(Err(ra_engine::CommandRejectReason::CannotDeploy.as_hud_label().to_string()))
-            }
-            else {
+            } else {
                 match game.world.ecs_identity(id) {
                     Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => Some(Ok(type_id.to_string())),
                     None => Some(Err("部署目标已消失".into())),
@@ -136,8 +135,7 @@ impl BattleController {
             let elapsed = pending.started.elapsed().as_millis() as u64;
             if pending.clip.frame_at(elapsed).is_none() {
                 finished.push(pending);
-            }
-            else {
+            } else {
                 still.push(pending);
             }
         }
@@ -148,8 +146,7 @@ impl BattleController {
         }
         if self.pending_buildups.is_empty() {
             self.present_preview_base(renderer);
-        }
-        else {
+        } else {
             self.recompose_preview_with_buildups(assets, renderer);
         }
     }
@@ -263,13 +260,13 @@ impl BattleController {
             one.entities.push(MapEntity {
                 kind: MapEntityKind::Structure,
                 owner: HouseName::parse(owner),
-                type_id: type_id.to_string(),
+                type_id: TechnoName::parse(type_id),
                 health: 256,
                 x,
                 y,
                 facing: 0,
                 sub_cell: 0,
-                mission: String::new(),
+                mission: Default::default(),
                 tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
@@ -285,8 +282,7 @@ impl BattleController {
                         }
                     }
                 }
-            }
-            else {
+            } else {
                 tracing::info!("定格 · {} 主体 SHP", type_id);
             }
             if n == 0 {
@@ -308,13 +304,13 @@ impl BattleController {
                 one.entities.push(MapEntity {
                     kind: MapEntityKind::Structure,
                     owner: HouseName::parse(owner),
-                    type_id: type_id.to_string(),
+                    type_id: TechnoName::parse(type_id),
                     health: 256,
                     x,
                     y,
                     facing: 0,
                     sub_cell: 0,
-                    mission: String::new(),
+                    mission: Default::default(),
                     tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
@@ -357,7 +353,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, String, HouseName), MobilePaintPose> = HashMap::new();
+        let mut poses: HashMap<(u16, u16, TechnoName, HouseName), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -378,7 +374,7 @@ impl BattleController {
                 continue;
             };
             let owner_s = HouseName::parse(owner.as_ref());
-            let type_s = type_id.to_string();
+            let type_s = TechnoName::parse(type_id.as_ref());
             poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
@@ -389,7 +385,7 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
-                mission: String::new(),
+                mission: Default::default(),
                 tag: Default::default(),
             });
         }
@@ -427,7 +423,7 @@ impl BattleController {
         };
         let mut mobile_map = game.world.map.clone();
         mobile_map.entities.clear();
-        let mut poses: HashMap<(u16, u16, String, HouseName), MobilePaintPose> = HashMap::new();
+        let mut poses: HashMap<(u16, u16, TechnoName, HouseName), MobilePaintPose> = HashMap::new();
         for id in game.world.entity_ids() {
             if game.world.ecs_health(id).map(|(_, _, dead)| dead).unwrap_or(true) {
                 continue;
@@ -448,7 +444,7 @@ impl BattleController {
                 continue;
             };
             let owner_s = HouseName::parse(owner.as_ref());
-            let type_s = type_id.to_string();
+            let type_s = TechnoName::parse(type_id.as_ref());
             poses.insert((x, y, type_s.clone(), owner_s.clone()), mobile_paint_pose_for(game, id, x, y, tick_fraction));
             mobile_map.entities.push(MapEntity {
                 kind,
@@ -459,7 +455,7 @@ impl BattleController {
                 y,
                 facing,
                 sub_cell: 0,
-                mission: String::new(),
+                mission: Default::default(),
                 tag: Default::default(),
             });
         }
@@ -503,8 +499,7 @@ impl BattleController {
             self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
             self.last_anim_sig = self.preview_anim_signature(clock_ms);
-        }
-        else {
+        } else {
             self.last_anim_sig = 0;
         }
         self.paint_weather_onto(&mut composed);

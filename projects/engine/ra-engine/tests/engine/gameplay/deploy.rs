@@ -18,14 +18,14 @@ fn mcv_world() -> BattleState {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "AMCV".into(),
         health: 256,
         x: 5,
         y: 5,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     battle_from_defs(GameEdition::Ra2, defs, map)
@@ -34,9 +34,9 @@ fn mcv_world() -> BattleState {
 #[test]
 fn set_house_funds_updates_player_state() {
     let mut world = mcv_world();
-    assert_eq!(world.house_funds("Americans"), Some(0));
-    assert!(world.set_house_funds("Americans", 10_000));
-    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(0));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
     assert!(!world.set_house_funds("Nobody", 1));
 }
 
@@ -44,7 +44,7 @@ fn set_house_funds_updates_player_state() {
 fn set_all_players_funds_seeds_every_house() {
     let mut world = mcv_world();
     world.set_all_players_funds(8_000);
-    assert_eq!(world.house_funds("Americans"), Some(8_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(8_000));
     for player in &world.players {
         assert_eq!(player.funds, 8_000);
     }

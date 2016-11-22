@@ -5,13 +5,13 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, UiName, WarheadName, WeaponName};
+use ra_types::{ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, UiName, WarheadName, WeaponName};
 
 /// 超武类型（装载期资源侧记录）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SuperWeaponType {
-    /// 类型键（大写）。
-    pub id: String,
+    /// 类型键（装载期一次解码为大写）。
+    pub id: SuperWeaponName,
     /// `UIName=`（装载期一次解码）；空表示未写。
     pub ui_name: UiName,
     /// `Type=` 玩法类型名。
@@ -90,7 +90,7 @@ impl SuperWeaponTypeRegistry {
     }
 
     /// 列表顺序遍历。
-    pub fn iter(&self) -> impl Iterator<Item = &SuperWeaponType> {
+    pub fn iter(&self) -> impl Iterator<Item=&SuperWeaponType> {
         self.items.iter()
     }
 
@@ -162,7 +162,7 @@ fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponT
     let weapon = fields.weapon;
     let (weapon_damage, weapon_range, weapon_rof, weapon_warhead, weapon_projectile) = resolve_weapon(view, &weapon);
     Some(SuperWeaponType {
-        id: id.to_string(),
+        id: SuperWeaponName::parse(id),
         ui_name: fields.ui_name,
         kind: fields.kind,
         action: fields.action,

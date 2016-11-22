@@ -133,7 +133,7 @@ impl crate::state::BattleState {
 
     pub(crate) fn grant_structure_power(&mut self, house: &str, type_id: &str) {
         let power = building_power(&self.definitions, type_id);
-        let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == house)
+        let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house))
         else {
             return;
         };

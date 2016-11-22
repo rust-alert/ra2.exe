@@ -1,6 +1,6 @@
 //! 会话层部署 / 建造 / 生产命令。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::{PRODUCE_TICKS, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
@@ -20,18 +20,18 @@ fn economy_session() -> Session {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Unit,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "AMCV".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     Session::from_state(world, "orders")
 }
 
@@ -45,7 +45,7 @@ fn produce_until_ready(session: &mut Session, engine: &ra_engine::Engine, type_i
         session.expect_battle().world.last_rejects()
     );
     for _ in 0..=PRODUCE_TICKS {
-        if session.expect_battle().world.house_ready_building("Americans").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
+        if session.expect_battle().world.house_ready_building("AMERICANS").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
             return;
         }
         session.tick(&engine.runtime());
@@ -69,7 +69,7 @@ fn order_deploy_and_place_power() {
         MapEntityKind::Structure
     );
     produce_until_ready(&mut session, &engine, "GAPOWR");
-    assert_eq!(session.expect_battle().world.house_funds("Americans"), Some(10_000 - 600));
+    assert_eq!(session.expect_battle().world.house_funds("AMERICANS"), Some(10_000 - 600));
     // 建造场 `Foundation=4x4` 占 (4,4)–(7,7)，落在占地外。
     session.expect_battle_mut().order_place_building("GAPOWR", 8, 4);
     session.tick(&engine.runtime());

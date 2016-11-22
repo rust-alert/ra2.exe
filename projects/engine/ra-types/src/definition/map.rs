@@ -845,7 +845,6 @@ impl<'de> Deserialize<'de> for GameModeName {
 }
 
 
-
 /// 地图 / 战役 scenario 文件名（装载期只修剪，保留盘上大小写）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct MapFileName {
@@ -936,6 +935,97 @@ impl<'de> Deserialize<'de> for MapFileName {
         })
     }
 }
+
+/// 地图放置初始任务态（装载期大写；如 `GUARD`）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct MissionName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl MissionName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for MissionName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for MissionName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for MissionName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for MissionName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for MissionName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for MissionName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for MissionName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<MissionName> for str {
+    fn eq(&self, other: &MissionName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<MissionName> for &str {
+    fn eq(&self, other: &MissionName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for MissionName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
 
 /// 冻结的完整静态地图（装载期产出，对局与绘制只读）。
 ///
@@ -1161,8 +1251,8 @@ pub struct MapPlacedEntity {
     pub kind: MapPlacedEntityKind,
     /// 所属方名称（装载期一次解码为大写）。
     pub owner: HouseName,
-    /// 类型 id（通常已大写）。
-    pub type_id: String,
+    /// 类型 id（装载期一次解码为大写）。
+    pub type_id: TechnoName,
     /// 0..=256；原版常写 256 表示满血。
     pub health: u16,
     /// 格子 X。
@@ -1173,8 +1263,8 @@ pub struct MapPlacedEntity {
     pub facing: u8,
     /// 步兵子格 0..=4；其它为 0。
     pub sub_cell: u8,
-    /// 初始任务（如 `Guard`）；空表示未指定。
-    pub mission: String,
+    /// 初始任务（装载期一次解码为大写）；空表示未指定。
+    pub mission: MissionName,
     /// 绑定的 Tag id（装载期一次解码为大写 Tags 键；空表示无）。
     pub tag: TagName,
 }

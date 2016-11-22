@@ -18,22 +18,22 @@ fn yard_with_power() -> BattleState {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
     world.advance_tick();
     for _ in 0..=PRODUCE_TICKS {
-        if world.house_ready_building("Americans").is_some() {
+        if world.house_ready_building("AMERICANS").is_some() {
             break;
         }
         world.advance_tick();
@@ -70,7 +70,7 @@ fn repair_building_heals_over_pulses_with_repair_percent_fee() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
     assert!(world.set_ecs_health(power, 300, 600, false));
-    let funds_before = world.house_funds("Americans").expect("funds");
+    let funds_before = world.house_funds("AMERICANS").expect("funds");
 
     world.push_command(GameCommand::RepairBuilding { player: PlayerId(0), building: power });
     world.advance_tick();
@@ -84,7 +84,7 @@ fn repair_building_heals_over_pulses_with_repair_percent_fee() {
     assert_eq!(max, 600);
     assert_eq!(cur, 308); // +8
     // fee = 600 * 15 * 8 / (100 * 600) = 1（整数除法）
-    assert_eq!(world.house_funds("Americans"), Some(funds_before - 1));
+    assert_eq!(world.house_funds("AMERICANS"), Some(funds_before - 1));
     assert!(is_repairing(&world, power));
 }
 
@@ -93,7 +93,7 @@ fn repair_building_stops_when_funds_run_out() {
     let mut world = yard_with_power();
     let power = world.entity_id_at(1).expect("power");
     assert!(world.set_ecs_health(power, 300, 600, false));
-    assert!(world.set_house_funds("Americans", 0));
+    assert!(world.set_house_funds("AMERICANS", 0));
 
     world.push_command(GameCommand::RepairBuilding { player: PlayerId(0), building: power });
     world.advance_tick();
@@ -104,7 +104,7 @@ fn repair_building_stops_when_funds_run_out() {
     }
     assert!(!is_repairing(&world, power));
     assert_eq!(world.ecs_health(power).map(|h| h.0), Some(300));
-    assert_eq!(world.house_funds("Americans"), Some(0));
+    assert_eq!(world.house_funds("AMERICANS"), Some(0));
 }
 
 #[test]

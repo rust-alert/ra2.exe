@@ -1,6 +1,6 @@
 //! 快照包含建筑实体。
 
-use crate::common::{defs_with_mtnk, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
@@ -13,14 +13,14 @@ fn snapshot_includes_structures() {
     map.height = 12;
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GACNST".into(),
         health: 256,
         x: 3,
         y: 3,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "struct");

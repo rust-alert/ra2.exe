@@ -76,7 +76,7 @@ pub fn living_type_count(world: &BattleState, house: &str, type_key: &str) -> i3
         .filter(|e| {
             let id = e.id;
             !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && world.ecs_get::<Owner>(id).is_some_and(|o| o.house.as_ref() == house)
+                && world.ecs_get::<Owner>(id).is_some_and(|o| o.house.eq_ignore_ascii_case(house))
                 && world.ecs_get::<Identity>(id).is_some_and(|i| i.type_id.as_ref().eq_ignore_ascii_case(&want))
         })
         .count() as i32

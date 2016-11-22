@@ -53,7 +53,7 @@ impl PlayerState {
     pub fn with_tech_level(id: PlayerId, house: impl AsRef<str>, tech_level: i32) -> Self {
         Self {
             id,
-            house: Arc::<str>::from(house.as_ref()),
+            house: Arc::<str>::from(house.as_ref().trim().to_ascii_uppercase()),
             funds: 0,
             power_output: 0,
             power_drain: 0,

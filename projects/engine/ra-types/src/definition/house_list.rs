@@ -3,8 +3,8 @@
 use std::fmt;
 use std::ops::Deref;
 
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
 use serde::Deserialize;
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
 
 use super::ini_string::{deserialize_upper, parse_upper};
 
@@ -192,6 +192,97 @@ impl<'de> Deserialize<'de> for ColorName {
     }
 }
 
+/// 房屋 / 阵营 `Side=` 势力 id（装载期大写；如 `GDI` / `Nod`）；空 = 未写。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct SideName {
+    /// 规范化键（装载期大写）。
+    pub name: String,
+}
+
+impl SideName {
+    /// 修剪并规范为大写；空串表示未配置。
+    pub fn parse(raw: &str) -> Self {
+        Self { name: parse_upper(raw) }
+    }
+
+    /// 底层键文本。
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
+
+    /// 是否未配置。
+    pub fn is_empty(&self) -> bool {
+        self.name.is_empty()
+    }
+}
+
+impl Deref for SideName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+impl AsRef<str> for SideName {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl fmt::Display for SideName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl From<&str> for SideName {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for SideName {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+impl PartialEq<str> for SideName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<&str> for SideName {
+    fn eq(&self, other: &&str) -> bool {
+        self.name.eq_ignore_ascii_case(other.trim())
+    }
+}
+
+impl PartialEq<SideName> for str {
+    fn eq(&self, other: &SideName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl PartialEq<SideName> for &str {
+    fn eq(&self, other: &SideName) -> bool {
+        other.name.eq_ignore_ascii_case(self.trim())
+    }
+}
+
+impl<'de> Deserialize<'de> for SideName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            name: deserialize_upper(deserializer)?,
+        })
+    }
+}
+
+
 /// 装载期一次解码后的房屋名单；空名单语义由字段约定（见各字段文档）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HouseAllowList {
@@ -206,7 +297,7 @@ impl HouseAllowList {
     }
 
     /// 由房屋名构造（再排序去重）。
-    pub fn from_houses(houses: impl IntoIterator<Item = impl Into<HouseName>>) -> Self {
+    pub fn from_houses(houses: impl IntoIterator<Item=impl Into<HouseName>>) -> Self {
         let mut houses: Vec<HouseName> = houses
             .into_iter()
             .map(Into::into)
@@ -250,7 +341,7 @@ impl HouseAllowList {
     }
 
     /// 迭代房屋名。
-    pub fn iter(&self) -> impl Iterator<Item = &HouseName> {
+    pub fn iter(&self) -> impl Iterator<Item=&HouseName> {
         self.houses.iter()
     }
 

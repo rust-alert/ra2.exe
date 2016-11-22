@@ -20,31 +20,31 @@ fn factory_world() -> BattleState {
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAPILE".into(),
             health: 256,
             x: 4,
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAWEAP".into(),
             health: 256,
             x: 8,
             y: 4,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 10_000));
+    assert!(world.set_house_funds("AMERICANS", 10_000));
     world
 }
 
@@ -54,7 +54,7 @@ fn produce_infantry_spawns_after_queue_ticks() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 200));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
     assert_eq!(world.entity_count(), 2);
     for _ in 0..(PRODUCE_TICKS - 1) {
         assert_eq!(world.entity_count(), 2);
@@ -66,13 +66,13 @@ fn produce_infantry_spawns_after_queue_ticks() {
     let identity = world.ecs_identity(unit).expect("id");
     assert_eq!(identity.1, MapEntityKind::Infantry);
     assert_eq!(identity.0.as_ref(), "E1");
-    assert_eq!(world.ecs_owner(unit).expect("owner").as_ref(), "Americans");
+    assert_eq!(world.ecs_owner(unit).expect("owner").as_ref(), "AMERICANS");
 }
 
 #[test]
 fn produce_rejects_insufficient_funds() {
     let mut world = factory_world();
-    assert!(world.set_house_funds("Americans", 50));
+    assert!(world.set_house_funds("AMERICANS", 50));
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
@@ -106,16 +106,16 @@ fn cancel_produce_refunds_and_clears_queue() {
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("Americans"), Some(10_000 - 200));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
     assert!(world.take_eva_cues().is_empty());
 
     world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    assert_eq!(world.house_funds("Americans"), Some(10_000));
+    assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
     let cues = world.take_eva_cues();
     assert_eq!(cues.len(), 1);
-    assert_eq!(cues[0].house.as_ref(), "Americans");
+    assert_eq!(cues[0].house.as_ref(), "AMERICANS");
     assert_eq!(cues[0].event, "EVA_Canceled");
 
     // 取消后可再次排队，并在满 tick 后出兵。
@@ -149,18 +149,18 @@ fn funds_nag_repeats_on_speak_delay_while_broke_with_factory() {
     map.height = 16;
     map.entities = vec![MapEntity {
         kind: MapEntityKind::Structure,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "GAPILE".into(),
         health: 256,
         x: 4,
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
-    assert!(world.set_house_funds("Americans", 50));
+    assert!(world.set_house_funds("AMERICANS", 50));
     // SpeakDelay=0.003 → ftol(2.7)=2 tick 周期。
 
     world.advance_tick();

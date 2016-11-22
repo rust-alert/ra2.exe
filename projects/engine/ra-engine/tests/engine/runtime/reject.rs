@@ -27,7 +27,7 @@ fn records_reject_for_self_attack() {
 fn rejects_local_player_moving_enemy_unit() {
     let mut world = duel_mtnk_world();
     assert_eq!(world.local_player, PlayerId(0));
-    assert_eq!(world.ecs_owner(world.entity_id_at(1).expect("entity")).expect("owner").as_ref(), "Russians");
+    assert_eq!(world.ecs_owner(world.entity_id_at(1).expect("entity")).expect("owner").as_ref(), "RUSSIANS");
     let enemy_x = world.ecs_transform(world.entity_id_at(1).expect("entity")).expect("xf").0;
     world.push_command(GameCommand::MoveTo { entity: EntityId(2), x: 1, y: 1 });
     world.advance_tick();

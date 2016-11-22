@@ -3,7 +3,7 @@
 use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
-use ra_types::{HouseAllowList, HouseName, UiName};
+use ra_types::{ColorName, HouseAllowList, HouseName, SideName, SuperWeaponName, TechnoName, UiName};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
 
@@ -11,18 +11,18 @@ use serde::de::{self, Deserializer, Visitor};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct CountryDef {
-    /// 节名 / house id（如 `Americans`）。
-    pub id: String,
+    /// 节名 / house id（装载期一次解码为大写）。
+    pub id: HouseName,
     /// `[Countries]` 列表下标。
     pub list_index: u32,
     /// `UIName=` CSF 键（装载期一次解码为大写）；缺省为空。
     pub ui_name: UiName,
     /// `Prefix=`（旗标 / 装载艺术常用前缀，如 `USA`）；缺省为空。
     pub prefix: String,
-    /// `Color=` 方案名（如 `Gold`）；缺省为空。
-    pub color: String,
-    /// `Side=` 势力 id（如 `GDI` / `Nod` / `ThirdSide`）；缺省为空。
-    pub side: String,
+    /// `Color=` 方案名（装载期一次解码为大写）；缺省为空。
+    pub color: ColorName,
+    /// `Side=` 势力 id（装载期一次解码为大写）；缺省为空。
+    pub side: SideName,
     /// `Multiplay=` 是否可在多人 / 遭遇战选用。
     pub multiplay: bool,
     /// `MultiplayObsolete=` 是否从多人表中废弃。
@@ -54,8 +54,8 @@ impl CountryDef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct SideGroup {
-    /// 势力 id（节内键，如 `GDI` / `Nod` / `ThirdSide`）。
-    pub id: String,
+    /// 势力 id（装载期一次解码为大写）。
+    pub id: SideName,
     /// 成员国家 id（装载期一次解码为大写；保序）。
     pub countries: Vec<HouseName>,
 }
@@ -68,7 +68,7 @@ pub struct SideGroup {
 #[doc(hidden)]
 pub struct SideChromeDef {
     /// 势力 id（与 [`SideGroup::id`] 一致）。
-    pub id: String,
+    pub id: SideName,
     /// `Sidebar.MixFileIndex`（1-based → `sidecNN`）；缺省为 `None`（交 adaptor）。
     pub mix_file_index: Option<u32>,
     /// `Sidebar.YuriFileNames`；缺键为 `false`。
@@ -104,7 +104,7 @@ impl CountryRegistry {
     pub fn from_layered(view: LayeredIniView<'_>) -> Self {
         let mut countries = parse_countries(view);
         for c in &mut countries {
-            c.special_ui_name = resolve_country_special_ui_name_layered(view, &c.id);
+            c.special_ui_name = resolve_country_special_ui_name_layered(view, c.id.as_str());
         }
         let sides = parse_sides(view);
         let side_chromes = parse_side_chromes(view, &sides);
@@ -162,32 +162,31 @@ pub fn parse_countries(view: LayeredIniView<'_>) -> Vec<CountryDef> {
     let mut out = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (list_index, resolved) in list.numbered_resolved() {
-        let id = resolved.value.trimmed().raw;
+        let id = HouseName::parse(resolved.value.trimmed().raw);
         if id.is_empty() {
             continue;
         }
-        let id_key = id.to_ascii_uppercase();
-        if !seen.insert(id_key) {
+        if !seen.insert(id.as_str().to_string()) {
             continue;
         }
-        out.push(parse_country(view, list_index, id));
+        out.push(parse_country(view, list_index, &id));
     }
     out
 }
 
 #[doc(hidden)]
-pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &str) -> CountryDef {
+pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &HouseName) -> CountryDef {
     let fields = view
-        .section(id)
+        .section(id.as_str())
         .and_then(|s| s.deserialize::<CountrySectionFields>().ok())
         .unwrap_or_default();
     CountryDef {
-        id: id.to_string(),
+        id: id.clone(),
         list_index,
         ui_name: fields.ui_name,
         prefix: fields.prefix.unwrap_or_default().trim().to_string(),
-        color: fields.color.unwrap_or_default().trim().to_string(),
-        side: fields.side.unwrap_or_default().trim().to_string(),
+        color: fields.color,
+        side: fields.side,
         multiplay: fields.multiplay.unwrap_or(false),
         multiplay_obsolete: fields.multiplay_obsolete.unwrap_or(false),
         special_ui_name: UiName::default(),
@@ -205,10 +204,10 @@ struct CountrySectionFields {
     ui_name: UiName,
     #[serde(rename = "Prefix")]
     prefix: Option<String>,
-    #[serde(rename = "Color")]
-    color: Option<String>,
-    #[serde(rename = "Side")]
-    side: Option<String>,
+    #[serde(rename = "Color", default)]
+    color: ColorName,
+    #[serde(rename = "Side", default)]
+    side: SideName,
     #[serde(rename = "Multiplay")]
     multiplay: Option<bool>,
     #[serde(rename = "MultiplayObsolete")]
@@ -244,45 +243,53 @@ fn resolve_country_special_ui_name_layered(view: LayeredIniView<'_>, country_id:
             else {
                 continue;
             };
-            let type_id = type_val.trimmed().raw;
+            let type_id = TechnoName::parse(type_val.trimmed().raw);
             if type_id.is_empty() {
                 continue;
             }
-            let Some(techno) = view.section(type_id)
+            let Some(techno_sec) = view.section(type_id.as_str())
             else {
                 continue;
             };
-            let required = techno.get("RequiredHouses").map(|v| v.raw).unwrap_or("");
-            if !required_houses_is_exactly(required, country_id) {
+            let fields = techno_sec.deserialize::<SpecialUiTechnoFields>().unwrap_or_default();
+            if !required_houses_is_exactly(&fields.required_houses, country_id) {
                 continue;
             }
             // 建筑特色常是「空指部挂空降」：优先超武 UIName，避免画出建筑名。
-            if list == "BuildingTypes" {
-                if let Some(sw) = techno.get("SuperWeapon").map(|v| v.trimmed().raw).filter(|s| !s.is_empty()) {
-                    let sw_ui = view
-                        .get(sw, "UIName")
-                        .map(|v| UiName::parse(v.trimmed().raw))
-                        .unwrap_or_default();
-                    if !sw_ui.is_empty() {
-                        return sw_ui;
+            if list == "BuildingTypes" && !fields.super_weapon.is_empty() {
+                if let Some(sw_sec) = view.section(fields.super_weapon.as_str()) {
+                    let sw = sw_sec.deserialize::<SpecialUiSwFields>().unwrap_or_default();
+                    if !sw.ui_name.is_empty() {
+                        return sw.ui_name;
                     }
                 }
             }
-            let ui = techno
-                .get("UIName")
-                .map(|v| UiName::parse(v.trimmed().raw))
-                .unwrap_or_default();
-            if !ui.is_empty() {
-                return ui;
+            if !fields.ui_name.is_empty() {
+                return fields.ui_name;
             }
         }
     }
     UiName::default()
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct SpecialUiTechnoFields {
+    #[serde(rename = "RequiredHouses", default)]
+    required_houses: HouseAllowList,
+    #[serde(rename = "UIName", default)]
+    ui_name: UiName,
+    #[serde(rename = "SuperWeapon", default)]
+    super_weapon: SuperWeaponName,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct SpecialUiSwFields {
+    #[serde(rename = "UIName", default)]
+    ui_name: UiName,
+}
+
 #[doc(hidden)]
-pub fn required_houses_is_exactly(raw: &str, country_id: &str) -> bool {
-    let list = HouseAllowList::parse_csv(raw);
+pub fn required_houses_is_exactly(list: &HouseAllowList, country_id: &str) -> bool {
     list.len() == 1 && list.required_allows(country_id)
 }
 
@@ -294,7 +301,7 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
     };
     let mut out = Vec::new();
     for key in sec.keys() {
-        let id = key.trim();
+        let id = SideName::parse(key);
         if id.is_empty() {
             continue;
         }
@@ -307,7 +314,7 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
             .into_iter()
             .filter(|s| !s.is_empty())
             .collect();
-        out.push(SideGroup { id: id.to_string(), countries });
+        out.push(SideGroup { id, countries });
     }
     out
 }
@@ -317,7 +324,7 @@ pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<
     let mut out = Vec::with_capacity(sides.len());
     for group in sides {
         let fields = view
-            .section(&group.id)
+            .section(group.id.as_str())
             .and_then(|s| s.deserialize::<SideChromeSectionFields>().ok())
             .unwrap_or_default();
         out.push(SideChromeDef {
@@ -337,7 +344,11 @@ pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<
 /// 势力壳层 chrome 节字段（一次 Serde）。
 #[derive(Debug, Default, Deserialize)]
 struct SideChromeSectionFields {
-    #[serde(rename = "Sidebar.MixFileIndex", default, deserialize_with = "deserialize_optional_mix_file_index")]
+    #[serde(
+        rename = "Sidebar.MixFileIndex",
+        default,
+        deserialize_with = "deserialize_optional_mix_file_index"
+    )]
     mix_file_index: Option<u32>,
     #[serde(rename = "Sidebar.YuriFileNames")]
     yuri_file_names: Option<bool>,

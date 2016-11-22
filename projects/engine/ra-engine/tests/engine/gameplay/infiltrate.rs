@@ -31,57 +31,57 @@ fn spy_world(spy_x: u16, spy_y: u16, building_type: &str, bx: u16, by: u16) -> B
     map.entities = vec![
         MapEntity {
             kind: MapEntityKind::Infantry,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "SPY".into(),
             health: 256,
             x: spy_x,
             y: spy_y,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Russians".into(),
+            owner: "RUSSIANS".into(),
             type_id: building_type.into(),
             health: 256,
             x: bx,
             y: by,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GACNST".into(),
             health: 256,
             x: 1,
             y: 1,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
         MapEntity {
             kind: MapEntityKind::Structure,
-            owner: "Americans".into(),
+            owner: "AMERICANS".into(),
             type_id: "GAPILE".into(),
             health: 256,
             x: 2,
             y: 1,
             facing: 0,
             sub_cell: 0,
-            mission: String::new(),
+            mission: Default::default(),
             tag: Default::default(),
         },
     ];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     world.set_all_players_funds(10_000);
     // 受害方有耗电，便于验证断电后低电。
-    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "Russians") {
+    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref() == "RUSSIANS") {
         p.power_output = 200;
         p.power_drain = 50;
     }
@@ -109,7 +109,7 @@ fn spy_infiltrates_power_plant_and_dies() {
     assert!(world.last_rejects().is_empty());
     // 已邻接：本 tick combat 阶段应结算。
     assert!(world.ecs_get_health_dead(spy));
-    let victim = world.players.iter().find(|p| p.house.as_ref() == "Russians").expect("victim");
+    let victim = world.players.iter().find(|p| p.house.as_ref() == "RUSSIANS").expect("victim");
     assert!(victim.power_blackout_ticks > 0);
     assert!(victim.low_power());
 }
@@ -119,14 +119,14 @@ fn spy_steals_funds_from_refinery() {
     let mut world = spy_world(4, 4, "GAREFN", 5, 4);
     let spy = world.entity_id_at(0).expect("spy");
     let building = world.entity_id_at(1).expect("building");
-    let ally_before = world.house_funds("Americans").unwrap_or(0);
-    let victim_before = world.house_funds("Russians").unwrap_or(0);
+    let ally_before = world.house_funds("AMERICANS").unwrap_or(0);
+    let victim_before = world.house_funds("RUSSIANS").unwrap_or(0);
     world.push_command(GameCommand::Infiltrate { agent: spy, building });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert!(world.ecs_get_health_dead(spy));
-    let ally_after = world.house_funds("Americans").unwrap_or(0);
-    let victim_after = world.house_funds("Russians").unwrap_or(0);
+    let ally_after = world.house_funds("AMERICANS").unwrap_or(0);
+    let victim_after = world.house_funds("RUSSIANS").unwrap_or(0);
     assert!(ally_after > ally_before);
     assert!(victim_after < victim_before);
     assert_eq!(ally_after - ally_before, victim_before - victim_after);
@@ -141,7 +141,7 @@ fn spy_infiltrates_barracks_promotes_infantry() {
     world.push_command(GameCommand::Infiltrate { agent: spy, building: enemy_pile });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
+    let americans = world.players.iter().find(|p| p.house.as_ref() == "AMERICANS").expect("ally");
     assert!(americans.promoted_infantry);
 
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
@@ -176,7 +176,7 @@ fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
     world.push_command(GameCommand::Infiltrate { agent: spy, building: lab });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
-    let americans = world.players.iter().find(|p| p.house.as_ref() == "Americans").expect("ally");
+    let americans = world.players.iter().find(|p| p.house.as_ref() == "AMERICANS").expect("ally");
     assert!(americans.stolen_soviet_tech);
 
     world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "SEAL".into() });

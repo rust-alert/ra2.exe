@@ -1,13 +1,13 @@
 //! Create Team 动作可生成 TaskForce 单位。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 
 fn defs_with_e1() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     defs_from_rules_ini(b"[InfantryTypes]\n0=E1\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",)
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n", )
 }
 
 #[test]
@@ -109,26 +109,26 @@ fn create_team_script_action_1_orders_attack_near_waypoint() {
     let mut map = MapInfo::parse_ini(GameEdition::Ra2, "team-atk.map", text).unwrap();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Infantry,
-        owner: "Americans".into(),
+        owner: "AMERICANS".into(),
         type_id: "E1".into(),
         health: 256,
         x: 10,
         y: 10,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let engine = test_engine();
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_with_e1(), map), "team-atk");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
-    session.expect_battle_mut().world.ensure_house("Americans");
-    session.expect_battle_mut().world.ensure_house("Russians");
+    session.expect_battle_mut().world.ensure_house("AMERICANS");
+    session.expect_battle_mut().world.ensure_house("RUSSIANS");
 
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
-    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Russians")).map(|u| u.id).expect("reinforced Russian");
-    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("Americans")).map(|u| u.id).expect("preplaced American");
+    let russian = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("RUSSIANS")).map(|u| u.id).expect("reinforced Russian");
+    let american = snap.units.iter().find(|u| u.owner.eq_ignore_ascii_case("AMERICANS")).map(|u| u.id).expect("preplaced American");
 
     session.tick(&engine.runtime());
     let attack = session.expect_battle().world.ecs_attack_state(russian);
@@ -237,5 +237,5 @@ fn create_team_script_action_7_clears_move_after_waypoint() {
         Some((None, None)),
         "script action 7 Guard should clear MoveTo destination"
     );
-    assert_eq!(session.expect_battle().world.ecs_mission(id).as_deref(), Some("Guard"), "script action 7 Guard should set mission");
+    assert_eq!(session.expect_battle().world.ecs_mission(id).as_deref(), Some("GUARD"), "script action 7 Guard should set mission");
 }

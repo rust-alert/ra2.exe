@@ -116,26 +116,26 @@ impl crate::state::BattleState {
     /// 结算渗透效果，并返回（行动方 EVA，受害方可选 EVA）。
     fn apply_infiltrate_effect(&mut self, agent_house: &str, victim_house: &str, building_type: &str) -> (&'static str, Option<&'static str>) {
         if is_power_plant(&self.definitions, building_type) {
-            if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == victim_house) {
+            if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
                 player.power_blackout_ticks = POWER_BLACKOUT_TICKS.max(player.power_blackout_ticks);
             }
             return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
         }
         if is_refinery(&self.definitions, building_type) {
             let stolen =
-                self.players.iter().find(|p| p.house.as_ref() == victim_house).map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0)).unwrap_or(0);
+                self.players.iter().find(|p| p.house.eq_ignore_ascii_case(victim_house)).map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0)).unwrap_or(0);
             if stolen > 0 {
-                if let Some(victim) = self.players.iter_mut().find(|p| p.house.as_ref() == victim_house) {
+                if let Some(victim) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
                     victim.funds -= stolen;
                 }
-                if let Some(agent) = self.players.iter_mut().find(|p| p.house.as_ref() == agent_house) {
+                if let Some(agent) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                     agent.funds = agent.funds.saturating_add(stolen);
                 }
             }
             return ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"));
         }
         if let Some(prod) = self.definitions.structures.get(building_type).and_then(|s| s.production.as_ref()) {
-            if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == agent_house) {
+            if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                 match prod.category {
                     ProductionCategory::Infantry => player.promoted_infantry = true,
                     ProductionCategory::Vehicle => player.promoted_vehicle = true,
@@ -146,7 +146,7 @@ impl crate::state::BattleState {
         }
         if self.definitions.prerequisite_groups.is_tech_building(building_type) {
             if let Some(kind) = self.definitions.stolen_tech_by_house.get(victim_house) {
-                if let Some(player) = self.players.iter_mut().find(|p| p.house.as_ref() == agent_house) {
+                if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                     match kind {
                         StolenTechKind::Allied => player.stolen_allied_tech = true,
                         StolenTechKind::Soviet => player.stolen_soviet_tech = true,

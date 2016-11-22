@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use ra_map::{PaintIniDocs, 
-    MapEntity, MapEntityKind, MapInfo, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures, structure_anim_frame,
+use ra_map::{
+    MapEntity, MapEntityKind, MapInfo, PaintIniDocs, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures, structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -138,7 +138,7 @@ Rate=300\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
 
@@ -191,7 +191,7 @@ ConditionRed=25%\n\
         y: 2,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -254,7 +254,7 @@ ConditionYellow=50%\n\
         y: 3,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -303,7 +303,7 @@ ConditionYellow=50%\n\
         y: 1,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -349,7 +349,7 @@ ConditionYellow=50%\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -392,7 +392,7 @@ ConditionYellow=50%\n\
         y: 2,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -488,7 +488,7 @@ Rate=300\n\
         y: 4,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -546,7 +546,7 @@ Rate=300\n\
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let source = MapSource { files };
@@ -616,7 +616,7 @@ fn missing_structure_body_paints_magenta_marker() {
         y: 0,
         facing: 0,
         sub_cell: 0,
-        mission: String::new(),
+        mission: Default::default(),
         tag: Default::default(),
     });
     let mut image = TerrainImage::blank(256, 256);
