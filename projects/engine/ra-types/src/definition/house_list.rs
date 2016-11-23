@@ -10,7 +10,7 @@ use super::ini_string::{deserialize_upper, parse_upper};
 
 
 /// 房屋 / 阵营名（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=` 等）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HouseName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -43,6 +43,12 @@ impl Deref for HouseName {
 
 impl AsRef<str> for HouseName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for HouseName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }

@@ -13,7 +13,7 @@ use super::{ImageName, UiName, WeaponName};
 
 
 /// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct SuperWeaponName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -46,6 +46,12 @@ impl Deref for SuperWeaponName {
 
 impl AsRef<str> for SuperWeaponName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for SuperWeaponName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -292,8 +298,8 @@ impl<'de> Deserialize<'de> for SuperWeaponActionName {
 pub struct SuperWeaponDefinition {
     /// 稳定类型编号。
     pub id: TypeId,
-    /// 外部类型键（INI 节名，大写）。
-    pub type_key: String,
+    /// 外部类型键（INI 节名，装载期一次解码为大写）。
+    pub type_key: SuperWeaponName,
     /// `UIName=` CSF 键（装载期一次解码）；空表示未写。
     pub ui_name: UiName,
     /// `Type=` 玩法类型名（可空）。
@@ -313,7 +319,7 @@ pub struct SuperWeaponDefinition {
 /// 超级武器定义表（按外部 type_key 查询）。
 #[derive(Debug, Clone, Default)]
 pub struct SuperWeaponDefinitions {
-    by_key: BTreeMap<String, SuperWeaponDefinition>,
+    by_key: BTreeMap<SuperWeaponName, SuperWeaponDefinition>,
 }
 
 impl SuperWeaponDefinitions {
@@ -324,7 +330,12 @@ impl SuperWeaponDefinitions {
 
     /// 按外部类型键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&SuperWeaponDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&SuperWeaponName::parse(type_key))
+    }
+
+    /// 按已规范化的类型键查找。
+    pub fn get_name(&self, type_key: &SuperWeaponName) -> Option<&SuperWeaponDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。

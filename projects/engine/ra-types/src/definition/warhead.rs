@@ -13,7 +13,7 @@ use super::ini_string::{deserialize_upper, parse_upper};
 
 
 /// 弹头节名（`Warhead=`）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct WarheadName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -46,6 +46,12 @@ impl Deref for WarheadName {
 
 impl AsRef<str> for WarheadName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for WarheadName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -109,7 +115,7 @@ pub struct WarheadDefinition {
     /// 稳定弹头编号。
     pub id: WarheadId,
     /// 外部弹头键。
-    pub type_key: String,
+    pub type_key: WarheadName,
     /// 对应 [`super::ARMOR_ORDER`] 的百分比倍率。
     pub verses: WarheadVerses,
     /// `Spread=` 溅射半径（格）；缺省 0。
@@ -121,7 +127,7 @@ pub struct WarheadDefinition {
 /// 弹头定义表。
 #[derive(Debug, Clone, Default)]
 pub struct WarheadDefinitions {
-    by_key: BTreeMap<String, WarheadDefinition>,
+    by_key: BTreeMap<WarheadName, WarheadDefinition>,
 }
 
 impl WarheadDefinitions {
@@ -130,9 +136,14 @@ impl WarheadDefinitions {
         self.by_key.insert(def.type_key.clone(), def);
     }
 
-    /// 按键查找。
+    /// 按键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&WarheadDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&WarheadName::parse(type_key))
+    }
+
+    /// 按已规范化的弹头键查找。
+    pub fn get_name(&self, type_key: &WarheadName) -> Option<&WarheadDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。

@@ -8,7 +8,7 @@ use serde::de::{self, Deserializer, Visitor};
 
 use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
+use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -191,8 +191,8 @@ pub struct StructureDefinition {
 pub struct HouseDefinition {
     /// 稳定房屋编号。
     pub id: HouseId,
-    /// 外部房屋键（国家节名，大写）。
-    pub type_key: String,
+    /// 外部房屋键（国家节名，装载期一次解码为大写）。
+    pub type_key: HouseName,
     /// `Side=` 势力 id（装载期一次解码为大写）；空表示未写。
     pub side: SideName,
     /// 由 `Side=` 推导的偷取科技类别；未知 Side 为 `None`。
@@ -204,7 +204,7 @@ pub struct HouseDefinition {
 /// 阵营 / 房屋定义表。
 #[derive(Debug, Clone, Default)]
 pub struct HouseDefinitions {
-    by_key: BTreeMap<String, HouseDefinition>,
+    by_key: BTreeMap<HouseName, HouseDefinition>,
 }
 
 impl HouseDefinitions {
@@ -215,7 +215,12 @@ impl HouseDefinitions {
 
     /// 按外部键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&HouseDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&HouseName::parse(type_key))
+    }
+
+    /// 按已规范化的房屋键查找。
+    pub fn get_name(&self, type_key: &HouseName) -> Option<&HouseDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。
