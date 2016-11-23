@@ -62,3 +62,17 @@ fn bool_accepts_yes_no_and_digits() {
     assert!(f.a);
     assert!(!f.b);
 }
+
+#[test]
+fn parse_error_includes_section_and_key() {
+    #[derive(Debug, Deserialize)]
+    struct Fields {
+        #[serde(rename = "Strength")]
+        strength: u32,
+    }
+    let doc = IniDocument::parse(b"[MTNK]\nStrength=not-a-number\n").unwrap();
+    let err = doc.section("MTNK").unwrap().deserialize::<Fields>().unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("[MTNK]"), "{msg}");
+    assert!(msg.contains("Strength") || msg.contains("STRENGTH"), "{msg}");
+}

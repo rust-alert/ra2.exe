@@ -11,6 +11,8 @@ use crate::ini::document::IniSection;
 use crate::ini::merge::LayeredSectionView;
 
 pub(super) struct SectionMapAccess<'a> {
+    /// 节名原始拼写（诊断用；可空）。
+    section: Option<&'a str>,
     /// 比较键 → 有效原文值（层叠 `AppendValues` 可能为拥有拼接串）。
     values: HashMap<String, Cow<'a, str>>,
     /// 比较键 → 原始键拼写（供 `serde(rename)` 对齐）。
@@ -33,6 +35,7 @@ impl<'a> SectionMapAccess<'a> {
             key_raw.insert(e.key_key.clone(), e.key_raw.as_str());
         }
         Self {
+            section: Some(section.name_raw.as_str()),
             values,
             key_raw,
             keys: order,
@@ -58,7 +61,9 @@ impl<'a> SectionMapAccess<'a> {
             values.insert(cmp.clone(), raw);
             key_raw.insert(cmp, raw_key);
         }
+        let name = section.name_raw();
         Self {
+            section: if name.is_empty() { None } else { Some(name) },
             values,
             key_raw,
             keys: order,
@@ -68,10 +73,18 @@ impl<'a> SectionMapAccess<'a> {
 
     pub(super) fn empty() -> Self {
         Self {
+            section: None,
             values: HashMap::new(),
             key_raw: HashMap::new(),
             keys: Vec::new(),
             index: 0,
+        }
+    }
+
+    fn attach_section(&self, err: IniDeError) -> IniDeError {
+        match self.section {
+            Some(sec) => err.with_section(sec),
+            None => err,
         }
     }
 }
@@ -105,13 +118,15 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
         let raw = self
             .values
             .get(cmp)
-            .ok_or_else(|| IniDeError::custom(format!("内部错误：缺少键 {cmp}")))?
+            .ok_or_else(|| self.attach_section(IniDeError::custom(format!("内部错误：缺少键 {cmp}"))))?
             .as_ref()
             .to_string();
         seed.deserialize(ScalarDeserializer {
             raw,
             key: Some(cmp.clone()),
+            section: self.section.map(str::to_string),
         })
+            .map_err(|e| self.attach_section(e))
     }
 }
 
