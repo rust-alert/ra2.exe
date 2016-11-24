@@ -13,7 +13,7 @@ use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, Te
 
 
 /// Techno 类型名（`DeploysInto=` 等类型引用）；空 = 未配置。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct TechnoName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -46,6 +46,12 @@ impl Deref for TechnoName {
 
 impl AsRef<str> for TechnoName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for TechnoName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }
@@ -226,7 +232,7 @@ pub struct TechnoDefinition {
     /// 稳定类型编号。
     pub id: TypeId,
     /// 外部类型键。
-    pub type_key: String,
+    pub type_key: TechnoName,
     /// 大类。
     pub class: TechnoClass,
     /// 造价。
@@ -290,7 +296,7 @@ pub struct TechnoDefinition {
 /// Techno 定义表。
 #[derive(Debug, Clone, Default)]
 pub struct TechnoDefinitions {
-    by_key: BTreeMap<String, TechnoDefinition>,
+    by_key: BTreeMap<TechnoName, TechnoDefinition>,
 }
 
 impl TechnoDefinitions {
@@ -299,9 +305,14 @@ impl TechnoDefinitions {
         self.by_key.insert(def.type_key.clone(), def);
     }
 
-    /// 按键查找。
+    /// 按键查找（大小写不敏感）。
     pub fn get(&self, type_key: &str) -> Option<&TechnoDefinition> {
-        self.by_key.get(&type_key.to_ascii_uppercase())
+        self.by_key.get(&TechnoName::parse(type_key))
+    }
+
+    /// 按已规范化的类型键查找。
+    pub fn get_name(&self, type_key: &TechnoName) -> Option<&TechnoDefinition> {
+        self.by_key.get(type_key)
     }
 
     /// 按稳定 id 查找。

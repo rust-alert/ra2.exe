@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 
 use crate::id::TypeId;
 
+use super::TechnoName;
+
 /// 部署放置策略（骨架）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DeploymentPlacement {
@@ -18,11 +20,11 @@ pub struct DeployableDefinition {
     /// 源类型编号。
     pub source: TypeId,
     /// 源外部键。
-    pub source_key: String,
+    pub source_key: TechnoName,
     /// 目标类型编号。
     pub target: TypeId,
     /// 目标外部键。
-    pub target_key: String,
+    pub target_key: TechnoName,
     /// 放置策略。
     pub placement: DeploymentPlacement,
 }
@@ -30,7 +32,7 @@ pub struct DeployableDefinition {
 /// 部署关系表（按源 type_key）。
 #[derive(Debug, Clone, Default)]
 pub struct DeployableDefinitions {
-    by_source: BTreeMap<String, DeployableDefinition>,
+    by_source: BTreeMap<TechnoName, DeployableDefinition>,
 }
 
 impl DeployableDefinitions {
@@ -39,9 +41,14 @@ impl DeployableDefinitions {
         self.by_source.insert(def.source_key.clone(), def);
     }
 
-    /// 按源类型键查找。
+    /// 按源类型键查找（大小写不敏感）。
     pub fn get(&self, source_key: &str) -> Option<&DeployableDefinition> {
-        self.by_source.get(&source_key.to_ascii_uppercase())
+        self.by_source.get(&TechnoName::parse(source_key))
+    }
+
+    /// 按已规范化的源类型键查找。
+    pub fn get_name(&self, source_key: &TechnoName) -> Option<&DeployableDefinition> {
+        self.by_source.get(source_key)
     }
 
     /// 条目数。

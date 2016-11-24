@@ -18,7 +18,7 @@ use super::ini_string::{deserialize_trim, deserialize_upper, parse_trim, parse_u
 use super::{ColorName, HouseName, MapEdge, TechnoName, UiName};
 
 /// 地图 `[Terrain]` 物件类型名（装载期大写，对齐 rules 地形节）；空 = 未写。
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct TerrainName {
     /// 规范化键（装载期大写）。
     pub name: String,
@@ -51,6 +51,12 @@ impl Deref for TerrainName {
 
 impl AsRef<str> for TerrainName {
     fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl std::borrow::Borrow<str> for TerrainName {
+    fn borrow(&self) -> &str {
         &self.name
     }
 }

@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use ra_map::MapEntityKind;
-use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition};
+use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TechnoName};
 
 use crate::{
     gameplay::owner_allows,
@@ -44,8 +44,8 @@ impl<'a> TechTreePlayer<'a> {
     }
 }
 
-/// 收集某 house 当前存活建筑的类型键（大写）。
-pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<String> {
+/// 收集某 house 当前存活建筑的类型键。
+pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<TechnoName> {
     let mut keys = HashSet::new();
     for e in &world.entities {
         let id = e.id;
@@ -62,14 +62,13 @@ pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<String
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        keys.insert(identity.type_id.as_ref().to_ascii_uppercase());
+        keys.insert(TechnoName::parse(identity.type_id.as_ref()));
     }
     keys
 }
 
 /// 某 house 存活的指定类型数量（建筑与单位都计，供 BuildLimit）。
-pub fn living_type_count(world: &BattleState, house: &str, type_key: &str) -> i32 {
-    let want = type_key.to_ascii_uppercase();
+pub fn living_type_count(world: &BattleState, house: &str, type_key: &TechnoName) -> i32 {
     world
         .entities
         .iter()
@@ -77,7 +76,7 @@ pub fn living_type_count(world: &BattleState, house: &str, type_key: &str) -> i3
             let id = e.id;
             !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && world.ecs_get::<Owner>(id).is_some_and(|o| o.house.eq_ignore_ascii_case(house))
-                && world.ecs_get::<Identity>(id).is_some_and(|i| i.type_id.as_ref().eq_ignore_ascii_case(&want))
+                && world.ecs_get::<Identity>(id).is_some_and(|i| TechnoName::parse(i.type_id.as_ref()) == *type_key)
         })
         .count() as i32
 }
@@ -88,12 +87,12 @@ pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefi
 }
 
 #[doc(hidden)]
-pub fn owns_any(living: &HashSet<String>, types: impl IntoIterator<Item = impl AsRef<str>>) -> bool {
-    types.into_iter().any(|t| living.contains(&t.as_ref().to_ascii_uppercase()))
+pub fn owns_any(living: &HashSet<TechnoName>, types: impl IntoIterator<Item = impl AsRef<str>>) -> bool {
+    types.into_iter().any(|t| living.contains(&TechnoName::parse(t.as_ref())))
 }
 
 #[doc(hidden)]
-pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<String>, token: &PrerequisiteToken) -> bool {
+pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, token: &PrerequisiteToken) -> bool {
     match token {
         PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any(living, defs.prerequisite_groups.proc_all()),
         PrerequisiteToken::Group(kind) => owns_any(living, defs.prerequisite_groups.types_for_kind(*kind)),
@@ -109,7 +108,7 @@ pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<String>, toke
 }
 
 #[doc(hidden)]
-pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<String>, techno: &TechnoDefinition) -> bool {
+pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, techno: &TechnoDefinition) -> bool {
     if !techno.prerequisite_override.is_empty() && techno.prerequisite_override.iter().any(|t| token_satisfied(defs, living, t)) {
         return true;
     }
@@ -117,7 +116,7 @@ pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<String>, te
 }
 
 /// 类型是否对玩家 Eligible（可出现在建造/生产栏；不含资金与电力运作门槛）。
-pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<String>, type_key: &str) -> bool {
+pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<TechnoName>, type_key: &str) -> bool {
     let Some(techno) = defs.techno.get(type_key)
     else {
         return false;
@@ -144,7 +143,7 @@ pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, l
         return false;
     }
     if techno.class == TechnoClass::Building {
-        if defs.structures.get(&techno.type_key).is_some_and(|s| s.construction_yard) {
+        if defs.structures.get_name(&techno.type_key).is_some_and(|s| s.construction_yard) {
             return false;
         }
     }
