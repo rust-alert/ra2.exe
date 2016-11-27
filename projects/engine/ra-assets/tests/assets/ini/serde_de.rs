@@ -75,4 +75,5 @@ fn parse_error_includes_section_and_key() {
     let msg = err.to_string();
     assert!(msg.contains("[MTNK]"), "{msg}");
     assert!(msg.contains("Strength") || msg.contains("STRENGTH"), "{msg}");
+    assert!(err.span.is_some(), "expected SourceSpan on field error");
 }
