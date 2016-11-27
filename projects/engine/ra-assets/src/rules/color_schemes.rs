@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use ra_types::{ColorName, HouseName};
+
 use super::house_remap::Hsv;
 use crate::{
     from_row,
@@ -17,9 +19,9 @@ fn parse_hsv(value: &str) -> Option<Hsv> {
 /// 零售 `[Colors]` 表，以及装载期绑定的阵营 / 矿石呈现 HSV。
 #[derive(Debug, Clone, Default)]
 pub struct ColorSchemes {
-    by_name: HashMap<String, Hsv>,
-    /// 阵营 / 房屋 id（大写）→ 已解析 HSV（装载期写入，运行时不再读 INI）。
-    house_hsv: HashMap<String, Hsv>,
+    by_name: HashMap<ColorName, Hsv>,
+    /// 阵营 / 房屋 id → 已解析 HSV（装载期写入，运行时不再读 INI）。
+    house_hsv: HashMap<HouseName, Hsv>,
     /// `[Tiberiums]` 类型名（大写，如 `RIPARIUS`）→ 呈现用 HSV（含 NeonGreen→Gold 哨兵替换）。
     tiberium_display_hsv: HashMap<String, Hsv>,
 }
@@ -49,7 +51,7 @@ impl ColorSchemes {
                 continue;
             };
             if let Some(hsv) = parse_hsv(value.trimmed().raw) {
-                by_name.insert(key.to_ascii_uppercase(), hsv);
+                by_name.insert(ColorName::parse(key), hsv);
             }
         }
         Self {
@@ -61,7 +63,7 @@ impl ColorSchemes {
 
     /// 按方案名取 HSV（大小写不敏感）。
     pub fn get(&self, name: &str) -> Option<Hsv> {
-        self.by_name.get(&name.to_ascii_uppercase()).copied()
+        self.by_name.get(&ColorName::parse(name)).copied()
     }
 
     /// 将阵营节 `Color=` 解析并记入 `house_hsv`（方案名须已在 `[Colors]` 中）。
@@ -70,7 +72,7 @@ impl ColorSchemes {
         else {
             return;
         };
-        self.house_hsv.insert(house.to_ascii_uppercase(), hsv);
+        self.house_hsv.insert(HouseName::parse(house), hsv);
     }
 
     /// 从层叠视图为给定房屋 id 列表绑定 `Color=`。
@@ -90,7 +92,7 @@ impl ColorSchemes {
 
     /// 已绑定阵营 id → HSV（装载期表）。
     pub fn hsv_for_house_id(&self, house: &str) -> Option<Hsv> {
-        self.house_hsv.get(&house.to_ascii_uppercase()).copied()
+        self.house_hsv.get(&HouseName::parse(house)).copied()
     }
 
     /// 阵营节 `Color=` → HSV（含 `Neutral` / `Special` / `Civilian` 的 Grey 等方案）。
@@ -157,12 +159,12 @@ impl ColorSchemes {
         self.tiberium_display_hsv.get(&tib_type.to_ascii_uppercase()).copied()
     }
 
-    /// 已登记方案数。
+    /// 全部已解析方案数。
     pub fn len(&self) -> usize {
         self.by_name.len()
     }
 
-    /// 是否为空表。
+    /// 是否空表。
     pub fn is_empty(&self) -> bool {
         self.by_name.is_empty()
     }

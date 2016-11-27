@@ -40,7 +40,7 @@ pub struct SuperWeaponType {
 #[derive(Debug, Clone, Default)]
 pub struct SuperWeaponTypeRegistry {
     items: Vec<SuperWeaponType>,
-    by_id: HashMap<String, usize>,
+    by_id: HashMap<SuperWeaponName, usize>,
 }
 
 impl SuperWeaponTypeRegistry {
@@ -64,20 +64,19 @@ impl SuperWeaponTypeRegistry {
             else {
                 continue;
             };
-            let id = name_val.trimmed().raw;
+            let id = SuperWeaponName::parse(name_val.trimmed().raw);
             if id.is_empty() {
                 continue;
             }
-            let id_up = id.to_ascii_uppercase();
-            if by_id.contains_key(&id_up) {
+            if by_id.contains_key(&id) {
                 continue;
             }
-            let Some(sw) = parse_super_weapon(view, &id_up)
+            let Some(sw) = parse_super_weapon(view, &id)
             else {
                 continue;
             };
             let idx = items.len();
-            by_id.insert(id_up, idx);
+            by_id.insert(id, idx);
             items.push(sw);
         }
         Self { items, by_id }
@@ -85,7 +84,13 @@ impl SuperWeaponTypeRegistry {
 
     /// 按 id 查找（大小写不敏感）。
     pub fn get(&self, id: &str) -> Option<&SuperWeaponType> {
-        let idx = *self.by_id.get(&id.to_ascii_uppercase())?;
+        let idx = *self.by_id.get(&SuperWeaponName::parse(id))?;
+        self.items.get(idx)
+    }
+
+    /// 按已规范化的超武键查找。
+    pub fn get_name(&self, id: &SuperWeaponName) -> Option<&SuperWeaponType> {
+        let idx = *self.by_id.get(id)?;
         self.items.get(idx)
     }
 
@@ -156,13 +161,13 @@ fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u
     )
 }
 
-fn parse_super_weapon(view: LayeredIniView<'_>, id: &str) -> Option<SuperWeaponType> {
-    let section = view.section(id)?;
+fn parse_super_weapon(view: LayeredIniView<'_>, id: &SuperWeaponName) -> Option<SuperWeaponType> {
+    let section = view.section(id.as_str())?;
     let fields: SuperWeaponSectionFields = section.deserialize().ok()?;
     let weapon = fields.weapon;
     let (weapon_damage, weapon_range, weapon_rof, weapon_warhead, weapon_projectile) = resolve_weapon(view, &weapon);
     Some(SuperWeaponType {
-        id: SuperWeaponName::parse(id),
+        id: id.clone(),
         ui_name: fields.ui_name,
         kind: fields.kind,
         action: fields.action,
