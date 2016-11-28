@@ -220,8 +220,8 @@ impl<'de> Deserialize<'de> for PrerequisiteList {
                 A: SeqAccess<'de>,
             {
                 let mut tokens = Vec::new();
-                while let Some(part) = seq.next_element::<String>()? {
-                    if let Some(token) = PrerequisiteToken::parse_raw(&part) {
+                while let Some(part) = seq.next_element::<&str>()? {
+                    if let Some(token) = PrerequisiteToken::parse_raw(part) {
                         tokens.push(token);
                     }
                 }
