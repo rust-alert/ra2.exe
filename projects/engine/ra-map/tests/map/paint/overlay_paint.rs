@@ -532,6 +532,7 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
     let origin_x = blank.origin_x;
     let origin_y = blank.origin_y;
     let mut rgba = blank.image;
+    let docs = PaintIniDocs::load(&source, "art.ini", "rules.ini");
     let (shp, mark) = paint_overlays_onto_preview_rgba(
         &source,
         &map,
@@ -539,8 +540,7 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
         &mut rgba,
         origin_x,
         origin_y,
-        "art.ini",
-        "rules.ini",
+        &docs,
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,

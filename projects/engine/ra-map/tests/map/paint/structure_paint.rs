@@ -435,7 +435,8 @@ Rate=50\n\
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.theater = ra_map::Theater::Temperate;
     let source = MapSource { files };
-    let clip = load_structure_buildup_clip(&source, &map, "art.ini", "GACNST", "Americans", 3, 4, &|p, _| p.clone()).expect("buildup clip");
+    let docs = PaintIniDocs::load(&source, "art.ini", "rules.ini");
+    let clip = load_structure_buildup_clip(&source, &map, &docs, "GACNST", "Americans", 3, 4, &|p, _| p.clone()).expect("buildup clip");
     assert_eq!(clip.frames.len(), 2, "shadow half must not enter buildup clip");
     assert_eq!(clip.rate_ms, 50);
     // 相对 iso_to_screen：画布中心 → (+TILE_W/2, 0)，再加 FrameX/Y。

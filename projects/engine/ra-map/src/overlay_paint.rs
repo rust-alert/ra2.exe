@@ -382,8 +382,7 @@ pub fn paint_overlays_onto_preview_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    art_ini: &str,
-    rules_ini: &str,
+    docs: &crate::PaintIniDocs,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -392,11 +391,10 @@ pub fn paint_overlays_onto_preview_rgba(
     if cells.is_empty() {
         return (0, 0);
     }
-    let docs = crate::PaintIniDocs::load(source, art_ini, rules_ini);
     let mut overlay_map = map.clone();
     overlay_map.overlays = cells.to_vec();
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_overlays(source, &overlay_map, &mut terrain, &docs, overlay_type_name, is_tiberium, tiberium_hsv, layer);
+    let n = paint_map_overlays(source, &overlay_map, &mut terrain, docs, overlay_type_name, is_tiberium, tiberium_hsv, layer);
     *image = terrain.image;
     n
 }
