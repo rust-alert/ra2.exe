@@ -1,6 +1,5 @@
 //! 对局页控制器：输入意图、命令、tick、快照；不含窗口与页面导航外壳。
 
-use ra_assets::IniDocument;
 use ra_renderer::Renderer;
 use ra_widgets::{
     battle_hud::{decode_battle_hud_chrome_with, decode_cameo_sprite},
@@ -73,22 +72,13 @@ impl BattleController {
         }
     }
 
-    /// 从 rules 刷新 `ConditionYellow` / `ConditionRed`。
-    pub(super) fn refresh_condition_thresholds(&mut self, assets: Option<&GameAssetSource>) {
-        use ra_types::AssetSource;
-        let Some(source) = assets
+    /// 从已缓存 rules 刷新 `ConditionYellow` / `ConditionRed`。
+    pub(super) fn refresh_condition_thresholds(&mut self, _assets: Option<&GameAssetSource>) {
+        let Some(doc) = self.paint_ini.rules.as_ref()
         else {
             return;
         };
-        let Ok(bytes) = source.read(self.rules_ini)
-        else {
-            return;
-        };
-        let Ok(doc) = IniDocument::parse(&bytes)
-        else {
-            return;
-        };
-        let damage = ra_map::StructureDamageRules::from_rules_doc(&doc);
+        let damage = ra_map::StructureDamageRules::from_rules_doc(doc);
         self.condition_yellow = damage.yellow;
         self.condition_red = damage.red;
     }
@@ -165,8 +155,7 @@ impl BattleController {
         else {
             return;
         };
-        let art = source.resolve(self.art_ini).and_then(|hit| IniDocument::parse(&hit.bytes).ok());
-        let art_ref = art.as_ref();
+        let art_ref = self.paint_ini.art.as_ref();
         for item in caps
             .build_items
             .iter()
