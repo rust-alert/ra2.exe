@@ -12,7 +12,7 @@ use crate::{
     compose::{TerrainImage, TileBlit, paint_cell_sprites},
     iso_math::TILE_WIDTH,
     lighting::{PointLight, apply_rgba_tint, cell_tint_with_lights},
-    structure_damage::{StructureDamageRules, damaged_body_frame, structure_tech_level},
+    structure_damage::{damaged_body_frame, structure_tech_level},
     theater::{new_theater_shp_name, theater_palette},
 };
 
@@ -504,7 +504,7 @@ pub fn collect_structure_anim_bank(
     let art = docs.art.as_ref();
     let rules = docs.rules.as_ref();
     let type_hints = collect_structure_type_paint_hints(art, rules, &structures);
-    let damage = rules.map(StructureDamageRules::from_rules_doc).unwrap_or_default();
+    let damage = &docs.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -817,7 +817,7 @@ fn paint_map_structures_inner(
     let art = docs.art.as_ref();
     let rules_doc = docs.rules.as_ref();
     let type_hints = collect_structure_type_paint_hints(art, rules_doc, &structures);
-    let damage = rules_doc.map(StructureDamageRules::from_rules_doc).unwrap_or_default();
+    let damage = &docs.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         if !paint_body {
