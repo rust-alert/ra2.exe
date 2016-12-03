@@ -14,7 +14,7 @@ mod overlay;
 mod overlay_paint;
 mod overlay_pass;
 mod packed_cell;
-mod paint_ini;
+mod art_rules;
 mod numbered_pack;
 mod pass_grid;
 mod placements;
@@ -45,7 +45,7 @@ pub mod lzo;
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
     GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
-    MapTerrainObject, MapWeatherKind, MapWaypoint, RaError, RaResult,
+    MapTerrainObject, MapWaypoint, MapWeatherKind, RaError, RaResult,
 };
 use serde::Deserialize;
 use serde::de::Deserializer;
@@ -74,7 +74,7 @@ pub use overlay_paint::{
     OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
-pub use paint_ini::{PaintIniDocs, read_optional_ini};
+pub use art_rules::{ArtRules, read_optional_ini};
 pub use packed_cell::{PackedCellCoords, parse_packed_cell, unpack_packed_cell};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
@@ -99,9 +99,9 @@ pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
 };
 pub use structure_paint::{
-    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, collect_structure_anim_bank,
-    load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
-    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, StructurePaintHintTable, buildup_frame_index,
+    collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank,
+    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{

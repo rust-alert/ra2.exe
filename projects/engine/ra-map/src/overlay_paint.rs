@@ -85,7 +85,7 @@ pub fn paint_map_overlays(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -99,8 +99,8 @@ pub fn paint_map_overlays(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = docs.art.as_ref();
-    let rules = docs.rules.as_ref();
+    let art = art_rules.art.as_ref();
+    let rules = art_rules.rules.as_ref();
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
     let theater_pal = source.read(theater_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
     let tib_pal = source.read(theater_tiberium_palette(map.theater)).ok().and_then(|b| Palette::parse(&b).ok());
@@ -150,11 +150,9 @@ pub fn paint_map_overlays(
         let OverlayArtHints { image_key, new_theater, theater_yes } = hint;
         let pal_kind: u8 = if tib {
             2
-        }
-        else if theater_yes && !new_theater {
+        } else if theater_yes && !new_theater {
             1
-        }
-        else {
+        } else {
             0
         };
 
@@ -346,11 +344,9 @@ const TIBERIUM_OVERLAY_Y_BIAS: i32 = -12;
 fn overlay_draw_y_adjust(type_name: &str, data: u8, is_tiberium: bool) -> i32 {
     if is_high_bridge_body_name(type_name) {
         if (9..=17).contains(&data) { -31 } else { -16 }
-    }
-    else if is_tiberium {
+    } else if is_tiberium {
         TIBERIUM_OVERLAY_Y_BIAS
-    }
-    else {
+    } else {
         0
     }
 }
@@ -382,7 +378,7 @@ pub fn paint_overlays_onto_preview_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -394,7 +390,7 @@ pub fn paint_overlays_onto_preview_rgba(
     let mut overlay_map = map.clone();
     overlay_map.overlays = cells.to_vec();
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let n = paint_map_overlays(source, &overlay_map, &mut terrain, docs, overlay_type_name, is_tiberium, tiberium_hsv, layer);
+    let n = paint_map_overlays(source, &overlay_map, &mut terrain, art_rules, overlay_type_name, is_tiberium, tiberium_hsv, layer);
     *image = terrain.image;
     n
 }

@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use ra_map::{PaintIniDocs, 
-    MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
-    paint_overlays_onto_preview_rgba,
+use ra_map::{ArtRules,
+             MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
+             paint_overlays_onto_preview_rgba,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -64,7 +64,7 @@ fn empty_overlays_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
-        paint_map_overlays(&EmptySource, &map, &mut image, &PaintIniDocs::default(), &|_| None, &|_| false, &|_| None, OverlayLayerFilter::All,),
+        paint_map_overlays(&EmptySource, &map, &mut image, &ArtRules::default(), &|_| None, &|_| false, &|_| None, OverlayLayerFilter::All, ),
         (0, 0)
     );
 }
@@ -84,7 +84,7 @@ fn theater_overlay_uses_theater_palette() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 102).then(|| "LOBRDG26".into()),
         &|_| false,
         &|_| None,
@@ -111,7 +111,7 @@ fn tiberium_overlay_uses_temperat_palette() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -144,7 +144,7 @@ fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
             &source,
             &map,
             &mut plain,
-            &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+            &ArtRules::load(&source, "art.ini", "rules.ini"),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| None,
@@ -160,7 +160,7 @@ fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
             &source,
             &map,
             &mut with_hsv,
-            &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+            &ArtRules::load(&source, "art.ini", "rules.ini"),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| Some(ra_assets::Hsv { h: 41, s: 240, v: 230 }),
@@ -198,7 +198,7 @@ fn tiberium_overlay_ignores_cell_lighting_tint() {
             &source,
             &ore_map,
             &mut ore_img,
-            &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+            &ArtRules::load(&source, "art.ini", "rules.ini"),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| None,
@@ -218,7 +218,7 @@ fn tiberium_overlay_ignores_cell_lighting_tint() {
             &source,
             &wall_map,
             &mut wall_img,
-            &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+            &ArtRules::load(&source, "art.ini", "rules.ini"),
             &|id| (id == 2).then(|| "GAWALL".into()),
             &|_| false,
             &|_| None,
@@ -274,7 +274,7 @@ fn empty_footprint_skips_when_same_image_anchor_neighbor_draws() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -298,7 +298,7 @@ fn rules_image_redirects_bridge1_to_bridge_shp() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -321,7 +321,7 @@ fn empty_frame_without_drawable_preferred_skips() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 1).then(|| "LOBRDG10".into()),
         &|_| false,
         &|_| None,
@@ -352,7 +352,7 @@ fn mixed_lobrdb_flank_does_not_paint_neighbor_deck() {
     };
     let mut image = TerrainImage::blank(256, 256);
     let (shp, mark) =
-        paint_map_overlays(&source, &map, &mut image, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &name, &|_| false, &|_| None, OverlayLayerFilter::All);
+        paint_map_overlays(&source, &map, &mut image, &ArtRules::load(&source, "art.ini", "rules.ini"), &name, &|_| false, &|_| None, OverlayLayerFilter::All);
     assert_eq!((shp, mark), (1, 0), "only middle drawable frame paints");
 }
 
@@ -385,7 +385,7 @@ fn empty_preferred_does_not_paint_markers() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -420,7 +420,7 @@ fn tiberium_paint_loads_coordinate_display_shp() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -443,7 +443,7 @@ fn new_theater_wall_uses_unittem_palette() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 27).then(|| "NAWALL".into()),
         &|_| false,
         &|_| None,
@@ -473,11 +473,11 @@ fn bridge_layer_filter_skips_ore_on_bridge_pass() {
     };
     let mut ground = TerrainImage::blank(256, 256);
     let (g_shp, g_mark) =
-        paint_map_overlays(&source, &map, &mut ground, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Ground);
+        paint_map_overlays(&source, &map, &mut ground, &ArtRules::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Ground);
     assert_eq!((g_shp, g_mark), (1, 0), "ground pass paints ore only");
     let mut bridge = TerrainImage::blank(256, 256);
     let (b_shp, b_mark) =
-        paint_map_overlays(&source, &map, &mut bridge, &PaintIniDocs::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Bridge);
+        paint_map_overlays(&source, &map, &mut bridge, &ArtRules::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Bridge);
     assert_eq!((b_shp, b_mark), (1, 0), "bridge pass paints bridge only");
 }
 
@@ -502,7 +502,7 @@ fn tiberium_overlay_applies_minus_twelve_y_bias() {
         &source,
         &map,
         &mut image,
-        &PaintIniDocs::load(&source, "art.ini", "rules.ini"),
+        &ArtRules::load(&source, "art.ini", "rules.ini"),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -532,7 +532,7 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
     let origin_x = blank.origin_x;
     let origin_y = blank.origin_y;
     let mut rgba = blank.image;
-    let docs = PaintIniDocs::load(&source, "art.ini", "rules.ini");
+    let art_rules = ArtRules::load(&source, "art.ini", "rules.ini");
     let (shp, mark) = paint_overlays_onto_preview_rgba(
         &source,
         &map,
@@ -540,7 +540,7 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
         &mut rgba,
         origin_x,
         origin_y,
-        &docs,
+        &art_rules,
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,

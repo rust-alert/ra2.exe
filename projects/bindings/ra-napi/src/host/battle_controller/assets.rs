@@ -74,8 +74,8 @@ impl BattleController {
 
     /// 从已缓存受损规则刷新 `ConditionYellow` / `ConditionRed`。
     pub(super) fn refresh_condition_thresholds(&mut self, _assets: Option<&GameAssetSource>) {
-        self.condition_yellow = self.paint_ini.damage.yellow;
-        self.condition_red = self.paint_ini.damage.red;
+        self.condition_yellow = self.art_rules.damage.yellow;
+        self.condition_red = self.art_rules.damage.red;
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
@@ -103,8 +103,7 @@ impl BattleController {
                 errors = chrome.errors.len(),
                 "对局 HUD chrome 已解码"
             );
-        }
-        else {
+        } else {
             tracing::warn!(
                 side = %side,
                 mix = %chrome.mix,
@@ -134,8 +133,7 @@ impl BattleController {
             battle_pause_menu::decode_battle_pause_chrome_with(source, &side, self.ui_faction_side.as_deref(), self.ui_faction_chrome.as_ref());
         if !decoded.errors.is_empty() {
             tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
-        }
-        else {
+        } else {
             tracing::info!(side = %side, mix = %decoded.mix, "暂停菜单素材已解码");
         }
         self.pause_menu_chrome = Some(decoded);
@@ -150,7 +148,7 @@ impl BattleController {
         else {
             return;
         };
-        let art_ref = self.paint_ini.art.as_ref();
+        let art_ref = self.art_rules.art.as_ref();
         for item in caps
             .build_items
             .iter()

@@ -157,8 +157,7 @@ impl TerrainAnimBank {
             let body_n = layer.frames.len();
             let frame = if body_n == 0 {
                 0
-            }
-            else {
+            } else {
                 let rate = u64::from(layer.rate_ms.max(1));
                 ((clock_ms / rate) % body_n as u64) as u16
             };
@@ -197,7 +196,7 @@ pub fn paint_map_terrain_objects(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    docs: &crate::PaintIniDocs,
+    art_rules: &crate::ArtRules,
     mode: TerrainPaintMode,
 ) -> usize {
     if map.terrain_objects.is_empty() {
@@ -208,8 +207,8 @@ pub fn paint_map_terrain_objects(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = docs.art.as_ref();
-    let rules = docs.rules.as_ref();
+    let art = art_rules.art.as_ref();
+    let rules = art_rules.rules.as_ref();
     let hints = collect_terrain_object_paint_hints(art, rules, &map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
@@ -284,8 +283,7 @@ pub fn paint_map_terrain_objects(
         let shadow = shadow_blit_for_body(shp, usize::from(frame_idx), spawns_tiberium);
         let mut blit = if spawns_tiberium {
             frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal, shadow)
-        }
-        else {
+        } else {
             frame_to_blit(frame, shp.width, shp.height, obj_pal, shadow)
         };
         blit_cache.insert(cache_key, blit.clone());
@@ -300,7 +298,7 @@ pub fn paint_map_terrain_objects(
 ///
 /// `SpawnsTiberium` 矿柱不进银行：零售 `AnimationProbability`（如 `.003`）由产矿状态机
 /// 触发一次性播到中点帧，平时固定 Idle 第 0 帧，不得用呈现时钟常循环。
-pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: &crate::PaintIniDocs) -> TerrainAnimBank {
+pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_rules: &crate::ArtRules) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -308,8 +306,8 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: 
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = docs.art.as_ref();
-    let Some(rules) = docs.rules.as_ref()
+    let art = art_rules.art.as_ref();
+    let Some(rules) = art_rules.rules.as_ref()
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
@@ -443,7 +441,7 @@ pub fn paint_terrain_anims_onto_rgba(
 }
 
 /// 收集 `SpawnsTiberium` 矿柱并预解码全部主体帧（供产矿状态机选帧）。
-pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs: &crate::PaintIniDocs) -> TerrainAnimBank {
+pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, art_rules: &crate::ArtRules) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -451,8 +449,8 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, docs:
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = docs.art.as_ref();
-    let Some(rules) = docs.rules.as_ref()
+    let art = art_rules.art.as_ref();
+    let Some(rules) = art_rules.rules.as_ref()
     else {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     };
@@ -659,8 +657,7 @@ fn shadow_blit_for_body(shp: &ShpFile, body_idx: usize, spawns_tiberium: bool) -
     }
     if spawns_tiberium {
         Some(frame_to_spawns_tiberium_shadow(frame, shp.width, shp.height))
-    }
-    else {
+    } else {
         Some(frame_to_cropped_shadow(frame, shp.width, shp.height, TERRAIN_OBJECT_Y_FUDGE))
     }
 }

@@ -5,9 +5,9 @@ use ra_types::AssetSource;
 
 use crate::StructureDamageRules;
 
-/// 可选的 art + rules 文档（叠画侧解析 `Image` / `Voxel` 等键）。
+/// 已装载的 art.ini / rules.ini，以及从中固化的建筑受损规则。
 #[derive(Debug, Clone, Default)]
-pub struct PaintIniDocs {
+pub struct ArtRules {
     /// `art*.ini` 解析结果。
     pub art: Option<IniDocument>,
     /// `rules*.ini` 解析结果。
@@ -16,7 +16,7 @@ pub struct PaintIniDocs {
     pub damage: StructureDamageRules,
 }
 
-impl PaintIniDocs {
+impl ArtRules {
     /// 从资源源各读一次 art / rules（缺文件则为 `None`），并固化受损规则。
     pub fn load(source: &dyn AssetSource, art_ini: &str, rules_ini: &str) -> Self {
         let rules = read_optional_ini(source, rules_ini);
