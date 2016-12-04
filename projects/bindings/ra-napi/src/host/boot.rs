@@ -523,7 +523,17 @@ pub fn boot_world_with_progress(
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
     let art_rules = ArtRules::load(&source, chain.art_ini, chain.rules_ini);
-    let definitions = rules.as_ref().map(|rules| Arc::new(build_runtime_definitions(rules)));
+    let definitions = match rules.as_ref() {
+        Some(rules) => match build_runtime_definitions(rules) {
+            Ok(defs) => Some(Arc::new(defs)),
+            Err(e) => {
+                note = format!("{note} · 定义绑定失败（{e}）");
+                tracing::error!(error = %e, "冻结定义引用绑定失败");
+                None
+            }
+        },
+        None => None,
+    };
     let structure_lights = definitions
         .as_ref()
         .map(|defs| StructureLightTable::from_structures(&defs.structures))

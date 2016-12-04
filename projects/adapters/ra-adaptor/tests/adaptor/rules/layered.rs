@@ -17,7 +17,7 @@ fn layered_rules_merge_techno_cost_and_append_owner() {
     assert!(m.owner.owner_allows("Americans"));
     assert!(m.owner.owner_allows("Alliance"));
 
-    let defs = build_runtime_definitions(&rules);
+    let defs = build_runtime_definitions(&rules).expect("freeze");
     let techno = defs.techno.get("MTNK").expect("def");
     assert_eq!(techno.cost, 800);
     assert!(techno.owner.owner_allows("Americans"));

@@ -5,16 +5,18 @@
 use ra_assets::TechnoKind;
 use ra_types::{
     BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaResult, RuntimeDefinitions, StolenTechKind,
+    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions, StolenTechKind,
     StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId, WarheadDefinition,
-    WarheadId, WarheadName, WeaponDefinition, WeaponId,
+    WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName,
 };
 use std::collections::HashMap;
 
 use crate::{RulesSystem, rules_system_from_ini_bytes};
 
 /// 由已装载规则快照构建冻结运行时定义。
-pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
+///
+/// 空名称引用仍绑定为零 ID。非空名称必须能解析到表项，否则返回 [`RaError::UnknownReference`]。
+pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinitions> {
     let mut defs = RuntimeDefinitions::default();
     let mut next_id = 1u32;
     let mut alloc = || {
@@ -343,17 +345,21 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
     warhead_keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
     warhead_keys.dedup();
     for key in warhead_keys {
-        let loaded = rules.warheads.get(key.as_str());
-        let verses = loaded.map(|w| w.verses).unwrap_or_default();
-        let spread = loaded.map(|w| w.spread).unwrap_or(0);
-        let prone_damage = loaded.map(|w| w.prone_damage).unwrap_or(100);
+        let Some(loaded) = rules.warheads.get_name(&key)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "warhead",
+                name: key.as_str().to_string(),
+                owner: "RuntimeDefinitions".into(),
+            });
+        };
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition {
             id,
             type_key: key,
-            verses,
-            spread,
-            prone_damage,
+            verses: loaded.verses,
+            spread: loaded.spread,
+            prone_damage: loaded.prone_damage,
         });
     }
 
@@ -375,52 +381,94 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RuntimeDefinitions {
         });
     }
 
-    for weapon in defs.weapons.iter_mut() {
-        weapon.warhead_id = if weapon.warhead.is_empty() {
-            WarheadId(0)
-        } else {
-            defs.warheads.get_name(&weapon.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
-        };
-        weapon.projectile_id = if weapon.projectile.is_empty() {
-            ProjectileId(0)
-        } else {
-            defs.projectiles
-                .get_name(&weapon.projectile)
-                .map(|p| p.id)
-                .unwrap_or(ProjectileId(0))
-        };
+    let weapon_binds: Vec<(WeaponId, WarheadId, ProjectileId)> = defs
+        .weapons
+        .iter()
+        .map(|weapon| {
+            Ok((
+                weapon.id,
+                bind_warhead_id(&defs, &weapon.warhead, weapon.type_key.as_str())?,
+                bind_projectile_id(&defs, &weapon.projectile, weapon.type_key.as_str())?,
+            ))
+        })
+        .collect::<RaResult<_>>()?;
+    for (id, warhead_id, projectile_id) in weapon_binds {
+        if let Some(weapon) = defs.weapons.iter_mut().find(|w| w.id == id) {
+            weapon.warhead_id = warhead_id;
+            weapon.projectile_id = projectile_id;
+        }
     }
-    for techno in defs.techno.iter_mut() {
-        techno.primary_id = if techno.primary.is_empty() {
-            WeaponId(0)
-        } else {
-            defs.weapons.get_name(&techno.primary).map(|w| w.id).unwrap_or(WeaponId(0))
-        };
-        techno.secondary_id = if techno.secondary.is_empty() {
-            WeaponId(0)
-        } else {
-            defs.weapons.get_name(&techno.secondary).map(|w| w.id).unwrap_or(WeaponId(0))
-        };
-        techno.warhead_id = if let Some(w) = defs.weapons.get_by_id(techno.primary_id) {
-            w.warhead_id
-        } else if techno.warhead.is_empty() {
-            WarheadId(0)
-        } else {
-            defs.warheads.get_name(&techno.warhead).map(|w| w.id).unwrap_or(WarheadId(0))
-        };
+
+    let techno_binds: Vec<(TypeId, WeaponId, WeaponId, WarheadId)> = defs
+        .techno
+        .iter()
+        .map(|techno| {
+            let primary_id = bind_weapon_id(&defs, &techno.primary, techno.type_key.as_str())?;
+            let secondary_id = bind_weapon_id(&defs, &techno.secondary, techno.type_key.as_str())?;
+            let warhead_id = if let Some(w) = defs.weapons.get_by_id(primary_id) {
+                w.warhead_id
+            } else {
+                bind_warhead_id(&defs, &techno.warhead, techno.type_key.as_str())?
+            };
+            Ok((techno.id, primary_id, secondary_id, warhead_id))
+        })
+        .collect::<RaResult<_>>()?;
+    for (id, primary_id, secondary_id, warhead_id) in techno_binds {
+        if let Some(techno) = defs.techno.iter_mut().find(|t| t.id == id) {
+            techno.primary_id = primary_id;
+            techno.secondary_id = secondary_id;
+            techno.warhead_id = warhead_id;
+        }
     }
-    for sw in defs.super_weapons.iter_mut() {
-        sw.weapon_id = if sw.weapon.is_empty() {
-            WeaponId(0)
-        } else {
-            defs.weapons.get_name(&sw.weapon).map(|w| w.id).unwrap_or(WeaponId(0))
-        };
+
+    let sw_binds: Vec<(TypeId, WeaponId)> = defs
+        .super_weapons
+        .iter()
+        .map(|sw| Ok((sw.id, bind_weapon_id(&defs, &sw.weapon, sw.type_key.as_str())?)))
+        .collect::<RaResult<_>>()?;
+    for (id, weapon_id) in sw_binds {
+        if let Some(sw) = defs.super_weapons.iter_mut().find(|s| s.id == id) {
+            sw.weapon_id = weapon_id;
+        }
     }
 
     defs.terrain_spawners = rules.terrain_spawners.clone();
     defs.overlays = rules.overlay_types.clone();
 
-    defs
+    Ok(defs)
+}
+
+fn bind_weapon_id(defs: &RuntimeDefinitions, name: &WeaponName, owner: &str) -> RaResult<WeaponId> {
+    if name.is_empty() {
+        return Ok(WeaponId(0));
+    }
+    defs.weapons.get_name(name).map(|w| w.id).ok_or_else(|| RaError::UnknownReference {
+        kind: "weapon",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
+}
+
+fn bind_warhead_id(defs: &RuntimeDefinitions, name: &WarheadName, owner: &str) -> RaResult<WarheadId> {
+    if name.is_empty() {
+        return Ok(WarheadId(0));
+    }
+    defs.warheads.get_name(name).map(|w| w.id).ok_or_else(|| RaError::UnknownReference {
+        kind: "warhead",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
+}
+
+fn bind_projectile_id(defs: &RuntimeDefinitions, name: &ProjectileName, owner: &str) -> RaResult<ProjectileId> {
+    if name.is_empty() {
+        return Ok(ProjectileId(0));
+    }
+    defs.projectiles.get_name(name).map(|p| p.id).ok_or_else(|| RaError::UnknownReference {
+        kind: "projectile",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
 }
 
 /// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。
@@ -430,7 +478,7 @@ pub fn runtime_definitions_from_ini_bytes(
     art_ini: Option<&[u8]>,
 ) -> RaResult<RuntimeDefinitions> {
     let rules = rules_system_from_ini_bytes(edition, rules_ini, art_ini)?;
-    Ok(build_runtime_definitions(&rules))
+    build_runtime_definitions(&rules)
 }
 
 #[doc(hidden)]
