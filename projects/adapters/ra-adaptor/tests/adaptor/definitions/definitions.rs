@@ -278,3 +278,15 @@ fn build_runtime_definitions_rejects_unknown_warhead_reference() {
     assert!(msg.contains("warhead"), "{msg}");
     assert!(msg.contains("MISSINGWH"), "{msg}");
 }
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_deploys_into_target() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MCV\n\
+[MCV]\nCost=3000\nStrength=1000\nDeploysInto=MISSINGYARD\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("missing DeploysInto must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSINGYARD"), "{msg}");
+}

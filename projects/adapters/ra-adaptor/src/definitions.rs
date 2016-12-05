@@ -248,13 +248,19 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         });
     }
 
-    // 第二遍：修正 deployables 的 target TypeId（目标可能后于源解析）
+    // 第二遍：修正 deployables 的 target TypeId（目标可能后于源解析）。
     let mut fixed = Vec::new();
     for d in defs.deployables.iter() {
         let mut d = d.clone();
-        if let Some(t) = defs.techno.get_name(&d.target_key) {
-            d.target = t.id;
-        }
+        let Some(t) = defs.techno.get_name(&d.target_key)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: d.target_key.as_str().to_string(),
+                owner: format!("DeploysInto:{}", d.source_key.as_str()),
+            });
+        };
+        d.target = t.id;
         fixed.push(d);
     }
     defs.deployables = Default::default();
