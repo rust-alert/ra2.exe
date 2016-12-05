@@ -79,14 +79,76 @@ struct WarheadSectionFields {
     /// `Verses=`：逗号列表一次落到 [`WarheadVerses`]，不再经 `Vec<String>`。
     #[serde(rename = "Verses", default, deserialize_with = "deserialize_warhead_verses")]
     verses: WarheadVerses,
-    #[serde(rename = "Spread", default)]
+    #[serde(rename = "Spread", default, deserialize_with = "deserialize_spread")]
     spread: u32,
-    #[serde(rename = "ProneDamage", default = "default_prone_damage")]
+    #[serde(rename = "ProneDamage", default = "default_prone_damage", deserialize_with = "deserialize_prone_damage")]
     prone_damage: u32,
 }
 
 fn default_prone_damage() -> u32 {
     100
+}
+
+/// `Spread=`：允许尾随 `%`；非法文本回落 0（不整节失败）。
+fn deserialize_spread<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_u32_soft(deserializer, 0)
+}
+
+/// `ProneDamage=`：零售常写 `100%`；非法文本回落 100。
+fn deserialize_prone_damage<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_u32_soft(deserializer, 100)
+}
+
+fn deserialize_u32_soft<'de, D>(deserializer: D, fallback: u32) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct SoftU32 {
+        fallback: u32,
+    }
+
+    impl<'de> Visitor<'de> for SoftU32 {
+        type Value = u32;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("unsigned integer, optional % suffix")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u32, E> {
+            Ok(u32::try_from(v).unwrap_or(self.fallback))
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<u32, E> {
+            if v < 0 {
+                return Ok(self.fallback);
+            }
+            self.visit_u64(v as u64)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u32, E> {
+            let s = v.trim().trim_end_matches('%').trim();
+            if s.is_empty() {
+                return Ok(self.fallback);
+            }
+            Ok(s.parse().unwrap_or(self.fallback))
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<u32, E> {
+            Ok(self.fallback)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<u32, E> {
+            Ok(self.fallback)
+        }
+    }
+
+    deserializer.deserialize_any(SoftU32 { fallback })
 }
 
 fn parse_warhead(view: LayeredIniView<'_>, id: &WarheadName) -> Option<Warhead> {

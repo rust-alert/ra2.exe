@@ -81,3 +81,25 @@ fn missing_spread_and_prone_use_defaults() {
     assert_eq!(ap.spread, 0);
     assert_eq!(ap.prone_damage, 100);
 }
+
+#[test]
+fn realistic_ap_section_with_extra_keys_and_percent_prone() {
+    // 零售 rules 弹头节含大量未建模键；`ProneDamage` 常带 `%`。
+    let doc = IniDocument::parse(
+        b"[AP]\n\
+Verses=100%,100%,100%,50%,25%,25%,25%,50%,25%,100%,100%\n\
+AnimList=EXPLOSB\n\
+InfDeath=3\n\
+TitForTat=no\n\
+Bullets=no\n\
+ProneDamage=100%\n\
+Spread=0\n",
+    )
+    .unwrap();
+    let reg = WarheadRegistry::from_names(&doc, ["AP"]);
+    let ap = reg.get("AP").expect("AP must load despite extra keys / percent suffix");
+    assert_eq!(ap.verses[0], 100);
+    assert_eq!(ap.verses[3], 50);
+    assert_eq!(ap.prone_damage, 100);
+    assert_eq!(ap.spread, 0);
+}
