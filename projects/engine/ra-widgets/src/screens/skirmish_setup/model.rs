@@ -122,6 +122,8 @@ pub struct SkirmishBootRequest {
     pub player_name: String,
     /// 优选地图文件名。
     pub preferred_map: Option<String>,
+    /// 当前多人模式的规则覆盖 INI（如 `MPBattle.ini`）；`None` 表示仅用基础 `rules.ini`。
+    pub rules_override: Option<String>,
     /// 期望本地阵营（规则/地图 house 名；与 `row_sides[0]` 同步）。
     pub side: String,
     /// 可选国家短名（来自 rules `[Countries]` 的遭遇战可见子集；空表表示尚未注入）。
@@ -173,6 +175,7 @@ impl SkirmishBootRequest {
             boot_kind: LoadKind::Skirmish,
             player_name: "Player".to_string(),
             preferred_map: None,
+            rules_override: None,
             side: String::new(),
             sides: Vec::new(),
             row_sides: [0; SKIRMISH_ROW_COUNT],
@@ -401,12 +404,13 @@ impl SkirmishBootRequest {
     /// 装载笔记片段。
     pub fn note_fragment(&self) -> String {
         format!(
-            "player={} side={} ai={} diff={} map={} seed={:#x} speed={} credits={} units={} short={}",
+            "player={} side={} ai={} diff={} map={} rules={} seed={:#x} speed={} credits={} units={} short={}",
             self.player_name,
             self.side,
             self.row_side(1),
             self.difficulty,
             self.preferred_map.as_deref().unwrap_or("(auto)"),
+            self.rules_override.as_deref().unwrap_or("(base)"),
             self.match_seed,
             self.game_speed,
             self.credits,

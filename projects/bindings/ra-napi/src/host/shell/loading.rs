@@ -74,8 +74,14 @@ impl Shell {
             }
         }
         self.load_job = Some(LoadJob::start_install_boot({
+            self.ensure_lobby_modes();
             let mut req = self.skirmish.clone();
             req.preferred_map = self.selected_map.clone();
+            req.rules_override = self
+                .selected_mode_id
+                .and_then(|id| self.lobby_modes.iter().find(|m| m.id == id))
+                .map(|m| m.rules_override.clone())
+                .filter(|s| !s.trim().is_empty());
             req.boot_kind = LoadKind::Skirmish;
             req
         }));
@@ -158,6 +164,7 @@ impl Shell {
             let house_index = self.skirmish.sides.iter().position(|s| s.eq_ignore_ascii_case(house)).unwrap_or(0) as u8;
             let mut req = self.skirmish.clone();
             req.preferred_map = Some(scenario.to_string());
+            req.rules_override = None;
             req.side = house.to_string();
             req.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
             req.row_sides = [house_index; ra_layout::SKIRMISH_ROW_COUNT];

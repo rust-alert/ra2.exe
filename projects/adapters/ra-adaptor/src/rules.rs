@@ -78,19 +78,41 @@ fn build_rules_system_layered(edition: GameEdition, rules_docs: &[IniDocument], 
     }
 }
 
-fn build_rules_system(edition: GameEdition, rules: &IniDocument, art: &IniDocument) -> RulesSystem {
-    build_rules_system_layered(edition, std::slice::from_ref(rules), std::slice::from_ref(art))
-}
-
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
 pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
+    load_rules_chain_with_overlays(source, chain, &[])
+}
+
+/// 与 [`load_rules_chain`] 相同，并在基础 `rules_ini` 之上叠可选规则覆盖层。
+///
+/// - `rules_overlays`：逻辑文件名（如 `MPBattle.ini`），自底向顶追加；空名跳过
+/// - 具名覆盖文件缺失或解析失败时返回错误（不静默跳过）
+/// - `art_ini` 仍只读资源链单层
+pub fn load_rules_chain_with_overlays(
+    source: &dyn AssetSource,
+    chain: &ResourceChain,
+    rules_overlays: &[&str],
+) -> RaResult<RulesSystem> {
     let rules_bytes = source.read(chain.rules_ini)?;
-    let rules = IniDocument::parse(&rules_bytes)
-        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?;
+    let mut rules_docs = Vec::with_capacity(1 + rules_overlays.len());
+    rules_docs.push(
+        IniDocument::parse(&rules_bytes)
+            .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?,
+    );
+    for name in rules_overlays {
+        let name = name.trim();
+        if name.is_empty() {
+            continue;
+        }
+        let bytes = source.read(name)?;
+        let doc = IniDocument::parse(&bytes)
+            .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
+        rules_docs.push(doc);
+    }
     let art_bytes = source.read(chain.art_ini)?;
-    let art =
-        IniDocument::parse(&art_bytes).map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
-    Ok(build_rules_system(chain.edition, &rules, &art))
+    let art = IniDocument::parse(&art_bytes)
+        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
+    Ok(build_rules_system_layered(chain.edition, &rules_docs, std::slice::from_ref(&art)))
 }
 
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。

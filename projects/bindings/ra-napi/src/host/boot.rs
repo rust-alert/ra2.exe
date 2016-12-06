@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain};
+use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain_with_overlays};
 use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
@@ -510,12 +510,20 @@ pub fn boot_world_with_progress(
 
     report(0.55, "解析规则");
     let mut preview_origin = (0i32, 0i32);
-    let rules = match load_rules_chain(&source, chain) {
+    let overlay_name = request.rules_override.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let overlays: Vec<&str> = overlay_name.into_iter().collect();
+    let rules = match load_rules_chain_with_overlays(&source, chain, &overlays) {
         Ok(db) => Some(db),
         Err(e) => {
             // 规则是开战硬前置：解析失败不得静默成 session=none。
             note = format!("{note} · 规则解析失败（{e}）");
-            tracing::error!(error = %e, rules = %chain.rules_ini, art = %chain.art_ini, "规则装载失败");
+            tracing::error!(
+                error = %e,
+                rules = %chain.rules_ini,
+                art = %chain.art_ini,
+                overlay = ?overlay_name,
+                "规则装载失败"
+            );
             None
         }
     };
