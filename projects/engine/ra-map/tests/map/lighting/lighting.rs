@@ -81,6 +81,19 @@ fn parse_map_lighting_missing_ion_uses_retail_ion_defaults() {
 }
 
 #[test]
+fn parse_lighting_keeps_valid_keys_when_one_value_is_illegal() {
+    let doc = IniDocument::parse(
+        b"[Lighting]\nAmbient=0.8\nRed=bogus\nGreen=0.9\nBlue=0.7\nDominatorAmbient=1.0\n",
+    )
+    .expect("ini");
+    let cfg = parse_lighting(&doc);
+    assert!((cfg.ambient - 0.8).abs() < 1e-4);
+    assert!((cfg.red - 1.0).abs() < 1e-4, "illegal Red must fall back to retail default");
+    assert!((cfg.green - 0.9).abs() < 1e-4);
+    assert!((cfg.blue - 0.7).abs() < 1e-4);
+}
+
+#[test]
 fn map_info_ion_profile_switches_tint() {
     let bytes = b"[Map]\nSize=0,0,10,10\nTheater=TEMPERATE\n[Lighting]\nAmbient=1.0\nGround=0.0\nLevel=0.0\n\
 IonAmbient=0.5\nIonRed=0.25\nIonGreen=0.25\nIonBlue=1.0\nIonGround=0.0\nIonLevel=0.0\n";

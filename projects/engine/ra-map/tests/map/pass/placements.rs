@@ -25,10 +25,10 @@ fn parse_structure_and_infantry() {
 }
 
 #[test]
-fn parse_unit_via_westwood_csv_row() {
+fn parse_unit_clamps_out_of_range_facing() {
     let text = b"\
 [Units]\n\
-0=Americans,MTNK,bad,5,6,999,Hunt,TagA\n\
+0=Americans,MTNK,256,5,6,999,Hunt,TagA\n\
 ";
     let doc = IniDocument::parse(text).unwrap();
     let ents = parse_map_entities(&doc);
@@ -42,6 +42,13 @@ fn parse_unit_via_westwood_csv_row() {
     assert_eq!(unit.facing, 255);
     assert_eq!(unit.mission, "Hunt");
     assert_eq!(unit.tag, "TagA");
+}
+
+#[test]
+fn reject_placement_when_health_is_not_numeric() {
+    let text = b"[Units]\n0=Americans,MTNK,bad,5,6,32,Hunt,TagA\n";
+    let doc = IniDocument::parse(text).unwrap();
+    assert!(parse_map_entities(&doc).is_empty());
 }
 
 #[test]

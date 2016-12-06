@@ -8,6 +8,8 @@
 
 use ra_assets::IniDocument;
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
+use std::fmt;
 
 use crate::placements::{MapEntity, MapEntityKind};
 
@@ -114,31 +116,32 @@ pub struct PointLight {
 }
 
 /// `[Lighting]` 节字段（一次 Serde；缺键保持 `None`，由缺省档填充）。
+/// 单键非法文本回落 `None`，不拖垮整节其它键。
 #[derive(Debug, Default, Deserialize)]
 struct LightingSectionFields {
-    #[serde(rename = "Ambient")]
+    #[serde(rename = "Ambient", default, deserialize_with = "deserialize_opt_f32")]
     ambient: Option<f32>,
-    #[serde(rename = "Red")]
+    #[serde(rename = "Red", default, deserialize_with = "deserialize_opt_f32")]
     red: Option<f32>,
-    #[serde(rename = "Green")]
+    #[serde(rename = "Green", default, deserialize_with = "deserialize_opt_f32")]
     green: Option<f32>,
-    #[serde(rename = "Blue")]
+    #[serde(rename = "Blue", default, deserialize_with = "deserialize_opt_f32")]
     blue: Option<f32>,
-    #[serde(rename = "Ground")]
+    #[serde(rename = "Ground", default, deserialize_with = "deserialize_opt_f32")]
     ground: Option<f32>,
-    #[serde(rename = "Level")]
+    #[serde(rename = "Level", default, deserialize_with = "deserialize_opt_f32")]
     level: Option<f32>,
-    #[serde(rename = "IonAmbient")]
+    #[serde(rename = "IonAmbient", default, deserialize_with = "deserialize_opt_f32")]
     ion_ambient: Option<f32>,
-    #[serde(rename = "IonRed")]
+    #[serde(rename = "IonRed", default, deserialize_with = "deserialize_opt_f32")]
     ion_red: Option<f32>,
-    #[serde(rename = "IonGreen")]
+    #[serde(rename = "IonGreen", default, deserialize_with = "deserialize_opt_f32")]
     ion_green: Option<f32>,
-    #[serde(rename = "IonBlue")]
+    #[serde(rename = "IonBlue", default, deserialize_with = "deserialize_opt_f32")]
     ion_blue: Option<f32>,
-    #[serde(rename = "IonGround")]
+    #[serde(rename = "IonGround", default, deserialize_with = "deserialize_opt_f32")]
     ion_ground: Option<f32>,
-    #[serde(rename = "IonLevel")]
+    #[serde(rename = "IonLevel", default, deserialize_with = "deserialize_opt_f32")]
     ion_level: Option<f32>,
 }
 
@@ -421,4 +424,51 @@ pub fn apply_rgba_tint(rgba: &mut [u8], tint: [f32; 3]) {
 #[doc(hidden)]
 pub fn mul_channel(value: u8, tint: f32) -> u8 {
     (f32::from(value) * tint).clamp(0.0, 255.0) as u8
+}
+
+
+/// 可选浮点：缺键 / 空串 / 非法文本 → `None`（不拖垮整节）。
+fn deserialize_opt_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptF32;
+
+    impl<'de> Visitor<'de> for OptF32 {
+        type Value = Option<f32>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional f32")
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Ok(None);
+            }
+            Ok(t.parse::<f32>().ok())
+        }
+    }
+
+    deserializer.deserialize_any(OptF32)
 }

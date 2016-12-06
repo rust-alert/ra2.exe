@@ -197,7 +197,7 @@ struct StructureRow {
     tag: TagName,
 }
 
-/// 放置血量：非法回落 256 并钳到 `0..=256`；空列失败（行不够长）。
+/// 放置血量：非法文本 / 负数失败；越界钳到 `0..=256`；空列失败。
 fn placement_health<'de, D>(deserializer: D) -> Result<u16, D::Error>
 where
     D: Deserializer<'de>,
@@ -217,7 +217,7 @@ where
 
         fn visit_i64<E: de::Error>(self, v: i64) -> Result<u16, E> {
             if v < 0 {
-                return Ok(256);
+                return Err(E::custom(format!("health {v} is negative")));
             }
             self.visit_u64(v as u64)
         }
@@ -227,14 +227,15 @@ where
             if t.is_empty() {
                 return Err(E::custom("缺 health 列"));
             }
-            Ok(t.parse().unwrap_or(256).min(256))
+            let parsed: u64 = t.parse().map_err(|_| E::custom(format!("health `{t}` is not an integer")))?;
+            self.visit_u64(parsed)
         }
     }
 
     deserializer.deserialize_any(HealthVisitor)
 }
 
-/// 朝向：非法回落 0，钳到 `u8`；空列失败。
+/// 朝向：非法文本 / 负数失败；越界钳到 `0..=255`；空列失败。
 fn placement_facing<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
@@ -254,7 +255,7 @@ where
 
         fn visit_i64<E: de::Error>(self, v: i64) -> Result<u8, E> {
             if v < 0 {
-                return Ok(0);
+                return Err(E::custom(format!("facing {v} is negative")));
             }
             self.visit_u64(v as u64)
         }
@@ -264,14 +265,15 @@ where
             if t.is_empty() {
                 return Err(E::custom("缺 facing 列"));
             }
-            Ok(t.parse::<u16>().unwrap_or(0).min(255) as u8)
+            let parsed: u64 = t.parse().map_err(|_| E::custom(format!("facing `{t}` is not an integer")))?;
+            self.visit_u64(parsed)
         }
     }
 
     deserializer.deserialize_any(FacingVisitor)
 }
 
-/// 步兵子格：非法回落 0，钳到 `0..=4`；空列失败。
+/// 步兵子格：非法文本 / 负数失败；越界钳到 `0..=4`；空列失败。
 fn placement_sub_cell<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
@@ -291,7 +293,7 @@ where
 
         fn visit_i64<E: de::Error>(self, v: i64) -> Result<u8, E> {
             if v < 0 {
-                return Ok(0);
+                return Err(E::custom(format!("sub_cell {v} is negative")));
             }
             self.visit_u64(v as u64)
         }
@@ -301,7 +303,8 @@ where
             if t.is_empty() {
                 return Err(E::custom("缺 sub_cell 列"));
             }
-            Ok(t.parse().unwrap_or(0).min(4))
+            let parsed: u64 = t.parse().map_err(|_| E::custom(format!("sub_cell `{t}` is not an integer")))?;
+            self.visit_u64(parsed)
         }
     }
 

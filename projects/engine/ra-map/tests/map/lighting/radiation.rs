@@ -84,3 +84,15 @@ fn parse_radiation_light_rules_reads_keys() {
     assert!((rules.tint_factor - 1.5).abs() < 1e-4);
     assert_eq!(rules.color, (10, 200, 30));
 }
+
+#[test]
+fn parse_radiation_keeps_valid_keys_when_color_is_illegal() {
+    let doc = IniDocument::parse(
+        b"[Radiation]\nRadLightDelay=45\nRadLightFactor=0.2\nRadDuration=900\nRadColor=nope\n",
+    )
+    .expect("ini");
+    let rules = parse_radiation_light_rules(&doc);
+    assert_eq!(rules.light_delay, 45);
+    assert!((rules.light_factor - 0.2).abs() < 1e-4);
+    assert_eq!(rules.color, (0, 255, 0), "illegal RadColor must fall back to retail green");
+}

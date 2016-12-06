@@ -3,8 +3,11 @@
 //! 不依赖战斗 sim；调用方传入当前存活站点即可。强度按 `RadLightDelay` 阶梯衰减，
 //! 染色按 `remaining_at_step / duration` 比例淡出。
 
+use std::fmt;
+
 use ra_assets::IniDocument;
 use serde::Deserialize;
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
 
 use crate::lighting::{self, LIGHT_CLAMP_MAX, LIGHT_UNIT, PointLight};
 
@@ -64,16 +67,17 @@ pub fn radiation_site_radius_leptons(spread: i32) -> i32 {
 }
 
 /// `[Radiation]` 光相关键（一次 Serde；缺键保持 `None`）。
+/// 单键非法文本回落 `None`，不拖垮整节其它键。
 #[derive(Debug, Default, Deserialize)]
 struct RadiationLightSectionFields {
-    #[serde(rename = "RadLightDelay")]
+    #[serde(rename = "RadLightDelay", default, deserialize_with = "deserialize_opt_i32")]
     light_delay: Option<i32>,
-    #[serde(rename = "RadLightFactor")]
+    #[serde(rename = "RadLightFactor", default, deserialize_with = "deserialize_opt_f32")]
     light_factor: Option<f32>,
-    #[serde(rename = "RadTintFactor")]
+    #[serde(rename = "RadTintFactor", default, deserialize_with = "deserialize_opt_f32")]
     tint_factor: Option<f32>,
-    /// `RadColor=r,g,b`：INI 逗号序列一次落到三元组。
-    #[serde(rename = "RadColor")]
+    /// `RadColor=r,g,b`：非法格式回落 `None`。
+    #[serde(rename = "RadColor", default, deserialize_with = "deserialize_opt_rgb")]
     color: Option<(u8, u8, u8)>,
 }
 
@@ -154,4 +158,91 @@ pub fn radiation_light_epoch(sites: &[RadiationLightSite], rules: &RadiationLigh
         mix(k as u64);
     }
     h
+}
+
+fn deserialize_opt_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptF32;
+    impl<'de> Visitor<'de> for OptF32 {
+        type Value = Option<f32>;
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional f32")
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let t = v.trim();
+            if t.is_empty() { return Ok(None); }
+            Ok(t.parse::<f32>().ok())
+        }
+    }
+    deserializer.deserialize_any(OptF32)
+}
+
+fn deserialize_opt_i32<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptI32;
+    impl<'de> Visitor<'de> for OptI32 {
+        type Value = Option<i32>;
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional i32")
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(i32::try_from(v).ok())
+        }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(i32::try_from(v).ok())
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let t = v.trim();
+            if t.is_empty() { return Ok(None); }
+            Ok(t.parse::<i32>().ok())
+        }
+    }
+    deserializer.deserialize_any(OptI32)
+}
+
+fn deserialize_opt_rgb<'de, D>(deserializer: D) -> Result<Option<(u8, u8, u8)>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptRgb;
+    impl<'de> Visitor<'de> for OptRgb {
+        type Value = Option<(u8, u8, u8)>;
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional r,g,b")
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            Ok(parse_rgb_text(v))
+        }
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+            let r = seq.next_element::<u8>()?;
+            let g = seq.next_element::<u8>()?;
+            let b = seq.next_element::<u8>()?;
+            match (r, g, b) {
+                (Some(r), Some(g), Some(b)) => Ok(Some((r, g, b))),
+                _ => Ok(None),
+            }
+        }
+    }
+    deserializer.deserialize_any(OptRgb)
+}
+
+fn parse_rgb_text(raw: &str) -> Option<(u8, u8, u8)> {
+    let mut parts = raw.split(',').map(str::trim);
+    let r = parts.next()?.parse().ok()?;
+    let g = parts.next()?.parse().ok()?;
+    let b = parts.next()?.parse().ok()?;
+    Some((r, g, b))
 }
