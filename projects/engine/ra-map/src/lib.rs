@@ -235,8 +235,7 @@ impl MapInfo {
             .unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
         // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
         let side = game_cell_grid_side(size_width, size_height);
-        let theater_raw = map_fields.theater.as_deref().unwrap_or("TEMPERATE");
-        let theater = Theater::parse(theater_raw)?;
+        let theater = map_fields.theater;
         let basic = doc
             .section("Basic")
             .and_then(|s| s.deserialize::<BasicSectionFields>().ok())
@@ -513,8 +512,8 @@ struct MapSectionFields {
     size: Option<(u32, u32)>,
     #[serde(rename = "LocalSize", default, deserialize_with = "de_opt_local_size")]
     local_size: Option<LocalSize>,
-    #[serde(rename = "Theater")]
-    theater: Option<String>,
+    #[serde(rename = "Theater", default)]
+    theater: Theater,
 }
 
 /// `[Basic]` 节字段（一次 Serde）。

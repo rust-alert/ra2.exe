@@ -1,5 +1,10 @@
 //! 地图剧院（地形 MIX / 调色板 / TMP 扩展名的运行契约键）。
 
+use std::fmt;
+
+use serde::de::{self, Deserializer, Visitor};
+use serde::Deserialize;
+
 use crate::{RaError, RaResult};
 
 /// 地图剧院（决定 MIX / 调色板 / TMP 扩展名）。
@@ -40,5 +45,28 @@ impl Theater {
             "DESERT" | "DES" => Ok(Self::Desert),
             other => Err(RaError::Parse(format!("未知剧院 `{other}`"))),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Theater {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TheaterVisitor;
+
+        impl<'de> Visitor<'de> for TheaterVisitor {
+            type Value = Theater;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("地图 Theater= 名称（如 TEMPERATE / SNOW）")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Theater::parse(v).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(TheaterVisitor)
     }
 }
