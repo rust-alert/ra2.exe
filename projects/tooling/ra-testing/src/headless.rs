@@ -1,19 +1,13 @@
 //! 无窗口遭遇战夹具。
 
-use ra_adaptor::runtime_definitions_from_ini_bytes;
 use std::sync::Arc;
 
 use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
+use ra_test_defs::defs_from_rules_ini;
 use ra_types::{GameEdition, RuntimeDefinitions};
 
 use crate::alpha_skirmish_v1;
-
-fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
-    Arc::new(
-        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("内置测试 INI 必须可投影"),
-    )
-}
 
 fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
     BattleState::new(edition, defs, map)

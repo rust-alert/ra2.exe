@@ -1,10 +1,12 @@
 //! 遭遇战开局：席位航点放置 MCV。
 
 use crate::common::defs_from_rules_ini;
-use ra_adaptor::ResourceChain;
 use ra_engine::open_skirmish_session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+
+/// 引擎测试夹具用的 RA2 规则逻辑名（不经 adaptor `ResourceChain`）。
+const RULES_INI: &str = "rules.ini";
 
 fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     defs_from_rules_ini(b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
@@ -26,8 +28,7 @@ fn map_with_starts() -> MapInfo {
 struct RulesBytesSource;
 impl AssetSource for RulesBytesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        let chain = ResourceChain::for_edition(GameEdition::Ra2);
-        if relative.eq_ignore_ascii_case(chain.rules_ini) {
+        if relative.eq_ignore_ascii_case(RULES_INI) {
             Ok(b"[General]\n".to_vec())
         } else {
             Err(RaError::MissingFile(relative.to_string()))
@@ -37,16 +38,19 @@ impl AssetSource for RulesBytesSource {
 
 #[test]
 fn open_skirmish_places_mcv_at_seat_waypoints() {
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-                                       map_with_starts(),
-                                       "t".into(),
-                                       (0, 0),
-                                       Some("AMERICANS"),
-                                       &["AMERICANS", "RUSSIANS"],
-                                       0,
+    let opened = open_skirmish_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map_with_starts(),
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
     )
-        .expect("应成功开局");
+    .expect("应成功开局");
     let snap = opened.session.expect_battle().snapshot(&[]);
     let units: Vec<_> = snap
         .units
@@ -60,7 +64,6 @@ fn open_skirmish_places_mcv_at_seat_waypoints() {
 
 #[test]
 fn open_skirmish_strips_map_preplaced_mobiles() {
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let mut map = map_with_starts();
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -98,15 +101,19 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
         mission: Default::default(),
         tag: Default::default(),
     });
-    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-                                       map,
-                                       "t".into(),
-                                       (0, 0),
-                                       Some("AMERICANS"),
-                                       &["AMERICANS", "RUSSIANS"],
-                                       0,
+    let opened = open_skirmish_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
     )
-        .expect("应成功开局");
+    .expect("应成功开局");
     assert!(opened.note.contains("strip_mobiles#2"), "{}", opened.note);
     let snap = opened.session.expect_battle().snapshot(&[]);
     let type_ids: Vec<_> = snap.units.iter().map(|u| u.type_id.as_ref().to_string()).collect();
@@ -117,18 +124,21 @@ fn open_skirmish_strips_map_preplaced_mobiles() {
 
 #[test]
 fn open_skirmish_fails_when_start_waypoint_missing() {
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
     let mut map = map_with_starts();
     map.waypoints.retain(|w| w.index == 0);
-    let err = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-                                    map,
-                                    "t".into(),
-                                    (0, 0),
-                                    Some("AMERICANS"),
-                                    &["AMERICANS", "RUSSIANS"],
-                                    0,
+    let err = open_skirmish_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
     )
-        .unwrap_err();
+    .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("航点") || msg.contains("席位"), "{msg}");
 }

@@ -4,10 +4,11 @@
 
 use std::sync::Arc;
 
-use ra_adaptor::runtime_definitions_from_ini_bytes;
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
+
+pub use ra_test_defs::defs_from_rules_ini;
 
 /// 测试用默认引擎（空定义骨架）。
 pub fn test_engine() -> Engine {
@@ -17,13 +18,6 @@ pub fn test_engine() -> Engine {
 /// 冻结定义播种世界（引擎侧只消费 `RuntimeDefinitions`）。
 pub fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
     BattleState::new(edition, defs, map)
-}
-
-/// 内联 rules INI → 冻结定义（装载在 adaptor）。
-pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
-    Arc::new(
-        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("测试 rules INI 必须可投影"),
-    )
 }
 
 /// 含 MTNK 坦克类型的最小冻结定义（Strength=400，带主武器）。

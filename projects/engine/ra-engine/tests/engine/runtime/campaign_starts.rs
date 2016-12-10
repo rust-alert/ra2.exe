@@ -1,10 +1,12 @@
 //! 战役开局：保留预放机动，不种席位 MCV。
 
 use crate::common::defs_from_rules_ini;
-use ra_adaptor::ResourceChain;
 use ra_engine::{SessionBootKind, open_campaign_session, open_skirmish_session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
+
+/// 引擎测试夹具用的 RA2 规则逻辑名（不经 adaptor `ResourceChain`）。
+const RULES_INI: &str = "rules.ini";
 
 fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     defs_from_rules_ini(b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
@@ -62,8 +64,7 @@ fn campaign_map() -> MapInfo {
 struct RulesBytesSource;
 impl AssetSource for RulesBytesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        let chain = ResourceChain::for_edition(GameEdition::Ra2);
-        if relative.eq_ignore_ascii_case(chain.rules_ini) {
+        if relative.eq_ignore_ascii_case(RULES_INI) {
             Ok(b"[General]\n".to_vec())
         } else {
             Err(RaError::MissingFile(relative.to_string()))
@@ -73,16 +74,19 @@ impl AssetSource for RulesBytesSource {
 
 #[test]
 fn open_campaign_keeps_preplaced_mobiles_and_skips_mcv_seed() {
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-                                       campaign_map(),
-                                       "t".into(),
-                                       (0, 0),
-                                       Some("AMERICANS"),
-                                       &["AMERICANS"],
-                                       0,
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        campaign_map(),
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
     )
-        .expect("战役应成功开局");
+    .expect("战役应成功开局");
     assert!(opened.note.contains("campaign"), "{}", opened.note);
     assert!(!opened.note.contains("strip_mobiles"), "{}", opened.note);
     assert!(!opened.note.contains("starts=["), "{}", opened.note);
@@ -106,9 +110,19 @@ fn open_campaign_seeds_placement_mission_on_identity() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "mission.map", text).unwrap();
     assert_eq!(map.entities[0].mission, "Guard");
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
-        .expect("战役应成功开局");
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
     let id = world.find_entity_id_by_type("E1").expect("E1");
     assert_eq!(world.ecs_mission(id).as_deref(), Some("GUARD"));
@@ -116,16 +130,19 @@ fn open_campaign_seeds_placement_mission_on_identity() {
 
 #[test]
 fn open_skirmish_still_strips_when_campaign_path_exists() {
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_skirmish_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(),
-                                       campaign_map(),
-                                       "t".into(),
-                                       (0, 0),
-                                       Some("AMERICANS"),
-                                       &["AMERICANS", "RUSSIANS"],
-                                       0,
+    let opened = open_skirmish_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        campaign_map(),
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
     )
-        .expect("遭遇战应成功开局");
+    .expect("遭遇战应成功开局");
     assert!(opened.note.contains("strip_mobiles#2"), "{}", opened.note);
     assert_eq!(opened.session.expect_battle().boot_kind, SessionBootKind::Skirmish);
 }
@@ -140,9 +157,19 @@ fn open_campaign_applies_map_house_credits() {
 [Structures]\n1=Americans,GACNST,256,2,2,0\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses.map", text).unwrap();
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
-        .expect("战役应成功开局");
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect("战役应成功开局");
     assert!(opened.note.contains("map_houses#2"), "{}", opened.note);
     let world = &opened.session.expect_battle().world;
     assert_eq!(world.house_funds("AMERICANS"), Some(4_000));
@@ -160,9 +187,19 @@ fn open_campaign_applies_basic_starting_credits_when_house_credits_absent() {
 [Structures]\n1=Americans,GACNST,256,2,2,0\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "starting.map", text).unwrap();
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
-        .expect("战役应成功开局");
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect("战役应成功开局");
     assert!(opened.note.contains("starting_credits=10000"), "{}", opened.note);
     let world = &opened.session.expect_battle().world;
     assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
@@ -179,9 +216,19 @@ fn open_campaign_applies_map_house_tech_level() {
 [Structures]\n1=Americans,GACNST,256,2,2,0\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses-tech.map", text).unwrap();
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
-        .expect("战役应成功开局");
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
     let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("AMERICANS")).expect("AMERICANS");
     let russians = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("RUSSIANS")).expect("RUSSIANS");
@@ -200,9 +247,19 @@ fn open_campaign_applies_map_house_allies() {
 [Structures]\n1=Americans,GACNST,256,2,2,0\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "houses-allies.map", text).unwrap();
-    let chain = ResourceChain::for_edition(GameEdition::Ra2);
-    let opened = open_campaign_session(&RulesBytesSource, chain.edition, chain.rules_ini, mcv_defs(), map, "t".into(), (0, 0), Some("AMERICANS"), &["AMERICANS"], 0)
-        .expect("战役应成功开局");
+    let opened = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
     let americans = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("AMERICANS")).expect("AMERICANS");
     let france = world.players.iter().find(|p| p.house.eq_ignore_ascii_case("France")).expect("France");
