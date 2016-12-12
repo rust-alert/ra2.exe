@@ -20,7 +20,13 @@ fn scripted_attack_after_ai_deploy_reaches_victory() {
     case.command(GameCommand::Attack { attacker: tank_id, target: yard_id });
     case.advance(64);
     let result = case.observe();
-    assert_eq!(result.outcome, Some(BattleOutcome::Victory { owner: slice.human_house.into() }));
+    // 席位 house 在播种时规范化为大写；断言忽略大小写。
+    match &result.outcome {
+        Some(BattleOutcome::Victory { owner }) => {
+            assert!(owner.eq_ignore_ascii_case(slice.human_house), "victor={owner} expected={}", slice.human_house);
+        }
+        other => panic!("expected human victory, got {other:?}"),
+    }
     let stats = result.snapshot.battle_stats.expect("battle stats");
     assert!(stats.duration_ticks > 0);
     assert!(stats.buildings_lost >= 1);
