@@ -1,6 +1,9 @@
 //! 从 rules 读取装载期全局键（`[General]` / 对话设置 / 语音间隔等）。
 
+use std::fmt;
+
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Visitor};
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::TechnoName;
@@ -76,13 +79,14 @@ impl RulesGlobals {
 
 #[derive(Debug, Default, Deserialize)]
 struct GeneralSectionFields {
-    #[serde(rename = "RepairPercent")]
+    /// 非法文本回落 `None`，不拖垮整节其它键。
+    #[serde(rename = "RepairPercent", default, deserialize_with = "deserialize_opt_i32")]
     repair_percent: Option<i32>,
-    #[serde(rename = "RepairStep")]
+    #[serde(rename = "RepairStep", default, deserialize_with = "deserialize_opt_i32")]
     repair_step: Option<i32>,
-    #[serde(rename = "RepairRate")]
+    #[serde(rename = "RepairRate", default, deserialize_with = "deserialize_opt_f64")]
     repair_rate: Option<f64>,
-    #[serde(rename = "SpeakDelay")]
+    #[serde(rename = "SpeakDelay", default, deserialize_with = "deserialize_opt_f64")]
     speak_delay: Option<f64>,
     #[serde(rename = "PrerequisitePower", default)]
     prerequisite_power: Vec<TechnoName>,
@@ -102,16 +106,105 @@ struct GeneralSectionFields {
 
 #[derive(Debug, Default, Deserialize)]
 struct DialogSectionFields {
-    #[serde(rename = "TechLevel")]
+    #[serde(rename = "TechLevel", default, deserialize_with = "deserialize_opt_i32")]
     tech_level: Option<i32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct AudioVisualSectionFields {
-    #[serde(rename = "SpeakDelay")]
+    #[serde(rename = "SpeakDelay", default, deserialize_with = "deserialize_opt_f64")]
     speak_delay: Option<f64>,
 }
 
 fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {
     items.into_iter().filter(|n| !n.is_empty()).collect()
+}
+
+fn deserialize_opt_i32<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptI32;
+    impl<'de> Visitor<'de> for OptI32 {
+        type Value = Option<i32>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional i32, optional % suffix")
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(i32::try_from(v).ok())
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(i32::try_from(v).ok())
+        }
+
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            if !v.is_finite() {
+                return Ok(None);
+            }
+            Ok(Some(v as i32))
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let t = v.trim().trim_end_matches('%').trim();
+            if t.is_empty() {
+                return Ok(None);
+            }
+            Ok(t.parse::<i32>().ok().or_else(|| t.parse::<f64>().ok().map(|f| f as i32)))
+        }
+    }
+    deserializer.deserialize_any(OptI32)
+}
+
+fn deserialize_opt_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptF64;
+    impl<'de> Visitor<'de> for OptF64 {
+        type Value = Option<f64>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("optional f64")
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(Some(v as f64))
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(Some(v as f64))
+        }
+
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            if v.is_finite() { Ok(Some(v)) } else { Ok(None) }
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            let t = v.trim();
+            if t.is_empty() {
+                return Ok(None);
+            }
+            Ok(t.parse::<f64>().ok().filter(|f| f.is_finite()))
+        }
+    }
+    deserializer.deserialize_any(OptF64)
 }

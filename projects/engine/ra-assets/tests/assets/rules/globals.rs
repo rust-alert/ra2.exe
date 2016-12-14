@@ -37,3 +37,23 @@ fn from_layered_merges_general_override() {
     assert_eq!(g.repair_step, Some(16));
     assert_eq!(g.repair_percent, Some(15));
 }
+
+#[test]
+fn soft_parse_percent_suffix_and_keeps_prerequisites() {
+    let doc = IniDocument::parse(
+        b"[General]\nRepairPercent=25%\nRepairStep=nope\nRepairRate=bad\nSpeakDelay=\n\
+PrerequisitePower=GAPOWR,NAPOWR\n\
+[MultiplayerDialogSettings]\nTechLevel=10%\n",
+    )
+    .unwrap();
+    let g = RulesGlobals::from_rules(&doc);
+    assert_eq!(g.repair_percent, Some(25));
+    assert_eq!(g.repair_step, None);
+    assert_eq!(g.repair_rate_minutes, None);
+    assert_eq!(g.speak_delay_minutes, None);
+    assert_eq!(g.multiplayer_tech_level, Some(10));
+    assert_eq!(
+        g.prerequisite_power,
+        vec![ra_types::TechnoName::parse("GAPOWR"), ra_types::TechnoName::parse("NAPOWR")]
+    );
+}
