@@ -50,7 +50,7 @@ use ra_types::{
 use serde::Deserialize;
 use serde::de::Deserializer;
 
-pub use base64::{base64_decode, base64_encode};
+pub use base64::{base64_decode, base64_decode_parts, base64_encode};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
     find_boot_map_named, find_first_boot_map, list_parseable_boot_maps, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,

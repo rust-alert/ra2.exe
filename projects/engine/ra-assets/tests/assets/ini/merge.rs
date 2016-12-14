@@ -156,6 +156,7 @@ fn numbered_pack_concats_sorted_indexes() {
         default_entry: EntryMergePolicy::NumberedPack,
     };
     let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(view.numbered_pack_parts("IsoMapPack5").as_deref(), Some(["A", "B", "C"].as_slice()));
     assert_eq!(view.numbered_pack_concat("IsoMapPack5").as_deref(), Some("ABC"));
 }
 

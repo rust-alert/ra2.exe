@@ -1,6 +1,6 @@
 //! 自顶层 `base64.rs`。
 
-use ra_map::{base64_decode, base64_encode};
+use ra_map::{base64_decode, base64_decode_parts, base64_encode};
 
 #[test]
 fn test_empty() {
@@ -30,6 +30,13 @@ fn test_whitespace_handling() {
     // Simulates how .map files split base64 across lines.
     let input = "SGVs\n  bG8=\n";
     assert_eq!(base64_decode(input).unwrap(), b"Hello".to_vec());
+}
+
+#[test]
+fn test_decode_parts_across_numbered_keys() {
+    // 模拟 IsoMapPack5：`1=SGVs` / `2=\n  bG8=\n`
+    let parts = ["SGVs", "\n  bG8=\n"];
+    assert_eq!(base64_decode_parts(parts).unwrap(), b"Hello".to_vec());
 }
 
 #[test]
