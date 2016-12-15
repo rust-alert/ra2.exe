@@ -99,6 +99,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         defs.capabilities.builtins.push(BuiltinCapability::SuperWeapon);
     }
 
+    let mut pending_deploys: Vec<(TypeId, TechnoName, TechnoName)> = Vec::new();
+
     for tt in rules.techno_types.iter() {
         let key = tt.id.clone();
         let class = match tt.kind {
@@ -149,18 +151,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
 
         if tt.kind != TechnoKind::Building {
-            // 部署关系可挂在载具上
+            // 部署关系可挂在载具上；目标 TypeId 在 techno 全表入库后绑定。
             if !tt.deploys_into.is_empty() {
-                let target_key = tt.deploys_into.clone();
-                let target_id = defs.techno.get_name(&target_key).map(|t| t.id).unwrap_or(TypeId(0));
-                defs.deployables.insert(DeployableDefinition {
-                    source: id,
-                    source_key: key.clone(),
-                    target: target_id,
-                    target_key,
-                    placement: DeploymentPlacement::InPlace,
-                });
-                defs.capabilities.builtins.push(BuiltinCapability::Deployable);
+                pending_deploys.push((id, key.clone(), tt.deploys_into.clone()));
+                if !defs.capabilities.builtins.contains(&BuiltinCapability::Deployable) {
+                    defs.capabilities.builtins.push(BuiltinCapability::Deployable);
+                }
             }
             continue;
         }
@@ -261,38 +257,42 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         });
     }
 
-    // 第二遍：修正 deployables 的 target TypeId（目标可能后于源解析）。
-    let mut fixed = Vec::new();
-    for d in defs.deployables.iter() {
-        let mut d = d.clone();
-        let Some(t) = defs.techno.get_name(&d.target_key)
+    // 第二遍：绑定 DeploysInto 目标 TypeId（目标可能后于源解析）；未知目标为装载错误。
+    for (source, source_key, target_key) in pending_deploys {
+        let Some(t) = defs.techno.get_name(&target_key)
         else {
             return Err(RaError::UnknownReference {
                 kind: "techno",
-                name: d.target_key.as_str().to_string(),
-                owner: format!("DeploysInto:{}", d.source_key.as_str()),
+                name: target_key.as_str().to_string(),
+                owner: format!("DeploysInto:{}", source_key.as_str()),
             });
         };
-        d.target = t.id;
-        fixed.push(d);
-    }
-    defs.deployables = Default::default();
-    for d in fixed {
-        defs.deployables.insert(d);
+        defs.deployables.insert(DeployableDefinition {
+            source,
+            source_key,
+            target: t.id,
+            target_key,
+            placement: DeploymentPlacement::InPlace,
+        });
     }
 
-    // 前置 token：UnboundType → TypeId（全部 techno 已入库后）。
+    // 前置 token：UnboundType → TypeId；仍未绑定则为装载错误（禁止靠名称在引擎里兜底）。
     let type_ids: HashMap<TechnoName, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
     let resolve = |key: &TechnoName| type_ids.get(key).copied();
     for techno in defs.techno.iter_mut() {
-        techno.prerequisite = std::mem::take(&mut techno.prerequisite)
-            .into_iter()
-            .map(|t| t.bind_type_id(&resolve))
-            .collect();
-        techno.prerequisite_override = std::mem::take(&mut techno.prerequisite_override)
-            .into_iter()
-            .map(|t| t.bind_type_id(&resolve))
-            .collect();
+        let key = techno.type_key.clone();
+        techno.prerequisite = bind_prerequisite_tokens(
+            std::mem::take(&mut techno.prerequisite),
+            &resolve,
+            &key,
+            "Prerequisite",
+        )?;
+        techno.prerequisite_override = bind_prerequisite_tokens(
+            std::mem::take(&mut techno.prerequisite_override),
+            &resolve,
+            &key,
+            "PrerequisiteOverride",
+        )?;
     }
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
@@ -498,6 +498,27 @@ fn bind_projectile_id(defs: &RuntimeDefinitions, name: &ProjectileName, owner: &
         name: name.as_str().to_string(),
         owner: owner.to_string(),
     })
+}
+
+fn bind_prerequisite_tokens(
+    tokens: Vec<ra_types::PrerequisiteToken>,
+    resolve: &impl Fn(&TechnoName) -> Option<TypeId>,
+    owner: &TechnoName,
+    field: &str,
+) -> RaResult<Vec<ra_types::PrerequisiteToken>> {
+    let mut out = Vec::with_capacity(tokens.len());
+    for token in tokens {
+        let bound = token.bind_type_id(resolve);
+        if let ra_types::PrerequisiteToken::UnboundType(ref key) = bound {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: key.as_str().to_string(),
+                owner: format!("{field}:{}", owner.as_str()),
+            });
+        }
+        out.push(bound);
+    }
+    Ok(out)
 }
 
 /// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。

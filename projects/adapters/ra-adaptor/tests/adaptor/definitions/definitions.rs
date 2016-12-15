@@ -206,22 +206,25 @@ fn build_runtime_definitions_binds_secondary_weapon_id() {
 fn build_runtime_definitions_projects_techno_fields_without_rescanning_section() {
     let rules = rules_from(
         b"[VehicleTypes]\n0=FV\n\
-[BuildingTypes]\n0=GAPOWR\n\
+[BuildingTypes]\n0=GAPOWR\n1=GAWEAP\n\
 [FV]\nCost=600\nStrength=200\nPrerequisite=GAWEAP,POWER\nBuildLimit=2\nDeploysInto=GAPOWR\n\
-[GAPOWR]\nCost=600\nStrength=600\nPower=150\nConstructionYard=yes\nFactory=BuildingType\nCapturable=yes\n",
+[GAPOWR]\nCost=600\nStrength=600\nPower=150\nConstructionYard=yes\nFactory=BuildingType\nCapturable=yes\n\
+[GAWEAP]\nCost=2000\nStrength=1000\nPower=-30\nFactory=UnitType\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let fv = defs.techno.get("FV").expect("FV");
+    let gaweap_id = defs.techno.get("GAWEAP").expect("GAWEAP").id;
     assert_eq!(
         fv.prerequisite,
         vec![
-            ra_types::PrerequisiteToken::UnboundType("GAWEAP".into()),
+            ra_types::PrerequisiteToken::Type(gaweap_id),
             ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
         ]
     );
     assert_eq!(fv.build_limit, 2);
     let deploy = defs.deployables.iter().find(|d| d.source_key == "FV").expect("deploy");
     assert_eq!(deploy.target_key, "GAPOWR");
+    assert_ne!(deploy.target, ra_types::TypeId(0));
     let power = defs.structures.get("GAPOWR").expect("GAPOWR");
     assert_eq!(power.power.output, 150);
     assert!(power.construction_yard);
@@ -327,4 +330,17 @@ fn build_runtime_definitions_allows_ambient_owner_house_with_countries() {
     );
     let defs = build_runtime_definitions(&rules).expect("Neutral Owner should pass");
     assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner.owner_allows("Neutral"));
+}
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_prerequisite_techno() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nPrerequisite=MISSINGYARD\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("unknown Prerequisite must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSINGYARD"), "{msg}");
+    assert!(msg.contains("Prerequisite"), "{msg}");
 }
