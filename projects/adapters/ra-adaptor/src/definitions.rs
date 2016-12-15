@@ -4,10 +4,10 @@
 
 use ra_assets::TechnoKind;
 use ra_types::{
-    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseDefinition, HouseId, PowerProfile, PrerequisiteGroups,
-    ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError, RaResult, RuntimeDefinitions, StolenTechKind,
-    StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass, TechnoDefinition, TechnoName, TypeId, WarheadDefinition,
-    WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName,
+    BuiltinCapability, DeployableDefinition, DeploymentPlacement, GameEdition, HouseAllowList, HouseDefinition, HouseId, HouseName,
+    PowerProfile, PrerequisiteGroups, ProductionCategory, ProductionProfile, ProjectileDefinition, ProjectileId, ProjectileName, RaError,
+    RaResult, RuntimeDefinitions, StolenTechKind, StructureDefinition, StructureLightProfile, SuperWeaponDefinition, TechnoClass,
+    TechnoDefinition, TechnoName, TypeId, WarheadDefinition, WarheadId, WarheadName, WeaponDefinition, WeaponId, WeaponName,
 };
 use std::collections::HashMap;
 
@@ -418,6 +418,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
     }
 
+    // `[Countries]` 非空时校验 Owner / RequiredHouses / ForbiddenHouses；空表（测试夹具）跳过。
+    for techno in defs.techno.iter() {
+        validate_house_allow_list(&defs, &techno.owner, "Owner", techno.type_key.as_str())?;
+        validate_house_allow_list(&defs, &techno.required_houses, "RequiredHouses", techno.type_key.as_str())?;
+        validate_house_allow_list(&defs, &techno.forbidden_houses, "ForbiddenHouses", techno.type_key.as_str())?;
+    }
+    for structure in defs.structures.iter() {
+        validate_house_allow_list(&defs, &structure.owner, "Owner", structure.type_key.as_str())?;
+    }
+
     let techno_binds: Vec<(TypeId, WeaponId, WeaponId, WarheadId)> = defs
         .techno
         .iter()
@@ -488,6 +498,28 @@ fn bind_projectile_id(defs: &RuntimeDefinitions, name: &ProjectileName, owner: &
         name: name.as_str().to_string(),
         owner: owner.to_string(),
     })
+}
+
+/// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。
+fn is_ambient_house(name: &HouseName) -> bool {
+    matches!(name.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN")
+}
+
+fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field: &str, owner: &str) -> RaResult<()> {
+    if defs.houses.is_empty() {
+        return Ok(());
+    }
+    for name in list.iter() {
+        if is_ambient_house(name) || defs.houses.get_name(name).is_some() {
+            continue;
+        }
+        return Err(RaError::UnknownReference {
+            kind: "house",
+            name: name.as_str().to_string(),
+            owner: format!("{field}:{owner}"),
+        });
+    }
+    Ok(())
 }
 
 /// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。

@@ -302,3 +302,29 @@ fn build_runtime_definitions_rejects_unknown_structure_super_weapon() {
     assert!(msg.contains("super_weapon"), "{msg}");
     assert!(msg.contains("MISSINGSTORM") || msg.contains("MissingStorm"), "{msg}");
 }
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_owner_house_when_countries_present() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nOwner=MissingHouse\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("unknown Owner house must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("house"), "{msg}");
+    assert!(msg.contains("MISSINGHOUSE") || msg.contains("MissingHouse"), "{msg}");
+}
+
+#[test]
+fn build_runtime_definitions_allows_ambient_owner_house_with_countries() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Neutral\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("Neutral Owner should pass");
+    assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner.owner_allows("Neutral"));
+}
