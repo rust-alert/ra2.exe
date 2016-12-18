@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView, deserialize_opt_i32, deserialize_opt_u32};
 use ra_types::{ImageName, ProjectileName, SuperWeaponActionName, SuperWeaponKindName, SuperWeaponName, UiName, WarheadName, WeaponName};
 
 /// 超武类型（装载期资源侧记录）。
@@ -118,7 +118,7 @@ struct SuperWeaponSectionFields {
     kind: SuperWeaponKindName,
     #[serde(rename = "Action", default)]
     action: SuperWeaponActionName,
-    #[serde(rename = "RechargeTime")]
+    #[serde(rename = "RechargeTime", default, deserialize_with = "deserialize_opt_i32")]
     recharge_time: Option<i32>,
     #[serde(rename = "SidebarImage", default)]
     sidebar_image: ImageName,
@@ -128,11 +128,11 @@ struct SuperWeaponSectionFields {
 
 #[derive(Debug, Deserialize)]
 struct WeaponSectionFields {
-    #[serde(rename = "Damage")]
+    #[serde(rename = "Damage", default, deserialize_with = "deserialize_opt_u32")]
     damage: Option<u32>,
-    #[serde(rename = "Range")]
+    #[serde(rename = "Range", default, deserialize_with = "deserialize_opt_u32")]
     range: Option<u32>,
-    #[serde(rename = "ROF")]
+    #[serde(rename = "ROF", default, deserialize_with = "deserialize_opt_u32")]
     rof: Option<u32>,
     #[serde(rename = "Warhead", default)]
     warhead: WarheadName,

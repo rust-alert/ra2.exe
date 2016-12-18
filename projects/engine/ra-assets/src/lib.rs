@@ -47,8 +47,8 @@ pub use image::{
 };
 pub use ini::{
     EntryMergePolicy, FieldMergeOverrides, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView,
-    LayeredSectionView, ResolvedIniValue, SourceId,
-    SourceSpan, collect_shp_refs, concat_numbered_values, from_layered_section, from_section, numbered_pairs,
+    LayeredSectionView, ResolvedIniValue, SourceId, SourceSpan, collect_shp_refs, concat_numbered_values, deserialize_opt_bool,
+    deserialize_opt_f32, deserialize_opt_f64, deserialize_opt_i32, deserialize_opt_u32, from_layered_section, from_section, numbered_pairs,
     numbered_section_concat, numbered_section_parts, parse_numbered_key,
 };
 pub use mix::{

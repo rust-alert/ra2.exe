@@ -246,3 +246,22 @@ fn owner_list_decodes_once_and_allows() {
     assert!(m.required_houses.is_empty());
     assert!(m.forbidden_houses.forbids("russians"));
 }
+
+#[test]
+fn soft_parse_keeps_techno_when_scalar_is_illegal() {
+    let doc = IniDocument::parse(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=400\nCost=nope\nSpeed=64%\nNaval=maybe\nPrimary=90mm\n\
+[90mm]\nDamage=50%\nROF=bad\nRange=6\nWarhead=SA\n",
+    )
+    .unwrap();
+    let reg = TechnoTypeRegistry::from_rules(&doc);
+    let m = reg.get("MTNK").expect("illegal Cost must not drop the type");
+    assert_eq!(m.strength, 400);
+    assert_eq!(m.cost, 0);
+    assert_eq!(m.speed, 64);
+    assert!(!m.naval);
+    assert_eq!(m.damage, 50);
+    assert_eq!(m.range, 6);
+    assert_eq!(m.rof, 0);
+}

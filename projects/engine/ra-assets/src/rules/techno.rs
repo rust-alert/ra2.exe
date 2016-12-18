@@ -4,7 +4,10 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::ini::{FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView};
+use crate::ini::{
+    FieldMergeOverrides, IniDocument, IniMergePolicy, LayeredIniView, deserialize_opt_bool, deserialize_opt_f32, deserialize_opt_i32,
+    deserialize_opt_u32,
+};
 use ra_types::{
     BuildCat, Foundation, HouseAllowList, ImageName, PrerequisiteList, ProductionCategory, ProjectileName, SuperWeaponName, TechnoCategory,
     TechnoName, WarheadName, WeaponName, deserialize_optional_factory,
@@ -243,19 +246,20 @@ impl TechnoTypeRegistry {
 }
 
 /// 类型节字段（一次 Serde 解码；缺省与归一化在组装 `TechnoType` 时完成）。
+/// 数值 / 布尔非法文本回落 `None`，不拖垮整节。
 #[derive(Debug, Deserialize)]
 struct TechnoSectionFields {
-    #[serde(rename = "Strength")]
+    #[serde(rename = "Strength", default, deserialize_with = "deserialize_opt_u32")]
     strength: Option<u32>,
     #[serde(rename = "Armor", default)]
     armor: ra_types::ArmorKind,
-    #[serde(rename = "Speed")]
+    #[serde(rename = "Speed", default, deserialize_with = "deserialize_opt_u32")]
     speed: Option<u32>,
-    #[serde(rename = "Sight")]
+    #[serde(rename = "Sight", default, deserialize_with = "deserialize_opt_u32")]
     sight: Option<u32>,
-    #[serde(rename = "Cost")]
+    #[serde(rename = "Cost", default, deserialize_with = "deserialize_opt_u32")]
     cost: Option<u32>,
-    #[serde(rename = "TechLevel")]
+    #[serde(rename = "TechLevel", default, deserialize_with = "deserialize_opt_i32")]
     tech_level: Option<i32>,
     #[serde(rename = "Owner", default)]
     owner: HouseAllowList,
@@ -263,19 +267,19 @@ struct TechnoSectionFields {
     image: ImageName,
     #[serde(rename = "Category", default)]
     category: TechnoCategory,
-    #[serde(rename = "Naval")]
+    #[serde(rename = "Naval", default, deserialize_with = "deserialize_opt_bool")]
     naval: Option<bool>,
-    #[serde(rename = "Agent")]
+    #[serde(rename = "Agent", default, deserialize_with = "deserialize_opt_bool")]
     agent: Option<bool>,
-    #[serde(rename = "Engineer")]
+    #[serde(rename = "Engineer", default, deserialize_with = "deserialize_opt_bool")]
     engineer: Option<bool>,
-    #[serde(rename = "Harvester")]
+    #[serde(rename = "Harvester", default, deserialize_with = "deserialize_opt_bool")]
     harvester: Option<bool>,
     #[serde(rename = "Primary", default)]
     primary: WeaponName,
     #[serde(rename = "Secondary", default)]
     secondary: WeaponName,
-    #[serde(rename = "ROF")]
+    #[serde(rename = "ROF", default, deserialize_with = "deserialize_opt_u32")]
     rof: Option<u32>,
     #[serde(rename = "Prerequisite", default)]
     prerequisite: PrerequisiteList,
@@ -285,33 +289,33 @@ struct TechnoSectionFields {
     required_houses: HouseAllowList,
     #[serde(rename = "ForbiddenHouses", default)]
     forbidden_houses: HouseAllowList,
-    #[serde(rename = "BuildLimit")]
+    #[serde(rename = "BuildLimit", default, deserialize_with = "deserialize_opt_i32")]
     build_limit: Option<i32>,
-    #[serde(rename = "BuildTime")]
+    #[serde(rename = "BuildTime", default, deserialize_with = "deserialize_opt_i32")]
     build_time: Option<i32>,
-    #[serde(rename = "RequiresStolenAlliedTech")]
+    #[serde(rename = "RequiresStolenAlliedTech", default, deserialize_with = "deserialize_opt_bool")]
     requires_stolen_allied_tech: Option<bool>,
-    #[serde(rename = "RequiresStolenSovietTech")]
+    #[serde(rename = "RequiresStolenSovietTech", default, deserialize_with = "deserialize_opt_bool")]
     requires_stolen_soviet_tech: Option<bool>,
-    #[serde(rename = "RequiresStolenThirdTech")]
+    #[serde(rename = "RequiresStolenThirdTech", default, deserialize_with = "deserialize_opt_bool")]
     requires_stolen_third_tech: Option<bool>,
-    #[serde(rename = "PixelSelectionBracketDelta")]
+    #[serde(rename = "PixelSelectionBracketDelta", default, deserialize_with = "deserialize_opt_i32")]
     pixel_selection_bracket_delta: Option<i32>,
     #[serde(rename = "DeploysInto", default)]
     deploys_into: TechnoName,
-    #[serde(rename = "Power")]
+    #[serde(rename = "Power", default, deserialize_with = "deserialize_opt_i32")]
     power: Option<i32>,
-    #[serde(rename = "Powered")]
+    #[serde(rename = "Powered", default, deserialize_with = "deserialize_opt_bool")]
     powered: Option<bool>,
-    #[serde(rename = "ConstructionYard")]
+    #[serde(rename = "ConstructionYard", default, deserialize_with = "deserialize_opt_bool")]
     construction_yard: Option<bool>,
-    #[serde(rename = "Refinery")]
+    #[serde(rename = "Refinery", default, deserialize_with = "deserialize_opt_bool")]
     refinery: Option<bool>,
-    #[serde(rename = "Radar")]
+    #[serde(rename = "Radar", default, deserialize_with = "deserialize_opt_bool")]
     radar: Option<bool>,
     #[serde(rename = "BuildCat", default)]
     build_cat: BuildCat,
-    #[serde(rename = "Capturable")]
+    #[serde(rename = "Capturable", default, deserialize_with = "deserialize_opt_bool")]
     capturable: Option<bool>,
     #[serde(rename = "Factory", default, deserialize_with = "deserialize_optional_factory")]
     factory: Option<ProductionCategory>,
@@ -319,28 +323,28 @@ struct TechnoSectionFields {
     super_weapon: SuperWeaponName,
     #[serde(rename = "Foundation", default)]
     foundation: Foundation,
-    #[serde(rename = "Height")]
+    #[serde(rename = "Height", default, deserialize_with = "deserialize_opt_i32")]
     height: Option<i32>,
-    #[serde(rename = "LightIntensity")]
+    #[serde(rename = "LightIntensity", default, deserialize_with = "deserialize_opt_f32")]
     light_intensity: Option<f32>,
-    #[serde(rename = "LightVisibility")]
+    #[serde(rename = "LightVisibility", default, deserialize_with = "deserialize_opt_i32")]
     light_visibility: Option<i32>,
-    #[serde(rename = "LightRedTint")]
+    #[serde(rename = "LightRedTint", default, deserialize_with = "deserialize_opt_f32")]
     light_red: Option<f32>,
-    #[serde(rename = "LightGreenTint")]
+    #[serde(rename = "LightGreenTint", default, deserialize_with = "deserialize_opt_f32")]
     light_green: Option<f32>,
-    #[serde(rename = "LightBlueTint")]
+    #[serde(rename = "LightBlueTint", default, deserialize_with = "deserialize_opt_f32")]
     light_blue: Option<f32>,
 }
 
 /// 武器节字段。
 #[derive(Debug, Deserialize)]
 struct WeaponSectionFields {
-    #[serde(rename = "Damage")]
+    #[serde(rename = "Damage", default, deserialize_with = "deserialize_opt_u32")]
     damage: Option<u32>,
-    #[serde(rename = "Range")]
+    #[serde(rename = "Range", default, deserialize_with = "deserialize_opt_u32")]
     range: Option<u32>,
-    #[serde(rename = "ROF")]
+    #[serde(rename = "ROF", default, deserialize_with = "deserialize_opt_u32")]
     rof: Option<u32>,
     #[serde(rename = "Warhead", default)]
     warhead: WarheadName,

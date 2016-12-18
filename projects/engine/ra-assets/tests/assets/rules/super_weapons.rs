@@ -52,3 +52,21 @@ fn from_layered_overrides_recharge_and_appends_list() {
     assert_eq!(reg.get("LightningStorm").unwrap().kind, "LIGHTNINGSTORM");
     assert_eq!(reg.get("Nuke").unwrap().kind, "MULTIMISSILE");
 }
+
+#[test]
+fn soft_parse_keeps_super_weapon_when_scalar_is_illegal() {
+    let doc = IniDocument::parse(
+        b"[SuperWeaponTypes]\n0=LightningStorm\n\
+[LightningStorm]\nType=LightningStorm\nRechargeTime=nope\nWeapon=LightningBolt\n\
+[LightningBolt]\nDamage=250%\nROF=bad\nRange=8\nWarhead=SA\n",
+    )
+    .unwrap();
+    let reg = SuperWeaponTypeRegistry::from_rules(&doc);
+    let ls = reg.get("LightningStorm").expect("illegal RechargeTime must not drop SW");
+    assert_eq!(ls.kind, "LIGHTNINGSTORM");
+    assert_eq!(ls.recharge_time, 0);
+    assert_eq!(ls.weapon_damage, 250);
+    assert_eq!(ls.weapon_range, 8);
+    assert_eq!(ls.weapon_rof, 0);
+    assert_eq!(ls.weapon_warhead, "SA");
+}

@@ -6,6 +6,7 @@ pub mod de;
 pub mod merge;
 mod numbered;
 pub mod parse;
+pub mod soft;
 mod value;
 
 pub use asset_refs::collect_shp_refs;
@@ -15,4 +16,5 @@ pub use merge::{
     EntryMergePolicy, FieldMergeOverrides, IniMergePolicy, LayeredIniView, LayeredSectionView, ResolvedIniValue,
 };
 pub use numbered::{concat_numbered_values, numbered_pairs, numbered_section_concat, numbered_section_parts, parse_numbered_key};
+pub use soft::{deserialize_opt_bool, deserialize_opt_f32, deserialize_opt_f64, deserialize_opt_i32, deserialize_opt_u32};
 pub use value::IniValue;
