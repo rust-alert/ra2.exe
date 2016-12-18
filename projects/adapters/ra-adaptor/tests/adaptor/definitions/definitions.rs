@@ -344,3 +344,17 @@ fn build_runtime_definitions_rejects_unknown_prerequisite_techno() {
     assert!(msg.contains("MISSINGYARD"), "{msg}");
     assert!(msg.contains("Prerequisite"), "{msg}");
 }
+
+#[test]
+fn build_runtime_definitions_rejects_unknown_prerequisite_group_member() {
+    let rules = rules_from(
+        b"[General]\nPrerequisitePower=MISSINGPWR\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("unknown group member must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSINGPWR"), "{msg}");
+    assert!(msg.contains("PrerequisitePower") || msg.contains("PrerequisiteGroups"), "{msg}");
+}

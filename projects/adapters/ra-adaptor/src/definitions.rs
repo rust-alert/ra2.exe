@@ -295,6 +295,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         )?;
     }
 
+    validate_prerequisite_group_members(&defs)?;
+
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
     // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 / 抛射体 id。
@@ -519,6 +521,33 @@ fn bind_prerequisite_tokens(
         out.push(bound);
     }
     Ok(out)
+}
+
+fn validate_prerequisite_group_members(defs: &RuntimeDefinitions) -> RaResult<()> {
+    let check = |field: &str, names: &[TechnoName]| -> RaResult<()> {
+        for name in names {
+            if name.is_empty() {
+                continue;
+            }
+            if defs.techno.get_name(name).is_none() {
+                return Err(RaError::UnknownReference {
+                    kind: "techno",
+                    name: name.as_str().to_string(),
+                    owner: format!("PrerequisiteGroups:{field}"),
+                });
+            }
+        }
+        Ok(())
+    };
+    let g = &defs.prerequisite_groups;
+    check("PrerequisitePower", &g.power)?;
+    check("PrerequisiteFactory", &g.factory)?;
+    check("PrerequisiteBarracks", &g.barracks)?;
+    check("PrerequisiteRadar", &g.radar)?;
+    check("PrerequisiteTech", &g.tech)?;
+    check("PrerequisiteProc", &g.proc)?;
+    check("PrerequisiteProcAlternate", &g.proc_alternate)?;
+    Ok(())
 }
 
 /// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。

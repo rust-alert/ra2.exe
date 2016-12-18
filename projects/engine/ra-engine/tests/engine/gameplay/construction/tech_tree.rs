@@ -15,7 +15,7 @@ PrerequisiteProc=GAREFN,NAREFN\n\
 PrerequisiteRadar=GAAIRC,NARADR\n\
 PrerequisiteTech=GATECH,NATECH\n\
 [MultiplayerDialogSettings]\nTechLevel=10\n\
-[BuildingTypes]\n0=GACNST\n1=NACNST\n2=GAPOWR\n3=NAPOWR\n4=GAREFN\n5=NAREFN\n6=GAPILE\n7=NAHAND\n\
+[BuildingTypes]\n0=GACNST\n1=NACNST\n2=GAPOWR\n3=NAPOWR\n4=GAREFN\n5=NAREFN\n6=GAPILE\n7=NAHAND\n8=GAWEAP\n9=NAWEAP\n10=GAAIRC\n11=NARADR\n12=GATECH\n13=NATECH\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\n\
@@ -23,7 +23,13 @@ PrerequisiteTech=GATECH,NATECH\n\
 [GAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Americans\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nPrerequisite=POWER\n\
 [NAREFN]\nPower=-50\nPowered=yes\nRefinery=yes\nOwner=Russians\nStrength=900\nSight=4\nCost=2000\nTechLevel=1\nPrerequisite=POWER\n\
 [GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nPrerequisite=POWER\n\
-[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nPrerequisite=POWER\n";
+[NAHAND]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Russians\nStrength=500\nSight=5\nCost=500\nTechLevel=1\nPrerequisite=POWER\n\
+[GAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Americans\nStrength=1000\nSight=5\nCost=2000\nTechLevel=1\nPrerequisite=POWER\n\
+[NAWEAP]\nPower=-30\nPowered=yes\nFactory=UnitType\nOwner=Russians\nStrength=1000\nSight=5\nCost=2000\nTechLevel=1\nPrerequisite=POWER\n\
+[GAAIRC]\nPower=-50\nPowered=yes\nRadar=yes\nOwner=Americans\nStrength=1000\nSight=10\nCost=1000\nTechLevel=1\nPrerequisite=POWER\n\
+[NARADR]\nPower=-50\nPowered=yes\nRadar=yes\nOwner=Russians\nStrength=1000\nSight=10\nCost=1000\nTechLevel=1\nPrerequisite=POWER\n\
+[GATECH]\nPower=-50\nPowered=yes\nOwner=Americans\nStrength=500\nSight=4\nCost=1500\nTechLevel=1\nPrerequisite=POWER\n\
+[NATECH]\nPower=-50\nPowered=yes\nOwner=Russians\nStrength=500\nSight=4\nCost=1500\nTechLevel=1\nPrerequisite=POWER\n";
     defs_from_rules_ini(rules_text)
 }
 
@@ -127,7 +133,7 @@ use ra_types::{PrerequisiteGroups, PrerequisiteToken, RuntimeDefinitions, Techno
 
 fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequisite: &[&str], override_tokens: &[&str]) -> TechnoDefinition {
     TechnoDefinition {
-        id: TypeId(1),
+        id: TypeId(0),
         type_key: key.into(),
         class,
         cost: 100,
@@ -167,8 +173,46 @@ fn player(house: &str, tech_level: i32) -> TechTreePlayer<'_> {
 
 fn defs_with(groups: PrerequisiteGroups, items: Vec<TechnoDefinition>) -> RuntimeDefinitions {
     let mut defs = RuntimeDefinitions { prerequisite_groups: groups, default_tech_level: 10, ..Default::default() };
-    for t in items {
+    let mut next_id = 1u32;
+    for mut t in items {
+        t.id = TypeId(next_id);
+        next_id = next_id.saturating_add(1);
         defs.techno.insert(t);
+    }
+    // 夹具里的类型引用先落成 stub，再绑 TypeId（与装载期契约一致，不留 UnboundType）。
+    loop {
+        let missing: Vec<ra_types::TechnoName> = defs
+            .techno
+            .iter()
+            .flat_map(|t| t.prerequisite.iter().chain(t.prerequisite_override.iter()))
+            .filter_map(|tok| match tok {
+                PrerequisiteToken::UnboundType(key) if defs.techno.get_name(key).is_none() => Some(key.clone()),
+                _ => None,
+            })
+            .collect();
+        if missing.is_empty() {
+            break;
+        }
+        for key in missing {
+            let mut stub = techno(key.as_str(), TechnoClass::Building, "", 1, &[], &[]);
+            stub.id = TypeId(next_id);
+            stub.type_key = key;
+            next_id = next_id.saturating_add(1);
+            defs.techno.insert(stub);
+        }
+    }
+    let type_ids: std::collections::HashMap<ra_types::TechnoName, TypeId> =
+        defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
+    let resolve = |key: &ra_types::TechnoName| type_ids.get(key).copied();
+    for techno in defs.techno.iter_mut() {
+        techno.prerequisite = std::mem::take(&mut techno.prerequisite)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
+        techno.prerequisite_override = std::mem::take(&mut techno.prerequisite_override)
+            .into_iter()
+            .map(|t| t.bind_type_id(&resolve))
+            .collect();
     }
     defs
 }

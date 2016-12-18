@@ -11,11 +11,12 @@ fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [Russians]\nSide=Nod\nMultiplay=yes\n\
 [General]\nPrerequisiteTech=GATECH,NATECH\n\
 [InfantryTypes]\n0=ENGINEER\n1=E1\n\
-[BuildingTypes]\n0=GAPOWR\n1=GATECH\n2=GACNST\n3=CAOIL\n\
+[BuildingTypes]\n0=GAPOWR\n1=GATECH\n2=GACNST\n3=CAOIL\n4=NATECH\n\
 [ENGINEER]\nEngineer=yes\nOwner=Americans\nStrength=50\nSpeed=24\nSight=4\nCost=500\nTechLevel=1\n\
 [E1]\nOwner=Americans\nStrength=125\nSpeed=24\nSight=4\nCost=200\nTechLevel=1\n\
 [GAPOWR]\nPower=200\nCapturable=yes\nOwner=Americans,Russians\nStrength=750\nSight=4\nCost=800\nTechLevel=1\n\
 [GATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
+[NATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
 [CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n")
 }

@@ -97,13 +97,8 @@ pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, 
         PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any(living, defs.prerequisite_groups.proc_all()),
         PrerequisiteToken::Group(kind) => owns_any(living, defs.prerequisite_groups.types_for_kind(*kind)),
         PrerequisiteToken::Type(id) => defs.techno.get_by_id(*id).is_some_and(|t| living.contains(&t.type_key)),
-        PrerequisiteToken::UnboundType(key) => {
-            if key.is_empty() {
-                true
-            } else {
-                living.contains(key)
-            }
-        }
+        // 装载期必须把类型引用绑成 `Type` 或报错；执行侧不再按名称兜底。
+        PrerequisiteToken::UnboundType(_) => false,
     }
 }
 
