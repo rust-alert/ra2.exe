@@ -45,29 +45,53 @@ struct StructureTypePaintHints {
 
 /// 建筑类型叠画提示表（跨多次 paint / anim-bank 调用复用，避免重复扫 art/rules）。
 #[derive(Debug, Clone, Default)]
-pub struct StructurePaintHintTable {
+pub(crate) struct StructurePaintHintTable {
     by_type: HashMap<TechnoName, StructureTypePaintHints>,
 }
 
 impl StructurePaintHintTable {
-    /// 确保表中含该类型提示（已有则跳过 INI 扫描）。
-    pub fn ensure(&mut self, art_rules: &crate::ArtRules, type_id: &TechnoName) {
-        if self.by_type.contains_key(type_id) {
-            return;
-        }
-        let hint = structure_type_paint_hints(art_rules.art.as_ref(), art_rules.rules.as_ref(), type_id.as_str());
-        self.by_type.insert(type_id.clone(), hint);
-    }
-
-    /// 为实体列表补齐提示。
-    pub fn ensure_entities(&mut self, art_rules: &crate::ArtRules, structures: &[&MapEntity]) {
-        for ent in structures {
-            self.ensure(art_rules, &ent.type_id);
-        }
-    }
-
     fn get(&self, type_id: &TechnoName) -> Option<&StructureTypePaintHints> {
         self.by_type.get(type_id)
+    }
+
+    fn contains(&self, type_id: &TechnoName) -> bool {
+        self.by_type.contains_key(type_id)
+    }
+
+    fn insert(&mut self, type_id: TechnoName, hint: StructureTypePaintHints) {
+        self.by_type.insert(type_id, hint);
+    }
+}
+
+impl crate::PaintDefinitions {
+    /// 确保表中含该建筑类型提示（已有则跳过 INI 扫描）。
+    pub fn ensure_structure_hint(&mut self, type_id: &TechnoName) {
+        if self.structure_hints.contains(type_id) {
+            return;
+        }
+        let hint = structure_type_paint_hints(self, type_id.as_str());
+        self.structure_hints.insert(type_id.clone(), hint);
+    }
+
+    /// 为实体列表补齐建筑类型提示。
+    pub fn ensure_structure_entities(&mut self, structures: &[&MapEntity]) {
+        for ent in structures {
+            self.ensure_structure_hint(&ent.type_id);
+        }
+    }
+
+    fn structure_hint(&self, type_id: &TechnoName) -> Option<&StructureTypePaintHints> {
+        self.structure_hints.get(type_id)
+    }
+
+    /// 是否已装入 art 文档（Buildup / 活动层等路径的门闩）。
+    pub(crate) fn has_art(&self) -> bool {
+        self.art.is_some()
+    }
+
+    /// 解析活动层 art 节提示（无 art 或缺节时用缺省）。
+    fn structure_anim_section_hints(&self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
+        structure_anim_section_hints(self.art.as_ref(), anim_name, default_rate_ms)
     }
 }
 
@@ -87,7 +111,9 @@ struct StructureBuildupHints {
     rate_ms: u32,
 }
 
-fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
+fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> StructureTypePaintHints {
+    let art = paint.art.as_ref();
+    let rules = paint.rules.as_ref();
     let art_section = resolve_art_section(art, type_id);
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
@@ -333,12 +359,8 @@ struct TurretVoxelSectionFields {
     anim_y: Option<i32>,
 }
 
-fn collect_structure_type_paint_hints(
-    hints: &mut StructurePaintHintTable,
-    art_rules: &crate::ArtRules,
-    structures: &[&MapEntity],
-) {
-    hints.ensure_entities(art_rules, structures);
+fn collect_structure_type_paint_hints(paint: &mut crate::PaintDefinitions, structures: &[&MapEntity]) {
+    paint.ensure_structure_entities(structures);
 }
 
 /// 活动层 / 火焰 anim 节提示（按 anim 节名去重一次）。
@@ -396,12 +418,12 @@ struct AnimSectionFields {
 
 fn cached_anim_section_hint<'a>(
     cache: &'a mut HashMap<String, StructureAnimSectionHints>,
-    art: Option<&IniDocument>,
+    paint: &crate::PaintDefinitions,
     anim_name: &str,
     default_rate_ms: u32,
 ) -> &'a StructureAnimSectionHints {
     if !cache.contains_key(anim_name) {
-        cache.insert(anim_name.to_string(), structure_anim_section_hints(art, anim_name, default_rate_ms));
+        cache.insert(anim_name.to_string(), paint.structure_anim_section_hints(anim_name, default_rate_ms));
     }
     cache.get(anim_name).expect("just inserted")
 }
@@ -499,8 +521,7 @@ pub fn paint_map_structures(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_rules: &crate::ArtRules,
-    hints: &mut StructurePaintHintTable,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     mode: StructureAnimMode,
 ) -> (usize, usize) {
@@ -508,15 +529,14 @@ pub fn paint_map_structures(
         StructureAnimMode::BodyOnly => (true, None),
         StructureAnimMode::BodyAndAnims { clock_ms } => (true, Some(clock_ms)),
     };
-    paint_map_structures_inner(source, map, image, art_rules, hints, remap_owner, paint_body, clock_ms)
+    paint_map_structures_inner(source, map, image, paint, remap_owner, paint_body, clock_ms)
 }
 
 /// 收集建筑活动层并预解码全部循环帧（不含主体；含黄血燃烧）。
 pub fn collect_structure_anim_bank(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_rules: &crate::ArtRules,
-    hints: &mut StructurePaintHintTable,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> StructureAnimBank {
     let structures: Vec<_> = map.entities.iter().filter(|e| e.kind == MapEntityKind::Structure).collect();
@@ -527,9 +547,8 @@ pub fn collect_structure_anim_bank(
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    let art = art_rules.art.as_ref();
-    collect_structure_type_paint_hints(hints, art_rules, &structures);
-    let damage = &art_rules.damage;
+    collect_structure_type_paint_hints(paint, &structures);
+    let damage = &paint.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -541,7 +560,7 @@ pub fn collect_structure_anim_bank(
     let mut layers = Vec::new();
 
     for ent in structures {
-        let Some(type_hint) = hints.get(&ent.type_id)
+        let Some(type_hint) = paint.structure_hint(&ent.type_id)
         else {
             continue;
         };
@@ -556,7 +575,7 @@ pub fn collect_structure_anim_bank(
             };
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
-            let hint = cached_anim_section_hint(&mut anim_hints, art, anim_name, 300).clone();
+            let hint = cached_anim_section_hint(&mut anim_hints, paint, anim_name, 300).clone();
             let anim_remapable = hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
@@ -606,7 +625,7 @@ pub fn collect_structure_anim_bank(
         }
         for &(i, ox, oy) in &type_hint.fire_offsets {
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
-            let fire_hint = cached_anim_section_hint(&mut anim_hints, art, fire_name, 80).clone();
+            let fire_hint = cached_anim_section_hint(&mut anim_hints, paint, fire_name, 80).clone();
             let Some(shp) = load_shp(source, map, &fire_hint.image_key, fire_hint.new_theater, &mut shp_cache)
             else {
                 // 无节时仍尝试直接按类型名读 SHP。
@@ -750,18 +769,19 @@ pub fn buildup_frame_index(elapsed_ms: u64, rate_ms: u32, frame_count: usize) ->
 pub fn load_structure_buildup_clip(
     source: &dyn AssetSource,
     map: &MapInfo,
-    art_rules: &crate::ArtRules,
-    hints: &mut StructurePaintHintTable,
+    paint: &mut crate::PaintDefinitions,
     type_id: &str,
     owner: &str,
     x: u16,
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    let _ = art_rules.art.as_ref()?;
+    if !paint.has_art() {
+        return None;
+    }
     let techno = TechnoName::parse(type_id);
-    hints.ensure(art_rules, &techno);
-    let type_hint = hints.get(&techno)?;
+    paint.ensure_structure_hint(&techno);
+    let type_hint = paint.structure_hint(&techno)?;
     let buildup = type_hint.buildup.as_ref()?;
     let remapable = type_hint.remapable;
     let obj_pal = load_object_palette(source, map)?;
@@ -815,12 +835,11 @@ pub fn paint_structures_onto_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    art_rules: &crate::ArtRules,
-    hints: &mut StructurePaintHintTable,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> usize {
     let mut terrain = TerrainImage { image: std::mem::take(image), drawn: 0, origin_x, origin_y };
-    let (n, _) = paint_map_structures(source, map, &mut terrain, art_rules, hints, remap_owner, StructureAnimMode::BodyOnly);
+    let (n, _) = paint_map_structures(source, map, &mut terrain, paint, remap_owner, StructureAnimMode::BodyOnly);
     *image = terrain.image;
     n
 }
@@ -829,8 +848,7 @@ fn paint_map_structures_inner(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_rules: &crate::ArtRules,
-    hints: &mut StructurePaintHintTable,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     paint_body: bool,
     anim_clock_ms: Option<u64>,
@@ -844,9 +862,8 @@ fn paint_map_structures_inner(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = art_rules.art.as_ref();
-    collect_structure_type_paint_hints(hints, art_rules, &structures);
-    let damage = &art_rules.damage;
+    collect_structure_type_paint_hints(paint, &structures);
+    let damage = &paint.damage;
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         if !paint_body {
@@ -864,7 +881,7 @@ fn paint_map_structures_inner(
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
-        let Some(hint) = hints.get(&ent.type_id)
+        let Some(hint) = paint.structure_hint(&ent.type_id)
         else {
             continue;
         };
@@ -912,7 +929,7 @@ fn paint_map_structures_inner(
             };
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
-            let anim_hint = cached_anim_section_hint(&mut anim_hints, art, anim_name, 300).clone();
+            let anim_hint = cached_anim_section_hint(&mut anim_hints, paint, anim_name, 300).clone();
             let frame_idx = structure_anim_frame(clock_ms, anim_hint.rate_ms, anim_hint.loop_start, anim_hint.loop_end);
             let anim_remapable = anim_hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };

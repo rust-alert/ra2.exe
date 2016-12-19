@@ -203,8 +203,7 @@ impl BattleController {
             load_structure_buildup_clip(
                 assets,
                 &game.world.map,
-                &self.art_rules,
-                &mut self.structure_paint_hints,
+                &mut self.paint,
                 &job.type_id,
                 &job.owner,
                 job.x,
@@ -283,8 +282,7 @@ impl BattleController {
                 clean,
                 origin.0,
                 origin.1,
-                &self.art_rules,
-                &mut self.structure_paint_hints,
+                &mut self.paint,
                 &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
             );
             if n == 0 {
@@ -303,7 +301,7 @@ impl BattleController {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &mut self.structure_paint_hints, &|base, own| {
+            let bank = collect_structure_anim_bank(assets, &one, &mut self.paint, &|base, own| {
                 remap_owner_palette(rules, Some(lobby), base, own)
             });
             (n, bank)
@@ -333,8 +331,7 @@ impl BattleController {
                     underlay,
                     origin.0,
                     origin.1,
-                    &self.art_rules,
-                    &mut self.structure_paint_hints,
+                    &mut self.paint,
                     &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
                 );
                 if n == 0 {
@@ -417,7 +414,7 @@ impl BattleController {
             &mut base,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.art_rules,
+            &self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
@@ -486,7 +483,7 @@ impl BattleController {
             &mut composed,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.art_rules,
+            &self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );

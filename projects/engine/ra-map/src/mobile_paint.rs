@@ -74,10 +74,11 @@ struct MobileRulesImageFields {
 }
 
 fn collect_mobile_type_paint_hints(
-    rules: Option<&IniDocument>,
-    art: Option<&IniDocument>,
+    paint: &crate::PaintDefinitions,
     mobiles: &[&MapEntity],
 ) -> HashMap<TechnoName, MobileTypePaintHints> {
+    let rules = paint.rules.as_ref();
+    let art = paint.art.as_ref();
     let mut out = HashMap::new();
     for ent in mobiles {
         out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, ent.type_id.as_str()));
@@ -113,7 +114,7 @@ pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    art_rules: &crate::ArtRules,
+    paint: &crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     pose_of: &dyn Fn(&MapEntity) -> MobilePaintPose,
 ) -> usize {
@@ -127,9 +128,7 @@ pub fn paint_map_mobiles(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let art = art_rules.art.as_ref();
-    let rules = art_rules.rules.as_ref();
-    let type_hints = collect_mobile_type_paint_hints(rules, art, &mobiles);
+    let type_hints = collect_mobile_type_paint_hints(paint, &mobiles);
     let obj_pal = source
         .read("unittem.pal")
         .ok()

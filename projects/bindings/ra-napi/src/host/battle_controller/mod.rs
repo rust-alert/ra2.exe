@@ -21,7 +21,7 @@ use std::{
 use ra_adaptor::RulesSystem;
 use ra_assets::Rgba;
 use ra_engine::{Engine, Session};
-use ra_map::{ArtRules, StructureAnimBank, StructurePaintHintTable, TerrainAnimBank, Theater, WeatherParticleField};
+use ra_map::{PaintDefinitions, StructureAnimBank, TerrainAnimBank, Theater, WeatherParticleField};
 use ra_renderer::{Renderer, RgbaImage};
 use ra_types::EntityId;
 use ra_widgets::{
@@ -178,9 +178,7 @@ pub struct BattleController {
     /// rules.ini 逻辑名。
     pub(super) rules_ini: &'static str,
     /// 叠画用 art/rules 文档（boot 解析一次，热路径复用）。
-    pub(super) art_rules: ArtRules,
-    /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
-    pub(super) structure_paint_hints: StructurePaintHintTable,
+    pub(super) paint: PaintDefinitions,
     /// 规则快照（房屋色调）。
     pub(super) rules: Option<RulesSystem>,
     /// 大厅行色 → house 主色。
@@ -295,8 +293,7 @@ impl BattleController {
             ore_tree_anims: boot.ore_tree_anims,
             art_ini: boot.art_ini,
             rules_ini: boot.rules_ini,
-            art_rules: boot.art_rules,
-            structure_paint_hints: StructurePaintHintTable::default(),
+            paint: boot.paint,
             rules: boot.rules,
             lobby_primaries: boot.lobby_primaries,
             pending_buildups: Vec::new(),
@@ -456,8 +453,7 @@ impl BattleController {
         self.ore_tree_anims = boot.ore_tree_anims;
         self.art_ini = boot.art_ini;
         self.rules_ini = boot.rules_ini;
-        self.art_rules = boot.art_rules;
-        self.structure_paint_hints = StructurePaintHintTable::default();
+        self.paint = boot.paint;
         self.rules = boot.rules;
         self.lobby_primaries = boot.lobby_primaries;
         self.hotkeys = boot.hotkeys;

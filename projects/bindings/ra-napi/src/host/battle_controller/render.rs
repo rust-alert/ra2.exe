@@ -196,7 +196,7 @@ impl BattleController {
                 &mut clean,
                 self.preview_origin.0,
                 self.preview_origin.1,
-                &self.art_rules,
+                &self.paint,
                 &|id| overlay_types.name(id).map(str::to_owned),
                 &|id| overlay_types.is_harvestable(id),
                 &tib_hsv,
@@ -223,7 +223,7 @@ impl BattleController {
             clean,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.art_rules,
+            &self.paint,
             &|id| overlay_types.name(id).map(str::to_owned),
             &|id| overlay_types.is_harvestable(id),
             &tib_hsv,
@@ -300,8 +300,7 @@ impl BattleController {
                     clean,
                     origin.0,
                     origin.1,
-                    &self.art_rules,
-                    &mut self.structure_paint_hints,
+                    &mut self.paint,
                     &remap,
                 );
                 any |= n > 0;
@@ -313,14 +312,13 @@ impl BattleController {
                     underlay,
                     origin.0,
                     origin.1,
-                    &self.art_rules,
-                    &mut self.structure_paint_hints,
+                    &mut self.paint,
                     &remap,
                 );
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
-            let bank = collect_structure_anim_bank(assets, &one, &self.art_rules, &mut self.structure_paint_hints, &remap);
+            let bank = collect_structure_anim_bank(assets, &one, &mut self.paint, &remap);
             self.structure_anims.layers.extend(bank.layers);
         }
         if any {

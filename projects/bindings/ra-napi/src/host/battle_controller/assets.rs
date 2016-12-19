@@ -74,8 +74,8 @@ impl BattleController {
 
     /// 从已缓存受损规则刷新 `ConditionYellow` / `ConditionRed`。
     pub(super) fn refresh_condition_thresholds(&mut self, _assets: Option<&GameAssetSource>) {
-        self.condition_yellow = self.art_rules.damage.yellow;
-        self.condition_red = self.art_rules.damage.red;
+        self.condition_yellow = self.paint.damage.yellow;
+        self.condition_red = self.paint.damage.red;
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
@@ -148,7 +148,7 @@ impl BattleController {
         else {
             return;
         };
-        let art_ref = self.art_rules.art.as_ref();
+        let art_ref = self.paint.art_document();
         for item in caps
             .build_items
             .iter()
