@@ -1,5 +1,6 @@
 //! paint 域测试。
 
+mod cameo_names;
 mod mobile_paint;
 mod overlay;
 mod overlay_paint;

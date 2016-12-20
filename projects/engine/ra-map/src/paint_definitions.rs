@@ -9,6 +9,15 @@ use ra_types::AssetSource;
 use crate::structure_damage::StructureDamageRules;
 use crate::structure_paint::StructurePaintHintTable;
 
+/// 某类型建造栏图标候选资源名（PCX 优先，再 SHP）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CameoAssetNames {
+    /// `CameoPCX=` 及回退候选（含扩展名）。
+    pub pcx: Vec<String>,
+    /// `Cameo=` / `AltCameo=` 及 `{type}icon.shp` 等回退。
+    pub shp: Vec<String>,
+}
+
 /// 绘制侧装载结果（受损规则已固化；art/rules 文档为过渡持有）。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
@@ -35,21 +44,52 @@ impl PaintDefinitions {
         }
     }
 
-    /// 过渡：尚未迁出的 cameo 等路径只读 art 文档；新代码勿再扩散。
-    #[doc(hidden)]
-    pub fn art_document(&self) -> Option<&IniDocument> {
-        self.art.as_ref()
-    }
-
-    /// 过渡：尚未迁出的路径只读 rules 文档；新代码勿再扩散。
-    #[doc(hidden)]
-    pub fn rules_document(&self) -> Option<&IniDocument> {
-        self.rules.as_ref()
-    }
-
     /// 是否已装入 rules 文档。
     pub(crate) fn has_rules(&self) -> bool {
         self.rules.is_some()
+    }
+
+    /// 从暂存 art 解析建造栏图标候选名（无 art 时仅类型 id 回退）。
+    pub fn cameo_asset_names(&self, type_id: &str) -> CameoAssetNames {
+        let mut pcx = Vec::new();
+        let mut shp = Vec::new();
+        if let Some(art) = self.art.as_ref() {
+            push_cameo_pcx_name(&mut pcx, art.get(type_id, "CameoPCX"));
+            push_cameo_shp_name(&mut shp, art.get(type_id, "Cameo"));
+            let image_key = art.get(type_id, "Image").unwrap_or(type_id);
+            if !image_key.eq_ignore_ascii_case(type_id) {
+                push_cameo_pcx_name(&mut pcx, art.get(image_key, "CameoPCX"));
+                push_cameo_shp_name(&mut shp, art.get(image_key, "Cameo"));
+            }
+            push_cameo_shp_name(&mut shp, art.get(type_id, "AltCameo"));
+        }
+        shp.push(format!("{type_id}icon.shp"));
+        shp.push(format!("{type_id}.shp"));
+        CameoAssetNames { pcx, shp }
+    }
+}
+
+fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
+    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
+    else {
+        return;
+    };
+    if c.to_ascii_lowercase().ends_with(".shp") {
+        out.push(c.to_string());
+    } else {
+        out.push(format!("{c}.shp"));
+    }
+}
+
+fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
+    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
+    else {
+        return;
+    };
+    if c.to_ascii_lowercase().ends_with(".pcx") {
+        out.push(c.to_string());
+    } else {
+        out.push(format!("{c}.pcx"));
     }
 }
 

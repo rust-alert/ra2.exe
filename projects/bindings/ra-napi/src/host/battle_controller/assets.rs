@@ -148,7 +148,6 @@ impl BattleController {
         else {
             return;
         };
-        let art_ref = self.paint.art_document();
         for item in caps
             .build_items
             .iter()
@@ -161,7 +160,8 @@ impl BattleController {
             if self.cameo_cache.contains_key(key) {
                 continue;
             }
-            let sprite = decode_cameo_sprite(source, art_ref, key);
+            let names = self.paint.cameo_asset_names(key);
+            let sprite = decode_cameo_sprite(source, &names);
             self.cameo_cache.insert(key.to_string(), sprite);
         }
     }

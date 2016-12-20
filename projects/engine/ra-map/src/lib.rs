@@ -74,7 +74,7 @@ pub use overlay_paint::{
     OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
-pub use paint_definitions::{PaintDefinitions, read_optional_ini};
+pub use paint_definitions::{CameoAssetNames, PaintDefinitions, read_optional_ini};
 pub use packed_cell::{PackedCellCoords, parse_packed_cell, unpack_packed_cell};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};

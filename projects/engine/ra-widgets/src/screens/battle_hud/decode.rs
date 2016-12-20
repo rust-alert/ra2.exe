@@ -297,66 +297,25 @@ pub fn decode_battle_hud_chrome_with(
     }
 }
 
-/// 按 `art.ini` 的 `CameoPCX=` / `Cameo=`（及回退名）解码建造栏图标。
+/// 按候选资源名解码建造栏图标（PCX 优先，再 SHP）。
 ///
-/// 心灵终结等模组几乎只用 `CameoPCX=`；仍兼容原版 `Cameo=` SHP。
-pub fn decode_cameo_sprite(source: &GameAssetSource, art: Option<&ra_assets::IniDocument>, type_id: &str) -> Option<DecodedUiSprite> {
-    let mut pcx_names = Vec::new();
-    let mut shp_names = Vec::new();
-    if let Some(art) = art {
-        push_cameo_pcx_name(&mut pcx_names, art.get(type_id, "CameoPCX"));
-        push_cameo_shp_name(&mut shp_names, art.get(type_id, "Cameo"));
-        let image_key = art.get(type_id, "Image").unwrap_or(type_id);
-        if !image_key.eq_ignore_ascii_case(type_id) {
-            push_cameo_pcx_name(&mut pcx_names, art.get(image_key, "CameoPCX"));
-            push_cameo_shp_name(&mut shp_names, art.get(image_key, "Cameo"));
-        }
-        push_cameo_shp_name(&mut shp_names, art.get(type_id, "AltCameo"));
-    }
-    shp_names.push(format!("{type_id}icon.shp"));
-    shp_names.push(format!("{type_id}.shp"));
-
+/// 候选名由 [`ra_map::PaintDefinitions::cameo_asset_names`] 解析，本函数不再接收 `IniDocument`。
+pub fn decode_cameo_sprite(source: &GameAssetSource, names: &ra_map::CameoAssetNames) -> Option<DecodedUiSprite> {
     let mut last_err = None;
-    for name in pcx_names {
-        match decode_cameo_pcx(source, &name) {
+    for name in &names.pcx {
+        match decode_cameo_pcx(source, name) {
             Ok(s) => return Some(s),
             Err(e) => last_err = Some(e),
         }
     }
-    for name in shp_names {
-        match decode_cameo_named(source, &name) {
+    for name in &names.shp {
+        match decode_cameo_named(source, name) {
             Ok(s) => return Some(s),
             Err(e) => last_err = Some(e),
         }
     }
     let _ = last_err;
     None
-}
-
-fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
-    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
-    else {
-        return;
-    };
-    if c.to_ascii_lowercase().ends_with(".shp") {
-        out.push(c.to_string());
-    }
-    else {
-        out.push(format!("{c}.shp"));
-    }
-}
-
-fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
-    let Some(c) = raw.map(str::trim).filter(|s| !s.is_empty())
-    else {
-        return;
-    };
-    if c.to_ascii_lowercase().ends_with(".pcx") {
-        out.push(c.to_string());
-    }
-    else {
-        out.push(format!("{c}.pcx"));
-    }
 }
 
 fn decode_cameo_pcx(source: &GameAssetSource, name: &str) -> Result<DecodedUiSprite, String> {
