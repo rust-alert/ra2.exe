@@ -184,8 +184,7 @@ pub fn paint_map_mobiles(
     paint_cell_sprites(image, &items, z_at)
 }
 
-#[doc(hidden)]
-pub fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
     let from_rules = rules
         .and_then(|r| r.section(type_id))
         .and_then(|s| s.deserialize::<MobileRulesImageFields>().ok())
@@ -210,25 +209,6 @@ pub fn infantry_facing_slot(facing: u8) -> u16 {
 /// 解析 art 序列值 `Start,Count,FacingsOrMultiplier`；第三字段为朝向步长。
 pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     from_row::<(u16, u16, u16)>(raw).ok()
-}
-
-#[doc(hidden)]
-pub fn sequence_section_name(art: &IniDocument, image_key: &str) -> Option<String> {
-    art.section(image_key)
-        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
-        .and_then(|f| f.sequence)
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string())
-}
-
-#[doc(hidden)]
-pub fn sequence_value<'a>(art: &'a IniDocument, seq_section: &str, keys: &[&str]) -> Option<&'a str> {
-    for key in keys {
-        if let Some(v) = art.get(seq_section, key) {
-            return Some(v);
-        }
-    }
-    None
 }
 
 fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
@@ -264,23 +244,6 @@ where
 }
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
-pub fn resolve_mobile_shp_frame(art: Option<&IniDocument>, image_key: &str, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
-    let hints = MobileTypePaintHints {
-        image_key: image_key.to_string(),
-        prefer_voxel: false,
-        new_theater: false,
-        walk_triple: art.and_then(|a| {
-            let seq = sequence_section_name(a, image_key)?;
-            sequence_triples_from_section(a, &seq).0
-        }),
-        ready_triple: art.and_then(|a| {
-            let seq = sequence_section_name(a, image_key)?;
-            sequence_triples_from_section(a, &seq).1
-        }),
-    };
-    resolve_mobile_shp_frame_from_hints(&hints, ent, pose)
-}
-
 fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
     // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。
     if ent.kind != MapEntityKind::Infantry {
