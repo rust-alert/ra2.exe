@@ -18,8 +18,12 @@ pub struct ResourceProfile {
     pub nested_mix_files: &'static [&'static str],
     /// rules INI 文件名。
     pub rules_ini: &'static str,
+    /// 叠在 `rules_ini` 之下的规则层（自底向顶，不含 `rules_ini`）。
+    pub rules_underlay: &'static [&'static str],
     /// art INI 文件名。
     pub art_ini: &'static str,
+    /// 叠在 `art_ini` 之下的美术层（自底向顶，不含 `art_ini`）。
+    pub art_underlay: &'static [&'static str],
     /// UI INI 文件名。
     pub ui_ini: &'static str,
     /// 音效 INI 文件名。
@@ -86,8 +90,11 @@ pub fn mo_layout_profile() -> ResourceProfile {
             "expandmd03.mix",
         ],
         rules_ini: "rulesmo.ini",
+        // RA2 → YR → MO：缺层文件时装载侧跳过，不阻断。
+        rules_underlay: &["rules.ini", "rulesmd.ini"],
         // MO 建造栏几乎全是 `CameoPCX=`，在 `artmo.ini`；`artmd.ini` 仍是 YR 基座。
         art_ini: "artmo.ini",
+        art_underlay: &["art.ini", "artmd.ini"],
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
         eva_ini: "evamd.ini",

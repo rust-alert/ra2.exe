@@ -512,7 +512,7 @@ pub fn boot_world_with_progress(
     let mut preview_origin = (0i32, 0i32);
     let overlay_name = request.rules_override.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let overlays: Vec<&str> = overlay_name.into_iter().collect();
-    let rules = match load_rules_chain_with_overlays(&source, chain, &overlays) {
+    let rules = match load_rules_chain_with_overlays(&source, chain, &overlays, &[]) {
         Ok(db) => Some(db),
         Err(e) => {
             // 规则是开战硬前置：解析失败不得静默成 session=none。

@@ -44,8 +44,12 @@ pub struct ResourceChain {
     pub nested_mix_files: &'static [&'static str],
     /// 规则 INI 在资源链中的逻辑路径。
     pub rules_ini: &'static str,
+    /// 叠在 `rules_ini` 之下的规则层（自底向顶，不含 `rules_ini`）。
+    pub rules_underlay: &'static [&'static str],
     /// 美术 INI 在资源链中的逻辑路径。
     pub art_ini: &'static str,
+    /// 叠在 `art_ini` 之下的美术层（自底向顶，不含 `art_ini`）。
+    pub art_underlay: &'static [&'static str],
     /// 界面 INI 在资源链中的逻辑路径。
     pub ui_ini: &'static str,
     /// 音效 INI 在资源链中的逻辑路径。
@@ -80,7 +84,9 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
         root_mix_files: p.root_mix_files,
         nested_mix_files: p.nested_mix_files,
         rules_ini: p.rules_ini,
+        rules_underlay: p.rules_underlay,
         art_ini: p.art_ini,
+        art_underlay: p.art_underlay,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         eva_ini: p.eva_ini,
@@ -97,7 +103,9 @@ fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
         root_mix_files: p.root_mix_files,
         nested_mix_files: p.nested_mix_files,
         rules_ini: p.rules_ini,
+        rules_underlay: p.rules_underlay,
         art_ini: p.art_ini,
+        art_underlay: p.art_underlay,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         eva_ini: p.eva_ini,
@@ -114,7 +122,9 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
         root_mix_files: p.root_mix_files,
         nested_mix_files: p.nested_mix_files,
         rules_ini: p.rules_ini,
+        rules_underlay: p.rules_underlay,
         art_ini: p.art_ini,
+        art_underlay: p.art_underlay,
         ui_ini: p.ui_ini,
         sound_ini: p.sound_ini,
         eva_ini: p.eva_ini,

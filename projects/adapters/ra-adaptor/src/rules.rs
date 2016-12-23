@@ -80,39 +80,71 @@ fn build_rules_system_layered(edition: GameEdition, rules_docs: &[IniDocument], 
 
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
 pub fn load_rules_chain(source: &dyn AssetSource, chain: &ResourceChain) -> RaResult<RulesSystem> {
-    load_rules_chain_with_overlays(source, chain, &[])
+    load_rules_chain_with_overlays(source, chain, &[], &[])
 }
 
-/// 与 [`load_rules_chain`] 相同，并在基础 `rules_ini` 之上叠可选规则覆盖层。
+/// 与 [`load_rules_chain`] 相同，并在基础 rules/art 之上叠可选覆盖层。
 ///
-/// - `rules_overlays`：逻辑文件名（如 `MPBattle.ini`），自底向顶追加；空名跳过
-/// - 具名覆盖文件缺失或解析失败时返回错误（不静默跳过）
-/// - `art_ini` 仍只读资源链单层
+/// 层序（自底向顶）：
+/// 1. `ResourceChain::rules_underlay` / `art_underlay`（缺文件跳过）
+/// 2. `rules_ini` / `art_ini`（必需）
+/// 3. `rules_overlays` / `art_overlays`（具名文件缺失或解析失败则返回错误）
 pub fn load_rules_chain_with_overlays(
     source: &dyn AssetSource,
     chain: &ResourceChain,
     rules_overlays: &[&str],
+    art_overlays: &[&str],
 ) -> RaResult<RulesSystem> {
-    let rules_bytes = source.read(chain.rules_ini)?;
-    let mut rules_docs = Vec::with_capacity(1 + rules_overlays.len());
-    rules_docs.push(
-        IniDocument::parse(&rules_bytes)
-            .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.rules_ini, rules_bytes.len())))?,
-    );
-    for name in rules_overlays {
+    let mut rules_docs = Vec::with_capacity(1 + chain.rules_underlay.len() + rules_overlays.len());
+    push_optional_ini_layers(source, chain.rules_underlay, &mut rules_docs)?;
+    push_required_ini_layer(source, chain.rules_ini, &mut rules_docs)?;
+    push_required_named_ini_layers(source, rules_overlays, &mut rules_docs)?;
+
+    let mut art_docs = Vec::with_capacity(1 + chain.art_underlay.len() + art_overlays.len());
+    push_optional_ini_layers(source, chain.art_underlay, &mut art_docs)?;
+    push_required_ini_layer(source, chain.art_ini, &mut art_docs)?;
+    push_required_named_ini_layers(source, art_overlays, &mut art_docs)?;
+
+    Ok(build_rules_system_layered(chain.edition, &rules_docs, &art_docs))
+}
+
+/// 可选底层：缺文件跳过，其它错误上抛。
+fn push_optional_ini_layers(source: &dyn AssetSource, names: &[&str], out: &mut Vec<IniDocument>) -> RaResult<()> {
+    for name in names {
         let name = name.trim();
         if name.is_empty() {
             continue;
         }
-        let bytes = source.read(name)?;
-        let doc = IniDocument::parse(&bytes)
-            .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
-        rules_docs.push(doc);
+        match source.read(name) {
+            Ok(bytes) => {
+                let doc = IniDocument::parse(&bytes)
+                    .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
+                out.push(doc);
+            }
+            Err(ra_types::RaError::MissingFile(_)) => continue,
+            Err(e) => return Err(e),
+        }
     }
-    let art_bytes = source.read(chain.art_ini)?;
-    let art = IniDocument::parse(&art_bytes)
-        .map_err(|e| ra_types::RaError::Parse(format!("{} ({} bytes): {e}", chain.art_ini, art_bytes.len())))?;
-    Ok(build_rules_system_layered(chain.edition, &rules_docs, std::slice::from_ref(&art)))
+    Ok(())
+}
+
+fn push_required_ini_layer(source: &dyn AssetSource, name: &str, out: &mut Vec<IniDocument>) -> RaResult<()> {
+    let bytes = source.read(name)?;
+    let doc = IniDocument::parse(&bytes)
+        .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
+    out.push(doc);
+    Ok(())
+}
+
+fn push_required_named_ini_layers(source: &dyn AssetSource, names: &[&str], out: &mut Vec<IniDocument>) -> RaResult<()> {
+    for name in names {
+        let name = name.trim();
+        if name.is_empty() {
+            continue;
+        }
+        push_required_ini_layer(source, name, out)?;
+    }
+    Ok(())
 }
 
 /// 按互斥 `GameEdition` 取默认资源表再加载（兼容旧调用）。

@@ -17,8 +17,12 @@ pub struct ResourceProfile {
     pub nested_mix_files: &'static [&'static str],
     /// rules INI 文件名。
     pub rules_ini: &'static str,
+    /// 叠在 `rules_ini` 之下的规则层（自底向顶，不含 `rules_ini`）。
+    pub rules_underlay: &'static [&'static str],
     /// art INI 文件名。
     pub art_ini: &'static str,
+    /// 叠在 `art_ini` 之下的美术层（自底向顶，不含 `art_ini`）。
+    pub art_underlay: &'static [&'static str],
     /// UI INI 文件名。
     pub ui_ini: &'static str,
     /// 音效 INI 文件名。
@@ -88,7 +92,9 @@ pub fn profile() -> ResourceProfile {
             "expandmd03.mix",
         ],
         rules_ini: "rulesmd.ini",
+        rules_underlay: &["rules.ini"],
         art_ini: "artmd.ini",
+        art_underlay: &["art.ini"],
         ui_ini: "uimd.ini",
         sound_ini: "soundmd.ini",
         eva_ini: "evamd.ini",
