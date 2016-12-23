@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use ra_assets::{IniDocument, from_row};
+use ra_assets::{IniDocument, IniMergePolicy, LayeredIniView, from_row};
 use ra_types::ImageName;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Visitor};
@@ -50,8 +50,18 @@ struct GeneralDamageFireFields {
 impl StructureDamageRules {
     /// 从 rules 文档读取 `[AudioVisual]` 阈值与火焰类型。
     pub fn from_rules_doc(doc: &IniDocument) -> Self {
+        Self::from_rules_layers(std::slice::from_ref(doc))
+    }
+
+    /// 从自底向顶的 rules 层读取受损规则（后层覆盖前层）。
+    pub fn from_rules_layers(docs: &[IniDocument]) -> Self {
+        if docs.is_empty() {
+            return Self::default();
+        }
+        let policy = IniMergePolicy::last_wins();
+        let view = LayeredIniView::new(docs, &policy);
         let mut out = Self::default();
-        let av = doc
+        let av = view
             .section("AudioVisual")
             .and_then(|s| s.deserialize::<AudioVisualDamageFields>().ok())
             .unwrap_or_default();
@@ -61,7 +71,7 @@ impl StructureDamageRules {
         if let Some(v) = av.condition_red {
             out.red = v;
         }
-        let general = doc
+        let general = view
             .section("General")
             .and_then(|s| s.deserialize::<GeneralDamageFireFields>().ok())
             .unwrap_or_default();

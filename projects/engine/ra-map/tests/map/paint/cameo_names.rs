@@ -51,3 +51,16 @@ fn cameo_asset_names_without_art_only_type_fallbacks() {
     assert!(names.pcx.is_empty());
     assert_eq!(names.shp, vec!["E1icon.shp".to_string(), "E1.shp".to_string()]);
 }
+
+#[test]
+fn cameo_asset_names_top_layer_overrides_underlay() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[E1]\nCameoPCX=base\nCameo=BASEICON\n".to_vec());
+    files.insert("artmd.ini".into(), b"[E1]\nCameoPCX=md\n".to_vec());
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    let source = MapSource { files };
+    let paint = PaintDefinitions::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
+    let names = paint.cameo_asset_names("E1");
+    assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
+    assert!(names.shp.iter().any(|n| n == "BASEICON.shp"));
+}

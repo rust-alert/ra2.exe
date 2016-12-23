@@ -37,3 +37,12 @@ fn damage_fire_types_read_from_general() {
     assert_eq!(rules.yellow, 0.5);
     assert_eq!(rules.red, 0.25);
 }
+
+#[test]
+fn damage_rules_top_layer_overrides_underlay_thresholds() {
+    let base = IniDocument::parse(b"[AudioVisual]\nConditionYellow=50%\nConditionRed=25%\n").unwrap();
+    let top = IniDocument::parse(b"[AudioVisual]\nConditionYellow=40%\n").unwrap();
+    let rules = StructureDamageRules::from_rules_layers(&[base, top]);
+    assert_eq!(rules.yellow, 0.4);
+    assert_eq!(rules.red, 0.25);
+}

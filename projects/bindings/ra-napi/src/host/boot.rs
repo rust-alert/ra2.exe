@@ -530,7 +530,11 @@ pub fn boot_world_with_progress(
 
     report(0.70, "地形预览");
     let lobby_primaries = lobby_house_primaries(request);
-    let mut paint = PaintDefinitions::load(&source, chain.art_ini, chain.rules_ini);
+    let mut art_files: Vec<&str> = chain.art_underlay.to_vec();
+    art_files.push(chain.art_ini);
+    let mut rules_files: Vec<&str> = chain.rules_underlay.to_vec();
+    rules_files.push(chain.rules_ini);
+    let mut paint = PaintDefinitions::load_files(&source, &art_files, &rules_files);
     let definitions = match rules.as_ref() {
         Some(rules) => match build_runtime_definitions(rules) {
             Ok(defs) => Some(Arc::new(defs)),
