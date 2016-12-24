@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
-    rasterize_vxl_shadow_layer_poses,
+    HvaFile, IniMergePolicy, LayeredIniView, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row,
+    rasterize_vxl_layer_poses, rasterize_vxl_shadow_layer_poses,
 };
 use ra_types::{AssetSource, HouseName, ImageName, TechnoName};
 use serde::Deserialize;
@@ -29,7 +29,11 @@ struct MobileTypePaintHints {
     ready_triple: Option<(u16, u16, u16)>,
 }
 
-fn mobile_type_paint_hints(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
+fn mobile_type_paint_hints(
+    rules: Option<&LayeredIniView<'_>>,
+    art: Option<&LayeredIniView<'_>>,
+    type_id: &str,
+) -> MobileTypePaintHints {
     let image_key = resolve_mobile_image_key(rules, art, type_id);
     let art_fields = art
         .and_then(|a| a.section(&image_key))
@@ -77,8 +81,11 @@ fn collect_mobile_type_paint_hints(
     paint: &crate::PaintDefinitions,
     mobiles: &[&MapEntity],
 ) -> HashMap<TechnoName, MobileTypePaintHints> {
-    let rules = paint.rules.as_ref();
-    let art = paint.art.as_ref();
+    let policy = IniMergePolicy::last_wins();
+    let rules = paint.rules_view(&policy);
+    let art = paint.art_view(&policy);
+    let rules = rules.as_ref();
+    let art = art.as_ref();
     let mut out = HashMap::new();
     for ent in mobiles {
         out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, ent.type_id.as_str()));
@@ -184,7 +191,11 @@ pub fn paint_map_mobiles(
     paint_cell_sprites(image, &items, z_at)
 }
 
-fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+fn resolve_mobile_image_key(
+    rules: Option<&LayeredIniView<'_>>,
+    art: Option<&LayeredIniView<'_>>,
+    type_id: &str,
+) -> String {
     let from_rules = rules
         .and_then(|r| r.section(type_id))
         .and_then(|s| s.deserialize::<MobileRulesImageFields>().ok())
@@ -211,7 +222,10 @@ pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     from_row::<(u16, u16, u16)>(raw).ok()
 }
 
-fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+fn sequence_triples_from_section(
+    art: &LayeredIniView<'_>,
+    seq_section: &str,
+) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
     let fields = art
         .section(seq_section)
         .and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok())

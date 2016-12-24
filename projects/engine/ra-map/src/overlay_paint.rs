@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{Hsv, Palette, ShpFile, shp_body_frame_count};
+use ra_assets::{Hsv, IniMergePolicy, Palette, ShpFile, shp_body_frame_count};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -279,8 +279,11 @@ fn resolve_overlay_art_keys(
     type_name: &str,
     display_name: &str,
 ) -> OverlayArtHints {
-    let art = paint.art.as_ref();
-    let rules = paint.rules.as_ref();
+    let policy = IniMergePolicy::last_wins();
+    let art = paint.art_view(&policy);
+    let rules = paint.rules_view(&policy);
+    let art = art.as_ref();
+    let rules = rules.as_ref();
     let rules_image = rules
         .and_then(|r| r.section(type_name))
         .and_then(|s| s.deserialize::<OverlayRulesImageFields>().ok())

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{IniMergePolicy, LayeredIniView, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -23,7 +23,11 @@ struct TerrainObjectPaintHints {
     animation_rate: u32,
 }
 
-fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
+fn terrain_object_paint_hints(
+    art: Option<&LayeredIniView<'_>>,
+    rules: Option<&LayeredIniView<'_>>,
+    name: &str,
+) -> TerrainObjectPaintHints {
     let art_fields = art
         .and_then(|a| a.section(name))
         .and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok())
@@ -65,8 +69,11 @@ fn collect_terrain_object_paint_hints(
     paint: &crate::PaintDefinitions,
     objects: &[TerrainObject],
 ) -> HashMap<String, TerrainObjectPaintHints> {
-    let art = paint.art.as_ref();
-    let rules = paint.rules.as_ref();
+    let policy = IniMergePolicy::last_wins();
+    let art = paint.art_view(&policy);
+    let rules = paint.rules_view(&policy);
+    let art = art.as_ref();
+    let rules = rules.as_ref();
     let mut out = HashMap::new();
     for obj in objects {
         out.entry(obj.name.to_string()).or_insert_with(|| terrain_object_paint_hints(art, rules, obj.name.as_str()));

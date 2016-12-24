@@ -241,7 +241,7 @@ struct TechLevelFields {
 }
 
 /// 从 rules 类型节读 `TechLevel`；缺省按平民建筑 `-1`。
-pub fn structure_tech_level(rules: Option<&IniDocument>, type_id: &str) -> i32 {
+pub fn structure_tech_level(rules: Option<&LayeredIniView<'_>>, type_id: &str) -> i32 {
     rules
         .and_then(|d| d.section(type_id))
         .and_then(|s| s.deserialize::<TechLevelFields>().ok())

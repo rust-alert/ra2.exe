@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
+use ra_assets::{
+    HvaFile, IniMergePolicy, LayeredIniView, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses,
+    shp_body_frame_count,
+};
 use ra_types::{AssetSource, ImageName, TechnoName};
 use serde::Deserialize;
 use serde::de::Deserializer;
@@ -84,14 +87,10 @@ impl crate::PaintDefinitions {
         self.structure_hints.get(type_id)
     }
 
-    /// 是否已装入 art 文档（Buildup / 活动层等路径的门闩）。
-    pub(crate) fn has_art(&self) -> bool {
-        self.art.is_some()
-    }
-
     /// 解析活动层 art 节提示（无 art 或缺节时用缺省）。
     fn structure_anim_section_hints(&self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
-        structure_anim_section_hints(self.art.as_ref(), anim_name, default_rate_ms)
+        let policy = IniMergePolicy::last_wins();
+        structure_anim_section_hints(self.art_view(&policy).as_ref(), anim_name, default_rate_ms)
     }
 }
 
@@ -112,8 +111,11 @@ struct StructureBuildupHints {
 }
 
 fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> StructureTypePaintHints {
-    let art = paint.art.as_ref();
-    let rules = paint.rules.as_ref();
+    let policy = IniMergePolicy::last_wins();
+    let art = paint.art_view(&policy);
+    let rules = paint.rules_view(&policy);
+    let art = art.as_ref();
+    let rules = rules.as_ref();
     let art_section = resolve_art_section(art, type_id);
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
@@ -151,7 +153,7 @@ fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) ->
     }
 }
 
-fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
+fn structure_body_art_fields(art: Option<&LayeredIniView<'_>>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
     let art = match art {
         Some(a) => a,
         None => return StructureBodyArtFields::default(),
@@ -263,7 +265,11 @@ fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow
     }
 }
 
-fn structure_buildup_hints(art: Option<&IniDocument>, buildup: Option<&str>, parent_new_theater: bool) -> Option<StructureBuildupHints> {
+fn structure_buildup_hints(
+    art: Option<&LayeredIniView<'_>>,
+    buildup: Option<&str>,
+    parent_new_theater: bool,
+) -> Option<StructureBuildupHints> {
     let art = art?;
     let buildup_key = buildup?.trim().to_ascii_uppercase();
     if buildup_key.is_empty() {
@@ -327,7 +333,7 @@ where
     }
 }
 
-fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
+fn structure_turret_voxel_hints(rules: Option<&LayeredIniView<'_>>, type_id: &str) -> Option<StructureTurretVoxelHints> {
     let rules = rules?;
     let fields = rules
         .section(type_id)
@@ -375,7 +381,11 @@ struct StructureAnimSectionHints {
     remapable_override: Option<bool>,
 }
 
-fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
+fn structure_anim_section_hints(
+    art: Option<&LayeredIniView<'_>>,
+    anim_name: &str,
+    default_rate_ms: u32,
+) -> StructureAnimSectionHints {
     let fields = art
         .and_then(|a| a.section(anim_name))
         .and_then(|s| s.deserialize::<AnimSectionFields>().ok())
@@ -969,7 +979,7 @@ fn load_anim_palette(source: &dyn AssetSource) -> Option<Palette> {
     source.read("anim.pal").ok().and_then(|b| Palette::parse(&b).ok())
 }
 
-fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
+fn resolve_art_section(art: Option<&LayeredIniView<'_>>, type_id: &str) -> String {
     art.and_then(|a| {
         let image_key = a
             .section(type_id)

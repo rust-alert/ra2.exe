@@ -46,3 +46,14 @@ fn damage_rules_top_layer_overrides_underlay_thresholds() {
     assert_eq!(rules.yellow, 0.4);
     assert_eq!(rules.red, 0.25);
 }
+
+#[test]
+fn structure_tech_level_top_layer_overrides_underlay() {
+    use ra_assets::{IniMergePolicy, LayeredIniView};
+    let base = IniDocument::parse(b"[GACNST]\nTechLevel=-1\n").unwrap();
+    let top = IniDocument::parse(b"[GACNST]\nTechLevel=1\n").unwrap();
+    let layers = [base, top];
+    let policy = IniMergePolicy::last_wins();
+    let view = LayeredIniView::new(&layers, &policy);
+    assert_eq!(structure_tech_level(Some(&view), "GACNST"), 1);
+}
