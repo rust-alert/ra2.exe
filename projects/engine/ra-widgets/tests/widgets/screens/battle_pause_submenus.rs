@@ -48,7 +48,7 @@ fn compose_in_game_options_shows_stub_notice_alpha() {
 }
 
 #[test]
-fn pause_layer_escape_routes_match_vera() {
+fn pause_layer_escape_routes() {
     assert_eq!(BattlePauseLayer::Menu.on_escape(), EscapeRoute::ResumeMission);
     assert_eq!(BattlePauseLayer::AbortConfirm.on_escape(), EscapeRoute::ResumeMission);
     assert_eq!(BattlePauseLayer::InGameOptions.on_escape(), EscapeRoute::ToLayer(BattlePauseLayer::Menu));

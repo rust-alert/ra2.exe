@@ -461,9 +461,6 @@ impl Shell {
             BattleNav::OpenOptions => {
                 self.open_options_page(OriginalScreen::Battle);
             }
-            BattleNav::ToggleFullscreen => {
-                self.toggle_window_fullscreen();
-            }
             BattleNav::QueueScreenshot => {
                 self.queue_screenshot(self.screen.as_str());
             }

@@ -66,8 +66,6 @@ pub enum BattleNav {
     ToMainMenu,
     /// 暂停菜单打开选项页（历史路径；局内现改走暂停子层 `InGameOptions`）。
     OpenOptions,
-    /// 切换无边框全屏。
-    ToggleFullscreen,
     /// 按 `keyboard.ini` ScreenCapture 请求截图。
     QueueScreenshot,
 }

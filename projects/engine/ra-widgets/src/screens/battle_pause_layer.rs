@@ -3,7 +3,7 @@
 /// 暂停菜单及其二级页（仿真暂停期间叠在 HUD 上）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BattlePauseLayer {
-    /// 主暂停四钮。
+    /// 主暂停六钮。
     #[default]
     Menu,
     /// 放弃任务确认（Leave / Cancel）。
@@ -13,7 +13,7 @@ pub enum BattlePauseLayer {
 }
 
 impl BattlePauseLayer {
-    /// Esc 路由（对齐 vera 局内状态机）。
+    /// Esc：Menu / AbortConfirm → 恢复对局；InGameOptions → 回 Menu。
     pub fn on_escape(self) -> EscapeRoute {
         match self {
             Self::Menu => EscapeRoute::ResumeMission,

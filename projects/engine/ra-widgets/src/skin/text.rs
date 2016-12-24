@@ -314,8 +314,10 @@ pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
 /// 对局暂停菜单钮 → CSF。
 pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
-        "options" => Some("GUI:Options"),
-        "fullscreen" => Some("GUI:FullScreen"),
+        "load" => Some("GUI:LoadGame"),
+        "save" => Some("GUI:SaveMission"),
+        "delete" => Some("GUI:DeleteMission"),
+        "game_controls" => Some("GUI:GameControls"),
         "abort" => Some("GUI:AbortMission"),
         "resume" => Some("GUI:ResumeMission"),
         _ => None,
@@ -325,8 +327,10 @@ pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
 /// 暂停菜单无 CSF 时的字面回退（对齐原版遭遇战 Esc 文案）。
 pub fn battle_pause_menu_fallback_label(entry_id: &str) -> &str {
     match entry_id {
-        "fullscreen" => "Fullscreen (Alt+F)",
-        "options" => "Options",
+        "load" => "Load Game",
+        "save" => "Save Mission",
+        "delete" => "Delete Mission",
+        "game_controls" => "Game Controls",
         "abort" => "Abort Mission",
         "resume" => "Resume Mission",
         _ => "Menu",

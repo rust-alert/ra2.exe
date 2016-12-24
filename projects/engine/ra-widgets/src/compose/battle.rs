@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::{
-    battle_pause_menu::{BattlePauseChrome, button_rects, dim_rect, resolve_sidebttn},
+    battle_pause_menu::{BattlePauseChrome, background_rect, button_rects, dim_rect, entry_enabled, resolve_background, resolve_sidebttn},
     skin::text::battle_pause_menu_fallback_label,
 };
 
@@ -221,7 +221,7 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
 
 /// 合成对局暂停菜单叠加层（窗口像素；暂停时单独作为 UI 层，不叠 HUD）。
 ///
-/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 右缘 `SIDEBTTN` 四钮。
+/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 左缘背景板 + 右缘 `SIDEBTTN` 六钮。
 /// 钮面必须走 `sidebttn.shp` / `sidebar.pal`（owner-draw type 2），禁止自制黄框卡片。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
@@ -239,10 +239,16 @@ pub fn compose_battle_pause_menu_overlay(
     let dim = dim_rect(w, h);
     fill_rect(&mut page, dim, [0, 0, 0, 160]);
 
+    let bg_cell = background_rect(w, h);
+    if let Some(sprite) = pause.and_then(|p| resolve_background(p, w as f32, h as f32)) {
+        blit_stretched(&mut page, &sprite.image, bg_cell);
+    }
+
     let rects = button_rects(w, h);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
-        let pressed = pressed_entry_id == Some(*entry_id);
-        let hovered = hovered_entry_id == Some(*entry_id);
+        let enabled = entry_enabled(entry_id);
+        let pressed = enabled && pressed_entry_id == Some(*entry_id);
+        let hovered = enabled && hovered_entry_id == Some(*entry_id);
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_stretched(&mut page, &sprite.image, *cell);
@@ -260,7 +266,8 @@ pub fn compose_battle_pause_menu_overlay(
                 }
             };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
-            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
+            let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
+            blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, color);
         }
     }
 

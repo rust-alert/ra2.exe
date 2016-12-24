@@ -1,11 +1,14 @@
 //! 对局内暂停菜单（原版 Esc 菜单）。
 //!
 //! 几何权威为 [`ra_layout::solve_battle_pause_at`]（专属 layout，**不是** battle HUD，
-//! **也不是**主菜单 shell）。合成：全屏 `dim` + 右缘 `SIDEBTTN` 四钮（`sidebar.pal`）。
+//! **也不是**主菜单 shell）。合成：全屏 `dim` + 左缘阵营背景板 + 右缘 `SIDEBTTN` 六钮（`sidebar.pal`）。
 //! 禁止自制黄框卡片；禁止主菜单 `sdtp` / `sdbtnanm`。
 
 use ra_assets::{Palette, ShpFile};
-use ra_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS, LayoutSnapshot, RectPx, rect_px_from_snapshot, solve_battle_pause_at};
+use ra_layout::{
+    BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM, BATTLE_PAUSE_MENU_BUTTON_IDS, LayoutSnapshot, RectPx,
+    battle_pause_background_size, rect_px_from_snapshot, solve_battle_pause_at,
+};
 
 use crate::{
     fs_source::GameAssetSource,
@@ -22,10 +25,14 @@ const BATTLE_PAUSE_PAL: &str = "sidebar.pal";
 /// 暂停菜单命中结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattlePauseMenuHit {
-    /// 打开选项。
-    Options,
-    /// 切换全屏。
-    Fullscreen,
+    /// 载入。
+    Load,
+    /// 保存。
+    Save,
+    /// 删除。
+    Delete,
+    /// 游戏控制（局内选项）。
+    GameControls,
     /// 放弃任务。
     Abort,
     /// 回到游戏。
@@ -36,8 +43,10 @@ impl BattlePauseMenuHit {
     /// 由入口 id 解析。
     pub fn from_entry_id(id: &str) -> Option<Self> {
         match id {
-            "options" => Some(Self::Options),
-            "fullscreen" => Some(Self::Fullscreen),
+            "load" => Some(Self::Load),
+            "save" => Some(Self::Save),
+            "delete" => Some(Self::Delete),
+            "game_controls" => Some(Self::GameControls),
             "abort" => Some(Self::Abort),
             "resume" => Some(Self::Resume),
             _ => None,
@@ -47,12 +56,19 @@ impl BattlePauseMenuHit {
     /// 稳定入口 id（与 [`BUTTON_IDS`] 一致）。
     pub fn entry_id(self) -> &'static str {
         match self {
-            Self::Options => "options",
-            Self::Fullscreen => "fullscreen",
+            Self::Load => "load",
+            Self::Save => "save",
+            Self::Delete => "delete",
+            Self::GameControls => "game_controls",
             Self::Abort => "abort",
             Self::Resume => "resume",
         }
     }
+}
+
+/// 入口是否可点（载入 / 保存 / 删除尚未实现）。
+pub fn entry_enabled(id: &str) -> bool {
+    !matches!(id, "load" | "save" | "delete")
 }
 
 /// 已解码的暂停菜单阵营素材（跟本地 house 绑定）。
@@ -62,6 +78,12 @@ pub struct BattlePauseChrome {
     pub side: String,
     /// 实际优先读取的嵌套包名。
     pub mix: String,
+    /// `bkgdsm.shp` 常态帧。
+    pub background_sm: Option<DecodedUiSprite>,
+    /// `bkgdmd.shp` 常态帧。
+    pub background_md: Option<DecodedUiSprite>,
+    /// `bkgdlg.shp` 常态帧。
+    pub background_lg: Option<DecodedUiSprite>,
     /// `sidebttn.shp` 常态帧。
     pub button_normal: Option<DecodedUiSprite>,
     /// `sidebttn.shp` 按下帧。
@@ -141,17 +163,15 @@ fn decode_candidates(
     frame: u16,
     errors: &mut Vec<String>,
 ) -> Option<DecodedUiSprite> {
-    let mut last: Option<DecodedUiSprite> = None;
     let mut local_errors = Vec::new();
     for mix in mixes {
         local_errors.clear();
         if let Some(sprite) = decode_preferring(source, mix, name, pal_name, frame, &mut local_errors) {
             return Some(sprite);
         }
-        last = None;
     }
     errors.extend(local_errors);
-    last
+    None
 }
 
 /// 按本地阵营解码暂停菜单素材（须先 MD 后基座，避免全局落到错误阵营包）。
@@ -176,6 +196,9 @@ pub fn decode_battle_pause_chrome_with(
         return BattlePauseChrome {
             side: side.to_string(),
             mix: String::new(),
+            background_sm: None,
+            background_md: None,
+            background_lg: None,
             button_normal: None,
             button_pressed: None,
             button_hover: None,
@@ -186,10 +209,23 @@ pub fn decode_battle_pause_chrome_with(
     let mixes: Vec<&str> = mixes_owned.iter().map(String::as_str).collect();
     let mix = chrome.sidebar_mix();
     let mut errors = Vec::new();
+    let background_sm = decode_candidates(source, &mixes, "bkgdsm.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
+    let background_md = decode_candidates(source, &mixes, "bkgdmd.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
+    let background_lg = decode_candidates(source, &mixes, "bkgdlg.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
     let button_normal = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 0, &mut errors);
     let button_pressed = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 1, &mut errors);
     let button_hover = decode_candidates(source, &mixes, "sidebttn.shp", BATTLE_PAUSE_PAL, 2, &mut errors).or_else(|| button_normal.clone());
-    BattlePauseChrome { side: side.to_string(), mix, button_normal, button_pressed, button_hover, errors }
+    BattlePauseChrome {
+        side: side.to_string(),
+        mix,
+        background_sm,
+        background_md,
+        background_lg,
+        button_normal,
+        button_pressed,
+        button_hover,
+        errors,
+    }
 }
 
 /// 暂停菜单 snapshot（与合成 / 命中同口径）。
@@ -202,26 +238,44 @@ pub fn dim_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
     rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "dim")
 }
 
+/// 暂停背景板在窗口像素中的矩形。
+pub fn background_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "background")
+}
+
 /// 暂停主钮在窗口像素中的矩形（来自专属 layout snapshot）。
-pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 4] {
+pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 6] {
     let snap = pause_snapshot(viewport_w, viewport_h);
-    let mut rects = [RectPx::new(0, 0, 1, 1); 4];
+    let mut rects = [RectPx::new(0, 0, 1, 1); 6];
     for (i, id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
         rects[i] = rect_px_from_snapshot(&snap, id);
     }
     rects
 }
 
-/// 窗口像素命中（与合成同口径）。
+/// 窗口像素命中（与合成同口径；禁用项不命中）。
 pub fn hit_at(viewport_w: u32, viewport_h: u32, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
     let snap = pause_snapshot(viewport_w, viewport_h);
     let hit = snap.hit_test(ra_layout::Point2 { x: x as f32, y: y as f32 })?;
-    BattlePauseMenuHit::from_entry_id(hit.id.0.as_str())
+    let id = hit.id.0.as_str();
+    if !entry_enabled(id) {
+        return None;
+    }
+    BattlePauseMenuHit::from_entry_id(id)
 }
 
 /// 入口表（测试 / 诊断用）。
-pub fn button_ids() -> &'static [&'static str; 4] {
+pub fn button_ids() -> &'static [&'static str; 6] {
     &BATTLE_PAUSE_MENU_BUTTON_IDS
+}
+
+/// 按视口选背景板帧。
+pub fn resolve_background<'a>(chrome: &'a BattlePauseChrome, screen_w: f32, screen_h: f32) -> Option<&'a DecodedUiSprite> {
+    match battle_pause_background_size(screen_w, screen_h) {
+        size if size == BATTLE_PAUSE_BKGD_SM => chrome.background_sm.as_ref(),
+        size if size == BATTLE_PAUSE_BKGD_MD => chrome.background_md.as_ref(),
+        _ => chrome.background_lg.as_ref(),
+    }
 }
 
 /// 供合成选帧。
@@ -238,8 +292,11 @@ pub fn resolve_sidebttn<'a>(chrome: &'a BattlePauseChrome, pressed: bool, hovere
 }
 
 impl BattlePauseChrome {
-    /// 是否有可用菜单钮面。
+    /// 是否有可用菜单钮面或背景。
     pub fn has_art(&self) -> bool {
         self.button_normal.is_some()
+            || self.background_sm.is_some()
+            || self.background_md.is_some()
+            || self.background_lg.is_some()
     }
 }

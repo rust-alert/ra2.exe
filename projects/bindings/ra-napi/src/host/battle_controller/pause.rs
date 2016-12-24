@@ -187,14 +187,15 @@ impl BattleController {
                 tracing::info!("放弃任务 · 确认");
                 BattleNav::None
             }
-            BattlePauseMenuHit::Options => {
+            BattlePauseMenuHit::GameControls => {
                 self.open_in_game_options_layer();
-                tracing::info!("暂停菜单 · 局内选项");
+                tracing::info!("暂停菜单 · 游戏控制");
                 BattleNav::None
             }
-            BattlePauseMenuHit::Fullscreen => {
-                tracing::info!("暂停菜单 · 切换全屏");
-                BattleNav::ToggleFullscreen
+            BattlePauseMenuHit::Load | BattlePauseMenuHit::Save | BattlePauseMenuHit::Delete => {
+                self.pause_stub_notice = Some("暂未实现");
+                tracing::info!(entry = hit.entry_id(), "暂停菜单 · 暂未实现");
+                BattleNav::None
             }
         }
     }

@@ -160,7 +160,7 @@ impl Shell {
         self.refresh_shell_title();
     }
 
-    /// 切换无边框全屏（暂停菜单 Fullscreen）。
+    /// 切换无边框全屏（保留供后续热键接线）。
     pub(super) fn toggle_window_fullscreen(&mut self) {
         let Some(window) = self.window.as_ref()
         else {
