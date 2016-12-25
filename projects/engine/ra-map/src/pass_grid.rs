@@ -117,6 +117,28 @@ impl PassGrid {
         (self.width, self.height, passable, self.cell_height.clone())
     }
 
+    /// 自 [`ra_types::PreparedMap`] 通行层灌表（`passable` 非 0 为可走）。
+    ///
+    /// 长度不足的格子按不可走 / 高度 0；超出部分忽略。
+    pub fn from_prepared_pass_layers(width: u32, height: u32, passable: &[u8], cell_heights: &[u8]) -> Self {
+        let n = (width as usize).saturating_mul(height as usize);
+        let mut grid = Self {
+            width,
+            height,
+            passable: vec![false; n],
+            cell_height: vec![0; n],
+        };
+        for i in 0..n {
+            if passable.get(i).copied().unwrap_or(0) != 0 {
+                grid.passable[i] = true;
+            }
+            if let Some(&z) = cell_heights.get(i) {
+                grid.cell_height[i] = z;
+            }
+        }
+        grid
+    }
+
     /// 按 TMP `terrain_type` 封死不可走陆地（水/岩/墙）。
     pub fn seal_land_type(&mut self, x: u16, y: u16, terrain_type: u8) {
         if !crate::ground_passable(terrain_type) {

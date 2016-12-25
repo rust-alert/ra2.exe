@@ -231,3 +231,69 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
     assert_eq!(prepared.passable[2 * 4 + 2], 0);
     assert_eq!(prepared.passable[0], 1, "bridge overlay should reopen sealed cell");
 }
+
+#[test]
+fn from_prepared_pass_layers_roundtrips_bound_grid() {
+    use ra_assets::{IniDocument, overlay_types_from_rules};
+    use ra_types::{
+        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 3;
+    map.cells.push(IsoCell { x: 0, y: 0, tile_num: 0, sub_tile: 0, z: 2, flags: 0 });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let mut structures = StructureDefinitions::default();
+    structures.insert(StructureDefinition {
+        id: TypeId(1),
+        type_key: "GAPOWR".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: false,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        foundation: Foundation::parse("2x2"),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    let rules = IniDocument::parse(b"[OverlayTypes]\n").expect("rules");
+    let overlays = overlay_types_from_rules(&rules);
+    let prepared = map.to_prepared_map_skeleton_bound(&overlays, &structures);
+    let grid = PassGrid::from_prepared_pass_layers(
+        prepared.pass_width,
+        prepared.pass_height,
+        &prepared.passable,
+        &prepared.cell_heights,
+    );
+    assert_eq!(grid.width, 4);
+    assert_eq!(grid.height, 3);
+    assert_eq!(grid.cell_height(0, 0), 2);
+    assert!(!grid.is_passable(1, 1));
+    assert!(!grid.is_passable(2, 2));
+    assert!(grid.is_passable(0, 0));
+    let (w, h, passable, heights) = grid.to_prepared_pass_layers();
+    assert_eq!((w, h), (prepared.pass_width, prepared.pass_height));
+    assert_eq!(passable, prepared.passable);
+    assert_eq!(heights, prepared.cell_heights);
+}
