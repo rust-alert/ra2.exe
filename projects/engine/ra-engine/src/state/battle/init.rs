@@ -95,6 +95,7 @@ impl BattleState {
             edition,
             tick: 0,
             map,
+            prepared,
             overlay_types: definitions.overlays.clone(),
             pass_grid,
             entities: Vec::with_capacity(seed_bundles.len()),
@@ -141,6 +142,15 @@ impl BattleState {
         }
         world.rehash();
         world
+    }
+
+    /// 用当前 `pass_grid` 回写 `prepared` 通行层（TMP 封格 / overlay land 之后）。
+    pub fn sync_prepared_pass_layers(&mut self) {
+        let (pass_width, pass_height, passable, cell_heights) = self.pass_grid.to_prepared_pass_layers();
+        self.prepared.pass_width = pass_width;
+        self.prepared.pass_height = pass_height;
+        self.prepared.passable = passable;
+        self.prepared.cell_heights = cell_heights;
     }
 
     /// 若存在同名 house（大小写不敏感），将 `local_player` 切到该玩家；否则保持原值并返回 `false`。

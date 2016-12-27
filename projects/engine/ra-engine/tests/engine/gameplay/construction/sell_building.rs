@@ -3,7 +3,7 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{GameEdition, PlayerId};
+use ra_types::{GameEdition, PlayerId, occupancy_kind};
 
 fn yard_with_power() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -62,6 +62,9 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
     assert!(world.pass_grid.is_passable(7, 4));
     assert!(world.pass_grid.is_passable(6, 5));
     assert!(world.pass_grid.is_passable(7, 5));
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::EMPTY);
+    assert_eq!(world.prepared.occupancy[idx(7, 5)], occupancy_kind::EMPTY);
 }
 
 #[test]

@@ -158,6 +158,7 @@ fn open_session_common(
     if land_sealed > 0 || overlay_land > 0 {
         state.repath_mobiles();
     }
+    state.sync_prepared_pass_layers();
 
     if seed_skirmish_mcv {
         let starts = seed_skirmish_starts_at_waypoints(&mut state, ensure_houses)?;

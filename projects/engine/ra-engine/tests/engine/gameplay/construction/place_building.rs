@@ -3,7 +3,7 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::{BattleState, CommandRejectReason, GameCommand, PRODUCE_TICKS};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition, PlayerId};
+use ra_types::{EntityId, GameEdition, PlayerId, occupancy_kind};
 
 fn yard_world() -> BattleState {
     let rules_text = b"[VehicleTypes]\n0=AMCV\n\
@@ -69,6 +69,9 @@ fn place_power_deducts_funds_and_spawns_structure() {
     assert!(!world.pass_grid.is_passable(7, 4));
     assert!(!world.pass_grid.is_passable(6, 5));
     assert!(!world.pass_grid.is_passable(7, 5));
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::STRUCTURE);
+    assert_eq!(world.prepared.occupancy[idx(7, 5)], occupancy_kind::STRUCTURE);
     assert_eq!(world.players[0].power_output, 200);
     assert!(world.house_ready_building("AMERICANS").is_none());
     let paint = world.take_structure_buildup_dirty();
@@ -83,6 +86,8 @@ fn place_building_rejects_without_ready_queue() {
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
     assert_eq!(world.entity_count(), 1);
     assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::EMPTY);
 }
 
 #[test]
@@ -109,6 +114,11 @@ fn map_seeded_structure_seals_full_foundation() {
     assert!(!world.pass_grid.is_passable(4, 4));
     assert!(!world.pass_grid.is_passable(6, 6), "map seed must seal full Foundation");
     assert!(world.pass_grid.is_passable(7, 7));
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.passable[idx(4, 4)], 0);
+    assert_eq!(world.prepared.passable[idx(6, 6)], 0);
+    assert_eq!(world.prepared.occupancy[idx(4, 4)], 1);
+    assert_eq!(world.prepared.definition.name.as_str(), "seed-foundation");
 }
 
 #[test]

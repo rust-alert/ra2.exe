@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{ArmorKind, EntityId, GameEdition, OverlayTypeRegistry, PlayerId, RuntimeDefinitions, ScheduledCommand, TechnoClass};
+use ra_types::{ArmorKind, EntityId, GameEdition, OverlayTypeRegistry, PlayerId, PreparedMap, RuntimeDefinitions, ScheduledCommand, TechnoClass};
 
 use super::super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{
@@ -66,6 +66,8 @@ pub struct BattleState {
     pub tick: u64,
     /// 地图信息（尺寸、放置实体等）。
     pub map: MapInfo,
+    /// 装载期 `PreparedMap` 快照（定义 + 通行层；TMP/overlay 后会刷新通行层）。
+    pub prepared: PreparedMap,
     /// Overlay 类型表（含可采标记，供采矿查询）。
     pub overlay_types: OverlayTypeRegistry,
     /// 通行格（由地图结构派生，可被重寻路使用）。

@@ -1,3 +1,5 @@
+use ra_types::occupancy_kind;
+
 use super::types::BattleState;
 
 impl BattleState {
@@ -60,7 +62,7 @@ impl BattleState {
         })
     }
 
-    /// 将建筑占地矩形全部标为不可通行。
+    /// 将建筑占地矩形全部标为不可通行，并写入 `prepared.occupancy` 建筑码。
     pub fn seal_structure_footprint(&mut self, x: u16, y: u16, width: u16, height: u16) {
         let width = width.max(1);
         let height = height.max(1);
@@ -76,12 +78,13 @@ impl BattleState {
                 };
                 if self.pass_grid.in_bounds(cx, cy) {
                     self.pass_grid.set_passable(cx, cy, false);
+                    self.set_prepared_occupancy(cx, cy, occupancy_kind::STRUCTURE);
                 }
             }
         }
     }
 
-    /// 出售 / 拆除后释放建筑占地通行。
+    /// 出售 / 拆除后释放建筑占地通行，并恢复静态占格（地形 / 污迹 / 空）。
     pub fn unseal_structure_footprint(&mut self, x: u16, y: u16, width: u16, height: u16) {
         let width = width.max(1);
         let height = height.max(1);
@@ -97,8 +100,50 @@ impl BattleState {
                 };
                 if self.pass_grid.in_bounds(cx, cy) {
                     self.pass_grid.set_passable(cx, cy, true);
+                    if self.prepared_occupancy_at(cx, cy) == Some(occupancy_kind::STRUCTURE) {
+                        self.set_prepared_occupancy(cx, cy, self.static_occupancy_at(cx, cy));
+                    }
                 }
             }
         }
+    }
+
+    fn prepared_occupancy_index(&self, x: u16, y: u16) -> Option<usize> {
+        let w = self.prepared.pass_width;
+        let h = self.prepared.pass_height;
+        if w == 0 || h == 0 {
+            return None;
+        }
+        if u32::from(x) >= w || u32::from(y) >= h {
+            return None;
+        }
+        let i = (u32::from(y) * w + u32::from(x)) as usize;
+        if i >= self.prepared.occupancy.len() {
+            return None;
+        }
+        Some(i)
+    }
+
+    fn prepared_occupancy_at(&self, x: u16, y: u16) -> Option<u8> {
+        self.prepared_occupancy_index(x, y).map(|i| self.prepared.occupancy[i])
+    }
+
+    fn set_prepared_occupancy(&mut self, x: u16, y: u16, kind: u8) {
+        let Some(i) = self.prepared_occupancy_index(x, y)
+        else {
+            return;
+        };
+        self.prepared.occupancy[i] = kind;
+    }
+
+    /// 地图静态层占格：地形物件优先于污迹（与装载 `prepared_occupancy_from_map` 一致）。
+    fn static_occupancy_at(&self, x: u16, y: u16) -> u8 {
+        if self.map.terrain_objects.iter().any(|t| t.x == x && t.y == y) {
+            return occupancy_kind::TERRAIN;
+        }
+        if self.map.smudges.iter().any(|s| s.x == x && s.y == y) {
+            return occupancy_kind::SMUDGE;
+        }
+        occupancy_kind::EMPTY
     }
 }
