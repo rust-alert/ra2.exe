@@ -85,7 +85,7 @@ pub fn paint_map_overlays(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    paint: &crate::PaintDefinitions,
+    paint: &mut crate::PaintDefinitions,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,
@@ -125,7 +125,6 @@ pub fn paint_map_overlays(
     // 「同图锚点邻格」挡不住这种串画。
     let mut resolved: Vec<ResolvedOverlay> = Vec::new();
     let mut unresolved: Vec<OverlayCell> = Vec::new();
-    let mut art_hints: HashMap<(String, String), OverlayArtHints> = HashMap::new();
 
     for cell in &map.overlays {
         let Some(type_name) = overlay_type_name(cell.overlay_id)
@@ -140,12 +139,12 @@ pub fn paint_map_overlays(
         }
         let tib = is_tiberium(cell.overlay_id);
         let display_name = if tib { flat_tiberium_display_type_name(&type_name, cell.x, cell.y) } else { type_name.clone() };
-        let hint_key = (type_name.clone(), display_name.clone());
-        let hint = art_hints
-            .entry(hint_key)
-            .or_insert_with(|| resolve_overlay_art_keys(paint, &type_name, &display_name))
-            .clone();
-        let OverlayArtHints { image_key, new_theater, theater_yes } = hint;
+        paint.ensure_overlay_hint(&type_name, &display_name);
+        let Some(hint) = paint.overlay_hint(&type_name, &display_name)
+        else {
+            continue;
+        };
+        let OverlayArtHints { image_key, new_theater, theater_yes } = hint.clone();
         let pal_kind: u8 = if tib {
             2
         } else if theater_yes && !new_theater {
@@ -271,6 +270,41 @@ struct OverlayArtHints {
     theater_yes: bool,
 }
 
+/// Overlay 叠画提示表（键为类型名 + 显示名；跨多次 paint 调用复用）。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct OverlayPaintHintTable {
+    by_key: HashMap<(String, String), OverlayArtHints>,
+}
+
+impl OverlayPaintHintTable {
+    fn get(&self, type_name: &str, display_name: &str) -> Option<&OverlayArtHints> {
+        self.by_key.get(&(type_name.to_string(), display_name.to_string()))
+    }
+
+    fn contains(&self, type_name: &str, display_name: &str) -> bool {
+        self.by_key.contains_key(&(type_name.to_string(), display_name.to_string()))
+    }
+
+    fn insert(&mut self, type_name: String, display_name: String, hint: OverlayArtHints) {
+        self.by_key.insert((type_name, display_name), hint);
+    }
+}
+
+impl crate::PaintDefinitions {
+    /// 确保表中含该 overlay 类型提示（已有则跳过 INI 扫描）。
+    pub fn ensure_overlay_hint(&mut self, type_name: &str, display_name: &str) {
+        if self.overlay_hints.contains(type_name, display_name) {
+            return;
+        }
+        let hint = resolve_overlay_art_keys(self, type_name, display_name);
+        self.overlay_hints.insert(type_name.to_string(), display_name.to_string(), hint);
+    }
+
+    fn overlay_hint(&self, type_name: &str, display_name: &str) -> Option<&OverlayArtHints> {
+        self.overlay_hints.get(type_name, display_name)
+    }
+}
+
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
 ///
 /// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
@@ -380,7 +414,7 @@ pub fn paint_overlays_onto_preview_rgba(
     image: &mut image::RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    paint: &crate::PaintDefinitions,
+    paint: &mut crate::PaintDefinitions,
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
     tiberium_hsv: &dyn Fn(u8) -> Option<Hsv>,

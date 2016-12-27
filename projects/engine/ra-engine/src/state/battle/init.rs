@@ -18,10 +18,10 @@ use super::types::{ATTACK_COOLDOWN_TICKS, BattleState};
 impl BattleState {
     /// 由冻结运行时定义与地图播种新世界，并为移动单位预计算路径。
     ///
-    /// 通行层先取自 `MapInfo::to_prepared_map_skeleton_bound`（Foundation + overlay land），
-    /// 对局装载后再叠 TMP 封格。
+    /// 通行层先取自 `MapInfo::to_prepared_map_skeleton_with_structures`（仅 Foundation）。
+    /// Overlay land 必须在对局装载 `seal_pass_grid_from_tmp` 之后再应用，才能重开桥面。
     pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> Self {
-        let prepared = map.to_prepared_map_skeleton_bound(&definitions.overlays, &definitions.structures);
+        let prepared = map.to_prepared_map_skeleton_with_structures(&definitions.structures);
         let pass_grid = PassGrid::from_prepared_pass_layers(
             prepared.pass_width,
             prepared.pass_height,

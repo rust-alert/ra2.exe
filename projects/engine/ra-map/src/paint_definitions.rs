@@ -6,8 +6,11 @@
 use ra_assets::{IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::AssetSource;
 
+use crate::mobile_paint::MobilePaintHintTable;
+use crate::overlay_paint::OverlayPaintHintTable;
 use crate::structure_damage::StructureDamageRules;
 use crate::structure_paint::StructurePaintHintTable;
+use crate::terrain_paint::TerrainPaintHintTable;
 
 /// 某类型建造栏图标候选资源名（PCX 优先，再 SHP）。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -29,6 +32,12 @@ pub struct PaintDefinitions {
     pub damage: StructureDamageRules,
     /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
     pub(crate) structure_hints: StructurePaintHintTable,
+    /// 移动单位类型叠画提示表（跨 paint 调用复用）。
+    pub(crate) mobile_hints: MobilePaintHintTable,
+    /// 地形物件类型叠画提示表（跨 paint / anim-bank 复用）。
+    pub(crate) terrain_hints: TerrainPaintHintTable,
+    /// Overlay 类型叠画提示表（按类型名 + 显示名，跨 paint 调用复用）。
+    pub(crate) overlay_hints: OverlayPaintHintTable,
 }
 
 impl PaintDefinitions {
@@ -49,6 +58,9 @@ impl PaintDefinitions {
             rules_layers,
             damage,
             structure_hints: StructurePaintHintTable::default(),
+            mobile_hints: MobilePaintHintTable::default(),
+            terrain_hints: TerrainPaintHintTable::default(),
+            overlay_hints: OverlayPaintHintTable::default(),
         }
     }
 

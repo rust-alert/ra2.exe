@@ -29,11 +29,54 @@ struct MobileTypePaintHints {
     ready_triple: Option<(u16, u16, u16)>,
 }
 
-fn mobile_type_paint_hints(
-    rules: Option<&LayeredIniView<'_>>,
-    art: Option<&LayeredIniView<'_>>,
-    type_id: &str,
-) -> MobileTypePaintHints {
+/// 移动单位类型叠画提示表（跨多次 paint 调用复用，避免重复扫 art/rules）。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct MobilePaintHintTable {
+    by_type: HashMap<TechnoName, MobileTypePaintHints>,
+}
+
+impl MobilePaintHintTable {
+    fn get(&self, type_id: &TechnoName) -> Option<&MobileTypePaintHints> {
+        self.by_type.get(type_id)
+    }
+
+    fn contains(&self, type_id: &TechnoName) -> bool {
+        self.by_type.contains_key(type_id)
+    }
+
+    fn insert(&mut self, type_id: TechnoName, hint: MobileTypePaintHints) {
+        self.by_type.insert(type_id, hint);
+    }
+}
+
+impl crate::PaintDefinitions {
+    /// 确保表中含该移动单位类型提示（已有则跳过 INI 扫描）。
+    pub fn ensure_mobile_hint(&mut self, type_id: &TechnoName) {
+        if self.mobile_hints.contains(type_id) {
+            return;
+        }
+        let hint = mobile_type_paint_hints(self, type_id.as_str());
+        self.mobile_hints.insert(type_id.clone(), hint);
+    }
+
+    /// 为实体列表补齐移动单位类型提示。
+    pub fn ensure_mobile_entities(&mut self, mobiles: &[&MapEntity]) {
+        for ent in mobiles {
+            self.ensure_mobile_hint(&ent.type_id);
+        }
+    }
+
+    fn mobile_hint(&self, type_id: &TechnoName) -> Option<&MobileTypePaintHints> {
+        self.mobile_hints.get(type_id)
+    }
+}
+
+fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> MobileTypePaintHints {
+    let policy = IniMergePolicy::last_wins();
+    let rules = paint.rules_view(&policy);
+    let art = paint.art_view(&policy);
+    let rules = rules.as_ref();
+    let art = art.as_ref();
     let image_key = resolve_mobile_image_key(rules, art, type_id);
     let art_fields = art
         .and_then(|a| a.section(&image_key))
@@ -77,22 +120,6 @@ struct MobileRulesImageFields {
     image: Option<ImageName>,
 }
 
-fn collect_mobile_type_paint_hints(
-    paint: &crate::PaintDefinitions,
-    mobiles: &[&MapEntity],
-) -> HashMap<TechnoName, MobileTypePaintHints> {
-    let policy = IniMergePolicy::last_wins();
-    let rules = paint.rules_view(&policy);
-    let art = paint.art_view(&policy);
-    let rules = rules.as_ref();
-    let art = art.as_ref();
-    let mut out = HashMap::new();
-    for ent in mobiles {
-        out.entry(ent.type_id.clone()).or_insert_with(|| mobile_type_paint_hints(rules, art, ent.type_id.as_str()));
-    }
-    out
-}
-
 /// 移动单位绘制姿态：行走循环帧 + 是否移动中 + 格内像素偏移。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[doc(hidden)]
@@ -121,7 +148,7 @@ pub fn paint_map_mobiles(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    paint: &crate::PaintDefinitions,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     pose_of: &dyn Fn(&MapEntity) -> MobilePaintPose,
 ) -> usize {
@@ -135,7 +162,7 @@ pub fn paint_map_mobiles(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let type_hints = collect_mobile_type_paint_hints(paint, &mobiles);
+    paint.ensure_mobile_entities(&mobiles);
     let obj_pal = source
         .read("unittem.pal")
         .ok()
@@ -152,7 +179,7 @@ pub fn paint_map_mobiles(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
-        let Some(hint) = type_hints.get(&ent.type_id)
+        let Some(hint) = paint.mobile_hint(&ent.type_id)
         else {
             continue;
         };

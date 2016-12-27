@@ -151,6 +151,8 @@ fn open_session_common(
             note = format!("{note} · starting_credits={}", state.map.starting_credits);
         }
     }
+    // 装载序：Foundation 种子（`BattleState::new`）→ TMP 封格 → overlay land 重开桥面。
+    // 不可把 overlay land 提前到 TMP 之前，否则水格上的桥面会先被重开再被 TMP 封死。
     let land_sealed = seal_pass_grid_from_tmp(source, &state.map, &mut state.pass_grid);
     let overlay_land = apply_overlay_land_to_pass_grid(&state.map, &state.overlay_types, &mut state.pass_grid);
     if land_sealed > 0 || overlay_land > 0 {

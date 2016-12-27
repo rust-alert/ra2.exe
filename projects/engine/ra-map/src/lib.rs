@@ -403,8 +403,9 @@ impl MapInfo {
         self.prepared_map_from_pass_grid(PassGrid::from_map_with_structures(self, Some(structures)), Some(structures))
     }
 
-    /// 绑定 overlay 通行覆写与建筑 `Foundation=` 的准备骨架（产品装载主入口候选）。
+    /// 绑定 overlay 通行覆写与建筑 `Foundation=` 的准备骨架（无 TMP 的静态绑定快照）。
     ///
+    /// 对局装载勿直接用此结果作最终通行：须先 Foundation 种子，再 TMP 封格，最后 overlay land 重开桥面。
     /// 仍不含渲染清单或 name→稳定 id 绑定。
     pub fn to_prepared_map_skeleton_bound(
         &self,

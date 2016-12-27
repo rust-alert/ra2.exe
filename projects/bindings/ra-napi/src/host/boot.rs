@@ -201,7 +201,7 @@ pub(crate) fn remap_owner_palette(
 /// 将会话里已有的移动单位（含航点播种 MCV）叠画到启动预览底图。
 fn paint_session_mobiles_onto_preview(
     source: &GameAssetSource,
-    paint: &PaintDefinitions,
+    paint: &mut PaintDefinitions,
     rules: &RulesSystem,
     session: &Session,
     image: &mut RgbaImage,
@@ -659,7 +659,7 @@ pub fn boot_world_with_progress(
             if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
                 preview_clean = Some(base.clone());
                 let painted =
-                    paint_session_mobiles_onto_preview(&source, &paint, rules, &opened.session, base, preview_origin, &lobby_primaries);
+                    paint_session_mobiles_onto_preview(&source, &mut paint, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 } else {

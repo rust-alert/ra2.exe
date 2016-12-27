@@ -180,7 +180,7 @@ pub fn paint_mobiles_onto_preview_rgba(
     image: &mut RgbaImage,
     origin_x: i32,
     origin_y: i32,
-    paint: &crate::PaintDefinitions,
+    paint: &mut crate::PaintDefinitions,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
     pose_of: &dyn Fn(&crate::MapEntity) -> MobilePaintPose,
 ) -> usize {

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniMergePolicy, LayeredIniView, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{IniMergePolicy, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -23,11 +23,54 @@ struct TerrainObjectPaintHints {
     animation_rate: u32,
 }
 
-fn terrain_object_paint_hints(
-    art: Option<&LayeredIniView<'_>>,
-    rules: Option<&LayeredIniView<'_>>,
-    name: &str,
-) -> TerrainObjectPaintHints {
+/// 地形物件类型叠画提示表（跨 paint / anim-bank 调用复用）。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct TerrainPaintHintTable {
+    by_name: HashMap<String, TerrainObjectPaintHints>,
+}
+
+impl TerrainPaintHintTable {
+    fn get(&self, name: &str) -> Option<&TerrainObjectPaintHints> {
+        self.by_name.get(name)
+    }
+
+    fn contains(&self, name: &str) -> bool {
+        self.by_name.contains_key(name)
+    }
+
+    fn insert(&mut self, name: String, hint: TerrainObjectPaintHints) {
+        self.by_name.insert(name, hint);
+    }
+}
+
+impl crate::PaintDefinitions {
+    /// 确保表中含该地形物件类型提示（已有则跳过 INI 扫描）。
+    pub fn ensure_terrain_hint(&mut self, name: &str) {
+        if self.terrain_hints.contains(name) {
+            return;
+        }
+        let hint = terrain_object_paint_hints(self, name);
+        self.terrain_hints.insert(name.to_string(), hint);
+    }
+
+    /// 为地形物件列表补齐类型提示。
+    pub fn ensure_terrain_objects(&mut self, objects: &[TerrainObject]) {
+        for obj in objects {
+            self.ensure_terrain_hint(obj.name.as_str());
+        }
+    }
+
+    fn terrain_hint(&self, name: &str) -> Option<&TerrainObjectPaintHints> {
+        self.terrain_hints.get(name)
+    }
+}
+
+fn terrain_object_paint_hints(paint: &crate::PaintDefinitions, name: &str) -> TerrainObjectPaintHints {
+    let policy = IniMergePolicy::last_wins();
+    let art = paint.art_view(&policy);
+    let rules = paint.rules_view(&policy);
+    let art = art.as_ref();
+    let rules = rules.as_ref();
     let art_fields = art
         .and_then(|a| a.section(name))
         .and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok())
@@ -63,22 +106,6 @@ struct TerrainRulesSectionFields {
     spawns_tiberium: Option<bool>,
     #[serde(rename = "AnimationRate")]
     animation_rate: Option<u32>,
-}
-
-fn collect_terrain_object_paint_hints(
-    paint: &crate::PaintDefinitions,
-    objects: &[TerrainObject],
-) -> HashMap<String, TerrainObjectPaintHints> {
-    let policy = IniMergePolicy::last_wins();
-    let art = paint.art_view(&policy);
-    let rules = paint.rules_view(&policy);
-    let art = art.as_ref();
-    let rules = rules.as_ref();
-    let mut out = HashMap::new();
-    for obj in objects {
-        out.entry(obj.name.to_string()).or_insert_with(|| terrain_object_paint_hints(art, rules, obj.name.as_str()));
-    }
-    out
 }
 
 /// FA2 `IsoView` 对普通地形物件（树/岩）的额外 Y（钻石中心叠画后再偏 −3）。
@@ -204,7 +231,7 @@ pub fn paint_map_terrain_objects(
     source: &dyn AssetSource,
     map: &MapInfo,
     image: &mut TerrainImage,
-    paint: &crate::PaintDefinitions,
+    paint: &mut crate::PaintDefinitions,
     mode: TerrainPaintMode,
 ) -> usize {
     if map.terrain_objects.is_empty() {
@@ -215,7 +242,7 @@ pub fn paint_map_terrain_objects(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
-    let hints = collect_terrain_object_paint_hints(paint, &map.terrain_objects);
+    paint.ensure_terrain_objects(&map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -230,7 +257,7 @@ pub fn paint_map_terrain_objects(
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(obj.name.as_str())
+        let Some(hint) = paint.terrain_hint(obj.name.as_str())
         else {
             continue;
         };
@@ -304,7 +331,7 @@ pub fn paint_map_terrain_objects(
 ///
 /// `SpawnsTiberium` 矿柱不进银行：零售 `AnimationProbability`（如 `.003`）由产矿状态机
 /// 触发一次性播到中点帧，平时固定 Idle 第 0 帧，不得用呈现时钟常循环。
-pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint: &crate::PaintDefinitions) -> TerrainAnimBank {
+pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint: &mut crate::PaintDefinitions) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -315,7 +342,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint:
     if !paint.has_rules() {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     }
-    let hints = collect_terrain_object_paint_hints(paint, &map.terrain_objects);
+    paint.ensure_terrain_objects(&map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -328,7 +355,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint:
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(obj.name.as_str())
+        let Some(hint) = paint.terrain_hint(obj.name.as_str())
         else {
             continue;
         };
@@ -445,7 +472,7 @@ pub fn paint_terrain_anims_onto_rgba(
 }
 
 /// 收集 `SpawnsTiberium` 矿柱并预解码全部主体帧（供产矿状态机选帧）。
-pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint: &crate::PaintDefinitions) -> TerrainAnimBank {
+pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint: &mut crate::PaintDefinitions) -> TerrainAnimBank {
     if map.terrain_objects.is_empty() {
         return TerrainAnimBank::default();
     }
@@ -456,7 +483,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint
     if !paint.has_rules() {
         return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
     }
-    let hints = collect_terrain_object_paint_hints(paint, &map.terrain_objects);
+    paint.ensure_terrain_objects(&map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
     let unit_pal = source.read("unittem.pal").ok().and_then(|b| Palette::parse(&b).ok());
@@ -469,7 +496,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint
     let mut layers = Vec::new();
 
     for obj in &map.terrain_objects {
-        let Some(hint) = hints.get(obj.name.as_str())
+        let Some(hint) = paint.terrain_hint(obj.name.as_str())
         else {
             continue;
         };

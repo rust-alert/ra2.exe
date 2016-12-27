@@ -414,7 +414,7 @@ impl BattleController {
             &mut base,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.paint,
+            &mut self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );
@@ -483,7 +483,7 @@ impl BattleController {
             &mut composed,
             self.preview_origin.0,
             self.preview_origin.1,
-            &self.paint,
+            &mut self.paint,
             &|pal, owner| remap_owner_palette(rules, Some(&lobby), pal, owner),
             &|ent| poses.get(&(ent.x, ent.y, ent.type_id.clone(), ent.owner.clone())).copied().unwrap_or_default(),
         );

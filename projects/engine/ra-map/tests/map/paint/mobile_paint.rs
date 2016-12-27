@@ -14,8 +14,9 @@ impl AssetSource for EmptySource {
 fn empty_mobiles_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
+    let mut paint = PaintDefinitions::default();
     assert_eq!(
-        paint_map_mobiles(&EmptySource, &map, &mut image, &PaintDefinitions::default(), &|p, _| p.clone(), &|_| MobilePaintPose::default(), ),
+        paint_map_mobiles(&EmptySource, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_| MobilePaintPose::default()),
         0
     );
 }

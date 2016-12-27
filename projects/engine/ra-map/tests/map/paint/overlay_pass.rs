@@ -61,3 +61,29 @@ fn prepared_skeleton_with_overlays_opens_bridge_cell() {
     let bare = map.to_prepared_map_skeleton();
     assert_eq!(bare.passable[i], 0);
 }
+
+#[test]
+fn tmp_seal_then_overlay_land_reopens_bridge() {
+    // 对局装载序：Foundation 种子 → TMP 封水 → overlay land 重开桥面。
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 4;
+    map.overlays.push(OverlayCell { x: 1, y: 2, overlay_id: 0, data: 0 });
+    let rules = IniDocument::parse(b"[OverlayTypes]\n0=LOBRDG01\n[LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n").expect("rules");
+    let overlays = overlay_types_from_rules(&rules);
+
+    let prepared = map.to_prepared_map_skeleton_with_structures(&Default::default());
+    let mut grid = PassGrid::from_prepared_pass_layers(
+        prepared.pass_width,
+        prepared.pass_height,
+        &prepared.passable,
+        &prepared.cell_heights,
+    );
+    // 模拟 TMP 把桥下格子封成水。
+    grid.set_passable(1, 2, false);
+    assert!(!grid.is_passable(1, 2));
+
+    let n = apply_overlay_land_to_pass_grid(&map, &overlays, &mut grid);
+    assert_eq!(n, 1);
+    assert!(grid.is_passable(1, 2));
+}
