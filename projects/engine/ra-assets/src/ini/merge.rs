@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
-use crate::ini::document::{IniDocument, IniSection};
+use crate::ini::document::{IniDocument, IniEntry, IniSection};
 use crate::ini::value::IniValue;
 
 /// 单键 / 单节合并策略（由 adaptor schema 选定，本模块只执行）。
@@ -159,6 +159,64 @@ impl<'a> LayeredIniView<'a> {
             }
         }
         out
+    }
+
+    /// 按当前策略物化为独立文档。
+    ///
+    /// 面向 paint 的 `last_wins`（及同形的 `MergeSection`）：同键后层覆盖，下层独有键保留。
+    /// 节序与键序对齐 [`Self::section_keys`] / [`LayeredSectionView::keys`]。
+    /// 胜出条目的 `key_raw` / `value_raw` 取自有效层（Serde `rename` 依赖原始键拼写）。
+    ///
+    /// 不覆盖 `AppendValues` / `ReplaceSection` / `NumberedPack` 的完整物化语义。
+    pub fn materialize(&self) -> IniDocument {
+        debug_assert!(
+            matches!(
+                self.policy.default_entry,
+                EntryMergePolicy::LastValue | EntryMergePolicy::MergeSection
+            ),
+            "materialize is defined for last-wins style policies"
+        );
+        let mut out = IniDocument::default();
+        if let Some(top) = self.documents.last() {
+            out.source = top.source;
+        }
+        for name_key in self.section_keys() {
+            let Some(sec) = self.section(name_key)
+            else {
+                continue;
+            };
+            let mut entries = Vec::new();
+            for key_raw in sec.keys() {
+                let Some(value) = sec.get(key_raw)
+                else {
+                    continue;
+                };
+                entries.push(IniEntry {
+                    key_raw: value.key.to_string(),
+                    key_key: value.key.to_ascii_uppercase(),
+                    value_raw: value.raw.to_string(),
+                    span: value.span,
+                });
+            }
+            out.sections.push(IniSection {
+                name_raw: sec.name_raw().to_string(),
+                name_key: sec.name_key().to_string(),
+                entries,
+                span: None,
+            });
+        }
+        out
+    }
+}
+
+/// 将自底向顶的文档层按策略物化为单份文档；空切片返回 `None`。
+///
+/// 单层时克隆该文档。多层级默认用于 [`IniMergePolicy::last_wins`]。
+pub fn materialize_ini_layers(documents: &[IniDocument], policy: &IniMergePolicy) -> Option<IniDocument> {
+    match documents {
+        [] => None,
+        [only] => Some(only.clone()),
+        _ => Some(LayeredIniView::new(documents, policy).materialize()),
     }
 }
 

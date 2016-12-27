@@ -14,6 +14,7 @@ pub use de::{IniDeError, from_layered_section, from_section};
 pub use document::{IniDocument, IniEntry, IniSection, SourceId, SourceSpan};
 pub use merge::{
     EntryMergePolicy, FieldMergeOverrides, IniMergePolicy, LayeredIniView, LayeredSectionView, ResolvedIniValue,
+    materialize_ini_layers,
 };
 pub use numbered::{concat_numbered_values, numbered_pairs, numbered_section_concat, numbered_section_parts, parse_numbered_key};
 pub use soft::{deserialize_opt_bool, deserialize_opt_f32, deserialize_opt_f64, deserialize_opt_i32, deserialize_opt_u32};

@@ -211,3 +211,29 @@ fn field_overrides_append_one_key_while_others_last_win() {
     assert_eq!(sec.effective_raw("Owner").unwrap().as_ref(), "Americans,Alliance");
     assert_eq!(sec.get("Cost").unwrap().trimmed().raw, "800");
 }
+
+#[test]
+fn materialize_last_wins_keeps_lower_only_keys_and_top_overrides() {
+    let layers = docs(&[
+        b"[E1]\nCameoPCX=base\nCameo=BASEICON\nShared=keep\n",
+        b"[E1]\nCameoPCX=md\n",
+        b"[NewSec]\nX=1\n",
+    ]);
+    let policy = IniMergePolicy::last_wins();
+    let doc = materialize_ini_layers(&layers, &policy).expect("materialized");
+    assert_eq!(doc.get("E1", "CameoPCX"), Some("md"));
+    assert_eq!(doc.get("E1", "Cameo"), Some("BASEICON"));
+    assert_eq!(doc.get("E1", "Shared"), Some("keep"));
+    assert_eq!(doc.get("NewSec", "X"), Some("1"));
+    let again = LayeredIniView::new(&layers, &policy);
+    assert_eq!(again.get("E1", "CameoPCX").map(|v| v.raw), doc.get("E1", "CameoPCX"));
+}
+
+#[test]
+fn materialize_ini_layers_empty_is_none_single_clones() {
+    let policy = IniMergePolicy::last_wins();
+    assert!(materialize_ini_layers(&[], &policy).is_none());
+    let one = docs(&[b"[A]\nK=1\n"]);
+    let cloned = materialize_ini_layers(&one, &policy).unwrap();
+    assert_eq!(cloned, one[0]);
+}
