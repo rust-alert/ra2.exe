@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniMergePolicy, LayeredIniView, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row,
-    rasterize_vxl_layer_poses, rasterize_vxl_shadow_layer_poses,
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
+    rasterize_vxl_shadow_layer_poses,
 };
 use ra_types::{AssetSource, HouseName, ImageName, TechnoName};
 use serde::Deserialize;
@@ -72,11 +72,8 @@ impl crate::PaintDefinitions {
 }
 
 fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> MobileTypePaintHints {
-    let policy = IniMergePolicy::last_wins();
-    let rules = paint.rules_view(&policy);
-    let art = paint.art_view(&policy);
-    let rules = rules.as_ref();
-    let art = art.as_ref();
+    let rules = paint.rules_doc();
+    let art = paint.art_doc();
     let image_key = resolve_mobile_image_key(rules, art, type_id);
     let art_fields = art
         .and_then(|a| a.section(&image_key))
@@ -219,8 +216,8 @@ pub fn paint_map_mobiles(
 }
 
 fn resolve_mobile_image_key(
-    rules: Option<&LayeredIniView<'_>>,
-    art: Option<&LayeredIniView<'_>>,
+    rules: Option<&IniDocument>,
+    art: Option<&IniDocument>,
     type_id: &str,
 ) -> String {
     let from_rules = rules
@@ -250,7 +247,7 @@ pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
 }
 
 fn sequence_triples_from_section(
-    art: &LayeredIniView<'_>,
+    art: &IniDocument,
     seq_section: &str,
 ) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
     let fields = art

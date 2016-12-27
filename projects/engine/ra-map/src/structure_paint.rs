@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniMergePolicy, LayeredIniView, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses,
-    shp_body_frame_count,
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count,
 };
 use ra_types::{AssetSource, ImageName, TechnoName};
 use serde::Deserialize;
@@ -66,6 +65,26 @@ impl StructurePaintHintTable {
     }
 }
 
+/// 建筑活动层 art 节提示表（按 anim 节名跨 paint / anim-bank 复用）。
+#[derive(Debug, Clone, Default)]
+pub(crate) struct StructureAnimHintTable {
+    by_name: HashMap<String, StructureAnimSectionHints>,
+}
+
+impl StructureAnimHintTable {
+    fn get(&self, anim_name: &str) -> Option<&StructureAnimSectionHints> {
+        self.by_name.get(anim_name)
+    }
+
+    fn contains(&self, anim_name: &str) -> bool {
+        self.by_name.contains_key(anim_name)
+    }
+
+    fn insert(&mut self, anim_name: String, hint: StructureAnimSectionHints) {
+        self.by_name.insert(anim_name, hint);
+    }
+}
+
 impl crate::PaintDefinitions {
     /// 确保表中含该建筑类型提示（已有则跳过 INI 扫描）。
     pub fn ensure_structure_hint(&mut self, type_id: &TechnoName) {
@@ -87,10 +106,25 @@ impl crate::PaintDefinitions {
         self.structure_hints.get(type_id)
     }
 
-    /// 解析活动层 art 节提示（无 art 或缺节时用缺省）。
-    fn structure_anim_section_hints(&self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
-        let policy = IniMergePolicy::last_wins();
-        structure_anim_section_hints(self.art_view(&policy).as_ref(), anim_name, default_rate_ms)
+    /// 确保表中含该活动层 art 节提示（已有则跳过 INI 扫描）。
+    pub fn ensure_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) {
+        if self.structure_anim_hints.contains(anim_name) {
+            return;
+        }
+        let hint = structure_anim_section_hints(self.art_doc(), anim_name, default_rate_ms);
+        self.structure_anim_hints.insert(anim_name.to_string(), hint);
+    }
+
+    fn structure_anim_hint(&self, anim_name: &str) -> Option<&StructureAnimSectionHints> {
+        self.structure_anim_hints.get(anim_name)
+    }
+
+    /// 解析并缓存活动层 art 节提示。
+    fn resolve_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
+        self.ensure_structure_anim_hint(anim_name, default_rate_ms);
+        self.structure_anim_hint(anim_name)
+            .cloned()
+            .unwrap_or_else(|| structure_anim_section_hints(None, anim_name, default_rate_ms))
     }
 }
 
@@ -111,11 +145,8 @@ struct StructureBuildupHints {
 }
 
 fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> StructureTypePaintHints {
-    let policy = IniMergePolicy::last_wins();
-    let art = paint.art_view(&policy);
-    let rules = paint.rules_view(&policy);
-    let art = art.as_ref();
-    let rules = rules.as_ref();
+    let art = paint.art_doc();
+    let rules = paint.rules_doc();
     let art_section = resolve_art_section(art, type_id);
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
@@ -153,7 +184,7 @@ fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) ->
     }
 }
 
-fn structure_body_art_fields(art: Option<&LayeredIniView<'_>>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
+fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_section: &str) -> StructureBodyArtFields {
     let art = match art {
         Some(a) => a,
         None => return StructureBodyArtFields::default(),
@@ -266,7 +297,7 @@ fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow
 }
 
 fn structure_buildup_hints(
-    art: Option<&LayeredIniView<'_>>,
+    art: Option<&IniDocument>,
     buildup: Option<&str>,
     parent_new_theater: bool,
 ) -> Option<StructureBuildupHints> {
@@ -333,7 +364,7 @@ where
     }
 }
 
-fn structure_turret_voxel_hints(rules: Option<&LayeredIniView<'_>>, type_id: &str) -> Option<StructureTurretVoxelHints> {
+fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
     let rules = rules?;
     let fields = rules
         .section(type_id)
@@ -382,7 +413,7 @@ struct StructureAnimSectionHints {
 }
 
 fn structure_anim_section_hints(
-    art: Option<&LayeredIniView<'_>>,
+    art: Option<&IniDocument>,
     anim_name: &str,
     default_rate_ms: u32,
 ) -> StructureAnimSectionHints {
@@ -424,18 +455,6 @@ struct AnimSectionFields {
     rate_ms: Option<u32>,
     #[serde(rename = "Remapable")]
     remapable: Option<bool>,
-}
-
-fn cached_anim_section_hint<'a>(
-    cache: &'a mut HashMap<String, StructureAnimSectionHints>,
-    paint: &crate::PaintDefinitions,
-    anim_name: &str,
-    default_rate_ms: u32,
-) -> &'a StructureAnimSectionHints {
-    if !cache.contains_key(anim_name) {
-        cache.insert(anim_name.to_string(), paint.structure_anim_section_hints(anim_name, default_rate_ms));
-    }
-    cache.get(anim_name).expect("just inserted")
 }
 
 /// 建筑活动层绘制模式。
@@ -558,7 +577,7 @@ pub fn collect_structure_anim_bank(
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
     collect_structure_type_paint_hints(paint, &structures);
-    let damage = &paint.damage;
+    let damage = paint.damage.clone();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         return StructureAnimBank::default();
@@ -566,11 +585,10 @@ pub fn collect_structure_anim_bank(
     let fire_pal = load_anim_palette(source).unwrap_or_else(|| obj_pal.clone());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut anim_hints: HashMap<String, StructureAnimSectionHints> = HashMap::new();
     let mut layers = Vec::new();
 
     for ent in structures {
-        let Some(type_hint) = paint.structure_hint(&ent.type_id)
+        let Some(type_hint) = paint.structure_hint(&ent.type_id).cloned()
         else {
             continue;
         };
@@ -585,7 +603,7 @@ pub fn collect_structure_anim_bank(
             };
             // `*ZAdjust` 是原版 Z 缓冲排序偏移，不是屏幕像素。预览叠画已分主体/活动两遍，忽略即可。
             let _ = z_key;
-            let hint = cached_anim_section_hint(&mut anim_hints, paint, anim_name, 300).clone();
+            let hint = paint.resolve_structure_anim_hint(anim_name, 300);
             let anim_remapable = hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
 
@@ -635,7 +653,7 @@ pub fn collect_structure_anim_bank(
         }
         for &(i, ox, oy) in &type_hint.fire_offsets {
             let fire_name = &damage.fire_types[usize::from(i) % damage.fire_types.len()];
-            let fire_hint = cached_anim_section_hint(&mut anim_hints, paint, fire_name, 80).clone();
+            let fire_hint = paint.resolve_structure_anim_hint(fire_name.as_str(), 80);
             let Some(shp) = load_shp(source, map, &fire_hint.image_key, fire_hint.new_theater, &mut shp_cache)
             else {
                 // 无节时仍尝试直接按类型名读 SHP。
@@ -873,7 +891,7 @@ fn paint_map_structures_inner(
     let z_at = |x: u16, y: u16| z_lookup.get(&(x, y)).copied().unwrap_or(0);
 
     collect_structure_type_paint_hints(paint, &structures);
-    let damage = &paint.damage;
+    let damage = paint.damage.clone();
     let Some(obj_pal) = load_object_palette(source, map)
     else {
         if !paint_body {
@@ -886,12 +904,11 @@ fn paint_map_structures_inner(
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
     let mut blit_cache: HashMap<(String, String, u16, i32), TileBlit> = HashMap::new();
-    let mut anim_hints: HashMap<String, StructureAnimSectionHints> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
     let mut missing: Vec<(u16, u16)> = Vec::new();
 
     for ent in structures {
-        let Some(hint) = paint.structure_hint(&ent.type_id)
+        let Some(hint) = paint.structure_hint(&ent.type_id).cloned()
         else {
             continue;
         };
@@ -939,7 +956,7 @@ fn paint_map_structures_inner(
             };
             // `*ZAdjust` 仅影响原版 Z 排序，勿当屏幕 Y 像素（医院 `ActiveAnimZAdjust=-200` 会漂到水上）。
             let _ = z_key;
-            let anim_hint = cached_anim_section_hint(&mut anim_hints, paint, anim_name, 300).clone();
+            let anim_hint = paint.resolve_structure_anim_hint(anim_name, 300);
             let frame_idx = structure_anim_frame(clock_ms, anim_hint.rate_ms, anim_hint.loop_start, anim_hint.loop_end);
             let anim_remapable = anim_hint.remapable_override.unwrap_or(remapable);
             let anim_pal = if anim_remapable { remap_owner(&obj_pal, &ent.owner) } else { obj_pal.clone() };
@@ -979,7 +996,7 @@ fn load_anim_palette(source: &dyn AssetSource) -> Option<Palette> {
     source.read("anim.pal").ok().and_then(|b| Palette::parse(&b).ok())
 }
 
-fn resolve_art_section(art: Option<&LayeredIniView<'_>>, type_id: &str) -> String {
+fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
     art.and_then(|a| {
         let image_key = a
             .section(type_id)

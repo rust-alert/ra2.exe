@@ -35,7 +35,7 @@ CameoPCX=gaiconx
     );
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
     let names = paint.cameo_asset_names("GACNST");
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string(), "gaiconx.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
@@ -46,7 +46,7 @@ CameoPCX=gaiconx
 
 #[test]
 fn cameo_asset_names_without_art_only_type_fallbacks() {
-    let paint = PaintDefinitions::default();
+    let mut paint = PaintDefinitions::default();
     let names = paint.cameo_asset_names("E1");
     assert!(names.pcx.is_empty());
     assert_eq!(names.shp, vec!["E1icon.shp".to_string(), "E1.shp".to_string()]);
@@ -59,7 +59,7 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
     files.insert("artmd.ini".into(), b"[E1]\nCameoPCX=md\n".to_vec());
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let paint = PaintDefinitions::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
+    let mut paint = PaintDefinitions::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
     let names = paint.cameo_asset_names("E1");
     assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "BASEICON.shp"));

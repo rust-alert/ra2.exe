@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{IniMergePolicy, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -66,11 +66,8 @@ impl crate::PaintDefinitions {
 }
 
 fn terrain_object_paint_hints(paint: &crate::PaintDefinitions, name: &str) -> TerrainObjectPaintHints {
-    let policy = IniMergePolicy::last_wins();
-    let art = paint.art_view(&policy);
-    let rules = paint.rules_view(&policy);
-    let art = art.as_ref();
-    let rules = rules.as_ref();
+    let art = paint.art_doc();
+    let rules = paint.rules_doc();
     let art_fields = art
         .and_then(|a| a.section(name))
         .and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok())
