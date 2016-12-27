@@ -40,6 +40,11 @@ pub fn dim_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
     rect_px_from_snapshot(&abort_snapshot(viewport_w, viewport_h), "dim")
 }
 
+/// 阵营 `bkgd*` 背景板矩形（与主暂停同几何）。
+pub fn background_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
+    rect_px_from_snapshot(&abort_snapshot(viewport_w, viewport_h), "background")
+}
+
 /// 提示文案矩形。
 pub fn prompt_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
     rect_px_from_snapshot(&abort_snapshot(viewport_w, viewport_h), "prompt")

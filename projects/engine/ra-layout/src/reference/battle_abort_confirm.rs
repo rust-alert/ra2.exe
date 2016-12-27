@@ -1,7 +1,7 @@
 //! 对局放弃确认（暂停菜单二级页，几何权威为 `solve_battle_abort_confirm`）。
 //!
-//! 与暂停菜单同族：全屏 dim + 右缘 `SIDEBTTN`（Leave / Cancel）。**不是**主菜单壳，
-//! **不是** battle HUD，**不是**自制居中黄框卡片。
+//! 与暂停菜单同族：全屏 dim + 阵营 `bkgd*` 背景板 + 右缘 `SIDEBTTN`（Leave / Cancel）。
+//! **不是**主菜单壳，**不是** battle HUD，**不是**自制居中黄框卡片。
 
 use crate::{
     geometry::Rect,
@@ -12,7 +12,9 @@ use crate::{
     viewport::Viewport,
 };
 
-use super::battle_pause::{BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_center_offset, battle_sidebttn_rect};
+use super::battle_pause::{
+    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_background_rect, battle_pause_center_offset, battle_sidebttn_rect,
+};
 
 /// 放弃确认钮 id（Leave / Cancel）。
 pub const BATTLE_ABORT_CONFIRM_BUTTON_IDS: [&str; 2] = ["leave", "cancel"];
@@ -35,6 +37,7 @@ pub fn battle_abort_confirm_layout_tree(viewport_w: u32, viewport_h: u32) -> Lay
     let h = viewport_h.max(1) as f32;
     let children = vec![
         fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h)),
+        fixed_rect_leaf("background", battle_pause_background_rect(w, h)),
         fixed_rect_leaf("prompt", prompt_rect(w, h)),
         fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[0], battle_sidebttn_rect(w, h, LEAVE_DLU)),
         fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[1], battle_sidebttn_rect(w, h, CANCEL_DLU)),

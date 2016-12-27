@@ -274,7 +274,7 @@ pub fn compose_battle_pause_menu_overlay(
     Some(page)
 }
 
-/// 合成放弃确认叠层（dim + 右缘 `SIDEBTTN` Leave / Cancel）。
+/// 合成放弃确认叠层（dim + 阵营 `bkgd*` + 右缘 `SIDEBTTN` Leave / Cancel）。
 pub fn compose_battle_abort_confirm_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -285,7 +285,9 @@ pub fn compose_battle_abort_confirm_overlay(
     pause: Option<&BattlePauseChrome>,
 ) -> Option<RgbaImage> {
     use crate::{
-        battle_abort_confirm::{button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect},
+        battle_abort_confirm::{
+            background_rect as abort_background, button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect,
+        },
         skin::text::{battle_abort_confirm_csf_label, battle_abort_confirm_fallback_label, battle_abort_confirm_prompt_csf_key},
     };
     use ra_layout::BATTLE_ABORT_CONFIRM_BUTTON_IDS;
@@ -295,6 +297,10 @@ pub fn compose_battle_abort_confirm_overlay(
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
 
     fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 160]);
+
+    if let Some(sprite) = pause.and_then(|p| resolve_background(p, w as f32, h as f32)) {
+        blit_stretched(&mut page, &sprite.image, abort_background(w, h));
+    }
 
     if let Some(fnt) = fnt {
         let prompt = prompt_rect(w, h);
