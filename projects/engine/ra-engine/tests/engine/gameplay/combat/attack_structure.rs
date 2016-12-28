@@ -3,7 +3,8 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_types::{EntityId, GameEdition};
+use ra_types::{EntityId, GameEdition, occupancy_kind};
+
 
 fn atk_structure_defs(strength: &str) -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     let ini = format!(
@@ -52,9 +53,13 @@ fn atk_structure_world(strength: &str, map_name: &str) -> ra_engine::BattleState
 #[test]
 fn attack_structure_kills_and_frees_cell() {
     let mut world = atk_structure_world("80", "atk-bldg");
-    world.pass_grid.set_passable(6, 4, false);
     world.players[1].power_output = 200;
     assert!(!world.pass_grid.is_passable(6, 4));
+    {
+        let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+        assert_eq!(world.prepared.passable[idx(6, 4)], 0);
+        assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::STRUCTURE);
+    }
     world.push_command(GameCommand::Attack { attacker: EntityId(1), target: EntityId(2) });
     for _ in 0..10 {
         world.advance_tick();
@@ -64,6 +69,9 @@ fn attack_structure_kills_and_frees_cell() {
     }
     assert!(world.ecs_health(world.entity_id_at(1).expect("entity")).expect("health").2);
     assert!(world.pass_grid.is_passable(6, 4));
+    let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.passable[idx(6, 4)], 1);
+    assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::EMPTY);
     assert_eq!(world.players[1].power_output, 0);
 }
 

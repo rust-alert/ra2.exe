@@ -63,6 +63,8 @@ fn sell_building_refunds_half_cost_and_frees_footprint() {
     assert!(world.pass_grid.is_passable(6, 5));
     assert!(world.pass_grid.is_passable(7, 5));
     let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.passable[idx(6, 4)], 1);
+    assert_eq!(world.prepared.passable[idx(7, 5)], 1);
     assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::EMPTY);
     assert_eq!(world.prepared.occupancy[idx(7, 5)], occupancy_kind::EMPTY);
 }

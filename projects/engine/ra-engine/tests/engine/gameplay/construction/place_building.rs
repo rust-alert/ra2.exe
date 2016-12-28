@@ -70,6 +70,8 @@ fn place_power_deducts_funds_and_spawns_structure() {
     assert!(!world.pass_grid.is_passable(6, 5));
     assert!(!world.pass_grid.is_passable(7, 5));
     let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
+    assert_eq!(world.prepared.passable[idx(6, 4)], 0);
+    assert_eq!(world.prepared.passable[idx(7, 5)], 0);
     assert_eq!(world.prepared.occupancy[idx(6, 4)], occupancy_kind::STRUCTURE);
     assert_eq!(world.prepared.occupancy[idx(7, 5)], occupancy_kind::STRUCTURE);
     assert_eq!(world.players[0].power_output, 200);
