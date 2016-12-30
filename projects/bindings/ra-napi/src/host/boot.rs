@@ -12,7 +12,8 @@ use ra_map::{
     PaintDefinitions,
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, StructureLightTable, TerrainAnimBank,
     campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
-    list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps, mount_theater_mixes,
+    is_campaign_blocking_action_gap, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
+    mount_theater_mixes,
     ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba,
     paint_terrain_anims_onto_rgba,
 };
@@ -583,7 +584,11 @@ pub fn boot_world_with_progress(
 
     report(0.88, "打开会话");
     for gap in map_scripting_capability_gaps(&map) {
-        tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        if is_campaign_blocking_action_gap(&gap.code) {
+            tracing::error!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        } else {
+            tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        }
         note = format!("{note} · gap:{}", gap.code);
     }
     if request.boot_kind == LoadKind::Campaign {

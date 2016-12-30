@@ -595,11 +595,21 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         | MapActionKind::PlaySound
         | MapActionKind::PlayTheme
         | MapActionKind::PlaySpeech
+        | MapActionKind::PlayAnimAt
+        | MapActionKind::CenterCameraAtWaypoint
         | MapActionKind::GrowShroud
         | MapActionKind::ReshroudMap
+        | MapActionKind::CreateRadarEvent
         | MapActionKind::PlaySoundEffect
+        | MapActionKind::PlaySoundEffectAt
+        | MapActionKind::PlayIngameMovie
         | MapActionKind::ReshroudMapAt
-        | MapActionKind::TimerText => {}
+        | MapActionKind::TimerText
+        | MapActionKind::FlashTeam
+        | MapActionKind::MakeHouseCheer
+        | MapActionKind::SetSidebarTab
+        | MapActionKind::FlashCameo
+        | MapActionKind::StopSoundsAt => {}
     }
 }
 

@@ -1,7 +1,9 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
 pub use ai_triggers::{MapAiTrigger, parse_ai_triggers};
-pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, map_scripting_capability_gaps};
+pub use capability::{
+    MapCapabilityGap, campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps,
+};
 pub use houses::{MapHouse, parse_map_houses};
 pub use kinds::{MapActionKind, MapEventKind};
 pub use script_teams::{

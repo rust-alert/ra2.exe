@@ -87,9 +87,9 @@ pub enum MapActionKind {
     AllToHunt,
     /// 增援 TeamType。
     Reinforcement,
-    /// 投放区照明弹（竖切 no-op）。
+    /// 投放区照明弹（呈现占位）。
     DropZoneFlare,
-    /// 播放全屏影片（竖切 no-op）。
+    /// 播放全屏影片（呈现占位）。
     PlayMovie,
     /// 屏幕文字（竖切 no-op）。
     TextTrigger,
@@ -105,12 +105,18 @@ pub enum MapActionKind {
     RevealAroundWaypoint,
     /// 航点区域揭雾（竖切 no-op）。
     RevealWaypointZone,
-    /// 播放音效（竖切 no-op）。
+    /// 播放音效（呈现占位）。
     PlaySound,
-    /// 播放主题音乐（竖切 no-op）。
+    /// 播放主题音乐（呈现占位）。
     PlayTheme,
-    /// 播放语音（竖切 no-op）。
+    /// 播放语音（呈现占位）。
     PlaySpeech,
+    /// 航点播放动画（呈现占位）。
+    PlayAnimAt,
+    /// 镜头移向航点（呈现占位）。
+    CenterCameraAtWaypoint,
+    /// 创建雷达事件（呈现占位）。
+    CreateRadarEvent,
     /// 强制执行另一触发器。
     ForceTrigger,
     /// 恢复计时器。
@@ -123,7 +129,7 @@ pub enum MapActionKind {
     TimerShorten,
     /// 设置计时器。
     TimerSet,
-    /// 迷雾生长（竖切 no-op）。
+    /// 迷雾生长（呈现占位）。
     GrowShroud,
     /// 摧毁绑定本触发 Tag 的存活实体。
     DestroyAttachedObjects,
@@ -133,7 +139,7 @@ pub enum MapActionKind {
     MakeAlly,
     /// 解盟。
     MakeEnemy,
-    /// 重新笼罩全图（竖切 no-op）。
+    /// 重新笼罩全图（呈现占位）。
     ReshroudMap,
     /// 启用触发器。
     EnableTrigger,
@@ -147,12 +153,26 @@ pub enum MapActionKind {
     AiTriggersStop,
     /// 增援 TeamType（可带航点）。
     ReinforcementAtWaypoint,
-    /// 播放音效（竖切 no-op）。
+    /// 播放音效（呈现占位）。
     PlaySoundEffect,
-    /// 航点处重新笼罩（竖切 no-op）。
+    /// 航点处播放音效（呈现占位）。
+    PlaySoundEffectAt,
+    /// 播放局内影片（呈现占位）。
+    PlayIngameMovie,
+    /// 航点处重新笼罩（呈现占位）。
     ReshroudMapAt,
-    /// 计时器文字（竖切 no-op）。
+    /// 计时器文字（呈现占位）。
     TimerText,
+    /// 闪烁 TeamType 成员（呈现占位）。
+    FlashTeam,
+    /// 指定 house 步兵欢呼（呈现占位）。
+    MakeHouseCheer,
+    /// 切换侧栏页签（呈现占位）。
+    SetSidebarTab,
+    /// 闪烁建造栏图标（呈现占位）。
+    FlashCameo,
+    /// 停止航点处音效（呈现占位）。
+    StopSoundsAt,
     /// 摧毁指定 house 全部实体。
     DestroyAllOf,
     /// 摧毁指定 house 全部建筑。
@@ -197,16 +217,26 @@ impl MapActionKind {
             36 => Self::AllChangeHouse,
             37 => Self::MakeAlly,
             38 => Self::MakeEnemy,
+            41 => Self::PlayAnimAt,
+            48 => Self::CenterCameraAtWaypoint,
             51 => Self::ReshroudMap,
             53 => Self::EnableTrigger,
             54 => Self::DisableTrigger,
+            55 => Self::CreateRadarEvent,
             70 => Self::DestroyTag,
             74 => Self::AiTriggersBegin,
             75 => Self::AiTriggersStop,
             80 => Self::ReinforcementAtWaypoint,
             98 => Self::PlaySoundEffect,
+            99 => Self::PlaySoundEffectAt,
+            100 => Self::PlayIngameMovie,
             101 => Self::ReshroudMapAt,
             103 => Self::TimerText,
+            104 => Self::FlashTeam,
+            113 => Self::MakeHouseCheer,
+            114 => Self::SetSidebarTab,
+            115 => Self::FlashCameo,
+            116 => Self::StopSoundsAt,
             119 => Self::DestroyAllOf,
             120 => Self::DestroyAllBuildingsOf,
             121 => Self::DestroyAllLandUnitsOf,
@@ -247,16 +277,26 @@ impl MapActionKind {
             Self::AllChangeHouse => 36,
             Self::MakeAlly => 37,
             Self::MakeEnemy => 38,
+            Self::PlayAnimAt => 41,
+            Self::CenterCameraAtWaypoint => 48,
             Self::ReshroudMap => 51,
             Self::EnableTrigger => 53,
             Self::DisableTrigger => 54,
+            Self::CreateRadarEvent => 55,
             Self::DestroyTag => 70,
             Self::AiTriggersBegin => 74,
             Self::AiTriggersStop => 75,
             Self::ReinforcementAtWaypoint => 80,
             Self::PlaySoundEffect => 98,
+            Self::PlaySoundEffectAt => 99,
+            Self::PlayIngameMovie => 100,
             Self::ReshroudMapAt => 101,
             Self::TimerText => 103,
+            Self::FlashTeam => 104,
+            Self::MakeHouseCheer => 113,
+            Self::SetSidebarTab => 114,
+            Self::FlashCameo => 115,
+            Self::StopSoundsAt => 116,
             Self::DestroyAllOf => 119,
             Self::DestroyAllBuildingsOf => 120,
             Self::DestroyAllLandUnitsOf => 121,
@@ -264,7 +304,7 @@ impl MapActionKind {
         }
     }
 
-    /// 竖切已接线（含呈现类 no-op）的全部动作，供能力缺口诊断。
+    /// 已识别动作（含呈现占位）；未识别码为 `Unknown`。
     pub const SUPPORTED: &'static [Self] = &[
         Self::None,
         Self::Win,
@@ -296,23 +336,64 @@ impl MapActionKind {
         Self::AllChangeHouse,
         Self::MakeAlly,
         Self::MakeEnemy,
+        Self::PlayAnimAt,
+        Self::CenterCameraAtWaypoint,
         Self::ReshroudMap,
         Self::EnableTrigger,
         Self::DisableTrigger,
+        Self::CreateRadarEvent,
         Self::DestroyTag,
         Self::AiTriggersBegin,
         Self::AiTriggersStop,
         Self::ReinforcementAtWaypoint,
         Self::PlaySoundEffect,
+        Self::PlaySoundEffectAt,
+        Self::PlayIngameMovie,
         Self::ReshroudMapAt,
         Self::TimerText,
+        Self::FlashTeam,
+        Self::MakeHouseCheer,
+        Self::SetSidebarTab,
+        Self::FlashCameo,
+        Self::StopSoundsAt,
         Self::DestroyAllOf,
         Self::DestroyAllBuildingsOf,
         Self::DestroyAllLandUnitsOf,
     ];
 
-    /// 是否为竖切已接线动作。
+    /// 是否已识别（非 `Unknown`）。呈现占位也算已识别，但仍会报 stub 缺口。
     pub const fn is_supported(self) -> bool {
         !matches!(self, Self::Unknown(_))
+    }
+
+    /// 呈现/镜头/音效等占位：开局不拒，装载须 WARN，执行不改变玩法状态。
+    pub const fn is_presentation_stub(self) -> bool {
+        matches!(
+            self,
+            Self::DropZoneFlare
+                | Self::PlayMovie
+                | Self::TextTrigger
+                | Self::RevealAllMap
+                | Self::RevealAroundWaypoint
+                | Self::RevealWaypointZone
+                | Self::PlaySound
+                | Self::PlayTheme
+                | Self::PlaySpeech
+                | Self::PlayAnimAt
+                | Self::CenterCameraAtWaypoint
+                | Self::GrowShroud
+                | Self::ReshroudMap
+                | Self::CreateRadarEvent
+                | Self::PlaySoundEffect
+                | Self::PlaySoundEffectAt
+                | Self::PlayIngameMovie
+                | Self::ReshroudMapAt
+                | Self::TimerText
+                | Self::FlashTeam
+                | Self::MakeHouseCheer
+                | Self::SetSidebarTab
+                | Self::FlashCameo
+                | Self::StopSoundsAt
+        )
     }
 }

@@ -76,14 +76,14 @@ fn capability_gaps_report_unsupported_actions() {
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
 [Triggers]\nTR1=Americans,<none>,X,0,1,1,1,0\n\
 [Events]\nTR1=1,13,0,0\n\
-[Actions]\nTR1=1,99,0,0,0,0,0,0,A\n\
+[Actions]\nTR1=1,42,0,0,0,0,0,0,A\n\
 [AITriggerTypes]\n0=AI1\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "gap.map", text).unwrap();
     assert_eq!(map.scripting.ai_triggers.len(), 1);
     assert_eq!(map.scripting.ai_triggers[0].id, "AI1");
     let gaps = ra_map::map_scripting_capability_gaps(&map);
-    assert!(gaps.iter().any(|g| g.code.contains("map.action.99")), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.action.42 unsupported"), "{gaps:?}");
     assert!(gaps.iter().all(|g| g.code != "map.aitrigger unsupported"), "AITriggerTypes must not block after minimal execution: {gaps:?}");
     assert!(ra_map::campaign_blocking_capability_message(&map).is_some());
 }
@@ -98,7 +98,25 @@ fn cosmetic_trigger_actions_are_supported_noops() {
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "fx.map", text).unwrap();
     let gaps = ra_map::map_scripting_capability_gaps(&map);
-    assert!(gaps.iter().all(|g| !g.code.starts_with("map.action.")), "cosmetic actions must not block: {gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.action.11 stub"), "presentation stubs must warn: {gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.action.16 stub"), "{gaps:?}");
+    assert!(gaps.iter().all(|g| !g.code.ends_with(" unsupported") || !g.code.starts_with("map.action.")), "cosmetic must not hard-block: {gaps:?}");
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
+}
+
+#[test]
+fn presentation_stub_actions_warn_but_do_not_block_campaign() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Triggers]\nTR1=Americans,<none>,FX,0,1,1,1,0\n\
+[Events]\nTR1=1,13,0,0\n\
+[Actions]\nTR1=3,99,0,0,0,0,0,0,A,55,0,0,0,0,0,0,A,48,0,0,0,0,0,0,A\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "stub.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(gaps.iter().any(|g| g.code == "map.action.99 stub"), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.action.55 stub"), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.action.48 stub"), "{gaps:?}");
     assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 }
 
