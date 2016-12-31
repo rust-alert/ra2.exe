@@ -315,8 +315,8 @@ pub fn exit_confirm_csf_label(entry_id: &str) -> Option<&'static str> {
 pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
         "load" => Some("GUI:LoadGame"),
-        "save" => Some("GUI:SaveMission"),
-        "delete" => Some("GUI:DeleteMission"),
+        "save" => Some("GUI:SaveGame"),
+        "delete" => Some("GUI:DeleteGame"),
         "game_controls" => Some("GUI:GameControls"),
         "abort" => Some("GUI:AbortMission"),
         "resume" => Some("GUI:ResumeMission"),
@@ -328,8 +328,8 @@ pub fn battle_pause_menu_csf_label(entry_id: &str) -> Option<&'static str> {
 pub fn battle_pause_menu_fallback_label(entry_id: &str) -> &str {
     match entry_id {
         "load" => "Load Game",
-        "save" => "Save Mission",
-        "delete" => "Delete Mission",
+        "save" => "Save Game",
+        "delete" => "Delete Game",
         "game_controls" => "Game Controls",
         "abort" => "Abort Mission",
         "resume" => "Resume Mission",

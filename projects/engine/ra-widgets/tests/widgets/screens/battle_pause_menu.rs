@@ -16,8 +16,8 @@ fn battle_pause_menu_has_six_buttons() {
 #[test]
 fn battle_pause_menu_hits_resume_and_game_controls_from_snapshot() {
     let rects = button_rects(800, 600);
-    let load = rects[0];
-    let game_controls = rects[3];
+    let game_controls = rects[0];
+    let load = rects[1];
     let abort = rects[4];
     let resume = rects[5];
     assert!(resume.y > abort.y, "resume should sit below abort");
@@ -36,9 +36,14 @@ fn compose_battle_pause_menu_dims_and_paints_sidebttn_cells() {
     assert_eq!(page.width(), 800);
     assert_eq!(page.height(), 600);
     assert!(page.as_raw()[3] > 0, "dim overlay alpha");
-    let game_controls = button_rects(800, 600)[3];
+    let game_controls = button_rects(800, 600)[0];
     let x = (game_controls.x + 4) as u32;
     let y = (game_controls.y + 4) as u32;
     let di = ((y * 800 + x) * 4) as usize;
     assert!(page.as_raw()[di + 3] >= 200, "button alpha={}", page.as_raw()[di + 3]);
+    // 右轨应不透明（盖住战场），取样轨中心。
+    let rail_x = 800 - 84;
+    let rail_y = 300u32;
+    let ri = ((rail_y * 800 + rail_x) * 4) as usize;
+    assert_eq!(page.as_raw()[ri + 3], 255, "rail should be opaque");
 }

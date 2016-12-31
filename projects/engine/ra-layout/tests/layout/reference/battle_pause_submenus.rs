@@ -13,9 +13,14 @@ fn abort_confirm_and_options_share_sidebttn_rail() {
     assert!(pause.get("card").is_none());
     assert!(abort.get("panel_top").is_none());
     assert!(abort.get("background").is_some());
+    assert!(abort.get("rail").is_some());
     assert_eq!(
         rect_px_from_snapshot(&pause, "background"),
         rect_px_from_snapshot(&abort, "background"),
+    );
+    assert_eq!(
+        rect_px_from_snapshot(&pause, "rail"),
+        rect_px_from_snapshot(&abort, "rail"),
     );
     assert!(opts.get("mnscrnl").is_none());
     let leave = rect_px_from_snapshot(&abort, "leave");

@@ -139,9 +139,9 @@ pub const EXIT_CONFIRM_BUTTON_H: i32 = 25;
 
 /// 战斗暂停菜单右缘 `SIDEBTTN` 入口 id（与 `battle_pause_menu` / 合成顺序一致）。
 ///
-/// 顺序：载入 → 保存 → 删除 → 游戏控制 → 放弃任务；「回到任务」贴底（与 `0xBBB` Back 同列族）。
+/// 顺序：游戏控制 → 载入 → 保存 → 删除 → 放弃任务；「回到任务」贴底（与 `0xBBB` Back 同列族）。
 pub const BATTLE_PAUSE_MENU_BUTTON_IDS: [&str; 6] =
-    ["load", "save", "delete", "game_controls", "abort", "resume"];
+    ["game_controls", "load", "save", "delete", "abort", "resume"];
 
 /// 遭遇战积分页右栏按钮（仅「继续」贴底）。
 pub const SKIRMISH_SCORE_BUTTON_IDS: [&str; 1] = ["continue"];

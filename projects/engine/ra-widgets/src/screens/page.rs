@@ -187,7 +187,7 @@ pub fn page_resources_from_slots_with_edition(screen: OriginalScreen, edition: O
     })
 }
 
-/// 对局 Esc 暂停菜单：阵营 `radar` / `sidebttn`（现行路径不经本函数）。
+/// 对局 Esc 暂停菜单：阵营 `bkgd*` / `sidebttn`（现行路径不经本函数）。
 ///
 /// 保留给诊断 / 旧页资源索引；合成请用 [`crate::battle_pause_menu::decode_battle_pause_chrome`]。
 pub fn page_resources_for_battle_pause() -> UiPageResources {

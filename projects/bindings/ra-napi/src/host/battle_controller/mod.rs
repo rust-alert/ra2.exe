@@ -120,7 +120,7 @@ pub struct BattleController {
     pub(super) cameo_cache: HashMap<String, Option<DecodedUiSprite>>,
     /// 测试旁路：曾表示「再按 Esc 回大厅」武装态；现由暂停菜单「放弃」离开，恒为 false。
     pub(super) leave_armed: bool,
-    /// 对局 Esc 暂停菜单阵营素材（`radar` / `sidebttn`，跟本地 house）。
+    /// 对局 Esc 暂停菜单阵营素材（`bkgd*` / `sidebttn`，跟本地 house）。
     pub(super) pause_menu_chrome: Option<BattlePauseChrome>,
     /// 是否已尝试解码暂停菜单（避免每帧重试；换边时清掉重解）。
     pub(super) pause_menu_tried_side: Option<String>,

@@ -2,7 +2,9 @@
 
 use super::*;
 use crate::{
-    battle_pause_menu::{BattlePauseChrome, background_rect, button_rects, dim_rect, entry_enabled, resolve_background, resolve_sidebttn},
+    battle_pause_menu::{
+        BattlePauseChrome, background_rect, button_rects, dim_rect, entry_enabled, rail_rect, resolve_background, resolve_sidebttn,
+    },
     skin::text::battle_pause_menu_fallback_label,
 };
 
@@ -221,8 +223,8 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
 
 /// 合成对局暂停菜单叠加层（窗口像素；暂停时单独作为 UI 层，不叠 HUD）。
 ///
-/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 左缘背景板 + 右缘 `SIDEBTTN` 六钮。
-/// 钮面必须走 `sidebttn.shp` / `sidebar.pal`（owner-draw type 2），禁止自制黄框卡片。
+/// 几何只认 [`ra_layout::solve_battle_pause_at`]：全屏 `dim` + 左区 `bkgd*`（`uibkgd.pal`）+
+/// 右轨暗底 + 右缘 `SIDEBTTN`（`sidebar.pal`）六钮。禁止复用 HUD chrome，禁止自制黄框卡片。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -243,6 +245,9 @@ pub fn compose_battle_pause_menu_overlay(
     if let Some(sprite) = pause.and_then(|p| resolve_background(p, w as f32, h as f32)) {
         blit_stretched(&mut page, &sprite.image, bg_cell);
     }
+
+    // 右轨用不透明暗底盖住战场，避免钮悬空；不是 HUD `side*`/`addon`。
+    fill_rect(&mut page, rail_rect(w, h), [12, 12, 16, 255]);
 
     let rects = button_rects(w, h);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
@@ -274,7 +279,7 @@ pub fn compose_battle_pause_menu_overlay(
     Some(page)
 }
 
-/// 合成放弃确认叠层（dim + 阵营 `bkgd*` + 右缘 `SIDEBTTN` Leave / Cancel）。
+/// 合成放弃确认叠层（dim + 阵营 `bkgd*` + 右轨暗底 + `SIDEBTTN` Leave / Cancel）。
 pub fn compose_battle_abort_confirm_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -287,6 +292,7 @@ pub fn compose_battle_abort_confirm_overlay(
     use crate::{
         battle_abort_confirm::{
             background_rect as abort_background, button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect,
+            rail_rect as abort_rail,
         },
         skin::text::{battle_abort_confirm_csf_label, battle_abort_confirm_fallback_label, battle_abort_confirm_prompt_csf_key},
     };
@@ -301,6 +307,8 @@ pub fn compose_battle_abort_confirm_overlay(
     if let Some(sprite) = pause.and_then(|p| resolve_background(p, w as f32, h as f32)) {
         blit_stretched(&mut page, &sprite.image, abort_background(w, h));
     }
+
+    fill_rect(&mut page, abort_rail(w, h), [12, 12, 16, 255]);
 
     if let Some(fnt) = fnt {
         let prompt = prompt_rect(w, h);

@@ -1,6 +1,6 @@
 //! 对局暂停层状态（Menu / AbortConfirm / InGameOptions）。
 
-/// 暂停菜单及其二级页（仿真暂停期间叠在 HUD 上）。
+/// 暂停菜单及其二级页（仿真暂停期间**替换** HUD overlay，不叠在 HUD 上）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BattlePauseLayer {
     /// 主暂停六钮。
