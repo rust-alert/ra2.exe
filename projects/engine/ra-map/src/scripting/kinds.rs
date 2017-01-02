@@ -79,6 +79,14 @@ pub enum MapActionKind {
     Win,
     /// 失败。
     Lose,
+    /// 指定 house 开始 AI 生产。
+    ProductionBegins,
+    /// 锁定玩家对局输入（暂停/Esc 仍可用）。
+    LockInput,
+    /// 解锁玩家对局输入。
+    UnlockInput,
+    /// 航点处造成 100 点伤害（HE 竖切）。
+    Apply100Damage,
     /// 创建 TeamType。
     CreateTeam,
     /// 销毁指定 TeamType。
@@ -190,6 +198,7 @@ impl MapActionKind {
             0 => Self::None,
             1 => Self::Win,
             2 => Self::Lose,
+            3 => Self::ProductionBegins,
             4 => Self::CreateTeam,
             5 => Self::DestroyTeam,
             6 => Self::AllToHunt,
@@ -218,11 +227,14 @@ impl MapActionKind {
             37 => Self::MakeAlly,
             38 => Self::MakeEnemy,
             41 => Self::PlayAnimAt,
+            46 => Self::LockInput,
+            47 => Self::UnlockInput,
             48 => Self::CenterCameraAtWaypoint,
             51 => Self::ReshroudMap,
             53 => Self::EnableTrigger,
             54 => Self::DisableTrigger,
             55 => Self::CreateRadarEvent,
+            63 => Self::Apply100Damage,
             70 => Self::DestroyTag,
             74 => Self::AiTriggersBegin,
             75 => Self::AiTriggersStop,
@@ -250,6 +262,10 @@ impl MapActionKind {
             Self::None => 0,
             Self::Win => 1,
             Self::Lose => 2,
+            Self::ProductionBegins => 3,
+            Self::LockInput => 46,
+            Self::UnlockInput => 47,
+            Self::Apply100Damage => 63,
             Self::CreateTeam => 4,
             Self::DestroyTeam => 5,
             Self::AllToHunt => 6,
@@ -309,6 +325,10 @@ impl MapActionKind {
         Self::None,
         Self::Win,
         Self::Lose,
+        Self::ProductionBegins,
+        Self::LockInput,
+        Self::UnlockInput,
+        Self::Apply100Damage,
         Self::CreateTeam,
         Self::DestroyTeam,
         Self::AllToHunt,

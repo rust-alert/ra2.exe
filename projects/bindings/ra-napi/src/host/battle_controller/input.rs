@@ -88,7 +88,9 @@ impl BattleController {
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
     pub fn wants_cursor_capture(&self) -> bool {
-        self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| !g.paused && g.outcome.is_none())
+        self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
+            !g.paused && g.outcome.is_none() && !g.world.trigger_runtime.script_input_locked
+        })
     }
 
     pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
@@ -318,6 +320,12 @@ impl BattleController {
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
+        let script_locked = self
+            .session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| g.world.trigger_runtime.script_input_locked);
+        let gameplay_open = accept_commands && !battle_paused && !script_locked;
         let has_outcome = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some());
         // EVA 播报窗口：仍在 Battle 页，但不再接受对局/暂停输入。
         if accept_commands && has_outcome {
@@ -336,7 +344,7 @@ impl BattleController {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands && battle_paused => {
                 self.handle_pause_menu_mouse(*state, window)
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if accept_commands => {
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } if gameplay_open => {
                 let mut nav = BattleNav::None;
                 match state {
                     ElementState::Pressed => {
@@ -414,7 +422,7 @@ impl BattleController {
                 self.pause_pressed = None;
                 BattleNav::None
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if accept_commands && !battle_paused => {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } if gameplay_open => {
                 self.left_gesture = LeftGesture::Idle;
                 self.command_pressed = None;
                 self.sidebar_pressed = None;
@@ -427,6 +435,10 @@ impl BattleController {
                     self.left_gesture = LeftGesture::Idle;
                     self.refresh_pause_hover(window);
                     self.handle_pause_layer_drag(window);
+                }
+                else if script_locked {
+                    self.left_gesture = LeftGesture::Idle;
+                    self.camera_pan_keys.clear();
                 }
                 else {
                     // 建造放置模式只认点选，拖拽不升为框选。
@@ -442,7 +454,7 @@ impl BattleController {
                 BattleNav::None
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                if accept_commands && !battle_paused && self.cursor_over_cameo_band(window) {
+                if gameplay_open && self.cursor_over_cameo_band(window) {
                     let steps = match delta {
                         MouseScrollDelta::LineDelta(_, y) => {
                             if *y > 0.0 {
@@ -484,7 +496,7 @@ impl BattleController {
 
                 // 方向键：未被 `keyboard.ini` 占用时才作镜头平移；侧栏箭头热键走查表。
                 if matches!(code, KeyCode::ArrowLeft | KeyCode::ArrowRight | KeyCode::ArrowUp | KeyCode::ArrowDown) {
-                    if !accept_commands || battle_paused {
+                    if !gameplay_open {
                         self.camera_pan_keys.clear();
                         return BattleNav::None;
                     }
@@ -550,6 +562,18 @@ impl BattleController {
                 if battle_paused {
                     if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
                         return self.handle_pause_layer_escape();
+                    }
+                    return BattleNav::None;
+                }
+
+                // 剧本锁输入：仍允许 Options/Esc 进暂停，其它对局热键吞掉。
+                if script_locked {
+                    if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
+                        return self.dispatch_hotkey_action(
+                            super::super::battle_hotkeys::HotkeyAction::Options,
+                            renderer,
+                            window,
+                        );
                     }
                     return BattleNav::None;
                 }

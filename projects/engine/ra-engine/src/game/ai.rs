@@ -21,6 +21,10 @@ impl BattleSession {
         let hard_extra_produce = difficulty_extra_produce(&self.difficulty);
         for (player, house) in &opponents {
             let house = house.as_ref();
+            // 战役未触发「Production Begins」的房主不产、不自动进攻。
+            if !self.world.house_production_begun(house) {
+                continue;
+            }
             let mut cmds = Vec::new();
             cmds.extend(crate::gameplay::ai::deploy_mcv_commands(&self.world, house));
             cmds.extend(crate::gameplay::ai::place_power_commands(&self.world, house, *player));

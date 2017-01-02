@@ -65,6 +65,36 @@ impl BattleState {
         self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).map(|p| p.funds)
     }
 
+    /// 该 house 是否已允许 AI 生产。
+    pub fn house_production_begun(&self, house: &str) -> bool {
+        self.players
+            .iter()
+            .find(|p| p.house.eq_ignore_ascii_case(house))
+            .map(|p| p.production_begun)
+            .unwrap_or(false)
+    }
+
+    /// 是否存在任一 house 已允许 AI 生产。
+    pub fn any_house_production_begun(&self) -> bool {
+        self.players.iter().any(|p| p.production_begun)
+    }
+
+    /// 打开指定 house 的 AI 生产（地图动作 Production Begins）。无该 house 时先 `ensure_house`。
+    pub fn begin_house_production(&mut self, house: &str) -> bool {
+        let house = house.trim();
+        if house.is_empty() {
+            return false;
+        }
+        self.ensure_house(house);
+        let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house))
+        else {
+            return false;
+        };
+        player.production_begun = true;
+        self.rehash();
+        true
+    }
+
     /// 查询规则造价；未知类型为 `None`。
     pub fn techno_cost(&self, type_id: &str) -> Option<u32> {
         self.definitions.techno.get(type_id).map(|t| t.cost.max(0) as u32)

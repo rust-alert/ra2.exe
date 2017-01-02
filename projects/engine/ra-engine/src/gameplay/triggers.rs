@@ -42,6 +42,8 @@ pub struct TriggerRuntime {
     win_blockers: u32,
     /// `Win` 在阻塞未清时记下的获胜 house；阻塞归零后写入 `pending_outcome`。
     deferred_victory_house: Option<String>,
+    /// 剧本「Lock input」：为真时 host 应吞掉对局操作（暂停/Esc 仍可用）。
+    pub script_input_locked: bool,
 }
 
 impl TriggerRuntime {
@@ -65,6 +67,7 @@ impl TriggerRuntime {
             pending_outcome: None,
             win_blockers: count_allow_win_actions(scripting),
             deferred_victory_house: None,
+            script_input_locked: false,
         }
     }
 
@@ -387,6 +390,33 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         MapActionKind::Lose => {
             let reason = action_house_param(cmd).unwrap_or_default();
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Defeat { reason });
+        }
+        MapActionKind::ProductionBegins => {
+            let house = action_house_param(cmd)
+                .or_else(|| {
+                    world
+                        .map
+                        .scripting
+                        .triggers
+                        .iter()
+                        .find(|t| t.id.as_ref().eq_ignore_ascii_case(trigger_id))
+                        .map(|t| t.house.to_string())
+                })
+                .unwrap_or_else(|| local_house.to_string());
+            if !world.begin_house_production(&house) {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        MapActionKind::LockInput => {
+            world.trigger_runtime.script_input_locked = true;
+        }
+        MapActionKind::UnlockInput => {
+            world.trigger_runtime.script_input_locked = false;
+        }
+        MapActionKind::Apply100Damage => {
+            if !apply_100_damage_at_action_waypoint(world, cmd) {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
         }
         MapActionKind::AllowWin => {
             world.trigger_runtime.win_blockers = world.trigger_runtime.win_blockers.saturating_sub(1);
@@ -832,6 +862,63 @@ fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
             return;
         }
     }
+}
+
+fn action_waypoint_index_param(cmd: &MapActionCommand) -> Option<u32> {
+    // 原版布局：`kind,0,<Waypoint#>,…` → 航点在 `params[1]`。
+    if let Some(n) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok()) {
+        return Some(n);
+    }
+    cmd.params
+        .first()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse().ok())
+}
+
+/// 在动作指定航点格造成 100 点伤害（覆盖该格上的机动单位与 Foundation 含该格的建筑）。
+fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &MapActionCommand) -> bool {
+    let Some(wp_idx) = action_waypoint_index_param(cmd)
+    else {
+        return false;
+    };
+    let Some(wp) = world.map.waypoints.iter().find(|w| w.index == wp_idx).copied()
+    else {
+        return false;
+    };
+    let mut hit_indices = Vec::new();
+    for (index, entity) in world.entities.iter().enumerate() {
+        let id = entity.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        let Some(xf) = world.ecs_get::<Transform>(id)
+        else {
+            continue;
+        };
+        let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
+        let covers = if is_structure {
+            let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id.clone()).unwrap_or_default();
+            let foundation = world
+                .definitions
+                .structures
+                .get(type_id.as_ref())
+                .map(|s| s.foundation.clone())
+                .unwrap_or_default();
+            let fw = foundation.width.max(1);
+            let fh = foundation.height.max(1);
+            wp.x >= xf.x && wp.y >= xf.y && wp.x < xf.x.saturating_add(fw) && wp.y < xf.y.saturating_add(fh)
+        } else {
+            xf.x == wp.x && xf.y == wp.y
+        };
+        if covers {
+            hit_indices.push(index);
+        }
+    }
+    for index in hit_indices {
+        world.apply_damage(index, 100);
+    }
+    true
 }
 
 fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {

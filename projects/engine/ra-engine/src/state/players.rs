@@ -41,6 +41,8 @@ pub struct PlayerState {
     pub kills: u32,
     /// 本局建造/生产完成数（放置建筑 + 工厂出厂）。
     pub built: u32,
+    /// 是否已允许 AI 生产（遭遇战默认开；战役由动作「Production Begins」打开）。
+    pub production_begun: bool,
 }
 
 impl PlayerState {
@@ -69,6 +71,8 @@ impl PlayerState {
             eva_funds_nag_ticks: 0,
             kills: 0,
             built: 0,
+            // 遭遇战默认已生产；战役开局会清成 false。
+            production_begun: true,
         }
     }
 

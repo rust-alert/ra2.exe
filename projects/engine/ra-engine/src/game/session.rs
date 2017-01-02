@@ -80,13 +80,16 @@ impl BattleSession {
         session
     }
 
-    /// 由世界与装载备注打开一局战役（保留预放单位；AI 默认关，剧本小队另行驱动）。
+    /// 由世界与装载备注打开一局战役（保留预放单位；AI 默认关，须「Production Begins」后才产）。
     pub fn open_campaign(world: BattleState, boot_note: impl Into<String>, preview_origin: (i32, i32), fingerprint: MatchFingerprint) -> Self {
         let mut session = Self::new(world, boot_note);
         session.set_preview_origin(preview_origin.0, preview_origin.1);
         session.set_fingerprint(fingerprint);
         session.boot_kind = SessionBootKind::Campaign;
         session.ai_enabled = false;
+        for player in &mut session.world.players {
+            player.production_begun = false;
+        }
         session
     }
 
@@ -179,7 +182,8 @@ impl BattleSession {
 
     /// 推进恰好一个仿真 tick（由 `Session` 时钟驱动；阶段顺序来自 `runtime.schedule`）。
     pub fn advance_one_tick(&mut self, runtime: &EngineRuntime<'_>) {
-        if self.ai_enabled {
+        // 遭遇战靠 `ai_enabled`；战役在某 house「Production Begins」后也会推 AI（仅已开生产的房主）。
+        if self.ai_enabled || self.world.any_house_production_begun() {
             self.push_ai_commands();
         }
         self.world.advance_scheduled_tick(runtime.schedule);
