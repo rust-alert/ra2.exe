@@ -562,39 +562,43 @@ impl BattleController {
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
         if show_pause_banner {
-            // 暂停族是覆盖战场的模态：不要再画 HUD 侧栏，否则钮会像钉在 cameo 槽上。
-            let overlay = match self.pause_layer {
-                BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
-                    w,
-                    h,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                ),
-                BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
-                    w,
-                    h,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                ),
-                BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
-                    w,
-                    h,
-                    &self.in_game_options,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                    self.pause_stub_notice,
-                ),
-            };
-            if let Some(page) = overlay {
+            // 暂停：先画暂停态右 hub（雷达关图徽 / side* / addon，无 cameo / 页签）+ 底命令条空轨，
+            // 再叠 pause 层（战术区 dim + bkgd* + SIDEBTTN）。右轨保持透明，露出 hub 金属壳。
+            if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
+                let overlay = match self.pause_layer {
+                    BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
+                        w,
+                        h,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                    ),
+                    BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
+                        w,
+                        h,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                    ),
+                    BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
+                        w,
+                        h,
+                        &self.in_game_options,
+                        self.pause_pressed,
+                        self.pause_hover,
+                        fnt,
+                        csf,
+                        self.pause_menu_chrome.as_ref(),
+                        self.pause_stub_notice,
+                    ),
+                };
+                if let Some(overlay) = overlay {
+                    ra_widgets::compose::blit_rgba(&mut page, &overlay, 0, 0);
+                }
                 let page = present::present_ui_page(page, present);
                 renderer.set_ui_overlay(page);
             }

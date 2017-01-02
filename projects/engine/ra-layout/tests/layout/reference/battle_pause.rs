@@ -1,6 +1,10 @@
-//! 暂停菜单专属 layout（不是 battle HUD / 主菜单；左区 bkgd* + 右轨 SIDEBTTN）。
+//! 暂停菜单专属 layout（不是 battle HUD / 主菜单；左区 `bkgd*` + 右缘 `SIDEBTTN`）。
+//! 右侧金属壳与底边命令条由暂停态 HUD chrome 垫底，本 snapshot 不声明 `sidebar`/`addon`。
 
-use ra_layout::{BATTLE_PAUSE_MENU_BUTTON_IDS, BATTLE_PAUSE_RAIL_W, rect_px_from_snapshot, solve_battle_pause, solve_battle_pause_at};
+use ra_layout::{
+    BATTLE_PAUSE_MENU_BUTTON_IDS, BATTLE_PAUSE_RAIL_W, COMMAND_BAR_H, rect_px_from_snapshot, solve_battle_pause,
+    solve_battle_pause_at,
+};
 
 #[test]
 fn battle_pause_is_not_battle_hud_or_main_shell() {
@@ -32,7 +36,8 @@ fn battle_pause_background_rail_and_buttons_at_800x600() {
     let snap = solve_battle_pause_at(800, 600);
     let background = rect_px_from_snapshot(&snap, "background");
     assert_eq!(background.w, 800 - BATTLE_PAUSE_RAIL_W as i32);
-    assert_eq!(background.h, 600);
+    // 底边留给命令条空轨，勿盖住。
+    assert_eq!(background.h, 600 - COMMAND_BAR_H);
     assert_eq!(background.x, 0);
     assert_eq!(background.y, 0);
     let rail = rect_px_from_snapshot(&snap, "rail");

@@ -41,9 +41,9 @@ fn compose_battle_pause_menu_dims_and_paints_sidebttn_cells() {
     let y = (game_controls.y + 4) as u32;
     let di = ((y * 800 + x) * 4) as usize;
     assert!(page.as_raw()[di + 3] >= 200, "button alpha={}", page.as_raw()[di + 3]);
-    // 右轨应不透明（盖住战场），取样轨中心。
-    let rail_x = 800 - 84;
-    let rail_y = 300u32;
+    // 右轨保持透明（避开 SIDEBTTN 槽），露出下层暂停态右 hub 金属壳。
+    let rail_x = 790u32;
+    let rail_y = 100u32;
     let ri = ((rail_y * 800 + rail_x) * 4) as usize;
-    assert_eq!(page.as_raw()[ri + 3], 255, "rail should be opaque");
+    assert_eq!(page.as_raw()[ri + 3], 0, "rail should stay transparent");
 }

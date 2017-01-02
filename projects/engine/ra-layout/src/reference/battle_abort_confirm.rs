@@ -1,7 +1,8 @@
 //! 对局放弃确认（暂停菜单二级页，几何权威为 `solve_battle_abort_confirm`）。
 //!
-//! 与暂停菜单同族：全屏 dim + 阵营 `bkgd*`（`uibkgd.pal`）+ 右轨暗底 + 右缘 `SIDEBTTN`
-//!（Leave / Cancel）。**不是**主菜单壳，**不是** battle HUD，**不是**自制居中黄框卡片。
+//! 与暂停菜单同族：战术区 dim + 阵营 `bkgd*`（`uibkgd.pal`）+ 右缘 `SIDEBTTN`
+//!（Leave / Cancel）。右侧金属壳与底边命令条空轨由暂停态 HUD chrome 垫底。
+//! **不是**主菜单壳，**不是**自制居中黄框卡片。
 
 use crate::{
     geometry::Rect,
@@ -36,9 +37,10 @@ fn prompt_rect(screen_w: f32, screen_h: f32) -> Rect {
 pub fn battle_abort_confirm_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
+    let world = battle_pause_background_rect(w, h);
     let children = vec![
-        fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h)),
-        fixed_rect_leaf("background", battle_pause_background_rect(w, h)),
+        fixed_rect_leaf("dim", world),
+        fixed_rect_leaf("background", world),
         fixed_rect_leaf("rail", battle_pause_rail_rect(w, h)),
         fixed_rect_leaf("prompt", prompt_rect(w, h)),
         fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[0], battle_sidebttn_rect(w, h, LEAVE_DLU)),

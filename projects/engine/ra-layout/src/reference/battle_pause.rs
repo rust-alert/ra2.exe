@@ -1,16 +1,17 @@
 //! 对局暂停菜单专属 layout（几何权威为 `solve_battle_pause`）。
 //!
-//! **不是** [`super::battle_hud`]，也**不是**主菜单 [`super::shell_chrome::solve_shell_page`]。
-//! 局内暂停主钮与局内选项 `0xBBB` 同走 owner-draw **type 2**：`SIDEBTTN.SHP` +
-//! `SIDEBAR.PAL`，右缘 inset 147、画布 125×25；竖向取资源 DLU + 相对 800×600 居中。
-//! 背景板为阵营 `bkgdsm` / `bkgdmd` / `bkgdlg`（按视口选档，调色板 `uibkgd.pal`），铺满左区
-//! （屏宽减去右轨 [`BATTLE_PAUSE_RAIL_W`]）与全高，禁止用 HUD 的 `side1`/`addon`/`radar` 冒充右轨。
-//! 禁止用自制黄框卡片冒充原版 UI。
+//! **不是**主菜单 [`super::shell_chrome::solve_shell_page`]。左区贴阵营 `bkgd*`（`uibkgd.pal`），
+//! 右缘 `SIDEBTTN` 六钮；**右侧金属壳与战术底边命令条空轨**由暂停态 HUD chrome 垫底
+//!（雷达关图、`side*`/`addon`、无 cameo），本 layout 不画也不用纯色轨冒充。
+//! 禁止自制黄框卡片。
 
 use crate::{
     BATTLE_PAUSE_MENU_BUTTON_IDS,
     geometry::Rect,
-    reference::{DluRect, MS_SANS_SERIF_8PT},
+    reference::{
+        DluRect, MS_SANS_SERIF_8PT,
+        battle_hud::COMMAND_BAR_H,
+    },
     snapshot::LayoutSnapshot,
     solver::LayoutEngine,
     spec::{LayoutNode, fixed_rect_leaf, root_with_fixed_children},
@@ -72,15 +73,16 @@ pub fn battle_pause_background_size(screen_w: f32, screen_h: f32) -> (f32, f32) 
     }
 }
 
-/// 暂停背景板矩形：左区铺满（宽 = 屏宽 − 右轨），高铺满视口，消除上下空隙。
+/// 暂停背景板矩形：战术区（侧栏以左、命令条以上），勿盖住底边命令条空轨。
 pub fn battle_pause_background_rect(screen_w: f32, screen_h: f32) -> Rect {
     let w = screen_w.max(1.0);
     let h = screen_h.max(1.0);
     let bw = (w - BATTLE_PAUSE_RAIL_W).max(1.0);
-    Rect::from_xywh(0.0, 0.0, bw, h)
+    let bh = (h - COMMAND_BAR_H as f32).max(1.0);
+    Rect::from_xywh(0.0, 0.0, bw, bh)
 }
 
-/// 右缘按钮轨矩形（仅暗底占位，**不是** HUD chrome）。
+/// 右缘按钮轨矩形（透明占位，供命中/诊断；合成时不填色，露出 HUD 侧栏壳）。
 pub fn battle_pause_rail_rect(screen_w: f32, screen_h: f32) -> Rect {
     let w = screen_w.max(1.0);
     let h = screen_h.max(1.0);
@@ -97,13 +99,14 @@ pub fn battle_sidebttn_rect(screen_w: f32, screen_h: f32, dlu: DluRect) -> Rect 
     Rect::from_xywh(x, y, BATTLE_PAUSE_BUTTON_W, BATTLE_PAUSE_BUTTON_H)
 }
 
-/// 暂停菜单布局树（窗口 / 设计像素）：全屏 dim + 左背景板 + 右轨 + 右缘 `SIDEBTTN` 六钮。
+/// 暂停菜单布局树：战术区 dim/背景板 + 右轨占位 + 右缘 `SIDEBTTN` 六钮。
 pub fn battle_pause_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
+    let world = battle_pause_background_rect(w, h);
     let mut children = vec![
-        fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h)),
-        fixed_rect_leaf("background", battle_pause_background_rect(w, h)),
+        fixed_rect_leaf("dim", world),
+        fixed_rect_leaf("background", world),
         fixed_rect_leaf("rail", battle_pause_rail_rect(w, h)),
     ];
     for (id, dlu) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(BUTTON_DLUS.iter()) {
