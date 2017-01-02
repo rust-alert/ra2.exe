@@ -55,6 +55,7 @@ impl BattleState {
                     crate::gameplay::tick_ai_triggers(self);
                     crate::gameplay::flush_pending_team_spawns(self);
                     crate::gameplay::tick_script_teams(self);
+                    crate::gameplay::tick_script_crates(self);
                 }
                 SystemPhase::Rehash => {
                     self.sync_ecs_components();

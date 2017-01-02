@@ -87,6 +87,8 @@ pub enum MapActionKind {
     UnlockInput,
     /// 航点处造成 100 点伤害（HE 竖切）。
     Apply100Damage,
+    /// 在航点创建可拾取箱。
+    CreateCrate,
     /// 创建 TeamType。
     CreateTeam,
     /// 销毁指定 TeamType。
@@ -245,6 +247,7 @@ impl MapActionKind {
             101 => Self::ReshroudMapAt,
             103 => Self::TimerText,
             104 => Self::FlashTeam,
+            108 => Self::CreateCrate,
             113 => Self::MakeHouseCheer,
             114 => Self::SetSidebarTab,
             115 => Self::FlashCameo,
@@ -266,6 +269,7 @@ impl MapActionKind {
             Self::LockInput => 46,
             Self::UnlockInput => 47,
             Self::Apply100Damage => 63,
+            Self::CreateCrate => 108,
             Self::CreateTeam => 4,
             Self::DestroyTeam => 5,
             Self::AllToHunt => 6,
@@ -329,6 +333,7 @@ impl MapActionKind {
         Self::LockInput,
         Self::UnlockInput,
         Self::Apply100Damage,
+        Self::CreateCrate,
         Self::CreateTeam,
         Self::DestroyTeam,
         Self::AllToHunt,

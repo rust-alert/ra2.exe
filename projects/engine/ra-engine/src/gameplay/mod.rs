@@ -45,4 +45,5 @@ pub(crate) use tech_tree::{TechTreePlayer, build_limit_reached, is_type_eligible
 pub use terrain_spawn::{
     TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample, terrain_spawner_frame_signature,
 };
-pub use triggers::{TriggerRuntime, tick_triggers};
+pub use triggers::{SCRIPT_CRATE_CREDITS, ScriptCrate, TriggerRuntime, tick_triggers};
+pub(crate) use triggers::tick_script_crates;

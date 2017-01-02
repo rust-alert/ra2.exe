@@ -6,6 +6,7 @@ mod battle_stats;
 mod campaign_starts;
 mod capabilities;
 mod command_codec;
+mod create_crate;
 mod difficulty_ai;
 mod duplicate_command;
 mod economy_orders;

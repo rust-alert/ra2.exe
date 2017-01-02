@@ -44,7 +44,23 @@ pub struct TriggerRuntime {
     deferred_victory_house: Option<String>,
     /// 剧本「Lock input」：为真时 host 应吞掉对局操作（暂停/Esc 仍可用）。
     pub script_input_locked: bool,
+    /// 剧本动作刷出的可拾取箱（竖切：踩格领固定资金）。
+    pub script_crates: Vec<ScriptCrate>,
 }
+
+/// 剧本 `CreateCrate` 刷出的箱子。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScriptCrate {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 原版箱子类型参数（竖切暂不区分效果）。
+    pub crate_type: String,
+}
+
+/// 剧本箱踩格领取的资金（竖切固定值，完整 Powerups 表后置）。
+pub const SCRIPT_CRATE_CREDITS: i32 = 2_000;
 
 impl TriggerRuntime {
     /// 从地图剧本播种；无触发则空运行时。
@@ -68,6 +84,7 @@ impl TriggerRuntime {
             win_blockers: count_allow_win_actions(scripting),
             deferred_victory_house: None,
             script_input_locked: false,
+            script_crates: Vec::new(),
         }
     }
 
@@ -415,6 +432,11 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         }
         MapActionKind::Apply100Damage => {
             if !apply_100_damage_at_action_waypoint(world, cmd) {
+                world.trigger_runtime.record_unsupported(cmd.kind);
+            }
+        }
+        MapActionKind::CreateCrate => {
+            if !spawn_script_crate_at_action(world, cmd) {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
@@ -919,6 +941,86 @@ fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &MapActionC
         world.apply_damage(index, 100);
     }
     true
+}
+
+/// 在航点刷出剧本箱。参数：`params[1]`=类型，`params[6]`=航点号（缺航点则失败并记 unsupported）。
+fn spawn_script_crate_at_action(world: &mut BattleState, cmd: &MapActionCommand) -> bool {
+    let crate_type = cmd
+        .params
+        .get(1)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("0")
+        .to_string();
+    // Create Crate：类型在 P2（params[1]），航点在 P7（params[6]）；禁止把类型误当航点。
+    let Some(wp_idx) = cmd
+        .params
+        .get(6)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse::<u32>().ok())
+    else {
+        return false;
+    };
+    let Some(wp) = world.map.waypoints.iter().find(|w| w.index == wp_idx).copied()
+    else {
+        return false;
+    };
+    // 奖励暂固定竖切，尚未按 Powerups 类型表解析。
+    world.trigger_runtime.script_crates.push(ScriptCrate {
+        x: wp.x,
+        y: wp.y,
+        crate_type,
+    });
+    true
+}
+
+/// 机动单位踩到剧本箱时领取固定资金并移除该箱。
+pub fn tick_script_crates(world: &mut BattleState) {
+    if world.trigger_runtime.script_crates.is_empty() {
+        return;
+    }
+    let mut collected = Vec::new();
+    for (ci, crate_spawn) in world.trigger_runtime.script_crates.iter().enumerate() {
+        for entity in &world.entities {
+            let id = entity.id;
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
+                continue;
+            }
+            let Some(xf) = world.ecs_get::<Transform>(id)
+            else {
+                continue;
+            };
+            if xf.x != crate_spawn.x || xf.y != crate_spawn.y {
+                continue;
+            }
+            let Some(house) = world.ecs_get::<Owner>(id).map(|o| o.house.to_string())
+            else {
+                continue;
+            };
+            collected.push((ci, house));
+            break;
+        }
+    }
+    // 从后往前删，避免下标错位；同一 tick 多箱可被不同单位领。
+    collected.sort_by(|a, b| b.0.cmp(&a.0));
+    let mut seen = std::collections::HashSet::new();
+    for (ci, house) in collected {
+        if !seen.insert(ci) {
+            continue;
+        }
+        if ci >= world.trigger_runtime.script_crates.len() {
+            continue;
+        }
+        world.trigger_runtime.script_crates.remove(ci);
+        let _ = world.set_house_funds(
+            &house,
+            world.house_funds(&house).unwrap_or(0).saturating_add(SCRIPT_CRATE_CREDITS),
+        );
+    }
 }
 
 fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
