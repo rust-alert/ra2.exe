@@ -26,7 +26,7 @@ pub use reference::{
     solve_campaign, solve_choose_map, solve_exit_confirm, solve_load_screen, solve_network_page, solve_options_page, solve_shell_page,
     solve_skirmish_lobby, SCORE_ROW_SLOTS, solve_skirmish_score, BATTLE_ABORT_CONFIRM_BUTTON_IDS, BATTLE_IN_GAME_OPTIONS_BUTTON_IDS,
     BATTLE_PAUSE_BKGD_LG, BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM, BATTLE_PAUSE_RAIL_W, battle_pause_background_rect,
-    battle_pause_background_size, battle_pause_rail_rect,
+    battle_pause_background_size, battle_pause_rail_rect, solve_battle_pause_with_metrics,
 };
 pub use shell::*;
 pub use snapshot::{HitRegion, HitTestMode, LayoutBox, LayoutElement, LayoutSnapshot};

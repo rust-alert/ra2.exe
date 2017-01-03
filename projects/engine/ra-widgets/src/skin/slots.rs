@@ -130,9 +130,10 @@ const MNBTTN_FRAME_PRESSED: u16 = 1;
 const MNBTTN_FRAME_DISABLED: u16 = 2;
 
 /// 主菜单 chrome：`sdtp` 帧 0 作外壳，`sdwrnanm` 仅作窗内内容（合成时 1:1 裁入，勿整幅拉伸）。
+/// WARNING 窗内动画必须用 `shell2.pal`（`shell.pal` 会把 LCD 解成发白日光球）。
 const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
@@ -141,7 +142,7 @@ const MAIN_MENU_PANELS: &[UiPanelSlot] = &[
 /// 主菜单壳层 + 退出确认底板。
 const EXIT_CONFIRM_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },
@@ -204,7 +205,7 @@ const CAMPAIGN_BUTTONS: &[UiButtonSlot] = &[main_menu_button("back", MenuAction:
 /// 战役页面板：壳层 chrome。三侧 `fs*.shp` 供悬停箭头透叠；静态徽标在 `fsbkgdlg`。
 const CAMPAIGN_PANELS: &[UiPanelSlot] = &[
     UiPanelSlot { id: "right_top", shp: "sdtp.shp", pal: "shell.pal", frame: 0 },
-    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell.pal", frame: 0 },
+    UiPanelSlot { id: "warn_anim", shp: "sdwrnanm.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_tile", shp: "sdbtnbkgd.shp", pal: "shell2.pal", frame: 0 },
     UiPanelSlot { id: "right_bottom", shp: "sdbtm.shp", pal: "shell.pal", frame: 0 },
     UiPanelSlot { id: "lower_side", shp: "lwscrnl.shp", pal: "shell.pal", frame: 0 },

@@ -295,7 +295,17 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = &chrome.side1 {
         blit_chrome_slot(page, &s.image, side1);
     }
-    if let Some(tile) = &chrome.side2 {
+    if pause_menu {
+        // 暂停右栏是列表区：只铺实色，禁止 `side2` cameo 格子平铺。
+        let list_fill = chrome
+            .side1
+            .as_ref()
+            .or(chrome.side3.as_ref())
+            .or(chrome.top.as_ref())
+            .and_then(|s| sample_opaque_rgb(&s.image))
+            .unwrap_or(sidebar_fill);
+        fill_rect(page, cameo_band, list_fill);
+    } else if let Some(tile) = &chrome.side2 {
         let th = tile.image.height().max(1) as i32;
         let mut y = cameo_band.y;
         while y < cameo_band.y + cameo_band.h {
@@ -323,20 +333,18 @@ pub fn blit_battle_hud_chrome_ex(
         if let Some(s) = sell_sprite {
             blit_button_in_cell(page, &s.image, sell);
         }
-    }
-    if let Some(s) = &chrome.powerp {
-        // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
-        let meter_w = power_meter_w.min(sidebar.w).max(1);
-        let strip_h = s.image.height().max(1) as i32;
-        let mut y = cameo_band.y;
-        let bottom = cameo_band.y + cameo_band.h;
-        while y < bottom {
-            let h = (bottom - y).min(strip_h);
-            blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
-            y += strip_h;
+        if let Some(s) = &chrome.powerp {
+            // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
+            let meter_w = power_meter_w.min(sidebar.w).max(1);
+            let strip_h = s.image.height().max(1) as i32;
+            let mut y = cameo_band.y;
+            let bottom = cameo_band.y + cameo_band.h;
+            while y < bottom {
+                let h = (bottom - y).min(strip_h);
+                blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
+                y += strip_h;
+            }
         }
-    }
-    if !pause_menu {
         // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
         for (i, tab) in chrome.tabs.iter().enumerate() {
             if !tabs_visible.get(i).copied().unwrap_or(false) {
@@ -356,11 +364,58 @@ pub fn blit_battle_hud_chrome_ex(
             blit_button_in_cell(page, &s.image, opt_btn);
         }
         blit_command_bar(page, chrome, snap, command_pressed);
-    }
-    else {
+    } else {
         // 暂停：整段命令轨保留金属细节，不露编队/部署钮。
         blit_command_bar_track(page, chrome, snap, /* with_buttons */ false, None);
     }
+}
+
+/// 暂停右 hub：只认 pause snapshot 槽位（`list_band` 等），雷达关图、无 cameo 格子/电表/页签。
+///
+/// 供 [`crate::compose::compose_battle_pause_menu_overlay`] 单层合成，禁止再叠一套 HUD。
+pub fn blit_battle_pause_hub_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, snap: &LayoutSnapshot) {
+    let sidebar = rect_px_from_snapshot(snap, "sidebar");
+    let credits = rect_px_from_snapshot(snap, "credits");
+    let top = rect_px_from_snapshot(snap, "top");
+    let radar = rect_px_from_snapshot(snap, "radar");
+    let side1 = rect_px_from_snapshot(snap, "side1");
+    let list_band = rect_px_from_snapshot(snap, "list_band");
+    let side3 = rect_px_from_snapshot(snap, "side3");
+    let addon = rect_px_from_snapshot(snap, "addon");
+    let bottom_strip = RectPx::new(sidebar.x, side3.y, sidebar.w, (sidebar.y + sidebar.h - side3.y).max(1));
+
+    let sidebar_fill = chrome
+        .side1
+        .as_ref()
+        .or(chrome.side3.as_ref())
+        .or(chrome.top.as_ref())
+        .and_then(|s| sample_opaque_rgb(&s.image))
+        .unwrap_or([40, 44, 52, 255]);
+    fill_rect(page, sidebar, sidebar_fill);
+
+    if let Some(s) = &chrome.credits {
+        blit_chrome_slot(page, &s.image, credits);
+    }
+    if let Some(s) = &chrome.top {
+        blit_chrome_slot(page, &s.image, top);
+    }
+    if let Some(s) = chrome.radar.as_ref() {
+        blit_chrome_slot(page, &s.image, radar);
+    }
+    if let Some(s) = &chrome.side1 {
+        blit_chrome_slot(page, &s.image, side1);
+    }
+    // 列表区实色，禁止 `side2` cameo 格子。
+    fill_rect(page, list_band, sidebar_fill);
+    let bottom_fill = chrome.addon.as_ref().or(chrome.side3.as_ref()).and_then(|s| sample_opaque_rgb(&s.image)).unwrap_or(sidebar_fill);
+    fill_rect(page, bottom_strip, bottom_fill);
+    if let Some(s) = &chrome.side3 {
+        blit_chrome_slot(page, &s.image, side3);
+    }
+    if let Some(s) = &chrome.addon {
+        blit_chrome_slot(page, &s.image, addon);
+    }
+    blit_command_bar_track(page, chrome, snap, /* with_buttons */ false, None);
 }
 
 /// 便捷：按视口与 chrome 嵌套包度量生成布局并绘制。

@@ -14,6 +14,6 @@ pub use decode::{
 };
 pub use hit_test::{BattleCameoPaint, BattleHudHit, hit_at, hit_at_with_chrome};
 pub use render::{
-    blit_battle_cameos, blit_battle_hud_chrome, blit_battle_hud_chrome_ex, blit_battle_hud_chrome_with_state, blit_command_bar_track,
-    cameo_ready_flash_on, paint_battle_hud_chrome, paint_cameo_progress_clock,
+    blit_battle_cameos, blit_battle_hud_chrome, blit_battle_hud_chrome_ex, blit_battle_hud_chrome_with_state, blit_battle_pause_hub_chrome,
+    blit_command_bar_track, cameo_ready_flash_on, paint_battle_hud_chrome, paint_cameo_progress_clock,
 };

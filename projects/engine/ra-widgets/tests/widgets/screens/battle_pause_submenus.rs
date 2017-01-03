@@ -24,7 +24,7 @@ fn abort_confirm_hits_leave_and_cancel() {
 
 #[test]
 fn compose_abort_confirm_dims_page() {
-    let page = compose_battle_abort_confirm_overlay(800, 600, None, Some("leave"), None, None, None).unwrap();
+    let page = compose_battle_abort_confirm_overlay(800, 600, None, Some("leave"), None, None, None, None, None).unwrap();
     assert_eq!(page.width(), 800);
     assert_eq!(page.height(), 600);
     assert!(page.as_raw()[3] > 0);
@@ -42,7 +42,7 @@ fn in_game_options_hits_back_and_tracks() {
 #[test]
 fn compose_in_game_options_shows_stub_notice_alpha() {
     let state = BattleInGameOptionsState::default();
-    let page = compose_battle_in_game_options_overlay(800, 600, &state, None, None, None, None, None, Some("暂未实现")).unwrap();
+    let page = compose_battle_in_game_options_overlay(800, 600, &state, None, None, None, None, None, Some("暂未实现"), None, None).unwrap();
     assert_eq!(page.width(), 800);
     assert!(page.as_raw()[3] > 0);
 }

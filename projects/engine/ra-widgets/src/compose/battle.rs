@@ -2,8 +2,10 @@
 
 use super::*;
 use crate::{
+    battle_hud::{BattleHudChrome, blit_battle_pause_hub_chrome},
     battle_pause_menu::{
-        BattlePauseChrome, background_rect, button_rects, dim_rect, entry_enabled, resolve_background, resolve_sidebttn,
+        BattlePauseChrome, background_rect_with_metrics, button_rects_with_metrics, dim_rect_with_metrics, entry_enabled,
+        pause_snapshot_with_metrics, resolve_background, resolve_sidebttn,
     },
     skin::text::battle_pause_menu_fallback_label,
 };
@@ -221,10 +223,10 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
     }
 }
 
-/// 合成对局暂停菜单叠加层（叠在暂停态 HUD chrome 之上；右壳 / 底命令条由 HUD 垫底）。
+/// 合成对局暂停菜单整页（单层：pause hub + dim + `bkgd*` + `SIDEBTTN`）。
 ///
-/// 本层只画：战术区 `dim` + 左区 `bkgd*`（`uibkgd.pal`）+ 右缘 `SIDEBTTN`（`sidebar.pal`）。
-/// 右轨保持透明，勿填纯色盖住金属壳；禁止自制黄框卡片。
+/// `hud_chrome` 提供右栏金属壳（关图雷达 / `list_band` 实色 / 命令空轨）；缺省时只画左区菜单。
+/// 禁止再叠一套 HUD 垫底；禁止自制黄框卡片。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -233,20 +235,22 @@ pub fn compose_battle_pause_menu_overlay(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     pause: Option<&BattlePauseChrome>,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
 ) -> Option<RgbaImage> {
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
 
-    let dim = dim_rect(w, h);
-    fill_rect(&mut page, dim, [0, 0, 0, 160]);
+    fill_rect(&mut page, dim_rect_with_metrics(w, h, metrics), [0, 0, 0, 160]);
 
-    let bg_cell = background_rect(w, h);
+    let bg_cell = background_rect_with_metrics(w, h, metrics);
     if let Some(sprite) = pause.and_then(|p| resolve_background(p, w as f32, h as f32)) {
         blit_stretched(&mut page, &sprite.image, bg_cell);
     }
 
-    let rects = button_rects(w, h);
+    let rects = button_rects_with_metrics(w, h, metrics);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
         let enabled = entry_enabled(entry_id);
         let pressed = enabled && pressed_entry_id == Some(*entry_id);
@@ -276,7 +280,7 @@ pub fn compose_battle_pause_menu_overlay(
     Some(page)
 }
 
-/// 合成放弃确认叠层（叠在暂停态 HUD chrome 上：战术区 dim + `bkgd*` + `SIDEBTTN`）。
+/// 合成放弃确认整页（单层：pause hub + dim + `bkgd*` + `SIDEBTTN`）。
 pub fn compose_battle_abort_confirm_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -285,6 +289,8 @@ pub fn compose_battle_abort_confirm_overlay(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
     pause: Option<&BattlePauseChrome>,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
 ) -> Option<RgbaImage> {
     use crate::{
         battle_abort_confirm::{
@@ -297,6 +303,7 @@ pub fn compose_battle_abort_confirm_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let _metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
 
     fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 160]);
 
@@ -343,7 +350,40 @@ pub fn compose_battle_abort_confirm_overlay(
     Some(page)
 }
 
-/// 合成局内选项 `0xBBB` 叠层。
+/// 在暂停叠层底部画右 hub（关图雷达 / `list_band` / 命令空轨）与资金条。
+fn paint_pause_hub_base(
+    page: &mut RgbaImage,
+    w: u32,
+    h: u32,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
+    fnt: Option<&FntFile>,
+) -> BattleHudChromeMetrics {
+    let metrics = match hud_chrome {
+        Some(c) => BattleHudChromeMetrics::for_mix(&c.mix),
+        None => BattleHudChromeMetrics::sidec01(),
+    };
+    if let Some(chrome) = hud_chrome.filter(|c| c.has_sidebar_body()) {
+        let snap = pause_snapshot_with_metrics(w, h, metrics);
+        blit_battle_pause_hub_chrome(page, chrome, &snap);
+        if let (Some(fnt), Some(funds)) = (fnt, funds) {
+            let credits = rect_px_from_snapshot(&snap, "credits");
+            blit_caption_in_cell(
+                page,
+                fnt,
+                &funds.to_string(),
+                credits.x,
+                credits.y,
+                credits.w,
+                credits.h,
+                [0, 220, 255, 255],
+            );
+        }
+    }
+    metrics
+}
+
+/// 合成局内选项 `0xBBB` 整页（单层：pause hub + 选项控件）。
 pub fn compose_battle_in_game_options_overlay(
     viewport_w: u32,
     viewport_h: u32,
@@ -354,6 +394,8 @@ pub fn compose_battle_in_game_options_overlay(
     csf: Option<&CsfFile>,
     pause: Option<&BattlePauseChrome>,
     stub_notice: Option<&str>,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
 ) -> Option<RgbaImage> {
     use crate::{
         battle_in_game_options::{button_rects as opts_button_rects, options_snapshot},
@@ -366,6 +408,7 @@ pub fn compose_battle_in_game_options_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let _metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
     let snap = options_snapshot(w, h);
 
     fill_rect(&mut page, rect_px_from_snapshot(&snap, "dim"), [0, 0, 0, 160]);

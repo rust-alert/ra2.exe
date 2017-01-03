@@ -1,14 +1,15 @@
 //! 对局内暂停菜单（原版 Esc 菜单）。
 //!
-//! 几何权威为 [`ra_layout::solve_battle_pause_at`]（专属 layout，**不是** battle HUD，
-//! **也不是**主菜单 shell）。合成：全屏 `dim` + 左区阵营 `bkgd*`（`uibkgd.pal`）+ 右轨暗底 +
-//! 右缘 `SIDEBTTN`（`sidebar.pal`）。禁止复用 HUD 的 `side1`/`addon`/`radar`/`cameo`；
-//! 禁止自制黄框卡片；禁止主菜单 `sdtp` / `sdbtnanm`。
+//! 几何权威为 [`ra_layout::solve_battle_pause_with_metrics`]（专属 layout，**不是**对局 HUD 树，
+//! **也不是**主菜单 shell）。合成单层：pause hub chrome（`list_band` 等）+ 战术区 `dim` +
+//! 左区阵营 `bkgd*`（`uibkgd.pal`）+ 右缘 `SIDEBTTN`（`sidebar.pal`）。
+//! hub 槽位几何可与 HUD 同源，但 snapshot id 独立；禁止叠第二套 HUD；禁止自制黄框卡片；
+//! 禁止主菜单 `sdtp` / `sdbtnanm`。
 
 use ra_assets::{Palette, ShpFile};
 use ra_layout::{
-    BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM, BATTLE_PAUSE_MENU_BUTTON_IDS, LayoutSnapshot, RectPx,
-    battle_pause_background_size, rect_px_from_snapshot, solve_battle_pause_at,
+    BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM, BATTLE_PAUSE_MENU_BUTTON_IDS, BattleHudChromeMetrics, LayoutSnapshot, RectPx,
+    battle_pause_background_size, rect_px_from_snapshot, solve_battle_pause_at, solve_battle_pause_with_metrics,
 };
 
 use crate::{
@@ -266,29 +267,54 @@ pub fn decode_battle_pause_chrome_with(
     }
 }
 
-/// 暂停菜单 snapshot（与合成 / 命中同口径）。
+/// 暂停菜单 snapshot（默认 `sidec01` 度量；与合成 / 命中同口径）。
 pub fn pause_snapshot(viewport_w: u32, viewport_h: u32) -> LayoutSnapshot {
     solve_battle_pause_at(viewport_w, viewport_h)
 }
 
+/// 按侧栏 chrome 度量求解暂停 snapshot。
+pub fn pause_snapshot_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> LayoutSnapshot {
+    solve_battle_pause_with_metrics(viewport_w, viewport_h, metrics)
+}
+
 /// 全屏压暗矩形。
 pub fn dim_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
-    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "dim")
+    dim_rect_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
+}
+
+/// 按度量取战术区压暗矩形。
+pub fn dim_rect_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot_with_metrics(viewport_w, viewport_h, metrics), "dim")
 }
 
 /// 暂停背景板在窗口像素中的矩形。
 pub fn background_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
-    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "background")
+    background_rect_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
+}
+
+/// 按度量取左区 `bkgd*` 矩形。
+pub fn background_rect_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot_with_metrics(viewport_w, viewport_h, metrics), "background")
 }
 
 /// 右缘按钮轨矩形。
 pub fn rail_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
-    rect_px_from_snapshot(&pause_snapshot(viewport_w, viewport_h), "rail")
+    rail_rect_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
+}
+
+/// 按度量取右缘轨矩形。
+pub fn rail_rect_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> RectPx {
+    rect_px_from_snapshot(&pause_snapshot_with_metrics(viewport_w, viewport_h, metrics), "rail")
 }
 
 /// 暂停主钮在窗口像素中的矩形（来自专属 layout snapshot）。
 pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 6] {
-    let snap = pause_snapshot(viewport_w, viewport_h);
+    button_rects_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01())
+}
+
+/// 按侧栏度量取六钮矩形。
+pub fn button_rects_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> [RectPx; 6] {
+    let snap = pause_snapshot_with_metrics(viewport_w, viewport_h, metrics);
     let mut rects = [RectPx::new(0, 0, 1, 1); 6];
     for (i, id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
         rects[i] = rect_px_from_snapshot(&snap, id);
@@ -296,9 +322,20 @@ pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 6] {
     rects
 }
 
-/// 窗口像素命中（与合成同口径；禁用项不命中）。
+/// 窗口像素命中（默认度量；禁用项不命中）。
 pub fn hit_at(viewport_w: u32, viewport_h: u32, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
-    let snap = pause_snapshot(viewport_w, viewport_h);
+    hit_at_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01(), x, y)
+}
+
+/// 按侧栏度量命中（与合成同口径；禁用项不命中）。
+pub fn hit_at_with_metrics(
+    viewport_w: u32,
+    viewport_h: u32,
+    metrics: BattleHudChromeMetrics,
+    x: i32,
+    y: i32,
+) -> Option<BattlePauseMenuHit> {
+    let snap = pause_snapshot_with_metrics(viewport_w, viewport_h, metrics);
     let hit = snap.hit_test(ra_layout::Point2 { x: x as f32, y: y as f32 })?;
     let id = hit.id.0.as_str();
     if !entry_enabled(id) {

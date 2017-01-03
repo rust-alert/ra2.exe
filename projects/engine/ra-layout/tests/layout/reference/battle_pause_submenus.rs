@@ -9,7 +9,8 @@ fn abort_confirm_and_options_share_sidebttn_rail() {
     let pause = solve_battle_pause();
     let abort = solve_battle_abort_confirm();
     let opts = solve_battle_in_game_options();
-    assert!(pause.get("sidebar").is_none());
+    assert!(pause.get("list_band").is_some());
+    assert!(pause.get("cameo_band").is_none());
     assert!(pause.get("card").is_none());
     assert!(abort.get("panel_top").is_none());
     assert!(abort.get("background").is_some());
