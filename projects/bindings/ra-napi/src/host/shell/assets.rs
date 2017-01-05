@@ -7,8 +7,9 @@ use ra_renderer::RgbaImage;
 use ra_types::AssetSource;
 use ra_widgets::{
     chrome::movie::MenuMoviePlayer,
+    load_kind::LoadKind,
     original_screen::OriginalScreen,
-    screens::page::{page_resources_for_load_screen_with, page_resources_from_slots_with_edition},
+    screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition},
     skin::{assets::load_menu_ui_assets, decode, resolve, slots::menu_movie_prefer_mix},
 };
 
@@ -59,14 +60,35 @@ impl Shell {
         };
         let edition = assets.edition;
         let page = if self.screen == OriginalScreen::LoadScreen {
-            let country = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
-            let rules_shp = country.map(|c| c.load_screen.as_str()).filter(|s| !s.is_empty());
-            let rules_pal = country.map(|c| c.load_screen_pal.as_str()).filter(|s| !s.is_empty());
+            // 战役：`mission.ini` `LS*BkgdName`；遭遇战：国家 `File.LoadScreen`。
+            let (rules_shp, rules_pal) = if self.load_kind == LoadKind::Campaign {
+                (self.load_background_shp.as_deref(), Some("mpls.pal"))
+            } else {
+                let country = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
+                (
+                    country.map(|c| c.load_screen.as_str()).filter(|s| !s.is_empty()),
+                    country.map(|c| c.load_screen_pal.as_str()).filter(|s| !s.is_empty()),
+                )
+            };
             page_resources_for_load_screen_with(&self.skirmish.side, self.window_width as u32, rules_shp, rules_pal, |name| {
                 source.resolve(name).is_some()
             })
-        }
-        else {
+        } else if self.screen == OriginalScreen::Results {
+            // 优先阵营战报图；缺图再回退槽位（已无 movie），并 WARN，避免静默叠主菜单 Logo 片。
+            let side = self.results_score_side_id();
+            let chrome = self.resolve_ui_faction_chrome(side.as_str(), Some(side.as_str()));
+            let scored = chrome
+                .as_ref()
+                .and_then(|c| page_resources_for_results_with(side.as_str(), c, |name| source.resolve(name).is_some()));
+            if scored.is_none() {
+                tracing::warn!(
+                    %side,
+                    has_chrome = chrome.is_some(),
+                    "结算页缺少 MultiplayerScore 战报图/调色板，回退 mnscrnl（无 Logo 影片）"
+                );
+            }
+            scored.or_else(|| page_resources_from_slots_with_edition(self.screen, edition))
+        } else {
             page_resources_from_slots_with_edition(self.screen, edition)
         };
         let Some(page) = page
@@ -115,34 +137,41 @@ impl Shell {
         }
 
         if let Some(movie) = page.movie.as_ref() {
-            // YR / Mo3：同名 `ra2ts_*.bik` 在 `langmd.mix`（勿误用 `language.mix` 的原版片）。
-            let prefer_mix = menu_movie_prefer_mix(edition);
-            let movie_bytes = prefer_mix
-                .and_then(|mix| source.resolve_preferring(&movie.name, mix).map(|h| h.bytes))
-                .or_else(|| source.read(&movie.name).ok());
-            match movie_bytes {
-                Some(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
-                    Ok(player) => {
-                        tracing::info!(
-                            name = %player.name(),
-                            prefer_mix = ?prefer_mix,
-                            "主菜单影片播放器已就绪（自研 Bink）"
-                        );
-                        banner = format!("{banner} · {} 已解首帧", movie.name);
-                        self.menu_movie = Some(player);
-                        self.menu_movie_clock = Some(Instant::now());
-                    }
-                    Err(e) => {
-                        tracing::warn!(name = %movie.name, "影片播放器启动失败 · {e}");
-                        banner = format!("{banner} · {} 解码失败", movie.name);
+            // 结算页永不播主菜单 Logo 影片（战报图自带 CRT；叠片即「多界面」）。
+            if self.screen == OriginalScreen::Results {
+                tracing::warn!(name = %movie.name, "结算页资源配置了影片，已忽略");
+                self.menu_movie = None;
+                self.menu_movie_clock = None;
+            } else {
+                // YR / Mo3：同名 `ra2ts_*.bik` 在 `langmd.mix`（勿误用 `language.mix` 的原版片）。
+                let prefer_mix = menu_movie_prefer_mix(edition);
+                let movie_bytes = prefer_mix
+                    .and_then(|mix| source.resolve_preferring(&movie.name, mix).map(|h| h.bytes))
+                    .or_else(|| source.read(&movie.name).ok());
+                match movie_bytes {
+                    Some(bytes) => match MenuMoviePlayer::open(&movie.name, bytes) {
+                        Ok(player) => {
+                            tracing::info!(
+                                name = %player.name(),
+                                prefer_mix = ?prefer_mix,
+                                "主菜单影片播放器已就绪（自研 Bink）"
+                            );
+                            banner = format!("{banner} · {} 已解首帧", movie.name);
+                            self.menu_movie = Some(player);
+                            self.menu_movie_clock = Some(Instant::now());
+                        }
+                        Err(e) => {
+                            tracing::warn!(name = %movie.name, "影片播放器启动失败 · {e}");
+                            banner = format!("{banner} · {} 解码失败", movie.name);
+                            self.menu_movie = None;
+                            self.menu_movie_clock = None;
+                        }
+                    },
+                    None => {
+                        tracing::warn!(name = %movie.name, "影片不可读");
                         self.menu_movie = None;
                         self.menu_movie_clock = None;
                     }
-                },
-                None => {
-                    tracing::warn!(name = %movie.name, "影片不可读");
-                    self.menu_movie = None;
-                    self.menu_movie_clock = None;
                 }
             }
         }

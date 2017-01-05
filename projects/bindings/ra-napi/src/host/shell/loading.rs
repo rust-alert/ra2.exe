@@ -51,6 +51,8 @@ impl Shell {
         }
         self.load_kind = LoadKind::Skirmish;
         self.ensure_lobby_sides();
+        self.load_brief_origin = None;
+        self.load_background_shp = None;
         self.load_brief_csf = self
             .lobby_countries
             .iter()
@@ -102,6 +104,7 @@ impl Shell {
             return;
         };
         self.campaign_side = Some(side);
+        // 简报文案优先 `mission.ini` `LSLoadBriefing`；缺表时暂用 `battle.ini` `Description`。
         self.load_brief_csf = if camp.description_csf.is_empty() {
             None
         } else {
@@ -139,6 +142,27 @@ impl Shell {
         }
 
         self.load_kind = LoadKind::Campaign;
+        // 关卡装载外观：`mission.ini` 的 `LS*` 背景与简报，禁止回退国家 `ls*`。
+        if let Some(pres) = boot::resolve_install_mission_presentation(scenario) {
+            let vw = self.window_width as u32;
+            self.load_background_shp = pres.background_shp_for_viewport(vw).map(str::to_string);
+            self.load_brief_origin = Some(pres.brief_loc_for_viewport(vw));
+            if !pres.load_briefing_csf.is_empty() {
+                self.load_brief_csf = Some(pres.load_briefing_csf.to_string());
+            } else if !pres.briefing_csf.is_empty() {
+                self.load_brief_csf = Some(pres.briefing_csf.to_string());
+            }
+            tracing::info!(
+                scenario,
+                bg = ?self.load_background_shp,
+                brief = ?self.load_brief_csf,
+                "已解析战役装载外观"
+            );
+        } else {
+            self.load_background_shp = None;
+            self.load_brief_origin = None;
+            tracing::warn!(scenario, "mission.ini 无该 scenario · 战役装载缺 LS 背景");
+        }
         self.skirmish.side = house.to_string();
         self.skirmish.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
         self.selected_map = Some(scenario.to_string());
@@ -213,6 +237,8 @@ impl Shell {
         self.load_started = None;
         self.pending_after_load = None;
         self.load_brief_csf = None;
+        self.load_brief_origin = None;
+        self.load_background_shp = None;
         self.banner = "已取消装载".into();
         tracing::info!(kind = self.load_kind.as_str(), back = back.as_str(), "用户取消装载");
         self.set_screen(back);

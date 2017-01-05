@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain_with_overlays};
 use ra_assets::{
-    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, parse_battle_campaigns, parse_mpmodes, tiberium_overlay_display_hsv_bound,
+    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, parse_battle_campaigns,
+    parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
@@ -28,7 +29,7 @@ use ra_widgets::{
 
 use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 
-pub use ra_assets::{BattleCampaign, CountryDef, MpMode, SideChromeDef, SideGroup};
+pub use ra_assets::{BattleCampaign, CountryDef, MissionPresentation, MpMode, SideChromeDef, SideGroup};
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
@@ -407,6 +408,42 @@ pub fn resolve_install_campaign_for_side(side: &str) -> Option<BattleCampaign> {
     let battle_id = campaign_side_battle_id(side)?;
     let camps = list_install_battle_campaigns();
     find_battle_campaign(&camps, battle_id).cloned()
+}
+
+/// 列出安装资源链中的关卡装载外观（来自 `mission.ini` / `missionmd.ini`）。
+///
+/// 失败或缺文件时返回空表。
+pub fn list_install_mission_presentations() -> Vec<MissionPresentation> {
+    let (cfg, _) = load_desktop_config_with_diagnostics();
+    let explicit = match cfg.edition.as_deref() {
+        Some(s) => GameEdition::parse(s).ok(),
+        None => None,
+    };
+    let Ok(manifest) = detect_edition(&cfg.ra2_dir, explicit)
+    else {
+        return Vec::new();
+    };
+    let mut source = GameAssetSource::new(manifest.root.clone());
+    let _ = source.mount_root_plan(&manifest.composition.root_mount_plan);
+    let _ = source.mount_nested_plan(&manifest.composition.nested_mount_plan);
+    let Some(bytes) = source.vfs.read(manifest.chain.mission_ini)
+    else {
+        tracing::warn!(file = %manifest.chain.mission_ini, "关卡装载表不可读");
+        return Vec::new();
+    };
+    match parse_mission_presentations(&bytes) {
+        Ok(missions) => missions,
+        Err(e) => {
+            tracing::warn!(file = %manifest.chain.mission_ini, error = %e, "关卡装载表解析失败");
+            Vec::new()
+        }
+    }
+}
+
+/// 按 scenario 文件名查找关卡装载外观（大小写不敏感）。
+pub fn resolve_install_mission_presentation(scenario: &str) -> Option<MissionPresentation> {
+    let missions = list_install_mission_presentations();
+    find_mission_presentation(&missions, scenario).cloned()
 }
 
 /// 为遭遇战大厅生成指定地图的烘焙缩略图（`[PreviewPack]`，未缩小）。

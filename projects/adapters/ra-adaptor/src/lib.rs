@@ -62,6 +62,8 @@ pub struct ResourceChain {
     pub missions_pkt: &'static str,
     /// 战役表 INI 在资源链中的逻辑路径。
     pub battle_ini: &'static str,
+    /// 关卡装载外观 INI（`mission.ini` / `missionmd.ini`）在资源链中的逻辑路径。
+    pub mission_ini: &'static str,
     /// 可执行文件名（用于布局校验）。
     pub exe_name: &'static str,
 }
@@ -93,6 +95,7 @@ fn from_ra2(p: ra_adaptor_ra2::ResourceProfile) -> ResourceChain {
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
+        mission_ini: p.mission_ini,
         exe_name: p.exe_name,
     }
 }
@@ -112,6 +115,7 @@ fn from_yr(p: ra_adaptor_yuri::ResourceProfile) -> ResourceChain {
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
+        mission_ini: p.mission_ini,
         exe_name: p.exe_name,
     }
 }
@@ -131,6 +135,7 @@ fn from_phobos(p: ra_adaptor_phobos::ResourceProfile) -> ResourceChain {
         mpmodes_ini: p.mpmodes_ini,
         missions_pkt: p.missions_pkt,
         battle_ini: p.battle_ini,
+        mission_ini: p.mission_ini,
         exe_name: p.exe_name,
     }
 }

@@ -36,6 +36,8 @@ pub struct ResourceProfile {
     pub missions_pkt: &'static str,
     /// 战役表 INI 文件名。
     pub battle_ini: &'static str,
+    /// 关卡装载外观 INI（`missionmd.ini`）。
+    pub mission_ini: &'static str,
     /// 布局特征用的主程序名。
     pub exe_name: &'static str,
 }
@@ -101,6 +103,7 @@ pub fn mo_layout_profile() -> ResourceProfile {
         mpmodes_ini: "mpmodesmd.ini",
         missions_pkt: "missionsmd.pkt",
         battle_ini: "battlemd.ini",
+        mission_ini: "missionmd.ini",
         exe_name: "MentalOmegaClient.exe",
     }
 }

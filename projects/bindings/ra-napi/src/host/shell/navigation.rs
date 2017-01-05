@@ -418,6 +418,8 @@ impl Shell {
                 match next {
                     Some(scenario) => {
                         self.load_brief_csf = None;
+                        self.load_brief_origin = None;
+                        self.load_background_shp = None;
                         self.banner = format!("下一关 · {scenario}…");
                         self.begin_campaign_scenario_load(&scenario, None);
                     }
@@ -445,6 +447,11 @@ impl Shell {
                 // 对局不是壳层页，无 SlideOut；进结算走与选项相同的壳层 SlideIn。
                 self.maybe_start_slide_in();
                 self.refresh_menu_backdrop();
+                // 战役任务积分不播主菜单 Logo 影片（须在 backdrop 刷新之后清，避免又被槽位加载回来）。
+                if self.results_is_campaign() {
+                    self.menu_movie = None;
+                    self.menu_movie_clock = None;
+                }
                 self.refresh_shell_title();
             }
             BattleNav::ToMainMenu => match self.load_kind {

@@ -341,7 +341,7 @@ impl Shell {
                                 allow_retry: load_allow_retry,
                                 progress: load_progress,
                                 brief_csf_override: self.load_brief_csf.as_deref(),
-                                brief_origin: None,
+                                brief_origin: self.load_brief_origin,
                                 special_ui_name,
                             },
                         )
@@ -407,7 +407,7 @@ impl Shell {
                         allow_retry: load_allow_retry,
                         progress: load_progress,
                         brief_csf_override: self.load_brief_csf.as_deref(),
-                        brief_origin: None,
+                        brief_origin: self.load_brief_origin,
                         special_ui_name: self
                             .lobby_countries
                             .iter()

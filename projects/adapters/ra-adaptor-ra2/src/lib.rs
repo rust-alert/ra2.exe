@@ -35,6 +35,8 @@ pub struct ResourceProfile {
     pub missions_pkt: &'static str,
     /// 战役表 INI 文件名（`battle.ini`）。
     pub battle_ini: &'static str,
+    /// 关卡装载外观 INI（`mission.ini`：`LS*` 背景与简报键）。
+    pub mission_ini: &'static str,
     /// 布局特征用的主程序名（引擎不启动原版 exe）。
     pub exe_name: &'static str,
 }
@@ -70,6 +72,7 @@ pub fn profile() -> ResourceProfile {
         mpmodes_ini: "mpmodes.ini",
         missions_pkt: "missions.pkt",
         battle_ini: "battle.ini",
+        mission_ini: "mission.ini",
         exe_name: "game.exe",
     }
 }
