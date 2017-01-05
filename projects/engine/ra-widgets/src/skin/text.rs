@@ -24,7 +24,7 @@ pub fn main_menu_csf_tooltip(entry_id: &str) -> Option<&'static str> {
         "network" => Some("STT:MainButtonNetwork"),
         "movies" => Some("STT:MainButtonMovies"),
         "options" => Some("STT:MainButtonOptions"),
-        "exit" => Some("STT:MainButtonExit"),
+        "exit" => Some("STT:MainButtonExitGame"),
         _ => None,
     }
 }

@@ -12,7 +12,7 @@ pub enum LoadKind {
     /// 遭遇战：国家装载图 + `LOADBRIEF` / 玩家名进度条。
     #[default]
     Skirmish,
-    /// 战役：任务简报装载（资源与开局接线后续再接；取消回战役选边）。
+    /// 战役：任务简报装载（`mission.ini` 的 `LS*` 背景与简报；取消回战役选边）。
     Campaign,
 }
 

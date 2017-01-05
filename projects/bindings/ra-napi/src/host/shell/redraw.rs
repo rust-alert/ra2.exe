@@ -332,6 +332,7 @@ impl Shell {
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
                             compose::LoadScreenPaint {
+                                kind: self.load_kind,
                                 side: self.skirmish.side.as_str(),
                                 player_name: self.skirmish.player_name.as_str(),
                                 side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
@@ -340,6 +341,7 @@ impl Shell {
                                 allow_retry: load_allow_retry,
                                 progress: load_progress,
                                 brief_csf_override: self.load_brief_csf.as_deref(),
+                                brief_origin: None,
                                 special_ui_name,
                             },
                         )
@@ -396,6 +398,7 @@ impl Shell {
                     self.menu_font.as_ref(),
                     self.menu_csf.as_ref(),
                     compose::LoadScreenPaint {
+                        kind: self.load_kind,
                         side: self.skirmish.side.as_str(),
                         player_name: self.skirmish.player_name.as_str(),
                         side_flag: self.skirmish_chrome.as_ref().and_then(|c| c.row_flags[0].as_ref()),
@@ -404,6 +407,7 @@ impl Shell {
                         allow_retry: load_allow_retry,
                         progress: load_progress,
                         brief_csf_override: self.load_brief_csf.as_deref(),
+                        brief_origin: None,
                         special_ui_name: self
                             .lobby_countries
                             .iter()

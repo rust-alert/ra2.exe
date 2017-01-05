@@ -7,6 +7,7 @@ use ra_layout::{
 use ra_renderer::RgbaImage;
 use ra_widgets::{
     compose::*,
+    core::LoadKind,
     skin::decode::{DecodedUiSprite, PageDecodeReport},
 };
 
@@ -492,6 +493,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         LoadScreenPaint {
+            kind: LoadKind::Skirmish,
             side: "Americans",
             player_name: "Player",
             side_flag: None,
@@ -500,6 +502,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             allow_retry: false,
             progress: 0.5,
             brief_csf_override: None,
+            brief_origin: None,
             special_ui_name: None,
         },
     )
@@ -521,6 +524,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         LoadScreenPaint {
+            kind: LoadKind::Skirmish,
             side: "Americans",
             player_name: "Player",
             side_flag: None,
@@ -529,6 +533,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             allow_retry: false,
             progress: 0.5,
             brief_csf_override: None,
+            brief_origin: None,
             special_ui_name: None,
         },
     )
@@ -545,6 +550,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
         None,
         None,
         LoadScreenPaint {
+            kind: LoadKind::Skirmish,
             side: "Americans",
             player_name: "Player",
             side_flag: None,
@@ -553,12 +559,39 @@ fn compose_load_screen_paints_country_art_and_progress() {
             allow_retry: true,
             progress: 1.0,
             brief_csf_override: None,
+            brief_origin: None,
             special_ui_name: None,
         },
     )
     .unwrap();
     assert_eq!(failed.width(), 800);
     assert_eq!(failed.height(), 600);
+
+    // 战役：忽略 `mmpb` 预览，右下不应出现预览色。
+    let campaign = compose_load_screen_page(
+        &decoded,
+        800,
+        600,
+        None,
+        None,
+        None,
+        None,
+        LoadScreenPaint {
+            kind: LoadKind::Campaign,
+            side: "Americans",
+            player_name: "Player",
+            side_flag: None,
+            map_preview: Some(&preview),
+            status: "装载中",
+            allow_retry: false,
+            progress: 0.5,
+            brief_csf_override: None,
+            brief_origin: Some((20, 20)),
+            special_ui_name: None,
+        },
+    )
+    .unwrap();
+    assert_ne!(&campaign.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
 }
 
 #[test]

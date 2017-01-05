@@ -1,15 +1,18 @@
 //! 装载页合成。
 
 use super::*;
+use crate::core::LoadKind;
 
 pub struct LoadScreenPaint<'a> {
-    /// 本地阵营短名（驱动 `NAME:` / `LOADBRIEF:` CSF 键）。
+    /// 装载种类：遭遇战画国家 `ls*` 槽；战役画任务简报（无 `mmpb` / 特色名 / 玩家旗）。
+    pub kind: LoadKind,
+    /// 本地阵营短名（遭遇战驱动 `NAME:` / `LOADBRIEF:` CSF 键）。
     pub side: &'a str,
-    /// 本地玩家名（进度条右侧槽）。
+    /// 本地玩家名（遭遇战进度条右侧槽）。
     pub player_name: &'a str,
-    /// 阵营小旗（`usai.pcx` 等，进度条右侧）。
+    /// 阵营小旗（遭遇战 `usai.pcx` 等，进度条右侧）。
     pub side_flag: Option<&'a RgbaImage>,
-    /// 选中地图预览（合成进 `mmpb` 区；缺则保留背景白框）。
+    /// 选中地图预览（遭遇战合成进 `mmpb` 区；战役忽略）。
     pub map_preview: Option<&'a RgbaImage>,
     /// 底栏状态（装载中或失败说明；失败时才强调）。
     pub status: &'a str,
@@ -17,18 +20,23 @@ pub struct LoadScreenPaint<'a> {
     pub allow_retry: bool,
     /// 装载进度 0..=1（驱动 `progbarm` 横向裁剪）。
     pub progress: f32,
-    /// 简报 CSF 覆盖（战役 `DESC:*`）；`None` 时按 `side` 走国家 `LOADBRIEF`。
+    /// 简报 CSF 覆盖（战役 `LSLoadBriefing` / `DESC:*`）；`None` 时按 `side` 走国家 `LOADBRIEF`。
     pub brief_csf_override: Option<&'a str>,
+    /// 简报原点覆盖（战役 `LS*BriefLoc*`）；`None` 时用 layout `brief` 槽。
+    pub brief_origin: Option<(i32, i32)>,
     /// 特色兵种 CSF 键（来自 [`ra_assets::CountryDef::special_ui_name`]，经资源链 rules）。
     ///
     /// `None` / 空串：不画特色名。原版与模组都允许缺失，禁止回退国家→兵种写死表。
+    /// 战役装载忽略本字段。
     pub special_ui_name: Option<&'a str>,
 }
 
-/// 合成进战斗装载页：国家 `ls*` 全幅 + CSF 文案 + 中下 `progbarm`；失败时重试/取消。
+/// 合成进战斗装载页：进度条 + 取消/重试共用；外观按 [`LoadKind`] 分支。
 ///
-/// 遭遇战与战役共用本合成入口；战役简报外观后续按 [`crate::LoadKind`] 分支。
-/// 文案与按钮几何来自 `solve_load_screen` snapshot。
+/// - 遭遇战：国家 `ls*` 全幅 + `LOADBRIEF` / 特色名 / 玩家旗 / `mmpb` 预览
+/// - 战役：任务简报背景 + `LSLoadBriefing`（经 `brief_csf_override`）+ 进度条，不画遭遇战专用槽
+///
+/// 文案与按钮几何来自 `solve_load_screen` snapshot（战役简报原点可被 `brief_origin` 覆盖）。
 pub fn compose_load_screen_page(
     decoded: &PageDecodeReport,
     viewport_w: u32,
@@ -50,6 +58,7 @@ pub fn compose_load_screen_page(
     let player_flag = rect_px_from_snapshot(&snap, "player_flag");
     let player_name = rect_px_from_snapshot(&snap, "player_name");
     let map_preview_rect = rect_px_from_snapshot(&snap, "map_preview");
+    let skirmish = paint.kind == LoadKind::Skirmish;
 
     let mut page = RgbaImage::from_raw(canvas.w as u32, canvas.h as u32, vec![0u8; (canvas.w as usize) * (canvas.h as usize) * 4])?;
     fill_rect(&mut page, canvas, [0, 0, 0, 255]);
@@ -57,55 +66,64 @@ pub fn compose_load_screen_page(
         blit_stretched(&mut page, &bg.image, canvas);
     }
 
-    // 国家装载图画布右下有预留白框；原生在此合成选中图预览（`mmpb` 区）。
-    if let Some(preview) = paint.map_preview {
-        blit_map_preview_fit(&mut page, preview, map_preview_rect);
+    // 遭遇战：国家装载图画布右下有预留白框；原生在此合成选中图预览（`mmpb` 区）。
+    if skirmish {
+        if let Some(preview) = paint.map_preview {
+            blit_map_preview_fit(&mut page, preview, map_preview_rect);
+        }
     }
 
     if let Some(fnt) = fnt {
-        // 特色名：rules 派生 UIName → 胜出 CSF。键空或 CSF 无文案则整行省略。
-        if let Some(special_key) = paint.special_ui_name.map(str::trim).filter(|s| !s.is_empty()) {
-            if let Some(special_text) = resolve_csf_text(csf, special_key) {
-                blit_caption_top_left_clipped(
-                    &mut page,
-                    fnt,
-                    &special_text,
-                    special.x,
-                    special.y,
-                    special.w,
-                    special.h,
-                    LOAD_SCREEN_TEXT_TITLE,
-                );
+        if skirmish {
+            // 特色名：rules 派生 UIName → 胜出 CSF。键空或 CSF 无文案则整行省略。
+            if let Some(special_key) = paint.special_ui_name.map(str::trim).filter(|s| !s.is_empty()) {
+                if let Some(special_text) = resolve_csf_text(csf, special_key) {
+                    blit_caption_top_left_clipped(
+                        &mut page,
+                        fnt,
+                        &special_text,
+                        special.x,
+                        special.y,
+                        special.w,
+                        special.h,
+                        LOAD_SCREEN_TEXT_TITLE,
+                    );
+                }
             }
         }
 
         let brief_key = paint.brief_csf_override.map(str::to_string).unwrap_or_else(|| load_screen_brief_csf_key(paint.side));
         if let Some(brief_text) = resolve_csf_text(csf, &brief_key) {
-            blit_caption_wrapped(&mut page, fnt, &brief_text, brief.x, brief.y, brief.w, brief.h, LOAD_SCREEN_TEXT);
+            let (bx, by) = paint.brief_origin.unwrap_or((brief.x, brief.y));
+            blit_caption_wrapped(&mut page, fnt, &brief_text, bx, by, brief.w, brief.h, LOAD_SCREEN_TEXT);
         }
 
-        let name_key = load_screen_name_csf_key(paint.side);
-        if let Some(name_text) = resolve_csf_text(csf, &name_key) {
-            blit_caption_top_left_clipped(&mut page, fnt, &name_text, name.x, name.y, name.w, name.h, LOAD_SCREEN_TEXT_TITLE);
+        if skirmish {
+            let name_key = load_screen_name_csf_key(paint.side);
+            if let Some(name_text) = resolve_csf_text(csf, &name_key) {
+                blit_caption_top_left_clipped(&mut page, fnt, &name_text, name.x, name.y, name.w, name.h, LOAD_SCREEN_TEXT_TITLE);
+            }
         }
 
         if !paint.allow_retry {
             let loading = resolve_csf_text(csf, load_screen_loading_csf_key()).unwrap_or_else(|| "Loading..".into());
             blit_caption_top_left_clipped(&mut page, fnt, &loading, status.x, status.y, status.w, status.h, LOAD_SCREEN_TEXT);
-            blit_caption_top_left_clipped(
-                &mut page,
-                fnt,
-                paint.player_name,
-                player_name.x,
-                player_name.y,
-                player_name.w,
-                player_name.h,
-                [80, 220, 80, 255],
-            );
+            if skirmish {
+                blit_caption_top_left_clipped(
+                    &mut page,
+                    fnt,
+                    paint.player_name,
+                    player_name.x,
+                    player_name.y,
+                    player_name.w,
+                    player_name.h,
+                    [80, 220, 80, 255],
+                );
+            }
         }
     }
 
-    if !paint.allow_retry {
+    if skirmish && !paint.allow_retry {
         if let Some(flag) = paint.side_flag {
             blit_rgba(&mut page, flag, player_flag.x, player_flag.y);
         }

@@ -75,6 +75,17 @@ fn single_player_csf_keys_match_shell_labels() {
 }
 
 #[test]
+fn main_menu_csf_tooltips_match_stt_keys() {
+    assert_eq!(main_menu_csf_tooltip("single_player"), Some("STT:MainButtonSinglePlayer"));
+    assert_eq!(main_menu_csf_tooltip("ww_online"), Some("STT:MainButtonWWOnline"));
+    assert_eq!(main_menu_csf_tooltip("network"), Some("STT:MainButtonNetwork"));
+    assert_eq!(main_menu_csf_tooltip("movies"), Some("STT:MainButtonMovies"));
+    assert_eq!(main_menu_csf_tooltip("options"), Some("STT:MainButtonOptions"));
+    // 零售 `ra2.csf` 为 `STT:MainButtonExitGame`，不是缩写 `Exit`。
+    assert_eq!(main_menu_csf_tooltip("exit"), Some("STT:MainButtonExitGame"));
+}
+
+#[test]
 fn skirmish_lobby_csf_tooltips_match_stt_keys() {
     assert_eq!(skirmish_lobby_csf_tooltip("start"), Some("STT:SkirmishButtonStartGame"));
     assert_eq!(skirmish_lobby_csf_tooltip("choose_map"), Some("STT:SkirmishButtonChooseMap"));
