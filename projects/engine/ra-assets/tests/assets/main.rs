@@ -3,6 +3,7 @@
 mod audio;
 mod battle;
 mod bink;
+mod mission;
 mod csv;
 mod image;
 mod ini;
