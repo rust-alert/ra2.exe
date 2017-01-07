@@ -120,9 +120,11 @@ impl Shell {
             OriginalScreen::Network | OriginalScreen::Options => {
                 if matches!(key, PhysicalKey::Code(KeyCode::Escape)) {
                     if self.screen == OriginalScreen::Options {
-                        self.discard_options_draft();
+                        // 无取消钮：Escape 与主菜单一样提交草稿。
+                        self.apply_options_accept();
+                    } else {
+                        self.set_screen(OriginalScreen::MainMenu);
                     }
-                    self.set_screen(OriginalScreen::MainMenu);
                 }
             }
             OriginalScreen::ExitConfirm => {

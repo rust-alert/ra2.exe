@@ -1,6 +1,6 @@
 //! 遭遇战 / 战役结算页：积分表数据与交互。
 
-use ra_engine::{BattleOutcome, SessionBootKind};
+use ra_engine::{BattleOutcome, SessionBootKind, is_ambient_house};
 use ra_widgets::{
     compose::{SkirmishScoreRow, format_score_time, skirmish_score_hit_at},
     load_kind::LoadKind,
@@ -18,18 +18,29 @@ use super::Shell;
 
 impl Shell {
     /// 从当前对局快照拼积分表行。
+    ///
+    /// - 战役：只显示本地玩家一行（原版任务积分，不把脚本房主刷成「电脑」表）。
+    /// - 遭遇战：排除 Neutral/Civilian 氛围房，其余席位入表。
     pub(super) fn skirmish_score_rows(&self) -> Vec<SkirmishScoreRow> {
         let Some(game) = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle())
         else {
             return Vec::new();
         };
+        let campaign = self.results_is_campaign();
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string()).unwrap_or_default();
         let ai_label = resolve_csf_text(self.menu_csf.as_ref(), "GUI:AI").unwrap_or_else(|| "电脑".into());
+        let include_house = |house: &str| -> bool {
+            if campaign {
+                return house.eq_ignore_ascii_case(&local_house);
+            }
+            !is_ambient_house(house)
+        };
         let stats_players = game.battle_stats.as_ref().map(|s| s.players.as_slice()).unwrap_or(&[]);
         if !stats_players.is_empty() {
             return stats_players
                 .iter()
                 .enumerate()
+                .filter(|(_, row)| include_house(row.house.as_ref()))
                 .map(|(i, row)| {
                     let is_local = row.house.eq_ignore_ascii_case(&local_house);
                     let name = if is_local { self.skirmish.player_name.clone() } else { ai_label.clone() };
@@ -71,6 +82,7 @@ impl Shell {
             .players
             .iter()
             .enumerate()
+            .filter(|(_, p)| include_house(p.house.as_ref()))
             .map(|(i, p)| {
                 let is_local = p.house.eq_ignore_ascii_case(&local_house);
                 let name = if is_local { self.skirmish.player_name.clone() } else { ai_label.clone() };
@@ -106,6 +118,35 @@ impl Shell {
                 .and_then(|c| c.session.as_ref())
                 .and_then(|s| s.battle())
                 .is_some_and(|g| g.boot_kind == SessionBootKind::Campaign)
+    }
+
+    /// 结算页选用哪一 Side 的战报图（`[Sides]` id：`GDI`/`Nod`/…）。
+    pub(super) fn results_score_side_id(&self) -> String {
+        if self.results_is_campaign() {
+            if let Some(raw) = self.campaign_side {
+                let key = raw.to_ascii_lowercase();
+                if matches!(key.as_str(), "soviet" | "russia" | "russians" | "nod") {
+                    return "Nod".into();
+                }
+                if matches!(key.as_str(), "allied" | "americans" | "tutorial" | "gdi") {
+                    return "GDI".into();
+                }
+                if self.lobby_side_chromes.iter().any(|c| c.id.eq_ignore_ascii_case(raw)) {
+                    return raw.to_string();
+                }
+            }
+        }
+        let country = self.skirmish.side.as_str();
+        if let Some(c) = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(country)) {
+            let side = c.side.as_str();
+            if !side.is_empty() {
+                return side.to_string();
+            }
+        }
+        if self.lobby_side_chromes.iter().any(|c| c.id.eq_ignore_ascii_case(country)) {
+            return country.to_string();
+        }
+        "GDI".into()
     }
 
     /// 结算页输入：继续 / 离开；战役胜且有下一关时 Enter=下一关。

@@ -14,11 +14,17 @@ pub(super) fn draw_trackbar(dst: &mut RgbaImage, track: RectPx, pos: u8, max: u8
 }
 
 pub(super) fn draw_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool) {
-    let box_r = RectPx::new(rect.x, rect.y + 2, 16, 16);
+    let side = rect.h.clamp(12, 16);
+    let box_r = RectPx::new(rect.x, rect.y + (rect.h - side).max(0) / 2, side, side);
     fill_rect(dst, box_r, [80, 16, 16, 255]);
-    fill_rect(dst, RectPx::new(box_r.x + 2, box_r.y + 2, 12, 12), [12, 12, 16, 255]);
+    fill_rect(dst, RectPx::new(box_r.x + 2, box_r.y + 2, (side - 4).max(1), (side - 4).max(1)), [12, 12, 16, 255]);
     if checked {
-        fill_rect(dst, RectPx::new(box_r.x + 4, box_r.y + 4, 8, 8), [220, 40, 40, 255]);
+        let pad = (side / 4).max(2);
+        fill_rect(
+            dst,
+            RectPx::new(box_r.x + pad, box_r.y + pad, (side - pad * 2).max(1), (side - pad * 2).max(1)),
+            [255, 160, 32, 255],
+        );
     }
 }
 
@@ -27,7 +33,7 @@ pub(super) fn draw_section_rule(dst: &mut RgbaImage, section: RectPx) {
     fill_rect(dst, RectPx::new(section.x, y, section.w, 2), [180, 24, 24, 255]);
 }
 
-/// 在选项页上绘制左栏控件（滑条 / 勾选 / 分辨率）与分区文案。
+/// 在选项页上绘制左栏控件；文案落在 `0xD5` 的 `caption_*` / `value_*` / `sec_*` 格内。
 pub fn paint_options_dialog_controls(
     page: &mut RgbaImage,
     snap: &LayoutSnapshot,
@@ -35,110 +41,122 @@ pub fn paint_options_dialog_controls(
     fnt: Option<&FntFile>,
     csf: Option<&CsfFile>,
 ) {
+    use crate::options_dialog::OptionsTrackbar;
+
     let r = |id: &str| rect_px_from_snapshot(snap, id);
-    let content = r("content");
     let sec_display = r("sec_display");
+    let caption_detail = r("caption_detail");
+    let value_detail = r("value_detail");
     let track_detail = r("track_detail");
+    let caption_resolution = r("caption_resolution");
     let resolution = r("resolution");
     let sec_game = r("sec_game");
+    let caption_difficulty = r("caption_difficulty");
+    let value_difficulty = r("value_difficulty");
     let track_difficulty = r("track_difficulty");
     let sec_ui = r("sec_ui");
     let track_scroll = r("track_scroll");
-    let sec_present = r("sec_present");
+    let caption_scroll = r("caption_scroll");
+    let value_scroll = r("value_scroll");
     let sec_audio = r("sec_audio");
     let check_tooltips = r("check_tooltips");
     let check_scanlines = r("check_scanlines");
     let check_damage = r("check_damage");
-    let check_present = r("check_present");
+    let caption_music = r("caption_music");
+    let caption_sound = r("caption_sound");
+    let caption_voice = r("caption_voice");
     let track_music = r("track_music");
     let track_sound = r("track_sound");
     let track_voice = r("track_voice");
 
-    // 左板：深色底板（原版黑底 + 地图水印未接前用纯色占位）。
-    fill_rect(page, content, [8, 10, 14, 255]);
-    fill_rect(page, RectPx::new(content.x + 2, content.y + 2, content.w - 4, content.h - 4), [18, 22, 32, 255]);
+    // 左栏底板：包住表单块（原版地图水印未接前用纯色）。
+    let form = [
+        sec_display,
+        sec_game,
+        sec_ui,
+        sec_audio,
+        track_detail,
+        resolution,
+        track_difficulty,
+        check_damage,
+        track_scroll,
+        track_music,
+        track_voice,
+    ];
+    let mut left = i32::MAX;
+    let mut top = i32::MAX;
+    let mut right = i32::MIN;
+    let mut bottom = i32::MIN;
+    for cell in form {
+        left = left.min(cell.x);
+        top = top.min(cell.y);
+        right = right.max(cell.x + cell.w);
+        bottom = bottom.max(cell.y + cell.h);
+    }
+    let pad = 16;
+    let board = RectPx::new(left - pad, top - pad, (right - left) + pad * 2, (bottom - top) + pad * 2);
+    fill_rect(page, board, [8, 10, 14, 255]);
+    fill_rect(page, RectPx::new(board.x + 2, board.y + 2, board.w - 4, board.h - 4), [18, 22, 32, 255]);
 
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
-    // 滑条标签画在滑条上方，与 `SEC_TO_TRACK` 留白对齐。
-    const LABEL_ABOVE: i32 = 18;
+    let detail_value = resolve_caption(csf, options_detail_fallback(state.detail), options_detail_csf_key(state.detail));
+    let difficulty_value =
+        resolve_caption(csf, options_difficulty_fallback(state.difficulty), options_difficulty_csf_key(state.difficulty));
+    let scroll_value = resolve_caption(csf, options_scroll_fallback(state.scroll), options_scroll_csf_key(state.scroll));
 
     if let Some(fnt) = fnt {
-        blit_text_colored(page, fnt, &label("display", "Display Options"), sec_display.x, sec_display.y, MENU_TEXT_SECTION);
-        draw_section_rule(page, sec_display);
-        blit_text_colored(page, fnt, &label("detail", "Visual Details"), track_detail.x, track_detail.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("resolution", "Set Game Resolution"), resolution.x, resolution.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("display", "Display Options"), sec_display.x, text_y_centered(fnt, sec_display), MENU_TEXT_SECTION);
+        draw_section_rule(page, RectPx::new(sec_display.x, sec_display.y, sec_game.w, sec_display.h));
+        blit_text_colored(page, fnt, &label("detail", "Visual Details"), caption_detail.x, text_y_centered(fnt, caption_detail), MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &detail_value, value_detail.x, text_y_centered(fnt, value_detail), MENU_TEXT_ACCENT);
         blit_text_colored(
             page,
             fnt,
-            &label("high", "High"),
-            track_detail.x + track_detail.w + 8,
-            text_y_centered(fnt, track_detail),
+            &label("resolution", "Set Game Resolution"),
+            caption_resolution.x,
+            text_y_centered(fnt, caption_resolution),
             MENU_TEXT_ACCENT,
         );
 
-        blit_text_colored(page, fnt, &label("game", "Game Options"), sec_game.x, sec_game.y, MENU_TEXT_SECTION);
+        blit_text_colored(page, fnt, &label("game", "Game Options"), sec_game.x, text_y_centered(fnt, sec_game), MENU_TEXT_SECTION);
         draw_section_rule(page, sec_game);
         blit_text_colored(
             page,
             fnt,
             &label("difficulty", "Difficulty"),
-            track_difficulty.x,
-            track_difficulty.y - LABEL_ABOVE,
+            caption_difficulty.x,
+            text_y_centered(fnt, caption_difficulty),
             MENU_TEXT_ACCENT,
         );
-        blit_text_colored(
-            page,
-            fnt,
-            &label("hard", "Hard"),
-            track_difficulty.x + track_difficulty.w + 8,
-            text_y_centered(fnt, track_difficulty),
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, &difficulty_value, value_difficulty.x, text_y_centered(fnt, value_difficulty), MENU_TEXT_ACCENT);
 
-        blit_text_colored(page, fnt, &label("ui", "UI Options"), sec_ui.x, sec_ui.y, MENU_TEXT_SECTION);
+        blit_text_colored(page, fnt, &label("ui", "UI Options"), sec_ui.x, text_y_centered(fnt, sec_ui), MENU_TEXT_SECTION);
         draw_section_rule(page, sec_ui);
-        blit_text_colored(page, fnt, &label("scroll", "Scroll Rate"), track_scroll.x, track_scroll.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-        blit_text_colored(
-            page,
-            fnt,
-            &label("fastest", "Fastest"),
-            track_scroll.x + track_scroll.w + 8,
-            text_y_centered(fnt, track_scroll),
-            MENU_TEXT_ACCENT,
-        );
+        blit_text_colored(page, fnt, &label("scroll", "Scroll Rate"), caption_scroll.x, text_y_centered(fnt, caption_scroll), MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &scroll_value, value_scroll.x, text_y_centered(fnt, value_scroll), MENU_TEXT_ACCENT);
 
-        blit_text_colored(page, fnt, &label("present", "Present Feel"), sec_present.x, sec_present.y, MENU_TEXT_SECTION);
-        draw_section_rule(page, sec_present);
-        blit_text_colored(page, fnt, &label("audio", "Audio Options"), sec_audio.x, sec_audio.y, MENU_TEXT_SECTION);
+        blit_text_colored(page, fnt, &label("audio", "Audio Options"), sec_audio.x, text_y_centered(fnt, sec_audio), MENU_TEXT_SECTION);
         draw_section_rule(page, sec_audio);
+        blit_text_colored(page, fnt, &label("music", "Music Volume"), caption_music.x, text_y_centered(fnt, caption_music), MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("sound", "Sound Volume"), caption_sound.x, text_y_centered(fnt, caption_sound), MENU_TEXT_ACCENT);
+        blit_text_colored(page, fnt, &label("voice", "Voice Volume"), caption_voice.x, text_y_centered(fnt, caption_voice), MENU_TEXT_ACCENT);
     }
 
-    draw_trackbar(page, track_detail, state.detail, crate::options_dialog::OptionsTrackbar::Detail.max());
-    draw_trackbar(page, track_difficulty, state.difficulty, crate::options_dialog::OptionsTrackbar::Difficulty.max());
-    draw_trackbar(page, track_scroll, state.scroll, crate::options_dialog::OptionsTrackbar::Scroll.max());
-    draw_trackbar(page, track_music, state.music, crate::options_dialog::OptionsTrackbar::Music.max());
-    draw_trackbar(page, track_sound, state.sound, crate::options_dialog::OptionsTrackbar::Sound.max());
-    draw_trackbar(page, track_voice, state.voice, crate::options_dialog::OptionsTrackbar::Voice.max());
+    draw_trackbar(page, track_detail, state.detail, OptionsTrackbar::Detail.max());
+    draw_trackbar(page, track_difficulty, state.difficulty, OptionsTrackbar::Difficulty.max());
+    draw_trackbar(page, track_scroll, state.scroll, OptionsTrackbar::Scroll.max());
+    draw_options_volume_track(page, track_music, state.music, fnt);
+    draw_options_volume_track(page, track_sound, state.sound, fnt);
+    draw_options_volume_track(page, track_voice, state.voice, fnt);
 
-    draw_checkbox(page, check_tooltips, state.tooltips);
-    draw_checkbox(page, check_scanlines, state.scanlines);
-    draw_checkbox(page, check_damage, state.show_damage);
-    draw_checkbox(page, check_present, state.present.is_active());
-    if let Some(fnt) = fnt {
-        let tx = check_tooltips.x + 22;
-        blit_text_colored(page, fnt, &label("tooltips", "Tooltips"), tx, check_tooltips.y + 4, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("scanlines", "Target Lines"), tx, check_scanlines.y + 4, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("damage", "See Hidden Objects"), tx, check_damage.y + 4, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("present_16bit", "16-bit Present"), check_present.x + 22, check_present.y + 4, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("music", "Music Volume"), track_music.x, track_music.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("sound", "Sound Volume"), track_sound.x, track_sound.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-        blit_text_colored(page, fnt, &label("voice", "Voice Volume"), track_voice.x, track_voice.y - LABEL_ABOVE, MENU_TEXT_ACCENT);
-    }
+    draw_options_checkbox_row(page, check_tooltips, state.tooltips, &label("tooltips", "Tooltips"), fnt);
+    draw_options_checkbox_row(page, check_scanlines, state.scanlines, &label("scanlines", "Target Lines"), fnt);
+    draw_options_checkbox_row(page, check_damage, state.show_damage, &label("damage", "See Hidden Objects"), fnt);
 
-    fill_rect(page, resolution, [120, 24, 24, 255]);
-    fill_rect(page, RectPx::new(resolution.x + 2, resolution.y + 2, resolution.w - 4, resolution.h - 4), [8, 8, 12, 255]);
+    draw_combo_face(page, resolution, [28, 28, 34, 255], None, state.resolution_open);
     if let Some(fnt) = fnt {
-        blit_caption_in_cell(page, fnt, state.display_mode.as_str(), resolution.x, resolution.y, resolution.w, resolution.h, MENU_TEXT_ACCENT);
+        let body_w = (resolution.w - SKIRMISH_COMBO_ARROW_RESERVE).max(1);
+        blit_caption_in_cell(page, fnt, state.display_mode.as_str(), resolution.x, resolution.y, body_w, resolution.h, MENU_TEXT_ACCENT);
     }
     if state.resolution_open {
         for (i, mode) in ra_types::DisplayMode::ALL.iter().enumerate() {
@@ -149,6 +167,27 @@ pub fn paint_options_dialog_controls(
                 blit_text_colored(page, fnt, mode.as_str(), row.x + 8, row.y + 4, MENU_TEXT_ACCENT);
             }
         }
+    }
+}
+
+fn draw_options_checkbox_row(page: &mut RgbaImage, rect: RectPx, checked: bool, caption: &str, fnt: Option<&FntFile>) {
+    draw_checkbox(page, rect, checked);
+    if let Some(fnt) = fnt {
+        let side = rect.h.clamp(12, 16);
+        blit_text_colored(page, fnt, caption, rect.x + side + 6, text_y_centered(fnt, rect), MENU_TEXT_ACCENT);
+    }
+}
+
+fn draw_options_volume_track(page: &mut RgbaImage, track: RectPx, pos: u8, fnt: Option<&FntFile>) {
+    // `0xD5` 音量轨仅 85 DLU，右侧数值格比遭遇战 `trof*` 底板更窄。
+    const PLAQUE_W: i32 = 28;
+    let plaque = RectPx::new(track.x + track.w - PLAQUE_W, track.y, PLAQUE_W, track.h);
+    let rail = RectPx::new(track.x, track.y, (track.w - PLAQUE_W - 2).max(1), track.h);
+    fill_rect(page, plaque, [40, 12, 12, 255]);
+    stroke_rect(page, plaque, [180, 40, 40, 255]);
+    draw_trackbar(page, rail, pos, 10);
+    if let Some(fnt) = fnt {
+        blit_text_colored(page, fnt, &pos.to_string(), plaque.x + 4, text_y_centered(fnt, plaque), MENU_TEXT_ACCENT);
     }
 }
 

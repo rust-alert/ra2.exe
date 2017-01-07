@@ -25,13 +25,13 @@ pub use battle_pause::{
     BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, BATTLE_PAUSE_BKGD_LG, BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM,
     BATTLE_PAUSE_BUTTON_H, BATTLE_PAUSE_BUTTON_RIGHT_INSET, BATTLE_PAUSE_BUTTON_SIDEBAR_INSET, BATTLE_PAUSE_BUTTON_W,
     BATTLE_PAUSE_RAIL_W, BATTLE_PAUSE_SIDEBTTN_H, BATTLE_PAUSE_SIDEBTTN_W, battle_pause_background_rect,
-    battle_pause_background_size, battle_pause_menu_button_rect, battle_pause_rail_rect, battle_pause_world_rect,
-    battle_sidebttn_rect, solve_battle_pause, solve_battle_pause_at, solve_battle_pause_with_metrics,
+    battle_pause_background_size, battle_pause_menu_button_rect, battle_pause_rail_rect, battle_sidebttn_rect,
+    solve_battle_pause, solve_battle_pause_at, solve_battle_pause_with_metrics,
 };
 pub use campaign_page::solve_campaign;
 pub use dlu::{DluRect, FontBaseUnits, MS_SANS_SERIF_8PT, mul_div_round};
 pub use exit_confirm_page::solve_exit_confirm;
-pub use from_template::{solve_choose_map, solve_skirmish_lobby};
+pub use from_template::{solve_choose_map, solve_options_dialog, solve_skirmish_lobby};
 pub use load_screen::{LOAD_SCREEN_BUTTON_IDS, solve_load_screen};
 pub use network_page::{NETWORK_BUTTON_IDS, solve_network_page};
 pub use options_page::{OPTIONS_CONTENT_IDS, solve_options_page};

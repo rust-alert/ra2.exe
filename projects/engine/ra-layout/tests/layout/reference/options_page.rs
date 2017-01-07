@@ -1,76 +1,74 @@
-//! 自 `engine/ra-layout/src/reference/options_page.rs` 迁出的单元测试（集成测试 crate）。
+//! `0xD5` 选项页：`solve_options_page` → snapshot / hit。
 
-// 自 engine/ra-layout/src/reference/options_page.rs :: tests
-use ra_layout::{
-    LayoutEngine, RightPanelChrome, Viewport,
-    reference::{from_template::shell_design_size, options_page::*},
-    shell::rect_px_from_snapshot,
-};
+use ra_layout::{OPTIONS_CONTENT_IDS, Point2, Rect, solve_options_page};
 
 #[test]
-fn options_content_matches_800x600_golden() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(Viewport { size: shell_design_size(chrome), ..Viewport::default() }, &options_content_layout_tree(chrome));
-    let expect = [
-        ("content", 16, 16, 608, 548),
-        ("sec_display", 32, 28, 576, 18),
-        ("track_detail", 32, 68, 280, 22),
-        ("resolution", 328, 68, 280, 28),
-        ("sec_game", 32, 112, 576, 18),
-        ("track_difficulty", 32, 152, 536, 22),
-        ("sec_ui", 32, 190, 576, 18),
-        ("check_tooltips", 32, 230, 220, 22),
-        ("check_scanlines", 32, 254, 220, 22),
-        ("check_damage", 32, 278, 220, 22),
-        ("track_scroll", 328, 230, 280, 22),
-        ("sec_present", 32, 316, 576, 18),
-        ("check_present", 32, 356, 280, 22),
-        ("sec_audio", 32, 394, 576, 18),
-        ("track_music", 32, 434, 536, 22),
-        ("track_sound", 32, 474, 536, 22),
-        ("track_voice", 32, 514, 536, 22),
+fn dialog_0xd5_rail_matches_shell_tile_snap() {
+    let snap = solve_options_page();
+    assert_eq!(snap.get("keyboard").map(|e| e.layout.rect), Some(Rect::from_xywh(644.0, 199.0, 156.0, 42.0)));
+    assert_eq!(snap.get("network").map(|e| e.layout.rect), Some(Rect::from_xywh(644.0, 241.0, 156.0, 42.0)));
+    assert_eq!(snap.get("main_menu").map(|e| e.layout.rect), Some(Rect::from_xywh(644.0, 535.0, 156.0, 42.0)));
+    assert_eq!(snap.get("title").map(|e| e.layout.rect), Some(Rect::from_xywh(635.0, 2.0, 162.0, 16.0)));
+    assert_eq!(snap.get("status_help").map(|e| e.layout.rect), Some(Rect::from_xywh(15.0, 579.0, 455.0, 20.0)));
+    assert_eq!(snap.hit_test(Point2 { x: 650.0, y: 210.0 }).map(|e| e.id.0.as_str()), Some("keyboard"));
+    assert_eq!(snap.hit_test(Point2 { x: 650.0, y: 250.0 }).map(|e| e.id.0.as_str()), Some("network"));
+    assert_eq!(snap.hit_test(Point2 { x: 650.0, y: 540.0 }).map(|e| e.id.0.as_str()), Some("main_menu"));
+}
+
+#[test]
+fn dialog_0xd5_left_form_keeps_dlu_sizes_and_gaps() {
+    let snap = solve_options_page();
+    for id in OPTIONS_CONTENT_IDS {
+        assert!(snap.get(id).is_some(), "missing {id}");
+    }
+    assert!(snap.get("check_observe").is_some());
+    assert!(snap.get("rail_badge").is_some());
+    assert!(snap.get("accept").is_none());
+    assert!(snap.get("sec_present").is_none());
+
+    let track_detail = snap.get("track_detail").unwrap().layout.rect;
+    let resolution = snap.get("resolution").unwrap().layout.rect;
+    let track_music = snap.get("track_music").unwrap().layout.rect;
+    let track_sound = snap.get("track_sound").unwrap().layout.rect;
+    let track_voice = snap.get("track_voice").unwrap().layout.rect;
+    let caption_detail = snap.get("caption_detail").unwrap().layout.rect;
+    let value_detail = snap.get("value_detail").unwrap().layout.rect;
+
+    // DLU→设计像素固有尺寸（居中前/后宽高不变）。
+    assert_eq!((track_detail.width, track_detail.height), (180.0, 21.0));
+    assert_eq!((resolution.width, resolution.height), (180.0, 24.0));
+    // 85 DLU × 6/4 = 127.5 → 四舍五入 128。
+    assert_eq!((track_music.width, track_music.height), (128.0, 21.0));
+    assert_eq!(track_detail.y, resolution.y);
+    assert_eq!(caption_detail.y, value_detail.y);
+    assert!((value_detail.x - (caption_detail.x + caption_detail.width)).abs() <= 1.0);
+
+    // 音量三列：同排、等宽、列间距来自模板 DLU。
+    assert_eq!(track_music.y, track_sound.y);
+    assert_eq!(track_sound.y, track_voice.y);
+    assert_eq!(track_music.width, track_sound.width);
+    assert_eq!(track_sound.width, track_voice.width);
+    let gap_ms = track_sound.x - (track_music.x + track_music.width);
+    let gap_sv = track_voice.x - (track_sound.x + track_sound.width);
+    assert!((gap_ms - gap_sv).abs() <= 1.0, "audio col gaps {gap_ms} vs {gap_sv}");
+
+    // 左栏表单在内容区大致居中。
+    let mid = (track_music.x + track_voice.x + track_voice.width) * 0.5;
+    assert!((mid - 316.0).abs() <= 8.0, "audio mid {mid}");
+}
+
+#[test]
+fn dialog_0xd5_value_labels_sit_above_tracks() {
+    let snap = solve_options_page();
+    let pairs = [
+        ("value_detail", "track_detail"),
+        ("value_difficulty", "track_difficulty"),
+        ("value_scroll", "track_scroll"),
+        ("caption_music", "track_music"),
     ];
-    for (id, x, y, w, h) in expect {
-        let got = snap.get(id).expect(id).layout.rect;
-        assert_eq!(got.x as i32, x, "{id} x");
-        assert_eq!(got.y as i32, y, "{id} y");
-        assert_eq!(got.width as i32, w, "{id} w");
-        assert_eq!(got.height as i32, h, "{id} h");
+    for (label, track) in pairs {
+        let l = snap.get(label).unwrap().layout.rect;
+        let t = snap.get(track).unwrap().layout.rect;
+        assert!(l.y + l.height <= t.y + 1.0, "{label} should sit above {track}");
     }
-    assert_eq!(OPTIONS_CONTENT_IDS.len(), expect.len());
-    // 内容板不得盖住底条。
-    let content = rect_px_from_snapshot(&snap, "content");
-    assert!(content.y + content.h <= 568, "content overlaps lower_strip");
-}
-
-#[test]
-fn options_page_tree_includes_rail_and_content() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(Viewport { size: shell_design_size(chrome), ..Viewport::default() }, &options_page_layout_tree(chrome));
-    assert!(snap.get("panel_top").is_some());
-    assert!(snap.get("lower_strip").is_some());
-    assert!(snap.get("accept").is_some());
-    assert!(snap.get("main_menu").is_some());
-    assert!(snap.get("content").is_some());
-    assert!(snap.get("track_voice").is_some());
-    let content = options_content_layout_tree(chrome);
-    let content_snap = LayoutEngine.solve(Viewport { size: shell_design_size(chrome), ..Viewport::default() }, &content);
-    assert_eq!(snap.get("track_detail").map(|e| e.layout.rect), content_snap.get("track_detail").map(|e| e.layout.rect));
-}
-
-#[test]
-fn options_track_labels_have_clearance_above_tracks() {
-    let chrome = RightPanelChrome::shell_defaults();
-    let snap = LayoutEngine.solve(Viewport { size: shell_design_size(chrome), ..Viewport::default() }, &options_content_layout_tree(chrome));
-    let pairs = [("sec_display", "track_detail"), ("sec_game", "track_difficulty"), ("sec_audio", "track_music")];
-    for (sec, track) in pairs {
-        let s = snap.get(sec).expect(sec).layout.rect;
-        let t = snap.get(track).expect(track).layout.rect;
-        // 分区底到滑条顶：分隔线 + 一行标签（`SEC_TO_TRACK - SEC_H` ≈ 22）。
-        assert!(t.y >= s.y + s.height + 20.0, "{sec}->{track}: gap too small ({} vs {})", t.y, s.y + s.height);
-    }
-    let music = snap.get("track_music").unwrap().layout.rect;
-    let sound = snap.get("track_sound").unwrap().layout.rect;
-    // `TRACK_STACK - TRACK_H` = 18，刚好塞下上一行标签尾与下一行标签。
-    assert!(sound.y >= music.y + music.height + 16.0, "audio tracks stacked too tight");
 }

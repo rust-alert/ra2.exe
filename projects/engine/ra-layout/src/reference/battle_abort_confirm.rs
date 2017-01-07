@@ -1,12 +1,12 @@
 //! 对局放弃确认（暂停菜单二级页，几何权威为 `solve_battle_abort_confirm`）。
 //!
-//! 与暂停菜单同族：战术区 dim + 阵营 `bkgd*`（`uibkgd.pal`）+ 右缘 `SIDEBTTN`
-//!（Leave / Cancel）。右侧金属壳与底边命令条空轨由暂停态 HUD chrome 垫底。
+//! 与暂停菜单同族：一棵树含战术区 dim/`bkgd*`、右 hub 壳槽、Leave/Cancel。
+//! 右 hub 与主暂停共用 [`super::battle_pause::battle_pause_hub_leaves`]。
 //! **不是**主菜单壳，**不是**自制居中黄框卡片。
 
 use crate::{
     geometry::Rect,
-    reference::{DluRect, MS_SANS_SERIF_8PT},
+    reference::{DluRect, MS_SANS_SERIF_8PT, battle_hud::BattleHudChromeMetrics},
     snapshot::LayoutSnapshot,
     solver::LayoutEngine,
     spec::{LayoutNode, fixed_rect_leaf, root_with_fixed_children},
@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::battle_pause::{
-    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_background_rect, battle_pause_center_offset, battle_pause_rail_rect,
-    battle_sidebttn_rect,
+    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_background_rect_with_metrics, battle_pause_center_offset,
+    battle_pause_hub_leaves, battle_sidebttn_rect,
 };
 
 /// 放弃确认钮 id（Leave / Cancel）。
@@ -35,17 +35,18 @@ fn prompt_rect(screen_w: f32, screen_h: f32) -> Rect {
 
 /// 放弃确认布局树。
 pub fn battle_abort_confirm_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
+    let metrics = BattleHudChromeMetrics::sidec01();
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
-    let world = battle_pause_background_rect(w, h);
-    let children = vec![
+    let world = battle_pause_background_rect_with_metrics(w, h, metrics);
+    let mut children = vec![
         fixed_rect_leaf("dim", world),
         fixed_rect_leaf("background", world),
-        fixed_rect_leaf("rail", battle_pause_rail_rect(w, h)),
-        fixed_rect_leaf("prompt", prompt_rect(w, h)),
-        fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[0], battle_sidebttn_rect(w, h, LEAVE_DLU)),
-        fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[1], battle_sidebttn_rect(w, h, CANCEL_DLU)),
     ];
+    children.extend(battle_pause_hub_leaves(viewport_w, viewport_h, metrics));
+    children.push(fixed_rect_leaf("prompt", prompt_rect(w, h)));
+    children.push(fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[0], battle_sidebttn_rect(w, h, LEAVE_DLU)));
+    children.push(fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[1], battle_sidebttn_rect(w, h, CANCEL_DLU)));
     root_with_fixed_children("battle_abort_confirm", crate::geometry::Size2 { width: w, height: h }, children)
 }
 

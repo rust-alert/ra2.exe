@@ -10,20 +10,32 @@ fn abort_confirm_and_options_share_sidebttn_rail() {
     let abort = solve_battle_abort_confirm();
     let opts = solve_battle_in_game_options();
     assert!(pause.get("list_band").is_some());
-    assert!(pause.get("cameo_band").is_none());
+    assert!(pause.get("sidebar").is_some());
     assert!(pause.get("card").is_none());
     assert!(abort.get("panel_top").is_none());
     assert!(abort.get("background").is_some());
+    assert!(abort.get("list_band").is_some());
+    assert!(abort.get("sidebar").is_some());
     assert!(abort.get("rail").is_some());
     assert_eq!(
         rect_px_from_snapshot(&pause, "background"),
         rect_px_from_snapshot(&abort, "background"),
     );
     assert_eq!(
+        rect_px_from_snapshot(&pause, "list_band"),
+        rect_px_from_snapshot(&abort, "list_band"),
+    );
+    assert_eq!(
         rect_px_from_snapshot(&pause, "rail"),
         rect_px_from_snapshot(&abort, "rail"),
     );
     assert!(opts.get("mnscrnl").is_none());
+    assert!(opts.get("list_band").is_some());
+    assert!(opts.get("sidebar").is_some());
+    assert_eq!(
+        rect_px_from_snapshot(&pause, "list_band"),
+        rect_px_from_snapshot(&opts, "list_band"),
+    );
     let leave = rect_px_from_snapshot(&abort, "leave");
     let cancel = rect_px_from_snapshot(&abort, "cancel");
     assert_eq!(leave.w, 125);

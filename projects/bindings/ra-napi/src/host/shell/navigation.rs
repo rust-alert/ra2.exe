@@ -287,6 +287,10 @@ impl Shell {
         match action {
             MenuAction::OpenSinglePlayer => self.set_screen(OriginalScreen::SinglePlayerMenu),
             MenuAction::OpenNetwork => {
+                if self.screen == OriginalScreen::Options {
+                    // 从选项进网络：先落盘草稿再切页（右栏无单独接受钮）。
+                    self.apply_options_accept();
+                }
                 tracing::info!("网络入口未开放（Beta）");
                 self.set_screen(OriginalScreen::Network);
             }
@@ -337,16 +341,8 @@ impl Shell {
                     self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
                 }
                 OriginalScreen::Options => {
-                    // 右栏「主菜单」：丢弃草稿并离开对局回大厅/选边，或回主菜单。
-                    let from_battle = self.options_return_screen == Some(OriginalScreen::Battle);
-                    self.discard_options_draft();
-                    self.options_return_screen = None;
-                    if from_battle {
-                        self.apply_nav(crate::host::battle_controller::BattleNav::ToMainMenu);
-                    }
-                    else {
-                        self.set_screen(OriginalScreen::MainMenu);
-                    }
+                    // 右栏主菜单走 `OptionsAccept`；若仍收到 `Back`，同样提交草稿后离开。
+                    self.apply_options_accept();
                 }
                 OriginalScreen::SinglePlayerMenu | OriginalScreen::Network | OriginalScreen::ExitConfirm => {
                     self.set_screen(OriginalScreen::MainMenu);
@@ -363,6 +359,10 @@ impl Shell {
             MenuAction::Noop => {
                 if self.screen == OriginalScreen::ChooseMap {
                     self.banner = "随机地图尚未实现".into();
+                    self.refresh_shell_title();
+                }
+                else if self.screen == OriginalScreen::Options {
+                    self.banner = "键盘设置尚未实现".into();
                     self.refresh_shell_title();
                 }
             }

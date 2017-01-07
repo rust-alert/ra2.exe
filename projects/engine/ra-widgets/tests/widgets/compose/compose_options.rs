@@ -12,7 +12,8 @@ fn paint_options_draws_music_thumb() {
     let state = OptionsDialogState::from_shell(DisplayMode::W800H600, 1.0, 0.0, PresentFeel::DEFAULT);
     paint_options_dialog_controls(&mut page, &snap, &state, None, None);
     let track = rect_px_from_snapshot(&snap, "track_music");
-    let px = track.x + track.w - 8;
+    // 音量轨右侧留数值格，拇指在左轨末端。
+    let px = track.x + track.w - 28 - 8;
     let py = track.y + track.h / 2;
     let di = ((py as u32 * page.width() + px as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 3], &[220, 40, 40]);

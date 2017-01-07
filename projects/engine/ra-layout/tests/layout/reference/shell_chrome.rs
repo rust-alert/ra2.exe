@@ -13,13 +13,13 @@ fn shell_chrome_matches_golden_slots() {
     let snap = LayoutEngine.solve(Viewport { size: shell_design_size(chrome), ..Viewport::default() }, &shell_chrome_layout_tree(chrome));
     assert_eq!(rect_px_from_snapshot(&snap, "panel_top"), RectPx::new(632, 0, 168, 199));
     assert_eq!(rect_px_from_snapshot(&snap, "panel_tile"), RectPx::new(632, 199, 168, 42));
-    assert_eq!(rect_px_from_snapshot(&snap, "panel_bottom"), RectPx::new(632, 577, 168, 23));
+    assert_eq!(rect_px_from_snapshot(&snap, "panel_bottom"), RectPx::new(632, 535, 168, 65));
     assert_eq!(rect_px_from_snapshot(&snap, "background"), RectPx::new(0, 0, 632, 570));
     assert_eq!(rect_px_from_snapshot(&snap, "movie"), RectPx::new(0, 0, 632, 570));
     assert_eq!(rect_px_from_snapshot(&snap, "lower_strip"), RectPx::new(0, 568, 632, 32));
     assert_eq!(rect_px_from_snapshot(&snap, "title"), RectPx::new(635, 9, 163, 18));
     assert_eq!(rect_px_from_snapshot(&snap, "tooltip"), RectPx::new(10, 579, 455, 20));
-    assert_eq!(chrome.tile_count(), 9);
+    assert_eq!(chrome.tile_count(), 8);
 }
 
 #[test]

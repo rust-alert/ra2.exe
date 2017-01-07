@@ -9,6 +9,7 @@ use crate::{
     },
     skin::text::battle_pause_menu_fallback_label,
 };
+use ra_layout::LayoutSnapshot;
 
 pub struct BattleHudModel<'a> {
     /// 仿真 tick。
@@ -29,10 +30,6 @@ pub struct BattleHudModel<'a> {
     pub produce_queue: Option<&'a str>,
     /// 最近命令拒绝原因（可空）。
     pub reject: Option<&'a str>,
-    /// 是否暂停。
-    pub paused: bool,
-    /// 暂停原因。
-    pub pause_reason: Option<&'a str>,
     /// 命令条按下槽（高亮帧）。
     pub command_pressed: Option<usize>,
     /// 命令条悬停槽（浮动 `TIP:*`）。
@@ -85,7 +82,6 @@ pub fn compose_battle_hud_overlay(
             &snap,
             metrics.power_w,
             paint.command_pressed,
-            paint.paused,
             paint.repair_active,
             paint.sell_active,
             paint.radar_online,
@@ -93,9 +89,7 @@ pub fn compose_battle_hud_overlay(
             paint.sidebar_tabs_visible,
             paint.sidebar_tab,
         );
-        if !paint.paused {
-            crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos, paint.tick);
-        }
+        crate::battle_hud::blit_battle_cameos(&mut page, &snap, metrics.power_w, paint.cameos, paint.tick);
     }
     else {
         // 诊断态：snapshot 占位（跳过战术区底边命令条，保持左下透明）。
@@ -144,15 +138,10 @@ pub fn compose_battle_hud_overlay(
             }
             blit_caption_top_left_clipped(&mut page, fnt, &format!("t{}", paint.tick), text_x, y, text_w, line_h, MENU_TEXT_SECTION);
             y += line_h + 4;
-            if paint.paused {
-                let reason = paint.pause_reason.unwrap_or("已暂停");
-                blit_caption_top_left_clipped(&mut page, fnt, reason, text_x, y, text_w, line_h, MENU_TEXT_ACCENT);
-                y += line_h + 4;
-            }
             let _ = (y, bottom_strip);
         }
-        else if !paint.paused {
-            // 有 chrome 且非暂停：只在底脚条带写少量诊断（避免盖住 cameo / 暂停钮）。
+        else {
+            // 有 chrome：只在底脚条带写少量诊断（避免盖住 cameo）。
             let x = sidebar.x + 8;
             let mut y = bottom_strip.y + 4;
             if let Some(hint) = paint.deploy_hint {
@@ -165,18 +154,13 @@ pub fn compose_battle_hud_overlay(
             }
             let _ = y;
         }
-        else {
-            // 暂停菜单打开：资金条仍画，底脚/侧栏诊断文案一律不写，留给暂停钮与 chrome。
-        }
     }
 
-    if !paint.paused {
-        if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) = (paint.command_tip, paint.command_hovered, chrome, fnt) {
-            let snap = solve_battle_hud_with_metrics(w, h, metrics);
-            let cell = rect_px_from_snapshot(&snap, &format!("cmd{slot}"));
-            if cell.w > 0 && cell.h > 0 {
-                paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
-            }
+    if let (Some(tip), Some(slot), Some(_chrome), Some(fnt)) = (paint.command_tip, paint.command_hovered, chrome, fnt) {
+        let snap = solve_battle_hud_with_metrics(w, h, metrics);
+        let cell = rect_px_from_snapshot(&snap, &format!("cmd{slot}"));
+        if cell.w > 0 && cell.h > 0 {
+            paint_command_tip(&mut page, fnt, tip, cell, w as i32, h as i32);
         }
     }
 
@@ -241,7 +225,13 @@ pub fn compose_battle_pause_menu_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
+    let metrics = paint_pause_hub_base(
+        &mut page,
+        hud_chrome,
+        funds,
+        fnt,
+        &pause_snapshot_with_metrics(w, h, metrics_for_chrome(hud_chrome)),
+    );
 
     fill_rect(&mut page, dim_rect_with_metrics(w, h, metrics), [0, 0, 0, 160]);
 
@@ -303,7 +293,8 @@ pub fn compose_battle_abort_confirm_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let _metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
+    let abort_snap = crate::battle_abort_confirm::abort_snapshot(w, h);
+    let _metrics = paint_pause_hub_base(&mut page, hud_chrome, funds, fnt, &abort_snap);
 
     fill_rect(&mut page, abort_dim(w, h), [0, 0, 0, 160]);
 
@@ -351,23 +342,20 @@ pub fn compose_battle_abort_confirm_overlay(
 }
 
 /// 在暂停叠层底部画右 hub（关图雷达 / `list_band` / 命令空轨）与资金条。
+///
+/// `snap` 须含 pause 族 hub 槽（`sidebar` / `list_band` / `credits` 等）。
 fn paint_pause_hub_base(
     page: &mut RgbaImage,
-    w: u32,
-    h: u32,
     hud_chrome: Option<&BattleHudChrome>,
     funds: Option<i32>,
     fnt: Option<&FntFile>,
+    snap: &LayoutSnapshot,
 ) -> BattleHudChromeMetrics {
-    let metrics = match hud_chrome {
-        Some(c) => BattleHudChromeMetrics::for_mix(&c.mix),
-        None => BattleHudChromeMetrics::sidec01(),
-    };
+    let metrics = metrics_for_chrome(hud_chrome);
     if let Some(chrome) = hud_chrome.filter(|c| c.has_sidebar_body()) {
-        let snap = pause_snapshot_with_metrics(w, h, metrics);
-        blit_battle_pause_hub_chrome(page, chrome, &snap);
+        blit_battle_pause_hub_chrome(page, chrome, snap);
         if let (Some(fnt), Some(funds)) = (fnt, funds) {
-            let credits = rect_px_from_snapshot(&snap, "credits");
+            let credits = rect_px_from_snapshot(snap, "credits");
             blit_caption_in_cell(
                 page,
                 fnt,
@@ -381,6 +369,13 @@ fn paint_pause_hub_base(
         }
     }
     metrics
+}
+
+fn metrics_for_chrome(hud_chrome: Option<&BattleHudChrome>) -> BattleHudChromeMetrics {
+    match hud_chrome {
+        Some(c) => BattleHudChromeMetrics::for_mix(&c.mix),
+        None => BattleHudChromeMetrics::sidec01(),
+    }
 }
 
 /// 合成局内选项 `0xBBB` 整页（单层：pause hub + 选项控件）。
@@ -408,8 +403,8 @@ pub fn compose_battle_in_game_options_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let _metrics = paint_pause_hub_base(&mut page, w, h, hud_chrome, funds, fnt);
     let snap = options_snapshot(w, h);
+    let _metrics = paint_pause_hub_base(&mut page, hud_chrome, funds, fnt, &snap);
 
     fill_rect(&mut page, rect_px_from_snapshot(&snap, "dim"), [0, 0, 0, 160]);
 

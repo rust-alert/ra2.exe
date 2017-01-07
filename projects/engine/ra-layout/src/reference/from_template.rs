@@ -1,6 +1,6 @@
 //! 由 `DialogTemplate` + chrome 策略解析设计像素。
 
-use ra_types::{ControlPlacement, DialogControlDesc, DialogTemplate, dialog_template_0x6b, dialog_template_0x102};
+use ra_types::{ControlPlacement, DialogControlDesc, DialogTemplate, dialog_template_0x6b, dialog_template_0x102, dialog_template_0xd5};
 
 use crate::{
     geometry::{Rect, Size2},
@@ -142,4 +142,9 @@ pub fn solve_choose_map() -> LayoutSnapshot {
 /// 遭遇战大厅：面板 chrome + `0x102` 模板 → 左栏表单在内容区居中。
 pub fn solve_skirmish_lobby() -> LayoutSnapshot {
     solve_with_shell_defaults(|chrome| dialog_page_layout_tree_ex("dialog_0x102", &dialog_template_0x102(), chrome, true))
+}
+
+/// 主菜单选项：面板 chrome + `0xD5` 模板 → 左栏表单在内容区居中。
+pub fn solve_options_dialog() -> LayoutSnapshot {
+    solve_with_shell_defaults(|chrome| dialog_page_layout_tree_ex("dialog_0xd5", &dialog_template_0xd5(), chrome, true))
 }

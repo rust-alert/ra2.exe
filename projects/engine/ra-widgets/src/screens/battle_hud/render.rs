@@ -220,10 +220,12 @@ pub fn blit_battle_hud_chrome_with_state(
     power_meter_w: i32,
     command_pressed: Option<usize>,
 ) {
-    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false, false, false, false, 0, [true; SIDEBAR_TAB_COUNT], 0);
+    blit_battle_hud_chrome_ex(page, chrome, snap, power_meter_w, command_pressed, false, false, false, 0, [true; SIDEBAR_TAB_COUNT], 0);
 }
 
-/// `pause_menu == true`：不画修理/出售/页签/选项外交/命令钮，底边只留端盖+`lspacer` 轨。
+/// 对局 play HUD chrome（cameo 格子 / 电表 / 页签 / 命令钮）。
+///
+/// 暂停态走 [`blit_battle_pause_hub_chrome`]，禁止再经本函数的布尔旁路改画。
 ///
 /// `tabs_visible`：无对应可建造基础的分类页签不绘制。
 ///
@@ -238,7 +240,6 @@ pub fn blit_battle_hud_chrome_ex(
     snap: &LayoutSnapshot,
     power_meter_w: i32,
     command_pressed: Option<usize>,
-    pause_menu: bool,
     repair_active: bool,
     sell_active: bool,
     radar_online: bool,
@@ -295,17 +296,7 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = &chrome.side1 {
         blit_chrome_slot(page, &s.image, side1);
     }
-    if pause_menu {
-        // 暂停右栏是列表区：只铺实色，禁止 `side2` cameo 格子平铺。
-        let list_fill = chrome
-            .side1
-            .as_ref()
-            .or(chrome.side3.as_ref())
-            .or(chrome.top.as_ref())
-            .and_then(|s| sample_opaque_rgb(&s.image))
-            .unwrap_or(sidebar_fill);
-        fill_rect(page, cameo_band, list_fill);
-    } else if let Some(tile) = &chrome.side2 {
+    if let Some(tile) = &chrome.side2 {
         let th = tile.image.height().max(1) as i32;
         let mut y = cameo_band.y;
         while y < cameo_band.y + cameo_band.h {
@@ -324,50 +315,45 @@ pub fn blit_battle_hud_chrome_ex(
     if let Some(s) = &chrome.addon {
         blit_chrome_slot(page, &s.image, addon);
     }
-    if !pause_menu {
-        let repair_sprite = if repair_active { chrome.repair_pressed.as_ref().or(chrome.repair.as_ref()) } else { chrome.repair.as_ref() };
-        if let Some(s) = repair_sprite {
-            blit_button_in_cell(page, &s.image, repair);
-        }
-        let sell_sprite = if sell_active { chrome.sell_pressed.as_ref().or(chrome.sell.as_ref()) } else { chrome.sell.as_ref() };
-        if let Some(s) = sell_sprite {
-            blit_button_in_cell(page, &s.image, sell);
-        }
-        if let Some(s) = &chrome.powerp {
-            // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
-            let meter_w = power_meter_w.min(sidebar.w).max(1);
-            let strip_h = s.image.height().max(1) as i32;
-            let mut y = cameo_band.y;
-            let bottom = cameo_band.y + cameo_band.h;
-            while y < bottom {
-                let h = (bottom - y).min(strip_h);
-                blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
-                y += strip_h;
-            }
-        }
-        // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
-        for (i, tab) in chrome.tabs.iter().enumerate() {
-            if !tabs_visible.get(i).copied().unwrap_or(false) {
-                continue;
-            }
-            let pressed = i == active_tab;
-            let sprite = if pressed { chrome.tabs_pressed.get(i).and_then(|t| t.as_ref()).or(tab.as_ref()) } else { tab.as_ref() };
-            if let Some(tab) = sprite {
-                blit_button_in_cell(page, &tab.image, tabs[i]);
-            }
-        }
-        // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。
-        if let Some(s) = &chrome.diplobtn {
-            blit_button_in_cell(page, &s.image, diplo_btn);
-        }
-        if let Some(s) = &chrome.optbtn {
-            blit_button_in_cell(page, &s.image, opt_btn);
-        }
-        blit_command_bar(page, chrome, snap, command_pressed);
-    } else {
-        // 暂停：整段命令轨保留金属细节，不露编队/部署钮。
-        blit_command_bar_track(page, chrome, snap, /* with_buttons */ false, None);
+    let repair_sprite = if repair_active { chrome.repair_pressed.as_ref().or(chrome.repair.as_ref()) } else { chrome.repair.as_ref() };
+    if let Some(s) = repair_sprite {
+        blit_button_in_cell(page, &s.image, repair);
     }
+    let sell_sprite = if sell_active { chrome.sell_pressed.as_ref().or(chrome.sell.as_ref()) } else { chrome.sell.as_ref() };
+    if let Some(s) = sell_sprite {
+        blit_button_in_cell(page, &s.image, sell);
+    }
+    if let Some(s) = &chrome.powerp {
+        // `powerp.shp` 为窄条带，沿 cameo 左缘纵向平铺成电表，勿整帧拉高。
+        let meter_w = power_meter_w.min(sidebar.w).max(1);
+        let strip_h = s.image.height().max(1) as i32;
+        let mut y = cameo_band.y;
+        let bottom = cameo_band.y + cameo_band.h;
+        while y < bottom {
+            let h = (bottom - y).min(strip_h);
+            blit_stretched(page, &s.image, RectPx::new(sidebar.x, y, meter_w, h));
+            y += strip_h;
+        }
+    }
+    // 四分类页签贴入布局槽位，勿压住修理/出售拱钮。
+    for (i, tab) in chrome.tabs.iter().enumerate() {
+        if !tabs_visible.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        let pressed = i == active_tab;
+        let sprite = if pressed { chrome.tabs_pressed.get(i).and_then(|t| t.as_ref()).or(tab.as_ref()) } else { tab.as_ref() };
+        if let Some(tab) = sprite {
+            blit_button_in_cell(page, &tab.image, tabs[i]);
+        }
+    }
+    // 顶栏双钮：贴在 `top.shp` 凹槽（资金条与雷达之间）。
+    if let Some(s) = &chrome.diplobtn {
+        blit_button_in_cell(page, &s.image, diplo_btn);
+    }
+    if let Some(s) = &chrome.optbtn {
+        blit_button_in_cell(page, &s.image, opt_btn);
+    }
+    blit_command_bar(page, chrome, snap, command_pressed);
 }
 
 /// 暂停右 hub：只认 pause snapshot 槽位（`list_band` 等），雷达关图、无 cameo 格子/电表/页签。

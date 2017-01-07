@@ -90,9 +90,24 @@ pub(super) fn compose_shell_menu_page(
                 blit_text_colored(&mut page, fnt, text, tooltip.x, tooltip.y, MENU_TEXT_ENABLED);
             }
         }
+        paint_shell_version_caption(&mut page, fnt, csf, panel_bottom);
     }
 
     Some(page)
+}
+
+/// 在 `sdbtm` 底盖突出台上居中绘制版本号（钮面下方余带）。
+pub(super) fn paint_shell_version_caption(page: &mut RgbaImage, fnt: &FntFile, csf: Option<&CsfFile>, panel_bottom: RectPx) {
+    let band_y = panel_bottom.y + BUTTON_CELL_H;
+    let band_h = panel_bottom.h - BUTTON_CELL_H;
+    if band_h <= 0 {
+        return;
+    }
+    let text = shell_version_caption(csf, SHELL_UI_VERSION_RA2);
+    if text.is_empty() {
+        return;
+    }
+    blit_caption_in_cell(page, fnt, &text, panel_bottom.x, band_y, panel_bottom.w, band_h, MENU_TEXT_ENABLED);
 }
 
 /// 绘制右栏轨上按钮（钮面 + 文案）。选图页在叠 `map_name_plate` 后会再调一次，避免「使用地图」被底板盖住。

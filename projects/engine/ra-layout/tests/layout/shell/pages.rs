@@ -14,11 +14,12 @@ fn main_menu_panel_sits_on_right_edge() {
 }
 
 #[test]
-fn main_menu_bottom_cover_is_remainder_not_fixed_65() {
+fn main_menu_bottom_cover_keeps_sdbtm_canvas_65() {
     let snap = ra_layout::solve_shell_page("main_menu", &MAIN_MENU_BUTTON_IDS[..5], Some(MAIN_MENU_BUTTON_IDS[5]));
-    // 600 - 199 = 401；401/42 = 9 格；底盖 y=199+378=577，高=23。
-    assert_eq!(ra_layout::RightPanelChrome::shell_defaults().tile_count(), 9);
-    assert_eq!(rect_px_from_snapshot(&snap, "panel_bottom"), RectPx::new(632, 577, 168, 23));
+    // 顶盖 199 + 底盖 65 → 中间 336；336/42 = 8 格；底盖 y=535，高=65。
+    assert_eq!(ra_layout::RightPanelChrome::shell_defaults().tile_count(), 8);
+    assert_eq!(RIGHT_PANEL_BOTTOM_H, 65);
+    assert_eq!(rect_px_from_snapshot(&snap, "panel_bottom"), RectPx::new(632, 535, 168, 65));
     assert_eq!(rect_px_from_snapshot(&snap, "movie"), RectPx::new(0, 0, 632, 570));
     assert_eq!(rect_px_from_snapshot(&snap, "lower_strip"), RectPx::new(0, 568, 632, 32));
 }
@@ -37,7 +38,7 @@ fn main_menu_exit_sits_on_bottom_cover() {
     for (i, y) in expected_y.iter().enumerate() {
         assert_eq!(rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[i]), RectPx::new(644, *y, 156, 42));
     }
-    // Exit：底盖上沿一行 → y = 577 - 42 = 535。
+    // Exit：叠在 `sdbtm` 顶沿 → y = 535（下方留 23px 版本台）。
     assert_eq!(rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[5]), RectPx::new(644, 535, 156, 42));
 }
 

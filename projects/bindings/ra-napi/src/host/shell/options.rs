@@ -52,14 +52,14 @@ impl Shell {
         };
         use ra_widgets::options_dialog::OptionsHit;
         match hit {
-            OptionsHit::Accept => {
-                self.menu_pressed_entry = Some("accept");
+            OptionsHit::Keyboard => {
+                self.menu_pressed_entry = Some("keyboard");
                 self.play_menu_click();
                 self.refresh_menu_backdrop();
                 true
             }
-            OptionsHit::Cancel => {
-                self.menu_pressed_entry = Some("cancel");
+            OptionsHit::Network => {
+                self.menu_pressed_entry = Some("network");
                 self.play_menu_click();
                 self.refresh_menu_backdrop();
                 true

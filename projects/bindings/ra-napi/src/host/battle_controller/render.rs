@@ -467,6 +467,53 @@ impl BattleController {
         let h = viewport_h.max(1);
         let local_house = self.local_house_name();
         let local = local_house.as_ref().and_then(|house| hud.players.iter().find(|p| p.house.as_ref() == house.as_str()));
+        // Esc 暂停叠层：单层 compose，禁止再走 play HUD / cameo。
+        if hud.paused && hud.outcome.is_none() {
+            let funds = local.map(|p| p.funds);
+            let page = match self.pause_layer {
+                BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
+                    w,
+                    h,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                    self.hud_chrome.as_ref(),
+                    funds,
+                ),
+                BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
+                    w,
+                    h,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                    self.hud_chrome.as_ref(),
+                    funds,
+                ),
+                BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
+                    w,
+                    h,
+                    &self.in_game_options,
+                    self.pause_pressed,
+                    self.pause_hover,
+                    fnt,
+                    csf,
+                    self.pause_menu_chrome.as_ref(),
+                    self.pause_stub_notice,
+                    self.hud_chrome.as_ref(),
+                    funds,
+                ),
+            };
+            if let Some(page) = page {
+                let page = present::present_ui_page(page, present);
+                renderer.set_ui_overlay(page);
+            }
+            return;
+        }
+
         let nsel = self.local.selected.len();
         let game = self.session.as_ref().and_then(|s| s.battle());
         let selected_type =
@@ -483,8 +530,6 @@ impl BattleController {
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let tip_owned = self.command_hover.and_then(command_button_csf_tooltip).and_then(|key| resolve_csf_text(csf, key));
-        // 暂停菜单打开时不再画「已暂停」横幅文案。
-        let show_pause_banner = hud.paused && hud.outcome.is_none();
 
         let caps = game.map(|g| g.snapshot_capabilities(&self.local.selected));
         let tabs_visible = Self::sidebar_tabs_visible(caps.as_ref());
@@ -538,75 +583,23 @@ impl BattleController {
             deploy_hint: deploy_hint_owned.as_deref(),
             produce_queue: queue.as_deref(),
             reject,
-            paused: show_pause_banner,
-            pause_reason: None,
-            command_pressed: if show_pause_banner {
-                None
-            } else {
-                self.command_pressed.or_else(|| {
-                    if self.planning_mode {
-                        ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
-                    } else {
-                        None
-                    }
-                })
-            },
-            command_hovered: if show_pause_banner { None } else { self.command_hover },
-            command_tip: if show_pause_banner { None } else { tip_owned.as_deref() },
-            repair_active: !show_pause_banner && self.repair_mode,
-            sell_active: !show_pause_banner && self.sell_mode,
-            radar_online: !show_pause_banner && !local.map(|p| p.low_power).unwrap_or(false) && caps.as_ref().is_some_and(|c| c.has_radar),
+            command_pressed: self.command_pressed.or_else(|| {
+                if self.planning_mode {
+                    ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
+                } else {
+                    None
+                }
+            }),
+            command_hovered: self.command_hover,
+            command_tip: tip_owned.as_deref(),
+            repair_active: self.repair_mode,
+            sell_active: self.sell_mode,
+            radar_online: !local.map(|p| p.low_power).unwrap_or(false) && caps.as_ref().is_some_and(|c| c.has_radar),
             sidebar_tab: self.sidebar_tab.min(SIDEBAR_TAB_COUNT.saturating_sub(1)),
             sidebar_tabs_visible: tabs_visible,
-            cameos: if show_pause_banner { &[] } else { &cameos },
+            cameos: &cameos,
         };
         // 与命中 / `world_viewport` 同口径：按窗口像素合成，避免 800×600 letterbox 错位。
-        if show_pause_banner {
-            // 暂停：单层 compose（pause hub + dim + bkgd* / 选项控件），禁止再叠 HUD 垫底。
-            let funds = local.map(|p| p.funds);
-            let page = match self.pause_layer {
-                BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
-                    w,
-                    h,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                    self.hud_chrome.as_ref(),
-                    funds,
-                ),
-                BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
-                    w,
-                    h,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                    self.hud_chrome.as_ref(),
-                    funds,
-                ),
-                BattlePauseLayer::InGameOptions => compose_battle_in_game_options_overlay(
-                    w,
-                    h,
-                    &self.in_game_options,
-                    self.pause_pressed,
-                    self.pause_hover,
-                    fnt,
-                    csf,
-                    self.pause_menu_chrome.as_ref(),
-                    self.pause_stub_notice,
-                    self.hud_chrome.as_ref(),
-                    funds,
-                ),
-            };
-            if let Some(page) = page {
-                let page = present::present_ui_page(page, present);
-                renderer.set_ui_overlay(page);
-            }
-            return;
-        }
         if let Some(mut page) = compose_battle_hud_overlay(w, h, fnt, paint, self.hud_chrome.as_ref()) {
             if let Some(rect) = self.left_gesture.marquee_rect() {
                 stroke_marquee_rect(&mut page, rect);

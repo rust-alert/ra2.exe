@@ -29,6 +29,25 @@ pub fn main_menu_csf_tooltip(entry_id: &str) -> Option<&'static str> {
     }
 }
 
+/// 壳层右下角版本号标签 → CSF（`GUI:VERSION` →「版本」）。
+pub fn shell_version_csf_key() -> &'static str {
+    "GUI:VERSION"
+}
+
+/// 零售 RA2 壳层常显版本串（对齐原版右下角「版本 1.006」）。
+pub const SHELL_UI_VERSION_RA2: &str = "1.006";
+
+/// 拼右下角版本文案：`{GUI:VERSION} {version}`。
+pub fn shell_version_caption(csf: Option<&CsfFile>, version: &str) -> String {
+    let label = resolve_caption(csf, "version", Some(shell_version_csf_key()));
+    if version.is_empty() {
+        label
+    }
+    else {
+        format!("{label} {version}")
+    }
+}
+
 /// 单人页入口 → CSF 标签。
 pub fn single_player_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
@@ -198,8 +217,8 @@ pub fn skirmish_lobby_static_csf_key(kind: &str) -> Option<&'static str> {
 /// 选项页入口 → CSF 标签。
 pub fn options_csf_label(entry_id: &str) -> Option<&'static str> {
     match entry_id {
-        "accept" => Some("GUI:Ok"),
-        "cancel" => Some("GUI:Cancel"),
+        "keyboard" => Some("GUI:Keyboard"),
+        "network" => Some("GUI:Network"),
         "main_menu" => Some("GUI:MainMenu"),
         _ => None,
     }
@@ -293,12 +312,61 @@ pub fn options_dialog_csf_key(kind: &str) -> Option<&'static str> {
         "music" => Some("GUI:MusicVolume"),
         "sound" => Some("GUI:SoundVolume"),
         "voice" => Some("GUI:VoiceVolume"),
-        // 质感区无原版 CSF 键，绘制侧用英文 fallback。
-        "present" | "present_16bit" => None,
-        "high" => Some("TXT_HIGH"),
-        "hard" => Some("TXT_HARD"),
-        "fastest" => Some("TXT_FASTEST"),
         _ => None,
+    }
+}
+
+/// 画面精细度档位 → CSF（对齐 `value_detail` 动态字）。
+pub fn options_detail_csf_key(pos: u8) -> Option<&'static str> {
+    Some(match pos.min(2) {
+        0 => "TXT_LOW",
+        1 => "TXT_MEDIUM",
+        _ => "TXT_HIGH",
+    })
+}
+
+/// 画面精细度无 CSF 回退。
+pub fn options_detail_fallback(pos: u8) -> &'static str {
+    match pos.min(2) {
+        0 => "Low",
+        1 => "Medium",
+        _ => "High",
+    }
+}
+
+/// 难度档位 → CSF。
+pub fn options_difficulty_csf_key(pos: u8) -> Option<&'static str> {
+    Some(match pos.min(2) {
+        0 => "TXT_EASY",
+        1 => "TXT_NORMAL",
+        _ => "TXT_HARD",
+    })
+}
+
+/// 难度无 CSF 回退。
+pub fn options_difficulty_fallback(pos: u8) -> &'static str {
+    match pos.min(2) {
+        0 => "Easy",
+        1 => "Normal",
+        _ => "Hard",
+    }
+}
+
+/// 滚屏速率档位 → CSF（与局内速度档同键）。
+pub fn options_scroll_csf_key(pos: u8) -> Option<&'static str> {
+    Some(battle_in_game_speed_label_key(pos))
+}
+
+/// 滚屏速率无 CSF 回退。
+pub fn options_scroll_fallback(pos: u8) -> &'static str {
+    match pos.min(6) {
+        0 => "Slowest",
+        1 => "Slower",
+        2 => "Slow",
+        3 => "Medium",
+        4 => "Fast",
+        5 => "Faster",
+        _ => "Fastest",
     }
 }
 

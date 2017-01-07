@@ -185,3 +185,49 @@ pub fn dialog_template_0x102() -> DialogTemplate {
     }
     DialogTemplate { dialog_id: 0x102, controls }
 }
+
+/// 主菜单选项对话框 `0xD5` 控件表（壳层共用数据）。
+///
+/// 右栏：键盘 / 网络 / 主菜单。左栏：显示 / 游戏 / 界面 / 音效四区。
+pub fn dialog_template_0xd5() -> DialogTemplate {
+    DialogTemplate {
+        dialog_id: 0xD5,
+        controls: vec![
+            ctrl("keyboard", 317, 122, 108, 23, ControlPlacement::TileSnap),
+            ctrl("network", 317, 149, 108, 23, ControlPlacement::TileSnap),
+            ctrl("main_menu", 318, 257, 108, 23, ControlPlacement::BottomCoverButton),
+            ctrl("title", 318, 1, 108, 10, ControlPlacement::RightPanelAnchor),
+            ctrl("rail_badge", 339, 29, 61, 33, ControlPlacement::RightPanelAnchor),
+            ctrl("status_help", 10, 282, 303, 12, ControlPlacement::ShellTooltip),
+            // 显示
+            ctrl("sec_display", 10, 10, 140, 10, ControlPlacement::PreserveDlu),
+            ctrl("caption_detail", 25, 30, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("value_detail", 85, 30, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_detail", 25, 45, 120, 13, ControlPlacement::PreserveDlu),
+            ctrl("caption_resolution", 170, 30, 120, 10, ControlPlacement::PreserveDlu),
+            ctrl("resolution", 170, 45, 120, 74, ControlPlacement::ComboFace),
+            // 游戏
+            ctrl("sec_game", 10, 75, 298, 10, ControlPlacement::PreserveDlu),
+            ctrl("caption_difficulty", 25, 95, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("value_difficulty", 85, 95, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_difficulty", 25, 110, 120, 13, ControlPlacement::PreserveDlu),
+            // 界面（`check_observe` 与滚屏标签同位，壳层按单机语境隐藏）
+            ctrl("sec_ui", 10, 140, 298, 10, ControlPlacement::PreserveDlu),
+            ctrl("check_tooltips", 25, 160, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("check_scanlines", 25, 175, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("check_damage", 25, 190, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("check_observe", 171, 158, 130, 10, ControlPlacement::PreserveDlu),
+            ctrl("caption_scroll", 170, 160, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("value_scroll", 230, 160, 60, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_scroll", 170, 175, 120, 13, ControlPlacement::PreserveDlu),
+            // 音效（三列）
+            ctrl("sec_audio", 10, 215, 298, 10, ControlPlacement::PreserveDlu),
+            ctrl("caption_music", 25, 235, 85, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_music", 25, 250, 85, 13, ControlPlacement::PreserveDlu),
+            ctrl("caption_sound", 122, 235, 85, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_sound", 122, 250, 85, 13, ControlPlacement::PreserveDlu),
+            ctrl("caption_voice", 220, 235, 85, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_voice", 220, 250, 85, 13, ControlPlacement::PreserveDlu),
+        ],
+    }
+}

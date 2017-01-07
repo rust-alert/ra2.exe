@@ -254,11 +254,11 @@ const LOAD_SCREEN_PANELS: &[UiPanelSlot] = &[UiPanelSlot {
 const LOAD_SCREEN_BUTTONS: &[UiButtonSlot] =
     &[modal_button("retry", MenuAction::RetryLoad, true), modal_button("cancel", MenuAction::CancelLoad, true)];
 
-// 命中框占位；实际点击走 `ra_layout` shell helpers 选项页像素格。右栏为接受 / 取消 / 主菜单。
+// 命中框占位；实际点击走 `ra_layout` `0xD5` 选项页像素格。右栏：键盘 / 网络 / 主菜单。
 const OPTIONS_BUTTONS: &[UiButtonSlot] = &[
-    main_menu_button("accept", MenuAction::OptionsAccept, true),
-    main_menu_button("cancel", MenuAction::OptionsCancel, true),
-    main_menu_button("main_menu", MenuAction::Back, true),
+    main_menu_button("keyboard", MenuAction::Noop, true),
+    main_menu_button("network", MenuAction::OpenNetwork, true),
+    main_menu_button("main_menu", MenuAction::OptionsAccept, true),
 ];
 
 const fn modal_button(entry_id: &'static str, action: MenuAction, enabled: bool) -> UiButtonSlot {

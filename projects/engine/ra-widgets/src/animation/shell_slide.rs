@@ -66,7 +66,7 @@ pub struct ShellSlideSpec {
 
 /// 右栏 `sdbtnbkgd` 平铺格数（与壳层 snapshot 右栏几何一致）。
 /// 波浪按物理格自上而下交错：有字钮、无字空格、贴底末钮同一套档位。
-pub const SHELL_PANEL_WAVE_SLOTS: u32 = 9;
+pub const SHELL_PANEL_WAVE_SLOTS: u32 = 8;
 
 /// 主菜单：整列平铺格统一波浪。
 pub const MAIN_MENU_SLIDE: ShellSlideSpec = ShellSlideSpec { slot_count: SHELL_PANEL_WAVE_SLOTS };

@@ -1,18 +1,20 @@
 //! 局内选项 dialog `0xBBB`（暂停菜单二级页）。
 //!
-//! 与暂停菜单同族：全屏 dim + 右缘 `SIDEBTTN`；普通控件取相对 800×600 的居中偏移。
-//! **不是**主菜单选项壳（`mnscrnl` / `0xF5`）。
+//! 与暂停菜单同族：一棵树含右 hub 壳槽、全屏 dim、控件与右缘 `SIDEBTTN`。
+//! **不是**主菜单选项壳（`mnscrnl` / `0xD5`）。
 
 use crate::{
     geometry::Rect,
-    reference::{DluRect, MS_SANS_SERIF_8PT},
+    reference::{DluRect, MS_SANS_SERIF_8PT, battle_hud::BattleHudChromeMetrics},
     snapshot::LayoutSnapshot,
     solver::LayoutEngine,
     spec::{LayoutNode, fixed_rect_leaf, root_with_fixed_children},
     viewport::Viewport,
 };
 
-use super::battle_pause::{BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_center_offset, battle_sidebttn_rect};
+use super::battle_pause::{
+    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_center_offset, battle_pause_hub_leaves, battle_sidebttn_rect,
+};
 
 /// 右栏钮：Sound / Keyboard / Back。
 pub const BATTLE_IN_GAME_OPTIONS_BUTTON_IDS: [&str; 3] = ["sound", "keyboard", "back"];
@@ -33,10 +35,12 @@ fn centered_dlu(screen_w: f32, screen_h: f32, dlu: DluRect) -> Rect {
 
 /// 局内选项布局树。
 pub fn battle_in_game_options_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode {
+    let metrics = BattleHudChromeMetrics::sidec01();
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
-    let children = vec![
-        fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h)),
+    let mut children = battle_pause_hub_leaves(viewport_w, viewport_h, metrics);
+    children.push(fixed_rect_leaf("dim", Rect::from_xywh(0.0, 0.0, w, h)));
+    children.extend([
         fixed_rect_leaf("title", centered_dlu(w, h, DluRect::new(425, 1, 108, 10))),
         fixed_rect_leaf("caption_game_speed", centered_dlu(w, h, DluRect::new(40, 100, 100, 10))),
         fixed_rect_leaf("track_game_speed", centered_dlu(w, h, DluRect::new(144, 100, 128, 13))),
@@ -51,7 +55,7 @@ pub fn battle_in_game_options_layout_tree(viewport_w: u32, viewport_h: u32) -> L
         fixed_rect_leaf(BATTLE_IN_GAME_OPTIONS_BUTTON_IDS[0], battle_sidebttn_rect(w, h, SOUND_DLU)),
         fixed_rect_leaf(BATTLE_IN_GAME_OPTIONS_BUTTON_IDS[1], battle_sidebttn_rect(w, h, KEYBOARD_DLU)),
         fixed_rect_leaf(BATTLE_IN_GAME_OPTIONS_BUTTON_IDS[2], battle_sidebttn_rect(w, h, BACK_DLU)),
-    ];
+    ]);
     root_with_fixed_children("battle_in_game_options", crate::geometry::Size2 { width: w, height: h }, children)
 }
 

@@ -34,9 +34,10 @@ pub struct SkirmishScorePaint<'a> {
 const HEADER_COLS: [&str; 5] = ["player", "kills", "losses", "built", "score"];
 const HEADER_SUFFIXES: [&str; 5] = ["name", "kills", "losses", "built", "score"];
 
-/// 合成遭遇战积分页：壳层右栏 + `0x108` 表叶 + 「继续」。
+/// 合成遭遇战 / 战役积分页：壳层右栏 + `0x108` 表叶 + 「继续」。
 ///
 /// 表画在壳层 `mnscrnl` 背景上；**不**叠 `mp*scrnl` 战报图，也**不**另画统计区黑底框。
+/// 战役调用方应传 `movie=None`，避免主菜单 Logo 影片压在积分表上。
 pub fn compose_skirmish_score_page(
     decoded: &PageDecodeReport,
     pressed_entry_id: Option<&str>,

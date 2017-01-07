@@ -48,6 +48,6 @@ pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};
 pub use ui_profile::{
     AssetRole, ControlId, ControlPlacement, DialogControlDesc, DialogTemplate, RuntimeUiProfile, TextKey, UiCapabilities, dialog_template_0x6b,
-    dialog_template_0x102,
+    dialog_template_0x102, dialog_template_0xd5,
 };
 pub use vga_expand::VgaExpandMode;

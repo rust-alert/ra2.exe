@@ -86,6 +86,15 @@ fn main_menu_csf_tooltips_match_stt_keys() {
 }
 
 #[test]
+fn shell_version_caption_uses_gui_version_key() {
+    assert_eq!(shell_version_csf_key(), "GUI:VERSION");
+    assert_eq!(SHELL_UI_VERSION_RA2, "1.006");
+    assert_eq!(shell_version_caption(None, SHELL_UI_VERSION_RA2), "version 1.006");
+    let csf = csf_with_entries(&[("GUI:VERSION", "版本")]);
+    assert_eq!(shell_version_caption(Some(&csf), SHELL_UI_VERSION_RA2), "版本 1.006");
+}
+
+#[test]
 fn skirmish_lobby_csf_tooltips_match_stt_keys() {
     assert_eq!(skirmish_lobby_csf_tooltip("start"), Some("STT:SkirmishButtonStartGame"));
     assert_eq!(skirmish_lobby_csf_tooltip("choose_map"), Some("STT:SkirmishButtonChooseMap"));

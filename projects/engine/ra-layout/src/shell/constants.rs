@@ -33,6 +33,9 @@ pub const SDMPBTN_H: i32 = 84;
 /// 右侧平铺条高（`sdbtnbkgd`）。
 pub const RIGHT_PANEL_TILE_H: i32 = 42;
 
+/// 右侧底盖高（`sdbtm` 画布；保留完整突出台以绘制版本号）。
+pub const RIGHT_PANEL_BOTTOM_H: i32 = 65;
+
 /// 按钮格宽（窄列）。
 pub const BUTTON_CELL_W: i32 = 156;
 
@@ -71,8 +74,10 @@ pub const SKIRMISH_LOBBY_BUTTON_IDS: [&str; 3] = ["start", "choose_map", "back"]
 /// 使用地图 → 创建随机地图 → 取消（贴底）。
 pub const CHOOSE_MAP_BUTTON_IDS: [&str; 3] = ["use_map", "create_random", "cancel"];
 
-/// 选项页按钮入口 id（与 `ra_widgets::skin::slots` 顺序一致）。
-pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
+/// 选项页按钮入口 id（与 `ra_widgets::skin::slots` / `RT_DIALOG` `0xD5` 顺序一致）。
+///
+/// 顺序：键盘 → 网络 → 主菜单（贴底）。主菜单提交草稿并离开。
+pub const OPTIONS_BUTTON_IDS: [&str; 3] = ["keyboard", "network", "main_menu"];
 
 /// 退出确认对话框按钮 id。
 pub const EXIT_CONFIRM_BUTTON_IDS: [&str; 2] = ["ok", "cancel"];

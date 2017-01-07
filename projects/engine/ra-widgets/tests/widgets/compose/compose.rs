@@ -610,8 +610,6 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
             deploy_hint: None,
             produce_queue: None,
             reject: None,
-            paused: false,
-            pause_reason: None,
             command_pressed: None,
             command_hovered: None,
             command_tip: None,

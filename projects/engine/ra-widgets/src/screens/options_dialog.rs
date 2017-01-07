@@ -1,13 +1,13 @@
-//! 选项对话框：左五区控件 + 右栏接受/取消/主菜单。
+//! 选项对话框：`0xD5` 左四区控件 + 右栏键盘 / 网络 / 主菜单。
 //!
 //! 几何权威为 `solve_options_page` snapshot。本模块只持草稿状态与命中，不碰窗口或配置落盘。
 
-use ra_types::{DisplayMode, PresentFeel, PresentMode};
+use ra_types::{DisplayMode, PresentFeel};
 
 use ra_layout::{LayoutSnapshot, OPTIONS_RESOLUTION_ROW_H, RectPx, popup_row_below, rect_px_from_snapshot, solve_options_page};
 
-/// 右栏按钮入口 id（与 [`crate::skin::slots`] 一致）。
-pub const OPTIONS_RAIL_IDS: [&str; 3] = ["accept", "cancel", "main_menu"];
+/// 右栏按钮入口 id（与 [`crate::skin::slots`] / `OPTIONS_BUTTON_IDS` 一致）。
+pub const OPTIONS_RAIL_IDS: [&str; 3] = ["keyboard", "network", "main_menu"];
 
 /// 滑条种类。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +47,11 @@ impl OptionsTrackbar {
             Self::Voice => "track_voice",
         }
     }
+
+    /// 是否带右侧数值底板（音量三列，对齐遭遇战滑条宽）。
+    pub const fn has_plaque(self) -> bool {
+        matches!(self, Self::Music | Self::Sound | Self::Voice)
+    }
 }
 
 /// 勾选框种类。
@@ -54,12 +59,10 @@ impl OptionsTrackbar {
 pub enum OptionsCheckbox {
     /// 工具提示。
     Tooltips,
-    /// 扫描线。
+    /// 目标线。
     Scanlines,
-    /// 显示损害特性。
+    /// 显示隐藏物件。
     ShowDamage,
-    /// 启用 16 位质感呈现。
-    Present16bit,
 }
 
 impl OptionsCheckbox {
@@ -69,7 +72,6 @@ impl OptionsCheckbox {
             Self::Tooltips => "check_tooltips",
             Self::Scanlines => "check_scanlines",
             Self::ShowDamage => "check_damage",
-            Self::Present16bit => "check_present",
         }
     }
 }
@@ -77,11 +79,11 @@ impl OptionsCheckbox {
 /// 选项页命中结果（含拖动起点）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionsHit {
-    /// 右栏接受。
-    Accept,
-    /// 右栏取消。
-    Cancel,
-    /// 右栏主菜单。
+    /// 右栏键盘。
+    Keyboard,
+    /// 右栏网络。
+    Network,
+    /// 右栏主菜单（提交并离开）。
     MainMenu,
     /// 勾选切换。
     Toggle(OptionsCheckbox),
@@ -93,7 +95,7 @@ pub enum OptionsHit {
     ResolutionRow(usize),
 }
 
-/// 选项草稿（进入页时从壳层快照，接受才提交）。
+/// 选项草稿（进入页时从壳层快照，主菜单提交）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptionsDialogState {
     /// 画面详细程度。
@@ -104,9 +106,9 @@ pub struct OptionsDialogState {
     pub difficulty: u8,
     /// 工具提示。
     pub tooltips: bool,
-    /// 扫描线。
+    /// 目标线。
     pub scanlines: bool,
-    /// 显示损害特性。
+    /// 显示隐藏物件。
     pub show_damage: bool,
     /// 滚动速率。
     pub scroll: u8,
@@ -116,7 +118,7 @@ pub struct OptionsDialogState {
     pub sound: u8,
     /// 语音 0..=10。
     pub voice: u8,
-    /// 壳层质感呈现草稿。
+    /// 壳层质感呈现草稿（本页无控件，随主菜单一并落盘）。
     pub present: PresentFeel,
     /// 分辨率下拉是否展开。
     pub resolution_open: bool,
@@ -191,9 +193,6 @@ impl OptionsDialogState {
                 OptionsCheckbox::Tooltips => self.tooltips = !self.tooltips,
                 OptionsCheckbox::Scanlines => self.scanlines = !self.scanlines,
                 OptionsCheckbox::ShowDamage => self.show_damage = !self.show_damage,
-                OptionsCheckbox::Present16bit => {
-                    self.present.mode = if self.present.is_active() { PresentMode::Off } else { PresentMode::Bit16 };
-                }
             },
             OptionsHit::Track(id) => {
                 self.dragging = Some(id);
@@ -208,7 +207,7 @@ impl OptionsDialogState {
                 }
                 self.resolution_open = false;
             }
-            OptionsHit::Accept | OptionsHit::Cancel | OptionsHit::MainMenu => {}
+            OptionsHit::Keyboard | OptionsHit::Network | OptionsHit::MainMenu => {}
         }
         Some(hit)
     }
@@ -234,7 +233,12 @@ impl OptionsDialogState {
     fn apply_track_at(&mut self, snap: &LayoutSnapshot, id: OptionsTrackbar, x: i32) {
         let track = rect_px_from_snapshot(snap, id.layout_id());
         let max = id.max();
-        let inner = (track.w - 12).max(1);
+        let rail_w = if id.has_plaque() {
+            (track.w - 28).max(1)
+        } else {
+            track.w
+        };
+        let inner = (rail_w - 12).max(1);
         let rel = (x - track.x - 6).clamp(0, inner);
         let pos = if max == 0 { 0 } else { ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8 };
         let pos = pos.min(max);
@@ -252,8 +256,8 @@ pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32, resolution_open: bool) -> O
     for id in OPTIONS_RAIL_IDS {
         if rect_px_from_snapshot(snap, id).contains(x, y) {
             return Some(match id {
-                "accept" => OptionsHit::Accept,
-                "cancel" => OptionsHit::Cancel,
+                "keyboard" => OptionsHit::Keyboard,
+                "network" => OptionsHit::Network,
                 _ => OptionsHit::MainMenu,
             });
         }
@@ -268,7 +272,7 @@ pub fn hit_at(snap: &LayoutSnapshot, x: i32, y: i32, resolution_open: bool) -> O
     if rect_px_from_snapshot(snap, "resolution").contains(x, y) {
         return Some(OptionsHit::ResolutionCombo);
     }
-    for id in [OptionsCheckbox::Tooltips, OptionsCheckbox::Scanlines, OptionsCheckbox::ShowDamage, OptionsCheckbox::Present16bit] {
+    for id in [OptionsCheckbox::Tooltips, OptionsCheckbox::Scanlines, OptionsCheckbox::ShowDamage] {
         if rect_px_from_snapshot(snap, id.layout_id()).contains(x, y) {
             return Some(OptionsHit::Toggle(id));
         }

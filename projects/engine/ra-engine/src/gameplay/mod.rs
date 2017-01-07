@@ -24,7 +24,7 @@ mod terrain_spawn_tick;
 mod transport;
 mod triggers;
 
-pub use ai::houses_are_allied;
+pub use ai::{houses_are_allied, is_ambient_house};
 pub use ai_triggers::AiTriggerRuntime;
 pub(crate) use ai_triggers::tick_ai_triggers;
 pub(crate) use definitions_query::{
