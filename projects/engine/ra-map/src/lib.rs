@@ -525,9 +525,9 @@ struct BasicSectionFields {
     game_modes: Vec<GameModeName>,
     #[serde(rename = "Description", default)]
     description: ra_types::UiName,
-    #[serde(rename = "NextMission", default)]
+    #[serde(rename = "NextMission", alias = "NextScenario", default)]
     next_mission: MapFileName,
-    #[serde(rename = "AlternateNextMission", default)]
+    #[serde(rename = "AlternateNextMission", alias = "AltNextScenario", default)]
     alternate_next_mission: MapFileName,
     #[serde(rename = "StartingCredits")]
     starting_credits: Option<i32>,

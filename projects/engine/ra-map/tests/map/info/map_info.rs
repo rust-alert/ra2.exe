@@ -43,6 +43,16 @@ fn parse_basic_next_mission() {
 }
 
 #[test]
+fn parse_basic_next_scenario_aliases() {
+    let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nNextScenario=GDI2A.map\nAltNextScenario=GDI9C.MAP\n";
+    let info = MapInfo::parse_ini(GameEdition::Ra2, "all01t.map", text).unwrap();
+    assert_eq!(info.next_mission, "GDI2A.map");
+    assert_eq!(info.alternate_next_mission, "GDI9C.MAP");
+    assert_eq!(info.campaign_continue_scenario(true), Some("GDI2A.map"));
+    assert_eq!(info.campaign_continue_scenario(false), Some("GDI9C.MAP"));
+}
+
+#[test]
 fn parse_basic_alternate_next_mission() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nNextMission=win.map\nAlternateNextMission=lose.map\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
