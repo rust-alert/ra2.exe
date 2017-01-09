@@ -18,7 +18,9 @@ pub mod rules;
 pub mod voxel;
 
 pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
-pub use battle::{BattleCampaign, find_battle_campaign, parse_battle_campaigns};
+pub use battle::{
+    BattleCampaign, campaign_line_key, find_battle_campaign, next_battle_campaign_after_scenario, parse_battle_campaigns,
+};
 pub use mission::{MissionPresentation, find_mission_presentation, parse_mission_presentations};
 
 pub use csv::{CsvDeError, CsvField, CsvRow, from_csv_row, from_row, parse_westwood_csv_line};
