@@ -470,6 +470,7 @@ impl BattleController {
         // Esc 暂停叠层：单层 compose，禁止再走 play HUD / cameo。
         if hud.paused && hud.outcome.is_none() {
             let funds = local.map(|p| p.funds);
+            let saves_allowed = self.pause_saves_allowed();
             let page = match self.pause_layer {
                 BattlePauseLayer::Menu => compose_battle_pause_menu_overlay(
                     w,
@@ -481,6 +482,7 @@ impl BattleController {
                     self.pause_menu_chrome.as_ref(),
                     self.hud_chrome.as_ref(),
                     funds,
+                    saves_allowed,
                 ),
                 BattlePauseLayer::AbortConfirm => compose_battle_abort_confirm_overlay(
                     w,

@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain_with_overlays};
 use ra_assets::{
-    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, parse_battle_campaigns,
-    parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
+    CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, next_battle_campaign_after_scenario,
+    parse_battle_campaigns, parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
@@ -31,6 +31,51 @@ use super::config::{DesktopConfig, load_desktop_config_with_diagnostics};
 
 pub use ra_assets::{BattleCampaign, CountryDef, MissionPresentation, MpMode, SideChromeDef, SideGroup};
 pub use ra_map::{BootMapCandidate, skirmish_ai_row_count};
+
+/// 战役结算续关：胜优先 `battle.ini` 同战线下一关，败用地图 `AlternateNextMission` / `AltNextScenario`。
+///
+/// 地图 `NextScenario` 常为泰森残留且安装中不存在；与表不一致时 WARN 并采用 `battle.ini`。
+pub fn resolve_campaign_continue_scenario(
+    current_scenario: &str,
+    victory: bool,
+    map_next_mission: Option<&str>,
+    map_alt_next_mission: Option<&str>,
+) -> Option<String> {
+    if victory {
+        let camps = list_install_battle_campaigns();
+        if let Some(next) = next_battle_campaign_after_scenario(&camps, current_scenario) {
+            let battle_next = next.scenario.as_str();
+            if let Some(map_next) = map_next_mission.map(str::trim).filter(|s| !s.is_empty()) {
+                if !map_next.eq_ignore_ascii_case(battle_next) {
+                    tracing::warn!(
+                        current = %current_scenario,
+                        map_next,
+                        battle_next,
+                        "地图续关字段与 `battle.ini` 下一关不一致，采用战役表"
+                    );
+                }
+            }
+            return Some(battle_next.to_string());
+        }
+        if let Some(map_next) = map_next_mission.map(str::trim).filter(|s| !s.is_empty()) {
+            tracing::warn!(
+                current = %current_scenario,
+                map_next,
+                "`battle.ini` 无同线下一关，回退地图续关字段"
+            );
+            return Some(map_next.to_string());
+        }
+        tracing::warn!(current = %current_scenario, "战役胜利但无可用下一关");
+        return None;
+    }
+    match map_alt_next_mission.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(alt) => Some(alt.to_string()),
+        None => {
+            tracing::warn!(current = %current_scenario, "战役失败且地图无 AlternateNext / AltNextScenario");
+            None
+        }
+    }
+}
 
 /// 一次装载尝试的结果（成功或带说明的失败）。
 ///

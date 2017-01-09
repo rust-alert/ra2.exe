@@ -133,6 +133,11 @@ pub fn battle_pause_hub_leaves(viewport_w: u32, viewport_h: u32, metrics: Battle
         fixed_rect_leaf("top", hud.top),
         fixed_rect_leaf("radar", hud.radar),
         fixed_rect_leaf("side1", hud.side1),
+        // 装饰页签（暂停不可点，几何与 play HUD 同源）。
+        fixed_rect_leaf("tab00", hud.tabs[0]),
+        fixed_rect_leaf("tab01", hud.tabs[1]),
+        fixed_rect_leaf("tab02", hud.tabs[2]),
+        fixed_rect_leaf("tab03", hud.tabs[3]),
         fixed_rect_leaf("list_band", list_band),
         // 兼容旧名：与 `list_band` 同矩形。
         fixed_rect_leaf("cameo_band", list_band),

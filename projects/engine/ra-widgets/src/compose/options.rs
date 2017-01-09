@@ -15,6 +15,7 @@ pub fn compose_options_page(
     movie: Option<&RgbaImage>,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_options_page();
@@ -31,6 +32,7 @@ pub fn compose_options_page(
         MenuCaptionKind::Options,
         wave,
         warn_anim_frame,
+        shell_version,
     )?;
 
     if let Some(fnt) = fnt {

@@ -12,6 +12,7 @@ pub fn compose_exit_confirm_page(
     csf: Option<&CsfFile>,
     movie: Option<&RgbaImage>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     // 主菜单壳与居中 MessageBox 同源一次求解，再压暗并叠对话框。
@@ -32,13 +33,13 @@ pub fn compose_exit_confirm_page(
         MenuCaptionKind::Main,
         None,
         warn_anim_frame,
+        shell_version,
     )?;
 
     dim_rect(&mut page, canvas, 160);
     if let Some(modal_bg) = find_panel(decoded, "pudlgbgn.shp", 0) {
         blit_rgba(&mut page, &modal_bg.image, dialog.x, dialog.y);
-    }
-    else {
+    } else {
         // 缺底板时不臆造立绘，只留深色框以免完全无反馈。
         fill_rect(&mut page, dialog, [40, 24, 24, 255]);
     }

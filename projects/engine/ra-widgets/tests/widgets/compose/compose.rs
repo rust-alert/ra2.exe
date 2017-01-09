@@ -63,8 +63,9 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
         None,
         Some(ShellWaveFrames { buttons: &frames, tiles: &[], animate_empty_tiles: false }),
         0,
+        "1.006",
     )
-    .unwrap();
+        .unwrap();
     let snap = main_menu_snap();
     let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -136,7 +137,7 @@ fn compose_hides_button_caption_while_wave_frames_active() {
         page.as_raw()[di..di + 4].to_vec()
     };
 
-    let steady = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, None, 0).unwrap();
+    let steady = compose_main_menu_page(&decoded, 800, 600, None, None, None, Some(&fnt), None, None, None, 0, "1.006").unwrap();
     // 稳态会叠黄字，中心附近不应再是纯钮面灰。
     assert_ne!(&sample(&steady)[..3], &[10, 10, 10]);
 
@@ -153,8 +154,9 @@ fn compose_hides_button_caption_while_wave_frames_active() {
         None,
         Some(ShellWaveFrames { buttons: &frames, tiles: &[], animate_empty_tiles: false }),
         0,
+        "1.006",
     )
-    .unwrap();
+        .unwrap();
     // 波浪中只留 `SDBTNANM` 帧色，字等停稳后再叠。
     assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
 }
@@ -173,7 +175,7 @@ fn compose_uses_pressed_sprite_when_entry_matches() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, None, 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, Some("single_player"), None, None, None, None, None, None, 0, "1.006").unwrap();
     let snap = main_menu_snap();
     let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -194,7 +196,7 @@ fn compose_uses_hover_sprite_when_not_pressed() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, None, Some("single_player"), None, None, None, None, None, 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, None, Some("single_player"), None, None, None, None, None, 0, "1.006").unwrap();
     let snap = main_menu_snap();
     let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -215,7 +217,7 @@ fn compose_single_player_uses_skirmish_id() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None, None, None, 0).unwrap();
+    let page = compose_single_player_page(&decoded, 800, 600, Some("skirmish"), None, None, None, None, None, None, 0, "1.006").unwrap();
     let snap = ra_layout::solve_shell_page("single_player", &SINGLE_PLAYER_BUTTON_IDS[..3], Some(SINGLE_PLAYER_BUTTON_IDS[3]));
     let cell = rect_px_from_snapshot(&snap, "skirmish");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -237,7 +239,7 @@ fn compose_skirmish_lobby_uses_start_id() {
         errors: Vec::new(),
     };
     let paint = SkirmishLobbyPaint::default();
-    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, None, &paint, None, 0).unwrap();
+    let page = compose_skirmish_lobby_page(&decoded, 800, 600, Some("start"), None, None, None, None, None, &paint, None, 0, "1.006").unwrap();
     let cell = rect_px_from_snapshot(&solve_skirmish_lobby(), "start");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 0, 200, 255]);
@@ -259,7 +261,7 @@ fn compose_options_uses_main_menu_id() {
     };
     let state =
         ra_widgets::options_dialog::OptionsDialogState::from_shell(ra_types::DisplayMode::W800H600, 0.4, 0.7, ra_types::PresentFeel::DEFAULT);
-    let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, None, 0).unwrap();
+    let page = compose_options_page(&decoded, &state, 800, 600, Some("main_menu"), None, None, None, None, None, 0, "1.006").unwrap();
     let cell = rect_px_from_snapshot(&ra_layout::solve_options_page(), "main_menu");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[200, 200, 0, 255]);
@@ -281,7 +283,7 @@ fn compose_campaign_uses_back_id() {
         errors: Vec::new(),
     };
     let paint = CampaignPaint { selected_side: Some("allied"), difficulty: 1, track_thumb: None, side_anim_frame: 1 };
-    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint, None, 0).unwrap();
+    let page = compose_campaign_page(&decoded, 800, 600, Some("back"), None, None, None, None, paint, None, 0, "1.006").unwrap();
     let cell = rect_px_from_snapshot(&solve_campaign(), "back");
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 200, 200, 255]);
@@ -322,7 +324,7 @@ fn compose_blits_sdwrnanm_inside_sdtp_window_not_full_panel() {
         sdbtnanm_frames: Vec::new(),
         errors: Vec::new(),
     };
-    let page = compose_main_menu_page(&decoded, 800, 600, None, None, None, None, None, None, None, 0).unwrap();
+    let page = compose_main_menu_page(&decoded, 800, 600, None, None, None, None, None, None, None, 0, "1.006").unwrap();
     let snap = main_menu_snap();
     let wx = rect_px_from_snapshot(&snap, "panel_top").x + SDWRNANM_OFFSET_X;
     let wy = rect_px_from_snapshot(&snap, "panel_top").y + SDWRNANM_OFFSET_Y;
@@ -381,7 +383,7 @@ fn compose_skirmish_overlays_sdtp_frame1_and_sdmpbtn() {
         errors: Vec::new(),
     };
     let paint = SkirmishLobbyPaint::default();
-    let page = compose_skirmish_lobby_page(&decoded, 800, 600, None, None, None, None, None, None, &paint, None, 0).unwrap();
+    let page = compose_skirmish_lobby_page(&decoded, 800, 600, None, None, None, None, None, None, &paint, None, 0, "1.006").unwrap();
     let snap = ra_layout::solve_skirmish_lobby();
     let panel_top = rect_px_from_snapshot(&snap, "panel_top");
     // 顶盖被帧 1 覆盖。
@@ -440,8 +442,9 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         None,
         Some(ShellWaveFrames { buttons: &buttons, tiles: &tiles, animate_empty_tiles: true }),
         0,
+        "1.006",
     )
-    .unwrap();
+        .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
     // 出去时：空格钮格叠波浪帧绿。
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
@@ -462,8 +465,9 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         None,
         Some(ShellWaveFrames { buttons: &buttons, tiles: &tiles, animate_empty_tiles: false }),
         0,
+        "1.006",
     )
-    .unwrap();
+        .unwrap();
     let di_in = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
     // 进来时：空格不叠满钮，只留底图，避免收束后消失。
     assert_eq!(&slide_in.as_raw()[di_in..di_in + 4], &[90, 90, 90, 255]);
@@ -506,7 +510,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-    .unwrap();
+        .unwrap();
     // 国家艺术铺满画布左上。
     assert_eq!(&loading.as_raw()[0..4], &[1, 2, 3, 255]);
     // 进度条在中下偏左（原版约 y=332）。
@@ -537,7 +541,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-    .unwrap();
+        .unwrap();
     let preview_px = ((462u32 * with_preview.width() + 607) * 4) as usize;
     assert_eq!(&with_preview.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
 
@@ -563,7 +567,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-    .unwrap();
+        .unwrap();
     assert_eq!(failed.width(), 800);
     assert_eq!(failed.height(), 600);
 
@@ -590,7 +594,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-    .unwrap();
+        .unwrap();
     assert_ne!(&campaign.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
 }
 
@@ -622,7 +626,7 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
         },
         None,
     )
-    .unwrap();
+        .unwrap();
     // 左侧透明。
     assert_eq!(page.as_raw()[3], 0);
     // 战术区左下也应透明（无全宽底栏）。

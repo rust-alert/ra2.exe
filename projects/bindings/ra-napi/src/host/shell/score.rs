@@ -197,20 +197,47 @@ impl Shell {
         skirmish_score_hit_at(sx, sy)
     }
 
-    /// Enter / 继续：战役有对应续关字段则下一关，否则离开结算。
-    ///
-    /// 胜 → `[Basic] NextMission`；败 → `[Basic] AlternateNextMission`。
+    /// Enter / 继续：战役有胜负则走续关导航（由 `apply_nav` 解析 `battle.ini`）；遭遇战回大厅。
     fn results_confirm_nav(&self) -> BattleNav {
-        let continue_campaign = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle()).is_some_and(|g| {
-            if g.boot_kind != SessionBootKind::Campaign {
-                return false;
-            }
-            match g.outcome.as_ref() {
-                Some(BattleOutcome::Victory { .. }) => g.world.map.campaign_continue_scenario(true).is_some(),
-                Some(BattleOutcome::Defeat { .. }) => g.world.map.campaign_continue_scenario(false).is_some(),
-                None => false,
-            }
-        });
-        if continue_campaign { BattleNav::ContinueCampaign } else { BattleNav::ToMainMenu }
+        if !self.results_is_campaign() {
+            return BattleNav::ToMainMenu;
+        }
+        let has_outcome = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .is_some_and(|g| g.boot_kind == SessionBootKind::Campaign && g.outcome.is_some());
+        if has_outcome {
+            BattleNav::ContinueCampaign
+        } else {
+            tracing::warn!("战役结算无胜负结果，无法续关");
+            BattleNav::ToMainMenu
+        }
+    }
+
+    /// 解析战役「继续」目标 scenario（胜：`battle.ini` 同线下一关；败：地图 Alt 字段）。
+    pub(super) fn resolve_continue_campaign_scenario(&self) -> Option<String> {
+        let game = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle())?;
+        if game.boot_kind != SessionBootKind::Campaign {
+            return None;
+        }
+        let victory = match game.outcome.as_ref() {
+            Some(BattleOutcome::Victory { .. }) => true,
+            Some(BattleOutcome::Defeat { .. }) => false,
+            None => return None,
+        };
+        let current = self
+            .selected_map
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| game.world.map.name.as_str());
+        crate::host::boot::resolve_campaign_continue_scenario(
+            current,
+            victory,
+            game.world.map.campaign_continue_scenario(true),
+            game.world.map.campaign_continue_scenario(false),
+        )
     }
 }

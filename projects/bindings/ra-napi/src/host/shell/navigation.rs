@@ -411,19 +411,17 @@ impl Shell {
         match nav {
             BattleNav::None => {}
             BattleNav::ContinueCampaign => {
-                let next = self.battle_controller.as_ref().and_then(|c| c.session.as_ref()).and_then(|s| s.battle()).and_then(|g| {
-                    let victory = matches!(g.outcome, Some(ra_engine::BattleOutcome::Victory { .. }));
-                    g.world.map.campaign_continue_scenario(victory).map(str::to_string)
-                });
-                match next {
+                match self.resolve_continue_campaign_scenario() {
                     Some(scenario) => {
                         self.load_brief_csf = None;
                         self.load_brief_origin = None;
                         self.load_background_shp = None;
                         self.banner = format!("下一关 · {scenario}…");
+                        tracing::info!(%scenario, "战役继续 · 装载下一关");
                         self.begin_campaign_scenario_load(&scenario, None);
                     }
                     None => {
+                        tracing::warn!("战役继续无可用下一关 · 回选边");
                         self.banner = "战役结束 · 回选边".into();
                         self.set_screen(OriginalScreen::Campaign);
                     }

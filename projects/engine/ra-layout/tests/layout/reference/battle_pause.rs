@@ -13,6 +13,8 @@ fn battle_pause_tree_owns_hub_slots_not_main_shell() {
     assert!(snap.get("sidebar").is_some());
     assert!(snap.get("radar").is_some());
     assert!(snap.get("list_band").is_some());
+    assert!(snap.get("tab00").is_some());
+    assert!(snap.get("tab03").is_some());
     assert!(snap.get("addon").is_some());
     assert!(snap.get("command_bar").is_some());
     assert!(snap.get("game_controls").is_some());

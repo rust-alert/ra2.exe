@@ -16,7 +16,7 @@ use crate::{
             choose_map_csf_label, choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key,
             load_screen_brief_csf_key, load_screen_loading_csf_key, load_screen_name_csf_key, main_menu_csf_label, options_csf_label,
             options_detail_csf_key, options_detail_fallback, options_dialog_csf_key, options_difficulty_csf_key, options_difficulty_fallback,
-            options_scroll_csf_key, options_scroll_fallback, resolve_caption, resolve_csf_text, shell_version_caption, SHELL_UI_VERSION_RA2,
+            options_scroll_csf_key, options_scroll_fallback, resolve_caption, resolve_csf_text, shell_version_caption,
             single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
             skirmish_score_csf_label, skirmish_score_fallback_label, skirmish_title_csf_key,
         },

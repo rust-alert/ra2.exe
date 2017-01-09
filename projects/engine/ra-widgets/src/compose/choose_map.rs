@@ -42,6 +42,7 @@ pub fn compose_choose_map_page(
     map_list_scroll: usize,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_choose_map();
@@ -70,6 +71,7 @@ pub fn compose_choose_map_page(
         MenuCaptionKind::ChooseMap,
         wave,
         warn_anim_frame,
+        shell_version,
     )?;
 
     blit_skirmish_preview_chrome(&mut page, decoded, panel_top, map_name_plate);

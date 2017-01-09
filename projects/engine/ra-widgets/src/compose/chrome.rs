@@ -83,12 +83,59 @@ pub(super) fn paint_right_panel_chrome(
             blit_stretched(page, &tile.image, r);
         }
     }
-    if let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0) {
-        blit_stretched(page, &bottom.image, panel_bottom);
-    }
+    paint_sdbtm_panel(page, decoded, panel_bottom);
     if lower_strip.w > 0 && lower_strip.h > 0 {
         if let Some(lower) = find_panel(decoded, "lwscrnl.shp", 0) {
             blit_stretched(page, &lower.image, lower_strip);
+        }
+    }
+}
+
+/// 画 `sdbtm` 底盖：与目标格同尺寸时 1:1，避免近黑突出台被拉伸糊掉。
+pub(super) fn paint_sdbtm_panel(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_bottom: RectPx) {
+    let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0)
+    else {
+        return;
+    };
+    if bottom.image.width() == panel_bottom.w as u32 && bottom.image.height() == panel_bottom.h as u32 {
+        blit_rgba(page, &bottom.image, panel_bottom.x, panel_bottom.y);
+    } else {
+        blit_stretched(page, &bottom.image, panel_bottom);
+    }
+}
+
+/// 钮面叠在底盖顶沿之后，重贴钮下余带（版本号突出台），避免被钮面/空格波浪盖住。
+pub(super) fn paint_sdbtm_shelf_below_button(page: &mut RgbaImage, decoded: &PageDecodeReport, panel_bottom: RectPx) {
+    let Some(bottom) = find_panel(decoded, "sdbtm.shp", 0)
+    else {
+        return;
+    };
+    let src = &bottom.image;
+    let shelf_src_y = BUTTON_CELL_H.max(0) as u32;
+    if src.height() <= shelf_src_y || panel_bottom.h <= BUTTON_CELL_H {
+        return;
+    }
+    let shelf_h = (src.height() - shelf_src_y).min((panel_bottom.h - BUTTON_CELL_H) as u32);
+    let dst_y = panel_bottom.y + BUTTON_CELL_H;
+    let raw = src.as_raw();
+    let sw = src.width();
+    for row in 0..shelf_h {
+        let sy = shelf_src_y + row;
+        let dy = dst_y + row as i32;
+        if dy < 0 || dy as u32 >= page.height() {
+            continue;
+        }
+        for col in 0..sw.min(panel_bottom.w.max(0) as u32) {
+            let dx = panel_bottom.x + col as i32;
+            if dx < 0 || dx as u32 >= page.width() {
+                continue;
+            }
+            let si = ((sy * sw + col) * 4) as usize;
+            if raw[si + 3] == 0 {
+                continue;
+            }
+            let di = ((dy as u32 * page.width() + dx as u32) * 4) as usize;
+            page.as_mut()[di..di + 4].copy_from_slice(&raw[si..si + 4]);
         }
     }
 }
@@ -144,11 +191,9 @@ pub(super) fn resolve_button_sprite<'a>(
     let normal = find_button_normal(decoded, entry_id)?;
     if pressed {
         Some(find_button_pressed(decoded, entry_id).unwrap_or(normal))
-    }
-    else if hovered {
+    } else if hovered {
         Some(find_button_hover(decoded, entry_id).unwrap_or(normal))
-    }
-    else {
+    } else {
         Some(normal)
     }
 }

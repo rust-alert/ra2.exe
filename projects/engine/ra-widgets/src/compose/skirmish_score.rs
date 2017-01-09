@@ -34,10 +34,11 @@ pub struct SkirmishScorePaint<'a> {
 const HEADER_COLS: [&str; 5] = ["player", "kills", "losses", "built", "score"];
 const HEADER_SUFFIXES: [&str; 5] = ["name", "kills", "losses", "built", "score"];
 
-/// 合成遭遇战 / 战役积分页：壳层右栏 + `0x108` 表叶 + 「继续」。
+/// 合成遭遇战 / 战役积分页：壳层右栏 + 「继续」。
 ///
-/// 表画在壳层 `mnscrnl` 背景上；**不**叠 `mp*scrnl` 战报图，也**不**另画统计区黑底框。
-/// 战役调用方应传 `movie=None`，避免主菜单 Logo 影片压在积分表上。
+/// 遭遇战另画 `0x108` 积分表；战役只保留右栏标题（`GUI:STANDALONESCORE`），**不**叠多方统计表。
+/// 表画在壳层 `mnscrnl` / 战报图上；**不**另画统计区黑底框。
+/// 战役调用方应传 `movie=None`，避免主菜单 Logo 影片压在结算页上。
 pub fn compose_skirmish_score_page(
     decoded: &PageDecodeReport,
     pressed_entry_id: Option<&str>,
@@ -48,6 +49,7 @@ pub fn compose_skirmish_score_page(
     movie: Option<&RgbaImage>,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let snap = solve_skirmish_score();
     let mut page = compose_shell_menu_page(
@@ -63,6 +65,7 @@ pub fn compose_skirmish_score_page(
         MenuCaptionKind::SkirmishScore,
         wave,
         warn_anim_frame,
+        shell_version,
     )?;
 
     let game_label = rect_px_from_snapshot(&snap, "game_label");
@@ -84,6 +87,11 @@ pub fn compose_skirmish_score_page(
             }
         };
         blit_caption_in_cell(&mut page, fnt, &title_text, title.x, title.y, title.w, title.h, MENU_TEXT_ENABLED);
+
+        // 战役任务积分：只保留右栏标题与「继续」，不叠遭遇战多方积分表（原版无此表）。
+        if paint.campaign {
+            return Some(page);
+        }
 
         let game_text = format!("游戏:{}", paint.game_index.max(1));
         blit_caption_top_left_clipped(

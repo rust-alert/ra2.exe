@@ -2,7 +2,7 @@
 
 use ra_layout::BATTLE_PAUSE_MENU_BUTTON_IDS;
 use ra_widgets::{
-    battle_pause_menu::{BattlePauseMenuHit, button_rects, hit_at},
+    battle_pause_menu::{BattlePauseMenuHit, button_rects, entry_enabled, hit_at},
     compose::compose_battle_pause_menu_overlay,
 };
 
@@ -22,17 +22,43 @@ fn battle_pause_menu_hits_resume_and_game_controls_from_snapshot() {
     let resume = rects[5];
     assert!(resume.y > abort.y, "resume should sit below abort");
     assert_eq!(game_controls.x, 800 - 147);
-    assert_eq!(hit_at(800, 600, load.x + 4, load.y + 4), None, "disabled load should not hit");
     assert_eq!(
-        hit_at(800, 600, game_controls.x + 4, game_controls.y + 4),
+        hit_at(800, 600, load.x + 4, load.y + 4, /* saves_allowed */ false),
+        None,
+        "skirmish load should not hit"
+    );
+    assert_eq!(
+        hit_at(800, 600, load.x + 4, load.y + 4, /* saves_allowed */ true),
+        Some(BattlePauseMenuHit::Load),
+        "campaign load should hit"
+    );
+    assert!(!entry_enabled("load", false));
+    assert!(entry_enabled("load", true));
+    assert_eq!(
+        hit_at(800, 600, game_controls.x + 4, game_controls.y + 4, false),
         Some(BattlePauseMenuHit::GameControls)
     );
-    assert_eq!(hit_at(800, 600, resume.x + 4, resume.y + 4), Some(BattlePauseMenuHit::Resume));
+    assert_eq!(
+        hit_at(800, 600, resume.x + 4, resume.y + 4, false),
+        Some(BattlePauseMenuHit::Resume)
+    );
 }
 
 #[test]
 fn compose_battle_pause_menu_dims_and_paints_sidebttn_cells() {
-    let page = compose_battle_pause_menu_overlay(800, 600, None, Some("game_controls"), None, None, None, None, None).unwrap();
+    let page = compose_battle_pause_menu_overlay(
+        800,
+        600,
+        None,
+        Some("game_controls"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        /* saves_allowed */ false,
+    )
+    .unwrap();
     assert_eq!(page.width(), 800);
     assert_eq!(page.height(), 600);
     assert!(page.as_raw()[3] > 0, "dim overlay alpha");

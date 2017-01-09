@@ -18,6 +18,8 @@ pub(super) fn compose_shell_menu_page(
     wave: Option<ShellWaveFrames<'_>>,
     // WARNING 窗内 `sdwrnanm` 帧（对解码帧数取模）。
     warn_anim_frame: usize,
+    // 右下角版本数字（零售补丁号或规则 `[VersionInfo] Version`）。
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let canvas = RectPx::new(0, 0, SHELL_BASE_W, SHELL_BASE_H);
     let background = rect_px_from_snapshot(snap, "background");
@@ -69,6 +71,8 @@ pub(super) fn compose_shell_menu_page(
     }
 
     paint_shell_rail_buttons(&mut page, decoded, button_ids, &btn_plan, pressed_entry_id, hovered_entry_id, fnt, csf, captions, wave)?;
+    // 贴底钮盖住 `sdbtm` 顶沿后，重贴突出台，保证版本号底图在字下面。
+    paint_sdbtm_shelf_below_button(&mut page, decoded, panel_bottom);
 
     if let Some(fnt) = fnt {
         let title_text = match captions {
@@ -90,20 +94,26 @@ pub(super) fn compose_shell_menu_page(
                 blit_text_colored(&mut page, fnt, text, tooltip.x, tooltip.y, MENU_TEXT_ENABLED);
             }
         }
-        paint_shell_version_caption(&mut page, fnt, csf, panel_bottom);
+        paint_shell_version_caption(&mut page, fnt, csf, panel_bottom, shell_version);
     }
 
     Some(page)
 }
 
 /// 在 `sdbtm` 底盖突出台上居中绘制版本号（钮面下方余带）。
-pub(super) fn paint_shell_version_caption(page: &mut RgbaImage, fnt: &FntFile, csf: Option<&CsfFile>, panel_bottom: RectPx) {
+pub(super) fn paint_shell_version_caption(
+    page: &mut RgbaImage,
+    fnt: &FntFile,
+    csf: Option<&CsfFile>,
+    panel_bottom: RectPx,
+    shell_version: &str,
+) {
     let band_y = panel_bottom.y + BUTTON_CELL_H;
     let band_h = panel_bottom.h - BUTTON_CELL_H;
     if band_h <= 0 {
         return;
     }
-    let text = shell_version_caption(csf, SHELL_UI_VERSION_RA2);
+    let text = shell_version_caption(csf, shell_version);
     if text.is_empty() {
         return;
     }
@@ -129,16 +139,14 @@ pub(super) fn paint_shell_rail_buttons(
             continue;
         };
         let normal = find_button_normal(decoded, entry_id)?;
-        // 禁用态跟入口 id：主菜单占位项 + 各页「载入」未实现；单人「新战役」已可进。
-        let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random");
+        // 禁用态跟入口 id：主菜单占位项 + 选项页键盘/网络未实现；各页「载入」未实现；单人「新战役」已可进。
+        let disabled = matches!(*entry_id, "ww_online" | "network" | "movies" | "load" | "create_random" | "keyboard");
         let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        }
-        else if disabled {
+        } else if disabled {
             normal
-        }
-        else {
+        } else {
             resolve_button_sprite(decoded, entry_id, pressed_entry_id == Some(entry_id), hovered_entry_id == Some(entry_id)).unwrap_or(normal)
         };
         blit_rgba(page, &sprite.image, cell.x, cell.y);
@@ -146,11 +154,19 @@ pub(super) fn paint_shell_rail_buttons(
         if wave_frame.is_some() {
             continue;
         }
-        // 壳层禁用：同常态 `SDBTNANM` 帧 + 暗红字，不压暗钮面（原版无整格压暗投影）。
+        // 壳层禁用：主菜单等同态钮面 + 暗红字；选项页键盘/网络用灰字置灰。
         if let Some(fnt) = fnt {
             let key = captions.label(entry_id);
             let caption = resolve_caption(csf, entry_id, key);
-            let color = if disabled { MENU_TEXT_DISABLED } else { MENU_TEXT_ENABLED };
+            let color = if disabled {
+                if matches!(captions, MenuCaptionKind::Options) && matches!(*entry_id, "keyboard" | "network") {
+                    [128, 128, 128, 255]
+                } else {
+                    MENU_TEXT_DISABLED
+                }
+            } else {
+                MENU_TEXT_ENABLED
+            };
             let pressed = pressed_entry_id == Some(entry_id) && !disabled;
             let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
             blit_caption_in_cell(page, fnt, &caption, tx, ty, tw, th, color);
@@ -191,6 +207,7 @@ pub fn compose_main_menu_page(
     movie: Option<&RgbaImage>,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_shell_page("main_menu", &MAIN_MENU_BUTTON_IDS[..5], Some(MAIN_MENU_BUTTON_IDS[5]));
@@ -207,6 +224,7 @@ pub fn compose_main_menu_page(
         MenuCaptionKind::Main,
         wave,
         warn_anim_frame,
+        shell_version,
     )
 }
 
@@ -223,6 +241,7 @@ pub fn compose_single_player_page(
     movie: Option<&RgbaImage>,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let _ = (viewport_w, viewport_h);
     let snap = ra_layout::solve_shell_page("single_player", &SINGLE_PLAYER_BUTTON_IDS[..3], Some(SINGLE_PLAYER_BUTTON_IDS[3]));
@@ -239,5 +258,6 @@ pub fn compose_single_player_page(
         MenuCaptionKind::SinglePlayer,
         wave,
         warn_anim_frame,
+        shell_version,
     )
 }

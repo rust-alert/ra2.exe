@@ -356,15 +356,21 @@ pub fn blit_battle_hud_chrome_ex(
     blit_command_bar(page, chrome, snap, command_pressed);
 }
 
-/// 暂停右 hub：只认 pause snapshot 槽位（`list_band` 等），雷达关图、无 cameo 格子/电表/页签。
+/// 暂停右 hub：只认 pause snapshot 槽位（`list_band` 等），雷达关图、无 cameo 格子/电表/修理出售。
 ///
-/// 供 [`crate::compose::compose_battle_pause_menu_overlay`] 单层合成，禁止再叠一套 HUD。
+/// 保留 `tab00`…`tab03` 常态装饰（不可点）。供暂停单层合成，禁止再叠一套 HUD。
 pub fn blit_battle_pause_hub_chrome(page: &mut RgbaImage, chrome: &BattleHudChrome, snap: &LayoutSnapshot) {
     let sidebar = rect_px_from_snapshot(snap, "sidebar");
     let credits = rect_px_from_snapshot(snap, "credits");
     let top = rect_px_from_snapshot(snap, "top");
     let radar = rect_px_from_snapshot(snap, "radar");
     let side1 = rect_px_from_snapshot(snap, "side1");
+    let tabs = [
+        rect_px_from_snapshot(snap, "tab00"),
+        rect_px_from_snapshot(snap, "tab01"),
+        rect_px_from_snapshot(snap, "tab02"),
+        rect_px_from_snapshot(snap, "tab03"),
+    ];
     let list_band = rect_px_from_snapshot(snap, "list_band");
     let side3 = rect_px_from_snapshot(snap, "side3");
     let addon = rect_px_from_snapshot(snap, "addon");
@@ -390,6 +396,11 @@ pub fn blit_battle_pause_hub_chrome(page: &mut RgbaImage, chrome: &BattleHudChro
     }
     if let Some(s) = &chrome.side1 {
         blit_chrome_slot(page, &s.image, side1);
+    }
+    for (i, tab) in chrome.tabs.iter().enumerate() {
+        if let Some(tab) = tab.as_ref() {
+            blit_button_in_cell(page, &tab.image, tabs[i]);
+        }
     }
     // 列表区实色，禁止 `side2` cameo 格子。
     fill_rect(page, list_band, sidebar_fill);

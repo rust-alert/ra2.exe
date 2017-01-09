@@ -209,7 +209,8 @@ fn paint_command_tip(page: &mut RgbaImage, fnt: &FntFile, tip: &str, cell: RectP
 
 /// 合成对局暂停菜单整页（单层：pause hub + dim + `bkgd*` + `SIDEBTTN`）。
 ///
-/// `hud_chrome` 提供右栏金属壳（关图雷达 / `list_band` 实色 / 命令空轨）；缺省时只画左区菜单。
+/// `hud_chrome` 提供右栏金属壳（关图雷达 / 页签装饰 / `list_band` 实色 / 命令空轨）；缺省时只画左区菜单。
+/// `saves_allowed`：战役亮起载入/存档/删除；遭遇战灰显。
 /// 禁止再叠一套 HUD 垫底；禁止自制黄框卡片。
 pub fn compose_battle_pause_menu_overlay(
     viewport_w: u32,
@@ -221,6 +222,7 @@ pub fn compose_battle_pause_menu_overlay(
     pause: Option<&BattlePauseChrome>,
     hud_chrome: Option<&BattleHudChrome>,
     funds: Option<i32>,
+    saves_allowed: bool,
 ) -> Option<RgbaImage> {
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
@@ -242,7 +244,7 @@ pub fn compose_battle_pause_menu_overlay(
 
     let rects = button_rects_with_metrics(w, h, metrics);
     for (entry_id, cell) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().zip(rects.iter()) {
-        let enabled = entry_enabled(entry_id);
+        let enabled = entry_enabled(entry_id, saves_allowed);
         let pressed = enabled && pressed_entry_id == Some(*entry_id);
         let hovered = enabled && hovered_entry_id == Some(*entry_id);
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));

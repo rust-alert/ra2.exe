@@ -13,6 +13,14 @@ use super::super::battle_input::LeftGesture;
 use super::{BattleController, BattleNav};
 
 impl BattleController {
+    /// 战役允许暂停菜单载入/存档/删除（存档未就绪时仍可点进 stub）。
+    pub(super) fn pause_saves_allowed(&self) -> bool {
+        self.session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| g.boot_kind == ra_engine::SessionBootKind::Campaign)
+    }
+
     pub(super) fn clear_pause_menu_input(&mut self) {
         self.pause_hover = None;
         self.pause_pressed = None;
@@ -52,7 +60,9 @@ impl BattleController {
         let x = self.cursor.0 as i32;
         let y = self.cursor.1 as i32;
         self.pause_hover = match self.pause_layer {
-            BattlePauseLayer::Menu => battle_pause_menu::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
+            BattlePauseLayer::Menu => {
+                battle_pause_menu::hit_at(w, h, x, y, self.pause_saves_allowed()).map(|hit| hit.entry_id())
+            }
             BattlePauseLayer::AbortConfirm => battle_abort_confirm::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
             BattlePauseLayer::InGameOptions => battle_in_game_options::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
         };
@@ -67,7 +77,9 @@ impl BattleController {
         match state {
             ElementState::Pressed => {
                 self.pause_pressed = match self.pause_layer {
-                    BattlePauseLayer::Menu => battle_pause_menu::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
+                    BattlePauseLayer::Menu => {
+                        battle_pause_menu::hit_at(w, h, x, y, self.pause_saves_allowed()).map(|hit| hit.entry_id())
+                    }
                     BattlePauseLayer::AbortConfirm => battle_abort_confirm::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                     BattlePauseLayer::InGameOptions => {
                         let hit = battle_in_game_options::hit_at(w, h, x, y);
@@ -85,7 +97,9 @@ impl BattleController {
                 }
                 let pressed = self.pause_pressed.take();
                 let hit_id = match self.pause_layer {
-                    BattlePauseLayer::Menu => battle_pause_menu::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
+                    BattlePauseLayer::Menu => {
+                        battle_pause_menu::hit_at(w, h, x, y, self.pause_saves_allowed()).map(|hit| hit.entry_id())
+                    }
                     BattlePauseLayer::AbortConfirm => battle_abort_confirm::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                     BattlePauseLayer::InGameOptions => battle_in_game_options::hit_at(w, h, x, y).map(|hit| hit.entry_id()),
                 };

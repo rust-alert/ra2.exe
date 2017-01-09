@@ -30,6 +30,55 @@ pub struct MenuUiAssets {
     pub ui_ini: Option<IniDocument>,
     /// 从 UI INI 抽出的 `.shp` 名（通常为空；零售菜单不在此文件）。
     pub ui_ini_shp_refs: Vec<String>,
+    /// 壳层右下角版本数字（规则 `[VersionInfo] Version` 或零售补丁号）。
+    pub shell_ui_version: String,
+}
+
+/// 从 rules 链读取 `[VersionInfo] Version`（Ares/模组惯例）；顶层 `rules_ini` 优先。
+fn read_version_info_version(source: &GameAssetSource, rules_ini: &str, rules_underlay: &[&str]) -> Option<String> {
+    let order = std::iter::once(rules_ini).chain(rules_underlay.iter().copied().rev());
+    for name in order {
+        let Ok(bytes) = source.read(name)
+        else {
+            continue;
+        };
+        if let Some(v) = soft_ini_get(&bytes, "VersionInfo", "Version") {
+            let v = v.trim();
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// 宽松抽取 INI `section`/`key`。
+fn soft_ini_get(bytes: &[u8], section: &str, key: &str) -> Option<String> {
+    let text = String::from_utf8_lossy(bytes);
+    let mut in_section = false;
+    for raw in text.lines() {
+        let line = raw.split(';').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix('[') {
+            if let Some(name) = rest.strip_suffix(']') {
+                in_section = name.trim().eq_ignore_ascii_case(section);
+                continue;
+            }
+        }
+        if !in_section {
+            continue;
+        }
+        let Some((k, v)) = line.split_once('=')
+        else {
+            continue;
+        };
+        if k.trim().eq_ignore_ascii_case(key) {
+            return Some(v.trim().to_string());
+        }
+    }
+    None
 }
 
 /// 按桌面配置探测版本并挂载菜单用 MIX；同时尝试读取版本链上的 `ui.ini`。
@@ -52,6 +101,7 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
                 ui_ini_readable: false,
                 ui_ini: None,
                 ui_ini_shp_refs: Vec::new(),
+                shell_ui_version: crate::skin::text::resolve_shell_ui_version(None, None),
             };
         }
     };
@@ -84,6 +134,8 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
         (None, true) => format!("{} unparsed", manifest.chain.ui_ini),
         (None, false) => format!("{} missing", manifest.chain.ui_ini),
     };
+    let override_ver = read_version_info_version(&source, manifest.chain.rules_ini, manifest.chain.rules_underlay);
+    let shell_ui_version = crate::skin::text::resolve_shell_ui_version(Some(manifest.chain.edition), override_ver.as_deref());
     let note = format!("菜单资源已挂载 · {} · {ui_bit} · 根mix {mounted_root} · 嵌套 {mounted_nested}", manifest.chain.edition.as_str());
     if ui_ini_shp_refs.is_empty() && ui_ini.is_some() {
         tracing::info!("版本链 ui.ini 无 .shp 引用 · 主菜单素材需页面资源模型，不能指望该文件当目录");
@@ -98,6 +150,7 @@ pub fn load_menu_ui_assets() -> MenuUiAssets {
         ui_ini_readable,
         ui_ini,
         ui_ini_shp_refs,
+        shell_ui_version,
     }
 }
 

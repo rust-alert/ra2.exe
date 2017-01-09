@@ -268,8 +268,7 @@ pub(super) fn paint_skirmish_lobby_controls(
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = if paint.sides.is_empty() {
             ""
-        }
-        else {
+        } else {
             let i = paint.row_side_indices[paint.combo_row.min(paint.row_side_indices.len() - 1)] as usize % paint.sides.len();
             paint.sides[i].as_str()
         };
@@ -347,6 +346,7 @@ pub fn compose_skirmish_lobby_page(
     paint: &SkirmishLobbyPaint<'_>,
     wave: Option<ShellWaveFrames<'_>>,
     warn_anim_frame: usize,
+    shell_version: &str,
 ) -> Option<RgbaImage> {
     let snap = solve_skirmish_lobby();
     let panel_top = rect_px_from_snapshot(&snap, "panel_top");
@@ -363,6 +363,7 @@ pub fn compose_skirmish_lobby_page(
         MenuCaptionKind::SkirmishLobby,
         wave,
         warn_anim_frame,
+        shell_version,
     )?;
 
     let map_name_plate = rect_px_from_snapshot(&snap, "map_name_plate");

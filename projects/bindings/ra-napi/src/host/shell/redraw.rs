@@ -88,6 +88,10 @@ impl Shell {
                 self.ensure_lobby_sides();
                 self.ensure_skirmish_chrome();
             }
+            if self.screen == OriginalScreen::Options {
+                // 选项勾选 / 下拉箭头复用遭遇战 chrome（`cue_i` / `dnarrow*` / `trof*`）。
+                self.ensure_skirmish_chrome();
+            }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
             let load_allow_retry = self.load_allow_retry();
@@ -100,6 +104,7 @@ impl Shell {
             });
             if let Some(decoded) = self.ui_decode_cache.as_ref() {
                 let movie = self.menu_movie.as_ref().and_then(|m| m.frame());
+                let shell_version = self.menu_assets.as_ref().map(|a| a.shell_ui_version.as_str()).unwrap_or("");
                 let page = match self.screen {
                     OriginalScreen::MainMenu => compose::compose_main_menu_page(
                         decoded,
@@ -113,6 +118,7 @@ impl Shell {
                         movie,
                         wave,
                         self.menu_panel_anim_frame,
+                        shell_version,
                     ),
                     OriginalScreen::SinglePlayerMenu => compose::compose_single_player_page(
                         decoded,
@@ -126,6 +132,7 @@ impl Shell {
                         movie,
                         wave,
                         self.menu_panel_anim_frame,
+                        shell_version,
                     ),
                     OriginalScreen::Campaign => {
                         let track_thumb = self.skirmish_chrome.as_ref().and_then(|c| c.track_thumb.as_ref());
@@ -146,6 +153,7 @@ impl Shell {
                             },
                             wave,
                             self.menu_panel_anim_frame,
+                            shell_version,
                         )
                     }
                     OriginalScreen::Options => self.options_state.as_ref().and_then(|state| {
@@ -161,6 +169,7 @@ impl Shell {
                             movie,
                             wave,
                             self.menu_panel_anim_frame,
+                            shell_version,
                         )
                     }),
                     OriginalScreen::ExitConfirm => compose::compose_exit_confirm_page(
@@ -173,6 +182,7 @@ impl Shell {
                         self.menu_csf.as_ref(),
                         movie,
                         self.menu_panel_anim_frame,
+                        shell_version,
                     ),
                     OriginalScreen::SkirmishLobby => {
                         let selected = self
@@ -200,8 +210,7 @@ impl Shell {
                             .collect();
                         let local_side_i = if self.skirmish.sides.is_empty() {
                             0
-                        }
-                        else {
+                        } else {
                             usize::from(self.skirmish.row_sides[0]) % self.skirmish.sides.len()
                         };
                         let country_label = side_labels
@@ -210,8 +219,7 @@ impl Shell {
                             .unwrap_or_else(|| country_lobby_display_name(self.menu_csf.as_ref(), &country, ""));
                         let ai_side_i = if self.skirmish.sides.is_empty() {
                             0
-                        }
-                        else {
+                        } else {
                             usize::from(self.skirmish.row_sides[1]) % self.skirmish.sides.len()
                         };
                         let ai_country_label = side_labels
@@ -274,6 +282,7 @@ impl Shell {
                             &paint,
                             wave,
                             0,
+                            shell_version,
                         )
                     }
                     OriginalScreen::ChooseMap => {
@@ -313,6 +322,7 @@ impl Shell {
                             self.map_list_scroll,
                             wave,
                             0,
+                            shell_version,
                         )
                     }
                     OriginalScreen::LoadScreen => {
@@ -364,6 +374,7 @@ impl Shell {
                             movie,
                             wave,
                             self.menu_panel_anim_frame,
+                            shell_version,
                         )
                     }
                     _ => None,
@@ -479,8 +490,7 @@ impl Shell {
             OriginalScreen::LoadScreen => {
                 if self.load_job.is_some() {
                     format!("ra2 · 加载 · {} · Esc/点取消 · F12 截图", self.banner)
-                }
-                else {
+                } else {
                     format!("ra2 · 加载 · {} · 点重试 · Esc 回大厅 · F12 截图", self.banner)
                 }
             }
@@ -533,8 +543,7 @@ impl Shell {
                 self.sync_battle_cursor_grab();
                 self.sync_battle_edge_cursor();
             }
-        }
-        else if self.screen.requires_session() {
+        } else if self.screen.requires_session() {
             self.ensure_battle_theater_mixes();
             if let Some(ctrl) = self.battle_controller.as_mut() {
                 let _ = ctrl.take_pump_clock();
@@ -562,8 +571,7 @@ impl Shell {
             }
             self.sync_battle_cursor_grab();
             self.sync_battle_edge_cursor();
-        }
-        else {
+        } else {
             // 前置页：无色块菜单。原版 SHP 未接前仅标题 + 可选大厅地图预览。
             self.renderer.timings.simulation = None;
             self.renderer.timings.presentation_build = None;
@@ -608,8 +616,7 @@ impl Shell {
                         self.menu_panel_anim_frame = self.menu_panel_anim_frame.wrapping_add(1);
                         panel_advanced = true;
                     }
-                }
-                else {
+                } else {
                     self.menu_panel_anim_clock = None;
                 }
                 let mut side_advanced = false;
@@ -625,15 +632,13 @@ impl Shell {
                             self.campaign_side_anim_frame = self.campaign_side_anim_frame.wrapping_add(1).max(1);
                             side_advanced = true;
                         }
-                    }
-                    else {
+                    } else {
                         self.campaign_side_anim_clock = None;
                     }
                 }
                 if movie_advanced || side_advanced || status_advanced || panel_advanced {
                     self.refresh_menu_backdrop();
-                }
-                else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
+                } else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
                     if !self.banner.contains("影片失步") {
                         self.banner = format!("{} · 影片失步 · {reason}", self.banner);
                     }
@@ -645,8 +650,7 @@ impl Shell {
                     self.refresh_menu_backdrop();
                     let map = self.selected_map.as_deref().unwrap_or("?");
                     self.banner = format!("预览就绪 · {map}");
-                }
-                else if self.lobby_preview_job.is_some() {
+                } else if self.lobby_preview_job.is_some() {
                     let map = self.selected_map.as_deref().unwrap_or("?");
                     self.banner = format!("预览生成中… {map}");
                 }

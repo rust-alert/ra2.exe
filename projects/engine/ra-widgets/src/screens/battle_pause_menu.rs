@@ -70,9 +70,14 @@ impl BattlePauseMenuHit {
     }
 }
 
-/// 入口是否可点（载入 / 保存 / 删除尚未实现）。
-pub fn entry_enabled(id: &str) -> bool {
-    !matches!(id, "load" | "save" | "delete")
+/// 入口是否可点。
+///
+/// `saves_allowed`：战役允许载入 / 保存 / 删除（存档系统未就绪时仍可点进 stub）；遭遇战灰显。
+pub fn entry_enabled(id: &str, saves_allowed: bool) -> bool {
+    match id {
+        "load" | "save" | "delete" => saves_allowed,
+        _ => true,
+    }
 }
 
 /// 已解码的暂停菜单阵营素材（跟本地 house 绑定；整套同包同 pal）。
@@ -323,8 +328,8 @@ pub fn button_rects_with_metrics(viewport_w: u32, viewport_h: u32, metrics: Batt
 }
 
 /// 窗口像素命中（默认度量；禁用项不命中）。
-pub fn hit_at(viewport_w: u32, viewport_h: u32, x: i32, y: i32) -> Option<BattlePauseMenuHit> {
-    hit_at_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01(), x, y)
+pub fn hit_at(viewport_w: u32, viewport_h: u32, x: i32, y: i32, saves_allowed: bool) -> Option<BattlePauseMenuHit> {
+    hit_at_with_metrics(viewport_w, viewport_h, BattleHudChromeMetrics::sidec01(), x, y, saves_allowed)
 }
 
 /// 按侧栏度量命中（与合成同口径；禁用项不命中）。
@@ -334,11 +339,12 @@ pub fn hit_at_with_metrics(
     metrics: BattleHudChromeMetrics,
     x: i32,
     y: i32,
+    saves_allowed: bool,
 ) -> Option<BattlePauseMenuHit> {
     let snap = pause_snapshot_with_metrics(viewport_w, viewport_h, metrics);
     let hit = snap.hit_test(ra_layout::Point2 { x: x as f32, y: y as f32 })?;
     let id = hit.id.0.as_str();
-    if !entry_enabled(id) {
+    if !entry_enabled(id, saves_allowed) {
         return None;
     }
     BattlePauseMenuHit::from_entry_id(id)

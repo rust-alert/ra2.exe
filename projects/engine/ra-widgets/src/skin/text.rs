@@ -30,20 +30,37 @@ pub fn main_menu_csf_tooltip(entry_id: &str) -> Option<&'static str> {
 }
 
 /// 壳层右下角版本号标签 → CSF（`GUI:VERSION` →「版本」）。
+///
+/// CSF 只有「版本」二字；后面的数字不在 CSF / `ui.ini`。
 pub fn shell_version_csf_key() -> &'static str {
     "GUI:VERSION"
 }
 
-/// 零售 RA2 壳层常显版本串（对齐原版右下角「版本 1.006」）。
-pub const SHELL_UI_VERSION_RA2: &str = "1.006";
+/// 零售壳层右下角补丁产品号（原版程序侧常显串，不等于 PE `FileVersion`）。
+///
+/// - RA2 最终补丁：`1.006`
+/// - YR 最终补丁：`1.001`（MO 等 YR 基座模组无 `[VersionInfo]` 时同此）
+pub fn shell_ui_version_retail(edition: ra_types::GameEdition) -> &'static str {
+    match edition {
+        ra_types::GameEdition::Ra2 => "1.006",
+        ra_types::GameEdition::Yr | ra_types::GameEdition::Mo3 => "1.001",
+    }
+}
+
+/// 解析壳层版本数字：优先安装/规则里的覆盖串，否则 [`shell_ui_version_retail`]。
+pub fn resolve_shell_ui_version(edition: Option<ra_types::GameEdition>, override_version: Option<&str>) -> String {
+    if let Some(v) = override_version.map(str::trim).filter(|s| !s.is_empty()) {
+        return v.to_string();
+    }
+    shell_ui_version_retail(edition.unwrap_or(ra_types::GameEdition::Ra2)).to_string()
+}
 
 /// 拼右下角版本文案：`{GUI:VERSION} {version}`。
 pub fn shell_version_caption(csf: Option<&CsfFile>, version: &str) -> String {
     let label = resolve_caption(csf, "version", Some(shell_version_csf_key()));
     if version.is_empty() {
         label
-    }
-    else {
+    } else {
         format!("{label} {version}")
     }
 }
@@ -685,8 +702,7 @@ pub fn blit_caption_wrapped(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell
             }
             blit_caption_top_left_clipped(dst, fnt, &line, cell_x, y, cell_w, line_h, rgba);
             y += line_h;
-        }
-        else {
+        } else {
             // 空段仍推进一行，保留段落间距。
             y += line_h;
         }
