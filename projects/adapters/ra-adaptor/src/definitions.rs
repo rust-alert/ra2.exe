@@ -66,6 +66,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     defs.repair_step = g.repair_step.map(|v| v.max(1) as u32).unwrap_or(8);
     defs.repair_interval_ticks = g.repair_rate_minutes.map(repair_rate_minutes_to_ticks).unwrap_or(14);
     defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
+    defs.base_units = g.base_unit.clone();
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         if let Some(kind) = stolen_tech {

@@ -138,7 +138,10 @@ pub fn standard_duel() -> HeadlessCase {
         },
     ];
     let world = battle_from_defs(GameEdition::Ra2, defs, map);
-    HeadlessCase::new(Session::from_state(world, "ra-testing standard duel"))
+    let mut case = HeadlessCase::new(Session::from_state(world, "ra-testing standard duel"));
+    // 纯坦克对决：走长局（任意单位保活），与大厅短局默认区分。
+    case.session.expect_battle_mut().set_short_game(false);
+    case
 }
 
 /// 单人 MCV 开局夹具：播种盟军 MCV 与冻结竖切初始资金，供部署/经济 headless 使用。
@@ -270,5 +273,7 @@ pub fn ai_skirmish_open() -> HeadlessCase {
     assert!(world.set_house_funds(slice.ai_house, slice.starting_funds));
     let mut session = Session::from_state(world, "ra-testing ai skirmish open");
     session.expect_battle_mut().ai_enabled = true;
+    // 与遭遇战大厅默认一致：短局开。
+    session.expect_battle_mut().set_short_game(true);
     HeadlessCase::new(session)
 }

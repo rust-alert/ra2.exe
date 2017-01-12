@@ -37,6 +37,7 @@ fn victory_locks_battle_stats() {
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "stats");
+    session.expect_battle_mut().set_short_game(false);
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
     let target = session.expect_battle().world.entity_id_at(1).expect("entity");
     assert!(session.expect_battle_mut().world.set_ecs_attack_power(attacker, 80, 4, 1));

@@ -34,6 +34,8 @@ pub struct RulesGlobals {
     pub prerequisite_proc: Vec<TechnoName>,
     /// `[General] PrerequisiteProcAlternate`。
     pub prerequisite_proc_alternate: Vec<TechnoName>,
+    /// `[General] BaseUnit`：短局下可替代建筑保活的 MCV 类载具。
+    pub base_unit: Vec<TechnoName>,
 }
 
 impl RulesGlobals {
@@ -72,6 +74,7 @@ impl RulesGlobals {
             prerequisite_tech: filter_techno_names(general.prerequisite_tech),
             prerequisite_proc: filter_techno_names(general.prerequisite_proc),
             prerequisite_proc_alternate: filter_techno_names(general.prerequisite_proc_alternate),
+            base_unit: filter_techno_names(general.base_unit),
         }
     }
 }
@@ -101,6 +104,8 @@ struct GeneralSectionFields {
     prerequisite_proc: Vec<TechnoName>,
     #[serde(rename = "PrerequisiteProcAlternate", default)]
     prerequisite_proc_alternate: Vec<TechnoName>,
+    #[serde(rename = "BaseUnit", default)]
+    base_unit: Vec<TechnoName>,
 }
 
 #[derive(Debug, Default, Deserialize)]

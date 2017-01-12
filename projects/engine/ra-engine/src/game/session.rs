@@ -37,6 +37,8 @@ pub struct BattleSession {
     pub difficulty: String,
     /// 开局契约（遭遇战 vs 战役）。
     pub boot_kind: SessionBootKind,
+    /// 遭遇战短局（大厅 Short Game；默认开）。战役忽略。
+    pub short_game: bool,
 }
 
 impl BattleSession {
@@ -56,7 +58,13 @@ impl BattleSession {
             ai_enabled: false,
             difficulty: "Normal".into(),
             boot_kind: SessionBootKind::Skirmish,
+            short_game: true,
         }
+    }
+
+    /// 写入遭遇战大厅 Short Game（短局：无建筑且无 `BaseUnit` 即出局）。
+    pub fn set_short_game(&mut self, short_game: bool) {
+        self.short_game = short_game;
     }
 
     /// 设置对局内容指纹（联机握手）。
@@ -138,8 +146,7 @@ impl BattleSession {
         }
         if self.paused {
             self.resume();
-        }
-        else {
+        } else {
             self.pause("已暂停");
         }
     }

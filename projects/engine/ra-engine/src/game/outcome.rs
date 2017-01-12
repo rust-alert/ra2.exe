@@ -1,9 +1,11 @@
-use crate::state::{
-    BattleState,
-    components::{Health, Identity, Owner},
+use crate::{
+    gameplay::{ai::is_ambient_house, is_base_unit},
+    state::{
+        BattleState,
+        components::{Health, Identity, Owner},
+    },
 };
 use ra_map::MapEntityKind;
-use ra_types::EntityId;
 
 use super::{session::BattleSession, types::SessionBootKind};
 
@@ -15,7 +17,7 @@ pub enum BattleOutcome {
         /// 获胜阵营 owner 字符串。
         owner: String,
     },
-    /// 本地或剧本判定失败（战役触发器 Lose 等）。
+    /// 本地或剧本判定失败（战役触发器 Lose、遭遇战本地出局等）。
     Defeat {
         /// 可选说明（触发器 id 等）。
         reason: String,
@@ -53,7 +55,7 @@ pub struct PlayerBattleStats {
 }
 
 impl BattleSession {
-    /// 遭遇战：若仅剩一个阵营仍有作战力量，锁定胜负并暂停。
+    /// 遭遇战：若仅剩一个阵营仍保活，锁定胜负并暂停。
     /// 战役：消费触发器 `pending_outcome`，不走 sole victor。
     pub(super) fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
@@ -71,9 +73,20 @@ impl BattleSession {
             return;
         };
         self.battle_stats = Some(self.compute_battle_stats());
-        self.outcome = Some(BattleOutcome::Victory { owner: owner.clone() });
+        let local_win = self
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == self.world.local_player)
+            .is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(&owner));
+        if local_win {
+            self.outcome = Some(BattleOutcome::Victory { owner: owner.clone() });
+            self.pause_reason = Some(format!("胜负已定 · {owner}"));
+        } else {
+            self.outcome = Some(BattleOutcome::Defeat { reason: String::new() });
+            self.pause_reason = Some(format!("胜负已定 · {owner}"));
+        }
         self.paused = true;
-        self.pause_reason = Some(format!("胜负已定 · {owner}"));
     }
 
     /// 由剧本 / 触发器锁定胜负（战役主路径）。
@@ -87,8 +100,7 @@ impl BattleSession {
             BattleOutcome::Defeat { reason } => {
                 if reason.is_empty() {
                     "战役失败".into()
-                }
-                else {
+                } else {
                     format!("战役失败 · {reason}")
                 }
             }
@@ -140,44 +152,55 @@ impl BattleSession {
         BattleStats { duration_ticks: self.world.tick, units_lost, buildings_lost, funds_spent, players }
     }
 
-    /// 若仅剩一个阵营仍有作战力量（存活建筑或可作战移动单位），返回其 owner。
+    /// 若仅剩一个非氛围阵营仍保活，返回其 owner。
+    ///
     /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
-    /// `Neutral` / `Civilian` 氛围单位不计入作战力量。
+    /// 短局：存活建筑或 `[General] BaseUnit` 保活。长局：任意存活建筑 / 步兵 / 载具 / 飞行器保活。
     pub fn sole_victor(&self) -> Option<&str> {
-        let skirmish_houses = self.world.players.iter().filter(|p| !crate::gameplay::ai::is_ambient_house(p.house.as_ref())).count();
-        if skirmish_houses < 2 {
+        let contenders: Vec<&str> = self
+            .world
+            .players
+            .iter()
+            .filter(|p| !is_ambient_house(p.house.as_ref()))
+            .map(|p| p.house.as_ref())
+            .collect();
+        if contenders.len() < 2 {
             return None;
         }
-        let mut owners: Vec<&str> = self
-            .world
-            .entities
-            .iter()
-            .filter_map(|e| {
-                let id = e.id;
-                if !is_combat_force(&self.world, id) {
-                    return None;
-                }
-                self.world.ecs_get::<Owner>(id).map(|o| o.house.as_ref())
-            })
+        let alive: Vec<&str> = contenders
+            .into_iter()
+            .filter(|house| house_keeps_alive(&self.world, house, self.short_game))
             .collect();
-        owners.sort_unstable();
-        owners.dedup();
-        if owners.len() == 1 { Some(owners[0]) } else { None }
+        if alive.len() == 1 { Some(alive[0]) } else { None }
     }
 }
 
-/// 冻结胜负：存活建筑或可作战移动单位均算作战力量（排除 `Neutral` / `Civilian`）。
-pub(super) fn is_combat_force(world: &BattleState, id: EntityId) -> bool {
-    if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
-        return false;
+/// 该 house 是否仍保活（未出局）。
+fn house_keeps_alive(world: &BattleState, house: &str, short_game: bool) -> bool {
+    for e in &world.entities {
+        let id = e.id;
+        if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+            continue;
+        }
+        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref().eq_ignore_ascii_case(house)).unwrap_or(false) {
+            continue;
+        }
+        let Some(identity) = world.ecs_get::<Identity>(id)
+        else {
+            continue;
+        };
+        match identity.kind {
+            MapEntityKind::Structure => return true,
+            MapEntityKind::Unit if short_game => {
+                if is_base_unit(&world.definitions, &identity.type_id) {
+                    return true;
+                }
+            }
+            MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft if !short_game => {
+                return true;
+            }
+            _ => {}
+        }
     }
-    if world.ecs_get::<Owner>(id).map(|o| crate::gameplay::ai::is_ambient_house(o.house.as_ref())).unwrap_or(false) {
-        return false;
-    }
-    world
-        .ecs_get::<Identity>(id)
-        .map(|identity| {
-            matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
-        })
-        .unwrap_or(false)
+    false
 }

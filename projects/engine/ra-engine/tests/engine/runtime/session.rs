@@ -67,6 +67,7 @@ fn order_attack_and_detects_victor() {
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "t");
+    session.expect_battle_mut().set_short_game(false);
     {
         let world = &mut session.expect_battle_mut().world;
         let a = world.entity_id_at(0).expect("entity");

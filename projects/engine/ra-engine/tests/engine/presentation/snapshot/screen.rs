@@ -37,6 +37,7 @@ fn snapshot_screen_moves_to_results_on_victory() {
         tag: Default::default(),
     });
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "screen");
+    session.expect_battle_mut().set_short_game(false);
     assert_eq!(session.expect_battle().snapshot(&[]).screen, SessionScreen::InBattle);
     let attacker = session.expect_battle().world.entity_id_at(0).expect("entity");
     let target = session.expect_battle().world.entity_id_at(1).expect("entity");

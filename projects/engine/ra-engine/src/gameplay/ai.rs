@@ -13,9 +13,11 @@ use crate::{
 use ra_map::MapEntityKind;
 use ra_types::{PlayerId, ProductionCategory, TechnoCategory};
 
-/// 地图氛围房主（平民装饰），不参与遭遇战 AI，也不计入胜负作战力量。
+/// 地图氛围房主（平民装饰 / 多人被动），不参与遭遇战 AI，也不计入胜负作战力量。
 pub fn is_ambient_house(house: &str) -> bool {
-    house.eq_ignore_ascii_case("Neutral") || house.eq_ignore_ascii_case("Civilian")
+    house.eq_ignore_ascii_case("Neutral")
+        || house.eq_ignore_ascii_case("Civilian")
+        || house.eq_ignore_ascii_case("Special")
 }
 
 /// 两 house 是否同盟（同名，或任一方 `PlayerState.allies` 列出对方）。
@@ -305,9 +307,9 @@ fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
         !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
             && world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
             && world
-                .ecs_get::<Identity>(id)
-                .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &i.type_id))
-                .unwrap_or(false)
+            .ecs_get::<Identity>(id)
+            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, &i.type_id))
+            .unwrap_or(false)
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
     })
 }

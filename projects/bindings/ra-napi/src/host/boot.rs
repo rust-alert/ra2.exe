@@ -10,8 +10,8 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    PaintDefinitions,
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, StructureAnimBank, StructureLightTable, TerrainAnimBank,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose,
+    PaintDefinitions, StructureAnimBank, StructureLightTable, TerrainAnimBank,
     campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
     is_campaign_blocking_action_gap, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
     mount_theater_mixes,
@@ -725,8 +725,9 @@ pub fn boot_world_with_progress(
             );
             let game = opened.session.expect_battle_mut();
             game.set_difficulty(request.difficulty.clone());
-            // 战役资金以地图 Houses.Credits 为准；遭遇战仍用大厅 credits。
+            // 战役资金以地图 Houses.Credits 为准；遭遇战仍用大厅 credits / Short Game。
             if request.boot_kind != LoadKind::Campaign {
+                game.set_short_game(request.short_game);
                 game.world.set_all_players_funds(request.credits);
             }
             game.world.set_all_players_tech_level(request.tech_level);

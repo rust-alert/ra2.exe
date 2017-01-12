@@ -119,3 +119,14 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
     keys.sort_unstable();
     keys.first().copied()
 }
+
+/// 是否短局 `BaseUnit`（`[General] BaseUnit=`，缺表时回落为可部署成建造场的载具）。
+pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: &str) -> bool {
+    if defs.base_units.iter().any(|n| n.as_str().eq_ignore_ascii_case(type_id)) {
+        return true;
+    }
+    if !defs.base_units.is_empty() {
+        return false;
+    }
+    deploy_into_type(defs, type_id).is_some_and(|target| is_construction_yard(defs, target))
+}

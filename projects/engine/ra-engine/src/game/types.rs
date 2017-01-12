@@ -35,7 +35,7 @@ pub enum AnimState {
 /// 装载契约种类：遭遇战与战役胜负 / 开局规则不同。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SessionBootKind {
-    /// 遭遇战：剥机动、席位种 MCV、[`crate::game::BattleSession::sole_victor`] 结算。
+    /// 遭遇战：剥机动、席位种 MCV、短局/长局保活后的 [`crate::game::BattleSession::sole_victor`] 结算。
     #[default]
     Skirmish,
     /// 战役：保留预放部队、触发器 Win/Lose 结算。
