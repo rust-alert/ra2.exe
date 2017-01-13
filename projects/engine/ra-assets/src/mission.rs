@@ -33,6 +33,8 @@ pub struct MissionPresentation {
     pub background_shp_640: String,
     /// 800 宽装载背景 SHP（`LS800BkgdName`，如 `LS800A01.SHP`）；可空。
     pub background_shp_800: String,
+    /// 800 宽装载背景调色板（`LS800BkgdPal`，如 `LS800A01.PAL`）；RA2 零售常空，由上层回退 `ldscrna`/`ldscrns`。
+    pub background_pal_800: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -57,6 +59,8 @@ struct MissionSectionFields {
     ls640_bkgd_name: String,
     #[serde(rename = "LS800BkgdName", default)]
     ls800_bkgd_name: String,
+    #[serde(rename = "LS800BkgdPal", default)]
+    ls800_bkgd_pal: String,
 }
 
 /// 从 `mission.ini` 字节解析全部关卡装载外观。
@@ -87,6 +91,7 @@ pub fn parse_mission_presentations(bytes: &[u8]) -> RaResult<Vec<MissionPresenta
             brief_loc_y_800: fields.ls800_brief_loc_y.unwrap_or(0),
             background_shp_640: fields.ls640_bkgd_name.trim().to_string(),
             background_shp_800: fields.ls800_bkgd_name.trim().to_string(),
+            background_pal_800: fields.ls800_bkgd_pal.trim().to_string(),
         });
     }
     Ok(out)
@@ -110,6 +115,16 @@ impl MissionPresentation {
             self.background_shp_800.as_str()
         };
         let trimmed = name.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+
+    /// 装载背景调色板：零售仅见 `LS800BkgdPal`（640 视口仍用同一盘）；空串表示未配置。
+    pub fn background_pal_for_viewport(&self, _viewport_w: u32) -> Option<&str> {
+        let trimmed = self.background_pal_800.trim();
         if trimmed.is_empty() {
             None
         } else {

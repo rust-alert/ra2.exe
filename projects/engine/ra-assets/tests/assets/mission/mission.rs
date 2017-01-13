@@ -27,6 +27,13 @@ LS800BkgdName=LS800S01.SHP
 Ignore=1
 "#;
 
+const SAMPLE_WITH_PAL: &str = r#"
+[ALL01UMD.MAP]
+LS800BkgdName=LS800A01.SHP
+LS800BkgdPal=LS800A01.PAL
+LS640BkgdName=LS640A01.SHP
+"#;
+
 #[test]
 fn parses_map_sections_and_skips_non_map() {
     let missions = parse_mission_presentations(SAMPLE.as_bytes()).unwrap();
@@ -39,6 +46,7 @@ fn parses_map_sections_and_skips_non_map() {
     assert_eq!(missions[0].brief_loc_x_800, 24);
     assert_eq!(missions[0].brief_loc_y_800, 28);
     assert_eq!(missions[0].background_shp_800, "LS800A01.SHP");
+    assert!(missions[0].background_pal_800.is_empty());
     assert_eq!(missions[1].scenario.as_str(), "SOV01T.MAP");
 }
 
@@ -48,6 +56,16 @@ fn find_is_case_insensitive_on_scenario() {
     let hit = find_mission_presentation(&missions, "all01t.map").unwrap();
     assert_eq!(hit.background_shp_for_viewport(800), Some("LS800A01.SHP"));
     assert_eq!(hit.background_shp_for_viewport(640), Some("LS640A01.SHP"));
+    assert!(hit.background_pal_for_viewport(800).is_none());
     assert_eq!(hit.brief_loc_for_viewport(800), (24, 28));
     assert!(find_mission_presentation(&missions, "").is_none());
+}
+
+#[test]
+fn parses_ls800_bkgd_pal_when_present() {
+    let missions = parse_mission_presentations(SAMPLE_WITH_PAL.as_bytes()).unwrap();
+    assert_eq!(missions.len(), 1);
+    assert_eq!(missions[0].background_pal_800, "LS800A01.PAL");
+    assert_eq!(missions[0].background_pal_for_viewport(800), Some("LS800A01.PAL"));
+    assert_eq!(missions[0].background_pal_for_viewport(640), Some("LS800A01.PAL"));
 }
