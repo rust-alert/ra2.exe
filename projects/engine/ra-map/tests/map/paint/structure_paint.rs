@@ -626,3 +626,37 @@ fn missing_structure_body_paints_magenta_marker() {
     let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");
     assert!(hit[0] > 200 && hit[2] > 150, "expected magenta marker, got {hit:?}");
 }
+
+#[test]
+fn structure_anim_bank_extend_from_syncs_lighting() {
+    use ra_map::{LightingConfig, StructureAnimBank, StructureAnimLayer, TileBlit};
+
+    let mut bank = StructureAnimBank::default();
+    assert!((bank.lighting.ambient - 1.0).abs() < f32::EPSILON);
+    assert!((bank.lighting.ground - 0.20).abs() < f32::EPSILON);
+
+    let mut other = StructureAnimBank {
+        lighting: LightingConfig { ambient: 0.70, red: 1.0, green: 1.0, blue: 1.0, ground: 0.15, level: 0.0 },
+        point_lights: Vec::new(),
+        layers: vec![StructureAnimLayer {
+            x: 1,
+            y: 2,
+            cell_z: 0,
+            rate_ms: 100,
+            loop_start: 0,
+            loop_end: 1,
+            frames: vec![TileBlit::solid(1, 1, 0, 0, vec![255, 255, 255, 255])],
+        }],
+    };
+    other.sync_lighting(
+        LightingConfig { ambient: 0.55, red: 1.0, green: 0.8, blue: 0.9, ground: 0.10, level: 0.0 },
+        Vec::new(),
+    );
+    assert!((other.lighting.ambient - 0.55).abs() < f32::EPSILON);
+
+    bank.extend_from(other);
+    assert_eq!(bank.layers.len(), 1);
+    assert!((bank.lighting.ambient - 0.55).abs() < f32::EPSILON);
+    assert!((bank.lighting.ground - 0.10).abs() < f32::EPSILON);
+    assert!((bank.lighting.green - 0.8).abs() < f32::EPSILON);
+}

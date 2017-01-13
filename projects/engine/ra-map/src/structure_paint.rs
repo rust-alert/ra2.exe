@@ -511,6 +511,22 @@ impl StructureAnimBank {
         self.layers.is_empty()
     }
 
+    /// 采用收集结果的环境光 / 点光源，并追加其活动层。
+    ///
+    /// 增量建造只 `extend` 层时若不同步光照，会一直停在装载时的 `LightingConfig::default()`，
+    /// 与主体 `map.tint_at` 脱节。
+    pub fn extend_from(&mut self, other: StructureAnimBank) {
+        self.lighting = other.lighting;
+        self.point_lights = other.point_lights;
+        self.layers.extend(other.layers);
+    }
+
+    /// 用当前地图档刷新冻住的环境光与点光源（Ion 切换 / 辐射光刷新后调用）。
+    pub fn sync_lighting(&mut self, lighting: crate::LightingConfig, point_lights: Vec<PointLight>) {
+        self.lighting = lighting;
+        self.point_lights = point_lights;
+    }
+
     /// 当前时钟下各层帧号签名（用于跳过无变化的预览刷新）。
     pub fn frame_signature(&self, clock_ms: u64) -> u64 {
         let mut h: u64 = 0xcbf29ce484222325;
