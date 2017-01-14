@@ -346,7 +346,7 @@ impl BattleController {
                 let _ = n;
             }
         }
-        self.structure_anims.layers.extend(bank.layers);
+        self.structure_anims.extend_from(bank);
         self.last_anim_sig = u64::MAX;
         // `rules.ini` `[AudioVisual] BuildingSlam=PlaceBuilding`：建造落位 / MCV 展开定格。
         self.pending_battle_sfx.push("PlaceBuilding".into());
@@ -493,6 +493,7 @@ impl BattleController {
             paint_structure_buildup_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &pending.clip, frame);
         }
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
+        self.sync_preview_anim_lighting();
         paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
         self.paint_ore_tree_frames_onto(&mut composed);
         paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
@@ -502,14 +503,15 @@ impl BattleController {
 
     /// 上传当前 `preview_base`（可叠活动层与天气粒子）。定格后即使无 ActiveAnim 也必须调用。
     pub(super) fn present_preview_base(&mut self, renderer: &mut Renderer) {
-        let Some(base) = self.preview_base.as_ref()
+        let Some(base) = self.preview_base.clone()
         else {
             return;
         };
-        let mut composed = base.clone();
+        let mut composed = base;
         let clock_ms = self.anim_started.elapsed().as_millis() as u64;
         let has_anims = self.has_preview_anims();
         if has_anims {
+            self.sync_preview_anim_lighting();
             paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
             self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);

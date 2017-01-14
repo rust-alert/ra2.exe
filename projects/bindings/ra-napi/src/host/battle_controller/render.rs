@@ -319,7 +319,7 @@ impl BattleController {
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
             let bank = collect_structure_anim_bank(assets, &one, &mut self.paint, &remap);
-            self.structure_anims.layers.extend(bank.layers);
+            self.structure_anims.extend_from(bank);
         }
         if any {
             self.last_anim_sig = u64::MAX;
@@ -329,7 +329,7 @@ impl BattleController {
 
     /// 按呈现时钟刷新建筑 ActiveAnim（旗帜 / 泵机）、常循环地形、矿柱状态机帧与天气粒子，不重置相机。
     pub(super) fn refresh_structure_anims(&mut self, renderer: &mut Renderer) {
-        let Some(base) = self.preview_base.as_ref()
+        let Some(base) = self.preview_base.clone()
         else {
             return;
         };
@@ -340,7 +340,9 @@ impl BattleController {
         if !weather_active && (!has_anims || sig == self.last_anim_sig) {
             return;
         }
-        let mut composed = base.clone();
+        // 活动层银行冻有装载时光照；刷帧前同步当前档（Ion / 点光源），与主体 `tint_at` 一致。
+        self.sync_preview_anim_lighting();
+        let mut composed = base;
         if has_anims {
             paint_terrain_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.terrain_anims, clock_ms);
             self.paint_ore_tree_frames_onto(&mut composed);
@@ -349,6 +351,20 @@ impl BattleController {
         self.paint_weather_onto(&mut composed);
         renderer.update_map_preview(composed);
         self.last_anim_sig = sig;
+    }
+
+    /// 把活动层银行的冻光照对齐到当前地图档。
+    pub(super) fn sync_preview_anim_lighting(&mut self) {
+        let live = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
+            (game.world.map.active_lighting(), game.world.map.point_lights.clone())
+        });
+        let Some((lighting, lights)) = live
+        else {
+            return;
+        };
+        self.structure_anims.sync_lighting(lighting, lights.clone());
+        self.terrain_anims.sync_lighting(lighting, lights.clone());
+        self.ore_tree_anims.sync_lighting(lighting, lights);
     }
 
     /// 是否有需叠画的活动层（建筑 / 常循环地形 / 矿柱）。
