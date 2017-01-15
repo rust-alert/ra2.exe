@@ -452,17 +452,26 @@ impl Shell {
                 }
                 self.refresh_shell_title();
             }
-            BattleNav::ToMainMenu => match self.load_kind {
-                LoadKind::Campaign => {
-                    self.banner = "已返回战役选边".into();
-                    self.set_screen(OriginalScreen::Campaign);
+            BattleNav::ToMainMenu => {
+                // 放弃离场等路径可能已排队 EVA（如 BattleControlTerminated）。
+                if let Some(ctrl) = self.battle_controller.as_mut() {
+                    let pending = ctrl.take_pending_battle_sfx();
+                    for event_id in pending {
+                        let _ = self.play_battle_sfx_event(&event_id);
+                    }
                 }
-                LoadKind::Skirmish => {
-                    self.ensure_lobby_maps();
-                    self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
-                    self.set_screen(OriginalScreen::SkirmishLobby);
+                match self.load_kind {
+                    LoadKind::Campaign => {
+                        self.banner = "已返回战役选边".into();
+                        self.set_screen(OriginalScreen::Campaign);
+                    }
+                    LoadKind::Skirmish => {
+                        self.ensure_lobby_maps();
+                        self.banner = format!("已返回大厅 · 地图 {}", self.selected_map.as_deref().unwrap_or("（未选）"));
+                        self.set_screen(OriginalScreen::SkirmishLobby);
+                    }
                 }
-            },
+            }
             BattleNav::OpenOptions => {
                 self.open_options_page(OriginalScreen::Battle);
             }

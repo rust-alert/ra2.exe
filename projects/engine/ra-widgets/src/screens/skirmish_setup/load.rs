@@ -8,6 +8,13 @@ use super::chrome::UiFactionChrome;
 /// 装载图回退调色板：共享 `mpls.pal`（非国家猜测）。
 pub const LOAD_SCREEN_FALLBACK_PAL: &str = "mpls.pal";
 
+/// 战役装载共享盘（盟军 / 教程 `LS*A*` / `LS*B*`）。
+pub const CAMPAIGN_LOAD_SCREEN_ALLIED_PAL: &str = "ldscrna.pal";
+/// 战役装载共享盘（苏联 `LS*S*`）。
+pub const CAMPAIGN_LOAD_SCREEN_SOVIET_PAL: &str = "ldscrns.pal";
+/// 战役装载通用回退盘（`load.mix` 内 `ldscrn.pal`）。
+pub const CAMPAIGN_LOAD_SCREEN_GENERIC_PAL: &str = "ldscrn.pal";
+
 /// 进度条 SHP（帧 0；按进度横向裁剪填充）。
 pub const LOAD_SCREEN_PROGRESS_SHP: &str = "progbarm.shp";
 
@@ -19,6 +26,9 @@ pub fn load_screen_background_shp_resolved(viewport_w: u32, rules_shp: Option<&s
     if viewport_w < 800 {
         if let Some(rest) = name.strip_prefix("ls800") {
             return Some(format!("ls640{rest}"));
+        }
+        if let Some(rest) = name.strip_prefix("LS800") {
+            return Some(format!("LS640{rest}"));
         }
     }
     Some(name.to_string())
@@ -33,6 +43,44 @@ pub fn load_screen_palette_resolved(rules_pal: Option<&str>, pal_readable: impl 
     }
     if pal_readable(LOAD_SCREEN_FALLBACK_PAL) {
         return Some(LOAD_SCREEN_FALLBACK_PAL.to_string());
+    }
+    None
+}
+
+/// 由战役背景 SHP 名推断原版硬编码盘（`LS800A01`→`ldscrna.pal`，`LS800S01`→`ldscrns.pal`）。
+pub fn campaign_load_screen_palette_from_shp(shp: &str) -> Option<&'static str> {
+    let lower = shp.trim().to_ascii_lowercase();
+    let stem = lower.strip_suffix(".shp").unwrap_or(lower.as_str());
+    let rest = stem.strip_prefix("ls800").or_else(|| stem.strip_prefix("ls640"))?;
+    match rest.chars().next()? {
+        'a' | 'b' => Some(CAMPAIGN_LOAD_SCREEN_ALLIED_PAL),
+        's' => Some(CAMPAIGN_LOAD_SCREEN_SOVIET_PAL),
+        _ => None,
+    }
+}
+
+/// 战役装载调色板：显式 `LS800BkgdPal` → SHP 阵营盘 → [`CAMPAIGN_LOAD_SCREEN_GENERIC_PAL`]。
+///
+/// 不回退 [`LOAD_SCREEN_FALLBACK_PAL`]（遭遇战 `mpls.pal` 会把战役 `LS*` 画成酸彩）。
+pub fn campaign_load_screen_palette_resolved(
+    rules_pal: Option<&str>,
+    background_shp: Option<&str>,
+    pal_readable: impl Fn(&str) -> bool,
+) -> Option<String> {
+    if let Some(p) = rules_pal.map(str::trim).filter(|s| !s.is_empty()) {
+        if pal_readable(p) {
+            return Some(p.to_string());
+        }
+    }
+    if let Some(shp) = background_shp.map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(side_pal) = campaign_load_screen_palette_from_shp(shp) {
+            if pal_readable(side_pal) {
+                return Some(side_pal.to_string());
+            }
+        }
+    }
+    if pal_readable(CAMPAIGN_LOAD_SCREEN_GENERIC_PAL) {
+        return Some(CAMPAIGN_LOAD_SCREEN_GENERIC_PAL.to_string());
     }
     None
 }

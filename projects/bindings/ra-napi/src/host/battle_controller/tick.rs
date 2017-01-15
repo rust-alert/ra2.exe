@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ra_engine::{BattleOutcome, SessionPhase};
+use ra_engine::{BattleOutcome, SessionBootKind, SessionPhase};
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
 
@@ -239,14 +239,14 @@ impl BattleController {
     pub(super) fn begin_outcome_hold(&mut self) {
         self.note_outcome_once();
         if self.outcome_hold_until.is_none() {
-            // 原版先播 Battle control terminated / Mission Accomplished，再进积分页。
+            // 遭遇战先播 PlayerDefeated / YouAreVictorious|YouHaveLost，再进积分页。
             // 实际时长由壳层按采样长度 `extend_outcome_hold` 校正。
             self.outcome_hold_until = Some(Instant::now() + Duration::from_millis(2500));
             tracing::info!("胜负已定 · 播报 EVA 后进结算");
         }
     }
 
-    /// 按已播放 EVA 采样时长拉长结算延迟（至少覆盖播完）。
+    /// 按已播放 EVA 采样时长拉长结算延迟（多句串播时在截止后再叠加）。
     pub fn extend_outcome_hold(&mut self, sample: &ra_assets::PcmAudio) {
         let ch = sample.channels.max(1) as u64;
         let rate = u64::from(sample.sample_rate.max(1));
@@ -254,14 +254,13 @@ impl BattleController {
         let ms = frames.saturating_mul(1000) / rate;
         // 尾音留白，避免切页掐断。
         let hold = Duration::from_millis(ms.saturating_add(400).max(1200));
-        let deadline = Instant::now() + hold;
-        match self.outcome_hold_until {
-            Some(prev) if prev >= deadline => {}
-            _ => {
-                self.outcome_hold_until = Some(deadline);
-                tracing::debug!(ms = hold.as_millis(), "已按 EVA 采样延长结算延迟");
-            }
-        }
+        let deadline = match self.outcome_hold_until {
+            // 同帧多句 EVA：在已有截止后再叠时长，避免只取最长一句。
+            Some(prev) => prev + hold,
+            None => Instant::now() + hold,
+        };
+        self.outcome_hold_until = Some(deadline);
+        tracing::debug!(ms = hold.as_millis(), "已按 EVA 采样延长结算延迟");
     }
 
     pub(super) fn note_outcome_once(&mut self) {
@@ -295,11 +294,25 @@ impl BattleController {
             .unwrap_or_default();
         tracing::info!("对局结束 · {label} · tick={}{stats}", game.world.tick);
 
-        // EVA：放弃/败北播 Battle control terminated；胜利用 Mission Accomplished。
-        let eva = match outcome {
-            BattleOutcome::Victory { .. } => "EVA_MissionAccomplished",
-            BattleOutcome::Defeat { .. } => "EVA_BattleControlTerminated",
-        };
-        self.queue_battle_sfx_once(eva);
+        // 遭遇战：他方出局 → PlayerDefeated，本机胜/负 → YouAreVictorious / YouHaveLost。
+        // 战役：Mission Accomplished / Mission Failed。放弃离场另走 BattleControlTerminated。
+        match game.boot_kind {
+            SessionBootKind::Skirmish => match outcome {
+                BattleOutcome::Victory { .. } => {
+                    self.queue_battle_sfx_once("EVA_PlayerDefeated");
+                    self.queue_battle_sfx_once("EVA_YouAreVictorious");
+                }
+                BattleOutcome::Defeat { .. } => {
+                    self.queue_battle_sfx_once("EVA_YouHaveLost");
+                }
+            },
+            SessionBootKind::Campaign => {
+                let eva = match outcome {
+                    BattleOutcome::Victory { .. } => "EVA_MissionAccomplished",
+                    BattleOutcome::Defeat { .. } => "EVA_MissionFailed",
+                };
+                self.queue_battle_sfx_once(eva);
+            }
+        }
     }
 }

@@ -184,14 +184,17 @@ pub fn eva_voice_stem_prefix(eva_tag: &str) -> Option<&'static str> {
 pub fn eva_known_event_index(event_id: &str) -> Option<&'static str> {
     if event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
         Some("015")
-    }
-    else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
+    } else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
         Some("013")
-    }
-    else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
+    } else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
         Some("014")
-    }
-    else {
+    } else if event_id.eq_ignore_ascii_case("EVA_YouAreVictorious") {
+        Some("022")
+    } else if event_id.eq_ignore_ascii_case("EVA_YouHaveLost") {
+        Some("023")
+    } else if event_id.eq_ignore_ascii_case("EVA_PlayerDefeated") {
+        Some("026")
+    } else {
         None
     }
 }

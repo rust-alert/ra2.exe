@@ -233,6 +233,8 @@ impl BattleController {
                         game.toggle_pause();
                     }
                 }
+                // 原版放弃离场走 Battle control terminated，不是胜负句。
+                self.queue_battle_sfx_once("EVA_BattleControlTerminated");
                 tracing::info!("放弃确认 · 离开对局");
                 BattleNav::ToMainMenu
             }
