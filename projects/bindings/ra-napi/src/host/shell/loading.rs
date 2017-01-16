@@ -53,6 +53,7 @@ impl Shell {
         self.ensure_lobby_sides();
         self.load_brief_origin = None;
         self.load_background_shp = None;
+        self.load_background_pal = None;
         self.load_brief_csf = self
             .lobby_countries
             .iter()
@@ -146,6 +147,7 @@ impl Shell {
         if let Some(pres) = boot::resolve_install_mission_presentation(scenario) {
             let vw = self.window_width as u32;
             self.load_background_shp = pres.background_shp_for_viewport(vw).map(str::to_string);
+            self.load_background_pal = pres.background_pal_for_viewport(vw).map(str::to_string);
             self.load_brief_origin = Some(pres.brief_loc_for_viewport(vw));
             if !pres.load_briefing_csf.is_empty() {
                 self.load_brief_csf = Some(pres.load_briefing_csf.to_string());
@@ -155,11 +157,13 @@ impl Shell {
             tracing::info!(
                 scenario,
                 bg = ?self.load_background_shp,
+                pal = ?self.load_background_pal,
                 brief = ?self.load_brief_csf,
                 "已解析战役装载外观"
             );
         } else {
             self.load_background_shp = None;
+            self.load_background_pal = None;
             self.load_brief_origin = None;
             tracing::warn!(scenario, "mission.ini 无该 scenario · 战役装载缺 LS 背景");
         }
@@ -239,6 +243,7 @@ impl Shell {
         self.load_brief_csf = None;
         self.load_brief_origin = None;
         self.load_background_shp = None;
+        self.load_background_pal = None;
         self.banner = "已取消装载".into();
         tracing::info!(kind = self.load_kind.as_str(), back = back.as_str(), "用户取消装载");
         self.set_screen(back);

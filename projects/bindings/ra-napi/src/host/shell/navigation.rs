@@ -416,6 +416,7 @@ impl Shell {
                         self.load_brief_csf = None;
                         self.load_brief_origin = None;
                         self.load_background_shp = None;
+                        self.load_background_pal = None;
                         self.banner = format!("下一关 · {scenario}…");
                         tracing::info!(%scenario, "战役继续 · 装载下一关");
                         self.begin_campaign_scenario_load(&scenario, None);

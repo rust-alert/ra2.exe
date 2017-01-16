@@ -64,6 +64,8 @@ pub struct Shell {
     pub(super) load_brief_origin: Option<(i32, i32)>,
     /// 战役装载背景 SHP（`LS800BkgdName` / `LS640BkgdName`）；遭遇战为 `None` 走国家 `File.LoadScreen`。
     pub(super) load_background_shp: Option<String>,
+    /// 战役装载背景调色板（`LS800BkgdPal`）；空则解码时按 SHP 回退 `ldscrna`/`ldscrns`。遭遇战为 `None`。
+    pub(super) load_background_pal: Option<String>,
     /// 当前装载开始时刻。
     pub(super) load_started: Option<Instant>,
     /// 后台已完成、等待最短展示时间后再 `finish_load` 的结果。

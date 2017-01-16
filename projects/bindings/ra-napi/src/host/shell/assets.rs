@@ -11,6 +11,7 @@ use ra_widgets::{
     original_screen::OriginalScreen,
     screens::page::{page_resources_for_load_screen_with, page_resources_for_results_with, page_resources_from_slots_with_edition},
     skin::{assets::load_menu_ui_assets, decode, resolve, slots::menu_movie_prefer_mix},
+    skirmish_setup::campaign_load_screen_palette_resolved,
 };
 
 use super::Shell;
@@ -60,19 +61,37 @@ impl Shell {
         };
         let edition = assets.edition;
         let page = if self.screen == OriginalScreen::LoadScreen {
-            // 战役：`mission.ini` `LS*BkgdName`；遭遇战：国家 `File.LoadScreen`。
-            let (rules_shp, rules_pal) = if self.load_kind == LoadKind::Campaign {
-                (self.load_background_shp.as_deref(), Some("mpls.pal"))
+            // 战役：`mission.ini` `LS*BkgdName`/`LS800BkgdPal`（缺盘则 `ldscrna`/`ldscrns`）；遭遇战：国家 `File.LoadScreen`。
+            if self.load_kind == LoadKind::Campaign {
+                let rules_shp = self.load_background_shp.as_deref();
+                let rules_pal = campaign_load_screen_palette_resolved(self.load_background_pal.as_deref(), rules_shp, |name| {
+                    source.resolve(name).is_some()
+                });
+                match rules_pal.as_deref() {
+                    Some(pal) => page_resources_for_load_screen_with(
+                        &self.skirmish.side,
+                        self.window_width as u32,
+                        rules_shp,
+                        Some(pal),
+                        |name| source.resolve(name).is_some(),
+                    ),
+                    None => {
+                        tracing::warn!(
+                            bg = ?rules_shp,
+                            explicit_pal = ?self.load_background_pal,
+                            "战役装载缺可读调色板（勿回退 mpls.pal）"
+                        );
+                        None
+                    }
+                }
             } else {
                 let country = self.lobby_countries.iter().find(|c| c.id.eq_ignore_ascii_case(self.skirmish.side.as_str()));
-                (
-                    country.map(|c| c.load_screen.as_str()).filter(|s| !s.is_empty()),
-                    country.map(|c| c.load_screen_pal.as_str()).filter(|s| !s.is_empty()),
-                )
-            };
-            page_resources_for_load_screen_with(&self.skirmish.side, self.window_width as u32, rules_shp, rules_pal, |name| {
-                source.resolve(name).is_some()
-            })
+                let rules_shp = country.map(|c| c.load_screen.as_str()).filter(|s| !s.is_empty());
+                let rules_pal = country.map(|c| c.load_screen_pal.as_str()).filter(|s| !s.is_empty());
+                page_resources_for_load_screen_with(&self.skirmish.side, self.window_width as u32, rules_shp, rules_pal, |name| {
+                    source.resolve(name).is_some()
+                })
+            }
         } else if self.screen == OriginalScreen::Results {
             // 优先阵营战报图；缺图再回退槽位（已无 movie），并 WARN，避免静默叠主菜单 Logo 片。
             let side = self.results_score_side_id();
