@@ -55,14 +55,17 @@ pub struct PlayerBattleStats {
 }
 
 impl BattleSession {
-    /// 遭遇战：若仅剩一个阵营仍保活，锁定胜负并暂停。
-    /// 战役：消费触发器 `pending_outcome`，不走 sole victor。
+    /// 遭遇战：若仅剩一个阵营仍保活，进入 `SavourDelay` 收束后再锁定。
+    /// 战役：消费触发器 `pending_outcome`，同样可走收束窗。
     pub(super) fn refresh_outcome(&mut self) {
         if self.outcome.is_some() {
             return;
         }
+        if self.try_commit_savour() {
+            return;
+        }
         if let Some(outcome) = self.world.trigger_runtime.pending_outcome.take() {
-            self.apply_scripted_outcome(outcome);
+            self.begin_savour(outcome);
             return;
         }
         if self.boot_kind == SessionBootKind::Campaign {
@@ -72,36 +75,86 @@ impl BattleSession {
         else {
             return;
         };
-        self.battle_stats = Some(self.compute_battle_stats());
         let local_win = self
             .world
             .players
             .iter()
             .find(|p| p.id == self.world.local_player)
             .is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(&owner));
-        if local_win {
-            self.outcome = Some(BattleOutcome::Victory { owner: owner.clone() });
-            self.pause_reason = Some(format!("胜负已定 · {owner}"));
+        let outcome = if local_win {
+            BattleOutcome::Victory { owner: owner.clone() }
         } else {
-            self.outcome = Some(BattleOutcome::Defeat { reason: String::new() });
-            self.pause_reason = Some(format!("胜负已定 · {owner}"));
-        }
-        self.paused = true;
+            BattleOutcome::Defeat { reason: String::new() }
+        };
+        self.begin_savour(outcome);
     }
 
-    /// 由剧本 / 触发器锁定胜负（战役主路径）。
+    /// 由剧本 / 触发器锁定胜负（战役主路径；仍经收束窗）。
     pub fn apply_scripted_outcome(&mut self, outcome: BattleOutcome) {
+        if self.outcome.is_some() || self.pending_savour_outcome.is_some() {
+            return;
+        }
+        self.begin_savour(outcome);
+    }
+
+    /// 开始 `SavourDelay`；延迟为 0 时立即锁定。
+    fn begin_savour(&mut self, outcome: BattleOutcome) {
+        if self.outcome.is_some() || self.pending_savour_outcome.is_some() {
+            return;
+        }
+        let delay = u64::from(self.world.definitions.savour_delay_ticks);
+        if delay == 0 {
+            self.commit_outcome(outcome);
+            return;
+        }
+        self.pending_savour_outcome = Some(outcome);
+        self.savour_until_tick = Some(self.world.tick.saturating_add(delay));
+        self.pause_reason = Some("胜负收束中".into());
+    }
+
+    /// 收束窗到期则写入 `outcome` 并暂停。已处理返回 `true`。
+    fn try_commit_savour(&mut self) -> bool {
+        let Some(until) = self.savour_until_tick
+        else {
+            return false;
+        };
+        if self.world.tick < until {
+            return true;
+        }
+        let Some(outcome) = self.pending_savour_outcome.take()
+        else {
+            self.savour_until_tick = None;
+            return true;
+        };
+        self.savour_until_tick = None;
+        self.commit_outcome(outcome);
+        true
+    }
+
+    fn commit_outcome(&mut self, outcome: BattleOutcome) {
         if self.outcome.is_some() {
             return;
         }
         self.battle_stats = Some(self.compute_battle_stats());
         let reason = match &outcome {
-            BattleOutcome::Victory { owner } => format!("战役胜利 · {owner}"),
-            BattleOutcome::Defeat { reason } => {
-                if reason.is_empty() {
-                    "战役失败".into()
+            BattleOutcome::Victory { owner } => {
+                if self.boot_kind == SessionBootKind::Campaign {
+                    format!("战役胜利 · {owner}")
                 } else {
-                    format!("战役失败 · {reason}")
+                    format!("胜负已定 · {owner}")
+                }
+            }
+            BattleOutcome::Defeat { reason } => {
+                if self.boot_kind == SessionBootKind::Campaign {
+                    if reason.is_empty() {
+                        "战役失败".into()
+                    } else {
+                        format!("战役失败 · {reason}")
+                    }
+                } else if reason.is_empty() {
+                    "胜负已定".into()
+                } else {
+                    format!("胜负已定 · {reason}")
                 }
             }
         };

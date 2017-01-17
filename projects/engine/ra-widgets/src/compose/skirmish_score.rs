@@ -36,8 +36,9 @@ const HEADER_SUFFIXES: [&str; 5] = ["name", "kills", "losses", "built", "score"]
 
 /// 合成遭遇战 / 战役积分页：壳层右栏 + 「继续」。
 ///
-/// 遭遇战另画 `0x108` 积分表；战役只保留右栏标题（`GUI:STANDALONESCORE`），**不**叠多方统计表。
-/// 表画在壳层 `mnscrnl` / 战报图上；**不**另画统计区黑底框。
+/// 遭遇战另画 `0x108` 积分表，底图为 `MultiplayerScore.*`。
+/// 战役用 `CampaignScore.Background`（`ascrbkmd` / `sscrbkmd` 等），底图已含侧栏样式，
+/// 调用方应传空 panels 且只保留右栏标题与「继续」，**不**叠多方统计表。
 /// 战役调用方应传 `movie=None`，避免主菜单 Logo 影片压在结算页上。
 pub fn compose_skirmish_score_page(
     decoded: &PageDecodeReport,
@@ -77,12 +78,9 @@ pub fn compose_skirmish_score_page(
             let key = if paint.campaign { Some("GUI:STANDALONESCORE") } else { skirmish_score_csf_label("title") };
             let from = resolve_caption(csf, "title", key);
             if from == "title" {
-                if paint.campaign {
-                    "任务积分".to_string()
-                } else {
-                    skirmish_score_fallback_label("title").to_string()
-                }
-            } else {
+                if paint.campaign { "任务积分".to_string() } else { skirmish_score_fallback_label("title").to_string() }
+            }
+            else {
                 from
             }
         };
@@ -94,50 +92,25 @@ pub fn compose_skirmish_score_page(
         }
 
         let game_text = format!("游戏:{}", paint.game_index.max(1));
-        blit_caption_top_left_clipped(
-            &mut page,
-            fnt,
-            &game_text,
-            game_label.x,
-            game_label.y,
-            game_label.w,
-            game_label.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_left_clipped(&mut page, fnt, &game_text, game_label.x, game_label.y, game_label.w, game_label.h, MENU_TEXT_ENABLED);
         let time_key = skirmish_score_csf_label("time");
         let time_caption = {
             let from = resolve_caption(csf, "time", time_key);
-            if from == "time" {
-                skirmish_score_fallback_label("time").to_string()
-            } else {
-                from
-            }
+            if from == "time" { skirmish_score_fallback_label("time").to_string() } else { from }
         };
         let time_text = format!("{time_caption}:{}", paint.time_text);
-        blit_caption_top_right_clipped(
-            &mut page,
-            fnt,
-            &time_text,
-            time_label.x,
-            time_label.y,
-            time_label.w,
-            time_label.h,
-            MENU_TEXT_ENABLED,
-        );
+        blit_caption_top_right_clipped(&mut page, fnt, &time_text, time_label.x, time_label.y, time_label.w, time_label.h, MENU_TEXT_ENABLED);
 
         for (i, id) in HEADER_COLS.iter().enumerate() {
             let cell = rect_px_from_snapshot(&snap, &format!("header_{}", HEADER_SUFFIXES[i]));
             let label = {
                 let from = resolve_caption(csf, id, skirmish_score_csf_label(id));
-                if from == *id {
-                    skirmish_score_fallback_label(id).to_string()
-                } else {
-                    from
-                }
+                if from == *id { skirmish_score_fallback_label(id).to_string() } else { from }
             };
             if i == 0 {
                 blit_caption_top_left_clipped(&mut page, fnt, &label, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_SECTION);
-            } else {
+            }
+            else {
                 blit_caption_top_right_clipped(&mut page, fnt, &label, cell.x, cell.y, cell.w, cell.h, MENU_TEXT_SECTION);
             }
         }
@@ -152,7 +125,8 @@ pub fn compose_skirmish_score_page(
                 let cell = rect_px_from_snapshot(&snap, &format!("row{slot}_{}", HEADER_SUFFIXES[i]));
                 if i == 0 {
                     blit_caption_top_left_clipped(&mut page, fnt, text, cell.x, cell.y, cell.w, cell.h, row.color);
-                } else {
+                }
+                else {
                     blit_caption_top_right_clipped(&mut page, fnt, text, cell.x, cell.y, cell.w, cell.h, row.color);
                 }
             }
@@ -166,11 +140,7 @@ pub fn compose_skirmish_score_page(
 pub fn skirmish_score_hit_at(x: i32, y: i32) -> Option<&'static str> {
     let snap = solve_skirmish_score();
     let cell = rect_px_from_snapshot(&snap, "continue");
-    if x >= cell.x && y >= cell.y && x < cell.x + cell.w && y < cell.y + cell.h {
-        Some("continue")
-    } else {
-        None
-    }
+    if x >= cell.x && y >= cell.y && x < cell.x + cell.w && y < cell.y + cell.h { Some("continue") } else { None }
 }
 
 /// tick → `HH:MM:SS`（按 15Hz 估算秒）。

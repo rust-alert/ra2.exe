@@ -15,7 +15,7 @@ mod tick;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use ra_adaptor::RulesSystem;
@@ -197,6 +197,8 @@ pub struct BattleController {
     pub(super) deploy_watch: Option<ra_types::EntityId>,
     /// 对局短音效 / EVA 事件 id 队列（如 `PlaceBuilding`、`EVA_UnitLost`；由壳层播放）。
     pub(super) pending_battle_sfx: Vec<String>,
+    /// EVA 语音通道占用截止（原版 Vox：同通道一次只播一句，到期后再放下一句）。
+    pub(super) eva_voice_until: Option<Instant>,
     /// 本机低电 EVA 已闩住（恢复供电后清闩，再掉电才再播）。
     pub(super) eva_low_power_latched: bool,
     /// 已观测到的本机存活机动单位（集合出现新 ID → 配合出厂边沿播 `EVA_UnitReady`）。
@@ -302,6 +304,7 @@ impl BattleController {
             start_view_pending: has_session,
             deploy_watch: None,
             pending_battle_sfx: Vec::new(),
+            eva_voice_until: None,
             eva_low_power_latched: false,
             eva_alive_local_mobiles: HashSet::new(),
             eva_alive_seeded: false,
@@ -369,7 +372,8 @@ impl BattleController {
             if let Some(id) = self.local.select_local_start(game) {
                 tracing::info!("开局已选中本方单位 #{}", id.0);
                 Some(game.world.tick)
-            } else {
+            }
+            else {
                 tracing::warn!("开局未找到可本方选中的移动单位");
                 None
             }
@@ -463,6 +467,7 @@ impl BattleController {
         self.last_anim_sig = u64::MAX;
         self.deploy_watch = None;
         self.pending_battle_sfx.clear();
+        self.eva_voice_until = None;
         self.eva_low_power_latched = false;
         self.eva_alive_local_mobiles.clear();
         self.eva_alive_seeded = false;
@@ -488,7 +493,8 @@ impl BattleController {
             tracing::info!("重开完成 · {}", boot.note);
             self.bind_local_start();
             self.ensure_start_view(renderer);
-        } else {
+        }
+        else {
             tracing::error!("重开失败 · {}", boot.note);
         }
     }
@@ -526,8 +532,52 @@ impl BattleController {
         prev
     }
 
-    /// 取出待播对局短音效事件 id（壳层按 `sound.ini` → `audio.bag` 播放）。
+    /// 取出全部待播对局音效（离场 / 切页冲刷用；不遵守 EVA 串播门闩）。
     pub fn take_pending_battle_sfx(&mut self) -> Vec<String> {
         std::mem::take(&mut self.pending_battle_sfx)
+    }
+
+    /// 本帧可立即开播的事件：非 EVA 可并行取出；EVA 仅在语音通道空闲时取队首一句。
+    pub fn drain_playable_battle_sfx(&mut self) -> Vec<String> {
+        let now = Instant::now();
+        let voice_free = self.eva_voice_until.map(|until| now >= until).unwrap_or(true);
+        let mut play_now = Vec::new();
+        let mut deferred = Vec::new();
+        let mut took_eva = false;
+        for event in self.pending_battle_sfx.drain(..) {
+            let is_eva = event.starts_with("EVA_");
+            if is_eva {
+                if voice_free && !took_eva {
+                    play_now.push(event);
+                    took_eva = true;
+                } else {
+                    deferred.push(event);
+                }
+            } else {
+                play_now.push(event);
+            }
+        }
+        self.pending_battle_sfx = deferred;
+        play_now
+    }
+
+    /// 是否仍有未播 EVA，或语音通道仍占用。
+    pub fn eva_voice_busy(&self) -> bool {
+        if self.pending_battle_sfx.iter().any(|e| e.starts_with("EVA_")) {
+            return true;
+        }
+        self.eva_voice_until.is_some_and(|until| Instant::now() < until)
+    }
+
+    /// 记录一句 EVA 已开播：锁语音通道，并按采样时长拉长结算 hold。
+    pub fn note_eva_voice_started(&mut self, sample: &ra_assets::PcmAudio) {
+        let ch = sample.channels.max(1) as u64;
+        let rate = u64::from(sample.sample_rate.max(1));
+        let frames = (sample.samples.len() as u64) / ch;
+        let ms = frames.saturating_mul(1000) / rate;
+        // 尾音短留白，再放下一句（对齐 SpeakDelay 量级的间隙，不叠播）。
+        let hold = Duration::from_millis(ms.saturating_add(200).max(400));
+        self.eva_voice_until = Some(Instant::now() + hold);
+        self.extend_outcome_hold(sample);
     }
 }

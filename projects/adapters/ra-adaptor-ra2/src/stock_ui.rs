@@ -18,6 +18,14 @@ pub struct StockSideChrome {
     pub score_background: Option<&'static str>,
     /// `MultiplayerScore.Palette`。
     pub score_palette: Option<&'static str>,
+    /// `CampaignScore.Background`。
+    pub campaign_score_background: Option<&'static str>,
+    /// `CampaignScore.Transition`。
+    pub campaign_score_transition: Option<&'static str>,
+    /// `CampaignScore.Animation`。
+    pub campaign_score_animation: Option<&'static str>,
+    /// `CampaignScore.Palette`。
+    pub campaign_score_palette: Option<&'static str>,
     /// `EVA.Tag`。
     pub eva_tag: Option<&'static str>,
     /// 结算统计区是否叠半透明黑底（原版盟军/苏军战报偏亮需要；尤里皮自带底框则关）。
@@ -49,6 +57,10 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             yuri_file_names: false,
             score_background: Some("mpascrnl.shp"),
             score_palette: Some("mpascrn.pal"),
+            campaign_score_background: Some("ascrbkmd.shp"),
+            campaign_score_transition: Some("ascrtmd.shp"),
+            campaign_score_animation: Some("ascramd.shp"),
+            campaign_score_palette: Some("ascore.pal"),
             eva_tag: Some("Allied"),
             score_stats_shade: true,
         },
@@ -59,6 +71,10 @@ pub fn stock_side_chromes() -> &'static [StockSideChrome] {
             yuri_file_names: false,
             score_background: Some("mpsscrnl.shp"),
             score_palette: Some("mpsscrn.pal"),
+            campaign_score_background: Some("sscrbkmd.shp"),
+            campaign_score_transition: Some("sscrtmd.shp"),
+            campaign_score_animation: Some("sscramd.shp"),
+            campaign_score_palette: Some("sscore.pal"),
             eva_tag: Some("Russian"),
             score_stats_shade: true,
         },

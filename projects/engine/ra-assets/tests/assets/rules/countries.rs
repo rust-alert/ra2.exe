@@ -75,10 +75,7 @@ fn parses_countries_and_sides_in_list_order() {
     assert!(!reg.countries()[3].multiplay);
     assert_eq!(reg.sides().len(), 4);
     assert_eq!(reg.sides()[0].id, "GDI");
-    assert_eq!(
-        reg.sides()[0].countries,
-        vec![ra_types::HouseName::parse("Americans"), ra_types::HouseName::parse("French")]
-    );
+    assert_eq!(reg.sides()[0].countries, vec![ra_types::HouseName::parse("Americans"), ra_types::HouseName::parse("French")]);
     let gdi = reg.side_chrome("GDI").unwrap();
     assert_eq!(gdi.mix_file_index, Some(1));
     assert!(gdi.yuri_file_names);
@@ -112,6 +109,8 @@ Sidebar.MixFileIndex=5
 Sidebar.YuriFileNames=no
 MultiplayerScore.Background=mpxscrnl.shp
 MultiplayerScore.Palette=mpxscrn.pal
+CampaignScore.Background=ascrbkmd.shp
+CampaignScore.Palette=ascore.pal
 EVA.Tag=Foehn
 "#;
     let doc = IniDocument::parse(RULES.as_bytes()).unwrap();
@@ -121,6 +120,8 @@ EVA.Tag=Foehn
     assert!(!fifth.yuri_file_names);
     assert_eq!(fifth.score_background.as_deref(), Some("mpxscrnl.shp"));
     assert_eq!(fifth.score_palette.as_deref(), Some("mpxscrn.pal"));
+    assert_eq!(fifth.campaign_score_background.as_deref(), Some("ascrbkmd.shp"));
+    assert_eq!(fifth.campaign_score_palette.as_deref(), Some("ascore.pal"));
     assert_eq!(fifth.eva_tag.as_deref(), Some("Foehn"));
     let guild = reg.get("Guild1").unwrap();
     assert_eq!(guild.load_screen, "ls800haihead.shp");
@@ -143,15 +144,13 @@ fn from_layered_overrides_country_fields() {
 [Sides]\nGDI=Americans\n\
 [GDI]\nSidebar.MixFileIndex=1\n",
     )
-        .unwrap();
+    .unwrap();
     let top = IniDocument::parse(
         b"[Americans]\nColor=LightBlue\nMultiplay=no\n\
 [GDI]\nSidebar.MixFileIndex=9\nSidebar.YuriFileNames=yes\n",
     )
-        .unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    .unwrap();
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let reg = CountryRegistry::from_layered(LayeredIniView::new(&docs, &policy));
     let usa = reg.get("Americans").unwrap();

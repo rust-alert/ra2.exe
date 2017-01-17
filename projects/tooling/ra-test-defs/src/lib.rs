@@ -14,14 +14,15 @@ use ra_types::{GameEdition, RuntimeDefinitions};
 ///
 /// 仅用于测试夹具；产品路径仍经资源链 / `RulesSystem` 装载。
 pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
-    Arc::new(
-        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("测试 rules INI 必须可投影"),
-    )
+    let mut defs = runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, None).expect("测试 rules INI 必须可投影");
+    // 单测默认立即锁定胜负，避免隐式 `SavourDelay`（原版缺省 0.03 分钟）拉长用例。
+    defs.savour_delay_ticks = 0;
+    Arc::new(defs)
 }
 
 /// 带可选 art 层的内联投影（测试夹具）。
 pub fn defs_from_rules_and_art_ini(rules_ini: &[u8], art_ini: Option<&[u8]>) -> Arc<RuntimeDefinitions> {
-    Arc::new(
-        runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, art_ini).expect("测试 rules/art INI 必须可投影"),
-    )
+    let mut defs = runtime_definitions_from_ini_bytes(GameEdition::Ra2, rules_ini, art_ini).expect("测试 rules/art INI 必须可投影");
+    defs.savour_delay_ticks = 0;
+    Arc::new(defs)
 }

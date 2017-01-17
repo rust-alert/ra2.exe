@@ -115,3 +115,23 @@ pub fn score_screen_background_shp(chrome: &UiFactionChrome) -> String {
 pub fn score_screen_palette(chrome: &UiFactionChrome) -> String {
     chrome.score_palette()
 }
+
+/// 战役结算底图候选。
+pub fn campaign_score_screen_background_candidates(chrome: &UiFactionChrome) -> Vec<String> {
+    chrome.campaign_score_background_candidates()
+}
+
+/// 战役结算调色板候选。
+pub fn campaign_score_screen_palette_candidates(chrome: &UiFactionChrome) -> Vec<String> {
+    chrome.campaign_score_palette_candidates()
+}
+
+/// 战役结算底图首选。
+pub fn campaign_score_screen_background_shp(chrome: &UiFactionChrome) -> String {
+    chrome.campaign_score_background_shp()
+}
+
+/// 战役结算调色板首选。
+pub fn campaign_score_screen_palette(chrome: &UiFactionChrome) -> String {
+    chrome.campaign_score_palette_name()
+}

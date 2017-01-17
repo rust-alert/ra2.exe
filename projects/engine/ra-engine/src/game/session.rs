@@ -39,6 +39,10 @@ pub struct BattleSession {
     pub boot_kind: SessionBootKind,
     /// 遭遇战短局（大厅 Short Game；默认开）。战役忽略。
     pub short_game: bool,
+    /// 收束窗截止 tick（`SavourDelay`）；到期后才写入 `outcome`。
+    pub savour_until_tick: Option<u64>,
+    /// 收束窗内暂存的胜负（到期提交）。
+    pub pending_savour_outcome: Option<BattleOutcome>,
 }
 
 impl BattleSession {
@@ -59,6 +63,8 @@ impl BattleSession {
             difficulty: "Normal".into(),
             boot_kind: SessionBootKind::Skirmish,
             short_game: true,
+            savour_until_tick: None,
+            pending_savour_outcome: None,
         }
     }
 
@@ -146,7 +152,8 @@ impl BattleSession {
         }
         if self.paused {
             self.resume();
-        } else {
+        }
+        else {
             self.pause("已暂停");
         }
     }

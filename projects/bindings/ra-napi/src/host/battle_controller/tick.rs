@@ -17,7 +17,8 @@ impl BattleController {
         let started = Instant::now();
         let sim_dt = if self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused || g.outcome.is_some()) {
             0.0
-        } else {
+        }
+        else {
             dt * self.game_speed_dt_scale()
         };
         if let (Some(engine), Some(session)) = (self.engine.as_ref(), self.session.as_mut()) {
@@ -218,7 +219,7 @@ impl BattleController {
         }
     }
 
-    /// 胜负已定：排队 EVA，留在对局页播报后再 `ToResults`。
+    /// 胜负已定：排队 EVA，留在对局页串播后再 `ToResults`。
     pub(super) fn poll_outcome_nav(&mut self) -> BattleNav {
         let has_outcome = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some());
         if !has_outcome {
@@ -229,6 +230,10 @@ impl BattleController {
         }
         self.leave_armed = false;
         self.begin_outcome_hold();
+        // 仍有待播 EVA 或本句未结束：不切结算页。
+        if self.eva_voice_busy() {
+            return BattleNav::None;
+        }
         match self.outcome_hold_until {
             Some(deadline) if Instant::now() >= deadline => BattleNav::ToResults,
             _ => BattleNav::None,

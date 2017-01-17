@@ -20,6 +20,14 @@ pub struct UiFactionChrome {
     pub score_background: Option<String>,
     /// `MultiplayerScore.Palette`（可空）。
     pub score_palette: Option<String>,
+    /// `CampaignScore.Background`（可空）。
+    pub campaign_score_background: Option<String>,
+    /// `CampaignScore.Transition`（可空）。
+    pub campaign_score_transition: Option<String>,
+    /// `CampaignScore.Animation`（可空）。
+    pub campaign_score_animation: Option<String>,
+    /// `CampaignScore.Palette`（可空）。
+    pub campaign_score_palette: Option<String>,
     /// `EVA.Tag`（可空）。
     pub eva_tag: Option<String>,
     /// 结算统计区是否叠半透明黑底（adaptor / rules；缺省 `true`）。
@@ -36,6 +44,10 @@ impl UiFactionChrome {
             yuri_file_names,
             score_background: None,
             score_palette: None,
+            campaign_score_background: None,
+            campaign_score_transition: None,
+            campaign_score_animation: None,
+            campaign_score_palette: None,
             eva_tag: None,
             score_stats_shade: true,
         }
@@ -56,6 +68,10 @@ impl UiFactionChrome {
             yuri_file_names,
             score_background,
             score_palette,
+            campaign_score_background: None,
+            campaign_score_transition: None,
+            campaign_score_animation: None,
+            campaign_score_palette: None,
             eva_tag,
             score_stats_shade: score_stats_shade.unwrap_or(true),
         })
@@ -63,14 +79,19 @@ impl UiFactionChrome {
 
     /// 由 [`ra_assets::SideChromeDef`] 构造；无可用 `MixFileIndex` 时返回 `None`。
     pub fn from_side_chrome(def: &ra_assets::SideChromeDef) -> Option<Self> {
-        Self::from_side_keys(
+        let mut chrome = Self::from_side_keys(
             def.mix_file_index,
             def.yuri_file_names,
             def.score_background.clone(),
             def.score_palette.clone(),
             def.eva_tag.clone(),
             def.score_stats_shade,
-        )
+        )?;
+        chrome.campaign_score_background = def.campaign_score_background.clone();
+        chrome.campaign_score_transition = def.campaign_score_transition.clone();
+        chrome.campaign_score_animation = def.campaign_score_animation.clone();
+        chrome.campaign_score_palette = def.campaign_score_palette.clone();
+        Some(chrome)
     }
 
     /// 附上结算资源覆盖。
@@ -133,7 +154,7 @@ impl UiFactionChrome {
         self.score_palette_candidates().into_iter().next().unwrap_or_default()
     }
 
-    /// 结算战报图候选：仅显式 `MultiplayerScore.Background`（缺则空，由 adaptor 填）。
+    /// 遭遇战结算战报图候选：仅显式 `MultiplayerScore.Background`（缺则空，由 adaptor 填）。
     pub fn score_background_candidates(&self) -> Vec<String> {
         let mut out = Vec::new();
         if let Some(ref s) = self.score_background {
@@ -142,10 +163,38 @@ impl UiFactionChrome {
         out
     }
 
-    /// 结算调色板候选：仅显式 `MultiplayerScore.Palette`（缺则空，由 adaptor 填）。
+    /// 遭遇战结算调色板候选：仅显式 `MultiplayerScore.Palette`（缺则空，由 adaptor 填）。
     pub fn score_palette_candidates(&self) -> Vec<String> {
         let mut out = Vec::new();
         if let Some(ref s) = self.score_palette {
+            push_unique_ci(&mut out, s.clone());
+        }
+        out
+    }
+
+    /// 战役结算底图首选。
+    pub fn campaign_score_background_shp(&self) -> String {
+        self.campaign_score_background_candidates().into_iter().next().unwrap_or_default()
+    }
+
+    /// 战役结算调色板首选。
+    pub fn campaign_score_palette_name(&self) -> String {
+        self.campaign_score_palette_candidates().into_iter().next().unwrap_or_default()
+    }
+
+    /// 战役结算底图候选：仅显式 `CampaignScore.Background`。
+    pub fn campaign_score_background_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.campaign_score_background {
+            push_unique_ci(&mut out, s.clone());
+        }
+        out
+    }
+
+    /// 战役结算调色板候选：仅显式 `CampaignScore.Palette`。
+    pub fn campaign_score_palette_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.campaign_score_palette {
             push_unique_ci(&mut out, s.clone());
         }
         out
@@ -184,17 +233,23 @@ pub fn eva_voice_stem_prefix(eva_tag: &str) -> Option<&'static str> {
 pub fn eva_known_event_index(event_id: &str) -> Option<&'static str> {
     if event_id.eq_ignore_ascii_case("EVA_BattleControlTerminated") {
         Some("015")
-    } else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_MissionAccomplished") {
         Some("013")
-    } else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_MissionFailed") {
         Some("014")
-    } else if event_id.eq_ignore_ascii_case("EVA_YouAreVictorious") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_YouAreVictorious") {
         Some("022")
-    } else if event_id.eq_ignore_ascii_case("EVA_YouHaveLost") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_YouHaveLost") {
         Some("023")
-    } else if event_id.eq_ignore_ascii_case("EVA_PlayerDefeated") {
+    }
+    else if event_id.eq_ignore_ascii_case("EVA_PlayerDefeated") {
         Some("026")
-    } else {
+    }
+    else {
         None
     }
 }

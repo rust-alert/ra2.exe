@@ -162,3 +162,29 @@ fn short_game_local_loss_writes_defeat() {
     assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Defeat { reason: String::new() }));
     assert!(session.expect_battle().paused);
 }
+
+#[test]
+fn savour_delay_defers_outcome_lock() {
+    use crate::common::test_engine;
+    use ra_engine::BattleOutcome;
+    use std::sync::Arc;
+
+    let mut defs = (*defs_with_base_units()).clone();
+    defs.savour_delay_ticks = 2;
+    let mut map = MapInfo::empty(GameEdition::Ra2, "savour");
+    map.width = 16;
+    map.height = 16;
+    push_structure(&mut map, "AMERICANS", "GACNST", 2, 2);
+    push_unit(&mut map, "SOVIETS", "MTNK", 8, 8);
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, Arc::new(defs), map), "savour");
+    let engine = test_engine();
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+    assert!(session.expect_battle().pending_savour_outcome.is_some());
+    assert!(!session.expect_battle().paused);
+    session.tick(&engine.runtime());
+    assert!(session.expect_battle().outcome.is_none());
+    session.tick(&engine.runtime());
+    assert_eq!(session.expect_battle().outcome, Some(BattleOutcome::Victory { owner: "AMERICANS".into() }));
+    assert!(session.expect_battle().paused);
+}

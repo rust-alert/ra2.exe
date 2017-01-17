@@ -2,9 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::ini::{
-    IniDocument, IniMergePolicy, LayeredIniView, deserialize_opt_f64, deserialize_opt_i32,
-};
+use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView, deserialize_opt_f64, deserialize_opt_i32};
 use ra_types::TechnoName;
 
 /// 装载期全局字段（缺省由 adaptor 填产品默认，不在此冒充「未写」）。
@@ -20,6 +18,8 @@ pub struct RulesGlobals {
     pub repair_rate_minutes: Option<f64>,
     /// `[AudioVisual] SpeakDelay`，否则 `[General] SpeakDelay`（分钟）。
     pub speak_delay_minutes: Option<f64>,
+    /// `[AudioVisual] SavourDelay`（分钟）：胜负已定后继续仿真的收束窗。
+    pub savour_delay_minutes: Option<f64>,
     /// `[General] PrerequisitePower`（装载期一次解码为大写类型名）。
     pub prerequisite_power: Vec<TechnoName>,
     /// `[General] PrerequisiteFactory`。
@@ -48,18 +48,9 @@ impl RulesGlobals {
 
     /// 从层叠 rules 视图一次解码全局节字段。
     pub fn from_layered(view: LayeredIniView<'_>) -> Self {
-        let general = view
-            .section("General")
-            .and_then(|s| s.deserialize::<GeneralSectionFields>().ok())
-            .unwrap_or_default();
-        let dialog = view
-            .section("MultiplayerDialogSettings")
-            .and_then(|s| s.deserialize::<DialogSectionFields>().ok())
-            .unwrap_or_default();
-        let audio = view
-            .section("AudioVisual")
-            .and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok())
-            .unwrap_or_default();
+        let general = view.section("General").and_then(|s| s.deserialize::<GeneralSectionFields>().ok()).unwrap_or_default();
+        let dialog = view.section("MultiplayerDialogSettings").and_then(|s| s.deserialize::<DialogSectionFields>().ok()).unwrap_or_default();
+        let audio = view.section("AudioVisual").and_then(|s| s.deserialize::<AudioVisualSectionFields>().ok()).unwrap_or_default();
         let speak_delay_minutes = audio.speak_delay.or(general.speak_delay);
         Self {
             multiplayer_tech_level: dialog.tech_level,
@@ -67,6 +58,7 @@ impl RulesGlobals {
             repair_step: general.repair_step,
             repair_rate_minutes: general.repair_rate,
             speak_delay_minutes,
+            savour_delay_minutes: audio.savour_delay,
             prerequisite_power: filter_techno_names(general.prerequisite_power),
             prerequisite_factory: filter_techno_names(general.prerequisite_factory),
             prerequisite_barracks: filter_techno_names(general.prerequisite_barracks),
@@ -118,6 +110,8 @@ struct DialogSectionFields {
 struct AudioVisualSectionFields {
     #[serde(rename = "SpeakDelay", default, deserialize_with = "deserialize_opt_f64")]
     speak_delay: Option<f64>,
+    #[serde(rename = "SavourDelay", default, deserialize_with = "deserialize_opt_f64")]
+    savour_delay: Option<f64>,
 }
 
 fn filter_techno_names(items: Vec<TechnoName>) -> Vec<TechnoName> {

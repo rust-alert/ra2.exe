@@ -12,7 +12,8 @@ use crate::{
     original_screen::OriginalScreen,
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
-        UiFactionChrome, load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
+        UiFactionChrome, campaign_score_screen_background_candidates, campaign_score_screen_palette_candidates,
+        load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
         score_screen_palette_candidates,
     },
 };
@@ -249,19 +250,29 @@ pub fn page_resources_for_results(_side: &str, _readable: impl Fn(&str) -> bool)
 }
 
 /// 同结算资源入口，注入已解析 chrome（不按国名猜苏盟）。
-pub fn page_resources_for_results_with(_side: &str, chrome: &UiFactionChrome, readable: impl Fn(&str) -> bool) -> Option<UiPageResources> {
+///
+/// `campaign=true` 时用 `CampaignScore.*` 底图/调色板，且**不**叠主菜单右栏面板（战役底图已含侧栏样式）。
+pub fn page_resources_for_results_with(
+    _side: &str,
+    chrome: &UiFactionChrome,
+    campaign: bool,
+    readable: impl Fn(&str) -> bool,
+) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
-    let bg_candidates = score_screen_background_candidates(chrome);
+    let (bg_candidates, pal_candidates) = if campaign {
+        (
+            campaign_score_screen_background_candidates(chrome),
+            campaign_score_screen_palette_candidates(chrome),
+        )
+    } else {
+        (score_screen_background_candidates(chrome), score_screen_palette_candidates(chrome))
+    };
     let bg_name = bg_candidates.iter().map(String::as_str).find(|n| readable(n))?.to_string();
-    let pal_candidates = score_screen_palette_candidates(chrome);
     let bg_pal = pal_candidates.iter().map(String::as_str).find(|p| readable(p)).map(str::to_string).filter(|s| !s.is_empty())?;
-    Some(UiPageResources {
-        screen: OriginalScreen::Results,
-        background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),
-        background_palette: Some(bg_pal.clone()),
-        movie: None,
-        panels: page
-            .panels
+    let panels = if campaign {
+        Vec::new()
+    } else {
+        page.panels
             .iter()
             .filter(|p| readable(p.shp))
             .map(|p| {
@@ -269,7 +280,14 @@ pub fn page_resources_for_results_with(_side: &str, chrome: &UiFactionChrome, re
                 let panel_pal = if readable(p.pal) { p.pal } else { "shell.pal" };
                 UiAssetRef::with_palette_frame(p.shp, panel_pal, p.frame)
             })
-            .collect(),
+            .collect()
+    };
+    Some(UiPageResources {
+        screen: OriginalScreen::Results,
+        background: Some(UiAssetRef::with_palette_frame(&bg_name, &bg_pal, page.background_frame)),
+        background_palette: Some(bg_pal.clone()),
+        movie: None,
+        panels,
         buttons: page.buttons.iter().map(slot_to_button).collect(),
         fonts: page.fonts.iter().map(|s| (*s).to_string()).collect(),
     })

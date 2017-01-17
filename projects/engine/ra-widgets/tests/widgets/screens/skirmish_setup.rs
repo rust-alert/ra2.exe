@@ -1,9 +1,10 @@
 //! 集成测试：遭遇战大厅配置循环。
 
 use ra_widgets::skirmish_setup::{
-    LOBBY_DIFFICULTIES, SkirmishBootRequest, UiFactionChrome, eva_fallback_sample_names, eva_voice_stem_prefix,
-    load_screen_background_shp_resolved, load_screen_brief_csf_key, load_screen_palette_resolved, pick_side_flag_pcx,
-    score_screen_background_shp, score_screen_palette,
+    CAMPAIGN_LOAD_SCREEN_ALLIED_PAL, CAMPAIGN_LOAD_SCREEN_GENERIC_PAL, CAMPAIGN_LOAD_SCREEN_SOVIET_PAL, LOBBY_DIFFICULTIES,
+    SkirmishBootRequest, UiFactionChrome, campaign_load_screen_palette_from_shp, campaign_load_screen_palette_resolved,
+    eva_fallback_sample_names, eva_voice_stem_prefix, load_screen_background_shp_resolved, load_screen_brief_csf_key,
+    load_screen_palette_resolved, pick_side_flag_pcx, score_screen_background_shp, score_screen_palette,
 };
 
 fn sample_sides() -> Vec<String> {
@@ -77,6 +78,31 @@ fn load_screen_uses_explicit_names_only() {
     assert_eq!(pick_side_flag_pcx(&[], |_| Some(1)), None);
 }
 
+
+#[test]
+fn campaign_load_screen_palette_prefers_explicit_then_side_disks() {
+    assert_eq!(campaign_load_screen_palette_from_shp("LS800A01.SHP"), Some(CAMPAIGN_LOAD_SCREEN_ALLIED_PAL));
+    assert_eq!(campaign_load_screen_palette_from_shp("ls640b02.shp"), Some(CAMPAIGN_LOAD_SCREEN_ALLIED_PAL));
+    assert_eq!(campaign_load_screen_palette_from_shp("LS800S01.SHP"), Some(CAMPAIGN_LOAD_SCREEN_SOVIET_PAL));
+    assert_eq!(campaign_load_screen_palette_from_shp("ls800ustates.shp"), None);
+
+    assert_eq!(campaign_load_screen_palette_resolved(Some("LS800A01.PAL"), Some("LS800A01.SHP"), |_| true).as_deref(), Some("LS800A01.PAL"));
+    assert_eq!(
+        campaign_load_screen_palette_resolved(None, Some("LS800A01.SHP"), |n| n == CAMPAIGN_LOAD_SCREEN_ALLIED_PAL).as_deref(),
+        Some(CAMPAIGN_LOAD_SCREEN_ALLIED_PAL)
+    );
+    assert_eq!(
+        campaign_load_screen_palette_resolved(None, Some("LS800S01.SHP"), |n| n == CAMPAIGN_LOAD_SCREEN_SOVIET_PAL).as_deref(),
+        Some(CAMPAIGN_LOAD_SCREEN_SOVIET_PAL)
+    );
+    assert_eq!(
+        campaign_load_screen_palette_resolved(None, Some("LS800A01.SHP"), |n| n == CAMPAIGN_LOAD_SCREEN_GENERIC_PAL).as_deref(),
+        Some(CAMPAIGN_LOAD_SCREEN_GENERIC_PAL)
+    );
+    // 战役路径禁止回退遭遇战 mpls.pal。
+    assert!(campaign_load_screen_palette_resolved(None, Some("LS800A01.SHP"), |n| n == "mpls.pal").is_none());
+}
+
 #[test]
 fn ui_faction_chrome_is_open_by_mix_index_only() {
     // 无 Side chrome 时为 None，不静默回退 sidec01。
@@ -128,12 +154,18 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
         yuri_file_names: false,
         score_background: Some("mpxscrnl.shp".into()),
         score_palette: Some("mpxscrn.pal".into()),
+        campaign_score_background: Some("ascrbkmd.shp".into()),
+        campaign_score_transition: None,
+        campaign_score_animation: None,
+        campaign_score_palette: Some("ascore.pal".into()),
         eva_tag: Some("CustomEva".into()),
         score_stats_shade: Some(false),
     })
     .expect("side chrome");
     assert_eq!(from_def.mix_file_index, 5);
     assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
+    assert_eq!(from_def.campaign_score_background_candidates()[0], "ascrbkmd.shp");
+    assert_eq!(from_def.campaign_score_palette_candidates()[0], "ascore.pal");
     assert_eq!(from_def.eva_tag.as_deref(), Some("CustomEva"));
     assert!(!from_def.score_stats_shade);
 }

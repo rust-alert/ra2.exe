@@ -12,6 +12,10 @@ fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeD
         yuri_file_names: s.yuri_file_names,
         score_background: s.score_background.map(str::to_string),
         score_palette: s.score_palette.map(str::to_string),
+        campaign_score_background: s.campaign_score_background.map(str::to_string),
+        campaign_score_transition: s.campaign_score_transition.map(str::to_string),
+        campaign_score_animation: s.campaign_score_animation.map(str::to_string),
+        campaign_score_palette: s.campaign_score_palette.map(str::to_string),
         eva_tag: s.eva_tag.map(str::to_string),
         score_stats_shade: Some(s.score_stats_shade),
     }
@@ -20,9 +24,11 @@ fn side_from_stock(s: &ra_adaptor_ra2::stock_ui::StockSideChrome) -> SideChromeD
 fn country_from_stock(s: &ra_adaptor_ra2::stock_ui::StockCountryUi) -> CountryDef {
     let brief = if s.load_brief_suffix.is_empty() {
         String::new()
-    } else if s.load_brief_suffix.contains(':') {
+    }
+    else if s.load_brief_suffix.contains(':') {
         s.load_brief_suffix.to_string()
-    } else {
+    }
+    else {
         format!("LOADBRIEF:{}", s.load_brief_suffix)
     };
     CountryDef {

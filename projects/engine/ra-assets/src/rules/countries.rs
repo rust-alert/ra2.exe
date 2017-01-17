@@ -4,8 +4,10 @@ use std::fmt;
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{ColorName, HouseAllowList, HouseName, SideName, SuperWeaponName, TechnoName, UiName};
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 一个国家（house）定义。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +79,14 @@ pub struct SideChromeDef {
     pub score_background: Option<String>,
     /// `MultiplayerScore.Palette`。
     pub score_palette: Option<String>,
+    /// `CampaignScore.Background`。
+    pub campaign_score_background: Option<String>,
+    /// `CampaignScore.Transition`。
+    pub campaign_score_transition: Option<String>,
+    /// `CampaignScore.Animation`。
+    pub campaign_score_animation: Option<String>,
+    /// `CampaignScore.Palette`。
+    pub campaign_score_palette: Option<String>,
     /// `EVA.Tag`（可空；音频采样键优先用此标签）。
     pub eva_tag: Option<String>,
     /// 结算统计区是否叠半透明黑底；`None` 交 adaptor 填。
@@ -176,10 +186,7 @@ pub fn parse_countries(view: LayeredIniView<'_>) -> Vec<CountryDef> {
 
 #[doc(hidden)]
 pub fn parse_country(view: LayeredIniView<'_>, list_index: u32, id: &HouseName) -> CountryDef {
-    let fields = view
-        .section(id.as_str())
-        .and_then(|s| s.deserialize::<CountrySectionFields>().ok())
-        .unwrap_or_default();
+    let fields = view.section(id.as_str()).and_then(|s| s.deserialize::<CountrySectionFields>().ok()).unwrap_or_default();
     CountryDef {
         id: id.clone(),
         list_index,
@@ -309,11 +316,8 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
         else {
             continue;
         };
-        let countries: Vec<HouseName> = crate::from_row::<Vec<HouseName>>(value.raw)
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|s| !s.is_empty())
-            .collect();
+        let countries: Vec<HouseName> =
+            crate::from_row::<Vec<HouseName>>(value.raw).unwrap_or_default().into_iter().filter(|s| !s.is_empty()).collect();
         out.push(SideGroup { id, countries });
     }
     out
@@ -323,16 +327,17 @@ pub fn parse_sides(view: LayeredIniView<'_>) -> Vec<SideGroup> {
 pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<SideChromeDef> {
     let mut out = Vec::with_capacity(sides.len());
     for group in sides {
-        let fields = view
-            .section(group.id.as_str())
-            .and_then(|s| s.deserialize::<SideChromeSectionFields>().ok())
-            .unwrap_or_default();
+        let fields = view.section(group.id.as_str()).and_then(|s| s.deserialize::<SideChromeSectionFields>().ok()).unwrap_or_default();
         out.push(SideChromeDef {
             id: group.id.clone(),
             mix_file_index: fields.mix_file_index,
             yuri_file_names: fields.yuri_file_names.unwrap_or(false),
             score_background: fields.score_background.filter(|s| !s.is_empty()),
             score_palette: fields.score_palette.filter(|s| !s.is_empty()),
+            campaign_score_background: fields.campaign_score_background.filter(|s| !s.is_empty()),
+            campaign_score_transition: fields.campaign_score_transition.filter(|s| !s.is_empty()),
+            campaign_score_animation: fields.campaign_score_animation.filter(|s| !s.is_empty()),
+            campaign_score_palette: fields.campaign_score_palette.filter(|s| !s.is_empty()),
             eva_tag: fields.eva_tag.filter(|s| !s.is_empty()),
             // rules 无独立键；由 edition adaptor stock 填。
             score_stats_shade: None,
@@ -344,11 +349,7 @@ pub fn parse_side_chromes(view: LayeredIniView<'_>, sides: &[SideGroup]) -> Vec<
 /// 势力壳层 chrome 节字段（一次 Serde）。
 #[derive(Debug, Default, Deserialize)]
 struct SideChromeSectionFields {
-    #[serde(
-        rename = "Sidebar.MixFileIndex",
-        default,
-        deserialize_with = "deserialize_optional_mix_file_index"
-    )]
+    #[serde(rename = "Sidebar.MixFileIndex", default, deserialize_with = "deserialize_optional_mix_file_index")]
     mix_file_index: Option<u32>,
     #[serde(rename = "Sidebar.YuriFileNames")]
     yuri_file_names: Option<bool>,
@@ -356,6 +357,14 @@ struct SideChromeSectionFields {
     score_background: Option<String>,
     #[serde(rename = "MultiplayerScore.Palette")]
     score_palette: Option<String>,
+    #[serde(rename = "CampaignScore.Background")]
+    campaign_score_background: Option<String>,
+    #[serde(rename = "CampaignScore.Transition")]
+    campaign_score_transition: Option<String>,
+    #[serde(rename = "CampaignScore.Animation")]
+    campaign_score_animation: Option<String>,
+    #[serde(rename = "CampaignScore.Palette")]
+    campaign_score_palette: Option<String>,
     #[serde(rename = "EVA.Tag")]
     eva_tag: Option<String>,
 }
@@ -421,6 +430,18 @@ pub fn fill_side_chrome_gaps(chromes: &mut [SideChromeDef], stock: &[SideChromeD
         }
         if dst.score_palette.is_none() {
             dst.score_palette = src.score_palette.clone();
+        }
+        if dst.campaign_score_background.is_none() {
+            dst.campaign_score_background = src.campaign_score_background.clone();
+        }
+        if dst.campaign_score_transition.is_none() {
+            dst.campaign_score_transition = src.campaign_score_transition.clone();
+        }
+        if dst.campaign_score_animation.is_none() {
+            dst.campaign_score_animation = src.campaign_score_animation.clone();
+        }
+        if dst.campaign_score_palette.is_none() {
+            dst.campaign_score_palette = src.campaign_score_palette.clone();
         }
         if dst.eva_tag.is_none() {
             dst.eva_tag = src.eva_tag.clone();

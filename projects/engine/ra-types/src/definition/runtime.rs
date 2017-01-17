@@ -56,6 +56,8 @@ pub struct RuntimeDefinitions {
     pub repair_interval_ticks: u64,
     /// `[AudioVisual]` / `[General] SpeakDelay`（分钟）× 900 → 逻辑 tick；0 表示关闭。
     pub speak_delay_ticks: u32,
+    /// `[AudioVisual] SavourDelay`（分钟）× 900 → 逻辑 tick；0 表示立即锁定胜负。
+    pub savour_delay_ticks: u32,
     /// `SpawnsTiberium` 动画地形产矿表。
     pub terrain_spawners: TerrainSpawnerDefinitions,
     /// `[OverlayTypes]` 声明序类型表（含可采标记）。
@@ -88,6 +90,7 @@ impl Default for RuntimeDefinitions {
             repair_step: 8,
             repair_interval_ticks: 14,
             speak_delay_ticks: 0,
+            savour_delay_ticks: 0,
             terrain_spawners: TerrainSpawnerDefinitions::default(),
             overlays: OverlayTypeRegistry::default(),
             base_units: Vec::new(),

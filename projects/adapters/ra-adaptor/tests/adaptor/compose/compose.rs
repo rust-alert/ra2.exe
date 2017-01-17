@@ -23,8 +23,12 @@ fn yuri_stock_disables_score_shade_allied_keeps_it() {
     let yuri = ra_adaptor_yuri::stock_ui::stock_side_chromes().iter().find(|s| s.id == "ThirdSide").unwrap();
     assert!(!yuri.score_stats_shade);
     assert_eq!(yuri.score_background, Some("mpyscrnl.shp"));
+    assert_eq!(yuri.campaign_score_background, Some("sycrbkmd.shp"));
+    assert_eq!(yuri.campaign_score_palette, Some("yscore.pal"));
     let gdi = ra_adaptor_yuri::stock_ui::stock_side_chromes().iter().find(|s| s.id == "GDI").unwrap();
     assert!(gdi.score_stats_shade);
+    assert_eq!(gdi.campaign_score_background, Some("ascrbkmd.shp"));
+    assert_eq!(gdi.campaign_score_palette, Some("ascore.pal"));
 }
 
 #[test]
