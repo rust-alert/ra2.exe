@@ -1543,4 +1543,31 @@ pub struct PreparedMap {
     ///
     /// 绑定 `StructureDefinitions` 时可按 `Foundation=` 多格展开；裸骨架仅锚点 `1x1`。
     pub occupancy: Vec<u8>,
+    /// 预放实体的规则绑定结果；骨架路径为空，adaptor 绑定后填入。
+    pub placements: Vec<PreparedPlacement>,
+}
+
+/// 地图预放实体绑定后的运行形状（稳定 id，不再携带未解析类型名）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedPlacement {
+    /// 放置类别。
+    pub kind: MapPlacedEntityKind,
+    /// 所属方稳定 id。
+    pub owner: crate::HouseId,
+    /// 规则类型稳定 id。
+    pub definition_id: crate::TypeId,
+    /// 0..=256；原版常写 256 表示满血。
+    pub health: u16,
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// 朝向。
+    pub facing: u8,
+    /// 步兵子格 0..=4；其它为 0。
+    pub sub_cell: u8,
+    /// 初始任务名（装载期大写）；空表示未指定。后续可再收成任务枚举 / id。
+    pub mission: MissionName,
+    /// 绑定的 Tag 名（装载期大写）；空表示无。后续可再收成 `TagId`。
+    pub tag: TagName,
 }

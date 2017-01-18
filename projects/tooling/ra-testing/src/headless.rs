@@ -4,13 +4,30 @@ use std::sync::Arc;
 
 use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
-use ra_test_defs::defs_from_rules_ini;
 use ra_types::{GameEdition, RuntimeDefinitions};
 
 use crate::alpha_skirmish_v1;
 
+const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=Soviets\n3=Alliance\n\
+[Americans]\nSide=GDI\n\
+[Russians]\nSide=Nod\n\
+[Soviets]\nSide=Nod\n\
+[Alliance]\nSide=GDI\n";
+
+fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
+    let upper = rules_ini.to_ascii_uppercase();
+    let bytes = if upper.windows(11).any(|w| w == b"[COUNTRIES]") {
+        rules_ini.to_vec()
+    } else {
+        let mut out = TEST_COUNTRIES_PREFIX.to_vec();
+        out.extend_from_slice(rules_ini);
+        out
+    };
+    ra_test_defs::defs_from_rules_ini(&bytes)
+}
+
 fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
-    BattleState::new(edition, defs, map)
+    BattleState::new(edition, defs, map).expect("battle seed")
 }
 
 /// 无窗口测试用例。所有推进都经过 `Session::tick` + `EngineRuntime`，与产品路径一致。

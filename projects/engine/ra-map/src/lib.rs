@@ -433,6 +433,7 @@ impl MapInfo {
             passable,
             cell_heights,
             occupancy,
+            placements: Vec::new(),
         }
     }
 

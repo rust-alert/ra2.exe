@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, RuntimeDefinitions, TechnoClass};
+use ra_types::{EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass, bind_prepared_map_placements};
 
 use super::super::{
     components::{
@@ -20,8 +20,11 @@ impl BattleState {
     ///
     /// 通行层先取自 `MapInfo::to_prepared_map_skeleton_with_structures`（仅 Foundation）。
     /// Overlay land 必须在对局装载 `seal_pass_grid_from_tmp` 之后再应用，才能重开桥面。
-    pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> Self {
-        let prepared = map.to_prepared_map_skeleton_with_structures(&definitions.structures);
+    ///
+    /// 预放实体必须先完成 [`bind_prepared_map_placements`]；未知 techno / house 拒绝播种。
+    pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> RaResult<Self> {
+        let mut prepared = map.to_prepared_map_skeleton_with_structures(&definitions.structures);
+        bind_prepared_map_placements(&mut prepared, &definitions)?;
         let pass_grid = PassGrid::from_prepared_pass_layers(
             prepared.pass_width,
             prepared.pass_height,
@@ -31,51 +34,81 @@ impl BattleState {
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let ecs = EcsRegistry::new();
-        let mut seed_bundles: Vec<EntitySpawnBundle> = Vec::with_capacity(map.entities.len());
-        for e in &map.entities {
-            if !house_order.iter().any(|h| h.eq_ignore_ascii_case(e.owner.as_str())) {
-                house_order.push(e.owner.as_str().to_string());
+        let mut seed_bundles: Vec<EntitySpawnBundle> = Vec::with_capacity(prepared.placements.len());
+        for p in &prepared.placements {
+            let Some(tt) = definitions.techno.get_by_id(p.definition_id)
+            else {
+                return Err(ra_types::RaError::Msg(format!("绑定后缺少 techno id {:?}", p.definition_id)));
+            };
+            let Some(house) = definitions.houses.get_by_id(p.owner)
+            else {
+                return Err(ra_types::RaError::Msg(format!("绑定后缺少 house id {:?}", p.owner)));
+            };
+            let owner_key = house.type_key.as_str();
+            if !house_order.iter().any(|h| h.eq_ignore_ascii_case(owner_key)) {
+                house_order.push(owner_key.to_string());
             }
-            let tt = definitions.techno.get(&e.type_id);
-            let weapon = tt.and_then(|t| t.primary_id).and_then(|id| definitions.weapons.get_by_id(id));
-            let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
-            let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
-            let speed = tt.map(|t| t.speed).unwrap_or(0);
-            // 无 techno 定义时禁止发明默认射程/伤害（否则会变成可战斗幽灵单位）。
-            // 战斗数值只来自武器表；无主武器则保持 0。
+            let weapon = tt.primary_id.and_then(|id| definitions.weapons.get_by_id(id));
+            let max_health = tt.strength.max(1);
+            let health = (u64::from(max_health) * u64::from(p.health) / 256) as u32;
+            let speed = tt.speed;
             let attack_range = weapon
-                .map(|w| if w.range > 0 { w.range } else { tt.map(|t| t.sight.max(1)).unwrap_or(1) })
+                .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
                 .unwrap_or(0);
-            // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害（否则平民车会参与自动进攻）。
             let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
             let attack_cooldown_max = weapon
                 .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
                 .unwrap_or(0);
-            let armor = tt.map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
-            let warhead_id = weapon.and_then(|w| w.warhead_id).or_else(|| tt.and_then(|t| t.warhead_id));
-            let attack_verses = if tt.is_some() {
-                verses_for(&definitions, warhead_id)
-            } else {
-                [0; 11]
-            };
-            let techno_class = tt.map(|t| t.class);
+            let armor = tt.armor;
+            let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
+            let attack_verses = verses_for(&definitions, warhead_id);
+            let techno_class = Some(tt.class);
             let id = EntityId(next_entity_id);
             next_entity_id = next_entity_id.saturating_add(1);
             seed_bundles.push(EntitySpawnBundle {
                 identity: Identity {
                     entity_id: id,
-                    type_id: Arc::<str>::from(e.type_id.as_ref()),
-                    kind: e.kind,
-                    mission: e.mission.clone(),
-                    tag: e.tag.clone(),
+                    type_id: Arc::<str>::from(tt.type_key.as_str()),
+                    kind: match p.kind {
+                        ra_types::MapPlacedEntityKind::Structure => MapEntityKind::Structure,
+                        ra_types::MapPlacedEntityKind::Unit => MapEntityKind::Unit,
+                        ra_types::MapPlacedEntityKind::Infantry => MapEntityKind::Infantry,
+                        ra_types::MapPlacedEntityKind::Aircraft => MapEntityKind::Aircraft,
+                    },
+                    mission: p.mission.clone(),
+                    tag: p.tag.clone(),
                 },
-                owner: Owner { house: Arc::<str>::from(e.owner.as_ref()) },
-                transform: Transform { x: e.x, y: e.y, facing: e.facing, turret_facing: e.facing, sub_cell: e.sub_cell },
+                owner: Owner { house: Arc::<str>::from(owner_key) },
+                transform: Transform {
+                    x: p.x,
+                    y: p.y,
+                    facing: p.facing,
+                    turret_facing: p.facing,
+                    sub_cell: p.sub_cell,
+                },
                 health: Health { current: health, maximum: max_health, dead: false },
                 locomotor: Locomotor { speed },
-                movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
-                combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class },
-                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
+                movement: MovementState {
+                    destination_x: None,
+                    destination_y: None,
+                    waypoints: Vec::new(),
+                    path: Vec::new(),
+                    move_accum: 0,
+                },
+                combat: CombatStats {
+                    armor,
+                    attack_range,
+                    attack_damage,
+                    attack_cooldown_max,
+                    attack_verses,
+                    techno_class,
+                },
+                attack: AttackState {
+                    target: None,
+                    cooldown: 0,
+                    infiltrate_target: None,
+                    capture_target: None,
+                },
                 production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -141,7 +174,7 @@ impl BattleState {
             }
         }
         world.rehash();
-        world
+        Ok(world)
     }
 
     /// 用当前 `pass_grid` 回写 `prepared` 通行层（TMP 封格 / overlay land 之后）。

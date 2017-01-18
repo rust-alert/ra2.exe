@@ -28,7 +28,7 @@ pub use definition::{
     MapFileName, MissionName, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType,
     MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MapEdge, OverlayName, OverlayTypeRegistry,
     PowerProfile,
-    PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, PreparedMap, ProductionCategory, ProductionDefinitions,
+    PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, PreparedMap, PreparedPlacement, ProductionCategory, ProductionDefinitions,
     ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, ScriptTypeName, SmudgeName, SoundDefinitions,
     StolenTechKind,
     StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName, SuperWeaponDefinition, SuperWeaponDefinitions,
@@ -36,8 +36,8 @@ pub use definition::{
     TechnoDefinitions, TechnoName,
     TerrainName, TerrainSpawnerDefinition, TerrainSpawnerDefinitions, Theater, TriggerName, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions,
     WarheadName,
-    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, deserialize_optional_factory, ground_passable, land_passable,
-    occupancy_kind, tmp_terrain_to_land_type,
+    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, bind_map_placements, bind_prepared_map_placements,
+    deserialize_optional_factory, ground_passable, land_passable, occupancy_kind, tmp_terrain_to_land_type,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

@@ -128,7 +128,8 @@ fn open_session_common(
     boot_kind: SessionBootKind,
     seed_skirmish_mcv: bool,
 ) -> RaResult<SkirmishOpenResult> {
-    let mut state = BattleState::new(edition, definitions, map);
+    let mut state = BattleState::new(edition, definitions, map)?;
+    note = format!("{note} · placements#{}", state.prepared.placements.len());
     for house in ensure_houses {
         if !house.is_empty() {
             state.ensure_house(house);

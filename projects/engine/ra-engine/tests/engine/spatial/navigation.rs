@@ -1,13 +1,20 @@
 //! 绕静态障碍寻路。
 
-use crate::common::{battle_from_defs, defs_with_mtnk, map_with_size};
+use crate::common::{battle_from_defs, defs_from_rules_ini, map_with_size};
 use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn bfs_detours_around_structure() {
-    let defs = defs_with_mtnk();
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=MTNK\n\
+[BuildingTypes]\n0=GAWALL\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
+[GAWALL]\nStrength=300\nSight=1\nCost=100\nArmor=concrete\n\
+[90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
+[SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
+    );
     let mut map = map_with_size();
     map.waypoints.push(Waypoint { index: 0, x: 14, y: 10 });
     map.entities.push(MapEntity {

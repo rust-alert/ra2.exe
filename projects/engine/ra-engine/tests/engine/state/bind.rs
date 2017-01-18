@@ -37,7 +37,7 @@ fn binds_strength_and_speed() {
 }
 
 #[test]
-fn unbound_techno_gets_zero_combat_stats() {
+fn unbound_techno_rejects_battle_seed() {
     let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.entities.push(MapEntity {
@@ -52,15 +52,9 @@ fn unbound_techno_gets_zero_combat_stats() {
         mission: Default::default(),
         tag: Default::default(),
     });
-    let world = battle_from_defs(GameEdition::Ra2, defs, map);
-    let id = world.entity_id_at(0).expect("entity");
-    let combat = world.ecs_combat_view(id).expect("combat");
-    assert_eq!(combat.attack_range, 0);
-    assert_eq!(combat.attack_damage, 0);
-    assert_eq!(combat.attack_cooldown_max, 0);
-    assert_eq!(combat.attack_verses, [0; 11]);
-    assert!(combat.techno_class.is_none());
-    assert_eq!(world.bound_techno_count(), 0);
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown techno must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
 }
 
 #[test]

@@ -83,6 +83,21 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             multiplay: country.visible_in_skirmish(),
         });
     }
+    // 氛围房屋：规则 `[Countries]` 通常不列，但对局 / 地图 Owner 仍需稳定 `HouseId`。
+    for ambient in ["NEUTRAL", "SPECIAL", "CIVILIAN"] {
+        let type_key = HouseName::parse(ambient);
+        if defs.houses.get_name(&type_key).is_some() {
+            continue;
+        }
+        let id = alloc_house();
+        defs.houses.insert(HouseDefinition {
+            id,
+            type_key,
+            side: ra_types::SideName::default(),
+            stolen_tech: None,
+            multiplay: false,
+        });
+    }
 
     for sw in rules.super_weapons.iter() {
         let id = alloc();
@@ -559,7 +574,9 @@ fn is_ambient_house(name: &HouseName) -> bool {
 }
 
 fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field: &str, owner: &str) -> RaResult<()> {
-    if defs.houses.is_empty() {
+    // 仅有氛围房屋、尚无 `[Countries]` 投影时，跳过 Owner 名单强制校验（测试夹具）。
+    let has_countries = defs.houses.iter().any(|h| !is_ambient_house(&h.type_key));
+    if !has_countries {
         return Ok(());
     }
     for name in list.iter() {

@@ -20,6 +20,7 @@ mod ini_string;
 mod land;
 mod locomotor;
 mod map;
+mod map_bind;
 mod map_edge;
 mod overlay;
 mod production;
@@ -52,9 +53,10 @@ pub use locomotor::LocomotorDefinitions;
 pub use map::{
     AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MissionName,
     MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag,
-    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, ScriptTypeName, SmudgeName,
-    TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
+    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, PreparedPlacement, ScriptTypeName,
+    SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
 };
+pub use map_bind::{bind_map_placements, bind_prepared_map_placements};
 pub use map_edge::MapEdge;
 pub use overlay::{OverlayName, OverlayTypeRegistry};
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};

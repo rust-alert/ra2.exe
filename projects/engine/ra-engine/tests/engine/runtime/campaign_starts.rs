@@ -9,12 +9,20 @@ use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 const RULES_INI: &str = "rules.ini";
 
 fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-    defs_from_rules_ini(b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
+    defs_from_rules_ini(
+        b"[Countries]\n0=Americans\n1=Russians\n\
+[Americans]\nSide=GDI\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[VehicleTypes]\n0=AMCV\n1=SMCV\n2=HTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n\
+[E1]\nOwner=Americans\nStrength=125\nSpeed=24\nSight=4\nCost=200\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
+[HTNK]\nOwner=Russians\nStrength=800\nSpeed=24\nSight=5\nCost=1500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n", )
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",
+    )
 }
 
 fn campaign_map() -> MapInfo {
@@ -70,6 +78,38 @@ impl AssetSource for RulesBytesSource {
             Err(RaError::MissingFile(relative.to_string()))
         }
     }
+}
+
+#[test]
+fn open_campaign_rejects_unknown_map_placement_techno() {
+    let mut map = campaign_map();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "AMERICANS".into(),
+        type_id: "MISSINGUNIT".into(),
+        health: 256,
+        x: 10,
+        y: 10,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let err = open_campaign_session(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        mcv_defs(),
+        map,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS"],
+        0,
+    )
+    .expect_err("unknown map techno must fail open");
+    let msg = err.to_string();
+    assert!(msg.contains("techno") || msg.contains("MISSINGUNIT"), "{msg}");
 }
 
 #[test]

@@ -254,7 +254,7 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
 [Russians]\nUIName=Name:Russians\nSide=Nod\nMultiplay=yes\nMultiplayObsolete=yes\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
-    assert_eq!(defs.houses.len(), 2);
+    assert_eq!(defs.houses.len(), 5, "two countries plus NEUTRAL/SPECIAL/CIVILIAN");
     let usa = defs.houses.get("Americans").expect("Americans");
     assert_ne!(usa.id, ra_types::HouseId(0));
     assert_eq!(usa.side, "GDI");
@@ -264,6 +264,9 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
     assert_eq!(rus.stolen_tech, Some(ra_types::StolenTechKind::Soviet));
     assert!(!rus.multiplay);
     assert_eq!(defs.stolen_tech_by_house.get("Americans"), Some(ra_types::StolenTechKind::Allied));
+    assert!(defs.houses.get("NEUTRAL").is_some());
+    assert!(defs.houses.get("SPECIAL").is_some());
+    assert!(defs.houses.get("CIVILIAN").is_some());
 }
 
 #[test]
@@ -344,6 +347,8 @@ fn build_runtime_definitions_allows_ambient_owner_house_with_countries() {
     );
     let defs = build_runtime_definitions(&rules).expect("Neutral Owner should pass");
     assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner.owner_allows("Neutral"));
+    let neutral = defs.houses.get("NEUTRAL").expect("ambient NEUTRAL must receive HouseId");
+    assert_ne!(neutral.id, ra_types::HouseId(0));
 }
 
 #[test]
@@ -371,4 +376,85 @@ fn build_runtime_definitions_rejects_unknown_prerequisite_group_member() {
     assert!(msg.contains("techno"), "{msg}");
     assert!(msg.contains("MISSINGPWR"), "{msg}");
     assert!(msg.contains("PrerequisitePower") || msg.contains("PrerequisiteGroups"), "{msg}");
+}
+
+#[test]
+fn bind_map_placements_resolves_techno_and_house_ids() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 3,
+        y: 4,
+        facing: 32,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: ra_types::TagName::default(),
+    }];
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs).expect("bind");
+    assert_eq!(placements.len(), 1);
+    assert_eq!(placements[0].definition_id, defs.techno.get("GAPOWR").expect("GAPOWR").id);
+    assert_eq!(placements[0].owner, defs.houses.get("Americans").expect("Americans").id);
+    assert_eq!(placements[0].x, 3);
+    assert_eq!(placements[0].y, 4);
+}
+
+#[test]
+fn bind_map_placements_rejects_unknown_techno_type() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "MISSINGBLDG".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: ra_types::TagName::default(),
+    }];
+    let err = ra_adaptor::bind_map_placements(&entities, &defs).expect_err("unknown techno");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSINGBLDG"), "{msg}");
+}
+
+#[test]
+fn bind_map_placements_accepts_ambient_owner_house() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "NEUTRAL".into(),
+        type_id: "GAPOWR".into(),
+        health: 128,
+        x: 2,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: ra_types::TagName::default(),
+    }];
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs).expect("ambient owner");
+    assert_eq!(placements[0].owner, defs.houses.get("NEUTRAL").expect("NEUTRAL").id);
 }

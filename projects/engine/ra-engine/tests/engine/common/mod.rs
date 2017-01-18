@@ -8,7 +8,25 @@ use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
-pub use ra_test_defs::defs_from_rules_ini;
+/// 测试夹具缺 `[Countries]` 时注入常用国家，便于地图 Owner 绑定到稳定 `HouseId`。
+const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=Soviets\n3=Alliance\n\
+[Americans]\nSide=GDI\n\
+[Russians]\nSide=Nod\n\
+[Soviets]\nSide=Nod\n\
+[Alliance]\nSide=GDI\n";
+
+/// 内联 rules → 冻结定义；无 `[Countries]` 时自动补美俄。
+pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
+    let upper = rules_ini.to_ascii_uppercase();
+    let bytes = if upper.windows(11).any(|w| w == b"[COUNTRIES]") {
+        rules_ini.to_vec()
+    } else {
+        let mut out = TEST_COUNTRIES_PREFIX.to_vec();
+        out.extend_from_slice(rules_ini);
+        out
+    };
+    ra_test_defs::defs_from_rules_ini(&bytes)
+}
 
 /// 测试用默认引擎（空定义骨架）。
 pub fn test_engine() -> Engine {
@@ -17,7 +35,7 @@ pub fn test_engine() -> Engine {
 
 /// 冻结定义播种世界（引擎侧只消费 `RuntimeDefinitions`）。
 pub fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
-    BattleState::new(edition, defs, map)
+    BattleState::new(edition, defs, map).expect("battle seed")
 }
 
 /// 含 MTNK 坦克类型的最小冻结定义（Strength=400，带主武器）。

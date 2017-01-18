@@ -6,7 +6,14 @@ use ra_map::MapInfo;
 use ra_types::GameEdition;
 
 fn empty_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-    defs_from_rules_ini(b"[General]\n")
+    defs_from_rules_ini(
+        b"[General]\n\
+[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n1=GACNST\n\
+[E1]\nOwner=Americans\nStrength=125\nSpeed=4\nSight=5\nCost=200\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
+    )
 }
 
 #[test]

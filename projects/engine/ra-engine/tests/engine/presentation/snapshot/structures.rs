@@ -1,13 +1,16 @@
 //! 快照包含建筑实体。
 
-use crate::common::{battle_from_defs, defs_with_mtnk};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 #[test]
 fn snapshot_includes_structures() {
-    let defs = defs_with_mtnk();
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "struct");
     map.width = 12;
     map.height = 12;
