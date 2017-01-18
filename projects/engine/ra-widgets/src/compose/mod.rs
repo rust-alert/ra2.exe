@@ -53,8 +53,8 @@ pub(super) use menu::*;
 pub(super) use raster::*;
 
 pub use battle::{
-    BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay, compose_battle_in_game_options_overlay,
-    compose_battle_pause_menu_overlay,
+    BattleHudModel, campaign_score_continue_hit_at, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
+    compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, compose_campaign_score_overlay, paint_battle_outcome_hold_banner,
 };
 pub use campaign::{CampaignPaint, compose_campaign_page};
 pub use choose_map::compose_choose_map_page;

@@ -169,3 +169,13 @@ fn country_lobby_display_resolves_uiname_csf() {
     // UIName 缺失时回退 `NAME:{ID}`。
     assert_eq!(country_lobby_display_name(Some(&csf), "Americans", ""), "美国");
 }
+
+#[test]
+fn battle_outcome_banner_keys_split_campaign_and_skirmish() {
+    assert_eq!(battle_outcome_banner_csf_key(true, true), "TXT:MissionAccomplished");
+    assert_eq!(battle_outcome_banner_csf_key(true, false), "TXT:MissionFailed");
+    assert_eq!(battle_outcome_banner_csf_key(false, true), "TXT:YouAreVictorious");
+    assert_eq!(battle_outcome_banner_csf_key(false, false), "TXT:YouHaveLost");
+    assert_eq!(battle_outcome_banner_fallback(true, true), "任务完成");
+    assert_eq!(battle_outcome_banner_fallback(false, false), "你失败了");
+}

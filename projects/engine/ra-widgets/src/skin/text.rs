@@ -520,6 +520,26 @@ pub fn skirmish_score_fallback_label(entry_id: &str) -> &str {
     }
 }
 
+/// 胜负收束期局内横幅标题 → CSF（图内已有字时仍作缺图回退）。
+pub fn battle_outcome_banner_csf_key(campaign: bool, victory: bool) -> &'static str {
+    match (campaign, victory) {
+        (true, true) => "TXT:MissionAccomplished",
+        (true, false) => "TXT:MissionFailed",
+        (false, true) => "TXT:YouAreVictorious",
+        (false, false) => "TXT:YouHaveLost",
+    }
+}
+
+/// 胜负收束期局内横幅字面回退。
+pub fn battle_outcome_banner_fallback(campaign: bool, victory: bool) -> &'static str {
+    match (campaign, victory) {
+        (true, true) => "任务完成",
+        (true, false) => "任务失败",
+        (false, true) => "你胜利了",
+        (false, false) => "你失败了",
+    }
+}
+
 /// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
 pub const SKIRMISH_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "PlanningMode"];
 

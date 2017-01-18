@@ -94,6 +94,18 @@ impl Shell {
             }
             // 大厅预览并入 UI 页合成，避免与 `set_map_preview` 双通道抢相机。
             self.renderer.clear_preview();
+            // 战役结算：侧栏 hub + CampaignScore 底/过渡，禁止走遭遇战积分壳。
+            if self.screen == OriginalScreen::Results && self.results_is_campaign() {
+                if let Some(page) = self.compose_campaign_results_page() {
+                    tracing::debug!(w = page.width(), h = page.height(), "战役结算页已合成并上传");
+                    self.upload_ui_page(page);
+                    if !self.banner.contains("chrome 已上传") {
+                        self.banner = format!("{} · chrome 已上传", self.banner);
+                        self.refresh_shell_title();
+                    }
+                    return;
+                }
+            }
             let load_allow_retry = self.load_allow_retry();
             let load_status = if self.screen == OriginalScreen::LoadScreen { Some(self.banner.clone()) } else { None };
             let load_progress = self.load_screen_progress();
@@ -359,6 +371,7 @@ impl Shell {
                         )
                     }
                     OriginalScreen::Results => {
+                        // 战役已在上方 early-return；此处仅遭遇战积分壳。
                         let rows = self.skirmish_score_rows();
                         let time = self.skirmish_score_time_text();
                         compose::compose_skirmish_score_page(
@@ -371,7 +384,7 @@ impl Shell {
                                 game_index: 1,
                                 time_text: time.as_str(),
                                 rows: rows.as_slice(),
-                                campaign: self.results_is_campaign(),
+                                campaign: false,
                             },
                             movie,
                             wave,

@@ -2,7 +2,7 @@
 
 use ra_engine::{BattleOutcome, SessionBootKind, is_ambient_house};
 use ra_widgets::{
-    compose::{SkirmishScoreRow, format_score_time, skirmish_score_hit_at},
+    compose::{SkirmishScoreRow, campaign_score_continue_hit_at, format_score_time, skirmish_score_hit_at},
     load_kind::LoadKind,
     skin::text::resolve_csf_text,
     skirmish_setup::LOBBY_COLORS,
@@ -120,6 +120,111 @@ impl Shell {
                 .is_some_and(|g| g.boot_kind == SessionBootKind::Campaign)
     }
 
+    /// 离开结算页时清掉战役战报图缓存。
+    pub(super) fn clear_campaign_score_art(&mut self) {
+        self.campaign_score_background = None;
+        self.campaign_score_transition = None;
+        self.campaign_score_art_tried = false;
+    }
+
+    /// 合成战役结算页：侧栏 hub + `CampaignScore.Background` + `Transition` 末帧 + 「继续」。
+    ///
+    /// **不是**壳层 `mnscrnl` / `compose_skirmish_score_page`。
+    pub(super) fn compose_campaign_results_page(&mut self) -> Option<ra_renderer::RgbaImage> {
+        self.ensure_campaign_score_art();
+        self.ensure_menu_assets();
+        let assets = self.menu_assets.as_ref().and_then(|a| a.source.as_ref());
+        if let Some(ctrl) = self.battle_controller.as_mut() {
+            ctrl.ensure_battle_hud_chrome(assets);
+            ctrl.ensure_pause_menu_chrome(assets);
+        }
+        let funds = self
+            .battle_controller
+            .as_ref()
+            .and_then(|c| c.session.as_ref())
+            .and_then(|s| s.battle())
+            .and_then(|g| g.world.players.iter().find(|p| p.id == g.world.local_player).map(|p| p.funds));
+        let pause = self.battle_controller.as_ref().and_then(|c| c.pause_menu_chrome.as_ref());
+        let hud = self.battle_controller.as_ref().and_then(|c| c.hud_chrome.as_ref());
+        ra_widgets::compose::compose_campaign_score_overlay(
+            self.window_width as u32,
+            self.window_height as u32,
+            self.menu_pressed_entry,
+            self.menu_hovered_entry,
+            self.menu_font.as_ref(),
+            self.menu_csf.as_ref(),
+            self.campaign_score_background.as_ref(),
+            self.campaign_score_transition.as_ref(),
+            pause,
+            hud,
+            funds,
+        )
+    }
+
+    /// 解码战役结算 `CampaignScore.Background` + `Transition` 末帧（仅战役 Results 需要）。
+    pub(super) fn ensure_campaign_score_art(&mut self) {
+        if self.campaign_score_art_tried || !self.results_is_campaign() {
+            return;
+        }
+        self.campaign_score_art_tried = true;
+        self.ensure_menu_assets();
+        let Some(source) = self.menu_assets.as_ref().and_then(|a| a.source.as_ref())
+        else {
+            tracing::warn!("战役结算缺挂载源，无法解码 CampaignScore");
+            return;
+        };
+        let side = self.results_score_side_id();
+        let Some(chrome) = self.resolve_ui_faction_chrome(side.as_str(), Some(side.as_str()))
+        else {
+            tracing::warn!(%side, "战役结算缺 UiFactionChrome");
+            return;
+        };
+        let pals = ra_widgets::skirmish_setup::campaign_score_screen_palette_candidates(&chrome);
+        let Some(pal) = pals.into_iter().find(|p| source.resolve(p).is_some())
+        else {
+            tracing::warn!(%side, "战役结算缺可读 CampaignScore.Palette");
+            return;
+        };
+        let bgs = ra_widgets::skirmish_setup::campaign_score_screen_background_candidates(&chrome);
+        for bg in bgs {
+            if source.resolve(&bg).is_none() {
+                continue;
+            }
+            let asset = ra_widgets::screens::page::UiAssetRef::with_palette(&bg, &pal);
+            match ra_widgets::skin::decode::decode_asset_ref(source, &asset) {
+                Ok(sprite) => {
+                    tracing::info!(%bg, %pal, "战役结算 Background 已解码");
+                    self.campaign_score_background = Some(sprite);
+                    break;
+                }
+                Err(e) => tracing::warn!(%bg, %pal, "CampaignScore.Background 解码失败 · {e}"),
+            }
+        }
+        let transitions = ra_widgets::skirmish_setup::campaign_score_screen_transition_candidates(&chrome);
+        for name in transitions {
+            if source.resolve(&name).is_none() {
+                continue;
+            }
+            let asset = ra_widgets::screens::page::UiAssetRef::with_palette(&name, &pal);
+            match ra_widgets::skin::decode::decode_asset_frames(source, &asset) {
+                Ok(frames) if !frames.is_empty() => {
+                    let sprite = frames.into_iter().next_back().expect("non-empty");
+                    tracing::info!(%name, %pal, frame = sprite.frame, "战役结算 Transition 末帧已解码");
+                    self.campaign_score_transition = Some(sprite);
+                    break;
+                }
+                Ok(_) => tracing::warn!(%name, "CampaignScore.Transition 无帧"),
+                Err(e) => tracing::warn!(%name, %pal, "CampaignScore.Transition 解码失败 · {e}"),
+            }
+        }
+        if self.campaign_score_background.is_none() {
+            tracing::warn!(%side, "战役结算 Background 未就绪");
+        }
+        if self.campaign_score_transition.is_none() {
+            tracing::warn!(%side, "战役结算 Transition 未就绪");
+        }
+    }
+
     /// 结算页选用哪一 Side 的战报图（`[Sides]` id：`GDI`/`Nod`/…）。
     pub(super) fn results_score_side_id(&self) -> String {
         if self.results_is_campaign() {
@@ -190,8 +295,18 @@ impl Shell {
         }
     }
 
-    /// 将窗口光标映射到壳层设计坐标后命中「继续」。
+    /// 命中「继续」：战役走暂停 hub 底钮几何；遭遇战走壳层积分钮。
     fn results_continue_hit(&self) -> Option<&'static str> {
+        if self.results_is_campaign() {
+            let hud = self.battle_controller.as_ref().and_then(|c| c.hud_chrome.as_ref());
+            return campaign_score_continue_hit_at(
+                self.window_width as u32,
+                self.window_height as u32,
+                hud,
+                self.cursor.0,
+                self.cursor.1,
+            );
+        }
         let (win_w, win_h) = self.display_mode.size();
         let (sx, sy) = ra_layout::window_to_shell_px(self.cursor.0, self.cursor.1, win_w as f64, win_h as f64);
         skirmish_score_hit_at(sx, sy)
@@ -210,7 +325,8 @@ impl Shell {
             .is_some_and(|g| g.boot_kind == SessionBootKind::Campaign && g.outcome.is_some());
         if has_outcome {
             BattleNav::ContinueCampaign
-        } else {
+        }
+        else {
             tracing::warn!("战役结算无胜负结果，无法续关");
             BattleNav::ToMainMenu
         }
@@ -227,12 +343,7 @@ impl Shell {
             Some(BattleOutcome::Defeat { .. }) => false,
             None => return None,
         };
-        let current = self
-            .selected_map
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| game.world.map.name.as_str());
+        let current = self.selected_map.as_deref().map(str::trim).filter(|s| !s.is_empty()).unwrap_or_else(|| game.world.map.name.as_str());
         crate::host::boot::resolve_campaign_continue_scenario(
             current,
             victory,

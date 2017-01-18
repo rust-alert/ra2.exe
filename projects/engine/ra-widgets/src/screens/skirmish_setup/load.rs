@@ -126,6 +126,16 @@ pub fn campaign_score_screen_palette_candidates(chrome: &UiFactionChrome) -> Vec
     chrome.campaign_score_palette_candidates()
 }
 
+/// 战役结算动画候选。
+pub fn campaign_score_screen_animation_candidates(chrome: &UiFactionChrome) -> Vec<String> {
+    chrome.campaign_score_animation_candidates()
+}
+
+/// 战役结算过渡候选。
+pub fn campaign_score_screen_transition_candidates(chrome: &UiFactionChrome) -> Vec<String> {
+    chrome.campaign_score_transition_candidates()
+}
+
 /// 战役结算底图首选。
 pub fn campaign_score_screen_background_shp(chrome: &UiFactionChrome) -> String {
     chrome.campaign_score_background_shp()

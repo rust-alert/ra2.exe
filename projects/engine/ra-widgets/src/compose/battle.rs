@@ -7,7 +7,7 @@ use crate::{
         BattlePauseChrome, background_rect_with_metrics, button_rects_with_metrics, dim_rect_with_metrics, entry_enabled,
         pause_snapshot_with_metrics, resolve_background, resolve_sidebttn,
     },
-    skin::text::battle_pause_menu_fallback_label,
+    skin::{decode::DecodedUiSprite, text::battle_pause_menu_fallback_label},
 };
 use ra_layout::LayoutSnapshot;
 
@@ -481,4 +481,118 @@ pub fn compose_battle_in_game_options_overlay(
     }
 
     Some(page)
+}
+
+/// 胜负收束期：在战术区居中叠 `CampaignScore.Animation`（或缺图时标题字）。
+pub fn paint_battle_outcome_hold_banner(
+    page: &mut RgbaImage,
+    world: RectPx,
+    banner: Option<&DecodedUiSprite>,
+    caption: &str,
+    fnt: Option<&FntFile>,
+) {
+    if world.w <= 0 || world.h <= 0 {
+        return;
+    }
+    // 轻暗化战术区，突出横幅。
+    fill_rect(page, world, [0, 0, 0, 90]);
+    if let Some(sprite) = banner {
+        let sw = sprite.image.width() as i32;
+        let sh = sprite.image.height() as i32;
+        let x = world.x + (world.w - sw).max(0) / 2;
+        let y = world.y + (world.h - sh).max(0) / 2;
+        blit_rgba(page, &sprite.image, x, y);
+        return;
+    }
+    if let Some(fnt) = fnt {
+        let band_h = 48.min(world.h.max(1));
+        let band_y = world.y + (world.h - band_h).max(0) / 2;
+        let band = RectPx { x: world.x + 24, y: band_y, w: (world.w - 48).max(8), h: band_h };
+        fill_rect(page, band, [12, 16, 24, 200]);
+        stroke_rect(page, band, [200, 180, 90, 255]);
+        blit_caption_in_cell(page, fnt, caption, band.x + 8, band.y, (band.w - 16).max(8), band.h, MENU_TEXT_ENABLED);
+    }
+}
+
+/// 战役任务积分页：与暂停同布局（右 hub 侧栏 + 战术区战报图），**不是**壳层 `Results` / `mnscrnl`。
+///
+/// - 底：`CampaignScore.Background`（`ascrbkmd` 等，与暂停 `bkgdmd` 同画布 632×568）
+/// - 上：`CampaignScore.Transition` 末帧（金属框 + 文案槽，原版结算主视觉）
+/// - 「继续」：侧栏轨最底一格 `SIDEBTTN`（同暂停 `resume` 几何）
+pub fn compose_campaign_score_overlay(
+    viewport_w: u32,
+    viewport_h: u32,
+    pressed_entry_id: Option<&str>,
+    hovered_entry_id: Option<&str>,
+    fnt: Option<&FntFile>,
+    csf: Option<&CsfFile>,
+    background: Option<&DecodedUiSprite>,
+    transition: Option<&DecodedUiSprite>,
+    pause: Option<&BattlePauseChrome>,
+    hud_chrome: Option<&BattleHudChrome>,
+    funds: Option<i32>,
+) -> Option<RgbaImage> {
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
+    let snap = pause_snapshot_with_metrics(w, h, metrics_for_chrome(hud_chrome));
+    let metrics = paint_pause_hub_base(&mut page, hud_chrome, funds, fnt, &snap);
+
+    let bg_cell = background_rect_with_metrics(w, h, metrics);
+    if let Some(sprite) = background {
+        blit_stretched(&mut page, &sprite.image, bg_cell);
+    }
+    else {
+        fill_rect(&mut page, bg_cell, [8, 12, 24, 255]);
+    }
+    // 过渡末帧带金属框与文案槽；盖在 Background 上才是原版任务积分主画面。
+    if let Some(sprite) = transition {
+        blit_stretched(&mut page, &sprite.image, bg_cell);
+    }
+
+    // 侧栏最底钮 = 暂停 `resume` 几何，文案改「继续」。
+    let rects = button_rects_with_metrics(w, h, metrics);
+    let Some(cell) = rects.last().copied()
+    else {
+        return Some(page);
+    };
+    let pressed = pressed_entry_id == Some("continue");
+    let hovered = hovered_entry_id == Some("continue");
+    let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
+    if let Some(sprite) = sprite {
+        blit_stretched(&mut page, &sprite.image, cell);
+    }
+    else {
+        fill_rect(&mut page, cell, [24, 28, 40, 255]);
+    }
+    if let Some(fnt) = fnt {
+        let caption = {
+            let from = resolve_caption(csf, "continue", Some("GUI:Continue"));
+            if from == "continue" { "继续".to_string() } else { from }
+        };
+        let (tx, ty, tw, th) = owner_draw_caption_rect(cell, pressed);
+        blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
+    }
+
+    Some(page)
+}
+
+/// 战役结算「继续」命中：侧栏轨最底格（同暂停 `resume`）。
+pub fn campaign_score_continue_hit_at(viewport_w: u32, viewport_h: u32, hud_chrome: Option<&BattleHudChrome>, x: f64, y: f64) -> Option<&'static str> {
+    let w = viewport_w.max(1);
+    let h = viewport_h.max(1);
+    let metrics = metrics_for_chrome(hud_chrome);
+    let rects = button_rects_with_metrics(w, h, metrics);
+    let Some(cell) = rects.last().copied()
+    else {
+        return None;
+    };
+    let px = x as i32;
+    let py = y as i32;
+    if px >= cell.x && px < cell.x + cell.w && py >= cell.y && py < cell.y + cell.h {
+        Some("continue")
+    }
+    else {
+        None
+    }
 }

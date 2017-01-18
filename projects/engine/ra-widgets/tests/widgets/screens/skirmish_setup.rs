@@ -155,8 +155,8 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
         score_background: Some("mpxscrnl.shp".into()),
         score_palette: Some("mpxscrn.pal".into()),
         campaign_score_background: Some("ascrbkmd.shp".into()),
-        campaign_score_transition: None,
-        campaign_score_animation: None,
+        campaign_score_transition: Some("ascrtmd.shp".into()),
+        campaign_score_animation: Some("ascramd.shp".into()),
         campaign_score_palette: Some("ascore.pal".into()),
         eva_tag: Some("CustomEva".into()),
         score_stats_shade: Some(false),
@@ -165,6 +165,8 @@ fn ui_faction_chrome_is_open_by_mix_index_only() {
     assert_eq!(from_def.mix_file_index, 5);
     assert_eq!(from_def.score_background_shp(), "mpxscrnl.shp");
     assert_eq!(from_def.campaign_score_background_candidates()[0], "ascrbkmd.shp");
+    assert_eq!(from_def.campaign_score_transition_candidates()[0], "ascrtmd.shp");
+    assert_eq!(from_def.campaign_score_animation_candidates()[0], "ascramd.shp");
     assert_eq!(from_def.campaign_score_palette_candidates()[0], "ascore.pal");
     assert_eq!(from_def.eva_tag.as_deref(), Some("CustomEva"));
     assert!(!from_def.score_stats_shade);

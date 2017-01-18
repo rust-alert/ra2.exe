@@ -215,6 +215,10 @@ pub struct BattleController {
     pub(super) eva_options_seeded: bool,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     pub(super) outcome_hold_until: Option<Instant>,
+    /// 收束期局内横幅（战役 `CampaignScore.Animation`；缺图时仅字）。
+    pub(super) outcome_banner: Option<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 是否已尝试装入 outcome 横幅（避免每帧扫 MIX）。
+    pub(super) outcome_banner_tried: bool,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
     pub(super) edge_scroll_cursor: EdgeScrollCursor,
     /// 方向键按住状态（渲染帧推进镜头，不跟逻辑 tick / OS 按键重复）。
@@ -313,6 +317,8 @@ impl BattleController {
             eva_known_options: HashSet::new(),
             eva_options_seeded: false,
             outcome_hold_until: None,
+            outcome_banner: None,
+            outcome_banner_tried: false,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
             action_lines_start_tick: None,
@@ -476,6 +482,8 @@ impl BattleController {
         self.eva_known_options.clear();
         self.eva_options_seeded = false;
         self.outcome_hold_until = None;
+        self.outcome_banner = None;
+        self.outcome_banner_tried = false;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
         self.map_theater = self.session.as_ref().and_then(|s| s.battle()).map(|g| g.world.map.theater);

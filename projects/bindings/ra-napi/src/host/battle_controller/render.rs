@@ -5,7 +5,8 @@ use std::{sync::Arc, time::Instant};
 use ra_assets::{CsfFile, FntFile, tiberium_overlay_display_hsv_bound};
 use ra_engine::{HudSnapshot, terrain_spawner_frame_signature};
 use ra_layout::{
-    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, cameo_visible_slot_count, rect_px_from_snapshot, solve_battle_hud_with_metrics,
+    BattleHudChromeMetrics, MapViewport, SIDEBAR_TAB_COUNT, battle_hud_world_viewport, cameo_visible_slot_count, rect_px_from_snapshot,
+    solve_battle_hud_with_metrics,
 };
 use ra_map::{
     MapEntity, MapEntityKind, OverlayLayerFilter, TILE_HEIGHT, TILE_WIDTH, collect_structure_anim_bank, iso_to_screen,
@@ -19,11 +20,13 @@ use ra_widgets::{
     battle_pause_layer::BattlePauseLayer,
     compose::{
         BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
-        compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay,
+        compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
     render::present,
-    skin::text::{command_button_csf_tooltip, resolve_csf_text},
+    skin::text::{
+        battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text,
+    },
 };
 use winit::window::Window;
 
@@ -85,6 +88,7 @@ impl BattleController {
         self.ensure_order_icons(renderer, assets);
         self.ensure_selection_overlay(renderer, assets);
         self.ensure_cameo_cache(assets);
+        self.ensure_outcome_banner(assets);
         self.ensure_start_view(renderer);
         let (vw, vh) = window
             .map(|w| {
@@ -624,6 +628,25 @@ impl BattleController {
             }
             if let Some(type_id) = self.place_mode.clone() {
                 self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
+            }
+            // 收束窗（`pending_savour_outcome`）与已锁定 `outcome` 都叠胜负横幅。
+            let hold_outcome = hud.outcome.as_ref().or_else(|| {
+                self.session
+                    .as_ref()
+                    .and_then(|s| s.battle())
+                    .and_then(|g| g.pending_savour_outcome.as_ref())
+            });
+            if let Some(outcome) = hold_outcome {
+                let campaign = self
+                    .session
+                    .as_ref()
+                    .and_then(|s| s.battle())
+                    .is_some_and(|g| g.boot_kind == ra_engine::SessionBootKind::Campaign);
+                let victory = matches!(outcome, ra_engine::BattleOutcome::Victory { .. });
+                let key = battle_outcome_banner_csf_key(campaign, victory);
+                let caption = resolve_csf_text(csf, key).unwrap_or_else(|| battle_outcome_banner_fallback(campaign, victory).to_string());
+                let world = battle_hud_world_viewport(&snap);
+                paint_battle_outcome_hold_banner(&mut page, world, self.outcome_banner.as_ref(), &caption, fnt);
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
             let page = present::present_ui_page(page, present);

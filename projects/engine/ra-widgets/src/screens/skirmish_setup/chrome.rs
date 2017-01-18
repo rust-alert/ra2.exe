@@ -200,6 +200,24 @@ impl UiFactionChrome {
         out
     }
 
+    /// 战役结算过渡候选：仅显式 `CampaignScore.Transition`。
+    pub fn campaign_score_transition_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.campaign_score_transition {
+            push_unique_ci(&mut out, s.clone());
+        }
+        out
+    }
+
+    /// 战役结算动画候选：仅显式 `CampaignScore.Animation`。
+    pub fn campaign_score_animation_candidates(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(ref s) = self.campaign_score_animation {
+            push_unique_ci(&mut out, s.clone());
+        }
+        out
+    }
+
     /// EVA 采样 INI 列名：仅 `EVA.Tag`（如 `Allied` / `Russian` / `Yuri` / 模组自定义）。
     pub fn eva_sample_keys(&self) -> Vec<String> {
         let mut out = Vec::new();

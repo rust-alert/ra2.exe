@@ -26,11 +26,15 @@ impl Shell {
                 self.skirmish.close_combo();
             }
             tracing::info!("页面 {} → {}", self.screen.as_str(), next.as_str());
+            let leaving_results = self.screen == OriginalScreen::Results;
             self.screen = next;
             self.menu_pressed_entry = None;
             self.menu_pending_commit = None;
             self.menu_hovered_entry = None;
             self.status_line.clear();
+            if leaving_results {
+                self.clear_campaign_score_art();
+            }
             // `menu_frame_wave` / `menu_slide_gap_until` 由切页状态机显式启停，不在此清空。
             if !matches!(
                 next,
@@ -431,11 +435,11 @@ impl Shell {
             BattleNav::ToResults => {
                 self.renderer.clear_preview();
                 self.battle_cursor_grabbed = false;
-                // 结算 EVA（若对局侧已排队）在切页前消费。
+                // 切页前 EVA 应已由 `eva_voice_busy` 门闩串播完；勿再立刻叠播冲刷。
                 if let Some(ctrl) = self.battle_controller.as_mut() {
                     let pending = ctrl.take_pending_battle_sfx();
-                    for event_id in pending {
-                        let _ = self.play_battle_sfx_event(&event_id);
+                    if !pending.is_empty() {
+                        tracing::warn!(count = pending.len(), events = ?pending, "进结算时仍有未播对局音效/EVA（已丢弃，避免叠播）");
                     }
                 }
                 self.renderer.clear_ui_page();
@@ -445,6 +449,11 @@ impl Shell {
                 self.banner = if self.results_is_campaign() { "任务结算".into() } else { "遭遇战积分".into() };
                 // 对局不是壳层页，无 SlideOut；进结算走与选项相同的壳层 SlideIn。
                 self.maybe_start_slide_in();
+                if self.results_is_campaign() {
+                    self.ensure_campaign_score_art();
+                    self.menu_movie = None;
+                    self.menu_movie_clock = None;
+                }
                 self.refresh_menu_backdrop();
                 // 战役任务积分不播主菜单 Logo 影片（须在 backdrop 刷新之后清，避免又被槽位加载回来）。
                 if self.results_is_campaign() {

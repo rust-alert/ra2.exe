@@ -167,6 +167,12 @@ pub struct Shell {
     pub(super) score_bgm: Option<PcmAudio>,
     /// 是否已尝试装载结算 BGM。
     pub(super) score_bgm_tried: bool,
+    /// 战役结算底图（`CampaignScore.Background`，如 `ascrbkmd`）。
+    pub(super) campaign_score_background: Option<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 战役结算过渡末帧（`CampaignScore.Transition`，如 `ascrtmd`）。
+    pub(super) campaign_score_transition: Option<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 是否已尝试装载战役结算战报图（失败后不再每帧重试）。
+    pub(super) campaign_score_art_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。
     pub(super) menu_click: Option<PcmAudio>,
     /// 壳层出去音效（`GUIMoveOutSound` → 默认 `MenuSlideOut` / `uslide2`）。

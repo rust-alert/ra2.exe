@@ -79,7 +79,7 @@ impl BattleController {
     }
 
     /// 按本地阵营解码侧栏/底栏 chrome（仅在缺失或换边时重解）。
-    pub(super) fn ensure_battle_hud_chrome(&mut self, assets: Option<&GameAssetSource>) {
+    pub(crate) fn ensure_battle_hud_chrome(&mut self, assets: Option<&GameAssetSource>) {
         let Some(source) = assets
         else {
             return;
@@ -115,7 +115,7 @@ impl BattleController {
     }
 
     /// 按本地阵营解码暂停菜单素材（换边重解；必须 prefer `sidec*`）。
-    pub(super) fn ensure_pause_menu_chrome(&mut self, assets: Option<&GameAssetSource>) {
+    pub(crate) fn ensure_pause_menu_chrome(&mut self, assets: Option<&GameAssetSource>) {
         let Some(side) = self.local_house_name()
         else {
             return;
@@ -163,6 +163,58 @@ impl BattleController {
             let names = self.paint.cameo_asset_names(key);
             let sprite = decode_cameo_sprite(source, &names);
             self.cameo_cache.insert(key.to_string(), sprite);
+        }
+    }
+
+    /// 胜负收束期：战役优先解码 `CampaignScore.Animation`（调色板 `CampaignScore.Palette`）。
+    pub(super) fn ensure_outcome_banner(&mut self, assets: Option<&GameAssetSource>) {
+        if self.outcome_banner_tried {
+            return;
+        }
+        let Some(game) = self.session.as_ref().and_then(|s| s.battle())
+        else {
+            return;
+        };
+        // 收束窗内已有暂存胜负，即可解码横幅（不必等 `outcome` 落盘）。
+        if game.outcome.is_none() && game.pending_savour_outcome.is_none() {
+            return;
+        }
+        self.outcome_banner_tried = true;
+        if game.boot_kind != ra_engine::SessionBootKind::Campaign {
+            return;
+        }
+        let Some(source) = assets
+        else {
+            return;
+        };
+        let Some(chrome) = self.ui_faction_chrome.as_ref()
+        else {
+            return;
+        };
+        let pals = ra_widgets::skirmish_setup::campaign_score_screen_palette_candidates(chrome);
+        let anims = ra_widgets::skirmish_setup::campaign_score_screen_animation_candidates(chrome);
+        let Some(pal) = pals.into_iter().find(|p| source.resolve(p).is_some())
+        else {
+            tracing::warn!("战役收束横幅缺可读 CampaignScore.Palette");
+            return;
+        };
+        for anim in anims {
+            if source.resolve(&anim).is_none() {
+                continue;
+            }
+            let asset = ra_widgets::screens::page::UiAssetRef::with_palette(&anim, &pal);
+            match ra_widgets::skin::decode::decode_asset_frames(source, &asset) {
+                Ok(frames) if !frames.is_empty() => {
+                    // 取中段帧：动画后半常带「任务完成」字样。
+                    let idx = frames.len() / 2;
+                    let sprite = frames.into_iter().nth(idx).expect("non-empty frames");
+                    tracing::info!(%anim, %pal, frame = idx, "战役收束横幅已解码");
+                    self.outcome_banner = Some(sprite);
+                    return;
+                }
+                Ok(_) => tracing::warn!(%anim, "CampaignScore.Animation 无帧"),
+                Err(e) => tracing::warn!(%anim, %pal, "CampaignScore.Animation 解码失败 · {e}"),
+            }
         }
     }
 }

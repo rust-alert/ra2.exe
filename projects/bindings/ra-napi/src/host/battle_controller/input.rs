@@ -326,9 +326,11 @@ impl BattleController {
             .and_then(|s| s.battle())
             .is_some_and(|g| g.world.trigger_runtime.script_input_locked);
         let gameplay_open = accept_commands && !battle_paused && !script_locked;
-        let has_outcome = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some());
-        // EVA 播报窗口：仍在 Battle 页，但不再接受对局/暂停输入。
-        if accept_commands && has_outcome {
+        let outcome_hold = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
+            g.outcome.is_some() || g.pending_savour_outcome.is_some()
+        });
+        // 收束窗 / EVA 播报：仍在 Battle 页，但不再接受对局/暂停输入。
+        if accept_commands && outcome_hold {
             if let WindowEvent::CursorMoved { position, .. } = event {
                 self.cursor = (position.x, position.y);
             }
