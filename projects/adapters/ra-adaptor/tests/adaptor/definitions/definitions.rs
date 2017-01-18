@@ -83,13 +83,13 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(sw.recharge_time, 10);
     assert_eq!(sw.sidebar_image, "SSWLSICON");
     assert_eq!(sw.weapon, "LIGHTNINGBOLT");
-    assert_ne!(sw.weapon_id, ra_types::WeaponId(0));
-    let weapon = defs.weapons.get_by_id(sw.weapon_id).expect("SW weapon");
+    assert!(sw.weapon_id.is_some());
+    let weapon = defs.weapons.get_by_id(sw.weapon_id.expect("SW weapon id")).expect("SW weapon");
     assert_eq!(weapon.type_key, "LIGHTNINGBOLT");
     assert_eq!(weapon.damage, 250);
     assert_eq!(weapon.range, 8);
     assert_eq!(weapon.rof, 1);
-    assert_ne!(weapon.warhead_id, ra_types::WarheadId(0));
+    assert!(weapon.warhead_id.is_some());
     assert_eq!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()), Some("LIGHTNINGSTORM"));
     let gatech = defs.structures.get("GATECH").expect("tech");
     let sw_id = gatech.super_weapon_id.expect("bound SW id");
@@ -148,22 +148,36 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let mtnk = defs.techno.get("MTNK").expect("MTNK");
     assert_eq!(mtnk.primary, "90MM");
-    assert_ne!(mtnk.primary_id, ra_types::WeaponId(0));
+    assert!(mtnk.primary_id.is_some());
     assert_eq!(mtnk.warhead, "SA");
-    assert_ne!(mtnk.warhead_id, ra_types::WarheadId(0));
-    let weapon = defs.weapons.get_by_id(mtnk.primary_id).expect("bound weapon");
+    assert!(mtnk.warhead_id.is_some());
+    let weapon = defs.weapons.get_by_id(mtnk.primary_id.expect("primary id")).expect("bound weapon");
     assert_eq!(weapon.type_key, "90MM");
     assert_eq!(weapon.damage, 50);
     assert_eq!(weapon.range, 6);
     assert_eq!(weapon.rof, 8);
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     assert!(weapon.projectile.is_empty());
-    assert_eq!(weapon.projectile_id, ra_types::ProjectileId(0));
-    let wh = defs.warheads.get_by_id(mtnk.warhead_id).expect("bound warhead");
+    assert!(weapon.projectile_id.is_none());
+    let wh = defs.warheads.get_by_id(mtnk.warhead_id.expect("warhead id")).expect("bound warhead");
     assert_eq!(wh.type_key, "SA");
     assert_eq!(*wh.verses, [100; 11]);
     assert_eq!(wh.spread, 0);
     assert_eq!(wh.prone_damage, 100);
+}
+
+#[test]
+fn build_runtime_definitions_leaves_empty_weapon_refs_unbound() {
+    let rules = rules_from(
+        b"[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let mtnk = defs.techno.get("MTNK").expect("MTNK");
+    assert!(mtnk.primary.is_empty());
+    assert!(mtnk.primary_id.is_none());
+    assert!(mtnk.secondary_id.is_none());
+    assert!(mtnk.warhead_id.is_none());
 }
 
 #[test]
@@ -177,8 +191,8 @@ fn build_runtime_definitions_binds_projectile_id() {
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let weapon = defs.weapons.get("90MM").expect("weapon");
     assert_eq!(weapon.projectile, "INVISIBLE");
-    assert_ne!(weapon.projectile_id, ra_types::ProjectileId(0));
-    let projectile = defs.projectiles.get_by_id(weapon.projectile_id).expect("projectile");
+    assert!(weapon.projectile_id.is_some());
+    let projectile = defs.projectiles.get_by_id(weapon.projectile_id.expect("projectile id")).expect("projectile");
     assert_eq!(projectile.type_key, "INVISIBLE");
 }
 
@@ -194,9 +208,9 @@ fn build_runtime_definitions_binds_secondary_weapon_id() {
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let fv = defs.techno.get("FV").expect("FV");
     assert_eq!(fv.secondary, "REPAIR");
-    assert_ne!(fv.secondary_id, ra_types::WeaponId(0));
+    assert!(fv.secondary_id.is_some());
     assert_ne!(fv.secondary_id, fv.primary_id);
-    let secondary = defs.weapons.get_by_id(fv.secondary_id).expect("secondary");
+    let secondary = defs.weapons.get_by_id(fv.secondary_id.expect("secondary id")).expect("secondary");
     assert_eq!(secondary.type_key, "REPAIR");
     assert_eq!(secondary.range, 3);
     assert_eq!(secondary.rof, 20);

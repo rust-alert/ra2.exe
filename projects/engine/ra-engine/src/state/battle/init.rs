@@ -37,7 +37,7 @@ impl BattleState {
                 house_order.push(e.owner.as_str().to_string());
             }
             let tt = definitions.techno.get(&e.type_id);
-            let weapon = tt.and_then(|t| definitions.weapons.get_by_id(t.primary_id));
+            let weapon = tt.and_then(|t| t.primary_id).and_then(|id| definitions.weapons.get_by_id(id));
             let max_health = tt.map(|t| t.strength).unwrap_or(1).max(1);
             let health = (u64::from(max_health) * u64::from(e.health) / 256) as u32;
             let speed = tt.map(|t| t.speed).unwrap_or(0);
@@ -52,7 +52,7 @@ impl BattleState {
                 .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
                 .unwrap_or(0);
             let armor = tt.map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
-            let warhead_id = weapon.map(|w| w.warhead_id).or_else(|| tt.map(|t| t.warhead_id)).unwrap_or(ra_types::WarheadId(0));
+            let warhead_id = weapon.and_then(|w| w.warhead_id).or_else(|| tt.and_then(|t| t.warhead_id));
             let attack_verses = if tt.is_some() {
                 verses_for(&definitions, warhead_id)
             } else {
@@ -207,7 +207,7 @@ impl BattleState {
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
         let armor = tt.armor;
-        let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
+        let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
         let class = tt.class;
         let attack_range = weapon
             .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
@@ -217,7 +217,7 @@ impl BattleState {
         let attack_cooldown_max = weapon
             .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
             .unwrap_or(0);
-        let warhead_id = weapon.map(|w| w.warhead_id).unwrap_or(tt.warhead_id);
+        let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let kind = match class {

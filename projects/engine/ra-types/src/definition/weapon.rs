@@ -123,12 +123,12 @@ pub struct WeaponDefinition {
     pub rof: u32,
     /// 弹头名；空表示未配置。
     pub warhead: WarheadName,
-    /// 弹头稳定 id；`WarheadId(0)` 表示未绑定。
-    pub warhead_id: WarheadId,
+    /// 弹头稳定 id；`None` 表示未配置（空名）。
+    pub warhead_id: Option<WarheadId>,
     /// 抛射体名（`Projectile=`）；空表示未配置。
     pub projectile: ProjectileName,
-    /// 抛射体稳定 id；`ProjectileId(0)` 表示未绑定。
-    pub projectile_id: ProjectileId,
+    /// 抛射体稳定 id；`None` 表示未配置（空名）。
+    pub projectile_id: Option<ProjectileId>,
 }
 
 /// 武器定义表。

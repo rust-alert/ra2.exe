@@ -27,7 +27,7 @@ fn layered_rules_merge_techno_cost_and_append_owner() {
     assert_eq!(techno.cost, 800);
     assert!(techno.owner.owner_allows("Americans"));
     assert!(techno.owner.owner_allows("Alliance"));
-    assert_ne!(techno.primary_id, ra_types::WeaponId(0));
+    assert!(techno.primary_id.is_some());
 }
 
 struct MapAssetSource {

@@ -15,7 +15,7 @@ use crate::{RulesSystem, rules_system_from_ini_bytes};
 
 /// 由已装载规则快照构建冻结运行时定义。
 ///
-/// 空名称引用仍绑定为零 ID。非空名称必须能解析到表项，否则返回 [`RaError::UnknownReference`]。
+/// 空名称可选引用绑定为 `None`。非空名称必须能解析到表项，否则返回 [`RaError::UnknownReference`]。
 pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinitions> {
     let mut defs = RuntimeDefinitions::default();
     let mut next_id = 1u32;
@@ -95,7 +95,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             recharge_time: sw.recharge_time,
             sidebar_image: sw.sidebar_image.clone(),
             weapon: sw.weapon.clone(),
-            weapon_id: WeaponId(0),
+            weapon_id: None,
         });
     }
     if !defs.super_weapons.is_empty() && !defs.capabilities.builtins.contains(&BuiltinCapability::SuperWeapon) {
@@ -130,11 +130,11 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             category: tt.category,
             sight: tt.sight,
             primary: tt.primary.clone(),
-            primary_id: WeaponId(0),
+            primary_id: None,
             secondary: tt.secondary.clone(),
-            secondary_id: WeaponId(0),
+            secondary_id: None,
             warhead: tt.warhead.clone(),
-            warhead_id: WarheadId(0),
+            warhead_id: None,
             prerequisite: tt.prerequisite.clone().into_vec(),
             prerequisite_override: tt.prerequisite_override.clone().into_vec(),
             required_houses: tt.required_houses.clone(),
@@ -333,9 +333,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
                 range,
                 rof,
                 warhead,
-                warhead_id: WarheadId(0),
+                warhead_id: None,
                 projectile,
-                projectile_id: ProjectileId(0),
+                projectile_id: None,
             });
         }
     }
@@ -352,9 +352,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             range: sw.weapon_range,
             rof: sw.weapon_rof,
             warhead: sw.weapon_warhead.clone(),
-            warhead_id: WarheadId(0),
+            warhead_id: None,
             projectile: sw.weapon_projectile.clone(),
-            projectile_id: ProjectileId(0),
+            projectile_id: None,
         });
     }
 
@@ -405,7 +405,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         });
     }
 
-    let weapon_binds: Vec<(WeaponId, WarheadId, ProjectileId)> = defs
+    let weapon_binds: Vec<(WeaponId, Option<WarheadId>, Option<ProjectileId>)> = defs
         .weapons
         .iter()
         .map(|weapon| {
@@ -433,13 +433,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         validate_house_allow_list(&defs, &structure.owner, "Owner", structure.type_key.as_str())?;
     }
 
-    let techno_binds: Vec<(TypeId, WeaponId, WeaponId, WarheadId)> = defs
+    let techno_binds: Vec<(TypeId, Option<WeaponId>, Option<WeaponId>, Option<WarheadId>)> = defs
         .techno
         .iter()
         .map(|techno| {
             let primary_id = bind_weapon_id(&defs, &techno.primary, techno.type_key.as_str())?;
             let secondary_id = bind_weapon_id(&defs, &techno.secondary, techno.type_key.as_str())?;
-            let warhead_id = if let Some(w) = defs.weapons.get_by_id(primary_id) {
+            let warhead_id = if let Some(w) = primary_id.and_then(|id| defs.weapons.get_by_id(id)) {
                 w.warhead_id
             } else {
                 bind_warhead_id(&defs, &techno.warhead, techno.type_key.as_str())?
@@ -455,7 +455,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
     }
 
-    let sw_binds: Vec<(TypeId, WeaponId)> = defs
+    let sw_binds: Vec<(TypeId, Option<WeaponId>)> = defs
         .super_weapons
         .iter()
         .map(|sw| Ok((sw.id, bind_weapon_id(&defs, &sw.weapon, sw.type_key.as_str())?)))
@@ -472,33 +472,33 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     Ok(defs)
 }
 
-fn bind_weapon_id(defs: &RuntimeDefinitions, name: &WeaponName, owner: &str) -> RaResult<WeaponId> {
+fn bind_weapon_id(defs: &RuntimeDefinitions, name: &WeaponName, owner: &str) -> RaResult<Option<WeaponId>> {
     if name.is_empty() {
-        return Ok(WeaponId(0));
+        return Ok(None);
     }
-    defs.weapons.get_name(name).map(|w| w.id).ok_or_else(|| RaError::UnknownReference {
+    defs.weapons.get_name(name).map(|w| Some(w.id)).ok_or_else(|| RaError::UnknownReference {
         kind: "weapon",
         name: name.as_str().to_string(),
         owner: owner.to_string(),
     })
 }
 
-fn bind_warhead_id(defs: &RuntimeDefinitions, name: &WarheadName, owner: &str) -> RaResult<WarheadId> {
+fn bind_warhead_id(defs: &RuntimeDefinitions, name: &WarheadName, owner: &str) -> RaResult<Option<WarheadId>> {
     if name.is_empty() {
-        return Ok(WarheadId(0));
+        return Ok(None);
     }
-    defs.warheads.get_name(name).map(|w| w.id).ok_or_else(|| RaError::UnknownReference {
+    defs.warheads.get_name(name).map(|w| Some(w.id)).ok_or_else(|| RaError::UnknownReference {
         kind: "warhead",
         name: name.as_str().to_string(),
         owner: owner.to_string(),
     })
 }
 
-fn bind_projectile_id(defs: &RuntimeDefinitions, name: &ProjectileName, owner: &str) -> RaResult<ProjectileId> {
+fn bind_projectile_id(defs: &RuntimeDefinitions, name: &ProjectileName, owner: &str) -> RaResult<Option<ProjectileId>> {
     if name.is_empty() {
-        return Ok(ProjectileId(0));
+        return Ok(None);
     }
-    defs.projectiles.get_name(name).map(|p| p.id).ok_or_else(|| RaError::UnknownReference {
+    defs.projectiles.get_name(name).map(|p| Some(p.id)).ok_or_else(|| RaError::UnknownReference {
         kind: "projectile",
         name: name.as_str().to_string(),
         owner: owner.to_string(),

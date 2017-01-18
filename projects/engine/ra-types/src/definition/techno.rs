@@ -261,16 +261,16 @@ pub struct TechnoDefinition {
     pub sight: u32,
     /// 主武器名（`Primary`）；空表示未配置。
     pub primary: WeaponName,
-    /// 主武器稳定 id；`WeaponId(0)` 表示未绑定。
-    pub primary_id: WeaponId,
+    /// 主武器稳定 id；`None` 表示未配置（空名）。
+    pub primary_id: Option<WeaponId>,
     /// 副武器名（`Secondary`）；空表示未配置。
     pub secondary: WeaponName,
-    /// 副武器稳定 id；`WeaponId(0)` 表示未绑定。
-    pub secondary_id: WeaponId,
+    /// 副武器稳定 id；`None` 表示未配置（空名）。
+    pub secondary_id: Option<WeaponId>,
     /// 主武器弹头名；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
     pub warhead: WarheadName,
-    /// 主武器弹头稳定 id；`WarheadId(0)` 表示未绑定。
-    pub warhead_id: WarheadId,
+    /// 主武器弹头稳定 id；`None` 表示未配置（空名）。
+    pub warhead_id: Option<WarheadId>,
     /// `Prerequisite`：装载期绑定后的 token 列表；空 = 无前置。
     pub prerequisite: Vec<PrerequisiteToken>,
     /// `PrerequisiteOverride`：拥有任一即可绕过普通 Prerequisite。

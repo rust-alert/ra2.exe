@@ -6,9 +6,10 @@ pub(crate) fn full_verses() -> [u32; 11] {
     [100; 11]
 }
 
-pub(crate) fn verses_for(defs: &RuntimeDefinitions, warhead_id: WarheadId) -> [u32; 11] {
-    if warhead_id == WarheadId(0) {
+pub(crate) fn verses_for(defs: &RuntimeDefinitions, warhead_id: Option<WarheadId>) -> [u32; 11] {
+    let Some(warhead_id) = warhead_id
+    else {
         return full_verses();
-    }
+    };
     defs.warheads.get_by_id(warhead_id).map(|w| *w.verses).unwrap_or_else(full_verses)
 }

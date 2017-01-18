@@ -120,7 +120,7 @@ impl crate::state::BattleState {
         let base_health = tt.strength.max(1);
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
-        let weapon = self.definitions.weapons.get_by_id(tt.primary_id);
+        let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
         let attack_range = weapon
             .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
             .unwrap_or(0);
@@ -129,7 +129,7 @@ impl crate::state::BattleState {
         let attack_cooldown_max = weapon
             .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
             .unwrap_or(0);
-        let warhead_id = weapon.map(|w| w.warhead_id).unwrap_or(tt.warhead_id);
+        let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {

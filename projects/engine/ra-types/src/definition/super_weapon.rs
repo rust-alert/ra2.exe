@@ -312,8 +312,8 @@ pub struct SuperWeaponDefinition {
     pub sidebar_image: ImageName,
     /// `Weapon=` 关联武器名（可空，诊断用）。
     pub weapon: WeaponName,
-    /// `Weapon=` 绑定到武器表的稳定 id；`WeaponId(0)` 表示未配置或未命中。
-    pub weapon_id: WeaponId,
+    /// `Weapon=` 绑定到武器表的稳定 id；`None` 表示未配置（空名）。
+    pub weapon_id: Option<WeaponId>,
 }
 
 /// 超级武器定义表（按外部 type_key 查询）。
