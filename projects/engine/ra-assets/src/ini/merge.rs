@@ -140,13 +140,6 @@ impl<'a> LayeredIniView<'a> {
         self.section(section)?.numbered_pack_parts()
     }
 
-    /// 对指定节执行编号 pack 拼接（需策略为 [`EntryMergePolicy::NumberedPack`]，或任意策略下按索引后写覆盖）。
-    ///
-    /// 解码路径请优先 [`Self::numbered_pack_parts`]，避免先拼完整 `String`。
-    pub fn numbered_pack_concat(&self, section: &str) -> Option<String> {
-        self.section(section)?.numbered_pack_concat()
-    }
-
     /// 各层出现过的节比较名（底层先出现者在前，顶层新节追加）。
     pub fn section_keys(&self) -> Vec<&'a str> {
         let mut out = Vec::new();
@@ -298,18 +291,6 @@ impl<'a> LayeredSectionView<'a> {
             return None;
         }
         Some(entries.into_iter().map(|(_, r)| r.value.raw).collect())
-    }
-
-    /// 编号 pack 有效文本：索引排序后无分隔符拼接（base64 块串）。
-    ///
-    /// 仅保留给需要整串的诊断 / 旧调用；解码请用 [`Self::numbered_pack_parts`]。
-    pub fn numbered_pack_concat(&self) -> Option<String> {
-        let parts = self.numbered_pack_parts()?;
-        let mut out = String::new();
-        for part in parts {
-            out.push_str(part);
-        }
-        Some(out)
     }
 
     /// 按键策略解析带来源层的有效值（`AppendValues` 取顶层出现值，完整列表见 [`Self::all_resolved`]）。

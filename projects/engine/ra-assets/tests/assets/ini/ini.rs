@@ -1,11 +1,11 @@
 //! `IniDocument`（Westwood 方言）行为。
 
-use ra_assets::{IniDocument, collect_shp_refs, numbered_pairs, numbered_section_concat};
+use ra_assets::{IniDocument, collect_shp_refs, numbered_pairs, numbered_section_parts};
 
 #[test]
-fn numbered_concat_sorts_numerically() {
+fn numbered_parts_sort_numerically() {
     let doc = IniDocument::parse(b"[IsoMapPack5]\n10=C\n2=B\n1=A\n").unwrap();
-    assert_eq!(numbered_section_concat(&doc, "IsoMapPack5").as_deref(), Some("ABC"));
+    assert_eq!(numbered_section_parts(&doc, "IsoMapPack5").as_deref(), Some(["A", "B", "C"].as_slice()));
 }
 
 #[test]
