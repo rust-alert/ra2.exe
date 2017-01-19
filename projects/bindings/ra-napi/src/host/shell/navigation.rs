@@ -441,6 +441,11 @@ impl Shell {
                     if !pending.is_empty() {
                         tracing::warn!(count = pending.len(), events = ?pending, "进结算时仍有未播对局音效/EVA（已丢弃，避免叠播）");
                     }
+                    ctrl.clear_outcome_audio_gate();
+                }
+                // 掐断仍在播的 EVA 短音，再由 `set_screen` → `sync_shell_audio` 切 SCORE 主题。
+                if let Some(audio) = self.audio.as_mut() {
+                    audio.stop_sfx();
                 }
                 self.renderer.clear_ui_page();
                 self.menu_pressed_entry = None;

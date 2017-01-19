@@ -63,6 +63,13 @@ impl ShellAudio {
         }
     }
 
+    /// 停止全部短音效（进结算时掐断残留 EVA，避免压过 SCORE 主题）。
+    pub fn stop_sfx(&mut self) {
+        for player in self.sfx.drain(..) {
+            player.stop();
+        }
+    }
+
     /// 设置 BGM 音量（0..1），立刻作用于当前音乐轨。
     pub fn set_music_volume(&mut self, volume: f32) {
         self.music_volume = volume.clamp(0.0, 1.0);

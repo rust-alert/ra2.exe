@@ -545,6 +545,13 @@ impl BattleController {
         std::mem::take(&mut self.pending_battle_sfx)
     }
 
+    /// 进结算页时清语音门闩与收束 hold（残留短音由壳层 `stop_sfx` 掐断）。
+    pub fn clear_outcome_audio_gate(&mut self) {
+        self.pending_battle_sfx.clear();
+        self.eva_voice_until = None;
+        self.outcome_hold_until = None;
+    }
+
     /// 本帧可立即开播的事件：非 EVA 可并行取出；EVA 仅在语音通道空闲时取队首一句。
     pub fn drain_playable_battle_sfx(&mut self) -> Vec<String> {
         let now = Instant::now();
