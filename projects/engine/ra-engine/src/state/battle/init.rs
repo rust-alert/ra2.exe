@@ -75,8 +75,11 @@ impl BattleState {
                         ra_types::MapPlacedEntityKind::Infantry => MapEntityKind::Infantry,
                         ra_types::MapPlacedEntityKind::Aircraft => MapEntityKind::Aircraft,
                     },
-                    mission: p.mission.clone(),
-                    tag: p.tag.clone(),
+                    mission: p.mission.map(ra_types::MissionKind::to_name).unwrap_or_default(),
+                    tag: p
+                        .tag
+                        .and_then(|id| prepared.tags.iter().find(|t| t.id == id).map(|t| t.name.clone()))
+                        .unwrap_or_default(),
                 },
                 owner: Owner { house: Arc::<str>::from(owner_key) },
                 transform: Transform {

@@ -399,7 +399,7 @@ fn bind_map_placements_resolves_techno_and_house_ids() {
         mission: ra_types::MissionName::default(),
         tag: ra_types::TagName::default(),
     }];
-    let placements = ra_adaptor::bind_map_placements(&entities, &defs).expect("bind");
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("bind");
     assert_eq!(placements.len(), 1);
     assert_eq!(placements[0].definition_id, defs.techno.get("GAPOWR").expect("GAPOWR").id);
     assert_eq!(placements[0].owner, defs.houses.get("Americans").expect("Americans").id);
@@ -428,7 +428,7 @@ fn bind_map_placements_rejects_unknown_techno_type() {
         mission: ra_types::MissionName::default(),
         tag: ra_types::TagName::default(),
     }];
-    let err = ra_adaptor::bind_map_placements(&entities, &defs).expect_err("unknown techno");
+    let err = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect_err("unknown techno");
     let msg = err.to_string();
     assert!(msg.contains("techno"), "{msg}");
     assert!(msg.contains("MISSINGBLDG"), "{msg}");
@@ -455,6 +455,152 @@ fn bind_map_placements_accepts_ambient_owner_house() {
         mission: ra_types::MissionName::default(),
         tag: ra_types::TagName::default(),
     }];
-    let placements = ra_adaptor::bind_map_placements(&entities, &defs).expect("ambient owner");
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("ambient owner");
     assert_eq!(placements[0].owner, defs.houses.get("NEUTRAL").expect("NEUTRAL").id);
+}
+
+#[test]
+fn bind_map_placements_rejects_unknown_tag() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: "MISSINGTAG".into(),
+    }];
+    let err = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect_err("unknown tag");
+    let msg = err.to_string();
+    assert!(msg.contains("tag"), "{msg}");
+    assert!(msg.contains("MISSINGTAG"), "{msg}");
+}
+
+#[test]
+fn bind_map_placements_resolves_tag_id() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let tags = ra_types::bind_map_tags(&[ra_types::MapTag {
+        id: "T1".into(),
+        persistence: 0,
+        name: "Start".into(),
+        trigger_id: "TR1".into(),
+    }]);
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 2,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: "T1".into(),
+    }];
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs, &tags).expect("bind tag");
+    assert_eq!(placements[0].tag, Some(tags[0].id));
+}
+
+#[test]
+fn bind_map_cell_tags_resolves_tag_id() {
+    let tags = ra_types::bind_map_tags(&[ra_types::MapTag {
+        id: "ZONE".into(),
+        persistence: 0,
+        name: "Zone".into(),
+        trigger_id: "TRZ".into(),
+    }]);
+    let cells = [ra_types::MapCellTag {
+        x: 3,
+        y: 4,
+        tag_id: "ZONE".into(),
+    }];
+    let bound = ra_types::bind_map_cell_tags(&cells, &tags).expect("bind cell tags");
+    assert_eq!(bound.len(), 1);
+    assert_eq!(bound[0].x, 3);
+    assert_eq!(bound[0].y, 4);
+    assert_eq!(bound[0].tag, tags[0].id);
+}
+
+#[test]
+fn bind_map_cell_tags_rejects_unknown_tag() {
+    let err = ra_types::bind_map_cell_tags(
+        &[ra_types::MapCellTag {
+            x: 1,
+            y: 2,
+            tag_id: "MISSING".into(),
+        }],
+        &[],
+    )
+    .expect_err("unknown cell tag");
+    let msg = err.to_string();
+    assert!(msg.contains("tag"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}
+
+#[test]
+fn bind_map_placements_rejects_unknown_mission() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: "NotAMission".into(),
+        tag: ra_types::TagName::default(),
+    }];
+    let err = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect_err("unknown mission");
+    let msg = err.to_string();
+    assert!(msg.contains("mission"), "{msg}");
+    assert!(msg.contains("NOTAMISSION"), "{msg}");
+}
+
+#[test]
+fn bind_map_placements_resolves_mission_kind() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Infantry,
+        owner: "Americans".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 2,
+        y: 2,
+        facing: 0,
+        sub_cell: 0,
+        mission: "Guard".into(),
+        tag: ra_types::TagName::default(),
+    }];
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("bind mission");
+    assert_eq!(placements[0].mission, Some(ra_types::MissionKind::Guard));
 }

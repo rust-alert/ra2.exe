@@ -804,6 +804,7 @@ fn destroy_tag_action_kills_named_tag_entities() {
 [Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
 [Houses]\n0=Americans\n\
 [Americans]\nCountry=Americans\nPlayerControl=yes\n\
+[Tags]\nOBJ=0,Named,TRK\n\
 [Triggers]\nTRK=Americans,<none>,Kill Tag,0,1,1,1,0\n\
 [Events]\nTRK=1,13,0,0\n\
 [Actions]\nTRK=1,70,0,OBJ,0,0,0,0,A\n\

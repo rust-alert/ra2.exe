@@ -51,12 +51,12 @@ pub use house_list::{ColorName, HouseAllowList, HouseName, SideName};
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
-    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MissionName,
+    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MissionKind, MissionName,
     MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag,
-    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedMap, PreparedPlacement, ScriptTypeName,
+    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedCellTag, PreparedMap, PreparedPlacement, PreparedTag, ScriptTypeName,
     SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
 };
-pub use map_bind::{bind_map_placements, bind_prepared_map_placements};
+pub use map_bind::{bind_map_cell_tags, bind_map_placements, bind_map_tags, bind_prepared_map_placements};
 pub use map_edge::MapEdge;
 pub use overlay::{OverlayName, OverlayTypeRegistry};
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};

@@ -1523,6 +1523,146 @@ pub mod occupancy_kind {
     pub const SMUDGE: u8 = 3;
 }
 
+/// 地图放置初始任务态（已知键；装载绑定后使用）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MissionKind {
+    /// `Sleep`
+    Sleep,
+    /// `Attack`
+    Attack,
+    /// `Move`
+    Move,
+    /// `QMove`
+    QMove,
+    /// `Retreat`
+    Retreat,
+    /// `Guard`
+    Guard,
+    /// `Sticky`
+    Sticky,
+    /// `Enter`
+    Enter,
+    /// `Capture`
+    Capture,
+    /// `Eaten`
+    Eaten,
+    /// `Harvest`
+    Harvest,
+    /// `AreaGuard`
+    AreaGuard,
+    /// `Return`
+    Return,
+    /// `Stop`
+    Stop,
+    /// `Ambush`
+    Ambush,
+    /// `Hunt`
+    Hunt,
+    /// `Unload`
+    Unload,
+    /// `Sabotage`
+    Sabotage,
+    /// `Construction`
+    Construction,
+    /// `Selling`
+    Selling,
+    /// `Repair`
+    Repair,
+    /// `Rescue`
+    Rescue,
+    /// `Missile`
+    Missile,
+    /// `Harmless`
+    Harmless,
+    /// `Open`
+    Open,
+    /// `Patrol`
+    Patrol,
+    /// `Chronoshifted`
+    Chronoshifted,
+    /// `AttackAgain`
+    AttackAgain,
+}
+
+impl MissionKind {
+    /// 从装载期大写任务名解析；空名返回 `None`。
+    pub fn from_name(name: &MissionName) -> Option<Self> {
+        if name.is_empty() {
+            return None;
+        }
+        Some(match name.as_str() {
+            "SLEEP" => Self::Sleep,
+            "ATTACK" => Self::Attack,
+            "MOVE" => Self::Move,
+            "QMOVE" => Self::QMove,
+            "RETREAT" => Self::Retreat,
+            "GUARD" => Self::Guard,
+            "STICKY" => Self::Sticky,
+            "ENTER" => Self::Enter,
+            "CAPTURE" => Self::Capture,
+            "EATEN" => Self::Eaten,
+            "HARVEST" => Self::Harvest,
+            "AREAGUARD" => Self::AreaGuard,
+            "RETURN" => Self::Return,
+            "STOP" => Self::Stop,
+            "AMBUSH" => Self::Ambush,
+            "HUNT" => Self::Hunt,
+            "UNLOAD" => Self::Unload,
+            "SABOTAGE" => Self::Sabotage,
+            "CONSTRUCTION" => Self::Construction,
+            "SELLING" => Self::Selling,
+            "REPAIR" => Self::Repair,
+            "RESCUE" => Self::Rescue,
+            "MISSILE" => Self::Missile,
+            "HARMLESS" => Self::Harmless,
+            "OPEN" => Self::Open,
+            "PATROL" => Self::Patrol,
+            "CHRONOSHIFTED" => Self::Chronoshifted,
+            "ATTACKAGAIN" => Self::AttackAgain,
+            _ => return None,
+        })
+    }
+
+    /// 稳定大写键（写入 Identity / 快照）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sleep => "SLEEP",
+            Self::Attack => "ATTACK",
+            Self::Move => "MOVE",
+            Self::QMove => "QMOVE",
+            Self::Retreat => "RETREAT",
+            Self::Guard => "GUARD",
+            Self::Sticky => "STICKY",
+            Self::Enter => "ENTER",
+            Self::Capture => "CAPTURE",
+            Self::Eaten => "EATEN",
+            Self::Harvest => "HARVEST",
+            Self::AreaGuard => "AREAGUARD",
+            Self::Return => "RETURN",
+            Self::Stop => "STOP",
+            Self::Ambush => "AMBUSH",
+            Self::Hunt => "HUNT",
+            Self::Unload => "UNLOAD",
+            Self::Sabotage => "SABOTAGE",
+            Self::Construction => "CONSTRUCTION",
+            Self::Selling => "SELLING",
+            Self::Repair => "REPAIR",
+            Self::Rescue => "RESCUE",
+            Self::Missile => "MISSILE",
+            Self::Harmless => "HARMLESS",
+            Self::Open => "OPEN",
+            Self::Patrol => "PATROL",
+            Self::Chronoshifted => "CHRONOSHIFTED",
+            Self::AttackAgain => "ATTACKAGAIN",
+        }
+    }
+
+    /// 转为装载期 `MissionName`。
+    pub fn to_name(self) -> MissionName {
+        MissionName::parse(self.as_str())
+    }
+}
+
 /// 与 [`crate::RuntimeDefinitions`] 绑定后的可开战 / 可预览地图。
 ///
 /// 当前为骨架：通行格与粗占格已可由装载侧灌入；渲染资源清单等仍待准备层收口。
@@ -1545,6 +1685,36 @@ pub struct PreparedMap {
     pub occupancy: Vec<u8>,
     /// 预放实体的规则绑定结果；骨架路径为空，adaptor 绑定后填入。
     pub placements: Vec<PreparedPlacement>,
+    /// 地图 `[Tags]` 绑定表；骨架路径为空。
+    pub tags: Vec<PreparedTag>,
+    /// 地图 `[CellTags]` 绑定表；骨架路径为空。
+    pub cell_tags: Vec<PreparedCellTag>,
+}
+
+/// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedCellTag {
+    /// 格子 X。
+    pub x: u16,
+    /// 格子 Y。
+    pub y: u16,
+    /// Tag 稳定 id。
+    pub tag: crate::TagId,
+}
+
+/// 地图 `[Tags]` 绑定后的运行形状（稳定 id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTag {
+    /// Tag 稳定 id。
+    pub id: crate::TagId,
+    /// Tag 键名（装载期大写）。
+    pub name: TagName,
+    /// 持久性：0 volatile / 1 semi / 2 persistent。
+    pub persistence: u8,
+    /// 编辑器名。
+    pub editor_name: String,
+    /// 关联 Trigger id（装载期大写）。
+    pub trigger_id: TriggerName,
 }
 
 /// 地图预放实体绑定后的运行形状（稳定 id，不再携带未解析类型名）。
@@ -1566,8 +1736,8 @@ pub struct PreparedPlacement {
     pub facing: u8,
     /// 步兵子格 0..=4；其它为 0。
     pub sub_cell: u8,
-    /// 初始任务名（装载期大写）；空表示未指定。后续可再收成任务枚举 / id。
-    pub mission: MissionName,
-    /// 绑定的 Tag 名（装载期大写）；空表示无。后续可再收成 `TagId`。
-    pub tag: TagName,
+    /// 初始任务态；`None` 表示未指定。
+    pub mission: Option<MissionKind>,
+    /// 绑定的 Tag 稳定 id；`None` 表示无 Tag。
+    pub tag: Option<crate::TagId>,
 }
