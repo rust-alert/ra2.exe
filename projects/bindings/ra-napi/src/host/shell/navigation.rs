@@ -456,6 +456,7 @@ impl Shell {
                 self.maybe_start_slide_in();
                 if self.results_is_campaign() {
                     self.ensure_campaign_score_art();
+                    self.reset_campaign_score_transition_anim();
                     self.menu_movie = None;
                     self.menu_movie_clock = None;
                 }

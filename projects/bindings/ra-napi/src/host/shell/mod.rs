@@ -169,8 +169,14 @@ pub struct Shell {
     pub(super) score_bgm_tried: bool,
     /// 战役结算底图（`CampaignScore.Background`，如 `ascrbkmd`）。
     pub(super) campaign_score_background: Option<ra_widgets::skin::decode::DecodedUiSprite>,
-    /// 战役结算过渡末帧（`CampaignScore.Transition`，如 `ascrtmd`）。
-    pub(super) campaign_score_transition: Option<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 战役结算过渡全帧（`CampaignScore.Transition`，如 `ascrtmd`）。
+    pub(super) campaign_score_transition_frames: Vec<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 过渡动画当前帧下标（播完后停在末帧）。
+    pub(super) campaign_score_transition_frame: usize,
+    /// 过渡动画时钟（与 WARNING 面板同为 10 FPS）。
+    pub(super) campaign_score_transition_clock: Option<std::time::Instant>,
+    /// 过渡动画累加器（秒）。
+    pub(super) campaign_score_transition_accum: f64,
     /// 是否已尝试装载战役结算战报图（失败后不再每帧重试）。
     pub(super) campaign_score_art_tried: bool,
     /// 菜单点击音效 PCM（`GUIMainButtonSound` → `sound.ini` → `audio.bag`）。

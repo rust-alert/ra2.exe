@@ -123,11 +123,58 @@ impl Shell {
     /// 离开结算页时清掉战役战报图缓存。
     pub(super) fn clear_campaign_score_art(&mut self) {
         self.campaign_score_background = None;
-        self.campaign_score_transition = None;
+        self.campaign_score_transition_frames.clear();
+        self.campaign_score_transition_frame = 0;
+        self.campaign_score_transition_clock = None;
+        self.campaign_score_transition_accum = 0.0;
         self.campaign_score_art_tried = false;
     }
 
-    /// 合成战役结算页：侧栏 hub + `CampaignScore.Background` + `Transition` 末帧 + 「继续」。
+    /// 进战役结算时从第 0 帧重播过渡。
+    pub(super) fn reset_campaign_score_transition_anim(&mut self) {
+        self.campaign_score_transition_frame = 0;
+        self.campaign_score_transition_clock = None;
+        self.campaign_score_transition_accum = 0.0;
+    }
+
+    /// 当前应绘制的过渡帧；播完后停在末帧。
+    pub(super) fn campaign_score_transition_sprite(&self) -> Option<&ra_widgets::skin::decode::DecodedUiSprite> {
+        if self.campaign_score_transition_frames.is_empty() {
+            return None;
+        }
+        let last = self.campaign_score_transition_frames.len() - 1;
+        self.campaign_score_transition_frames.get(self.campaign_score_transition_frame.min(last))
+    }
+
+    /// 战役结算过渡 10 FPS；未播完才进帧。返回是否需要重绘。
+    pub(super) fn tick_campaign_score_transition_anim(&mut self) -> bool {
+        let n = self.campaign_score_transition_frames.len();
+        if n <= 1 || self.campaign_score_transition_frame >= n - 1 {
+            self.campaign_score_transition_clock = None;
+            return false;
+        }
+        const FRAME_SECS: f64 = 0.1;
+        let dt = self
+            .campaign_score_transition_clock
+            .replace(std::time::Instant::now())
+            .map(|t0| t0.elapsed().as_secs_f64())
+            .unwrap_or(0.0)
+            .min(0.25);
+        self.campaign_score_transition_accum += dt;
+        let mut advanced = false;
+        while self.campaign_score_transition_accum >= FRAME_SECS && self.campaign_score_transition_frame < n - 1 {
+            self.campaign_score_transition_accum -= FRAME_SECS;
+            self.campaign_score_transition_frame += 1;
+            advanced = true;
+        }
+        if self.campaign_score_transition_frame >= n - 1 {
+            self.campaign_score_transition_clock = None;
+            self.campaign_score_transition_accum = 0.0;
+        }
+        advanced
+    }
+
+    /// 合成战役结算页：侧栏 hub + `CampaignScore.Background` + `Transition` 动画 + 「继续」。
     ///
     /// **不是**壳层 `mnscrnl` / `compose_skirmish_score_page`。
     pub(super) fn compose_campaign_results_page(&mut self) -> Option<ra_renderer::RgbaImage> {
@@ -154,14 +201,14 @@ impl Shell {
             self.menu_font.as_ref(),
             self.menu_csf.as_ref(),
             self.campaign_score_background.as_ref(),
-            self.campaign_score_transition.as_ref(),
+            self.campaign_score_transition_sprite(),
             pause,
             hud,
             funds,
         )
     }
 
-    /// 解码战役结算 `CampaignScore.Background` + `Transition` 末帧（仅战役 Results 需要）。
+    /// 解码战役结算 `CampaignScore.Background` + `Transition` 全帧（仅战役 Results 需要）。
     pub(super) fn ensure_campaign_score_art(&mut self) {
         if self.campaign_score_art_tried || !self.results_is_campaign() {
             return;
@@ -208,9 +255,9 @@ impl Shell {
             let asset = ra_widgets::screens::page::UiAssetRef::with_palette(&name, &pal);
             match ra_widgets::skin::decode::decode_asset_frames(source, &asset) {
                 Ok(frames) if !frames.is_empty() => {
-                    let sprite = frames.into_iter().next_back().expect("non-empty");
-                    tracing::info!(%name, %pal, frame = sprite.frame, "战役结算 Transition 末帧已解码");
-                    self.campaign_score_transition = Some(sprite);
+                    tracing::info!(%name, %pal, frames = frames.len(), "战役结算 Transition 全帧已解码");
+                    self.campaign_score_transition_frames = frames;
+                    self.reset_campaign_score_transition_anim();
                     break;
                 }
                 Ok(_) => tracing::warn!(%name, "CampaignScore.Transition 无帧"),
@@ -220,7 +267,7 @@ impl Shell {
         if self.campaign_score_background.is_none() {
             tracing::warn!(%side, "战役结算 Background 未就绪");
         }
-        if self.campaign_score_transition.is_none() {
+        if self.campaign_score_transition_frames.is_empty() {
             tracing::warn!(%side, "战役结算 Transition 未就绪");
         }
     }

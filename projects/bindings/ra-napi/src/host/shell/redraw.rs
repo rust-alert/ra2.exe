@@ -656,7 +656,11 @@ impl Shell {
                         self.campaign_side_anim_clock = None;
                     }
                 }
-                if movie_advanced || side_advanced || status_advanced || panel_advanced {
+                let mut transition_advanced = false;
+                if self.screen == OriginalScreen::Results && self.results_is_campaign() {
+                    transition_advanced = self.tick_campaign_score_transition_anim();
+                }
+                if movie_advanced || side_advanced || status_advanced || panel_advanced || transition_advanced {
                     self.refresh_menu_backdrop();
                 }
                 else if let Some(reason) = self.menu_movie.as_ref().and_then(|m| m.stalled_reason()) {
