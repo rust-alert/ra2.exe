@@ -205,16 +205,50 @@ impl BattleController {
             let asset = ra_widgets::screens::page::UiAssetRef::with_palette(&anim, &pal);
             match ra_widgets::skin::decode::decode_asset_frames(source, &asset) {
                 Ok(frames) if !frames.is_empty() => {
-                    // 取中段帧：动画后半常带「任务完成」字样。
-                    let idx = frames.len() / 2;
-                    let sprite = frames.into_iter().nth(idx).expect("non-empty frames");
-                    tracing::info!(%anim, %pal, frame = idx, "战役收束横幅已解码");
-                    self.outcome_banner = Some(sprite);
+                    tracing::info!(%anim, %pal, frames = frames.len(), "战役收束横幅全帧已解码");
+                    self.outcome_banner_frames = frames;
+                    self.outcome_banner_frame = 0;
+                    self.outcome_banner_clock = None;
+                    self.outcome_banner_accum = 0.0;
                     return;
                 }
                 Ok(_) => tracing::warn!(%anim, "CampaignScore.Animation 无帧"),
                 Err(e) => tracing::warn!(%anim, %pal, "CampaignScore.Animation 解码失败 · {e}"),
             }
+        }
+    }
+
+    /// 当前应绘制的收束横幅帧；播完后停在末帧。
+    pub(super) fn outcome_banner_sprite(&self) -> Option<&ra_widgets::skin::decode::DecodedUiSprite> {
+        if self.outcome_banner_frames.is_empty() {
+            return None;
+        }
+        let last = self.outcome_banner_frames.len() - 1;
+        self.outcome_banner_frames.get(self.outcome_banner_frame.min(last))
+    }
+
+    /// 战役收束横幅 10 FPS；未播完才进帧。
+    pub(super) fn tick_outcome_banner_anim(&mut self) {
+        let n = self.outcome_banner_frames.len();
+        if n <= 1 || self.outcome_banner_frame >= n - 1 {
+            self.outcome_banner_clock = None;
+            return;
+        }
+        const FRAME_SECS: f64 = 0.1;
+        let dt = self
+            .outcome_banner_clock
+            .replace(std::time::Instant::now())
+            .map(|t0| t0.elapsed().as_secs_f64())
+            .unwrap_or(0.0)
+            .min(0.25);
+        self.outcome_banner_accum += dt;
+        while self.outcome_banner_accum >= FRAME_SECS && self.outcome_banner_frame < n - 1 {
+            self.outcome_banner_accum -= FRAME_SECS;
+            self.outcome_banner_frame += 1;
+        }
+        if self.outcome_banner_frame >= n - 1 {
+            self.outcome_banner_clock = None;
+            self.outcome_banner_accum = 0.0;
         }
     }
 }

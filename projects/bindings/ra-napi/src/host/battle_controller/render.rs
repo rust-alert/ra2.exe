@@ -646,7 +646,8 @@ impl BattleController {
                 let key = battle_outcome_banner_csf_key(campaign, victory);
                 let caption = resolve_csf_text(csf, key).unwrap_or_else(|| battle_outcome_banner_fallback(campaign, victory).to_string());
                 let world = battle_hud_world_viewport(&snap);
-                paint_battle_outcome_hold_banner(&mut page, world, self.outcome_banner.as_ref(), &caption, fnt);
+                self.tick_outcome_banner_anim();
+                paint_battle_outcome_hold_banner(&mut page, world, self.outcome_banner_sprite(), &caption, fnt);
             }
             // 与壳层菜单同走 `[present]`，避免对局侧栏仍以满 8-bit 显得过亮。
             let page = present::present_ui_page(page, present);

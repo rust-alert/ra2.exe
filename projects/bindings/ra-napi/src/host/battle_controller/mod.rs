@@ -215,8 +215,14 @@ pub struct BattleController {
     pub(super) eva_options_seeded: bool,
     /// 胜负已定后的结算延迟截止（先播 EVA，再 `ToResults`）。
     pub(super) outcome_hold_until: Option<Instant>,
-    /// 收束期局内横幅（战役 `CampaignScore.Animation`；缺图时仅字）。
-    pub(super) outcome_banner: Option<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 收束期局内横幅全帧（战役 `CampaignScore.Animation`；缺图时仅字）。
+    pub(super) outcome_banner_frames: Vec<ra_widgets::skin::decode::DecodedUiSprite>,
+    /// 横幅动画当前帧下标（播完后停在末帧）。
+    pub(super) outcome_banner_frame: usize,
+    /// 横幅动画时钟（10 FPS）。
+    pub(super) outcome_banner_clock: Option<Instant>,
+    /// 横幅动画累加器（秒）。
+    pub(super) outcome_banner_accum: f64,
     /// 是否已尝试装入 outcome 横幅（避免每帧扫 MIX）。
     pub(super) outcome_banner_tried: bool,
     /// 当前边缘滚屏光标（整窗边缘；右栏 / 命令条有效）。
@@ -317,7 +323,10 @@ impl BattleController {
             eva_known_options: HashSet::new(),
             eva_options_seeded: false,
             outcome_hold_until: None,
-            outcome_banner: None,
+            outcome_banner_frames: Vec::new(),
+            outcome_banner_frame: 0,
+            outcome_banner_clock: None,
+            outcome_banner_accum: 0.0,
             outcome_banner_tried: false,
             edge_scroll_cursor: EdgeScrollCursor::Default,
             camera_pan_keys: CameraPanKeys::default(),
@@ -482,7 +491,10 @@ impl BattleController {
         self.eva_known_options.clear();
         self.eva_options_seeded = false;
         self.outcome_hold_until = None;
-        self.outcome_banner = None;
+        self.outcome_banner_frames.clear();
+        self.outcome_banner_frame = 0;
+        self.outcome_banner_clock = None;
+        self.outcome_banner_accum = 0.0;
         self.outcome_banner_tried = false;
         self.edge_scroll_cursor = EdgeScrollCursor::Default;
         self.action_lines_start_tick = None;
