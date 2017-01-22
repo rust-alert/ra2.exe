@@ -436,6 +436,7 @@ impl MapInfo {
             placements: Vec::new(),
             tags: Vec::new(),
             cell_tags: Vec::new(),
+            task_forces: Vec::new(),
         }
     }
 

@@ -1689,6 +1689,30 @@ pub struct PreparedMap {
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
     pub cell_tags: Vec<PreparedCellTag>,
+    /// 地图 `[TaskForces]` 绑定表；骨架路径为空。
+    pub task_forces: Vec<PreparedTaskForce>,
+}
+
+/// TaskForce 成员槽绑定后的运行形状（稳定 techno id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTaskForceEntry {
+    /// 数量。
+    pub count: u16,
+    /// 规则类型稳定 id。
+    pub definition_id: crate::TypeId,
+}
+
+/// `[TaskForces]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTaskForce {
+    /// id（装载期大写键；供 TeamType 引用）。
+    pub id: TaskForceName,
+    /// 名称。
+    pub name: String,
+    /// 成员（最多 6）。
+    pub entries: Vec<PreparedTaskForceEntry>,
+    /// `Group=`。
+    pub group: i32,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。

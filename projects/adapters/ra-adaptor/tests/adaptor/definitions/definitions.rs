@@ -604,3 +604,44 @@ fn bind_map_placements_resolves_mission_kind() {
     let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("bind mission");
     assert_eq!(placements[0].mission, Some(ra_types::MissionKind::Guard));
 }
+
+#[test]
+fn bind_map_task_forces_resolves_techno_ids() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = vec![ra_types::MapTaskForce {
+        id: "TF1".into(),
+        name: "Squad".into(),
+        entries: vec![ra_types::MapTaskForceEntry { count: 2, type_id: "E1".into() }],
+        group: -1,
+    }];
+    let bound = ra_adaptor::bind_map_task_forces(&forces, &defs).expect("bind task force");
+    assert_eq!(bound[0].entries[0].definition_id, defs.techno.get("E1").expect("E1").id);
+    assert_eq!(bound[0].entries[0].count, 2);
+}
+
+#[test]
+fn bind_map_task_forces_rejects_unknown_techno() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = vec![ra_types::MapTaskForce {
+        id: "TF1".into(),
+        name: "Squad".into(),
+        entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "MISSING".into() }],
+        group: -1,
+    }];
+    let err = ra_adaptor::bind_map_task_forces(&forces, &defs).expect_err("unknown techno");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}

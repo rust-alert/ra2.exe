@@ -53,10 +53,11 @@ pub use locomotor::LocomotorDefinitions;
 pub use map::{
     AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition, MapFileName, MissionKind, MissionName,
     MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag,
-    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedCellTag, PreparedMap, PreparedPlacement, PreparedTag, ScriptTypeName,
+    MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, PreparedCellTag, PreparedMap, PreparedPlacement, PreparedTag, PreparedTaskForce,
+    PreparedTaskForceEntry, ScriptTypeName,
     SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
 };
-pub use map_bind::{bind_map_cell_tags, bind_map_placements, bind_map_tags, bind_prepared_map_placements};
+pub use map_bind::{bind_map_cell_tags, bind_map_placements, bind_map_tags, bind_map_task_forces, bind_prepared_map_placements};
 pub use map_edge::MapEdge;
 pub use overlay::{OverlayName, OverlayTypeRegistry};
 pub use production::{ProductionCategory, ProductionDefinitions, ProductionProfile, deserialize_optional_factory};

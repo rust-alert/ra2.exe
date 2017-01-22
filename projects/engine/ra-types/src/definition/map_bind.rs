@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapCellTag, MapPlacedEntity, MapTag, MissionKind, MissionName, PreparedCellTag, PreparedMap, PreparedPlacement, PreparedTag, RaError, RaResult, RuntimeDefinitions,
-    TagId, TagName, TechnoName, TypeId,
+    HouseId, HouseName, MapCellTag, MapPlacedEntity, MapTag, MapTaskForce, MissionKind, MissionName, PreparedCellTag, PreparedMap, PreparedPlacement, PreparedTag, PreparedTaskForce,
+    PreparedTaskForceEntry, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TypeId,
 };
 
 /// 将 `[Tags]` 投影为稳定 [`PreparedTag`] 表。
@@ -82,13 +82,38 @@ pub fn bind_map_cell_tags(cell_tags: &[MapCellTag], tags: &[PreparedTag]) -> RaR
     Ok(out)
 }
 
-/// 就地填充 [`PreparedMap::tags`] / [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；失败时不改动已有字段。
+/// 将 `[TaskForces]` 绑定为稳定 techno id 的 [`PreparedTaskForce`]。
+///
+/// - 未知成员 `type_id` → [`RaError::UnknownReference`]（techno）
+pub fn bind_map_task_forces(task_forces: &[MapTaskForce], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedTaskForce>> {
+    let mut out = Vec::with_capacity(task_forces.len());
+    for force in task_forces {
+        let mut entries = Vec::with_capacity(force.entries.len());
+        for entry in &force.entries {
+            entries.push(PreparedTaskForceEntry {
+                count: entry.count,
+                definition_id: bind_techno_id(defs, &entry.type_id, "MapTaskForce")?,
+            });
+        }
+        out.push(PreparedTaskForce {
+            id: force.id.clone(),
+            name: force.name.clone(),
+            entries,
+            group: force.group,
+        });
+    }
+    Ok(out)
+}
+
+/// 就地填充 [`PreparedMap`] 绑定字段；失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
     let tags = bind_map_tags(&prepared.definition.tags);
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
+    let task_forces = bind_map_task_forces(&prepared.definition.task_forces, defs)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
     prepared.tags = tags;
     prepared.cell_tags = cell_tags;
+    prepared.task_forces = task_forces;
     prepared.placements = placements;
     Ok(())
 }
