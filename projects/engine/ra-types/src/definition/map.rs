@@ -1691,6 +1691,65 @@ pub struct PreparedMap {
     pub cell_tags: Vec<PreparedCellTag>,
     /// 地图 `[TaskForces]` 绑定表；骨架路径为空。
     pub task_forces: Vec<PreparedTaskForce>,
+    /// 地图 `[ScriptTypes]` 绑定表；骨架路径为空。
+    pub script_types: Vec<PreparedScriptType>,
+    /// 地图 `[TeamTypes]` 绑定表；骨架路径为空。
+    pub team_types: Vec<PreparedTeamType>,
+    /// 地图 `[AITriggerTypes]` 绑定表；骨架路径为空。
+    pub ai_triggers: Vec<PreparedAiTrigger>,
+}
+
+/// `[AITriggerTypes]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedAiTrigger {
+    /// 触发 id（装载期大写键）。
+    pub id: AiTriggerName,
+    /// 显示名。
+    pub name: String,
+    /// 关联 TeamType（已校验存在于绑定表）。
+    pub team: TeamTypeName,
+    /// 所属方稳定 id。
+    pub owner_house: crate::HouseId,
+    /// 科技等级门槛。
+    pub tech_level: i32,
+}
+
+/// `[ScriptTypes]` 绑定后的运行形状（稳定 id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedScriptType {
+    /// Script 稳定 id。
+    pub id: crate::ScriptTypeId,
+    /// ScriptTypes 键名（装载期大写）。
+    pub name: ScriptTypeName,
+    /// 名称。
+    pub editor_name: String,
+    /// 步骤。
+    pub steps: Vec<MapScriptStep>,
+}
+
+/// `[TeamTypes]` 绑定后的运行形状（house / tag / script 稳定 id；task_force 已校验存在）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTeamType {
+    /// id（装载期大写键）。
+    pub id: TeamTypeName,
+    /// 名称。
+    pub name: String,
+    /// 所属方稳定 id。
+    pub house: crate::HouseId,
+    /// `Script=`；空表示无脚本。
+    pub script: Option<crate::ScriptTypeId>,
+    /// `TaskForce=` 稳定 id。
+    pub task_force: crate::TaskForceId,
+    /// `Tag=`；空表示无。
+    pub tag: Option<crate::TagId>,
+    /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
+    pub waypoint: i32,
+    /// `Max=`。
+    pub max: i32,
+    /// `Priority=`。
+    pub priority: i32,
+    /// `VeteranLevel=`。
+    pub veteran_level: i32,
 }
 
 /// TaskForce 成员槽绑定后的运行形状（稳定 techno id）。
@@ -1705,10 +1764,12 @@ pub struct PreparedTaskForceEntry {
 /// `[TaskForces]` 绑定后的运行形状。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedTaskForce {
-    /// id（装载期大写键；供 TeamType 引用）。
-    pub id: TaskForceName,
-    /// 名称。
-    pub name: String,
+    /// TaskForce 稳定 id。
+    pub id: crate::TaskForceId,
+    /// TaskForces 键名（装载期大写；供查找）。
+    pub name: TaskForceName,
+    /// 编辑器名。
+    pub editor_name: String,
     /// 成员（最多 6）。
     pub entries: Vec<PreparedTaskForceEntry>,
     /// `Group=`。

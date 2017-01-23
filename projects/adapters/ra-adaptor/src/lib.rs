@@ -19,7 +19,7 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use definitions::{build_runtime_definitions, runtime_definitions_from_ini_bytes};
-pub use ra_types::{bind_map_cell_tags, bind_map_placements, bind_map_tags, bind_map_task_forces, bind_prepared_map_placements};
+pub use ra_types::{bind_map_ai_triggers, bind_map_cell_tags, bind_map_placements, bind_map_script_types, bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_prepared_map_placements};
 pub use layers::{
     DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
     PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
