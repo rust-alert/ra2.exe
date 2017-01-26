@@ -160,11 +160,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
     where
         V: Visitor<'de>,
     {
-        if self.raw.trim().is_empty() {
-            visitor.visit_none()
-        } else {
-            visitor.visit_some(self)
-        }
+        if self.raw.trim().is_empty() { visitor.visit_none() } else { visitor.visit_some(self) }
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -188,12 +184,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_enum<V>(
-        self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_enum<V>(self, _name: &'static str, _variants: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -229,12 +220,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer {
         Err(self.err("CSV 标量不能反序列化为 map"))
     }
 
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_struct<V>(self, _name: &'static str, _fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {

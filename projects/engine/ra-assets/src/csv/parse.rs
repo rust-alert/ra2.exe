@@ -12,11 +12,6 @@ pub fn parse_westwood_csv_line(raw: &str) -> CsvRow {
     if line.is_empty() {
         return CsvRow::default();
     }
-    let fields = line
-        .split(',')
-        .map(|part| CsvField {
-            value: part.trim().to_string(),
-        })
-        .collect();
+    let fields = line.split(',').map(|part| CsvField { value: part.trim().to_string() }).collect();
     CsvRow { fields }
 }

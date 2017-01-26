@@ -5,8 +5,10 @@ use std::fmt;
 use image::RgbaImage;
 use ra_assets::{IniDocument, from_csv_row, parse_westwood_csv_line};
 use ra_types::{RaError, RaResult};
-use serde::Deserialize;
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, SeqAccess, Visitor},
+};
 
 use crate::{base64, lzo, numbered_pack::try_decode_numbered_base64_pack};
 

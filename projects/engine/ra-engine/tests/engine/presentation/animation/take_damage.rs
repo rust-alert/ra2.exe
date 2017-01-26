@@ -47,7 +47,8 @@ fn snapshot_anim_state_take_damage_then_die() {
     let tgt = snap.units.iter().find(|u| u.id == EntityId(2)).unwrap();
     if tgt.dead {
         assert_eq!(tgt.anim_state, AnimState::Die);
-    } else {
+    }
+    else {
         assert_eq!(tgt.anim_state, AnimState::TakeDamage);
         let flash = session.expect_battle().world.ecs_animation(target).expect("anim").1;
         assert!(flash <= HIT_FLASH_TICKS);

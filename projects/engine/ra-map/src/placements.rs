@@ -6,8 +6,10 @@ use std::fmt;
 
 use ra_assets::{IniDocument, from_row};
 use ra_types::{HouseName, MissionName, TagName, TechnoName};
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 放置类别。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -10,10 +10,7 @@ struct MapSource {
 
 impl AssetSource for MapSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        self.files
-            .get(&relative.to_ascii_lowercase())
-            .cloned()
-            .ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        self.files.get(&relative.to_ascii_lowercase()).cloned().ok_or_else(|| RaError::MissingFile(relative.to_string()))
     }
 }
 

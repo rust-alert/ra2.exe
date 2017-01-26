@@ -16,9 +16,9 @@ use crate::{
             choose_map_csf_label, choose_map_static_csf_key, choose_map_title_csf_key, exit_confirm_csf_label, exit_confirm_prompt_csf_key,
             load_screen_brief_csf_key, load_screen_loading_csf_key, load_screen_name_csf_key, main_menu_csf_label, options_csf_label,
             options_detail_csf_key, options_detail_fallback, options_dialog_csf_key, options_difficulty_csf_key, options_difficulty_fallback,
-            options_scroll_csf_key, options_scroll_fallback, resolve_caption, resolve_csf_text, shell_version_caption,
-            single_player_csf_label, single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key,
-            skirmish_score_csf_label, skirmish_score_fallback_label, skirmish_title_csf_key,
+            options_scroll_csf_key, options_scroll_fallback, resolve_caption, resolve_csf_text, shell_version_caption, single_player_csf_label,
+            single_player_title_csf_key, skirmish_lobby_csf_label, skirmish_lobby_static_csf_key, skirmish_score_csf_label,
+            skirmish_score_fallback_label, skirmish_title_csf_key,
         },
     },
     skirmish_setup::{LOBBY_COLORS, LOBBY_DIFFICULTIES},
@@ -26,11 +26,11 @@ use crate::{
 use ra_layout::{
     BATTLE_PAUSE_MENU_BUTTON_IDS, BUTTON_CELL_H, BUTTON_CELL_W, BattleHudChromeMetrics, CAMPAIGN_BUTTON_IDS, CHOOSE_MAP_BUTTON_IDS,
     CHOOSE_MAP_LIST_ROW_H, EXIT_CONFIRM_BUTTON_IDS, LOAD_SCREEN_BUTTON_IDS, LayoutSnapshot, MAIN_MENU_BUTTON_IDS, OPTIONS_BUTTON_IDS,
-    RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SHELL_BASE_H, SHELL_BASE_W, SINGLE_PLAYER_BUTTON_IDS,
-    SKIRMISH_AI_ROW_COUNT, SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H,
-    SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT, SKIRMISH_SCORE_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W,
-    SKIRMISH_TRACK_THUMB_W, choose_map_list_row_rect, choose_map_visible_rows, clamp_map_list_scroll, rect_px_from_snapshot,
-    solve_battle_hud_with_metrics, solve_skirmish_lobby, solve_skirmish_score,
+    RIGHT_PANEL_W, RectPx, SDWRNANM_OFFSET_X, SDWRNANM_OFFSET_Y, SHELL_BASE_H, SHELL_BASE_W, SINGLE_PLAYER_BUTTON_IDS, SKIRMISH_AI_ROW_COUNT,
+    SKIRMISH_CHECK_H, SKIRMISH_CHECK_W, SKIRMISH_COMBO_ARROW_RESERVE, SKIRMISH_COMBO_FACE_H, SKIRMISH_LOBBY_BUTTON_IDS, SKIRMISH_ROW_COUNT,
+    SKIRMISH_SCORE_BUTTON_IDS, SKIRMISH_TRACK_ACTIVE_PAD, SKIRMISH_TRACK_PLAQUE_W, SKIRMISH_TRACK_THUMB_W, choose_map_list_row_rect,
+    choose_map_visible_rows, clamp_map_list_scroll, rect_px_from_snapshot, solve_battle_hud_with_metrics, solve_skirmish_lobby,
+    solve_skirmish_score,
 };
 
 mod battle;
@@ -54,7 +54,8 @@ pub(super) use raster::*;
 
 pub use battle::{
     BattleHudModel, campaign_score_continue_hit_at, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
-    compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, compose_campaign_score_overlay, paint_battle_outcome_hold_banner,
+    compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, compose_campaign_score_overlay,
+    paint_battle_outcome_hold_banner,
 };
 pub use campaign::{CampaignPaint, compose_campaign_page};
 pub use choose_map::compose_choose_map_page;

@@ -1,8 +1,7 @@
 //! 暂停菜单专属 layout：战术区 + 右 hub 壳槽 + SIDEBTTN 列表（同一棵树）。
 
 use ra_layout::{
-    BATTLE_PAUSE_MENU_BUTTON_IDS, BATTLE_PAUSE_RAIL_W, COMMAND_BAR_H, rect_px_from_snapshot, solve_battle_pause,
-    solve_battle_pause_at,
+    BATTLE_PAUSE_MENU_BUTTON_IDS, BATTLE_PAUSE_RAIL_W, COMMAND_BAR_H, rect_px_from_snapshot, solve_battle_pause, solve_battle_pause_at,
 };
 
 #[test]

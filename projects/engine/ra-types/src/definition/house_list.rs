@@ -1,13 +1,13 @@
 //! 阵营 / 房屋允许名单（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=`）。
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
-use serde::Deserialize;
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, SeqAccess, Visitor},
+};
 
 use super::ini_string::{deserialize_upper, parse_upper};
-
 
 /// 房屋 / 阵营名（`Owner=` / `RequiredHouses=` / `ForbiddenHouses=` 等）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -100,12 +100,9 @@ impl<'de> Deserialize<'de> for HouseName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 房屋 / 阵营 `Color=` 方案名（装载期大写，对齐 rules `[Colors]` 键）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -198,9 +195,7 @@ impl<'de> Deserialize<'de> for ColorName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 
@@ -288,12 +283,9 @@ impl<'de> Deserialize<'de> for SideName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 装载期一次解码后的房屋名单；空名单语义由字段约定（见各字段文档）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -309,12 +301,8 @@ impl HouseAllowList {
     }
 
     /// 由房屋名构造（再排序去重）。
-    pub fn from_houses(houses: impl IntoIterator<Item=impl Into<HouseName>>) -> Self {
-        let mut houses: Vec<HouseName> = houses
-            .into_iter()
-            .map(Into::into)
-            .filter(|h| !h.is_empty())
-            .collect();
+    pub fn from_houses(houses: impl IntoIterator<Item = impl Into<HouseName>>) -> Self {
+        let mut houses: Vec<HouseName> = houses.into_iter().map(Into::into).filter(|h| !h.is_empty()).collect();
         houses.sort_unstable_by(|a, b| a.as_str().cmp(b.as_str()));
         houses.dedup();
         Self { houses }
@@ -335,11 +323,7 @@ impl HouseAllowList {
         if raw.is_empty() {
             return Self::empty();
         }
-        Self::from_houses(
-            raw.split(|c| c == ',' || c == ';' || c == '|')
-                .map(str::trim)
-                .filter(|s| !s.is_empty()),
-        )
+        Self::from_houses(raw.split(|c| c == ',' || c == ';' || c == '|').map(str::trim).filter(|s| !s.is_empty()))
     }
 
     /// 是否为空名单。
@@ -353,7 +337,7 @@ impl HouseAllowList {
     }
 
     /// 迭代房屋名。
-    pub fn iter(&self) -> impl Iterator<Item=&HouseName> {
+    pub fn iter(&self) -> impl Iterator<Item = &HouseName> {
         self.houses.iter()
     }
 

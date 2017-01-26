@@ -4,8 +4,10 @@ use std::fmt;
 
 use ra_assets::{CsvField, CsvRow, IniDocument, from_csv_row, from_row, parse_westwood_csv_line};
 use ra_types::{HouseName, TagName, TriggerName};
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 use super::{MapActionKind, MapEventKind};
 
@@ -234,12 +236,7 @@ pub fn parse_tags(doc: &IniDocument) -> Vec<MapTag> {
         else {
             continue;
         };
-        out.push(MapTag {
-            id: TagName::parse(id),
-            persistence: row.persistence,
-            name: row.name,
-            trigger_id: row.trigger_id,
-        });
+        out.push(MapTag { id: TagName::parse(id), persistence: row.persistence, name: row.name, trigger_id: row.trigger_id });
     }
     out
 }
@@ -295,12 +292,9 @@ pub fn parse_events(doc: &IniDocument) -> Vec<MapEvent> {
             else {
                 continue;
             };
-            conditions.push(MapEventCondition {
-                kind: MapEventKind::from_code(cond.kind),
-                params: vec![cond.p1, cond.p2],
-            });
+            conditions.push(MapEventCondition { kind: MapEventKind::from_code(cond.kind), params: vec![cond.p1, cond.p2] });
         }
-            out.push(MapEvent { id: TriggerName::parse(id), conditions });
+        out.push(MapEvent { id: TriggerName::parse(id), conditions });
     }
     out
 }
@@ -335,21 +329,14 @@ pub fn parse_actions(doc: &IniDocument) -> Vec<MapAction> {
                 params: [cmd.p0, cmd.p1, cmd.p2, cmd.p3, cmd.p4, cmd.p5, cmd.p6],
             });
         }
-            out.push(MapAction { id: TriggerName::parse(id), commands });
+        out.push(MapAction { id: TriggerName::parse(id), commands });
     }
     out
 }
 
 fn csv_slice(row: &CsvRow, start: usize, max_len: usize) -> CsvRow {
     let end = (start + max_len).min(row.len());
-    CsvRow {
-        fields: row.fields[start..end]
-            .iter()
-            .map(|f| CsvField {
-                value: f.value.clone(),
-            })
-            .collect(),
-    }
+    CsvRow { fields: row.fields[start..end].iter().map(|f| CsvField { value: f.value.clone() }).collect() }
 }
 
 /// 解析 `[CellTags]`（键 = `y * 1000 + x`）。

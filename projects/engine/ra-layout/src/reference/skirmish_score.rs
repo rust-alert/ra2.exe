@@ -59,10 +59,8 @@ pub(crate) fn skirmish_score_content_layout_tree(chrome: RightPanelChrome) -> La
     let mut children = shell_panel_chrome_children(chrome);
     // 标题走 `0x108` DLU + 右栏锚，**不要**复用主菜单壳层默认 title 框。
     children.push(fixed_rect_leaf("title", right_panel_anchor(TITLE_DLU.to_design_px(MS_SANS_SERIF_8PT), chrome)));
-    children.push(fixed_rect_leaf(
-        "tooltip",
-        Rect::from_xywh(TOOLTIP_X, chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP, TOOLTIP_W, TOOLTIP_H),
-    ));
+    children
+        .push(fixed_rect_leaf("tooltip", Rect::from_xywh(TOOLTIP_X, chrome.shell_h - TOOLTIP_H - TOOLTIP_BOTTOM_GAP, TOOLTIP_W, TOOLTIP_H)));
     children.push(fixed_rect_leaf("game_label", cell_dlu(GAME_LABEL_DLU, SUMMARY_TOP_DLU)));
     children.push(fixed_rect_leaf("time_label", cell_dlu(TIME_LABEL_DLU, SUMMARY_TOP_DLU)));
     push_row_cells(&mut children, "header", HEADER_TOP_DLU);

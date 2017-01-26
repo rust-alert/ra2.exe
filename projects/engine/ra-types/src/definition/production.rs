@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 工厂可生产的单位大类（由 INI `Factory=` 等解释而来）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,11 +34,7 @@ impl ProductionCategory {
 
     /// 解析可选 `Factory=`：缺省 / 空串 → `None`。
     pub fn parse_optional(raw: &str) -> Option<Self> {
-        if raw.trim().is_empty() {
-            None
-        } else {
-            Some(Self::parse(raw))
-        }
+        if raw.trim().is_empty() { None } else { Some(Self::parse(raw)) }
     }
 }
 

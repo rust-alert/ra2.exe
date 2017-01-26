@@ -2,7 +2,9 @@
 
 // 自 adapters/ra-adaptor/src/definitions.rs :: tests
 use ra_adaptor::{RulesSystem, definitions::*};
-use ra_assets::{ColorSchemes, CountryRegistry, IniDocument, RulesGlobals, OverlayTypeRegistry, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry};
+use ra_assets::{
+    ColorSchemes, CountryRegistry, IniDocument, OverlayTypeRegistry, RulesGlobals, SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry,
+};
 use ra_types::{BuiltinCapability, GameEdition, TerrainSpawnerDefinitions};
 
 fn rules_from(text: &[u8]) -> RulesSystem {
@@ -230,10 +232,7 @@ fn build_runtime_definitions_projects_techno_fields_without_rescanning_section()
     let gaweap_id = defs.techno.get("GAWEAP").expect("GAWEAP").id;
     assert_eq!(
         fv.prerequisite,
-        vec![
-            ra_types::PrerequisiteToken::Type(gaweap_id),
-            ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
-        ]
+        vec![ra_types::PrerequisiteToken::Type(gaweap_id), ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),]
     );
     assert_eq!(fv.build_limit, 2);
     let deploy = defs.deployables.iter().find(|d| d.source_key == "FV").expect("deploy");
@@ -284,7 +283,6 @@ fn build_runtime_definitions_freezes_structure_light_profiles() {
     assert_eq!(light.tint, [1000, 500, 250]);
     assert!(defs.structures.get("GAPOWR").expect("GAPOWR").light.is_none());
 }
-
 
 #[test]
 fn build_runtime_definitions_rejects_unknown_warhead_reference() {
@@ -495,12 +493,7 @@ fn bind_map_placements_resolves_tag_id() {
 [GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
-    let tags = ra_types::bind_map_tags(&[ra_types::MapTag {
-        id: "T1".into(),
-        persistence: 0,
-        name: "Start".into(),
-        trigger_id: "TR1".into(),
-    }]);
+    let tags = ra_types::bind_map_tags(&[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Start".into(), trigger_id: "TR1".into() }]);
     let entities = vec![ra_types::MapPlacedEntity {
         kind: ra_types::MapPlacedEntityKind::Structure,
         owner: "Americans".into(),
@@ -519,17 +512,9 @@ fn bind_map_placements_resolves_tag_id() {
 
 #[test]
 fn bind_map_cell_tags_resolves_tag_id() {
-    let tags = ra_types::bind_map_tags(&[ra_types::MapTag {
-        id: "ZONE".into(),
-        persistence: 0,
-        name: "Zone".into(),
-        trigger_id: "TRZ".into(),
-    }]);
-    let cells = [ra_types::MapCellTag {
-        x: 3,
-        y: 4,
-        tag_id: "ZONE".into(),
-    }];
+    let tags =
+        ra_types::bind_map_tags(&[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }]);
+    let cells = [ra_types::MapCellTag { x: 3, y: 4, tag_id: "ZONE".into() }];
     let bound = ra_types::bind_map_cell_tags(&cells, &tags).expect("bind cell tags");
     assert_eq!(bound.len(), 1);
     assert_eq!(bound[0].x, 3);
@@ -539,15 +524,8 @@ fn bind_map_cell_tags_resolves_tag_id() {
 
 #[test]
 fn bind_map_cell_tags_rejects_unknown_tag() {
-    let err = ra_types::bind_map_cell_tags(
-        &[ra_types::MapCellTag {
-            x: 1,
-            y: 2,
-            tag_id: "MISSING".into(),
-        }],
-        &[],
-    )
-    .expect_err("unknown cell tag");
+    let err =
+        ra_types::bind_map_cell_tags(&[ra_types::MapCellTag { x: 1, y: 2, tag_id: "MISSING".into() }], &[]).expect_err("unknown cell tag");
     let msg = err.to_string();
     assert!(msg.contains("tag"), "{msg}");
     assert!(msg.contains("MISSING"), "{msg}");
@@ -603,242 +581,4 @@ fn bind_map_placements_resolves_mission_kind() {
     }];
     let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("bind mission");
     assert_eq!(placements[0].mission, Some(ra_types::MissionKind::Guard));
-}
-
-#[test]
-fn bind_map_task_forces_resolves_techno_ids() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n\
-[InfantryTypes]\n0=E1\n\
-[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let forces = vec![ra_types::MapTaskForce {
-        id: "TF1".into(),
-        name: "Squad".into(),
-        entries: vec![ra_types::MapTaskForceEntry { count: 2, type_id: "E1".into() }],
-        group: -1,
-    }];
-    let bound = ra_adaptor::bind_map_task_forces(&forces, &defs).expect("bind task force");
-    assert_eq!(bound[0].entries[0].definition_id, defs.techno.get("E1").expect("E1").id);
-    assert_eq!(bound[0].entries[0].count, 2);
-}
-
-#[test]
-fn bind_map_task_forces_rejects_unknown_techno() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n\
-[InfantryTypes]\n0=E1\n\
-[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let forces = vec![ra_types::MapTaskForce {
-        id: "TF1".into(),
-        name: "Squad".into(),
-        entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "MISSING".into() }],
-        group: -1,
-    }];
-    let err = ra_adaptor::bind_map_task_forces(&forces, &defs).expect_err("unknown techno");
-    let msg = err.to_string();
-    assert!(msg.contains("techno"), "{msg}");
-    assert!(msg.contains("MISSING"), "{msg}");
-}
-
-#[test]
-fn bind_map_team_types_resolves_refs() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n\
-[InfantryTypes]\n0=E1\n\
-[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let tags = ra_types::bind_map_tags(&[ra_types::MapTag {
-        id: "T1".into(),
-        persistence: 0,
-        name: "Start".into(),
-        trigger_id: "TR1".into(),
-    }]);
-    let forces = ra_adaptor::bind_map_task_forces(
-        &[ra_types::MapTaskForce {
-            id: "TF1".into(),
-            name: "Squad".into(),
-            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
-            group: -1,
-        }],
-        &defs,
-    )
-    .expect("task force");
-    let scripts = ra_types::bind_map_script_types(&[ra_types::MapScriptType {
-        id: "SC1".into(),
-        name: "Move".into(),
-        steps: vec![],
-    }]);
-    let teams = [ra_types::MapTeamType {
-        id: "TM1".into(),
-        name: "Team".into(),
-        house: "Americans".into(),
-        script: "SC1".into(),
-        task_force: "TF1".into(),
-        tag: "T1".into(),
-        waypoint: 0,
-        max: 1,
-        priority: 5,
-        veteran_level: 1,
-    }];
-    let bound = ra_adaptor::bind_map_team_types(&teams, &defs, &tags, &forces, &scripts).expect("team");
-    assert_eq!(bound[0].house, defs.houses.get("Americans").expect("Americans").id);
-    assert_eq!(bound[0].script, Some(scripts[0].id));
-    assert_eq!(bound[0].task_force, forces[0].id);
-    assert_eq!(bound[0].tag, Some(tags[0].id));
-}
-
-#[test]
-fn bind_map_team_types_rejects_unknown_task_force() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let teams = [ra_types::MapTeamType {
-        id: "TM1".into(),
-        name: "Team".into(),
-        house: "Americans".into(),
-        script: Default::default(),
-        task_force: "MISSING".into(),
-        tag: Default::default(),
-        waypoint: -1,
-        max: 1,
-        priority: 0,
-        veteran_level: 0,
-    }];
-    let err = ra_adaptor::bind_map_team_types(&teams, &defs, &[], &[], &[]).expect_err("unknown tf");
-    let msg = err.to_string();
-    assert!(msg.contains("task_force"), "{msg}");
-    assert!(msg.contains("MISSING"), "{msg}");
-}
-
-#[test]
-fn bind_map_ai_triggers_resolves_refs() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n\
-[InfantryTypes]\n0=E1\n\
-[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let forces = ra_adaptor::bind_map_task_forces(
-        &[ra_types::MapTaskForce {
-            id: "TF1".into(),
-            name: "Squad".into(),
-            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
-            group: -1,
-        }],
-        &defs,
-    )
-    .expect("tf");
-    let teams = ra_adaptor::bind_map_team_types(
-        &[ra_types::MapTeamType {
-            id: "TM1".into(),
-            name: "Team".into(),
-            house: "Americans".into(),
-            script: Default::default(),
-            task_force: "TF1".into(),
-            tag: Default::default(),
-            waypoint: -1,
-            max: 1,
-            priority: 0,
-            veteran_level: 0,
-        }],
-        &defs,
-        &[],
-        &forces,
-        &[],
-    )
-    .expect("team");
-    let triggers = [ra_types::MapAiTrigger {
-        id: "AI1".into(),
-        name: "Attack".into(),
-        team: "TM1".into(),
-        owner_house: "Americans".into(),
-        tech_level: 1,
-    }];
-    let bound = ra_adaptor::bind_map_ai_triggers(&triggers, &defs, &teams).expect("ai");
-    assert_eq!(bound[0].team.as_str(), "TM1");
-    assert_eq!(bound[0].owner_house, defs.houses.get("Americans").expect("Americans").id);
-}
-
-#[test]
-fn bind_map_ai_triggers_rejects_unknown_team() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let err = ra_adaptor::bind_map_ai_triggers(
-        &[ra_types::MapAiTrigger {
-            id: "AI1".into(),
-            name: "Attack".into(),
-            team: "MISSING".into(),
-            owner_house: "Americans".into(),
-            tech_level: 1,
-        }],
-        &defs,
-        &[],
-    )
-    .expect_err("unknown team");
-    let msg = err.to_string();
-    assert!(msg.contains("team"), "{msg}");
-    assert!(msg.contains("MISSING"), "{msg}");
-}
-
-#[test]
-fn bind_map_script_types_assigns_stable_ids() {
-    let scripts = ra_types::bind_map_script_types(&[ra_types::MapScriptType {
-        id: "SC1".into(),
-        name: "Move".into(),
-        steps: vec![ra_types::MapScriptStep { action: 3, argument: 1 }],
-    }]);
-    assert_eq!(scripts.len(), 1);
-    assert_eq!(scripts[0].name.as_str(), "SC1");
-    assert_eq!(scripts[0].steps[0].action, 3);
-}
-
-#[test]
-fn bind_map_team_types_rejects_unknown_script() {
-    let rules = rules_from(
-        b"[Countries]\n0=Americans\n\
-[Americans]\nSide=GDI\n\
-[InfantryTypes]\n0=E1\n\
-[E1]\nCost=100\nStrength=125\nOwner=Americans\n",
-    );
-    let defs = build_runtime_definitions(&rules).expect("freeze");
-    let forces = ra_adaptor::bind_map_task_forces(
-        &[ra_types::MapTaskForce {
-            id: "TF1".into(),
-            name: "Squad".into(),
-            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
-            group: -1,
-        }],
-        &defs,
-    )
-    .expect("tf");
-    let teams = [ra_types::MapTeamType {
-        id: "TM1".into(),
-        name: "Team".into(),
-        house: "Americans".into(),
-        script: "MISSING".into(),
-        task_force: "TF1".into(),
-        tag: Default::default(),
-        waypoint: -1,
-        max: 1,
-        priority: 0,
-        veteran_level: 0,
-    }];
-    let err = ra_adaptor::bind_map_team_types(&teams, &defs, &[], &forces, &[]).expect_err("unknown script");
-    let msg = err.to_string();
-    assert!(msg.contains("script"), "{msg}");
-    assert!(msg.contains("MISSING"), "{msg}");
 }

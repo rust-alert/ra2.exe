@@ -20,7 +20,8 @@ pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
     let upper = rules_ini.to_ascii_uppercase();
     let bytes = if upper.windows(11).any(|w| w == b"[COUNTRIES]") {
         rules_ini.to_vec()
-    } else {
+    }
+    else {
         let mut out = TEST_COUNTRIES_PREFIX.to_vec();
         out.extend_from_slice(rules_ini);
         out

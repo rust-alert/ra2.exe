@@ -90,13 +90,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             continue;
         }
         let id = alloc_house();
-        defs.houses.insert(HouseDefinition {
-            id,
-            type_key,
-            side: ra_types::SideName::default(),
-            stolen_tech: None,
-            multiplay: false,
-        });
+        defs.houses.insert(HouseDefinition { id, type_key, side: ra_types::SideName::default(), stolen_tech: None, multiplay: false });
     }
 
     for sw in rules.super_weapons.iter() {
@@ -211,24 +205,14 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         if production.is_some() {
             capabilities.push(BuiltinCapability::Producer);
         }
-        let super_weapon = if tt.super_weapon.is_empty() {
-            None
-        } else {
-            Some(tt.super_weapon.clone())
-        };
+        let super_weapon = if tt.super_weapon.is_empty() { None } else { Some(tt.super_weapon.clone()) };
         let super_weapon_id = match &super_weapon {
             None => None,
-            Some(k) => Some(
-                defs
-                    .super_weapons
-                    .get(k.as_str())
-                    .map(|sw| sw.id)
-                    .ok_or_else(|| RaError::UnknownReference {
-                        kind: "super_weapon",
-                        name: k.as_str().to_string(),
-                        owner: key.as_str().to_string(),
-                    })?,
-            ),
+            Some(k) => Some(defs.super_weapons.get(k.as_str()).map(|sw| sw.id).ok_or_else(|| RaError::UnknownReference {
+                kind: "super_weapon",
+                name: k.as_str().to_string(),
+                owner: key.as_str().to_string(),
+            })?),
         };
         if super_weapon.is_some() {
             capabilities.push(BuiltinCapability::SuperWeapon);
@@ -245,13 +229,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         // `Foundation` / `Height` 已在装载期由 rules + art（含 `Image=`）解到 `TechnoType`。
         let foundation = tt.foundation.clone();
         let height = tt.height.unwrap_or(2).max(1);
-        let light = StructureLightProfile::from_rules_floats(
-            tt.light_intensity,
-            tt.light_visibility,
-            tt.light_red,
-            tt.light_green,
-            tt.light_blue,
-        );
+        let light =
+            StructureLightProfile::from_rules_floats(tt.light_intensity, tt.light_visibility, tt.light_red, tt.light_green, tt.light_blue);
         defs.structures.insert(StructureDefinition {
             id,
             type_key: key,
@@ -285,13 +264,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
                 owner: format!("DeploysInto:{}", source_key.as_str()),
             });
         };
-        defs.deployables.insert(DeployableDefinition {
-            source,
-            source_key,
-            target: t.id,
-            target_key,
-            placement: DeploymentPlacement::InPlace,
-        });
+        defs.deployables.insert(DeployableDefinition { source, source_key, target: t.id, target_key, placement: DeploymentPlacement::InPlace });
     }
 
     // 前置 token：UnboundType → TypeId；仍未绑定则为装载错误（禁止靠名称在引擎里兜底）。
@@ -299,18 +272,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     let resolve = |key: &TechnoName| type_ids.get(key).copied();
     for techno in defs.techno.iter_mut() {
         let key = techno.type_key.clone();
-        techno.prerequisite = bind_prerequisite_tokens(
-            std::mem::take(&mut techno.prerequisite),
-            &resolve,
-            &key,
-            "Prerequisite",
-        )?;
-        techno.prerequisite_override = bind_prerequisite_tokens(
-            std::mem::take(&mut techno.prerequisite_override),
-            &resolve,
-            &key,
-            "PrerequisiteOverride",
-        )?;
+        techno.prerequisite = bind_prerequisite_tokens(std::mem::take(&mut techno.prerequisite), &resolve, &key, "Prerequisite")?;
+        techno.prerequisite_override =
+            bind_prerequisite_tokens(std::mem::take(&mut techno.prerequisite_override), &resolve, &key, "PrerequisiteOverride")?;
     }
 
     validate_prerequisite_group_members(&defs)?;
@@ -320,14 +284,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 / 抛射体 id。
     for tt in rules.techno_types.iter() {
         for (key, damage, range, rof, warhead, projectile) in [
-            (
-                tt.primary.clone(),
-                tt.damage,
-                tt.range,
-                tt.rof,
-                tt.warhead.clone(),
-                tt.projectile.clone(),
-            ),
+            (tt.primary.clone(), tt.damage, tt.range, tt.rof, tt.warhead.clone(), tt.projectile.clone()),
             (
                 tt.secondary.clone(),
                 tt.secondary_damage,
@@ -386,11 +343,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     for key in warhead_keys {
         let Some(loaded) = rules.warheads.get_name(&key)
         else {
-            return Err(RaError::UnknownReference {
-                kind: "warhead",
-                name: key.as_str().to_string(),
-                owner: "RuntimeDefinitions".into(),
-            });
+            return Err(RaError::UnknownReference { kind: "warhead", name: key.as_str().to_string(), owner: "RuntimeDefinitions".into() });
         };
         let id = alloc_warhead();
         defs.warheads.insert(WarheadDefinition {
@@ -414,10 +367,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     projectile_keys.dedup();
     for key in projectile_keys {
         let id = alloc_projectile();
-        defs.projectiles.insert(ProjectileDefinition {
-            id,
-            type_key: key,
-        });
+        defs.projectiles.insert(ProjectileDefinition { id, type_key: key });
     }
 
     let weapon_binds: Vec<(WeaponId, Option<WarheadId>, Option<ProjectileId>)> = defs
@@ -456,7 +406,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             let secondary_id = bind_weapon_id(&defs, &techno.secondary, techno.type_key.as_str())?;
             let warhead_id = if let Some(w) = primary_id.and_then(|id| defs.weapons.get_by_id(id)) {
                 w.warhead_id
-            } else {
+            }
+            else {
                 bind_warhead_id(&defs, &techno.warhead, techno.type_key.as_str())?
             };
             Ok((techno.id, primary_id, secondary_id, warhead_id))
@@ -470,11 +421,8 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         }
     }
 
-    let sw_binds: Vec<(TypeId, Option<WeaponId>)> = defs
-        .super_weapons
-        .iter()
-        .map(|sw| Ok((sw.id, bind_weapon_id(&defs, &sw.weapon, sw.type_key.as_str())?)))
-        .collect::<RaResult<_>>()?;
+    let sw_binds: Vec<(TypeId, Option<WeaponId>)> =
+        defs.super_weapons.iter().map(|sw| Ok((sw.id, bind_weapon_id(&defs, &sw.weapon, sw.type_key.as_str())?))).collect::<RaResult<_>>()?;
     for (id, weapon_id) in sw_binds {
         if let Some(sw) = defs.super_weapons.iter_mut().find(|s| s.id == id) {
             sw.weapon_id = weapon_id;
@@ -583,21 +531,13 @@ fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, f
         if is_ambient_house(name) || defs.houses.get_name(name).is_some() {
             continue;
         }
-        return Err(RaError::UnknownReference {
-            kind: "house",
-            name: name.as_str().to_string(),
-            owner: format!("{field}:{owner}"),
-        });
+        return Err(RaError::UnknownReference { kind: "house", name: name.as_str().to_string(), owner: format!("{field}:{owner}") });
     }
     Ok(())
 }
 
 /// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。
-pub fn runtime_definitions_from_ini_bytes(
-    edition: GameEdition,
-    rules_ini: &[u8],
-    art_ini: Option<&[u8]>,
-) -> RaResult<RuntimeDefinitions> {
+pub fn runtime_definitions_from_ini_bytes(edition: GameEdition, rules_ini: &[u8], art_ini: Option<&[u8]>) -> RaResult<RuntimeDefinitions> {
     let rules = rules_system_from_ini_bytes(edition, rules_ini, art_ini)?;
     build_runtime_definitions(&rules)
 }

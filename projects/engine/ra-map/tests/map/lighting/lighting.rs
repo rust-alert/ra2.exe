@@ -82,10 +82,7 @@ fn parse_map_lighting_missing_ion_uses_retail_ion_defaults() {
 
 #[test]
 fn parse_lighting_keeps_valid_keys_when_one_value_is_illegal() {
-    let doc = IniDocument::parse(
-        b"[Lighting]\nAmbient=0.8\nRed=bogus\nGreen=0.9\nBlue=0.7\nDominatorAmbient=1.0\n",
-    )
-    .expect("ini");
+    let doc = IniDocument::parse(b"[Lighting]\nAmbient=0.8\nRed=bogus\nGreen=0.9\nBlue=0.7\nDominatorAmbient=1.0\n").expect("ini");
     let cfg = parse_lighting(&doc);
     assert!((cfg.ambient - 0.8).abs() < 1e-4);
     assert!((cfg.red - 1.0).abs() < 1e-4, "illegal Red must fall back to retail default");
@@ -121,10 +118,7 @@ fn point_light_brightens_near_cell() {
 #[test]
 fn refresh_point_lights_from_structure_light_table() {
     let mut lights = StructureLightTable::default();
-    lights.insert(
-        "GAYARD",
-        ra_types::StructureLightProfile::from_rules_floats(0.4, 2000, 1.0, 0.8, 0.5).expect("profile"),
-    );
+    lights.insert("GAYARD", ra_types::StructureLightProfile::from_rules_floats(0.4, 2000, 1.0, 0.8, 0.5).expect("profile"));
     let mut map = MapInfo::empty(GameEdition::Ra2, "lit.map");
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
@@ -163,10 +157,7 @@ fn refresh_radiation_lights_merges_green_glow() {
     assert!(tint[1] > tint[0], "expected green-heavy radiation tint {tint:?}");
     // 建筑光刷新不得冲掉辐射光。
     let mut struct_lights = StructureLightTable::default();
-    struct_lights.insert(
-        "GAYARD",
-        ra_types::StructureLightProfile::from_rules_floats(0.1, 512, 1.0, 1.0, 1.0).expect("profile"),
-    );
+    struct_lights.insert("GAYARD", ra_types::StructureLightProfile::from_rules_floats(0.1, 512, 1.0, 1.0, 1.0).expect("profile"));
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
         owner: "Neutral".into(),
@@ -253,14 +244,8 @@ fn negative_point_light_darkens() {
 #[test]
 fn collect_structure_lights_from_light_table() {
     let mut table = StructureLightTable::default();
-    table.insert(
-        "LAMP",
-        ra_types::StructureLightProfile::from_rules_floats(0.5, 512, 1.0, 1.0, 1.0).expect("lamp"),
-    );
-    table.insert(
-        "DARK",
-        ra_types::StructureLightProfile::from_rules_floats(-0.25, 256, 1.0, 1.0, 1.0).expect("dark"),
-    );
+    table.insert("LAMP", ra_types::StructureLightProfile::from_rules_floats(0.5, 512, 1.0, 1.0, 1.0).expect("lamp"));
+    table.insert("DARK", ra_types::StructureLightProfile::from_rules_floats(-0.25, 256, 1.0, 1.0, 1.0).expect("dark"));
     // 强度 0 不入库。
     assert!(ra_types::StructureLightProfile::from_rules_floats(0.0, 4096, 1.0, 1.0, 1.0).is_none());
     let entities = vec![

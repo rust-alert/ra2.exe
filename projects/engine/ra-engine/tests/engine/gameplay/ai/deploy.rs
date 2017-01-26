@@ -8,11 +8,13 @@ use ra_types::GameEdition;
 #[test]
 fn ai_deploys_mcv_via_command() {
     let engine = test_engine();
-    let defs = defs_from_rules_ini(b"[VehicleTypes]\n0=SMCV\n\
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=SMCV\n\
 [BuildingTypes]\n0=NACNST\n1=GACNST\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Soviets\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nFoundation=4x4\n\
-[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n", );
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-deploy");
     map.width = 16;
     map.height = 16;

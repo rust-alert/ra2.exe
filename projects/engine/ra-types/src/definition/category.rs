@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// INI `Category=` 玩法分类；装载期一次解码，执行侧只认此枚举。
 ///

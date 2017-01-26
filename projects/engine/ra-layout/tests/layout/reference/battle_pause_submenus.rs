@@ -1,8 +1,6 @@
 //! 放弃确认 / 局内选项 layout 冒烟。
 
-use ra_layout::{
-    rect_px_from_snapshot, solve_battle_abort_confirm, solve_battle_hud, solve_battle_in_game_options, solve_battle_pause,
-};
+use ra_layout::{rect_px_from_snapshot, solve_battle_abort_confirm, solve_battle_hud, solve_battle_in_game_options, solve_battle_pause};
 
 #[test]
 fn abort_confirm_and_options_share_sidebttn_rail() {
@@ -18,38 +16,16 @@ fn abort_confirm_and_options_share_sidebttn_rail() {
     assert!(abort.get("list_band").is_some());
     assert!(abort.get("sidebar").is_some());
     assert!(abort.get("rail").is_some());
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "background"),
-        rect_px_from_snapshot(&abort, "background"),
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "list_band"),
-        rect_px_from_snapshot(&abort, "list_band"),
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "rail"),
-        rect_px_from_snapshot(&abort, "rail"),
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "tab00"),
-        rect_px_from_snapshot(&hud, "tab00"),
-        "pause hub tabs share HUD geometry"
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "tab00"),
-        rect_px_from_snapshot(&abort, "tab00"),
-    );
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "tab00"),
-        rect_px_from_snapshot(&opts, "tab00"),
-    );
+    assert_eq!(rect_px_from_snapshot(&pause, "background"), rect_px_from_snapshot(&abort, "background"),);
+    assert_eq!(rect_px_from_snapshot(&pause, "list_band"), rect_px_from_snapshot(&abort, "list_band"),);
+    assert_eq!(rect_px_from_snapshot(&pause, "rail"), rect_px_from_snapshot(&abort, "rail"),);
+    assert_eq!(rect_px_from_snapshot(&pause, "tab00"), rect_px_from_snapshot(&hud, "tab00"), "pause hub tabs share HUD geometry");
+    assert_eq!(rect_px_from_snapshot(&pause, "tab00"), rect_px_from_snapshot(&abort, "tab00"),);
+    assert_eq!(rect_px_from_snapshot(&pause, "tab00"), rect_px_from_snapshot(&opts, "tab00"),);
     assert!(opts.get("mnscrnl").is_none());
     assert!(opts.get("list_band").is_some());
     assert!(opts.get("sidebar").is_some());
-    assert_eq!(
-        rect_px_from_snapshot(&pause, "list_band"),
-        rect_px_from_snapshot(&opts, "list_band"),
-    );
+    assert_eq!(rect_px_from_snapshot(&pause, "list_band"), rect_px_from_snapshot(&opts, "list_band"),);
     let leave = rect_px_from_snapshot(&abort, "leave");
     let cancel = rect_px_from_snapshot(&abort, "cancel");
     assert_eq!(leave.w, 125);

@@ -65,7 +65,7 @@ fn compose_uses_wave_sdbtnanm_frame_over_pressed() {
         0,
         "1.006",
     )
-        .unwrap();
+    .unwrap();
     let snap = main_menu_snap();
     let cell = rect_px_from_snapshot(&snap, MAIN_MENU_BUTTON_IDS[0]);
     let di = ((cell.y as u32 * page.width() + cell.x as u32) * 4) as usize;
@@ -156,7 +156,7 @@ fn compose_hides_button_caption_while_wave_frames_active() {
         0,
         "1.006",
     )
-        .unwrap();
+    .unwrap();
     // 波浪中只留 `SDBTNANM` 帧色，字等停稳后再叠。
     assert_eq!(&sample(&waving)[..], &[0, 0, 255, 255]);
 }
@@ -444,7 +444,7 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         0,
         "1.006",
     )
-        .unwrap();
+    .unwrap();
     let di = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
     // 出去时：空格钮格叠波浪帧绿。
     assert_eq!(&page.as_raw()[di..di + 4], &[0, 255, 0, 255]);
@@ -467,7 +467,7 @@ fn compose_empty_tiles_use_wave_sdbtnanm_instead_of_static_bkgd() {
         0,
         "1.006",
     )
-        .unwrap();
+    .unwrap();
     let di_in = ((empty_y as u32 * page.width() + cell_x as u32) * 4) as usize;
     // 进来时：空格不叠满钮，只留底图，避免收束后消失。
     assert_eq!(&slide_in.as_raw()[di_in..di_in + 4], &[90, 90, 90, 255]);
@@ -510,7 +510,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-        .unwrap();
+    .unwrap();
     // 国家艺术铺满画布左上。
     assert_eq!(&loading.as_raw()[0..4], &[1, 2, 3, 255]);
     // 进度条在中下偏左（原版约 y=332）。
@@ -541,7 +541,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-        .unwrap();
+    .unwrap();
     let preview_px = ((462u32 * with_preview.width() + 607) * 4) as usize;
     assert_eq!(&with_preview.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
 
@@ -567,7 +567,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-        .unwrap();
+    .unwrap();
     assert_eq!(failed.width(), 800);
     assert_eq!(failed.height(), 600);
 
@@ -594,7 +594,7 @@ fn compose_load_screen_paints_country_art_and_progress() {
             special_ui_name: None,
         },
     )
-        .unwrap();
+    .unwrap();
     assert_ne!(&campaign.as_raw()[preview_px..preview_px + 4], &[9, 8, 7, 255]);
 }
 
@@ -626,7 +626,7 @@ fn compose_battle_hud_overlay_right_strip_opaque() {
         },
         None,
     )
-        .unwrap();
+    .unwrap();
     // 左侧透明。
     assert_eq!(page.as_raw()[3], 0);
     // 战术区左下也应透明（无全宽底栏）。

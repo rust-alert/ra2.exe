@@ -19,14 +19,12 @@ use ra_widgets::{
     battle_hud::BattleCameoPaint,
     battle_pause_layer::BattlePauseLayer,
     compose::{
-        BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay,
-        compose_battle_in_game_options_overlay, compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
+        BattleHudModel, compose_battle_abort_confirm_overlay, compose_battle_hud_overlay, compose_battle_in_game_options_overlay,
+        compose_battle_pause_menu_overlay, paint_battle_outcome_hold_banner,
     },
     fs_source::GameAssetSource,
     render::present,
-    skin::text::{
-        battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text,
-    },
+    skin::text::{battle_outcome_banner_csf_key, battle_outcome_banner_fallback, command_button_csf_tooltip, resolve_csf_text},
 };
 use winit::window::Window;
 
@@ -73,7 +71,8 @@ impl BattleController {
                 let hud = game.snapshot_hud();
                 let _ = game.world.take_presentation_dirty();
                 (hud, PendingDraw::Full(snap))
-            } else {
+            }
+            else {
                 let dirty = game.world.take_presentation_dirty();
                 let units = game.project_units(&dirty);
                 let tick = game.world.tick;
@@ -114,7 +113,8 @@ impl BattleController {
                     self.rebuild_preview_base_with_mobiles(assets);
                     self.present_preview_base(renderer);
                 }
-            } else {
+            }
+            else {
                 self.refresh_structure_anims(renderer);
             }
         }
@@ -136,9 +136,9 @@ impl BattleController {
         dirty.iter().any(|&id| {
             game.world.ecs_health(id).is_some_and(|(_, _, dead)| !dead)
                 && game
-                .world
-                .ecs_identity(id)
-                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+                    .world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         })
     }
 
@@ -298,27 +298,11 @@ impl BattleController {
             });
             let remap = |base: &ra_assets::Palette, own: &str| remap_owner_palette(rules, Some(&lobby), base, own);
             if let Some(clean) = self.preview_clean.as_mut() {
-                let n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    clean,
-                    origin.0,
-                    origin.1,
-                    &mut self.paint,
-                    &remap,
-                );
+                let n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &mut self.paint, &remap);
                 any |= n > 0;
             }
             if let Some(underlay) = self.preview_ore_underlay.as_mut() {
-                let n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    underlay,
-                    origin.0,
-                    origin.1,
-                    &mut self.paint,
-                    &remap,
-                );
+                let n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &mut self.paint, &remap);
                 any |= n > 0;
             }
             self.structure_anims.layers.retain(|layer| !(layer.x == *x && layer.y == *y));
@@ -359,9 +343,8 @@ impl BattleController {
 
     /// 把活动层银行的冻光照对齐到当前地图档。
     pub(super) fn sync_preview_anim_lighting(&mut self) {
-        let live = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
-            (game.world.map.active_lighting(), game.world.map.point_lights.clone())
-        });
+        let live =
+            self.session.as_ref().and_then(|s| s.battle()).map(|game| (game.world.map.active_lighting(), game.world.map.point_lights.clone()));
         let Some((lighting, lights)) = live
         else {
             return;
@@ -576,9 +559,11 @@ impl BattleController {
                     .map(|q| {
                         if q.remaining_ticks == 0 {
                             1.0
-                        } else if q.total_ticks == 0 {
+                        }
+                        else if q.total_ticks == 0 {
                             0.0
-                        } else {
+                        }
+                        else {
                             1.0 - (q.remaining_ticks as f32 / q.total_ticks as f32)
                         }
                     })
@@ -589,7 +574,7 @@ impl BattleController {
                     enabled: item.enabled,
                     selected: matches!(self.sidebar_tab, 0 | 1)
                         && (self.place_mode.as_deref() == Some(key)
-                        || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
+                            || self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.is_local_ready_to_place(key))),
                     progress,
                 }
             })
@@ -606,11 +591,7 @@ impl BattleController {
             produce_queue: queue.as_deref(),
             reject,
             command_pressed: self.command_pressed.or_else(|| {
-                if self.planning_mode {
-                    ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
-                } else {
-                    None
-                }
+                if self.planning_mode { ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode") } else { None }
             }),
             command_hovered: self.command_hover,
             command_tip: tip_owned.as_deref(),
@@ -630,18 +611,11 @@ impl BattleController {
                 self.paint_placement_ghost(&mut page, renderer, w, h, &type_id);
             }
             // 收束窗（`pending_savour_outcome`）与已锁定 `outcome` 都叠胜负横幅。
-            let hold_outcome = hud.outcome.as_ref().or_else(|| {
-                self.session
-                    .as_ref()
-                    .and_then(|s| s.battle())
-                    .and_then(|g| g.pending_savour_outcome.as_ref())
-            });
+            let hold_outcome =
+                hud.outcome.as_ref().or_else(|| self.session.as_ref().and_then(|s| s.battle()).and_then(|g| g.pending_savour_outcome.as_ref()));
             if let Some(outcome) = hold_outcome {
-                let campaign = self
-                    .session
-                    .as_ref()
-                    .and_then(|s| s.battle())
-                    .is_some_and(|g| g.boot_kind == ra_engine::SessionBootKind::Campaign);
+                let campaign =
+                    self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.boot_kind == ra_engine::SessionBootKind::Campaign);
                 let victory = matches!(outcome, ra_engine::BattleOutcome::Victory { .. });
                 let key = battle_outcome_banner_csf_key(campaign, victory);
                 let caption = resolve_csf_text(csf, key).unwrap_or_else(|| battle_outcome_banner_fallback(campaign, victory).to_string());
@@ -678,9 +652,11 @@ impl BattleController {
                 let place = self.place_mode.as_deref().unwrap_or("-");
                 if screen_label == "results" {
                     format!("{} · [results] · t{} · Enter确认 Esc离开", self.title_base, hud.tick)
-                } else if hud.paused {
+                }
+                else if hud.paused {
                     format!("{} · [{screen_label}] · t{} · 暂停菜单 · Esc/回到游戏 · 放弃回大厅", self.title_base, hud.tick)
-                } else if self.place_mode.is_some() {
+                }
+                else if self.place_mode.is_some() {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -693,7 +669,8 @@ impl BattleController {
                         "{} · [{screen_label}] · t{} · {econ} · {queue} · 建:{place} · {reject} · {sel_part} · diff={diff} · Esc取消建造 · z{:.2}",
                         self.title_base, hud.tick, zoom
                     )
-                } else {
+                }
+                else {
                     let nsel = self.local.selected.len();
                     let sel = self.local.selected.first().copied();
                     let sel_part = match (sel, nsel) {
@@ -707,7 +684,8 @@ impl BattleController {
                         self.title_base, hud.tick, zoom
                     )
                 }
-            } else {
+            }
+            else {
                 format!("{} · [{screen_label}] · z{:.2}", self.title_base, zoom)
             };
             window.set_title(&title);
@@ -789,7 +767,8 @@ fn fill_screen_diamond(page: &mut RgbaImage, vp: &MapViewport, corners: [(i32, i
                 let xi = x.round() as i32;
                 xs[0] = xs[0].min(xi);
                 xs[1] = xs[1].max(xi);
-            } else if y0 == y && y1 == y {
+            }
+            else if y0 == y && y1 == y {
                 xs[0] = xs[0].min(x0.min(x1));
                 xs[1] = xs[1].max(x0.max(x1));
             }

@@ -19,10 +19,7 @@ fn lock_input_fires_on_campaign_timer() {
     let map = MapInfo::parse_ini(GameEdition::Ra2, "lock.map", text).unwrap();
     assert_eq!(map.scripting.actions[0].commands[0].kind, MapActionKind::LockInput);
     let engine = test_engine();
-    let mut session = Session::from_state(
-        battle_from_defs(GameEdition::Ra2, defs_from_rules_ini(b"[General]\n"), map),
-        "lock",
-    );
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_from_rules_ini(b"[General]\n"), map), "lock");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.expect_battle_mut().world.ensure_house("AMERICANS");
     let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
@@ -34,10 +31,7 @@ fn lock_input_fires_on_campaign_timer() {
             break;
         }
     }
-    assert!(
-        session.expect_battle().world.trigger_runtime.script_input_locked,
-        "action 46 should lock input"
-    );
+    assert!(session.expect_battle().world.trigger_runtime.script_input_locked, "action 46 should lock input");
 }
 
 #[test]
@@ -54,10 +48,7 @@ fn unlock_input_clears_lock_after_timer() {
     let map = MapInfo::parse_ini(GameEdition::Ra2, "unlock.map", text).unwrap();
     assert_eq!(map.scripting.actions[1].commands[0].kind, MapActionKind::UnlockInput);
     let engine = test_engine();
-    let mut session = Session::from_state(
-        battle_from_defs(GameEdition::Ra2, defs_from_rules_ini(b"[General]\n"), map),
-        "unlock",
-    );
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs_from_rules_ini(b"[General]\n"), map), "unlock");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.expect_battle_mut().world.ensure_house("AMERICANS");
     let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");

@@ -58,11 +58,7 @@ pub fn resolve_shell_ui_version(edition: Option<ra_types::GameEdition>, override
 /// 拼右下角版本文案：`{GUI:VERSION} {version}`。
 pub fn shell_version_caption(csf: Option<&CsfFile>, version: &str) -> String {
     let label = resolve_caption(csf, "version", Some(shell_version_csf_key()));
-    if version.is_empty() {
-        label
-    } else {
-        format!("{label} {version}")
-    }
+    if version.is_empty() { label } else { format!("{label} {version}") }
 }
 
 /// 单人页入口 → CSF 标签。
@@ -722,7 +718,8 @@ pub fn blit_caption_wrapped(dst: &mut RgbaImage, fnt: &FntFile, text: &str, cell
             }
             blit_caption_top_left_clipped(dst, fnt, &line, cell_x, y, cell_w, line_h, rgba);
             y += line_h;
-        } else {
+        }
+        else {
             // 空段仍推进一行，保留段落间距。
             y += line_h;
         }

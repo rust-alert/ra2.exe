@@ -8,8 +8,7 @@ pub use error::IniDeError;
 
 use serde::Deserialize;
 
-use super::document::IniSection;
-use super::merge::LayeredSectionView;
+use super::{document::IniSection, merge::LayeredSectionView};
 use map::SectionMapAccess;
 
 /// 将单节反序列化为强类型结构（字段名与 INI 键拼写一致，可用 `serde(rename)`；重复键取最后一次）。
@@ -17,9 +16,7 @@ pub fn from_section<'de, T>(section: &'de IniSection) -> Result<T, IniDeError>
 where
     T: Deserialize<'de>,
 {
-    let mut de = SectionDeserializer {
-        access: Some(SectionMapAccess::new(section)),
-    };
+    let mut de = SectionDeserializer { access: Some(SectionMapAccess::new(section)) };
     T::deserialize(&mut de)
 }
 
@@ -28,9 +25,7 @@ pub fn from_layered_section<'de, T>(section: &'de LayeredSectionView<'de>) -> Re
 where
     T: Deserialize<'de>,
 {
-    let mut de = SectionDeserializer {
-        access: Some(SectionMapAccess::from_layered(section)),
-    };
+    let mut de = SectionDeserializer { access: Some(SectionMapAccess::from_layered(section)) };
     T::deserialize(&mut de)
 }
 
@@ -84,12 +79,7 @@ impl<'de> serde::Deserializer<'de> for &mut SectionDeserializer<'de> {
         visitor.visit_map(access)
     }
 
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_struct<V>(self, _name: &'static str, _fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {

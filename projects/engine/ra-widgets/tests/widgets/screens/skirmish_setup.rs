@@ -78,7 +78,6 @@ fn load_screen_uses_explicit_names_only() {
     assert_eq!(pick_side_flag_pcx(&[], |_| Some(1)), None);
 }
 
-
 #[test]
 fn campaign_load_screen_palette_prefers_explicit_then_side_disks() {
     assert_eq!(campaign_load_screen_palette_from_shp("LS800A01.SHP"), Some(CAMPAIGN_LOAD_SCREEN_ALLIED_PAL));

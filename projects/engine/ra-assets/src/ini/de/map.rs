@@ -1,15 +1,11 @@
 //! 节 → map / struct 字段访问。
 
-use std::borrow::Cow;
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use serde::de::{self, MapAccess, Visitor};
 
-use super::IniDeError;
-use super::scalar::ScalarDeserializer;
-use crate::ini::document::IniSection;
-use crate::ini::merge::LayeredSectionView;
-use crate::ini::SourceSpan;
+use super::{IniDeError, scalar::ScalarDeserializer};
+use crate::ini::{SourceSpan, document::IniSection, merge::LayeredSectionView};
 
 pub(super) struct SectionMapAccess<'a> {
     /// 节名原始拼写（诊断用；可空）。
@@ -39,14 +35,7 @@ impl<'a> SectionMapAccess<'a> {
             key_raw.insert(e.key_key.clone(), e.key_raw.as_str());
             spans.insert(e.key_key.clone(), e.span);
         }
-        Self {
-            section: Some(section.name_raw.as_str()),
-            values,
-            key_raw,
-            spans,
-            keys: order,
-            index: 0,
-        }
+        Self { section: Some(section.name_raw.as_str()), values, key_raw, spans, keys: order, index: 0 }
     }
 
     /// 从层叠节构造：键序与有效值由 [`LayeredSectionView`] 策略决定。
@@ -71,25 +60,11 @@ impl<'a> SectionMapAccess<'a> {
             spans.insert(cmp, span);
         }
         let name = section.name_raw();
-        Self {
-            section: if name.is_empty() { None } else { Some(name) },
-            values,
-            key_raw,
-            spans,
-            keys: order,
-            index: 0,
-        }
+        Self { section: if name.is_empty() { None } else { Some(name) }, values, key_raw, spans, keys: order, index: 0 }
     }
 
     pub(super) fn empty() -> Self {
-        Self {
-            section: None,
-            values: HashMap::new(),
-            key_raw: HashMap::new(),
-            spans: HashMap::new(),
-            keys: Vec::new(),
-            index: 0,
-        }
+        Self { section: None, values: HashMap::new(), key_raw: HashMap::new(), spans: HashMap::new(), keys: Vec::new(), index: 0 }
     }
 
     fn attach_section(&self, err: IniDeError) -> IniDeError {
@@ -126,17 +101,8 @@ impl<'de> MapAccess<'de> for SectionMapAccess<'de> {
         let key = self.key_raw.get(&cmp).copied();
         let section = self.section;
         let span = self.spans.remove(&cmp).flatten();
-        let raw = self
-            .values
-            .remove(&cmp)
-            .ok_or_else(|| self.attach_section(IniDeError::custom(format!("内部错误：缺少键 {cmp}"))))?;
-        seed.deserialize(ScalarDeserializer {
-            raw,
-            key,
-            section,
-            span,
-        })
-        .map_err(|e| self.attach_section(e))
+        let raw = self.values.remove(&cmp).ok_or_else(|| self.attach_section(IniDeError::custom(format!("内部错误：缺少键 {cmp}"))))?;
+        seed.deserialize(ScalarDeserializer { raw, key, section, span }).map_err(|e| self.attach_section(e))
     }
 }
 

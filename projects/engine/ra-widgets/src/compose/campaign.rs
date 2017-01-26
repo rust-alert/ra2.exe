@@ -92,7 +92,8 @@ pub fn compose_campaign_page(
     if let Some(thumb) = paint.track_thumb {
         let ty = difficulty_track.y + (difficulty_track.h - thumb.height() as i32) / 2;
         blit_rgba(&mut page, thumb, thumb_x, ty);
-    } else {
+    }
+    else {
         fill_rect(&mut page, RectPx::new(thumb_x, inner.y - 1, thumb_w, inner.h + 2), [220, 40, 40, 255]);
     }
 

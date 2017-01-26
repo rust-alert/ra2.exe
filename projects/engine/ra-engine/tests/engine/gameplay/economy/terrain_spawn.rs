@@ -90,11 +90,7 @@ fn roll_starts_and_midpoint_spawns() {
 #[test]
 fn seeds_from_map_terrain() {
     let mut defs = TerrainSpawnerDefinitions::default();
-    defs.insert(TerrainSpawnerDefinition {
-        type_key: "TIBTRE01".into(),
-        animation_probability_micros: 3000,
-        animation_rate_ticks: 3,
-    });
+    defs.insert(TerrainSpawnerDefinition { type_key: "TIBTRE01".into(), animation_probability_micros: 3000, animation_rate_ticks: 3 });
     let mut map = ra_map::MapInfo::empty(ra_types::GameEdition::Ra2, "t");
     map.terrain_objects = vec![TerrainObject { x: 5, y: 6, name: "TIBTRE01".into() }, TerrainObject { x: 1, y: 1, name: "TREE01".into() }];
     let seeded = seed_terrain_spawners(&map, &defs);
@@ -118,8 +114,8 @@ Land=Road
 Tiberium=yes
 "#,
     )
-        .overlays
-        .clone()
+    .overlays
+    .clone()
 }
 
 #[test]

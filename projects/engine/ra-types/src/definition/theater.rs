@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 use crate::{RaError, RaResult};
 

@@ -1,7 +1,6 @@
 //! UI / CSF 文案键。
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use serde::Deserialize;
 
@@ -92,8 +91,6 @@ impl<'de> Deserialize<'de> for UiName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }

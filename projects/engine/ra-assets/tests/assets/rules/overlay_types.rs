@@ -53,9 +53,7 @@ fn from_layered_appends_overlay_list_and_merges_flags() {
 [GEM01]\nLand=Gems\n",
     )
     .unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let reg = overlay_types_from_layered(LayeredIniView::new(&docs, &policy));
     assert_eq!(reg.len(), 2);

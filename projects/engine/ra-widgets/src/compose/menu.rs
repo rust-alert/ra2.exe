@@ -144,9 +144,11 @@ pub(super) fn paint_shell_rail_buttons(
         let wave_frame = wave.and_then(|w| w.buttons.get(i).copied());
         let sprite = if let Some(frame) = wave_frame {
             decoded.sdbtnanm_frame(frame).unwrap_or(normal)
-        } else if disabled {
+        }
+        else if disabled {
             normal
-        } else {
+        }
+        else {
             resolve_button_sprite(decoded, entry_id, pressed_entry_id == Some(entry_id), hovered_entry_id == Some(entry_id)).unwrap_or(normal)
         };
         blit_rgba(page, &sprite.image, cell.x, cell.y);
@@ -161,10 +163,12 @@ pub(super) fn paint_shell_rail_buttons(
             let color = if disabled {
                 if matches!(captions, MenuCaptionKind::Options) && matches!(*entry_id, "keyboard" | "network") {
                     [128, 128, 128, 255]
-                } else {
+                }
+                else {
                     MENU_TEXT_DISABLED
                 }
-            } else {
+            }
+            else {
                 MENU_TEXT_ENABLED
             };
             let pressed = pressed_entry_id == Some(entry_id) && !disabled;

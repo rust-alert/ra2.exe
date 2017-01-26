@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::Deserializer;
-use serde::de::{self, Visitor};
+use serde::{
+    Deserializer,
+    de::{self, Visitor},
+};
 
 /// 可选 `u32`（允许尾随 `%`）。
 pub fn deserialize_opt_u32<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>

@@ -2,12 +2,9 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count,
-};
+use ra_assets::{HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, rasterize_vxl_layer_poses, shp_body_frame_count};
 use ra_types::{AssetSource, ImageName, TechnoName};
-use serde::Deserialize;
-use serde::de::Deserializer;
+use serde::{Deserialize, de::Deserializer};
 
 use crate::{
     MapEntity, MapEntityKind, MapInfo,
@@ -122,9 +119,7 @@ impl crate::PaintDefinitions {
     /// 解析并缓存活动层 art 节提示。
     fn resolve_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
         self.ensure_structure_anim_hint(anim_name, default_rate_ms);
-        self.structure_anim_hint(anim_name)
-            .cloned()
-            .unwrap_or_else(|| structure_anim_section_hints(None, anim_name, default_rate_ms))
+        self.structure_anim_hint(anim_name).cloned().unwrap_or_else(|| structure_anim_section_hints(None, anim_name, default_rate_ms))
     }
 }
 
@@ -151,11 +146,7 @@ fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) ->
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
     let body_new_theater = body.new_theater.unwrap_or(false);
-    let bib_key = body
-        .bib_shape
-        .as_ref()
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string());
+    let bib_key = body.bib_shape.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string());
     let bib_new_theater = match bib_key.as_ref() {
         Some(bib) => art
             .and_then(|a| a.section(bib))
@@ -189,17 +180,11 @@ fn structure_body_art_fields(art: Option<&IniDocument>, type_id: &str, art_secti
         Some(a) => a,
         None => return StructureBodyArtFields::default(),
     };
-    let type_fields = art
-        .section(type_id)
-        .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
-        .unwrap_or_default();
+    let type_fields = art.section(type_id).and_then(|s| s.deserialize::<StructureBodyArtFields>().ok()).unwrap_or_default();
     if art_section.eq_ignore_ascii_case(type_id) {
         return type_fields;
     }
-    let section_fields = art
-        .section(art_section)
-        .and_then(|s| s.deserialize::<StructureBodyArtFields>().ok())
-        .unwrap_or_default();
+    let section_fields = art.section(art_section).and_then(|s| s.deserialize::<StructureBodyArtFields>().ok()).unwrap_or_default();
     // 类型节优先（`DamageFireOffset*` / 活动层名常挂在类型节），缺键再回退 `Image=` 目标节。
     StructureBodyArtFields {
         image: type_fields.image.or(section_fields.image),
@@ -289,34 +274,18 @@ fn structure_loop_anim_names(body: &StructureBodyArtFields) -> Vec<(Option<Strin
 }
 
 fn pick_structure_loop_anim_name(slot: &(Option<String>, Option<String>), yellow: bool) -> Option<&str> {
-    if yellow {
-        slot.1.as_deref().or(slot.0.as_deref())
-    } else {
-        slot.0.as_deref()
-    }
+    if yellow { slot.1.as_deref().or(slot.0.as_deref()) } else { slot.0.as_deref() }
 }
 
-fn structure_buildup_hints(
-    art: Option<&IniDocument>,
-    buildup: Option<&str>,
-    parent_new_theater: bool,
-) -> Option<StructureBuildupHints> {
+fn structure_buildup_hints(art: Option<&IniDocument>, buildup: Option<&str>, parent_new_theater: bool) -> Option<StructureBuildupHints> {
     let art = art?;
     let buildup_key = buildup?.trim().to_ascii_uppercase();
     if buildup_key.is_empty() {
         return None;
     }
-    let fields = art
-        .section(&buildup_key)
-        .and_then(|s| s.deserialize::<BuildupSectionFields>().ok())
-        .unwrap_or_default();
+    let fields = art.section(&buildup_key).and_then(|s| s.deserialize::<BuildupSectionFields>().ok()).unwrap_or_default();
     // 无独立 Buildup 段时沿用建筑段的 `NewTheater`，文件名即 `Buildup` 键。
-    let image_key = fields
-        .image
-        .as_ref()
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string())
-        .unwrap_or(buildup_key);
+    let image_key = fields.image.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string()).unwrap_or(buildup_key);
     let new_theater = fields.new_theater.unwrap_or(parent_new_theater);
     let rate_ms = fields.rate_ms.unwrap_or(100);
     Some(StructureBuildupHints { image_key, new_theater, rate_ms })
@@ -345,7 +314,8 @@ fn structure_damage_fire_offsets(body: &StructureBodyArtFields) -> Vec<(u8, i32,
     ];
     let mut out = Vec::new();
     for (i, offset) in offsets.into_iter().enumerate() {
-        let Some((ox, oy)) = offset else {
+        let Some((ox, oy)) = offset
+        else {
             continue;
         };
         out.push((i as u8, ox, oy));
@@ -366,10 +336,7 @@ where
 
 fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> Option<StructureTurretVoxelHints> {
     let rules = rules?;
-    let fields = rules
-        .section(type_id)
-        .and_then(|s| s.deserialize::<TurretVoxelSectionFields>().ok())
-        .unwrap_or_default();
+    let fields = rules.section(type_id).and_then(|s| s.deserialize::<TurretVoxelSectionFields>().ok()).unwrap_or_default();
     if !fields.is_voxel.unwrap_or(false) {
         return None;
     }
@@ -377,11 +344,7 @@ fn structure_turret_voxel_hints(rules: Option<&IniDocument>, type_id: &str) -> O
     if stem.is_empty() {
         return None;
     }
-    Some(StructureTurretVoxelHints {
-        stem,
-        anim_x: fields.anim_x.unwrap_or(0),
-        anim_y: fields.anim_y.unwrap_or(0),
-    })
+    Some(StructureTurretVoxelHints { stem, anim_x: fields.anim_x.unwrap_or(0), anim_y: fields.anim_y.unwrap_or(0) })
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -412,15 +375,8 @@ struct StructureAnimSectionHints {
     remapable_override: Option<bool>,
 }
 
-fn structure_anim_section_hints(
-    art: Option<&IniDocument>,
-    anim_name: &str,
-    default_rate_ms: u32,
-) -> StructureAnimSectionHints {
-    let fields = art
-        .and_then(|a| a.section(anim_name))
-        .and_then(|s| s.deserialize::<AnimSectionFields>().ok())
-        .unwrap_or_default();
+fn structure_anim_section_hints(art: Option<&IniDocument>, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
+    let fields = art.and_then(|a| a.section(anim_name)).and_then(|s| s.deserialize::<AnimSectionFields>().ok()).unwrap_or_default();
     let image_key = fields
         .image
         .as_ref()
@@ -629,11 +585,7 @@ pub fn collect_structure_anim_bank(
             };
             let body_n = shp_body_frame_count(&shp.frames) as u16;
             let end = {
-                let raw = if hint.loop_end > hint.loop_start {
-                    hint.loop_end
-                } else {
-                    hint.loop_start.saturating_add(1)
-                };
+                let raw = if hint.loop_end > hint.loop_start { hint.loop_end } else { hint.loop_start.saturating_add(1) };
                 raw.min(body_n.max(hint.loop_start.saturating_add(1)))
             };
             if end <= hint.loop_start {
@@ -724,15 +676,7 @@ pub fn collect_structure_anim_bank(
             if frames.iter().all(|f| f.width == 0) {
                 continue;
             }
-            layers.push(StructureAnimLayer {
-                x: ent.x,
-                y: ent.y,
-                cell_z,
-                rate_ms: fire_hint.rate_ms,
-                loop_start: 0,
-                loop_end: body_n,
-                frames,
-            });
+            layers.push(StructureAnimLayer { x: ent.x, y: ent.y, cell_z, rate_ms: fire_hint.rate_ms, loop_start: 0, loop_end: body_n, frames });
         }
     }
 
@@ -951,7 +895,8 @@ fn paint_map_structures_inner(
             {
                 apply_rgba_tint(&mut blit.rgba, map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y)));
                 items.push((ent.x, ent.y, blit));
-            } else {
+            }
+            else {
                 missing.push((ent.x, ent.y));
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, hint.turret_voxel.as_ref(), ent.facing, &pal) {
@@ -1022,13 +967,15 @@ fn resolve_art_section(art: Option<&IniDocument>, type_id: &str) -> String {
             .unwrap_or_else(|| ImageName::parse(type_id));
         if a.section(image_key.as_str()).is_some() {
             Some(image_key.as_str().to_string())
-        } else if a.section(type_id).is_some() {
+        }
+        else if a.section(type_id).is_some() {
             Some(type_id.to_ascii_uppercase())
-        } else {
+        }
+        else {
             None
         }
     })
-        .unwrap_or_else(|| type_id.to_ascii_uppercase())
+    .unwrap_or_else(|| type_id.to_ascii_uppercase())
 }
 
 fn load_shp<'a>(
@@ -1040,7 +987,8 @@ fn load_shp<'a>(
 ) -> Option<&'a ShpFile> {
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
-    } else {
+    }
+    else {
         vec![format!("{}.shp", image_key.to_ascii_lowercase()), new_theater_shp_name(image_key, map.theater)]
     };
     let mut loaded: Option<String> = None;

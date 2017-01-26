@@ -1,10 +1,14 @@
 //! 多层 `IniDocument` 的字段级有效值视图（无 edition 语义）。
 
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
-use crate::ini::document::{IniDocument, IniEntry, IniSection};
-use crate::ini::value::IniValue;
+use crate::ini::{
+    document::{IniDocument, IniEntry, IniSection},
+    value::IniValue,
+};
 
 /// 单键 / 单节合并策略（由 adaptor schema 选定，本模块只执行）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,18 +38,14 @@ pub struct IniMergePolicy {
 
 impl Default for IniMergePolicy {
     fn default() -> Self {
-        Self {
-            default_entry: EntryMergePolicy::LastValue,
-        }
+        Self { default_entry: EntryMergePolicy::LastValue }
     }
 }
 
 impl IniMergePolicy {
     /// 默认后层覆盖。
     pub const fn last_wins() -> Self {
-        Self {
-            default_entry: EntryMergePolicy::LastValue,
-        }
+        Self { default_entry: EntryMergePolicy::LastValue }
     }
 }
 
@@ -108,11 +108,7 @@ impl<'a> LayeredIniView<'a> {
     }
 
     /// 按节名取层叠节视图，并附带按键策略覆盖。
-    pub fn section_with_overrides(
-        &self,
-        name: &str,
-        overrides: Option<&'a FieldMergeOverrides>,
-    ) -> Option<LayeredSectionView<'a>> {
+    pub fn section_with_overrides(&self, name: &str, overrides: Option<&'a FieldMergeOverrides>) -> Option<LayeredSectionView<'a>> {
         let name_key = name.to_ascii_uppercase();
         let mut layers: Vec<(usize, &'a IniSection)> = Vec::new();
         for (layer, doc) in self.documents.iter().enumerate() {
@@ -123,11 +119,7 @@ impl<'a> LayeredIniView<'a> {
         if layers.is_empty() {
             return None;
         }
-        Some(LayeredSectionView {
-            layers,
-            policy: self.policy.default_entry,
-            overrides,
-        })
+        Some(LayeredSectionView { layers, policy: self.policy.default_entry, overrides })
     }
 
     /// 直接取有效字段值。
@@ -163,10 +155,7 @@ impl<'a> LayeredIniView<'a> {
     /// 不覆盖 `AppendValues` / `ReplaceSection` / `NumberedPack` 的完整物化语义。
     pub fn materialize(&self) -> IniDocument {
         debug_assert!(
-            matches!(
-                self.policy.default_entry,
-                EntryMergePolicy::LastValue | EntryMergePolicy::MergeSection
-            ),
+            matches!(self.policy.default_entry, EntryMergePolicy::LastValue | EntryMergePolicy::MergeSection),
             "materialize is defined for last-wins style policies"
         );
         let mut out = IniDocument::default();
@@ -191,12 +180,7 @@ impl<'a> LayeredIniView<'a> {
                     span: value.span,
                 });
             }
-            out.sections.push(IniSection {
-                name_raw: sec.name_raw().to_string(),
-                name_key: sec.name_key().to_string(),
-                entries,
-                span: None,
-            });
+            out.sections.push(IniSection { name_raw: sec.name_raw().to_string(), name_key: sec.name_key().to_string(), entries, span: None });
         }
         out
     }
@@ -272,13 +256,7 @@ impl<'a> LayeredSectionView<'a> {
                 else {
                     continue;
                 };
-                by_index.insert(
-                    index,
-                    ResolvedIniValue {
-                        value: IniValue::new(v, None, sec.name_raw.as_str(), k),
-                        layer,
-                    },
-                );
+                by_index.insert(index, ResolvedIniValue { value: IniValue::new(v, None, sec.name_raw.as_str(), k), layer });
             }
         }
         by_index.into_iter().collect()
@@ -333,17 +311,14 @@ impl<'a> LayeredSectionView<'a> {
     pub fn effective_raw(&self, key: &str) -> Option<Cow<'a, str>> {
         match self.policy_for(key) {
             EntryMergePolicy::AppendValues => {
-                let parts: Vec<&str> = self
-                    .all_resolved(key)
-                    .into_iter()
-                    .map(|r| r.value.raw.trim())
-                    .filter(|s| !s.is_empty())
-                    .collect();
+                let parts: Vec<&str> = self.all_resolved(key).into_iter().map(|r| r.value.raw.trim()).filter(|s| !s.is_empty()).collect();
                 if parts.is_empty() {
                     None
-                } else if parts.len() == 1 {
+                }
+                else if parts.len() == 1 {
                     Some(Cow::Borrowed(parts[0]))
-                } else {
+                }
+                else {
                     Some(Cow::Owned(parts.join(",")))
                 }
             }

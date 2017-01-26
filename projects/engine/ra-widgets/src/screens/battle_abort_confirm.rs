@@ -58,10 +58,7 @@ pub fn prompt_rect(viewport_w: u32, viewport_h: u32) -> RectPx {
 /// Leave / Cancel 钮矩形。
 pub fn button_rects(viewport_w: u32, viewport_h: u32) -> [RectPx; 2] {
     let snap = abort_snapshot(viewport_w, viewport_h);
-    [
-        rect_px_from_snapshot(&snap, BATTLE_ABORT_CONFIRM_BUTTON_IDS[0]),
-        rect_px_from_snapshot(&snap, BATTLE_ABORT_CONFIRM_BUTTON_IDS[1]),
-    ]
+    [rect_px_from_snapshot(&snap, BATTLE_ABORT_CONFIRM_BUTTON_IDS[0]), rect_px_from_snapshot(&snap, BATTLE_ABORT_CONFIRM_BUTTON_IDS[1])]
 }
 
 /// 窗口像素命中。

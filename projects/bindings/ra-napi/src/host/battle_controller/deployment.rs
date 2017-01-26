@@ -83,7 +83,8 @@ impl BattleController {
             };
             if game.world.last_rejects().iter().any(|r| matches!(r.reason, ra_engine::CommandRejectReason::CannotDeploy)) {
                 Some(Err(ra_engine::CommandRejectReason::CannotDeploy.as_hud_label().to_string()))
-            } else {
+            }
+            else {
                 match game.world.ecs_identity(id) {
                     Some((type_id, kind)) if matches!(kind, MapEntityKind::Structure) => Some(Ok(type_id.to_string())),
                     None => Some(Err("部署目标已消失".into())),
@@ -135,7 +136,8 @@ impl BattleController {
             let elapsed = pending.started.elapsed().as_millis() as u64;
             if pending.clip.frame_at(elapsed).is_none() {
                 finished.push(pending);
-            } else {
+            }
+            else {
                 still.push(pending);
             }
         }
@@ -146,7 +148,8 @@ impl BattleController {
         }
         if self.pending_buildups.is_empty() {
             self.present_preview_base(renderer);
-        } else {
+        }
+        else {
             self.recompose_preview_with_buildups(assets, renderer);
         }
     }
@@ -200,16 +203,9 @@ impl BattleController {
                 return;
             };
             let lobby = &self.lobby_primaries;
-            load_structure_buildup_clip(
-                assets,
-                &game.world.map,
-                &mut self.paint,
-                &job.type_id,
-                &job.owner,
-                job.x,
-                job.y,
-                &|base, owner| remap_owner_palette(rules, Some(lobby), base, owner),
-            )
+            load_structure_buildup_clip(assets, &game.world.map, &mut self.paint, &job.type_id, &job.owner, job.x, job.y, &|base, owner| {
+                remap_owner_palette(rules, Some(lobby), base, owner)
+            })
         };
         match clip {
             Some(clip) => {
@@ -276,15 +272,9 @@ impl BattleController {
                 tag: Default::default(),
             });
             let lobby = &self.lobby_primaries;
-            let mut n = paint_structures_onto_rgba(
-                assets,
-                &one,
-                clean,
-                origin.0,
-                origin.1,
-                &mut self.paint,
-                &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
-            );
+            let mut n = paint_structures_onto_rgba(assets, &one, clean, origin.0, origin.1, &mut self.paint, &|base, own| {
+                remap_owner_palette(rules, Some(lobby), base, own)
+            });
             if n == 0 {
                 if let Some(clip) = clip {
                     if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -294,16 +284,16 @@ impl BattleController {
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 tracing::info!("定格 · {} 主体 SHP", type_id);
             }
             if n == 0 {
                 tracing::warn!("定格失败 · {} 无主体也无 Buildup 帧，保留原预览", type_id);
                 return;
             }
-            let bank = collect_structure_anim_bank(assets, &one, &mut self.paint, &|base, own| {
-                remap_owner_palette(rules, Some(lobby), base, own)
-            });
+            let bank =
+                collect_structure_anim_bank(assets, &one, &mut self.paint, &|base, own| remap_owner_palette(rules, Some(lobby), base, own));
             (n, bank)
         };
         let (_n, bank) = painted;
@@ -325,15 +315,9 @@ impl BattleController {
                     tag: Default::default(),
                 });
                 let lobby = &self.lobby_primaries;
-                let mut n = paint_structures_onto_rgba(
-                    assets,
-                    &one,
-                    underlay,
-                    origin.0,
-                    origin.1,
-                    &mut self.paint,
-                    &|base, own| remap_owner_palette(rules, Some(lobby), base, own),
-                );
+                let mut n = paint_structures_onto_rgba(assets, &one, underlay, origin.0, origin.1, &mut self.paint, &|base, own| {
+                    remap_owner_palette(rules, Some(lobby), base, own)
+                });
                 if n == 0 {
                     if let Some(clip) = clip {
                         if let Some(last) = clip.frames.len().checked_sub(1) {
@@ -516,7 +500,8 @@ impl BattleController {
             self.paint_ore_tree_frames_onto(&mut composed);
             paint_structure_anims_onto_rgba(&mut composed, self.preview_origin.0, self.preview_origin.1, &self.structure_anims, clock_ms);
             self.last_anim_sig = self.preview_anim_signature(clock_ms);
-        } else {
+        }
+        else {
             self.last_anim_sig = 0;
         }
         self.paint_weather_onto(&mut composed);

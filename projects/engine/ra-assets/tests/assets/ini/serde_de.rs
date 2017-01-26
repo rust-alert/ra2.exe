@@ -19,10 +19,7 @@ struct TechnoFields {
 
 #[test]
 fn deserialize_section_scalars_and_list() {
-    let doc = IniDocument::parse(
-        b"[MTNK]\nStrength=400\nCost=800\nNaval=no\nPrimary=105mm\nPrerequisite=GAPILE,GAWEAP\n",
-    )
-    .unwrap();
+    let doc = IniDocument::parse(b"[MTNK]\nStrength=400\nCost=800\nNaval=no\nPrimary=105mm\nPrerequisite=GAPILE,GAWEAP\n").unwrap();
     let fields: TechnoFields = doc.section("MTNK").unwrap().deserialize().unwrap();
     assert_eq!(fields.strength, 400);
     assert_eq!(fields.cost, 800);

@@ -1,7 +1,7 @@
 //! `compose_boot_preview` 失败封闭：不得用单砖/单位 SHP 冒充成功预览。
 
 use ra_assets::Palette;
-use ra_map::{PaintDefinitions, MapInfo, StructureLightTable, Theater, compose_boot_preview};
+use ra_map::{MapInfo, PaintDefinitions, StructureLightTable, Theater, compose_boot_preview};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;

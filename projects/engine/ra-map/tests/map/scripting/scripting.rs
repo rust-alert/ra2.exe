@@ -100,7 +100,10 @@ fn cosmetic_trigger_actions_are_supported_noops() {
     let gaps = ra_map::map_scripting_capability_gaps(&map);
     assert!(gaps.iter().any(|g| g.code == "map.action.11 stub"), "presentation stubs must warn: {gaps:?}");
     assert!(gaps.iter().any(|g| g.code == "map.action.16 stub"), "{gaps:?}");
-    assert!(gaps.iter().all(|g| !g.code.ends_with(" unsupported") || !g.code.starts_with("map.action.")), "cosmetic must not hard-block: {gaps:?}");
+    assert!(
+        gaps.iter().all(|g| !g.code.ends_with(" unsupported") || !g.code.starts_with("map.action.")),
+        "cosmetic must not hard-block: {gaps:?}"
+    );
     assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 }
 

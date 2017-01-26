@@ -99,7 +99,8 @@ pub(super) fn paint_sdbtm_panel(page: &mut RgbaImage, decoded: &PageDecodeReport
     };
     if bottom.image.width() == panel_bottom.w as u32 && bottom.image.height() == panel_bottom.h as u32 {
         blit_rgba(page, &bottom.image, panel_bottom.x, panel_bottom.y);
-    } else {
+    }
+    else {
         blit_stretched(page, &bottom.image, panel_bottom);
     }
 }
@@ -191,9 +192,11 @@ pub(super) fn resolve_button_sprite<'a>(
     let normal = find_button_normal(decoded, entry_id)?;
     if pressed {
         Some(find_button_pressed(decoded, entry_id).unwrap_or(normal))
-    } else if hovered {
+    }
+    else if hovered {
         Some(find_button_hover(decoded, entry_id).unwrap_or(normal))
-    } else {
+    }
+    else {
         Some(normal)
     }
 }

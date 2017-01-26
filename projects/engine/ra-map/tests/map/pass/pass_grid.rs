@@ -105,9 +105,7 @@ fn prepared_map_skeleton_seeds_anchor_occupancy() {
 
 #[test]
 fn prepared_map_skeleton_expands_structure_foundation() {
-    use ra_types::{
-        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
-    };
+    use ra_types::{ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId};
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 4;
@@ -166,9 +164,7 @@ fn prepared_map_skeleton_expands_structure_foundation() {
 fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
     use ra_assets::{IniDocument, overlay_types_from_rules};
     use ra_map::OverlayCell;
-    use ra_types::{
-        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
-    };
+    use ra_types::{ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId};
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 4;
@@ -235,9 +231,7 @@ fn prepared_map_skeleton_bound_applies_overlay_and_foundation() {
 #[test]
 fn from_prepared_pass_layers_roundtrips_bound_grid() {
     use ra_assets::{IniDocument, overlay_types_from_rules};
-    use ra_types::{
-        ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId,
-    };
+    use ra_types::{ArmorKind, Foundation, HouseAllowList, PowerProfile, StructureDefinition, StructureDefinitions, TypeId};
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.width = 4;
@@ -280,12 +274,7 @@ fn from_prepared_pass_layers_roundtrips_bound_grid() {
     let rules = IniDocument::parse(b"[OverlayTypes]\n").expect("rules");
     let overlays = overlay_types_from_rules(&rules);
     let prepared = map.to_prepared_map_skeleton_bound(&overlays, &structures);
-    let grid = PassGrid::from_prepared_pass_layers(
-        prepared.pass_width,
-        prepared.pass_height,
-        &prepared.passable,
-        &prepared.cell_heights,
-    );
+    let grid = PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
     assert_eq!(grid.width, 4);
     assert_eq!(grid.height, 3);
     assert_eq!(grid.cell_height(0, 0), 2);

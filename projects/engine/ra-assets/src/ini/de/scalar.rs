@@ -194,11 +194,7 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.trimmed().is_empty() {
-            visitor.visit_none()
-        } else {
-            visitor.visit_some(self)
-        }
+        if self.trimmed().is_empty() { visitor.visit_none() } else { visitor.visit_some(self) }
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -228,32 +224,14 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
     {
         match self.raw {
             Cow::Borrowed(s) => {
-                let parts: Vec<&'de str> = s
-                    .split(|c| c == ',' || c == ';')
-                    .map(str::trim)
-                    .filter(|p| !p.is_empty())
-                    .collect();
-                visitor.visit_seq(CommaSepBorrowed {
-                    parts: parts.into_iter(),
-                    key: self.key,
-                    section: self.section,
-                    span: self.span,
-                })
+                let parts: Vec<&'de str> = s.split(|c| c == ',' || c == ';').map(str::trim).filter(|p| !p.is_empty()).collect();
+                visitor.visit_seq(CommaSepBorrowed { parts: parts.into_iter(), key: self.key, section: self.section, span: self.span })
             }
             Cow::Owned(s) => {
                 // `AppendValues` 等拥有串：子切片不能安全借出，按项拷贝（稀有路径）。
-                let parts: Vec<String> = s
-                    .split(|c| c == ',' || c == ';')
-                    .map(str::trim)
-                    .filter(|p| !p.is_empty())
-                    .map(str::to_string)
-                    .collect();
-                visitor.visit_seq(CommaSepOwned {
-                    parts: parts.into_iter(),
-                    key: self.key,
-                    section: self.section,
-                    span: self.span,
-                })
+                let parts: Vec<String> =
+                    s.split(|c| c == ',' || c == ';').map(str::trim).filter(|p| !p.is_empty()).map(str::to_string).collect();
+                visitor.visit_seq(CommaSepOwned { parts: parts.into_iter(), key: self.key, section: self.section, span: self.span })
             }
         }
     }
@@ -279,24 +257,14 @@ impl<'de> de::Deserializer<'de> for ScalarDeserializer<'de> {
         Err(self.err("标量不能反序列化为 map"))
     }
 
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        _visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_struct<V>(self, _name: &'static str, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
         Err(self.err("标量不能反序列化为 struct"))
     }
 
-    fn deserialize_enum<V>(
-        self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_enum<V>(self, _name: &'static str, _variants: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -338,12 +306,7 @@ impl<'de> SeqAccess<'de> for CommaSepBorrowed<'de> {
     {
         match self.parts.next() {
             Some(part) => seed
-                .deserialize(ScalarDeserializer {
-                    raw: Cow::Borrowed(part),
-                    key: self.key,
-                    section: self.section,
-                    span: self.span,
-                })
+                .deserialize(ScalarDeserializer { raw: Cow::Borrowed(part), key: self.key, section: self.section, span: self.span })
                 .map(Some),
             None => Ok(None),
         }
@@ -366,14 +329,9 @@ impl<'de> SeqAccess<'de> for CommaSepOwned<'de> {
         T: de::DeserializeSeed<'de>,
     {
         match self.parts.next() {
-            Some(part) => seed
-                .deserialize(ScalarDeserializer {
-                    raw: Cow::Owned(part),
-                    key: self.key,
-                    section: self.section,
-                    span: self.span,
-                })
-                .map(Some),
+            Some(part) => {
+                seed.deserialize(ScalarDeserializer { raw: Cow::Owned(part), key: self.key, section: self.section, span: self.span }).map(Some)
+            }
             None => Ok(None),
         }
     }

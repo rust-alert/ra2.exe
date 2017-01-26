@@ -7,8 +7,10 @@
 //! （Ambient≈0.87、偏蓝紫通道、Ground/Level=0）。
 
 use ra_assets::IniDocument;
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 use std::fmt;
 
 use crate::placements::{MapEntity, MapEntityKind};
@@ -425,7 +427,6 @@ pub fn apply_rgba_tint(rgba: &mut [u8], tint: [f32; 3]) {
 pub fn mul_channel(value: u8, tint: f32) -> u8 {
     (f32::from(value) * tint).clamp(0.0, 255.0) as u8
 }
-
 
 /// 可选浮点：缺键 / 空串 / 非法文本 → `None`（不拖垮整节）。
 fn deserialize_opt_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>

@@ -19,22 +19,15 @@ fn last_value_prefers_top_layer() {
 #[test]
 fn first_value_keeps_bottom_layer() {
     let layers = docs(&[b"[General]\nRepairStep=8\n", b"[General]\nRepairStep=16\n"]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::FirstValue,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::FirstValue };
     let view = LayeredIniView::new(&layers, &policy);
     assert_eq!(view.get("General", "RepairStep").unwrap().trimmed().raw, "8");
 }
 
 #[test]
 fn merge_section_keeps_lower_keys_absent_on_top() {
-    let layers = docs(&[
-        b"[General]\nRepairStep=8\nRepairPercent=15\n",
-        b"[General]\nRepairStep=16\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let layers = docs(&[b"[General]\nRepairStep=8\nRepairPercent=15\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let view = LayeredIniView::new(&layers, &policy);
     let sec = view.section("General").unwrap();
     assert_eq!(sec.get("RepairStep").unwrap().trimmed().raw, "16");
@@ -43,13 +36,8 @@ fn merge_section_keeps_lower_keys_absent_on_top() {
 
 #[test]
 fn replace_section_drops_lower_only_keys() {
-    let layers = docs(&[
-        b"[General]\nRepairStep=8\nRepairPercent=15\n",
-        b"[General]\nRepairStep=16\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::ReplaceSection,
-    };
+    let layers = docs(&[b"[General]\nRepairStep=8\nRepairPercent=15\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::ReplaceSection };
     let view = LayeredIniView::new(&layers, &policy);
     let sec = view.section("General").unwrap();
     assert_eq!(sec.get("RepairStep").unwrap().trimmed().raw, "16");
@@ -66,13 +54,8 @@ struct GeneralFields {
 
 #[test]
 fn layered_section_deserializes_merged_fields() {
-    let layers = docs(&[
-        b"[General]\nRepairStep=8\nRepairPercent=15\n",
-        b"[General]\nRepairStep=16\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let layers = docs(&[b"[General]\nRepairStep=8\nRepairPercent=15\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let view = LayeredIniView::new(&layers, &policy);
     let sec = view.section("General").unwrap();
     let g: GeneralFields = from_layered_section(&sec).unwrap();
@@ -82,13 +65,8 @@ fn layered_section_deserializes_merged_fields() {
 
 #[test]
 fn layered_section_deserialize_honors_replace_section() {
-    let layers = docs(&[
-        b"[General]\nRepairStep=8\nRepairPercent=15\n",
-        b"[General]\nRepairStep=16\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::ReplaceSection,
-    };
+    let layers = docs(&[b"[General]\nRepairStep=8\nRepairPercent=15\n", b"[General]\nRepairStep=16\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::ReplaceSection };
     let view = LayeredIniView::new(&layers, &policy);
     let g: GeneralFields = view.section("General").unwrap().deserialize().unwrap();
     assert_eq!(g.repair_step, Some(16));
@@ -98,9 +76,7 @@ fn layered_section_deserialize_honors_replace_section() {
 #[test]
 fn append_values_joins_layers_bottom_first() {
     let layers = docs(&[b"[MTNK]\nOwner=Americans\n", b"[MTNK]\nOwner=Alliance\n"]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::AppendValues,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::AppendValues };
     let view = LayeredIniView::new(&layers, &policy);
     let sec = view.section("MTNK").unwrap();
     let all = sec.all_resolved("Owner");
@@ -121,9 +97,7 @@ struct OwnerFields {
 #[test]
 fn append_values_deserializes_joined_house_list() {
     let layers = docs(&[b"[MTNK]\nOwner=Americans\n", b"[MTNK]\nOwner=Alliance\n"]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::AppendValues,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::AppendValues };
     let view = LayeredIniView::new(&layers, &policy);
     let fields: OwnerFields = view.section("MTNK").unwrap().deserialize().unwrap();
     assert!(fields.owner.owner_allows("Americans"));
@@ -152,22 +126,15 @@ fn section_keys_lists_unique_names_bottom_first() {
 #[test]
 fn numbered_pack_parts_sort_numerically() {
     let layers = docs(&[b"[IsoMapPack5]\n10=C\n2=B\n1=A\n"]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::NumberedPack,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::NumberedPack };
     let view = LayeredIniView::new(&layers, &policy);
     assert_eq!(view.numbered_pack_parts("IsoMapPack5").as_deref(), Some(["A", "B", "C"].as_slice()));
 }
 
 #[test]
 fn numbered_pack_top_layer_replaces_same_index() {
-    let layers = docs(&[
-        b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n",
-        b"[IsoMapPack5]\n2=XX\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::NumberedPack,
-    };
+    let layers = docs(&[b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n", b"[IsoMapPack5]\n2=XX\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::NumberedPack };
     let view = LayeredIniView::new(&layers, &policy);
     let resolved = view.section("IsoMapPack5").unwrap().numbered_resolved();
     assert_eq!(resolved.len(), 3);
@@ -181,26 +148,16 @@ fn numbered_pack_top_layer_replaces_same_index() {
 
 #[test]
 fn numbered_pack_replace_section_keeps_only_top_indexes() {
-    let layers = docs(&[
-        b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n",
-        b"[IsoMapPack5]\n2=XX\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::ReplaceSection,
-    };
+    let layers = docs(&[b"[IsoMapPack5]\n1=AA\n2=BB\n3=CC\n", b"[IsoMapPack5]\n2=XX\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::ReplaceSection };
     let view = LayeredIniView::new(&layers, &policy);
     assert_eq!(view.numbered_pack_parts("IsoMapPack5").as_deref(), Some(["XX"].as_slice()));
 }
 
 #[test]
 fn field_overrides_append_one_key_while_others_last_win() {
-    let layers = docs(&[
-        b"[MTNK]\nOwner=Americans\nCost=700\n",
-        b"[MTNK]\nOwner=Alliance\nCost=800\n",
-    ]);
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::LastValue,
-    };
+    let layers = docs(&[b"[MTNK]\nOwner=Americans\nCost=700\n", b"[MTNK]\nOwner=Alliance\nCost=800\n"]);
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::LastValue };
     let mut overrides = FieldMergeOverrides::new();
     overrides.set("Owner", EntryMergePolicy::AppendValues);
     let view = LayeredIniView::new(&layers, &policy);
@@ -213,11 +170,7 @@ fn field_overrides_append_one_key_while_others_last_win() {
 
 #[test]
 fn materialize_last_wins_keeps_lower_only_keys_and_top_overrides() {
-    let layers = docs(&[
-        b"[E1]\nCameoPCX=base\nCameo=BASEICON\nShared=keep\n",
-        b"[E1]\nCameoPCX=md\n",
-        b"[NewSec]\nX=1\n",
-    ]);
+    let layers = docs(&[b"[E1]\nCameoPCX=base\nCameo=BASEICON\nShared=keep\n", b"[E1]\nCameoPCX=md\n", b"[NewSec]\nX=1\n"]);
     let policy = IniMergePolicy::last_wins();
     let doc = materialize_ini_layers(&layers, &policy).expect("materialized");
     assert_eq!(doc.get("E1", "CameoPCX"), Some("md"));

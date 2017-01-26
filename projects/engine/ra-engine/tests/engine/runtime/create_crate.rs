@@ -88,10 +88,7 @@ fn create_crate_pickup_on_occupied_cell_grants_fixed_credits() {
 
     session.tick(&engine.runtime());
     assert!(session.expect_battle().world.trigger_runtime.script_crates.is_empty());
-    assert_eq!(
-        session.expect_battle().world.house_funds("AMERICANS"),
-        Some(500 + SCRIPT_CRATE_CREDITS)
-    );
+    assert_eq!(session.expect_battle().world.house_funds("AMERICANS"), Some(500 + SCRIPT_CRATE_CREDITS));
 }
 
 #[test]
@@ -108,15 +105,7 @@ fn create_crate_missing_waypoint_records_unsupported() {
     let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "crate-bad");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
-    assert!(
-        session
-            .expect_battle()
-            .world
-            .trigger_runtime
-            .unsupported_actions
-            .contains(&108),
-        "missing waypoint must record unsupported 108"
-    );
+    assert!(session.expect_battle().world.trigger_runtime.unsupported_actions.contains(&108), "missing waypoint must record unsupported 108");
 }
 
 #[test]

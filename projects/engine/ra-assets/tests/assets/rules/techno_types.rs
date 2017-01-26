@@ -125,18 +125,9 @@ Radar=yes\nRefinery=no\nSuperWeapon=Nuke\nPower=-50\n",
             ra_types::PrerequisiteToken::Group(ra_types::PrerequisiteGroupKind::Power),
         ]
     );
-    assert_eq!(
-        fv.prerequisite_override.iter().cloned().collect::<Vec<_>>(),
-        vec![ra_types::PrerequisiteToken::UnboundType("GACNST".into())]
-    );
-    assert_eq!(
-        fv.required_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
-        vec!["ALLIANCE", "AMERICANS"]
-    );
-    assert_eq!(
-        fv.forbidden_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(),
-        vec!["RUSSIANS"]
-    );
+    assert_eq!(fv.prerequisite_override.iter().cloned().collect::<Vec<_>>(), vec![ra_types::PrerequisiteToken::UnboundType("GACNST".into())]);
+    assert_eq!(fv.required_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(), vec!["ALLIANCE", "AMERICANS"]);
+    assert_eq!(fv.forbidden_houses.iter().map(|h| h.as_str()).collect::<Vec<_>>(), vec!["RUSSIANS"]);
     assert_eq!(fv.build_limit, 1);
     assert_eq!(fv.build_time, 50);
     assert!(fv.requires_stolen_allied_tech);
@@ -173,10 +164,7 @@ fn apply_art_geometry_overrides_rules_and_follows_image() {
     )
     .unwrap();
     let mut reg = TechnoTypeRegistry::from_rules(&rules);
-    assert_eq!(
-        (reg.get("NAWEAP").unwrap().foundation.width, reg.get("NAWEAP").unwrap().foundation.height),
-        (2, 2)
-    );
+    assert_eq!((reg.get("NAWEAP").unwrap().foundation.width, reg.get("NAWEAP").unwrap().foundation.height), (2, 2));
     assert_eq!(reg.get("NAWEAP").unwrap().height, Some(3));
     reg.apply_art_geometry(&art);
     let a = reg.get("NAWEAP").unwrap();
@@ -202,9 +190,7 @@ fn from_layered_merges_techno_fields_and_list() {
 [HTNK]\nStrength=600\nCost=1400\n",
     )
     .unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let reg = TechnoTypeRegistry::from_layered(LayeredIniView::new(&docs, &policy));
     assert_eq!(reg.len(), 2);
@@ -219,9 +205,7 @@ fn from_layered_merges_techno_fields_and_list() {
 fn field_overrides_append_owner_while_cost_last_wins() {
     let base = IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans\nCost=700\n").unwrap();
     let top = IniDocument::parse(b"[MTNK]\nOwner=Alliance\nCost=800\n").unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let mut overrides = FieldMergeOverrides::new();
     overrides.set("Owner", EntryMergePolicy::AppendValues);
     let docs = [base, top];
@@ -234,10 +218,8 @@ fn field_overrides_append_owner_while_cost_last_wins() {
 
 #[test]
 fn owner_list_decodes_once_and_allows() {
-    let doc = IniDocument::parse(
-        b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans,Alliance\nRequiredHouses=\nForbiddenHouses=Russians\n",
-    )
-    .unwrap();
+    let doc =
+        IniDocument::parse(b"[VehicleTypes]\n0=MTNK\n[MTNK]\nOwner=Americans,Alliance\nRequiredHouses=\nForbiddenHouses=Russians\n").unwrap();
     let reg = TechnoTypeRegistry::from_rules(&doc);
     let m = reg.get("MTNK").unwrap();
     assert!(m.owner.owner_allows("americans"));

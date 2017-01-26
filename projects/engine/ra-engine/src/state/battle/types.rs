@@ -1,7 +1,9 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapInfo, PassGrid};
-use ra_types::{ArmorKind, EntityId, GameEdition, OverlayTypeRegistry, PlayerId, PreparedMap, RuntimeDefinitions, ScheduledCommand, TechnoClass};
+use ra_types::{
+    ArmorKind, EntityId, GameEdition, OverlayTypeRegistry, PlayerId, PreparedMap, RuntimeDefinitions, ScheduledCommand, TechnoClass,
+};
 
 use super::super::{ecs_registry::EcsRegistry, entities::WorldEntity, players::PlayerState};
 use crate::{

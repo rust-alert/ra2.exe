@@ -67,11 +67,7 @@ impl BattleState {
 
     /// 该 house 是否已允许 AI 生产。
     pub fn house_production_begun(&self, house: &str) -> bool {
-        self.players
-            .iter()
-            .find(|p| p.house.eq_ignore_ascii_case(house))
-            .map(|p| p.production_begun)
-            .unwrap_or(false)
+        self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)).map(|p| p.production_begun).unwrap_or(false)
     }
 
     /// 是否存在任一 house 已允许 AI 生产。

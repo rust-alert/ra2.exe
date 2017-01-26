@@ -1,7 +1,6 @@
 //! Overlay 类型表（装载期冻结；id 按声明顺序）。
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use serde::Deserialize;
 
@@ -91,9 +90,7 @@ impl<'de> Deserialize<'de> for OverlayName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

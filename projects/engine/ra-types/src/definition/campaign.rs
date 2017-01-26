@@ -1,7 +1,6 @@
 //! 战役表键。
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use serde::Deserialize;
 
@@ -92,8 +91,6 @@ impl<'de> Deserialize<'de> for CampaignName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }

@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use ra_map::{PaintDefinitions,
-             MapInfo, OverlayCell, OverlayLayerFilter, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
-             paint_overlays_onto_preview_rgba,
+use ra_map::{
+    MapInfo, OverlayCell, OverlayLayerFilter, PaintDefinitions, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
+    paint_overlays_onto_preview_rgba,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -64,7 +64,16 @@ fn empty_overlays_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
     let mut image = TerrainImage::blank(1, 1);
     assert_eq!(
-        paint_map_overlays(&EmptySource, &map, &mut image, &mut PaintDefinitions::default(), &|_| None, &|_| false, &|_| None, OverlayLayerFilter::All, ),
+        paint_map_overlays(
+            &EmptySource,
+            &map,
+            &mut image,
+            &mut PaintDefinitions::default(),
+            &|_| None,
+            &|_| false,
+            &|_| None,
+            OverlayLayerFilter::All,
+        ),
         (0, 0)
     );
 }
@@ -351,8 +360,16 @@ fn mixed_lobrdb_flank_does_not_paint_neighbor_deck() {
         _ => None,
     };
     let mut image = TerrainImage::blank(256, 256);
-    let (shp, mark) =
-        paint_map_overlays(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &name, &|_| false, &|_| None, OverlayLayerFilter::All);
+    let (shp, mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut image,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &name,
+        &|_| false,
+        &|_| None,
+        OverlayLayerFilter::All,
+    );
     assert_eq!((shp, mark), (1, 0), "only middle drawable frame paints");
 }
 
@@ -472,12 +489,28 @@ fn bridge_layer_filter_skips_ore_on_bridge_pass() {
         _ => None,
     };
     let mut ground = TerrainImage::blank(256, 256);
-    let (g_shp, g_mark) =
-        paint_map_overlays(&source, &map, &mut ground, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Ground);
+    let (g_shp, g_mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut ground,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &name,
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::Ground,
+    );
     assert_eq!((g_shp, g_mark), (1, 0), "ground pass paints ore only");
     let mut bridge = TerrainImage::blank(256, 256);
-    let (b_shp, b_mark) =
-        paint_map_overlays(&source, &map, &mut bridge, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &name, &|id| id == 102, &|_| None, OverlayLayerFilter::Bridge);
+    let (b_shp, b_mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut bridge,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &name,
+        &|id| id == 102,
+        &|_| None,
+        OverlayLayerFilter::Bridge,
+    );
     assert_eq!((b_shp, b_mark), (1, 0), "bridge pass paints bridge only");
 }
 

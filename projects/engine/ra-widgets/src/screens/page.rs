@@ -13,8 +13,7 @@ use crate::{
     skin::slots::{UiButtonSlot, pudlgbgn_palette, slots_for},
     skirmish_setup::{
         UiFactionChrome, campaign_score_screen_background_candidates, campaign_score_screen_palette_candidates,
-        load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates,
-        score_screen_palette_candidates,
+        load_screen_background_shp_resolved, load_screen_palette_resolved, score_screen_background_candidates, score_screen_palette_candidates,
     },
 };
 
@@ -260,18 +259,17 @@ pub fn page_resources_for_results_with(
 ) -> Option<UiPageResources> {
     let page = slots_for(OriginalScreen::Results)?;
     let (bg_candidates, pal_candidates) = if campaign {
-        (
-            campaign_score_screen_background_candidates(chrome),
-            campaign_score_screen_palette_candidates(chrome),
-        )
-    } else {
+        (campaign_score_screen_background_candidates(chrome), campaign_score_screen_palette_candidates(chrome))
+    }
+    else {
         (score_screen_background_candidates(chrome), score_screen_palette_candidates(chrome))
     };
     let bg_name = bg_candidates.iter().map(String::as_str).find(|n| readable(n))?.to_string();
     let bg_pal = pal_candidates.iter().map(String::as_str).find(|p| readable(p)).map(str::to_string).filter(|s| !s.is_empty())?;
     let panels = if campaign {
         Vec::new()
-    } else {
+    }
+    else {
         page.panels
             .iter()
             .filter(|p| readable(p.shp))

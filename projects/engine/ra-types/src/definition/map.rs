@@ -9,13 +9,14 @@
 //! 字段布局、命名与嵌套可随时改为更利于引擎执行的形式（稳定 ID、稠密表、拆分索引等）。
 //! 兼容原版内容的职责在 loader / adaptor：把文件格式**投影**进本契约，而不是把本契约钉死成文件 schema。
 
-use std::fmt;
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 use serde::Deserialize;
 
-use super::ini_string::{deserialize_trim, deserialize_upper, parse_trim, parse_upper};
-use super::{ColorName, HouseName, MapEdge, TechnoName, UiName};
+use super::{
+    ColorName, HouseName, MapEdge, TechnoName, UiName,
+    ini_string::{deserialize_trim, deserialize_upper, parse_trim, parse_upper},
+};
 
 /// 地图 `[Terrain]` 物件类型名（装载期大写，对齐 rules 地形节）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -108,12 +109,9 @@ impl<'de> Deserialize<'de> for TerrainName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `[Smudge]` 污迹类型名（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -200,12 +198,9 @@ impl<'de> Deserialize<'de> for SmudgeName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `Script=` / `[ScriptTypes]` 引用名（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -292,12 +287,9 @@ impl<'de> Deserialize<'de> for ScriptTypeName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `TaskForce=` / `[TaskForces]` 引用名（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -384,12 +376,9 @@ impl<'de> Deserialize<'de> for TaskForceName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `Team=` / `[TeamTypes]` 引用名（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -476,12 +465,9 @@ impl<'de> Deserialize<'de> for TeamTypeName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `[Triggers]` / Tag 关联 Trigger id（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -568,12 +554,9 @@ impl<'de> Deserialize<'de> for TriggerName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `[Tags]` / CellTag / 实体 Tag id（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -660,12 +643,9 @@ impl<'de> Deserialize<'de> for TagName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `[AITriggerTypes]` 触发 id（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -752,12 +732,9 @@ impl<'de> Deserialize<'de> for AiTriggerName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 `[Basic] GameModes` / `missions.pkt` `GameMode` 标签（装载期大写）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -844,12 +821,9 @@ impl<'de> Deserialize<'de> for GameModeName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 地图 / 战役 scenario 文件名（装载期只修剪，保留盘上大小写）。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -936,9 +910,7 @@ impl<'de> Deserialize<'de> for MapFileName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_trim(deserializer)?,
-        })
+        Ok(Self { name: deserialize_trim(deserializer)? })
     }
 }
 
@@ -1026,12 +998,9 @@ impl<'de> Deserialize<'de> for MissionName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 冻结的完整静态地图（装载期产出，对局与绘制只读）。
 ///
@@ -1689,91 +1658,6 @@ pub struct PreparedMap {
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
     pub cell_tags: Vec<PreparedCellTag>,
-    /// 地图 `[TaskForces]` 绑定表；骨架路径为空。
-    pub task_forces: Vec<PreparedTaskForce>,
-    /// 地图 `[ScriptTypes]` 绑定表；骨架路径为空。
-    pub script_types: Vec<PreparedScriptType>,
-    /// 地图 `[TeamTypes]` 绑定表；骨架路径为空。
-    pub team_types: Vec<PreparedTeamType>,
-    /// 地图 `[AITriggerTypes]` 绑定表；骨架路径为空。
-    pub ai_triggers: Vec<PreparedAiTrigger>,
-}
-
-/// `[AITriggerTypes]` 绑定后的运行形状。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedAiTrigger {
-    /// 触发 id（装载期大写键）。
-    pub id: AiTriggerName,
-    /// 显示名。
-    pub name: String,
-    /// 关联 TeamType（已校验存在于绑定表）。
-    pub team: TeamTypeName,
-    /// 所属方稳定 id。
-    pub owner_house: crate::HouseId,
-    /// 科技等级门槛。
-    pub tech_level: i32,
-}
-
-/// `[ScriptTypes]` 绑定后的运行形状（稳定 id）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedScriptType {
-    /// Script 稳定 id。
-    pub id: crate::ScriptTypeId,
-    /// ScriptTypes 键名（装载期大写）。
-    pub name: ScriptTypeName,
-    /// 名称。
-    pub editor_name: String,
-    /// 步骤。
-    pub steps: Vec<MapScriptStep>,
-}
-
-/// `[TeamTypes]` 绑定后的运行形状（house / tag / script 稳定 id；task_force 已校验存在）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedTeamType {
-    /// id（装载期大写键）。
-    pub id: TeamTypeName,
-    /// 名称。
-    pub name: String,
-    /// 所属方稳定 id。
-    pub house: crate::HouseId,
-    /// `Script=`；空表示无脚本。
-    pub script: Option<crate::ScriptTypeId>,
-    /// `TaskForce=` 稳定 id。
-    pub task_force: crate::TaskForceId,
-    /// `Tag=`；空表示无。
-    pub tag: Option<crate::TagId>,
-    /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
-    pub waypoint: i32,
-    /// `Max=`。
-    pub max: i32,
-    /// `Priority=`。
-    pub priority: i32,
-    /// `VeteranLevel=`。
-    pub veteran_level: i32,
-}
-
-/// TaskForce 成员槽绑定后的运行形状（稳定 techno id）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedTaskForceEntry {
-    /// 数量。
-    pub count: u16,
-    /// 规则类型稳定 id。
-    pub definition_id: crate::TypeId,
-}
-
-/// `[TaskForces]` 绑定后的运行形状。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedTaskForce {
-    /// TaskForce 稳定 id。
-    pub id: crate::TaskForceId,
-    /// TaskForces 键名（装载期大写；供查找）。
-    pub name: TaskForceName,
-    /// 编辑器名。
-    pub editor_name: String,
-    /// 成员（最多 6）。
-    pub entries: Vec<PreparedTaskForceEntry>,
-    /// `Group=`。
-    pub group: i32,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。

@@ -1,13 +1,15 @@
 //! AITriggerTypes 最小执行：按冷却排队产队。
 
-use crate::common::{test_engine, battle_from_defs, defs_from_rules_ini};
+use crate::common::{battle_from_defs, defs_from_rules_ini, test_engine};
 use ra_engine::{Session, SessionBootKind};
 use ra_map::MapInfo;
 use ra_types::GameEdition;
 
 fn defs_with_e1() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-    defs_from_rules_ini(b"[InfantryTypes]\n0=E1\n\
-[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",)
+    defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n",
+    )
 }
 
 #[test]

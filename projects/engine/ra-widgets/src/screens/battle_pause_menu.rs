@@ -185,12 +185,7 @@ fn pick_sidebar_mix(source: &GameAssetSource, mixes: &[&str], errors: &mut Vec<S
 }
 
 /// 解 `bkgd*`：优先同包 `uibkgd.pal`，缺则回退同包 `sidebar.pal`（模组包可能无 `uibkgd`）。
-fn decode_bkgd(
-    source: &GameAssetSource,
-    mix: &str,
-    name: &str,
-    errors: &mut Vec<String>,
-) -> Option<DecodedUiSprite> {
+fn decode_bkgd(source: &GameAssetSource, mix: &str, name: &str, errors: &mut Vec<String>) -> Option<DecodedUiSprite> {
     let mut local = Vec::new();
     if let Some(sprite) = decode_preferring(source, mix, name, BATTLE_PAUSE_BKGD_PAL, 0, &mut local) {
         return Some(sprite);
@@ -198,7 +193,8 @@ fn decode_bkgd(
     let fallback = decode_preferring(source, mix, name, BATTLE_PAUSE_BUTTON_PAL, 0, &mut local);
     if fallback.is_none() {
         errors.extend(local);
-    } else {
+    }
+    else {
         errors.push(format!("{name}: 缺 {BATTLE_PAUSE_BKGD_PAL}，已用 {BATTLE_PAUSE_BUTTON_PAL} 回退"));
     }
     fallback
@@ -368,9 +364,11 @@ pub fn resolve_background<'a>(chrome: &'a BattlePauseChrome, screen_w: f32, scre
 pub fn resolve_sidebttn<'a>(chrome: &'a BattlePauseChrome, pressed: bool, hovered: bool) -> Option<&'a DecodedUiSprite> {
     if pressed {
         chrome.button_pressed.as_ref().or(chrome.button_normal.as_ref())
-    } else if hovered {
+    }
+    else if hovered {
         chrome.button_hover.as_ref().or(chrome.button_normal.as_ref())
-    } else {
+    }
+    else {
         chrome.button_normal.as_ref()
     }
 }
@@ -378,9 +376,6 @@ pub fn resolve_sidebttn<'a>(chrome: &'a BattlePauseChrome, pressed: bool, hovere
 impl BattlePauseChrome {
     /// 是否有可用菜单钮面或背景。
     pub fn has_art(&self) -> bool {
-        self.button_normal.is_some()
-            || self.background_sm.is_some()
-            || self.background_md.is_some()
-            || self.background_lg.is_some()
+        self.button_normal.is_some() || self.background_sm.is_some() || self.background_md.is_some() || self.background_lg.is_some()
     }
 }

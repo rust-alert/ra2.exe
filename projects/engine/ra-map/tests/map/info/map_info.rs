@@ -87,10 +87,7 @@ fn parse_basic_map_ini() {
 fn parse_basic_game_modes_list() {
     let text = b"[Map]\nSize=0,0,50,40\nTheater=TEMPERATE\n[Basic]\nGameModes=standard, MeatGrind\n";
     let info = MapInfo::parse_ini(GameEdition::Ra2, "t", text).unwrap();
-    assert_eq!(
-        info.game_modes,
-        vec![ra_types::GameModeName::parse("standard"), ra_types::GameModeName::parse("MeatGrind")]
-    );
+    assert_eq!(info.game_modes, vec![ra_types::GameModeName::parse("standard"), ra_types::GameModeName::parse("MeatGrind")]);
 }
 
 #[test]

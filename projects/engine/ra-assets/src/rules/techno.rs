@@ -217,7 +217,7 @@ impl TechnoTypeRegistry {
     }
 
     /// 遍历已解析类型。
-    pub fn iter(&self) -> impl Iterator<Item=&TechnoType> {
+    pub fn iter(&self) -> impl Iterator<Item = &TechnoType> {
         self.by_id.values()
     }
 
@@ -362,12 +362,7 @@ struct ResolvedWeaponFields {
     projectile: ProjectileName,
 }
 
-fn parse_techno(
-    view: LayeredIniView<'_>,
-    id: &TechnoName,
-    kind: TechnoKind,
-    overrides: Option<&FieldMergeOverrides>,
-) -> Option<TechnoType> {
+fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, overrides: Option<&FieldMergeOverrides>) -> Option<TechnoType> {
     let section = view.section_with_overrides(id.as_str(), overrides)?;
     let fields: TechnoSectionFields = section.deserialize().ok()?;
     let primary = fields.primary;
@@ -375,11 +370,7 @@ fn parse_techno(
     let techno_rof = fields.rof.unwrap_or(0);
     let primary_w = resolve_weapon(view, &primary, techno_rof);
     let secondary_w = resolve_weapon(view, &secondary, 0);
-    let image = if fields.image.is_empty() {
-        ImageName::parse(id.as_str())
-    } else {
-        fields.image
-    };
+    let image = if fields.image.is_empty() { ImageName::parse(id.as_str()) } else { fields.image };
     Some(TechnoType {
         id: id.clone(),
         kind,
@@ -483,32 +474,17 @@ fn art_geometry_fields(art: LayeredIniView<'_>, type_key: &str) -> ArtGeometryFi
 /// 从武器节读取伤害 / 射程 / ROF / 弹头 / 抛射体；缺省时可用 `fallback_rof`（主武器可回退类型节 ROF）。
 fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u32) -> ResolvedWeaponFields {
     if weapon.is_empty() {
-        return ResolvedWeaponFields {
-            rof: fallback_rof,
-            ..ResolvedWeaponFields::default()
-        };
+        return ResolvedWeaponFields { rof: fallback_rof, ..ResolvedWeaponFields::default() };
     }
     let Some(section) = view.section(weapon.as_str())
     else {
-        return ResolvedWeaponFields {
-            rof: fallback_rof,
-            ..ResolvedWeaponFields::default()
-        };
+        return ResolvedWeaponFields { rof: fallback_rof, ..ResolvedWeaponFields::default() };
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return ResolvedWeaponFields {
-            rof: fallback_rof,
-            ..ResolvedWeaponFields::default()
-        };
+        return ResolvedWeaponFields { rof: fallback_rof, ..ResolvedWeaponFields::default() };
     };
     let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { fallback_rof };
-    ResolvedWeaponFields {
-        damage: w.damage.unwrap_or(0),
-        range: w.range.unwrap_or(0),
-        rof,
-        warhead: w.warhead,
-        projectile: w.projectile,
-    }
+    ResolvedWeaponFields { damage: w.damage.unwrap_or(0), range: w.range.unwrap_or(0), rof, warhead: w.warhead, projectile: w.projectile }
 }

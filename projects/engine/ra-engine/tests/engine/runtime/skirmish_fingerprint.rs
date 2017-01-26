@@ -29,29 +29,15 @@ impl AssetSource for MissingRulesSource {
 struct EmptyRulesSource;
 impl AssetSource for EmptyRulesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        if relative.eq_ignore_ascii_case(RULES_INI) {
-            Ok(Vec::new())
-        } else {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
+        if relative.eq_ignore_ascii_case(RULES_INI) { Ok(Vec::new()) } else { Err(RaError::MissingFile(relative.to_string())) }
     }
 }
 
 #[test]
 fn open_skirmish_rejects_missing_rules_for_fingerprint() {
-    let err = open_skirmish_session(
-        &MissingRulesSource,
-        GameEdition::Ra2,
-        RULES_INI,
-        minimal_defs(),
-        tiny_map(),
-        "t".into(),
-        (0, 0),
-        None,
-        &[],
-        0,
-    )
-    .unwrap_err();
+    let err =
+        open_skirmish_session(&MissingRulesSource, GameEdition::Ra2, RULES_INI, minimal_defs(), tiny_map(), "t".into(), (0, 0), None, &[], 0)
+            .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains(RULES_INI), "{msg}");
     assert!(msg.contains("指纹") || msg.contains("规则"), "{msg}");
@@ -59,19 +45,9 @@ fn open_skirmish_rejects_missing_rules_for_fingerprint() {
 
 #[test]
 fn open_skirmish_rejects_empty_rules_bytes_for_fingerprint() {
-    let err = open_skirmish_session(
-        &EmptyRulesSource,
-        GameEdition::Ra2,
-        RULES_INI,
-        minimal_defs(),
-        tiny_map(),
-        "t".into(),
-        (0, 0),
-        None,
-        &[],
-        0,
-    )
-    .unwrap_err();
+    let err =
+        open_skirmish_session(&EmptyRulesSource, GameEdition::Ra2, RULES_INI, minimal_defs(), tiny_map(), "t".into(), (0, 0), None, &[], 0)
+            .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("空"), "{msg}");
 }

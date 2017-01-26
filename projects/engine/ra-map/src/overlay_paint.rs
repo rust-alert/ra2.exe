@@ -147,9 +147,11 @@ pub fn paint_map_overlays(
         let OverlayArtHints { image_key, new_theater, theater_yes } = hint.clone();
         let pal_kind: u8 = if tib {
             2
-        } else if theater_yes && !new_theater {
+        }
+        else if theater_yes && !new_theater {
             1
-        } else {
+        }
+        else {
             0
         };
 
@@ -308,11 +310,7 @@ impl crate::PaintDefinitions {
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
 ///
 /// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
-fn resolve_overlay_art_keys(
-    paint: &crate::PaintDefinitions,
-    type_name: &str,
-    display_name: &str,
-) -> OverlayArtHints {
+fn resolve_overlay_art_keys(paint: &crate::PaintDefinitions, type_name: &str, display_name: &str) -> OverlayArtHints {
     let art = paint.art_doc();
     let rules = paint.rules_doc();
     let rules_image = rules
@@ -325,10 +323,7 @@ fn resolve_overlay_art_keys(
     let art_section = art
         .and_then(|a| {
             for candidate in [type_name, rules_image_or_type.as_str(), display_name] {
-                let fields = a
-                    .section(candidate)
-                    .and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok())
-                    .unwrap_or_default();
+                let fields = a.section(candidate).and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok()).unwrap_or_default();
                 if fields.theater.is_some() || fields.new_theater.is_some() || fields.image.is_some() {
                     return Some(candidate.to_ascii_uppercase());
                 }
@@ -336,10 +331,8 @@ fn resolve_overlay_art_keys(
             None
         })
         .unwrap_or_else(|| type_name.to_ascii_uppercase());
-    let art_fields = art
-        .and_then(|a| a.section(&art_section))
-        .and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok())
-        .unwrap_or_default();
+    let art_fields =
+        art.and_then(|a| a.section(&art_section)).and_then(|s| s.deserialize::<OverlayArtSectionFields>().ok()).unwrap_or_default();
     let image_key = art_fields
         .image
         .as_ref()
@@ -347,11 +340,7 @@ fn resolve_overlay_art_keys(
         .map(|n| n.as_str().to_string())
         .or(rules_image)
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
-    OverlayArtHints {
-        image_key,
-        new_theater: art_fields.new_theater.unwrap_or(false),
-        theater_yes: art_fields.theater.unwrap_or(false),
-    }
+    OverlayArtHints { image_key, new_theater: art_fields.new_theater.unwrap_or(false), theater_yes: art_fields.theater.unwrap_or(false) }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -377,9 +366,11 @@ const TIBERIUM_OVERLAY_Y_BIAS: i32 = -12;
 fn overlay_draw_y_adjust(type_name: &str, data: u8, is_tiberium: bool) -> i32 {
     if is_high_bridge_body_name(type_name) {
         if (9..=17).contains(&data) { -31 } else { -16 }
-    } else if is_tiberium {
+    }
+    else if is_tiberium {
         TIBERIUM_OVERLAY_Y_BIAS
-    } else {
+    }
+    else {
         0
     }
 }

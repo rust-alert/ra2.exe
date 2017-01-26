@@ -23,8 +23,7 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
     let mut out = Vec::new();
     for name in &scripting.unknown_sections {
         out.push(MapCapabilityGap {
-            code: format!("map.section.{name} unsupported"),
-            message: format!("地图节 [{name}] 当前引擎未建模"),
+            code: format!("map.section.{name} unsupported"), message: format!("地图节 [{name}] 当前引擎未建模")
         });
     }
     let mut seen_actions = Vec::new();
@@ -40,7 +39,8 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
                     code: format!("map.action.{code} unsupported"),
                     message: format!("触发动作码 {code} 当前引擎未执行"),
                 });
-            } else if cmd.kind.is_presentation_stub() {
+            }
+            else if cmd.kind.is_presentation_stub() {
                 out.push(MapCapabilityGap {
                     code: format!("map.action.{code} stub"),
                     message: format!("触发动作码 {code} 仅为呈现占位，执行不改变玩法状态"),

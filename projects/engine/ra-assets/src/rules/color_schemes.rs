@@ -39,11 +39,7 @@ impl ColorSchemes {
         let mut by_name = HashMap::new();
         let Some(sec) = view.section("Colors")
         else {
-            return Self {
-                by_name,
-                house_hsv: HashMap::new(),
-                tiberium_display_hsv: HashMap::new(),
-            };
+            return Self { by_name, house_hsv: HashMap::new(), tiberium_display_hsv: HashMap::new() };
         };
         for key in sec.keys() {
             let Some(value) = sec.get(key)
@@ -54,11 +50,7 @@ impl ColorSchemes {
                 by_name.insert(ColorName::parse(key), hsv);
             }
         }
-        Self {
-            by_name,
-            house_hsv: HashMap::new(),
-            tiberium_display_hsv: HashMap::new(),
-        }
+        Self { by_name, house_hsv: HashMap::new(), tiberium_display_hsv: HashMap::new() }
     }
 
     /// 按方案名取 HSV（大小写不敏感）。

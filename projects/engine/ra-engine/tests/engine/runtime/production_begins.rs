@@ -82,29 +82,17 @@ fn production_begins_action_enables_campaign_ai_produce() {
 
     // 首 tick：计时事件触发 Production Begins，尚不一定完成落兵营。
     session.tick(&engine.runtime());
-    assert!(
-        session.expect_battle().world.house_production_begun("SOVIETS"),
-        "action 3 must open Soviet production"
-    );
+    assert!(session.expect_battle().world.house_production_begun("SOVIETS"), "action 3 must open Soviet production");
     assert!(!session.expect_battle().world.house_production_begun("AMERICANS"));
 
     for _ in 0..(PRODUCE_TICKS + 8) {
         session.tick(&engine.runtime());
-        if session
-            .expect_battle()
-            .world
-            .find_entity_id_by_owner_type("SOVIETS", "NAHAND")
-            .is_some()
-        {
+        if session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").is_some() {
             break;
         }
     }
     assert!(
-        session
-            .expect_battle()
-            .world
-            .find_entity_id_by_owner_type("SOVIETS", "NAHAND")
-            .is_some(),
+        session.expect_battle().world.find_entity_id_by_owner_type("SOVIETS", "NAHAND").is_some(),
         "campaign AI should place barracks after Production Begins"
     );
 }

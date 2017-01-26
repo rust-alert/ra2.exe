@@ -2,10 +2,10 @@
 
 use std::collections::HashMap;
 
-use ra_map::{PaintDefinitions,
-             MapInfo, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
-             format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_terrain_anim_bank,
-             terrain_anim_frame, terrain_animation_rate_ms,
+use ra_map::{
+    MapInfo, PaintDefinitions, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
+    format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_terrain_anim_bank,
+    terrain_anim_frame, terrain_animation_rate_ms,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -207,12 +207,18 @@ fn looping_animated_terrain_selects_body_frame_by_clock() {
     map.terrain_objects = vec![TerrainObject { x: 5, y: 0, name: "FLAG01".into() }];
 
     let mut image0 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image0, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(0)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image0, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(0)),
+        1
+    );
     let green = first_opaque(&image0);
     assert!(green[1] > green[0], "clock 0 should paint frame 0 green, got {green:?}");
 
     let mut image1 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image1, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image1, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)),
+        1
+    );
     let red = first_opaque(&image1);
     assert!(red[0] > red[1], "clock 200ms should paint frame 1 red, got {red:?}");
 }
@@ -240,18 +246,30 @@ fn spawns_tiberium_stays_on_idle_frame_zero() {
     assert_eq!(ore_tree_frame_count_hints(&bank), vec![(5, 0, 2)]);
 
     let mut image0 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image0, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(0)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image0, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(0)),
+        1
+    );
     let green0 = first_opaque(&image0);
     assert!(green0[1] > green0[0], "idle frame 0 green, got {green0:?}");
 
     let mut image1 = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image1, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image1, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)),
+        1
+    );
     let green1 = first_opaque(&image1);
     assert!(green1[1] > green1[0], "clock must not advance ore-tree idle frame, got {green1:?}");
 
     let mut image_static = TerrainImage::blank(256, 256);
     assert_eq!(
-        paint_map_terrain_objects(&source, &map, &mut image_static, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), TerrainPaintMode::StaticOnly),
+        paint_map_terrain_objects(
+            &source,
+            &map,
+            &mut image_static,
+            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            TerrainPaintMode::StaticOnly
+        ),
         0,
         "StaticOnly must leave ore trees to OreTree bank"
     );
@@ -282,7 +300,10 @@ fn static_terrain_ignores_anim_clock() {
     let source = MapSource { files };
     let map = tree_map();
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(200)),
+        1
+    );
     let green = first_opaque(&image);
     assert!(green[1] > green[0], "static terrain must stay on frame 0, got {green:?}");
 }
@@ -298,7 +319,16 @@ fn static_only_skips_looping_animated_terrain() {
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.terrain_objects = vec![TerrainObject { x: 5, y: 0, name: "FLAG01".into() }];
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), TerrainPaintMode::StaticOnly), 0);
+    assert_eq!(
+        paint_map_terrain_objects(
+            &source,
+            &map,
+            &mut image,
+            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            TerrainPaintMode::StaticOnly
+        ),
+        0
+    );
 }
 
 #[test]
@@ -367,7 +397,10 @@ fn looping_animated_terrain_skips_shadow_half_frames() {
     assert_eq!(bank.layers[0].shp_frames, 4, "shp_frames must keep full count including shadow half");
 
     let mut image = TerrainImage::blank(256, 256);
-    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(400)), 1);
+    assert_eq!(
+        paint_map_terrain_objects(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), clock(400)),
+        1
+    );
     let green = first_opaque(&image);
     assert!(green[1] > green[0] && green[1] > green[2], "clock 400ms must wrap body frames to green, not shadow blue, got {green:?}");
 }
@@ -435,7 +468,13 @@ fn ore_tree_diag_reports_static_skip_and_bank_draw() {
     let map = tibtre_map();
 
     let mut static_img = TerrainImage::blank(64, 64);
-    let static_n = paint_map_terrain_objects(&source, &map, &mut static_img, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), TerrainPaintMode::StaticOnly);
+    let static_n = paint_map_terrain_objects(
+        &source,
+        &map,
+        &mut static_img,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        TerrainPaintMode::StaticOnly,
+    );
     assert_eq!(static_n, 0);
 
     let bank = collect_ore_tree_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"));
@@ -480,7 +519,13 @@ fn tibtre_stock_fixture_runtime_diag_when_present() {
     let map = tibtre_map();
 
     let mut static_img = TerrainImage::blank(64, 64);
-    let static_n = paint_map_terrain_objects(&source, &map, &mut static_img, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), TerrainPaintMode::StaticOnly);
+    let static_n = paint_map_terrain_objects(
+        &source,
+        &map,
+        &mut static_img,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        TerrainPaintMode::StaticOnly,
+    );
     let bank = collect_ore_tree_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"));
     assert_eq!(bank.layers.len(), 1);
     let layer = &bank.layers[0];

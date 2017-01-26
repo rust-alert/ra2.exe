@@ -233,11 +233,7 @@ impl OptionsDialogState {
     fn apply_track_at(&mut self, snap: &LayoutSnapshot, id: OptionsTrackbar, x: i32) {
         let track = rect_px_from_snapshot(snap, id.layout_id());
         let max = id.max();
-        let rail_w = if id.has_plaque() {
-            (track.w - 28).max(1)
-        } else {
-            track.w
-        };
+        let rail_w = if id.has_plaque() { (track.w - 28).max(1) } else { track.w };
         let inner = (rail_w - 12).max(1);
         let rel = (x - track.x - 6).clamp(0, inner);
         let pos = if max == 0 { 0 } else { ((rel as u32 * u32::from(max) + (inner as u32 / 2)) / inner as u32) as u8 };

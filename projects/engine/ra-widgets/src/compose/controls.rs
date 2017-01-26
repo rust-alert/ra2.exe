@@ -20,11 +20,7 @@ pub(super) fn draw_checkbox(dst: &mut RgbaImage, rect: RectPx, checked: bool) {
     fill_rect(dst, RectPx::new(box_r.x + 2, box_r.y + 2, (side - 4).max(1), (side - 4).max(1)), [12, 12, 16, 255]);
     if checked {
         let pad = (side / 4).max(2);
-        fill_rect(
-            dst,
-            RectPx::new(box_r.x + pad, box_r.y + pad, (side - pad * 2).max(1), (side - pad * 2).max(1)),
-            [255, 160, 32, 255],
-        );
+        fill_rect(dst, RectPx::new(box_r.x + pad, box_r.y + pad, (side - pad * 2).max(1), (side - pad * 2).max(1)), [255, 160, 32, 255]);
     }
 }
 
@@ -100,14 +96,20 @@ pub fn paint_options_dialog_controls(
 
     let label = |kind: &str, fallback: &str| resolve_caption(csf, fallback, options_dialog_csf_key(kind));
     let detail_value = resolve_caption(csf, options_detail_fallback(state.detail), options_detail_csf_key(state.detail));
-    let difficulty_value =
-        resolve_caption(csf, options_difficulty_fallback(state.difficulty), options_difficulty_csf_key(state.difficulty));
+    let difficulty_value = resolve_caption(csf, options_difficulty_fallback(state.difficulty), options_difficulty_csf_key(state.difficulty));
     let scroll_value = resolve_caption(csf, options_scroll_fallback(state.scroll), options_scroll_csf_key(state.scroll));
 
     if let Some(fnt) = fnt {
         blit_text_colored(page, fnt, &label("display", "Display Options"), sec_display.x, text_y_centered(fnt, sec_display), MENU_TEXT_SECTION);
         draw_section_rule(page, RectPx::new(sec_display.x, sec_display.y, sec_game.w, sec_display.h));
-        blit_text_colored(page, fnt, &label("detail", "Visual Details"), caption_detail.x, text_y_centered(fnt, caption_detail), MENU_TEXT_ACCENT);
+        blit_text_colored(
+            page,
+            fnt,
+            &label("detail", "Visual Details"),
+            caption_detail.x,
+            text_y_centered(fnt, caption_detail),
+            MENU_TEXT_ACCENT,
+        );
         blit_text_colored(page, fnt, &detail_value, value_detail.x, text_y_centered(fnt, value_detail), MENU_TEXT_ACCENT);
         blit_text_colored(
             page,

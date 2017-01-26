@@ -88,9 +88,10 @@ impl BattleController {
 
     /// 可玩对局且未暂停 / 未结算时，壳层应捕获光标以支持边缘滚屏。
     pub fn wants_cursor_capture(&self) -> bool {
-        self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
-            !g.paused && g.outcome.is_none() && !g.world.trigger_runtime.script_input_locked
-        })
+        self.session
+            .as_ref()
+            .and_then(|s| s.battle())
+            .is_some_and(|g| !g.paused && g.outcome.is_none() && !g.world.trigger_runtime.script_input_locked)
     }
 
     pub(super) fn handle_left_click(&mut self, renderer: &Renderer, window: &Window) {
@@ -320,15 +321,10 @@ impl BattleController {
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
     pub fn handle_event(&mut self, event: &WindowEvent, renderer: &mut Renderer, window: &Window, accept_commands: bool) -> BattleNav {
         let battle_paused = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.paused);
-        let script_locked = self
-            .session
-            .as_ref()
-            .and_then(|s| s.battle())
-            .is_some_and(|g| g.world.trigger_runtime.script_input_locked);
+        let script_locked = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.world.trigger_runtime.script_input_locked);
         let gameplay_open = accept_commands && !battle_paused && !script_locked;
-        let outcome_hold = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| {
-            g.outcome.is_some() || g.pending_savour_outcome.is_some()
-        });
+        let outcome_hold =
+            self.session.as_ref().and_then(|s| s.battle()).is_some_and(|g| g.outcome.is_some() || g.pending_savour_outcome.is_some());
         // 收束窗 / EVA 播报：仍在 Battle 页，但不再接受对局/暂停输入。
         if accept_commands && outcome_hold {
             if let WindowEvent::CursorMoved { position, .. } = event {
@@ -571,11 +567,7 @@ impl BattleController {
                 // 剧本锁输入：仍允许 Options/Esc 进暂停，其它对局热键吞掉。
                 if script_locked {
                     if matches!(hotkey, Some(super::super::battle_hotkeys::HotkeyAction::Options)) {
-                        return self.dispatch_hotkey_action(
-                            super::super::battle_hotkeys::HotkeyAction::Options,
-                            renderer,
-                            window,
-                        );
+                        return self.dispatch_hotkey_action(super::super::battle_hotkeys::HotkeyAction::Options, renderer, window);
                     }
                     return BattleNav::None;
                 }

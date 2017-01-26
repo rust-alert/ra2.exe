@@ -1,8 +1,6 @@
 //! 局内选项 `0xBBB`（暂停二级页）。
 
-use ra_layout::{
-    BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, LayoutSnapshot, RectPx, rect_px_from_snapshot, solve_battle_in_game_options_at,
-};
+use ra_layout::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, LayoutSnapshot, RectPx, rect_px_from_snapshot, solve_battle_in_game_options_at};
 
 /// 局内选项草稿（Back 时写回宿主；本切片最小可玩）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,14 +21,7 @@ pub struct BattleInGameOptionsState {
 
 impl Default for BattleInGameOptionsState {
     fn default() -> Self {
-        Self {
-            game_speed: 4,
-            scroll_rate: 4,
-            target_lines: true,
-            show_hidden: false,
-            tooltips: true,
-            drag_track: None,
-        }
+        Self { game_speed: 4, scroll_rate: 4, target_lines: true, show_hidden: false, tooltips: true, drag_track: None }
     }
 }
 

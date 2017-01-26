@@ -1,10 +1,11 @@
 //! 从 rules 解析弹头 `Verses`（相对护甲倍率）。
 
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
-use serde::Deserialize;
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, SeqAccess, Visitor},
+};
 
 use crate::ini::{IniDocument, IniMergePolicy, LayeredIniView};
 use ra_types::{WarheadName, WarheadVerses};
@@ -32,14 +33,14 @@ pub struct WarheadRegistry {
 
 impl WarheadRegistry {
     /// 解析指定弹头名列表（大小写不敏感节名）。
-    pub fn from_names(rules: &IniDocument, names: impl IntoIterator<Item=impl AsRef<str>>) -> Self {
+    pub fn from_names(rules: &IniDocument, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         let policy = IniMergePolicy::last_wins();
         let docs = std::slice::from_ref(rules);
         Self::from_names_layered(LayeredIniView::new(docs, &policy), names)
     }
 
     /// 从层叠 rules 视图解析指定弹头名列表。
-    pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item=impl AsRef<str>>) -> Self {
+    pub fn from_names_layered(view: LayeredIniView<'_>, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         let mut by_id = HashMap::new();
         for name in names {
             let id = WarheadName::parse(name.as_ref());
@@ -154,12 +155,7 @@ where
 fn parse_warhead(view: LayeredIniView<'_>, id: &WarheadName) -> Option<Warhead> {
     let section = view.section(id.as_str())?;
     let fields: WarheadSectionFields = section.deserialize().ok()?;
-    Some(Warhead {
-        id: id.clone(),
-        verses: fields.verses,
-        spread: fields.spread,
-        prone_damage: fields.prone_damage,
-    })
+    Some(Warhead { id: id.clone(), verses: fields.verses, spread: fields.spread, prone_damage: fields.prone_damage })
 }
 
 /// 将 `Verses=` 标量（或逗号拆分序列）一次解码为 [`WarheadVerses`]。

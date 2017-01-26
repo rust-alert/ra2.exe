@@ -62,7 +62,8 @@ impl crate::state::BattleState {
                 let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
                     building_ready.push((index, type_id));
-                } else {
+                }
+                else {
                     unit_spawns.push((index, type_id));
                 }
             }
@@ -121,14 +122,10 @@ impl crate::state::BattleState {
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
         let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
-        let attack_range = weapon
-            .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
-            .unwrap_or(0);
+        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) }).unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
         let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
-        let attack_cooldown_max = weapon
-            .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-            .unwrap_or(0);
+        let attack_cooldown_max = weapon.map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
         let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();

@@ -109,35 +109,19 @@ pub fn find_mission_presentation<'a>(missions: &'a [MissionPresentation], scenar
 impl MissionPresentation {
     /// 按视口宽选择装载背景 SHP；空串表示未配置。
     pub fn background_shp_for_viewport(&self, viewport_w: u32) -> Option<&str> {
-        let name = if viewport_w < 800 {
-            self.background_shp_640.as_str()
-        } else {
-            self.background_shp_800.as_str()
-        };
+        let name = if viewport_w < 800 { self.background_shp_640.as_str() } else { self.background_shp_800.as_str() };
         let trimmed = name.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
+        if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
     /// 装载背景调色板：零售仅见 `LS800BkgdPal`（640 视口仍用同一盘）；空串表示未配置。
     pub fn background_pal_for_viewport(&self, _viewport_w: u32) -> Option<&str> {
         let trimmed = self.background_pal_800.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
+        if trimmed.is_empty() { None } else { Some(trimmed) }
     }
 
     /// 按视口宽选择简报原点。
     pub fn brief_loc_for_viewport(&self, viewport_w: u32) -> (i32, i32) {
-        if viewport_w < 800 {
-            (self.brief_loc_x_640, self.brief_loc_y_640)
-        } else {
-            (self.brief_loc_x_800, self.brief_loc_y_800)
-        }
+        if viewport_w < 800 { (self.brief_loc_x_640, self.brief_loc_y_640) } else { (self.brief_loc_x_800, self.brief_loc_y_800) }
     }
 }

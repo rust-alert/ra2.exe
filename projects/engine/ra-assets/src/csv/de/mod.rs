@@ -7,8 +7,7 @@ pub use error::CsvDeError;
 
 use serde::Deserialize;
 
-use super::parse::parse_westwood_csv_line;
-use super::row::CsvRow;
+use super::{parse::parse_westwood_csv_line, row::CsvRow};
 use scalar::ScalarDeserializer;
 
 /// 将一行 Westwood CSV 反序列化为强类型（结构体按字段声明顺序对列）。
@@ -46,10 +45,7 @@ impl<'de> serde::Deserializer<'de> for &mut RowDeserializer<'_> {
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_seq(RowSeqAccess {
-            fields: &self.row.fields,
-            index: 0,
-        })
+        visitor.visit_seq(RowSeqAccess { fields: &self.row.fields, index: 0 })
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -66,21 +62,11 @@ impl<'de> serde::Deserializer<'de> for &mut RowDeserializer<'_> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+    fn deserialize_struct<V>(self, _name: &'static str, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_map(RowStructAccess {
-            schema: fields,
-            values: &self.row.fields,
-            index: 0,
-            pending_value: None,
-        })
+        visitor.visit_map(RowStructAccess { schema: fields, values: &self.row.fields, index: 0, pending_value: None })
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -140,12 +126,7 @@ impl<'de> serde::de::SeqAccess<'de> for RowSeqAccess<'_> {
             Some(field) => {
                 let col = self.index;
                 self.index += 1;
-                seed.deserialize(ScalarDeserializer {
-                    raw: field.value.clone(),
-                    column: Some(col),
-                    field: None,
-                })
-                .map(Some)
+                seed.deserialize(ScalarDeserializer { raw: field.value.clone(), column: Some(col), field: None }).map(Some)
             }
             None => Ok(None),
         }
@@ -182,10 +163,6 @@ impl<'de> serde::de::MapAccess<'de> for RowStructAccess<'_> {
         let col = self.index.saturating_sub(1);
         let field_name = self.schema.get(col).copied();
         let raw = self.pending_value.take().unwrap_or("");
-        seed.deserialize(ScalarDeserializer {
-            raw: raw.to_string(),
-            column: Some(col),
-            field: field_name.map(str::to_string),
-        })
+        seed.deserialize(ScalarDeserializer { raw: raw.to_string(), column: Some(col), field: field_name.map(str::to_string) })
     }
 }

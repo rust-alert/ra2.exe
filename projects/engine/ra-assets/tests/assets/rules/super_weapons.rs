@@ -42,9 +42,7 @@ fn from_layered_overrides_recharge_and_appends_list() {
 [Nuke]\nType=MultiMissile\nRechargeTime=5\n",
     )
     .unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let reg = SuperWeaponTypeRegistry::from_layered(LayeredIniView::new(&docs, &policy));
     assert_eq!(reg.len(), 2);

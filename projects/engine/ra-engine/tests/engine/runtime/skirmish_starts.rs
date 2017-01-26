@@ -9,12 +9,14 @@ use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 const RULES_INI: &str = "rules.ini";
 
 fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-    defs_from_rules_ini(b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
+    defs_from_rules_ini(
+        b"[VehicleTypes]\n0=AMCV\n1=SMCV\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n\
 [AMCV]\nDeploysInto=GACNST\nOwner=Americans\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [SMCV]\nDeploysInto=NACNST\nOwner=Russians\nStrength=1000\nSpeed=32\nSight=4\nCost=2500\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\n\
-[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n", )
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\n",
+    )
 }
 
 fn map_with_starts() -> MapInfo {
@@ -28,11 +30,7 @@ fn map_with_starts() -> MapInfo {
 struct RulesBytesSource;
 impl AssetSource for RulesBytesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        if relative.eq_ignore_ascii_case(RULES_INI) {
-            Ok(b"[General]\n".to_vec())
-        } else {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
+        if relative.eq_ignore_ascii_case(RULES_INI) { Ok(b"[General]\n".to_vec()) } else { Err(RaError::MissingFile(relative.to_string())) }
     }
 }
 

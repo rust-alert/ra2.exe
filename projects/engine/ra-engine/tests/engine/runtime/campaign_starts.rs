@@ -72,11 +72,7 @@ fn campaign_map() -> MapInfo {
 struct RulesBytesSource;
 impl AssetSource for RulesBytesSource {
     fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
-        if relative.eq_ignore_ascii_case(RULES_INI) {
-            Ok(b"[General]\n".to_vec())
-        } else {
-            Err(RaError::MissingFile(relative.to_string()))
-        }
+        if relative.eq_ignore_ascii_case(RULES_INI) { Ok(b"[General]\n".to_vec()) } else { Err(RaError::MissingFile(relative.to_string())) }
     }
 }
 

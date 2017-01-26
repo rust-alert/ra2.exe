@@ -122,8 +122,12 @@ impl crate::state::BattleState {
             return ("EVA_BuildingInfiltratedPowerSabotaged", Some("EVA_PowerSabotaged"));
         }
         if is_refinery(&self.definitions, building_type) {
-            let stolen =
-                self.players.iter().find(|p| p.house.eq_ignore_ascii_case(victim_house)).map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0)).unwrap_or(0);
+            let stolen = self
+                .players
+                .iter()
+                .find(|p| p.house.eq_ignore_ascii_case(victim_house))
+                .map(|p| p.funds.min(REFINERY_STEAL_FUNDS).max(0))
+                .unwrap_or(0);
             if stolen > 0 {
                 if let Some(victim) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
                     victim.funds -= stolen;

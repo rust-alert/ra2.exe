@@ -4,8 +4,10 @@ use std::fmt;
 
 use ra_assets::{IniDocument, IniMergePolicy, LayeredIniView, from_row};
 use ra_types::ImageName;
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 规则里的建筑受损阈值与火焰类型名。
 #[derive(Debug, Clone, PartialEq)]
@@ -61,27 +63,16 @@ impl StructureDamageRules {
         let policy = IniMergePolicy::last_wins();
         let view = LayeredIniView::new(docs, &policy);
         let mut out = Self::default();
-        let av = view
-            .section("AudioVisual")
-            .and_then(|s| s.deserialize::<AudioVisualDamageFields>().ok())
-            .unwrap_or_default();
+        let av = view.section("AudioVisual").and_then(|s| s.deserialize::<AudioVisualDamageFields>().ok()).unwrap_or_default();
         if let Some(v) = av.condition_yellow {
             out.yellow = v;
         }
         if let Some(v) = av.condition_red {
             out.red = v;
         }
-        let general = view
-            .section("General")
-            .and_then(|s| s.deserialize::<GeneralDamageFireFields>().ok())
-            .unwrap_or_default();
+        let general = view.section("General").and_then(|s| s.deserialize::<GeneralDamageFireFields>().ok()).unwrap_or_default();
         // 零售写在 `[General]`；个别模组可能挂在 `[AudioVisual]`。
-        if let Some(types) = general
-            .damage_fire_types
-            .or(general.damage_fire_names)
-            .or(av.damage_fire_types)
-            .or(av.damage_fire_names)
-        {
+        if let Some(types) = general.damage_fire_types.or(general.damage_fire_names).or(av.damage_fire_types).or(av.damage_fire_names) {
             out.fire_types = types;
         }
         out
@@ -121,11 +112,7 @@ where
 
         fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
             let v = v as f32;
-            if v > 1.0 {
-                Ok(Some((v / 100.0).clamp(0.0, 1.0)))
-            } else {
-                Ok(Some(v.clamp(0.0, 1.0)))
-            }
+            if v > 1.0 { Ok(Some((v / 100.0).clamp(0.0, 1.0))) } else { Ok(Some(v.clamp(0.0, 1.0))) }
         }
 
         fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
@@ -208,10 +195,7 @@ where
 }
 
 fn parse_fire_type_list(raw: &str) -> Vec<ImageName> {
-    raw.split(',')
-        .map(ImageName::parse)
-        .filter(|s| !s.is_empty())
-        .collect()
+    raw.split(',').map(ImageName::parse).filter(|s| !s.is_empty()).collect()
 }
 
 /// 解析 `50%` / `0.5` / `50` 为 0..=1。
@@ -222,11 +206,7 @@ pub fn parse_condition_percent(raw: &str) -> Option<f32> {
         return Some((v / 100.0).clamp(0.0, 1.0));
     }
     let v: f32 = s.parse().ok()?;
-    if v > 1.0 {
-        Some((v / 100.0).clamp(0.0, 1.0))
-    } else {
-        Some(v.clamp(0.0, 1.0))
-    }
+    if v > 1.0 { Some((v / 100.0).clamp(0.0, 1.0)) } else { Some(v.clamp(0.0, 1.0)) }
 }
 
 /// 地图放置血量比例（256=满）。
@@ -242,11 +222,7 @@ struct TechLevelFields {
 
 /// 从 rules 类型节读 `TechLevel`；缺省按平民建筑 `-1`。
 pub fn structure_tech_level(rules: Option<&IniDocument>, type_id: &str) -> i32 {
-    rules
-        .and_then(|d| d.section(type_id))
-        .and_then(|s| s.deserialize::<TechLevelFields>().ok())
-        .and_then(|f| f.tech_level)
-        .unwrap_or(-1)
+    rules.and_then(|d| d.section(type_id)).and_then(|s| s.deserialize::<TechLevelFields>().ok()).and_then(|f| f.tech_level).unwrap_or(-1)
 }
 
 /// 主体受损帧（无人占领、非驻军折叠）。

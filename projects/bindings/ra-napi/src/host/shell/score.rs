@@ -346,13 +346,7 @@ impl Shell {
     fn results_continue_hit(&self) -> Option<&'static str> {
         if self.results_is_campaign() {
             let hud = self.battle_controller.as_ref().and_then(|c| c.hud_chrome.as_ref());
-            return campaign_score_continue_hit_at(
-                self.window_width as u32,
-                self.window_height as u32,
-                hud,
-                self.cursor.0,
-                self.cursor.1,
-            );
+            return campaign_score_continue_hit_at(self.window_width as u32, self.window_height as u32, hud, self.cursor.0, self.cursor.1);
         }
         let (win_w, win_h) = self.display_mode.size();
         let (sx, sy) = ra_layout::window_to_shell_px(self.cursor.0, self.cursor.1, win_w as f64, win_h as f64);

@@ -75,17 +75,9 @@ impl BattleSession {
         else {
             return;
         };
-        let local_win = self
-            .world
-            .players
-            .iter()
-            .find(|p| p.id == self.world.local_player)
-            .is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(&owner));
-        let outcome = if local_win {
-            BattleOutcome::Victory { owner: owner.clone() }
-        } else {
-            BattleOutcome::Defeat { reason: String::new() }
-        };
+        let local_win =
+            self.world.players.iter().find(|p| p.id == self.world.local_player).is_some_and(|p| p.house.as_ref().eq_ignore_ascii_case(&owner));
+        let outcome = if local_win { BattleOutcome::Victory { owner: owner.clone() } } else { BattleOutcome::Defeat { reason: String::new() } };
         self.begin_savour(outcome);
     }
 
@@ -140,20 +132,19 @@ impl BattleSession {
             BattleOutcome::Victory { owner } => {
                 if self.boot_kind == SessionBootKind::Campaign {
                     format!("战役胜利 · {owner}")
-                } else {
+                }
+                else {
                     format!("胜负已定 · {owner}")
                 }
             }
             BattleOutcome::Defeat { reason } => {
                 if self.boot_kind == SessionBootKind::Campaign {
-                    if reason.is_empty() {
-                        "战役失败".into()
-                    } else {
-                        format!("战役失败 · {reason}")
-                    }
-                } else if reason.is_empty() {
+                    if reason.is_empty() { "战役失败".into() } else { format!("战役失败 · {reason}") }
+                }
+                else if reason.is_empty() {
                     "胜负已定".into()
-                } else {
+                }
+                else {
                     format!("胜负已定 · {reason}")
                 }
             }
@@ -210,20 +201,12 @@ impl BattleSession {
     /// 至少需要两名非氛围玩家槽位，避免单机装载尚未开战时误判胜负。
     /// 短局：存活建筑或 `[General] BaseUnit` 保活。长局：任意存活建筑 / 步兵 / 载具 / 飞行器保活。
     pub fn sole_victor(&self) -> Option<&str> {
-        let contenders: Vec<&str> = self
-            .world
-            .players
-            .iter()
-            .filter(|p| !is_ambient_house(p.house.as_ref()))
-            .map(|p| p.house.as_ref())
-            .collect();
+        let contenders: Vec<&str> =
+            self.world.players.iter().filter(|p| !is_ambient_house(p.house.as_ref())).map(|p| p.house.as_ref()).collect();
         if contenders.len() < 2 {
             return None;
         }
-        let alive: Vec<&str> = contenders
-            .into_iter()
-            .filter(|house| house_keeps_alive(&self.world, house, self.short_game))
-            .collect();
+        let alive: Vec<&str> = contenders.into_iter().filter(|house| house_keeps_alive(&self.world, house, self.short_game)).collect();
         if alive.len() == 1 { Some(alive[0]) } else { None }
     }
 }

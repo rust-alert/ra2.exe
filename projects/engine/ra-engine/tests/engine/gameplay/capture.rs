@@ -6,7 +6,8 @@ use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::GameEdition;
 
 fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
-    defs_from_rules_ini(b"[Countries]\n0=Americans\n1=Russians\n\
+    defs_from_rules_ini(
+        b"[Countries]\n0=Americans\n1=Russians\n\
 [Americans]\nSide=GDI\nMultiplay=yes\n\
 [Russians]\nSide=Nod\nMultiplay=yes\n\
 [General]\nPrerequisiteTech=GATECH,NATECH\n\
@@ -18,7 +19,8 @@ fn capture_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [GATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [NATECH]\nCapturable=yes\nOwner=Americans,Russians,Neutral\nStrength=500\nSight=6\nCost=2000\nTechLevel=1\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans,Russians\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n\
-[CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n")
+[CAOIL]\nCapturable=yes\nFoundation=2x2\nOwner=Americans,Russians,Neutral\nStrength=800\nSight=4\nCost=1500\nTechLevel=1\n",
+    )
 }
 
 fn capture_world(engineer_x: u16, engineer_y: u16, building_type: &str, bx: u16, by: u16) -> BattleState {

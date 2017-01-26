@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 解包后的格子坐标。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 护甲名在 `Verses` 列表中的固定顺序（11 项）。
 pub const ARMOR_ORDER: [&str; 11] =

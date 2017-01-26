@@ -85,13 +85,7 @@ Color=NeonBlue
     let view = ra_assets::LayeredIniView::new(docs, &policy);
     let mut colors = ColorSchemes::from_layered(view);
     colors.bind_tiberium_display_from_layered(view);
-    assert_eq!(
-        tiberium_overlay_display_hsv_bound(&colors, "TIB01"),
-        Some(Hsv { h: 41, s: 240, v: 230 })
-    );
-    assert_eq!(
-        tiberium_overlay_display_hsv_bound(&colors, "GEM01"),
-        Some(Hsv { h: 185, s: 156, v: 238 })
-    );
+    assert_eq!(tiberium_overlay_display_hsv_bound(&colors, "TIB01"), Some(Hsv { h: 41, s: 240, v: 230 }));
+    assert_eq!(tiberium_overlay_display_hsv_bound(&colors, "GEM01"), Some(Hsv { h: 185, s: 156, v: 238 }));
     assert!(tiberium_overlay_display_hsv_bound(&colors, "TIBTRE01").is_none());
 }

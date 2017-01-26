@@ -1,6 +1,6 @@
 //! 手动暂停与快照字段。
 
-use crate::common::{defs_with_mtnk, test_engine, battle_from_defs};
+use crate::common::{battle_from_defs, defs_with_mtnk, test_engine};
 use ra_engine::Session;
 use ra_map::MapInfo;
 use ra_types::GameEdition;

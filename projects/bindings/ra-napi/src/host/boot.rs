@@ -1,7 +1,6 @@
 //! 安装探测、资源挂载与遭遇战会话打开（对局前装载，不属于 `BattleController`）。
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use ra_adaptor::{RulesSystem, build_runtime_definitions, detect_edition, load_rules_chain_with_overlays};
 use ra_assets::{
@@ -10,13 +9,11 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose,
-    PaintDefinitions, StructureAnimBank, StructureLightTable, TerrainAnimBank,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, StructureAnimBank, StructureLightTable, TerrainAnimBank,
     campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
     is_campaign_blocking_action_gap, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
-    mount_theater_mixes,
-    ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba,
-    paint_terrain_anims_onto_rgba,
+    mount_theater_mixes, ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
+    paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, HouseName, RaResult, TechnoName};
@@ -346,7 +343,8 @@ pub fn list_install_boot_maps() -> Vec<BootMapCandidate> {
             file = %manifest.chain.missions_pkt,
             "遭遇战选图表可读但未产出可解析行，回退扫描"
         );
-    } else {
+    }
+    else {
         tracing::warn!(file = %manifest.chain.missions_pkt, "遭遇战选图表不可读，回退扫描");
     }
     let names = source.discover_skirmish_map_names();
@@ -564,7 +562,8 @@ pub fn boot_world_with_progress(
 
     if let Some(hit) = source.resolve(chain.rules_ini) {
         tracing::info!("资源组合 resolved: rules={} · {}", chain.rules_ini, hit.explain());
-    } else {
+    }
+    else {
         tracing::warn!("资源组合 resolved: rules=(missing) {}", chain.rules_ini);
     }
 
@@ -629,19 +628,17 @@ pub fn boot_world_with_progress(
         },
         None => None,
     };
-    let structure_lights = definitions
-        .as_ref()
-        .map(|defs| StructureLightTable::from_structures(&defs.structures))
-        .unwrap_or_default();
+    let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
     let mut preview_ore_underlay: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
-    let mut preview = match rules.as_ref().and_then(|rules| {
-        load_map_terrain_preview(&source, &map, &mut paint, rules, &structure_lights, Some(&lobby_primaries))
-    }) {
+    let mut preview = match rules
+        .as_ref()
+        .and_then(|rules| load_map_terrain_preview(&source, &map, &mut paint, rules, &structure_lights, Some(&lobby_primaries)))
+    {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -668,7 +665,8 @@ pub fn boot_world_with_progress(
     for gap in map_scripting_capability_gaps(&map) {
         if is_campaign_blocking_action_gap(&gap.code) {
             tracing::error!("地图能力缺口 [{}] {}", gap.code, gap.message);
-        } else {
+        }
+        else {
             tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
         }
         note = format!("{note} · gap:{}", gap.code);
@@ -750,7 +748,8 @@ pub fn boot_world_with_progress(
                     paint_session_mobiles_onto_preview(&source, &mut paint, rules, &opened.session, base, preview_origin, &lobby_primaries);
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
-                } else {
+                }
+                else {
                     tracing::warn!("开局移动单位未能叠画到预览（VXL/SHP 可能未解析）");
                 }
                 let mut composed = base.clone();
@@ -771,7 +770,8 @@ pub fn boot_world_with_progress(
 
     if session.as_ref().and_then(|s| s.battle()).is_some() {
         report(1.0, "完成");
-    } else {
+    }
+    else {
         report(1.0, "装载失败");
     }
     Ok(BootResult {

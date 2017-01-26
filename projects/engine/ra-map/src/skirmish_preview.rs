@@ -5,8 +5,7 @@ use ra_assets::{Hsv, Palette};
 use ra_types::AssetSource;
 
 use crate::{
-    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, StructureLightTable,
-    TerrainAnimBank, TerrainPaintMode,
+    MapInfo, MobilePaintPose, OverlayLayerFilter, StructureAnimBank, StructureAnimMode, StructureLightTable, TerrainAnimBank, TerrainPaintMode,
     compose::TerrainImage,
     fallback_preview::RawRgbaImage,
     mobile_paint::paint_map_mobiles,
@@ -95,54 +94,20 @@ pub fn compose_skirmish_preview(
     map_ore.overlays.retain(|c| is_tiberium(c.overlay_id));
 
     let mut image = compose_terrain_preview(source, map)?;
-    let (ground_non_ore_shp, ground_non_ore_mark) = paint_map_overlays(
-        source,
-        &map_non_ore,
-        &mut image,
-        paint,
-        overlay_type_name,
-        is_tiberium,
-        tiberium_hsv,
-        OverlayLayerFilter::Ground,
-    );
+    let (ground_non_ore_shp, ground_non_ore_mark) =
+        paint_map_overlays(source, &map_non_ore, &mut image, paint, overlay_type_name, is_tiberium, tiberium_hsv, OverlayLayerFilter::Ground);
     let mut underlay = TerrainImage { image: image.image.clone(), drawn: 0, origin_x: image.origin_x, origin_y: image.origin_y };
-    let (ground_ore_shp, ground_ore_mark) = paint_map_overlays(
-        source,
-        &map_ore,
-        &mut image,
-        paint,
-        overlay_type_name,
-        is_tiberium,
-        tiberium_hsv,
-        OverlayLayerFilter::Ground,
-    );
+    let (ground_ore_shp, ground_ore_mark) =
+        paint_map_overlays(source, &map_ore, &mut image, paint, overlay_type_name, is_tiberium, tiberium_hsv, OverlayLayerFilter::Ground);
     let terrain_objects = paint_map_terrain_objects(source, map, &mut image, paint, TerrainPaintMode::StaticOnly);
     let _ = paint_map_terrain_objects(source, map, &mut underlay, paint, TerrainPaintMode::StaticOnly);
     let terrain_anim_bank = collect_terrain_anim_bank(source, map, paint);
     let ore_tree_anim_bank = collect_ore_tree_anim_bank(source, map, paint);
-    let (structures, structure_mark) =
-        paint_map_structures(source, map, &mut image, paint, remap_owner, StructureAnimMode::BodyOnly);
+    let (structures, structure_mark) = paint_map_structures(source, map, &mut image, paint, remap_owner, StructureAnimMode::BodyOnly);
     let _ = paint_map_structures(source, map, &mut underlay, paint, remap_owner, StructureAnimMode::BodyOnly);
-    let (bridge_shp, bridge_mark) = paint_map_overlays(
-        source,
-        map,
-        &mut image,
-        paint,
-        overlay_type_name,
-        is_tiberium,
-        tiberium_hsv,
-        OverlayLayerFilter::Bridge,
-    );
-    let _ = paint_map_overlays(
-        source,
-        map,
-        &mut underlay,
-        paint,
-        overlay_type_name,
-        is_tiberium,
-        tiberium_hsv,
-        OverlayLayerFilter::Bridge,
-    );
+    let (bridge_shp, bridge_mark) =
+        paint_map_overlays(source, map, &mut image, paint, overlay_type_name, is_tiberium, tiberium_hsv, OverlayLayerFilter::Bridge);
+    let _ = paint_map_overlays(source, map, &mut underlay, paint, overlay_type_name, is_tiberium, tiberium_hsv, OverlayLayerFilter::Bridge);
     let ore_underlay = underlay.image;
     let anim_bank = collect_structure_anim_bank(source, map, paint, remap_owner);
     let mobiles = paint_map_mobiles(source, map, &mut image, paint, remap_owner, &|_| MobilePaintPose::default());

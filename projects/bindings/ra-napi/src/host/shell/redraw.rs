@@ -380,12 +380,7 @@ impl Shell {
                             self.menu_hovered_entry,
                             self.menu_font.as_ref(),
                             self.menu_csf.as_ref(),
-                            compose::SkirmishScorePaint {
-                                game_index: 1,
-                                time_text: time.as_str(),
-                                rows: rows.as_slice(),
-                                campaign: false,
-                            },
+                            compose::SkirmishScorePaint { game_index: 1, time_text: time.as_str(), rows: rows.as_slice(), campaign: false },
                             movie,
                             wave,
                             self.menu_panel_anim_frame,

@@ -9,13 +9,7 @@ use ra_assets::{EntryMergePolicy, FieldMergeOverrides};
 /// 列表类键用 [`EntryMergePolicy::AppendValues`]；未列出的键走装载视图的节默认策略。
 pub fn techno_section_field_overrides() -> FieldMergeOverrides {
     let mut overrides = FieldMergeOverrides::new();
-    for key in [
-        "Owner",
-        "RequiredHouses",
-        "ForbiddenHouses",
-        "Prerequisite",
-        "PrerequisiteOverride",
-    ] {
+    for key in ["Owner", "RequiredHouses", "ForbiddenHouses", "Prerequisite", "PrerequisiteOverride"] {
         overrides.set(key, EntryMergePolicy::AppendValues);
     }
     overrides

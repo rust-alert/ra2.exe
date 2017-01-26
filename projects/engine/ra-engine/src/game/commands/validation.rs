@@ -396,7 +396,8 @@ impl crate::state::BattleState {
                         let has_busy = self.find_factory(&house, kind).is_some();
                         if has_busy {
                             self.reject(command_index, CommandRejectReason::QueueFull);
-                        } else {
+                        }
+                        else {
                             self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         }
                         continue;
@@ -810,7 +811,8 @@ impl crate::state::BattleState {
                     // 原版扳手：再点同一建筑则取消修理，否则挂上持续修理。
                     if self.ecs.world().get::<crate::state::components::Repairing>(handle).is_some() {
                         let _ = self.ecs.world_mut().remove::<crate::state::components::Repairing>(handle);
-                    } else {
+                    }
+                    else {
                         let _ = self.ecs.world_mut().insert(handle, crate::state::components::Repairing);
                     }
                     self.mark_entity_dirty(building_id);

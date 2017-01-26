@@ -67,11 +67,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
                 continue;
             };
             out.push(MapAiTrigger {
-                id: if key.is_empty() {
-                    AiTriggerName::parse(&row.name)
-                } else {
-                    AiTriggerName::parse(key)
-                },
+                id: if key.is_empty() { AiTriggerName::parse(&row.name) } else { AiTriggerName::parse(key) },
                 name: row.name,
                 team: row.team,
                 owner_house: row.owner_house,
@@ -82,16 +78,8 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
         let id = AiTriggerName::parse(value);
         if let Some(sec) = doc.section(id.as_str()) {
             let fields = sec.deserialize::<AiTriggerSectionFields>().unwrap_or_default();
-            let owner_house = if !fields.owner_house.is_empty() {
-                fields.owner_house
-            } else {
-                fields.house
-            };
-            let name = fields
-                .name
-                .unwrap_or_else(|| id.as_str().to_string())
-                .trim()
-                .to_string();
+            let owner_house = if !fields.owner_house.is_empty() { fields.owner_house } else { fields.house };
+            let name = fields.name.unwrap_or_else(|| id.as_str().to_string()).trim().to_string();
             out.push(MapAiTrigger {
                 id,
                 name,
@@ -101,13 +89,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             });
         }
         else {
-            out.push(MapAiTrigger {
-                id,
-                name: String::new(),
-                team: TeamTypeName::default(),
-                owner_house: HouseName::default(),
-                tech_level: 0,
-            });
+            out.push(MapAiTrigger { id, name: String::new(), team: TeamTypeName::default(), owner_house: HouseName::default(), tech_level: 0 });
         }
     }
     out

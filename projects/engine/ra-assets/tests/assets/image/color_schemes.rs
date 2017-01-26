@@ -21,9 +21,7 @@ fn parse_colors_and_house() {
 fn from_layered_overrides_color_hsv() {
     let base = IniDocument::parse(b"[Colors]\nGold=41,240,230\n").unwrap();
     let top = IniDocument::parse(b"[Colors]\nGold=10,20,30\nDarkRed=0,230,255\n").unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let schemes = ColorSchemes::from_layered(LayeredIniView::new(&docs, &policy));
     assert_eq!(schemes.get("Gold"), Some(Hsv { h: 10, s: 20, v: 30 }));

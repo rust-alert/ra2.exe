@@ -10,12 +10,12 @@ mod iso_pack;
 mod land;
 pub mod lighting;
 pub mod mobile_paint;
+mod numbered_pack;
 mod overlay;
 mod overlay_paint;
 mod overlay_pass;
 mod packed_cell;
 mod paint_definitions;
-mod numbered_pack;
 mod pass_grid;
 mod placements;
 pub mod playfield;
@@ -44,11 +44,10 @@ pub mod lzo;
 
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
-    GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind,
-    MapTerrainObject, MapWaypoint, MapWeatherKind, RaError, RaResult,
+    GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity,
+    MapPlacedEntityKind, MapTerrainObject, MapWaypoint, MapWeatherKind, RaError, RaResult,
 };
-use serde::Deserialize;
-use serde::de::Deserializer;
+use serde::{Deserialize, de::Deserializer};
 
 pub use base64::{base64_decode, base64_decode_parts, base64_encode};
 pub use boot_map::{
@@ -64,9 +63,9 @@ pub use iso_math::{HEIGHT_STEP, TILE_HEIGHT, TILE_WIDTH, iso_to_screen, screen_t
 pub use iso_pack::{IsoCell, decode_iso_map_pack, parse_iso_cells};
 pub use land::{LandType, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use lighting::{
-    LEPTONS_PER_CELL, LightingConfig, LightingProfile, MapLightingProfiles, PointLight, StructureLightTable, apply_rgba_tint, cell_light_scalar,
-    cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting, parse_map_lighting, point_light_at,
-    point_light_from_profile, radiation_point_light, terrain_tint,
+    LEPTONS_PER_CELL, LightingConfig, LightingProfile, MapLightingProfiles, PointLight, StructureLightTable, apply_rgba_tint,
+    cell_light_scalar, cell_tint, cell_tint_with_lights, collect_structure_point_lights, light_value_to_units, parse_lighting,
+    parse_map_lighting, point_light_at, point_light_from_profile, radiation_point_light, terrain_tint,
 };
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
@@ -74,8 +73,8 @@ pub use overlay_paint::{
     OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
-pub use paint_definitions::{CameoAssetNames, PaintDefinitions, read_optional_ini};
 pub use packed_cell::{PackedCellCoords, parse_packed_cell, unpack_packed_cell};
+pub use paint_definitions::{CameoAssetNames, PaintDefinitions, read_optional_ini};
 pub use pass_grid::{MAX_GROUND_CLIMB, PassGrid};
 pub use placements::{MapEntity, MapEntityKind, parse_map_entities};
 pub use playfield::{LocalSize, cell_in_local_playfield, local_size_preview_rect};
@@ -100,9 +99,9 @@ pub use structure_damage::{
     StructureDamageRules, damaged_body_frame, health_ratio_256, parse_condition_percent, parse_damage_fire_offset, structure_tech_level,
 };
 pub use structure_paint::{
-    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index,
-    collect_structure_anim_bank, load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank,
-    paint_structure_anims_onto_rgba, paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
+    StructureAnimBank, StructureAnimLayer, StructureAnimMode, StructureBuildupClip, buildup_frame_index, collect_structure_anim_bank,
+    load_structure_buildup_clip, paint_map_structures, paint_structure_anim_bank, paint_structure_anims_onto_rgba,
+    paint_structure_buildup_onto_rgba, paint_structures_onto_rgba, structure_anim_frame,
 };
 pub use terrain_objects::{TerrainObject, parse_terrain_objects};
 pub use terrain_paint::{
@@ -223,24 +222,15 @@ impl MapInfo {
     pub fn parse_ini(edition: GameEdition, name: impl Into<String>, bytes: &[u8]) -> RaResult<Self> {
         let doc = IniDocument::parse(bytes)?;
         let map_fields = match doc.section("Map") {
-            Some(sec) => sec
-                .deserialize::<MapSectionFields>()
-                .map_err(|e| RaError::Parse(format!("[Map] 节无效: {e}")))?,
+            Some(sec) => sec.deserialize::<MapSectionFields>().map_err(|e| RaError::Parse(format!("[Map] 节无效: {e}")))?,
             None => MapSectionFields::default(),
         };
-        let (size_width, size_height) = map_fields
-            .size
-            .ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
-        let local_size = map_fields
-            .local_size
-            .unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
+        let (size_width, size_height) = map_fields.size.ok_or_else(|| RaError::Parse("地图缺少 [Map] Size".into()))?;
+        let local_size = map_fields.local_size.unwrap_or_else(|| LocalSize::from_full_size(size_width, size_height));
         // 航点 / IsoMapPack / 覆盖层落在方形游戏格空间，边长为 Size 高 + max(宽, 高)。
         let side = game_cell_grid_side(size_width, size_height);
         let theater = map_fields.theater;
-        let basic = doc
-            .section("Basic")
-            .and_then(|s| s.deserialize::<BasicSectionFields>().ok())
-            .unwrap_or_default();
+        let basic = doc.section("Basic").and_then(|s| s.deserialize::<BasicSectionFields>().ok()).unwrap_or_default();
         let game_modes = basic.game_modes;
         let description_csf = basic.description;
         let next_mission = basic.next_mission;
@@ -326,44 +316,16 @@ impl MapInfo {
             starting_credits: self.starting_credits,
             lighting: map_lighting_from_config(&self.lighting),
             ion_lighting: map_lighting_from_config(&self.ion_lighting),
-            waypoints: self
-                .waypoints
-                .iter()
-                .map(|w| MapWaypoint { index: w.index, x: w.x, y: w.y })
-                .collect(),
-            terrain_objects: self
-                .terrain_objects
-                .iter()
-                .map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() })
-                .collect(),
-            smudges: self
-                .smudges
-                .iter()
-                .map(|s| ra_types::MapSmudge { x: s.x, y: s.y, name: s.name.clone() })
-                .collect(),
+            waypoints: self.waypoints.iter().map(|w| MapWaypoint { index: w.index, x: w.x, y: w.y }).collect(),
+            terrain_objects: self.terrain_objects.iter().map(|t| MapTerrainObject { x: t.x, y: t.y, name: t.name.clone() }).collect(),
+            smudges: self.smudges.iter().map(|s| ra_types::MapSmudge { x: s.x, y: s.y, name: s.name.clone() }).collect(),
             entities: self.entities.iter().map(map_entity_to_placed).collect(),
             cells: self
                 .cells
                 .iter()
-                .map(|c| MapIsoCell {
-                    x: c.x,
-                    y: c.y,
-                    tile_num: c.tile_num,
-                    sub_tile: c.sub_tile,
-                    z: c.z,
-                    flags: c.flags,
-                })
+                .map(|c| MapIsoCell { x: c.x, y: c.y, tile_num: c.tile_num, sub_tile: c.sub_tile, z: c.z, flags: c.flags })
                 .collect(),
-            overlays: self
-                .overlays
-                .iter()
-                .map(|o| MapOverlayCell {
-                    x: o.x,
-                    y: o.y,
-                    overlay_id: o.overlay_id,
-                    data: o.data,
-                })
-                .collect(),
+            overlays: self.overlays.iter().map(|o| MapOverlayCell { x: o.x, y: o.y, overlay_id: o.overlay_id, data: o.data }).collect(),
             houses: self.scripting.houses.iter().map(map_house_to_definition).collect(),
             tags: self.scripting.tags.iter().map(map_tag_to_definition).collect(),
             triggers: self.scripting.triggers.iter().map(map_trigger_to_definition).collect(),
@@ -418,11 +380,7 @@ impl MapInfo {
         self.prepared_map_from_pass_grid(grid, Some(structures))
     }
 
-    fn prepared_map_from_pass_grid(
-        &self,
-        grid: PassGrid,
-        structures: Option<&ra_types::StructureDefinitions>,
-    ) -> ra_types::PreparedMap {
+    fn prepared_map_from_pass_grid(&self, grid: PassGrid, structures: Option<&ra_types::StructureDefinitions>) -> ra_types::PreparedMap {
         let definition = self.to_map_definition();
         let (pass_width, pass_height, passable, cell_heights) = grid.to_prepared_pass_layers();
         let occupancy = prepared_occupancy_from_map(self, structures);
@@ -436,10 +394,6 @@ impl MapInfo {
             placements: Vec::new(),
             tags: Vec::new(),
             cell_tags: Vec::new(),
-            task_forces: Vec::new(),
-            script_types: Vec::new(),
-            team_types: Vec::new(),
-            ai_triggers: Vec::new(),
         }
     }
 
@@ -542,15 +496,11 @@ struct BasicSectionFields {
 
 /// `[Digest]` 编号键按序拼接；缺节或全空为 `""`。
 fn parse_map_digest(doc: &IniDocument) -> String {
-    let Some(section) = doc.section("Digest") else {
+    let Some(section) = doc.section("Digest")
+    else {
         return String::new();
     };
-    numbered_pairs(section)
-        .into_iter()
-        .map(|(_, value)| value.trim())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>()
-        .join("")
+    numbered_pairs(section).into_iter().map(|(_, value)| value.trim()).filter(|value| !value.is_empty()).collect::<Vec<_>>().join("")
 }
 
 /// 建筑占地=`1`、地形物件=`2`、污迹=`3`；同格建筑优先。尺寸与 [`MapInfo::width`] / [`MapInfo::height`] 对齐。
@@ -582,12 +532,7 @@ fn prepared_occupancy_from_map(map: &MapInfo, structures: Option<&ra_types::Stru
             .unwrap_or((1, 1));
         for dy in 0..fh {
             for dx in 0..fw {
-                mark(
-                    &mut occupancy,
-                    ent.x.saturating_add(dx),
-                    ent.y.saturating_add(dy),
-                    occupancy_kind::STRUCTURE,
-                );
+                mark(&mut occupancy, ent.x.saturating_add(dx), ent.y.saturating_add(dy), occupancy_kind::STRUCTURE);
             }
         }
     }
@@ -635,12 +580,7 @@ fn map_house_to_definition(house: &crate::scripting::MapHouse) -> ra_types::MapH
 }
 
 fn map_tag_to_definition(tag: &crate::scripting::MapTag) -> ra_types::MapTag {
-    ra_types::MapTag {
-        id: tag.id.clone(),
-        persistence: tag.persistence,
-        name: tag.name.clone(),
-        trigger_id: tag.trigger_id.clone(),
-    }
+    ra_types::MapTag { id: tag.id.clone(), persistence: tag.persistence, name: tag.name.clone(), trigger_id: tag.trigger_id.clone() }
 }
 
 fn map_trigger_to_definition(trigger: &crate::scripting::MapTrigger) -> ra_types::MapTrigger {
@@ -662,10 +602,7 @@ fn map_event_to_definition(event: &crate::scripting::MapEvent) -> ra_types::MapE
         conditions: event
             .conditions
             .iter()
-            .map(|c| ra_types::MapEventCondition {
-                kind_code: c.kind.code(),
-                params: c.params.clone(),
-            })
+            .map(|c| ra_types::MapEventCondition { kind_code: c.kind.code(), params: c.params.clone() })
             .collect(),
     }
 }
@@ -673,14 +610,7 @@ fn map_event_to_definition(event: &crate::scripting::MapEvent) -> ra_types::MapE
 fn map_action_to_definition(action: &crate::scripting::MapAction) -> ra_types::MapAction {
     ra_types::MapAction {
         id: action.id.clone(),
-        commands: action
-            .commands
-            .iter()
-            .map(|c| ra_types::MapActionCommand {
-                kind_code: c.kind.code(),
-                params: c.params.clone(),
-            })
-            .collect(),
+        commands: action.commands.iter().map(|c| ra_types::MapActionCommand { kind_code: c.kind.code(), params: c.params.clone() }).collect(),
     }
 }
 
@@ -692,14 +622,7 @@ fn map_task_force_to_definition(tf: &crate::scripting::MapTaskForce) -> ra_types
     ra_types::MapTaskForce {
         id: tf.id.clone(),
         name: tf.name.clone(),
-        entries: tf
-            .entries
-            .iter()
-            .map(|e| ra_types::MapTaskForceEntry {
-                count: e.count,
-                type_id: e.type_id.clone(),
-            })
-            .collect(),
+        entries: tf.entries.iter().map(|e| ra_types::MapTaskForceEntry { count: e.count, type_id: e.type_id.clone() }).collect(),
         group: tf.group,
     }
 }
@@ -708,14 +631,7 @@ fn map_script_type_to_definition(script: &crate::scripting::MapScriptType) -> ra
     ra_types::MapScriptType {
         id: script.id.clone(),
         name: script.name.clone(),
-        steps: script
-            .steps
-            .iter()
-            .map(|s| ra_types::MapScriptStep {
-                action: s.action,
-                argument: s.argument,
-            })
-            .collect(),
+        steps: script.steps.iter().map(|s| ra_types::MapScriptStep { action: s.action, argument: s.argument }).collect(),
     }
 }
 
@@ -753,14 +669,7 @@ fn map_weather_kind_from_theater(theater: Theater) -> MapWeatherKind {
 }
 
 fn map_lighting_from_config(cfg: &LightingConfig) -> MapLighting {
-    MapLighting {
-        ambient: cfg.ambient,
-        red: cfg.red,
-        green: cfg.green,
-        blue: cfg.blue,
-        ground: cfg.ground,
-        level: cfg.level,
-    }
+    MapLighting { ambient: cfg.ambient, red: cfg.red, green: cfg.green, blue: cfg.blue, ground: cfg.ground, level: cfg.level }
 }
 
 fn de_opt_map_size<'de, D>(deserializer: D) -> Result<Option<(u32, u32)>, D::Error>

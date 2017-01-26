@@ -1,15 +1,12 @@
 //! 抛射体定义表（由武器 `Projectile=` 引用）。
 
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 use serde::Deserialize;
 
 use crate::id::ProjectileId;
 
 use super::ini_string::{deserialize_upper, parse_upper};
-
 
 /// 抛射体节名（`Projectile=`）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -102,9 +99,7 @@ impl<'de> Deserialize<'de> for ProjectileName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

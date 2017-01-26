@@ -8,11 +8,13 @@ use std::collections::HashMap;
 use ra_assets::{IniDocument, IniMergePolicy, materialize_ini_layers};
 use ra_types::AssetSource;
 
-use crate::mobile_paint::MobilePaintHintTable;
-use crate::overlay_paint::OverlayPaintHintTable;
-use crate::structure_damage::StructureDamageRules;
-use crate::structure_paint::{StructureAnimHintTable, StructurePaintHintTable};
-use crate::terrain_paint::TerrainPaintHintTable;
+use crate::{
+    mobile_paint::MobilePaintHintTable,
+    overlay_paint::OverlayPaintHintTable,
+    structure_damage::StructureDamageRules,
+    structure_paint::{StructureAnimHintTable, StructurePaintHintTable},
+    terrain_paint::TerrainPaintHintTable,
+};
 
 /// 某类型建造栏图标候选资源名（PCX 优先，再 SHP）。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -127,10 +129,7 @@ impl PaintDefinitions {
     /// 解析建造栏图标候选名（缓存后复用；无 art 时仅类型 id 回退）。
     pub fn cameo_asset_names(&mut self, type_id: &str) -> CameoAssetNames {
         self.ensure_cameo_hint(type_id);
-        self.cameo_hints
-            .get(type_id)
-            .cloned()
-            .unwrap_or_else(|| resolve_cameo_asset_names(None, type_id))
+        self.cameo_hints.get(type_id).cloned().unwrap_or_else(|| resolve_cameo_asset_names(None, type_id))
     }
 }
 
@@ -159,7 +158,8 @@ fn push_cameo_shp_name(out: &mut Vec<String>, raw: Option<&str>) {
     };
     if c.to_ascii_lowercase().ends_with(".shp") {
         out.push(c.to_string());
-    } else {
+    }
+    else {
         out.push(format!("{c}.shp"));
     }
 }
@@ -171,7 +171,8 @@ fn push_cameo_pcx_name(out: &mut Vec<String>, raw: Option<&str>) {
     };
     if c.to_ascii_lowercase().ends_with(".pcx") {
         out.push(c.to_string());
-    } else {
+    }
+    else {
         out.push(format!("{c}.pcx"));
     }
 }

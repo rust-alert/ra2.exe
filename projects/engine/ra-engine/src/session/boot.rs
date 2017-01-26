@@ -44,12 +44,7 @@ pub fn open_skirmish_session(
     ensure_houses: &[&str],
     match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
-    note = format!(
-        "{note} · overlays#{} · techno#{} · seed={:#x}",
-        definitions.overlays.len(),
-        definitions.techno.len(),
-        match_seed
-    );
+    note = format!("{note} · overlays#{} · techno#{} · seed={:#x}", definitions.overlays.len(), definitions.techno.len(), match_seed);
 
     let stripped = strip_skirmish_map_mobiles(&mut map);
     if stripped > 0 {
@@ -179,9 +174,8 @@ fn open_session_common(
         state.definitions.deployables.len()
     );
 
-    let rules_bytes = source
-        .read(rules_ini)
-        .map_err(|e| ra_types::RaError::Msg(format!("无法读取规则文件 {rules_ini} 以生成对局指纹: {e}")))?;
+    let rules_bytes =
+        source.read(rules_ini).map_err(|e| ra_types::RaError::Msg(format!("无法读取规则文件 {rules_ini} 以生成对局指纹: {e}")))?;
     if rules_bytes.is_empty() {
         return Err(ra_types::RaError::Msg(format!("规则文件 {rules_ini} 为空，拒绝用空字节生成对局指纹")));
     }

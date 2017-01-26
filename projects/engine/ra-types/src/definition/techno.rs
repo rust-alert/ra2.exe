@@ -1,16 +1,15 @@
 //! 单位 / 载具 / 步兵等 techno 定义表。
 
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 use serde::Deserialize;
 
 use crate::id::{TypeId, WarheadId, WeaponId};
 
-use super::ini_string::{deserialize_upper, parse_upper};
-use super::{ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, TechnoCategory, WarheadName, WeaponName};
-
+use super::{
+    ArmorKind, HouseAllowList, PrerequisiteToken, ProductionCategory, TechnoCategory, WarheadName, WeaponName,
+    ini_string::{deserialize_upper, parse_upper},
+};
 
 /// Techno 类型名（`DeploysInto=` 等类型引用）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -103,12 +102,9 @@ impl<'de> Deserialize<'de> for TechnoName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 美术 `Image=` 资源名（缺省常等于类型 id）；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -195,9 +191,7 @@ impl<'de> Deserialize<'de> for ImageName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

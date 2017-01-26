@@ -97,9 +97,9 @@ impl Shell {
             let side = self.results_score_side_id();
             let chrome = self.resolve_ui_faction_chrome(side.as_str(), Some(side.as_str()));
             let campaign = self.results_is_campaign();
-            let scored = chrome.as_ref().and_then(|c| {
-                page_resources_for_results_with(side.as_str(), c, campaign, |name| source.resolve(name).is_some())
-            });
+            let scored = chrome
+                .as_ref()
+                .and_then(|c| page_resources_for_results_with(side.as_str(), c, campaign, |name| source.resolve(name).is_some()));
             if scored.is_none() {
                 let kind = if campaign { "CampaignScore" } else { "MultiplayerScore" };
                 tracing::warn!(

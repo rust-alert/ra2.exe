@@ -68,14 +68,8 @@ impl crate::PaintDefinitions {
 fn terrain_object_paint_hints(paint: &crate::PaintDefinitions, name: &str) -> TerrainObjectPaintHints {
     let art = paint.art_doc();
     let rules = paint.rules_doc();
-    let art_fields = art
-        .and_then(|a| a.section(name))
-        .and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok())
-        .unwrap_or_default();
-    let rules_fields = rules
-        .and_then(|r| r.section(name))
-        .and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok())
-        .unwrap_or_default();
+    let art_fields = art.and_then(|a| a.section(name)).and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok()).unwrap_or_default();
+    let rules_fields = rules.and_then(|r| r.section(name)).and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok()).unwrap_or_default();
     TerrainObjectPaintHints {
         image_key: art_fields
             .image
@@ -202,7 +196,8 @@ impl TerrainAnimBank {
             let body_n = layer.frames.len();
             let frame = if body_n == 0 {
                 0
-            } else {
+            }
+            else {
                 let rate = u64::from(layer.rate_ms.max(1));
                 ((clock_ms / rate) % body_n as u64) as u16
             };
@@ -326,7 +321,8 @@ pub fn paint_map_terrain_objects(
         let shadow = shadow_blit_for_body(shp, usize::from(frame_idx), spawns_tiberium);
         let mut blit = if spawns_tiberium {
             frame_to_spawns_tiberium_blit(frame, shp.width, shp.height, obj_pal, shadow)
-        } else {
+        }
+        else {
             frame_to_blit(frame, shp.width, shp.height, obj_pal, shadow)
         };
         blit_cache.insert(cache_key, blit.clone());
@@ -696,7 +692,8 @@ fn shadow_blit_for_body(shp: &ShpFile, body_idx: usize, spawns_tiberium: bool) -
     }
     if spawns_tiberium {
         Some(frame_to_spawns_tiberium_shadow(frame, shp.width, shp.height))
-    } else {
+    }
+    else {
         Some(frame_to_cropped_shadow(frame, shp.width, shp.height, TERRAIN_OBJECT_Y_FUDGE))
     }
 }

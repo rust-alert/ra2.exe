@@ -1,13 +1,12 @@
 //! 按资源链装载 rules/art 与派生注册表。
 
 use ra_assets::{
-    ColorSchemes, CountryRegistry, EntryMergePolicy, IniDocument, IniMergePolicy, LayeredIniView, RulesGlobals,
-    SuperWeaponTypeRegistry, TechnoTypeRegistry, WarheadRegistry, overlay_types_from_layered, terrain_spawners_from_layered,
+    ColorSchemes, CountryRegistry, EntryMergePolicy, IniDocument, IniMergePolicy, LayeredIniView, RulesGlobals, SuperWeaponTypeRegistry,
+    TechnoTypeRegistry, WarheadRegistry, overlay_types_from_layered, terrain_spawners_from_layered,
 };
 use ra_types::{AssetSource, GameEdition, OverlayTypeRegistry, RaResult, TerrainSpawnerDefinitions};
 
-use crate::ResourceChain;
-use crate::rules_schema::techno_section_field_overrides;
+use crate::{ResourceChain, rules_schema::techno_section_field_overrides};
 
 /// 一局装载用的规则快照（装载期内容模型；不再长期持有 `IniDocument`）。
 #[derive(Debug, Clone)]
@@ -34,9 +33,7 @@ pub struct RulesSystem {
 
 /// 层叠 rules/art 文档装载（`documents[0]` 最底，末元素最顶；便于叠 MD / MP / mod）。
 fn build_rules_system_layered(edition: GameEdition, rules_docs: &[IniDocument], art_docs: &[IniDocument]) -> RulesSystem {
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let rules_view = LayeredIniView::new(rules_docs, &policy);
     let art_view = LayeredIniView::new(art_docs, &policy);
     let techno_overrides = techno_section_field_overrides();
@@ -65,17 +62,7 @@ fn build_rules_system_layered(edition: GameEdition, rules_docs: &[IniDocument], 
             .flat_map(|t| [t.warhead.as_str(), t.secondary_warhead.as_str()])
             .chain(super_weapons.iter().map(|sw| sw.weapon_warhead.as_str())),
     );
-    RulesSystem {
-        edition,
-        globals,
-        overlay_types,
-        terrain_spawners,
-        color_schemes,
-        countries,
-        techno_types,
-        warheads,
-        super_weapons,
-    }
+    RulesSystem { edition, globals, overlay_types, terrain_spawners, color_schemes, countries, techno_types, warheads, super_weapons }
 }
 
 /// 用显式 `ResourceChain` 加载（适配组合装配后的入口）。
@@ -117,8 +104,7 @@ fn push_optional_ini_layers(source: &dyn AssetSource, names: &[&str], out: &mut 
         }
         match source.read(name) {
             Ok(bytes) => {
-                let doc = IniDocument::parse(&bytes)
-                    .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
+                let doc = IniDocument::parse(&bytes).map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
                 out.push(doc);
             }
             Err(ra_types::RaError::MissingFile(_)) => continue,
@@ -130,8 +116,7 @@ fn push_optional_ini_layers(source: &dyn AssetSource, names: &[&str], out: &mut 
 
 fn push_required_ini_layer(source: &dyn AssetSource, name: &str, out: &mut Vec<IniDocument>) -> RaResult<()> {
     let bytes = source.read(name)?;
-    let doc = IniDocument::parse(&bytes)
-        .map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
+    let doc = IniDocument::parse(&bytes).map_err(|e| ra_types::RaError::Parse(format!("{name} ({} bytes): {e}", bytes.len())))?;
     out.push(doc);
     Ok(())
 }
@@ -155,11 +140,7 @@ pub fn load_rules(source: &dyn AssetSource, edition: GameEdition) -> RaResult<Ru
 /// 从内联 rules/art 字节构造装载期快照（无资源树夹具 / 测试）。
 ///
 /// 与 [`load_rules_chain`] 同一套 `LayeredIniView` 注册表路径；`art_ini` 缺省时用空文档。
-pub fn rules_system_from_ini_bytes(
-    edition: GameEdition,
-    rules_ini: &[u8],
-    art_ini: Option<&[u8]>,
-) -> RaResult<RulesSystem> {
+pub fn rules_system_from_ini_bytes(edition: GameEdition, rules_ini: &[u8], art_ini: Option<&[u8]>) -> RaResult<RulesSystem> {
     let art = art_ini.unwrap_or(b"");
     rules_system_from_layered_ini_bytes(edition, &[rules_ini], &[art])
 }
@@ -169,11 +150,7 @@ pub fn rules_system_from_ini_bytes(
 /// - `rules_layers` / `art_layers`：索引 0 为最底层，末元素覆盖其上
 /// - 空 `art_layers` 视为无 art 文档
 /// - techno 列表键合并策略见 [`crate::techno_section_field_overrides`]
-pub fn rules_system_from_layered_ini_bytes(
-    edition: GameEdition,
-    rules_layers: &[&[u8]],
-    art_layers: &[&[u8]],
-) -> RaResult<RulesSystem> {
+pub fn rules_system_from_layered_ini_bytes(edition: GameEdition, rules_layers: &[&[u8]], art_layers: &[&[u8]]) -> RaResult<RulesSystem> {
     if rules_layers.is_empty() {
         return Err(ra_types::RaError::Parse("rules layers must not be empty".into()));
     }
@@ -185,11 +162,13 @@ pub fn rules_system_from_layered_ini_bytes(
     let mut art_docs = Vec::with_capacity(art_layers.len().max(1));
     if art_layers.is_empty() {
         art_docs.push(IniDocument::default());
-    } else {
+    }
+    else {
         for (i, bytes) in art_layers.iter().enumerate() {
             let doc = if bytes.is_empty() {
                 IniDocument::default()
-            } else {
+            }
+            else {
                 IniDocument::parse(bytes).map_err(|e| ra_types::RaError::Parse(format!("art layer {i}: {e}")))?
             };
             art_docs.push(doc);

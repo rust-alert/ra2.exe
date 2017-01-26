@@ -6,8 +6,10 @@
 use std::fmt;
 
 use ra_assets::IniDocument;
-use serde::Deserialize;
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, SeqAccess, Visitor},
+};
 
 use crate::lighting::{self, LIGHT_CLAMP_MAX, LIGHT_UNIT, PointLight};
 
@@ -170,14 +172,26 @@ where
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_str("optional f32")
         }
-        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
-        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
-        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
-        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
-        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> { Ok(Some(v as f32)) }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(Some(v as f32))
+        }
         fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
             let t = v.trim();
-            if t.is_empty() { return Ok(None); }
+            if t.is_empty() {
+                return Ok(None);
+            }
             Ok(t.parse::<f32>().ok())
         }
     }
@@ -194,8 +208,12 @@ where
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_str("optional i32")
         }
-        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
-        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
         fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
             Ok(i32::try_from(v).ok())
         }
@@ -204,7 +222,9 @@ where
         }
         fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
             let t = v.trim();
-            if t.is_empty() { return Ok(None); }
+            if t.is_empty() {
+                return Ok(None);
+            }
             Ok(t.parse::<i32>().ok())
         }
     }
@@ -221,8 +241,12 @@ where
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.write_str("optional r,g,b")
         }
-        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
-        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
         fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
             Ok(parse_rgb_text(v))
         }

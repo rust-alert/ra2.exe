@@ -75,28 +75,15 @@ fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> Mo
     let rules = paint.rules_doc();
     let art = paint.art_doc();
     let image_key = resolve_mobile_image_key(rules, art, type_id);
-    let art_fields = art
-        .and_then(|a| a.section(&image_key))
-        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
-        .unwrap_or_default();
+    let art_fields = art.and_then(|a| a.section(&image_key)).and_then(|s| s.deserialize::<MobileArtImageFields>().ok()).unwrap_or_default();
     let prefer_voxel = art_fields.voxel.unwrap_or(false);
     let new_theater = art_fields.new_theater.unwrap_or(false);
-    let sequence_section = art_fields
-        .sequence
-        .as_ref()
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string());
+    let sequence_section = art_fields.sequence.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string());
     let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
         (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
         _ => (None, None),
     };
-    MobileTypePaintHints {
-        image_key,
-        prefer_voxel,
-        new_theater,
-        walk_triple,
-        ready_triple,
-    }
+    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -199,7 +186,8 @@ pub fn paint_map_mobiles(
         let blit = if prefer_voxel {
             load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
                 .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
-        } else {
+        }
+        else {
             load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
                 .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
         };
@@ -215,24 +203,10 @@ pub fn paint_map_mobiles(
     paint_cell_sprites(image, &items, z_at)
 }
 
-fn resolve_mobile_image_key(
-    rules: Option<&IniDocument>,
-    art: Option<&IniDocument>,
-    type_id: &str,
-) -> String {
-    let from_rules = rules
-        .and_then(|r| r.section(type_id))
-        .and_then(|s| s.deserialize::<MobileRulesImageFields>().ok())
-        .and_then(|f| f.image);
-    let from_art = art
-        .and_then(|a| a.section(type_id))
-        .and_then(|s| s.deserialize::<MobileArtImageFields>().ok())
-        .and_then(|f| f.image);
-    from_rules
-        .or(from_art)
-        .filter(|n| !n.is_empty())
-        .map(|n| n.as_str().to_string())
-        .unwrap_or_else(|| type_id.trim().to_ascii_uppercase())
+fn resolve_mobile_image_key(rules: Option<&IniDocument>, art: Option<&IniDocument>, type_id: &str) -> String {
+    let from_rules = rules.and_then(|r| r.section(type_id)).and_then(|s| s.deserialize::<MobileRulesImageFields>().ok()).and_then(|f| f.image);
+    let from_art = art.and_then(|a| a.section(type_id)).and_then(|s| s.deserialize::<MobileArtImageFields>().ok()).and_then(|f| f.image);
+    from_rules.or(from_art).filter(|n| !n.is_empty()).map(|n| n.as_str().to_string()).unwrap_or_else(|| type_id.trim().to_ascii_uppercase())
 }
 
 /// 步兵朝向字节 → SHP 朝向槽（0..=7）。
@@ -246,14 +220,8 @@ pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     from_row::<(u16, u16, u16)>(raw).ok()
 }
 
-fn sequence_triples_from_section(
-    art: &IniDocument,
-    seq_section: &str,
-) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
-    let fields = art
-        .section(seq_section)
-        .and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok())
-        .unwrap_or_default();
+fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+    let fields = art.section(seq_section).and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok()).unwrap_or_default();
     let walk_triple = fields.walk.or(fields.panic);
     let ready_triple = fields.ready.or(fields.guard);
     (walk_triple, ready_triple)
@@ -373,7 +341,8 @@ pub fn load_mobile_shp(
 ) -> Option<TileBlit> {
     let candidates = if new_theater {
         vec![new_theater_shp_name(image_key, map.theater), format!("{}.shp", image_key.to_ascii_lowercase())]
-    } else {
+    }
+    else {
         vec![format!("{}.shp", image_key.to_ascii_lowercase()), new_theater_shp_name(image_key, map.theater)]
     };
 

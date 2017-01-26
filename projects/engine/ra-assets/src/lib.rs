@@ -9,18 +9,16 @@
 pub mod audio;
 pub mod battle;
 pub mod csv;
-pub mod mission;
 pub mod image;
 pub mod ini;
+pub mod mission;
 pub mod mix;
 pub mod mpmodes;
 pub mod rules;
 pub mod voxel;
 
 pub use audio::{AudioBagEntry, AudioIndex, PcmAudio, WavError, decode_audio_bytes, decode_wav_pcm};
-pub use battle::{
-    BattleCampaign, campaign_line_key, find_battle_campaign, next_battle_campaign_after_scenario, parse_battle_campaigns,
-};
+pub use battle::{BattleCampaign, campaign_line_key, find_battle_campaign, next_battle_campaign_after_scenario, parse_battle_campaigns};
 pub use mission::{MissionPresentation, find_mission_presentation, parse_mission_presentations};
 
 pub use csv::{CsvDeError, CsvField, CsvRow, from_csv_row, from_row, parse_westwood_csv_line};
@@ -52,8 +50,8 @@ pub use image::{
 pub use ini::{
     EntryMergePolicy, FieldMergeOverrides, IniDeError, IniDocument, IniEntry, IniMergePolicy, IniSection, IniValue, LayeredIniView,
     LayeredSectionView, ResolvedIniValue, SourceId, SourceSpan, collect_shp_refs, deserialize_opt_bool, deserialize_opt_f32,
-    deserialize_opt_f64, deserialize_opt_i32, deserialize_opt_u32, from_layered_section, from_section, materialize_ini_layers,
-    numbered_pairs, numbered_section_parts, parse_numbered_key,
+    deserialize_opt_f64, deserialize_opt_i32, deserialize_opt_u32, from_layered_section, from_section, materialize_ini_layers, numbered_pairs,
+    numbered_section_parts, parse_numbered_key,
 };
 pub use mix::{
     archive::{MixArchive, MixEntry},
@@ -71,7 +69,10 @@ pub use rules::{
     },
     globals::RulesGlobals,
     house_remap::{HOUSE_REMAP_COUNT, HOUSE_REMAP_FIRST, Hsv, build_hsv_remap_ramp, build_remap_ramp, hsv_to_rgb, owner_primary_color},
-    overlay::{harvestable_overlay_name, overlay_types_from_layered, overlay_types_from_rules, tiberium_overlay_display_hsv, tiberium_overlay_display_hsv_bound, tiberium_type_for_overlay},
+    overlay::{
+        harvestable_overlay_name, overlay_types_from_layered, overlay_types_from_rules, tiberium_overlay_display_hsv,
+        tiberium_overlay_display_hsv_bound, tiberium_type_for_overlay,
+    },
     super_weapons::{SuperWeaponType, SuperWeaponTypeRegistry},
     techno::{TechnoKind, TechnoType, TechnoTypeRegistry},
     terrain_spawners::{terrain_spawners_from_layered, terrain_spawners_from_rules},

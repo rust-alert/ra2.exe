@@ -8,10 +8,12 @@ use ra_types::GameEdition;
 #[test]
 fn ai_places_power_near_yard() {
     let engine = test_engine();
-    let defs = defs_from_rules_ini(b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
+    let defs = defs_from_rules_ini(
+        b"[BuildingTypes]\n0=GACNST\n1=NACNST\n2=NAPOWR\n\
 [GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\n\
 [NACNST]\nConstructionYard=yes\nOwner=Soviets\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\nTechLevel=1\nFoundation=4x4\n\
-[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\nFoundation=2x2\n", );
+[NAPOWR]\nPower=200\nOwner=Soviets\nStrength=600\nSight=4\nCost=600\nArmor=wood\nTechLevel=1\nFoundation=2x2\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "ai-power");
     map.width = 24;
     map.height = 24;

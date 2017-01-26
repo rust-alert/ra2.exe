@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    PaintDefinitions, MapEntity, MapEntityKind, MapInfo, StructureAnimMode, TerrainImage,
-    buildup_frame_index, paint_map_structures, structure_anim_frame,
+    MapEntity, MapEntityKind, MapInfo, PaintDefinitions, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures,
+    structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -149,7 +149,8 @@ Rate=300\n\
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone(),
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &|p, _| p.clone(),
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
     assert_eq!(painted.0, 3, "body + pump ActiveAnim + flag ActiveAnimTwo");
@@ -555,7 +556,8 @@ Rate=300\n\
         &source,
         &map,
         &mut TerrainImage::blank(256, 256),
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone(),
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &|p, _| p.clone(),
         StructureAnimMode::BodyOnly,
     );
     // 主体 + Bib（无体素炮塔资源时仍应至少 2）。
@@ -620,7 +622,14 @@ fn missing_structure_body_paints_magenta_marker() {
         tag: Default::default(),
     });
     let mut image = TerrainImage::blank(256, 256);
-    let (shp, mark) = paint_map_structures(&source, &map, &mut image, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone(), StructureAnimMode::BodyOnly);
+    let (shp, mark) = paint_map_structures(
+        &source,
+        &map,
+        &mut image,
+        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &|p, _| p.clone(),
+        StructureAnimMode::BodyOnly,
+    );
     assert_eq!((shp, mark), (0, 1));
     let px = image.image.as_raw();
     let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");
@@ -648,10 +657,7 @@ fn structure_anim_bank_extend_from_syncs_lighting() {
             frames: vec![TileBlit::solid(1, 1, 0, 0, vec![255, 255, 255, 255])],
         }],
     };
-    other.sync_lighting(
-        LightingConfig { ambient: 0.55, red: 1.0, green: 0.8, blue: 0.9, ground: 0.10, level: 0.0 },
-        Vec::new(),
-    );
+    other.sync_lighting(LightingConfig { ambient: 0.55, red: 1.0, green: 0.8, blue: 0.9, ground: 0.10, level: 0.0 }, Vec::new());
     assert!((other.lighting.ambient - 0.55).abs() < f32::EPSILON);
 
     bank.extend_from(other);

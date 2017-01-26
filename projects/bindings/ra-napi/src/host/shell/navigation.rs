@@ -8,8 +8,8 @@ use ra_widgets::{
     menu_action::MenuAction,
     original_screen::OriginalScreen,
     shell_slide::{
-        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, OPTIONS_SLIDE, RESULTS_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE,
-        ShellFrameWave, ShellSlideSpec, WAVE_STOWED_FRAME, WaveDirection,
+        CAMPAIGN_SLIDE, CHOOSE_MAP_SLIDE, MAIN_MENU_SLIDE, OPTIONS_SLIDE, RESULTS_SLIDE, SINGLE_PLAYER_SLIDE, SKIRMISH_SLIDE, ShellFrameWave,
+        ShellSlideSpec, WAVE_STOWED_FRAME, WaveDirection,
     },
 };
 use winit::event_loop::ActiveEventLoop;
@@ -414,24 +414,22 @@ impl Shell {
     pub(super) fn apply_nav(&mut self, nav: BattleNav) {
         match nav {
             BattleNav::None => {}
-            BattleNav::ContinueCampaign => {
-                match self.resolve_continue_campaign_scenario() {
-                    Some(scenario) => {
-                        self.load_brief_csf = None;
-                        self.load_brief_origin = None;
-                        self.load_background_shp = None;
-                        self.load_background_pal = None;
-                        self.banner = format!("下一关 · {scenario}…");
-                        tracing::info!(%scenario, "战役继续 · 装载下一关");
-                        self.begin_campaign_scenario_load(&scenario, None);
-                    }
-                    None => {
-                        tracing::warn!("战役继续无可用下一关 · 回选边");
-                        self.banner = "战役结束 · 回选边".into();
-                        self.set_screen(OriginalScreen::Campaign);
-                    }
+            BattleNav::ContinueCampaign => match self.resolve_continue_campaign_scenario() {
+                Some(scenario) => {
+                    self.load_brief_csf = None;
+                    self.load_brief_origin = None;
+                    self.load_background_shp = None;
+                    self.load_background_pal = None;
+                    self.banner = format!("下一关 · {scenario}…");
+                    tracing::info!(%scenario, "战役继续 · 装载下一关");
+                    self.begin_campaign_scenario_load(&scenario, None);
                 }
-            }
+                None => {
+                    tracing::warn!("战役继续无可用下一关 · 回选边");
+                    self.banner = "战役结束 · 回选边".into();
+                    self.set_screen(OriginalScreen::Campaign);
+                }
+            },
             BattleNav::ToResults => {
                 self.renderer.clear_preview();
                 self.battle_cursor_grabbed = false;

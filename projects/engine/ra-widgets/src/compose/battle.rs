@@ -227,13 +227,7 @@ pub fn compose_battle_pause_menu_overlay(
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let mut page = RgbaImage::from_raw(w, h, vec![0u8; (w as usize) * (h as usize) * 4])?;
-    let metrics = paint_pause_hub_base(
-        &mut page,
-        hud_chrome,
-        funds,
-        fnt,
-        &pause_snapshot_with_metrics(w, h, metrics_for_chrome(hud_chrome)),
-    );
+    let metrics = paint_pause_hub_base(&mut page, hud_chrome, funds, fnt, &pause_snapshot_with_metrics(w, h, metrics_for_chrome(hud_chrome)));
 
     fill_rect(&mut page, dim_rect_with_metrics(w, h, metrics), [0, 0, 0, 160]);
 
@@ -250,18 +244,15 @@ pub fn compose_battle_pause_menu_overlay(
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_stretched(&mut page, &sprite.image, *cell);
-        } else {
+        }
+        else {
             // 缺 SIDEBTTN 时只留深色占位，不画黄框伪 UI。
             fill_rect(&mut page, *cell, [24, 28, 40, 255]);
         }
         if let Some(fnt) = fnt {
             let caption = {
                 let from_csf = resolve_caption(csf, entry_id, battle_pause_menu_csf_label(entry_id));
-                if from_csf == entry_id.replace('_', " ") {
-                    battle_pause_menu_fallback_label(entry_id).to_string()
-                } else {
-                    from_csf
-                }
+                if from_csf == entry_id.replace('_', " ") { battle_pause_menu_fallback_label(entry_id).to_string() } else { from_csf }
             };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
             let color = if enabled { MENU_TEXT_ENABLED } else { MENU_TEXT_DISABLED };
@@ -285,9 +276,7 @@ pub fn compose_battle_abort_confirm_overlay(
     funds: Option<i32>,
 ) -> Option<RgbaImage> {
     use crate::{
-        battle_abort_confirm::{
-            background_rect as abort_background, button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect,
-        },
+        battle_abort_confirm::{background_rect as abort_background, button_rects as abort_button_rects, dim_rect as abort_dim, prompt_rect},
         skin::text::{battle_abort_confirm_csf_label, battle_abort_confirm_fallback_label, battle_abort_confirm_prompt_csf_key},
     };
     use ra_layout::BATTLE_ABORT_CONFIRM_BUTTON_IDS;
@@ -307,11 +296,7 @@ pub fn compose_battle_abort_confirm_overlay(
         let prompt = prompt_rect(w, h);
         let text = {
             let from = resolve_caption(csf, "prompt", Some(battle_abort_confirm_prompt_csf_key()));
-            if from == "prompt" {
-                "要放弃当前任务吗？".to_string()
-            } else {
-                from
-            }
+            if from == "prompt" { "要放弃当前任务吗？".to_string() } else { from }
         };
         blit_caption_wrapped(&mut page, fnt, &text, prompt.x, prompt.y, prompt.w, prompt.h, MENU_TEXT_ENABLED);
     }
@@ -323,17 +308,14 @@ pub fn compose_battle_abort_confirm_overlay(
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_stretched(&mut page, &sprite.image, *cell);
-        } else {
+        }
+        else {
             fill_rect(&mut page, *cell, [24, 28, 40, 255]);
         }
         if let Some(fnt) = fnt {
             let caption = {
                 let from_csf = resolve_caption(csf, entry_id, battle_abort_confirm_csf_label(entry_id));
-                if from_csf == entry_id.replace('_', " ") {
-                    battle_abort_confirm_fallback_label(entry_id).to_string()
-                } else {
-                    from_csf
-                }
+                if from_csf == entry_id.replace('_', " ") { battle_abort_confirm_fallback_label(entry_id).to_string() } else { from_csf }
             };
             let (tx, ty, tw, th) = owner_draw_caption_rect(*cell, pressed);
             blit_caption_in_cell(&mut page, fnt, &caption, tx, ty, tw, th, MENU_TEXT_ENABLED);
@@ -358,16 +340,7 @@ fn paint_pause_hub_base(
         blit_battle_pause_hub_chrome(page, chrome, snap);
         if let (Some(fnt), Some(funds)) = (fnt, funds) {
             let credits = rect_px_from_snapshot(snap, "credits");
-            blit_caption_in_cell(
-                page,
-                fnt,
-                &funds.to_string(),
-                credits.x,
-                credits.y,
-                credits.w,
-                credits.h,
-                [0, 220, 255, 255],
-            );
+            blit_caption_in_cell(page, fnt, &funds.to_string(), credits.x, credits.y, credits.w, credits.h, [0, 220, 255, 255]);
         }
     }
     metrics
@@ -396,9 +369,7 @@ pub fn compose_battle_in_game_options_overlay(
 ) -> Option<RgbaImage> {
     use crate::{
         battle_in_game_options::{button_rects as opts_button_rects, options_snapshot},
-        skin::text::{
-            battle_in_game_options_csf_label, battle_in_game_options_fallback_label, battle_in_game_speed_label_key,
-        },
+        skin::text::{battle_in_game_options_csf_label, battle_in_game_options_fallback_label, battle_in_game_speed_label_key},
     };
     use ra_layout::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, rect_px_from_snapshot};
 
@@ -414,25 +385,18 @@ pub fn compose_battle_in_game_options_overlay(
         let from = resolve_caption(csf, id, battle_in_game_options_csf_label(id));
         if from == id.replace('_', " ") || from == *id {
             battle_in_game_options_fallback_label(id).to_string()
-        } else if from.is_empty() {
+        }
+        else if from.is_empty() {
             fallback.to_string()
-        } else {
+        }
+        else {
             from
         }
     };
 
     if let Some(fnt) = fnt {
         let title = rect_px_from_snapshot(&snap, "title");
-        blit_caption_in_cell(
-            &mut page,
-            fnt,
-            &label("title", "Game Options"),
-            title.x,
-            title.y,
-            title.w,
-            title.h,
-            MENU_TEXT_SECTION,
-        );
+        blit_caption_in_cell(&mut page, fnt, &label("title", "Game Options"), title.x, title.y, title.w, title.h, MENU_TEXT_SECTION);
         for (id, fallback) in [("caption_game_speed", "Game Speed"), ("caption_scroll_rate", "Scroll Rate")] {
             let cell = rect_px_from_snapshot(&snap, id);
             blit_caption_top_right_clipped(&mut page, fnt, &label(id, fallback), cell.x, cell.y, cell.w, cell.h, MENU_TEXT_ACCENT);
@@ -464,7 +428,8 @@ pub fn compose_battle_in_game_options_overlay(
         let sprite = pause.and_then(|p| resolve_sidebttn(p, pressed, hovered));
         if let Some(sprite) = sprite {
             blit_stretched(&mut page, &sprite.image, *cell);
-        } else {
+        }
+        else {
             fill_rect(&mut page, *cell, [16, 24, 48, 255]);
             stroke_rect(&mut page, *cell, [80, 120, 180, 255]);
         }
@@ -578,7 +543,13 @@ pub fn compose_campaign_score_overlay(
 }
 
 /// 战役结算「继续」命中：侧栏轨最底格（同暂停 `resume`）。
-pub fn campaign_score_continue_hit_at(viewport_w: u32, viewport_h: u32, hud_chrome: Option<&BattleHudChrome>, x: f64, y: f64) -> Option<&'static str> {
+pub fn campaign_score_continue_hit_at(
+    viewport_w: u32,
+    viewport_h: u32,
+    hud_chrome: Option<&BattleHudChrome>,
+    x: f64,
+    y: f64,
+) -> Option<&'static str> {
     let w = viewport_w.max(1);
     let h = viewport_h.max(1);
     let metrics = metrics_for_chrome(hud_chrome);
@@ -589,10 +560,5 @@ pub fn campaign_score_continue_hit_at(viewport_w: u32, viewport_h: u32, hud_chro
     };
     let px = x as i32;
     let py = y as i32;
-    if px >= cell.x && px < cell.x + cell.w && py >= cell.y && py < cell.y + cell.h {
-        Some("continue")
-    }
-    else {
-        None
-    }
+    if px >= cell.x && px < cell.x + cell.w && py >= cell.y && py < cell.y + cell.h { Some("continue") } else { None }
 }

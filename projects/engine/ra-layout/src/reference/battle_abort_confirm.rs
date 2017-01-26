@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::battle_pause::{
-    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_background_rect_with_metrics, battle_pause_center_offset,
-    battle_pause_hub_leaves, battle_sidebttn_rect,
+    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, battle_pause_background_rect_with_metrics, battle_pause_center_offset, battle_pause_hub_leaves,
+    battle_sidebttn_rect,
 };
 
 /// 放弃确认钮 id（Leave / Cancel）。
@@ -39,10 +39,7 @@ pub fn battle_abort_confirm_layout_tree(viewport_w: u32, viewport_h: u32) -> Lay
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
     let world = battle_pause_background_rect_with_metrics(w, h, metrics);
-    let mut children = vec![
-        fixed_rect_leaf("dim", world),
-        fixed_rect_leaf("background", world),
-    ];
+    let mut children = vec![fixed_rect_leaf("dim", world), fixed_rect_leaf("background", world)];
     children.extend(battle_pause_hub_leaves(viewport_w, viewport_h, metrics));
     children.push(fixed_rect_leaf("prompt", prompt_rect(w, h)));
     children.push(fixed_rect_leaf(BATTLE_ABORT_CONFIRM_BUTTON_IDS[0], battle_sidebttn_rect(w, h, LEAVE_DLU)));

@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 /// 规范陆地类型（与零售 `CellClass` LandType 序号一致）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

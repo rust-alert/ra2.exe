@@ -1,10 +1,11 @@
 //! 科技树相关冻结定义（前置组、偷取科技与默认科技上限）。
 
-use std::collections::BTreeMap;
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
-use serde::de::{self, Deserializer, SeqAccess, Visitor};
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, SeqAccess, Visitor},
+};
 
 use crate::id::TypeId;
 
@@ -145,9 +146,7 @@ impl PrerequisiteList {
 
     /// 由 token 构造。
     pub fn from_tokens(tokens: impl IntoIterator<Item = PrerequisiteToken>) -> Self {
-        Self {
-            tokens: tokens.into_iter().collect(),
-        }
+        Self { tokens: tokens.into_iter().collect() }
     }
 
     /// 是否为空。
@@ -172,9 +171,7 @@ impl PrerequisiteList {
 
     /// 绑定类型引用后返回新列表。
     pub fn bind_type_ids(self, resolve: &impl Fn(&TechnoName) -> Option<TypeId>) -> Self {
-        Self {
-            tokens: self.tokens.into_iter().map(|t| t.bind_type_id(resolve)).collect(),
-        }
+        Self { tokens: self.tokens.into_iter().map(|t| t.bind_type_id(resolve)).collect() }
     }
 }
 
@@ -202,10 +199,7 @@ impl<'de> Deserialize<'de> for PrerequisiteList {
             where
                 E: de::Error,
             {
-                Ok(PrerequisiteList::from_tokens(
-                    v.split(|c| c == ',' || c == ';' || c == '|')
-                        .filter_map(PrerequisiteToken::parse_raw),
-                ))
+                Ok(PrerequisiteList::from_tokens(v.split(|c| c == ',' || c == ';' || c == '|').filter_map(PrerequisiteToken::parse_raw)))
             }
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>

@@ -10,13 +10,8 @@ fn techno_schema_appends_owner_and_prereq_across_layers() {
 [MTNK]\nOwner=Americans\nCost=700\nPrerequisite=GAWEAP\n",
     )
     .unwrap();
-    let top = IniDocument::parse(
-        b"[MTNK]\nOwner=Alliance\nCost=800\nPrerequisite=POWER\n",
-    )
-    .unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let top = IniDocument::parse(b"[MTNK]\nOwner=Alliance\nCost=800\nPrerequisite=POWER\n").unwrap();
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let overrides = techno_section_field_overrides();
     let docs = [base, top];
     let reg = TechnoTypeRegistry::from_layered_with_overrides(LayeredIniView::new(&docs, &policy), Some(&overrides));

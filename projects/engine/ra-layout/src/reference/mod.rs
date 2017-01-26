@@ -1,7 +1,7 @@
 //! 页面模板与 solve_* 入口（几何权威为 LayoutSnapshot）。
 
-pub mod battle_hud;
 mod battle_abort_confirm;
+pub mod battle_hud;
 mod battle_in_game_options;
 mod battle_pause;
 pub mod campaign_page;
@@ -22,11 +22,10 @@ pub use battle_hud::{
 };
 pub use battle_in_game_options::{BATTLE_IN_GAME_OPTIONS_BUTTON_IDS, solve_battle_in_game_options, solve_battle_in_game_options_at};
 pub use battle_pause::{
-    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, BATTLE_PAUSE_BKGD_LG, BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM,
-    BATTLE_PAUSE_BUTTON_H, BATTLE_PAUSE_BUTTON_RIGHT_INSET, BATTLE_PAUSE_BUTTON_SIDEBAR_INSET, BATTLE_PAUSE_BUTTON_W,
-    BATTLE_PAUSE_RAIL_W, BATTLE_PAUSE_SIDEBTTN_H, BATTLE_PAUSE_SIDEBTTN_W, battle_pause_background_rect,
-    battle_pause_background_size, battle_pause_menu_button_rect, battle_pause_rail_rect, battle_sidebttn_rect,
-    solve_battle_pause, solve_battle_pause_at, solve_battle_pause_with_metrics,
+    BATTLE_PAUSE_BASE_H, BATTLE_PAUSE_BASE_W, BATTLE_PAUSE_BKGD_LG, BATTLE_PAUSE_BKGD_MD, BATTLE_PAUSE_BKGD_SM, BATTLE_PAUSE_BUTTON_H,
+    BATTLE_PAUSE_BUTTON_RIGHT_INSET, BATTLE_PAUSE_BUTTON_SIDEBAR_INSET, BATTLE_PAUSE_BUTTON_W, BATTLE_PAUSE_RAIL_W, BATTLE_PAUSE_SIDEBTTN_H,
+    BATTLE_PAUSE_SIDEBTTN_W, battle_pause_background_rect, battle_pause_background_size, battle_pause_menu_button_rect, battle_pause_rail_rect,
+    battle_sidebttn_rect, solve_battle_pause, solve_battle_pause_at, solve_battle_pause_with_metrics,
 };
 pub use campaign_page::solve_campaign;
 pub use dlu::{DluRect, FontBaseUnits, MS_SANS_SERIF_8PT, mul_div_round};

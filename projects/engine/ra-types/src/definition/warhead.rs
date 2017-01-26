@@ -1,16 +1,15 @@
 //! 弹头定义表。
 
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 use serde::Deserialize;
 
 use crate::id::WarheadId;
 
-use super::WarheadVerses;
-use super::ini_string::{deserialize_upper, parse_upper};
-
+use super::{
+    WarheadVerses,
+    ini_string::{deserialize_upper, parse_upper},
+};
 
 /// 弹头节名（`Warhead=`）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -103,9 +102,7 @@ impl<'de> Deserialize<'de> for WarheadName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

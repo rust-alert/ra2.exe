@@ -19,16 +19,15 @@ use ra_types::{GameEdition, RaError, RaResult};
 pub use adaptor_api::{Adaptor, AdaptorError, DefinitionRequest, DetectionReport};
 pub use compose::{AdaptorStack, BaseGame, CapabilityReport, ExtensionId};
 pub use definitions::{build_runtime_definitions, runtime_definitions_from_ini_bytes};
-pub use ra_types::{bind_map_ai_triggers, bind_map_cell_tags, bind_map_placements, bind_map_script_types, bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_prepared_map_placements};
 pub use layers::{
     DetectedExpansion, ExpansionFamily, MountSpec, NestedMountSpec, NestedMountStrategy, PRIORITY_BASE_GAME, PRIORITY_EXPANSION_BASE,
     PRIORITY_MOD, PRIORITY_NESTED, PRIORITY_USER_OVERRIDE, ResourceComposition, ResourceDiagnostics, ResourceFile, ResourceLayer,
     ResourceLayerKind, SIDEBAR_NESTED_INDEX_MAX, append_sidebar_nested_specs, compose_resource_layers, discover_expansions,
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
+pub use ra_types::{bind_map_cell_tags, bind_map_placements, bind_map_tags, bind_prepared_map_placements};
 pub use rules::{
-    RulesSystem, load_rules, load_rules_chain, load_rules_chain_with_overlays, rules_system_from_ini_bytes,
-    rules_system_from_layered_ini_bytes,
+    RulesSystem, load_rules, load_rules_chain, load_rules_chain_with_overlays, rules_system_from_ini_bytes, rules_system_from_layered_ini_bytes,
 };
 pub use rules_schema::techno_section_field_overrides;
 pub use stock_ui::{apply_edition_stock_ui, apply_stock_ui_for_chain};

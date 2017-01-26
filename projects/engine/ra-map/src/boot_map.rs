@@ -152,10 +152,7 @@ pub fn list_parseable_maps_from_missions_pkt(edition: GameEdition, source: &dyn 
         else {
             continue;
         };
-        let meta = pkt
-            .section(stem)
-            .and_then(|s| s.deserialize::<MissionsPktMapFields>().ok())
-            .unwrap_or_default();
+        let meta = pkt.section(stem).and_then(|s| s.deserialize::<MissionsPktMapFields>().ok()).unwrap_or_default();
         let pkt_desc = meta.description.as_deref().or(meta.description_text.as_deref());
         let pkt_modes = meta.game_mode.as_deref();
         out.push(candidate_from_parsed_map(&file_name, &map, pkt_desc, pkt_modes));
@@ -177,7 +174,7 @@ struct MissionsPktMapFields {
 fn candidate_from_parsed_map(file_name: &str, map: &MapInfo, pkt_description: Option<&str>, pkt_game_mode: Option<&str>) -> BootMapCandidate {
     let name_csf = match pkt_description.map(str::trim).filter(|s| !s.is_empty()) {
         Some(desc) => desc.to_string(),
-                None => resolve_boot_map_name_csf(file_name, map.description_csf.as_str()),
+        None => resolve_boot_map_name_csf(file_name, map.description_csf.as_str()),
     };
     let game_modes = match pkt_game_mode {
         Some(raw) => parse_game_modes(Some(raw)),

@@ -268,7 +268,8 @@ pub(super) fn paint_skirmish_lobby_controls(
         stroke_rect(page, list, [180, 24, 24, 255]);
         let selected_side = if paint.sides.is_empty() {
             ""
-        } else {
+        }
+        else {
             let i = paint.row_side_indices[paint.combo_row.min(paint.row_side_indices.len() - 1)] as usize % paint.sides.len();
             paint.sides[i].as_str()
         };

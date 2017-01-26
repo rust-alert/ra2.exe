@@ -1,16 +1,15 @@
 //! 超级武器定义表（`[SuperWeaponTypes]`）。
 
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 use serde::Deserialize;
 
 use crate::id::{TypeId, WeaponId};
 
-use super::ini_string::{deserialize_upper, parse_upper};
-use super::{ImageName, UiName, WeaponName};
-
+use super::{
+    ImageName, UiName, WeaponName,
+    ini_string::{deserialize_upper, parse_upper},
+};
 
 /// 超级武器类型名（`SuperWeapon=`）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -103,12 +102,9 @@ impl<'de> Deserialize<'de> for SuperWeaponName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 超武 `Type=` 玩法类型名；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -195,12 +191,9 @@ impl<'de> Deserialize<'de> for SuperWeaponKindName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
-
 
 /// 超武 `Action=` 动作名；空 = 未写。
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -287,9 +280,7 @@ impl<'de> Deserialize<'de> for SuperWeaponActionName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

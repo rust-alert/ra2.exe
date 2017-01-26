@@ -18,14 +18,9 @@ fn scan_animated_tiberium_spawners() {
 
 #[test]
 fn from_layered_merges_spawner_fields() {
-    let base = IniDocument::parse(
-        b"[TIBTRE01]\nSpawnsTiberium=yes\nIsAnimated=yes\nAnimationProbability=0.1\nAnimationRate=5\n",
-    )
-    .unwrap();
+    let base = IniDocument::parse(b"[TIBTRE01]\nSpawnsTiberium=yes\nIsAnimated=yes\nAnimationProbability=0.1\nAnimationRate=5\n").unwrap();
     let top = IniDocument::parse(b"[TIBTRE01]\nAnimationProbability=0.5\nAnimationRate=2\n").unwrap();
-    let policy = IniMergePolicy {
-        default_entry: EntryMergePolicy::MergeSection,
-    };
+    let policy = IniMergePolicy { default_entry: EntryMergePolicy::MergeSection };
     let docs = [base, top];
     let reg = terrain_spawners_from_layered(LayeredIniView::new(&docs, &policy));
     let s = reg.get("TIBTRE01").unwrap();

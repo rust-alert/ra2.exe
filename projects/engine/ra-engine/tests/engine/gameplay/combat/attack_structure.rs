@@ -5,7 +5,6 @@ use ra_engine::GameCommand;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition, occupancy_kind};
 
-
 fn atk_structure_defs(strength: &str) -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     let ini = format!(
         "[VehicleTypes]\n0=MTNK\n\

@@ -59,9 +59,11 @@ pub fn tiberium_type_for_overlay(name: &str) -> Option<&'static str> {
     let upper = name.to_ascii_uppercase();
     if upper.starts_with("GEM") {
         Some("Cruentus")
-    } else if upper.starts_with("TIB") && !upper.starts_with("TIBTRE") {
+    }
+    else if upper.starts_with("TIB") && !upper.starts_with("TIBTRE") {
         Some("Riparius")
-    } else {
+    }
+    else {
         None
     }
 }
@@ -111,9 +113,7 @@ struct OverlayTypeSectionFields {
 }
 
 fn overlay_type_fields(view: LayeredIniView<'_>, name: &str) -> OverlayTypeSectionFields {
-    view.section(name)
-        .and_then(|s| s.deserialize::<OverlayTypeSectionFields>().ok())
-        .unwrap_or_default()
+    view.section(name).and_then(|s| s.deserialize::<OverlayTypeSectionFields>().ok()).unwrap_or_default()
 }
 
 /// `NoUseTileLandType=yes` 时按 `Land=` 得到通行覆盖；否则不改 TMP 封格。

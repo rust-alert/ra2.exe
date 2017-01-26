@@ -85,11 +85,14 @@ pub fn campaign_line_key(id: &str) -> Option<&'static str> {
     let upper = id.trim().to_ascii_uppercase();
     if upper.starts_with("ALL") {
         Some("ALL")
-    } else if upper.starts_with("SOV") {
+    }
+    else if upper.starts_with("SOV") {
         Some("SOV")
-    } else if upper.starts_with("TUT") || upper.starts_with("TRN") {
+    }
+    else if upper.starts_with("TUT") || upper.starts_with("TRN") {
         Some("TRN")
-    } else {
+    }
+    else {
         None
     }
 }
@@ -98,19 +101,12 @@ pub fn campaign_line_key(id: &str) -> Option<&'static str> {
 ///
 /// 零售 RA2 地图 `[Basic] NextScenario` 常残留无效名（如 `GDI2A.map`），
 /// 可玩续关以本函数为准。
-pub fn next_battle_campaign_after_scenario<'a>(
-    campaigns: &'a [BattleCampaign],
-    current_scenario: &str,
-) -> Option<&'a BattleCampaign> {
+pub fn next_battle_campaign_after_scenario<'a>(campaigns: &'a [BattleCampaign], current_scenario: &str) -> Option<&'a BattleCampaign> {
     let current = current_scenario.trim();
     if current.is_empty() {
         return None;
     }
-    let cur_idx = campaigns
-        .iter()
-        .position(|c| c.scenario.as_str().eq_ignore_ascii_case(current))?;
+    let cur_idx = campaigns.iter().position(|c| c.scenario.as_str().eq_ignore_ascii_case(current))?;
     let family = campaign_line_key(campaigns[cur_idx].id.as_str())?;
-    campaigns[cur_idx + 1..]
-        .iter()
-        .find(|c| campaign_line_key(c.id.as_str()) == Some(family))
+    campaigns[cur_idx + 1..].iter().find(|c| campaign_line_key(c.id.as_str()) == Some(family))
 }

@@ -152,7 +152,8 @@ impl Shell {
         self.lobby_modes = boot::list_install_skirmish_modes();
         if self.selected_mode_id.is_none() {
             self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
-        } else if let Some(id) = self.selected_mode_id {
+        }
+        else if let Some(id) = self.selected_mode_id {
             if !self.lobby_modes.iter().any(|m| m.id == id) {
                 self.selected_mode_id = self.lobby_modes.first().map(|m| m.id);
             }

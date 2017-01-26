@@ -42,20 +42,13 @@ pub fn terrain_spawners_from_layered(view: LayeredIniView<'_>) -> TerrainSpawner
         if fields.spawns_tiberium != Some(true) || fields.is_animated != Some(true) {
             continue;
         }
-        let probability = fields
-            .animation_probability
-            .map(|v| (v.clamp(0.0, 1.0) * PROBABILITY_DENOMINATOR).round() as u32)
-            .unwrap_or(0);
+        let probability = fields.animation_probability.map(|v| (v.clamp(0.0, 1.0) * PROBABILITY_DENOMINATOR).round() as u32).unwrap_or(0);
         let rate = fields.animation_rate.unwrap_or(1).max(1);
         let type_key = TerrainName::parse(section.name_raw());
         if type_key.is_empty() {
             continue;
         }
-        out.insert(TerrainSpawnerDefinition {
-            type_key,
-            animation_probability_micros: probability,
-            animation_rate_ticks: rate,
-        });
+        out.insert(TerrainSpawnerDefinition { type_key, animation_probability_micros: probability, animation_rate_ticks: rate });
     }
     out
 }

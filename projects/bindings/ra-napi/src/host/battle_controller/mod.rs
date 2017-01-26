@@ -577,10 +577,12 @@ impl BattleController {
                 if voice_free && !took_eva {
                     play_now.push(event);
                     took_eva = true;
-                } else {
+                }
+                else {
                     deferred.push(event);
                 }
-            } else {
+            }
+            else {
                 play_now.push(event);
             }
         }

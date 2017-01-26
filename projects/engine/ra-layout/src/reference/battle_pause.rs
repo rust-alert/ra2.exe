@@ -53,9 +53,11 @@ pub fn battle_pause_center_offset(screen: f32, base: f32) -> f32 {
 pub fn battle_pause_background_size(screen_w: f32, screen_h: f32) -> (f32, f32) {
     if screen_w <= 640.0 || screen_h <= 480.0 {
         BATTLE_PAUSE_BKGD_SM
-    } else if screen_w <= 800.0 || screen_h <= 600.0 {
+    }
+    else if screen_w <= 800.0 || screen_h <= 600.0 {
         BATTLE_PAUSE_BKGD_MD
-    } else {
+    }
+    else {
         BATTLE_PAUSE_BKGD_LG
     }
 }
@@ -66,11 +68,7 @@ pub fn battle_pause_background_rect(screen_w: f32, screen_h: f32) -> Rect {
 }
 
 /// 同 [`battle_pause_background_rect`]，可注入侧栏度量。
-pub fn battle_pause_background_rect_with_metrics(
-    screen_w: f32,
-    screen_h: f32,
-    metrics: BattleHudChromeMetrics,
-) -> Rect {
+pub fn battle_pause_background_rect_with_metrics(screen_w: f32, screen_h: f32, metrics: BattleHudChromeMetrics) -> Rect {
     let w = screen_w.max(1.0) as u32;
     let h = screen_h.max(1.0) as u32;
     let hud = compute_battle_hud_rects(w, h, metrics);
@@ -83,11 +81,7 @@ pub fn battle_pause_rail_rect(screen_w: f32, screen_h: f32) -> Rect {
 }
 
 /// 同 [`battle_pause_rail_rect`]，可注入侧栏度量。
-pub fn battle_pause_rail_rect_with_metrics(
-    screen_w: f32,
-    screen_h: f32,
-    metrics: BattleHudChromeMetrics,
-) -> Rect {
+pub fn battle_pause_rail_rect_with_metrics(screen_w: f32, screen_h: f32, metrics: BattleHudChromeMetrics) -> Rect {
     let w = screen_w.max(1.0) as u32;
     let h = screen_h.max(1.0) as u32;
     compute_battle_hud_rects(w, h, metrics).sidebar
@@ -104,19 +98,15 @@ pub fn battle_sidebttn_rect(screen_w: f32, screen_h: f32, dlu: crate::reference:
 }
 
 /// 暂停六钮：落在 `list_band` 内，上列五钮贴紧，`resume` 贴带底。
-pub fn battle_pause_menu_button_rect(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-    index: usize,
-) -> Rect {
+pub fn battle_pause_menu_button_rect(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics, index: usize) -> Rect {
     let hud = compute_battle_hud_rects(viewport_w, viewport_h, metrics);
     let band = hud.cameo_band;
     let x = (hud.sidebar.x + BATTLE_PAUSE_BUTTON_SIDEBAR_INSET).max(hud.sidebar.x);
     let btn_h = BATTLE_PAUSE_BUTTON_H;
     let y = if index + 1 == BATTLE_PAUSE_MENU_BUTTON_IDS.len() {
         (band.y + band.height - btn_h).max(band.y)
-    } else {
+    }
+    else {
         let i = index.min(UPPER_BUTTON_COUNT.saturating_sub(1)) as f32;
         band.y + i * btn_h
     };
@@ -159,25 +149,15 @@ pub fn battle_pause_layout_tree(viewport_w: u32, viewport_h: u32) -> LayoutNode 
 }
 
 /// 同 [`battle_pause_layout_tree`]，可注入侧栏 chrome 度量。
-pub fn battle_pause_layout_tree_with_metrics(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> LayoutNode {
+pub fn battle_pause_layout_tree_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> LayoutNode {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
     let hud = compute_battle_hud_rects(viewport_w, viewport_h, metrics);
     let world = Rect::from_xywh(0.0, 0.0, hud.sidebar.x.max(0.0), hud.command_bar.y.max(0.0));
-    let mut children = vec![
-        fixed_rect_leaf("dim", world),
-        fixed_rect_leaf("background", world),
-    ];
+    let mut children = vec![fixed_rect_leaf("dim", world), fixed_rect_leaf("background", world)];
     children.extend(battle_pause_hub_leaves(viewport_w, viewport_h, metrics));
     for (i, id) in BATTLE_PAUSE_MENU_BUTTON_IDS.iter().enumerate() {
-        children.push(fixed_rect_leaf(
-            *id,
-            battle_pause_menu_button_rect(viewport_w, viewport_h, metrics, i),
-        ));
+        children.push(fixed_rect_leaf(*id, battle_pause_menu_button_rect(viewport_w, viewport_h, metrics, i)));
     }
     root_with_fixed_children("battle_pause", crate::geometry::Size2 { width: w, height: h }, children)
 }
@@ -188,11 +168,7 @@ pub fn solve_battle_pause_at(viewport_w: u32, viewport_h: u32) -> LayoutSnapshot
 }
 
 /// 按侧栏 chrome 度量求解。
-pub fn solve_battle_pause_with_metrics(
-    viewport_w: u32,
-    viewport_h: u32,
-    metrics: BattleHudChromeMetrics,
-) -> LayoutSnapshot {
+pub fn solve_battle_pause_with_metrics(viewport_w: u32, viewport_h: u32, metrics: BattleHudChromeMetrics) -> LayoutSnapshot {
     let w = viewport_w.max(1) as f32;
     let h = viewport_h.max(1) as f32;
     LayoutEngine.solve(

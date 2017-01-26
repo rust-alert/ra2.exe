@@ -95,7 +95,7 @@ impl SuperWeaponTypeRegistry {
     }
 
     /// 列表顺序遍历。
-    pub fn iter(&self) -> impl Iterator<Item=&SuperWeaponType> {
+    pub fn iter(&self) -> impl Iterator<Item = &SuperWeaponType> {
         self.items.iter()
     }
 
@@ -152,13 +152,7 @@ fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u
     else {
         return (0, 0, 0, WarheadName::default(), ProjectileName::default());
     };
-    (
-        w.damage.unwrap_or(0),
-        w.range.unwrap_or(0),
-        w.rof.unwrap_or(0),
-        w.warhead,
-        w.projectile,
-    )
+    (w.damage.unwrap_or(0), w.range.unwrap_or(0), w.rof.unwrap_or(0), w.warhead, w.projectile)
 }
 
 fn parse_super_weapon(view: LayeredIniView<'_>, id: &SuperWeaponName) -> Option<SuperWeaponType> {

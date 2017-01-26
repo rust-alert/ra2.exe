@@ -35,17 +35,7 @@ struct DemoRow {
 #[test]
 fn from_row_binds_struct_fields_by_declaration_order() {
     let row: DemoRow = from_row("Americans,MTNK,256,5,6,TagA").expect("row");
-    assert_eq!(
-        row,
-        DemoRow {
-            owner: "Americans".into(),
-            type_id: "MTNK".into(),
-            health: 256,
-            x: 5,
-            y: 6,
-            tag: "TagA".into(),
-        }
-    );
+    assert_eq!(row, DemoRow { owner: "Americans".into(), type_id: "MTNK".into(), health: 256, x: 5, y: 6, tag: "TagA".into() });
 }
 
 #[test]

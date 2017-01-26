@@ -23,11 +23,6 @@ impl<'a> IniValue<'a> {
 
     /// 去首尾空白后的原文（保留路径）。
     pub fn trimmed(self) -> Self {
-        Self {
-            raw: self.raw.trim(),
-            span: self.span,
-            section: self.section,
-            key: self.key,
-        }
+        Self { raw: self.raw.trim(), span: self.span, section: self.section, key: self.key }
     }
 }

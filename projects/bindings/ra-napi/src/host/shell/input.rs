@@ -122,7 +122,8 @@ impl Shell {
                     if self.screen == OriginalScreen::Options {
                         // 无取消钮：Escape 与主菜单一样提交草稿。
                         self.apply_options_accept();
-                    } else {
+                    }
+                    else {
                         self.set_screen(OriginalScreen::MainMenu);
                     }
                 }

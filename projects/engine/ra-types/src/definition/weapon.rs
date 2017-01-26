@@ -1,15 +1,15 @@
 //! 武器定义表。
 
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 use serde::Deserialize;
 
 use crate::id::{ProjectileId, WarheadId, WeaponId};
 
-use super::ini_string::{deserialize_upper, parse_upper};
-use super::{ProjectileName, WarheadName};
+use super::{
+    ProjectileName, WarheadName,
+    ini_string::{deserialize_upper, parse_upper},
+};
 
 /// 武器节名（`Primary` / `Secondary` / `Weapon=` 等）；空 = 未配置。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -102,9 +102,7 @@ impl<'de> Deserialize<'de> for WeaponName {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            name: deserialize_upper(deserializer)?,
-        })
+        Ok(Self { name: deserialize_upper(deserializer)? })
     }
 }
 

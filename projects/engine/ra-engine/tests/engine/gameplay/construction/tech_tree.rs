@@ -201,18 +201,12 @@ fn defs_with(groups: PrerequisiteGroups, items: Vec<TechnoDefinition>) -> Runtim
             defs.techno.insert(stub);
         }
     }
-    let type_ids: std::collections::HashMap<ra_types::TechnoName, TypeId> =
-        defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
+    let type_ids: std::collections::HashMap<ra_types::TechnoName, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
     let resolve = |key: &ra_types::TechnoName| type_ids.get(key).copied();
     for techno in defs.techno.iter_mut() {
-        techno.prerequisite = std::mem::take(&mut techno.prerequisite)
-            .into_iter()
-            .map(|t| t.bind_type_id(&resolve))
-            .collect();
-        techno.prerequisite_override = std::mem::take(&mut techno.prerequisite_override)
-            .into_iter()
-            .map(|t| t.bind_type_id(&resolve))
-            .collect();
+        techno.prerequisite = std::mem::take(&mut techno.prerequisite).into_iter().map(|t| t.bind_type_id(&resolve)).collect();
+        techno.prerequisite_override =
+            std::mem::take(&mut techno.prerequisite_override).into_iter().map(|t| t.bind_type_id(&resolve)).collect();
     }
     defs
 }

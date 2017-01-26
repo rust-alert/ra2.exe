@@ -132,10 +132,7 @@ pub fn parse_task_forces(doc: &IniDocument) -> Vec<MapTaskForce> {
             else {
                 continue;
             };
-            entries.push(MapTaskForceEntry {
-                count: row.count.max(1),
-                type_id: row.type_id,
-            });
+            entries.push(MapTaskForceEntry { count: row.count.max(1), type_id: row.type_id });
         }
         out.push(MapTaskForce {
             id: TaskForceName::parse(&id),
@@ -168,11 +165,7 @@ pub fn parse_script_types(doc: &IniDocument) -> Vec<MapScriptType> {
             };
             steps.push(MapScriptStep { action: row.action, argument: row.argument });
         }
-        out.push(MapScriptType {
-            id: ScriptTypeName::parse(&id),
-            name: meta.name.unwrap_or_default().trim().to_string(),
-            steps,
-        });
+        out.push(MapScriptType { id: ScriptTypeName::parse(&id), name: meta.name.unwrap_or_default().trim().to_string(), steps });
     }
     out
 }
@@ -208,9 +201,5 @@ fn list_ids(doc: &IniDocument, section: &str) -> Vec<String> {
     else {
         return Vec::new();
     };
-    numbered_pairs(sec)
-        .into_iter()
-        .map(|(_, v)| v.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
+    numbered_pairs(sec).into_iter().map(|(_, v)| v.trim().to_string()).filter(|s| !s.is_empty()).collect()
 }

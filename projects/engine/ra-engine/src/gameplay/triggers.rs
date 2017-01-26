@@ -74,7 +74,13 @@ impl TriggerRuntime {
                     .find(|c| c.kind == MapEventKind::TimeElapse)
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
-            states.push(TriggerRuntimeState { id: tr.id.to_string(), disabled: tr.disabled, fired: false, timer_remaining, timer_paused: false });
+            states.push(TriggerRuntimeState {
+                id: tr.id.to_string(),
+                disabled: tr.disabled,
+                fired: false,
+                timer_remaining,
+                timer_paused: false,
+            });
         }
         Self {
             states,
@@ -393,10 +399,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             world.trigger_runtime.record_unsupported(cmd.kind);
         }
         MapActionKind::Win => {
-            let house = action_house_param(cmd)
-                .unwrap_or_else(|| local_house.to_string())
-                .trim()
-                .to_ascii_uppercase();
+            let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string()).trim().to_ascii_uppercase();
             if world.trigger_runtime.win_blockers > 0 {
                 // 仍有 Allow Win 阻塞：延后胜利，待阻塞清零。
                 world.trigger_runtime.deferred_victory_house = Some(house);
@@ -411,13 +414,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         MapActionKind::ProductionBegins => {
             let house = action_house_param(cmd)
                 .or_else(|| {
-                    world
-                        .map
-                        .scripting
-                        .triggers
-                        .iter()
-                        .find(|t| t.id.as_ref().eq_ignore_ascii_case(trigger_id))
-                        .map(|t| t.house.to_string())
+                    world.map.scripting.triggers.iter().find(|t| t.id.as_ref().eq_ignore_ascii_case(trigger_id)).map(|t| t.house.to_string())
                 })
                 .unwrap_or_else(|| local_house.to_string());
             if !world.begin_house_production(&house) {
@@ -891,11 +888,7 @@ fn action_waypoint_index_param(cmd: &MapActionCommand) -> Option<u32> {
     if let Some(n) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok()) {
         return Some(n);
     }
-    cmd.params
-        .first()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .and_then(|s| s.parse().ok())
+    cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse().ok())
 }
 
 /// 在动作指定航点格造成 100 点伤害（覆盖该格上的机动单位与 Foundation 含该格的建筑）。
@@ -921,16 +914,12 @@ fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &MapActionC
         let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
         let covers = if is_structure {
             let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id.clone()).unwrap_or_default();
-            let foundation = world
-                .definitions
-                .structures
-                .get(type_id.as_ref())
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
+            let foundation = world.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
             let fw = foundation.width.max(1);
             let fh = foundation.height.max(1);
             wp.x >= xf.x && wp.y >= xf.y && wp.x < xf.x.saturating_add(fw) && wp.y < xf.y.saturating_add(fh)
-        } else {
+        }
+        else {
             xf.x == wp.x && xf.y == wp.y
         };
         if covers {
@@ -945,20 +934,9 @@ fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &MapActionC
 
 /// 在航点刷出剧本箱。参数：`params[1]`=类型，`params[6]`=航点号（缺航点则失败并记 unsupported）。
 fn spawn_script_crate_at_action(world: &mut BattleState, cmd: &MapActionCommand) -> bool {
-    let crate_type = cmd
-        .params
-        .get(1)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .unwrap_or("0")
-        .to_string();
+    let crate_type = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("0").to_string();
     // Create Crate：类型在 P2（params[1]），航点在 P7（params[6]）；禁止把类型误当航点。
-    let Some(wp_idx) = cmd
-        .params
-        .get(6)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .and_then(|s| s.parse::<u32>().ok())
+    let Some(wp_idx) = cmd.params.get(6).map(|s| s.trim()).filter(|s| !s.is_empty()).and_then(|s| s.parse::<u32>().ok())
     else {
         return false;
     };
@@ -967,11 +945,7 @@ fn spawn_script_crate_at_action(world: &mut BattleState, cmd: &MapActionCommand)
         return false;
     };
     // 奖励暂固定竖切，尚未按 Powerups 类型表解析。
-    world.trigger_runtime.script_crates.push(ScriptCrate {
-        x: wp.x,
-        y: wp.y,
-        crate_type,
-    });
+    world.trigger_runtime.script_crates.push(ScriptCrate { x: wp.x, y: wp.y, crate_type });
     true
 }
 
@@ -1016,10 +990,7 @@ pub fn tick_script_crates(world: &mut BattleState) {
             continue;
         }
         world.trigger_runtime.script_crates.remove(ci);
-        let _ = world.set_house_funds(
-            &house,
-            world.house_funds(&house).unwrap_or(0).saturating_add(SCRIPT_CRATE_CREDITS),
-        );
+        let _ = world.set_house_funds(&house, world.house_funds(&house).unwrap_or(0).saturating_add(SCRIPT_CRATE_CREDITS));
     }
 }
 

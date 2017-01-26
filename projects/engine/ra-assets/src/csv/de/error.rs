@@ -18,11 +18,7 @@ pub struct CsvDeError {
 impl CsvDeError {
     /// 构造自定义错误。
     pub fn custom<T: fmt::Display>(msg: T) -> Self {
-        Self {
-            message: msg.to_string(),
-            column: None,
-            field: None,
-        }
+        Self { message: msg.to_string(), column: None, field: None }
     }
 
     /// 附列下标。

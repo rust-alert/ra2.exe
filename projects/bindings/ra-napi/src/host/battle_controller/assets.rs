@@ -103,7 +103,8 @@ impl BattleController {
                 errors = chrome.errors.len(),
                 "对局 HUD chrome 已解码"
             );
-        } else {
+        }
+        else {
             tracing::warn!(
                 side = %side,
                 mix = %chrome.mix,
@@ -133,7 +134,8 @@ impl BattleController {
             battle_pause_menu::decode_battle_pause_chrome_with(source, &side, self.ui_faction_side.as_deref(), self.ui_faction_chrome.as_ref());
         if !decoded.errors.is_empty() {
             tracing::warn!(side = %side, mix = %decoded.mix, errors = ?decoded.errors, "暂停菜单素材有缺口");
-        } else {
+        }
+        else {
             tracing::info!(side = %side, mix = %decoded.mix, "暂停菜单素材已解码");
         }
         self.pause_menu_chrome = Some(decoded);
@@ -235,12 +237,7 @@ impl BattleController {
             return;
         }
         const FRAME_SECS: f64 = 0.1;
-        let dt = self
-            .outcome_banner_clock
-            .replace(std::time::Instant::now())
-            .map(|t0| t0.elapsed().as_secs_f64())
-            .unwrap_or(0.0)
-            .min(0.25);
+        let dt = self.outcome_banner_clock.replace(std::time::Instant::now()).map(|t0| t0.elapsed().as_secs_f64()).unwrap_or(0.0).min(0.25);
         self.outcome_banner_accum += dt;
         while self.outcome_banner_accum >= FRAME_SECS && self.outcome_banner_frame < n - 1 {
             self.outcome_banner_accum -= FRAME_SECS;

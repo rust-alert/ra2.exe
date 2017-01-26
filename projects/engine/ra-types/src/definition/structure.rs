@@ -1,14 +1,18 @@
 //! 建筑与阵营定义表。
 
-use std::collections::BTreeMap;
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
-use serde::Deserialize;
-use serde::de::{self, Deserializer, Visitor};
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Visitor},
+};
 
 use crate::id::{HouseId, TypeId};
 
-use super::{ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName, TechnoName};
+use super::{
+    ArmorKind, BuiltinCapability, Foundation, HouseAllowList, HouseName, ProductionProfile, SideName, StolenTechKind, SuperWeaponName,
+    TechnoName,
+};
 
 /// 建造栏分类（INI `BuildCat=`）。
 ///
@@ -129,11 +133,7 @@ impl StructureLightProfile {
         Some(Self {
             intensity: intensity_u,
             radius_leptons: radius,
-            tint: [
-                light_float_to_units(red),
-                light_float_to_units(green),
-                light_float_to_units(blue),
-            ],
+            tint: [light_float_to_units(red), light_float_to_units(green), light_float_to_units(blue)],
         })
     }
 }
@@ -239,7 +239,7 @@ impl HouseDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item=&HouseDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item = &HouseDefinition> {
         self.by_key.values()
     }
 }
@@ -278,7 +278,7 @@ impl StructureDefinitions {
     }
 
     /// 遍历。
-    pub fn iter(&self) -> impl Iterator<Item=&StructureDefinition> {
+    pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
         self.by_key.values()
     }
 }

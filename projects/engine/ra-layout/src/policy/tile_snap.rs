@@ -1,7 +1,6 @@
 //! 右栏平铺格吸附。
 
-use crate::geometry::Rect;
-use crate::{RIGHT_PANEL_BOTTOM_H, RIGHT_PANEL_TILE_H, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, SHELL_BASE_H, SHELL_BASE_W};
+use crate::{RIGHT_PANEL_BOTTOM_H, RIGHT_PANEL_TILE_H, RIGHT_PANEL_TOP_H, RIGHT_PANEL_W, SHELL_BASE_H, SHELL_BASE_W, geometry::Rect};
 
 /// 右栏 chrome 度量（设计像素）。
 #[derive(Debug, Clone, Copy, PartialEq)]

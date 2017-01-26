@@ -106,11 +106,7 @@ impl Shell {
         };
         self.campaign_side = Some(side);
         // 简报文案优先 `mission.ini` `LSLoadBriefing`；缺表时暂用 `battle.ini` `Description`。
-        self.load_brief_csf = if camp.description_csf.is_empty() {
-            None
-        } else {
-            Some(camp.description_csf.to_string())
-        };
+        self.load_brief_csf = if camp.description_csf.is_empty() { None } else { Some(camp.description_csf.to_string()) };
         self.begin_campaign_scenario_load(camp.scenario.as_str(), Some(camp.id.as_str()));
     }
 
@@ -151,7 +147,8 @@ impl Shell {
             self.load_brief_origin = Some(pres.brief_loc_for_viewport(vw));
             if !pres.load_briefing_csf.is_empty() {
                 self.load_brief_csf = Some(pres.load_briefing_csf.to_string());
-            } else if !pres.briefing_csf.is_empty() {
+            }
+            else if !pres.briefing_csf.is_empty() {
                 self.load_brief_csf = Some(pres.briefing_csf.to_string());
             }
             tracing::info!(
@@ -161,7 +158,8 @@ impl Shell {
                 brief = ?self.load_brief_csf,
                 "已解析战役装载外观"
             );
-        } else {
+        }
+        else {
             self.load_background_shp = None;
             self.load_background_pal = None;
             self.load_brief_origin = None;
@@ -219,9 +217,11 @@ impl Shell {
             LoadKind::Campaign => {
                 if let Some(map) = self.selected_map.clone() {
                     self.begin_campaign_scenario_load(&map, None);
-                } else if let Some(side) = self.campaign_side {
+                }
+                else if let Some(side) = self.campaign_side {
                     self.begin_campaign_load(side);
-                } else {
+                }
+                else {
                     self.banner = "无战役选边可重试 · Esc 回选边".into();
                     self.refresh_menu_backdrop();
                     self.refresh_shell_title();
@@ -294,7 +294,8 @@ impl Shell {
                 };
                 let stage = if self.pending_load_boot.is_some() {
                     "装载完成，准备进入".into()
-                } else {
+                }
+                else {
                     self.load_job.as_ref().map(|job| job.progress().stage).unwrap_or_else(|| "装载中".into())
                 };
                 let pct = (self.load_screen_progress() * 100.0).round() as i32;
@@ -341,7 +342,8 @@ impl Shell {
             self.battle_theater_mounted = None;
             self.ensure_battle_theater_mixes();
             self.set_screen(target);
-        } else {
+        }
+        else {
             let hint = self.load_cancel_hint();
             self.banner = format!("装载失败 · {} · Enter/点重试 · Esc {hint}", self.banner);
             tracing::warn!(kind = self.load_kind.as_str(), "装载失败，停留加载页待重试");

@@ -736,23 +736,11 @@ fn change_house_action_reassigns_tagged_entities() {
     let _ = session.expect_battle_mut().world.prefer_local_house("AMERICANS");
 
     let id = session.expect_battle().world.find_entity_id_by_type("E1").expect("tagged infantry");
-    assert!(
-        session
-            .expect_battle()
-            .world
-            .ecs_owner(id)
-            .as_deref()
-            .is_some_and(|o| o.eq_ignore_ascii_case("RUSSIANS"))
-    );
+    assert!(session.expect_battle().world.ecs_owner(id).as_deref().is_some_and(|o| o.eq_ignore_ascii_case("RUSSIANS")));
 
     session.tick(&engine.runtime());
     assert!(
-        session
-            .expect_battle()
-            .world
-            .ecs_owner(id)
-            .as_deref()
-            .is_some_and(|o| o.eq_ignore_ascii_case("AMERICANS")),
+        session.expect_battle().world.ecs_owner(id).as_deref().is_some_and(|o| o.eq_ignore_ascii_case("AMERICANS")),
         "Change House should reassign tagged objects"
     );
 }

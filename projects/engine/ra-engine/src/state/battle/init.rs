@@ -25,12 +25,8 @@ impl BattleState {
     pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> RaResult<Self> {
         let mut prepared = map.to_prepared_map_skeleton_with_structures(&definitions.structures);
         bind_prepared_map_placements(&mut prepared, &definitions)?;
-        let pass_grid = PassGrid::from_prepared_pass_layers(
-            prepared.pass_width,
-            prepared.pass_height,
-            &prepared.passable,
-            &prepared.cell_heights,
-        );
+        let pass_grid =
+            PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
         let mut next_entity_id = 1u64;
         let mut house_order: Vec<String> = Vec::new();
         let ecs = EcsRegistry::new();
@@ -52,13 +48,9 @@ impl BattleState {
             let max_health = tt.strength.max(1);
             let health = (u64::from(max_health) * u64::from(p.health) / 256) as u32;
             let speed = tt.speed;
-            let attack_range = weapon
-                .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
-                .unwrap_or(0);
+            let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) }).unwrap_or(0);
             let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
-            let attack_cooldown_max = weapon
-                .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-                .unwrap_or(0);
+            let attack_cooldown_max = weapon.map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
             let armor = tt.armor;
             let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
             let attack_verses = verses_for(&definitions, warhead_id);
@@ -76,42 +68,15 @@ impl BattleState {
                         ra_types::MapPlacedEntityKind::Aircraft => MapEntityKind::Aircraft,
                     },
                     mission: p.mission.map(ra_types::MissionKind::to_name).unwrap_or_default(),
-                    tag: p
-                        .tag
-                        .and_then(|id| prepared.tags.iter().find(|t| t.id == id).map(|t| t.name.clone()))
-                        .unwrap_or_default(),
+                    tag: p.tag.and_then(|id| prepared.tags.iter().find(|t| t.id == id).map(|t| t.name.clone())).unwrap_or_default(),
                 },
                 owner: Owner { house: Arc::<str>::from(owner_key) },
-                transform: Transform {
-                    x: p.x,
-                    y: p.y,
-                    facing: p.facing,
-                    turret_facing: p.facing,
-                    sub_cell: p.sub_cell,
-                },
+                transform: Transform { x: p.x, y: p.y, facing: p.facing, turret_facing: p.facing, sub_cell: p.sub_cell },
                 health: Health { current: health, maximum: max_health, dead: false },
                 locomotor: Locomotor { speed },
-                movement: MovementState {
-                    destination_x: None,
-                    destination_y: None,
-                    waypoints: Vec::new(),
-                    path: Vec::new(),
-                    move_accum: 0,
-                },
-                combat: CombatStats {
-                    armor,
-                    attack_range,
-                    attack_damage,
-                    attack_cooldown_max,
-                    attack_verses,
-                    techno_class,
-                },
-                attack: AttackState {
-                    target: None,
-                    cooldown: 0,
-                    infiltrate_target: None,
-                    capture_target: None,
-                },
+                movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
+                combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class },
+                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                 production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0 },
@@ -194,7 +159,8 @@ impl BattleState {
         if let Some(p) = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(house)) {
             self.local_player = p.id;
             true
-        } else {
+        }
+        else {
             false
         }
     }
@@ -245,14 +211,10 @@ impl BattleState {
         let armor = tt.armor;
         let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
         let class = tt.class;
-        let attack_range = weapon
-            .map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) })
-            .unwrap_or(0);
+        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) }).unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
         let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
-        let attack_cooldown_max = weapon
-            .map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS })
-            .unwrap_or(0);
+        let attack_cooldown_max = weapon.map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
         let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
@@ -263,20 +225,19 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: Default::default(), tag: ra_types::TagName::default() },
+            identity: Identity {
+                entity_id: id,
+                type_id: Arc::<str>::from(type_key),
+                kind,
+                mission: Default::default(),
+                tag: ra_types::TagName::default(),
+            },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed },
             movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
-            combat: CombatStats {
-                armor,
-                attack_range,
-                attack_damage,
-                attack_cooldown_max,
-                attack_verses,
-                techno_class: Some(class),
-            },
+            combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class: Some(class) },
             attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
             production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },

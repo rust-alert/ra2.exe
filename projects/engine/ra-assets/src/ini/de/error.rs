@@ -22,12 +22,7 @@ pub struct IniDeError {
 impl IniDeError {
     /// 构造自定义错误。
     pub fn custom<T: fmt::Display>(msg: T) -> Self {
-        Self {
-            message: msg.to_string(),
-            section: None,
-            key: None,
-            span: None,
-        }
+        Self { message: msg.to_string(), section: None, key: None, span: None }
     }
 
     /// 带节名的错误。
