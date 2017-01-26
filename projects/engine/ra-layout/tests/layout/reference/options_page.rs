@@ -52,9 +52,9 @@ fn dialog_0xd5_left_form_keeps_dlu_sizes_and_gaps() {
     let gap_sv = track_voice.x - (track_sound.x + track_sound.width);
     assert!((gap_ms - gap_sv).abs() <= 1.0, "audio col gaps {gap_ms} vs {gap_sv}");
 
-    // 左栏表单在内容区大致居中。
+    // 左栏表单在内容区大致居中（音量三列外接中线）。
     let mid = (track_music.x + track_voice.x + track_voice.width) * 0.5;
-    assert!((mid - 316.0).abs() <= 8.0, "audio mid {mid}");
+    assert!((mid - 326.5).abs() <= 8.0, "audio mid {mid}");
 }
 
 #[test]

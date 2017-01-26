@@ -220,14 +220,14 @@ pub fn dialog_template_0xd5() -> DialogTemplate {
             ctrl("caption_scroll", 170, 160, 60, 10, ControlPlacement::PreserveDlu),
             ctrl("value_scroll", 230, 160, 60, 10, ControlPlacement::PreserveDlu),
             ctrl("track_scroll", 170, 175, 120, 13, ControlPlacement::PreserveDlu),
-            // 音效（三列）
+            // 音效（三列）：等 DLU 列间距，避免逐控件 MulDiv 后像素缝不等。
             ctrl("sec_audio", 10, 215, 298, 10, ControlPlacement::PreserveDlu),
             ctrl("caption_music", 25, 235, 85, 10, ControlPlacement::PreserveDlu),
             ctrl("track_music", 25, 250, 85, 13, ControlPlacement::PreserveDlu),
-            ctrl("caption_sound", 122, 235, 85, 10, ControlPlacement::PreserveDlu),
-            ctrl("track_sound", 122, 250, 85, 13, ControlPlacement::PreserveDlu),
-            ctrl("caption_voice", 220, 235, 85, 10, ControlPlacement::PreserveDlu),
-            ctrl("track_voice", 220, 250, 85, 13, ControlPlacement::PreserveDlu),
+            ctrl("caption_sound", 123, 235, 85, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_sound", 123, 250, 85, 13, ControlPlacement::PreserveDlu),
+            ctrl("caption_voice", 221, 235, 85, 10, ControlPlacement::PreserveDlu),
+            ctrl("track_voice", 221, 250, 85, 13, ControlPlacement::PreserveDlu),
         ],
     }
 }

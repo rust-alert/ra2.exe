@@ -14,7 +14,8 @@ fn rail_keyboard_is_top_tile_cell() {
     let panel_bottom = rect_px_from_snapshot(&snap, "panel_bottom");
     assert_eq!(keyboard.y, panel_tile.y);
     assert!(network.y > keyboard.y);
-    assert!(main_menu.y < panel_bottom.y);
+    // `main_menu` 贴在 `panel_bottom` 上沿（`bottom_cover_button`）。
+    assert_eq!(main_menu.y, panel_bottom.y);
 }
 
 #[test]
