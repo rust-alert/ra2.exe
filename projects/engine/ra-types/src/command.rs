@@ -34,6 +34,8 @@ pub enum CommandKind {
     CaptureBuilding,
     /// 就地警戒（清移动/攻击目标，写入 `mission=Guard`）。
     Guard,
+    /// 停止：清移动与攻击目标，并清空 `mission`。
+    Stop,
     /// 出售己方建筑（侧栏出售工具）。
     SellBuilding,
     /// 切换己方建筑的持续修理（侧栏修理工具；对应原版扳手挂/摘修理）。
@@ -146,6 +148,11 @@ pub enum CommandBody {
         /// 实体稳定 ID。
         entity: EntityId,
     },
+    /// 停止：清空移动与攻击目标，并清空 `Identity.mission`。
+    Stop {
+        /// 实体稳定 ID。
+        entity: EntityId,
+    },
     /// 出售己方建筑：退还约半价造价并移除建筑。
     SellBuilding {
         /// 出资并拥有该建筑的玩家。
@@ -188,6 +195,7 @@ impl CommandBody {
             Self::Infiltrate { .. } => CommandKind::Infiltrate,
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
             Self::Guard { .. } => CommandKind::Guard,
+            Self::Stop { .. } => CommandKind::Stop,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
             Self::RepairBuilding { .. } => CommandKind::RepairBuilding,
             Self::FireSuperWeapon { .. } => CommandKind::FireSuperWeapon,
@@ -210,7 +218,7 @@ impl CommandBody {
             | Self::CaptureBuilding { building, .. }
             | Self::SellBuilding { building, .. }
             | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
-            Self::Deploy { entity } | Self::Guard { entity } => CommandTarget::Entity(*entity),
+            Self::Deploy { entity } | Self::Guard { entity } | Self::Stop { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
         }
     }

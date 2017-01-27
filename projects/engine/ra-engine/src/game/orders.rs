@@ -123,6 +123,18 @@ impl BattleSession {
         }
     }
 
+    /// 对选中机动单位下发停止（清移动/攻击，清空 `mission`）。
+    pub fn order_stop(&mut self, selected: &[EntityId]) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Stop { entity: id });
+            }
+        }
+    }
+
     /// 若实体可部署，返回目标建筑类型键（如 `GACNST` / `NACNST`）。
     pub fn deploy_target_of(&self, id: EntityId) -> Option<&str> {
         let (type_id, _) = self.world.ecs_identity(id)?;

@@ -715,6 +715,36 @@ impl crate::state::BattleState {
                     });
                     self.mark_entity_dirty(id);
                 }
+                GameCommand::Stop { entity } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    let _ = self.clear_ecs_movement(id);
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission = ra_types::MissionName::default();
+                    });
+                    self.mark_entity_dirty(id);
+                }
                 GameCommand::SellBuilding { player, building } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
