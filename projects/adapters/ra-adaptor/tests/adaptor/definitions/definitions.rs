@@ -485,6 +485,32 @@ fn bind_map_placements_rejects_unknown_tag() {
 }
 
 #[test]
+fn bind_map_placements_accepts_none_tag_sentinel() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n\
+[Americans]\nSide=GDI\n\
+[BuildingTypes]\n0=GAPOWR\n\
+[GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let entities = vec![ra_types::MapPlacedEntity {
+        kind: ra_types::MapPlacedEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: ra_types::MissionName::default(),
+        tag: "None".into(),
+    }];
+    let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("NONE tag is absent");
+    assert_eq!(placements.len(), 1);
+    assert_eq!(placements[0].tag, None);
+}
+
+#[test]
 fn bind_map_placements_resolves_tag_id() {
     let rules = rules_from(
         b"[Countries]\n0=Americans\n\

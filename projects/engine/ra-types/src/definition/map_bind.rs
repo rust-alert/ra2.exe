@@ -32,8 +32,10 @@ pub fn bind_map_tags(tags: &[MapTag]) -> Vec<PreparedTag> {
 ///
 /// - 未知 `type_id` → [`RaError::UnknownReference`]（techno）
 /// - 未知 / 空 `owner` → [`RaError::UnknownReference`]（house）
-/// - 非空未知 `tag` → [`RaError::UnknownReference`]（tag）
+/// - 非空且非 `NONE` 的未知 `tag` → [`RaError::UnknownReference`]（tag）
 /// - 非空未知 `mission` → [`RaError::UnknownReference`]（mission）
+///
+/// 零售地图放置行常写 `None` 表示无 Tag；装载后为大写 `NONE`，绑定为 [`None`]。
 pub fn bind_map_placements(entities: &[MapPlacedEntity], defs: &RuntimeDefinitions, tags: &[PreparedTag]) -> RaResult<Vec<PreparedPlacement>> {
     let tag_by_name: HashMap<&str, TagId> = tags.iter().map(|t| (t.name.as_str(), t.id)).collect();
     let mut out = Vec::with_capacity(entities.len());
@@ -105,7 +107,8 @@ fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> Ra
 }
 
 fn bind_tag_id(tag_by_name: &HashMap<&str, TagId>, name: &TagName, owner: &str) -> RaResult<Option<TagId>> {
-    if name.is_empty() {
+    // 空列与零售哨兵 `None`（装载期大写为 `NONE`）均表示无 Tag。
+    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") {
         return Ok(None);
     }
     tag_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
