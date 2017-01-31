@@ -1669,8 +1669,8 @@ pub struct PreparedTrigger {
     pub id: crate::TriggerId,
     /// Trigger 键名（装载期大写）。
     pub name: TriggerName,
-    /// 所属 house（装载期大写；稳定 `HouseId` 绑定另步）。
-    pub house: HouseName,
+    /// 所属 house 稳定 id。
+    pub house: crate::HouseId,
     /// 链接的另一 trigger；`None` 表示无 / `<none>`。
     pub linked: Option<crate::TriggerId>,
     /// 编辑器名。

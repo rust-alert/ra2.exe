@@ -519,16 +519,19 @@ fn bind_map_placements_resolves_tag_id() {
 [GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
-    let triggers = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
-        id: "TR1".into(),
-        house: "Americans".into(),
-        linked: ra_types::TriggerName::default(),
-        name: "Trig".into(),
-        disabled: false,
-        easy: true,
-        normal: true,
-        hard: true,
-    }])
+    let triggers = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Americans".into(),
+            linked: ra_types::TriggerName::default(),
+            name: "Trig".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
     .expect("bind triggers");
     let tags = ra_types::bind_map_tags(
         &[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Start".into(), trigger_id: "TR1".into() }],
@@ -554,16 +557,21 @@ fn bind_map_placements_resolves_tag_id() {
 
 #[test]
 fn bind_map_cell_tags_resolves_tag_id() {
-    let triggers = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
-        id: "TRZ".into(),
-        house: "Neutral".into(),
-        linked: ra_types::TriggerName::default(),
-        name: "ZoneTrig".into(),
-        disabled: false,
-        easy: true,
-        normal: true,
-        hard: true,
-    }])
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let triggers = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TRZ".into(),
+            house: "Neutral".into(),
+            linked: ra_types::TriggerName::default(),
+            name: "ZoneTrig".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
     .expect("bind triggers");
     let tags =
         ra_types::bind_map_tags(&[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }], &triggers)
@@ -639,32 +647,38 @@ fn bind_map_placements_resolves_mission_kind() {
 
 #[test]
 fn bind_map_tags_resolves_trigger_id() {
-    let triggers = ra_types::bind_map_triggers(&[
-        ra_types::MapTrigger {
-            id: "TR1".into(),
-            house: "Americans".into(),
-            linked: "<none>".into(),
-            name: "First".into(),
-            disabled: false,
-            easy: true,
-            normal: true,
-            hard: true,
-        },
-        ra_types::MapTrigger {
-            id: "TR2".into(),
-            house: "Americans".into(),
-            linked: "TR1".into(),
-            name: "Second".into(),
-            disabled: false,
-            easy: true,
-            normal: true,
-            hard: true,
-        },
-    ])
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let triggers = ra_types::bind_map_triggers(
+        &[
+            ra_types::MapTrigger {
+                id: "TR1".into(),
+                house: "Americans".into(),
+                linked: "<none>".into(),
+                name: "First".into(),
+                disabled: false,
+                easy: true,
+                normal: true,
+                hard: true,
+            },
+            ra_types::MapTrigger {
+                id: "TR2".into(),
+                house: "Americans".into(),
+                linked: "TR1".into(),
+                name: "Second".into(),
+                disabled: false,
+                easy: true,
+                normal: true,
+                hard: true,
+            },
+        ],
+        &defs,
+    )
     .expect("bind triggers");
     assert_eq!(triggers.len(), 2);
     assert_eq!(triggers[0].linked, None);
     assert_eq!(triggers[1].linked, Some(triggers[0].id));
+    assert_eq!(triggers[0].house, defs.houses.get("Americans").expect("Americans").id);
     let tags = ra_types::bind_map_tags(
         &[ra_types::MapTag { id: "T1".into(), persistence: 2, name: "Win".into(), trigger_id: "TR2".into() }],
         &triggers,
@@ -687,18 +701,46 @@ fn bind_map_tags_rejects_unknown_trigger() {
 
 #[test]
 fn bind_map_triggers_rejects_unknown_linked() {
-    let err = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
-        id: "TR1".into(),
-        house: "Americans".into(),
-        linked: "MISSING".into(),
-        name: "Broken".into(),
-        disabled: false,
-        easy: true,
-        normal: true,
-        hard: true,
-    }])
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let err = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Americans".into(),
+            linked: "MISSING".into(),
+            name: "Broken".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
     .expect_err("unknown linked");
     let msg = err.to_string();
     assert!(msg.contains("trigger"), "{msg}");
     assert!(msg.contains("MISSING"), "{msg}");
+}
+
+#[test]
+fn bind_map_triggers_rejects_unknown_house() {
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let err = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "NoSuchHouse".into(),
+            linked: ra_types::TriggerName::default(),
+            name: "Broken".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
+    .expect_err("unknown house");
+    let msg = err.to_string();
+    assert!(msg.contains("house"), "{msg}");
+    assert!(msg.contains("NOSUCHHOUSE"), "{msg}");
 }

@@ -8,11 +8,12 @@ use crate::{
     TriggerName, TypeId,
 };
 
-/// 将 `[Triggers]` 投影为稳定 [`PreparedTrigger`] 表；未知 `linked` 引用拒绝。
+/// 将 `[Triggers]` 投影为稳定 [`PreparedTrigger`] 表；未知 `linked` / `house` 引用拒绝。
 ///
 /// - 空 / `<none>` / `NONE` 的 `linked` → [`None`]
 /// - 非空但找不到目标 → [`RaError::UnknownReference`]
-pub fn bind_map_triggers(triggers: &[MapTrigger]) -> RaResult<Vec<PreparedTrigger>> {
+/// - 空 / 未知 `house` → [`RaError::UnknownReference`]
+pub fn bind_map_triggers(triggers: &[MapTrigger], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedTrigger>> {
     let mut out = Vec::with_capacity(triggers.len());
     let mut next = 1u32;
     let mut by_name: HashMap<&str, TriggerId> = HashMap::new();
@@ -23,10 +24,11 @@ pub fn bind_map_triggers(triggers: &[MapTrigger]) -> RaResult<Vec<PreparedTrigge
         let id = TriggerId(next);
         next = next.saturating_add(1);
         by_name.insert(trigger.id.as_str(), id);
+        let house = bind_house_id(defs, &trigger.house, &format!("MapTrigger:{}", trigger.id.as_str()))?;
         out.push(PreparedTrigger {
             id,
             name: trigger.id.clone(),
-            house: trigger.house.clone(),
+            house,
             linked: None,
             editor_name: trigger.name.clone(),
             disabled: trigger.disabled,
@@ -114,7 +116,7 @@ pub fn bind_map_cell_tags(cell_tags: &[MapCellTag], tags: &[PreparedTag]) -> RaR
 /// 就地填充 [`PreparedMap::triggers`] / [`PreparedMap::tags`] / [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；
 /// 失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
-    let triggers = bind_map_triggers(&prepared.definition.triggers)?;
+    let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
     let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
