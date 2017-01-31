@@ -1654,10 +1654,35 @@ pub struct PreparedMap {
     pub occupancy: Vec<u8>,
     /// 预放实体的规则绑定结果；骨架路径为空，adaptor 绑定后填入。
     pub placements: Vec<PreparedPlacement>,
+    /// 地图 `[Triggers]` 绑定表；骨架路径为空。
+    pub triggers: Vec<PreparedTrigger>,
     /// 地图 `[Tags]` 绑定表；骨架路径为空。
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
     pub cell_tags: Vec<PreparedCellTag>,
+}
+
+/// 地图 `[Triggers]` 绑定后的运行形状（稳定 id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTrigger {
+    /// Trigger 稳定 id。
+    pub id: crate::TriggerId,
+    /// Trigger 键名（装载期大写）。
+    pub name: TriggerName,
+    /// 所属 house（装载期大写；稳定 `HouseId` 绑定另步）。
+    pub house: HouseName,
+    /// 链接的另一 trigger；`None` 表示无 / `<none>`。
+    pub linked: Option<crate::TriggerId>,
+    /// 编辑器名。
+    pub editor_name: String,
+    /// `1` = 初始禁用。
+    pub disabled: bool,
+    /// Easy 难度启用。
+    pub easy: bool,
+    /// Normal 难度启用。
+    pub normal: bool,
+    /// Hard 难度启用。
+    pub hard: bool,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。
@@ -1682,8 +1707,8 @@ pub struct PreparedTag {
     pub persistence: u8,
     /// 编辑器名。
     pub editor_name: String,
-    /// 关联 Trigger id（装载期大写）。
-    pub trigger_id: TriggerName,
+    /// 关联 Trigger 稳定 id。
+    pub trigger_id: crate::TriggerId,
 }
 
 /// 地图预放实体绑定后的运行形状（稳定 id，不再携带未解析类型名）。

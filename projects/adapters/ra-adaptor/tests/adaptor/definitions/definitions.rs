@@ -519,7 +519,22 @@ fn bind_map_placements_resolves_tag_id() {
 [GAPOWR]\nCost=600\nStrength=600\nOwner=Americans\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
-    let tags = ra_types::bind_map_tags(&[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Start".into(), trigger_id: "TR1".into() }]);
+    let triggers = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: ra_types::TriggerName::default(),
+        name: "Trig".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    }])
+    .expect("bind triggers");
+    let tags = ra_types::bind_map_tags(
+        &[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Start".into(), trigger_id: "TR1".into() }],
+        &triggers,
+    )
+    .expect("bind tags");
     let entities = vec![ra_types::MapPlacedEntity {
         kind: ra_types::MapPlacedEntityKind::Structure,
         owner: "Americans".into(),
@@ -534,12 +549,25 @@ fn bind_map_placements_resolves_tag_id() {
     }];
     let placements = ra_adaptor::bind_map_placements(&entities, &defs, &tags).expect("bind tag");
     assert_eq!(placements[0].tag, Some(tags[0].id));
+    assert_eq!(tags[0].trigger_id, triggers[0].id);
 }
 
 #[test]
 fn bind_map_cell_tags_resolves_tag_id() {
+    let triggers = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
+        id: "TRZ".into(),
+        house: "Neutral".into(),
+        linked: ra_types::TriggerName::default(),
+        name: "ZoneTrig".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    }])
+    .expect("bind triggers");
     let tags =
-        ra_types::bind_map_tags(&[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }]);
+        ra_types::bind_map_tags(&[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }], &triggers)
+            .expect("bind tags");
     let cells = [ra_types::MapCellTag { x: 3, y: 4, tag_id: "ZONE".into() }];
     let bound = ra_types::bind_map_cell_tags(&cells, &tags).expect("bind cell tags");
     assert_eq!(bound.len(), 1);
@@ -607,4 +635,70 @@ fn bind_map_placements_resolves_mission_kind() {
     }];
     let placements = ra_adaptor::bind_map_placements(&entities, &defs, &[]).expect("bind mission");
     assert_eq!(placements[0].mission, Some(ra_types::MissionKind::Guard));
+}
+
+#[test]
+fn bind_map_tags_resolves_trigger_id() {
+    let triggers = ra_types::bind_map_triggers(&[
+        ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Americans".into(),
+            linked: "<none>".into(),
+            name: "First".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        },
+        ra_types::MapTrigger {
+            id: "TR2".into(),
+            house: "Americans".into(),
+            linked: "TR1".into(),
+            name: "Second".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        },
+    ])
+    .expect("bind triggers");
+    assert_eq!(triggers.len(), 2);
+    assert_eq!(triggers[0].linked, None);
+    assert_eq!(triggers[1].linked, Some(triggers[0].id));
+    let tags = ra_types::bind_map_tags(
+        &[ra_types::MapTag { id: "T1".into(), persistence: 2, name: "Win".into(), trigger_id: "TR2".into() }],
+        &triggers,
+    )
+    .expect("bind tags");
+    assert_eq!(tags[0].trigger_id, triggers[1].id);
+}
+
+#[test]
+fn bind_map_tags_rejects_unknown_trigger() {
+    let err = ra_types::bind_map_tags(
+        &[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Bad".into(), trigger_id: "MISSING".into() }],
+        &[],
+    )
+    .expect_err("unknown trigger");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}
+
+#[test]
+fn bind_map_triggers_rejects_unknown_linked() {
+    let err = ra_types::bind_map_triggers(&[ra_types::MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: "MISSING".into(),
+        name: "Broken".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    }])
+    .expect_err("unknown linked");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
 }

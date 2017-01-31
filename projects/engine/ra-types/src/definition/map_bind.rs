@@ -3,18 +3,56 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapCellTag, MapPlacedEntity, MapTag, MissionKind, MissionName, PreparedCellTag, PreparedMap, PreparedPlacement,
-    PreparedTag, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TypeId,
+    HouseId, HouseName, MapCellTag, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName, PreparedCellTag, PreparedMap,
+    PreparedPlacement, PreparedTag, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId,
+    TriggerName, TypeId,
 };
 
-/// 将 `[Tags]` 投影为稳定 [`PreparedTag`] 表。
-pub fn bind_map_tags(tags: &[MapTag]) -> Vec<PreparedTag> {
+/// 将 `[Triggers]` 投影为稳定 [`PreparedTrigger`] 表；未知 `linked` 引用拒绝。
+///
+/// - 空 / `<none>` / `NONE` 的 `linked` → [`None`]
+/// - 非空但找不到目标 → [`RaError::UnknownReference`]
+pub fn bind_map_triggers(triggers: &[MapTrigger]) -> RaResult<Vec<PreparedTrigger>> {
+    let mut out = Vec::with_capacity(triggers.len());
+    let mut next = 1u32;
+    let mut by_name: HashMap<&str, TriggerId> = HashMap::new();
+    for trigger in triggers {
+        if trigger.id.is_empty() {
+            continue;
+        }
+        let id = TriggerId(next);
+        next = next.saturating_add(1);
+        by_name.insert(trigger.id.as_str(), id);
+        out.push(PreparedTrigger {
+            id,
+            name: trigger.id.clone(),
+            house: trigger.house.clone(),
+            linked: None,
+            editor_name: trigger.name.clone(),
+            disabled: trigger.disabled,
+            easy: trigger.easy,
+            normal: trigger.normal,
+            hard: trigger.hard,
+        });
+    }
+    for (i, trigger) in triggers.iter().filter(|t| !t.id.is_empty()).enumerate() {
+        out[i].linked = bind_linked_trigger_id(&by_name, &trigger.linked, trigger.id.as_str())?;
+    }
+    Ok(out)
+}
+
+/// 将 `[Tags]` 投影为稳定 [`PreparedTag`] 表；关联 Trigger 必须可解析。
+///
+/// - 空 / 未知 `trigger_id` → [`RaError::UnknownReference`]
+pub fn bind_map_tags(tags: &[MapTag], triggers: &[PreparedTrigger]) -> RaResult<Vec<PreparedTag>> {
+    let trigger_by_name: HashMap<&str, TriggerId> = triggers.iter().map(|t| (t.name.as_str(), t.id)).collect();
     let mut out = Vec::with_capacity(tags.len());
     let mut next = 1u32;
     for tag in tags {
         if tag.id.is_empty() {
             continue;
         }
+        let trigger_id = bind_trigger_id(&trigger_by_name, &tag.trigger_id, tag.id.as_str())?;
         let id = TagId(next);
         next = next.saturating_add(1);
         out.push(PreparedTag {
@@ -22,10 +60,10 @@ pub fn bind_map_tags(tags: &[MapTag]) -> Vec<PreparedTag> {
             name: tag.id.clone(),
             persistence: tag.persistence,
             editor_name: tag.name.clone(),
-            trigger_id: tag.trigger_id.clone(),
+            trigger_id,
         });
     }
-    out
+    Ok(out)
 }
 
 /// 将 [`MapPlacedEntity`] 列表绑定为稳定 id 的 [`PreparedPlacement`]。
@@ -73,11 +111,14 @@ pub fn bind_map_cell_tags(cell_tags: &[MapCellTag], tags: &[PreparedTag]) -> RaR
     Ok(out)
 }
 
-/// 就地填充 [`PreparedMap::tags`] / [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；失败时不改动已有字段。
+/// 就地填充 [`PreparedMap::triggers`] / [`PreparedMap::tags`] / [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；
+/// 失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
-    let tags = bind_map_tags(&prepared.definition.tags);
+    let triggers = bind_map_triggers(&prepared.definition.triggers)?;
+    let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
+    prepared.triggers = triggers;
     prepared.tags = tags;
     prepared.cell_tags = cell_tags;
     prepared.placements = placements;
@@ -115,6 +156,28 @@ fn bind_tag_id(tag_by_name: &HashMap<&str, TagId>, name: &TagName, owner: &str) 
         kind: "tag",
         name: name.as_str().to_string(),
         owner: owner.to_string(),
+    })
+}
+
+fn bind_trigger_id(trigger_by_name: &HashMap<&str, TriggerId>, name: &TriggerName, owner: &str) -> RaResult<TriggerId> {
+    if name.is_empty() {
+        return Err(RaError::UnknownReference { kind: "trigger", name: String::new(), owner: owner.to_string() });
+    }
+    trigger_by_name.get(name.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+        kind: "trigger",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
+}
+
+fn bind_linked_trigger_id(trigger_by_name: &HashMap<&str, TriggerId>, name: &TriggerName, owner: &str) -> RaResult<Option<TriggerId>> {
+    if name.is_empty() || name.as_str().eq_ignore_ascii_case("<NONE>") || name.as_str().eq_ignore_ascii_case("NONE") {
+        return Ok(None);
+    }
+    trigger_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
+        kind: "trigger",
+        name: name.as_str().to_string(),
+        owner: format!("linked:{owner}"),
     })
 }
 

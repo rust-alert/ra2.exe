@@ -392,6 +392,7 @@ impl MapInfo {
             cell_heights,
             occupancy,
             placements: Vec::new(),
+            triggers: Vec::new(),
             tags: Vec::new(),
             cell_tags: Vec::new(),
         }
