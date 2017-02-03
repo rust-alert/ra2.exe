@@ -172,6 +172,8 @@ pub struct StructureDefinition {
     pub production: Option<ProductionProfile>,
     /// `Owner=`：空名单 = 不限阵营。
     pub owner: HouseAllowList,
+    /// `Owner=` 绑定后的稳定 id 名单；空 = 不限（或测试夹具未绑定时仍读 `owner` 名名单）。
+    pub owner_ids: crate::definition::HouseIdAllowList,
     /// art / rules `Foundation=` 占地（原版主要在 art.ini）。
     pub foundation: Foundation,
     /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
@@ -280,5 +282,10 @@ impl StructureDefinitions {
     /// 遍历。
     pub fn iter(&self) -> impl Iterator<Item = &StructureDefinition> {
         self.by_key.values()
+    }
+
+    /// 可变遍历。
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut StructureDefinition> {
+        self.by_key.values_mut()
     }
 }

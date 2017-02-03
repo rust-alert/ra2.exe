@@ -239,6 +239,8 @@ pub struct TechnoDefinition {
     pub speed: u32,
     /// `Owner=`：空名单 = 不限阵营。
     pub owner: HouseAllowList,
+    /// `Owner=` 绑定后的稳定 id 名单；空 = 不限（或测试夹具未绑定时仍读 `owner` 名名单）。
+    pub owner_ids: crate::definition::HouseIdAllowList,
     /// `TechLevel`；`< 0` 表示不可建造。
     pub tech_level: i32,
     /// `Naval=yes`。
@@ -271,8 +273,12 @@ pub struct TechnoDefinition {
     pub prerequisite_override: Vec<PrerequisiteToken>,
     /// `RequiredHouses=`：空名单 = 不限制；非空则 house 须命中其一。
     pub required_houses: HouseAllowList,
+    /// `RequiredHouses=` 绑定后的稳定 id 名单。
+    pub required_house_ids: crate::definition::HouseIdAllowList,
     /// `ForbiddenHouses=`：命中任一则不可造；空名单 = 不禁止。
     pub forbidden_houses: HouseAllowList,
+    /// `ForbiddenHouses=` 绑定后的稳定 id 名单。
+    pub forbidden_house_ids: crate::definition::HouseIdAllowList,
     /// `BuildLimit`；`0` 表示不限。
     pub build_limit: i32,
     /// INI `BuildTime`（原版分钟档语义的整数）；`0` 表示缺省，生产侧回退默认 tick。

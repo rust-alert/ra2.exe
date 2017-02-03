@@ -47,7 +47,7 @@ pub use category::TechnoCategory;
 pub use deployable::{DeployableDefinition, DeployableDefinitions, DeploymentPlacement};
 pub use fingerprint::ContentFingerprint;
 pub use foundation::Foundation;
-pub use house_list::{ColorName, HouseAllowList, HouseName, SideName};
+pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, SideName};
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{

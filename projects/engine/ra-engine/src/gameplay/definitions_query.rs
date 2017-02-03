@@ -90,9 +90,59 @@ pub(crate) fn deploy_into_type<'a>(defs: &'a RuntimeDefinitions, source_type: &s
     defs.deployables.get(source_type).map(|d| d.target_key.as_str())
 }
 
-/// `Owner=` 名单是否允许该阵营使用（空名单 = 不限）。
-pub(crate) fn owner_allows(owner: &ra_types::HouseAllowList, house: &str) -> bool {
-    owner.owner_allows(house)
+/// `Owner=` 名单是否允许该阵营使用（优先稳定 id；空 id 且名名单非空时回退名名单，供测试夹具）。
+pub(crate) fn owner_allows(defs: &RuntimeDefinitions, techno: &ra_types::TechnoDefinition, house: &str) -> bool {
+    house_list_allows(defs, &techno.owner_ids, &techno.owner, house, HouseListKind::Owner)
+}
+
+fn house_list_allows(
+    defs: &RuntimeDefinitions,
+    ids: &ra_types::HouseIdAllowList,
+    names: &ra_types::HouseAllowList,
+    house: &str,
+    kind: HouseListKind,
+) -> bool {
+    match kind {
+        HouseListKind::Owner | HouseListKind::Required => {
+            if names.is_empty() {
+                return true;
+            }
+            if !ids.is_empty() {
+                return defs.houses.get(house).is_some_and(|h| ids.allows(h.id));
+            }
+            match kind {
+                HouseListKind::Owner => names.owner_allows(house),
+                HouseListKind::Required => names.required_allows(house),
+                HouseListKind::Forbidden => unreachable!(),
+            }
+        }
+        HouseListKind::Forbidden => {
+            if names.is_empty() {
+                return false;
+            }
+            if !ids.is_empty() {
+                return defs.houses.get(house).is_some_and(|h| ids.forbids(h.id));
+            }
+            names.forbids(house)
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum HouseListKind {
+    Owner,
+    Required,
+    Forbidden,
+}
+
+/// `RequiredHouses=` 是否允许。
+pub(crate) fn required_houses_allows(defs: &RuntimeDefinitions, techno: &ra_types::TechnoDefinition, house: &str) -> bool {
+    house_list_allows(defs, &techno.required_house_ids, &techno.required_houses, house, HouseListKind::Required)
+}
+
+/// `ForbiddenHouses=` 是否禁止。
+pub(crate) fn forbidden_houses_forbids(defs: &RuntimeDefinitions, techno: &ra_types::TechnoDefinition, house: &str) -> bool {
+    house_list_allows(defs, &techno.forbidden_house_ids, &techno.forbidden_houses, house, HouseListKind::Forbidden)
 }
 
 /// 为遭遇战开局席位挑选该 house 可用的 MCV 类型键。
@@ -110,7 +160,7 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
             if !is_construction_yard(defs, &d.target_key) {
                 return None;
             }
-            if !owner_allows(&techno.owner, house) {
+            if !owner_allows(defs, techno, house) {
                 return None;
             }
             Some(d.source_key.as_str())

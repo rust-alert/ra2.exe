@@ -131,6 +131,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             armor: tt.armor,
             speed: tt.speed,
             owner: tt.owner.clone(),
+            owner_ids: ra_types::HouseIdAllowList::empty(),
             tech_level: tt.tech_level,
             naval: tt.naval,
             agent: tt.agent,
@@ -147,7 +148,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             prerequisite: tt.prerequisite.clone().into_vec(),
             prerequisite_override: tt.prerequisite_override.clone().into_vec(),
             required_houses: tt.required_houses.clone(),
+            required_house_ids: ra_types::HouseIdAllowList::empty(),
             forbidden_houses: tt.forbidden_houses.clone(),
+            forbidden_house_ids: ra_types::HouseIdAllowList::empty(),
             build_limit: tt.build_limit,
             build_time: tt.build_time,
             requires_stolen_allied_tech: tt.requires_stolen_allied_tech,
@@ -245,6 +248,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             capturable,
             production,
             owner: tt.owner.clone(),
+            owner_ids: ra_types::HouseIdAllowList::empty(),
             foundation,
             height,
             super_weapon,
@@ -398,6 +402,41 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         validate_house_allow_list(&defs, &structure.owner, "Owner", structure.type_key.as_str())?;
     }
 
+    let house_binds: Vec<(
+        TypeId,
+        ra_types::HouseIdAllowList,
+        ra_types::HouseIdAllowList,
+        ra_types::HouseIdAllowList,
+    )> = defs
+        .techno
+        .iter()
+        .map(|techno| {
+            Ok((
+                techno.id,
+                bind_house_allow_list(&defs, &techno.owner, "Owner", techno.type_key.as_str())?,
+                bind_house_allow_list(&defs, &techno.required_houses, "RequiredHouses", techno.type_key.as_str())?,
+                bind_house_allow_list(&defs, &techno.forbidden_houses, "ForbiddenHouses", techno.type_key.as_str())?,
+            ))
+        })
+        .collect::<RaResult<_>>()?;
+    for (id, owner_ids, required_house_ids, forbidden_house_ids) in house_binds {
+        if let Some(techno) = defs.techno.iter_mut().find(|t| t.id == id) {
+            techno.owner_ids = owner_ids;
+            techno.required_house_ids = required_house_ids;
+            techno.forbidden_house_ids = forbidden_house_ids;
+        }
+    }
+    let structure_owner_binds: Vec<(TypeId, ra_types::HouseIdAllowList)> = defs
+        .structures
+        .iter()
+        .map(|structure| Ok((structure.id, bind_house_allow_list(&defs, &structure.owner, "Owner", structure.type_key.as_str())?)))
+        .collect::<RaResult<_>>()?;
+    for (id, owner_ids) in structure_owner_binds {
+        if let Some(structure) = defs.structures.iter_mut().find(|s| s.id == id) {
+            structure.owner_ids = owner_ids;
+        }
+    }
+
     let techno_binds: Vec<(TypeId, Option<WeaponId>, Option<WeaponId>, Option<WarheadId>)> = defs
         .techno
         .iter()
@@ -534,6 +573,31 @@ fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, f
         return Err(RaError::UnknownReference { kind: "house", name: name.as_str().to_string(), owner: format!("{field}:{owner}") });
     }
     Ok(())
+}
+
+/// 将姓名单绑成稳定 id 名单。无 `[Countries]` 时保持空 id（测试夹具仍可读名名单）。
+fn bind_house_allow_list(
+    defs: &RuntimeDefinitions,
+    list: &HouseAllowList,
+    field: &str,
+    owner: &str,
+) -> RaResult<ra_types::HouseIdAllowList> {
+    if list.is_empty() {
+        return Ok(ra_types::HouseIdAllowList::empty());
+    }
+    let has_countries = defs.houses.iter().any(|h| !is_ambient_house(&h.type_key));
+    if !has_countries {
+        return Ok(ra_types::HouseIdAllowList::empty());
+    }
+    let mut ids = Vec::with_capacity(list.len());
+    for name in list.iter() {
+        let Some(house) = defs.houses.get_name(name)
+        else {
+            return Err(RaError::UnknownReference { kind: "house", name: name.as_str().to_string(), owner: format!("{field}:{owner}") });
+        };
+        ids.push(house.id);
+    }
+    Ok(ra_types::HouseIdAllowList::from_ids(ids))
 }
 
 /// 从内联 rules/art 字节直接投影冻结定义（测试 / 无资源树夹具）。

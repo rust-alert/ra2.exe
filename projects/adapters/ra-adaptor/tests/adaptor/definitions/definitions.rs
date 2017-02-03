@@ -347,6 +347,31 @@ fn build_runtime_definitions_allows_ambient_owner_house_with_countries() {
     assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner.owner_allows("Neutral"));
     let neutral = defs.houses.get("NEUTRAL").expect("ambient NEUTRAL must receive HouseId");
     assert_ne!(neutral.id, ra_types::HouseId(0));
+    assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner_ids.allows(neutral.id));
+}
+
+#[test]
+fn build_runtime_definitions_binds_owner_required_forbidden_house_ids() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n1=Alliance\n2=Russians\n\
+[Americans]\nSide=GDI\n\
+[Alliance]\nSide=GDI\n\
+[Russians]\nSide=Nod\n\
+[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=200\nCost=800\nOwner=Americans,Alliance\nRequiredHouses=Americans\nForbiddenHouses=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let mtnk = defs.techno.get("MTNK").expect("MTNK");
+    let americans = defs.houses.get("AMERICANS").expect("Americans").id;
+    let alliance = defs.houses.get("ALLIANCE").expect("Alliance").id;
+    let russians = defs.houses.get("RUSSIANS").expect("Russians").id;
+    assert!(mtnk.owner_ids.allows(americans));
+    assert!(mtnk.owner_ids.allows(alliance));
+    assert!(!mtnk.owner_ids.allows(russians));
+    assert!(mtnk.required_house_ids.allows(americans));
+    assert!(!mtnk.required_house_ids.allows(alliance));
+    assert!(mtnk.forbidden_house_ids.forbids(russians));
+    assert!(!mtnk.forbidden_house_ids.forbids(americans));
 }
 
 #[test]

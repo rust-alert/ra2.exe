@@ -368,6 +368,53 @@ impl HouseAllowList {
     }
 }
 
+/// 冻结后的房屋稳定 id 名单；空名单语义与 [`HouseAllowList`] 字段约定一致。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HouseIdAllowList {
+    /// 稳定房屋 id；空 = 本名单无约束项。
+    ids: Vec<crate::HouseId>,
+}
+
+impl HouseIdAllowList {
+    /// 空名单。
+    pub fn empty() -> Self {
+        Self { ids: Vec::new() }
+    }
+
+    /// 由稳定 id 构造（排序去重）。
+    pub fn from_ids(ids: impl IntoIterator<Item = crate::HouseId>) -> Self {
+        let mut ids: Vec<crate::HouseId> = ids.into_iter().filter(|id| id.0 != 0).collect();
+        ids.sort_unstable_by_key(|id| id.0);
+        ids.dedup();
+        Self { ids }
+    }
+
+    /// 是否为空名单。
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// 名单长度。
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// 迭代稳定 id。
+    pub fn iter(&self) -> impl Iterator<Item = crate::HouseId> + '_ {
+        self.ids.iter().copied()
+    }
+
+    /// `Owner=` / `RequiredHouses=`：空名单 = 不限；否则须命中其一。
+    pub fn allows(&self, id: crate::HouseId) -> bool {
+        self.ids.is_empty() || self.ids.contains(&id)
+    }
+
+    /// `ForbiddenHouses=`：命中任一则禁止；空名单 = 不禁止。
+    pub fn forbids(&self, id: crate::HouseId) -> bool {
+        !self.ids.is_empty() && self.ids.contains(&id)
+    }
+}
+
 impl<'de> Deserialize<'de> for HouseAllowList {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

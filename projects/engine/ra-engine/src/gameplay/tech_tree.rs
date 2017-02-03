@@ -8,7 +8,7 @@ use ra_map::MapEntityKind;
 use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TechnoName};
 
 use crate::{
-    gameplay::owner_allows,
+    gameplay::{forbidden_houses_forbids, owner_allows, required_houses_allows},
     state::{
         BattleState, PlayerState,
         components::{Health, Identity, Owner},
@@ -119,13 +119,13 @@ pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, l
     if techno.tech_level < 0 || techno.tech_level > player.tech_level {
         return false;
     }
-    if !owner_allows(&techno.owner, player.house) {
+    if !owner_allows(defs, techno, player.house) {
         return false;
     }
-    if !techno.required_houses.required_allows(player.house) {
+    if !required_houses_allows(defs, techno, player.house) {
         return false;
     }
-    if techno.forbidden_houses.forbids(player.house) {
+    if forbidden_houses_forbids(defs, techno, player.house) {
         return false;
     }
     if techno.requires_stolen_allied_tech && !player.stolen_allied_tech {
