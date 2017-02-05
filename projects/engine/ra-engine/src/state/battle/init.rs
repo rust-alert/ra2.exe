@@ -88,7 +88,7 @@ impl BattleState {
             .enumerate()
             .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
             .collect();
-        let trigger_runtime = crate::gameplay::TriggerRuntime::from_scripting(&map.scripting);
+        let trigger_runtime = crate::gameplay::TriggerRuntime::from_prepared(&prepared.triggers, &map.scripting);
         let ai_trigger_runtime = crate::gameplay::AiTriggerRuntime::from_map(!map.scripting.ai_triggers.is_empty());
         let terrain_spawners = crate::gameplay::seed_terrain_spawners(&map, &definitions.terrain_spawners);
         let speak_delay_ticks = definitions.speak_delay_ticks;

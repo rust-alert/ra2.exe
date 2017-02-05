@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind, MapScripting};
-use ra_types::EntityId;
+use ra_types::{EntityId, PreparedTrigger};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -28,7 +28,7 @@ struct TriggerRuntimeState {
     timer_paused: bool,
 }
 
-/// 局内触发运行时（由地图 `MapScripting` 播种）。
+/// 局内触发运行时（由 [`PreparedTrigger`] 播种，事件/动作仍取自地图剧本）。
 #[derive(Debug, Clone, Default)]
 pub struct TriggerRuntime {
     states: Vec<TriggerRuntimeState>,
@@ -63,19 +63,22 @@ pub struct ScriptCrate {
 pub const SCRIPT_CRATE_CREDITS: i32 = 2_000;
 
 impl TriggerRuntime {
-    /// 从地图剧本播种；无触发则空运行时。
-    pub fn from_scripting(scripting: &MapScripting) -> Self {
+    /// 从已绑定的 [`PreparedTrigger`] 播种；事件表仍取自地图剧本（按 trigger 名对齐）。
+    ///
+    /// 无触发则空运行时。`win_blockers` 仍按剧本 `[Actions]` 统计。
+    pub fn from_prepared(triggers: &[PreparedTrigger], scripting: &MapScripting) -> Self {
         let events_by_id: HashMap<&str, &ra_map::MapEvent> = scripting.events.iter().map(|e| (e.id.as_str(), e)).collect();
-        let mut states = Vec::with_capacity(scripting.triggers.len());
-        for tr in &scripting.triggers {
-            let timer_remaining = events_by_id.get(tr.id.as_str()).and_then(|ev| {
+        let mut states = Vec::with_capacity(triggers.len());
+        for tr in triggers {
+            let name = tr.name.as_str();
+            let timer_remaining = events_by_id.get(name).and_then(|ev| {
                 ev.conditions
                     .iter()
                     .find(|c| c.kind == MapEventKind::TimeElapse)
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
             states.push(TriggerRuntimeState {
-                id: tr.id.to_string(),
+                id: name.to_string(),
                 disabled: tr.disabled,
                 fired: false,
                 timer_remaining,
@@ -312,16 +315,15 @@ fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
     scripting.actions.iter().filter(|a| a.commands.iter().any(|c| c.kind == MapActionKind::AllowWin)).count() as u32
 }
 
-/// 查找触发器所属 house（`[Triggers]` 行首字段）。
+/// 查找触发器所属 house（优先 [`PreparedTrigger.house`](PreparedTrigger) 稳定 id）。
 fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
-    world
-        .map
-        .scripting
+    let house_id = world
+        .prepared
         .triggers
         .iter()
-        .find(|t| t.id.eq_ignore_ascii_case(trigger_id))
-        .map(|t| t.house.as_str().to_string())
-        .filter(|h| !h.is_empty())
+        .find(|t| t.name.as_str().eq_ignore_ascii_case(trigger_id))
+        .map(|t| t.house)?;
+    world.definitions.houses.get_by_id(house_id).map(|h| h.type_key.as_str().to_string()).filter(|h| !h.is_empty())
 }
 
 /// 双向结盟或解盟：写入双方 `PlayerState.allies`。
