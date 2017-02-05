@@ -3,10 +3,40 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapCellTag, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName, PreparedCellTag, PreparedMap,
-    PreparedPlacement, PreparedTag, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId,
+    HouseId, HouseName, MapCellTag, MapHouse, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName, PreparedCellTag, PreparedHouse,
+    PreparedMap, PreparedPlacement, PreparedTag, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId,
     TriggerName, TypeId,
 };
+
+/// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
+///
+/// - 空 / 未知 `Country=` → [`RaError::UnknownReference`]
+/// - `Allies=` 中空 / `NONE` 项跳过；非空未知 → [`RaError::UnknownReference`]
+pub fn bind_map_houses(houses: &[MapHouse], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedHouse>> {
+    let mut out = Vec::with_capacity(houses.len());
+    for house in houses {
+        let country = bind_house_id(defs, &house.country, &format!("MapHouse:{}", house.name))?;
+        let mut allies = Vec::with_capacity(house.allies.len());
+        for ally in &house.allies {
+            if ally.is_empty() || ally.as_str().eq_ignore_ascii_case("NONE") {
+                continue;
+            }
+            allies.push(bind_house_id(defs, ally, &format!("MapHouse.allies:{}", house.name))?);
+        }
+        out.push(PreparedHouse {
+            name: house.name.clone(),
+            country,
+            tech_level: house.tech_level,
+            credits: house.credits,
+            iq: house.iq,
+            edge: house.edge,
+            player_control: house.player_control,
+            color: house.color.clone(),
+            allies,
+        });
+    }
+    Ok(out)
+}
 
 /// 将 `[Triggers]` 投影为稳定 [`PreparedTrigger`] 表；未知 `linked` / `house` 引用拒绝。
 ///
@@ -113,13 +143,15 @@ pub fn bind_map_cell_tags(cell_tags: &[MapCellTag], tags: &[PreparedTag]) -> RaR
     Ok(out)
 }
 
-/// 就地填充 [`PreparedMap::triggers`] / [`PreparedMap::tags`] / [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；
-/// 失败时不改动已有字段。
+/// 就地填充 [`PreparedMap::houses`] / [`PreparedMap::triggers`] / [`PreparedMap::tags`] /
+/// [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
+    let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
     let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
+    prepared.houses = houses;
     prepared.triggers = triggers;
     prepared.tags = tags;
     prepared.cell_tags = cell_tags;

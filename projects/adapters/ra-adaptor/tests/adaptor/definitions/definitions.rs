@@ -769,3 +769,56 @@ fn bind_map_triggers_rejects_unknown_house() {
     assert!(msg.contains("house"), "{msg}");
     assert!(msg.contains("NOSUCHHOUSE"), "{msg}");
 }
+
+#[test]
+fn bind_map_houses_resolves_country_and_allies() {
+    let rules = rules_from(
+        b"[Countries]\n0=Americans\n1=Alliance\n2=Russians\n\
+[Americans]\nSide=GDI\n\
+[Alliance]\nSide=GDI\n\
+[Russians]\nSide=Nod\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let houses = ra_types::bind_map_houses(
+        &[ra_types::MapHouse {
+            name: "Player House".into(),
+            country: "Americans".into(),
+            tech_level: 10,
+            credits: 100,
+            iq: 0,
+            edge: ra_types::MapEdge::North,
+            player_control: true,
+            color: "Gold".into(),
+            allies: vec!["Alliance".into(), "None".into()],
+        }],
+        &defs,
+    )
+    .expect("bind houses");
+    assert_eq!(houses.len(), 1);
+    assert_eq!(houses[0].country, defs.houses.get("AMERICANS").expect("Americans").id);
+    assert_eq!(houses[0].allies, vec![defs.houses.get("ALLIANCE").expect("Alliance").id]);
+}
+
+#[test]
+fn bind_map_houses_rejects_unknown_country() {
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let err = ra_types::bind_map_houses(
+        &[ra_types::MapHouse {
+            name: "Bad".into(),
+            country: "Missing".into(),
+            tech_level: 1,
+            credits: 0,
+            iq: 0,
+            edge: ra_types::MapEdge::West,
+            player_control: false,
+            color: ra_types::ColorName::default(),
+            allies: Vec::new(),
+        }],
+        &defs,
+    )
+    .expect_err("unknown country");
+    let msg = err.to_string();
+    assert!(msg.contains("house"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}

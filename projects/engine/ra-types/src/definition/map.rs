@@ -1654,12 +1654,37 @@ pub struct PreparedMap {
     pub occupancy: Vec<u8>,
     /// 预放实体的规则绑定结果；骨架路径为空，adaptor 绑定后填入。
     pub placements: Vec<PreparedPlacement>,
+    /// 地图 `[Houses]` 绑定表；骨架路径为空。
+    pub houses: Vec<PreparedHouse>,
     /// 地图 `[Triggers]` 绑定表；骨架路径为空。
     pub triggers: Vec<PreparedTrigger>,
     /// 地图 `[Tags]` 绑定表；骨架路径为空。
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
     pub cell_tags: Vec<PreparedCellTag>,
+}
+
+/// 地图 `[Houses]` 绑定后的运行形状（稳定 country / allies id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedHouse {
+    /// 节名（常为 `Player House` 等）。
+    pub name: String,
+    /// `Country=` 稳定房屋 id。
+    pub country: crate::HouseId,
+    /// `TechLevel=`。
+    pub tech_level: i32,
+    /// `Credits=`（地图单位常为百计资金）。
+    pub credits: i32,
+    /// `IQ=`。
+    pub iq: i32,
+    /// `Edge=`。
+    pub edge: MapEdge,
+    /// `PlayerControl=`。
+    pub player_control: bool,
+    /// `Color=` 方案名。
+    pub color: ColorName,
+    /// `Allies=` 绑定后的稳定房屋 id。
+    pub allies: Vec<crate::HouseId>,
 }
 
 /// 地图 `[Triggers]` 绑定后的运行形状（稳定 id）。
