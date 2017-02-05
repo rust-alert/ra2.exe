@@ -211,46 +211,50 @@ fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
 
 /// 战役：登记地图 `[Houses]`，并把 `Credits`（百计）、`TechLevel` 与 `Allies` 写入对应 house。
 ///
-/// house 键优先用 `Country=`，同时登记节名（部分地图放置 owner 用节名）。
+/// 优先消费 [`BattleState::prepared`] 中已绑定的 [`ra_types::PreparedHouse`]（稳定 `HouseId`）。
+/// house 键用 `Country=` 对应规则房屋名，同时登记节名（部分地图放置 owner 用节名）。
 fn apply_campaign_map_houses(state: &mut BattleState) -> usize {
-    let houses = state.map.scripting.houses.clone();
+    let houses = state.prepared.houses.clone();
     if houses.is_empty() {
         return 0;
     }
     let mut applied = 0usize;
     for h in &houses {
-        let country = h.country.trim();
-        let section = h.name.trim();
-        let primary = if !country.is_empty() { country } else { section };
-        if primary.is_empty() {
+        let Some(primary) = state.definitions.houses.get_by_id(h.country).map(|c| c.type_key.as_str().to_string())
+        else {
             continue;
-        }
-        state.ensure_house(primary);
-        if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
-            state.ensure_house(section);
+        };
+        let section = h.name.trim().to_string();
+        state.ensure_house(&primary);
+        if !section.is_empty() && !section.eq_ignore_ascii_case(&primary) {
+            state.ensure_house(&section);
         }
         if h.credits > 0 {
             let funds = h.credits.saturating_mul(100);
-            let _ = state.set_house_funds(primary, funds);
-            if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
-                let _ = state.set_house_funds(section, funds);
+            let _ = state.set_house_funds(&primary, funds);
+            if !section.is_empty() && !section.eq_ignore_ascii_case(&primary) {
+                let _ = state.set_house_funds(&section, funds);
             }
         }
         if h.tech_level > 0 {
-            let _ = state.set_house_tech_level(primary, h.tech_level);
-            if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
-                let _ = state.set_house_tech_level(section, h.tech_level);
+            let _ = state.set_house_tech_level(&primary, h.tech_level);
+            if !section.is_empty() && !section.eq_ignore_ascii_case(&primary) {
+                let _ = state.set_house_tech_level(&section, h.tech_level);
             }
         }
         if !h.allies.is_empty() {
-            let allies: Vec<String> = h.allies.iter().map(|a| a.as_str().to_string()).collect();
-            let _ = state.set_house_allies(primary, allies.clone());
-            if !section.is_empty() && !section.eq_ignore_ascii_case(primary) {
-                let _ = state.set_house_allies(section, allies);
+            let allies: Vec<String> = h
+                .allies
+                .iter()
+                .filter_map(|id| state.definitions.houses.get_by_id(*id).map(|d| d.type_key.as_str().to_string()))
+                .collect();
+            let _ = state.set_house_allies(&primary, allies.clone());
+            if !section.is_empty() && !section.eq_ignore_ascii_case(&primary) {
+                let _ = state.set_house_allies(&section, allies);
             }
         }
         if h.player_control {
-            let _ = state.prefer_local_house(primary);
+            let _ = state.prefer_local_house(&primary);
         }
         applied = applied.saturating_add(1);
     }
