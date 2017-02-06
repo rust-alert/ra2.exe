@@ -110,15 +110,13 @@ pub fn tick_triggers(world: &mut BattleState) {
     if world.trigger_runtime.pending_outcome.is_some() {
         return;
     }
-    let scripting = world.map.scripting.clone();
-    if scripting.triggers.is_empty() {
+    if world.trigger_runtime.states.is_empty() {
         return;
     }
+    let scripting = world.map.scripting.clone();
 
     let events_by_id: HashMap<String, ra_map::MapEvent> = scripting.events.iter().cloned().map(|e| (e.id.to_string(), e)).collect();
     let actions_by_id: HashMap<String, ra_map::MapAction> = scripting.actions.iter().cloned().map(|a| (a.id.to_string(), a)).collect();
-    let tags = scripting.tags.clone();
-    let cell_tags = scripting.cell_tags.clone();
     let local_house = world.players.iter().find(|p| p.id == world.local_player).map(|p| p.house.clone()).unwrap_or_default();
 
     // 先推进计时器（暂停中的不扣减）。
@@ -142,7 +140,7 @@ pub fn tick_triggers(world: &mut BattleState) {
         else {
             continue;
         };
-        if event_conditions_met(world, st, event, &tags, &cell_tags, &local_house) {
+        if event_conditions_met(world, st, event, &local_house) {
             to_fire.push(st.id.clone());
         }
     }
@@ -164,32 +162,18 @@ pub fn tick_triggers(world: &mut BattleState) {
     }
 }
 
-fn event_conditions_met(
-    world: &BattleState,
-    st: &TriggerRuntimeState,
-    event: &ra_map::MapEvent,
-    tags: &[ra_map::MapTag],
-    cell_tags: &[ra_map::MapCellTag],
-    local_house: &str,
-) -> bool {
+fn event_conditions_met(world: &BattleState, st: &TriggerRuntimeState, event: &ra_map::MapEvent, local_house: &str) -> bool {
     if event.conditions.is_empty() {
         return false;
     }
-    event.conditions.iter().all(|c| condition_met(world, st, c, tags, cell_tags, local_house))
+    event.conditions.iter().all(|c| condition_met(world, st, c, local_house))
 }
 
-fn condition_met(
-    world: &BattleState,
-    st: &TriggerRuntimeState,
-    c: &MapEventCondition,
-    tags: &[ra_map::MapTag],
-    cell_tags: &[ra_map::MapCellTag],
-    local_house: &str,
-) -> bool {
+fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCondition, local_house: &str) -> bool {
     match c.kind {
         MapEventKind::TimeElapse => st.timer_remaining == Some(0),
         MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything => {
-            let bound_tags = tags_for_trigger(tags, &st.id);
+            let bound_tags = tags_for_trigger(world, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
@@ -208,11 +192,11 @@ fn condition_met(
             !any_living_of_house(world, &house, HouseAliveFilter::All)
         }
         MapEventKind::EnteredBy => {
-            let bound_tags = tags_for_trigger(tags, &st.id);
+            let bound_tags = tags_for_trigger(world, &st.id);
             if bound_tags.is_empty() {
                 return false;
             }
-            cell_entered_by_house(world, cell_tags, &bound_tags, local_house)
+            cell_entered_by_house(world, &bound_tags, local_house)
         }
         MapEventKind::CreditsExceed => {
             let Some(threshold) = event_numeric_param(c)
@@ -306,8 +290,12 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
     false
 }
 
-fn tags_for_trigger(tags: &[ra_map::MapTag], trigger_id: &str) -> HashSet<String> {
-    tags.iter().filter(|t| t.trigger_id.eq_ignore_ascii_case(trigger_id)).map(|t| t.id.to_string()).collect()
+fn tags_for_trigger(world: &BattleState, trigger_id: &str) -> HashSet<String> {
+    let Some(tid) = world.prepared.triggers.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(trigger_id)).map(|t| t.id)
+    else {
+        return HashSet::new();
+    };
+    world.prepared.tags.iter().filter(|t| t.trigger_id == tid).map(|t| t.name.as_str().to_string()).collect()
 }
 
 /// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。
@@ -367,8 +355,11 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
     false
 }
 
-fn cell_entered_by_house(world: &BattleState, cell_tags: &[ra_map::MapCellTag], bound_tags: &HashSet<String>, house: &str) -> bool {
-    let cells: Vec<(u16, u16)> = cell_tags.iter().filter(|c| bound_tags.contains(c.tag_id.as_str())).map(|c| (c.x, c.y)).collect();
+fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<String>, house: &str) -> bool {
+    let bound_ids: HashSet<_> =
+        world.prepared.tags.iter().filter(|t| bound_tags.contains(t.name.as_str())).map(|t| t.id).collect();
+    let cells: Vec<(u16, u16)> =
+        world.prepared.cell_tags.iter().filter(|c| bound_ids.contains(&c.tag)).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }
@@ -415,9 +406,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
         }
         MapActionKind::ProductionBegins => {
             let house = action_house_param(cmd)
-                .or_else(|| {
-                    world.map.scripting.triggers.iter().find(|t| t.id.as_ref().eq_ignore_ascii_case(trigger_id)).map(|t| t.house.to_string())
-                })
+                .or_else(|| trigger_owner_house(world, trigger_id))
                 .unwrap_or_else(|| local_house.to_string());
             if !world.begin_house_production(&house) {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -667,7 +656,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
 /// 将绑定到本触发 Tag 的存活实体改属 `new_house`。
 fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_house: &str) {
     world.ensure_house(new_house);
-    let bound = tags_for_trigger(&world.map.scripting.tags, trigger_id);
+    let bound = tags_for_trigger(world, trigger_id);
     if bound.is_empty() {
         return;
     }
@@ -754,7 +743,7 @@ fn destroy_house_entities(world: &mut BattleState, house: &str, filter: DestroyH
 
 /// 摧毁绑定到本触发 Tag 的存活实体。
 fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
-    let bound = tags_for_trigger(&world.map.scripting.tags, trigger_id);
+    let bound = tags_for_trigger(world, trigger_id);
     if bound.is_empty() {
         return;
     }
