@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use ra_map::MapEntityKind;
-use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TechnoName};
+use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TechnoName, TypeId};
 
 use crate::{
     gameplay::{forbidden_houses_forbids, owner_allows, required_houses_allows},
@@ -87,15 +87,15 @@ pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefi
 }
 
 #[doc(hidden)]
-pub fn owns_any(living: &HashSet<TechnoName>, types: impl IntoIterator<Item = impl AsRef<str>>) -> bool {
-    types.into_iter().any(|t| living.contains(&TechnoName::parse(t.as_ref())))
+pub fn owns_any_ids(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, ids: impl IntoIterator<Item = TypeId>) -> bool {
+    ids.into_iter().any(|id| defs.techno.get_by_id(id).is_some_and(|t| living.contains(&t.type_key)))
 }
 
 #[doc(hidden)]
 pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, token: &PrerequisiteToken) -> bool {
     match token {
-        PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any(living, defs.prerequisite_groups.proc_all()),
-        PrerequisiteToken::Group(kind) => owns_any(living, defs.prerequisite_groups.types_for_kind(*kind)),
+        PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any_ids(defs, living, defs.prerequisite_groups.proc_all()),
+        PrerequisiteToken::Group(kind) => owns_any_ids(defs, living, defs.prerequisite_groups.ids_for_kind(*kind).iter().copied()),
         PrerequisiteToken::Type(id) => defs.techno.get_by_id(*id).is_some_and(|t| living.contains(&t.type_key)),
         // 装载期必须把类型引用绑成 `Type` 或报错；执行侧不再按名称兜底。
         PrerequisiteToken::UnboundType(_) => false,

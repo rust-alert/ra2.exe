@@ -51,15 +51,13 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     };
 
     let g = &rules.globals;
-    defs.prerequisite_groups = PrerequisiteGroups {
-        power: g.prerequisite_power.clone(),
-        factory: g.prerequisite_factory.clone(),
-        barracks: g.prerequisite_barracks.clone(),
-        radar: g.prerequisite_radar.clone(),
-        tech: g.prerequisite_tech.clone(),
-        proc: g.prerequisite_proc.clone(),
-        proc_alternate: g.prerequisite_proc_alternate.clone(),
-    };
+    let prereq_power = g.prerequisite_power.clone();
+    let prereq_factory = g.prerequisite_factory.clone();
+    let prereq_barracks = g.prerequisite_barracks.clone();
+    let prereq_radar = g.prerequisite_radar.clone();
+    let prereq_tech = g.prerequisite_tech.clone();
+    let prereq_proc = g.prerequisite_proc.clone();
+    let prereq_proc_alternate = g.prerequisite_proc_alternate.clone();
     defs.default_tech_level = g.multiplayer_tech_level.unwrap_or(10).max(0);
     // `[General]` 侧栏扳手：缺键回落原版库存默认。
     defs.repair_percent = g.repair_percent.map(|v| v.max(0) as u32).unwrap_or(15);
@@ -281,7 +279,15 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             bind_prerequisite_tokens(std::mem::take(&mut techno.prerequisite_override), &resolve, &key, "PrerequisiteOverride")?;
     }
 
-    validate_prerequisite_group_members(&defs)?;
+    defs.prerequisite_groups = PrerequisiteGroups {
+        power: bind_prerequisite_group_members(&defs, &prereq_power, "PrerequisitePower")?,
+        factory: bind_prerequisite_group_members(&defs, &prereq_factory, "PrerequisiteFactory")?,
+        barracks: bind_prerequisite_group_members(&defs, &prereq_barracks, "PrerequisiteBarracks")?,
+        radar: bind_prerequisite_group_members(&defs, &prereq_radar, "PrerequisiteRadar")?,
+        tech: bind_prerequisite_group_members(&defs, &prereq_tech, "PrerequisiteTech")?,
+        proc: bind_prerequisite_group_members(&defs, &prereq_proc, "PrerequisiteProc")?,
+        proc_alternate: bind_prerequisite_group_members(&defs, &prereq_proc_alternate, "PrerequisiteProcAlternate")?,
+    };
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
@@ -528,31 +534,23 @@ fn bind_prerequisite_tokens(
     Ok(out)
 }
 
-fn validate_prerequisite_group_members(defs: &RuntimeDefinitions) -> RaResult<()> {
-    let check = |field: &str, names: &[TechnoName]| -> RaResult<()> {
-        for name in names {
-            if name.is_empty() {
-                continue;
-            }
-            if defs.techno.get_name(name).is_none() {
-                return Err(RaError::UnknownReference {
-                    kind: "techno",
-                    name: name.as_str().to_string(),
-                    owner: format!("PrerequisiteGroups:{field}"),
-                });
-            }
+fn bind_prerequisite_group_members(defs: &RuntimeDefinitions, names: &[TechnoName], field: &str) -> RaResult<Vec<TypeId>> {
+    let mut out = Vec::with_capacity(names.len());
+    for name in names {
+        if name.is_empty() {
+            continue;
         }
-        Ok(())
-    };
-    let g = &defs.prerequisite_groups;
-    check("PrerequisitePower", &g.power)?;
-    check("PrerequisiteFactory", &g.factory)?;
-    check("PrerequisiteBarracks", &g.barracks)?;
-    check("PrerequisiteRadar", &g.radar)?;
-    check("PrerequisiteTech", &g.tech)?;
-    check("PrerequisiteProc", &g.proc)?;
-    check("PrerequisiteProcAlternate", &g.proc_alternate)?;
-    Ok(())
+        let Some(t) = defs.techno.get_name(name)
+        else {
+            return Err(RaError::UnknownReference {
+                kind: "techno",
+                name: name.as_str().to_string(),
+                owner: format!("PrerequisiteGroups:{field}"),
+            });
+        };
+        out.push(t.id);
+    }
+    Ok(out)
 }
 
 /// 氛围房屋：可不在 `[Countries]` 出现，但仍可写在 `Owner=` 等名单中。

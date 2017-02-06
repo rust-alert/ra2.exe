@@ -100,7 +100,12 @@ impl crate::state::BattleState {
             }
 
             self.transfer_structure_owner(building_id, building_type.as_ref(), building_house.as_ref(), engineer_house.as_ref());
-            let capturer_eva = if self.definitions.prerequisite_groups.is_tech_building(building_type.as_ref()) {
+            let capturer_eva = if self
+                .definitions
+                .techno
+                .get_name(&ra_types::TechnoName::parse(building_type.as_ref()))
+                .is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id))
+            {
                 "EVA_TechBuildingCaptured"
             }
             else {

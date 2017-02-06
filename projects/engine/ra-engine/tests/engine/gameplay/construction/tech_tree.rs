@@ -129,7 +129,7 @@ fn losing_power_hides_power_gated_buildings_again() {
 use std::collections::HashSet;
 
 use ra_engine::gameplay::tech_tree::*;
-use ra_types::{PrerequisiteGroups, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
+use ra_types::{PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
 
 fn techno(key: &str, class: TechnoClass, owner: &str, tech_level: i32, prerequisite: &[&str], override_tokens: &[&str]) -> TechnoDefinition {
     TechnoDefinition {
@@ -174,8 +174,8 @@ fn player(house: &str, tech_level: i32) -> TechTreePlayer<'_> {
     TechTreePlayer { house, tech_level, stolen_allied_tech: false, stolen_soviet_tech: false, stolen_third_tech: false }
 }
 
-fn defs_with(groups: PrerequisiteGroups, items: Vec<TechnoDefinition>) -> RuntimeDefinitions {
-    let mut defs = RuntimeDefinitions { prerequisite_groups: groups, default_tech_level: 10, ..Default::default() };
+fn defs_with(group_power: &[&str], items: Vec<TechnoDefinition>) -> RuntimeDefinitions {
+    let mut defs = RuntimeDefinitions { default_tech_level: 10, ..Default::default() };
     let mut next_id = 1u32;
     for mut t in items {
         t.id = TypeId(next_id);
@@ -204,6 +204,16 @@ fn defs_with(groups: PrerequisiteGroups, items: Vec<TechnoDefinition>) -> Runtim
             defs.techno.insert(stub);
         }
     }
+    // 组名成员也需入库后再绑 id。
+    for key in group_power {
+        let name = ra_types::TechnoName::parse(key);
+        if defs.techno.get_name(&name).is_none() {
+            let mut stub = techno(key, TechnoClass::Building, "", 1, &[], &[]);
+            stub.id = TypeId(next_id);
+            next_id = next_id.saturating_add(1);
+            defs.techno.insert(stub);
+        }
+    }
     let type_ids: std::collections::HashMap<ra_types::TechnoName, TypeId> = defs.techno.iter().map(|t| (t.type_key.clone(), t.id)).collect();
     let resolve = |key: &ra_types::TechnoName| type_ids.get(key).copied();
     for techno in defs.techno.iter_mut() {
@@ -211,12 +221,16 @@ fn defs_with(groups: PrerequisiteGroups, items: Vec<TechnoDefinition>) -> Runtim
         techno.prerequisite_override =
             std::mem::take(&mut techno.prerequisite_override).into_iter().map(|t| t.bind_type_id(&resolve)).collect();
     }
+    defs.prerequisite_groups.power = group_power
+        .iter()
+        .filter_map(|k| defs.techno.get_name(&ra_types::TechnoName::parse(k)).map(|t| t.id))
+        .collect();
     defs
 }
 
 #[test]
 fn empty_prerequisite_is_eligible_with_owner_and_tech() {
-    let defs = defs_with(PrerequisiteGroups::default(), vec![techno("GAPOWR", TechnoClass::Building, "AMERICANS", 1, &[], &[])]);
+    let defs = defs_with(&[], vec![techno("GAPOWR", TechnoClass::Building, "AMERICANS", 1, &[], &[])]);
     let living = HashSet::new();
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPOWR"));
     assert!(!is_type_eligible(&defs, player("RUSSIANS", 10), &living, "GAPOWR"));
@@ -224,10 +238,7 @@ fn empty_prerequisite_is_eligible_with_owner_and_tech() {
 
 #[test]
 fn and_prerequisites_require_all_tokens() {
-    let defs = defs_with(
-        PrerequisiteGroups { power: vec!["GAPOWR".into()], ..Default::default() },
-        vec![techno("GAPILE", TechnoClass::Building, "AMERICANS", 1, &["POWER", "GAREFN"], &[])],
-    );
+    let defs = defs_with(&["GAPOWR"], vec![techno("GAPILE", TechnoClass::Building, "AMERICANS", 1, &["POWER", "GAREFN"], &[])]);
     let mut living = HashSet::new();
     living.insert("GAPOWR".into());
     assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
@@ -237,10 +248,7 @@ fn and_prerequisites_require_all_tokens() {
 
 #[test]
 fn generic_power_group_or_within_list() {
-    let defs = defs_with(
-        PrerequisiteGroups { power: vec!["GAPOWR".into(), "NAPOWR".into()], ..Default::default() },
-        vec![techno("GAREFN", TechnoClass::Building, "AMERICANS", 1, &["POWER"], &[])],
-    );
+    let defs = defs_with(&["GAPOWR", "NAPOWR"], vec![techno("GAREFN", TechnoClass::Building, "AMERICANS", 1, &["POWER"], &[])]);
     let mut living = HashSet::new();
     living.insert("NAPOWR".into());
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAREFN"));
@@ -248,7 +256,7 @@ fn generic_power_group_or_within_list() {
 
 #[test]
 fn prerequisite_override_bypasses_normal_list() {
-    let defs = defs_with(PrerequisiteGroups::default(), vec![techno("SEAL", TechnoClass::Infantry, "AMERICANS", 1, &["GATECH"], &["GACNST"])]);
+    let defs = defs_with(&[], vec![techno("SEAL", TechnoClass::Infantry, "AMERICANS", 1, &["GATECH"], &["GACNST"])]);
     let mut living = HashSet::new();
     living.insert("GACNST".into());
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
@@ -256,7 +264,7 @@ fn prerequisite_override_bypasses_normal_list() {
 
 #[test]
 fn tech_level_above_player_cap_hidden() {
-    let defs = defs_with(PrerequisiteGroups::default(), vec![techno("MTNK", TechnoClass::Vehicle, "AMERICANS", 5, &[], &[])]);
+    let defs = defs_with(&[], vec![techno("MTNK", TechnoClass::Vehicle, "AMERICANS", 5, &[], &[])]);
     let living = HashSet::new();
     assert!(!is_type_eligible(&defs, player("AMERICANS", 3), &living, "MTNK"));
     assert!(is_type_eligible(&defs, player("AMERICANS", 5), &living, "MTNK"));
@@ -264,7 +272,7 @@ fn tech_level_above_player_cap_hidden() {
 
 #[test]
 fn negative_tech_level_never_eligible() {
-    let defs = defs_with(PrerequisiteGroups::default(), vec![techno("CIVIL", TechnoClass::Building, "", -1, &[], &[])]);
+    let defs = defs_with(&[], vec![techno("CIVIL", TechnoClass::Building, "", -1, &[], &[])]);
     assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &HashSet::new(), "CIVIL"));
 }
 
@@ -272,7 +280,7 @@ fn negative_tech_level_never_eligible() {
 fn stolen_allied_tech_gates_eligibility() {
     let mut item = techno("SEAL", TechnoClass::Infantry, "AMERICANS", 1, &[], &[]);
     item.requires_stolen_soviet_tech = true;
-    let defs = defs_with(PrerequisiteGroups::default(), vec![item]);
+    let defs = defs_with(&[], vec![item]);
     let living = HashSet::new();
     assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
     let unlocked =

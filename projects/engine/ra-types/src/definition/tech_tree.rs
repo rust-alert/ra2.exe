@@ -241,36 +241,36 @@ impl<'de> Deserialize<'de> for PrerequisiteList {
     }
 }
 
-/// `[General]` 通用前置组：组内任一存活建筑即可满足对应 token。
+/// `[General]` 通用前置组：组内任一存活建筑即可满足对应 token（稳定 [`TypeId`]）。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PrerequisiteGroups {
     /// `PrerequisitePower` → token `POWER`。
-    pub power: Vec<TechnoName>,
+    pub power: Vec<TypeId>,
     /// `PrerequisiteFactory` → token `FACTORY`。
-    pub factory: Vec<TechnoName>,
+    pub factory: Vec<TypeId>,
     /// `PrerequisiteBarracks` → token `BARRACKS`。
-    pub barracks: Vec<TechnoName>,
+    pub barracks: Vec<TypeId>,
     /// `PrerequisiteRadar` → token `RADAR`。
-    pub radar: Vec<TechnoName>,
+    pub radar: Vec<TypeId>,
     /// `PrerequisiteTech` → token `TECH`。
-    pub tech: Vec<TechnoName>,
+    pub tech: Vec<TypeId>,
     /// `PrerequisiteProc` → token `PROC`。
-    pub proc: Vec<TechnoName>,
+    pub proc: Vec<TypeId>,
     /// `PrerequisiteProcAlternate`（并入 `PROC` 判定）。
-    pub proc_alternate: Vec<TechnoName>,
+    pub proc_alternate: Vec<TypeId>,
 }
 
 impl PrerequisiteGroups {
-    /// 按通用 token 名取类型键列表（大小写不敏感）。未知 token 返回空切片。
-    pub fn types_for_token(&self, token: &str) -> &[TechnoName] {
+    /// 按通用 token 名取类型 id 列表（大小写不敏感）。未知 token 返回空切片。
+    pub fn ids_for_token(&self, token: &str) -> &[TypeId] {
         match PrerequisiteGroupKind::parse(token) {
-            Some(kind) => self.types_for_kind(kind),
+            Some(kind) => self.ids_for_kind(kind),
             None => &[],
         }
     }
 
-    /// 按组枚举取类型键列表（`Proc` 仅主列表，完整判定用 [`Self::proc_all`]）。
-    pub fn types_for_kind(&self, kind: PrerequisiteGroupKind) -> &[TechnoName] {
+    /// 按组枚举取类型 id 列表（`Proc` 仅主列表，完整判定用 [`Self::proc_all`]）。
+    pub fn ids_for_kind(&self, kind: PrerequisiteGroupKind) -> &[TypeId] {
         match kind {
             PrerequisiteGroupKind::Power => self.power.as_slice(),
             PrerequisiteGroupKind::Factory => self.factory.as_slice(),
@@ -281,15 +281,14 @@ impl PrerequisiteGroups {
         }
     }
 
-    /// `PROC` 判定用的全部类型键（主列表 + alternate）。
-    pub fn proc_all(&self) -> impl Iterator<Item = &str> {
-        self.proc.iter().chain(self.proc_alternate.iter()).map(TechnoName::as_str)
+    /// `PROC` 判定用的全部类型 id（主列表 + alternate）。
+    pub fn proc_all(&self) -> impl Iterator<Item = TypeId> + '_ {
+        self.proc.iter().chain(self.proc_alternate.iter()).copied()
     }
 
-    /// 类型键是否属于 `TECH` 通用组（作战实验室等）。
-    pub fn is_tech_building(&self, type_key: &str) -> bool {
-        let want = TechnoName::parse(type_key);
-        self.tech.iter().any(|t| t == &want)
+    /// 类型 id 是否属于 `TECH` 通用组（作战实验室等）。
+    pub fn is_tech_building(&self, id: TypeId) -> bool {
+        self.tech.iter().any(|t| *t == id)
     }
 }
 
