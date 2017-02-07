@@ -7,9 +7,9 @@ use serde::{
     de::{self, Deserializer, SeqAccess, Visitor},
 };
 
-use crate::id::TypeId;
+use crate::id::{HouseId, TypeId};
 
-use super::{HouseName, TechnoName};
+use super::TechnoName;
 
 /// 渗透作战实验室后可获得的偷取科技类别（对齐 `RequiresStolen*Tech`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -292,26 +292,21 @@ impl PrerequisiteGroups {
     }
 }
 
-/// house id → 渗透其科技建筑时授予的偷取科技类别。
+/// house 稳定 id → 渗透其科技建筑时授予的偷取科技类别。
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HouseStolenTechMap {
-    by_house: BTreeMap<HouseName, StolenTechKind>,
+    by_house: BTreeMap<HouseId, StolenTechKind>,
 }
 
 impl HouseStolenTechMap {
     /// 插入一条映射。
-    pub fn insert(&mut self, house: HouseName, kind: StolenTechKind) {
+    pub fn insert(&mut self, house: HouseId, kind: StolenTechKind) {
         self.by_house.insert(house, kind);
     }
 
-    /// 按 house 查找（大小写不敏感）。
-    pub fn get(&self, house: &str) -> Option<StolenTechKind> {
-        self.by_house.get(&HouseName::parse(house)).copied()
-    }
-
-    /// 按已规范化的 house 键查找。
-    pub fn get_name(&self, house: &HouseName) -> Option<StolenTechKind> {
-        self.by_house.get(house).copied()
+    /// 按稳定 house id 查找。
+    pub fn get(&self, house: HouseId) -> Option<StolenTechKind> {
+        self.by_house.get(&house).copied()
     }
 
     /// 条目数。

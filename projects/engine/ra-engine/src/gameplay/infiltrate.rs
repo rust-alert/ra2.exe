@@ -154,7 +154,12 @@ impl crate::state::BattleState {
             .get_name(&ra_types::TechnoName::parse(building_type))
             .is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id))
         {
-            if let Some(kind) = self.definitions.stolen_tech_by_house.get(victim_house) {
+            if let Some(kind) = self
+                .definitions
+                .houses
+                .get_name(&ra_types::HouseName::parse(victim_house))
+                .and_then(|h| self.definitions.stolen_tech_by_house.get(h.id))
+            {
                 if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                     match kind {
                         StolenTechKind::Allied => player.stolen_allied_tech = true,

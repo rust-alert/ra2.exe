@@ -69,10 +69,10 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     defs.savour_delay_ticks = speak_delay_minutes_to_ticks(g.savour_delay_minutes.unwrap_or(0.03));
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
-        if let Some(kind) = stolen_tech {
-            defs.stolen_tech_by_house.insert(country.id.clone(), kind);
-        }
         let id = alloc_house();
+        if let Some(kind) = stolen_tech {
+            defs.stolen_tech_by_house.insert(id, kind);
+        }
         defs.houses.insert(HouseDefinition {
             id,
             type_key: country.id.clone(),

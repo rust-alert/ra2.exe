@@ -262,7 +262,7 @@ fn build_runtime_definitions_freezes_countries_into_house_table() {
     let rus = defs.houses.get("Russians").expect("Russians");
     assert_eq!(rus.stolen_tech, Some(ra_types::StolenTechKind::Soviet));
     assert!(!rus.multiplay);
-    assert_eq!(defs.stolen_tech_by_house.get("Americans"), Some(ra_types::StolenTechKind::Allied));
+    assert_eq!(defs.stolen_tech_by_house.get(usa.id), Some(ra_types::StolenTechKind::Allied));
     assert!(defs.houses.get("NEUTRAL").is_some());
     assert!(defs.houses.get("SPECIAL").is_some());
     assert!(defs.houses.get("CIVILIAN").is_some());
