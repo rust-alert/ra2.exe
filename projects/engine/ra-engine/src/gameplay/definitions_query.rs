@@ -172,8 +172,11 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
 
 /// 是否短局 `BaseUnit`（`[General] BaseUnit=`，缺表时回落为可部署成建造场的载具）。
 pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    if defs.base_units.iter().any(|n| n.as_str().eq_ignore_ascii_case(type_id)) {
-        return true;
+    let key = ra_types::TechnoName::parse(type_id);
+    if let Some(t) = defs.techno.get_name(&key) {
+        if defs.base_units.iter().any(|id| *id == t.id) {
+            return true;
+        }
     }
     if !defs.base_units.is_empty() {
         return false;

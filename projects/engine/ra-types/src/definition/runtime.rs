@@ -3,8 +3,9 @@
 use super::{
     AnimationDefinitions, CapabilitySet, ContentFingerprint, DeployableDefinitions, HouseDefinitions, HouseStolenTechMap, LocomotorDefinitions,
     OverlayTypeRegistry, PrerequisiteGroups, ProductionDefinitions, ProjectileDefinitions, SoundDefinitions, StructureDefinitions,
-    SuperWeaponDefinitions, TechnoDefinitions, TechnoName, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
+    SuperWeaponDefinitions, TechnoDefinitions, TerrainSpawnerDefinitions, WarheadDefinitions, WeaponDefinitions,
 };
+use crate::id::TypeId;
 
 /// 全体层共享的冻结运行时定义。
 ///
@@ -62,8 +63,8 @@ pub struct RuntimeDefinitions {
     pub terrain_spawners: TerrainSpawnerDefinitions,
     /// `[OverlayTypes]` 声明序类型表（含可采标记）。
     pub overlays: OverlayTypeRegistry,
-    /// `[General] BaseUnit`：短局保活载具类型键（大写）。
-    pub base_units: Vec<TechnoName>,
+    /// `[General] BaseUnit`：短局保活载具稳定 id。
+    pub base_units: Vec<TypeId>,
 }
 
 impl Default for RuntimeDefinitions {

@@ -58,6 +58,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     let prereq_tech = g.prerequisite_tech.clone();
     let prereq_proc = g.prerequisite_proc.clone();
     let prereq_proc_alternate = g.prerequisite_proc_alternate.clone();
+    let base_unit_names = g.base_unit.clone();
     defs.default_tech_level = g.multiplayer_tech_level.unwrap_or(10).max(0);
     // `[General]` 侧栏扳手：缺键回落原版库存默认。
     defs.repair_percent = g.repair_percent.map(|v| v.max(0) as u32).unwrap_or(15);
@@ -66,7 +67,6 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     defs.speak_delay_ticks = speak_delay_minutes_to_ticks(g.speak_delay_minutes.unwrap_or(0.0));
     // 原版构造缺省 0.03 分钟；rules 显式键覆盖。
     defs.savour_delay_ticks = speak_delay_minutes_to_ticks(g.savour_delay_minutes.unwrap_or(0.03));
-    defs.base_units = g.base_unit.clone();
     for country in rules.countries.countries() {
         let stolen_tech = StolenTechKind::from_side(&country.side);
         if let Some(kind) = stolen_tech {
@@ -280,14 +280,15 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     }
 
     defs.prerequisite_groups = PrerequisiteGroups {
-        power: bind_prerequisite_group_members(&defs, &prereq_power, "PrerequisitePower")?,
-        factory: bind_prerequisite_group_members(&defs, &prereq_factory, "PrerequisiteFactory")?,
-        barracks: bind_prerequisite_group_members(&defs, &prereq_barracks, "PrerequisiteBarracks")?,
-        radar: bind_prerequisite_group_members(&defs, &prereq_radar, "PrerequisiteRadar")?,
-        tech: bind_prerequisite_group_members(&defs, &prereq_tech, "PrerequisiteTech")?,
-        proc: bind_prerequisite_group_members(&defs, &prereq_proc, "PrerequisiteProc")?,
-        proc_alternate: bind_prerequisite_group_members(&defs, &prereq_proc_alternate, "PrerequisiteProcAlternate")?,
+        power: bind_techno_name_list(&defs, &prereq_power, "PrerequisiteGroups:PrerequisitePower")?,
+        factory: bind_techno_name_list(&defs, &prereq_factory, "PrerequisiteGroups:PrerequisiteFactory")?,
+        barracks: bind_techno_name_list(&defs, &prereq_barracks, "PrerequisiteGroups:PrerequisiteBarracks")?,
+        radar: bind_techno_name_list(&defs, &prereq_radar, "PrerequisiteGroups:PrerequisiteRadar")?,
+        tech: bind_techno_name_list(&defs, &prereq_tech, "PrerequisiteGroups:PrerequisiteTech")?,
+        proc: bind_techno_name_list(&defs, &prereq_proc, "PrerequisiteGroups:PrerequisiteProc")?,
+        proc_alternate: bind_techno_name_list(&defs, &prereq_proc_alternate, "PrerequisiteGroups:PrerequisiteProcAlternate")?,
     };
+    defs.base_units = bind_techno_name_list(&defs, &base_unit_names, "General:BaseUnit")?;
 
     defs.production.count = defs.structures.iter().filter(|s| s.production.is_some()).count() as u32;
 
@@ -534,7 +535,7 @@ fn bind_prerequisite_tokens(
     Ok(out)
 }
 
-fn bind_prerequisite_group_members(defs: &RuntimeDefinitions, names: &[TechnoName], field: &str) -> RaResult<Vec<TypeId>> {
+fn bind_techno_name_list(defs: &RuntimeDefinitions, names: &[TechnoName], owner: &str) -> RaResult<Vec<TypeId>> {
     let mut out = Vec::with_capacity(names.len());
     for name in names {
         if name.is_empty() {
@@ -545,7 +546,7 @@ fn bind_prerequisite_group_members(defs: &RuntimeDefinitions, names: &[TechnoNam
             return Err(RaError::UnknownReference {
                 kind: "techno",
                 name: name.as_str().to_string(),
-                owner: format!("PrerequisiteGroups:{field}"),
+                owner: owner.to_string(),
             });
         };
         out.push(t.id);
