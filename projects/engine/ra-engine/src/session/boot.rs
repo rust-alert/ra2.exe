@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ra_map::{MapEntityKind, MapInfo, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp, skirmish_start_waypoint};
+use ra_map::{MapEntityKind, MapInfo, apply_overlay_land_to_pass_grid, seal_pass_grid_from_tmp};
 use ra_types::{AssetSource, GameEdition, RaResult, RuntimeDefinitions};
 
 use crate::{
@@ -285,7 +285,7 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
             continue;
         }
         let slot = slot as u32;
-        let Some(wp) = skirmish_start_waypoint(&state.map.waypoints, slot)
+        let Some((x, y)) = state.prepared.definition.waypoints.iter().find(|w| w.index == slot).map(|w| (w.x, w.y))
         else {
             return Err(ra_types::RaError::Msg(format!("开局席位 {slot} 缺少地图航点（house={house}）")));
         };
@@ -293,8 +293,8 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
         else {
             return Err(ra_types::RaError::Msg(format!("阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）")));
         };
-        let id = state.spawn_unit_at(house, &mcv, wp.x, wp.y).map_err(ra_types::RaError::Msg)?;
-        parts.push(format!("{house}@{slot}:({},{})={mcv}#{:?}", wp.x, wp.y, id));
+        let id = state.spawn_unit_at(house, &mcv, x, y).map_err(ra_types::RaError::Msg)?;
+        parts.push(format!("{house}@{slot}:({x},{y})={mcv}#{id:?}"));
     }
     Ok(parts.join(" "))
 }
