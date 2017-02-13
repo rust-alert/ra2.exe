@@ -402,6 +402,20 @@ fn build_runtime_definitions_rejects_unknown_prerequisite_group_member() {
 }
 
 #[test]
+fn build_runtime_definitions_rejects_unknown_base_unit() {
+    let rules = rules_from(
+        b"[General]\nBaseUnit=MISSINGMCV\n\
+[VehicleTypes]\n0=MTNK\n\
+[MTNK]\nStrength=400\nSpeed=64\n",
+    );
+    let err = build_runtime_definitions(&rules).expect_err("unknown BaseUnit must fail freeze");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("MISSINGMCV"), "{msg}");
+    assert!(msg.contains("BaseUnit"), "{msg}");
+}
+
+#[test]
 fn bind_map_placements_resolves_techno_and_house_ids() {
     let rules = rules_from(
         b"[Countries]\n0=Americans\n\
