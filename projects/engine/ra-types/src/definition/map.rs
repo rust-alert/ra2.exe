@@ -1658,6 +1658,10 @@ pub struct PreparedMap {
     pub houses: Vec<PreparedHouse>,
     /// 地图 `[Triggers]` 绑定表；骨架路径为空。
     pub triggers: Vec<PreparedTrigger>,
+    /// 地图 `[Events]` 绑定表；骨架路径为空。
+    pub events: Vec<PreparedEvent>,
+    /// 地图 `[Actions]` 绑定表；骨架路径为空。
+    pub actions: Vec<PreparedAction>,
     /// 地图 `[Tags]` 绑定表；骨架路径为空。
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
@@ -1708,6 +1712,24 @@ pub struct PreparedTrigger {
     pub normal: bool,
     /// Hard 难度启用。
     pub hard: bool,
+}
+
+/// 地图 `[Events]` 绑定后的运行形状（稳定 `TriggerId`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedEvent {
+    /// 对齐的 Trigger 稳定 id。
+    pub trigger_id: crate::TriggerId,
+    /// 条件列表（`kind_code` 为原版事件表整数码）。
+    pub conditions: Vec<MapEventCondition>,
+}
+
+/// 地图 `[Actions]` 绑定后的运行形状（稳定 `TriggerId`）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedAction {
+    /// 对齐的 Trigger 稳定 id。
+    pub trigger_id: crate::TriggerId,
+    /// 动作列表（`kind_code` 为原版动作表整数码）。
+    pub commands: Vec<MapActionCommand>,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。

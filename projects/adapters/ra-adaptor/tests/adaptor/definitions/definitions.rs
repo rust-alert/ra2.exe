@@ -739,6 +739,59 @@ fn bind_map_tags_rejects_unknown_trigger() {
 }
 
 #[test]
+fn bind_map_events_and_actions_resolve_trigger_id() {
+    let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let triggers = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Americans".into(),
+            linked: "<none>".into(),
+            name: "Timer".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
+    .expect("bind triggers");
+    let events = ra_types::bind_map_events(
+        &[ra_types::MapEvent {
+            id: "TR1".into(),
+            conditions: vec![ra_types::MapEventCondition { kind_code: 13, params: vec!["10".into(), "0".into()] }],
+        }],
+        &triggers,
+    )
+    .expect("bind events");
+    let actions = ra_types::bind_map_actions(
+        &[ra_types::MapAction {
+            id: "TR1".into(),
+            commands: vec![ra_types::MapActionCommand {
+                kind_code: 1,
+                params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            }],
+        }],
+        &triggers,
+    )
+    .expect("bind actions");
+    assert_eq!(events[0].trigger_id, triggers[0].id);
+    assert_eq!(actions[0].trigger_id, triggers[0].id);
+}
+
+#[test]
+fn bind_map_events_rejects_unknown_trigger() {
+    let err = ra_types::bind_map_events(
+        &[ra_types::MapEvent { id: "MISSING".into(), conditions: Vec::new() }],
+        &[],
+    )
+    .expect_err("unknown event trigger");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}
+
+#[test]
 fn bind_map_triggers_rejects_unknown_linked() {
     let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
     let defs = build_runtime_definitions(&rules).expect("freeze");

@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapCellTag, MapHouse, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName, PreparedCellTag, PreparedHouse,
-    PreparedMap, PreparedPlacement, PreparedTag, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId,
-    TriggerName, TypeId,
+    HouseId, HouseName, MapAction, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName,
+    PreparedAction, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedTag, PreparedTrigger, RaError,
+    RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId, TriggerName, TypeId,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -143,16 +143,48 @@ pub fn bind_map_cell_tags(cell_tags: &[MapCellTag], tags: &[PreparedTag]) -> RaR
     Ok(out)
 }
 
-/// 就地填充 [`PreparedMap::houses`] / [`PreparedMap::triggers`] / [`PreparedMap::tags`] /
-/// [`PreparedMap::cell_tags`] / [`PreparedMap::placements`]；失败时不改动已有字段。
+/// 将 `[Events]` 投影为稳定 [`PreparedEvent`] 表；未知 trigger id 拒绝。
+pub fn bind_map_events(events: &[MapEvent], triggers: &[PreparedTrigger]) -> RaResult<Vec<PreparedEvent>> {
+    let trigger_by_name: HashMap<&str, TriggerId> = triggers.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let mut out = Vec::with_capacity(events.len());
+    for event in events {
+        if event.id.is_empty() {
+            continue;
+        }
+        let trigger_id = bind_trigger_id(&trigger_by_name, &event.id, "MapEvent")?;
+        out.push(PreparedEvent { trigger_id, conditions: event.conditions.clone() });
+    }
+    Ok(out)
+}
+
+/// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger id 拒绝。
+pub fn bind_map_actions(actions: &[MapAction], triggers: &[PreparedTrigger]) -> RaResult<Vec<PreparedAction>> {
+    let trigger_by_name: HashMap<&str, TriggerId> = triggers.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let mut out = Vec::with_capacity(actions.len());
+    for action in actions {
+        if action.id.is_empty() {
+            continue;
+        }
+        let trigger_id = bind_trigger_id(&trigger_by_name, &action.id, "MapAction")?;
+        out.push(PreparedAction { trigger_id, commands: action.commands.clone() });
+    }
+    Ok(out)
+}
+
+/// 就地填充 [`PreparedMap`] 的 houses / triggers / events / actions / tags / cell_tags / placements；
+/// 失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
     let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
+    let events = bind_map_events(&prepared.definition.events, &triggers)?;
+    let actions = bind_map_actions(&prepared.definition.actions, &triggers)?;
     let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
     prepared.houses = houses;
     prepared.triggers = triggers;
+    prepared.events = events;
+    prepared.actions = actions;
     prepared.tags = tags;
     prepared.cell_tags = cell_tags;
     prepared.placements = placements;

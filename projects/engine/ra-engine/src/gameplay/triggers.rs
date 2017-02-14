@@ -2,8 +2,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind, MapScripting};
-use ra_types::{EntityId, PreparedTrigger};
+use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
+use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -28,7 +28,7 @@ struct TriggerRuntimeState {
     timer_paused: bool,
 }
 
-/// 局内触发运行时（由 [`PreparedTrigger`] 播种，事件/动作仍取自地图剧本）。
+/// 局内触发运行时（由 [`PreparedTrigger`] / [`PreparedEvent`] / [`PreparedAction`] 播种）。
 #[derive(Debug, Clone, Default)]
 pub struct TriggerRuntime {
     states: Vec<TriggerRuntimeState>,
@@ -63,22 +63,21 @@ pub struct ScriptCrate {
 pub const SCRIPT_CRATE_CREDITS: i32 = 2_000;
 
 impl TriggerRuntime {
-    /// 从已绑定的 [`PreparedTrigger`] 播种；事件表仍取自地图剧本（按 trigger 名对齐）。
+    /// 从已绑定的 trigger / event / action 表播种。
     ///
-    /// 无触发则空运行时。`win_blockers` 仍按剧本 `[Actions]` 统计。
-    pub fn from_prepared(triggers: &[PreparedTrigger], scripting: &MapScripting) -> Self {
-        let events_by_id: HashMap<&str, &ra_map::MapEvent> = scripting.events.iter().map(|e| (e.id.as_str(), e)).collect();
+    /// 无触发则空运行时。`win_blockers` 按已绑定 `[Actions]` 中含 `Allow Win` 的条数统计。
+    pub fn from_prepared(triggers: &[PreparedTrigger], events: &[PreparedEvent], actions: &[PreparedAction]) -> Self {
+        let events_by_tid: HashMap<_, &_> = events.iter().map(|e| (e.trigger_id, e)).collect();
         let mut states = Vec::with_capacity(triggers.len());
         for tr in triggers {
-            let name = tr.name.as_str();
-            let timer_remaining = events_by_id.get(name).and_then(|ev| {
+            let timer_remaining = events_by_tid.get(&tr.id).and_then(|ev| {
                 ev.conditions
                     .iter()
-                    .find(|c| c.kind == MapEventKind::TimeElapse)
+                    .find(|c| MapEventKind::from_code(c.kind_code) == MapEventKind::TimeElapse)
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
             states.push(TriggerRuntimeState {
-                id: name.to_string(),
+                id: tr.name.as_str().to_string(),
                 disabled: tr.disabled,
                 fired: false,
                 timer_remaining,
@@ -90,7 +89,7 @@ impl TriggerRuntime {
             unsupported_actions: Vec::new(),
             pending_team_spawns: Vec::new(),
             pending_outcome: None,
-            win_blockers: count_allow_win_actions(scripting),
+            win_blockers: count_allow_win_actions(actions),
             deferred_victory_house: None,
             script_input_locked: false,
             script_crates: Vec::new(),
@@ -113,10 +112,40 @@ pub fn tick_triggers(world: &mut BattleState) {
     if world.trigger_runtime.states.is_empty() {
         return;
     }
-    let scripting = world.map.scripting.clone();
 
-    let events_by_id: HashMap<String, ra_map::MapEvent> = scripting.events.iter().cloned().map(|e| (e.id.to_string(), e)).collect();
-    let actions_by_id: HashMap<String, ra_map::MapAction> = scripting.actions.iter().cloned().map(|a| (a.id.to_string(), a)).collect();
+    let name_by_tid: HashMap<_, _> = world.prepared.triggers.iter().map(|t| (t.id, t.name.as_str().to_string())).collect();
+    let events_by_id: HashMap<String, Vec<MapEventCondition>> = world
+        .prepared
+        .events
+        .iter()
+        .filter_map(|e| {
+            name_by_tid.get(&e.trigger_id).map(|name| {
+                (
+                    name.clone(),
+                    e.conditions
+                        .iter()
+                        .map(|c| MapEventCondition { kind: MapEventKind::from_code(c.kind_code), params: c.params.clone() })
+                        .collect(),
+                )
+            })
+        })
+        .collect();
+    let actions_by_id: HashMap<String, Vec<MapActionCommand>> = world
+        .prepared
+        .actions
+        .iter()
+        .filter_map(|a| {
+            name_by_tid.get(&a.trigger_id).map(|name| {
+                (
+                    name.clone(),
+                    a.commands
+                        .iter()
+                        .map(|c| MapActionCommand { kind: MapActionKind::from_code(c.kind_code), params: c.params.clone() })
+                        .collect(),
+                )
+            })
+        })
+        .collect();
     let local_house = world.players.iter().find(|p| p.id == world.local_player).map(|p| p.house.clone()).unwrap_or_default();
 
     // 先推进计时器（暂停中的不扣减）。
@@ -136,11 +165,11 @@ pub fn tick_triggers(world: &mut BattleState) {
         if st.disabled || st.fired {
             continue;
         }
-        let Some(event) = events_by_id.get(&st.id)
+        let Some(conditions) = events_by_id.get(&st.id)
         else {
             continue;
         };
-        if event_conditions_met(world, st, event, &local_house) {
+        if event_conditions_met(world, st, conditions, &local_house) {
             to_fire.push(st.id.clone());
         }
     }
@@ -149,11 +178,11 @@ pub fn tick_triggers(world: &mut BattleState) {
         if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == id) {
             st.fired = true;
         }
-        let Some(action) = actions_by_id.get(&id)
+        let Some(commands) = actions_by_id.get(&id)
         else {
             continue;
         };
-        for cmd in &action.commands {
+        for cmd in commands {
             apply_action(world, &id, cmd, &local_house);
             if world.trigger_runtime.pending_outcome.is_some() {
                 return;
@@ -162,11 +191,11 @@ pub fn tick_triggers(world: &mut BattleState) {
     }
 }
 
-fn event_conditions_met(world: &BattleState, st: &TriggerRuntimeState, event: &ra_map::MapEvent, local_house: &str) -> bool {
-    if event.conditions.is_empty() {
+fn event_conditions_met(world: &BattleState, st: &TriggerRuntimeState, conditions: &[MapEventCondition], local_house: &str) -> bool {
+    if conditions.is_empty() {
         return false;
     }
-    event.conditions.iter().all(|c| condition_met(world, st, c, local_house))
+    conditions.iter().all(|c| condition_met(world, st, c, local_house))
 }
 
 fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCondition, local_house: &str) -> bool {
@@ -298,9 +327,12 @@ fn tags_for_trigger(world: &BattleState, trigger_id: &str) -> HashSet<String> {
     world.prepared.tags.iter().filter(|t| t.trigger_id == tid).map(|t| t.name.as_str().to_string()).collect()
 }
 
-/// 统计地图中含 `Allow Win` 动作的触发条数（每条贡献一层胜利阻塞）。
-fn count_allow_win_actions(scripting: &MapScripting) -> u32 {
-    scripting.actions.iter().filter(|a| a.commands.iter().any(|c| c.kind == MapActionKind::AllowWin)).count() as u32
+/// 统计已绑定动作表中含 `Allow Win` 的触发条数（每条贡献一层胜利阻塞）。
+fn count_allow_win_actions(actions: &[PreparedAction]) -> u32 {
+    actions
+        .iter()
+        .filter(|a| a.commands.iter().any(|c| MapActionKind::from_code(c.kind_code) == MapActionKind::AllowWin))
+        .count() as u32
 }
 
 /// 查找触发器所属 house（优先 [`PreparedTrigger.house`](PreparedTrigger) 稳定 id）。

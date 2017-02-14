@@ -394,6 +394,8 @@ impl MapInfo {
             placements: Vec::new(),
             houses: Vec::new(),
             triggers: Vec::new(),
+            events: Vec::new(),
+            actions: Vec::new(),
             tags: Vec::new(),
             cell_tags: Vec::new(),
         }
