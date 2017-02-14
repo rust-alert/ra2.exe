@@ -134,6 +134,130 @@ impl BattleSession {
         best.map(|(_, _, id)| id)
     }
 
+    /// 按预览图像素点选异阵营目标：先软命中移动单位，再软命中建筑立面，最后退回逻辑格。
+    ///
+    /// 与本方点选同一图像口径，供左键攻击 / 攻击光标使用。
+    pub fn pick_hostile_near_image(&self, image_x: f32, image_y: f32, max_dist_px: f32) -> Option<EntityId> {
+        let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player)?.house.clone();
+        let mut best_mobile: Option<(f32, EntityId)> = None;
+        for e in &self.world.entities {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            let Some(owner) = self.world.ecs_get::<Owner>(id)
+            else {
+                continue;
+            };
+            if owner.house.as_ref() == local_house.as_ref() {
+                continue;
+            }
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
+            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
+            let cy = (sy - self.preview_origin_y) as f32 + 15.0;
+            let dx = cx - image_x;
+            let dy = cy - image_y;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > max_dist_px {
+                continue;
+            }
+            if best_mobile.map(|(best_dist, _)| dist < best_dist).unwrap_or(true) {
+                best_mobile = Some((dist, id));
+            }
+        }
+        if let Some((_, id)) = best_mobile {
+            return Some(id);
+        }
+        if let Some(id) = self.pick_hostile_structure_near_image(image_x, image_y, local_house.as_ref()) {
+            return Some(id);
+        }
+        let cell = self.image_to_cell(image_x, image_y)?;
+        let id = self.pick_entity_at(cell.0, cell.1)?;
+        let owner = self.world.ecs_get::<Owner>(id)?;
+        (owner.house.as_ref() != local_house.as_ref()).then_some(id)
+    }
+
+    /// 异阵营建筑立面软命中（菱形占地，与本方建筑点选同口径）。
+    fn pick_hostile_structure_near_image(&self, image_x: f32, image_y: f32, local_house: &str) -> Option<EntityId> {
+        const HALF_W: f32 = 30.0;
+        const HALF_H: f32 = 15.0;
+        const BODY_LIFTS_PX: &[f32] = &[0.0, 12.0, 24.0, 36.0, 48.0];
+        let mut best: Option<(f32, EntityId)> = None;
+        for e in &self.world.entities {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            let Some(owner) = self.world.ecs_get::<Owner>(id)
+            else {
+                continue;
+            };
+            if owner.house.as_ref() == local_house {
+                continue;
+            }
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if identity.kind != MapEntityKind::Structure {
+                continue;
+            }
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let (fw, fh) = self
+                .world
+                .definitions
+                .structures
+                .get(identity.type_id.as_ref())
+                .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
+                .unwrap_or((1, 1));
+            let mut min_dist = f32::INFINITY;
+            let mut hit = false;
+            for oy in 0..fh {
+                for ox in 0..fw {
+                    let cx = xf.x.saturating_add(ox);
+                    let cy = xf.y.saturating_add(oy);
+                    let z = self.world.pass_grid.cell_height(cx, cy);
+                    let (sx, sy) = iso_to_screen(i32::from(cx), i32::from(cy), z);
+                    let foot_x = (sx - self.preview_origin_x) as f32 + 30.0;
+                    let foot_y = (sy - self.preview_origin_y) as f32 + 15.0;
+                    for &lift in BODY_LIFTS_PX {
+                        let px = foot_x;
+                        let py = foot_y - lift;
+                        let dx = ((image_x - px) / HALF_W).abs();
+                        let dy = ((image_y - py) / HALF_H).abs();
+                        if dx + dy <= 1.0 {
+                            hit = true;
+                            let dist = ((image_x - px).powi(2) + (image_y - py).powi(2)).sqrt();
+                            min_dist = min_dist.min(dist);
+                        }
+                    }
+                }
+            }
+            if !hit {
+                continue;
+            }
+            if best.map(|(best_dist, _)| min_dist < best_dist).unwrap_or(true) {
+                best = Some((min_dist, id));
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
     /// 本地玩家开局移动单位（优先名称含 `MCV` 的载具）。
     pub fn local_start_mobile(&self) -> Option<EntityId> {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player)?.house.clone();

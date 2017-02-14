@@ -536,11 +536,11 @@ pub fn battle_outcome_banner_fallback(campaign: bool, victory: bool) -> &'static
     }
 }
 
-/// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`）。
-pub const SKIRMISH_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "PlanningMode"];
+/// 遭遇战 / 单机命令条按钮列表（对齐零售 `ui.ini` `[AdvancedCommandBar]`，并补上 `Stop`）。
+pub const SKIRMISH_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "Stop", "PlanningMode"];
 
-/// 多人命令条（对齐 `[MultiplayerAdvancedCommandBar]`）。
-pub const MULTIPLAYER_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "PlanningMode", "Beacon"];
+/// 多人命令条（对齐 `[MultiplayerAdvancedCommandBar]`，并补上 `Stop`）。
+pub const MULTIPLAYER_COMMAND_BAR: &[&str] = &["Team01", "Team02", "TypeSelect", "Deploy", "Guard", "Stop", "PlanningMode", "Beacon"];
 
 /// 零售 `buttonNN.shp` 编号（按素材内容，不是 `ButtonList` 顺序）。
 pub fn command_bar_shp_index(name: &str) -> Option<usize> {

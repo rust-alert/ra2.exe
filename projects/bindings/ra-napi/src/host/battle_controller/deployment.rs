@@ -69,6 +69,18 @@ impl BattleController {
         }
     }
 
+    /// 对当前选中下发停止（`S` / 命令条 Stop / 右键；`keyboard.ini` StopObject）。
+    pub(super) fn stop_selection(&mut self) {
+        let selected = self.local.selected.clone();
+        if selected.is_empty() {
+            return;
+        }
+        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            tracing::info!("停止选中 · {:?}", selected);
+            game.order_stop(&selected);
+        }
+    }
+
     /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
     pub(super) fn resolve_deploy_watch(&mut self) {
         let Some(id) = self.deploy_watch

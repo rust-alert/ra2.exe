@@ -71,15 +71,14 @@ impl BattleController {
             }
         }
 
-        if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
-            let hostile = selected.first().and_then(|&atk| {
-                let a_owner = game.world.ecs_owner(atk)?;
-                let t_owner = game.world.ecs_owner(target)?;
-                Some(a_owner != t_owner)
-            });
-            if hostile == Some(true) {
-                return BattlePointer::Attack;
-            }
+        // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
+        if selected.iter().any(|&id| {
+            game.world.ecs_identity(id).is_some_and(|(_, kind)| {
+                matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+            })
+        }) && game.pick_hostile_near_image(wx, wy, 72.0).is_some()
+        {
+            return BattlePointer::Attack;
         }
 
         let passable = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_passable(cell.0, cell.1);
@@ -149,10 +148,35 @@ impl BattleController {
             }
             return;
         }
+        // 路径点规划：左键追加航点（右键只负责取消）。
+        if self.planning_mode {
+            let Some(cell) = game.image_to_cell(wx, wy)
+            else {
+                return;
+            };
+            if self.local.selected.is_empty() {
+                tracing::info!("路径点规划 · 无选中单位，忽略航点");
+                return;
+            }
+            if self.planning_waypoints.last().copied() != Some(cell) {
+                self.planning_waypoints.push(cell);
+            }
+            tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
+            return;
+        }
+
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
-        // 单位软命中优先（车身常偏格），再本方建筑占地格，再建筑立面菱形，最后格上单位。
-        let picked =
+        let selected = self.local.selected.clone();
+        let has_mobile = selected.iter().any(|&id| {
+            game.world.ecs_identity(id).is_some_and(|(_, kind)| {
+                matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+            })
+        });
+        let has_structure = game.selection_has_structure(&selected);
+
+        // 本方单位 / 建筑优先：选择（或加选），不发移动 / 攻击。
+        let local_picked =
             game.pick_local_mobile_near_image(wx, wy, 72.0).or_else(|| Self::pick_local_building_at_image(game, wx, wy)).or_else(|| {
                 let cell = game.image_to_cell(wx, wy)?;
                 if let Some(house) = local_house.as_deref() {
@@ -162,10 +186,8 @@ impl BattleController {
                     game.pick_mobile_at(cell.0, cell.1)
                 }
             });
-        let mut pulse = false;
-        if let Some(id) = picked {
+        if let Some(id) = local_picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-            // 部署走 `D` / 命令条 Deploy，不在此用二次点击发明部署。
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);
@@ -174,16 +196,60 @@ impl BattleController {
                 self.local.select_only(game, id);
                 tracing::info!("选中实体 #{} @({},{})", id.0, cell.0, cell.1);
             }
-            pulse = true;
+            self.pulse_action_lines_at(tick);
+            return;
         }
-        else if !add {
-            self.local.clear();
-            if let Some(cell) = game.image_to_cell(wx, wy) {
-                tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
+
+        // 已选机动单位：左键敌方 → 攻击 / 占领 / 渗透（图像软命中）。
+        if has_mobile {
+            if let Some(target) = game.pick_hostile_near_image(wx, wy, 72.0) {
+                let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    if is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
+                        tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
+                        game.order_capture_building(&selected, target);
+                    }
+                    else if is_structure && game.selection_has_agent(&selected) {
+                        tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
+                        game.order_infiltrate(&selected, target);
+                    }
+                    else {
+                        tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
+                        game.order_attack(&selected, target);
+                    }
+                }
+                self.pulse_action_lines_at(tick);
+                return;
             }
         }
-        if pulse {
-            self.pulse_action_lines_at(tick);
+
+        // 已选单位 / 建筑：左键空地 → 移动或设集结点。
+        if let Some(cell) = game.image_to_cell(wx, wy) {
+            if has_mobile {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                    game.order_move(&selected, cell.0, cell.1);
+                }
+                self.pulse_action_lines_at(tick);
+                return;
+            }
+            if has_structure {
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                    game.order_rally(&selected, cell.0, cell.1);
+                }
+                self.pulse_action_lines_at(tick);
+                return;
+            }
+            if !add {
+                self.local.clear();
+                tracing::debug!("点空地 ({},{})，清空选中", cell.0, cell.1);
+            }
+            return;
+        }
+
+        if !add && !selected.is_empty() {
+            self.local.clear();
         }
     }
 
@@ -250,72 +316,13 @@ impl BattleController {
     }
 
     pub(super) fn handle_right_click(&mut self, renderer: &Renderer, window: &Window) {
-        if self.planning_mode {
-            let Some(cell) = self.cursor_cell(renderer, window)
-            else {
-                return;
-            };
-            if self.local.selected.is_empty() {
-                tracing::info!("路径点规划 · 无选中单位，忽略航点");
-                return;
-            };
-            if self.planning_waypoints.last().copied() != Some(cell) {
-                self.planning_waypoints.push(cell);
-            }
-            tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
-            return;
-        }
+        let _ = (renderer, window);
+        // 右键优先取消：放置 / 修理 / 出售 / 路径规划等工具态。
         if self.clear_sidebar_tool_modes() {
             return;
         }
-        let Some(cell) = self.cursor_cell(renderer, window)
-        else {
-            return;
-        };
-        if self.local.selected.is_empty() {
-            return;
-        }
-        let selected = self.local.selected.clone();
-        let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut())
-        else {
-            return;
-        };
-        if game.selection_has_structure(&selected) {
-            tracing::info!("设置集结点 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-            game.order_rally(&selected, cell.0, cell.1);
-            return;
-        }
-        let tick = game.world.tick;
-        if let Some(target) = game.pick_entity_at(cell.0, cell.1) {
-            let hostile = selected
-                .first()
-                .and_then(|&atk| {
-                    let a_owner = game.world.ecs_owner(atk)?;
-                    let t_owner = game.world.ecs_owner(target)?;
-                    Some(a_owner != t_owner)
-                })
-                .unwrap_or(false);
-            if hostile {
-                let is_structure = game.world.ecs_identity(target).is_some_and(|(_, kind)| kind == MapEntityKind::Structure);
-                if is_structure && game.selection_has_engineer(&selected) && game.is_capturable_structure(target) {
-                    tracing::info!("命令占领 → #{}（选中 {:?}）", target.0, selected);
-                    game.order_capture_building(&selected, target);
-                }
-                else if is_structure && game.selection_has_agent(&selected) {
-                    tracing::info!("命令渗透 → #{}（选中 {:?}）", target.0, selected);
-                    game.order_infiltrate(&selected, target);
-                }
-                else {
-                    tracing::info!("命令攻击 → #{}（选中 {:?}）", target.0, selected);
-                    game.order_attack(&selected, target);
-                }
-                self.pulse_action_lines_at(tick);
-                return;
-            }
-        }
-        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-        game.order_move(&selected, cell.0, cell.1);
-        self.pulse_action_lines_at(tick);
+        // 普通对局：停止选中单位当前命令（保留选中）。
+        self.stop_selection();
     }
 
     /// 对局页输入。`accept_commands=false`（结算）时仅允许确认离开 / 战役下一关。
@@ -632,6 +639,10 @@ impl BattleController {
                 self.guard_selection();
                 BattleNav::None
             }
+            HotkeyAction::StopObject => {
+                self.stop_selection();
+                BattleNav::None
+            }
             HotkeyAction::CombatantSelect => {
                 if let Some(game) = self.session.as_ref().and_then(|s| s.battle()) {
                     let seed = self.local.selected.first().copied().or_else(|| {
@@ -819,8 +830,7 @@ impl BattleController {
                 self.recall_view_bookmark(renderer, n);
                 BattleNav::None
             }
-            HotkeyAction::StopObject
-            | HotkeyAction::ScatterObject
+            HotkeyAction::ScatterObject
             | HotkeyAction::Follow
             | HotkeyAction::Delete
             | HotkeyAction::ToggleAlliance

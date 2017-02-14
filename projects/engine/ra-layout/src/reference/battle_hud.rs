@@ -28,10 +28,10 @@ pub const COMMAND_LENDCAP_W: i32 = 28;
 pub const COMMAND_RENDCAP_W: i32 = 28;
 /// 命令钮画布宽（`button00`… / `bttnbkgd`）。
 pub const COMMAND_BUTTON_W: i32 = 52;
-/// 遭遇战命令条可视钮槽数（对齐 `ui.ini` `[AdvancedCommandBar]` 长度）。
-pub const COMMAND_BAR_BUTTON_COUNT: usize = 6;
+/// 遭遇战命令条可视钮槽数（对齐 `SKIRMISH_COMMAND_BAR` 长度）。
+pub const COMMAND_BAR_BUTTON_COUNT: usize = 7;
 /// 命令条可视钮 snapshot id（`cmd0`…）。
-pub const COMMAND_BAR_BUTTON_IDS: [&str; COMMAND_BAR_BUTTON_COUNT] = ["cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5"];
+pub const COMMAND_BAR_BUTTON_IDS: [&str; COMMAND_BAR_BUTTON_COUNT] = ["cmd0", "cmd1", "cmd2", "cmd3", "cmd4", "cmd5", "cmd6"];
 
 /// 侧栏 chrome 画布尺寸与槽位偏移（像素）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

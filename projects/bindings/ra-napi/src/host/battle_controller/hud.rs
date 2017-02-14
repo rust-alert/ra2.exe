@@ -368,6 +368,7 @@ impl BattleController {
         match name {
             "Deploy" => self.deploy_selection(),
             "Guard" => self.guard_selection(),
+            "Stop" => self.stop_selection(),
             "TypeSelect" => {
                 let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                     let tick = game.world.tick;
