@@ -377,24 +377,15 @@ impl BattleController {
         self.session.as_ref().and_then(|s| s.battle()).is_some()
     }
 
-    /// 选中本地开局单位（优先 MCV）。所有装载路径共用。
+    /// 对局开局 / 重开：保持本机选择为空，不自动选中 MCV。
+    ///
+    /// 镜头定位由 [`Self::ensure_start_view`] / [`Self::focus_camera_on_local_start`] 单独完成，
+    /// 不与单位选择或动作线绑定。
     pub(super) fn bind_local_start(&mut self) {
-        let pulse_tick = {
-            let Some(game) = self.session.as_ref().and_then(|s| s.battle())
-            else {
-                return;
-            };
-            if let Some(id) = self.local.select_local_start(game) {
-                tracing::info!("开局已选中本方单位 #{}", id.0);
-                Some(game.world.tick)
-            }
-            else {
-                tracing::warn!("开局未找到可本方选中的移动单位");
-                None
-            }
-        };
-        if let Some(tick) = pulse_tick {
-            self.pulse_action_lines_at(tick);
+        self.local.selected.clear();
+        self.action_lines_start_tick = None;
+        if self.session.as_ref().and_then(|s| s.battle()).is_some() {
+            tracing::debug!("开局保持未选中");
         }
     }
 

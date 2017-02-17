@@ -18,7 +18,7 @@ use super::super::battle_input::{
 use super::{BattleController, BattleNav};
 
 impl BattleController {
-    /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack / Deploy 等。
+    /// 对局指针：边缘滚屏优先，否则按悬停格给出 Select / Move / Attack 等。
     pub fn battle_pointer(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
         let context = self.battle_pointer_context(renderer, window);
@@ -27,7 +27,7 @@ impl BattleController {
 
     /// 战术区悬停上下文（不含边缘滚屏）。
     ///
-    /// 部署光标仅在悬停**已选中的可部署单位本身**时出现；移开即回到移动 / 攻击 / 默认。
+    /// 可部署能力只反映在命令条 / `D`；悬停已选单位不会自动切到 Deploy 光标。
     pub(super) fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -64,12 +64,8 @@ impl BattleController {
             return BattlePointer::Default;
         }
 
-        // 悬停已选中的可部署单位 → 部署光标（移开则不再是部署）。
-        if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
-            if selected.contains(&id) && game.deploy_target_of(id).is_some() {
-                return BattlePointer::Deploy;
-            }
-        }
+        // 可部署能力只影响命令条 Deploy / `D`，不因悬停已选单位自动切 Deploy 光标。
+        // `order_deploy` 为就地即时命令，无独立 deploy_mode 时不应伪装部署指针。
 
         // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
         if selected.iter().any(|&id| {

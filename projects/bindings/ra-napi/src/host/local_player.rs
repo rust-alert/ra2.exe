@@ -255,6 +255,9 @@ impl LocalPlayerController {
     }
 
     /// 选中本地开局单位（优先 MCV）。
+    ///
+    /// 对局装载不再自动调用；保留供调试 / 测试显式选中起始单位。
+    #[allow(dead_code)]
     pub fn select_local_start(&mut self, battle: &BattleSession) -> Option<EntityId> {
         let id = battle.local_start_mobile()?;
         self.select_only(battle, id);
