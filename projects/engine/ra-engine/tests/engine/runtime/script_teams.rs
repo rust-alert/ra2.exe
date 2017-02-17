@@ -23,7 +23,7 @@ fn create_team_action_spawns_task_force() {
 [TaskForces]\n0=TF1\n\
 [TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
 [TeamTypes]\n0=TM1\n\
-[TM1]\nName=Team\nHouse=Russians\nScript=SC1\nTaskForce=TF1\nMax=1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
 ";
     let map = MapInfo::parse_ini(GameEdition::Ra2, "team.map", text).unwrap();
     let engine = test_engine();

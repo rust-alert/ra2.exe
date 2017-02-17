@@ -792,6 +792,42 @@ fn bind_map_events_rejects_unknown_trigger() {
 }
 
 #[test]
+fn bind_map_task_forces_resolves_techno_ids() {
+    let rules = rules_from(b"[InfantryTypes]\n0=E1\n[E1]\nStrength=100\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 2, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("bind task forces");
+    assert_eq!(forces[0].entries[0].definition_id, defs.techno.get("E1").expect("E1").id);
+}
+
+#[test]
+fn bind_map_task_forces_rejects_unknown_techno() {
+    let rules = rules_from(b"[InfantryTypes]\n0=E1\n[E1]\nStrength=100\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let err = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "NOSUCH".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect_err("unknown techno");
+    let msg = err.to_string();
+    assert!(msg.contains("techno"), "{msg}");
+    assert!(msg.contains("NOSUCH"), "{msg}");
+}
+
+#[test]
 fn bind_map_triggers_rejects_unknown_linked() {
     let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
     let defs = build_runtime_definitions(&rules).expect("freeze");

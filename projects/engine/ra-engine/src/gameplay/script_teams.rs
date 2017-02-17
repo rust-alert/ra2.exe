@@ -1,7 +1,6 @@
 //! 剧本小队：按 TaskForce / TeamType 在航点生成增援，并按 ScriptTypes 最小步进。
 
-use ra_map::MapTeamType;
-use ra_types::{EntityId, PlayerId};
+use ra_types::{EntityId, MapWaypoint, PlayerId, PreparedTaskForce, PreparedTeamType, ScriptTypeId, TeamTypeId};
 
 use crate::{game::GameCommand, gameplay::houses_are_allied, state::BattleState};
 
@@ -22,9 +21,9 @@ const ATTACK_WAYPOINT_SEARCH_RADIUS: u32 = 8;
 /// 已生成、仍在执行 Script 的小队。
 #[derive(Debug, Clone)]
 struct ActiveScriptTeam {
-    team_type_id: String,
+    team_type_id: TeamTypeId,
     members: Vec<EntityId>,
-    script_id: String,
+    script_id: Option<ScriptTypeId>,
     step_idx: usize,
 }
 
@@ -40,11 +39,11 @@ pub fn flush_pending_team_spawns(world: &mut BattleState) {
     if pending.is_empty() {
         return;
     }
-    let teams = world.map.scripting.team_types.clone();
-    let forces = world.map.scripting.task_forces.clone();
-    let waypoints = world.map.waypoints.clone();
+    let teams = world.prepared.team_types.clone();
+    let forces = world.prepared.task_forces.clone();
+    let waypoints = world.prepared.definition.waypoints.clone();
     for team_id in pending {
-        let Some(team) = teams.iter().find(|t| t.id.eq_ignore_ascii_case(&team_id))
+        let Some(team) = teams.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&team_id))
         else {
             continue;
         };
@@ -57,8 +56,8 @@ pub fn tick_script_teams(world: &mut BattleState) {
     if world.script_team_runtime.active.is_empty() {
         return;
     }
-    let scripts = world.map.scripting.script_types.clone();
-    let waypoints = world.map.waypoints.clone();
+    let scripts = world.prepared.script_types.clone();
+    let waypoints = world.prepared.definition.waypoints.clone();
 
     // 先快照本 tick 要执行的步骤，避免与 `ecs_*` / `push_player_command` 争用 `active` 借用。
     let plan: Vec<(usize, Option<(i32, i32)>, Vec<EntityId>, usize)> = world
@@ -68,10 +67,11 @@ pub fn tick_script_teams(world: &mut BattleState) {
         .enumerate()
         .map(|(idx, team)| {
             // 无 Script 的队仅驻留供 Destroy Team 回收，不推进。
-            if team.script_id.is_empty() {
+            let Some(script_id) = team.script_id
+            else {
                 return (idx, Some((i32::MIN, 0)), Vec::new(), 0);
-            }
-            let Some(script) = scripts.iter().find(|s| s.id.eq_ignore_ascii_case(&team.script_id))
+            };
+            let Some(script) = scripts.iter().find(|s| s.id == script_id)
             else {
                 return (idx, None, Vec::new(), team.step_idx);
             };
@@ -261,20 +261,23 @@ fn nearest_hostile_near(world: &BattleState, house: &str, cx: u16, cy: u16, radi
     best.map(|(_, id)| id)
 }
 
-fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map::MapTaskForce], waypoints: &[ra_map::Waypoint]) {
-    let Some(force) = forces.iter().find(|f| f.id.eq_ignore_ascii_case(team.task_force.as_str()))
+fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[PreparedTaskForce], waypoints: &[MapWaypoint]) {
+    let Some(force) = forces.iter().find(|f| f.id == team.task_force)
     else {
         return;
     };
-    let house_key = if team.house.is_empty() { "Neutral" } else { team.house.as_str() };
-    world.ensure_house(house_key);
+    let Some(house_key) = world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string())
+    else {
+        return;
+    };
+    world.ensure_house(&house_key);
     // 与已有 `PlayerState.house` 原文对齐，避免 `HouseName` 大写键对不上大小写敏感查找。
     let house = world
         .players
         .iter()
-        .find(|p| p.house.eq_ignore_ascii_case(house_key))
+        .find(|p| p.house.eq_ignore_ascii_case(&house_key))
         .map(|p| p.house.as_ref().to_string())
-        .unwrap_or_else(|| house_key.to_string());
+        .unwrap_or_else(|| house_key.clone());
     let house = house.as_str();
     // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
     let spawn_wp = if team.waypoint >= 0 { waypoints.iter().find(|w| w.index as i32 == team.waypoint) } else { None };
@@ -284,24 +287,31 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
         .or_else(|| waypoints.first().map(|w| (w.x, w.y)))
         .unwrap_or((1, 1));
 
+    let tag_name = team.tag.and_then(|id| world.prepared.tags.iter().find(|t| t.id == id).map(|t| t.name.clone()));
+
     let mut members = Vec::new();
     let mut ox = 0i32;
     let mut oy = 0i32;
     for entry in &force.entries {
+        let Some(tt) = world.definitions.techno.get_by_id(entry.definition_id)
+        else {
+            continue;
+        };
+        let type_key = tt.type_key.as_str().to_string();
         for _ in 0..entry.count.max(1) {
             let x = (i32::from(wx) + ox).clamp(0, i32::from(u16::MAX)) as u16;
             let y = (i32::from(wy) + oy).clamp(0, i32::from(u16::MAX)) as u16;
-            let spawned = match world.spawn_unit_at(house, entry.type_id.as_str(), x, y) {
+            let spawned = match world.spawn_unit_at(house, &type_key, x, y) {
                 Ok(id) => Some(id),
                 Err(_) => {
                     // 格占用时尝试邻格。
-                    world.spawn_unit_at(house, entry.type_id.as_str(), x.saturating_add(1), y).ok()
+                    world.spawn_unit_at(house, &type_key, x.saturating_add(1), y).ok()
                 }
             };
             if let Some(id) = spawned {
-                if !team.tag.is_empty() {
+                if let Some(tag) = tag_name.clone() {
                     let _ = world.with_identity_mut(id, |identity| {
-                        identity.tag = team.tag.clone();
+                        identity.tag = tag;
                     });
                 }
                 members.push(id);
@@ -314,20 +324,11 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
         }
     }
 
-    if !members.is_empty() && !team.script.is_empty() {
+    if !members.is_empty() {
         world.script_team_runtime.active.push(ActiveScriptTeam {
-            team_type_id: team.id.to_string(),
+            team_type_id: team.id,
             members,
-            script_id: team.script.to_string(),
-            step_idx: 0,
-        });
-    }
-    else if !members.is_empty() {
-        // 无 Script 时仍登记，便于 Destroy Team 回收。
-        world.script_team_runtime.active.push(ActiveScriptTeam {
-            team_type_id: team.id.to_string(),
-            members,
-            script_id: String::new(),
+            script_id: team.script,
             step_idx: 0,
         });
     }
@@ -336,9 +337,11 @@ fn spawn_team_type(world: &mut BattleState, team: &MapTeamType, forces: &[ra_map
 /// 销毁指定 `TeamType`：取消排队产队，并击杀已生成实例、移出脚本队表。
 pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: &str) {
     world.trigger_runtime.pending_team_spawns.retain(|id| !id.eq_ignore_ascii_case(team_id));
+    let team_tid = world.prepared.team_types.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(team_id)).map(|t| t.id);
     let mut kill = Vec::new();
     world.script_team_runtime.active.retain(|team| {
-        if team.team_type_id.eq_ignore_ascii_case(team_id) {
+        let matched = team_tid.is_some_and(|id| team.team_type_id == id);
+        if matched {
             kill.extend(team.members.iter().copied());
             false
         }

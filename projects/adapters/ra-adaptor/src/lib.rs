@@ -26,8 +26,8 @@ pub use layers::{
     is_expansion_mix_name, missing_base_mixes, parse_expansion_file_name,
 };
 pub use ra_types::{
-    bind_map_actions, bind_map_cell_tags, bind_map_events, bind_map_houses, bind_map_placements, bind_map_tags, bind_map_triggers,
-    bind_prepared_map_placements,
+    bind_map_actions, bind_map_ai_triggers, bind_map_cell_tags, bind_map_events, bind_map_houses, bind_map_placements, bind_map_script_types,
+    bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_map_triggers, bind_prepared_map_placements,
 };
 pub use rules::{
     RulesSystem, load_rules, load_rules_chain, load_rules_chain_with_overlays, rules_system_from_ini_bytes, rules_system_from_layered_ini_bytes,

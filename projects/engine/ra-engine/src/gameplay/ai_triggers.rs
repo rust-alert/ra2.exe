@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use ra_types::HouseId;
+
 use crate::state::BattleState;
 
 /// AITrigger 默认冷却（逻辑 tick）。过短会刷队，过长像“不出兵”。
@@ -15,7 +17,7 @@ pub struct AiTriggerRuntime {
     /// 各 AITrigger id → 剩余冷却 tick。
     cooldowns: HashMap<String, u32>,
     /// 按 house 禁用（`AI triggers stop`）；缺省未列入则允许。
-    disabled_houses: Vec<String>,
+    disabled_houses: Vec<HouseId>,
 }
 
 impl AiTriggerRuntime {
@@ -30,7 +32,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
     if !world.ai_trigger_runtime.enabled {
         return;
     }
-    let triggers = world.map.scripting.ai_triggers.clone();
+    let triggers = world.prepared.ai_triggers.clone();
     if triggers.is_empty() {
         return;
     }
@@ -43,24 +45,34 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
     }
 
     for at in triggers {
-        if at.team.is_empty() {
-            continue;
-        }
-        if !at.owner_house.is_empty() && world.ai_trigger_runtime.disabled_houses.iter().any(|h| h.eq_ignore_ascii_case(&at.owner_house)) {
-            continue;
-        }
-        if !at.owner_house.is_empty() {
-            world.ensure_house(&at.owner_house);
-            let tech = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(&at.owner_house)).map(|p| p.tech_level).unwrap_or(0);
+        if let Some(house_id) = at.owner_house {
+            if world.ai_trigger_runtime.disabled_houses.contains(&house_id) {
+                continue;
+            }
+            let Some(house_key) = world.definitions.houses.get_by_id(house_id).map(|h| h.type_key.as_str().to_string())
+            else {
+                continue;
+            };
+            world.ensure_house(&house_key);
+            let tech = world
+                .players
+                .iter()
+                .find(|p| p.house.as_ref().eq_ignore_ascii_case(&house_key))
+                .map(|p| p.tech_level)
+                .unwrap_or(0);
             if tech < at.tech_level {
                 continue;
             }
         }
-        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id.to_string()).or_insert(0);
+        let rem = world.ai_trigger_runtime.cooldowns.entry(at.name.as_str().to_string()).or_insert(0);
         if *rem > 0 {
             continue;
         }
-        world.trigger_runtime.pending_team_spawns.push(at.team.to_string());
+        let Some(team) = world.prepared.team_types.iter().find(|t| t.id == at.team)
+        else {
+            continue;
+        };
+        world.trigger_runtime.pending_team_spawns.push(team.name.as_str().to_string());
         *rem = AI_TRIGGER_COOLDOWN_TICKS;
     }
 }
@@ -72,11 +84,15 @@ pub fn set_ai_triggers_for_house(world: &mut BattleState, house: Option<&str>, e
             world.ai_trigger_runtime.enabled = enabled;
         }
         Some(h) => {
+            let Some(house_id) = world.definitions.houses.get(h).map(|d| d.id)
+            else {
+                return;
+            };
             if enabled {
-                world.ai_trigger_runtime.disabled_houses.retain(|x| !x.eq_ignore_ascii_case(h));
+                world.ai_trigger_runtime.disabled_houses.retain(|x| *x != house_id);
             }
-            else if !world.ai_trigger_runtime.disabled_houses.iter().any(|x| x.eq_ignore_ascii_case(h)) {
-                world.ai_trigger_runtime.disabled_houses.push(h.to_string());
+            else if !world.ai_trigger_runtime.disabled_houses.contains(&house_id) {
+                world.ai_trigger_runtime.disabled_houses.push(house_id);
             }
         }
     }

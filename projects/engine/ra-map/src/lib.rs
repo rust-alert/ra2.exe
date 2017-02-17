@@ -398,6 +398,10 @@ impl MapInfo {
             actions: Vec::new(),
             tags: Vec::new(),
             cell_tags: Vec::new(),
+            task_forces: Vec::new(),
+            script_types: Vec::new(),
+            team_types: Vec::new(),
+            ai_triggers: Vec::new(),
         }
     }
 

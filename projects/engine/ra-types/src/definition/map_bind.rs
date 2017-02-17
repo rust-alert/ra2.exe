@@ -3,9 +3,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapAction, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapTag, MapTrigger, MissionKind, MissionName,
-    PreparedAction, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedTag, PreparedTrigger, RaError,
-    RaResult, RuntimeDefinitions, TagId, TagName, TechnoName, TriggerId, TriggerName, TypeId,
+    HouseId, HouseName, MapAction, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapScriptType, MapTag, MapTaskForce,
+    MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse,
+    PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType,
+    PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, TagId, TagName, TaskForceId, TaskForceName,
+    TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -171,8 +173,131 @@ pub fn bind_map_actions(actions: &[MapAction], triggers: &[PreparedTrigger]) -> 
     Ok(out)
 }
 
-/// 就地填充 [`PreparedMap`] 的 houses / triggers / events / actions / tags / cell_tags / placements；
-/// 失败时不改动已有字段。
+/// 将 `[TaskForces]` 投影为稳定 [`PreparedTaskForce`]；未知 techno 成员拒绝。
+pub fn bind_map_task_forces(forces: &[MapTaskForce], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedTaskForce>> {
+    let mut out = Vec::with_capacity(forces.len());
+    let mut next = 1u32;
+    for force in forces {
+        if force.id.is_empty() {
+            continue;
+        }
+        let mut entries = Vec::with_capacity(force.entries.len());
+        for entry in &force.entries {
+            let definition_id = bind_techno_id(defs, &entry.type_id, &format!("MapTaskForce:{}", force.id.as_str()))?;
+            entries.push(PreparedTaskForceEntry { count: entry.count, definition_id });
+        }
+        let id = TaskForceId(next);
+        next = next.saturating_add(1);
+        out.push(PreparedTaskForce {
+            id,
+            name: force.id.clone(),
+            editor_name: force.name.clone(),
+            entries,
+            group: force.group,
+        });
+    }
+    Ok(out)
+}
+
+/// 将 `[ScriptTypes]` 投影为稳定 [`PreparedScriptType`]。
+pub fn bind_map_script_types(scripts: &[MapScriptType]) -> RaResult<Vec<PreparedScriptType>> {
+    let mut out = Vec::with_capacity(scripts.len());
+    let mut next = 1u32;
+    for script in scripts {
+        if script.id.is_empty() {
+            continue;
+        }
+        let id = ScriptTypeId(next);
+        next = next.saturating_add(1);
+        out.push(PreparedScriptType {
+            id,
+            name: script.id.clone(),
+            editor_name: script.name.clone(),
+            steps: script.steps.clone(),
+        });
+    }
+    Ok(out)
+}
+
+/// 将 `[TeamTypes]` 投影为稳定 [`PreparedTeamType`]；未知 house / script / task_force / tag 拒绝。
+pub fn bind_map_team_types(
+    teams: &[MapTeamType],
+    defs: &RuntimeDefinitions,
+    scripts: &[PreparedScriptType],
+    forces: &[PreparedTaskForce],
+    tags: &[PreparedTag],
+) -> RaResult<Vec<PreparedTeamType>> {
+    let script_by_name: HashMap<&str, ScriptTypeId> = scripts.iter().map(|s| (s.name.as_str(), s.id)).collect();
+    let force_by_name: HashMap<&str, TaskForceId> = forces.iter().map(|f| (f.name.as_str(), f.id)).collect();
+    let tag_by_name: HashMap<&str, TagId> = tags.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let mut out = Vec::with_capacity(teams.len());
+    let mut next = 1u32;
+    for team in teams {
+        if team.id.is_empty() {
+            continue;
+        }
+        let house_name = if team.house.is_empty() { HouseName::parse("NEUTRAL") } else { team.house.clone() };
+        let house = bind_house_id(defs, &house_name, &format!("MapTeamType:{}", team.id.as_str()))?;
+        let script = bind_optional_script_id(&script_by_name, &team.script, team.id.as_str())?;
+        let task_force = bind_task_force_id(&force_by_name, &team.task_force, team.id.as_str())?;
+        let tag = bind_tag_id(&tag_by_name, &team.tag, &format!("MapTeamType:{}", team.id.as_str()))?;
+        let id = TeamTypeId(next);
+        next = next.saturating_add(1);
+        out.push(PreparedTeamType {
+            id,
+            name: team.id.clone(),
+            editor_name: team.name.clone(),
+            house,
+            script,
+            task_force,
+            tag,
+            waypoint: team.waypoint,
+            max: team.max,
+            priority: team.priority,
+            veteran_level: team.veteran_level,
+        });
+    }
+    Ok(out)
+}
+
+/// 将 `[AITriggerTypes]` 投影为稳定 [`PreparedAiTrigger`]；未知 team / house 拒绝。
+pub fn bind_map_ai_triggers(
+    triggers: &[MapAiTrigger],
+    defs: &RuntimeDefinitions,
+    teams: &[PreparedTeamType],
+) -> RaResult<Vec<PreparedAiTrigger>> {
+    let team_by_name: HashMap<&str, TeamTypeId> = teams.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let mut out = Vec::with_capacity(triggers.len());
+    for trigger in triggers {
+        if trigger.id.is_empty() {
+            continue;
+        }
+        if trigger.team.is_empty() {
+            continue;
+        }
+        let team = team_by_name.get(trigger.team.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+            kind: "team_type",
+            name: trigger.team.as_str().to_string(),
+            owner: format!("MapAiTrigger:{}", trigger.id.as_str()),
+        })?;
+        let owner_house = if trigger.owner_house.is_empty() {
+            None
+        }
+        else {
+            Some(bind_house_id(defs, &trigger.owner_house, &format!("MapAiTrigger:{}", trigger.id.as_str()))?)
+        };
+        out.push(PreparedAiTrigger {
+            name: trigger.id.clone(),
+            editor_name: trigger.name.clone(),
+            team,
+            owner_house,
+            tech_level: trigger.tech_level,
+        });
+    }
+    Ok(out)
+}
+
+/// 就地填充 [`PreparedMap`] 绑定表；失败时不改动已有字段。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
     let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
@@ -181,6 +306,10 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
+    let task_forces = bind_map_task_forces(&prepared.definition.task_forces, defs)?;
+    let script_types = bind_map_script_types(&prepared.definition.script_types)?;
+    let team_types = bind_map_team_types(&prepared.definition.team_types, defs, &script_types, &task_forces, &tags)?;
+    let ai_triggers = bind_map_ai_triggers(&prepared.definition.ai_triggers, defs, &team_types)?;
     prepared.houses = houses;
     prepared.triggers = triggers;
     prepared.events = events;
@@ -188,7 +317,33 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     prepared.tags = tags;
     prepared.cell_tags = cell_tags;
     prepared.placements = placements;
+    prepared.task_forces = task_forces;
+    prepared.script_types = script_types;
+    prepared.team_types = team_types;
+    prepared.ai_triggers = ai_triggers;
     Ok(())
+}
+
+fn bind_task_force_id(force_by_name: &HashMap<&str, TaskForceId>, name: &TaskForceName, owner: &str) -> RaResult<TaskForceId> {
+    if name.is_empty() {
+        return Err(RaError::UnknownReference { kind: "task_force", name: String::new(), owner: owner.to_string() });
+    }
+    force_by_name.get(name.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+        kind: "task_force",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
+}
+
+fn bind_optional_script_id(script_by_name: &HashMap<&str, ScriptTypeId>, name: &ScriptTypeName, owner: &str) -> RaResult<Option<ScriptTypeId>> {
+    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
+        return Ok(None);
+    }
+    script_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
+        kind: "script_type",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
 }
 
 fn bind_techno_id(defs: &RuntimeDefinitions, name: &TechnoName, owner: &str) -> RaResult<TypeId> {

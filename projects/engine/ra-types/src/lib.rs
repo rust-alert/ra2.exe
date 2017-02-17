@@ -27,23 +27,26 @@ pub use definition::{
     MapAiTrigger, MapCellTag, MapDefinition, MapEdge, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell, MapLighting,
     MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce,
     MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName, OverlayName,
-    OverlayTypeRegistry, PowerProfile, PreparedAction, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
-    PreparedTag, PreparedTrigger,
+    OverlayTypeRegistry, PowerProfile, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap,
+    PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger,
     PrerequisiteGroupKind, PrerequisiteGroups, PrerequisiteList, PrerequisiteToken, ProductionCategory, ProductionDefinitions,
     ProductionProfile, ProjectileDefinition, ProjectileDefinitions, ProjectileName, RuntimeDefinitions, ScriptTypeName, SideName, SmudgeName,
     SoundDefinitions, StolenTechKind, StructureDefinition, StructureDefinitions, StructureLightProfile, SuperWeaponActionName,
     SuperWeaponDefinition, SuperWeaponDefinitions, SuperWeaponKindName, SuperWeaponName, TMP_TERRAIN_TO_LAND, TagName, TaskForceName,
     TeamTypeName, TechnoCategory, TechnoClass, TechnoDefinition, TechnoDefinitions, TechnoName, TerrainName, TerrainSpawnerDefinition,
     TerrainSpawnerDefinitions, Theater, TriggerName, TypeDefinitionId, UiName, WarheadDefinition, WarheadDefinitions, WarheadName,
-    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, bind_map_actions, bind_map_cell_tags, bind_map_events,
-    bind_map_houses, bind_map_placements, bind_map_tags, bind_map_triggers, bind_prepared_map_placements, deserialize_optional_factory,
-    ground_passable, land_passable,
-    occupancy_kind, tmp_terrain_to_land_type,
+    WarheadVerses, WeaponDefinition, WeaponDefinitions, WeaponName, armor_index, bind_map_actions, bind_map_ai_triggers, bind_map_cell_tags,
+    bind_map_events, bind_map_houses, bind_map_placements, bind_map_script_types, bind_map_tags, bind_map_task_forces, bind_map_team_types,
+    bind_map_triggers, bind_prepared_map_placements, deserialize_optional_factory, ground_passable, land_passable, occupancy_kind,
+    tmp_terrain_to_land_type,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
-pub use id::{EntityId, HouseId, LocomotorId, PlayerId, ProjectileId, SessionId, TagId, TriggerId, TypeId, WarheadId, WeaponId};
+pub use id::{
+    EntityId, HouseId, LocomotorId, PlayerId, ProjectileId, ScriptTypeId, SessionId, TagId, TaskForceId, TeamTypeId, TriggerId, TypeId,
+    WarheadId, WeaponId,
+};
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};
 pub use time::{DurationTicks, Tick, TickRate};

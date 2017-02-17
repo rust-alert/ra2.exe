@@ -36,6 +36,18 @@ pub struct TagId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct TriggerId(pub u32);
 
+/// 地图 TaskForce 定义编号（绑定自 `[TaskForces]`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct TaskForceId(pub u32);
+
+/// 地图 ScriptType 定义编号（绑定自 `[ScriptTypes]`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct ScriptTypeId(pub u32);
+
+/// 地图 TeamType 定义编号（绑定自 `[TeamTypes]`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct TeamTypeId(pub u32);
+
 /// 对局会话编号（壳层 / 联机标识，非 tick）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct SessionId(pub u64);

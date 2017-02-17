@@ -1666,6 +1666,14 @@ pub struct PreparedMap {
     pub tags: Vec<PreparedTag>,
     /// 地图 `[CellTags]` 绑定表；骨架路径为空。
     pub cell_tags: Vec<PreparedCellTag>,
+    /// 地图 `[TaskForces]` 绑定表；骨架路径为空。
+    pub task_forces: Vec<PreparedTaskForce>,
+    /// 地图 `[ScriptTypes]` 绑定表；骨架路径为空。
+    pub script_types: Vec<PreparedScriptType>,
+    /// 地图 `[TeamTypes]` 绑定表；骨架路径为空。
+    pub team_types: Vec<PreparedTeamType>,
+    /// 地图 `[AITriggerTypes]` 绑定表；骨架路径为空。
+    pub ai_triggers: Vec<PreparedAiTrigger>,
 }
 
 /// 地图 `[Houses]` 绑定后的运行形状（稳定 country / allies id）。
@@ -1730,6 +1738,85 @@ pub struct PreparedAction {
     pub trigger_id: crate::TriggerId,
     /// 动作列表（`kind_code` 为原版动作表整数码）。
     pub commands: Vec<MapActionCommand>,
+}
+
+/// TaskForce 成员槽（稳定 techno id）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTaskForceEntry {
+    /// 数量。
+    pub count: u16,
+    /// 规则类型稳定 id。
+    pub definition_id: crate::TypeId,
+}
+
+/// 地图 `[TaskForces]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTaskForce {
+    /// TaskForce 稳定 id。
+    pub id: crate::TaskForceId,
+    /// TaskForce 键名（装载期大写）。
+    pub name: TaskForceName,
+    /// 编辑器名。
+    pub editor_name: String,
+    /// 成员。
+    pub entries: Vec<PreparedTaskForceEntry>,
+    /// `Group=`。
+    pub group: i32,
+}
+
+/// 地图 `[ScriptTypes]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedScriptType {
+    /// ScriptType 稳定 id。
+    pub id: crate::ScriptTypeId,
+    /// ScriptType 键名（装载期大写）。
+    pub name: ScriptTypeName,
+    /// 编辑器名。
+    pub editor_name: String,
+    /// 步骤。
+    pub steps: Vec<MapScriptStep>,
+}
+
+/// 地图 `[TeamTypes]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedTeamType {
+    /// TeamType 稳定 id。
+    pub id: crate::TeamTypeId,
+    /// TeamType 键名（装载期大写）。
+    pub name: TeamTypeName,
+    /// 编辑器名。
+    pub editor_name: String,
+    /// `House=` 稳定 id。
+    pub house: crate::HouseId,
+    /// `Script=` 稳定 id；`None` 表示未指定。
+    pub script: Option<crate::ScriptTypeId>,
+    /// `TaskForce=` 稳定 id。
+    pub task_force: crate::TaskForceId,
+    /// `Tag=` 稳定 id；`None` 表示无 Tag。
+    pub tag: Option<crate::TagId>,
+    /// `Waypoint=`：产队航点编号；`<0` 表示未指定。
+    pub waypoint: i32,
+    /// `Max=`。
+    pub max: i32,
+    /// `Priority=`。
+    pub priority: i32,
+    /// `VeteranLevel=`。
+    pub veteran_level: i32,
+}
+
+/// 地图 `[AITriggerTypes]` 绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedAiTrigger {
+    /// AITrigger 键名（装载期大写）。
+    pub name: AiTriggerName,
+    /// 显示名。
+    pub editor_name: String,
+    /// 关联 TeamType 稳定 id。
+    pub team: crate::TeamTypeId,
+    /// 所属 House 稳定 id；`None` 表示未限定。
+    pub owner_house: Option<crate::HouseId>,
+    /// 科技等级门槛。
+    pub tech_level: i32,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。
