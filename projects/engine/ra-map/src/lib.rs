@@ -70,7 +70,8 @@ pub use lighting::{
 pub use mobile_paint::{MobilePaintPose, infantry_facing_slot, paint_map_mobiles};
 pub use overlay::{NO_OVERLAY, OVERLAY_CELLS, OVERLAY_GRID, OverlayCell, decode_overlay_packs};
 pub use overlay_paint::{
-    OverlayLayerFilter, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays, paint_overlays_onto_preview_rgba,
+    OverlayLayerFilter, flat_tiberium_display_names, flat_tiberium_display_type_name, is_bridge_overlay_name, paint_map_overlays,
+    paint_overlays_onto_preview_rgba,
 };
 pub use overlay_pass::apply_overlay_land_to_pass_grid;
 pub use packed_cell::{PackedCellCoords, parse_packed_cell, unpack_packed_cell};

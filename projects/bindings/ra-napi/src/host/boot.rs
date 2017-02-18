@@ -628,6 +628,9 @@ pub fn boot_world_with_progress(
         },
         None => None,
     };
+    if let Some(defs) = definitions.as_ref() {
+        paint.seal_with_runtime(defs, &map);
+    }
     let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;

@@ -60,6 +60,10 @@ impl StructurePaintHintTable {
     fn insert(&mut self, type_id: TechnoName, hint: StructureTypePaintHints) {
         self.by_type.insert(type_id, hint);
     }
+
+    fn values(&self) -> impl Iterator<Item = &StructureTypePaintHints> {
+        self.by_type.values()
+    }
 }
 
 /// 建筑活动层 art 节提示表（按 anim 节名跨 paint / anim-bank 复用）。
@@ -120,6 +124,33 @@ impl crate::PaintDefinitions {
     fn resolve_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) -> StructureAnimSectionHints {
         self.ensure_structure_anim_hint(anim_name, default_rate_ms);
         self.structure_anim_hint(anim_name).cloned().unwrap_or_else(|| structure_anim_section_hints(None, anim_name, default_rate_ms))
+    }
+
+    /// 为已缓存建筑 hint 补齐活动层 / 火焰节提示（须在丢弃 art 文档前调用）。
+    pub(crate) fn preload_structure_anim_hints(&mut self) {
+        let mut anim_names = Vec::new();
+        for hint in self.structure_hints.values() {
+            for (normal, damaged) in &hint.loop_anims {
+                if let Some(name) = normal {
+                    anim_names.push(name.clone());
+                }
+                if let Some(name) = damaged {
+                    anim_names.push(name.clone());
+                }
+            }
+            if let Some(buildup) = &hint.buildup {
+                anim_names.push(buildup.image_key.clone());
+            }
+        }
+        anim_names.sort_unstable();
+        anim_names.dedup();
+        for name in anim_names {
+            self.ensure_structure_anim_hint(&name, 300);
+        }
+        let fire_names: Vec<String> = self.damage.fire_types.iter().map(|n| n.as_str().to_string()).collect();
+        for name in fire_names {
+            self.ensure_structure_anim_hint(&name, 80);
+        }
     }
 }
 

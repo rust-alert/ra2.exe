@@ -1,16 +1,17 @@
 //! 绘制装载结果：合并后的 art/rules 与已固化的叠画相关规则。
 //!
-//! 目标是演进为不含 `IniDocument` 的强类型绘制定义；当前仍暂存合并后的
-//! art/rules 文档，供叠画 hint 路径读取，字段仅 crate 内可见。
+//! 装载后可经 [`PaintDefinitions::seal_with_runtime`] 填满 hint 表并丢弃
+//! `IniDocument`；未 seal 时仍暂存合并文档供惰性 `ensure_*` 路径读取。
 
 use std::collections::HashMap;
 
 use ra_assets::{IniDocument, IniMergePolicy, materialize_ini_layers};
-use ra_types::AssetSource;
+use ra_types::{AssetSource, RuntimeDefinitions, TechnoClass};
 
 use crate::{
+    MapEntityKind, MapInfo,
     mobile_paint::MobilePaintHintTable,
-    overlay_paint::OverlayPaintHintTable,
+    overlay_paint::{OverlayPaintHintTable, flat_tiberium_display_names},
     structure_damage::StructureDamageRules,
     structure_paint::{StructureAnimHintTable, StructurePaintHintTable},
     terrain_paint::TerrainPaintHintTable,
@@ -45,12 +46,12 @@ impl CameoPaintHintTable {
     }
 }
 
-/// 绘制侧装载结果（受损规则已固化；art/rules 为过渡持有）。
+/// 绘制侧装载结果（受损规则已固化；art/rules 可经 seal 丢弃）。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
-    /// underlay→primary 合并后的 art（crate 内过渡持有）。
+    /// underlay→primary 合并后的 art（seal 前过渡持有）。
     art: Option<IniDocument>,
-    /// underlay→primary 合并后的 rules（crate 内过渡持有）。
+    /// underlay→primary 合并后的 rules（seal 前过渡持有）。
     rules: Option<IniDocument>,
     /// 从 rules 一次解出的建筑受损阈值 / 火焰类型（无 rules 时为缺省）。
     pub damage: StructureDamageRules,
@@ -97,14 +98,19 @@ impl PaintDefinitions {
         }
     }
 
-    /// 是否已装入 art 文档。
+    /// 是否已装入 art 文档（seal 后为 `false`）。
     pub(crate) fn has_art(&self) -> bool {
         self.art.is_some()
     }
 
-    /// 是否已装入 rules 文档。
+    /// 是否已装入 rules 文档（seal 后为 `false`）。
     pub(crate) fn has_rules(&self) -> bool {
         self.rules.is_some()
+    }
+
+    /// 是否已丢弃 art/rules 文档。
+    pub fn documents_sealed(&self) -> bool {
+        self.art.is_none() && self.rules.is_none()
     }
 
     /// 合并后的 art 文档（无则 `None`）。
@@ -115,6 +121,63 @@ impl PaintDefinitions {
     /// 合并后的 rules 文档（无则 `None`）。
     pub(crate) fn rules_doc(&self) -> Option<&IniDocument> {
         self.rules.as_ref()
+    }
+
+    /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
+    ///
+    /// 侧栏 cameo、建筑活动层与矿石 display 变体均在装载期一次解析；之后 `ensure_*`
+    /// 只命中缓存。可重复调用（已 seal 时跳过文档丢弃前的扫描仍会补缺 hint）。
+    pub fn seal_with_runtime(&mut self, defs: &RuntimeDefinitions, map: &MapInfo) {
+        for techno in defs.techno.iter() {
+            match techno.class {
+                TechnoClass::Building => self.ensure_structure_hint(&techno.type_key),
+                TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft => self.ensure_mobile_hint(&techno.type_key),
+            }
+            self.ensure_cameo_hint(techno.type_key.as_str());
+        }
+        for structure in defs.structures.iter() {
+            self.ensure_structure_hint(&structure.type_key);
+            self.ensure_cameo_hint(structure.type_key.as_str());
+        }
+        for spawner in defs.terrain_spawners.iter() {
+            self.ensure_terrain_hint(spawner.type_key.as_str());
+        }
+        for id in 0u8..=255 {
+            let Some(type_name) = defs.overlays.name(id)
+            else {
+                continue;
+            };
+            self.ensure_overlay_hint(type_name, type_name);
+            if defs.overlays.is_harvestable(id) {
+                for display in flat_tiberium_display_names(type_name) {
+                    self.ensure_overlay_hint(type_name, &display);
+                }
+            }
+        }
+        for ent in &map.entities {
+            match ent.kind {
+                MapEntityKind::Structure => self.ensure_structure_hint(&ent.type_id),
+                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => self.ensure_mobile_hint(&ent.type_id),
+            }
+            self.ensure_cameo_hint(ent.type_id.as_str());
+        }
+        self.ensure_terrain_objects(&map.terrain_objects);
+        for cell in &map.overlays {
+            let Some(type_name) = defs.overlays.name(cell.overlay_id)
+            else {
+                continue;
+            };
+            let display_name = if defs.overlays.is_harvestable(cell.overlay_id) {
+                crate::overlay_paint::flat_tiberium_display_type_name(type_name, cell.x, cell.y)
+            }
+            else {
+                type_name.to_string()
+            };
+            self.ensure_overlay_hint(type_name, &display_name);
+        }
+        self.preload_structure_anim_hints();
+        self.art = None;
+        self.rules = None;
     }
 
     /// 确保表中含该类型建造栏图标候选名（已有则跳过 INI 扫描）。

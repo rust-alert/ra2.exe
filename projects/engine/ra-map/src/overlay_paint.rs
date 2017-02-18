@@ -68,6 +68,25 @@ pub fn flat_tiberium_display_type_name(type_name: &str, x: u16, y: u16) -> Strin
     type_name.to_string()
 }
 
+/// 某可采矿石 / 宝石类型的全部平坦 display 名（变体 `01..=12`，供装载期 seal）。
+pub fn flat_tiberium_display_names(type_name: &str) -> Vec<String> {
+    let upper = type_name.to_ascii_uppercase();
+    if upper.starts_with("GEM") {
+        return (1u8..=12).map(|v| format!("GEM{v:02}")).collect();
+    }
+    if let Some(rest) = upper.strip_prefix("TIB") {
+        if let Some((family, _)) = rest.split_once('_') {
+            if !family.is_empty() && family.chars().all(|c| c.is_ascii_digit()) {
+                return (1u8..=12).map(|v| format!("TIB{family}_{v:02}")).collect();
+            }
+        }
+        if rest.chars().all(|c| c.is_ascii_digit()) && !rest.is_empty() {
+            return (1u8..=12).map(|v| format!("TIB{v:02}")).collect();
+        }
+    }
+    vec![type_name.to_string()]
+}
+
 /// 将 overlay 叠到地形图上：优先 SHP，失败格回退色块。
 ///
 /// `overlay_type_name`：由 rules `[OverlayTypes]` 解析得到的 id→名。

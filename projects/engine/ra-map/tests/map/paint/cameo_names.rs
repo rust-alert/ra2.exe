@@ -61,3 +61,68 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
     assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "BASEICON.shp"));
 }
+
+#[test]
+fn seal_with_runtime_drops_ini_and_keeps_preloaded_cameo() {
+    use ra_map::{MapEntity, MapEntityKind, MapInfo};
+    use ra_types::{
+        ArmorKind, Foundation, GameEdition, HouseAllowList, PowerProfile, RuntimeDefinitions, StructureDefinition, TypeId,
+    };
+
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[GACNST]
+Cameo=GAICON
+CameoPCX=gaicon
+"#
+        .to_vec(),
+    );
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    let source = MapSource { files };
+    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    assert!(!paint.documents_sealed());
+
+    let mut defs = RuntimeDefinitions::default();
+    defs.structures.insert(StructureDefinition {
+        id: TypeId(1),
+        type_key: "GACNST".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: false,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        owner_ids: ra_types::HouseIdAllowList::empty(),
+        foundation: Foundation::default(),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 0,
+        y: 0,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+
+    paint.seal_with_runtime(&defs, &map);
+    assert!(paint.documents_sealed());
+    let names = paint.cameo_asset_names("GACNST");
+    assert_eq!(names.pcx, vec!["gaicon.pcx".to_string()]);
+    assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
+}
