@@ -3,11 +3,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapAction, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapScriptType, MapTag, MapTaskForce,
-    MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse,
-    PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType,
-    PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, TagId, TagName, TaskForceId, TaskForceName,
-    TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId,
+    HouseId, HouseName, MapAction, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag,
+    MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent,
+    PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry,
+    PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, TagId,
+    TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -298,6 +298,8 @@ pub fn bind_map_ai_triggers(
 }
 
 /// 就地填充 [`PreparedMap`] 绑定表；失败时不改动已有字段。
+///
+/// 绑定成功后按 [`PreparedPlacement`] + 建筑表 `Foundation=` 重写 occupancy / 结构通行封格。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
     let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
@@ -321,7 +323,80 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     prepared.script_types = script_types;
     prepared.team_types = team_types;
     prepared.ai_triggers = ai_triggers;
+    reseal_prepared_layers_from_placements(prepared, &defs.structures);
     Ok(())
+}
+
+/// 用已绑定的 [`PreparedPlacement`] 与建筑表 `Foundation=` 重写粗占格，并重封结构 / 地形通行格。
+///
+/// - 保留既有 [`PreparedMap::cell_heights`]
+/// - 通行层先全开，再按建筑 placements + `terrain_objects` 封死（污迹只占 occupancy，与骨架一致）
+/// - 不应用 overlay / TMP 陆地规则（仍由装载后序步骤处理）
+/// - 未知建筑类型回退 `1x1`
+pub fn reseal_prepared_layers_from_placements(prepared: &mut PreparedMap, structures: &StructureDefinitions) {
+    if prepared.pass_width == 0 || prepared.pass_height == 0 {
+        prepared.pass_width = prepared.definition.size_width.max(1);
+        prepared.pass_height = prepared.definition.size_height.max(1);
+    }
+    let width = prepared.pass_width.max(1) as usize;
+    let height = prepared.pass_height.max(1) as usize;
+    let n = width.saturating_mul(height);
+    if n == 0 {
+        return;
+    }
+
+    let mut passable = vec![1u8; n];
+    let mut occupancy = vec![occupancy_kind::EMPTY; n];
+    let mark_occ = |occ: &mut [u8], x: u16, y: u16, kind: u8| {
+        let xi = usize::from(x);
+        let yi = usize::from(y);
+        if xi >= width || yi >= height {
+            return;
+        }
+        let i = yi * width + xi;
+        if occ[i] == occupancy_kind::EMPTY || kind == occupancy_kind::STRUCTURE {
+            occ[i] = kind;
+        }
+    };
+    let seal = |pass: &mut [u8], x: u16, y: u16| {
+        let xi = usize::from(x);
+        let yi = usize::from(y);
+        if xi >= width || yi >= height {
+            return;
+        }
+        pass[yi * width + xi] = 0;
+    };
+
+    for placement in &prepared.placements {
+        if placement.kind != MapPlacedEntityKind::Structure {
+            continue;
+        }
+        let (fw, fh) = structures
+            .get_by_id(placement.definition_id)
+            .map(|def| (def.foundation.width.max(1), def.foundation.height.max(1)))
+            .unwrap_or((1, 1));
+        for dy in 0..fh {
+            for dx in 0..fw {
+                let x = placement.x.saturating_add(dx);
+                let y = placement.y.saturating_add(dy);
+                mark_occ(&mut occupancy, x, y, occupancy_kind::STRUCTURE);
+                seal(&mut passable, x, y);
+            }
+        }
+    }
+    for obj in &prepared.definition.terrain_objects {
+        mark_occ(&mut occupancy, obj.x, obj.y, occupancy_kind::TERRAIN);
+        seal(&mut passable, obj.x, obj.y);
+    }
+    for smudge in &prepared.definition.smudges {
+        mark_occ(&mut occupancy, smudge.x, smudge.y, occupancy_kind::SMUDGE);
+    }
+
+    if prepared.cell_heights.len() != n {
+        prepared.cell_heights.resize(n, 0);
+    }
+    prepared.passable = passable;
+    prepared.occupancy = occupancy;
 }
 
 fn bind_task_force_id(force_by_name: &HashMap<&str, TaskForceId>, name: &TaskForceName, owner: &str) -> RaResult<TaskForceId> {

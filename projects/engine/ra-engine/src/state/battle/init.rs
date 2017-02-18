@@ -19,6 +19,7 @@ impl BattleState {
     /// 由冻结运行时定义与地图播种新世界，并为移动单位预计算路径。
     ///
     /// 通行层先取自 `MapInfo::to_prepared_map_skeleton_with_structures`（仅 Foundation）。
+    /// [`bind_prepared_map_placements`] 成功后会按绑定 placements 重封 occupancy / 结构通行格。
     /// Overlay land 必须在对局装载 `seal_pass_grid_from_tmp` 之后再应用，才能重开桥面。
     ///
     /// 预放实体必须先完成 [`bind_prepared_map_placements`]；未知 techno / house 拒绝播种。

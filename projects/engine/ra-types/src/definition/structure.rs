@@ -269,6 +269,11 @@ impl StructureDefinitions {
         self.by_key.get(type_key)
     }
 
+    /// 按稳定 id 查找。
+    pub fn get_by_id(&self, id: TypeId) -> Option<&StructureDefinition> {
+        self.by_key.values().find(|s| s.id == id)
+    }
+
     /// 条目数。
     pub fn len(&self) -> usize {
         self.by_key.len()

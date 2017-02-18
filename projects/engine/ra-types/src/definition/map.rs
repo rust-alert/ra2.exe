@@ -1650,7 +1650,8 @@ pub struct PreparedMap {
     pub cell_heights: Vec<u8>,
     /// 行优先粗占格：见 [`occupancy_kind`]。空表示尚未填充。
     ///
-    /// 绑定 `StructureDefinitions` 时可按 `Foundation=` 多格展开；裸骨架仅锚点 `1x1`。
+    /// 骨架可按建筑名表 `Foundation=` 展开；[`crate::reseal_prepared_layers_from_placements`]
+    /// 在绑定后改按 [`PreparedPlacement`] 稳定 id 重写。
     pub occupancy: Vec<u8>,
     /// 预放实体的规则绑定结果；骨架路径为空，adaptor 绑定后填入。
     pub placements: Vec<PreparedPlacement>,

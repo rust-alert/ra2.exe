@@ -289,3 +289,83 @@ fn from_prepared_pass_layers_roundtrips_bound_grid() {
     assert_eq!(passable, prepared.passable);
     assert_eq!(heights, prepared.cell_heights);
 }
+
+#[test]
+fn reseal_from_placements_expands_foundation_by_type_id() {
+    use ra_types::{
+        ArmorKind, Foundation, HouseAllowList, HouseId, MapPlacedEntityKind, PowerProfile, PreparedPlacement, StructureDefinition,
+        StructureDefinitions, TypeId, occupancy_kind, reseal_prepared_layers_from_placements,
+    };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.width = 4;
+    map.height = 3;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Neutral".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.terrain_objects.push(TerrainObject { x: 0, y: 0, name: "TREE1".into() });
+    map.smudges.push(MapSmudge { x: 3, y: 2, name: "CRATER1".into() });
+    // ??????? 1x1?????? TypeId ?? Foundation?
+    let mut prepared = map.to_prepared_map_skeleton();
+    assert_eq!(prepared.occupancy[1 * 4 + 1], occupancy_kind::STRUCTURE);
+    assert_eq!(prepared.occupancy[1 * 4 + 2], occupancy_kind::EMPTY);
+
+    let mut structures = StructureDefinitions::default();
+    structures.insert(StructureDefinition {
+        id: TypeId(7),
+        type_key: "GAPOWR".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: false,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        owner_ids: ra_types::HouseIdAllowList::empty(),
+        foundation: Foundation::parse("2x2"),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    prepared.placements.push(PreparedPlacement {
+        kind: MapPlacedEntityKind::Structure,
+        owner: HouseId(1),
+        definition_id: TypeId(7),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: None,
+        tag: None,
+    });
+    reseal_prepared_layers_from_placements(&mut prepared, &structures);
+
+    assert_eq!(prepared.occupancy[1 * 4 + 1], occupancy_kind::STRUCTURE);
+    assert_eq!(prepared.occupancy[1 * 4 + 2], occupancy_kind::STRUCTURE);
+    assert_eq!(prepared.occupancy[2 * 4 + 1], occupancy_kind::STRUCTURE);
+    assert_eq!(prepared.occupancy[2 * 4 + 2], occupancy_kind::STRUCTURE);
+    assert_eq!(prepared.occupancy[0], occupancy_kind::TERRAIN);
+    assert_eq!(prepared.occupancy[2 * 4 + 3], occupancy_kind::SMUDGE);
+    assert_eq!(prepared.passable[1 * 4 + 1], 0);
+    assert_eq!(prepared.passable[1 * 4 + 2], 0);
+    assert_eq!(prepared.passable[2 * 4 + 1], 0);
+    assert_eq!(prepared.passable[2 * 4 + 2], 0);
+    assert_eq!(prepared.passable[0], 0);
+    assert_eq!(prepared.passable[2 * 4 + 3], 1);
+}
