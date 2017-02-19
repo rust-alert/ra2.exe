@@ -43,7 +43,7 @@ pub fn flush_pending_team_spawns(world: &mut BattleState) {
     let forces = world.prepared.task_forces.clone();
     let waypoints = world.prepared.definition.waypoints.clone();
     for team_id in pending {
-        let Some(team) = teams.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&team_id))
+        let Some(team) = teams.iter().find(|t| t.id == team_id)
         else {
             continue;
         };
@@ -335,12 +335,11 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
 }
 
 /// 销毁指定 `TeamType`：取消排队产队，并击杀已生成实例、移出脚本队表。
-pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: &str) {
-    world.trigger_runtime.pending_team_spawns.retain(|id| !id.eq_ignore_ascii_case(team_id));
-    let team_tid = world.prepared.team_types.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(team_id)).map(|t| t.id);
+pub(crate) fn destroy_team_type(world: &mut BattleState, team_id: TeamTypeId) {
+    world.trigger_runtime.pending_team_spawns.retain(|id| *id != team_id);
     let mut kill = Vec::new();
     world.script_team_runtime.active.retain(|team| {
-        let matched = team_tid.is_some_and(|id| team.team_type_id == id);
+        let matched = team.team_type_id == team_id;
         if matched {
             kill.extend(team.members.iter().copied());
             false

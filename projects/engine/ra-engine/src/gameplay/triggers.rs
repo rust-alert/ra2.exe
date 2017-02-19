@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
-use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger};
+use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger, TeamTypeId};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -34,8 +34,8 @@ pub struct TriggerRuntime {
     states: Vec<TriggerRuntimeState>,
     /// 未实现动作码（去重后供能力缺口报告）。
     pub unsupported_actions: Vec<i32>,
-    /// 待创建的 TeamType id（由 Create Team 动作排队）。
-    pub pending_team_spawns: Vec<String>,
+    /// 待创建的 TeamType 稳定 id（由 Create Team 动作排队）。
+    pub pending_team_spawns: Vec<TeamTypeId>,
     /// 本 tick 请求的剧本胜负（由 BattleSession 消费）。
     pub pending_outcome: Option<BattleOutcome>,
     /// 胜利阻塞层数：开局等于含 `Allow Win` 动作的触发条数；归零后 `Win` 才生效。
@@ -469,19 +469,16 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             }
         }
         MapActionKind::CreateTeam | MapActionKind::Reinforcement | MapActionKind::ReinforcementAtWaypoint => {
-            if let Some(team) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty()) {
-                world.trigger_runtime.pending_team_spawns.push(team.to_string());
-            }
-            else if let Some(team) = cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
-                world.trigger_runtime.pending_team_spawns.push(team.to_string());
+            if let Some(team_id) = resolve_action_team_type_id(world, cmd) {
+                world.trigger_runtime.pending_team_spawns.push(team_id);
             }
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
         MapActionKind::DestroyTeam => {
-            if let Some(team) = action_team_id_param(cmd) {
-                super::script_teams::destroy_team_type(world, &team);
+            if let Some(team_id) = resolve_action_team_type_id(world, cmd) {
+                super::script_teams::destroy_team_type(world, team_id);
             }
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
@@ -1032,12 +1029,18 @@ fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
     None
 }
 
-/// Create Team / Destroy Team / Reinforcement：TeamType id（通常在 `params[1]`）。
+/// Create Team / Destroy Team / Reinforcement：TeamType 键名（通常在 `params[1]`）。
 fn action_team_id_param(cmd: &MapActionCommand) -> Option<String> {
     if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
         return Some(id.to_string());
     }
     cmd.params.first().map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()).map(|s| s.to_string())
+}
+
+/// 将动作参数中的 TeamType 键名解析为 [`TeamTypeId`]；未知则 `None`。
+fn resolve_action_team_type_id(world: &BattleState, cmd: &MapActionCommand) -> Option<TeamTypeId> {
+    let name = action_team_id_param(cmd)?;
+    world.prepared.team_types.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&name)).map(|t| t.id)
 }
 
 /// Destroy Tag：Tag id（通常在 `params[1]`）。

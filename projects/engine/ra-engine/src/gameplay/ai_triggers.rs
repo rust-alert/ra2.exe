@@ -72,7 +72,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         else {
             continue;
         };
-        world.trigger_runtime.pending_team_spawns.push(team.name.as_str().to_string());
+        world.trigger_runtime.pending_team_spawns.push(team.id);
         *rem = AI_TRIGGER_COOLDOWN_TICKS;
     }
 }
