@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
-use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger, TagId, TeamTypeId};
+use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger, TagId, TeamTypeId, TriggerId};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -19,7 +19,7 @@ use crate::{
 /// 单条触发器运行时状态。
 #[derive(Debug, Clone)]
 struct TriggerRuntimeState {
-    id: String,
+    id: TriggerId,
     disabled: bool,
     fired: bool,
     /// `MapEventKind::TimeElapse` 倒计时（tick）；`None` 表示本触发无计时条件。
@@ -77,7 +77,7 @@ impl TriggerRuntime {
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
             states.push(TriggerRuntimeState {
-                id: tr.name.as_str().to_string(),
+                id: tr.id,
                 disabled: tr.disabled,
                 fired: false,
                 timer_remaining,
@@ -113,37 +113,32 @@ pub fn tick_triggers(world: &mut BattleState) {
         return;
     }
 
-    let name_by_tid: HashMap<_, _> = world.prepared.triggers.iter().map(|t| (t.id, t.name.as_str().to_string())).collect();
-    let events_by_id: HashMap<String, Vec<MapEventCondition>> = world
+    let events_by_id: HashMap<TriggerId, Vec<MapEventCondition>> = world
         .prepared
         .events
         .iter()
-        .filter_map(|e| {
-            name_by_tid.get(&e.trigger_id).map(|name| {
-                (
-                    name.clone(),
-                    e.conditions
-                        .iter()
-                        .map(|c| MapEventCondition { kind: MapEventKind::from_code(c.kind_code), params: c.params.clone() })
-                        .collect(),
-                )
-            })
+        .map(|e| {
+            (
+                e.trigger_id,
+                e.conditions
+                    .iter()
+                    .map(|c| MapEventCondition { kind: MapEventKind::from_code(c.kind_code), params: c.params.clone() })
+                    .collect(),
+            )
         })
         .collect();
-    let actions_by_id: HashMap<String, Vec<MapActionCommand>> = world
+    let actions_by_id: HashMap<TriggerId, Vec<MapActionCommand>> = world
         .prepared
         .actions
         .iter()
-        .filter_map(|a| {
-            name_by_tid.get(&a.trigger_id).map(|name| {
-                (
-                    name.clone(),
-                    a.commands
-                        .iter()
-                        .map(|c| MapActionCommand { kind: MapActionKind::from_code(c.kind_code), params: c.params.clone() })
-                        .collect(),
-                )
-            })
+        .map(|a| {
+            (
+                a.trigger_id,
+                a.commands
+                    .iter()
+                    .map(|c| MapActionCommand { kind: MapActionKind::from_code(c.kind_code), params: c.params.clone() })
+                    .collect(),
+            )
         })
         .collect();
     let local_house = world.players.iter().find(|p| p.id == world.local_player).map(|p| p.house.clone()).unwrap_or_default();
@@ -160,7 +155,7 @@ pub fn tick_triggers(world: &mut BattleState) {
         }
     }
 
-    let mut to_fire: Vec<String> = Vec::new();
+    let mut to_fire: Vec<TriggerId> = Vec::new();
     for st in &world.trigger_runtime.states {
         if st.disabled || st.fired {
             continue;
@@ -170,7 +165,7 @@ pub fn tick_triggers(world: &mut BattleState) {
             continue;
         };
         if event_conditions_met(world, st, conditions, &local_house) {
-            to_fire.push(st.id.clone());
+            to_fire.push(st.id);
         }
     }
 
@@ -183,7 +178,7 @@ pub fn tick_triggers(world: &mut BattleState) {
             continue;
         };
         for cmd in commands {
-            apply_action(world, &id, cmd, &local_house);
+            apply_action(world, id, cmd, &local_house);
             if world.trigger_runtime.pending_outcome.is_some() {
                 return;
             }
@@ -202,7 +197,7 @@ fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCond
     match c.kind {
         MapEventKind::TimeElapse => st.timer_remaining == Some(0),
         MapEventKind::DestroyedByAnybody | MapEventKind::DestroyedByAnything => {
-            let bound_tags = tags_for_trigger(world, &st.id);
+            let bound_tags = tags_for_trigger(world, st.id);
             if bound_tags.is_empty() {
                 return false;
             }
@@ -221,7 +216,7 @@ fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCond
             !any_living_of_house(world, &house, HouseAliveFilter::All)
         }
         MapEventKind::EnteredBy => {
-            let bound_tags = tags_for_trigger(world, &st.id);
+            let bound_tags = tags_for_trigger(world, st.id);
             if bound_tags.is_empty() {
                 return false;
             }
@@ -232,7 +227,7 @@ fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCond
             else {
                 return false;
             };
-            let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
+            let house = trigger_owner_house(world, st.id).unwrap_or_else(|| local_house.to_string());
             house_funds(world, &house) >= threshold as i32
         }
         MapEventKind::CreditsBelow => {
@@ -240,7 +235,7 @@ fn condition_met(world: &BattleState, st: &TriggerRuntimeState, c: &MapEventCond
             else {
                 return false;
             };
-            let house = trigger_owner_house(world, &st.id).unwrap_or_else(|| local_house.to_string());
+            let house = trigger_owner_house(world, st.id).unwrap_or_else(|| local_house.to_string());
             house_funds(world, &house) < threshold as i32
         }
         MapEventKind::LowPower => {
@@ -319,12 +314,8 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
     false
 }
 
-fn tags_for_trigger(world: &BattleState, trigger_id: &str) -> HashSet<TagId> {
-    let Some(tid) = world.prepared.triggers.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(trigger_id)).map(|t| t.id)
-    else {
-        return HashSet::new();
-    };
-    world.prepared.tags.iter().filter(|t| t.trigger_id == tid).map(|t| t.id).collect()
+fn tags_for_trigger(world: &BattleState, trigger_id: TriggerId) -> HashSet<TagId> {
+    world.prepared.tags.iter().filter(|t| t.trigger_id == trigger_id).map(|t| t.id).collect()
 }
 
 /// 统计已绑定动作表中含 `Allow Win` 的触发条数（每条贡献一层胜利阻塞）。
@@ -336,13 +327,8 @@ fn count_allow_win_actions(actions: &[PreparedAction]) -> u32 {
 }
 
 /// 查找触发器所属 house（优先 [`PreparedTrigger.house`](PreparedTrigger) 稳定 id）。
-fn trigger_owner_house(world: &BattleState, trigger_id: &str) -> Option<String> {
-    let house_id = world
-        .prepared
-        .triggers
-        .iter()
-        .find(|t| t.name.as_str().eq_ignore_ascii_case(trigger_id))
-        .map(|t| t.house)?;
+fn trigger_owner_house(world: &BattleState, trigger_id: TriggerId) -> Option<String> {
+    let house_id = world.prepared.triggers.iter().find(|t| t.id == trigger_id).map(|t| t.house)?;
     world.definitions.houses.get_by_id(house_id).map(|h| h.type_key.as_str().to_string()).filter(|h| !h.is_empty())
 }
 
@@ -416,7 +402,7 @@ fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<TagId>, house
     false
 }
 
-fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionCommand, local_house: &str) {
+fn apply_action(world: &mut BattleState, trigger_id: TriggerId, cmd: &MapActionCommand, local_house: &str) {
     match cmd.kind {
         MapActionKind::Unknown(_) => {
             world.trigger_runtime.record_unsupported(cmd.kind);
@@ -498,8 +484,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             all_house_units_hunt(world, &house);
         }
         MapActionKind::DestroyTrigger => {
-            if let Some(id) = action_trigger_id_param(cmd) {
-                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+            if let Some(id) = resolve_action_trigger_id(world, cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == id) {
                     st.disabled = true;
                     st.fired = true;
                 }
@@ -556,22 +542,22 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             destroy_house_entities(world, &house, DestroyHouseFilter::LandUnits);
         }
         MapActionKind::ForceTrigger => {
-            if let Some(id) = action_trigger_id_param(cmd) {
-                force_fire_trigger(world, &id, local_house);
+            if let Some(id) = resolve_action_trigger_id(world, cmd) {
+                force_fire_trigger(world, id, local_house);
             }
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
             }
         }
         MapActionKind::TimerStart => {
-            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
-            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+            let target = resolve_action_trigger_id(world, cmd).unwrap_or(trigger_id);
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == target) {
                 st.timer_paused = false;
             }
         }
         MapActionKind::TimerStop => {
-            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
-            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+            let target = resolve_action_trigger_id(world, cmd).unwrap_or(trigger_id);
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == target) {
                 st.timer_paused = true;
             }
         }
@@ -581,8 +567,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
                 return;
             };
-            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
-            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+            let target = resolve_action_trigger_id(world, cmd).unwrap_or(trigger_id);
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == target) {
                 let cur = st.timer_remaining.unwrap_or(0);
                 st.timer_remaining = Some(cur.saturating_add(ticks));
                 st.fired = false;
@@ -595,8 +581,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 world.trigger_runtime.record_unsupported(cmd.kind);
                 return;
             };
-            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
-            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+            let target = resolve_action_trigger_id(world, cmd).unwrap_or(trigger_id);
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == target) {
                 let cur = st.timer_remaining.unwrap_or(0);
                 st.timer_remaining = Some(cur.saturating_sub(ticks));
                 st.fired = false;
@@ -610,8 +596,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
                 return;
             };
             // 目标触发：参数中的 Trigger id；缺省则作用于本触发。
-            let target = action_trigger_id_param(cmd).unwrap_or_else(|| trigger_id.to_string());
-            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&target)) {
+            let target = resolve_action_trigger_id(world, cmd).unwrap_or(trigger_id);
+            if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == target) {
                 st.timer_remaining = Some(ticks);
                 st.timer_paused = false;
                 st.fired = false;
@@ -619,8 +605,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             }
         }
         MapActionKind::EnableTrigger => {
-            if let Some(id) = action_trigger_id_param(cmd) {
-                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+            if let Some(id) = resolve_action_trigger_id(world, cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == id) {
                     st.disabled = false;
                 }
             }
@@ -629,8 +615,8 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             }
         }
         MapActionKind::DisableTrigger => {
-            if let Some(id) = action_trigger_id_param(cmd) {
-                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(&id)) {
+            if let Some(id) = resolve_action_trigger_id(world, cmd) {
+                if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == id) {
                     st.disabled = true;
                 }
             }
@@ -681,7 +667,7 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
 }
 
 /// 将绑定到本触发 Tag 的存活实体改属 `new_house`。
-fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_house: &str) {
+fn change_attached_objects_house(world: &mut BattleState, trigger_id: TriggerId, new_house: &str) {
     world.ensure_house(new_house);
     let bound = tags_for_trigger(world, trigger_id);
     if bound.is_empty() {
@@ -769,7 +755,7 @@ fn destroy_house_entities(world: &mut BattleState, house: &str, filter: DestroyH
 }
 
 /// 摧毁绑定到本触发 Tag 的存活实体。
-fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
+fn destroy_attached_objects(world: &mut BattleState, trigger_id: TriggerId) {
     let bound = tags_for_trigger(world, trigger_id);
     if bound.is_empty() {
         return;
@@ -883,16 +869,27 @@ fn nearest_hostile_from(world: &BattleState, house: &str, cx: u16, cy: u16) -> O
 }
 
 /// 强制执行目标触发的 Actions（跳过 Events；已触发过则忽略，避免环）。
-fn force_fire_trigger(world: &mut BattleState, id: &str, local_house: &str) {
-    let already = world.trigger_runtime.states.iter().find(|s| s.id.eq_ignore_ascii_case(id)).map(|s| s.fired).unwrap_or(true);
+fn force_fire_trigger(world: &mut BattleState, id: TriggerId, local_house: &str) {
+    let already = world.trigger_runtime.states.iter().find(|s| s.id == id).map(|s| s.fired).unwrap_or(true);
     if already {
         return;
     }
-    if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id.eq_ignore_ascii_case(id)) {
+    if let Some(st) = world.trigger_runtime.states.iter_mut().find(|s| s.id == id) {
         st.disabled = false;
         st.fired = true;
     }
-    let commands = world.map.scripting.actions.iter().find(|a| a.id.eq_ignore_ascii_case(id)).map(|a| a.commands.clone()).unwrap_or_default();
+    let commands: Vec<MapActionCommand> = world
+        .prepared
+        .actions
+        .iter()
+        .find(|a| a.trigger_id == id)
+        .map(|a| {
+            a.commands
+                .iter()
+                .map(|c| MapActionCommand { kind: MapActionKind::from_code(c.kind_code), params: c.params.clone() })
+                .collect()
+        })
+        .unwrap_or_default();
     for cmd in &commands {
         apply_action(world, id, cmd, local_house);
         if world.trigger_runtime.pending_outcome.is_some() {
@@ -1013,7 +1010,7 @@ pub fn tick_script_crates(world: &mut BattleState) {
 }
 
 fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
-    // 常见写法：params[1] 为 Trigger id（与 Create Team 槽位一致）。
+    // 常见写法：params[1] 为 Trigger 键名（与 Create Team 槽位一致）。
     if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
         return Some(id.to_string());
     }
@@ -1025,6 +1022,12 @@ fn action_trigger_id_param(cmd: &MapActionCommand) -> Option<String> {
         return Some(t.to_string());
     }
     None
+}
+
+/// 将动作参数中的 Trigger 键名解析为 [`TriggerId`]；未知则 `None`。
+fn resolve_action_trigger_id(world: &BattleState, cmd: &MapActionCommand) -> Option<TriggerId> {
+    let name = action_trigger_id_param(cmd)?;
+    world.prepared.triggers.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&name)).map(|t| t.id)
 }
 
 /// Create Team / Destroy Team / Reinforcement：TeamType 键名（通常在 `params[1]`）。
