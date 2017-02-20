@@ -287,7 +287,7 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
         .or_else(|| waypoints.first().map(|w| (w.x, w.y)))
         .unwrap_or((1, 1));
 
-    let tag_name = team.tag.and_then(|id| world.prepared.tags.iter().find(|t| t.id == id).map(|t| t.name.clone()));
+    let tag_id = team.tag;
 
     let mut members = Vec::new();
     let mut ox = 0i32;
@@ -309,9 +309,9 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
                 }
             };
             if let Some(id) = spawned {
-                if let Some(tag) = tag_name.clone() {
+                if let Some(tag) = tag_id {
                     let _ = world.with_identity_mut(id, |identity| {
-                        identity.tag = tag;
+                        identity.tag = Some(tag);
                     });
                 }
                 members.push(id);

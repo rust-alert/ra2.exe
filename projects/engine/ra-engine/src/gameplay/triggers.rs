@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ra_map::{MapActionCommand, MapActionKind, MapEntityKind, MapEventCondition, MapEventKind};
-use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger, TeamTypeId};
+use ra_types::{EntityId, PreparedAction, PreparedEvent, PreparedTrigger, TagId, TeamTypeId};
 
 use crate::{
     game::{BattleOutcome, GameCommand},
@@ -319,12 +319,12 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
     false
 }
 
-fn tags_for_trigger(world: &BattleState, trigger_id: &str) -> HashSet<String> {
+fn tags_for_trigger(world: &BattleState, trigger_id: &str) -> HashSet<TagId> {
     let Some(tid) = world.prepared.triggers.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(trigger_id)).map(|t| t.id)
     else {
         return HashSet::new();
     };
-    world.prepared.tags.iter().filter(|t| t.trigger_id == tid).map(|t| t.name.as_str().to_string()).collect()
+    world.prepared.tags.iter().filter(|t| t.trigger_id == tid).map(|t| t.id).collect()
 }
 
 /// 统计已绑定动作表中含 `Allow Win` 的触发条数（每条贡献一层胜利阻塞）。
@@ -370,7 +370,7 @@ fn set_houses_allied(world: &mut BattleState, a: &str, b: &str, allied: bool) {
     world.rehash();
 }
 
-fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
+fn any_living_with_tags(world: &BattleState, tags: &HashSet<TagId>) -> bool {
     for e in &world.entities {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -380,18 +380,16 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<String>) -> bool {
         else {
             continue;
         };
-        if !identity.tag.is_empty() && tags.contains(identity.tag.as_str()) {
+        if identity.tag.is_some_and(|tag| tags.contains(&tag)) {
             return true;
         }
     }
     false
 }
 
-fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<String>, house: &str) -> bool {
-    let bound_ids: HashSet<_> =
-        world.prepared.tags.iter().filter(|t| bound_tags.contains(t.name.as_str())).map(|t| t.id).collect();
+fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<TagId>, house: &str) -> bool {
     let cells: Vec<(u16, u16)> =
-        world.prepared.cell_tags.iter().filter(|c| bound_ids.contains(&c.tag)).map(|c| (c.x, c.y)).collect();
+        world.prepared.cell_tags.iter().filter(|c| bound_tags.contains(&c.tag)).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }
@@ -488,12 +486,12 @@ fn apply_action(world: &mut BattleState, trigger_id: &str, cmd: &MapActionComman
             destroy_attached_objects(world, trigger_id);
         }
         MapActionKind::DestroyTag => {
-            let Some(tag_id) = action_tag_id_param(cmd)
+            let Some(tag_id) = resolve_action_tag_id(world, cmd)
             else {
                 world.trigger_runtime.record_unsupported(cmd.kind);
                 return;
             };
-            destroy_entities_with_tag(world, &tag_id);
+            destroy_entities_with_tag(world, tag_id);
         }
         MapActionKind::AllToHunt => {
             let house = action_house_param(cmd).unwrap_or_else(|| local_house.to_string());
@@ -697,7 +695,7 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: &str, new_
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(identity.tag.as_str())).unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| identity.tag.is_some_and(|tag| bound.contains(&tag))).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -784,7 +782,7 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Identity>(id).map(|identity| !identity.tag.is_empty() && bound.contains(identity.tag.as_str())).unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| identity.tag.is_some_and(|tag| bound.contains(&tag))).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -793,8 +791,8 @@ fn destroy_attached_objects(world: &mut BattleState, trigger_id: &str) {
     }
 }
 
-/// 摧毁带有指定 Tag id 的全部存活实体。
-fn destroy_entities_with_tag(world: &mut BattleState, tag_id: &str) {
+/// 摧毁带有指定 Tag 稳定 id 的全部存活实体。
+fn destroy_entities_with_tag(world: &mut BattleState, tag_id: TagId) {
     let ids: Vec<_> = world
         .entities
         .iter()
@@ -803,7 +801,7 @@ fn destroy_entities_with_tag(world: &mut BattleState, tag_id: &str) {
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Identity>(id).map(|identity| identity.tag.eq_ignore_ascii_case(tag_id)).unwrap_or(false)
+            world.ecs_get::<Identity>(id).map(|identity| identity.tag == Some(tag_id)).unwrap_or(false)
         })
         .collect();
     for id in ids {
@@ -1043,9 +1041,15 @@ fn resolve_action_team_type_id(world: &BattleState, cmd: &MapActionCommand) -> O
     world.prepared.team_types.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&name)).map(|t| t.id)
 }
 
-/// Destroy Tag：Tag id（通常在 `params[1]`）。
+/// Destroy Tag：Tag 键名（通常在 `params[1]`）。
 fn action_tag_id_param(cmd: &MapActionCommand) -> Option<String> {
     action_team_id_param(cmd)
+}
+
+/// 将动作参数中的 Tag 键名解析为 [`TagId`]；未知则 `None`。
+fn resolve_action_tag_id(world: &BattleState, cmd: &MapActionCommand) -> Option<TagId> {
+    let name = action_tag_id_param(cmd)?;
+    world.prepared.tags.iter().find(|t| t.name.as_str().eq_ignore_ascii_case(&name)).map(|t| t.id)
 }
 
 /// 从动作参数中取 Timer Set 的 tick 数。
