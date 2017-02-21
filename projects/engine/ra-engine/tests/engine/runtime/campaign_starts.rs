@@ -10,9 +10,10 @@ const RULES_INI: &str = "rules.ini";
 
 fn mcv_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
     defs_from_rules_ini(
-        b"[Countries]\n0=Americans\n1=Russians\n\
+        b"[Countries]\n0=Americans\n1=Russians\n2=France\n\
 [Americans]\nSide=GDI\n\
 [Russians]\nSide=Nod\n\
+[France]\nSide=GDI\n\
 [InfantryTypes]\n0=E1\n\
 [VehicleTypes]\n0=AMCV\n1=SMCV\n2=HTNK\n\
 [BuildingTypes]\n0=GACNST\n1=NACNST\n\

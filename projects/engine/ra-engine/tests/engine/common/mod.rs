@@ -9,11 +9,12 @@ use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
 
 /// 测试夹具缺 `[Countries]` 时注入常用国家，便于地图 Owner 绑定到稳定 `HouseId`。
-const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=Soviets\n3=Alliance\n\
+const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=Soviets\n3=Alliance\n4=France\n\
 [Americans]\nSide=GDI\n\
 [Russians]\nSide=Nod\n\
 [Soviets]\nSide=Nod\n\
-[Alliance]\nSide=GDI\n";
+[Alliance]\nSide=GDI\n\
+[France]\nSide=GDI\n";
 
 /// 内联 rules → 冻结定义；无 `[Countries]` 时自动补美俄。
 pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
