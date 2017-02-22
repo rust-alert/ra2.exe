@@ -48,6 +48,10 @@ pub struct ScriptTypeId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct TeamTypeId(pub u32);
 
+/// 地图 AITrigger 定义编号（绑定自 `[AITriggerTypes]`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct AiTriggerId(pub u32);
+
 /// 对局会话编号（壳层 / 联机标识，非 tick）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct SessionId(pub u64);

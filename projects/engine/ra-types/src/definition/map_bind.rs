@@ -7,7 +7,7 @@ use crate::{
     MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent,
     PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry,
     PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, TagId,
-    TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
+    TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, AiTriggerId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -268,6 +268,7 @@ pub fn bind_map_ai_triggers(
 ) -> RaResult<Vec<PreparedAiTrigger>> {
     let team_by_name: HashMap<&str, TeamTypeId> = teams.iter().map(|t| (t.name.as_str(), t.id)).collect();
     let mut out = Vec::with_capacity(triggers.len());
+    let mut next = 1u32;
     for trigger in triggers {
         if trigger.id.is_empty() {
             continue;
@@ -286,7 +287,10 @@ pub fn bind_map_ai_triggers(
         else {
             Some(bind_house_id(defs, &trigger.owner_house, &format!("MapAiTrigger:{}", trigger.id.as_str()))?)
         };
+        let id = AiTriggerId(next);
+        next = next.saturating_add(1);
         out.push(PreparedAiTrigger {
+            id,
             name: trigger.id.clone(),
             editor_name: trigger.name.clone(),
             team,

@@ -1808,6 +1808,8 @@ pub struct PreparedTeamType {
 /// 地图 `[AITriggerTypes]` 绑定后的运行形状。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedAiTrigger {
+    /// AITrigger 稳定 id。
+    pub id: crate::AiTriggerId,
     /// AITrigger 键名（装载期大写）。
     pub name: AiTriggerName,
     /// 显示名。

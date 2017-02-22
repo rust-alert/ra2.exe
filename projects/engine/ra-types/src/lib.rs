@@ -44,8 +44,8 @@ pub use display_mode::DisplayMode;
 pub use edition::GameEdition;
 pub use error::{RaError, RaResult};
 pub use id::{
-    EntityId, HouseId, LocomotorId, PlayerId, ProjectileId, ScriptTypeId, SessionId, TagId, TaskForceId, TeamTypeId, TriggerId, TypeId,
-    WarheadId, WeaponId,
+    AiTriggerId, EntityId, HouseId, LocomotorId, PlayerId, ProjectileId, ScriptTypeId, SessionId, TagId, TaskForceId, TeamTypeId, TriggerId,
+    TypeId, WarheadId, WeaponId,
 };
 pub use math::{Cell, Distance, Facing, Fixed, Fixed16, SubCell};
 pub use present_feel::{PresentFeel, PresentMode, PresentQuantize};

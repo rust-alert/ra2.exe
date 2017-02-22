@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_types::HouseId;
+use ra_types::{AiTriggerId, HouseId};
 
 use crate::state::BattleState;
 
@@ -14,8 +14,8 @@ const AI_TRIGGER_COOLDOWN_TICKS: u32 = 90;
 pub struct AiTriggerRuntime {
     /// 全局开关（`AI triggers begin/stop` 可改；默认开）。
     pub enabled: bool,
-    /// 各 AITrigger id → 剩余冷却 tick。
-    cooldowns: HashMap<String, u32>,
+    /// 各 AITrigger 稳定 id → 剩余冷却 tick。
+    cooldowns: HashMap<AiTriggerId, u32>,
     /// 按 house 禁用（`AI triggers stop`）；缺省未列入则允许。
     disabled_houses: Vec<HouseId>,
 }
@@ -64,7 +64,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
                 continue;
             }
         }
-        let rem = world.ai_trigger_runtime.cooldowns.entry(at.name.as_str().to_string()).or_insert(0);
+        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id).or_insert(0);
         if *rem > 0 {
             continue;
         }
