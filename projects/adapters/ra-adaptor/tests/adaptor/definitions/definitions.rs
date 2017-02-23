@@ -828,6 +828,95 @@ fn bind_map_task_forces_rejects_unknown_techno() {
 }
 
 #[test]
+fn bind_map_ai_triggers_assigns_stable_ids() {
+    let rules = rules_from(
+        b"[Countries]\n0=Russians\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=100\nOwner=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("task forces");
+    let teams = ra_types::bind_map_team_types(
+        &[ra_types::MapTeamType {
+            id: "TM1".into(),
+            name: "Team".into(),
+            house: "Russians".into(),
+            script: ra_types::ScriptTypeName::default(),
+            task_force: "TF1".into(),
+            tag: ra_types::TagName::default(),
+            waypoint: -1,
+            max: 1,
+            priority: 0,
+            veteran_level: 0,
+        }],
+        &defs,
+        &[],
+        &forces,
+        &[],
+    )
+    .expect("team types");
+    let triggers = ra_types::bind_map_ai_triggers(
+        &[
+            ra_types::MapAiTrigger {
+                id: "AI1".into(),
+                name: "First".into(),
+                team: "TM1".into(),
+                owner_house: "Russians".into(),
+                tech_level: 1,
+            },
+            ra_types::MapAiTrigger {
+                id: "AI2".into(),
+                name: "Second".into(),
+                team: "TM1".into(),
+                owner_house: ra_types::HouseName::default(),
+                tech_level: 0,
+            },
+        ],
+        &defs,
+        &teams,
+    )
+    .expect("ai triggers");
+    assert_eq!(triggers.len(), 2);
+    assert_eq!(triggers[0].id, ra_types::AiTriggerId(1));
+    assert_eq!(triggers[1].id, ra_types::AiTriggerId(2));
+    assert_ne!(triggers[0].id, triggers[1].id);
+    assert_eq!(triggers[0].team, teams[0].id);
+    assert_eq!(triggers[0].owner_house, Some(defs.houses.get("Russians").expect("Russians").id));
+    assert_eq!(triggers[1].owner_house, None);
+}
+
+#[test]
+fn bind_map_ai_triggers_rejects_unknown_team() {
+    let rules = rules_from(b"[Countries]\n0=Russians\n[Russians]\nSide=Nod\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let err = ra_types::bind_map_ai_triggers(
+        &[ra_types::MapAiTrigger {
+            id: "AI1".into(),
+            name: "Broken".into(),
+            team: "MISSING".into(),
+            owner_house: "Russians".into(),
+            tech_level: 0,
+        }],
+        &defs,
+        &[],
+    )
+    .expect_err("unknown team");
+    let msg = err.to_string();
+    assert!(msg.contains("team_type"), "{msg}");
+    assert!(msg.contains("MISSING"), "{msg}");
+}
+
+#[test]
 fn bind_map_triggers_rejects_unknown_linked() {
     let rules = rules_from(b"[Countries]\n0=Americans\n[Americans]\nSide=GDI\n");
     let defs = build_runtime_definitions(&rules).expect("freeze");
