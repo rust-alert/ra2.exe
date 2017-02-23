@@ -78,6 +78,12 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(15);
             b.extend_from_slice(&entity.0.to_be_bytes());
         }
+        GameCommand::AttackMove { entity, x, y } => {
+            b.push(16);
+            b.extend_from_slice(&entity.0.to_be_bytes());
+            b.extend_from_slice(&x.to_be_bytes());
+            b.extend_from_slice(&y.to_be_bytes());
+        }
         GameCommand::SellBuilding { player, building } => {
             b.push(11);
             b.push(player.0);
@@ -208,6 +214,15 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             }
             let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
             Some(GameCommand::Stop { entity })
+        }
+        16 => {
+            if bytes.len() < 1 + 8 + 2 + 2 {
+                return None;
+            }
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let x = u16::from_be_bytes(bytes[9..11].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[11..13].try_into().ok()?);
+            Some(GameCommand::AttackMove { entity, x, y })
         }
         11 => {
             if bytes.len() < 1 + 1 + 8 {

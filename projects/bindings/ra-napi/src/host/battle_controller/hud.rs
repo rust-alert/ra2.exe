@@ -348,6 +348,11 @@ impl BattleController {
             tracing::info!(active = false, "命令条 · 路径点规划（已丢弃航点）");
             cleared = true;
         }
+        if self.attack_move_mode {
+            self.attack_move_mode = false;
+            tracing::info!(active = false, "命令条 · 攻击移动");
+            cleared = true;
+        }
         cleared
     }
 
@@ -369,6 +374,7 @@ impl BattleController {
             "Deploy" => self.deploy_selection(),
             "Guard" => self.guard_selection(),
             "Stop" => self.stop_selection(),
+            "AttackMove" => self.toggle_attack_move_mode(),
             "TypeSelect" => {
                 let pulse_tick = self.session.as_ref().and_then(|s| s.battle()).map(|game| {
                     let tick = game.world.tick;
@@ -392,6 +398,7 @@ impl BattleController {
                     self.place_mode = None;
                     self.repair_mode = false;
                     self.sell_mode = false;
+                    self.attack_move_mode = false;
                     tracing::info!(active = true, "命令条 · 路径点规划");
                 }
             }

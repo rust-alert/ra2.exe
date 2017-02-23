@@ -81,6 +81,23 @@ impl BattleController {
         }
     }
 
+    /// 切换攻击移动模式（命令条 AttackMove / 可选热键）。
+    pub(super) fn toggle_attack_move_mode(&mut self) {
+        if self.local.selected.is_empty() {
+            tracing::info!("攻击移动 · 无选中单位，忽略");
+            return;
+        }
+        self.place_mode = None;
+        self.repair_mode = false;
+        self.sell_mode = false;
+        if self.planning_mode {
+            self.planning_mode = false;
+            self.planning_waypoints.clear();
+        }
+        self.attack_move_mode = !self.attack_move_mode;
+        tracing::info!(active = self.attack_move_mode, "命令条 · 攻击移动");
+    }
+
     /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
     pub(super) fn resolve_deploy_watch(&mut self) {
         let Some(id) = self.deploy_watch

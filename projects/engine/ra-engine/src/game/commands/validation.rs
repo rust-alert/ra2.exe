@@ -745,6 +745,42 @@ impl crate::state::BattleState {
                     });
                     self.mark_entity_dirty(id);
                 }
+                GameCommand::AttackMove { entity, x, y } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission = "AttackMove".into();
+                    });
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.destination_x = Some(x);
+                        movement.destination_y = Some(y);
+                        movement.waypoints.clear();
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(entity_index);
+                }
                 GameCommand::SellBuilding { player, building } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);

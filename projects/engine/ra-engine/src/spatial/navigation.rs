@@ -248,6 +248,13 @@ impl crate::state::BattleState {
                         false
                     }
                 });
+                if advance == Some(false) {
+                    let _ = self.with_identity_mut(id, |identity| {
+                        if identity.mission.as_ref().eq_ignore_ascii_case("AttackMove") {
+                            identity.mission = ra_types::MissionName::default();
+                        }
+                    });
+                }
                 if advance == Some(true) {
                     self.repath_entity_at(i);
                 }

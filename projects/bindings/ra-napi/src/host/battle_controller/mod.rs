@@ -108,6 +108,8 @@ pub struct BattleController {
     pub(super) sell_mode: bool,
     /// 命令条路径点规划模式（激活时命令条贴按下帧）。
     pub(super) planning_mode: bool,
+    /// 命令条攻击移动模式：下一次左键空地 / 敌方目标下发 `AttackMove` / `Attack`。
+    pub(super) attack_move_mode: bool,
     /// 规划中暂存的航点（关闭规划时对当前选中下发 `order_move_path`）。
     pub(super) planning_waypoints: Vec<(u16, u16)>,
     /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具+飞行器）。
@@ -270,6 +272,7 @@ impl BattleController {
             repair_mode: false,
             sell_mode: false,
             planning_mode: false,
+            attack_move_mode: false,
             planning_waypoints: Vec::new(),
             sidebar_tab: 0,
             cameo_scroll: 0,
@@ -432,6 +435,7 @@ impl BattleController {
         self.repair_mode = false;
         self.sell_mode = false;
         self.planning_mode = false;
+        self.attack_move_mode = false;
         self.planning_waypoints.clear();
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;

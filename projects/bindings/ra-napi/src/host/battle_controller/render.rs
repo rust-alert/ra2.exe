@@ -591,7 +591,15 @@ impl BattleController {
             produce_queue: queue.as_deref(),
             reject,
             command_pressed: self.command_pressed.or_else(|| {
-                if self.planning_mode { ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode") } else { None }
+                if self.planning_mode {
+                    ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "PlanningMode")
+                }
+                else if self.attack_move_mode {
+                    ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "AttackMove")
+                }
+                else {
+                    None
+                }
             }),
             command_hovered: self.command_hover,
             command_tip: tip_owned.as_deref(),

@@ -71,6 +71,8 @@ pub enum HotkeyAction {
     StructureTab,
     UnitTab,
     StopObject,
+    /// 攻击移动模式（命令条 / 可选 `keyboard.ini` 绑定）。
+    AttackMove,
     TypeSelect,
     PageUser,
     DefenseTab,
@@ -383,6 +385,7 @@ pub fn parse_hotkey_action(name: &str) -> Option<HotkeyAction> {
         "structuretab" => HotkeyAction::StructureTab,
         "unittab" => HotkeyAction::UnitTab,
         "stopobject" => HotkeyAction::StopObject,
+        "attackmove" => HotkeyAction::AttackMove,
         "typeselect" => HotkeyAction::TypeSelect,
         "pageuser" => HotkeyAction::PageUser,
         "defensetab" => HotkeyAction::DefenseTab,

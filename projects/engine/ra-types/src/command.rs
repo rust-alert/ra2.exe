@@ -36,6 +36,8 @@ pub enum CommandKind {
     Guard,
     /// 停止：清移动与攻击目标，并清空 `mission`。
     Stop,
+    /// 攻击移动：向目标格移动，途中自动接敌。
+    AttackMove,
     /// 出售己方建筑（侧栏出售工具）。
     SellBuilding,
     /// 切换己方建筑的持续修理（侧栏修理工具；对应原版扳手挂/摘修理）。
@@ -153,6 +155,15 @@ pub enum CommandBody {
         /// 实体稳定 ID。
         entity: EntityId,
     },
+    /// 攻击移动：向目标格移动，途中自动接敌（`mission=AttackMove`）。
+    AttackMove {
+        /// 实体稳定 ID。
+        entity: EntityId,
+        /// 目标格 X。
+        x: u16,
+        /// 目标格 Y。
+        y: u16,
+    },
     /// 出售己方建筑：退还约半价造价并移除建筑。
     SellBuilding {
         /// 出资并拥有该建筑的玩家。
@@ -196,6 +207,7 @@ impl CommandBody {
             Self::CaptureBuilding { .. } => CommandKind::CaptureBuilding,
             Self::Guard { .. } => CommandKind::Guard,
             Self::Stop { .. } => CommandKind::Stop,
+            Self::AttackMove { .. } => CommandKind::AttackMove,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
             Self::RepairBuilding { .. } => CommandKind::RepairBuilding,
             Self::FireSuperWeapon { .. } => CommandKind::FireSuperWeapon,
@@ -206,6 +218,7 @@ impl CommandBody {
     pub fn primary_target(&self) -> CommandTarget {
         match self {
             Self::MoveTo { x, y, .. }
+            | Self::AttackMove { x, y, .. }
             | Self::SetRallyPoint { x, y, .. }
             | Self::PlaceBuilding { x, y, .. }
             | Self::FireSuperWeapon { x, y, .. } => CommandTarget::Cell { x: *x, y: *y },

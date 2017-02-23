@@ -44,32 +44,55 @@ impl crate::state::BattleState {
             if attack.infiltrate_target.is_some() || attack.capture_target.is_some() {
                 continue;
             }
-            let Some(target_id) = attack.target
+            let attack_move = identity.mission.as_ref().eq_ignore_ascii_case("AttackMove");
+            let Some(target_id) = attack.target.or_else(|| {
+                if !attack_move {
+                    return None;
+                }
+                let range = self.ecs_get::<CombatStats>(attacker_id).map(|s| s.attack_range).unwrap_or(0);
+                self.nearest_hostile_in_range(attacker_id, range)
+            })
             else {
                 continue;
             };
+            if attack.target.is_none() {
+                let _ = self.with_attack_mut(attacker_id, |attack| {
+                    attack.target = Some(target_id);
+                });
+            }
             let Some(ti) = self.entity_index(target_id)
             else {
-                let _ = self.with_attack_mut(attacker_id, |attack| {
-                    attack.target = None;
-                });
+                self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
                 continue;
             };
             let target_dead = self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true);
             if target_dead || ti == i {
-                let _ = self.with_attack_mut(attacker_id, |attack| {
-                    attack.target = None;
-                });
+                self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
                 continue;
             }
-            // 追击：把移动目标钉在敌人当前格。
+            // 追击：把移动目标钉在敌人当前格；攻击移动时把原目的地压入航点以便战后续行。
             let Some(target_xf) = self.ecs_get::<Transform>(target_id).copied()
             else {
                 continue;
             };
             let _ = self.with_movement_mut(attacker_id, |movement| {
-                movement.destination_x = Some(target_xf.x);
-                movement.destination_y = Some(target_xf.y);
+                let dest_changed = movement.destination_x != Some(target_xf.x) || movement.destination_y != Some(target_xf.y);
+                if dest_changed {
+                    if attack_move {
+                        // 仅在首次改道接敌时压入最终目的地，追敌改格不再污染航点。
+                        if movement.waypoints.is_empty() {
+                            if let (Some(dx), Some(dy)) = (movement.destination_x, movement.destination_y) {
+                                if (dx, dy) != (target_xf.x, target_xf.y) {
+                                    movement.waypoints.push((dx, dy));
+                                }
+                            }
+                        }
+                    }
+                    movement.destination_x = Some(target_xf.x);
+                    movement.destination_y = Some(target_xf.y);
+                    movement.path.clear();
+                    movement.move_accum = 0;
+                }
             });
 
             let cooldown = self.ecs_get::<AttackState>(attacker_id).map(|a| a.cooldown).unwrap_or(0);
@@ -104,6 +127,73 @@ impl crate::state::BattleState {
         for (killer_house, ti, dmg) in damage_events {
             self.apply_damage_credited(ti, dmg, Some(killer_house.as_ref()));
         }
+    }
+
+    /// 清除攻击目标；若为攻击移动则立刻弹出航点续行最终目的地。
+    fn clear_attack_target_resume_attack_move(&mut self, attacker_id: ra_types::EntityId, attack_move: bool) {
+        let _ = self.with_attack_mut(attacker_id, |attack| {
+            attack.target = None;
+        });
+        if !attack_move {
+            return;
+        }
+        let resume = self.with_movement_mut(attacker_id, |movement| {
+            if let Some((nx, ny)) = movement.waypoints.first().copied() {
+                movement.waypoints.remove(0);
+                movement.destination_x = Some(nx);
+                movement.destination_y = Some(ny);
+                movement.path.clear();
+                movement.move_accum = 0;
+                true
+            }
+            else {
+                false
+            }
+        });
+        if resume == Some(true) {
+            if let Some(idx) = self.entity_index(attacker_id) {
+                self.repath_entity_at(idx);
+            }
+        }
+    }
+
+    /// 射程内最近的异阵营存活目标（机动单位或建筑）。
+    fn nearest_hostile_in_range(&self, from: ra_types::EntityId, range: u32) -> Option<ra_types::EntityId> {
+        if range == 0 {
+            return None;
+        }
+        if self.ecs_get::<Health>(from).map(|h| h.dead).unwrap_or(true) {
+            return None;
+        }
+        let owner = self.ecs_get::<crate::state::components::Owner>(from)?.house.clone();
+        let xf = self.ecs_get::<Transform>(from).copied()?;
+        self.entities
+            .iter()
+            .filter_map(|e| {
+                let id = e.id;
+                if id == from {
+                    return None;
+                }
+                if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                    return None;
+                }
+                let identity = self.ecs_get::<Identity>(id)?;
+                if !matches!(
+                    identity.kind,
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
+                ) {
+                    return None;
+                }
+                let other = self.ecs_get::<crate::state::components::Owner>(id)?;
+                if other.house == owner {
+                    return None;
+                }
+                let ox = self.ecs_get::<Transform>(id)?;
+                let dist = manhattan(xf.x, xf.y, ox.x, ox.y);
+                (dist <= range).then_some((dist, id))
+            })
+            .min_by_key(|(dist, _)| *dist)
+            .map(|(_, id)| id)
     }
 
     pub(crate) fn tick_hit_flash(&mut self) {
@@ -207,9 +297,11 @@ impl crate::state::BattleState {
             })
             .collect();
         for attacker_id in attackers {
-            let _ = self.with_attack_mut(attacker_id, |attack| {
-                attack.target = None;
-            });
+            let attack_move = self
+                .ecs_get::<Identity>(attacker_id)
+                .map(|identity| identity.mission.as_ref().eq_ignore_ascii_case("AttackMove"))
+                .unwrap_or(false);
+            self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
         }
         if kind == MapEntityKind::Structure {
             let foundation = self.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();

@@ -67,13 +67,23 @@ impl BattleController {
         // 可部署能力只影响命令条 Deploy / `D`，不因悬停已选单位自动切 Deploy 光标。
         // `order_deploy` 为就地即时命令，无独立 deploy_mode 时不应伪装部署指针。
 
-        // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
-        if selected.iter().any(|&id| {
+        let has_mobile = selected.iter().any(|&id| {
             game.world.ecs_identity(id).is_some_and(|(_, kind)| {
                 matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
             })
-        }) && game.pick_hostile_near_image(wx, wy, 72.0).is_some()
-        {
+        });
+
+        // 攻击移动模式：空地与敌方均显示攻击光标（右键取消模式）。
+        if self.attack_move_mode && has_mobile {
+            if game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
+                return BattlePointer::Attack;
+            }
+            let passable = game.world.pass_grid.in_bounds(cell.0, cell.1) && game.world.pass_grid.is_passable(cell.0, cell.1);
+            return if passable { BattlePointer::Attack } else { BattlePointer::NoMove };
+        }
+
+        // 已选机动单位时：异阵营目标用图像软命中（与左键攻击同口径）。
+        if has_mobile && game.pick_hostile_near_image(wx, wy, 72.0).is_some() {
             return BattlePointer::Attack;
         }
 
@@ -214,18 +224,26 @@ impl BattleController {
                         game.order_attack(&selected, target);
                     }
                 }
+                self.attack_move_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
         }
 
-        // 已选单位 / 建筑：左键空地 → 移动或设集结点。
+        // 已选单位 / 建筑：左键空地 → 移动、攻击移动或设集结点。
         if let Some(cell) = game.image_to_cell(wx, wy) {
             if has_mobile {
                 if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
-                    tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
-                    game.order_move(&selected, cell.0, cell.1);
+                    if self.attack_move_mode {
+                        tracing::info!("命令攻击移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                        game.order_attack_move(&selected, cell.0, cell.1);
+                    }
+                    else {
+                        tracing::info!("命令移动 → ({},{})（选中 {:?}）", cell.0, cell.1, selected);
+                        game.order_move(&selected, cell.0, cell.1);
+                    }
                 }
+                self.attack_move_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -637,6 +655,10 @@ impl BattleController {
             }
             HotkeyAction::StopObject => {
                 self.stop_selection();
+                BattleNav::None
+            }
+            HotkeyAction::AttackMove => {
+                self.toggle_attack_move_mode();
                 BattleNav::None
             }
             HotkeyAction::CombatantSelect => {
