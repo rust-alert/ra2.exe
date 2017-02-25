@@ -43,7 +43,7 @@ fn parse_walk_triple() {
 #[test]
 fn pose_slide_offset_is_added_to_blit_origin() {
     // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
-    let pose = MobilePaintPose { anim_frame: 0, moving: true, offset_x: 12, offset_y: -8 };
+    let pose = MobilePaintPose { anim_frame: 0, moving: true, offset_x: 12, offset_y: -8, turret_facing: None };
     let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
     blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
     blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);

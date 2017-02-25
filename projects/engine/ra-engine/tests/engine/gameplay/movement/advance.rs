@@ -6,6 +6,33 @@ use ra_map::{MapEntity, MapEntityKind, Waypoint};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
+fn faces_next_path_cell_before_leaving_current() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 128,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let id = world.entity_id_at(0).expect("entity");
+    assert!(world.set_ecs_speed(id, 32));
+    world.push_command(GameCommand::MoveTo { entity: EntityId(1), x: 12, y: 20 });
+    world.advance_tick();
+    // 半格进度：仍在 (10,20)，但车身应已朝向下一格 (11,20) → facing 0。
+    assert_eq!(world.ecs_transform(id).expect("xf"), (10, 20, 0));
+    assert!(world.ecs_move_accum(id).expect("accum") > 0);
+    assert!(!world.ecs_path(id).expect("path").is_empty());
+}
+
+#[test]
 fn advances_when_ordered_to_move() {
     let defs = defs_with_mtnk();
     let mut map = map_with_size();

@@ -260,6 +260,19 @@ impl crate::state::BattleState {
                 }
                 continue;
             }
+            // 尚无路径时先寻路，便于滑移开始前就朝向下一格。
+            if movement.path.is_empty() {
+                self.repath_entity_at(i);
+            }
+            if let Some((nx, ny)) = self.ecs_get::<MovementState>(id).and_then(|m| m.path.first().copied()) {
+                let desired = facing_toward(xf.x, xf.y, nx, ny);
+                if desired != xf.facing {
+                    let _ = self.with_transform_mut(id, |transform| {
+                        transform.facing = desired;
+                    });
+                    self.mark_entity_dirty(id);
+                }
+            }
             let _ = self.with_movement_mut(id, |movement| {
                 movement.move_accum = movement.move_accum.saturating_add(speed);
             });

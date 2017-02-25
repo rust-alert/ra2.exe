@@ -22,7 +22,13 @@ pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell
     else {
         (0, 0)
     };
-    MobilePaintPose { anim_frame, moving, offset_x, offset_y }
+    MobilePaintPose {
+        anim_frame,
+        moving,
+        offset_x,
+        offset_y,
+        turret_facing: game.world.ecs_turret_facing(id),
+    }
 }
 
 /// 沿路径用 `move_accum + speed * tick_fraction` 计算相对当前逻辑格的屏幕像素偏移。

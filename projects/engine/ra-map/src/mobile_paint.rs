@@ -116,6 +116,8 @@ pub struct MobilePaintPose {
     pub offset_x: i32,
     /// 相对当前格屏幕原点的垂直偏移（预览像素）。
     pub offset_y: i32,
+    /// 炮塔朝向覆盖；`None` 时与车身 `MapEntity.facing` 相同。
+    pub turret_facing: Option<u8>,
 }
 
 /// 步兵朝向槽表（零售 32 项），由 [`infantry_facing_slot`] 索引。
@@ -159,7 +161,7 @@ pub fn paint_map_mobiles(
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u16, HouseName), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u16, HouseName, u8, u8), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
@@ -171,7 +173,8 @@ pub fn paint_map_mobiles(
         let prefer_voxel = hint.prefer_voxel;
         let pose = pose_of(ent);
         let frame_index = resolve_mobile_shp_frame_from_hints(hint, ent, pose);
-        let cache_key = (image_key.clone(), frame_index, ent.owner.clone());
+        let turret_facing = pose.turret_facing.unwrap_or(ent.facing);
+        let cache_key = (image_key.clone(), frame_index, ent.owner.clone(), ent.facing, turret_facing);
         let tint = map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
@@ -184,12 +187,12 @@ pub fn paint_map_mobiles(
 
         let pal = remap_owner(&obj_pal, &ent.owner);
         let blit = if prefer_voxel {
-            load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing)
+            load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing)
                 .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
             load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
-                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, ent.facing))
+                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing))
         };
         if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
