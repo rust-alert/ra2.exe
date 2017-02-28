@@ -54,9 +54,9 @@ pub use map::{
     AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapDefinition, MapEvent, MapEventCondition,
     MapFileName, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep,
     MapScriptType, MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind,
-    MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap,
-    PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger,
-    ScriptTypeName, SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
+    MissionKind, MissionName, PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse,
+    PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType,
+    PreparedTrigger, ScriptTypeName, SmudgeName, TagName, TaskForceName, TeamTypeName, TerrainName, TriggerName, occupancy_kind,
 };
 pub use map_bind::{
     bind_map_actions, bind_map_ai_triggers, bind_map_cell_tags, bind_map_events, bind_map_houses, bind_map_placements, bind_map_script_types,

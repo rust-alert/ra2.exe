@@ -1737,8 +1737,23 @@ pub struct PreparedEvent {
 pub struct PreparedAction {
     /// 对齐的 Trigger 稳定 id。
     pub trigger_id: crate::TriggerId,
-    /// 动作列表（`kind_code` 为原版动作表整数码）。
-    pub commands: Vec<MapActionCommand>,
+    /// 动作列表（装载期已解析可绑定的 team / trigger / tag 引用）。
+    pub commands: Vec<PreparedActionCommand>,
+}
+
+/// 单条动作绑定后的运行形状。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedActionCommand {
+    /// 原版动作类型码。
+    pub kind_code: i32,
+    /// 七个参数槽（航点字母、房屋名等仍保留原文）。
+    pub params: [String; 7],
+    /// Create Team / Destroy Team / Reinforcement 解析出的 TeamType；缺参或空为 `None`。
+    pub team_id: Option<crate::TeamTypeId>,
+    /// Destroy / Force / Enable / Disable / Timer* 目标 Trigger；缺参为 `None`（运行时回退本触发）。
+    pub target_trigger_id: Option<crate::TriggerId>,
+    /// Destroy Tag 解析出的 Tag；缺参或空为 `None`。
+    pub tag_id: Option<crate::TagId>,
 }
 
 /// TaskForce 成员槽（稳定 techno id）。

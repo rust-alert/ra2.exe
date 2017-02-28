@@ -773,10 +773,137 @@ fn bind_map_events_and_actions_resolve_trigger_id() {
             }],
         }],
         &triggers,
+        &[],
+        &[],
     )
     .expect("bind actions");
     assert_eq!(events[0].trigger_id, triggers[0].id);
     assert_eq!(actions[0].trigger_id, triggers[0].id);
+    assert!(actions[0].commands[0].team_id.is_none());
+    assert!(actions[0].commands[0].target_trigger_id.is_none());
+    assert!(actions[0].commands[0].tag_id.is_none());
+}
+
+#[test]
+fn bind_map_actions_resolves_create_team_id() {
+    let rules = rules_from(
+        b"[Countries]\n0=Russians\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=100\nOwner=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let triggers = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Russians".into(),
+            linked: "<none>".into(),
+            name: "Spawn".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
+    .expect("bind triggers");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("task forces");
+    let teams = ra_types::bind_map_team_types(
+        &[ra_types::MapTeamType {
+            id: "TM1".into(),
+            name: "Team".into(),
+            house: "Russians".into(),
+            script: ra_types::ScriptTypeName::default(),
+            task_force: "TF1".into(),
+            tag: ra_types::TagName::default(),
+            waypoint: -1,
+            max: 1,
+            priority: 0,
+            veteran_level: 0,
+        }],
+        &defs,
+        &[],
+        &forces,
+        &[],
+    )
+    .expect("team types");
+    let actions = ra_types::bind_map_actions(
+        &[ra_types::MapAction {
+            id: "TR1".into(),
+            commands: vec![ra_types::MapActionCommand {
+                kind_code: 4,
+                params: [
+                    "0".into(),
+                    "TM1".into(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                ],
+            }],
+        }],
+        &triggers,
+        &teams,
+        &[],
+    )
+    .expect("bind actions");
+    assert_eq!(actions[0].commands[0].team_id, Some(teams[0].id));
+    assert!(actions[0].commands[0].target_trigger_id.is_none());
+    assert!(actions[0].commands[0].tag_id.is_none());
+}
+
+#[test]
+fn bind_map_actions_rejects_unknown_team_type() {
+    let rules = rules_from(b"[Countries]\n0=Russians\n[Russians]\nSide=Nod\n");
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let triggers = ra_types::bind_map_triggers(
+        &[ra_types::MapTrigger {
+            id: "TR1".into(),
+            house: "Russians".into(),
+            linked: "<none>".into(),
+            name: "Spawn".into(),
+            disabled: false,
+            easy: true,
+            normal: true,
+            hard: true,
+        }],
+        &defs,
+    )
+    .expect("bind triggers");
+    let err = ra_types::bind_map_actions(
+        &[ra_types::MapAction {
+            id: "TR1".into(),
+            commands: vec![ra_types::MapActionCommand {
+                kind_code: 4,
+                params: [
+                    "0".into(),
+                    "NOSUCH".into(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                ],
+            }],
+        }],
+        &triggers,
+        &[],
+        &[],
+    )
+    .expect_err("unknown team");
+    let msg = err.to_string();
+    assert!(msg.contains("team_type"), "{msg}");
+    assert!(msg.contains("NOSUCH"), "{msg}");
 }
 
 #[test]

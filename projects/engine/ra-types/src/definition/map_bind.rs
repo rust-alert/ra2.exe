@@ -3,11 +3,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapAction, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag,
-    MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedAiTrigger, PreparedCellTag, PreparedEvent,
-    PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry,
-    PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, TagId,
-    TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, AiTriggerId, occupancy_kind,
+    HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapPlacedEntityKind,
+    MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedActionCommand,
+    PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag,
+    PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId,
+    ScriptTypeName, StructureDefinitions, TagId, TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName,
+    TypeId, AiTriggerId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -159,18 +160,140 @@ pub fn bind_map_events(events: &[MapEvent], triggers: &[PreparedTrigger]) -> RaR
     Ok(out)
 }
 
-/// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger id 拒绝。
-pub fn bind_map_actions(actions: &[MapAction], triggers: &[PreparedTrigger]) -> RaResult<Vec<PreparedAction>> {
+/// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger / team / tag 引用拒绝。
+///
+/// - 动作所属 trigger id 必须可解析
+/// - CreateTeam / DestroyTeam / Reinforcement*：非空 team 名必须在 `teams` 中
+/// - Destroy / Force / Enable / Disable / Timer*：非空目标 trigger 名必须可解析
+/// - DestroyTag：非空 tag 名必须在 `tags` 中
+pub fn bind_map_actions(
+    actions: &[MapAction],
+    triggers: &[PreparedTrigger],
+    teams: &[PreparedTeamType],
+    tags: &[PreparedTag],
+) -> RaResult<Vec<PreparedAction>> {
     let trigger_by_name: HashMap<&str, TriggerId> = triggers.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let team_by_name: HashMap<&str, TeamTypeId> = teams.iter().map(|t| (t.name.as_str(), t.id)).collect();
+    let tag_by_name: HashMap<&str, TagId> = tags.iter().map(|t| (t.name.as_str(), t.id)).collect();
     let mut out = Vec::with_capacity(actions.len());
     for action in actions {
         if action.id.is_empty() {
             continue;
         }
         let trigger_id = bind_trigger_id(&trigger_by_name, &action.id, "MapAction")?;
-        out.push(PreparedAction { trigger_id, commands: action.commands.clone() });
+        let mut commands = Vec::with_capacity(action.commands.len());
+        for cmd in &action.commands {
+            commands.push(bind_action_command(cmd, &trigger_by_name, &team_by_name, &tag_by_name, action.id.as_str())?);
+        }
+        out.push(PreparedAction { trigger_id, commands });
     }
     Ok(out)
+}
+
+/// 原版动作码：Create Team。
+const ACTION_CREATE_TEAM: i32 = 4;
+/// Destroy Team。
+const ACTION_DESTROY_TEAM: i32 = 5;
+/// Reinforcement。
+const ACTION_REINFORCEMENT: i32 = 7;
+/// Destroy Trigger。
+const ACTION_DESTROY_TRIGGER: i32 = 12;
+/// Force Trigger。
+const ACTION_FORCE_TRIGGER: i32 = 22;
+/// Timer Start。
+const ACTION_TIMER_START: i32 = 23;
+/// Timer Stop。
+const ACTION_TIMER_STOP: i32 = 24;
+/// Timer Extend。
+const ACTION_TIMER_EXTEND: i32 = 25;
+/// Timer Shorten。
+const ACTION_TIMER_SHORTEN: i32 = 26;
+/// Timer Set。
+const ACTION_TIMER_SET: i32 = 27;
+/// Enable Trigger。
+const ACTION_ENABLE_TRIGGER: i32 = 53;
+/// Disable Trigger。
+const ACTION_DISABLE_TRIGGER: i32 = 54;
+/// Destroy Tag。
+const ACTION_DESTROY_TAG: i32 = 70;
+/// Reinforcement At Waypoint。
+const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80;
+
+fn bind_action_command(
+    cmd: &MapActionCommand,
+    trigger_by_name: &HashMap<&str, TriggerId>,
+    team_by_name: &HashMap<&str, TeamTypeId>,
+    tag_by_name: &HashMap<&str, TagId>,
+    owner: &str,
+) -> RaResult<PreparedActionCommand> {
+    let name = action_ref_name_param(cmd);
+    let (team_id, target_trigger_id, tag_id) = match cmd.kind_code {
+        ACTION_CREATE_TEAM | ACTION_DESTROY_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT => {
+            let team_id = match name {
+                Some(n) => Some(team_by_name.get(n.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+                    kind: "team_type",
+                    name: n,
+                    owner: format!("MapAction:{owner}"),
+                })?),
+                None => None,
+            };
+            (team_id, None, None)
+        }
+        ACTION_DESTROY_TRIGGER
+        | ACTION_FORCE_TRIGGER
+        | ACTION_TIMER_START
+        | ACTION_TIMER_STOP
+        | ACTION_TIMER_EXTEND
+        | ACTION_TIMER_SHORTEN
+        | ACTION_TIMER_SET
+        | ACTION_ENABLE_TRIGGER
+        | ACTION_DISABLE_TRIGGER => {
+            let target_trigger_id = match name {
+                Some(n) => Some(*trigger_by_name.get(n.as_str()).ok_or_else(|| RaError::UnknownReference {
+                    kind: "trigger",
+                    name: n,
+                    owner: format!("MapAction:{owner}"),
+                })?),
+                None => None,
+            };
+            (None, target_trigger_id, None)
+        }
+        ACTION_DESTROY_TAG => {
+            let tag_id = match name {
+                Some(n) => Some(tag_by_name.get(n.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+                    kind: "tag",
+                    name: n,
+                    owner: format!("MapAction:{owner}"),
+                })?),
+                None => None,
+            };
+            (None, None, tag_id)
+        }
+        _ => (None, None, None),
+    };
+    Ok(PreparedActionCommand {
+        kind_code: cmd.kind_code,
+        params: cmd.params.clone(),
+        team_id,
+        target_trigger_id,
+        tag_id,
+    })
+}
+
+/// 与运行时一致：优先 `params[1]`，否则第一个非空且非纯数字槽。
+///
+/// 返回装载期大写键；空 / `NONE` / `<none>` 视为无引用。
+fn action_ref_name_param(cmd: &MapActionCommand) -> Option<String> {
+    let raw = if let Some(id) = cmd.params.get(1).map(|s| s.trim()).filter(|s| !s.is_empty() && s.parse::<i32>().is_err()) {
+        id
+    }
+    else {
+        cmd.params.iter().map(|s| s.trim()).find(|s| !s.is_empty() && s.parse::<i32>().is_err())?
+    };
+    if raw.eq_ignore_ascii_case("NONE") || raw.eq_ignore_ascii_case("<NONE>") {
+        return None;
+    }
+    Some(raw.to_ascii_uppercase())
 }
 
 /// 将 `[TaskForces]` 投影为稳定 [`PreparedTaskForce`]；未知 techno 成员拒绝。
@@ -308,13 +431,13 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
     let events = bind_map_events(&prepared.definition.events, &triggers)?;
-    let actions = bind_map_actions(&prepared.definition.actions, &triggers)?;
     let tags = bind_map_tags(&prepared.definition.tags, &triggers)?;
     let cell_tags = bind_map_cell_tags(&prepared.definition.cell_tags, &tags)?;
     let placements = bind_map_placements(&prepared.definition.entities, defs, &tags)?;
     let task_forces = bind_map_task_forces(&prepared.definition.task_forces, defs)?;
     let script_types = bind_map_script_types(&prepared.definition.script_types)?;
     let team_types = bind_map_team_types(&prepared.definition.team_types, defs, &script_types, &task_forces, &tags)?;
+    let actions = bind_map_actions(&prepared.definition.actions, &triggers, &team_types, &tags)?;
     let ai_triggers = bind_map_ai_triggers(&prepared.definition.ai_triggers, defs, &team_types)?;
     prepared.houses = houses;
     prepared.triggers = triggers;
