@@ -1,6 +1,6 @@
 //! 对局命令图标 GPU：`mouse.shp` 帧图集叠在预览图之上。
 //!
-//! 移动 / 攻击目标点、选中可部署单位处绘制原版光标序列，不自绘几何图标。
+//! 选中行动线窗口内在移动 / 攻击目标点绘制原版光标序列；部署反馈走悬停光标，不自绘几何图标。
 
 use bytemuck::{Pod, Zeroable};
 use image::RgbaImage;
@@ -53,6 +53,8 @@ pub struct OrderIconGpu {
     atlas_h: u32,
     move_range: FrameRange,
     attack_range: FrameRange,
+    /// 图集仍打包 Deploy 帧，世界层不再绘制（悬停光标另走 `mouse.shp`）。
+    #[allow(dead_code)]
     deploy_range: FrameRange,
 }
 
@@ -207,19 +209,15 @@ impl OrderIconGpu {
         })
     }
 
-    /// 写入本帧图标顶点（选中行动线窗口内画移动/攻击目标；选中可部署画部署帧）。
+    /// 写入本帧图标顶点（选中行动线窗口内画移动/攻击目标）。
+    ///
+    /// 可部署反馈不走世界层常驻图标，而由悬停 Deploy 光标 / 命令条 / `D` 表达。
     pub fn write_from_world(&mut self, queue: &wgpu::Queue, world: &RenderWorld, camera: &Camera, surface_w: u32, surface_h: u32) {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
         let sh = surface_h.max(1) as f32;
         let tick = world.source_tick;
         for u in world.units.values().filter(|u| !u.dead && u.selected) {
-            if u.deployable && self.deploy_range.count > 0 {
-                let cx = u.screen_x as f32 + 30.0;
-                let cy = u.screen_y as f32 + 15.0;
-                let fi = self.deploy_range.start + (tick % u64::from(self.deploy_range.count.max(1))) as u32;
-                push_icon_quad(&mut verts, camera, sw, sh, cx, cy, fi, self);
-            }
             if world.action_lines_active && !u.is_structure {
                 if let Some((ax, ay)) = u.attack_target_screen {
                     if self.attack_range.count > 0 {

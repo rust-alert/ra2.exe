@@ -131,7 +131,7 @@ pub struct SnapshotUnit {
     pub max_health: u32,
     /// 是否已死亡。
     pub dead: bool,
-    /// 是否可部署（如 MCV）；选中时呈现部署标记。
+    /// 是否可部署（如 MCV）；供 HUD / 能力投影，不在世界层叠常驻 Deploy 图标。
     pub deployable: bool,
     /// 移动最终目标相对预览图的锚点（无目标为 `None`；供选中行动线）。
     pub move_goal_screen: Option<(i32, i32)>,
