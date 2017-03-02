@@ -164,6 +164,11 @@ impl BattleState {
         Some((anim.hva_frame, anim.hit_flash))
     }
 
+    /// 读取开火呈现剩余 tick（测试与宿主烤图）。
+    pub fn ecs_fire_flash(&self, id: EntityId) -> Option<u32> {
+        self.ecs_get::<crate::state::components::AnimationState>(id).map(|a| a.fire_flash)
+    }
+
     pub(super) fn living_at_cell(&self, x: u16, y: u16) -> bool {
         use crate::state::components::{Health, Transform};
 

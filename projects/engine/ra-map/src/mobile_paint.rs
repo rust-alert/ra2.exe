@@ -27,6 +27,8 @@ struct MobileTypePaintHints {
     walk_triple: Option<(u16, u16, u16)>,
     /// 待机序列 `Start,Count,Multiplier`（`Ready` / `Guard`）。
     ready_triple: Option<(u16, u16, u16)>,
+    /// 开火序列 `Start,Count,Multiplier`（`Fire` / `FireUp`）。
+    fire_triple: Option<(u16, u16, u16)>,
 }
 
 /// 移动单位类型叠画提示表（跨多次 paint 调用复用，避免重复扫 art/rules）。
@@ -79,11 +81,11 @@ fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> Mo
     let prefer_voxel = art_fields.voxel.unwrap_or(false);
     let new_theater = art_fields.new_theater.unwrap_or(false);
     let sequence_section = art_fields.sequence.as_ref().filter(|n| !n.is_empty()).map(|n| n.as_str().to_string());
-    let (walk_triple, ready_triple) = match (art, sequence_section.as_deref()) {
+    let (walk_triple, ready_triple, fire_triple) = match (art, sequence_section.as_deref()) {
         (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
-        _ => (None, None),
+        _ => (None, None, None),
     };
-    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple }
+    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple, fire_triple }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -108,10 +110,12 @@ struct MobileRulesImageFields {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[doc(hidden)]
 pub struct MobilePaintPose {
-    /// 行走 / 待机循环索引（仿真 `hva_frame`）。
+    /// 行走 / 待机 / 开火循环索引（仿真 `hva_frame`）。
     pub anim_frame: u16,
-    /// `true` 时步兵取 `Walk` 序列，否则 `Ready`/`Guard`。
+    /// `true` 时步兵取 `Walk` 序列（开火优先见 `firing`）。
     pub moving: bool,
+    /// `true` 时步兵取 `Fire` / `FireUp` 序列。
+    pub firing: bool,
     /// 相对当前格屏幕原点的水平偏移（预览像素；由 `move_accum` 滑向下一格）。
     pub offset_x: i32,
     /// 相对当前格屏幕原点的垂直偏移（预览像素）。
@@ -223,11 +227,12 @@ pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     from_row::<(u16, u16, u16)>(raw).ok()
 }
 
-fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
     let fields = art.section(seq_section).and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok()).unwrap_or_default();
     let walk_triple = fields.walk.or(fields.panic);
     let ready_triple = fields.ready.or(fields.guard);
-    (walk_triple, ready_triple)
+    let fire_triple = fields.fire.or(fields.fire_up);
+    (walk_triple, ready_triple, fire_triple)
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -240,6 +245,10 @@ struct MobileSequenceSectionFields {
     ready: Option<(u16, u16, u16)>,
     #[serde(rename = "Guard", default, deserialize_with = "de_opt_sequence_triple")]
     guard: Option<(u16, u16, u16)>,
+    #[serde(rename = "Fire", default, deserialize_with = "de_opt_sequence_triple")]
+    fire: Option<(u16, u16, u16)>,
+    #[serde(rename = "FireUp", default, deserialize_with = "de_opt_sequence_triple")]
+    fire_up: Option<(u16, u16, u16)>,
 }
 
 fn de_opt_sequence_triple<'de, D>(deserializer: D) -> Result<Option<(u16, u16, u16)>, D::Error>
@@ -258,7 +267,16 @@ fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEnt
     if ent.kind != MapEntityKind::Infantry {
         return u16::from(ent.facing / 32);
     }
-    let Some((start, count, multiplier)) = (if pose.moving { hint.walk_triple } else { hint.ready_triple })
+    let triple = if pose.firing {
+        hint.fire_triple.or(hint.ready_triple)
+    }
+    else if pose.moving {
+        hint.walk_triple
+    }
+    else {
+        hint.ready_triple
+    };
+    let Some((start, count, multiplier)) = triple
     else {
         return infantry_facing_slot(ent.facing);
     };
@@ -268,6 +286,41 @@ fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEnt
     }
     let slot = infantry_facing_slot(ent.facing);
     start.saturating_add(slot.saturating_mul(multiplier)).saturating_add(step)
+}
+
+/// 步兵 SHP 帧解析（供测试：开火优先于行走）。
+#[doc(hidden)]
+pub fn infantry_shp_frame_from_triples(
+    facing: u8,
+    anim_frame: u16,
+    moving: bool,
+    firing: bool,
+    walk: Option<(u16, u16, u16)>,
+    ready: Option<(u16, u16, u16)>,
+    fire: Option<(u16, u16, u16)>,
+) -> u16 {
+    let hint = MobileTypePaintHints {
+        image_key: String::new(),
+        prefer_voxel: false,
+        new_theater: false,
+        walk_triple: walk,
+        ready_triple: ready,
+        fire_triple: fire,
+    };
+    let ent = MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: Default::default(),
+        type_id: Default::default(),
+        health: 256,
+        x: 0,
+        y: 0,
+        facing,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    };
+    let pose = MobilePaintPose { anim_frame, moving, firing, offset_x: 0, offset_y: 0, turret_facing: None };
+    resolve_mobile_shp_frame_from_hints(&hint, &ent, pose)
 }
 
 #[doc(hidden)]

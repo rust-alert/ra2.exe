@@ -50,6 +50,7 @@ impl BattleState {
             let speed = loco.map(|l| l.speed).unwrap_or(0);
             let hva_frame = anim.map(|a| a.hva_frame).unwrap_or(0);
             let hit_flash = anim.map(|a| a.hit_flash).unwrap_or(0);
+            let fire_flash = anim.map(|a| a.fire_flash).unwrap_or(0);
             let attack_cooldown = attack.map(|a| a.cooldown).unwrap_or(0);
             let attack_target = attack.and_then(|a| a.target);
             let ore_trip_accum = harvester.map(|h| h.ore_trip_accum).unwrap_or(0);
@@ -74,6 +75,7 @@ impl BattleState {
                 .wrapping_add(u64::from(ore_trip_accum) << 8)
                 .wrapping_add(u64::from(ore_cargo) << 12)
                 .wrapping_add(u64::from(hit_flash) << 16)
+                .wrapping_add(u64::from(fire_flash) << 20)
                 .wrapping_add(attack_target.map(|tid| tid.0).unwrap_or(0) << 32);
             for b in armor.as_str().as_bytes() {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));

@@ -364,6 +364,9 @@ fn derive_anim_state(world: &BattleState, id: EntityId) -> AnimState {
     if world.ecs_get::<AnimationState>(id).map(|a| a.hit_flash > 0).unwrap_or(false) {
         return AnimState::TakeDamage;
     }
+    if world.ecs_get::<AnimationState>(id).map(|a| a.fire_flash > 0).unwrap_or(false) {
+        return AnimState::Attack;
+    }
     if world.ecs_get::<ProductionQueue>(id).map(|p| p.item.is_some()).unwrap_or(false) {
         return AnimState::Produce;
     }

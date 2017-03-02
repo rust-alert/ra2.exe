@@ -9,6 +9,7 @@ use ra_types::EntityId;
 /// `tick_fraction` 为距下一逻辑 tick 的进度，用于在渲染帧之间继续滑移，避免整格瞬移。
 pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell_x: u16, cell_y: u16, tick_fraction: f64) -> MobilePaintPose {
     let anim_frame = game.world.ecs_animation(id).map(|(f, _)| f).unwrap_or(0);
+    let firing = game.world.ecs_fire_flash(id).unwrap_or(0) > 0;
     let moving =
         game.world.ecs_move_destination(id).is_some_and(|(dx, _)| dx.is_some()) || game.world.ecs_path(id).is_some_and(|p| !p.is_empty());
     let (offset_x, offset_y) = if moving {
@@ -25,6 +26,7 @@ pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell
     MobilePaintPose {
         anim_frame,
         moving,
+        firing,
         offset_x,
         offset_y,
         turret_facing: game.world.ecs_turret_facing(id),

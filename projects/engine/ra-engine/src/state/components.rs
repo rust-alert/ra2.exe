@@ -142,6 +142,8 @@ pub struct AnimationState {
     pub hva_frame: u16,
     /// 受击闪白剩余 tick。
     pub hit_flash: u32,
+    /// 开火呈现剩余 tick（步兵 `Fire` 序列等）。
+    pub fire_flash: u32,
 }
 
 /// 生成时一次性写入的 ECS 组件包（权威），随后投影到 `WorldEntity` 槽位。

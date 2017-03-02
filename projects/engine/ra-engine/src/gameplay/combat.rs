@@ -6,7 +6,7 @@ use crate::{
     gameplay::building_power,
     spatial::{facing_toward, is_mobile, manhattan, turn_facing_toward},
     state::{
-        HIT_FLASH_TICKS, TURRET_TURN_STEP,
+        FIRE_FLASH_TICKS, HIT_FLASH_TICKS, TURRET_TURN_STEP,
         components::{AnimationState, AttackState, CombatStats, Health, Identity, Transform},
     },
 };
@@ -132,6 +132,10 @@ impl crate::state::BattleState {
                 let _ = self.with_attack_mut(attacker_id, |attack| {
                     attack.cooldown = cooldown_max;
                 });
+                let _ = self.with_animation_mut(attacker_id, |anim| {
+                    anim.fire_flash = FIRE_FLASH_TICKS;
+                });
+                self.mark_entity_dirty(attacker_id);
                 if let Some(report) = fire_report {
                     self.push_battle_sfx_cue(report);
                 }
@@ -215,13 +219,16 @@ impl crate::state::BattleState {
             .iter()
             .filter_map(|e| {
                 let anim = self.ecs_get::<AnimationState>(e.id)?;
-                (anim.hit_flash > 0).then_some(e.id)
+                (anim.hit_flash > 0 || anim.fire_flash > 0).then_some(e.id)
             })
             .collect();
         for id in ids {
             let _ = self.with_animation_mut(id, |anim| {
                 if anim.hit_flash > 0 {
                     anim.hit_flash -= 1;
+                }
+                if anim.fire_flash > 0 {
+                    anim.fire_flash -= 1;
                 }
             });
             self.mark_entity_dirty(id);

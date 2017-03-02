@@ -51,4 +51,9 @@ fn resolve_combat_queues_weapon_report_sfx() {
         cues.iter().any(|c| c.event.eq_ignore_ascii_case("TankCannon")),
         "firing must queue the weapon Report as a battle sfx cue: {cues:?}"
     );
+    assert_eq!(
+        world.ecs_fire_flash(a).expect("attacker fire flash"),
+        ra_engine::FIRE_FLASH_TICKS,
+        "firing must start the attacker fire_flash window"
+    );
 }

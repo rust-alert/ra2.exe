@@ -94,6 +94,7 @@ impl BattleState {
         if let Some(anim) = anim {
             entity.hva_frame = anim.hva_frame;
             entity.hit_flash = anim.hit_flash;
+            entity.fire_flash = anim.fire_flash;
         }
     }
 

@@ -343,7 +343,7 @@ impl crate::state::BattleState {
                         attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
                         production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
-                        animation: AnimationState { hva_frame: 0, hit_flash: 0 },
+                        animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
                     });
                     self.mark_entity_dirty(id);
                     // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。

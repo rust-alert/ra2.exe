@@ -29,6 +29,9 @@ pub const ATTACK_COOLDOWN_TICKS: u32 = 8;
 /// 受击闪白剩余 tick（呈现 `TakeDamage`）。
 pub const HIT_FLASH_TICKS: u32 = 4;
 
+/// 开火呈现剩余 tick（步兵 `Fire` 序列 / `AnimState::Attack` 边沿）。
+pub const FIRE_FLASH_TICKS: u32 = 4;
+
 /// 矿车在矿格上完成一趟采集所需的 tick 数（竖切简化，无独立装载动画）。
 pub const ORE_TRIP_TICKS: u32 = 30;
 

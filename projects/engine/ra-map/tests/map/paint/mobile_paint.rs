@@ -41,9 +41,18 @@ fn parse_walk_triple() {
 }
 
 #[test]
+fn fire_sequence_preferred_over_walk() {
+    // Fire=52,6,6；facing 0 → 槽 7，步 1 → 帧 52+7*6+1=95；即使 moving=true 也优先开火。
+    let frame = infantry_shp_frame_from_triples(0, 1, true, true, Some((8, 6, 6)), Some((0, 1, 6)), Some((52, 6, 6)));
+    assert_eq!(frame, 95);
+    let walk_frame = infantry_shp_frame_from_triples(0, 1, true, false, Some((8, 6, 6)), Some((0, 1, 6)), Some((52, 6, 6)));
+    assert_eq!(walk_frame, 51); // Walk start 8 + 7*6 + 1
+}
+
+#[test]
 fn pose_slide_offset_is_added_to_blit_origin() {
     // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
-    let pose = MobilePaintPose { anim_frame: 0, moving: true, offset_x: 12, offset_y: -8, turret_facing: None };
+    let pose = MobilePaintPose { anim_frame: 0, moving: true, firing: false, offset_x: 12, offset_y: -8, turret_facing: None };
     let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
     blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
     blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);

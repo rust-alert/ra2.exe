@@ -71,6 +71,8 @@ pub(crate) struct WorldEntity {
     pub rally_y: Option<u16>,
     /// 受击闪白剩余 tick。
     pub hit_flash: u32,
+    /// 开火呈现剩余 tick。
+    pub fire_flash: u32,
     /// 生命归零后为真。
     pub dead: bool,
 }
@@ -109,6 +111,7 @@ impl WorldEntity {
             rally_x: None,
             rally_y: None,
             hit_flash: 0,
+            fire_flash: 0,
             dead: false,
         }
     }
