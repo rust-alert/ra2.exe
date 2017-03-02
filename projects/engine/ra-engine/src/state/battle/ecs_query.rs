@@ -75,9 +75,9 @@ impl BattleState {
         Some((std::sync::Arc::clone(&identity.type_id), identity.kind))
     }
 
-    /// 读取 ECS `Identity.mission`（地图放置任务态；测试与诊断）。
-    pub fn ecs_mission(&self, id: EntityId) -> Option<ra_types::MissionName> {
-        self.ecs_get::<crate::state::components::Identity>(id).map(|i| i.mission.clone())
+    /// 读取 ECS `Identity.mission`（地图放置 / 运行时任务态；测试与诊断）。
+    pub fn ecs_mission(&self, id: EntityId) -> Option<ra_types::MissionKind> {
+        self.ecs_get::<crate::state::components::Identity>(id).and_then(|i| i.mission)
     }
 
     /// 读取 ECS `Owner` 房主名（测试与诊断）。

@@ -185,7 +185,7 @@ pub fn tick_script_teams(world: &mut BattleState) {
                         attack.capture_target = None;
                     });
                     let _ = world.with_identity_mut(id, |identity| {
-                        identity.mission = "Guard".into();
+                        identity.mission = Some(ra_types::MissionKind::Guard);
                     });
                 }
             }

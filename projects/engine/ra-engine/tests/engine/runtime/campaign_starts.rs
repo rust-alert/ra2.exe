@@ -162,7 +162,7 @@ fn open_campaign_seeds_placement_mission_on_identity() {
     .expect("战役应成功开局");
     let world = &opened.session.expect_battle().world;
     let id = world.find_entity_id_by_type("E1").expect("E1");
-    assert_eq!(world.ecs_mission(id).as_deref(), Some("GUARD"));
+    assert_eq!(world.ecs_mission(id), Some(ra_types::MissionKind::Guard));
 }
 
 #[test]

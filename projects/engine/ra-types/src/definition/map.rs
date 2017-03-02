@@ -1551,6 +1551,8 @@ pub enum MissionKind {
     Chronoshifted,
     /// `AttackAgain`
     AttackAgain,
+    /// 引擎扩展：攻击移动（非原版地图放置键；运行时命令写入）。
+    AttackMove,
 }
 
 impl MissionKind {
@@ -1588,6 +1590,7 @@ impl MissionKind {
             "PATROL" => Self::Patrol,
             "CHRONOSHIFTED" => Self::Chronoshifted,
             "ATTACKAGAIN" => Self::AttackAgain,
+            "ATTACKMOVE" => Self::AttackMove,
             _ => return None,
         })
     }
@@ -1623,6 +1626,7 @@ impl MissionKind {
             Self::Patrol => "PATROL",
             Self::Chronoshifted => "CHRONOSHIFTED",
             Self::AttackAgain => "ATTACKAGAIN",
+            Self::AttackMove => "ATTACKMOVE",
         }
     }
 

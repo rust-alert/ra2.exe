@@ -239,5 +239,5 @@ fn create_team_script_action_7_clears_move_after_waypoint() {
         Some((None, None)),
         "script action 7 Guard should clear MoveTo destination"
     );
-    assert_eq!(session.expect_battle().world.ecs_mission(id).as_deref(), Some("GUARD"), "script action 7 Guard should set mission");
+    assert_eq!(session.expect_battle().world.ecs_mission(id), Some(ra_types::MissionKind::Guard), "script action 7 Guard should set mission");
 }

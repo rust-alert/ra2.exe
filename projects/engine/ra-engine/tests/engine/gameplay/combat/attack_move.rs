@@ -41,8 +41,9 @@ fn attack_move_engages_then_resumes_goal() {
     world.push_command(GameCommand::AttackMove { entity: EntityId(1), x: 16, y: 10 });
     world.advance_tick();
 
-    assert!(
-        world.ecs_mission(attacker).expect("mission").as_ref().eq_ignore_ascii_case("AttackMove"),
+    assert_eq!(
+        world.ecs_mission(attacker),
+        Some(ra_types::MissionKind::AttackMove),
         "AttackMove command must set mission"
     );
     assert_eq!(world.ecs_attack_state(attacker).expect("atk").0, Some(victim));

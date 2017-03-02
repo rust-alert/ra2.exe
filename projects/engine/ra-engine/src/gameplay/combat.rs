@@ -44,7 +44,7 @@ impl crate::state::BattleState {
             if attack.infiltrate_target.is_some() || attack.capture_target.is_some() {
                 continue;
             }
-            let attack_move = identity.mission.as_ref().eq_ignore_ascii_case("AttackMove");
+            let attack_move = identity.mission == Some(ra_types::MissionKind::AttackMove);
             let Some(target_id) = attack.target.or_else(|| {
                 if !attack_move {
                     return None;
@@ -299,7 +299,7 @@ impl crate::state::BattleState {
         for attacker_id in attackers {
             let attack_move = self
                 .ecs_get::<Identity>(attacker_id)
-                .map(|identity| identity.mission.as_ref().eq_ignore_ascii_case("AttackMove"))
+                .map(|identity| identity.mission == Some(ra_types::MissionKind::AttackMove))
                 .unwrap_or(false);
             self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
         }

@@ -250,8 +250,8 @@ impl crate::state::BattleState {
                 });
                 if advance == Some(false) {
                     let _ = self.with_identity_mut(id, |identity| {
-                        if identity.mission.as_ref().eq_ignore_ascii_case("AttackMove") {
-                            identity.mission = ra_types::MissionName::default();
+                        if identity.mission == Some(ra_types::MissionKind::AttackMove) {
+                            identity.mission = None;
                         }
                     });
                 }

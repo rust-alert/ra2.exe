@@ -49,7 +49,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
@@ -91,7 +91,7 @@ impl crate::state::BattleState {
                     };
                     let rest: Vec<(u16, u16)> = points.iter().skip(1).copied().collect();
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;
@@ -146,7 +146,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let _ = self.with_identity_mut(attacker_id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_attack_mut(attacker_id, |attack| {
                         attack.target = Some(target);
@@ -192,7 +192,7 @@ impl crate::state::BattleState {
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
                         identity.type_id = Arc::clone(&building_type);
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_locomotor_mut(dirty_id, |loco| {
                         loco.speed = 0;
@@ -318,7 +318,7 @@ impl crate::state::BattleState {
                             entity_id: id,
                             type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                             kind: MapEntityKind::Structure,
-                            mission: ra_types::MissionName::default(),
+                            mission: None,
                             tag: None,
                         },
                         owner: Owner { house },
@@ -571,7 +571,7 @@ impl crate::state::BattleState {
                         foundation.height,
                     );
                     let _ = self.with_identity_mut(agent_id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_attack_mut(agent_id, |attack| {
                         attack.target = None;
@@ -668,7 +668,7 @@ impl crate::state::BattleState {
                         foundation.height,
                     );
                     let _ = self.with_identity_mut(engineer_id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     let _ = self.with_attack_mut(engineer_id, |attack| {
                         attack.target = None;
@@ -711,7 +711,7 @@ impl crate::state::BattleState {
                         attack.capture_target = None;
                     });
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = "Guard".into();
+                        identity.mission = Some(ra_types::MissionKind::Guard);
                     });
                     self.mark_entity_dirty(id);
                 }
@@ -741,7 +741,7 @@ impl crate::state::BattleState {
                         attack.capture_target = None;
                     });
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = ra_types::MissionName::default();
+                        identity.mission = None;
                     });
                     self.mark_entity_dirty(id);
                 }
@@ -765,7 +765,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let _ = self.with_identity_mut(id, |identity| {
-                        identity.mission = "AttackMove".into();
+                        identity.mission = Some(ra_types::MissionKind::AttackMove);
                     });
                     let _ = self.with_attack_mut(id, |attack| {
                         attack.target = None;

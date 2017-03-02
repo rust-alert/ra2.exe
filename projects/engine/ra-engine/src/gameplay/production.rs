@@ -134,7 +134,7 @@ impl crate::state::BattleState {
                 entity_id: id,
                 type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
                 kind,
-                mission: Default::default(),
+                mission: None,
                 tag: None,
             },
             owner: Owner { house: owner.clone() },

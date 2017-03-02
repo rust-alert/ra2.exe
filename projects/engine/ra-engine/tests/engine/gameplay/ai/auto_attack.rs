@@ -201,7 +201,7 @@ fn guard_mission_skips_ai_auto_attack() {
     session.expect_battle_mut().ai_enabled = true;
     let engine = test_engine();
     let guard = session.expect_battle().world.find_entity_id_by_owner_type("AMERICANS", "MTNK").expect("guard tank");
-    assert_eq!(session.expect_battle().world.ecs_mission(guard).as_deref(), Some("GUARD"));
+    assert_eq!(session.expect_battle().world.ecs_mission(guard), Some(ra_types::MissionKind::Guard));
     for _ in 0..30 {
         session.tick(&engine.runtime());
     }
