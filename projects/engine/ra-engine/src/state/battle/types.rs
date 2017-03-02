@@ -119,6 +119,8 @@ pub struct BattleState {
     pub match_seed: u64,
     /// 本 tick 玩法侧排队的 EVA 提示（按 house；壳层只播本机）。
     pub(crate) pending_eva_cues: Vec<crate::state::EvaCue>,
+    /// 本 tick 玩法侧排队的对局短音效（武器 `Report=` 等；壳层按 `sound.ini` 播）。
+    pub(crate) pending_battle_sfx_cues: Vec<crate::state::BattleSfxCue>,
     /// 基地遇袭 EVA 近距/时间去重窗口。
     pub(crate) eva_base_under_attack: Vec<crate::state::EvaBaseUnderAttackGate>,
     /// `[AudioVisual] SpeakDelay` 换算后的资金唠叨周期（逻辑 tick；0 表示关闭）。

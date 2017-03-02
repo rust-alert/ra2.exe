@@ -29,6 +29,7 @@ impl BattleController {
         }
         self.poll_in_battle_eva();
         self.drain_engine_eva_cues();
+        self.drain_engine_battle_sfx_cues();
         let nav = self.poll_outcome_nav();
         self.resolve_deploy_watch();
         (nav, started.elapsed())
@@ -49,6 +50,18 @@ impl BattleController {
             if cue.house.eq_ignore_ascii_case(local_house.as_str()) {
                 self.queue_battle_sfx_once(cue.event);
             }
+        }
+    }
+
+    /// 消费引擎武器 `Report=` 等对局短音效（无 house 过滤）。
+    pub(super) fn drain_engine_battle_sfx_cues(&mut self) {
+        let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut())
+        else {
+            return;
+        };
+        let cues = game.world.take_battle_sfx_cues();
+        for cue in cues {
+            self.queue_battle_sfx_once(&cue.event);
         }
     }
 

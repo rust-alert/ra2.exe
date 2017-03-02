@@ -58,6 +58,8 @@ pub struct TechnoType {
     pub warhead: WarheadName,
     /// 主武器抛射体名（武器节 `Projectile`）；空表示未配置。
     pub projectile: ProjectileName,
+    /// 主武器开火音效（武器节 `Report=`）；空表示未配置。
+    pub report: String,
     /// 副武器名（`Secondary`）；空表示未配置。
     pub secondary: WeaponName,
     /// 副武器伤害（来自武器节 `Damage`）；0 表示未配置。
@@ -70,6 +72,8 @@ pub struct TechnoType {
     pub secondary_warhead: WarheadName,
     /// 副武器抛射体名；空表示未配置。
     pub secondary_projectile: ProjectileName,
+    /// 副武器开火音效（武器节 `Report=`）；空表示未配置。
+    pub secondary_report: String,
     /// `Prerequisite`（装载期一次解码）。
     pub prerequisite: PrerequisiteList,
     /// `PrerequisiteOverride`（装载期一次解码）。
@@ -350,6 +354,8 @@ struct WeaponSectionFields {
     warhead: WarheadName,
     #[serde(rename = "Projectile", default)]
     projectile: ProjectileName,
+    #[serde(rename = "Report", default)]
+    report: String,
 }
 
 /// 装载期解析出的武器节字段包。
@@ -360,6 +366,7 @@ struct ResolvedWeaponFields {
     rof: u32,
     warhead: WarheadName,
     projectile: ProjectileName,
+    report: String,
 }
 
 fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, overrides: Option<&FieldMergeOverrides>) -> Option<TechnoType> {
@@ -393,12 +400,14 @@ fn parse_techno(view: LayeredIniView<'_>, id: &TechnoName, kind: TechnoKind, ove
         rof: primary_w.rof,
         warhead: primary_w.warhead,
         projectile: primary_w.projectile,
+        report: primary_w.report,
         secondary,
         secondary_damage: secondary_w.damage,
         secondary_range: secondary_w.range,
         secondary_rof: secondary_w.rof,
         secondary_warhead: secondary_w.warhead,
         secondary_projectile: secondary_w.projectile,
+        secondary_report: secondary_w.report,
         prerequisite: fields.prerequisite,
         prerequisite_override: fields.prerequisite_override,
         required_houses: fields.required_houses,
@@ -486,5 +495,12 @@ fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName, fallback_rof: u
     };
     let weapon_rof = w.rof.unwrap_or(0);
     let rof = if weapon_rof > 0 { weapon_rof } else { fallback_rof };
-    ResolvedWeaponFields { damage: w.damage.unwrap_or(0), range: w.range.unwrap_or(0), rof, warhead: w.warhead, projectile: w.projectile }
+    ResolvedWeaponFields {
+        damage: w.damage.unwrap_or(0),
+        range: w.range.unwrap_or(0),
+        rof,
+        warhead: w.warhead,
+        projectile: w.projectile,
+        report: w.report.trim().to_string(),
+    }
 }

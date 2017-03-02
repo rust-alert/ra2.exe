@@ -45,6 +45,7 @@ impl crate::state::BattleState {
                 continue;
             }
             let attack_move = identity.mission == Some(ra_types::MissionKind::AttackMove);
+            let attacker_type_key = std::sync::Arc::clone(&identity.type_id);
             let Some(target_id) = attack.target.or_else(|| {
                 if !attack_move {
                     return None;
@@ -117,11 +118,23 @@ impl crate::state::BattleState {
             let dist = manhattan(attacker_xf.x, attacker_xf.y, target_xf.x, target_xf.y);
             if dist <= stats.attack_range {
                 let dmg = scale_damage(stats.attack_damage, &stats.attack_verses, target_stats.armor);
+                let fire_report = self
+                    .definitions
+                    .techno
+                    .get(attacker_type_key.as_ref())
+                    .and_then(|t| t.primary_id)
+                    .and_then(|wid| self.definitions.weapons.get_by_id(wid))
+                    .map(|w| w.report.as_str())
+                    .filter(|r| !r.is_empty())
+                    .map(str::to_string);
                 damage_events.push((attacker_house, ti, dmg));
                 let cooldown_max = stats.attack_cooldown_max;
                 let _ = self.with_attack_mut(attacker_id, |attack| {
                     attack.cooldown = cooldown_max;
                 });
+                if let Some(report) = fire_report {
+                    self.push_battle_sfx_cue(report);
+                }
             }
         }
         for (killer_house, ti, dmg) in damage_events {

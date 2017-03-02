@@ -34,6 +34,8 @@ pub struct SuperWeaponType {
     pub weapon_warhead: WarheadName,
     /// `Weapon=` 节 `Projectile` 名；空表示未写。
     pub weapon_projectile: ProjectileName,
+    /// `Weapon=` 节 `Report` 开火音效事件名；空表示未写。
+    pub weapon_report: String,
 }
 
 /// 保序的超武类型表。
@@ -138,28 +140,37 @@ struct WeaponSectionFields {
     warhead: WarheadName,
     #[serde(rename = "Projectile", default)]
     projectile: ProjectileName,
+    #[serde(rename = "Report", default)]
+    report: String,
 }
 
-fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u32, WarheadName, ProjectileName) {
+fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u32, WarheadName, ProjectileName, String) {
     if weapon.is_empty() {
-        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default(), String::new());
     }
     let Some(section) = view.section(weapon.as_str())
     else {
-        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default(), String::new());
     };
     let Ok(w) = section.deserialize::<WeaponSectionFields>()
     else {
-        return (0, 0, 0, WarheadName::default(), ProjectileName::default());
+        return (0, 0, 0, WarheadName::default(), ProjectileName::default(), String::new());
     };
-    (w.damage.unwrap_or(0), w.range.unwrap_or(0), w.rof.unwrap_or(0), w.warhead, w.projectile)
+    (
+        w.damage.unwrap_or(0),
+        w.range.unwrap_or(0),
+        w.rof.unwrap_or(0),
+        w.warhead,
+        w.projectile,
+        w.report.trim().to_string(),
+    )
 }
 
 fn parse_super_weapon(view: LayeredIniView<'_>, id: &SuperWeaponName) -> Option<SuperWeaponType> {
     let section = view.section(id.as_str())?;
     let fields: SuperWeaponSectionFields = section.deserialize().ok()?;
     let weapon = fields.weapon;
-    let (weapon_damage, weapon_range, weapon_rof, weapon_warhead, weapon_projectile) = resolve_weapon(view, &weapon);
+    let (weapon_damage, weapon_range, weapon_rof, weapon_warhead, weapon_projectile, weapon_report) = resolve_weapon(view, &weapon);
     Some(SuperWeaponType {
         id: id.clone(),
         ui_name: fields.ui_name,
@@ -173,5 +184,6 @@ fn parse_super_weapon(view: LayeredIniView<'_>, id: &SuperWeaponName) -> Option<
         weapon_rof,
         weapon_warhead,
         weapon_projectile,
+        weapon_report,
     })
 }

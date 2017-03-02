@@ -124,6 +124,7 @@ impl BattleState {
             structure_buildup_dirty: Vec::new(),
             match_seed: 0,
             pending_eva_cues: Vec::new(),
+            pending_battle_sfx_cues: Vec::new(),
             eva_base_under_attack: Vec::new(),
             speak_delay_ticks,
             ecs,

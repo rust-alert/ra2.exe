@@ -144,7 +144,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     let rules = rules_from(
         b"[VehicleTypes]\n0=MTNK\n\
 [MTNK]\nStrength=200\nCost=800\nArmor=heavy\nPrimary=90mm\n\
-[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\n\
+[90mm]\nDamage=50\nROF=8\nRange=6\nWarhead=SA\nReport=TankCannon\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
@@ -158,6 +158,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.damage, 50);
     assert_eq!(weapon.range, 6);
     assert_eq!(weapon.rof, 8);
+    assert_eq!(weapon.report, "TankCannon");
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
     assert!(weapon.projectile.is_empty());
     assert!(weapon.projectile_id.is_none());

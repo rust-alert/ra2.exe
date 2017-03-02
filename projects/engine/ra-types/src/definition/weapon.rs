@@ -127,6 +127,8 @@ pub struct WeaponDefinition {
     pub projectile: ProjectileName,
     /// 抛射体稳定 id；`None` 表示未配置（空名）。
     pub projectile_id: Option<ProjectileId>,
+    /// 开火音效事件名（武器节 `Report=`，对应 `sound.ini` 节）；空表示未配置。
+    pub report: String,
 }
 
 /// 武器定义表。
