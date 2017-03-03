@@ -27,7 +27,8 @@ impl BattleController {
 
     /// 战术区悬停上下文（不含边缘滚屏）。
     ///
-    /// 已选可部署单位且悬停其本体时切 Deploy 光标；命令条 / `D` / 左键本体亦可下达部署。
+    /// 可部署能力只反映在命令条 / `D`；悬停已选单位不会自动切换 Deploy 光标。
+    /// `order_deploy` 为就地即时命令，无独立 `deploy_mode` 时不应伪装部署指针。
     pub(super) fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -64,12 +65,7 @@ impl BattleController {
             return BattlePointer::Default;
         }
 
-        // 已选可部署：悬停选中本体 → Deploy（就地即时命令，与命令条 / `D` 同源）。
-        if let Some(id) = game.pick_local_mobile_near_image(wx, wy, 72.0) {
-            if selected.iter().any(|&s| s == id) && game.deploy_target_of(id).is_some() {
-                return BattlePointer::Deploy;
-            }
-        }
+        // 可部署能力只影响命令条 Deploy / `D`，不因悬停已选单位自动切 Deploy 光标。
 
         let has_mobile = selected.iter().any(|&id| {
             game.world.ecs_identity(id).is_some_and(|(_, kind)| {
@@ -198,13 +194,7 @@ impl BattleController {
             });
         if let Some(id) = local_picked {
             let cell = game.world.ecs_transform(id).map(|(x, y, _)| (x, y)).unwrap_or((0, 0));
-            // 已选可部署单位再点本体 → 部署（与 Deploy 光标 / 命令条 / `D` 一致）。
-            if !add && selected.iter().any(|&s| s == id) && game.deploy_target_of(id).is_some() {
-                tracing::info!("左键部署 · #{} @({},{})", id.0, cell.0, cell.1);
-                self.deploy_selection();
-                self.pulse_action_lines_at(tick);
-                return;
-            }
+            // 左键点己方单位只负责选择；部署仅由命令条 Deploy / `D` 即时下发。
             if add {
                 self.local.select_add(game, id);
                 tracing::info!("加选实体 #{} @({},{}) · 选中 {:?}", id.0, cell.0, cell.1, self.local.selected);

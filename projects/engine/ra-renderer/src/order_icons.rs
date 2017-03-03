@@ -1,6 +1,6 @@
 //! 对局命令图标 GPU：`mouse.shp` 帧图集叠在预览图之上。
 //!
-//! 选中行动线窗口内在移动 / 攻击目标点绘制原版光标序列；部署反馈走悬停光标，不自绘几何图标。
+//! 选中行动线窗口内在移动 / 攻击目标点绘制原版光标序列；部署只走命令条 / `D`，世界层不画 Deploy。
 
 use bytemuck::{Pod, Zeroable};
 use image::RgbaImage;
@@ -53,7 +53,7 @@ pub struct OrderIconGpu {
     atlas_h: u32,
     move_range: FrameRange,
     attack_range: FrameRange,
-    /// 图集仍打包 Deploy 帧，世界层不再绘制（悬停光标另走 `mouse.shp`）。
+    /// 图集仍打包 Deploy 帧，世界层不再绘制（能力≠模式：Deploy 不由悬停光标伪装）。
     #[allow(dead_code)]
     deploy_range: FrameRange,
 }
@@ -211,7 +211,7 @@ impl OrderIconGpu {
 
     /// 写入本帧图标顶点（选中行动线窗口内画移动/攻击目标）。
     ///
-    /// 可部署反馈不走世界层常驻图标，而由悬停 Deploy 光标 / 命令条 / `D` 表达。
+    /// 可部署反馈不走世界层常驻图标，只由命令条 Deploy / `D` 即时下发表达。
     pub fn write_from_world(&mut self, queue: &wgpu::Queue, world: &RenderWorld, camera: &Camera, surface_w: u32, surface_h: u32) {
         let mut verts: Vec<Vertex> = Vec::new();
         let sw = surface_w.max(1) as f32;
