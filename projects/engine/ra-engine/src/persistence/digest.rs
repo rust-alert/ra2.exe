@@ -226,6 +226,14 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(16);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
+        GameCommand::Scatter { entity } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(17);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
+        }
+        GameCommand::Delete { entity } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(18);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);
+        }
         GameCommand::SellBuilding { player, building } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(11);
             h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(player.0)).wrapping_add(building.0 << 8);

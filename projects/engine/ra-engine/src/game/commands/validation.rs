@@ -781,6 +781,65 @@ impl crate::state::BattleState {
                     });
                     self.repath_entity_at(entity_index);
                 }
+                GameCommand::Scatter { entity } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    let Some((x, y)) = self.pick_scatter_cell(entity_index)
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidPlacement);
+                        continue;
+                    };
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission = Some(ra_types::MissionKind::Move);
+                    });
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                    });
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.destination_x = Some(x);
+                        movement.destination_y = Some(y);
+                        movement.waypoints.clear();
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(entity_index);
+                }
+                GameCommand::Delete { entity } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    let amount = self.ecs_get::<Health>(id).map(|h| h.maximum.max(h.current)).unwrap_or(1);
+                    self.apply_damage(entity_index, amount);
+                }
                 GameCommand::SellBuilding { player, building } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);

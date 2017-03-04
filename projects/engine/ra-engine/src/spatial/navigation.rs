@@ -148,6 +148,59 @@ impl crate::state::BattleState {
         }
         path
     }
+
+    /// 为散开挑选邻近可通行且未被其它机动单位占用的格（确定性，按实体 id 与 tick 盐选）。
+    pub(crate) fn pick_scatter_cell(&self, entity_index: usize) -> Option<(u16, u16)> {
+        let id = self.entities.get(entity_index)?.id;
+        let xf = self.ecs_get::<Transform>(id).copied()?;
+        let mut grid = self.pass_grid.clone();
+        for (j, entity) in self.entities.iter().enumerate() {
+            if j == entity_index {
+                continue;
+            }
+            let oid = entity.id;
+            if self.ecs_get::<Health>(oid).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            if !self.ecs_get::<Identity>(oid).map(|identity| is_mobile(identity.kind)).unwrap_or(false) {
+                continue;
+            }
+            if let Some(ox) = self.ecs_get::<Transform>(oid).copied() {
+                grid.set_passable(ox.x, ox.y, false);
+            }
+        }
+        grid.set_passable(xf.x, xf.y, true);
+        let salt = id.0.wrapping_add(self.tick);
+        for radius in 1_i32..=4 {
+            let mut candidates: Vec<(u16, u16)> = Vec::new();
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    if dx.abs() != radius && dy.abs() != radius {
+                        continue;
+                    }
+                    let x = i32::from(xf.x) + dx;
+                    let y = i32::from(xf.y) + dy;
+                    if x < 0 || y < 0 {
+                        continue;
+                    }
+                    let (x, y) = (x as u16, y as u16);
+                    if !grid.is_passable(x, y) {
+                        continue;
+                    }
+                    if self.cell_occupied_by_other(entity_index, x, y) {
+                        continue;
+                    }
+                    candidates.push((x, y));
+                }
+            }
+            if candidates.is_empty() {
+                continue;
+            }
+            let idx = (salt % candidates.len() as u64) as usize;
+            return candidates.get(idx).copied();
+        }
+        None
+    }
 }
 
 #[doc(hidden)]

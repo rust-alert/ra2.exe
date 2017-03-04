@@ -849,9 +849,15 @@ impl BattleController {
                 self.recall_view_bookmark(renderer, n);
                 BattleNav::None
             }
-            HotkeyAction::ScatterObject
-            | HotkeyAction::Follow
-            | HotkeyAction::Delete
+            HotkeyAction::ScatterObject => {
+                self.scatter_selection();
+                BattleNav::None
+            }
+            HotkeyAction::Delete => {
+                self.delete_selection();
+                BattleNav::None
+            }
+            HotkeyAction::Follow
             | HotkeyAction::ToggleAlliance
             | HotkeyAction::PlaceBeacon
             | HotkeyAction::AllToCheer

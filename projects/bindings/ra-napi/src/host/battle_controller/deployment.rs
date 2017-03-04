@@ -81,6 +81,36 @@ impl BattleController {
         }
     }
 
+    /// 对当前选中下发散开（`X` / `keyboard.ini` ScatterObject）。
+    pub(super) fn scatter_selection(&mut self) {
+        let selected = self.local.selected.clone();
+        if selected.is_empty() {
+            return;
+        }
+        let pulse_tick = self.session.as_mut().and_then(|s| s.battle_mut()).map(|game| {
+            tracing::info!("散开选中 · {:?}", selected);
+            let tick = game.world.tick;
+            game.order_scatter(&selected);
+            tick
+        });
+        if let Some(tick) = pulse_tick {
+            self.pulse_action_lines_at(tick);
+        }
+    }
+
+    /// 删除当前选中（`Delete` 热键；无退款）。
+    pub(super) fn delete_selection(&mut self) {
+        let selected = self.local.selected.clone();
+        if selected.is_empty() {
+            return;
+        }
+        if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+            tracing::info!("删除选中 · {:?}", selected);
+            game.order_delete(&selected);
+        }
+        self.local.clear();
+    }
+
     /// 切换攻击移动模式（命令条 AttackMove / 可选热键）。
     pub(super) fn toggle_attack_move_mode(&mut self) {
         if self.local.selected.is_empty() {

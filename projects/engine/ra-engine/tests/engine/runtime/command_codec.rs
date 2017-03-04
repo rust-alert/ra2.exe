@@ -17,6 +17,10 @@ fn command_codec_roundtrip() {
         GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() },
         GameCommand::CaptureBuilding { engineer: EntityId(10), building: EntityId(11) },
         GameCommand::Guard { entity: EntityId(12) },
+        GameCommand::Stop { entity: EntityId(15) },
+        GameCommand::AttackMove { entity: EntityId(16), x: 4, y: 5 },
+        GameCommand::Scatter { entity: EntityId(17) },
+        GameCommand::Delete { entity: EntityId(18) },
         GameCommand::SellBuilding { player: PlayerId(0), building: EntityId(13) },
         GameCommand::RepairBuilding { player: PlayerId(0), building: EntityId(14) },
     ];

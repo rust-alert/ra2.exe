@@ -38,6 +38,10 @@ pub enum CommandKind {
     Stop,
     /// 攻击移动：向目标格移动，途中自动接敌。
     AttackMove,
+    /// 散开：向邻近空闲格短距移动以解除叠压。
+    Scatter,
+    /// 删除：摧毁己方选中单位或建筑（无退款）。
+    Delete,
     /// 出售己方建筑（侧栏出售工具）。
     SellBuilding,
     /// 切换己方建筑的持续修理（侧栏修理工具；对应原版扳手挂/摘修理）。
@@ -164,6 +168,16 @@ pub enum CommandBody {
         /// 目标格 Y。
         y: u16,
     },
+    /// 散开：清攻击目标并向邻近空闲格短距移动。
+    Scatter {
+        /// 实体稳定 ID。
+        entity: EntityId,
+    },
+    /// 删除：立即摧毁己方实体（无退款；对应 `Delete` 热键）。
+    Delete {
+        /// 实体稳定 ID。
+        entity: EntityId,
+    },
     /// 出售己方建筑：退还约半价造价并移除建筑。
     SellBuilding {
         /// 出资并拥有该建筑的玩家。
@@ -208,6 +222,8 @@ impl CommandBody {
             Self::Guard { .. } => CommandKind::Guard,
             Self::Stop { .. } => CommandKind::Stop,
             Self::AttackMove { .. } => CommandKind::AttackMove,
+            Self::Scatter { .. } => CommandKind::Scatter,
+            Self::Delete { .. } => CommandKind::Delete,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
             Self::RepairBuilding { .. } => CommandKind::RepairBuilding,
             Self::FireSuperWeapon { .. } => CommandKind::FireSuperWeapon,
@@ -231,7 +247,11 @@ impl CommandBody {
             | Self::CaptureBuilding { building, .. }
             | Self::SellBuilding { building, .. }
             | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
-            Self::Deploy { entity } | Self::Guard { entity } | Self::Stop { entity } => CommandTarget::Entity(*entity),
+            Self::Deploy { entity }
+            | Self::Guard { entity }
+            | Self::Stop { entity }
+            | Self::Scatter { entity }
+            | Self::Delete { entity } => CommandTarget::Entity(*entity),
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
         }
     }

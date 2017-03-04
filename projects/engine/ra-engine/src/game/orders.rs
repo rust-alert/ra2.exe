@@ -147,6 +147,30 @@ impl BattleSession {
         }
     }
 
+    /// 对选中机动单位下发散开（邻近空闲格短距移动）。
+    pub fn order_scatter(&mut self, selected: &[EntityId]) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Scatter { entity: id });
+            }
+        }
+    }
+
+    /// 删除选中己方实体（无退款；对应 `Delete` 热键）。
+    pub fn order_delete(&mut self, selected: &[EntityId]) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &id in selected {
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Delete { entity: id });
+            }
+        }
+    }
+
     /// 若实体可部署，返回目标建筑类型键（如 `GACNST` / `NACNST`）。
     pub fn deploy_target_of(&self, id: EntityId) -> Option<&str> {
         let (type_id, _) = self.world.ecs_identity(id)?;
