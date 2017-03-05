@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use ra_adaptor::runtime_definitions_from_ini_bytes;
 use ra_engine::{BattleState, Engine, EngineConfig};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
@@ -17,6 +18,8 @@ const TEST_COUNTRIES_PREFIX: &[u8] = b"[Countries]\n0=Americans\n1=Russians\n2=S
 [France]\nSide=GDI\n";
 
 /// 内联 rules → 冻结定义；无 `[Countries]` 时自动补美俄。
+///
+/// 装载在 adaptor；单测默认 `savour_delay_ticks = 0`，避免隐式 SavourDelay 拉长用例。
 pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
     let upper = rules_ini.to_ascii_uppercase();
     let bytes = if upper.windows(11).any(|w| w == b"[COUNTRIES]") {
@@ -27,7 +30,9 @@ pub fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
         out.extend_from_slice(rules_ini);
         out
     };
-    ra_test_defs::defs_from_rules_ini(&bytes)
+    let mut defs = runtime_definitions_from_ini_bytes(GameEdition::Ra2, &bytes, None).expect("测试 rules INI 必须可投影");
+    defs.savour_delay_ticks = 0;
+    Arc::new(defs)
 }
 
 /// 测试用默认引擎（空定义骨架）。

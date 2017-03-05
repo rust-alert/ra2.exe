@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use ra_adaptor::runtime_definitions_from_ini_bytes;
 use ra_engine::{BattleOutcome, BattleState, Engine, EngineConfig, GameCommand, RenderSnapshot, Session};
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{GameEdition, RuntimeDefinitions};
@@ -24,7 +25,10 @@ fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
         out.extend_from_slice(rules_ini);
         out
     };
-    ra_test_defs::defs_from_rules_ini(&bytes)
+    let mut defs = runtime_definitions_from_ini_bytes(GameEdition::Ra2, &bytes, None).expect("测试 rules INI 必须可投影");
+    // 单测默认立即锁定胜负，避免隐式 SavourDelay 拉长用例。
+    defs.savour_delay_ticks = 0;
+    Arc::new(defs)
 }
 
 fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {

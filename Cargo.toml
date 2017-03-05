@@ -28,7 +28,6 @@ ra-map = { path = "projects/engine/ra-map" }
 ra-engine = { path = "projects/engine/ra-engine" }
 ra-ecs = { path = "projects/engine/ra-ecs" }
 ra-testing = { path = "projects/tooling/ra-testing" }
-ra-test-defs = { path = "projects/tooling/ra-test-defs" }
 ra-net = { path = "projects/engine/ra-net" }
 ra-renderer = { path = "projects/engine/ra-renderer" }
 ra-layout = { path = "projects/engine/ra-layout" }

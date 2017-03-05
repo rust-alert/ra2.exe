@@ -14,6 +14,6 @@ publish = false
 
 [dependencies]
 ra-types = { workspace = true }
-ra-test-defs = { workspace = true }
+ra-adaptor = { workspace = true }
 ra-engine = { workspace = true }
 ra-map = { workspace = true }

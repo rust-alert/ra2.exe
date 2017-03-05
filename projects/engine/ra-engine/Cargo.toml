@@ -19,6 +19,6 @@ ra-net = { workspace = true }
 ra-ecs = { workspace = true }
 
 [dev-dependencies]
-ra-test-defs = { workspace = true }
+ra-adaptor = { workspace = true }
 ra-map = { workspace = true }
 ra-types = { workspace = true }
