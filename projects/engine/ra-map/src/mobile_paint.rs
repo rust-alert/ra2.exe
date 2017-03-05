@@ -165,7 +165,7 @@ pub fn paint_map_mobiles(
     let vpl = source.read("voxels.vpl").ok().and_then(|b| VplFile::parse(&b).ok());
 
     let mut shp_cache: HashMap<String, ShpFile> = HashMap::new();
-    let mut blit_cache: HashMap<(String, u16, HouseName, u8, u8), TileBlit> = HashMap::new();
+    let mut blit_cache: HashMap<(String, u16, HouseName, u8, u8, u32), TileBlit> = HashMap::new();
     let mut items: Vec<(u16, u16, TileBlit)> = Vec::new();
 
     for ent in mobiles {
@@ -178,7 +178,8 @@ pub fn paint_map_mobiles(
         let pose = pose_of(ent);
         let frame_index = resolve_mobile_shp_frame_from_hints(hint, ent, pose);
         let turret_facing = pose.turret_facing.unwrap_or(ent.facing);
-        let cache_key = (image_key.clone(), frame_index, ent.owner.clone(), ent.facing, turret_facing);
+        let vxl_hva_frame = mobile_vxl_hva_frame(pose);
+        let cache_key = (image_key.clone(), frame_index, ent.owner.clone(), ent.facing, turret_facing, vxl_hva_frame);
         let tint = map.tint_at(ent.x, ent.y, z_at(ent.x, ent.y));
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
@@ -191,12 +192,12 @@ pub fn paint_map_mobiles(
 
         let pal = remap_owner(&obj_pal, &ent.owner);
         let blit = if prefer_voxel {
-            load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing)
+            load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing, vxl_hva_frame)
                 .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
             load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
-                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing))
+                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing, vxl_hva_frame))
         };
         if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
@@ -261,9 +262,20 @@ where
     }
 }
 
+/// 载具 VXL 的 HVA 帧：开火窗口用 `anim_frame`，否则第 0 帧（待机）。
+#[doc(hidden)]
+pub fn mobile_vxl_hva_frame(pose: MobilePaintPose) -> u32 {
+    if pose.firing {
+        u32::from(pose.anim_frame)
+    }
+    else {
+        0
+    }
+}
+
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
-    // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。
+    // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。VXL 开火见 [`mobile_vxl_hva_frame`]。
     if ent.kind != MapEntityKind::Infantry {
         return u16::from(ent.facing / 32);
     }
@@ -331,6 +343,7 @@ pub fn load_mobile_vxl_layers(
     vpl: Option<&VplFile>,
     body_facing: u8,
     turret_facing: u8,
+    hva_frame: u32,
 ) -> Option<TileBlit> {
     let body_name = format!("{stem}.vxl");
     let body_bytes = source.read(&body_name).ok()?;
@@ -361,7 +374,7 @@ pub fn load_mobile_vxl_layers(
             vxl: v,
             hva: h.as_ref(),
             facing: if *is_turret { turret_facing } else { body_facing },
-            frame: 0,
+            frame: hva_frame,
         })
         .collect();
     let sprite = rasterize_vxl_layer_poses(&layers, pal, vpl)?;
