@@ -35,26 +35,43 @@ pub(super) struct DeployVisualJob {
 }
 
 impl BattleController {
-    /// 对当前选中下发部署命令（`D` 键 / 双击 MCV）。
+    /// 对当前选中下发部署命令（部署模式下左键确认）。
     pub(super) fn deploy_selection(&mut self) {
         let selected = self.local.selected.clone();
-        let Some(&id) = selected.first()
-        else {
-            return;
-        };
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
         else {
             return;
         };
-        if game.deploy_target_of(id).is_none() {
-            tracing::info!("部署 · 选中不可部署 · {:?}", selected);
+        let Some(&id) = selected.iter().find(|&&eid| game.deploy_target_of(eid).is_some())
+        else {
+            tracing::info!("部署 · 选中无可部署单位 · {:?}", selected);
             return;
-        }
+        };
         self.deploy_watch = Some(id);
         if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
             tracing::info!("部署选中 · {:?}", selected);
             game.order_deploy(&selected);
         }
+        self.deploy_mode = false;
+    }
+
+    /// 切换部署模式（命令条 Deploy / `D`；能力本身不自动进模式）。
+    pub(super) fn toggle_deploy_mode(&mut self) {
+        if !self.selection_has_deployable() {
+            tracing::info!("部署 · 无可用可部署单位，忽略");
+            self.deploy_mode = false;
+            return;
+        }
+        self.place_mode = None;
+        self.repair_mode = false;
+        self.sell_mode = false;
+        self.attack_move_mode = false;
+        if self.planning_mode {
+            self.planning_mode = false;
+            self.planning_waypoints.clear();
+        }
+        self.deploy_mode = !self.deploy_mode;
+        tracing::info!(active = self.deploy_mode, "命令条 · 部署模式");
     }
 
     /// 对当前选中下发就地警戒（`G` / 命令条 Guard；`keyboard.ini` GuardObject）。
@@ -120,6 +137,7 @@ impl BattleController {
         self.place_mode = None;
         self.repair_mode = false;
         self.sell_mode = false;
+        self.deploy_mode = false;
         if self.planning_mode {
             self.planning_mode = false;
             self.planning_waypoints.clear();

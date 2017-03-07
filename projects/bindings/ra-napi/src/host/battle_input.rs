@@ -118,9 +118,9 @@ pub enum BattlePointer {
     NoMove,
     /// 选中单位可攻击光标下敌方（Attack）。
     Attack,
-    /// 选中可部署单位（MCV 等）时的部署标记光标：仅悬停该单位本身。
+    /// 选中可部署单位且已进入 `deploy_mode` 时的部署标记光标。
     Deploy,
-    /// 悬停已选可部署单位但当前位置不可部署。
+    /// 部署模式中但当前选中不可部署。
     NoDeploy,
     /// 整窗边缘滚屏光标。
     Edge(EdgeScrollCursor),

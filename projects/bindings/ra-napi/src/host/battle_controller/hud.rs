@@ -353,6 +353,11 @@ impl BattleController {
             tracing::info!(active = false, "命令条 · 攻击移动");
             cleared = true;
         }
+        if self.deploy_mode {
+            self.deploy_mode = false;
+            tracing::info!(active = false, "命令条 · 部署模式");
+            cleared = true;
+        }
         cleared
     }
 
@@ -371,7 +376,7 @@ impl BattleController {
         let tip = command_button_csf_tooltip(slot).unwrap_or("?");
         tracing::info!(slot, name, tip, "命令条按钮");
         match name {
-            "Deploy" => self.deploy_selection(),
+            "Deploy" => self.toggle_deploy_mode(),
             "Guard" => self.guard_selection(),
             "Stop" => self.stop_selection(),
             "AttackMove" => self.toggle_attack_move_mode(),
@@ -399,6 +404,7 @@ impl BattleController {
                     self.repair_mode = false;
                     self.sell_mode = false;
                     self.attack_move_mode = false;
+                    self.deploy_mode = false;
                     tracing::info!(active = true, "命令条 · 路径点规划");
                 }
             }

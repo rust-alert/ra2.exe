@@ -597,6 +597,9 @@ impl BattleController {
                 else if self.attack_move_mode {
                     ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "AttackMove")
                 }
+                else if self.deploy_mode {
+                    ra_widgets::skin::text::SKIRMISH_COMMAND_BAR.iter().position(|&n| n == "Deploy")
+                }
                 else {
                     None
                 }

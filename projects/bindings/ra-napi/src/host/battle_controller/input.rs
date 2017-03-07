@@ -27,8 +27,7 @@ impl BattleController {
 
     /// 战术区悬停上下文（不含边缘滚屏）。
     ///
-    /// 可部署能力只反映在命令条 / `D`；悬停已选单位不会自动切换 Deploy 光标。
-    /// `order_deploy` 为就地即时命令，无独立 `deploy_mode` 时不应伪装部署指针。
+    /// 可部署能力只进命令条 / `D` 的 `deploy_mode`；悬停已选单位不会自动切 Deploy 光标。
     pub(super) fn battle_pointer_context(&self, renderer: &Renderer, window: &Window) -> super::super::battle_input::BattlePointer {
         use super::super::battle_input::BattlePointer;
         let Some(game) = self.session.as_ref().and_then(|s| s.battle())
@@ -58,14 +57,17 @@ impl BattleController {
             return BattlePointer::Default;
         }
 
+        // 部署模式：仅显式进入后显示 Deploy / NoDeploy（右键取消）。
+        if self.deploy_mode {
+            return if self.selection_has_deployable() { BattlePointer::Deploy } else { BattlePointer::NoDeploy };
+        }
+
         if selected.is_empty() {
             if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || Self::pick_local_building_at_image(game, wx, wy).is_some() {
                 return BattlePointer::Select;
             }
             return BattlePointer::Default;
         }
-
-        // 可部署能力只影响命令条 Deploy / `D`，不因悬停已选单位自动切 Deploy 光标。
 
         let has_mobile = selected.iter().any(|&id| {
             game.world.ecs_identity(id).is_some_and(|(_, kind)| {
@@ -170,6 +172,19 @@ impl BattleController {
             tracing::info!(count = self.planning_waypoints.len(), x = cell.0, y = cell.1, "路径点规划 · 追加航点");
             return;
         }
+        // 部署模式：左键确认就地展开（右键经 clear_sidebar_tool_modes 取消）。
+        if self.deploy_mode {
+            if self.selection_has_deployable() {
+                let tick = game.world.tick;
+                self.deploy_selection();
+                self.pulse_action_lines_at(tick);
+            }
+            else {
+                self.deploy_mode = false;
+                tracing::info!(active = false, "部署模式 · 选中已无可用单位，已退出");
+            }
+            return;
+        }
 
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
@@ -226,6 +241,7 @@ impl BattleController {
                     }
                 }
                 self.attack_move_mode = false;
+                self.deploy_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -245,6 +261,7 @@ impl BattleController {
                     }
                 }
                 self.attack_move_mode = false;
+                self.deploy_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -647,7 +664,7 @@ impl BattleController {
                 BattleNav::None
             }
             HotkeyAction::DeployObject => {
-                self.deploy_selection();
+                self.toggle_deploy_mode();
                 BattleNav::None
             }
             HotkeyAction::GuardObject => {
