@@ -40,7 +40,10 @@ pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell
     }
 }
 
-/// 沿路径用 `move_accum + speed * tick_fraction` 计算相对当前逻辑格的屏幕像素偏移。
+/// 相对当前逻辑格，沿 `path[0]` 单边插值屏幕偏移。
+///
+/// 只用「当前格 → 下一格」一条边：`t = (move_accum + speed * tick_fraction) / cell_cost`，
+/// 钳到 `[0, 1]`。不跨后续路点预测，避免 repath 时呈现跳格。
 pub fn slide_offset_along_path(
     cell_x: u16,
     cell_y: u16,
@@ -54,32 +57,18 @@ pub fn slide_offset_along_path(
     if cell_cost == 0 || path.is_empty() {
         return (0, 0);
     }
-    let cost = cell_cost as f32;
-    let mut visual = move_accum as f32 + speed as f32 * (tick_fraction as f32).clamp(0.0, 1.0);
-    let mut from_x = cell_x;
-    let mut from_y = cell_y;
-    let mut path_i = 0usize;
-    // 预测跨越的整格：逻辑格仍停在 from，呈现滑到后续路点。
-    while visual >= cost && path_i + 1 < path.len() {
-        visual -= cost;
-        let (nx, ny) = path[path_i];
-        from_x = nx;
-        from_y = ny;
-        path_i += 1;
-    }
-    let Some(&(nx, ny)) = path.get(path_i)
+    let Some(&(nx, ny)) = path.first()
     else {
         return (0, 0);
     };
+    let cost = cell_cost as f32;
+    let visual = move_accum as f32 + speed as f32 * (tick_fraction as f32).clamp(0.0, 1.0);
     let t = (visual / cost).clamp(0.0, 1.0);
-    let z0 = cell_z(from_x, from_y);
+    let z0 = cell_z(cell_x, cell_y);
     let z1 = cell_z(nx, ny);
-    let (sx0, sy0) = iso_to_screen(i32::from(from_x), i32::from(from_y), z0);
+    let (sx0, sy0) = iso_to_screen(i32::from(cell_x), i32::from(cell_y), z0);
     let (sx1, sy1) = iso_to_screen(i32::from(nx), i32::from(ny), z1);
-    // 偏移相对实体逻辑格（cell_x/y）的屏幕原点，而非预测 from。
-    let z_logic = cell_z(cell_x, cell_y);
-    let (sx_logic, sy_logic) = iso_to_screen(i32::from(cell_x), i32::from(cell_y), z_logic);
     let sx = sx0 as f32 + (sx1 - sx0) as f32 * t;
     let sy = sy0 as f32 + (sy1 - sy0) as f32 * t;
-    ((sx - sx_logic as f32).round() as i32, (sy - sy_logic as f32).round() as i32)
+    ((sx - sx0 as f32).round() as i32, (sy - sy0 as f32).round() as i32)
 }
