@@ -262,10 +262,10 @@ where
     }
 }
 
-/// 载具 VXL 的 HVA 帧：开火窗口用 `anim_frame`，否则第 0 帧（待机）。
+/// 载具 VXL 的 HVA 帧：开火 / 行走用 `anim_frame`，待机为第 0 帧。
 #[doc(hidden)]
 pub fn mobile_vxl_hva_frame(pose: MobilePaintPose) -> u32 {
-    if pose.firing {
+    if pose.firing || pose.moving {
         u32::from(pose.anim_frame)
     }
     else {
@@ -275,7 +275,7 @@ pub fn mobile_vxl_hva_frame(pose: MobilePaintPose) -> u32 {
 
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
-    // 载具 WalkFrames 等另议；步兵靠 `Sequence=`。VXL 开火见 [`mobile_vxl_hva_frame`]。
+    // 载具 SHP WalkFrames 另议；VXL 行走 / 开火见 [`mobile_vxl_hva_frame`]。步兵靠 `Sequence=`。
     if ent.kind != MapEntityKind::Infantry {
         return u16::from(ent.facing / 32);
     }

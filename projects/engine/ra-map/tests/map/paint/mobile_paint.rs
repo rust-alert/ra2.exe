@@ -50,11 +50,13 @@ fn fire_sequence_preferred_over_walk() {
 }
 
 #[test]
-fn vxl_hva_frame_follows_fire_anim_only_while_firing() {
+fn vxl_hva_frame_follows_fire_and_walk_anim() {
     let idle = MobilePaintPose { anim_frame: 9, moving: false, firing: false, offset_x: 0, offset_y: 0, turret_facing: None };
     assert_eq!(mobile_vxl_hva_frame(idle), 0);
     let firing = MobilePaintPose { anim_frame: 2, moving: false, firing: true, offset_x: 0, offset_y: 0, turret_facing: Some(64) };
     assert_eq!(mobile_vxl_hva_frame(firing), 2);
+    let walking = MobilePaintPose { anim_frame: 5, moving: true, firing: false, offset_x: 0, offset_y: 0, turret_facing: None };
+    assert_eq!(mobile_vxl_hva_frame(walking), 5);
 }
 
 #[test]
