@@ -530,8 +530,12 @@ impl BattleController {
             (Some(id), _, None) => format!("#{}", id.0),
             _ => "—".into(),
         };
-        let deploy_hint_owned =
-            self.local.selected.first().copied().and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))));
+        let deploy_hint_owned = if self.deploy_mode {
+            self.local.selected.first().copied().and_then(|id| game.and_then(|g| g.deploy_target_of(id).map(|t| format!("D→{t}"))))
+        }
+        else {
+            None
+        };
         let queue = hud.produce_queues.first().map(|q| format!("队列 {}:{}", q.type_id, q.remaining_ticks));
         let reject = hud.last_rejects.first().map(|r| r.reason.as_hud_label());
         let tip_owned = self.command_hover.and_then(command_button_csf_tooltip).and_then(|key| resolve_csf_text(csf, key));
