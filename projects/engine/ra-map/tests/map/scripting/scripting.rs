@@ -142,6 +142,37 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
 }
 
 #[test]
+fn merge_global_ai_ini_appends_missing_ids_keeps_map() {
+    let map_text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[TaskForces]\n0=TF_MAP\n\
+[TF_MAP]\nName=MapForce\n0=1,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM_MAP\n\
+[TM_MAP]\nName=MapTeam\nHouse=Russians\nTaskForce=TF_MAP\nMax=1\n\
+[AITriggerTypes]\n\
+AT_MAP=Local,TM_MAP,Russians,0\n\
+";
+    let mut map = MapInfo::parse_ini(GameEdition::Ra2, "merge.map", map_text).unwrap();
+    let ai = b"\
+[TaskForces]\n0=TF_MAP\n1=TF_AI\n\
+[TF_MAP]\nName=ShouldNotReplace\n0=9,E1\nGroup=-1\n\
+[TF_AI]\nName=AiForce\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM_AI\n\
+[TM_AI]\nName=AiTeam\nHouse=Russians\nTaskForce=TF_AI\nMax=2\n\
+[AITriggerTypes]\n\
+AT_AI=Global,TM_AI,Russians,0\n\
+";
+    map.merge_global_ai_ini(ai).expect("merge ai");
+    assert_eq!(map.scripting.task_forces.len(), 2, "map TF kept + AI TF added");
+    let map_tf = map.scripting.task_forces.iter().find(|t| t.id.as_str() == "TF_MAP").expect("map tf");
+    assert_eq!(map_tf.name, "MapForce", "map TaskForce must win on id clash");
+    assert!(map.scripting.task_forces.iter().any(|t| t.id.as_str() == "TF_AI"));
+    assert!(map.scripting.team_types.iter().any(|t| t.id.as_str() == "TM_AI"));
+    assert!(map.scripting.ai_triggers.iter().any(|t| t.id.as_str() == "AT_AI"));
+    assert!(map.scripting.ai_triggers.iter().any(|t| t.id.as_str() == "AT_MAP"));
+}
+
+#[test]
 fn parse_map_houses_through_section_serde() {
     let text = b"\
 [Houses]\n\

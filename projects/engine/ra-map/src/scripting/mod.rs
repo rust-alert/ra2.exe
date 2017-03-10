@@ -97,6 +97,42 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
     scripting
 }
 
+/// 将全局 AI 定义（通常来自 `ai.ini` / `aimd.ini`）并入地图剧本。
+///
+/// 只合并 TaskForces / ScriptTypes / TeamTypes / AITriggerTypes。
+/// 地图已有同名 id 时保留地图条目（地图覆盖全局）。
+pub fn merge_global_ai_scripting(into: &mut MapScripting, doc: &IniDocument) {
+    let extra_tf = parse_task_forces(doc);
+    let extra_scripts = parse_script_types(doc);
+    let extra_teams = parse_team_types(doc);
+    let extra_triggers = parse_ai_triggers(doc);
+
+    for tf in extra_tf {
+        if into.task_forces.iter().any(|x| x.id.as_str().eq_ignore_ascii_case(tf.id.as_str())) {
+            continue;
+        }
+        into.task_forces.push(tf);
+    }
+    for script in extra_scripts {
+        if into.script_types.iter().any(|x| x.id.as_str().eq_ignore_ascii_case(script.id.as_str())) {
+            continue;
+        }
+        into.script_types.push(script);
+    }
+    for team in extra_teams {
+        if into.team_types.iter().any(|x| x.id.as_str().eq_ignore_ascii_case(team.id.as_str())) {
+            continue;
+        }
+        into.team_types.push(team);
+    }
+    for trigger in extra_triggers {
+        if into.ai_triggers.iter().any(|x| x.id.as_str().eq_ignore_ascii_case(trigger.id.as_str())) {
+            continue;
+        }
+        into.ai_triggers.push(trigger);
+    }
+}
+
 fn collect_unknown_sections(doc: &IniDocument) -> Vec<String> {
     let mut out = Vec::new();
     for sec in &doc.sections {

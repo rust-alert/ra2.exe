@@ -89,8 +89,8 @@ pub use radiation_light::{
 pub use scripting::{
     MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCapabilityGap, MapCellTag, MapEvent, MapEventCondition, MapEventKind,
     MapHouse, MapScriptStep, MapScriptType, MapScripting, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger,
-    campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps, parse_map_houses,
-    parse_map_scripting,
+    campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps, merge_global_ai_scripting,
+    parse_map_houses, parse_map_scripting,
 };
 pub use skirmish_preview::{
     BootPreviewResult, SkirmishPreviewStats, compose_boot_preview, compose_skirmish_preview, paint_mobiles_onto_preview_rgba,
@@ -217,6 +217,15 @@ impl MapInfo {
             preview_height: 0,
             digest: String::new(),
         }
+    }
+
+    /// 将全局 AI INI（`ai.ini` / `aimd.ini`）中的产队定义并入本图剧本。
+    ///
+    /// 地图已有同名 TaskForce / Script / Team / AITrigger 时保留地图侧。
+    pub fn merge_global_ai_ini(&mut self, bytes: &[u8]) -> RaResult<()> {
+        let doc = IniDocument::parse(bytes)?;
+        merge_global_ai_scripting(&mut self.scripting, &doc);
+        Ok(())
     }
 
     /// 从场景 INI（`.map` / `.mpr`）解析尺寸、剧院，并尝试解码地形与覆盖层。
