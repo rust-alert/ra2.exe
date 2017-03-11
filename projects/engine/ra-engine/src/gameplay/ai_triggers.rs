@@ -54,6 +54,10 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
                 continue;
             };
             world.ensure_house(&house_key);
+            // 战役：未「Production Begins」的房主不由 AITrigger 刷队。
+            if !world.house_production_begun(&house_key) {
+                continue;
+            }
             let tech = world
                 .players
                 .iter()
@@ -64,16 +68,38 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
                 continue;
             }
         }
-        let rem = world.ai_trigger_runtime.cooldowns.entry(at.id).or_insert(0);
-        if *rem > 0 {
+
+        let cooling = world.ai_trigger_runtime.cooldowns.get(&at.id).copied().unwrap_or(0);
+        if cooling > 0 {
             continue;
         }
-        let Some(team) = world.prepared.team_types.iter().find(|t| t.id == at.team)
+
+        let Some(team) = world.prepared.team_types.iter().find(|t| t.id == at.team).cloned()
         else {
             continue;
         };
+        // 无 OwnerHouse 时，用 TeamType.House 约束战役生产开关。
+        if at.owner_house.is_none() {
+            if let Some(house_key) = world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string()) {
+                world.ensure_house(&house_key);
+                if !world.house_production_begun(&house_key) {
+                    continue;
+                }
+            }
+        }
+        // `Max=`：已有同 TeamType 活跃小队达到上限则跳过本拍。
+        if team.max > 0 {
+            let active = world.script_team_runtime.count_active_of_type(team.id);
+            if active >= team.max as usize {
+                world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
+                continue;
+            }
+        }
+        if world.trigger_runtime.pending_team_spawns.contains(&team.id) {
+            continue;
+        }
         world.trigger_runtime.pending_team_spawns.push(team.id);
-        *rem = AI_TRIGGER_COOLDOWN_TICKS;
+        world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
     }
 }
 

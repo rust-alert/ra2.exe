@@ -33,6 +33,13 @@ pub struct ScriptTeamRuntime {
     active: Vec<ActiveScriptTeam>,
 }
 
+impl ScriptTeamRuntime {
+    /// 统计指定 TeamType 当前仍登记的活跃小队数（供 AITrigger `Max=`）。
+    pub fn count_active_of_type(&self, team_type_id: TeamTypeId) -> usize {
+        self.active.iter().filter(|t| t.team_type_id == team_type_id).count()
+    }
+}
+
 /// 消费 `pending_team_spawns`，按 TeamType + TaskForce 在航点生成单位。
 pub fn flush_pending_team_spawns(world: &mut BattleState) {
     let pending = std::mem::take(&mut world.trigger_runtime.pending_team_spawns);

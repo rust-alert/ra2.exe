@@ -1,6 +1,9 @@
 //! 基础 AI：只经 `GameCommand` 下发，不直接改写世界。
 //!
 //! 候选建筑 / 单位由冻结定义 + Owner 过滤选出，不硬编码外部类型名。
+//!
+//! 有 `[AITriggerTypes]` 覆盖的房主：经济基建可由本模块补齐，作战部队交给
+//! `tick_ai_triggers` → Create Team / ScriptTypes，避免与启发式工厂量产叠刷。
 
 use crate::{
     BattleState, GameCommand,
@@ -12,6 +15,65 @@ use crate::{
 };
 use ra_map::MapEntityKind;
 use ra_types::{PlayerId, ProductionCategory, TechnoCategory};
+
+/// 启发式量产：同房主存活机动作战单位上限（达到后停刷）。
+const HEURISTIC_ARMY_CAP: usize = 8;
+/// 启发式量产：首批单位之后的下单间隔（逻辑 tick）。
+const HEURISTIC_PRODUCE_PERIOD: u64 = 45;
+
+/// 该房主的作战部队是否应由 `[AITriggerTypes]` 驱动（而非工厂启发式量产）。
+pub fn house_army_driven_by_ai_triggers(world: &BattleState, house: &str) -> bool {
+    if world.prepared.ai_triggers.is_empty() {
+        return false;
+    }
+    for at in &world.prepared.ai_triggers {
+        if let Some(house_id) = at.owner_house {
+            if world.definitions.houses.get_by_id(house_id).is_some_and(|h| h.type_key.as_str().eq_ignore_ascii_case(house)) {
+                return true;
+            }
+        }
+        if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == at.team) {
+            if world.definitions.houses.get_by_id(team.house).is_some_and(|h| h.type_key.as_str().eq_ignore_ascii_case(house)) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// 无 AITrigger 覆盖时：是否允许本 tick 启发式工厂量产（首批放行，其后节流并封顶）。
+pub fn heuristic_should_produce_army(world: &BattleState, house: &str) -> bool {
+    let army = count_mobile_combatants(world, house);
+    if army >= HEURISTIC_ARMY_CAP {
+        return false;
+    }
+    if army == 0 {
+        return true;
+    }
+    world.tick % HEURISTIC_PRODUCE_PERIOD == 0
+}
+
+fn count_mobile_combatants(world: &BattleState, house: &str) -> usize {
+    world
+        .entities
+        .iter()
+        .filter(|e| {
+            let id = e.id;
+            if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                return false;
+            }
+            if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
+                return false;
+            }
+            let Some(identity) = world.ecs_get::<Identity>(id)
+            else {
+                return false;
+            };
+            matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
+                && world.ecs_get::<CombatStats>(id).map(|s| s.attack_damage > 0).unwrap_or(false)
+        })
+        .count()
+}
 
 /// 地图氛围房主（平民装饰 / 多人被动），不参与遭遇战 AI，也不计入胜负作战力量。
 pub fn is_ambient_house(house: &str) -> bool {
