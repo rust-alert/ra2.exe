@@ -581,7 +581,7 @@ pub fn boot_world_with_progress(
     );
 
     report(0.40, "装载地图");
-    let map = match load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref()) {
+    let mut map = match load_boot_map(&mut source, chain.edition, &mut note, request.preferred_map.as_deref()) {
         Ok(map) => map,
         Err(e) => {
             note = format!("{note} · {e}");
@@ -680,6 +680,34 @@ pub fn boot_world_with_progress(
             tracing::error!(%msg, "战役装载因剧本缺口拒绝");
             report(1.0, "剧本缺口");
             return Ok(BootResult::failed(note));
+        }
+    }
+    else {
+        // 遭遇战：合并全局 AI 定义，使 `[AITriggerTypes]` 驱动产队，而非仅靠启发式乱刷。
+        let ai_ini = match chain.edition {
+            GameEdition::Ra2 => "ai.ini",
+            GameEdition::Yr | GameEdition::Mo3 => "aimd.ini",
+        };
+        match source.read(ai_ini) {
+            Ok(bytes) => match map.merge_global_ai_ini(&bytes) {
+                Ok(()) => {
+                    note = format!(
+                        "{note} · ai={} tf#{} team#{} ait#{}",
+                        ai_ini,
+                        map.scripting.task_forces.len(),
+                        map.scripting.team_types.len(),
+                        map.scripting.ai_triggers.len()
+                    );
+                }
+                Err(e) => {
+                    note = format!("{note} · ai合并失败（{e}）");
+                    tracing::warn!(error = %e, ai = %ai_ini, "全局 AI INI 合并失败");
+                }
+            },
+            Err(_) => {
+                note = format!("{note} · ai=(missing) {ai_ini}");
+                tracing::warn!(ai = %ai_ini, "全局 AI INI 未挂载，遭遇战 AI 仅启发式基建/节流量产");
+            }
         }
     }
     let preferred_house = Some(request.side.as_str());
