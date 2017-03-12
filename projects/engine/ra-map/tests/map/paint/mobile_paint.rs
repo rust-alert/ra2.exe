@@ -60,6 +60,17 @@ fn vxl_hva_frame_follows_fire_and_walk_anim() {
 }
 
 #[test]
+fn vehicle_walk_frames_animate_per_facing() {
+    // WalkFrames=6；facing 64 → 槽 2；移动步 3 → 帧 2*6+3=15；待机同向帧 12。
+    assert_eq!(vehicle_shp_frame_from_walk_frames(64, 3, true, false, Some(6), None), 15);
+    assert_eq!(vehicle_shp_frame_from_walk_frames(64, 3, false, false, Some(6), None), 12);
+    // FiringFrames=4 接在 8*6 行走块后：槽 2 步 1 → 48+8+1=57。
+    assert_eq!(vehicle_shp_frame_from_walk_frames(64, 1, true, true, Some(6), Some(4)), 57);
+    // 无 WalkFrames 时回退朝向桶。
+    assert_eq!(vehicle_shp_frame_from_walk_frames(64, 9, true, false, None, None), 2);
+}
+
+#[test]
 fn pose_slide_offset_is_added_to_blit_origin() {
     // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
     let pose = MobilePaintPose { anim_frame: 0, moving: true, firing: false, offset_x: 12, offset_y: -8, turret_facing: None };

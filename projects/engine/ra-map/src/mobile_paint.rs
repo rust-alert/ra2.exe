@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ra_assets::{
-    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, from_row, rasterize_vxl_layer_poses,
+    HvaFile, IniDocument, Palette, ShpFile, VplFile, VxlFile, VxlLayerPose, deserialize_opt_u32, from_row, rasterize_vxl_layer_poses,
     rasterize_vxl_shadow_layer_poses,
 };
 use ra_types::{AssetSource, HouseName, ImageName, TechnoName};
@@ -29,6 +29,10 @@ struct MobileTypePaintHints {
     ready_triple: Option<(u16, u16, u16)>,
     /// 开火序列 `Start,Count,Multiplier`（`Fire` / `FireUp`）。
     fire_triple: Option<(u16, u16, u16)>,
+    /// 载具 / 飞行器 SHP：每朝向行走帧数（`WalkFrames`）。
+    walk_frames: Option<u16>,
+    /// 载具 / 飞行器 SHP：每朝向开火帧数（`FiringFrames`）；接在 8 向行走块之后。
+    firing_frames: Option<u16>,
 }
 
 /// 移动单位类型叠画提示表（跨多次 paint 调用复用，避免重复扫 art/rules）。
@@ -85,7 +89,9 @@ fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> Mo
         (Some(art), Some(seq)) => sequence_triples_from_section(art, seq),
         _ => (None, None, None),
     };
-    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple, fire_triple }
+    let walk_frames = art_fields.walk_frames.filter(|&n| n > 0).map(|n| n as u16);
+    let firing_frames = art_fields.firing_frames.filter(|&n| n > 0).map(|n| n as u16);
+    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple, fire_triple, walk_frames, firing_frames }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -98,6 +104,10 @@ struct MobileArtImageFields {
     sequence: Option<ImageName>,
     #[serde(rename = "Image")]
     image: Option<ImageName>,
+    #[serde(rename = "WalkFrames", default, deserialize_with = "deserialize_opt_u32")]
+    walk_frames: Option<u32>,
+    #[serde(rename = "FiringFrames", default, deserialize_with = "deserialize_opt_u32")]
+    firing_frames: Option<u32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -273,9 +283,15 @@ pub fn mobile_vxl_hva_frame(pose: MobilePaintPose) -> u32 {
     }
 }
 
+/// 载具 / 飞行器 SHP 朝向槽（0..=7）。
+const VEHICLE_SHP_FACINGS: u16 = 8;
+
 /// 由姿态与 art 序列解析 SHP 帧；无序列时回退到朝向桶。
 fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEntity, pose: MobilePaintPose) -> u16 {
-    // 载具 SHP WalkFrames 另议；VXL 行走 / 开火见 [`mobile_vxl_hva_frame`]。步兵靠 `Sequence=`。
+    // 载具 / 飞行器：`WalkFrames` / `FiringFrames`。VXL 见 [`mobile_vxl_hva_frame`]。步兵靠 `Sequence=`。
+    if matches!(ent.kind, MapEntityKind::Unit | MapEntityKind::Aircraft) {
+        return resolve_vehicle_shp_frame(hint.walk_frames, hint.firing_frames, ent.facing, pose);
+    }
     if ent.kind != MapEntityKind::Infantry {
         return u16::from(ent.facing / 32);
     }
@@ -300,6 +316,37 @@ fn resolve_mobile_shp_frame_from_hints(hint: &MobileTypePaintHints, ent: &MapEnt
     start.saturating_add(slot.saturating_mul(multiplier)).saturating_add(step)
 }
 
+/// 载具 / 飞行器 SHP：`facing/32` 向 × 每向帧数；开火块接在 8 向行走块之后。
+fn resolve_vehicle_shp_frame(walk_frames: Option<u16>, firing_frames: Option<u16>, facing: u8, pose: MobilePaintPose) -> u16 {
+    let slot = u16::from(facing / 32) % VEHICLE_SHP_FACINGS;
+    let walk = walk_frames.unwrap_or(0);
+    let fire = firing_frames.unwrap_or(0);
+    if pose.firing && fire > 0 {
+        let step = pose.anim_frame % fire;
+        let walk_block = if walk > 0 { VEHICLE_SHP_FACINGS.saturating_mul(walk) } else { 0 };
+        return walk_block.saturating_add(slot.saturating_mul(fire)).saturating_add(step);
+    }
+    if walk > 0 {
+        let step = if pose.moving { pose.anim_frame % walk } else { 0 };
+        return slot.saturating_mul(walk).saturating_add(step);
+    }
+    slot
+}
+
+/// 载具 / 飞行器 SHP 帧解析（供测试：`WalkFrames` / `FiringFrames`）。
+#[doc(hidden)]
+pub fn vehicle_shp_frame_from_walk_frames(
+    facing: u8,
+    anim_frame: u16,
+    moving: bool,
+    firing: bool,
+    walk_frames: Option<u16>,
+    firing_frames: Option<u16>,
+) -> u16 {
+    let pose = MobilePaintPose { anim_frame, moving, firing, offset_x: 0, offset_y: 0, turret_facing: None };
+    resolve_vehicle_shp_frame(walk_frames, firing_frames, facing, pose)
+}
+
 /// 步兵 SHP 帧解析（供测试：开火优先于行走）。
 #[doc(hidden)]
 pub fn infantry_shp_frame_from_triples(
@@ -318,6 +365,8 @@ pub fn infantry_shp_frame_from_triples(
         walk_triple: walk,
         ready_triple: ready,
         fire_triple: fire,
+        walk_frames: None,
+        firing_frames: None,
     };
     let ent = MapEntity {
         kind: MapEntityKind::Infantry,
