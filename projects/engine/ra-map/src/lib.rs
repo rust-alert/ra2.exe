@@ -675,6 +675,14 @@ fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_
         team: trigger.team.clone(),
         owner_house: trigger.owner_house.clone(),
         tech_level: trigger.tech_level,
+        condition: trigger.condition,
+        condition_object: trigger.condition_object.clone(),
+        compare_amount: trigger.compare_amount,
+        compare_op: trigger.compare_op,
+        for_skirmish: trigger.for_skirmish,
+        enabled_easy: trigger.enabled_easy,
+        enabled_normal: trigger.enabled_normal,
+        enabled_hard: trigger.enabled_hard,
     }
 }
 

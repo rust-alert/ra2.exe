@@ -138,6 +138,10 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
     assert_eq!(t.team, "TM1");
     assert_eq!(t.owner_house, "RUSSIANS");
     assert_eq!(t.tech_level, 1);
+    assert_eq!(t.condition, ra_types::AiTriggerConditionKind::EnemyOwns);
+    assert_eq!(t.condition_object.as_str(), "GACNST");
+    assert_eq!(t.compare_amount, 1);
+    assert_eq!(t.compare_op, ra_types::AiTriggerCompareOp::GreaterEqual);
     assert!(map.scripting.unknown_sections.iter().all(|s| !s.eq_ignore_ascii_case("AITriggerTypes")));
 }
 
