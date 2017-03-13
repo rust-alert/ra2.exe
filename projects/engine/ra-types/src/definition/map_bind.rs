@@ -419,6 +419,14 @@ pub fn bind_map_ai_triggers(
             team,
             owner_house,
             tech_level: trigger.tech_level,
+            condition: trigger.condition,
+            condition_object: trigger.condition_object.clone(),
+            compare_amount: trigger.compare_amount,
+            compare_op: trigger.compare_op,
+            for_skirmish: trigger.for_skirmish,
+            enabled_easy: trigger.enabled_easy,
+            enabled_normal: trigger.enabled_normal,
+            enabled_hard: trigger.enabled_hard,
         });
     }
     Ok(out)

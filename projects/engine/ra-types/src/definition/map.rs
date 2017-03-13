@@ -1463,6 +1463,88 @@ pub struct MapTeamType {
     pub veteran_level: i32,
 }
 
+/// AITrigger 条件种类（原版 `ConditionType` 子集）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AiTriggerConditionKind {
+    /// `-1`：无条件，恒真。
+    Always,
+    /// `0`：敌方拥有指定类型。
+    EnemyOwns,
+    /// `1`：己方拥有指定类型。
+    OwnOwns,
+    /// `2`：敌方黄电（供电不足）。
+    EnemyYellowPower,
+    /// `3`：敌方红电（有效供电为 0 且仍耗电）。
+    EnemyRedPower,
+    /// `4`：敌方资金。
+    EnemyCredits,
+    /// `7`：中立 / 平民房主拥有指定类型。
+    NeutralOwns,
+    /// 尚未实现的条件码；求值恒假，避免误产队。
+    Unsupported(i32),
+}
+
+impl AiTriggerConditionKind {
+    /// 从原版条件整数解析。
+    pub fn from_i32(v: i32) -> Self {
+        match v {
+            -1 => Self::Always,
+            0 => Self::EnemyOwns,
+            1 => Self::OwnOwns,
+            2 => Self::EnemyYellowPower,
+            3 => Self::EnemyRedPower,
+            4 => Self::EnemyCredits,
+            7 => Self::NeutralOwns,
+            other => Self::Unsupported(other),
+        }
+    }
+}
+
+/// AITrigger 比较运算符（Comparator 第二段）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum AiTriggerCompareOp {
+    /// `<`
+    Less,
+    /// `<=`
+    LessEqual,
+    /// `=`
+    Equal,
+    /// `>=`
+    #[default]
+    GreaterEqual,
+    /// `>`
+    Greater,
+    /// `!=`
+    NotEqual,
+}
+
+impl AiTriggerCompareOp {
+    /// 从原版运算符整数解析；未知回退 `>=`。
+    pub fn from_u32(v: u32) -> Self {
+        match v {
+            0 => Self::Less,
+            1 => Self::LessEqual,
+            2 => Self::Equal,
+            3 => Self::GreaterEqual,
+            4 => Self::Greater,
+            5 => Self::NotEqual,
+            _ => Self::GreaterEqual,
+        }
+    }
+
+    /// 比较 `left` 与门槛 `right`。
+    pub fn compare(self, left: i32, right: i32) -> bool {
+        match self {
+            Self::Less => left < right,
+            Self::LessEqual => left <= right,
+            Self::Equal => left == right,
+            Self::GreaterEqual => left >= right,
+            Self::Greater => left > right,
+            Self::NotEqual => left != right,
+        }
+    }
+}
+
 /// AI 触发（运行契约；来自 `[AITriggerTypes]` 语义子集）。
 ///
 /// 可改为稳定 team / house id；装载侧见 `ra-map::MapAiTrigger`。
@@ -1478,6 +1560,42 @@ pub struct MapAiTrigger {
     pub owner_house: HouseName,
     /// 科技等级门槛。
     pub tech_level: i32,
+    /// 条件种类（CSV `ConditionType`；`-1` = 无条件）。
+    pub condition: AiTriggerConditionKind,
+    /// 条件对象类型键（拥有类条件的 Techno / 建筑名；装载期大写）。
+    pub condition_object: TechnoName,
+    /// 比较阈值（Comparator 解码出的数量 / 资金门槛）。
+    pub compare_amount: i32,
+    /// 比较运算符（Comparator 解码）。
+    pub compare_op: AiTriggerCompareOp,
+    /// 遭遇战可用（`IsForSkirmish`）。
+    pub for_skirmish: bool,
+    /// Easy 难度启用。
+    pub enabled_easy: bool,
+    /// Normal 难度启用。
+    pub enabled_normal: bool,
+    /// Hard 难度启用。
+    pub enabled_hard: bool,
+}
+
+impl Default for MapAiTrigger {
+    fn default() -> Self {
+        Self {
+            id: AiTriggerName::default(),
+            name: String::new(),
+            team: TeamTypeName::default(),
+            owner_house: HouseName::default(),
+            tech_level: 0,
+            condition: AiTriggerConditionKind::Always,
+            condition_object: TechnoName::default(),
+            compare_amount: 0,
+            compare_op: AiTriggerCompareOp::GreaterEqual,
+            for_skirmish: true,
+            enabled_easy: true,
+            enabled_normal: true,
+            enabled_hard: true,
+        }
+    }
 }
 
 /// 行优先粗占格码（与 [`PreparedMap::occupancy`] 元素语义对齐）。
@@ -1839,6 +1957,22 @@ pub struct PreparedAiTrigger {
     pub owner_house: Option<crate::HouseId>,
     /// 科技等级门槛。
     pub tech_level: i32,
+    /// 条件种类。
+    pub condition: AiTriggerConditionKind,
+    /// 条件对象类型键（可空）。
+    pub condition_object: TechnoName,
+    /// 比较阈值。
+    pub compare_amount: i32,
+    /// 比较运算符。
+    pub compare_op: AiTriggerCompareOp,
+    /// 遭遇战可用。
+    pub for_skirmish: bool,
+    /// Easy 难度启用。
+    pub enabled_easy: bool,
+    /// Normal 难度启用。
+    pub enabled_normal: bool,
+    /// Hard 难度启用。
+    pub enabled_hard: bool,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。

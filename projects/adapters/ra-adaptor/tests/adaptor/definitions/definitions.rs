@@ -1001,6 +1001,7 @@ fn bind_map_ai_triggers_assigns_stable_ids() {
                 team: "TM1".into(),
                 owner_house: "Russians".into(),
                 tech_level: 1,
+                ..Default::default()
             },
             ra_types::MapAiTrigger {
                 id: "AI2".into(),
@@ -1008,6 +1009,7 @@ fn bind_map_ai_triggers_assigns_stable_ids() {
                 team: "TM1".into(),
                 owner_house: ra_types::HouseName::default(),
                 tech_level: 0,
+                ..Default::default()
             },
         ],
         &defs,
@@ -1034,6 +1036,7 @@ fn bind_map_ai_triggers_rejects_unknown_team() {
             team: "MISSING".into(),
             owner_house: "Russians".into(),
             tech_level: 0,
+            ..Default::default()
         }],
         &defs,
         &[],
