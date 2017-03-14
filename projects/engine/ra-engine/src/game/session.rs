@@ -196,6 +196,8 @@ impl BattleSession {
 
     /// 推进恰好一个仿真 tick（由 `Session` 时钟驱动；阶段顺序来自 `runtime.schedule`）。
     pub fn advance_one_tick(&mut self, runtime: &EngineRuntime<'_>) {
+        let skirmish = matches!(self.boot_kind, SessionBootKind::Skirmish);
+        self.world.ai_trigger_runtime.sync_session_hints(&self.difficulty, skirmish);
         // 遭遇战靠 `ai_enabled`；战役在某 house「Production Begins」后也会推 AI（仅已开生产的房主）。
         if self.ai_enabled || self.world.any_house_production_begun() {
             self.push_ai_commands();
