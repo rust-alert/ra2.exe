@@ -33,6 +33,10 @@ pub struct MapAiTrigger {
     pub enabled_normal: bool,
     /// Hard 难度启用。
     pub enabled_hard: bool,
+    /// 起始权重。
+    pub weight: u32,
+    /// 可选第二队。
+    pub team2: TeamTypeName,
 }
 
 impl Default for MapAiTrigger {
@@ -51,6 +55,8 @@ impl Default for MapAiTrigger {
             enabled_easy: true,
             enabled_normal: true,
             enabled_hard: true,
+            weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
+            team2: TeamTypeName::default(),
         }
     }
 }
@@ -127,6 +133,8 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
                 enabled_easy: true,
                 enabled_normal: true,
                 enabled_hard: true,
+                weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
+                team2: TeamTypeName::default(),
             });
         }
         else {
@@ -145,6 +153,7 @@ fn parse_ai_trigger_csv_line(key: &str, value: &str) -> Option<MapAiTrigger> {
         return None;
     }
     let (compare_amount, compare_op) = decode_comparator(col(6));
+    let weight = col(7).parse::<u32>().unwrap_or(ra_types::DEFAULT_AI_TRIGGER_WEIGHT).max(1);
     Some(MapAiTrigger {
         id: if key.is_empty() { AiTriggerName::parse(name) } else { AiTriggerName::parse(key) },
         name: name.to_string(),
@@ -155,11 +164,13 @@ fn parse_ai_trigger_csv_line(key: &str, value: &str) -> Option<MapAiTrigger> {
         condition_object: TechnoName::parse(col(5)),
         compare_amount,
         compare_op,
-        // 原版长行：…, IsForSkirmish, unused, side, base_defense, team2, Easy, Normal, Hard
+        // 原版长行：…, StartWeight, MinWeight, MaxWeight, IsForSkirmish, unused, side, base_defense, team2, Easy, Normal, Hard
         for_skirmish: parse_flag_default_true(col(10)),
         enabled_easy: parse_flag_default_true(col(15)),
         enabled_normal: parse_flag_default_true(col(16)),
         enabled_hard: parse_flag_default_true(col(17)),
+        weight,
+        team2: TeamTypeName::parse(col(14)),
     })
 }
 

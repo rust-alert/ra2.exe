@@ -683,6 +683,8 @@ fn map_ai_trigger_to_definition(trigger: &crate::scripting::MapAiTrigger) -> ra_
         enabled_easy: trigger.enabled_easy,
         enabled_normal: trigger.enabled_normal,
         enabled_hard: trigger.enabled_hard,
+        weight: trigger.weight,
+        team2: trigger.team2.clone(),
     }
 }
 
