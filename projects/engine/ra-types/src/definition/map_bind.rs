@@ -404,6 +404,16 @@ pub fn bind_map_ai_triggers(
             name: trigger.team.as_str().to_string(),
             owner: format!("MapAiTrigger:{}", trigger.id.as_str()),
         })?;
+        let team2 = if trigger.team2.is_empty() {
+            None
+        }
+        else {
+            Some(team_by_name.get(trigger.team2.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
+                kind: "team_type",
+                name: trigger.team2.as_str().to_string(),
+                owner: format!("MapAiTrigger:{}:team2", trigger.id.as_str()),
+            })?)
+        };
         let owner_house = if trigger.owner_house.is_empty() {
             None
         }
@@ -427,6 +437,8 @@ pub fn bind_map_ai_triggers(
             enabled_easy: trigger.enabled_easy,
             enabled_normal: trigger.enabled_normal,
             enabled_hard: trigger.enabled_hard,
+            weight: trigger.weight.max(1),
+            team2,
         });
     }
     Ok(out)

@@ -1576,6 +1576,10 @@ pub struct MapAiTrigger {
     pub enabled_normal: bool,
     /// Hard 难度启用。
     pub enabled_hard: bool,
+    /// 起始权重（CSV `StartWeight`；同房主候选间加权抽选）。
+    pub weight: u32,
+    /// 可选第二队（CSV `Team2`；可空）。
+    pub team2: TeamTypeName,
 }
 
 impl Default for MapAiTrigger {
@@ -1594,9 +1598,14 @@ impl Default for MapAiTrigger {
             enabled_easy: true,
             enabled_normal: true,
             enabled_hard: true,
+            weight: DEFAULT_AI_TRIGGER_WEIGHT,
+            team2: TeamTypeName::default(),
         }
     }
 }
+
+/// AITrigger 缺省起始权重（短行 CSV 未写时）。
+pub const DEFAULT_AI_TRIGGER_WEIGHT: u32 = 50;
 
 /// 行优先粗占格码（与 [`PreparedMap::occupancy`] 元素语义对齐）。
 pub mod occupancy_kind {
@@ -1973,6 +1982,10 @@ pub struct PreparedAiTrigger {
     pub enabled_normal: bool,
     /// Hard 难度启用。
     pub enabled_hard: bool,
+    /// 起始权重（同房主候选间加权抽选）。
+    pub weight: u32,
+    /// 可选第二队稳定 id。
+    pub team2: Option<crate::TeamTypeId>,
 }
 
 /// `[CellTags]` 绑定后的运行形状（稳定 `TagId`）。

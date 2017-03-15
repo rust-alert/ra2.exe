@@ -51,7 +51,7 @@ pub use house_list::{ColorName, HouseAllowList, HouseIdAllowList, HouseName, Sid
 pub use land::{LandType, TMP_TERRAIN_TO_LAND, ground_passable, land_passable, tmp_terrain_to_land_type};
 pub use locomotor::LocomotorDefinitions;
 pub use map::{
-    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, AiTriggerConditionKind, AiTriggerCompareOp, MapCellTag, MapDefinition, MapEvent, MapEventCondition,
+    AiTriggerName, GameModeName, MapAction, MapActionCommand, MapAiTrigger, AiTriggerConditionKind, AiTriggerCompareOp, DEFAULT_AI_TRIGGER_WEIGHT, MapCellTag, MapDefinition, MapEvent, MapEventCondition,
     MapFileName, MapHouse, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep,
     MapScriptType, MapSmudge, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind,
     MissionKind, MissionName, PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse,

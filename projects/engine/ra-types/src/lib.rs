@@ -24,7 +24,7 @@ pub use definition::{
     ARMOR_ORDER, AiTriggerName, AnimationDefinitions, ArmorKind, BuildCat, BuiltinCapability, CampaignName, CapabilitySet, ColorName,
     ContentFingerprint, DeployableDefinition, DeployableDefinitions, DeploymentPlacement, Foundation, GameModeName, HouseAllowList,
     HouseIdAllowList, HouseDefinition, HouseDefinitions, HouseName, HouseStolenTechMap, ImageName, LandType, LocomotorDefinitions, MapAction, MapActionCommand,
-    MapAiTrigger, AiTriggerConditionKind, AiTriggerCompareOp, MapCellTag, MapDefinition, MapEdge, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell, MapLighting,
+    MapAiTrigger, AiTriggerConditionKind, AiTriggerCompareOp, DEFAULT_AI_TRIGGER_WEIGHT, MapCellTag, MapDefinition, MapEdge, MapEvent, MapEventCondition, MapFileName, MapHouse, MapIsoCell, MapLighting,
     MapLocalSize, MapOverlayCell, MapPlacedEntity, MapPlacedEntityKind, MapScriptStep, MapScriptType, MapSmudge, MapTag, MapTaskForce,
     MapTaskForceEntry, MapTeamType, MapTerrainObject, MapTrigger, MapWaypoint, MapWeatherKind, MissionKind, MissionName, OverlayName,
     OverlayTypeRegistry, PowerProfile, PreparedAction, PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent,
