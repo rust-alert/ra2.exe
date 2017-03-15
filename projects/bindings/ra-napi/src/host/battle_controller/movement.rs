@@ -34,6 +34,7 @@ pub fn mobile_paint_pose_for(game: &ra_engine::BattleSession, id: EntityId, cell
         anim_frame,
         moving,
         firing,
+        hit_flash: game.world.ecs_animation(id).map(|(_, h)| h > 0).unwrap_or(false),
         offset_x,
         offset_y,
         turret_facing: game.world.ecs_turret_facing(id),

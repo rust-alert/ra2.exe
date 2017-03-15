@@ -126,6 +126,8 @@ pub struct MobilePaintPose {
     pub moving: bool,
     /// `true` 时步兵取 `Fire` / `FireUp` 序列。
     pub firing: bool,
+    /// `true` 时叠受击闪白（仿真 `hit_flash > 0`）。
+    pub hit_flash: bool,
     /// 相对当前格屏幕原点的水平偏移（预览像素；由 `move_accum` 滑向下一格）。
     pub offset_x: i32,
     /// 相对当前格屏幕原点的垂直偏移（预览像素）。
@@ -194,6 +196,9 @@ pub fn paint_map_mobiles(
         if let Some(blit) = blit_cache.get(&cache_key) {
             let mut painted = blit.clone();
             apply_rgba_tint(&mut painted.rgba, tint);
+            if pose.hit_flash {
+                apply_hit_flash_rgba(&mut painted.rgba);
+            }
             painted.offset_x = painted.offset_x.saturating_add(pose.offset_x);
             painted.offset_y = painted.offset_y.saturating_add(pose.offset_y);
             items.push((ent.x, ent.y, painted));
@@ -212,6 +217,9 @@ pub fn paint_map_mobiles(
         if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
             apply_rgba_tint(&mut blit.rgba, tint);
+            if pose.hit_flash {
+                apply_hit_flash_rgba(&mut blit.rgba);
+            }
             blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
             blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
             items.push((ent.x, ent.y, blit));
@@ -343,7 +351,7 @@ pub fn vehicle_shp_frame_from_walk_frames(
     walk_frames: Option<u16>,
     firing_frames: Option<u16>,
 ) -> u16 {
-    let pose = MobilePaintPose { anim_frame, moving, firing, offset_x: 0, offset_y: 0, turret_facing: None };
+    let pose = MobilePaintPose { anim_frame, moving, firing, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: None };
     resolve_vehicle_shp_frame(walk_frames, firing_frames, facing, pose)
 }
 
@@ -380,7 +388,7 @@ pub fn infantry_shp_frame_from_triples(
         mission: Default::default(),
         tag: Default::default(),
     };
-    let pose = MobilePaintPose { anim_frame, moving, firing, offset_x: 0, offset_y: 0, turret_facing: None };
+    let pose = MobilePaintPose { anim_frame, moving, firing, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: None };
     resolve_mobile_shp_frame_from_hints(&hint, &ent, pose)
 }
 
@@ -500,4 +508,17 @@ pub fn load_mobile_shp(
         rgba: frame.to_rgba(obj_pal),
         shadow: None,
     })
+}
+
+/// 受击闪白：不透明像素向白拉近一半（预览烤图层；GPU 路径另有 `AnimState::TakeDamage`）。
+#[doc(hidden)]
+pub fn apply_hit_flash_rgba(rgba: &mut [u8]) {
+    for px in rgba.chunks_exact_mut(4) {
+        if px[3] == 0 {
+            continue;
+        }
+        px[0] = px[0].saturating_add((255 - px[0]) / 2);
+        px[1] = px[1].saturating_add((255 - px[1]) / 2);
+        px[2] = px[2].saturating_add((255 - px[2]) / 2);
+    }
 }
