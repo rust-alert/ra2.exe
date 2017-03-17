@@ -131,3 +131,72 @@ AT1=Strike,TM1,Russians,0,0,GACNST,1\n\
     let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(e1b >= 2, "EnemyOwns GACNST>=1 should spawn team, got {e1b}");
 }
+
+#[test]
+fn ai_trigger_weighted_pick_one_team_per_house_tick() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 两支 Always 触发同房主：权重悬殊时只应抽中一支（同 tick 不双刷）。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF_A\n1=TF_B\n\
+[TF_A]\nName=A\n0=2,E1\nGroup=-1\n\
+[TF_B]\nName=B\n0=5,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM_A\n1=TM_B\n\
+[TM_A]\nName=A\nHouse=Russians\nScript=\nTaskForce=TF_A\nMax=1\n\
+[TM_B]\nName=B\nHouse=Russians\nScript=\nTaskForce=TF_B\nMax=1\n\
+[AITriggerTypes]\n\
+AT_A=A,TM_A,Russians,0,-1,,0,9000\n\
+AT_B=B,TM_B,Russians,0,-1,,0,1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-weight.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].weight, 9000);
+    assert_eq!(map.scripting.ai_triggers[1].weight, 1);
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ai-weight");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1 == 2 || e1 == 5, "weighted pick should fire exactly one team, got {e1}");
+}
+
+#[test]
+fn ai_trigger_team2_also_enqueues() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // Team2 在 CSV 第 15 列（0-based 14）。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n1=TF2\n\
+[TF1]\nName=One\n0=2,E1\nGroup=-1\n\
+[TF2]\nName=Two\n0=3,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n1=TM2\n\
+[TM1]\nName=T1\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[TM2]\nName=T2\nHouse=Russians\nScript=\nTaskForce=TF2\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=Duo,TM1,Russians,0,-1,,0,50,0,0,1,0,0,0,TM2,1,1,1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-team2.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].team2.as_str(), "TM2");
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map), "ai-team2");
+    let team2 = session.expect_battle().world.prepared.ai_triggers[0].team2;
+    assert!(team2.is_some(), "bind must resolve Team2");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    // 同航点挤占时个别成员可能落空，但双队入队后应明显多于单队 2 人。
+    assert!(e1 >= 4, "team1(2)+team2(3) should mostly spawn, got {e1}");
+}

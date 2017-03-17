@@ -50,7 +50,7 @@ impl AiTriggerRuntime {
     }
 }
 
-/// 每个逻辑 tick：冷却归零且条件成立的 AITrigger 将 TeamType 排入 `pending_team_spawns`。
+/// 每个逻辑 tick：冷却归零且条件成立的 AITrigger 按房主加权抽选一支，将 TeamType 排入 `pending_team_spawns`。
 pub fn tick_ai_triggers(world: &mut BattleState) {
     if !world.ai_trigger_runtime.enabled {
         return;
@@ -67,6 +67,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         }
     }
 
+    let mut eligible: Vec<(String, PreparedAiTrigger)> = Vec::new();
     for at in triggers {
         let owner_house_key = resolve_owner_house_key(world, &at);
         if let Some(ref house_key) = owner_house_key {
@@ -108,18 +109,21 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
             continue;
         };
         // 无 OwnerHouse 时，用 TeamType.House 约束战役生产开关。
-        if owner_house_key.is_none() {
-            if let Some(house_key) = world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string()) {
-                world.ensure_house(&house_key);
-                if !world.house_production_begun(&house_key) {
-                    continue;
-                }
-            }
+        let group_key = if let Some(ref hk) = owner_house_key {
+            hk.clone()
         }
+        else if let Some(house_key) = world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string()) {
+            world.ensure_house(&house_key);
+            if !world.house_production_begun(&house_key) {
+                continue;
+            }
+            house_key
+        }
+        else {
+            String::new()
+        };
 
-        let owner_for_cond = owner_house_key
-            .clone()
-            .or_else(|| world.definitions.houses.get_by_id(team.house).map(|h| h.type_key.as_str().to_string()));
+        let owner_for_cond = if group_key.is_empty() { None } else { Some(group_key.clone()) };
         if let Some(ref owner) = owner_for_cond {
             if !ai_trigger_condition_holds(world, owner, &at) {
                 continue;
@@ -129,20 +133,81 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
             continue;
         }
 
-        // `Max=`：已有同 TeamType 活跃小队达到上限则跳过本拍。
-        if team.max > 0 {
-            let active = world.script_team_runtime.count_active_of_type(team.id);
-            if active >= team.max as usize {
-                world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
-                continue;
-            }
+        eligible.push((group_key, at));
+    }
+
+    // 同房主每 tick 至多抽选一支触发（权重）；避免条件全过时同拍刷多队。
+    let mut groups: HashMap<String, Vec<PreparedAiTrigger>> = HashMap::new();
+    for (key, at) in eligible {
+        groups.entry(key).or_default().push(at);
+    }
+    let mut group_keys: Vec<String> = groups.keys().cloned().collect();
+    group_keys.sort();
+    for key in group_keys {
+        let Some(cands) = groups.remove(&key)
+        else {
+            continue;
+        };
+        let Some(picked) = pick_weighted_trigger(world, &key, &cands)
+        else {
+            continue;
+        };
+        enqueue_ai_trigger_teams(world, &picked);
+    }
+}
+
+fn pick_weighted_trigger(world: &BattleState, group_key: &str, cands: &[PreparedAiTrigger]) -> Option<PreparedAiTrigger> {
+    if cands.is_empty() {
+        return None;
+    }
+    if cands.len() == 1 {
+        return cands.first().cloned();
+    }
+    let total: u64 = cands.iter().map(|c| u64::from(c.weight.max(1))).sum();
+    if total == 0 {
+        return cands.first().cloned();
+    }
+    let mut roll = deterministic_roll(world.match_seed, world.tick, group_key) % total;
+    for c in cands {
+        let w = u64::from(c.weight.max(1));
+        if roll < w {
+            return Some(c.clone());
         }
-        if world.trigger_runtime.pending_team_spawns.contains(&team.id) {
+        roll -= w;
+    }
+    cands.last().cloned()
+}
+
+fn deterministic_roll(seed: u64, tick: u64, group_key: &str) -> u64 {
+    let mut h = seed ^ tick.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    for b in group_key.as_bytes() {
+        h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+    }
+    h
+}
+
+fn enqueue_ai_trigger_teams(world: &mut BattleState, at: &PreparedAiTrigger) {
+    let mut teams = vec![at.team];
+    if let Some(team2) = at.team2 {
+        if team2 != at.team {
+            teams.push(team2);
+        }
+    }
+    for team_id in teams {
+        if world.trigger_runtime.pending_team_spawns.contains(&team_id) {
             continue;
         }
-        world.trigger_runtime.pending_team_spawns.push(team.id);
-        world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
+        if let Some(team) = world.prepared.team_types.iter().find(|t| t.id == team_id) {
+            if team.max > 0 {
+                let active = world.script_team_runtime.count_active_of_type(team.id);
+                if active >= team.max as usize {
+                    continue;
+                }
+            }
+        }
+        world.trigger_runtime.pending_team_spawns.push(team_id);
     }
+    world.ai_trigger_runtime.cooldowns.insert(at.id, AI_TRIGGER_COOLDOWN_TICKS);
 }
 
 /// 启用或禁用某 house 的 AITrigger（空 house = 全局开关）。
