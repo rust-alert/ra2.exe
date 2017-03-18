@@ -438,6 +438,15 @@ pub fn bind_map_ai_triggers(
             enabled_normal: trigger.enabled_normal,
             enabled_hard: trigger.enabled_hard,
             weight: trigger.weight.max(1),
+            min_weight: {
+                let start = trigger.weight.max(1);
+                trigger.min_weight.max(1).min(start)
+            },
+            max_weight: {
+                let start = trigger.weight.max(1);
+                let min_w = trigger.min_weight.max(1).min(start);
+                trigger.max_weight.max(start).max(min_w)
+            },
             team2,
         });
     }

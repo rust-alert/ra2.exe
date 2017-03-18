@@ -1578,6 +1578,10 @@ pub struct MapAiTrigger {
     pub enabled_hard: bool,
     /// 起始权重（CSV `StartWeight`；同房主候选间加权抽选）。
     pub weight: u32,
+    /// 最小权重（CSV `MinWeight`；触发成功后向此收敛）。
+    pub min_weight: u32,
+    /// 最大权重（CSV `MaxWeight`；未抽中时向此回升）。
+    pub max_weight: u32,
     /// 可选第二队（CSV `Team2`；可空）。
     pub team2: TeamTypeName,
 }
@@ -1599,6 +1603,8 @@ impl Default for MapAiTrigger {
             enabled_normal: true,
             enabled_hard: true,
             weight: DEFAULT_AI_TRIGGER_WEIGHT,
+            min_weight: 1,
+            max_weight: DEFAULT_AI_TRIGGER_WEIGHT,
             team2: TeamTypeName::default(),
         }
     }
@@ -1984,6 +1990,10 @@ pub struct PreparedAiTrigger {
     pub enabled_hard: bool,
     /// 起始权重（同房主候选间加权抽选）。
     pub weight: u32,
+    /// 最小权重（触发成功后向此收敛）。
+    pub min_weight: u32,
+    /// 最大权重（未抽中时向此回升）。
+    pub max_weight: u32,
     /// 可选第二队稳定 id。
     pub team2: Option<crate::TeamTypeId>,
 }
