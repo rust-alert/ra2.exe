@@ -35,6 +35,10 @@ pub struct MapAiTrigger {
     pub enabled_hard: bool,
     /// 起始权重。
     pub weight: u32,
+    /// 最小权重。
+    pub min_weight: u32,
+    /// 最大权重。
+    pub max_weight: u32,
     /// 可选第二队。
     pub team2: TeamTypeName,
 }
@@ -56,6 +60,8 @@ impl Default for MapAiTrigger {
             enabled_normal: true,
             enabled_hard: true,
             weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
+            min_weight: 1,
+            max_weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
             team2: TeamTypeName::default(),
         }
     }
@@ -134,6 +140,8 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
                 enabled_normal: true,
                 enabled_hard: true,
                 weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
+                min_weight: 1,
+                max_weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
                 team2: TeamTypeName::default(),
             });
         }
@@ -154,6 +162,8 @@ fn parse_ai_trigger_csv_line(key: &str, value: &str) -> Option<MapAiTrigger> {
     }
     let (compare_amount, compare_op) = decode_comparator(col(6));
     let weight = col(7).parse::<u32>().unwrap_or(ra_types::DEFAULT_AI_TRIGGER_WEIGHT).max(1);
+    let min_weight = col(8).parse::<u32>().unwrap_or(1).max(1).min(weight);
+    let max_weight = col(9).parse::<u32>().unwrap_or(weight).max(weight).max(min_weight);
     Some(MapAiTrigger {
         id: if key.is_empty() { AiTriggerName::parse(name) } else { AiTriggerName::parse(key) },
         name: name.to_string(),
@@ -170,6 +180,8 @@ fn parse_ai_trigger_csv_line(key: &str, value: &str) -> Option<MapAiTrigger> {
         enabled_normal: parse_flag_default_true(col(16)),
         enabled_hard: parse_flag_default_true(col(17)),
         weight,
+        min_weight,
+        max_weight,
         team2: TeamTypeName::parse(col(14)),
     })
 }
