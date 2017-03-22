@@ -23,6 +23,8 @@ pub struct AiTriggerRuntime {
     pub enabled: bool,
     /// 各 AITrigger 稳定 id → 剩余冷却 tick。
     cooldowns: HashMap<AiTriggerId, u32>,
+    /// 各 AITrigger 当前动态权重（缺省取 prepared `weight`）。
+    current_weights: HashMap<AiTriggerId, u32>,
     /// 按 house 禁用（`AI triggers stop`）；缺省未列入则允许。
     disabled_houses: Vec<HouseId>,
     /// 会话难度标签（`Easy` / `Normal` / `Hard`）；影响 `enabled_*` 门控。
@@ -37,6 +39,7 @@ impl AiTriggerRuntime {
         Self {
             enabled: has_triggers,
             cooldowns: HashMap::new(),
+            current_weights: HashMap::new(),
             disabled_houses: Vec::new(),
             difficulty: "Normal".into(),
             skirmish: false,
@@ -47,6 +50,11 @@ impl AiTriggerRuntime {
     pub fn sync_session_hints(&mut self, difficulty: &str, skirmish: bool) {
         self.difficulty = difficulty.to_string();
         self.skirmish = skirmish;
+    }
+
+    /// 当前动态权重（测试 / 诊断）；尚未抖动时回退 `start`。
+    pub fn current_weight(&self, id: AiTriggerId, start: u32) -> u32 {
+        self.current_weights.get(&id).copied().unwrap_or(start.max(1))
     }
 }
 
@@ -81,12 +89,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
             if !world.house_production_begun(house_key) {
                 continue;
             }
-            let tech = world
-                .players
-                .iter()
-                .find(|p| p.house.as_ref().eq_ignore_ascii_case(house_key))
-                .map(|p| p.tech_level)
-                .unwrap_or(0);
+            let tech = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(house_key)).map(|p| p.tech_level).unwrap_or(0);
             if tech < at.tech_level {
                 continue;
             }
@@ -126,17 +129,20 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         let owner_for_cond = if group_key.is_empty() { None } else { Some(group_key.clone()) };
         if let Some(ref owner) = owner_for_cond {
             if !ai_trigger_condition_holds(world, owner, &at) {
+                // 条件失败：当前权重向 `max_weight` 收敛，提高后续抽中率。
+                nudge_weight_toward(world, &at, at.max_weight);
                 continue;
             }
         }
         else if !matches!(at.condition, AiTriggerConditionKind::Always) {
+            nudge_weight_toward(world, &at, at.max_weight);
             continue;
         }
 
         eligible.push((group_key, at));
     }
 
-    // 同房主每 tick 至多抽选一支触发（权重）；避免条件全过时同拍刷多队。
+    // 同房主每 tick 至多抽选一支触发（动态权重）；避免条件全过时同拍刷多队。
     let mut groups: HashMap<String, Vec<PreparedAiTrigger>> = HashMap::new();
     for (key, at) in eligible {
         groups.entry(key).or_default().push(at);
@@ -152,8 +158,29 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
         else {
             continue;
         };
+        // 未抽中的候选向 `max_weight` 回升。
+        for c in &cands {
+            if c.id != picked.id {
+                nudge_weight_toward(world, c, c.max_weight);
+            }
+        }
         enqueue_ai_trigger_teams(world, &picked);
+        // 抽中并入队：向 `min_weight` 收敛，避免同一触发连刷。
+        nudge_weight_toward(world, &picked, picked.min_weight);
     }
+}
+
+fn effective_weight(world: &BattleState, at: &PreparedAiTrigger) -> u32 {
+    world.ai_trigger_runtime.current_weight(at.id, at.weight).max(1)
+}
+
+fn nudge_weight_toward(world: &mut BattleState, at: &PreparedAiTrigger, target: u32) {
+    let cur = effective_weight(world, at);
+    let lo = at.min_weight.max(1);
+    let hi = at.max_weight.max(lo);
+    let target = target.clamp(lo, hi);
+    let next = ((u64::from(cur) + u64::from(target)) / 2) as u32;
+    world.ai_trigger_runtime.current_weights.insert(at.id, next.max(1));
 }
 
 fn pick_weighted_trigger(world: &BattleState, group_key: &str, cands: &[PreparedAiTrigger]) -> Option<PreparedAiTrigger> {
@@ -163,13 +190,13 @@ fn pick_weighted_trigger(world: &BattleState, group_key: &str, cands: &[Prepared
     if cands.len() == 1 {
         return cands.first().cloned();
     }
-    let total: u64 = cands.iter().map(|c| u64::from(c.weight.max(1))).sum();
+    let total: u64 = cands.iter().map(|c| u64::from(effective_weight(world, c))).sum();
     if total == 0 {
         return cands.first().cloned();
     }
     let mut roll = deterministic_roll(world.match_seed, world.tick, group_key) % total;
     for c in cands {
-        let w = u64::from(c.weight.max(1));
+        let w = u64::from(effective_weight(world, c));
         if roll < w {
             return Some(c.clone());
         }
@@ -266,9 +293,7 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::EnemyYellowPower => any_enemy_player(world, owner_house, |p| p.low_power()),
-        AiTriggerConditionKind::EnemyRedPower => any_enemy_player(world, owner_house, |p| {
-            p.power_drain > 0 && p.effective_power_output() == 0
-        }),
+        AiTriggerConditionKind::EnemyRedPower => any_enemy_player(world, owner_house, |p| p.power_drain > 0 && p.effective_power_output() == 0),
         AiTriggerConditionKind::EnemyCredits => {
             let credits = max_enemy_funds(world, owner_house);
             at.compare_op.compare(credits, at.compare_amount)
