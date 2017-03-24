@@ -111,6 +111,8 @@ pub struct AttackState {
     pub infiltrate_target: Option<EntityId>,
     /// 占领目标建筑（工程师专用；有值时不走普通开火）。
     pub capture_target: Option<EntityId>,
+    /// 跟随目标实体（`mission=Follow` 时持续追格）。
+    pub follow_target: Option<EntityId>,
 }
 
 /// 工厂生产队列与集结格。

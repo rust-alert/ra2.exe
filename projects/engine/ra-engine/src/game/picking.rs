@@ -134,6 +134,42 @@ impl BattleSession {
         best.map(|(_, _, id)| id)
     }
 
+    /// 按预览图像素点选任意存活机动单位（本方或异阵营），供跟随目标点选。
+    pub fn pick_any_mobile_near_image(&self, image_x: f32, image_y: f32, max_dist_px: f32) -> Option<EntityId> {
+        let mut best: Option<(f32, EntityId)> = None;
+        for e in &self.world.entities {
+            let id = e.id;
+            if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                continue;
+            }
+            let Some(identity) = self.world.ecs_get::<Identity>(id)
+            else {
+                continue;
+            };
+            if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
+                continue;
+            }
+            let Some(xf) = self.world.ecs_get::<Transform>(id).copied()
+            else {
+                continue;
+            };
+            let z = self.world.pass_grid.cell_height(xf.x, xf.y);
+            let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
+            let cx = (sx - self.preview_origin_x) as f32 + 30.0;
+            let cy = (sy - self.preview_origin_y) as f32 + 15.0;
+            let dx = cx - image_x;
+            let dy = cy - image_y;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > max_dist_px {
+                continue;
+            }
+            if best.map(|(best_dist, _)| dist < best_dist).unwrap_or(true) {
+                best = Some((dist, id));
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
     /// 按预览图像素点选异阵营目标：先软命中移动单位，再软命中建筑立面，最后退回逻辑格。
     ///
     /// 与本方点选同一图像口径，供左键攻击 / 攻击光标使用。

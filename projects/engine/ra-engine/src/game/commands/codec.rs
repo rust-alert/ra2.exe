@@ -84,6 +84,11 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
+        GameCommand::Follow { entity, target } => {
+            b.push(19);
+            b.extend_from_slice(&entity.0.to_be_bytes());
+            b.extend_from_slice(&target.0.to_be_bytes());
+        }
         GameCommand::Scatter { entity } => {
             b.push(17);
             b.extend_from_slice(&entity.0.to_be_bytes());
@@ -231,6 +236,14 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             let x = u16::from_be_bytes(bytes[9..11].try_into().ok()?);
             let y = u16::from_be_bytes(bytes[11..13].try_into().ok()?);
             Some(GameCommand::AttackMove { entity, x, y })
+        }
+        19 => {
+            if bytes.len() < 1 + 8 + 8 {
+                return None;
+            }
+            let entity = EntityId(u64::from_be_bytes(bytes[1..9].try_into().ok()?));
+            let target = EntityId(u64::from_be_bytes(bytes[9..17].try_into().ok()?));
+            Some(GameCommand::Follow { entity, target })
         }
         17 => {
             if bytes.len() < 1 + 8 {

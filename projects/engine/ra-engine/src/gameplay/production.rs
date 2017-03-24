@@ -130,13 +130,7 @@ impl crate::state::BattleState {
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity {
-                entity_id: id,
-                type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
-                kind,
-                mission: None,
-                tag: None,
-            },
+            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_id.to_ascii_uppercase()), kind, mission: None, tag: None },
             owner: Owner { house: owner.clone() },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
@@ -150,7 +144,7 @@ impl crate::state::BattleState {
                 attack_verses,
                 techno_class: Some(techno_class),
             },
-            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
             production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },

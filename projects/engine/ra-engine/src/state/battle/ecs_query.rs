@@ -128,6 +128,11 @@ impl BattleState {
         Some((attack.target, attack.cooldown))
     }
 
+    /// 读取跟随目标（测试与诊断）。
+    pub fn ecs_follow_target(&self, id: EntityId) -> Option<Option<EntityId>> {
+        self.ecs_get::<crate::state::components::AttackState>(id).map(|a| a.follow_target)
+    }
+
     /// 读取 ECS 战斗静态参数（测试与诊断）。
     pub fn ecs_combat_view(&self, id: EntityId) -> Option<EcsCombatView> {
         let stats = self.ecs_get::<crate::state::components::CombatStats>(id)?;

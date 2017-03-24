@@ -38,6 +38,8 @@ pub enum CommandKind {
     Stop,
     /// 攻击移动：向目标格移动，途中自动接敌。
     AttackMove,
+    /// 跟随：持续追某一实体当前格（`mission=Follow`）。
+    Follow,
     /// 散开：向邻近空闲格短距移动以解除叠压。
     Scatter,
     /// 删除：摧毁己方选中单位或建筑（无退款）。
@@ -168,6 +170,13 @@ pub enum CommandBody {
         /// 目标格 Y。
         y: u16,
     },
+    /// 跟随：指定跟随目标（`mission=Follow`，`AttackState.follow_target`）。
+    Follow {
+        /// 跟随方实体。
+        entity: EntityId,
+        /// 被跟随实体。
+        target: EntityId,
+    },
     /// 散开：清攻击目标并向邻近空闲格短距移动。
     Scatter {
         /// 实体稳定 ID。
@@ -222,6 +231,7 @@ impl CommandBody {
             Self::Guard { .. } => CommandKind::Guard,
             Self::Stop { .. } => CommandKind::Stop,
             Self::AttackMove { .. } => CommandKind::AttackMove,
+            Self::Follow { .. } => CommandKind::Follow,
             Self::Scatter { .. } => CommandKind::Scatter,
             Self::Delete { .. } => CommandKind::Delete,
             Self::SellBuilding { .. } => CommandKind::SellBuilding,
@@ -242,16 +252,14 @@ impl CommandBody {
                 Some(&(x, y)) => CommandTarget::Cell { x, y },
                 None => CommandTarget::None,
             },
-            Self::Attack { target, .. } => CommandTarget::Entity(*target),
+            Self::Attack { target, .. } | Self::Follow { target, .. } => CommandTarget::Entity(*target),
             Self::Infiltrate { building, .. }
             | Self::CaptureBuilding { building, .. }
             | Self::SellBuilding { building, .. }
             | Self::RepairBuilding { building, .. } => CommandTarget::Entity(*building),
-            Self::Deploy { entity }
-            | Self::Guard { entity }
-            | Self::Stop { entity }
-            | Self::Scatter { entity }
-            | Self::Delete { entity } => CommandTarget::Entity(*entity),
+            Self::Deploy { entity } | Self::Guard { entity } | Self::Stop { entity } | Self::Scatter { entity } | Self::Delete { entity } => {
+                CommandTarget::Entity(*entity)
+            }
             Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
         }
     }

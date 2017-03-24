@@ -226,6 +226,10 @@ pub(crate) fn hash_command(mut h: u64, cmd: &GameCommand) -> u64 {
             h = h.wrapping_mul(1099511628211).wrapping_add(16);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0).wrapping_add((x as u64) << 16).wrapping_add((y as u64) << 32);
         }
+        GameCommand::Follow { entity, target } => {
+            h = h.wrapping_mul(1099511628211).wrapping_add(19);
+            h = h.wrapping_mul(1099511628211).wrapping_add(entity.0).wrapping_add(target.0 << 16);
+        }
         GameCommand::Scatter { entity } => {
             h = h.wrapping_mul(1099511628211).wrapping_add(17);
             h = h.wrapping_mul(1099511628211).wrapping_add(entity.0);

@@ -77,7 +77,7 @@ impl BattleState {
                 locomotor: Locomotor { speed },
                 movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
                 combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class },
-                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
+                attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
                 production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                 harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                 animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
@@ -89,8 +89,7 @@ impl BattleState {
             .enumerate()
             .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
             .collect();
-        let trigger_runtime =
-            crate::gameplay::TriggerRuntime::from_prepared(&prepared.triggers, &prepared.events, &prepared.actions);
+        let trigger_runtime = crate::gameplay::TriggerRuntime::from_prepared(&prepared.triggers, &prepared.events, &prepared.actions);
         let ai_trigger_runtime = crate::gameplay::AiTriggerRuntime::from_map(!prepared.ai_triggers.is_empty());
         let terrain_spawners = crate::gameplay::seed_terrain_spawners(&map, &definitions.terrain_spawners);
         let speak_delay_ticks = definitions.speak_delay_ticks;
@@ -228,20 +227,14 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity {
-                entity_id: id,
-                type_id: Arc::<str>::from(type_key),
-                kind,
-                mission: None,
-                tag: None,
-            },
+            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: None, tag: None },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed },
             movement: MovementState { destination_x: None, destination_y: None, waypoints: Vec::new(), path: Vec::new(), move_accum: 0 },
             combat: CombatStats { armor, attack_range, attack_damage, attack_cooldown_max, attack_verses, techno_class: Some(class) },
-            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
+            attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
             production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
             harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },

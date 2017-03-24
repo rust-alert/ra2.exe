@@ -30,7 +30,10 @@ impl BattleState {
         for phase in &schedule.phases {
             match *phase {
                 SystemPhase::ApplyCommands => self.apply_commands(&due),
-                SystemPhase::Movement => self.advance_movement(),
+                SystemPhase::Movement => {
+                    self.resolve_follow();
+                    self.advance_movement();
+                }
                 SystemPhase::HitFlash => self.tick_hit_flash(),
                 SystemPhase::Combat => {
                     self.resolve_combat();

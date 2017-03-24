@@ -216,6 +216,15 @@ impl BattleState {
         .is_some()
     }
 
+    /// 测试 / 调试：写入 ECS 格子坐标并投影。
+    pub fn set_ecs_cell(&mut self, id: EntityId, x: u16, y: u16) -> bool {
+        self.with_transform_mut(id, |transform| {
+            transform.x = x;
+            transform.y = y;
+        })
+        .is_some()
+    }
+
     /// 测试 / 调试：写入 ECS `Health` 并投影。
     pub fn set_ecs_health(&mut self, id: EntityId, current: u32, maximum: u32, dead: bool) -> bool {
         self.with_health_mut(id, |health| {

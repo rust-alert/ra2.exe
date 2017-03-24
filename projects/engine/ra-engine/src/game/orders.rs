@@ -147,6 +147,21 @@ impl BattleSession {
         }
     }
 
+    /// 对选中机动单位下发跟随（持续追目标当前格）。
+    pub fn order_follow(&mut self, selected: &[EntityId], target: EntityId) {
+        if self.outcome.is_some() {
+            return;
+        }
+        for &id in selected {
+            if id == target {
+                continue;
+            }
+            if self.world.entity_index(id).is_some() {
+                self.push_command(GameCommand::Follow { entity: id, target });
+            }
+        }
+    }
+
     /// 对选中机动单位下发散开（邻近空闲格短距移动）。
     pub fn order_scatter(&mut self, selected: &[EntityId]) {
         if self.outcome.is_some() {

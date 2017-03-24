@@ -55,6 +55,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
@@ -97,6 +98,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
@@ -152,6 +154,7 @@ impl crate::state::BattleState {
                         attack.target = Some(target);
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(attacker_id, |movement| {
                         movement.destination_x = Some(target_xf.x);
@@ -340,7 +343,7 @@ impl crate::state::BattleState {
                             attack_verses: full_verses(),
                             techno_class: Some(TechnoClass::Building),
                         },
-                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None },
+                        attack: AttackState { target: None, cooldown: 0, infiltrate_target: None, capture_target: None, follow_target: None },
                         production: ProductionQueue { item: None, ready: None, rally_x: None, rally_y: None },
                         harvester: HarvesterState { ore_trip_accum: 0, cargo: 0 },
                         animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
@@ -577,6 +580,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = Some(building);
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(agent_id, |movement| {
                         movement.destination_x = Some(dest_x);
@@ -674,6 +678,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = Some(building);
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(engineer_id, |movement| {
                         movement.destination_x = Some(dest_x);
@@ -709,6 +714,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_identity_mut(id, |identity| {
                         identity.mission = Some(ra_types::MissionKind::Guard);
@@ -739,6 +745,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_identity_mut(id, |identity| {
                         identity.mission = None;
@@ -771,6 +778,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
@@ -780,6 +788,63 @@ impl crate::state::BattleState {
                         movement.move_accum = 0;
                     });
                     self.repath_entity_at(entity_index);
+                }
+                GameCommand::Follow { entity, target } => {
+                    let Some(entity_index) = self.entity_index(entity)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let id = self.entities[entity_index].id;
+                    if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    if !self.player_owns_entity(scheduled.player, entity_index) {
+                        self.reject(command_index, CommandRejectReason::WrongOwner);
+                        continue;
+                    }
+                    if !self.ecs_get::<Identity>(id).map(|i| is_mobile(i.kind)).unwrap_or(false) {
+                        self.reject(command_index, CommandRejectReason::NotMobile);
+                        continue;
+                    }
+                    if entity == target {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    }
+                    let Some(target_index) = self.entity_index(target)
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let target_id = self.entities[target_index].id;
+                    if self.ecs_get::<Health>(target_id).map(|h| h.dead).unwrap_or(true) {
+                        self.reject(command_index, CommandRejectReason::EntityDead);
+                        continue;
+                    }
+                    let Some(target_xf) = self.ecs_get::<Transform>(target_id).copied()
+                    else {
+                        self.reject(command_index, CommandRejectReason::EntityNotFound);
+                        continue;
+                    };
+                    let _ = self.with_identity_mut(id, |identity| {
+                        identity.mission = Some(ra_types::MissionKind::Follow);
+                    });
+                    let _ = self.with_attack_mut(id, |attack| {
+                        attack.target = None;
+                        attack.infiltrate_target = None;
+                        attack.capture_target = None;
+                        attack.follow_target = Some(target_id);
+                    });
+                    let _ = self.with_movement_mut(id, |movement| {
+                        movement.destination_x = Some(target_xf.x);
+                        movement.destination_y = Some(target_xf.y);
+                        movement.waypoints.clear();
+                        movement.path.clear();
+                        movement.move_accum = 0;
+                    });
+                    self.repath_entity_at(entity_index);
+                    self.mark_entity_dirty(id);
                 }
                 GameCommand::Scatter { entity } => {
                     let Some(entity_index) = self.entity_index(entity)
@@ -812,6 +877,7 @@ impl crate::state::BattleState {
                         attack.target = None;
                         attack.infiltrate_target = None;
                         attack.capture_target = None;
+                        attack.follow_target = None;
                     });
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = Some(x);
