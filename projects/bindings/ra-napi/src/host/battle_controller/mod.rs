@@ -112,6 +112,8 @@ pub struct BattleController {
     pub(super) attack_move_mode: bool,
     /// 命令条部署模式：仅 `D` / Deploy 进入；左键确认就地 `order_deploy`，右键取消。
     pub(super) deploy_mode: bool,
+    /// 跟随模式：热键 Follow 进入；左键点选任意机动单位下发 `order_follow`，右键取消。
+    pub(super) follow_mode: bool,
     /// 规划中暂存的航点（关闭规划时对当前选中下发 `order_move_path`）。
     pub(super) planning_waypoints: Vec<(u16, u16)>,
     /// 侧栏分类页签（0=建筑 / 1=防御 / 2=步兵 / 3=载具+飞行器）。
@@ -276,6 +278,7 @@ impl BattleController {
             planning_mode: false,
             attack_move_mode: false,
             deploy_mode: false,
+            follow_mode: false,
             planning_waypoints: Vec::new(),
             sidebar_tab: 0,
             cameo_scroll: 0,
@@ -440,6 +443,7 @@ impl BattleController {
         self.planning_mode = false;
         self.attack_move_mode = false;
         self.deploy_mode = false;
+        self.follow_mode = false;
         self.planning_waypoints.clear();
         self.sidebar_tab = 0;
         self.cameo_scroll = 0;

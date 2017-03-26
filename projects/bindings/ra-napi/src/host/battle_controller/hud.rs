@@ -215,6 +215,9 @@ impl BattleController {
                                     self.sell_mode = false;
                                     self.planning_mode = false;
                                     self.planning_waypoints.clear();
+                                    self.attack_move_mode = false;
+                                    self.deploy_mode = false;
+                                    self.follow_mode = false;
                                     self.place_mode = Some(type_id.to_string());
                                     tracing::info!("建造模式 · 放置 {type_id}（点地图落地，右键/Esc 取消）");
                                 }
@@ -266,6 +269,9 @@ impl BattleController {
                 self.sell_mode = false;
                 self.planning_mode = false;
                 self.planning_waypoints.clear();
+                self.attack_move_mode = false;
+                self.deploy_mode = false;
+                self.follow_mode = false;
                 self.repair_mode = !self.repair_mode;
                 if self.repair_mode {
                     self.place_mode = None;
@@ -277,6 +283,9 @@ impl BattleController {
                 self.repair_mode = false;
                 self.planning_mode = false;
                 self.planning_waypoints.clear();
+                self.attack_move_mode = false;
+                self.deploy_mode = false;
+                self.follow_mode = false;
                 self.sell_mode = !self.sell_mode;
                 if self.sell_mode {
                     self.place_mode = None;
@@ -358,6 +367,11 @@ impl BattleController {
             tracing::info!(active = false, "命令条 · 部署模式");
             cleared = true;
         }
+        if self.follow_mode {
+            self.follow_mode = false;
+            tracing::info!(active = false, "命令条 · 跟随模式");
+            cleared = true;
+        }
         cleared
     }
 
@@ -405,6 +419,7 @@ impl BattleController {
                     self.sell_mode = false;
                     self.attack_move_mode = false;
                     self.deploy_mode = false;
+                    self.follow_mode = false;
                     tracing::info!(active = true, "命令条 · 路径点规划");
                 }
             }

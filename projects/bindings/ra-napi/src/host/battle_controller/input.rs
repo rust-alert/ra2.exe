@@ -62,6 +62,14 @@ impl BattleController {
             return if self.selection_has_deployable() { BattlePointer::Deploy } else { BattlePointer::NoDeploy };
         }
 
+        // 跟随模式：悬停任意存活机动单位时用点选光标（右键取消）。
+        if self.follow_mode {
+            if game.pick_any_mobile_near_image(wx, wy, 72.0).is_some() {
+                return BattlePointer::Select;
+            }
+            return BattlePointer::Default;
+        }
+
         if selected.is_empty() {
             if game.pick_local_mobile_near_image(wx, wy, 72.0).is_some() || Self::pick_local_building_at_image(game, wx, wy).is_some() {
                 return BattlePointer::Select;
@@ -70,9 +78,9 @@ impl BattleController {
         }
 
         let has_mobile = selected.iter().any(|&id| {
-            game.world.ecs_identity(id).is_some_and(|(_, kind)| {
-                matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-            })
+            game.world
+                .ecs_identity(id)
+                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
 
         // 攻击移动模式：空地与敌方均显示攻击光标（右键取消模式）。
@@ -185,14 +193,44 @@ impl BattleController {
             }
             return;
         }
+        // 跟随模式：左键点选任意机动单位作为跟随目标。
+        if self.follow_mode {
+            let selected = self.local.selected.clone();
+            let has_mobile = selected.iter().any(|&id| {
+                game.world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            });
+            if selected.is_empty() || !has_mobile {
+                self.follow_mode = false;
+                tracing::info!(active = false, "跟随模式 · 选中无效，已退出");
+                return;
+            }
+            let tick = game.world.tick;
+            if let Some(target) = game.pick_any_mobile_near_image(wx, wy, 72.0) {
+                if selected.contains(&target) {
+                    tracing::info!("跟随 · 目标在当前选中内，忽略");
+                    return;
+                }
+                if let Some(game) = self.session.as_mut().and_then(|s| s.battle_mut()) {
+                    tracing::info!("命令跟随 → #{}（选中 {:?}）", target.0, selected);
+                    game.order_follow(&selected, target);
+                }
+                self.follow_mode = false;
+                self.pulse_action_lines_at(tick);
+                return;
+            }
+            tracing::info!("跟随 · 未命中机动单位");
+            return;
+        }
 
         let local_house = game.world.players.iter().find(|p| p.id == game.world.local_player).map(|p| p.house.to_string());
         let tick = game.world.tick;
         let selected = self.local.selected.clone();
         let has_mobile = selected.iter().any(|&id| {
-            game.world.ecs_identity(id).is_some_and(|(_, kind)| {
-                matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft)
-            })
+            game.world
+                .ecs_identity(id)
+                .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
         });
         let has_structure = game.selection_has_structure(&selected);
 
@@ -242,6 +280,7 @@ impl BattleController {
                 }
                 self.attack_move_mode = false;
                 self.deploy_mode = false;
+                self.follow_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -262,6 +301,7 @@ impl BattleController {
                 }
                 self.attack_move_mode = false;
                 self.deploy_mode = false;
+                self.follow_mode = false;
                 self.pulse_action_lines_at(tick);
                 return;
             }
@@ -874,8 +914,11 @@ impl BattleController {
                 self.delete_selection();
                 BattleNav::None
             }
-            HotkeyAction::Follow
-            | HotkeyAction::ToggleAlliance
+            HotkeyAction::Follow => {
+                self.toggle_follow_mode();
+                BattleNav::None
+            }
+            HotkeyAction::ToggleAlliance
             | HotkeyAction::PlaceBeacon
             | HotkeyAction::AllToCheer
             | HotkeyAction::PageUser

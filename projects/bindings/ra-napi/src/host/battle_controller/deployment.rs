@@ -53,6 +53,7 @@ impl BattleController {
             game.order_deploy(&selected);
         }
         self.deploy_mode = false;
+        self.follow_mode = false;
     }
 
     /// 切换部署模式（命令条 Deploy / `D`；能力本身不自动进模式）。
@@ -66,6 +67,7 @@ impl BattleController {
         self.repair_mode = false;
         self.sell_mode = false;
         self.attack_move_mode = false;
+        self.follow_mode = false;
         if self.planning_mode {
             self.planning_mode = false;
             self.planning_waypoints.clear();
@@ -138,12 +140,44 @@ impl BattleController {
         self.repair_mode = false;
         self.sell_mode = false;
         self.deploy_mode = false;
+        self.follow_mode = false;
         if self.planning_mode {
             self.planning_mode = false;
             self.planning_waypoints.clear();
         }
         self.attack_move_mode = !self.attack_move_mode;
         tracing::info!(active = self.attack_move_mode, "命令条 · 攻击移动");
+    }
+
+    /// 切换跟随模式（热键 Follow；左键点选目标下发 `order_follow`）。
+    pub(super) fn toggle_follow_mode(&mut self) {
+        if self.local.selected.is_empty() {
+            tracing::info!("跟随 · 无选中单位，忽略");
+            return;
+        }
+        let has_mobile = self.session.as_ref().and_then(|s| s.battle()).is_some_and(|game| {
+            self.local.selected.iter().any(|&id| {
+                game.world
+                    .ecs_identity(id)
+                    .is_some_and(|(_, kind)| matches!(kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft))
+            })
+        });
+        if !has_mobile {
+            tracing::info!("跟随 · 选中无机动单位，忽略");
+            self.follow_mode = false;
+            return;
+        }
+        self.place_mode = None;
+        self.repair_mode = false;
+        self.sell_mode = false;
+        self.deploy_mode = false;
+        self.attack_move_mode = false;
+        if self.planning_mode {
+            self.planning_mode = false;
+            self.planning_waypoints.clear();
+        }
+        self.follow_mode = !self.follow_mode;
+        tracing::info!(active = self.follow_mode, "命令条 · 跟随模式");
     }
 
     /// 根据权威世界更新部署中 / 完成 / 拒绝状态。
