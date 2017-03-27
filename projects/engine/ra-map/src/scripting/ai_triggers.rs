@@ -93,6 +93,24 @@ struct AiTriggerSectionFields {
     data: String,
     #[serde(rename = "Comparator", default)]
     comparator: String,
+    #[serde(rename = "StartWeight")]
+    start_weight: Option<u32>,
+    #[serde(rename = "Weight")]
+    weight: Option<u32>,
+    #[serde(rename = "MinWeight")]
+    min_weight: Option<u32>,
+    #[serde(rename = "MaxWeight")]
+    max_weight: Option<u32>,
+    #[serde(rename = "IsForSkirmish", default)]
+    for_skirmish: String,
+    #[serde(rename = "Team2", default)]
+    team2: TeamTypeName,
+    #[serde(rename = "Easy", default)]
+    easy: String,
+    #[serde(rename = "Normal", default)]
+    normal: String,
+    #[serde(rename = "Hard", default)]
+    hard: String,
 }
 
 /// 解析 `[AITriggerTypes]`。
@@ -125,6 +143,13 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             let object = if !fields.condition_object.is_empty() { fields.condition_object } else { fields.unit_type };
             let comparator = if !fields.comparator.is_empty() { fields.comparator } else { fields.data };
             let (compare_amount, compare_op) = decode_comparator(&comparator);
+            let start = fields
+                .start_weight
+                .or(fields.weight)
+                .unwrap_or(ra_types::DEFAULT_AI_TRIGGER_WEIGHT)
+                .max(1);
+            let min_weight = fields.min_weight.unwrap_or(1).max(1).min(start);
+            let max_weight = fields.max_weight.unwrap_or(start).max(start).max(min_weight);
             out.push(MapAiTrigger {
                 id,
                 name,
@@ -135,14 +160,14 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
                 condition_object: object,
                 compare_amount,
                 compare_op,
-                for_skirmish: true,
-                enabled_easy: true,
-                enabled_normal: true,
-                enabled_hard: true,
-                weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
-                min_weight: 1,
-                max_weight: ra_types::DEFAULT_AI_TRIGGER_WEIGHT,
-                team2: TeamTypeName::default(),
+                for_skirmish: parse_flag_default_true(&fields.for_skirmish),
+                enabled_easy: parse_flag_default_true(&fields.easy),
+                enabled_normal: parse_flag_default_true(&fields.normal),
+                enabled_hard: parse_flag_default_true(&fields.hard),
+                weight: start,
+                min_weight,
+                max_weight,
+                team2: fields.team2,
             });
         }
         else {
@@ -187,10 +212,18 @@ fn parse_ai_trigger_csv_line(key: &str, value: &str) -> Option<MapAiTrigger> {
 }
 
 fn parse_flag_default_true(raw: &str) -> bool {
-    if raw.is_empty() {
+    let s = raw.trim();
+    if s.is_empty() {
         return true;
     }
-    raw.parse::<i32>().map(|v| v != 0).unwrap_or(true)
+    if let Ok(v) = s.parse::<i32>() {
+        return v != 0;
+    }
+    match s.to_ascii_lowercase().as_str() {
+        "yes" | "true" | "on" => true,
+        "no" | "false" | "off" => false,
+        _ => true,
+    }
 }
 
 fn first_team(primary: TeamTypeName, fallback: TeamTypeName) -> TeamTypeName {

@@ -147,6 +147,33 @@ AT1=Strike,TM1,Russians,1,0,GACNST,1\n\
 }
 
 #[test]
+fn parse_ai_trigger_section_form_weights_and_team2() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[AITriggerTypes]\n0=AT_SEC\n\
+[AT_SEC]\nName=SectionStrike\nTeam1=TM1\nTeam2=TM2\nOwnerHouse=Americans\nTechLevel=2\n\
+Type=0\nUnitType=GACNST\nData=3\nStartWeight=40\nMinWeight=10\nMaxWeight=80\n\
+IsForSkirmish=no\nEasy=yes\nNormal=no\nHard=yes\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai.sec.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers.len(), 1);
+    let t = &map.scripting.ai_triggers[0];
+    assert_eq!(t.id, "AT_SEC");
+    assert_eq!(t.name, "SectionStrike");
+    assert_eq!(t.team, "TM1");
+    assert_eq!(t.team2, "TM2");
+    assert_eq!(t.owner_house, "AMERICANS");
+    assert_eq!(t.tech_level, 2);
+    assert_eq!(t.weight, 40);
+    assert_eq!(t.min_weight, 10);
+    assert_eq!(t.max_weight, 80);
+    assert!(!t.for_skirmish);
+    assert!(t.enabled_easy);
+    assert!(!t.enabled_normal);
+    assert!(t.enabled_hard);
+}
+
+#[test]
 fn merge_global_ai_ini_appends_missing_ids_keeps_map() {
     let map_text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
