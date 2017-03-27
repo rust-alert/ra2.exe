@@ -298,7 +298,41 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
             let credits = max_enemy_funds(world, owner_house);
             at.compare_op.compare(credits, at.compare_amount)
         }
+        AiTriggerConditionKind::OwnCredits => {
+            let credits = world
+                .players
+                .iter()
+                .find(|p| p.house.as_ref().eq_ignore_ascii_case(owner_house))
+                .map(|p| p.funds)
+                .unwrap_or(0);
+            at.compare_op.compare(credits, at.compare_amount)
+        }
+        AiTriggerConditionKind::OwnSuperWeaponCharge => {
+            let pct = own_super_weapon_charge_percent(world, owner_house, &at.condition_object);
+            at.compare_op.compare(pct, at.compare_amount)
+        }
     }
+}
+
+fn own_super_weapon_charge_percent(world: &BattleState, owner_house: &str, object: &ra_types::TechnoName) -> i32 {
+    // `condition_object` 在超武条件下承载超武类型名（与 Techno 共用 Name 存储）。
+    let needle = object.as_str();
+    let mut best = 0i32;
+    let Some(list) = world.super_weapon_runtime.charges_for_house(owner_house)
+    else {
+        return 0;
+    };
+    for slot in list {
+        if !needle.is_empty() && !slot.type_key.as_str().eq_ignore_ascii_case(needle) {
+            continue;
+        }
+        let req = slot.required_ticks.max(1);
+        let pct = ((u64::from(slot.charge_ticks) * 100) / u64::from(req)) as i32;
+        if pct > best {
+            best = pct;
+        }
+    }
+    best
 }
 
 fn count_type_owned_by<F>(world: &BattleState, type_key: &ra_types::TechnoName, house_ok: F) -> i32

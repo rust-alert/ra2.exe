@@ -1478,6 +1478,10 @@ pub enum AiTriggerConditionKind {
     EnemyRedPower,
     /// `4`：敌方资金。
     EnemyCredits,
+    /// `5`：己方资金。
+    OwnCredits,
+    /// `6`：己方超级武器充能百分比（`condition_object` 可指定超武名；空则取房主最高充能）。
+    OwnSuperWeaponCharge,
     /// `7`：中立 / 平民房主拥有指定类型。
     NeutralOwns,
     /// 尚未实现的条件码；求值恒假，避免误产队。
@@ -1494,6 +1498,8 @@ impl AiTriggerConditionKind {
             2 => Self::EnemyYellowPower,
             3 => Self::EnemyRedPower,
             4 => Self::EnemyCredits,
+            5 => Self::OwnCredits,
+            6 => Self::OwnSuperWeaponCharge,
             7 => Self::NeutralOwns,
             other => Self::Unsupported(other),
         }

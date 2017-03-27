@@ -240,3 +240,95 @@ AT_B=B,TM_B,Russians,0,-1,,0,50,1,100\n\
     assert!(w0 == 25 || w1 == 25, "picked should average toward min (50+1)/2=25, got {w0}/{w1}");
     assert!(w0 == 75 || w1 == 75, "unpicked should average toward max (50+100)/2=75, got {w0}/{w1}");
 }
+
+#[test]
+fn ai_trigger_own_credits_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 条件 5：己方资金 >= 5000。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=Rich,TM1,Russians,0,5,,5000\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-own-cred.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::OwnCredits);
+    assert_eq!(map.scripting.ai_triggers[0].compare_amount, 5000);
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
+    assert!(world.set_house_funds("RUSSIANS", 1000));
+    let mut session = Session::from_state(world, "ai-own-cred-low");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "OwnCredits must not fire when funds below threshold");
+
+    let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert!(world2.set_house_funds("RUSSIANS", 5000));
+    let mut session2 = Session::from_state(world2, "ai-own-cred-ok");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "OwnCredits >=5000 should spawn, got {e1b}");
+}
+
+#[test]
+fn ai_trigger_own_super_weapon_charge_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 条件 6：指定超武充能百分比 >= 80。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=NukeReady,TM1,Russians,0,6,MultiSpecial,80\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-sw-pct.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::OwnSuperWeaponCharge);
+    assert_eq!(map.scripting.ai_triggers[0].condition_object.as_str(), "MULTISPECIAL");
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
+    world.super_weapon_runtime.set_charge_for_test(
+        "RUSSIANS",
+        ra_types::SuperWeaponName::parse("MultiSpecial"),
+        40,
+        100,
+    );
+    let mut session = Session::from_state(world, "ai-sw-low");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "OwnSuperWeaponCharge must not fire below 80%");
+
+    let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
+    world2.super_weapon_runtime.set_charge_for_test(
+        "RUSSIANS",
+        ra_types::SuperWeaponName::parse("MultiSpecial"),
+        80,
+        100,
+    );
+    let mut session2 = Session::from_state(world2, "ai-sw-ok");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "OwnSuperWeaponCharge >=80% should spawn, got {e1b}");
+}

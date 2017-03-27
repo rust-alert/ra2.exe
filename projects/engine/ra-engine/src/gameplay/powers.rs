@@ -149,7 +149,22 @@ pub struct SuperWeaponRuntime {
 impl SuperWeaponRuntime {
     /// 查询某 house 某超武充能进度。
     pub fn charge(&self, house: &str, type_key: &ra_types::SuperWeaponName) -> Option<&SuperWeaponCharge> {
-        self.by_house.get(house).and_then(|list| list.iter().find(|c| &c.type_key == type_key))
+        self.charges_for_house(house).and_then(|list| list.iter().find(|c| &c.type_key == type_key))
+    }
+
+    /// 某房主全部超武充能槽（大小写不敏感匹配 house）。
+    pub fn charges_for_house(&self, house: &str) -> Option<&[SuperWeaponCharge]> {
+        self.by_house.iter().find(|(k, _)| k.eq_ignore_ascii_case(house)).map(|(_, list)| list.as_slice())
+    }
+
+    /// 覆盖写入充能进度（测试 / 诊断；正式 tick 由 `tick_super_weapons` 推进）。
+    pub fn set_charge_for_test(&mut self, house: &str, type_key: ra_types::SuperWeaponName, charge_ticks: u32, required_ticks: u32) {
+        let required_ticks = required_ticks.max(1);
+        self.ensure_slot(house, type_key.clone(), required_ticks);
+        if let Some(slot) = self.charge_mut(house, &type_key) {
+            slot.charge_ticks = charge_ticks.min(required_ticks);
+            slot.required_ticks = required_ticks;
+        }
     }
 
     fn charge_mut(&mut self, house: &str, type_key: &ra_types::SuperWeaponName) -> Option<&mut SuperWeaponCharge> {
