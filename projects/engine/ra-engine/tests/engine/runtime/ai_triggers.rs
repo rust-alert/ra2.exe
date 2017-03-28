@@ -471,3 +471,105 @@ AT1=EnemyRed,TM1,Russians,0,3\n\
     let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(e1b >= 2, "EnemyRedPower should spawn when enemy effective power is zero, got {e1b}");
 }
+
+#[test]
+fn ai_trigger_own_owns_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n1=NAPOWR\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[NAPOWR]\nPower=200\nOwner=Russians\nStrength=600\nSight=4\nCost=600\nArmor=wood\n",
+    );
+    // ConditionType=1 OwnOwns NAPOWR>=1：仅有建造场时不应出队。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=NeedPower,TM1,Russians,0,1,NAPOWR,1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-own-owns.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::OwnOwns);
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "ai-own-owns");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "OwnOwns NAPOWR must not fire without own power plant");
+
+    let text2 = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n\
+0=Russians,NACNST,256,8,8,0\n\
+1=Russians,NAPOWR,256,9,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=NeedPower,TM1,Russians,0,1,NAPOWR,1\n\
+";
+    let map2 = MapInfo::parse_ini(GameEdition::Ra2, "ai-own-owns2.map", text2).unwrap();
+    let mut session2 = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map2), "ai-own-owns2");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "OwnOwns NAPOWR>=1 should spawn team, got {e1b}");
+}
+
+#[test]
+fn ai_trigger_neutral_owns_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n1=CAGATE\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n\
+[CAGATE]\nStrength=400\nSight=1\nCost=100\nArmor=concrete\nOwner=Neutral\n",
+    );
+    // ConditionType=7 NeutralOwns CAGATE>=1。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=TechGate,TM1,Russians,0,7,CAGATE,1\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-neutral.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::NeutralOwns);
+    let engine = test_engine();
+    let mut session = Session::from_state(battle_from_defs(GameEdition::Ra2, defs.clone(), map), "ai-neutral");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "NeutralOwns CAGATE must not fire without ambient gate");
+
+    let text2 = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n\
+0=Russians,NACNST,256,8,8,0\n\
+1=Neutral,CAGATE,256,4,4,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=TechGate,TM1,Russians,0,7,CAGATE,1\n\
+";
+    let map2 = MapInfo::parse_ini(GameEdition::Ra2, "ai-neutral2.map", text2).unwrap();
+    let mut session2 = Session::from_state(battle_from_defs(GameEdition::Ra2, defs, map2), "ai-neutral2");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "NeutralOwns CAGATE>=1 should spawn team, got {e1b}");
+}
