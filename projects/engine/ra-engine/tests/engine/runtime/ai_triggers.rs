@@ -332,3 +332,142 @@ AT1=NukeReady,TM1,Russians,0,6,MultiSpecial,80\n\
     let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
     assert!(e1b >= 2, "OwnSuperWeaponCharge >=80% should spawn, got {e1b}");
 }
+
+#[test]
+fn ai_trigger_enemy_credits_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 条件 4：敌方资金 >= 3000。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=EnemyCash,TM1,Russians,0,4,,3000\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-enemy-cred.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::EnemyCredits);
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
+    world.ensure_house("AMERICANS");
+    assert!(world.set_house_funds("AMERICANS", 1000));
+    let mut session = Session::from_state(world, "ai-enemy-cred-low");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "EnemyCredits must not fire when enemy funds below threshold");
+
+    let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
+    world2.ensure_house("AMERICANS");
+    assert!(world2.set_house_funds("AMERICANS", 3000));
+    let mut session2 = Session::from_state(world2, "ai-enemy-cred-ok");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "EnemyCredits >=3000 should spawn, got {e1b}");
+}
+
+#[test]
+fn ai_trigger_enemy_yellow_power_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 条件 2：敌方黄电（drain > output）。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=EnemyYellow,TM1,Russians,0,2\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-enemy-yellow.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::EnemyYellowPower);
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
+    world.ensure_house("AMERICANS");
+    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref().eq_ignore_ascii_case("AMERICANS")) {
+        p.power_output = 100;
+        p.power_drain = 50;
+    }
+    let mut session = Session::from_state(world, "ai-enemy-yellow-ok-power");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "EnemyYellowPower must not fire when enemy has surplus power");
+
+    let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
+    world2.ensure_house("AMERICANS");
+    if let Some(p) = world2.players.iter_mut().find(|p| p.house.as_ref().eq_ignore_ascii_case("AMERICANS")) {
+        p.power_output = 50;
+        p.power_drain = 100;
+    }
+    let mut session2 = Session::from_state(world2, "ai-enemy-yellow-low");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "EnemyYellowPower should spawn when enemy is low power, got {e1b}");
+}
+
+#[test]
+fn ai_trigger_enemy_red_power_condition_gates_spawn() {
+    let defs = defs_from_rules_ini(
+        b"[InfantryTypes]\n0=E1\n\
+[BuildingTypes]\n0=NACNST\n\
+[E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
+[NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
+    );
+    // 条件 3：敌方红电（有效供电为 0 且仍耗电）。
+    let text = b"\
+[Map]\nSize=0,0,16,16\nTheater=TEMPERATE\n\
+[Waypoints]\n0=5005\n\
+[Structures]\n0=Russians,NACNST,256,8,8,0\n\
+[TaskForces]\n0=TF1\n\
+[TF1]\nName=Squad\n0=2,E1\nGroup=-1\n\
+[TeamTypes]\n0=TM1\n\
+[TM1]\nName=Team\nHouse=Russians\nScript=\nTaskForce=TF1\nMax=1\n\
+[AITriggerTypes]\n\
+AT1=EnemyRed,TM1,Russians,0,3\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "ai-enemy-red.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers[0].condition, ra_types::AiTriggerConditionKind::EnemyRedPower);
+    let engine = test_engine();
+    let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
+    world.ensure_house("AMERICANS");
+    if let Some(p) = world.players.iter_mut().find(|p| p.house.as_ref().eq_ignore_ascii_case("AMERICANS")) {
+        // 黄电：有供电但仍不足，不应满足红电。
+        p.power_output = 50;
+        p.power_drain = 100;
+    }
+    let mut session = Session::from_state(world, "ai-enemy-red-yellow-only");
+    session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session.tick(&engine.runtime());
+    let e1 = session.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert_eq!(e1, 0, "EnemyRedPower must not fire on yellow-only low power");
+
+    let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
+    world2.ensure_house("AMERICANS");
+    if let Some(p) = world2.players.iter_mut().find(|p| p.house.as_ref().eq_ignore_ascii_case("AMERICANS")) {
+        p.power_output = 0;
+        p.power_drain = 100;
+    }
+    let mut session2 = Session::from_state(world2, "ai-enemy-red-ok");
+    session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
+    session2.tick(&engine.runtime());
+    let e1b = session2.expect_battle().snapshot(&[]).units.iter().filter(|u| u.type_id.as_ref() == "E1" && !u.dead).count();
+    assert!(e1b >= 2, "EnemyRedPower should spawn when enemy effective power is zero, got {e1b}");
+}
