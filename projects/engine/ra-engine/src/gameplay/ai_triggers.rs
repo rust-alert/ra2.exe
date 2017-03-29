@@ -360,7 +360,7 @@ where
         else {
             continue;
         };
-        if identity.type_id.as_ref().eq_ignore_ascii_case(needle) {
+        if crate::gameplay::type_key_of(&world.definitions, identity.type_id).eq_ignore_ascii_case(needle) {
             n = n.saturating_add(1);
             // 建筑按座计数即可；Foundation 展开不在 ECS Identity 重复。
             let _ = identity.kind == MapEntityKind::Structure;

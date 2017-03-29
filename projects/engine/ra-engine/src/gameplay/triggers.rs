@@ -76,13 +76,7 @@ impl TriggerRuntime {
                     .find(|c| MapEventKind::from_code(c.kind_code) == MapEventKind::TimeElapse)
                     .map(|c| c.params.first().and_then(|p| p.parse::<u32>().ok()).unwrap_or(0))
             });
-            states.push(TriggerRuntimeState {
-                id: tr.id,
-                disabled: tr.disabled,
-                fired: false,
-                timer_remaining,
-                timer_paused: false,
-            });
+            states.push(TriggerRuntimeState { id: tr.id, disabled: tr.disabled, fired: false, timer_remaining, timer_paused: false });
         }
         Self {
             states,
@@ -308,10 +302,7 @@ fn tags_for_trigger(world: &BattleState, trigger_id: TriggerId) -> HashSet<TagId
 
 /// 统计已绑定动作表中含 `Allow Win` 的触发条数（每条贡献一层胜利阻塞）。
 fn count_allow_win_actions(actions: &[PreparedAction]) -> u32 {
-    actions
-        .iter()
-        .filter(|a| a.commands.iter().any(|c| MapActionKind::from_code(c.kind_code) == MapActionKind::AllowWin))
-        .count() as u32
+    actions.iter().filter(|a| a.commands.iter().any(|c| MapActionKind::from_code(c.kind_code) == MapActionKind::AllowWin)).count() as u32
 }
 
 /// 查找触发器所属 house（优先 [`PreparedTrigger.house`](PreparedTrigger) 稳定 id）。
@@ -362,8 +353,7 @@ fn any_living_with_tags(world: &BattleState, tags: &HashSet<TagId>) -> bool {
 }
 
 fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<TagId>, house: &str) -> bool {
-    let cells: Vec<(u16, u16)> =
-        world.prepared.cell_tags.iter().filter(|c| bound_tags.contains(&c.tag)).map(|c| (c.x, c.y)).collect();
+    let cells: Vec<(u16, u16)> = world.prepared.cell_tags.iter().filter(|c| bound_tags.contains(&c.tag)).map(|c| (c.x, c.y)).collect();
     if cells.is_empty() {
         return false;
     }
@@ -410,9 +400,7 @@ fn apply_action(world: &mut BattleState, trigger_id: TriggerId, cmd: &PreparedAc
             world.trigger_runtime.pending_outcome = Some(BattleOutcome::Defeat { reason });
         }
         MapActionKind::ProductionBegins => {
-            let house = action_house_param(cmd)
-                .or_else(|| trigger_owner_house(world, trigger_id))
-                .unwrap_or_else(|| local_house.to_string());
+            let house = action_house_param(cmd).or_else(|| trigger_owner_house(world, trigger_id)).unwrap_or_else(|| local_house.to_string());
             if !world.begin_house_production(&house) {
                 world.trigger_runtime.record_unsupported(kind);
             }
@@ -859,13 +847,8 @@ fn force_fire_trigger(world: &mut BattleState, id: TriggerId, local_house: &str)
         st.disabled = false;
         st.fired = true;
     }
-    let commands: Vec<PreparedActionCommand> = world
-        .prepared
-        .actions
-        .iter()
-        .find(|a| a.trigger_id == id)
-        .map(|a| a.commands.clone())
-        .unwrap_or_default();
+    let commands: Vec<PreparedActionCommand> =
+        world.prepared.actions.iter().find(|a| a.trigger_id == id).map(|a| a.commands.clone()).unwrap_or_default();
     for cmd in &commands {
         apply_action(world, id, cmd, local_house);
         if world.trigger_runtime.pending_outcome.is_some() {
@@ -904,8 +887,8 @@ fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &PreparedAc
         };
         let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
         let covers = if is_structure {
-            let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id.clone()).unwrap_or_default();
-            let foundation = world.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+            let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id);
+            let foundation = type_id.and_then(|tid| world.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
             let fw = foundation.width.max(1);
             let fh = foundation.height.max(1);
             wp.x >= xf.x && wp.y >= xf.y && wp.x < xf.x.saturating_add(fw) && wp.y < xf.y.saturating_add(fh)

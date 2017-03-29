@@ -60,15 +60,15 @@ impl crate::state::BattleState {
             if !self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false) {
                 return false;
             }
-            let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone())
+            let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id)
             else {
                 return false;
             };
-            if !is_production_factory(&self.definitions, type_id.as_ref()) {
+            if !is_production_factory(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id)) {
                 return false;
             }
             // 与原版 GetFactoryCount 对齐：不计飞行器工厂。
-            let cat = self.definitions.structures.get(type_id.as_ref()).and_then(|s| s.production.as_ref()).map(|p| p.category);
+            let cat = self.definitions.structures.get_by_id(type_id).and_then(|s| s.production.as_ref()).map(|p| p.category);
             matches!(cat, Some(ProductionCategory::Infantry | ProductionCategory::Vehicle | ProductionCategory::Building))
         })
     }

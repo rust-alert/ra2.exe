@@ -180,21 +180,26 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(type_id) = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id.clone())
+                    let Some(type_id) = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let Some(building_type) = deploy_into_type(&self.definitions, &type_id)
+                    let Some(building_type) = deploy_into_type(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id))
+                        .map(str::to_string)
                     else {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self.definitions.techno.get(building_type).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
-                    let building_type = Arc::<str>::from(building_type);
+                    let armor = self.definitions.techno.get(building_type.as_str()).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
+                    let Some(building_def_id) = crate::gameplay::type_id_of(&self.definitions, building_type.as_str())
+                    else {
+                        self.reject(command_index, CommandRejectReason::CannotDeploy);
+                        continue;
+                    };
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
-                        identity.type_id = Arc::clone(&building_type);
+                        identity.type_id = building_def_id;
                         identity.mission = None;
                     });
                     let _ = self.with_locomotor_mut(dirty_id, |loco| {
@@ -285,7 +290,7 @@ impl crate::state::BattleState {
                         }
                         if !self
                             .ecs_get::<Identity>(id)
-                            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, &i.type_id))
+                            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id)))
                             .unwrap_or(false)
                         {
                             return None;
@@ -304,13 +309,14 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
+                    let def_id = tt.id;
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor;
+                    let power = building_power(&self.definitions, type_id);
                     let _ = self.with_production_mut(yard_id, |queue| {
                         queue.ready = None;
                     });
                     self.mark_entity_dirty(yard_id);
-                    let power = building_power(&self.definitions, type_id);
                     let id = self.alloc_entity_id();
                     self.players[player_index].power_output = self.players[player_index].power_output.saturating_add(power.output);
                     self.players[player_index].power_drain = self.players[player_index].power_drain.saturating_add(power.drain);
@@ -319,7 +325,7 @@ impl crate::state::BattleState {
                     self.spawn_from_bundle(EntitySpawnBundle {
                         identity: Identity {
                             entity_id: id,
-                            type_id: Arc::<str>::from(type_id.to_ascii_uppercase()),
+                            type_id: def_id,
                             kind: MapEntityKind::Structure,
                             mission: None,
                             tag: None,
@@ -479,12 +485,12 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone())
+                    let Some(type_id) = self.ecs_get::<Identity>(id).map(|i| i.type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_production_factory(&self.definitions, &type_id) {
+                    if !is_production_factory(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id)) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -523,12 +529,12 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(agent_type) = self.ecs_get::<Identity>(agent_id).map(|i| i.type_id.clone())
+                    let Some(agent_type) = self.ecs_get::<Identity>(agent_id).map(|i| i.type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_agent(&self.definitions, agent_type.as_ref()) {
+                    if !is_agent(&self.definitions, crate::gameplay::type_key_of(&self.definitions, agent_type)) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -562,7 +568,7 @@ impl crate::state::BattleState {
                     let foundation = self
                         .definitions
                         .structures
-                        .get(self.ecs_get::<Identity>(building_id).map(|i| i.type_id.as_ref()).unwrap_or(""))
+                        .get(self.ecs_get::<Identity>(building_id).map(|i| crate::gameplay::type_key_of(&self.definitions, i.type_id)).unwrap_or(""))
                         .map(|s| s.foundation.clone())
                         .unwrap_or_default();
                     let (dest_x, dest_y) = nearest_adjacent_to_footprint(
@@ -617,12 +623,12 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
                     }
-                    let Some(engineer_type) = self.ecs_get::<Identity>(engineer_id).map(|i| i.type_id.clone())
+                    let Some(engineer_type) = self.ecs_get::<Identity>(engineer_id).map(|i| i.type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_engineer(&self.definitions, engineer_type.as_ref()) {
+                    if !is_engineer(&self.definitions, crate::gameplay::type_key_of(&self.definitions, engineer_type)) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -638,12 +644,12 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    let Some(building_type) = self.ecs_get::<Identity>(building_id).map(|i| i.type_id.clone())
+                    let Some(building_type) = self.ecs_get::<Identity>(building_id).map(|i| i.type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_capturable(&self.definitions, building_type.as_ref()) {
+                    if !is_capturable(&self.definitions, crate::gameplay::type_key_of(&self.definitions, building_type)) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -662,7 +668,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let engineer_xf = self.ecs_get::<Transform>(engineer_id).copied().unwrap_or(building_xf);
-                    let foundation = self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+                    let foundation = self.definitions.structures.get_by_id(building_type).map(|s| s.foundation.clone()).unwrap_or_default();
                     let (dest_x, dest_y) = nearest_adjacent_to_footprint(
                         engineer_xf.x,
                         engineer_xf.y,
@@ -945,11 +951,13 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let cost = self.definitions.techno.get(identity.type_id.as_ref()).map(|tt| tt.cost).unwrap_or(0);
+                    let cost = self.definitions.techno.get_by_id(identity.type_id).map(|tt| tt.cost).unwrap_or(0);
                     // 原版侧栏出售约退半价。
                     let refund = (cost / 2).max(0);
+                    let sold_type_id = identity.type_id;
                     let foundation =
-                        self.definitions.structures.get(identity.type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+                        self.definitions.structures.get_by_id(sold_type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+                    let sold_type_key = crate::gameplay::type_key_of(&self.definitions, sold_type_id).to_string();
                     let _ = self.with_health_mut(building_id, |health| {
                         health.current = 0;
                         health.dead = true;
@@ -958,7 +966,7 @@ impl crate::state::BattleState {
                         queue.item = None;
                     });
                     self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
-                    self.revoke_structure_power(house.as_ref(), identity.type_id.as_ref());
+                    self.revoke_structure_power(house.as_ref(), sold_type_key.as_str());
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);

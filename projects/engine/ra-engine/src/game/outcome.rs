@@ -228,7 +228,7 @@ fn house_keeps_alive(world: &BattleState, house: &str, short_game: bool) -> bool
         match identity.kind {
             MapEntityKind::Structure => return true,
             MapEntityKind::Unit if short_game => {
-                if is_base_unit(&world.definitions, &identity.type_id) {
+                if is_base_unit(&world.definitions, crate::gameplay::type_key_of(&world.definitions, identity.type_id)) {
                     return true;
                 }
             }

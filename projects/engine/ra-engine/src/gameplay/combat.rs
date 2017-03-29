@@ -45,7 +45,7 @@ impl crate::state::BattleState {
                 continue;
             }
             let attack_move = identity.mission == Some(ra_types::MissionKind::AttackMove);
-            let attacker_type_key = std::sync::Arc::clone(&identity.type_id);
+            let attacker_type_key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.definitions, identity.type_id));
             let Some(target_id) = attack.target.or_else(|| {
                 if !attack_move {
                     return None;
@@ -195,10 +195,8 @@ impl crate::state::BattleState {
                     return None;
                 }
                 let identity = self.ecs_get::<Identity>(id)?;
-                if !matches!(
-                    identity.kind,
-                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure
-                ) {
+                if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft | MapEntityKind::Structure)
+                {
                     return None;
                 }
                 let other = self.ecs_get::<crate::state::components::Owner>(id)?;
@@ -250,7 +248,7 @@ impl crate::state::BattleState {
         }
         let house = self.ecs_get::<crate::state::components::Owner>(dirty_id).map(|o| o.house.clone());
         let kind = self.ecs_get::<Identity>(dirty_id).map(|i| i.kind);
-        let type_id = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id.clone());
+        let type_id = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id);
         let cell = self.ecs_get::<Transform>(dirty_id).map(|t| (t.x, t.y));
         let (Some(house), Some(kind), Some(type_id), Some((x, y))) = (house, kind, type_id, cell)
         else {
@@ -324,9 +322,10 @@ impl crate::state::BattleState {
             self.clear_attack_target_resume_attack_move(attacker_id, attack_move);
         }
         if kind == MapEntityKind::Structure {
-            let foundation = self.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+            let foundation = self.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+            let type_key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
             self.unseal_structure_footprint(x, y, foundation.width, foundation.height);
-            self.revoke_structure_power(&house, &type_id);
+            self.revoke_structure_power(&house, type_key.as_str());
         }
     }
 

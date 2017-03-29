@@ -1,6 +1,17 @@
 //! 对冻结定义的玩法查询（无外部内容名分支）。
 
-use ra_types::{ProductionCategory, RuntimeDefinitions, TechnoClass};
+use ra_types::{ProductionCategory, RuntimeDefinitions, TechnoClass, TypeId};
+
+
+/// 由稳定 [`TypeId`] 取类型键；未知 id 返回空串。
+pub(crate) fn type_key_of(defs: &RuntimeDefinitions, id: TypeId) -> &str {
+    defs.techno.get_by_id(id).map(|t| t.type_key.as_str()).unwrap_or("")
+}
+
+/// 由类型键解析稳定 [`TypeId`]。
+pub(crate) fn type_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<TypeId> {
+    defs.techno.get(key).map(|t| t.id)
+}
 
 /// 单位是否间谍类（`Agent=yes`），可渗透敌方建筑。
 pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: &str) -> bool {

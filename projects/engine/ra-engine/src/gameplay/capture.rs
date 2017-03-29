@@ -44,11 +44,11 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
-            let Some(building_type) = self.ecs_get::<Identity>(building_id).map(|i| i.type_id.clone())
+            let Some(building_type) = self.ecs_get::<Identity>(building_id).map(|i| i.type_id)
             else {
                 continue;
             };
-            if !is_capturable(&self.definitions, building_type.as_ref()) {
+            if !is_capturable(&self.definitions, crate::gameplay::type_key_of(&self.definitions, building_type)) {
                 let _ = self.with_attack_mut(engineer_id, |attack| {
                     attack.capture_target = None;
                 });
@@ -78,7 +78,7 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            let foundation = self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+            let foundation = self.definitions.structures.get_by_id(building_type).map(|s| s.foundation.clone()).unwrap_or_default();
             if !is_adjacent_to_footprint(engineer_xf.x, engineer_xf.y, building_xf.x, building_xf.y, foundation.width, foundation.height) {
                 let (ax, ay) = nearest_adjacent_to_footprint(
                     engineer_xf.x,
@@ -99,11 +99,11 @@ impl crate::state::BattleState {
                 continue;
             }
 
-            self.transfer_structure_owner(building_id, building_type.as_ref(), building_house.as_ref(), engineer_house.as_ref());
+            let building_type_key = crate::gameplay::type_key_of(&self.definitions, building_type).to_string();
             let capturer_eva = if self
                 .definitions
                 .techno
-                .get_name(&ra_types::TechnoName::parse(building_type.as_ref()))
+                .get_by_id(building_type)
                 .is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id))
             {
                 "EVA_TechBuildingCaptured"
@@ -111,6 +111,7 @@ impl crate::state::BattleState {
             else {
                 "EVA_BuildingCaptured"
             };
+            self.transfer_structure_owner(building_id, building_type_key.as_str(), building_house.as_ref(), engineer_house.as_ref());
             self.push_eva_cue(engineer_house.as_ref(), capturer_eva);
             // 中立 / 平民无玩家席位，不播受害方 EVA。
             if !is_ambient_house(building_house.as_ref()) {

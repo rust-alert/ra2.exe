@@ -42,9 +42,14 @@ impl BattleState {
         let harvester = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied();
         let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied();
 
+        let type_key = identity.as_ref().and_then(|i| {
+            self.definitions.techno.get_by_id(i.type_id).map(|t| std::sync::Arc::<str>::from(t.type_key.as_str()))
+        });
         let entity = &mut self.entities[index];
         if let Some(identity) = identity {
-            entity.type_id = identity.type_id;
+            if let Some(key) = type_key {
+                entity.type_id = key;
+            }
             entity.kind = identity.kind;
         }
         if let Some(owner) = owner {
@@ -246,10 +251,13 @@ impl BattleState {
     }
 
     /// 测试 / 调试：写入 ECS 身份类型并投影。
-    pub fn set_ecs_type_id(&mut self, id: EntityId, type_id: impl Into<std::sync::Arc<str>>, kind: ra_map::MapEntityKind) -> bool {
-        let type_id = type_id.into();
+    pub fn set_ecs_type_id(&mut self, id: EntityId, type_id: &str, kind: ra_map::MapEntityKind) -> bool {
+        let Some(def_id) = self.definitions.techno.get(type_id).map(|t| t.id)
+        else {
+            return false;
+        };
         self.with_identity_mut(id, |identity| {
-            identity.type_id = type_id;
+            identity.type_id = def_id;
             identity.kind = kind;
         })
         .is_some()

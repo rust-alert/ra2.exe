@@ -27,19 +27,21 @@ impl BattleState {
 
     /// 按房主与类型键查找首个实体 ID。
     pub fn find_entity_id_by_owner_type(&self, owner: &str, type_id: &str) -> Option<EntityId> {
+        let want = self.definitions.techno.get(type_id).map(|t| t.id)?;
         self.entities.iter().find_map(|e| {
             let id = e.id;
             let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(owner)).unwrap_or(false);
-            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id.eq_ignore_ascii_case(type_id)).unwrap_or(false);
+            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id == want).unwrap_or(false);
             (house_ok && type_ok).then_some(id)
         })
     }
 
     /// 按类型键查找首个实体 ID。
     pub fn find_entity_id_by_type(&self, type_id: &str) -> Option<EntityId> {
+        let want = self.definitions.techno.get(type_id).map(|t| t.id)?;
         self.entities.iter().find_map(|e| {
             let id = e.id;
-            self.ecs_get::<Identity>(id).filter(|i| i.type_id.as_ref() == type_id).map(|_| id)
+            self.ecs_get::<Identity>(id).filter(|i| i.type_id == want).map(|_| id)
         })
     }
 
@@ -72,7 +74,13 @@ impl BattleState {
     /// 读取 ECS `Identity`（测试与诊断）。
     pub fn ecs_identity(&self, id: EntityId) -> Option<(std::sync::Arc<str>, ra_map::MapEntityKind)> {
         let identity = self.ecs_get::<crate::state::components::Identity>(id)?;
-        Some((std::sync::Arc::clone(&identity.type_id), identity.kind))
+        let key = self
+            .definitions
+            .techno
+            .get_by_id(identity.type_id)
+            .map(|t| std::sync::Arc::<str>::from(t.type_key.as_str()))
+            .unwrap_or_else(|| std::sync::Arc::<str>::from(""));
+        Some((key, identity.kind))
     }
 
     /// 读取 ECS `Identity.mission`（地图放置 / 运行时任务态；测试与诊断）。

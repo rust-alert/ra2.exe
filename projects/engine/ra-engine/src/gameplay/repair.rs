@@ -46,7 +46,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             stop.push(id);
             continue;
         };
-        jobs.push(RepairJob { id, house, type_id: identity.type_id.as_ref().to_string(), current: health.current, maximum: health.maximum });
+        jobs.push(RepairJob { id, house, type_id: crate::gameplay::type_key_of(&world.definitions, identity.type_id).to_string(), current: health.current, maximum: health.maximum });
     }
 
     for job in jobs {

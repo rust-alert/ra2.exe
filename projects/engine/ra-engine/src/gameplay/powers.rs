@@ -214,7 +214,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(structure) = defs.structures.get(identity.type_id.as_ref())
+        let Some(structure) = defs.structures.get_by_id(identity.type_id)
         else {
             continue;
         };
@@ -270,7 +270,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
         world
             .definitions
             .structures
-            .get(identity.type_id.as_ref())
+            .get_by_id(identity.type_id)
             .is_some_and(|s| s.super_weapon_id == Some(sw_def.id) || s.super_weapon.as_ref() == Some(&type_key))
     });
     if !has_provider {

@@ -81,10 +81,9 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            let building_type_for_foundation = self.ecs_get::<Identity>(building_id).map(|i| i.type_id.clone());
+            let building_type_for_foundation = self.ecs_get::<Identity>(building_id).map(|i| i.type_id);
             let foundation = building_type_for_foundation
-                .as_ref()
-                .and_then(|t| self.definitions.structures.get(t.as_ref()))
+                .and_then(|t| self.definitions.structures.get_by_id(t))
                 .map(|s| s.foundation.clone())
                 .unwrap_or_default();
             if !is_adjacent_to_footprint(agent_xf.x, agent_xf.y, building_xf.x, building_xf.y, foundation.width, foundation.height) {
@@ -103,7 +102,8 @@ impl crate::state::BattleState {
 
             let building_type = building_type_for_foundation;
             if let Some(type_id) = building_type {
-                let (agent_eva, victim_eva) = self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id.as_ref());
+                let building_type_key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
+                let (agent_eva, victim_eva) = self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), building_type_key.as_str());
                 self.push_eva_cue(agent_house.as_ref(), agent_eva);
                 if let Some(victim_event) = victim_eva {
                     self.push_eva_cue(building_house.as_ref(), victim_event);

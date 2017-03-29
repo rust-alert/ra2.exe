@@ -122,7 +122,7 @@ impl BattleSession {
             if dist > max_dist_px {
                 continue;
             }
-            let is_mcv = identity.type_id.to_ascii_uppercase().contains("MCV");
+            let is_mcv = crate::gameplay::type_key_of(&self.world.definitions, identity.type_id).to_ascii_uppercase().contains("MCV");
             let better = match best {
                 None => true,
                 Some((best_dist, best_mcv, _)) => dist < best_dist - 0.5 || ((dist - best_dist).abs() <= 0.5 && is_mcv && !best_mcv),
@@ -258,7 +258,7 @@ impl BattleSession {
                 .world
                 .definitions
                 .structures
-                .get(identity.type_id.as_ref())
+                .get_by_id(identity.type_id)
                 .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
                 .unwrap_or((1, 1));
             let mut min_dist = f32::INFINITY;
@@ -317,7 +317,7 @@ impl BattleSession {
             if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
                 continue;
             }
-            if identity.type_id.to_ascii_uppercase().contains("MCV") {
+            if crate::gameplay::type_key_of(&self.world.definitions, identity.type_id).to_ascii_uppercase().contains("MCV") {
                 return Some(id);
             }
             if fallback.is_none() {
@@ -350,7 +350,7 @@ impl BattleSession {
                 .world
                 .definitions
                 .structures
-                .get(identity.type_id.as_ref())
+                .get_by_id(identity.type_id)
                 .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
                 .unwrap_or((1, 1));
             if x < xf.x || y < xf.y {
@@ -408,7 +408,7 @@ impl BattleSession {
                 .world
                 .definitions
                 .structures
-                .get(identity.type_id.as_ref())
+                .get_by_id(identity.type_id)
                 .map(|s| (s.foundation.width.max(1), s.foundation.height.max(1)))
                 .unwrap_or((1, 1));
             let mut min_dist = f32::INFINITY;

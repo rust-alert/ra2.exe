@@ -37,7 +37,7 @@ impl BattleState {
             let produce_ready = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.ready.clone());
             let rally_x = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_x);
             let rally_y = self.ecs_get::<ProductionQueue>(id).and_then(|p| p.rally_y);
-            let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id.clone());
+            let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id);
             let owner = self.ecs_get::<Owner>(id).map(|o| o.house.clone());
 
             let x = xf.map(|t| t.x).unwrap_or(0);
@@ -100,8 +100,8 @@ impl BattleState {
                 .wrapping_add(rally_x.map(u64::from).unwrap_or(0))
                 .wrapping_add(rally_y.map(|v| u64::from(v) << 16).unwrap_or(0));
             if let Some(type_id) = type_id {
-                for b in type_id.as_bytes() {
-                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+                for b in type_id.0.to_le_bytes() {
+                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(b));
                 }
             }
             if let Some(owner) = owner {

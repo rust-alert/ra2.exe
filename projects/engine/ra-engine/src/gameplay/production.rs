@@ -121,16 +121,19 @@ impl crate::state::BattleState {
         let base_health = tt.strength.max(1);
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
+        let def_id = tt.id;
+        let sight = tt.sight;
+        let warhead_fallback = tt.warhead_id;
         let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
-        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) }).unwrap_or(0);
+        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { sight.max(1) }).unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
         let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
         let attack_cooldown_max = weapon.map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
-        let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
+        let warhead_id = weapon.and_then(|w| w.warhead_id).or(warhead_fallback);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_id.to_ascii_uppercase()), kind, mission: None, tag: None },
+            identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
             owner: Owner { house: owner.clone() },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
@@ -188,7 +191,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
         })
     }
 
@@ -200,7 +203,7 @@ impl crate::state::BattleState {
                 && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, &i.type_id, kind)).unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
         })
     }
 
@@ -216,7 +219,7 @@ impl crate::state::BattleState {
             }
             if !self
                 .ecs_get::<Identity>(id)
-                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, &i.type_id))
+                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id)))
                 .unwrap_or(false)
             {
                 return None;

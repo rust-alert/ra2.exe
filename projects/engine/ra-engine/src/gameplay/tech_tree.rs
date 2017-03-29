@@ -62,7 +62,7 @@ pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<Techno
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        keys.insert(TechnoName::parse(identity.type_id.as_ref()));
+        keys.insert(TechnoName::parse(crate::gameplay::type_key_of(&world.definitions, identity.type_id)));
     }
     keys
 }
@@ -76,7 +76,7 @@ pub fn living_type_count(world: &BattleState, house: &str, type_key: &TechnoName
             let id = e.id;
             !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && world.ecs_get::<Owner>(id).is_some_and(|o| o.house.eq_ignore_ascii_case(house))
-                && world.ecs_get::<Identity>(id).is_some_and(|i| TechnoName::parse(i.type_id.as_ref()) == *type_key)
+                && world.ecs_get::<Identity>(id).is_some_and(|i| i.type_id == world.definitions.techno.get_name(type_key).map(|t| t.id).unwrap_or(ra_types::TypeId(u32::MAX)))
         })
         .count() as i32
 }

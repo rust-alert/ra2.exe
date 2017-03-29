@@ -366,7 +366,7 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
             if identity.kind != ra_map::MapEntityKind::Structure {
                 return None;
             }
-            Some(identity.type_id.clone())
+            Some(std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&world.definitions, identity.type_id)))
         })
         .collect();
     keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
@@ -394,7 +394,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        let Some(structure) = world.definitions.structures.get(identity.type_id.as_ref())
+        let Some(structure) = world.definitions.structures.get_by_id(identity.type_id)
         else {
             continue;
         };

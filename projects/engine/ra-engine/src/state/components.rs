@@ -5,15 +5,15 @@
 use std::sync::Arc;
 
 use ra_map::MapEntityKind;
-use ra_types::{ArmorKind, EntityId, MissionKind, TagId, TechnoClass};
+use ra_types::{ArmorKind, EntityId, MissionKind, TagId, TechnoClass, TypeId};
 
 /// 稳定身份与内容类型引用。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Identity {
     /// 对外稳定实体 ID。
     pub entity_id: EntityId,
-    /// 内容类型键（与定义集对应）。
-    pub type_id: Arc<str>,
+    /// 内容类型稳定 id（与定义集对应）。
+    pub type_id: TypeId,
     /// 地图实体种类。
     pub kind: MapEntityKind,
     /// 地图放置 / 运行时任务态；`None` 表示未指定。

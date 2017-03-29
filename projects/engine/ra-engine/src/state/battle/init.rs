@@ -61,7 +61,7 @@ impl BattleState {
             seed_bundles.push(EntitySpawnBundle {
                 identity: Identity {
                     entity_id: id,
-                    type_id: Arc::<str>::from(tt.type_key.as_str()),
+                    type_id: tt.id,
                     kind: match p.kind {
                         ra_types::MapPlacedEntityKind::Structure => MapEntityKind::Structure,
                         ra_types::MapPlacedEntityKind::Unit => MapEntityKind::Unit,
@@ -131,7 +131,7 @@ impl BattleState {
         for bundle in seed_bundles {
             let id = bundle.identity.entity_id;
             let kind = bundle.identity.kind;
-            let type_id = Arc::clone(&bundle.identity.type_id);
+            let type_id = bundle.identity.type_id;
             let x = bundle.transform.x;
             let y = bundle.transform.y;
             let index = world.spawn_from_bundle(bundle);
@@ -139,7 +139,7 @@ impl BattleState {
             world.mark_entity_dirty(id);
             // 地图预放建筑也要按 Foundation 封满，不能只堵左上角一格。
             if kind == MapEntityKind::Structure {
-                let foundation = world.definitions.structures.get(type_id.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+                let foundation = world.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
                 world.seal_structure_footprint(x, y, foundation.width, foundation.height);
             }
         }
@@ -208,16 +208,19 @@ impl BattleState {
         if tt.class == TechnoClass::Building {
             return Err(format!("spawn_unit_at 不接受建筑类型: {type_key}"));
         }
+        let def_id = tt.id;
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
         let armor = tt.armor;
         let weapon = tt.primary_id.and_then(|id| self.definitions.weapons.get_by_id(id));
         let class = tt.class;
-        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { tt.sight.max(1) }).unwrap_or(0);
+        let sight = tt.sight;
+        let warhead_fallback = tt.warhead_id;
+        let attack_range = weapon.map(|w| if w.range > 0 { w.range } else { sight.max(1) }).unwrap_or(0);
         // 无 Primary / Damage=0 保持 0，禁止用 Strength 发明伤害。
         let attack_damage = weapon.map(|w| w.damage).unwrap_or(0);
         let attack_cooldown_max = weapon.map(|w| if w.rof > 0 { w.rof } else { ATTACK_COOLDOWN_TICKS }).unwrap_or(0);
-        let warhead_id = weapon.and_then(|w| w.warhead_id).or(tt.warhead_id);
+        let warhead_id = weapon.and_then(|w| w.warhead_id).or(warhead_fallback);
         let attack_verses = verses_for(&self.definitions, warhead_id);
         let id = self.alloc_entity_id();
         let kind = match class {
@@ -227,7 +230,7 @@ impl BattleState {
             TechnoClass::Building => MapEntityKind::Structure,
         };
         self.spawn_from_bundle(EntitySpawnBundle {
-            identity: Identity { entity_id: id, type_id: Arc::<str>::from(type_key), kind, mission: None, tag: None },
+            identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
             owner: Owner { house: Arc::<str>::from(house) },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },

@@ -197,7 +197,7 @@ impl BattleSession {
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
         let deployable = !matches!(identity.kind, MapEntityKind::Structure)
-            && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id.as_ref()).is_some();
+            && crate::gameplay::deploy_into_type(&self.world.definitions, crate::gameplay::type_key_of(&self.world.definitions, identity.type_id)).is_some();
         let movement = self.world.ecs_get::<MovementState>(id);
         let move_goal_screen = movement.and_then(|m| {
             let dx = m.destination_x?;
@@ -213,18 +213,18 @@ impl BattleSession {
             self.world
                 .definitions
                 .structures
-                .get(identity.type_id.as_ref())
+                .get_by_id(identity.type_id)
                 .map(|s| (s.foundation.width, s.foundation.height, s.height.max(1)))
                 .unwrap_or((1, 1, 2))
         }
         else {
             (0, 0, 0)
         };
-        let bracket_delta = self.world.definitions.techno.get(identity.type_id.as_ref()).map(|t| t.pixel_selection_bracket_delta).unwrap_or(0);
+        let bracket_delta = self.world.definitions.techno.get_by_id(identity.type_id).map(|t| t.pixel_selection_bracket_delta).unwrap_or(0);
         Some(SnapshotUnit {
             id,
             kind: identity.kind,
-            type_id: identity.type_id.clone(),
+            type_id: std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, identity.type_id)),
             owner: owner.house.clone(),
             x: xf.x,
             y: xf.y,
