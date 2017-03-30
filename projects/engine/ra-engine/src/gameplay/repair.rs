@@ -41,7 +41,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             stop.push(id);
             continue;
         }
-        let Some(house) = world.ecs.world().get::<Owner>(handle).map(|o| o.house.as_ref().to_string())
+        let Some(house) = world.ecs.world().get::<Owner>(handle).map(|o| crate::gameplay::house_key_of(&world.definitions, o.house).to_string())
         else {
             stop.push(id);
             continue;

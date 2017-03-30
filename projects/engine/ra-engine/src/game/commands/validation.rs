@@ -285,7 +285,7 @@ impl crate::state::BattleState {
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                             return None;
                         }
-                        if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house.as_ref())).unwrap_or(false) {
+                        if !self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house.as_ref()) == Some(o.house)).unwrap_or(false) {
                             return None;
                         }
                         if !self
@@ -330,7 +330,7 @@ impl crate::state::BattleState {
                             mission: None,
                             tag: None,
                         },
-                        owner: Owner { house },
+                        owner: Owner { house: crate::gameplay::house_id_of(&self.definitions, house.as_ref()).expect("place building house") },
                         transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
                         health: Health { current: max_health, maximum: max_health, dead: false },
                         locomotor: Locomotor { speed: 0 },
@@ -443,7 +443,7 @@ impl crate::state::BattleState {
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                             return None;
                         }
-                        if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house.as_ref())).unwrap_or(false) {
+                        if !self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house.as_ref()) == Some(o.house)).unwrap_or(false) {
                             return None;
                         }
                         let Some(queue) = self.ecs_get::<ProductionQueue>(id)
@@ -550,8 +550,8 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| o.house.clone());
-                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+                    let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
                     match (agent_house, building_house) {
                         (Some(a), Some(b)) if a != b => {}
                         _ => {
@@ -653,8 +653,8 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
-                    let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| o.house.clone());
-                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+                    let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+                    let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
                     match (engineer_house, building_house) {
                         (Some(a), Some(b)) if a != b => {}
                         _ => {
@@ -1050,7 +1050,7 @@ impl crate::state::BattleState {
             return false;
         };
         let id = self.entities[entity_index].id;
-        self.ecs_get::<crate::state::components::Owner>(id).map(|o| o.house.as_ref() == p.house.as_ref()).unwrap_or(false)
+        self.ecs_get::<crate::state::components::Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, p.house.as_ref()) == Some(o.house)).unwrap_or(false)
     }
 
     pub(crate) fn reject(&mut self, command_index: usize, reason: crate::game::CommandRejectReason) {

@@ -27,11 +27,12 @@ impl BattleState {
 
     /// 按房主与类型键查找首个实体 ID。
     pub fn find_entity_id_by_owner_type(&self, owner: &str, type_id: &str) -> Option<EntityId> {
-        let want = self.definitions.techno.get(type_id).map(|t| t.id)?;
+        let want_type = self.definitions.techno.get(type_id).map(|t| t.id)?;
+        let want_house = self.definitions.houses.get(owner).map(|h| h.id)?;
         self.entities.iter().find_map(|e| {
             let id = e.id;
-            let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(owner)).unwrap_or(false);
-            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id == want).unwrap_or(false);
+            let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house == want_house).unwrap_or(false);
+            let type_ok = self.ecs_get::<Identity>(id).map(|i| i.type_id == want_type).unwrap_or(false);
             (house_ok && type_ok).then_some(id)
         })
     }
@@ -90,7 +91,14 @@ impl BattleState {
 
     /// 读取 ECS `Owner` 房主名（测试与诊断）。
     pub fn ecs_owner(&self, id: EntityId) -> Option<std::sync::Arc<str>> {
-        self.ecs_get::<crate::state::components::Owner>(id).map(|o| std::sync::Arc::clone(&o.house))
+        let owner = self.ecs_get::<crate::state::components::Owner>(id)?;
+        let key = self
+            .definitions
+            .houses
+            .get_by_id(owner.house)
+            .map(|h| std::sync::Arc::<str>::from(h.type_key.as_str()))
+            .unwrap_or_else(|| std::sync::Arc::<str>::from(""));
+        Some(key)
     }
 
     /// 读取 ECS `Transform` 坐标与车身朝向（测试与诊断）。

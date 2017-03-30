@@ -252,7 +252,7 @@ impl BattleSession {
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !self.world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(local_house.as_ref())).unwrap_or(false) {
+            if !self.world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) == Some(o.house)).unwrap_or(false) {
                 return false;
             }
             self.world

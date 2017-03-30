@@ -37,7 +37,7 @@ impl crate::state::BattleState {
             let tick = self.tick;
             let low_power = self
                 .ecs_get::<Owner>(id)
-                .and_then(|o| self.players.iter().find(|p| p.house.eq_ignore_ascii_case(o.house.as_ref())))
+                .and_then(|o| self.players.iter().find(|p| crate::gameplay::house_id_of(&self.definitions, p.house.as_ref()) == Some(o.house)))
                 .is_some_and(|p| p.low_power());
             let finished = self
                 .with_production_mut(id, |queue| {
@@ -74,7 +74,7 @@ impl crate::state::BattleState {
                 queue.ready = Some(type_id.clone());
             });
             self.mark_entity_dirty(factory_id);
-            if let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| o.house.clone()) {
+            if let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house))) {
                 self.push_eva_cue(owner.as_ref(), "EVA_ConstructionComplete");
             }
         }
@@ -90,7 +90,7 @@ impl crate::state::BattleState {
             return;
         };
         let factory_id = self.entities[factory_index].id;
-        let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| o.house.clone())
+        let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
         else {
             return;
         };
@@ -134,7 +134,7 @@ impl crate::state::BattleState {
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
-            owner: Owner { house: owner.clone() },
+            owner: Owner { house: crate::gameplay::house_id_of(&self.definitions, owner.as_ref()).expect("spawn unit house") },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed: tt.speed },
@@ -189,7 +189,7 @@ impl crate::state::BattleState {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
         })
@@ -200,7 +200,7 @@ impl crate::state::BattleState {
         self.entities.iter().position(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
@@ -214,7 +214,7 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return None;
             }
-            if !self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
+            if !self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false) {
                 return None;
             }
             if !self

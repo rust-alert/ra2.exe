@@ -163,7 +163,7 @@ impl BattleSession {
             if !self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(false) {
                 continue;
             }
-            let house = self.world.ecs_get::<Owner>(id).map(|o| o.house.to_string()).unwrap_or_default();
+            let house = self.world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_key_of(&self.world.definitions, o.house).to_string()).unwrap_or_default();
             match self.world.ecs_get::<Identity>(id).map(|identity| identity.kind) {
                 Some(MapEntityKind::Structure) => {
                     buildings_lost = buildings_lost.saturating_add(1);
@@ -218,7 +218,7 @@ fn house_keeps_alive(world: &BattleState, house: &str, short_game: bool) -> bool
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if !world.ecs_get::<Owner>(id).map(|o| o.house.as_ref().eq_ignore_ascii_case(house)).unwrap_or(false) {
+        if !world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)

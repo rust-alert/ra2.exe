@@ -71,7 +71,7 @@ impl BattleState {
                     mission: p.mission,
                     tag: p.tag,
                 },
-                owner: Owner { house: Arc::<str>::from(owner_key) },
+                owner: Owner { house: house.id },
                 transform: Transform { x: p.x, y: p.y, facing: p.facing, turret_facing: p.facing, sub_cell: p.sub_cell },
                 health: Health { current: health, maximum: max_health, dead: false },
                 locomotor: Locomotor { speed },
@@ -231,7 +231,14 @@ impl BattleState {
         };
         self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
-            owner: Owner { house: Arc::<str>::from(house) },
+            owner: Owner {
+                house: self
+                    .definitions
+                    .houses
+                    .get(house)
+                    .map(|h| h.id)
+                    .ok_or_else(|| format!("未知房主: {house}"))?,
+            },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed },

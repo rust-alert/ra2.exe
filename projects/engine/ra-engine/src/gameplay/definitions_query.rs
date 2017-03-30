@@ -1,6 +1,17 @@
 //! 对冻结定义的玩法查询（无外部内容名分支）。
 
-use ra_types::{ProductionCategory, RuntimeDefinitions, TechnoClass, TypeId};
+use ra_types::{HouseId, ProductionCategory, RuntimeDefinitions, TechnoClass, TypeId};
+
+
+/// 由稳定 [`HouseId`] 取房主键；未知 id 返回空串。
+pub(crate) fn house_key_of(defs: &RuntimeDefinitions, id: HouseId) -> &str {
+    defs.houses.get_by_id(id).map(|h| h.type_key.as_str()).unwrap_or("")
+}
+
+/// 由房主键解析稳定 [`HouseId`]。
+pub(crate) fn house_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<HouseId> {
+    defs.houses.get(key).map(|h| h.id)
+}
 
 
 /// 由稳定 [`TypeId`] 取类型键；未知 id 返回空串。

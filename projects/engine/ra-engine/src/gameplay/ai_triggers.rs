@@ -353,7 +353,7 @@ where
         else {
             continue;
         };
-        if !house_ok(owner.house.as_ref()) {
+        if !house_ok(crate::gameplay::house_key_of(&world.definitions, owner.house)) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)

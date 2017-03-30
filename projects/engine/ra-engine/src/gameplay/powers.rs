@@ -225,7 +225,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
-        let Some(owner) = world.ecs_get::<Owner>(id).map(|o| o.house.as_ref().to_string())
+        let Some(owner) = world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_key_of(&world.definitions, o.house).to_string())
         else {
             continue;
         };
@@ -257,7 +257,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             return false;
         }
-        if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+        if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
             return false;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)

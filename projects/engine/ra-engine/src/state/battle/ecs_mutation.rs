@@ -53,7 +53,14 @@ impl BattleState {
             entity.kind = identity.kind;
         }
         if let Some(owner) = owner {
-            entity.owner = owner.house;
+            if let Some(key) = self
+                .definitions
+                .houses
+                .get_by_id(owner.house)
+                .map(|h| std::sync::Arc::<str>::from(h.type_key.as_str()))
+            {
+                entity.owner = key;
+            }
         }
         if let Some(health) = health {
             entity.health = health.current;

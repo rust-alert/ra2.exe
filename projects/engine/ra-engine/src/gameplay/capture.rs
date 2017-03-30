@@ -54,8 +54,8 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
-            let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| o.house.clone());
-            let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+            let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
             let Some(engineer_house) = engineer_house
             else {
                 continue;
@@ -124,9 +124,12 @@ impl crate::state::BattleState {
     fn transfer_structure_owner(&mut self, building_id: EntityId, type_id: &str, from_house: &str, to_house: &str) {
         // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
         self.revoke_structure_power(from_house, type_id);
-        let new_house = Arc::<str>::from(to_house);
+        let Some(new_house_id) = crate::gameplay::house_id_of(&self.definitions, to_house)
+        else {
+            return;
+        };
         let _ = self.with_owner_mut(building_id, |owner| {
-            owner.house = new_house;
+            owner.house = new_house_id;
         });
         self.grant_structure_power(to_house, type_id);
         // 清空生产队列，避免换房后继续产出旧方单位。

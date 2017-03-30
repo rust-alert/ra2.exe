@@ -57,7 +57,7 @@ impl BattleSession {
                 else {
                     continue;
                 };
-                if o.house.as_ref() != want {
+                if crate::gameplay::house_id_of(&self.world.definitions, want) != Some(o.house) {
                     continue;
                 }
             }
@@ -97,7 +97,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            if owner.house.as_ref() != local_house.as_ref() {
+            if crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) != Some(owner.house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -185,7 +185,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            if owner.house.as_ref() == local_house.as_ref() {
+            if crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) == Some(owner.house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -222,7 +222,7 @@ impl BattleSession {
         let cell = self.image_to_cell(image_x, image_y)?;
         let id = self.pick_entity_at(cell.0, cell.1)?;
         let owner = self.world.ecs_get::<Owner>(id)?;
-        (owner.house.as_ref() != local_house.as_ref()).then_some(id)
+        (crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) != Some(owner.house)).then_some(id)
     }
 
     /// 异阵营建筑立面软命中（菱形占地，与本方建筑点选同口径）。
@@ -240,7 +240,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            if owner.house.as_ref() == local_house {
+            if crate::gameplay::house_id_of(&self.world.definitions, local_house) == Some(owner.house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -307,7 +307,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            if owner.house.as_ref() != local_house.as_ref() {
+            if crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) != Some(owner.house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -390,7 +390,7 @@ impl BattleSession {
             else {
                 continue;
             };
-            if owner.house.as_ref() != local_house.as_ref() {
+            if crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) != Some(owner.house) {
                 continue;
             }
             let Some(identity) = self.world.ecs_get::<Identity>(id)
@@ -449,7 +449,7 @@ impl BattleSession {
         if self.world.ecs_get::<Health>(from).map(|h| h.dead).unwrap_or(true) {
             return None;
         }
-        let owner = self.world.ecs_get::<Owner>(from)?.house.clone();
+        let owner = crate::gameplay::house_key_of(&self.world.definitions, self.world.ecs_get::<Owner>(from)?.house).to_string();
         let xf = self.world.ecs_get::<Transform>(from).copied()?;
         let (fx, fy) = (xf.x, xf.y);
         self.world
@@ -469,7 +469,7 @@ impl BattleSession {
                     return None;
                 }
                 let other_owner = self.world.ecs_get::<Owner>(id)?;
-                if other_owner.house == owner {
+                if crate::gameplay::house_key_of(&self.world.definitions, other_owner.house) == owner {
                     return None;
                 }
                 let ox = self.world.ecs_get::<Transform>(id)?;

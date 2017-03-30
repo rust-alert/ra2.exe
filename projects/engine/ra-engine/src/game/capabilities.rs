@@ -167,7 +167,7 @@ impl BattleSession {
             .iter()
             .filter_map(|e| {
                 let id = e.id;
-                if self.world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house.as_ref()) {
+                if self.world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&self.world.definitions, house.as_ref()) != Some(o.house)) {
                     return None;
                 }
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
@@ -299,7 +299,7 @@ pub fn project_build_items(
             }
             else if world.entities.iter().any(|e| {
                 let id = e.id;
-                !world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != player.house)
+                !world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
                     && world
                         .ecs_get::<ProductionQueue>(id)
                         .and_then(|q| q.item.as_ref())
@@ -359,7 +359,7 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return None;
             }
-            if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+            if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
                 return None;
             }
             let identity = world.ecs_get::<Identity>(id)?;
@@ -384,7 +384,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if world.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+        if world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, house) != Some(o.house)) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)

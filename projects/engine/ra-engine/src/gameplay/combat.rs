@@ -32,7 +32,7 @@ impl crate::state::BattleState {
             if !is_mobile(identity.kind) {
                 continue;
             }
-            let Some(attacker_house) = self.ecs_get::<crate::state::components::Owner>(attacker_id).map(|o| o.house.clone())
+            let Some(attacker_house) = self.ecs_get::<crate::state::components::Owner>(attacker_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
             else {
                 continue;
             };
@@ -182,7 +182,7 @@ impl crate::state::BattleState {
         if self.ecs_get::<Health>(from).map(|h| h.dead).unwrap_or(true) {
             return None;
         }
-        let owner = self.ecs_get::<crate::state::components::Owner>(from)?.house.clone();
+        let owner = crate::gameplay::house_key_of(&self.definitions, self.ecs_get::<crate::state::components::Owner>(from)?.house).to_string();
         let xf = self.ecs_get::<Transform>(from).copied()?;
         self.entities
             .iter()
@@ -200,7 +200,7 @@ impl crate::state::BattleState {
                     return None;
                 }
                 let other = self.ecs_get::<crate::state::components::Owner>(id)?;
-                if other.house == owner {
+                if crate::gameplay::house_key_of(&self.definitions, other.house) == owner {
                     return None;
                 }
                 let ox = self.ecs_get::<Transform>(id)?;
@@ -246,7 +246,7 @@ impl crate::state::BattleState {
         if self.ecs_get::<Health>(dirty_id).map(|h| h.dead).unwrap_or(true) {
             return;
         }
-        let house = self.ecs_get::<crate::state::components::Owner>(dirty_id).map(|o| o.house.clone());
+        let house = self.ecs_get::<crate::state::components::Owner>(dirty_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
         let kind = self.ecs_get::<Identity>(dirty_id).map(|i| i.kind);
         let type_id = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id);
         let cell = self.ecs_get::<Transform>(dirty_id).map(|t| (t.x, t.y));

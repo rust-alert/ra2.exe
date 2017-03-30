@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use ra_map::MapEntityKind;
-use ra_types::{ArmorKind, EntityId, MissionKind, TagId, TechnoClass, TypeId};
+use ra_types::{ArmorKind, EntityId, HouseId, MissionKind, TagId, TechnoClass, TypeId};
 
 /// 稳定身份与内容类型引用。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,8 +25,8 @@ pub struct Identity {
 /// 所属房主。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Owner {
-    /// 房主名称（跨帧共享）。
-    pub house: Arc<str>,
+    /// 房主稳定 id（与定义集对应）。
+    pub house: HouseId,
 }
 
 /// 格坐标、朝向与子格。

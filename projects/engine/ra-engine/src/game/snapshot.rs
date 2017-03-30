@@ -225,7 +225,7 @@ impl BattleSession {
             id,
             kind: identity.kind,
             type_id: std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, identity.type_id)),
-            owner: owner.house.clone(),
+            owner: std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.world.definitions, owner.house)),
             x: xf.x,
             y: xf.y,
             screen_x: sx - self.preview_origin_x,

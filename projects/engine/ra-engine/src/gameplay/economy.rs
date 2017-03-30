@@ -32,7 +32,7 @@ impl crate::state::BattleState {
             if !is_harvester(&defs, crate::gameplay::type_key_of(&defs, identity.type_id)) {
                 continue;
             }
-            let Some(owner) = self.ecs_get::<Owner>(id).map(|o| o.house.clone())
+            let Some(owner) = self.ecs_get::<Owner>(id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
             else {
                 continue;
             };
@@ -159,7 +159,7 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 continue;
             }
-            if self.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+            if self.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&self.definitions, house) != Some(o.house)) {
                 continue;
             }
             let Some(identity) = self.ecs_get::<Identity>(id)
@@ -227,7 +227,7 @@ impl crate::state::BattleState {
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if self.ecs_get::<Owner>(id).is_none_or(|o| o.house.as_ref() != house) {
+            if self.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&self.definitions, house) != Some(o.house)) {
                 return false;
             }
             let Some(identity) = self.ecs_get::<Identity>(id)
@@ -251,7 +251,7 @@ impl crate::state::BattleState {
         self.entities.iter().any(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))).unwrap_or(false)
         })
@@ -261,7 +261,7 @@ impl crate::state::BattleState {
         self.entities.iter().any(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| is_power_plant(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))).unwrap_or(false)
         })
@@ -272,7 +272,7 @@ impl crate::state::BattleState {
         self.entities.iter().any(|e| {
             let id = e.id;
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
-                && self.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false)
+                && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| is_radar(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))).unwrap_or(false)
         })

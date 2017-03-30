@@ -57,8 +57,8 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
-            let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| o.house.clone());
-            let building_house = self.ecs_get::<Owner>(building_id).map(|o| o.house.clone());
+            let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
             let Some(agent_house) = agent_house
             else {
                 continue;

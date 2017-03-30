@@ -275,7 +275,7 @@ fn any_living_of_house(world: &BattleState, house: &str, filter: HouseAliveFilte
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
             continue;
         }
-        if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
+        if !world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false) {
             continue;
         }
         let Some(identity) = world.ecs_get::<Identity>(id)
@@ -366,7 +366,7 @@ fn cell_entered_by_house(world: &BattleState, bound_tags: &HashSet<TagId>, house
         else {
             continue;
         };
-        if !owner.house.eq_ignore_ascii_case(house) {
+        if crate::gameplay::house_id_of(&world.definitions, house) != Some(owner.house) {
             continue;
         }
         let Some(xf) = world.ecs_get::<Transform>(id)
@@ -653,9 +653,13 @@ fn change_attached_objects_house(world: &mut BattleState, trigger_id: TriggerId,
             world.ecs_get::<Identity>(id).map(|identity| identity.tag.is_some_and(|tag| bound.contains(&tag))).unwrap_or(false)
         })
         .collect();
+    let Some(new_house_id) = crate::gameplay::house_id_of(&world.definitions, new_house)
+    else {
+        return;
+    };
     for id in ids {
         let _ = world.with_owner_mut(id, |owner| {
-            owner.house = std::sync::Arc::<str>::from(new_house);
+            owner.house = new_house_id;
         });
     }
 }
@@ -666,6 +670,14 @@ fn change_all_house_entities(world: &mut BattleState, from_house: &str, new_hous
         return;
     }
     world.ensure_house(new_house);
+    let Some(from_house_id) = crate::gameplay::house_id_of(&world.definitions, from_house)
+    else {
+        return;
+    };
+    let Some(new_house_id) = crate::gameplay::house_id_of(&world.definitions, new_house)
+    else {
+        return;
+    };
     let ids: Vec<_> = world
         .entities
         .iter()
@@ -674,12 +686,12 @@ fn change_all_house_entities(world: &mut BattleState, from_house: &str, new_hous
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(from_house)).unwrap_or(false)
+            world.ecs_get::<Owner>(id).map(|o| o.house == from_house_id).unwrap_or(false)
         })
         .collect();
     for id in ids {
         let _ = world.with_owner_mut(id, |owner| {
-            owner.house = std::sync::Arc::<str>::from(new_house);
+            owner.house = new_house_id;
         });
     }
 }
@@ -701,7 +713,7 @@ fn destroy_house_entities(world: &mut BattleState, house: &str, filter: DestroyH
             if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !world.ecs_get::<Owner>(id).map(|o| o.house.eq_ignore_ascii_case(house)).unwrap_or(false) {
+            if !world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false) {
                 return false;
             }
             let Some(identity) = world.ecs_get::<Identity>(id)
@@ -783,7 +795,7 @@ fn all_house_units_hunt(world: &mut BattleState, house: &str) {
             else {
                 return false;
             };
-            if !owner.house.eq_ignore_ascii_case(house) {
+            if crate::gameplay::house_id_of(&world.definitions, house) != Some(owner.house) {
                 return false;
             }
             world
@@ -819,10 +831,10 @@ fn nearest_hostile_from(world: &BattleState, house: &str, cx: u16, cy: u16) -> O
         else {
             continue;
         };
-        if houses_are_allied(world, house, owner.house.as_ref()) {
+        if houses_are_allied(world, house, crate::gameplay::house_key_of(&world.definitions, owner.house)) {
             continue;
         }
-        if is_ambient_house(owner.house.as_ref()) {
+        if is_ambient_house(crate::gameplay::house_key_of(&world.definitions, owner.house)) {
             continue;
         }
         let Some(xf) = world.ecs_get::<Transform>(id)
@@ -945,7 +957,7 @@ pub fn tick_script_crates(world: &mut BattleState) {
             if xf.x != crate_spawn.x || xf.y != crate_spawn.y {
                 continue;
             }
-            let Some(house) = world.ecs_get::<Owner>(id).map(|o| o.house.to_string())
+            let Some(house) = world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_key_of(&world.definitions, o.house).to_string())
             else {
                 continue;
             };
