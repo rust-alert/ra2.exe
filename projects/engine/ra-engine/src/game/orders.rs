@@ -252,13 +252,18 @@ impl BattleSession {
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
                 return false;
             }
-            if !self.world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) == Some(o.house)).unwrap_or(false) {
+            if !self
+                .world
+                .ecs_get::<Owner>(id)
+                .map(|o| crate::gameplay::house_id_of(&self.world.definitions, local_house.as_ref()) == Some(o.house))
+                .unwrap_or(false)
+            {
                 return false;
             }
             self.world
                 .ecs_get::<ProductionQueue>(id)
-                .and_then(|q| q.item.as_ref())
-                .map(|(queued, _)| queued.as_ref() == needle.as_str())
+                .and_then(|q| q.item)
+                .map(|(queued, _)| self.world.definitions.techno.get(needle.as_str()).is_some_and(|t| t.id == queued))
                 .unwrap_or(false)
         })
     }
