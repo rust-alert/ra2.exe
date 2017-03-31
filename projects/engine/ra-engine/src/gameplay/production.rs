@@ -26,8 +26,8 @@ pub fn produce_ticks_for(techno: &TechnoDefinition) -> u32 {
 impl crate::state::BattleState {
     #[doc(hidden)]
     pub fn advance_production(&mut self) {
-        let mut unit_spawns: Vec<(usize, Arc<str>)> = Vec::new();
-        let mut building_ready: Vec<(usize, Arc<str>)> = Vec::new();
+        let mut unit_spawns: Vec<(usize, ra_types::TypeId)> = Vec::new();
+        let mut building_ready: Vec<(usize, ra_types::TypeId)> = Vec::new();
         let n = self.entities.len();
         for index in 0..n {
             let id = self.entities[index].id;
@@ -53,13 +53,13 @@ impl crate::state::BattleState {
                         *remaining -= 1;
                         return None;
                     }
-                    let type_id = type_id.clone();
+                    let finished_id = *type_id;
                     queue.item = None;
-                    Some(type_id)
+                    Some(finished_id)
                 })
                 .flatten();
             if let Some(type_id) = finished {
-                let is_building = self.definitions.techno.get(type_id.as_ref()).is_some_and(|t| t.class == TechnoClass::Building);
+                let is_building = self.definitions.techno.get_by_id(type_id).is_some_and(|t| t.class == TechnoClass::Building);
                 if is_building {
                     building_ready.push((index, type_id));
                 }
@@ -71,15 +71,19 @@ impl crate::state::BattleState {
         for (factory_index, type_id) in building_ready {
             let factory_id = self.entities[factory_index].id;
             let _ = self.with_production_mut(factory_id, |queue| {
-                queue.ready = Some(type_id.clone());
+                queue.ready = Some(type_id);
             });
             self.mark_entity_dirty(factory_id);
-            if let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house))) {
+            if let Some(owner) = self
+                .ecs_get::<Owner>(factory_id)
+                .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
+            {
                 self.push_eva_cue(owner.as_ref(), "EVA_ConstructionComplete");
             }
         }
         for (factory_index, type_id) in unit_spawns {
-            self.spawn_produced_unit(factory_index, type_id.as_ref());
+            let key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
+            self.spawn_produced_unit(factory_index, key.as_str());
         }
     }
 
@@ -90,7 +94,8 @@ impl crate::state::BattleState {
             return;
         };
         let factory_id = self.entities[factory_index].id;
-        let Some(owner) = self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
+        let Some(owner) =
+            self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
         else {
             return;
         };
@@ -191,7 +196,10 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind))
+                    .unwrap_or(false)
         })
     }
 
@@ -203,7 +211,10 @@ impl crate::state::BattleState {
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
-                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind)).unwrap_or(false)
+                && self
+                    .ecs_get::<Identity>(id)
+                    .map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind))
+                    .unwrap_or(false)
         })
     }
 
@@ -219,12 +230,16 @@ impl crate::state::BattleState {
             }
             if !self
                 .ecs_get::<Identity>(id)
-                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id)))
+                .map(|i| {
+                    i.kind == MapEntityKind::Structure
+                        && crate::gameplay::is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))
+                })
                 .unwrap_or(false)
             {
                 return None;
             }
-            self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready.clone())
+            self.ecs_get::<ProductionQueue>(id)
+                .and_then(|q| q.ready.map(|tid| std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.definitions, tid))))
         })
     }
 }

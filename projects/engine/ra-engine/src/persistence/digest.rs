@@ -83,16 +83,16 @@ impl BattleState {
             for v in attack_verses {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(v));
             }
-            if let Some((ref qid, rem)) = produce_item {
+            if let Some((qid, rem)) = produce_item {
                 h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(rem));
-                for b in qid.as_bytes() {
-                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+                for b in qid.0.to_le_bytes() {
+                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(b));
                 }
             }
-            if let Some(ref ready) = produce_ready {
+            if let Some(ready) = produce_ready {
                 h = h.wrapping_mul(1099511628211).wrapping_add(3);
-                for b in ready.as_bytes() {
-                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(*b));
+                for b in ready.0.to_le_bytes() {
+                    h = h.wrapping_mul(1099511628211).wrapping_add(u64::from(b));
                 }
             }
             h = h

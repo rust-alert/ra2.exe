@@ -197,7 +197,11 @@ impl BattleSession {
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
         let deployable = !matches!(identity.kind, MapEntityKind::Structure)
-            && crate::gameplay::deploy_into_type(&self.world.definitions, crate::gameplay::type_key_of(&self.world.definitions, identity.type_id)).is_some();
+            && crate::gameplay::deploy_into_type(
+                &self.world.definitions,
+                crate::gameplay::type_key_of(&self.world.definitions, identity.type_id),
+            )
+            .is_some();
         let movement = self.world.ecs_get::<MovementState>(id);
         let move_goal_screen = movement.and_then(|m| {
             let dx = m.destination_x?;
@@ -321,22 +325,24 @@ impl BattleSession {
             .filter_map(|e| {
                 let id = e.id;
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
-                    let total_ticks = self.world.definitions.techno.get(type_id.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                if let Some((type_id, remaining_ticks)) = queue.item {
+                    let total_ticks = self.world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                    let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
                     return Some(SnapshotProduceQueue {
                         factory: id,
-                        type_id: type_id.clone(),
-                        remaining_ticks: *remaining_ticks,
+                        type_id: key,
+                        remaining_ticks,
                         total_ticks,
                         rally_x: queue.rally_x,
                         rally_y: queue.rally_y,
                     });
                 }
-                let ready = queue.ready.as_ref()?;
-                let total_ticks = self.world.definitions.techno.get(ready.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                let ready = queue.ready?;
+                let total_ticks = self.world.definitions.techno.get_by_id(ready).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, ready));
                 Some(SnapshotProduceQueue {
                     factory: id,
-                    type_id: ready.clone(),
+                    type_id: key,
                     remaining_ticks: 0,
                     total_ticks,
                     rally_x: queue.rally_x,

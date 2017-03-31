@@ -170,7 +170,12 @@ impl BattleState {
 
     /// 读取 ECS 生产队列条目（测试与诊断）。
     pub fn ecs_produce_item(&self, id: EntityId) -> Option<Option<(std::sync::Arc<str>, u32)>> {
-        self.ecs_get::<crate::state::components::ProductionQueue>(id).map(|q| q.item.clone())
+        let queue = self.ecs_get::<crate::state::components::ProductionQueue>(id)?;
+        Some(
+            queue
+                .item
+                .and_then(|(tid, rem)| self.definitions.techno.get_by_id(tid).map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), rem))),
+        )
     }
 
     /// 读取 ECS 集结格（测试与诊断）。

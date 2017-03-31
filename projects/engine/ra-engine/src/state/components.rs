@@ -118,10 +118,10 @@ pub struct AttackState {
 /// 工厂生产队列与集结格。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductionQueue {
-    /// 队列中的类型 ID 与剩余 tick（建造中）。
-    pub item: Option<(Arc<str>, u32)>,
-    /// 建造场已完工、待点选落位的建筑类型（单位厂不用）。
-    pub ready: Option<Arc<str>>,
+    /// 队列中的稳定类型 id 与剩余 tick（建造中）。
+    pub item: Option<(TypeId, u32)>,
+    /// 建造场已完工、待点选落位的建筑稳定类型 id（单位厂不用）。
+    pub ready: Option<TypeId>,
     /// 集结格 X。
     pub rally_x: Option<u16>,
     /// 集结格 Y。

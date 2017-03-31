@@ -167,26 +167,32 @@ impl BattleSession {
             .iter()
             .filter_map(|e| {
                 let id = e.id;
-                if self.world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&self.world.definitions, house.as_ref()) != Some(o.house)) {
+                if self
+                    .world
+                    .ecs_get::<Owner>(id)
+                    .is_none_or(|o| crate::gameplay::house_id_of(&self.world.definitions, house.as_ref()) != Some(o.house))
+                {
                     return None;
                 }
                 let queue = self.world.ecs_get::<ProductionQueue>(id)?;
-                if let Some((type_id, remaining_ticks)) = queue.item.as_ref() {
-                    let total_ticks = self.world.definitions.techno.get(type_id.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                if let Some((type_id, remaining_ticks)) = queue.item {
+                    let total_ticks = self.world.definitions.techno.get_by_id(type_id).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                    let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, type_id));
                     return Some(SnapshotProduceQueue {
                         factory: id,
-                        type_id: type_id.clone(),
-                        remaining_ticks: *remaining_ticks,
+                        type_id: key,
+                        remaining_ticks,
                         total_ticks,
                         rally_x: queue.rally_x,
                         rally_y: queue.rally_y,
                     });
                 }
-                let ready = queue.ready.as_ref()?;
-                let total_ticks = self.world.definitions.techno.get(ready.as_ref()).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                let ready = queue.ready?;
+                let total_ticks = self.world.definitions.techno.get_by_id(ready).map(crate::gameplay::produce_ticks_for).unwrap_or(0);
+                let key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, ready));
                 Some(SnapshotProduceQueue {
                     factory: id,
-                    type_id: ready.clone(),
+                    type_id: key,
                     remaining_ticks: 0,
                     total_ticks,
                     rally_x: queue.rally_x,
@@ -293,17 +299,19 @@ pub fn project_build_items(
             let requires_power = requires_power_plant(&world.definitions, &s.type_key);
             let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
             let key = s.type_key.as_str();
+            let want_id = world.definitions.techno.get(key).map(|t| t.id);
             let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
                 // 已完工：可点选落位，不再检查资金。
                 (true, None)
             }
-            else if world.entities.iter().any(|e| {
-                let id = e.id;
-                !world.ecs_get::<Owner>(id).is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
-                    && world
-                        .ecs_get::<ProductionQueue>(id)
-                        .and_then(|q| q.item.as_ref())
-                        .is_some_and(|(queued, _)| queued.as_ref().eq_ignore_ascii_case(key))
+            else if want_id.is_some_and(|w| {
+                world.entities.iter().any(|e| {
+                    let id = e.id;
+                    !world
+                        .ecs_get::<Owner>(id)
+                        .is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
+                        && world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == w)
+                })
             }) {
                 // 建造中：侧栏可点以取消。
                 (true, None)

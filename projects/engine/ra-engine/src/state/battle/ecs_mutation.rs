@@ -42,9 +42,9 @@ impl BattleState {
         let harvester = self.ecs.world().get::<crate::state::components::HarvesterState>(handle).copied();
         let anim = self.ecs.world().get::<crate::state::components::AnimationState>(handle).copied();
 
-        let type_key = identity.as_ref().and_then(|i| {
-            self.definitions.techno.get_by_id(i.type_id).map(|t| std::sync::Arc::<str>::from(t.type_key.as_str()))
-        });
+        let type_key = identity
+            .as_ref()
+            .and_then(|i| self.definitions.techno.get_by_id(i.type_id).map(|t| std::sync::Arc::<str>::from(t.type_key.as_str())));
         let entity = &mut self.entities[index];
         if let Some(identity) = identity {
             if let Some(key) = type_key {
@@ -53,12 +53,7 @@ impl BattleState {
             entity.kind = identity.kind;
         }
         if let Some(owner) = owner {
-            if let Some(key) = self
-                .definitions
-                .houses
-                .get_by_id(owner.house)
-                .map(|h| std::sync::Arc::<str>::from(h.type_key.as_str()))
-            {
+            if let Some(key) = self.definitions.houses.get_by_id(owner.house).map(|h| std::sync::Arc::<str>::from(h.type_key.as_str())) {
                 entity.owner = key;
             }
         }
@@ -96,7 +91,9 @@ impl BattleState {
             entity.attack_cooldown = attack.cooldown;
         }
         if let Some(queue) = queue {
-            entity.produce_queue = queue.item;
+            entity.produce_queue = queue
+                .item
+                .and_then(|(tid, rem)| self.definitions.techno.get_by_id(tid).map(|t| (std::sync::Arc::<str>::from(t.type_key.as_str()), rem)));
             entity.rally_x = queue.rally_x;
             entity.rally_y = queue.rally_y;
         }
