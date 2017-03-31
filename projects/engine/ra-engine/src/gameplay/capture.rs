@@ -54,8 +54,12 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
-            let engineer_house = self.ecs_get::<Owner>(engineer_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
-            let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let engineer_house = self
+                .ecs_get::<Owner>(engineer_id)
+                .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let building_house = self
+                .ecs_get::<Owner>(building_id)
+                .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
             let Some(engineer_house) = engineer_house
             else {
                 continue;

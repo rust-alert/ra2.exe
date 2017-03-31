@@ -2,7 +2,6 @@
 
 use ra_types::{HouseId, ProductionCategory, RuntimeDefinitions, TechnoClass, TypeId};
 
-
 /// 由稳定 [`HouseId`] 取房主键；未知 id 返回空串。
 pub(crate) fn house_key_of(defs: &RuntimeDefinitions, id: HouseId) -> &str {
     defs.houses.get_by_id(id).map(|h| h.type_key.as_str()).unwrap_or("")
@@ -12,7 +11,6 @@ pub(crate) fn house_key_of(defs: &RuntimeDefinitions, id: HouseId) -> &str {
 pub(crate) fn house_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<HouseId> {
     defs.houses.get(key).map(|h| h.id)
 }
-
 
 /// 由稳定 [`TypeId`] 取类型键；未知 id 返回空串。
 pub(crate) fn type_key_of(defs: &RuntimeDefinitions, id: TypeId) -> &str {

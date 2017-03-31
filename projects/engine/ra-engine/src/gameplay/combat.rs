@@ -32,7 +32,9 @@ impl crate::state::BattleState {
             if !is_mobile(identity.kind) {
                 continue;
             }
-            let Some(attacker_house) = self.ecs_get::<crate::state::components::Owner>(attacker_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
+            let Some(attacker_house) = self
+                .ecs_get::<crate::state::components::Owner>(attacker_id)
+                .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
             else {
                 continue;
             };
@@ -246,7 +248,9 @@ impl crate::state::BattleState {
         if self.ecs_get::<Health>(dirty_id).map(|h| h.dead).unwrap_or(true) {
             return;
         }
-        let house = self.ecs_get::<crate::state::components::Owner>(dirty_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+        let house = self
+            .ecs_get::<crate::state::components::Owner>(dirty_id)
+            .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
         let kind = self.ecs_get::<Identity>(dirty_id).map(|i| i.kind);
         let type_id = self.ecs_get::<Identity>(dirty_id).map(|i| i.type_id);
         let cell = self.ecs_get::<Transform>(dirty_id).map(|t| (t.x, t.y));

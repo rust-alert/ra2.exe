@@ -55,10 +55,8 @@ impl BattleState {
                 return xf.x == cx && xf.y == cy;
             }
             let type_id = self.ecs_get::<Identity>(id).map(|i| i.type_id);
-            let foundation = type_id
-                .and_then(|tid| self.definitions.structures.get_by_id(tid))
-                .map(|s| s.foundation.clone())
-                .unwrap_or_default();
+            let foundation =
+                type_id.and_then(|tid| self.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
             let fw = foundation.width.max(1);
             let fh = foundation.height.max(1);
             cx >= xf.x && cy >= xf.y && cx < xf.x.saturating_add(fw) && cy < xf.y.saturating_add(fh)

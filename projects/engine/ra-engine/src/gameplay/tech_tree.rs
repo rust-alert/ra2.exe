@@ -76,7 +76,9 @@ pub fn living_type_count(world: &BattleState, house: &str, type_key: &TechnoName
             let id = e.id;
             !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && world.ecs_get::<Owner>(id).is_some_and(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house))
-                && world.ecs_get::<Identity>(id).is_some_and(|i| i.type_id == world.definitions.techno.get_name(type_key).map(|t| t.id).unwrap_or(ra_types::TypeId(u32::MAX)))
+                && world.ecs_get::<Identity>(id).is_some_and(|i| {
+                    i.type_id == world.definitions.techno.get_name(type_key).map(|t| t.id).unwrap_or(ra_types::TypeId(u32::MAX))
+                })
         })
         .count() as i32
 }

@@ -57,8 +57,11 @@ impl crate::state::BattleState {
                 });
                 continue;
             }
-            let agent_house = self.ecs_get::<Owner>(agent_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
-            let building_house = self.ecs_get::<Owner>(building_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let agent_house =
+                self.ecs_get::<Owner>(agent_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
+            let building_house = self
+                .ecs_get::<Owner>(building_id)
+                .map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)));
             let Some(agent_house) = agent_house
             else {
                 continue;
@@ -103,7 +106,8 @@ impl crate::state::BattleState {
             let building_type = building_type_for_foundation;
             if let Some(type_id) = building_type {
                 let building_type_key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
-                let (agent_eva, victim_eva) = self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), building_type_key.as_str());
+                let (agent_eva, victim_eva) =
+                    self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), building_type_key.as_str());
                 self.push_eva_cue(agent_house.as_ref(), agent_eva);
                 if let Some(victim_event) = victim_eva {
                     self.push_eva_cue(building_house.as_ref(), victim_event);
