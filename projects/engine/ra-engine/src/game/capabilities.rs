@@ -296,7 +296,7 @@ pub fn project_build_items(
         .map(|s| {
             let techno = world.definitions.techno.get_name(&s.type_key);
             let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
-            let requires_power = requires_power_plant(&world.definitions, &s.type_key);
+            let requires_power = requires_power_plant(&world.definitions, s.id);
             let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
             let key = s.type_key.as_str();
             let want_id = world.definitions.techno.get(key).map(|t| t.id);

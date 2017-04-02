@@ -48,7 +48,7 @@ impl crate::state::BattleState {
             else {
                 continue;
             };
-            if !is_capturable(&self.definitions, crate::gameplay::type_key_of(&self.definitions, building_type)) {
+            if !is_capturable(&self.definitions, building_type) {
                 let _ = self.with_attack_mut(engineer_id, |attack| {
                     attack.capture_target = None;
                 });
@@ -103,7 +103,6 @@ impl crate::state::BattleState {
                 continue;
             }
 
-            let building_type_key = crate::gameplay::type_key_of(&self.definitions, building_type).to_string();
             let capturer_eva = if self
                 .definitions
                 .techno
@@ -115,7 +114,7 @@ impl crate::state::BattleState {
             else {
                 "EVA_BuildingCaptured"
             };
-            self.transfer_structure_owner(building_id, building_type_key.as_str(), building_house.as_ref(), engineer_house.as_ref());
+            self.transfer_structure_owner(building_id, building_type, building_house.as_ref(), engineer_house.as_ref());
             self.push_eva_cue(engineer_house.as_ref(), capturer_eva);
             // 中立 / 平民无玩家席位，不播受害方 EVA。
             if !is_ambient_house(building_house.as_ref()) {
@@ -125,7 +124,13 @@ impl crate::state::BattleState {
         }
     }
 
-    fn transfer_structure_owner(&mut self, building_id: EntityId, type_id: &str, from_house: &str, to_house: &str) {
+    fn transfer_structure_owner(
+        &mut self,
+        building_id: EntityId,
+        type_id: ra_types::TypeId,
+        from_house: &str,
+        to_house: &str,
+    ) {
         // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
         self.revoke_structure_power(from_house, type_id);
         let Some(new_house_id) = crate::gameplay::house_id_of(&self.definitions, to_house)
@@ -144,7 +149,7 @@ impl crate::state::BattleState {
         self.structure_paint_dirty.push(building_id);
     }
 
-    pub(crate) fn grant_structure_power(&mut self, house: &str, type_id: &str) {
+    pub(crate) fn grant_structure_power(&mut self, house: &str, type_id: ra_types::TypeId) {
         let power = building_power(&self.definitions, type_id);
         let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house))
         else {

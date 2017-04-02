@@ -327,13 +327,12 @@ impl crate::state::BattleState {
         }
         if kind == MapEntityKind::Structure {
             let foundation = self.definitions.structures.get_by_id(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-            let type_key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
             self.unseal_structure_footprint(x, y, foundation.width, foundation.height);
-            self.revoke_structure_power(&house, type_key.as_str());
+            self.revoke_structure_power(&house, type_id);
         }
     }
 
-    pub(crate) fn revoke_structure_power(&mut self, house: &str, type_id: &str) {
+    pub(crate) fn revoke_structure_power(&mut self, house: &str, type_id: ra_types::TypeId) {
         let power = building_power(&self.definitions, type_id);
         let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(house))
         else {

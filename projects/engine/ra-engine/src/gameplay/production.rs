@@ -198,7 +198,7 @@ impl crate::state::BattleState {
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self
                     .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind))
+                    .map(|i| factory_matches_unit(&self.definitions, i.type_id, kind))
                     .unwrap_or(false)
         })
     }
@@ -213,7 +213,7 @@ impl crate::state::BattleState {
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
                 && self
                     .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id), kind))
+                    .map(|i| factory_matches_unit(&self.definitions, i.type_id, kind))
                     .unwrap_or(false)
         })
     }
@@ -232,7 +232,7 @@ impl crate::state::BattleState {
                 .ecs_get::<Identity>(id)
                 .map(|i| {
                     i.kind == MapEntityKind::Structure
-                        && crate::gameplay::is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))
+                        && crate::gameplay::is_construction_yard(&self.definitions, i.type_id)
                 })
                 .unwrap_or(false)
             {

@@ -64,7 +64,7 @@ impl crate::state::BattleState {
             else {
                 return false;
             };
-            if !is_production_factory(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id)) {
+            if !is_production_factory(&self.definitions, type_id) {
                 return false;
             }
             // 与原版 GetFactoryCount 对齐：不计飞行器工厂。

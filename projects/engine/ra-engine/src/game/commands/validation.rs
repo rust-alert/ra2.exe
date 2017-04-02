@@ -257,7 +257,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    if is_construction_yard(&self.definitions, type_id) {
+                    if crate::gameplay::type_id_of(&self.definitions, type_id).is_some_and(|id| is_construction_yard(&self.definitions, id)) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -274,7 +274,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::QueueFull);
                         continue;
                     }
-                    if requires_power_plant(&self.definitions, type_id) && !self.house_has_living_power(&house) {
+                    if crate::gameplay::type_id_of(&self.definitions, type_id).is_some_and(|id| requires_power_plant(&self.definitions, id)) && !self.house_has_living_power(&house) {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
@@ -296,7 +296,7 @@ impl crate::state::BattleState {
                             .ecs_get::<Identity>(id)
                             .map(|i| {
                                 i.kind == MapEntityKind::Structure
-                                    && is_construction_yard(&self.definitions, crate::gameplay::type_key_of(&self.definitions, i.type_id))
+                                    && is_construction_yard(&self.definitions, i.type_id)
                             })
                             .unwrap_or(false)
                         {
@@ -319,7 +319,7 @@ impl crate::state::BattleState {
                     let def_id = tt.id;
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor;
-                    let power = building_power(&self.definitions, type_id);
+                    let power = building_power(&self.definitions, crate::gameplay::type_id_of(&self.definitions, type_id).unwrap_or(ra_types::TypeId(u32::MAX)));
                     let _ = self.with_production_mut(yard_id, |queue| {
                         queue.ready = None;
                     });
@@ -380,7 +380,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    if tt.class == TechnoClass::Building && is_construction_yard(&self.definitions, type_id) {
+                    if tt.class == TechnoClass::Building && is_construction_yard(&self.definitions, tt.id) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -390,7 +390,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     if tt.class == TechnoClass::Building
-                        && requires_power_plant(&self.definitions, type_id)
+                        && requires_power_plant(&self.definitions, tt.id)
                         && !self.house_has_living_power(&house)
                     {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
@@ -496,7 +496,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_production_factory(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id)) {
+                    if !is_production_factory(&self.definitions, type_id) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -540,7 +540,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_agent(&self.definitions, crate::gameplay::type_key_of(&self.definitions, agent_type)) {
+                    if !is_agent(&self.definitions, agent_type) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -642,7 +642,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_engineer(&self.definitions, crate::gameplay::type_key_of(&self.definitions, engineer_type)) {
+                    if !is_engineer(&self.definitions, engineer_type) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -663,7 +663,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    if !is_capturable(&self.definitions, crate::gameplay::type_key_of(&self.definitions, building_type)) {
+                    if !is_capturable(&self.definitions, building_type) {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     }
@@ -974,7 +974,6 @@ impl crate::state::BattleState {
                     let refund = (cost / 2).max(0);
                     let sold_type_id = identity.type_id;
                     let foundation = self.definitions.structures.get_by_id(sold_type_id).map(|s| s.foundation.clone()).unwrap_or_default();
-                    let sold_type_key = crate::gameplay::type_key_of(&self.definitions, sold_type_id).to_string();
                     let _ = self.with_health_mut(building_id, |health| {
                         health.current = 0;
                         health.dead = true;
@@ -983,7 +982,7 @@ impl crate::state::BattleState {
                         queue.item = None;
                     });
                     self.unseal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
-                    self.revoke_structure_power(house.as_ref(), sold_type_key.as_str());
+                    self.revoke_structure_power(house.as_ref(), sold_type_id);
                     if refund > 0 {
                         self.players[player_index].funds = self.players[player_index].funds.saturating_add(refund);
                         self.players[player_index].funds_spent = self.players[player_index].funds_spent.saturating_sub(refund);

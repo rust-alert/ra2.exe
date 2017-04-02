@@ -23,59 +23,59 @@ pub(crate) fn type_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<TypeId>
 }
 
 /// 单位是否间谍类（`Agent=yes`），可渗透敌方建筑。
-pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.techno.get(type_id).is_some_and(|t| t.agent)
+pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.techno.get_by_id(type_id).is_some_and(|t| t.agent)
 }
 
 /// 单位是否工程师（`Engineer=yes`），可占领敌方可俘建筑。
-pub(crate) fn is_engineer(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.techno.get(type_id).is_some_and(|t| t.engineer)
+pub(crate) fn is_engineer(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.techno.get_by_id(type_id).is_some_and(|t| t.engineer)
 }
 
 /// 建筑是否可被工程师占领（`Capturable=yes`）。
-pub(crate) fn is_capturable(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.capturable)
+pub(crate) fn is_capturable(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.capturable)
 }
 
 /// 单位是否采矿车（`Harvester=yes`）。
-pub(crate) fn is_harvester(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.techno.get(type_id).is_some_and(|t| t.harvester)
+pub(crate) fn is_harvester(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.techno.get_by_id(type_id).is_some_and(|t| t.harvester)
 }
 
 /// 建筑是否建造场。
-pub(crate) fn is_construction_yard(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.construction_yard)
+pub(crate) fn is_construction_yard(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.construction_yard)
 }
 
 /// 建筑是否供电站（`power.output > 0`）。
-pub(crate) fn is_power_plant(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.power.output > 0)
+pub(crate) fn is_power_plant(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.power.output > 0)
 }
 
 /// 建筑是否雷达（`Radar=yes`）。
-pub(crate) fn is_radar(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.radar)
+pub(crate) fn is_radar(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.radar)
 }
 
 /// 建筑是否声明需电前置。
-pub(crate) fn requires_power_plant(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.power.requires_power)
+pub(crate) fn requires_power_plant(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.power.requires_power)
 }
 
 /// 建筑是否矿场。
-pub(crate) fn is_refinery(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.refinery)
+pub(crate) fn is_refinery(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.refinery)
 }
 
 /// 是否生产工厂。
-pub(crate) fn is_production_factory(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    defs.structures.get(type_id).is_some_and(|s| s.production.is_some())
+pub(crate) fn is_production_factory(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    defs.structures.get_by_id(type_id).is_some_and(|s| s.production.is_some())
 }
 
 /// 工厂是否可生产给定 techno 大类。
 ///
 /// 建筑由建造场产出（`ConstructionYard=yes`），不依赖 `Factory=BuildingType`。
-pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: &str, class: TechnoClass) -> bool {
+pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: TypeId, class: TechnoClass) -> bool {
     if class == TechnoClass::Building {
         return is_construction_yard(defs, factory_type);
     }
@@ -83,17 +83,17 @@ pub(crate) fn factory_matches_unit(defs: &RuntimeDefinitions, factory_type: &str
     else {
         return false;
     };
-    defs.structures.get(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == cat)
+    defs.structures.get_by_id(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == cat)
 }
 
 /// 工厂是否可生产给定生产类别。
-pub(crate) fn factory_matches_category(defs: &RuntimeDefinitions, factory_type: &str, category: ProductionCategory) -> bool {
-    defs.structures.get(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == category)
+pub(crate) fn factory_matches_category(defs: &RuntimeDefinitions, factory_type: TypeId, category: ProductionCategory) -> bool {
+    defs.structures.get_by_id(factory_type).and_then(|s| s.production.as_ref()).is_some_and(|p| p.category == category)
 }
 
 /// 电力增量（供电 / 耗电）；未知类型视为 0。
-pub(crate) fn building_power(defs: &RuntimeDefinitions, type_id: &str) -> PowerProfileOrZero {
-    match defs.structures.get(type_id) {
+pub(crate) fn building_power(defs: &RuntimeDefinitions, type_id: TypeId) -> PowerProfileOrZero {
+    match defs.structures.get_by_id(type_id) {
         Some(s) => PowerProfileOrZero { output: s.power.output, drain: s.power.drain },
         None => PowerProfileOrZero { output: 0, drain: 0 },
     }
@@ -177,7 +177,7 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
             if techno.class != TechnoClass::Vehicle {
                 return None;
             }
-            if !is_construction_yard(defs, &d.target_key) {
+            if !type_id_of(defs, d.target_key.as_str()).is_some_and(|tid| is_construction_yard(defs, tid)) {
                 return None;
             }
             if !owner_allows(defs, techno, house) {
@@ -191,15 +191,18 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
 }
 
 /// 是否短局 `BaseUnit`（`[General] BaseUnit=`，缺表时回落为可部署成建造场的载具）。
-pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: &str) -> bool {
-    let key = ra_types::TechnoName::parse(type_id);
-    if let Some(t) = defs.techno.get_name(&key) {
-        if defs.base_units.iter().any(|id| *id == t.id) {
-            return true;
-        }
+pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
+    if defs.base_units.iter().any(|id| *id == type_id) {
+        return true;
     }
     if !defs.base_units.is_empty() {
         return false;
     }
-    deploy_into_type(defs, type_id).is_some_and(|target| is_construction_yard(defs, target))
+    let Some(key) = defs.techno.get_by_id(type_id).map(|t| t.type_key.as_str())
+    else {
+        return false;
+    };
+    deploy_into_type(defs, key).is_some_and(|target| {
+        type_id_of(defs, target).is_some_and(|tid| is_construction_yard(defs, tid))
+    })
 }

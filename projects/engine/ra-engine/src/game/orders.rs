@@ -66,7 +66,9 @@ impl BattleSession {
     /// 选中是否含可渗透的间谍（`Agent=yes`）。
     pub fn selection_has_agent(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world.ecs_identity(id).is_some_and(|(type_id, _)| crate::gameplay::is_agent(&self.world.definitions, type_id.as_ref()))
+            self.world
+                .ecs_get::<crate::state::components::Identity>(id)
+                .is_some_and(|i| crate::gameplay::is_agent(&self.world.definitions, i.type_id))
         })
     }
 
@@ -88,14 +90,16 @@ impl BattleSession {
     /// 选中是否含工程师（`Engineer=yes`）。
     pub fn selection_has_engineer(&self, selected: &[EntityId]) -> bool {
         selected.iter().any(|&id| {
-            self.world.ecs_identity(id).is_some_and(|(type_id, _)| crate::gameplay::is_engineer(&self.world.definitions, type_id.as_ref()))
+            self.world
+                .ecs_get::<crate::state::components::Identity>(id)
+                .is_some_and(|i| crate::gameplay::is_engineer(&self.world.definitions, i.type_id))
         })
     }
 
     /// 建筑类型是否可被工程师占领（`Capturable=yes`）。
     pub fn is_capturable_structure(&self, id: EntityId) -> bool {
-        self.world.ecs_identity(id).is_some_and(|(type_id, kind)| {
-            kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, type_id.as_ref())
+        self.world.ecs_get::<crate::state::components::Identity>(id).is_some_and(|i| {
+            i.kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, i.type_id)
         })
     }
 

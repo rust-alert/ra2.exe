@@ -105,9 +105,7 @@ impl crate::state::BattleState {
 
             let building_type = building_type_for_foundation;
             if let Some(type_id) = building_type {
-                let building_type_key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
-                let (agent_eva, victim_eva) =
-                    self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), building_type_key.as_str());
+                let (agent_eva, victim_eva) = self.apply_infiltrate_effect(agent_house.as_ref(), building_house.as_ref(), type_id);
                 self.push_eva_cue(agent_house.as_ref(), agent_eva);
                 if let Some(victim_event) = victim_eva {
                     self.push_eva_cue(building_house.as_ref(), victim_event);
@@ -118,7 +116,12 @@ impl crate::state::BattleState {
     }
 
     /// 结算渗透效果，并返回（行动方 EVA，受害方可选 EVA）。
-    fn apply_infiltrate_effect(&mut self, agent_house: &str, victim_house: &str, building_type: &str) -> (&'static str, Option<&'static str>) {
+    fn apply_infiltrate_effect(
+        &mut self,
+        agent_house: &str,
+        victim_house: &str,
+        building_type: ra_types::TypeId,
+    ) -> (&'static str, Option<&'static str>) {
         if is_power_plant(&self.definitions, building_type) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(victim_house)) {
                 player.power_blackout_ticks = POWER_BLACKOUT_TICKS.max(player.power_blackout_ticks);
@@ -142,7 +145,7 @@ impl crate::state::BattleState {
             }
             return ("EVA_CashStolen", Some("EVA_BuildingInfiltrated"));
         }
-        if let Some(prod) = self.definitions.structures.get(building_type).and_then(|s| s.production.as_ref()) {
+        if let Some(prod) = self.definitions.structures.get_by_id(building_type).and_then(|s| s.production.as_ref()) {
             if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                 match prod.category {
                     ProductionCategory::Infantry => player.promoted_infantry = true,
@@ -155,7 +158,7 @@ impl crate::state::BattleState {
         if self
             .definitions
             .techno
-            .get_name(&ra_types::TechnoName::parse(building_type))
+            .get_by_id(building_type)
             .is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id))
         {
             if let Some(kind) = self

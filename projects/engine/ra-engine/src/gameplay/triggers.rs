@@ -900,7 +900,8 @@ fn apply_100_damage_at_action_waypoint(world: &mut BattleState, cmd: &PreparedAc
         let is_structure = world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false);
         let covers = if is_structure {
             let type_id = world.ecs_get::<Identity>(id).map(|i| i.type_id);
-            let foundation = type_id.and_then(|tid| world.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
+            let foundation =
+                type_id.and_then(|tid| world.definitions.structures.get_by_id(tid)).map(|s| s.foundation.clone()).unwrap_or_default();
             let fw = foundation.width.max(1);
             let fh = foundation.height.max(1);
             wp.x >= xf.x && wp.y >= xf.y && wp.x < xf.x.saturating_add(fw) && wp.y < xf.y.saturating_add(fh)
