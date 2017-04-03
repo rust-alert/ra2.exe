@@ -2,8 +2,6 @@
 //!
 //! 运行时玩法字段以 ECS 为权威。`WorldEntity` 仅为投影槽，经 `project_entity_from_ecs` 覆盖。
 
-use std::sync::Arc;
-
 use ra_map::MapEntityKind;
 use ra_types::{ArmorKind, EntityId, HouseId, MissionKind, TagId, TechnoClass, TypeId};
 

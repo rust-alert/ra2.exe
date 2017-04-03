@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ra_types::ScheduledCommand;
 
 use super::types::GameCommand;

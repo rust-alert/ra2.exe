@@ -2,7 +2,6 @@
 
 use ra_map::MapEntityKind;
 use ra_types::EntityId;
-use std::sync::Arc;
 
 use crate::{
     gameplay::{ai::is_ambient_house, building_power, is_capturable},

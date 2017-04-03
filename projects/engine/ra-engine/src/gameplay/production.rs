@@ -1,7 +1,5 @@
 //! 工厂生产队列、出厂与集结。
 
-use std::sync::Arc;
-
 use ra_map::MapEntityKind;
 use ra_types::{TechnoClass, TechnoDefinition};
 
