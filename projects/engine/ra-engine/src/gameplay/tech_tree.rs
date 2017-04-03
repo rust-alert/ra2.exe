@@ -68,7 +68,7 @@ pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<Techno
 }
 
 /// 某 house 存活的指定类型数量（建筑与单位都计，供 BuildLimit）。
-pub fn living_type_count(world: &BattleState, house: &str, type_key: &TechnoName) -> i32 {
+pub fn living_type_count(world: &BattleState, house: &str, type_id: TypeId) -> i32 {
     world
         .entities
         .iter()
@@ -76,16 +76,14 @@ pub fn living_type_count(world: &BattleState, house: &str, type_key: &TechnoName
             let id = e.id;
             !world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && world.ecs_get::<Owner>(id).is_some_and(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house))
-                && world.ecs_get::<Identity>(id).is_some_and(|i| {
-                    i.type_id == world.definitions.techno.get_name(type_key).map(|t| t.id).unwrap_or(ra_types::TypeId(u32::MAX))
-                })
+                && world.ecs_get::<Identity>(id).is_some_and(|i| i.type_id == type_id)
         })
         .count() as i32
 }
 
 /// 本阵营是否已达 BuildLimit（`build_limit == 0` 表示不限）。
 pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefinition) -> bool {
-    techno.build_limit > 0 && living_type_count(world, house, &techno.type_key) >= techno.build_limit
+    techno.build_limit > 0 && living_type_count(world, house, techno.id) >= techno.build_limit
 }
 
 #[doc(hidden)]
