@@ -120,7 +120,7 @@ pub fn deploy_mcv_commands(world: &BattleState, house: &str) -> Vec<GameCommand>
         else {
             continue;
         };
-        if deploy_into_type(&world.definitions, crate::gameplay::type_key_of(&world.definitions, identity.type_id)).is_none() {
+        if deploy_into_type(&world.definitions, identity.type_id).is_none() {
             continue;
         }
         if identity.kind != MapEntityKind::Unit {
@@ -338,7 +338,7 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
                 && !t.naval
                 // 警犬等 Category=Dog 不进常规量产。
                 && t.category != TechnoCategory::Dog
-                && deploy_into_type(&world.definitions, &t.type_key).is_none()
+                && deploy_into_type(&world.definitions, t.id).is_none()
         })
         // 同科技等级下优先较便宜的基础单位；再按类型键稳定排序。
         .min_by_key(|t| (t.tech_level, t.cost, t.type_key.as_str()))

@@ -192,8 +192,9 @@ impl BattleSession {
 
     /// 若实体可部署，返回目标建筑类型键（如 `GACNST` / `NACNST`）。
     pub fn deploy_target_of(&self, id: EntityId) -> Option<&str> {
-        let (type_id, _) = self.world.ecs_identity(id)?;
-        crate::gameplay::deploy_into_type(&self.world.definitions, type_id.as_ref())
+        let identity = self.world.ecs_get::<crate::state::components::Identity>(id)?;
+        let target = crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id)?;
+        Some(crate::gameplay::type_key_of(&self.world.definitions, target))
     }
 
     /// 本地玩家在目标格放置建筑。

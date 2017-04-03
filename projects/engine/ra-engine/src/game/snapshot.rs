@@ -197,11 +197,7 @@ impl BattleSession {
         let z = self.world.pass_grid.cell_height(xf.x, xf.y);
         let (sx, sy) = iso_to_screen(i32::from(xf.x), i32::from(xf.y), z);
         let deployable = !matches!(identity.kind, MapEntityKind::Structure)
-            && crate::gameplay::deploy_into_type(
-                &self.world.definitions,
-                crate::gameplay::type_key_of(&self.world.definitions, identity.type_id),
-            )
-            .is_some();
+            && crate::gameplay::deploy_into_type(&self.world.definitions, identity.type_id).is_some();
         let movement = self.world.ecs_get::<MovementState>(id);
         let move_goal_screen = movement.and_then(|m| {
             let dx = m.destination_x?;

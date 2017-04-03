@@ -185,18 +185,12 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let Some(building_type) =
-                        deploy_into_type(&self.definitions, crate::gameplay::type_key_of(&self.definitions, type_id)).map(str::to_string)
+                    let Some(building_def_id) = deploy_into_type(&self.definitions, type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::CannotDeploy);
                         continue;
                     };
-                    let armor = self.definitions.techno.get(building_type.as_str()).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
-                    let Some(building_def_id) = crate::gameplay::type_id_of(&self.definitions, building_type.as_str())
-                    else {
-                        self.reject(command_index, CommandRejectReason::CannotDeploy);
-                        continue;
-                    };
+                    let armor = self.definitions.techno.get_by_id(building_def_id).map(|t| t.armor).unwrap_or(ra_types::ArmorKind::None);
                     let _ = self.with_identity_mut(dirty_id, |identity| {
                         identity.kind = MapEntityKind::Structure;
                         identity.type_id = building_def_id;
@@ -229,7 +223,7 @@ impl crate::state::BattleState {
                     // 展开后按建造场 Foundation 封通行，否则邻格仍可走/可放，后续建筑会叠进院子。
                     if let Some(xf) = self.ecs_get::<Transform>(dirty_id).copied() {
                         let foundation =
-                            self.definitions.structures.get(building_type.as_ref()).map(|s| s.foundation.clone()).unwrap_or_default();
+                            self.definitions.structures.get_by_id(building_def_id).map(|s| s.foundation.clone()).unwrap_or_default();
                         self.seal_structure_footprint(xf.x, xf.y, foundation.width, foundation.height);
                     }
                     self.mark_entity_dirty(dirty_id);

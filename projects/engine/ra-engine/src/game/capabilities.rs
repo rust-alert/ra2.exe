@@ -346,7 +346,7 @@ pub fn project_produce_items(
         .filter(|t| t.class == class)
         .filter(|t| is_type_eligible(&world.definitions, player, living, t.type_key.as_str()))
         // 可部署载具（MCV）不进常规生产栏。
-        .filter(|t| deploy_into_type(&world.definitions, t.type_key.as_str()).is_none())
+        .filter(|t| deploy_into_type(&world.definitions, t.id).is_none())
         .map(|t| {
             let limit_hit = build_limit_reached(world, player.house, t);
             let (enabled, disabled_reason) = evaluate_produce_availability(has_factory, factory_idle, funds, t.cost, limit_hit);

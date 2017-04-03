@@ -105,9 +105,10 @@ pub(crate) struct PowerProfileOrZero {
     pub drain: i32,
 }
 
-/// 部署目标类型键。
-pub(crate) fn deploy_into_type<'a>(defs: &'a RuntimeDefinitions, source_type: &str) -> Option<&'a str> {
-    defs.deployables.get(source_type).map(|d| d.target_key.as_str())
+/// 部署目标稳定 [`TypeId`]。
+pub(crate) fn deploy_into_type(defs: &RuntimeDefinitions, source: TypeId) -> Option<TypeId> {
+    let key = type_key_of(defs, source);
+    defs.deployables.get(key).map(|d| d.target)
 }
 
 /// `Owner=` 名单是否允许该阵营使用（优先稳定 id；空 id 且名名单非空时回退名名单，供测试夹具）。
@@ -177,7 +178,7 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
             if techno.class != TechnoClass::Vehicle {
                 return None;
             }
-            if !type_id_of(defs, d.target_key.as_str()).is_some_and(|tid| is_construction_yard(defs, tid)) {
+            if !is_construction_yard(defs, d.target) {
                 return None;
             }
             if !owner_allows(defs, techno, house) {
@@ -198,11 +199,5 @@ pub(crate) fn is_base_unit(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
     if !defs.base_units.is_empty() {
         return false;
     }
-    let Some(key) = defs.techno.get_by_id(type_id).map(|t| t.type_key.as_str())
-    else {
-        return false;
-    };
-    deploy_into_type(defs, key).is_some_and(|target| {
-        type_id_of(defs, target).is_some_and(|tid| is_construction_yard(defs, tid))
-    })
+    deploy_into_type(defs, type_id).is_some_and(|target| is_construction_yard(defs, target))
 }
