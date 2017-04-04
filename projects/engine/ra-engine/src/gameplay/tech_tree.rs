@@ -5,7 +5,7 @@
 use std::collections::HashSet;
 
 use ra_map::MapEntityKind;
-use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TechnoName, TypeId};
+use ra_types::{PrerequisiteGroupKind, PrerequisiteToken, RuntimeDefinitions, TechnoClass, TechnoDefinition, TypeId};
 
 use crate::{
     gameplay::{forbidden_houses_forbids, owner_allows, required_houses_allows},
@@ -44,8 +44,8 @@ impl<'a> TechTreePlayer<'a> {
     }
 }
 
-/// 收集某 house 当前存活建筑的类型键。
-pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<TechnoName> {
+/// 收集某 house 当前存活建筑的稳定类型 id。
+pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<TypeId> {
     let mut keys = HashSet::new();
     for e in &world.entities {
         let id = e.id;
@@ -62,7 +62,7 @@ pub fn living_structure_keys(world: &BattleState, house: &str) -> HashSet<Techno
         if identity.kind != MapEntityKind::Structure {
             continue;
         }
-        keys.insert(TechnoName::parse(crate::gameplay::type_key_of(&world.definitions, identity.type_id)));
+        keys.insert(identity.type_id);
     }
     keys
 }
@@ -87,23 +87,23 @@ pub fn build_limit_reached(world: &BattleState, house: &str, techno: &TechnoDefi
 }
 
 #[doc(hidden)]
-pub fn owns_any_ids(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, ids: impl IntoIterator<Item = TypeId>) -> bool {
-    ids.into_iter().any(|id| defs.techno.get_by_id(id).is_some_and(|t| living.contains(&t.type_key)))
+pub fn owns_any_ids(_defs: &RuntimeDefinitions, living: &HashSet<TypeId>, ids: impl IntoIterator<Item = TypeId>) -> bool {
+    ids.into_iter().any(|id| living.contains(&id))
 }
 
 #[doc(hidden)]
-pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, token: &PrerequisiteToken) -> bool {
+pub fn token_satisfied(defs: &RuntimeDefinitions, living: &HashSet<TypeId>, token: &PrerequisiteToken) -> bool {
     match token {
         PrerequisiteToken::Group(PrerequisiteGroupKind::Proc) => owns_any_ids(defs, living, defs.prerequisite_groups.proc_all()),
         PrerequisiteToken::Group(kind) => owns_any_ids(defs, living, defs.prerequisite_groups.ids_for_kind(*kind).iter().copied()),
-        PrerequisiteToken::Type(id) => defs.techno.get_by_id(*id).is_some_and(|t| living.contains(&t.type_key)),
+        PrerequisiteToken::Type(id) => living.contains(id),
         // 装载期必须把类型引用绑成 `Type` 或报错；执行侧不再按名称兜底。
         PrerequisiteToken::UnboundType(_) => false,
     }
 }
 
 #[doc(hidden)]
-pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>, techno: &TechnoDefinition) -> bool {
+pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<TypeId>, techno: &TechnoDefinition) -> bool {
     if !techno.prerequisite_override.is_empty() && techno.prerequisite_override.iter().any(|t| token_satisfied(defs, living, t)) {
         return true;
     }
@@ -111,7 +111,7 @@ pub fn prerequisites_met(defs: &RuntimeDefinitions, living: &HashSet<TechnoName>
 }
 
 /// 类型是否对玩家 Eligible（可出现在建造/生产栏；不含资金与电力运作门槛）。
-pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<TechnoName>, type_key: &str) -> bool {
+pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<TypeId>, type_key: &str) -> bool {
     let Some(techno) = defs.techno.get(type_key)
     else {
         return false;

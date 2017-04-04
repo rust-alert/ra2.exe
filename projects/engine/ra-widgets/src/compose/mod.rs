@@ -6,7 +6,6 @@ use ra_assets::{CsfFile, FntFile};
 use ra_renderer::RgbaImage;
 
 use crate::{
-    battle_hud::BattleHudChrome,
     skin::{
         decode::{DecodedUiSprite, PageDecodeReport},
         text::{
