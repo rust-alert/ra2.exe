@@ -613,9 +613,11 @@ fn bind_map_cell_tags_resolves_tag_id() {
         &defs,
     )
     .expect("bind triggers");
-    let tags =
-        ra_types::bind_map_tags(&[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }], &triggers)
-            .expect("bind tags");
+    let tags = ra_types::bind_map_tags(
+        &[ra_types::MapTag { id: "ZONE".into(), persistence: 0, name: "Zone".into(), trigger_id: "TRZ".into() }],
+        &triggers,
+    )
+    .expect("bind tags");
     let cells = [ra_types::MapCellTag { x: 3, y: 4, tag_id: "ZONE".into() }];
     let bound = ra_types::bind_map_cell_tags(&cells, &tags).expect("bind cell tags");
     assert_eq!(bound.len(), 1);
@@ -729,11 +731,9 @@ fn bind_map_tags_resolves_trigger_id() {
 
 #[test]
 fn bind_map_tags_rejects_unknown_trigger() {
-    let err = ra_types::bind_map_tags(
-        &[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Bad".into(), trigger_id: "MISSING".into() }],
-        &[],
-    )
-    .expect_err("unknown trigger");
+    let err =
+        ra_types::bind_map_tags(&[ra_types::MapTag { id: "T1".into(), persistence: 0, name: "Bad".into(), trigger_id: "MISSING".into() }], &[])
+            .expect_err("unknown trigger");
     let msg = err.to_string();
     assert!(msg.contains("trigger"), "{msg}");
     assert!(msg.contains("MISSING"), "{msg}");
@@ -842,15 +842,7 @@ fn bind_map_actions_resolves_create_team_id() {
             id: "TR1".into(),
             commands: vec![ra_types::MapActionCommand {
                 kind_code: 4,
-                params: [
-                    "0".into(),
-                    "TM1".into(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                ],
+                params: ["0".into(), "TM1".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
             }],
         }],
         &triggers,
@@ -886,15 +878,7 @@ fn bind_map_actions_rejects_unknown_team_type() {
             id: "TR1".into(),
             commands: vec![ra_types::MapActionCommand {
                 kind_code: 4,
-                params: [
-                    "0".into(),
-                    "NOSUCH".into(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                    String::new(),
-                ],
+                params: ["0".into(), "NOSUCH".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
             }],
         }],
         &triggers,
@@ -909,11 +893,8 @@ fn bind_map_actions_rejects_unknown_team_type() {
 
 #[test]
 fn bind_map_events_rejects_unknown_trigger() {
-    let err = ra_types::bind_map_events(
-        &[ra_types::MapEvent { id: "MISSING".into(), conditions: Vec::new() }],
-        &[],
-    )
-    .expect_err("unknown event trigger");
+    let err = ra_types::bind_map_events(&[ra_types::MapEvent { id: "MISSING".into(), conditions: Vec::new() }], &[])
+        .expect_err("unknown event trigger");
     let msg = err.to_string();
     assert!(msg.contains("trigger"), "{msg}");
     assert!(msg.contains("MISSING"), "{msg}");

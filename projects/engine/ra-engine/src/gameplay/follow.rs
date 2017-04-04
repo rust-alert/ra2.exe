@@ -42,9 +42,9 @@ impl crate::state::BattleState {
             };
             // 已与目标同格：清掉目的地，避免 `advance_movement` 清空后再每 tick 重寻路。
             if self_xf.x == target_xf.x && self_xf.y == target_xf.y {
-                let needs_clear = self.ecs_get::<MovementState>(id).is_some_and(|m| {
-                    m.destination_x.is_some() || m.destination_y.is_some() || !m.path.is_empty() || !m.waypoints.is_empty()
-                });
+                let needs_clear = self
+                    .ecs_get::<MovementState>(id)
+                    .is_some_and(|m| m.destination_x.is_some() || m.destination_y.is_some() || !m.path.is_empty() || !m.waypoints.is_empty());
                 if needs_clear {
                     let _ = self.with_movement_mut(id, |movement| {
                         movement.destination_x = None;

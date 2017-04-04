@@ -332,12 +332,7 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
     }
 
     if !members.is_empty() {
-        world.script_team_runtime.active.push(ActiveScriptTeam {
-            team_type_id: team.id,
-            members,
-            script_id: team.script,
-            step_idx: 0,
-        });
+        world.script_team_runtime.active.push(ActiveScriptTeam { team_type_id: team.id, members, script_id: team.script, step_idx: 0 });
     }
 }
 

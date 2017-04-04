@@ -307,12 +307,7 @@ AT1=NukeReady,TM1,Russians,0,6,MultiSpecial,80\n\
     assert_eq!(map.scripting.ai_triggers[0].condition_object.as_str(), "MULTISPECIAL");
     let engine = test_engine();
     let mut world = battle_from_defs(GameEdition::Ra2, defs.clone(), map.clone());
-    world.super_weapon_runtime.set_charge_for_test(
-        "RUSSIANS",
-        ra_types::SuperWeaponName::parse("MultiSpecial"),
-        40,
-        100,
-    );
+    world.super_weapon_runtime.set_charge_for_test("RUSSIANS", ra_types::SuperWeaponName::parse("MultiSpecial"), 40, 100);
     let mut session = Session::from_state(world, "ai-sw-low");
     session.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session.tick(&engine.runtime());
@@ -320,12 +315,7 @@ AT1=NukeReady,TM1,Russians,0,6,MultiSpecial,80\n\
     assert_eq!(e1, 0, "OwnSuperWeaponCharge must not fire below 80%");
 
     let mut world2 = battle_from_defs(GameEdition::Ra2, defs, map);
-    world2.super_weapon_runtime.set_charge_for_test(
-        "RUSSIANS",
-        ra_types::SuperWeaponName::parse("MultiSpecial"),
-        80,
-        100,
-    );
+    world2.super_weapon_runtime.set_charge_for_test("RUSSIANS", ra_types::SuperWeaponName::parse("MultiSpecial"), 80, 100);
     let mut session2 = Session::from_state(world2, "ai-sw-ok");
     session2.expect_battle_mut().boot_kind = SessionBootKind::Campaign;
     session2.tick(&engine.runtime());

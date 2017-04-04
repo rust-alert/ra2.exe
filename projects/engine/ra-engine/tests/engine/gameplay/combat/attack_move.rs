@@ -41,11 +41,7 @@ fn attack_move_engages_then_resumes_goal() {
     world.push_command(GameCommand::AttackMove { entity: EntityId(1), x: 16, y: 10 });
     world.advance_tick();
 
-    assert_eq!(
-        world.ecs_mission(attacker),
-        Some(ra_types::MissionKind::AttackMove),
-        "AttackMove command must set mission"
-    );
+    assert_eq!(world.ecs_mission(attacker), Some(ra_types::MissionKind::AttackMove), "AttackMove command must set mission");
     assert_eq!(world.ecs_attack_state(attacker).expect("atk").0, Some(victim));
     assert_eq!(world.ecs_waypoints(attacker).expect("wp"), vec![(16, 10)]);
     assert_eq!(world.ecs_move_destination(attacker).expect("dest"), (Some(12), Some(10)));

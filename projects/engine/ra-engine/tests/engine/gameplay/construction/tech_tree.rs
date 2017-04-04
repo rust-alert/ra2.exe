@@ -174,6 +174,10 @@ fn player(house: &str, tech_level: i32) -> TechTreePlayer<'_> {
     TechTreePlayer { house, tech_level, stolen_allied_tech: false, stolen_soviet_tech: false, stolen_third_tech: false }
 }
 
+fn living_ids(defs: &RuntimeDefinitions, keys: &[&str]) -> HashSet<TypeId> {
+    keys.iter().filter_map(|k| defs.techno.get(k).map(|t| t.id)).collect()
+}
+
 fn defs_with(group_power: &[&str], items: Vec<TechnoDefinition>) -> RuntimeDefinitions {
     let mut defs = RuntimeDefinitions { default_tech_level: 10, ..Default::default() };
     let mut next_id = 1u32;
@@ -221,10 +225,8 @@ fn defs_with(group_power: &[&str], items: Vec<TechnoDefinition>) -> RuntimeDefin
         techno.prerequisite_override =
             std::mem::take(&mut techno.prerequisite_override).into_iter().map(|t| t.bind_type_id(&resolve)).collect();
     }
-    defs.prerequisite_groups.power = group_power
-        .iter()
-        .filter_map(|k| defs.techno.get_name(&ra_types::TechnoName::parse(k)).map(|t| t.id))
-        .collect();
+    defs.prerequisite_groups.power =
+        group_power.iter().filter_map(|k| defs.techno.get_name(&ra_types::TechnoName::parse(k)).map(|t| t.id)).collect();
     defs
 }
 
@@ -239,26 +241,23 @@ fn empty_prerequisite_is_eligible_with_owner_and_tech() {
 #[test]
 fn and_prerequisites_require_all_tokens() {
     let defs = defs_with(&["GAPOWR"], vec![techno("GAPILE", TechnoClass::Building, "AMERICANS", 1, &["POWER", "GAREFN"], &[])]);
-    let mut living = HashSet::new();
-    living.insert("GAPOWR".into());
+    let mut living = living_ids(&defs, &["GAPOWR"]);
     assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
-    living.insert("GAREFN".into());
+    living.extend(living_ids(&defs, &["GAREFN"]));
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
 }
 
 #[test]
 fn generic_power_group_or_within_list() {
     let defs = defs_with(&["GAPOWR", "NAPOWR"], vec![techno("GAREFN", TechnoClass::Building, "AMERICANS", 1, &["POWER"], &[])]);
-    let mut living = HashSet::new();
-    living.insert("NAPOWR".into());
+    let living = living_ids(&defs, &["NAPOWR"]);
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAREFN"));
 }
 
 #[test]
 fn prerequisite_override_bypasses_normal_list() {
     let defs = defs_with(&[], vec![techno("SEAL", TechnoClass::Infantry, "AMERICANS", 1, &["GATECH"], &["GACNST"])]);
-    let mut living = HashSet::new();
-    living.insert("GACNST".into());
+    let living = living_ids(&defs, &["GACNST"]);
     assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
 }
 

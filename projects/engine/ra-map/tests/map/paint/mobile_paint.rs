@@ -53,9 +53,11 @@ fn fire_sequence_preferred_over_walk() {
 fn vxl_hva_frame_follows_fire_and_walk_anim() {
     let idle = MobilePaintPose { anim_frame: 9, moving: false, firing: false, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: None };
     assert_eq!(mobile_vxl_hva_frame(idle), 0);
-    let firing = MobilePaintPose { anim_frame: 2, moving: false, firing: true, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: Some(64) };
+    let firing =
+        MobilePaintPose { anim_frame: 2, moving: false, firing: true, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: Some(64) };
     assert_eq!(mobile_vxl_hva_frame(firing), 2);
-    let walking = MobilePaintPose { anim_frame: 5, moving: true, firing: false, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: None };
+    let walking =
+        MobilePaintPose { anim_frame: 5, moving: true, firing: false, hit_flash: false, offset_x: 0, offset_y: 0, turret_facing: None };
     assert_eq!(mobile_vxl_hva_frame(walking), 5);
 }
 
@@ -83,7 +85,8 @@ fn hit_flash_brightens_opaque_pixels_toward_white() {
 #[test]
 fn pose_slide_offset_is_added_to_blit_origin() {
     // 格内滑移必须叠到 TileBlit 原点上，否则步兵只会整格瞬移。
-    let pose = MobilePaintPose { anim_frame: 0, moving: true, firing: false, hit_flash: false, offset_x: 12, offset_y: -8, turret_facing: None };
+    let pose =
+        MobilePaintPose { anim_frame: 0, moving: true, firing: false, hit_flash: false, offset_x: 12, offset_y: -8, turret_facing: None };
     let mut blit = TileBlit::solid(4, 4, 3, 5, vec![255; 4 * 4 * 4]);
     blit.offset_x = blit.offset_x.saturating_add(pose.offset_x);
     blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);

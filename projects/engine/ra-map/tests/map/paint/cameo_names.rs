@@ -65,9 +65,7 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
 #[test]
 fn seal_with_runtime_drops_ini_and_keeps_preloaded_cameo() {
     use ra_map::{MapEntity, MapEntityKind, MapInfo};
-    use ra_types::{
-        ArmorKind, Foundation, GameEdition, HouseAllowList, PowerProfile, RuntimeDefinitions, StructureDefinition, TypeId,
-    };
+    use ra_types::{ArmorKind, Foundation, GameEdition, HouseAllowList, PowerProfile, RuntimeDefinitions, StructureDefinition, TypeId};
 
     let mut files = HashMap::new();
     files.insert(

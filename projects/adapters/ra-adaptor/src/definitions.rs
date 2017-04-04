@@ -295,15 +295,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     // 武器表：按 techno `Primary`/`Secondary` 与超武 `Weapon=` 去重投影，再绑弹头 / 抛射体 id。
     for tt in rules.techno_types.iter() {
         for (key, damage, range, rof, warhead, projectile, report) in [
-            (
-                tt.primary.clone(),
-                tt.damage,
-                tt.range,
-                tt.rof,
-                tt.warhead.clone(),
-                tt.projectile.clone(),
-                tt.report.clone(),
-            ),
+            (tt.primary.clone(), tt.damage, tt.range, tt.rof, tt.warhead.clone(), tt.projectile.clone(), tt.report.clone()),
             (
                 tt.secondary.clone(),
                 tt.secondary_damage,
@@ -420,12 +412,7 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         validate_house_allow_list(&defs, &structure.owner, "Owner", structure.type_key.as_str())?;
     }
 
-    let house_binds: Vec<(
-        TypeId,
-        ra_types::HouseIdAllowList,
-        ra_types::HouseIdAllowList,
-        ra_types::HouseIdAllowList,
-    )> = defs
+    let house_binds: Vec<(TypeId, ra_types::HouseIdAllowList, ra_types::HouseIdAllowList, ra_types::HouseIdAllowList)> = defs
         .techno
         .iter()
         .map(|techno| {
@@ -554,11 +541,7 @@ fn bind_techno_name_list(defs: &RuntimeDefinitions, names: &[TechnoName], owner:
         }
         let Some(t) = defs.techno.get_name(name)
         else {
-            return Err(RaError::UnknownReference {
-                kind: "techno",
-                name: name.as_str().to_string(),
-                owner: owner.to_string(),
-            });
+            return Err(RaError::UnknownReference { kind: "techno", name: name.as_str().to_string(), owner: owner.to_string() });
         };
         out.push(t.id);
     }
@@ -586,12 +569,7 @@ fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, f
 }
 
 /// 将姓名单绑成稳定 id 名单。无 `[Countries]` 时保持空 id（测试夹具仍可读名名单）。
-fn bind_house_allow_list(
-    defs: &RuntimeDefinitions,
-    list: &HouseAllowList,
-    field: &str,
-    owner: &str,
-) -> RaResult<ra_types::HouseIdAllowList> {
+fn bind_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field: &str, owner: &str) -> RaResult<ra_types::HouseIdAllowList> {
     if list.is_empty() {
         return Ok(ra_types::HouseIdAllowList::empty());
     }

@@ -156,14 +156,7 @@ fn resolve_weapon(view: LayeredIniView<'_>, weapon: &WeaponName) -> (u32, u32, u
     else {
         return (0, 0, 0, WarheadName::default(), ProjectileName::default(), String::new());
     };
-    (
-        w.damage.unwrap_or(0),
-        w.range.unwrap_or(0),
-        w.rof.unwrap_or(0),
-        w.warhead,
-        w.projectile,
-        w.report.trim().to_string(),
-    )
+    (w.damage.unwrap_or(0), w.range.unwrap_or(0), w.rof.unwrap_or(0), w.warhead, w.projectile, w.report.trim().to_string())
 }
 
 fn parse_super_weapon(view: LayeredIniView<'_>, id: &SuperWeaponName) -> Option<SuperWeaponType> {

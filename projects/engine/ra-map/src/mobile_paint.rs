@@ -211,8 +211,9 @@ pub fn paint_map_mobiles(
                 .or_else(|| load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache))
         }
         else {
-            load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache)
-                .or_else(|| load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing, vxl_hva_frame))
+            load_mobile_shp(source, hint.new_theater, &image_key, map, &pal, frame_index, &mut shp_cache).or_else(|| {
+                load_mobile_vxl_layers(source, &image_key.to_ascii_lowercase(), &pal, vpl.as_ref(), ent.facing, turret_facing, vxl_hva_frame)
+            })
         };
         if let Some(mut blit) = blit {
             blit_cache.insert(cache_key, blit.clone());
@@ -246,7 +247,10 @@ pub fn parse_sequence_triple(raw: &str) -> Option<(u16, u16, u16)> {
     from_row::<(u16, u16, u16)>(raw).ok()
 }
 
-fn sequence_triples_from_section(art: &IniDocument, seq_section: &str) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
+fn sequence_triples_from_section(
+    art: &IniDocument,
+    seq_section: &str,
+) -> (Option<(u16, u16, u16)>, Option<(u16, u16, u16)>, Option<(u16, u16, u16)>) {
     let fields = art.section(seq_section).and_then(|s| s.deserialize::<MobileSequenceSectionFields>().ok()).unwrap_or_default();
     let walk_triple = fields.walk.or(fields.panic);
     let ready_triple = fields.ready.or(fields.guard);
@@ -283,12 +287,7 @@ where
 /// 载具 VXL 的 HVA 帧：开火 / 行走用 `anim_frame`，待机为第 0 帧。
 #[doc(hidden)]
 pub fn mobile_vxl_hva_frame(pose: MobilePaintPose) -> u32 {
-    if pose.firing || pose.moving {
-        u32::from(pose.anim_frame)
-    }
-    else {
-        0
-    }
+    if pose.firing || pose.moving { u32::from(pose.anim_frame) } else { 0 }
 }
 
 /// 载具 / 飞行器 SHP 朝向槽（0..=7）。

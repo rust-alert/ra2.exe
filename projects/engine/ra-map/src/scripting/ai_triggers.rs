@@ -143,11 +143,7 @@ pub fn parse_ai_triggers(doc: &IniDocument) -> Vec<MapAiTrigger> {
             let object = if !fields.condition_object.is_empty() { fields.condition_object } else { fields.unit_type };
             let comparator = if !fields.comparator.is_empty() { fields.comparator } else { fields.data };
             let (compare_amount, compare_op) = decode_comparator(&comparator);
-            let start = fields
-                .start_weight
-                .or(fields.weight)
-                .unwrap_or(ra_types::DEFAULT_AI_TRIGGER_WEIGHT)
-                .max(1);
+            let start = fields.start_weight.or(fields.weight).unwrap_or(ra_types::DEFAULT_AI_TRIGGER_WEIGHT).max(1);
             let min_weight = fields.min_weight.unwrap_or(1).max(1).min(start);
             let max_weight = fields.max_weight.unwrap_or(start).max(start).max(min_weight);
             out.push(MapAiTrigger {

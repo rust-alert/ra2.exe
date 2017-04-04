@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity, MapPlacedEntityKind,
-    MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction, PreparedActionCommand,
-    PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement, PreparedScriptType, PreparedTag,
-    PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult, RuntimeDefinitions, ScriptTypeId,
-    ScriptTypeName, StructureDefinitions, TagId, TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName, TriggerId, TriggerName,
-    TypeId, AiTriggerId, occupancy_kind,
+    AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity,
+    MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction,
+    PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
+    PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult,
+    RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, TagId, TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName,
+    TriggerId, TriggerName, TypeId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -90,13 +90,7 @@ pub fn bind_map_tags(tags: &[MapTag], triggers: &[PreparedTrigger]) -> RaResult<
         let trigger_id = bind_trigger_id(&trigger_by_name, &tag.trigger_id, tag.id.as_str())?;
         let id = TagId(next);
         next = next.saturating_add(1);
-        out.push(PreparedTag {
-            id,
-            name: tag.id.clone(),
-            persistence: tag.persistence,
-            editor_name: tag.name.clone(),
-            trigger_id,
-        });
+        out.push(PreparedTag { id, name: tag.id.clone(), persistence: tag.persistence, editor_name: tag.name.clone(), trigger_id });
     }
     Ok(out)
 }
@@ -271,13 +265,7 @@ fn bind_action_command(
         }
         _ => (None, None, None),
     };
-    Ok(PreparedActionCommand {
-        kind_code: cmd.kind_code,
-        params: cmd.params.clone(),
-        team_id,
-        target_trigger_id,
-        tag_id,
-    })
+    Ok(PreparedActionCommand { kind_code: cmd.kind_code, params: cmd.params.clone(), team_id, target_trigger_id, tag_id })
 }
 
 /// 与运行时一致：优先 `params[1]`，否则第一个非空且非纯数字槽。
@@ -311,13 +299,7 @@ pub fn bind_map_task_forces(forces: &[MapTaskForce], defs: &RuntimeDefinitions) 
         }
         let id = TaskForceId(next);
         next = next.saturating_add(1);
-        out.push(PreparedTaskForce {
-            id,
-            name: force.id.clone(),
-            editor_name: force.name.clone(),
-            entries,
-            group: force.group,
-        });
+        out.push(PreparedTaskForce { id, name: force.id.clone(), editor_name: force.name.clone(), entries, group: force.group });
     }
     Ok(out)
 }
@@ -332,12 +314,7 @@ pub fn bind_map_script_types(scripts: &[MapScriptType]) -> RaResult<Vec<Prepared
         }
         let id = ScriptTypeId(next);
         next = next.saturating_add(1);
-        out.push(PreparedScriptType {
-            id,
-            name: script.id.clone(),
-            editor_name: script.name.clone(),
-            steps: script.steps.clone(),
-        });
+        out.push(PreparedScriptType { id, name: script.id.clone(), editor_name: script.name.clone(), steps: script.steps.clone() });
     }
     Ok(out)
 }

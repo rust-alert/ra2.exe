@@ -299,12 +299,7 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
             at.compare_op.compare(credits, at.compare_amount)
         }
         AiTriggerConditionKind::OwnCredits => {
-            let credits = world
-                .players
-                .iter()
-                .find(|p| p.house.as_ref().eq_ignore_ascii_case(owner_house))
-                .map(|p| p.funds)
-                .unwrap_or(0);
+            let credits = world.players.iter().find(|p| p.house.as_ref().eq_ignore_ascii_case(owner_house)).map(|p| p.funds).unwrap_or(0);
             at.compare_op.compare(credits, at.compare_amount)
         }
         AiTriggerConditionKind::OwnSuperWeaponCharge => {

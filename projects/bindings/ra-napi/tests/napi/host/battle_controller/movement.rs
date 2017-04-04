@@ -33,8 +33,5 @@ fn slide_offset_stays_on_first_edge_when_accum_exceeds_cost() {
     let overshoot = slide_offset_along_path(1, 1, &path, 96, 0, 0.0, 64, |_, _| 0);
     assert_eq!(at_edge, overshoot);
     let toward_second = slide_offset_along_path(2, 1, &[(3u16, 1u16)], 32, 0, 0.0, 64, |_, _| 0);
-    assert_ne!(
-        overshoot, toward_second,
-        "overshoot on first edge must not equal mid-slide on the second edge"
-    );
+    assert_ne!(overshoot, toward_second, "overshoot on first edge must not equal mid-slide on the second edge");
 }
