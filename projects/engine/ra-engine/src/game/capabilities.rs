@@ -281,7 +281,7 @@ pub fn evaluate_produce_availability(
 pub fn project_build_items(
     world: &BattleState,
     player: TechTreePlayer<'_>,
-    living: &std::collections::HashSet<ra_types::TechnoName>,
+    living: &std::collections::HashSet<ra_types::TypeId>,
     funds: i32,
     has_yard: bool,
     has_power: bool,
@@ -333,7 +333,7 @@ pub fn project_build_items(
 pub fn project_produce_items(
     world: &BattleState,
     player: TechTreePlayer<'_>,
-    living: &std::collections::HashSet<ra_types::TechnoName>,
+    living: &std::collections::HashSet<ra_types::TypeId>,
     class: TechnoClass,
     funds: i32,
     has_factory: bool,
