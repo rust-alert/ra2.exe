@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass, bind_prepared_map_placements};
+use ra_types::{EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass};
 
 use super::super::{
     components::{
@@ -18,14 +18,12 @@ use super::types::{ATTACK_COOLDOWN_TICKS, BattleState};
 impl BattleState {
     /// 由冻结运行时定义与地图播种新世界，并为移动单位预计算路径。
     ///
-    /// 通行层先取自 `MapInfo::to_prepared_map_skeleton_with_structures`（仅 Foundation）。
-    /// [`bind_prepared_map_placements`] 成功后会按绑定 placements 重封 occupancy / 结构通行格。
+    /// 通行层与预放绑定取自 [`MapInfo::to_prepared_map`]（Foundation 骨架 + 稳定 id + occupancy 重封）。
     /// Overlay land 必须在对局装载 `seal_pass_grid_from_tmp` 之后再应用，才能重开桥面。
     ///
-    /// 预放实体必须先完成 [`bind_prepared_map_placements`]；未知 techno / house 拒绝播种。
+    /// 未知 techno / house 等引用在准备期拒绝播种。
     pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> RaResult<Self> {
-        let mut prepared = map.to_prepared_map_skeleton_with_structures(&definitions.structures);
-        bind_prepared_map_placements(&mut prepared, &definitions)?;
+        let prepared = map.to_prepared_map(&definitions)?;
         let pass_grid =
             PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
         let mut next_entity_id = 1u64;

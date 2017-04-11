@@ -45,7 +45,7 @@ pub mod lzo;
 use ra_assets::{IniDocument, numbered_pairs};
 use ra_types::{
     GameEdition, GameModeName, MapDefinition, MapFileName, MapIsoCell, MapLighting, MapLocalSize, MapOverlayCell, MapPlacedEntity,
-    MapPlacedEntityKind, MapTerrainObject, MapWaypoint, MapWeatherKind, RaError, RaResult,
+    MapPlacedEntityKind, MapTerrainObject, MapWaypoint, MapWeatherKind, RaError, RaResult, RuntimeDefinitions, bind_prepared_map_placements,
 };
 use serde::{Deserialize, de::Deserializer};
 
@@ -388,6 +388,15 @@ impl MapInfo {
         let mut grid = PassGrid::from_map_with_structures(self, Some(structures));
         apply_overlay_land_to_pass_grid(self, overlays, &mut grid);
         self.prepared_map_from_pass_grid(grid, Some(structures))
+    }
+
+    /// 对局播种用的完整 [`PreparedMap`]：Foundation 骨架 + 规则/脚本稳定 id 绑定 + occupancy 重封。
+    ///
+    /// 未知 techno / house / tag / mission 等引用在绑定时拒绝。TMP 封格与 overlay land 仍由 session boot 后序处理。
+    pub fn to_prepared_map(&self, defs: &RuntimeDefinitions) -> RaResult<ra_types::PreparedMap> {
+        let mut prepared = self.to_prepared_map_skeleton_with_structures(&defs.structures);
+        bind_prepared_map_placements(&mut prepared, defs)?;
+        Ok(prepared)
     }
 
     fn prepared_map_from_pass_grid(&self, grid: PassGrid, structures: Option<&ra_types::StructureDefinitions>) -> ra_types::PreparedMap {
