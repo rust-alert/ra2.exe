@@ -631,6 +631,11 @@ pub fn boot_world_with_progress(
     if let Some(defs) = definitions.as_ref() {
         paint.seal_with_runtime(defs, &map);
     }
+    else {
+        // 无冻结定义时仍禁止把装载期 IniDocument 带出 boot（Map-4：宿主只收 sealed paint）。
+        paint.drop_documents();
+    }
+    debug_assert!(paint.documents_sealed(), "boot paint must not retain art/rules IniDocument");
     let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;

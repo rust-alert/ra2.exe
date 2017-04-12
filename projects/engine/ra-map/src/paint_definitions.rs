@@ -176,6 +176,11 @@ impl PaintDefinitions {
             self.ensure_overlay_hint(type_name, &display_name);
         }
         self.preload_structure_anim_hints();
+        self.drop_documents();
+    }
+
+    /// 丢弃 art/rules 文档（不扫描 hint）。规则失败等路径用此保证不把原始 INI 带进宿主。
+    pub fn drop_documents(&mut self) {
         self.art = None;
         self.rules = None;
     }

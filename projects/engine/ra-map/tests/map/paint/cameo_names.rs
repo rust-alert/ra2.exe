@@ -124,3 +124,19 @@ CameoPCX=gaicon
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
 }
+
+#[test]
+fn drop_documents_clears_ini_without_scanning_hints() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[GACNST]\nCameo=GAICON\n".to_vec());
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    let source = MapSource { files };
+    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    assert!(!paint.documents_sealed());
+    paint.drop_documents();
+    assert!(paint.documents_sealed());
+    // 未 seal 扫描时 cameo 回退到类型名，不得再读已丢弃文档。
+    let names = paint.cameo_asset_names("GACNST");
+    assert!(names.pcx.is_empty());
+    assert_eq!(names.shp, vec!["GACNSTicon.shp".to_string(), "GACNST.shp".to_string()]);
+}

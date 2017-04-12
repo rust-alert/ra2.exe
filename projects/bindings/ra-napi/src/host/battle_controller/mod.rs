@@ -312,7 +312,10 @@ impl BattleController {
             ore_tree_anims: boot.ore_tree_anims,
             art_ini: boot.art_ini,
             rules_ini: boot.rules_ini,
-            paint: boot.paint,
+            paint: {
+                debug_assert!(boot.paint.documents_sealed(), "battle paint must be sealed");
+                boot.paint
+            },
             rules: boot.rules,
             lobby_primaries: boot.lobby_primaries,
             pending_buildups: Vec::new(),
@@ -473,6 +476,7 @@ impl BattleController {
         self.ore_tree_anims = boot.ore_tree_anims;
         self.art_ini = boot.art_ini;
         self.rules_ini = boot.rules_ini;
+        debug_assert!(boot.paint.documents_sealed(), "battle paint must be sealed");
         self.paint = boot.paint;
         self.rules = boot.rules;
         self.lobby_primaries = boot.lobby_primaries;
