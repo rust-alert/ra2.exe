@@ -88,11 +88,13 @@ impl StructureAnimHintTable {
 
 impl crate::PaintDefinitions {
     /// 确保表中含该建筑类型提示（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal（无 art/rules 文档）时仅写入名称回退 hint。
     pub fn ensure_structure_hint(&mut self, type_id: &TechnoName) {
         if self.structure_hints.contains(type_id) {
             return;
         }
-        let hint = structure_type_paint_hints(self, type_id.as_str());
+        let hint = structure_type_paint_hints(self.art.as_ref(), self.rules.as_ref(), type_id.as_str());
         self.structure_hints.insert(type_id.clone(), hint);
     }
 
@@ -108,11 +110,13 @@ impl crate::PaintDefinitions {
     }
 
     /// 确保表中含该活动层 art 节提示（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal 时按缺省帧率写入名称回退，不再读 art 文档。
     pub fn ensure_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) {
         if self.structure_anim_hints.contains(anim_name) {
             return;
         }
-        let hint = structure_anim_section_hints(self.art_doc(), anim_name, default_rate_ms);
+        let hint = structure_anim_section_hints(self.art.as_ref(), anim_name, default_rate_ms);
         self.structure_anim_hints.insert(anim_name.to_string(), hint);
     }
 
@@ -170,9 +174,7 @@ struct StructureBuildupHints {
     rate_ms: u32,
 }
 
-fn structure_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> StructureTypePaintHints {
-    let art = paint.art_doc();
-    let rules = paint.rules_doc();
+fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
     let art_section = resolve_art_section(art, type_id);
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);

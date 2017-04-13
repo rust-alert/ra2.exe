@@ -57,11 +57,13 @@ impl MobilePaintHintTable {
 
 impl crate::PaintDefinitions {
     /// 确保表中含该移动单位类型提示（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal 时仅写入名称回退 hint。
     pub fn ensure_mobile_hint(&mut self, type_id: &TechnoName) {
         if self.mobile_hints.contains(type_id) {
             return;
         }
-        let hint = mobile_type_paint_hints(self, type_id.as_str());
+        let hint = mobile_type_paint_hints(self.art.as_ref(), self.rules.as_ref(), type_id.as_str());
         self.mobile_hints.insert(type_id.clone(), hint);
     }
 
@@ -77,9 +79,7 @@ impl crate::PaintDefinitions {
     }
 }
 
-fn mobile_type_paint_hints(paint: &crate::PaintDefinitions, type_id: &str) -> MobileTypePaintHints {
-    let rules = paint.rules_doc();
-    let art = paint.art_doc();
+fn mobile_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
     let image_key = resolve_mobile_image_key(rules, art, type_id);
     let art_fields = art.and_then(|a| a.section(&image_key)).and_then(|s| s.deserialize::<MobileArtImageFields>().ok()).unwrap_or_default();
     let prefer_voxel = art_fields.voxel.unwrap_or(false);

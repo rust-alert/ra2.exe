@@ -140,3 +140,31 @@ fn drop_documents_clears_ini_without_scanning_hints() {
     assert!(names.pcx.is_empty());
     assert_eq!(names.shp, vec!["GACNSTicon.shp".to_string(), "GACNST.shp".to_string()]);
 }
+
+#[test]
+fn ensure_after_seal_uses_name_fallback_without_ini() {
+    use ra_types::TechnoName;
+
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[GACNST]
+Cameo=GAICON
+Image=SECRETBODY
+"#
+        .to_vec(),
+    );
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    let source = MapSource { files };
+    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    paint.drop_documents();
+    assert!(paint.documents_sealed());
+
+    // seal 后对新类型 ensure：只能得到名称回退，不能再读到 SECRETBODY。
+    paint.ensure_structure_hint(&TechnoName::parse("GAPOWR"));
+    paint.ensure_cameo_hint("GAPOWR");
+    let names = paint.cameo_asset_names("GAPOWR");
+    assert!(names.pcx.is_empty());
+    assert_eq!(names.shp[0], "GAPOWRicon.shp");
+    assert!(paint.documents_sealed());
+}

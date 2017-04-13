@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{Hsv, Palette, ShpFile, shp_body_frame_count};
+use ra_assets::{Hsv, IniDocument, Palette, ShpFile, shp_body_frame_count};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -313,11 +313,13 @@ impl OverlayPaintHintTable {
 
 impl crate::PaintDefinitions {
     /// 确保表中含该 overlay 类型提示（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal 时仅写入名称回退 hint。
     pub fn ensure_overlay_hint(&mut self, type_name: &str, display_name: &str) {
         if self.overlay_hints.contains(type_name, display_name) {
             return;
         }
-        let hint = resolve_overlay_art_keys(self, type_name, display_name);
+        let hint = resolve_overlay_art_keys(self.art.as_ref(), self.rules.as_ref(), type_name, display_name);
         self.overlay_hints.insert(type_name.to_string(), display_name.to_string(), hint);
     }
 
@@ -329,9 +331,12 @@ impl crate::PaintDefinitions {
 /// 解析 overlay 的 SHP 键与剧院标志：rules `Image=`（如 `BRIDGE1`→`BRIDGE`）再落到 art 节。
 ///
 /// 画图键优先级：art `Image=` → rules `Image=` → `display_name`（矿石坐标变体等）。
-fn resolve_overlay_art_keys(paint: &crate::PaintDefinitions, type_name: &str, display_name: &str) -> OverlayArtHints {
-    let art = paint.art_doc();
-    let rules = paint.rules_doc();
+fn resolve_overlay_art_keys(
+    art: Option<&IniDocument>,
+    rules: Option<&IniDocument>,
+    type_name: &str,
+    display_name: &str,
+) -> OverlayArtHints {
     let rules_image = rules
         .and_then(|r| r.section(type_name))
         .and_then(|s| s.deserialize::<OverlayRulesImageFields>().ok())

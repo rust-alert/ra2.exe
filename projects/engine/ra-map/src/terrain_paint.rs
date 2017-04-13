@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use ra_assets::{Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
+use ra_assets::{IniDocument, Palette, ShpFile, shp_body_frame_count, shp_shadow_half_base, shp_shadow_half_populated};
 use ra_types::{AssetSource, ImageName};
 use serde::Deserialize;
 
@@ -45,11 +45,13 @@ impl TerrainPaintHintTable {
 
 impl crate::PaintDefinitions {
     /// 确保表中含该地形物件类型提示（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal 时仅写入名称回退 hint。
     pub fn ensure_terrain_hint(&mut self, name: &str) {
         if self.terrain_hints.contains(name) {
             return;
         }
-        let hint = terrain_object_paint_hints(self, name);
+        let hint = terrain_object_paint_hints(self.art.as_ref(), self.rules.as_ref(), name);
         self.terrain_hints.insert(name.to_string(), hint);
     }
 
@@ -65,9 +67,7 @@ impl crate::PaintDefinitions {
     }
 }
 
-fn terrain_object_paint_hints(paint: &crate::PaintDefinitions, name: &str) -> TerrainObjectPaintHints {
-    let art = paint.art_doc();
-    let rules = paint.rules_doc();
+fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
     let art_fields = art.and_then(|a| a.section(name)).and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok()).unwrap_or_default();
     let rules_fields = rules.and_then(|r| r.section(name)).and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok()).unwrap_or_default();
     TerrainObjectPaintHints {

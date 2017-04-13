@@ -49,10 +49,10 @@ impl CameoPaintHintTable {
 /// 绘制侧装载结果（受损规则已固化；art/rules 可经 seal 丢弃）。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
-    /// underlay→primary 合并后的 art（seal 前过渡持有）。
-    art: Option<IniDocument>,
-    /// underlay→primary 合并后的 rules（seal 前过渡持有）。
-    rules: Option<IniDocument>,
+    /// underlay→primary 合并后的 art（seal 前过渡持有；仅 crate 内 `ensure_*` 惰性解析可读）。
+    pub(crate) art: Option<IniDocument>,
+    /// underlay→primary 合并后的 rules（seal 前过渡持有；仅 crate 内 `ensure_*` 惰性解析可读）。
+    pub(crate) rules: Option<IniDocument>,
     /// 从 rules 一次解出的建筑受损阈值 / 火焰类型（无 rules 时为缺省）。
     pub damage: StructureDamageRules,
     /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
@@ -103,20 +103,10 @@ impl PaintDefinitions {
         self.art.is_none() && self.rules.is_none()
     }
 
-    /// 未 seal 时返回装载期 art；已 seal 恒 `None`（禁止回读原始 INI）。
-    pub(crate) fn art_doc(&self) -> Option<&IniDocument> {
-        self.art.as_ref()
-    }
-
-    /// 未 seal 时返回装载期 rules；已 seal 恒 `None`（禁止回读原始 INI）。
-    pub(crate) fn rules_doc(&self) -> Option<&IniDocument> {
-        self.rules.as_ref()
-    }
-
     /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
     ///
     /// 侧栏 cameo、建筑活动层与矿石 display 变体均在装载期一次解析；之后 `ensure_*`
-    /// 只命中缓存。可重复调用（已 seal 时跳过文档丢弃前的扫描仍会补缺 hint）。
+    /// 只命中缓存或名称回退，不再经文档 getter 回读 INI。可重复调用。
     pub fn seal_with_runtime(&mut self, defs: &RuntimeDefinitions, map: &MapInfo) {
         for techno in defs.techno.iter() {
             match techno.class {
@@ -176,11 +166,13 @@ impl PaintDefinitions {
     }
 
     /// 确保表中含该类型建造栏图标候选名（已有则跳过 INI 扫描）。
+    ///
+    /// 已 seal 时仅用类型名回退候选，不再读 art 文档。
     pub fn ensure_cameo_hint(&mut self, type_id: &str) {
         if self.cameo_hints.contains(type_id) {
             return;
         }
-        let names = resolve_cameo_asset_names(self.art_doc(), type_id);
+        let names = resolve_cameo_asset_names(self.art.as_ref(), type_id);
         self.cameo_hints.insert(type_id.to_string(), names);
     }
 
