@@ -98,27 +98,17 @@ impl PaintDefinitions {
         }
     }
 
-    /// 是否已装入 art 文档（seal 后为 `false`）。
-    pub(crate) fn has_art(&self) -> bool {
-        self.art.is_some()
-    }
-
-    /// 是否已装入 rules 文档（seal 后为 `false`）。
-    pub(crate) fn has_rules(&self) -> bool {
-        self.rules.is_some()
-    }
-
     /// 是否已丢弃 art/rules 文档。
     pub fn documents_sealed(&self) -> bool {
         self.art.is_none() && self.rules.is_none()
     }
 
-    /// 合并后的 art 文档（无则 `None`）。
+    /// 未 seal 时返回装载期 art；已 seal 恒 `None`（禁止回读原始 INI）。
     pub(crate) fn art_doc(&self) -> Option<&IniDocument> {
         self.art.as_ref()
     }
 
-    /// 合并后的 rules 文档（无则 `None`）。
+    /// 未 seal 时返回装载期 rules；已 seal 恒 `None`（禁止回读原始 INI）。
     pub(crate) fn rules_doc(&self) -> Option<&IniDocument> {
         self.rules.as_ref()
     }

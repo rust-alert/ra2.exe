@@ -795,9 +795,7 @@ pub fn load_structure_buildup_clip(
     y: u16,
     remap_owner: &dyn Fn(&Palette, &str) -> Palette,
 ) -> Option<StructureBuildupClip> {
-    if !paint.has_art() {
-        return None;
-    }
+    // 已 seal 时仍可走缓存的 Buildup hint 装 SHP；不得再要求持有 art `IniDocument`。
     let techno = TechnoName::parse(type_id);
     paint.ensure_structure_hint(&techno);
     let type_hint = paint.structure_hint(&techno)?;

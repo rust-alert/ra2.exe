@@ -450,6 +450,76 @@ Rate=50\n\
 }
 
 #[test]
+fn load_structure_buildup_clip_works_after_seal() {
+    use ra_map::load_structure_buildup_clip;
+    use ra_types::{ArmorKind, Foundation, HouseAllowList, PowerProfile, RuntimeDefinitions, StructureDefinition, TypeId};
+
+    let art = b"\
+[GACNST]\n\
+Remapable=yes\n\
+NewTheater=yes\n\
+Buildup=GACNSTMK\n\
+\n\
+[GACNSTMK]\n\
+Rate=50\n\
+";
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), art.to_vec());
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 63, 0));
+    files.insert(
+        "gtcnstmk.shp".into(),
+        canvas_frame_shp(60, 30, &[(0, 0, 60, 30, 5), (10, 5, 40, 20, 5), (0, 0, 60, 30, 1), (10, 5, 40, 20, 1)]),
+    );
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.theater = ra_map::Theater::Temperate;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 3,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let source = MapSource { files };
+    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut defs = RuntimeDefinitions::default();
+    defs.structures.insert(StructureDefinition {
+        id: TypeId(1),
+        type_key: "GACNST".into(),
+        power: PowerProfile::default(),
+        cost: 0,
+        strength: 1,
+        armor: ArmorKind::None,
+        construction_yard: true,
+        refinery: false,
+        radar: false,
+        build_cat: Default::default(),
+        capturable: false,
+        production: None,
+        owner: HouseAllowList::empty(),
+        owner_ids: ra_types::HouseIdAllowList::empty(),
+        foundation: Foundation::default(),
+        height: 2,
+        super_weapon: None,
+        super_weapon_id: None,
+        light: None,
+        capabilities: Vec::new(),
+    });
+    paint.seal_with_runtime(&defs, &map);
+    assert!(paint.documents_sealed());
+    let clip = load_structure_buildup_clip(&source, &map, &mut paint, "GACNST", "Americans", 3, 4, &|p, _| p.clone())
+        .expect("sealed paint must still load Buildup from cached hints");
+    assert_eq!(clip.frames.len(), 2);
+    assert_eq!(clip.rate_ms, 50);
+}
+
+#[test]
 fn active_anim_z_adjust_is_not_screen_pixels() {
     use ra_map::collect_structure_anim_bank;
 

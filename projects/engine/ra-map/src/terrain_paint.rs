@@ -345,9 +345,7 @@ pub fn collect_terrain_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint:
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    if !paint.has_rules() {
-        return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
-    }
+    // 已 seal 时用预填 terrain hint；未 seal 时 ensure 仍可惰性读 rules。
     paint.ensure_terrain_objects(&map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
@@ -486,9 +484,7 @@ pub fn collect_ore_tree_anim_bank(source: &dyn AssetSource, map: &MapInfo, paint
     let z_lookup: HashMap<(u16, u16), u8> =
         map.cells.iter().filter(|c| c.x >= 0 && c.y >= 0).map(|c| ((c.x as u16, c.y as u16), c.z)).collect();
 
-    if !paint.has_rules() {
-        return TerrainAnimBank { lighting: map.lighting.clone(), point_lights: map.point_lights.clone(), layers: Vec::new() };
-    }
+    // 已 seal 时用预填 terrain hint；未 seal 时 ensure 仍可惰性读 rules。
     paint.ensure_terrain_objects(&map.terrain_objects);
     let theater_pal_name = theater_palette(map.theater);
     let theater_pal = source.read(theater_pal_name).ok().and_then(|b| Palette::parse(&b).ok());
