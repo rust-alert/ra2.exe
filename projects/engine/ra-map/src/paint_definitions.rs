@@ -75,6 +75,19 @@ impl PaintDefinitions {
         Self::load_files(source, &[art_ini], &[rules_ini])
     }
 
+    /// [`Self::load`] 后立即按定义与地图 seal，供预览 / 测试走与 boot 相同的无文档路径。
+    pub fn load_sealed(
+        source: &dyn AssetSource,
+        art_ini: &str,
+        rules_ini: &str,
+        defs: &RuntimeDefinitions,
+        map: &MapInfo,
+    ) -> Self {
+        let mut paint = Self::load(source, art_ini, rules_ini);
+        paint.seal_with_runtime(defs, map);
+        paint
+    }
+
     /// 按自底向顶文件名列表装载 art / rules（缺文件跳过），合并为单文档后固化受损规则。
     ///
     /// 与 `ResourceChain` 的 underlay → primary 顺序对齐。

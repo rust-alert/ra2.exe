@@ -145,11 +145,13 @@ Rate=300\n\
 
     let source = MapSource { files };
     let mut image = TerrainImage::blank(256, 256);
+    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    assert!(paint.documents_sealed());
     let painted = paint_map_structures(
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut paint,
         &|p, _| p.clone(),
         StructureAnimMode::BodyAndAnims { clock_ms: 300 },
     );
@@ -196,7 +198,9 @@ ConditionRed=25%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    assert!(paint.documents_sealed());
+    let bank = collect_structure_anim_bank(&source, &map, &mut paint, &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1, "yellow HP should bake one fire layer");
     assert_eq!(bank.layers[0].frames.len(), 2);
     // frame_to_blit 锚点 (+TILE_W/2, -H/2) 再加 DamageFireOffset。
@@ -259,7 +263,9 @@ ConditionYellow=50%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    assert!(paint.documents_sealed());
+    let bank = collect_structure_anim_bank(&source, &map, &mut paint, &|p, _| p.clone());
     // 受损活动层 3 帧 + 火焰层。
     assert!(bank.layers.len() >= 2, "expected damaged anim + fire, got {}", bank.layers.len());
     let damaged = bank.layers.iter().find(|l| l.frames.len() == 3).expect("ActiveAnimDamaged 3 frames");
