@@ -11,7 +11,7 @@ use ra_types::{AssetSource, RuntimeDefinitions, TechnoClass};
 use crate::{
     MapEntityKind, MapInfo,
     mobile_paint::MobilePaintHintTable,
-    overlay_paint::{OverlayPaintHintTable, flat_tiberium_display_names},
+    overlay_paint::{OverlayPaintHintTable, flat_tiberium_display_names, flat_tiberium_display_type_name},
     structure_damage::StructureDamageRules,
     structure_paint::{StructureAnimHintTable, StructurePaintHintTable},
     terrain_paint::TerrainPaintHintTable,
@@ -86,6 +86,43 @@ impl PaintDefinitions {
         let mut paint = Self::load(source, art_ini, rules_ini);
         paint.seal_with_runtime(defs, map);
         paint
+    }
+
+    /// 装载后按地图 overlay 与类型回调预填 hint，再丢弃文档（overlay 测试 / 无完整 `OverlayTypeRegistry` 时用）。
+    pub fn load_sealed_for_overlays(
+        source: &dyn AssetSource,
+        art_ini: &str,
+        rules_ini: &str,
+        map: &MapInfo,
+        overlay_type_name: &dyn Fn(u8) -> Option<String>,
+        is_tiberium: &dyn Fn(u8) -> bool,
+    ) -> Self {
+        let mut paint = Self::load(source, art_ini, rules_ini);
+        paint.preload_map_overlays(map, overlay_type_name, is_tiberium);
+        paint.drop_documents();
+        paint
+    }
+
+    /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
+    pub fn preload_map_overlays(
+        &mut self,
+        map: &MapInfo,
+        overlay_type_name: &dyn Fn(u8) -> Option<String>,
+        is_tiberium: &dyn Fn(u8) -> bool,
+    ) {
+        for cell in &map.overlays {
+            let Some(type_name) = overlay_type_name(cell.overlay_id)
+            else {
+                continue;
+            };
+            let display_name = if is_tiberium(cell.overlay_id) {
+                flat_tiberium_display_type_name(&type_name, cell.x, cell.y)
+            }
+            else {
+                type_name.clone()
+            };
+            self.ensure_overlay_hint(&type_name, &display_name);
+        }
     }
 
     /// 按自底向顶文件名列表装载 art / rules（缺文件跳过），合并为单文档后固化受损规则。
