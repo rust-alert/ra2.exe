@@ -59,6 +59,19 @@ fn overlay_map(id: u8, data: u8) -> MapInfo {
     map
 }
 
+
+/// 与 boot 对齐：按类型回调预填 overlay hint 后丢弃 IniDocument。
+fn sealed_overlay_paint(
+    source: &dyn AssetSource,
+    map: &MapInfo,
+    overlay_type_name: &dyn Fn(u8) -> Option<String>,
+    is_tiberium: &dyn Fn(u8) -> bool,
+) -> PaintDefinitions {
+    let paint = PaintDefinitions::load_sealed_for_overlays(source, "art.ini", "rules.ini", map, overlay_type_name, is_tiberium);
+    assert!(paint.documents_sealed());
+    paint
+}
+
 #[test]
 fn empty_overlays_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
@@ -93,7 +106,7 @@ fn theater_overlay_uses_theater_palette() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 102).then(|| "LOBRDG26".into()), &|_| false),
         &|id| (id == 102).then(|| "LOBRDG26".into()),
         &|_| false,
         &|_| None,
@@ -120,7 +133,7 @@ fn tiberium_overlay_uses_temperat_palette() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 102).then(|| "TIB01".into()), &|id| id == 102),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -153,7 +166,7 @@ fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
             &source,
             &map,
             &mut plain,
-            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "TIB01".into()), &|id| id == 1),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| None,
@@ -169,7 +182,7 @@ fn tiberium_overlay_keeps_temperat_colors_without_hsv_remap() {
             &source,
             &map,
             &mut with_hsv,
-            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "TIB01".into()), &|id| id == 1),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| Some(ra_assets::Hsv { h: 41, s: 240, v: 230 }),
@@ -207,7 +220,7 @@ fn tiberium_overlay_ignores_cell_lighting_tint() {
             &source,
             &ore_map,
             &mut ore_img,
-            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            &mut sealed_overlay_paint(&source, &ore_map, &|id| (id == 1).then(|| "TIB01".into()), &|id| id == 1),
             &|id| (id == 1).then(|| "TIB01".into()),
             &|id| id == 1,
             &|_| None,
@@ -227,7 +240,7 @@ fn tiberium_overlay_ignores_cell_lighting_tint() {
             &source,
             &wall_map,
             &mut wall_img,
-            &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+            &mut sealed_overlay_paint(&source, &wall_map, &|id| (id == 2).then(|| "GAWALL".into()), &|_| false),
             &|id| (id == 2).then(|| "GAWALL".into()),
             &|_| false,
             &|_| None,
@@ -283,7 +296,7 @@ fn empty_footprint_skips_when_same_image_anchor_neighbor_draws() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "BRIDGE1".into()), &|_| false),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -307,7 +320,7 @@ fn rules_image_redirects_bridge1_to_bridge_shp() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "BRIDGE1".into()), &|_| false),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -330,7 +343,7 @@ fn empty_frame_without_drawable_preferred_skips() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "LOBRDG10".into()), &|_| false),
         &|id| (id == 1).then(|| "LOBRDG10".into()),
         &|_| false,
         &|_| None,
@@ -364,7 +377,7 @@ fn mixed_lobrdb_flank_does_not_paint_neighbor_deck() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &name, &|_| false),
         &name,
         &|_| false,
         &|_| None,
@@ -402,7 +415,7 @@ fn empty_preferred_does_not_paint_markers() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 1).then(|| "BRIDGE1".into()), &|_| false),
         &|id| (id == 1).then(|| "BRIDGE1".into()),
         &|_| false,
         &|_| None,
@@ -437,7 +450,7 @@ fn tiberium_paint_loads_coordinate_display_shp() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 102).then(|| "TIB01".into()), &|id| id == 102),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -460,7 +473,7 @@ fn new_theater_wall_uses_unittem_palette() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 27).then(|| "NAWALL".into()), &|_| false),
         &|id| (id == 27).then(|| "NAWALL".into()),
         &|_| false,
         &|_| None,
@@ -493,7 +506,7 @@ fn bridge_layer_filter_skips_ore_on_bridge_pass() {
         &source,
         &map,
         &mut ground,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &name, &|id| id == 102),
         &name,
         &|id| id == 102,
         &|_| None,
@@ -505,7 +518,7 @@ fn bridge_layer_filter_skips_ore_on_bridge_pass() {
         &source,
         &map,
         &mut bridge,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &name, &|id| id == 102),
         &name,
         &|id| id == 102,
         &|_| None,
@@ -535,7 +548,7 @@ fn tiberium_overlay_applies_minus_twelve_y_bias() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_overlay_paint(&source, &map, &|id| (id == 102).then(|| "TIB01".into()), &|id| id == 102),
         &|id| (id == 102).then(|| "TIB01".into()),
         &|id| id == 102,
         &|_| None,
@@ -565,7 +578,15 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
     let origin_x = blank.origin_x;
     let origin_y = blank.origin_y;
     let mut rgba = blank.image;
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut paint = PaintDefinitions::load_sealed_for_overlays(
+        &source,
+        "art.ini",
+        "rules.ini",
+        &map,
+        &|id| (id == 102).then(|| "TIB01".into()),
+        &|id| id == 102,
+    );
+    assert!(paint.documents_sealed());
     let (shp, mark) = paint_overlays_onto_preview_rgba(
         &source,
         &map,
