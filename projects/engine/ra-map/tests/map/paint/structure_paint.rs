@@ -77,6 +77,13 @@ fn solid_index_pal(index: usize, r6: u8, g6: u8, b6: u8) -> Vec<u8> {
     data
 }
 
+/// 与 boot 对齐：按地图结构实体 seal 后再画。
+fn sealed_paint(source: &dyn AssetSource, map: &MapInfo) -> PaintDefinitions {
+    let paint = PaintDefinitions::load_sealed(source, "art.ini", "rules.ini", &Default::default(), map);
+    assert!(paint.documents_sealed());
+    paint
+}
+
 #[test]
 fn empty_structures_noop() {
     let map = MapInfo::empty(GameEdition::Ra2, "t");
@@ -145,7 +152,7 @@ Rate=300\n\
 
     let source = MapSource { files };
     let mut image = TerrainImage::blank(256, 256);
-    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    let mut paint = sealed_paint(&source, &map);
     assert!(paint.documents_sealed());
     let painted = paint_map_structures(
         &source,
@@ -198,7 +205,7 @@ ConditionRed=25%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    let mut paint = sealed_paint(&source, &map);
     assert!(paint.documents_sealed());
     let bank = collect_structure_anim_bank(&source, &map, &mut paint, &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1, "yellow HP should bake one fire layer");
@@ -263,7 +270,7 @@ ConditionYellow=50%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    let mut paint = sealed_paint(&source, &map);
     assert!(paint.documents_sealed());
     let bank = collect_structure_anim_bank(&source, &map, &mut paint, &|p, _| p.clone());
     // 受损活动层 3 帧 + 火焰层。
@@ -314,7 +321,7 @@ ConditionYellow=50%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &mut sealed_paint(&source, &map), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1);
     assert_eq!(bank.layers[0].frames[0].offset_x, 30 + 7);
     assert_eq!(bank.layers[0].frames[0].offset_y, -3);
@@ -360,7 +367,7 @@ ConditionYellow=50%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &mut sealed_paint(&source, &map), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 1);
     let px = &bank.layers[0].frames[0].rgba;
     assert!(px.len() >= 4, "expected at least one RGBA pixel");
@@ -403,7 +410,7 @@ ConditionYellow=50%\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &mut sealed_paint(&source, &map), &|p, _| p.clone());
     assert!(bank.layers.is_empty());
 }
 
@@ -441,8 +448,20 @@ Rate=50\n\
 
     let mut map = MapInfo::empty(GameEdition::Ra2, "t");
     map.theater = ra_map::Theater::Temperate;
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "Americans".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 3,
+        y: 4,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut paint = sealed_paint(&source, &map);
     let clip = load_structure_buildup_clip(&source, &map, &mut paint, "GACNST", "Americans", 3, 4, &|p, _| p.clone()).expect("buildup clip");
     assert_eq!(clip.frames.len(), 2, "shadow half must not enter buildup clip");
     assert_eq!(clip.rate_ms, 50);
@@ -493,7 +512,6 @@ Rate=50\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
     let mut defs = RuntimeDefinitions::default();
     defs.structures.insert(StructureDefinition {
         id: TypeId(1),
@@ -517,7 +535,7 @@ Rate=50\n\
         light: None,
         capabilities: Vec::new(),
     });
-    paint.seal_with_runtime(&defs, &map);
+    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &defs, &map);
     assert!(paint.documents_sealed());
     let clip = load_structure_buildup_clip(&source, &map, &mut paint, "GACNST", "Americans", 3, 4, &|p, _| p.clone())
         .expect("sealed paint must still load Buildup from cached hints");
@@ -570,7 +588,7 @@ Rate=300\n\
         tag: Default::default(),
     });
     let source = MapSource { files };
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &mut sealed_paint(&source, &map), &|p, _| p.clone());
     assert_eq!(bank.layers.len(), 2);
     for layer in &bank.layers {
         let f0 = &layer.frames[0];
@@ -632,14 +650,14 @@ Rate=300\n\
         &source,
         &map,
         &mut TerrainImage::blank(256, 256),
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_paint(&source, &map),
         &|p, _| p.clone(),
         StructureAnimMode::BodyOnly,
     );
     // 主体 + Bib（无体素炮塔资源时仍应至少 2）。
     assert!(painted.0 >= 2, "expected body+bib, got {painted:?}");
 
-    let bank = collect_structure_anim_bank(&source, &map, &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"), &|p, _| p.clone());
+    let bank = collect_structure_anim_bank(&source, &map, &mut sealed_paint(&source, &map), &|p, _| p.clone());
     assert!(
         bank.layers.iter().any(|l| l.frames.len() == 1 && l.rate_ms == 200),
         "IdleAnim layer missing: {:?}",
@@ -702,7 +720,7 @@ fn missing_structure_body_paints_magenta_marker() {
         &source,
         &map,
         &mut image,
-        &mut PaintDefinitions::load(&source, "art.ini", "rules.ini"),
+        &mut sealed_paint(&source, &map),
         &|p, _| p.clone(),
         StructureAnimMode::BodyOnly,
     );
