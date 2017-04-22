@@ -94,7 +94,7 @@ impl crate::PaintDefinitions {
         if self.structure_hints.contains(type_id) {
             return;
         }
-        let hint = structure_type_paint_hints(self.art.as_ref(), self.rules.as_ref(), type_id.as_str());
+        let hint = structure_type_paint_hints(self.docs.art(), self.docs.rules(), type_id.as_str());
         self.structure_hints.insert(type_id.clone(), hint);
     }
 
@@ -116,7 +116,7 @@ impl crate::PaintDefinitions {
         if self.structure_anim_hints.contains(anim_name) {
             return;
         }
-        let hint = structure_anim_section_hints(self.art.as_ref(), anim_name, default_rate_ms);
+        let hint = structure_anim_section_hints(self.docs.art(), anim_name, default_rate_ms);
         self.structure_anim_hints.insert(anim_name.to_string(), hint);
     }
 

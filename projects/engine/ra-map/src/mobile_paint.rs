@@ -63,7 +63,7 @@ impl crate::PaintDefinitions {
         if self.mobile_hints.contains(type_id) {
             return;
         }
-        let hint = mobile_type_paint_hints(self.art.as_ref(), self.rules.as_ref(), type_id.as_str());
+        let hint = mobile_type_paint_hints(self.docs.art(), self.docs.rules(), type_id.as_str());
         self.mobile_hints.insert(type_id.clone(), hint);
     }
 

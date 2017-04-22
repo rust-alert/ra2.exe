@@ -1,7 +1,7 @@
 //! 绘制装载结果：合并后的 art/rules 与已固化的叠画相关规则。
 //!
-//! 装载后可经 [`PaintDefinitions::seal_with_runtime`] 填满 hint 表并丢弃
-//! `IniDocument`；未 seal 时仍暂存合并文档供惰性 `ensure_*` 路径读取。
+//! 装载后可经 [`PaintDefinitions::seal_with_runtime`] / [`PaintDefinitions::drop_documents`]
+//! 将 [`PaintIniDocs`] 置为 `Sealed`；未 seal 时 `Open` 态仍可供惰性 `ensure_*` 解析。
 
 use std::collections::HashMap;
 
@@ -46,13 +46,41 @@ impl CameoPaintHintTable {
     }
 }
 
+/// 装载期 art/rules 文档状态：开放可惰性解析，或已 seal 丢弃。
+#[derive(Debug, Clone, Default)]
+pub(crate) enum PaintIniDocs {
+    /// 仍持有合并后的 art/rules（文件缺失时对应侧为 `None`）。
+    Open { art: Option<IniDocument>, rules: Option<IniDocument> },
+    /// 已丢弃原始文档；`ensure_*` 仅名称回退。
+    #[default]
+    Sealed,
+}
+
+impl PaintIniDocs {
+    pub(crate) fn art(&self) -> Option<&IniDocument> {
+        match self {
+            Self::Open { art, .. } => art.as_ref(),
+            Self::Sealed => None,
+        }
+    }
+
+    pub(crate) fn rules(&self) -> Option<&IniDocument> {
+        match self {
+            Self::Open { rules, .. } => rules.as_ref(),
+            Self::Sealed => None,
+        }
+    }
+
+    pub(crate) fn is_sealed(&self) -> bool {
+        matches!(self, Self::Sealed)
+    }
+}
+
 /// 绘制侧装载结果（受损规则已固化；art/rules 可经 seal 丢弃）。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
-    /// underlay→primary 合并后的 art（seal 前过渡持有；仅 crate 内 `ensure_*` 惰性解析可读）。
-    pub(crate) art: Option<IniDocument>,
-    /// underlay→primary 合并后的 rules（seal 前过渡持有；仅 crate 内 `ensure_*` 惰性解析可读）。
-    pub(crate) rules: Option<IniDocument>,
+    /// 装载期 INI 文档；seal / `drop_documents` 后为 [`PaintIniDocs::Sealed`]。
+    pub(crate) docs: PaintIniDocs,
     /// 从 rules 一次解出的建筑受损阈值 / 火焰类型（无 rules 时为缺省）。
     pub damage: StructureDamageRules,
     /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
@@ -136,8 +164,7 @@ impl PaintDefinitions {
         let rules = materialize_ini_layers(&rules_layers, &policy);
         let damage = rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
         Self {
-            art,
-            rules,
+            docs: PaintIniDocs::Open { art, rules },
             damage,
             structure_hints: StructurePaintHintTable::default(),
             structure_anim_hints: StructureAnimHintTable::default(),
@@ -150,7 +177,7 @@ impl PaintDefinitions {
 
     /// 是否已丢弃 art/rules 文档。
     pub fn documents_sealed(&self) -> bool {
-        self.art.is_none() && self.rules.is_none()
+        self.docs.is_sealed()
     }
 
     /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
@@ -211,8 +238,7 @@ impl PaintDefinitions {
 
     /// 丢弃 art/rules 文档（不扫描 hint）。规则失败等路径用此保证不把原始 INI 带进宿主。
     pub fn drop_documents(&mut self) {
-        self.art = None;
-        self.rules = None;
+        self.docs = PaintIniDocs::Sealed;
     }
 
     /// 确保表中含该类型建造栏图标候选名（已有则跳过 INI 扫描）。
@@ -222,7 +248,7 @@ impl PaintDefinitions {
         if self.cameo_hints.contains(type_id) {
             return;
         }
-        let names = resolve_cameo_asset_names(self.art.as_ref(), type_id);
+        let names = resolve_cameo_asset_names(self.docs.art(), type_id);
         self.cameo_hints.insert(type_id.to_string(), names);
     }
 

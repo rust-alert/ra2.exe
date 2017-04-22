@@ -51,7 +51,7 @@ impl crate::PaintDefinitions {
         if self.terrain_hints.contains(name) {
             return;
         }
-        let hint = terrain_object_paint_hints(self.art.as_ref(), self.rules.as_ref(), name);
+        let hint = terrain_object_paint_hints(self.docs.art(), self.docs.rules(), name);
         self.terrain_hints.insert(name.to_string(), hint);
     }
 

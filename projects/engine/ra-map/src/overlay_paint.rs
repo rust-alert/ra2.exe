@@ -319,7 +319,7 @@ impl crate::PaintDefinitions {
         if self.overlay_hints.contains(type_name, display_name) {
             return;
         }
-        let hint = resolve_overlay_art_keys(self.art.as_ref(), self.rules.as_ref(), type_name, display_name);
+        let hint = resolve_overlay_art_keys(self.docs.art(), self.docs.rules(), type_name, display_name);
         self.overlay_hints.insert(type_name.to_string(), display_name.to_string(), hint);
     }
 
