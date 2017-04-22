@@ -20,7 +20,8 @@ fn compose_boot_preview_returns_none_without_silent_fallback() {
     let identity = |pal: &Palette, _owner: &str| pal.clone();
     let lights = StructureLightTable::default();
     let source = EmptySource;
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    assert!(paint.documents_sealed());
     let out = compose_boot_preview(&source, &map, &mut paint, &lights, &|_| None, &|_| false, &|_| None, &identity);
     assert!(out.is_none(), "不得在地形合成失败后仍返回 Some");
 }
