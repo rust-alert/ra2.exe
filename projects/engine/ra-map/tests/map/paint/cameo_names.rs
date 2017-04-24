@@ -33,12 +33,17 @@ CameoPCX=gaiconx
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
     let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    // 先解析进 hint，再丢文档：产品路径只读缓存，不再持有 IniDocument。
     let names = paint.cameo_asset_names("GACNST");
+    paint.drop_documents();
+    assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string(), "gaiconx.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
     assert!(names.shp.iter().any(|n| n == "GAICONX.shp"));
     assert!(names.shp.iter().any(|n| n == "GAICONA.shp"));
     assert!(names.shp.ends_with(&["GACNSTicon.shp".to_string(), "GACNST.shp".to_string()]));
+    let again = paint.cameo_asset_names("GACNST");
+    assert_eq!(again, names);
 }
 
 #[test]
@@ -58,8 +63,11 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
     let source = MapSource { files };
     let mut paint = PaintDefinitions::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
     let names = paint.cameo_asset_names("E1");
+    paint.drop_documents();
+    assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "BASEICON.shp"));
+    assert_eq!(paint.cameo_asset_names("E1"), names);
 }
 
 #[test]
