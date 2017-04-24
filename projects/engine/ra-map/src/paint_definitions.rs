@@ -1,7 +1,9 @@
 //! 绘制装载结果：合并后的 art/rules 与已固化的叠画相关规则。
 //!
-//! 装载后可经 [`PaintDefinitions::seal_with_runtime`] / [`PaintDefinitions::drop_documents`]
-//! 将 [`PaintIniDocs`] 置为 `Sealed`；未 seal 时 `Open` 态仍可供惰性 `ensure_*` 解析。
+//! 装载请走 [`PaintDefinitionsLoader`]（持有开放 art/rules）；经
+//! [`PaintDefinitionsLoader::seal_with_runtime`] / [`PaintDefinitionsLoader::drop_documents`]
+//! 产出宿主侧 [`PaintDefinitions`]（[`PaintIniDocs::Sealed`]）。未 seal 时 `Open` 态仍可供惰性
+//! `ensure_*` 解析。
 
 use std::collections::HashMap;
 
@@ -76,7 +78,7 @@ impl PaintIniDocs {
     }
 }
 
-/// 绘制侧装载结果（受损规则已固化；art/rules 可经 seal 丢弃）。
+/// 绘制侧装载 / 运行结果（受损规则已固化；开放文档仅应由 [`PaintDefinitionsLoader`] 创建）。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
     /// 装载期 INI 文档；seal / `drop_documents` 后为 [`PaintIniDocs::Sealed`]。
@@ -97,10 +99,40 @@ pub struct PaintDefinitions {
     cameo_hints: CameoPaintHintTable,
 }
 
-impl PaintDefinitions {
+/// 装载期 staging：持有开放 art/rules，seal / drop 后交出无开放文档的 [`PaintDefinitions`]。
+#[derive(Debug, Clone)]
+pub struct PaintDefinitionsLoader {
+    paint: PaintDefinitions,
+}
+
+impl PaintDefinitionsLoader {
     /// 从资源源各读一次 art / rules（缺文件则为空），并固化受损规则。
     pub fn load(source: &dyn AssetSource, art_ini: &str, rules_ini: &str) -> Self {
         Self::load_files(source, &[art_ini], &[rules_ini])
+    }
+
+    /// 按自底向顶文件名列表装载 art / rules（缺文件跳过），合并为单文档后固化受损规则。
+    ///
+    /// 与 `ResourceChain` 的 underlay → primary 顺序对齐。
+    pub fn load_files(source: &dyn AssetSource, art_files: &[&str], rules_files: &[&str]) -> Self {
+        let policy = IniMergePolicy::last_wins();
+        let art_layers = read_ini_layers(source, art_files);
+        let rules_layers = read_ini_layers(source, rules_files);
+        let art = materialize_ini_layers(&art_layers, &policy);
+        let rules = materialize_ini_layers(&rules_layers, &policy);
+        let damage = rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
+        Self {
+            paint: PaintDefinitions {
+                docs: PaintIniDocs::Open { art, rules },
+                damage,
+                structure_hints: StructurePaintHintTable::default(),
+                structure_anim_hints: StructureAnimHintTable::default(),
+                mobile_hints: MobilePaintHintTable::default(),
+                terrain_hints: TerrainPaintHintTable::default(),
+                overlay_hints: OverlayPaintHintTable::default(),
+                cameo_hints: CameoPaintHintTable::default(),
+            },
+        }
     }
 
     /// [`Self::load`] 后立即按定义与地图 seal，供预览 / 测试走与 boot 相同的无文档路径。
@@ -110,10 +142,8 @@ impl PaintDefinitions {
         rules_ini: &str,
         defs: &RuntimeDefinitions,
         map: &MapInfo,
-    ) -> Self {
-        let mut paint = Self::load(source, art_ini, rules_ini);
-        paint.seal_with_runtime(defs, map);
-        paint
+    ) -> PaintDefinitions {
+        Self::load(source, art_ini, rules_ini).seal_with_runtime(defs, map)
     }
 
     /// 装载后按地图 overlay 与类型回调预填 hint，再丢弃文档（overlay 测试 / 无完整 `OverlayTypeRegistry` 时用）。
@@ -124,11 +154,82 @@ impl PaintDefinitions {
         map: &MapInfo,
         overlay_type_name: &dyn Fn(u8) -> Option<String>,
         is_tiberium: &dyn Fn(u8) -> bool,
+    ) -> PaintDefinitions {
+        let mut loader = Self::load(source, art_ini, rules_ini);
+        loader.preload_map_overlays(map, overlay_type_name, is_tiberium);
+        loader.drop_documents()
+    }
+
+    /// 借用装载中的 [`PaintDefinitions`]（仍可能持有开放文档）。
+    pub fn paint(&self) -> &PaintDefinitions {
+        &self.paint
+    }
+
+    /// 可变借用装载中的 [`PaintDefinitions`]（惰性 `ensure_*` / cameo 解析用）。
+    pub fn paint_mut(&mut self) -> &mut PaintDefinitions {
+        &mut self.paint
+    }
+
+    /// 是否已丢弃 art/rules 文档。
+    pub fn documents_sealed(&self) -> bool {
+        self.paint.documents_sealed()
+    }
+
+    /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
+    pub fn preload_map_overlays(
+        &mut self,
+        map: &MapInfo,
+        overlay_type_name: &dyn Fn(u8) -> Option<String>,
+        is_tiberium: &dyn Fn(u8) -> bool,
+    ) {
+        self.paint.preload_map_overlays(map, overlay_type_name, is_tiberium);
+    }
+
+    /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
+    pub fn seal_with_runtime(mut self, defs: &RuntimeDefinitions, map: &MapInfo) -> PaintDefinitions {
+        self.paint.seal_with_runtime(defs, map);
+        self.paint
+    }
+
+    /// 丢弃 art/rules 文档（不扫描 hint），交出宿主侧 paint。
+    pub fn drop_documents(mut self) -> PaintDefinitions {
+        self.paint.drop_documents();
+        self.paint
+    }
+}
+
+impl PaintDefinitions {
+    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load`] 再取出未 seal 的 paint。
+    pub fn load(source: &dyn AssetSource, art_ini: &str, rules_ini: &str) -> Self {
+        PaintDefinitionsLoader::load(source, art_ini, rules_ini).paint
+    }
+
+    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_sealed`]。
+    pub fn load_sealed(
+        source: &dyn AssetSource,
+        art_ini: &str,
+        rules_ini: &str,
+        defs: &RuntimeDefinitions,
+        map: &MapInfo,
     ) -> Self {
-        let mut paint = Self::load(source, art_ini, rules_ini);
-        paint.preload_map_overlays(map, overlay_type_name, is_tiberium);
-        paint.drop_documents();
-        paint
+        PaintDefinitionsLoader::load_sealed(source, art_ini, rules_ini, defs, map)
+    }
+
+    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_sealed_for_overlays`]。
+    pub fn load_sealed_for_overlays(
+        source: &dyn AssetSource,
+        art_ini: &str,
+        rules_ini: &str,
+        map: &MapInfo,
+        overlay_type_name: &dyn Fn(u8) -> Option<String>,
+        is_tiberium: &dyn Fn(u8) -> bool,
+    ) -> Self {
+        PaintDefinitionsLoader::load_sealed_for_overlays(source, art_ini, rules_ini, map, overlay_type_name, is_tiberium)
+    }
+
+    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_files`] 再取出未 seal 的 paint。
+    pub fn load_files(source: &dyn AssetSource, art_files: &[&str], rules_files: &[&str]) -> Self {
+        PaintDefinitionsLoader::load_files(source, art_files, rules_files).paint
     }
 
     /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
@@ -150,28 +251,6 @@ impl PaintDefinitions {
                 type_name.clone()
             };
             self.ensure_overlay_hint(&type_name, &display_name);
-        }
-    }
-
-    /// 按自底向顶文件名列表装载 art / rules（缺文件跳过），合并为单文档后固化受损规则。
-    ///
-    /// 与 `ResourceChain` 的 underlay → primary 顺序对齐。
-    pub fn load_files(source: &dyn AssetSource, art_files: &[&str], rules_files: &[&str]) -> Self {
-        let policy = IniMergePolicy::last_wins();
-        let art_layers = read_ini_layers(source, art_files);
-        let rules_layers = read_ini_layers(source, rules_files);
-        let art = materialize_ini_layers(&art_layers, &policy);
-        let rules = materialize_ini_layers(&rules_layers, &policy);
-        let damage = rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
-        Self {
-            docs: PaintIniDocs::Open { art, rules },
-            damage,
-            structure_hints: StructurePaintHintTable::default(),
-            structure_anim_hints: StructureAnimHintTable::default(),
-            mobile_hints: MobilePaintHintTable::default(),
-            terrain_hints: TerrainPaintHintTable::default(),
-            overlay_hints: OverlayPaintHintTable::default(),
-            cameo_hints: CameoPaintHintTable::default(),
         }
     }
 

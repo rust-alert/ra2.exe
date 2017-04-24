@@ -9,11 +9,11 @@ use ra_assets::{
 };
 use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, StructureAnimBank, StructureLightTable, TerrainAnimBank,
-    campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes, find_boot_map,
-    is_campaign_blocking_action_gap, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names, map_scripting_capability_gaps,
-    mount_theater_mixes, ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba, paint_ore_tree_frames_onto_rgba,
-    paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
+    MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, PaintDefinitionsLoader, StructureAnimBank, StructureLightTable,
+    TerrainAnimBank, campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
+    find_boot_map, is_campaign_blocking_action_gap, list_parseable_maps_from_missions_pkt, list_parseable_maps_from_names,
+    map_scripting_capability_gaps, mount_theater_mixes, ore_tree_frame_count_hints, paint_mobiles_onto_preview_rgba,
+    paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
 use ra_types::{AssetSource, GameEdition, HouseName, RaResult, TechnoName};
@@ -616,7 +616,7 @@ pub fn boot_world_with_progress(
     art_files.push(chain.art_ini);
     let mut rules_files: Vec<&str> = chain.rules_underlay.to_vec();
     rules_files.push(chain.rules_ini);
-    let mut paint = PaintDefinitions::load_files(&source, &art_files, &rules_files);
+    let loader = PaintDefinitionsLoader::load_files(&source, &art_files, &rules_files);
     let definitions = match rules.as_ref() {
         Some(rules) => match build_runtime_definitions(rules) {
             Ok(defs) => Some(Arc::new(defs)),
@@ -628,13 +628,13 @@ pub fn boot_world_with_progress(
         },
         None => None,
     };
-    if let Some(defs) = definitions.as_ref() {
-        paint.seal_with_runtime(defs, &map);
+    let mut paint = if let Some(defs) = definitions.as_ref() {
+        loader.seal_with_runtime(defs, &map)
     }
     else {
-        // 无冻结定义时仍禁止把装载期 IniDocument 带出 boot（Map-4：宿主只收 sealed paint）。
-        paint.drop_documents();
-    }
+        // 无冻结定义时仍禁止把装载期 IniDocument 带出 boot（宿主只收 sealed paint）。
+        loader.drop_documents()
+    };
     debug_assert!(paint.documents_sealed(), "boot paint must not retain art/rules IniDocument");
     let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
