@@ -199,39 +199,6 @@ impl PaintDefinitionsLoader {
 }
 
 impl PaintDefinitions {
-    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load`] 再取出未 seal 的 paint。
-    pub fn load(source: &dyn AssetSource, art_ini: &str, rules_ini: &str) -> Self {
-        PaintDefinitionsLoader::load(source, art_ini, rules_ini).paint
-    }
-
-    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_sealed`]。
-    pub fn load_sealed(
-        source: &dyn AssetSource,
-        art_ini: &str,
-        rules_ini: &str,
-        defs: &RuntimeDefinitions,
-        map: &MapInfo,
-    ) -> Self {
-        PaintDefinitionsLoader::load_sealed(source, art_ini, rules_ini, defs, map)
-    }
-
-    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_sealed_for_overlays`]。
-    pub fn load_sealed_for_overlays(
-        source: &dyn AssetSource,
-        art_ini: &str,
-        rules_ini: &str,
-        map: &MapInfo,
-        overlay_type_name: &dyn Fn(u8) -> Option<String>,
-        is_tiberium: &dyn Fn(u8) -> bool,
-    ) -> Self {
-        PaintDefinitionsLoader::load_sealed_for_overlays(source, art_ini, rules_ini, map, overlay_type_name, is_tiberium)
-    }
-
-    /// 兼容旧调用：等价于 [`PaintDefinitionsLoader::load_files`] 再取出未 seal 的 paint。
-    pub fn load_files(source: &dyn AssetSource, art_files: &[&str], rules_files: &[&str]) -> Self {
-        PaintDefinitionsLoader::load_files(source, art_files, rules_files).paint
-    }
-
     /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
     pub fn preload_map_overlays(
         &mut self,

@@ -1,6 +1,6 @@
 //! `PaintDefinitions::cameo_asset_names`：候选名解析，不暴露 `IniDocument`。
 
-use ra_map::PaintDefinitions;
+use ra_map::{PaintDefinitions, PaintDefinitionsLoader};
 use ra_types::{AssetSource, RaError, RaResult};
 use std::collections::HashMap;
 
@@ -32,10 +32,10 @@ CameoPCX=gaiconx
     );
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
+    let mut loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
     // 先解析进 hint，再丢文档：产品路径只读缓存，不再持有 IniDocument。
-    let names = paint.cameo_asset_names("GACNST");
-    paint.drop_documents();
+    let names = loader.paint_mut().cameo_asset_names("GACNST");
+    let mut paint = loader.drop_documents();
     assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string(), "gaiconx.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "GAICON.shp"));
@@ -61,9 +61,9 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
     files.insert("artmd.ini".into(), b"[E1]\nCameoPCX=md\n".to_vec());
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
-    let names = paint.cameo_asset_names("E1");
-    paint.drop_documents();
+    let mut loader = PaintDefinitionsLoader::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
+    let names = loader.paint_mut().cameo_asset_names("E1");
+    let mut paint = loader.drop_documents();
     assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
     assert!(names.shp.iter().any(|n| n == "BASEICON.shp"));
@@ -86,8 +86,8 @@ CameoPCX=gaicon
     );
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
-    assert!(!paint.documents_sealed());
+    let loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
+    assert!(!loader.documents_sealed());
 
     let mut defs = RuntimeDefinitions::default();
     defs.structures.insert(StructureDefinition {
@@ -126,7 +126,7 @@ CameoPCX=gaicon
         tag: Default::default(),
     });
 
-    paint.seal_with_runtime(&defs, &map);
+    let mut paint = loader.seal_with_runtime(&defs, &map);
     assert!(paint.documents_sealed());
     let names = paint.cameo_asset_names("GACNST");
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string()]);
@@ -139,9 +139,9 @@ fn drop_documents_clears_ini_without_scanning_hints() {
     files.insert("art.ini".into(), b"[GACNST]\nCameo=GAICON\n".to_vec());
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
-    assert!(!paint.documents_sealed());
-    paint.drop_documents();
+    let loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
+    assert!(!loader.documents_sealed());
+    let mut paint = loader.drop_documents();
     assert!(paint.documents_sealed());
     // 未 seal 扫描时 cameo 回退到类型名，不得再读已丢弃文档。
     let names = paint.cameo_asset_names("GACNST");
@@ -164,8 +164,7 @@ Image=SECRETBODY
     );
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
-    let mut paint = PaintDefinitions::load(&source, "art.ini", "rules.ini");
-    paint.drop_documents();
+    let mut paint = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini").drop_documents();
     assert!(paint.documents_sealed());
 
     // seal 后对新类型 ensure：只能得到名称回退，不能再读到 SECRETBODY。

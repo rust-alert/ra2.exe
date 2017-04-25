@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapEntity, MapEntityKind, MapInfo, PaintDefinitions, StructureAnimMode, TerrainImage, buildup_frame_index, paint_map_structures,
-    structure_anim_frame,
+    MapEntity, MapEntityKind, MapInfo, PaintDefinitions, PaintDefinitionsLoader, StructureAnimMode, TerrainImage, buildup_frame_index,
+    paint_map_structures, structure_anim_frame,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -79,7 +79,7 @@ fn solid_index_pal(index: usize, r6: u8, g6: u8, b6: u8) -> Vec<u8> {
 
 /// 与 boot 对齐：按地图结构实体 seal 后再画。
 fn sealed_paint(source: &dyn AssetSource, map: &MapInfo) -> PaintDefinitions {
-    let paint = PaintDefinitions::load_sealed(source, "art.ini", "rules.ini", &Default::default(), map);
+    let paint = PaintDefinitionsLoader::load_sealed(source, "art.ini", "rules.ini", &Default::default(), map);
     assert!(paint.documents_sealed());
     paint
 }
@@ -535,7 +535,7 @@ Rate=50\n\
         light: None,
         capabilities: Vec::new(),
     });
-    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &defs, &map);
+    let mut paint = PaintDefinitionsLoader::load_sealed(&source, "art.ini", "rules.ini", &defs, &map);
     assert!(paint.documents_sealed());
     let clip = load_structure_buildup_clip(&source, &map, &mut paint, "GACNST", "Americans", 3, 4, &|p, _| p.clone())
         .expect("sealed paint must still load Buildup from cached hints");

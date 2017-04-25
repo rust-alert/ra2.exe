@@ -1,7 +1,7 @@
 //! `compose_boot_preview` 失败封闭：不得用单砖/单位 SHP 冒充成功预览。
 
 use ra_assets::Palette;
-use ra_map::{MapInfo, PaintDefinitions, StructureLightTable, Theater, compose_boot_preview};
+use ra_map::{MapInfo, PaintDefinitionsLoader, StructureLightTable, Theater, compose_boot_preview};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
 struct EmptySource;
@@ -20,7 +20,7 @@ fn compose_boot_preview_returns_none_without_silent_fallback() {
     let identity = |pal: &Palette, _owner: &str| pal.clone();
     let lights = StructureLightTable::default();
     let source = EmptySource;
-    let mut paint = PaintDefinitions::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    let mut paint = PaintDefinitionsLoader::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
     assert!(paint.documents_sealed());
     let out = compose_boot_preview(&source, &map, &mut paint, &lights, &|_| None, &|_| false, &|_| None, &identity);
     assert!(out.is_none(), "不得在地形合成失败后仍返回 Some");

@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapInfo, PaintDefinitions, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank, collect_terrain_anim_bank,
-    format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames, paint_terrain_anim_bank,
-    terrain_anim_frame, terrain_animation_rate_ms,
+    MapInfo, PaintDefinitions, PaintDefinitionsLoader, TerrainImage, TerrainObject, TerrainPaintMode, collect_ore_tree_anim_bank,
+    collect_terrain_anim_bank, format_terrain_anim_layer_diag, ore_tree_frame_count_hints, paint_map_terrain_objects, paint_ore_tree_frames,
+    paint_terrain_anim_bank, terrain_anim_frame, terrain_animation_rate_ms,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -82,7 +82,7 @@ fn clock(ms: u64) -> TerrainPaintMode {
 
 /// 与 boot 对齐：装载后按地图 terrain 对象 seal，绘制侧不再持有 IniDocument。
 fn sealed_paint(source: &dyn AssetSource, map: &MapInfo) -> PaintDefinitions {
-    let paint = PaintDefinitions::load_sealed(source, "art.ini", "rules.ini", &Default::default(), map);
+    let paint = PaintDefinitionsLoader::load_sealed(source, "art.ini", "rules.ini", &Default::default(), map);
     assert!(paint.documents_sealed());
     paint
 }

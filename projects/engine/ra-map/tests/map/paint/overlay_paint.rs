@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use ra_map::{
-    MapInfo, OverlayCell, OverlayLayerFilter, PaintDefinitions, TerrainImage, flat_tiberium_display_type_name, paint_map_overlays,
-    paint_overlays_onto_preview_rgba,
+    MapInfo, OverlayCell, OverlayLayerFilter, PaintDefinitions, PaintDefinitionsLoader, TerrainImage, flat_tiberium_display_type_name,
+    paint_map_overlays, paint_overlays_onto_preview_rgba,
 };
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -67,7 +67,7 @@ fn sealed_overlay_paint(
     overlay_type_name: &dyn Fn(u8) -> Option<String>,
     is_tiberium: &dyn Fn(u8) -> bool,
 ) -> PaintDefinitions {
-    let paint = PaintDefinitions::load_sealed_for_overlays(source, "art.ini", "rules.ini", map, overlay_type_name, is_tiberium);
+    let paint = PaintDefinitionsLoader::load_sealed_for_overlays(source, "art.ini", "rules.ini", map, overlay_type_name, is_tiberium);
     assert!(paint.documents_sealed());
     paint
 }
@@ -578,7 +578,7 @@ fn paint_overlays_onto_preview_rgba_writes_selected_cells() {
     let origin_x = blank.origin_x;
     let origin_y = blank.origin_y;
     let mut rgba = blank.image;
-    let mut paint = PaintDefinitions::load_sealed_for_overlays(
+    let mut paint = PaintDefinitionsLoader::load_sealed_for_overlays(
         &source,
         "art.ini",
         "rules.ini",
