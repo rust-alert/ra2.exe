@@ -2,7 +2,10 @@
 
 use std::path::PathBuf;
 
-use ra_config::{ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, parse_toml_document, present_feel_from_toml_text};
+use ra_config::{
+    ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, SkirmishLobbyPrefs, parse_toml_document, present_feel_from_toml_text,
+    skirmish_prefs_from_toml_text,
+};
 use ra_types::DisplayMode;
 
 #[test]
@@ -190,6 +193,68 @@ fn parse_toml_skips_present_table_without_diag() {
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(t.get("ra2_dir"), Some("."));
     assert!(t.get("mode").is_none());
+}
+
+#[test]
+fn skirmish_prefs_round_trip_preserves_comment_and_values() {
+    let dir = std::env::temp_dir()
+        .join(format!("ra_config_skirmish_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("RustAlert.toml");
+    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n").unwrap();
+
+    let mut doc = RustAlertDocument::open(&path).unwrap();
+    let prefs = SkirmishLobbyPrefs {
+        preferred_map: Some("mp01t4.map".into()),
+        mode_id: Some(1),
+        player_name: "Commander".into(),
+        row_countries: vec!["Americans".into(), "Russians".into()],
+        row_colors: vec![0, 2],
+        difficulty: "Hard".into(),
+        short_game: false,
+        mcv_repacks: true,
+        crates: false,
+        superweapons: true,
+        build_off_ally: true,
+        game_speed: 4,
+        credits: 5000,
+        tech_level: 8,
+        unit_count: 5,
+    }
+    .sanitized();
+    doc.set_skirmish_prefs(&prefs).unwrap();
+    doc.save().unwrap();
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("# keep me"), "{text}");
+    assert!(text.contains("[skirmish]"), "{text}");
+    assert!(text.contains("mp01t4.map"), "{text}");
+
+    let (again, diags) = skirmish_prefs_from_toml_text(&text, "t");
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(again.preferred_map.as_deref(), Some("mp01t4.map"));
+    assert_eq!(again.mode_id, Some(1));
+    assert_eq!(again.player_name, "Commander");
+    assert_eq!(again.row_countries, vec!["Americans", "Russians"]);
+    assert_eq!(again.row_colors, vec![0, 2]);
+    assert_eq!(again.difficulty, "Hard");
+    assert!(!again.short_game);
+    assert!(!again.crates);
+    assert!(again.build_off_ally);
+    assert_eq!(again.game_speed, 4);
+    assert_eq!(again.credits, 5000);
+    assert_eq!(again.tech_level, 8);
+    assert_eq!(again.unit_count, 5);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn parse_toml_skips_skirmish_table_without_diag() {
+    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[skirmish]\nplayer_name = \"X\"\n", "t");
+    assert!(d.is_empty(), "{d:?}");
+    assert_eq!(t.get("ra2_dir"), Some("."));
+    assert!(t.get("player_name").is_none());
 }
 
 #[test]

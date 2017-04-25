@@ -22,3 +22,21 @@
 # mode = "16bit"              # off | 16bit
 # quantize = "rgb565"         # rgb565 | rgb555
 # dither = true
+
+# 遭遇战大厅上次选择（程序写回；也可手改）
+# [skirmish]
+# preferred_map = "mp01t4.map"
+# mode_id = 1
+# player_name = "Player"
+# row_countries = ["Americans", "Russians"]
+# row_colors = [0, 1]
+# difficulty = "Normal"       # Easy | Normal | Hard
+# short_game = true
+# mcv_repacks = true
+# crates = true
+# superweapons = true
+# build_off_ally = false
+# game_speed = 6              # 0..=6
+# credits = 10000
+# tech_level = 10
+# unit_count = 10

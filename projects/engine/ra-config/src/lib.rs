@@ -5,6 +5,8 @@
 
 #![deny(missing_docs)]
 
+mod skirmish_prefs;
+
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -14,6 +16,8 @@ use std::{
 use ra_types::{DisplayMode, PresentFeel, VgaExpandMode};
 use serde::Deserialize;
 use toml_edit::{DocumentMut, Item, Table, Value};
+
+pub use skirmish_prefs::{SkirmishLobbyPrefs, skirmish_prefs_from_toml_text};
 
 /// CLI / N-API 一次性启动覆盖（后于 `RustAlert.toml` 生效）。
 #[derive(Debug, Clone)]
@@ -225,7 +229,7 @@ pub fn parse_toml_document(text: &str, source_label: &str) -> (ConfigTable, Vec<
                     }),
             },
             Item::None => {}
-            // 结构化段（如 `[present]`）由 `DocumentMut` + serde 读取，不进扁平表。
+            // 结构化段（如 `[present]` / `[skirmish]`）由 `DocumentMut` + serde 读取，不进扁平表。
             Item::Table(_) | Item::ArrayOfTables(_) => {}
         }
     }
@@ -367,6 +371,26 @@ impl RustAlertDocument {
         Ok(())
     }
 
+    /// 读取 `[skirmish]` 遭遇战偏好（serde）；缺失则默认。
+    pub fn skirmish_prefs(&self) -> (SkirmishLobbyPrefs, Vec<ConfigDiagnostic>) {
+        skirmish_prefs_from_toml_text(&self.doc.to_string(), &self.path.display().to_string())
+    }
+
+    /// 写入 `[skirmish]` 表（serde → `toml_edit` Item，保留其它根键与注释）。
+    pub fn set_skirmish_prefs(&mut self, prefs: &SkirmishLobbyPrefs) -> Result<(), String> {
+        let prefs = prefs.clone().sanitized();
+        let generated = toml_edit::ser::to_document(&prefs).map_err(|e| format!("序列化 [skirmish] 失败: {e}"))?;
+        let mut table = Table::new();
+        for (key, item) in generated.as_table().iter() {
+            table.insert(key, item.clone());
+        }
+        if let Some(existing) = self.doc.get("skirmish").and_then(Item::as_table) {
+            *table.decor_mut() = existing.decor().clone();
+        }
+        self.doc["skirmish"] = Item::Table(table);
+        Ok(())
+    }
+
     /// 移除根级键。
     pub fn remove(&mut self, key: &str) {
         let _ = self.doc.remove(key);
@@ -413,6 +437,8 @@ pub struct DesktopSettings {
     pub shell_slide_gap_secs: f64,
     /// VGA 调色板 6→8 bit 扩色：`full`（`*255/63`）或 `shift2`（`<<2`）。
     pub palette_vga_expand: VgaExpandMode,
+    /// 遭遇战大厅上次选择（`[skirmish]` 表）。
+    pub skirmish: SkirmishLobbyPrefs,
     /// 预留目标战网连接地址（协议未落地前可空置，不建 socket）。
     pub net_url: Option<String>,
     /// 预留房间名。
@@ -431,6 +457,7 @@ impl Default for DesktopSettings {
             load_min_secs: 3.0,
             shell_slide_gap_secs: 0.2,
             palette_vga_expand: VgaExpandMode::Shift2,
+            skirmish: SkirmishLobbyPrefs::default(),
             net_url: None,
             net_room: None,
         }
@@ -517,10 +544,13 @@ impl DesktopSettings {
                     layers.push(ConfigLayer { label: label.clone(), table });
                     let (present, mut present_diags) = present_feel_from_toml_text(&text, &label);
                     diagnostics.append(&mut present_diags);
+                    let (skirmish, mut skirmish_diags) = skirmish_prefs_from_toml_text(&text, &label);
+                    diagnostics.append(&mut skirmish_diags);
                     let mut merged = MergedConfig::merge_layers(&layers);
                     merged.diagnostics.append(&mut diagnostics);
                     let mut settings = Self::from_merged(&merged);
                     settings.present = present;
+                    settings.skirmish = skirmish;
                     if let Some(over) = take_launch_override_snapshot() {
                         settings.ra2_dir = over.ra2_dir;
                         if over.edition.is_some() {
@@ -573,6 +603,13 @@ impl DesktopSettings {
     pub fn persist_present_feel(feel: PresentFeel) -> Result<(), String> {
         let mut doc = RustAlertDocument::open_or_create()?;
         doc.set_present_feel(&feel)?;
+        doc.save()
+    }
+
+    /// 将 `[skirmish]` 遭遇战偏好写回规范路径上的 `RustAlert.toml`（保留其它键与注释）。
+    pub fn persist_skirmish_prefs(prefs: &SkirmishLobbyPrefs) -> Result<(), String> {
+        let mut doc = RustAlertDocument::open_or_create()?;
+        doc.set_skirmish_prefs(prefs)?;
         doc.save()
     }
 }
