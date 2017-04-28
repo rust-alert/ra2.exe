@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use ra_renderer::Renderer;
 use ra_types::{DisplayMode, PresentFeel};
+use ra_config::SkirmishLobbyPrefs;
 use ra_widgets::{
     animation::typewriter::TypewriterText, load_kind::LoadKind, original_screen::OriginalScreen, skirmish_setup::SkirmishBootRequest,
     startup_splash,
@@ -95,9 +96,11 @@ impl Shell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: super::super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            skirmish_prefs: SkirmishLobbyPrefs::default(),
             choose_map_revert: None,
             map_list_scroll: 0,
             campaign_side: None,
+            campaign_scenario: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
             campaign_pointer_consumed: false,
@@ -209,9 +212,11 @@ impl Shell {
             #[cfg(feature = "test-harness")]
             auto_screenshots: super::super::screenshot::AutoScreenshotTracker::default(),
             skirmish: SkirmishBootRequest::default_lobby(),
+            skirmish_prefs: SkirmishLobbyPrefs::default(),
             choose_map_revert: None,
             map_list_scroll: 0,
             campaign_side: None,
+            campaign_scenario: None,
             campaign_difficulty: 1,
             campaign_dragging: false,
             campaign_pointer_consumed: false,

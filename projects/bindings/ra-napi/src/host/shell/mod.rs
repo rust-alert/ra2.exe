@@ -20,6 +20,7 @@ use ra_widgets::{
     skirmish_setup::SkirmishBootRequest,
     startup_splash::StartupSplashPresentation,
 };
+use ra_config::SkirmishLobbyPrefs;
 
 /// 外壳持有的可导航壳层会话状态。
 pub struct Shell {
@@ -145,12 +146,16 @@ pub struct Shell {
     pub(super) auto_screenshots: super::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     pub(super) skirmish: SkirmishBootRequest,
+    /// 遭遇战大厅持久化偏好（启动加载；变更后写回 `RustAlert.toml`）。
+    pub(super) skirmish_prefs: SkirmishLobbyPrefs,
     /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
     pub(super) choose_map_revert: Option<Option<String>>,
     /// 选图页地图列表滚动偏移（行）。
     pub(super) map_list_scroll: usize,
     /// 战役选边：`allied` / `tutorial` / `soviet`。
     pub(super) campaign_side: Option<&'static str>,
+    /// 当前战役 scenario（装载 / 重试用；不得写入遭遇战 `selected_map`）。
+    pub(super) campaign_scenario: Option<String>,
     /// 战役难度档：0 易 / 1 中 / 2 难。
     pub(super) campaign_difficulty: u8,
     /// 战役难度滑条是否正在拖动。
@@ -239,6 +244,7 @@ mod loading;
 mod lobby;
 mod navigation;
 mod options;
+mod prefs;
 mod redraw;
 mod score;
 mod splash;
