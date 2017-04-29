@@ -58,12 +58,21 @@ impl MobilePaintHintTable {
 impl crate::PaintDefinitions {
     /// 确保表中含该移动单位类型提示（已有则跳过 INI 扫描）。
     ///
-    /// 已 seal 时仅写入名称回退 hint。
+    /// 无 art/rules 文档时仅写入名称回退 hint。
     pub fn ensure_mobile_hint(&mut self, type_id: &TechnoName) {
+        self.ensure_mobile_hint_with(None, None, type_id);
+    }
+
+    pub(crate) fn ensure_mobile_hint_with(
+        &mut self,
+        art: Option<&IniDocument>,
+        rules: Option<&IniDocument>,
+        type_id: &TechnoName,
+    ) {
         if self.mobile_hints.contains(type_id) {
             return;
         }
-        let hint = mobile_type_paint_hints(self.docs.art(), self.docs.rules(), type_id.as_str());
+        let hint = mobile_type_paint_hints(art, rules, type_id.as_str());
         self.mobile_hints.insert(type_id.clone(), hint);
     }
 

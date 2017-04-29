@@ -89,12 +89,21 @@ impl StructureAnimHintTable {
 impl crate::PaintDefinitions {
     /// 确保表中含该建筑类型提示（已有则跳过 INI 扫描）。
     ///
-    /// 已 seal（无 art/rules 文档）时仅写入名称回退 hint。
+    /// 无 art/rules 文档时仅写入名称回退 hint。
     pub fn ensure_structure_hint(&mut self, type_id: &TechnoName) {
+        self.ensure_structure_hint_with(None, None, type_id);
+    }
+
+    pub(crate) fn ensure_structure_hint_with(
+        &mut self,
+        art: Option<&IniDocument>,
+        rules: Option<&IniDocument>,
+        type_id: &TechnoName,
+    ) {
         if self.structure_hints.contains(type_id) {
             return;
         }
-        let hint = structure_type_paint_hints(self.docs.art(), self.docs.rules(), type_id.as_str());
+        let hint = structure_type_paint_hints(art, rules, type_id.as_str());
         self.structure_hints.insert(type_id.clone(), hint);
     }
 
@@ -111,12 +120,21 @@ impl crate::PaintDefinitions {
 
     /// 确保表中含该活动层 art 节提示（已有则跳过 INI 扫描）。
     ///
-    /// 已 seal 时按缺省帧率写入名称回退，不再读 art 文档。
+    /// 无 art 文档时按缺省帧率写入名称回退。
     pub fn ensure_structure_anim_hint(&mut self, anim_name: &str, default_rate_ms: u32) {
+        self.ensure_structure_anim_hint_with(None, anim_name, default_rate_ms);
+    }
+
+    pub(crate) fn ensure_structure_anim_hint_with(
+        &mut self,
+        art: Option<&IniDocument>,
+        anim_name: &str,
+        default_rate_ms: u32,
+    ) {
         if self.structure_anim_hints.contains(anim_name) {
             return;
         }
-        let hint = structure_anim_section_hints(self.docs.art(), anim_name, default_rate_ms);
+        let hint = structure_anim_section_hints(art, anim_name, default_rate_ms);
         self.structure_anim_hints.insert(anim_name.to_string(), hint);
     }
 
@@ -130,8 +148,8 @@ impl crate::PaintDefinitions {
         self.structure_anim_hint(anim_name).cloned().unwrap_or_else(|| structure_anim_section_hints(None, anim_name, default_rate_ms))
     }
 
-    /// 为已缓存建筑 hint 补齐活动层 / 火焰节提示（须在丢弃 art 文档前调用）。
-    pub(crate) fn preload_structure_anim_hints(&mut self) {
+    /// 为已缓存建筑 hint 补齐活动层 / 火焰节提示（须在仍持有 art 时由 loader 调用）。
+    pub(crate) fn preload_structure_anim_hints_with(&mut self, art: Option<&IniDocument>) {
         let mut anim_names = Vec::new();
         for hint in self.structure_hints.values() {
             for (normal, damaged) in &hint.loop_anims {
@@ -149,11 +167,11 @@ impl crate::PaintDefinitions {
         anim_names.sort_unstable();
         anim_names.dedup();
         for name in anim_names {
-            self.ensure_structure_anim_hint(&name, 300);
+            self.ensure_structure_anim_hint_with(art, &name, 300);
         }
         let fire_names: Vec<String> = self.damage.fire_types.iter().map(|n| n.as_str().to_string()).collect();
         for name in fire_names {
-            self.ensure_structure_anim_hint(&name, 80);
+            self.ensure_structure_anim_hint_with(art, &name, 80);
         }
     }
 }

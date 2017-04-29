@@ -46,12 +46,21 @@ impl TerrainPaintHintTable {
 impl crate::PaintDefinitions {
     /// 确保表中含该地形物件类型提示（已有则跳过 INI 扫描）。
     ///
-    /// 已 seal 时仅写入名称回退 hint。
+    /// 无 art/rules 文档时仅写入名称回退 hint。
     pub fn ensure_terrain_hint(&mut self, name: &str) {
+        self.ensure_terrain_hint_with(None, None, name);
+    }
+
+    pub(crate) fn ensure_terrain_hint_with(
+        &mut self,
+        art: Option<&IniDocument>,
+        rules: Option<&IniDocument>,
+        name: &str,
+    ) {
         if self.terrain_hints.contains(name) {
             return;
         }
-        let hint = terrain_object_paint_hints(self.docs.art(), self.docs.rules(), name);
+        let hint = terrain_object_paint_hints(art, rules, name);
         self.terrain_hints.insert(name.to_string(), hint);
     }
 

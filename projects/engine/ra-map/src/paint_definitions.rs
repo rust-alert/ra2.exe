@@ -1,9 +1,8 @@
-//! 绘制装载结果：合并后的 art/rules 与已固化的叠画相关规则。
+//! 绘制装载结果：已固化的叠画 / 图标提示与受损规则。
 //!
 //! 装载请走 [`PaintDefinitionsLoader`]（持有开放 art/rules）；经
 //! [`PaintDefinitionsLoader::seal_with_runtime`] / [`PaintDefinitionsLoader::drop_documents`]
-//! 产出宿主侧 [`PaintDefinitions`]（[`PaintIniDocs::Sealed`]）。未 seal 时 `Open` 态仍可供惰性
-//! `ensure_*` 解析。
+//! 产出宿主侧 [`PaintDefinitions`]（**不**保存 `IniDocument`）。产品 / 预览路径只消费后者。
 
 use std::collections::HashMap;
 
@@ -48,41 +47,9 @@ impl CameoPaintHintTable {
     }
 }
 
-/// 装载期 art/rules 文档状态：开放可惰性解析，或已 seal 丢弃。
-#[derive(Debug, Clone, Default)]
-pub(crate) enum PaintIniDocs {
-    /// 仍持有合并后的 art/rules（文件缺失时对应侧为 `None`）。
-    Open { art: Option<IniDocument>, rules: Option<IniDocument> },
-    /// 已丢弃原始文档；`ensure_*` 仅名称回退。
-    #[default]
-    Sealed,
-}
-
-impl PaintIniDocs {
-    pub(crate) fn art(&self) -> Option<&IniDocument> {
-        match self {
-            Self::Open { art, .. } => art.as_ref(),
-            Self::Sealed => None,
-        }
-    }
-
-    pub(crate) fn rules(&self) -> Option<&IniDocument> {
-        match self {
-            Self::Open { rules, .. } => rules.as_ref(),
-            Self::Sealed => None,
-        }
-    }
-
-    pub(crate) fn is_sealed(&self) -> bool {
-        matches!(self, Self::Sealed)
-    }
-}
-
-/// 绘制侧装载 / 运行结果（受损规则已固化；开放文档仅应由 [`PaintDefinitionsLoader`] 创建）。
+/// 宿主侧绘制结果：仅强类型 hint / 受损规则，不含 art/rules `IniDocument`。
 #[derive(Debug, Clone, Default)]
 pub struct PaintDefinitions {
-    /// 装载期 INI 文档；seal / `drop_documents` 后为 [`PaintIniDocs::Sealed`]。
-    pub(crate) docs: PaintIniDocs,
     /// 从 rules 一次解出的建筑受损阈值 / 火焰类型（无 rules 时为缺省）。
     pub damage: StructureDamageRules,
     /// 建筑类型叠画提示表（跨 paint / anim-bank / buildup 复用）。
@@ -99,9 +66,11 @@ pub struct PaintDefinitions {
     cameo_hints: CameoPaintHintTable,
 }
 
-/// 装载期 staging：持有开放 art/rules，seal / drop 后交出无开放文档的 [`PaintDefinitions`]。
+/// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
 #[derive(Debug, Clone)]
 pub struct PaintDefinitionsLoader {
+    art: Option<IniDocument>,
+    rules: Option<IniDocument>,
     paint: PaintDefinitions,
 }
 
@@ -122,8 +91,9 @@ impl PaintDefinitionsLoader {
         let rules = materialize_ini_layers(&rules_layers, &policy);
         let damage = rules.as_ref().map(StructureDamageRules::from_rules_doc).unwrap_or_default();
         Self {
+            art,
+            rules,
             paint: PaintDefinitions {
-                docs: PaintIniDocs::Open { art, rules },
                 damage,
                 structure_hints: StructurePaintHintTable::default(),
                 structure_anim_hints: StructureAnimHintTable::default(),
@@ -160,19 +130,19 @@ impl PaintDefinitionsLoader {
         loader.drop_documents()
     }
 
-    /// 借用装载中的 [`PaintDefinitions`]（仍可能持有开放文档）。
+    /// 借用装载中已写入的 hint 表（不含开放文档）。
     pub fn paint(&self) -> &PaintDefinitions {
         &self.paint
     }
 
-    /// 可变借用装载中的 [`PaintDefinitions`]（惰性 `ensure_*` / cameo 解析用）。
+    /// 可变借用 hint 表（仅名称回退 `ensure_*`；读 INI 请用本 loader 的解析入口）。
     pub fn paint_mut(&mut self) -> &mut PaintDefinitions {
         &mut self.paint
     }
 
-    /// 是否已丢弃 art/rules 文档。
+    /// staging 仍持有 art/rules（即便某侧文件缺失）。
     pub fn documents_sealed(&self) -> bool {
-        self.paint.documents_sealed()
+        false
     }
 
     /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
@@ -182,30 +152,8 @@ impl PaintDefinitionsLoader {
         overlay_type_name: &dyn Fn(u8) -> Option<String>,
         is_tiberium: &dyn Fn(u8) -> bool,
     ) {
-        self.paint.preload_map_overlays(map, overlay_type_name, is_tiberium);
-    }
-
-    /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
-    pub fn seal_with_runtime(mut self, defs: &RuntimeDefinitions, map: &MapInfo) -> PaintDefinitions {
-        self.paint.seal_with_runtime(defs, map);
-        self.paint
-    }
-
-    /// 丢弃 art/rules 文档（不扫描 hint），交出宿主侧 paint。
-    pub fn drop_documents(mut self) -> PaintDefinitions {
-        self.paint.drop_documents();
-        self.paint
-    }
-}
-
-impl PaintDefinitions {
-    /// 在仍持有 art/rules 时，按地图 overlay 格与类型回调写入 hint。
-    pub fn preload_map_overlays(
-        &mut self,
-        map: &MapInfo,
-        overlay_type_name: &dyn Fn(u8) -> Option<String>,
-        is_tiberium: &dyn Fn(u8) -> bool,
-    ) {
+        let art = self.art.as_ref();
+        let rules = self.rules.as_ref();
         for cell in &map.overlays {
             let Some(type_name) = overlay_type_name(cell.overlay_id)
             else {
@@ -217,84 +165,103 @@ impl PaintDefinitions {
             else {
                 type_name.clone()
             };
-            self.ensure_overlay_hint(&type_name, &display_name);
+            self.paint.ensure_overlay_hint_with(art, rules, &type_name, &display_name);
         }
     }
 
-    /// 是否已丢弃 art/rules 文档。
-    pub fn documents_sealed(&self) -> bool {
-        self.docs.is_sealed()
+    /// 解析建造栏图标候选名（写入 hint 后可在 seal / drop 后复用）。
+    pub fn cameo_asset_names(&mut self, type_id: &str) -> CameoAssetNames {
+        let art = self.art.as_ref();
+        self.paint.ensure_cameo_hint_with(art, type_id);
+        self.paint.cameo_asset_names(type_id)
     }
 
     /// 按冻结定义与地图填满叠画 / 图标 hint，然后丢弃 art/rules `IniDocument`。
-    ///
-    /// 侧栏 cameo、建筑活动层与矿石 display 变体均在装载期一次解析；之后 `ensure_*`
-    /// 只命中缓存或名称回退，不再经文档 getter 回读 INI。可重复调用。
-    pub fn seal_with_runtime(&mut self, defs: &RuntimeDefinitions, map: &MapInfo) {
-        for techno in defs.techno.iter() {
-            match techno.class {
-                TechnoClass::Building => self.ensure_structure_hint(&techno.type_key),
-                TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft => self.ensure_mobile_hint(&techno.type_key),
+    pub fn seal_with_runtime(mut self, defs: &RuntimeDefinitions, map: &MapInfo) -> PaintDefinitions {
+        {
+            let art = self.art.as_ref();
+            let rules = self.rules.as_ref();
+            let paint = &mut self.paint;
+            for techno in defs.techno.iter() {
+                match techno.class {
+                    TechnoClass::Building => paint.ensure_structure_hint_with(art, rules, &techno.type_key),
+                    TechnoClass::Infantry | TechnoClass::Vehicle | TechnoClass::Aircraft => {
+                        paint.ensure_mobile_hint_with(art, rules, &techno.type_key)
+                    }
+                }
+                paint.ensure_cameo_hint_with(art, techno.type_key.as_str());
             }
-            self.ensure_cameo_hint(techno.type_key.as_str());
-        }
-        for structure in defs.structures.iter() {
-            self.ensure_structure_hint(&structure.type_key);
-            self.ensure_cameo_hint(structure.type_key.as_str());
-        }
-        for spawner in defs.terrain_spawners.iter() {
-            self.ensure_terrain_hint(spawner.type_key.as_str());
-        }
-        for id in 0u8..=255 {
-            let Some(type_name) = defs.overlays.name(id)
-            else {
-                continue;
-            };
-            self.ensure_overlay_hint(type_name, type_name);
-            if defs.overlays.is_harvestable(id) {
-                for display in flat_tiberium_display_names(type_name) {
-                    self.ensure_overlay_hint(type_name, &display);
+            for structure in defs.structures.iter() {
+                paint.ensure_structure_hint_with(art, rules, &structure.type_key);
+                paint.ensure_cameo_hint_with(art, structure.type_key.as_str());
+            }
+            for spawner in defs.terrain_spawners.iter() {
+                paint.ensure_terrain_hint_with(art, rules, spawner.type_key.as_str());
+            }
+            for id in 0u8..=255 {
+                let Some(type_name) = defs.overlays.name(id)
+                else {
+                    continue;
+                };
+                paint.ensure_overlay_hint_with(art, rules, type_name, type_name);
+                if defs.overlays.is_harvestable(id) {
+                    for display in flat_tiberium_display_names(type_name) {
+                        paint.ensure_overlay_hint_with(art, rules, type_name, &display);
+                    }
                 }
             }
-        }
-        for ent in &map.entities {
-            match ent.kind {
-                MapEntityKind::Structure => self.ensure_structure_hint(&ent.type_id),
-                MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => self.ensure_mobile_hint(&ent.type_id),
+            for ent in &map.entities {
+                match ent.kind {
+                    MapEntityKind::Structure => paint.ensure_structure_hint_with(art, rules, &ent.type_id),
+                    MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft => {
+                        paint.ensure_mobile_hint_with(art, rules, &ent.type_id)
+                    }
+                }
+                paint.ensure_cameo_hint_with(art, ent.type_id.as_str());
             }
-            self.ensure_cameo_hint(ent.type_id.as_str());
-        }
-        self.ensure_terrain_objects(&map.terrain_objects);
-        for cell in &map.overlays {
-            let Some(type_name) = defs.overlays.name(cell.overlay_id)
-            else {
-                continue;
-            };
-            let display_name = if defs.overlays.is_harvestable(cell.overlay_id) {
-                crate::overlay_paint::flat_tiberium_display_type_name(type_name, cell.x, cell.y)
+            for obj in &map.terrain_objects {
+                paint.ensure_terrain_hint_with(art, rules, obj.name.as_str());
             }
-            else {
-                type_name.to_string()
-            };
-            self.ensure_overlay_hint(type_name, &display_name);
+            for cell in &map.overlays {
+                let Some(type_name) = defs.overlays.name(cell.overlay_id)
+                else {
+                    continue;
+                };
+                let display_name = if defs.overlays.is_harvestable(cell.overlay_id) {
+                    flat_tiberium_display_type_name(type_name, cell.x, cell.y)
+                }
+                else {
+                    type_name.to_string()
+                };
+                paint.ensure_overlay_hint_with(art, rules, type_name, &display_name);
+            }
+            paint.preload_structure_anim_hints_with(art);
         }
-        self.preload_structure_anim_hints();
-        self.drop_documents();
+        self.drop_documents()
     }
 
-    /// 丢弃 art/rules 文档（不扫描 hint）。规则失败等路径用此保证不把原始 INI 带进宿主。
-    pub fn drop_documents(&mut self) {
-        self.docs = PaintIniDocs::Sealed;
+    /// 丢弃 art/rules 文档（不扫描 hint），交出宿主侧 paint。
+    pub fn drop_documents(self) -> PaintDefinitions {
+        self.paint
+    }
+}
+
+impl PaintDefinitions {
+    /// 宿主侧 paint 永不持有 art/rules 文档。
+    pub fn documents_sealed(&self) -> bool {
+        true
     }
 
-    /// 确保表中含该类型建造栏图标候选名（已有则跳过 INI 扫描）。
-    ///
-    /// 已 seal 时仅用类型名回退候选，不再读 art 文档。
+    /// 确保表中含该类型建造栏图标候选名（已有则跳过；无文档时仅类型名回退）。
     pub fn ensure_cameo_hint(&mut self, type_id: &str) {
+        self.ensure_cameo_hint_with(None, type_id);
+    }
+
+    pub(crate) fn ensure_cameo_hint_with(&mut self, art: Option<&IniDocument>, type_id: &str) {
         if self.cameo_hints.contains(type_id) {
             return;
         }
-        let names = resolve_cameo_asset_names(self.docs.art(), type_id);
+        let names = resolve_cameo_asset_names(art, type_id);
         self.cameo_hints.insert(type_id.to_string(), names);
     }
 

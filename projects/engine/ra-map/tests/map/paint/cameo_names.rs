@@ -34,7 +34,7 @@ CameoPCX=gaiconx
     let source = MapSource { files };
     let mut loader = PaintDefinitionsLoader::load(&source, "art.ini", "rules.ini");
     // 先解析进 hint，再丢文档：产品路径只读缓存，不再持有 IniDocument。
-    let names = loader.paint_mut().cameo_asset_names("GACNST");
+    let names = loader.cameo_asset_names("GACNST");
     let mut paint = loader.drop_documents();
     assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["gaicon.pcx".to_string(), "gaiconx.pcx".to_string()]);
@@ -62,7 +62,7 @@ fn cameo_asset_names_top_layer_overrides_underlay() {
     files.insert("rules.ini".into(), b"[General]\n".to_vec());
     let source = MapSource { files };
     let mut loader = PaintDefinitionsLoader::load_files(&source, &["art.ini", "artmd.ini"], &["rules.ini"]);
-    let names = loader.paint_mut().cameo_asset_names("E1");
+    let names = loader.cameo_asset_names("E1");
     let mut paint = loader.drop_documents();
     assert!(paint.documents_sealed());
     assert_eq!(names.pcx, vec!["md.pcx".to_string()]);
