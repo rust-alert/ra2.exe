@@ -165,9 +165,8 @@ impl Shell {
             self.load_brief_origin = None;
             tracing::warn!(scenario, "mission.ini 无该 scenario · 战役装载缺 LS 背景");
         }
-        self.skirmish.side = house.to_string();
-        self.skirmish.difficulty = campaign_difficulty_label(self.campaign_difficulty).to_string();
-        self.selected_map = Some(scenario.to_string());
+        // 战役装载不得改写遭遇战大厅的 `selected_map` / `skirmish`（国家、难度、行阵营）。
+        self.campaign_scenario = Some(scenario.to_string());
         self.banner = match battle_id {
             Some(id) => format!("正在装载战役 {id} · {scenario} · {house}…"),
             None => format!("正在装载战役 · {scenario} · {house}…"),
@@ -188,6 +187,7 @@ impl Shell {
         self.load_job = Some(LoadJob::start_install_boot({
             self.ensure_lobby_sides();
             let house_index = self.skirmish.sides.iter().position(|s| s.eq_ignore_ascii_case(house)).unwrap_or(0) as u8;
+            // 仅克隆一份 boot 请求；大厅 `skirmish` 字段保持遭遇战上次选择。
             let mut req = self.skirmish.clone();
             req.preferred_map = Some(scenario.to_string());
             req.rules_override = None;
@@ -215,8 +215,8 @@ impl Shell {
         match self.load_kind {
             LoadKind::Skirmish => self.begin_skirmish_load(),
             LoadKind::Campaign => {
-                if let Some(map) = self.selected_map.clone() {
-                    self.begin_campaign_scenario_load(&map, None);
+                if let Some(scenario) = self.campaign_scenario.clone() {
+                    self.begin_campaign_scenario_load(&scenario, None);
                 }
                 else if let Some(side) = self.campaign_side {
                     self.begin_campaign_load(side);
@@ -324,7 +324,15 @@ impl Shell {
             }
         }
         self.ensure_lobby_sides();
-        let house = self.skirmish.side.clone();
+        // 战役用选边 house；遭遇战用大厅 `skirmish.side`（二者不得共用同一可变字段）。
+        let house = match self.load_kind {
+            LoadKind::Campaign => self
+                .campaign_side
+                .and_then(campaign_side_lobby_house)
+                .unwrap_or("Americans")
+                .to_string(),
+            LoadKind::Skirmish => self.skirmish.side.clone(),
+        };
         let faction_id = self
             .lobby_countries
             .iter()

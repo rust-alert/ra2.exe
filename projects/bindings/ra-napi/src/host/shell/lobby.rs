@@ -131,8 +131,22 @@ impl Shell {
             return;
         }
         self.lobby_maps = boot::list_install_boot_maps();
+        // 只认遭遇战候选表内的文件名（战役 scenario 不得残留在 `selected_map`）。
+        let in_lobby = |maps: &[BootMapCandidate], name: &str| maps.iter().any(|m| m.file_name.eq_ignore_ascii_case(name));
+        if self.selected_map.as_ref().is_some_and(|sel| !in_lobby(&self.lobby_maps, sel)) {
+            tracing::warn!(selected = ?self.selected_map, "遭遇战选中地图不在候选表，已清空");
+            self.selected_map = None;
+        }
         if self.selected_map.is_none() {
-            self.selected_map = self.lobby_maps.first().map(|m| m.file_name.clone());
+            self.selected_map = self
+                .skirmish
+                .preferred_map
+                .clone()
+                .filter(|name| in_lobby(&self.lobby_maps, name))
+                .or_else(|| self.lobby_maps.first().map(|m| m.file_name.clone()));
+        }
+        if self.skirmish.preferred_map.as_ref().is_some_and(|name| !in_lobby(&self.lobby_maps, name)) {
+            self.skirmish.preferred_map = None;
         }
         if self.skirmish.preferred_map.is_none() {
             self.skirmish.preferred_map = self.selected_map.clone();
