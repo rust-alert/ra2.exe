@@ -190,6 +190,7 @@ impl Shell {
         self.lobby_countries = countries;
         let ids: Vec<String> = self.lobby_countries.iter().map(|c| c.id.as_str().to_string()).collect();
         self.skirmish.set_lobby_sides(ids);
+        self.apply_skirmish_country_prefs();
         tracing::info!(
             countries = self.lobby_countries.len(),
             side_groups = self.lobby_side_groups.len(),

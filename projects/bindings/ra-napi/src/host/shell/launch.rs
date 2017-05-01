@@ -22,7 +22,7 @@ pub fn campaign_difficulty_from_track_x(track: RectPx, mouse_x: i32) -> u8 {
 
 /// 解析启动参数并进入事件循环。
 pub fn run_shell() -> RaResult<()> {
-    let (mode, display_mode, music_volume, sound_volume, present, load_min_secs, shell_slide_gap_secs, status_path, test_scene, start_screen) =
+    let (mode, display_mode, music_volume, sound_volume, present, skirmish_prefs, load_min_secs, shell_slide_gap_secs, status_path, test_scene, start_screen) =
         resolve_launch()?;
 
     let event_loop = EventLoop::new().map_err(|e| RaError::Msg(e.to_string()))?;
@@ -43,6 +43,7 @@ pub fn run_shell() -> RaResult<()> {
     };
     app.apply_audio_volumes(music_volume, sound_volume);
     app.apply_present_feel(present);
+    app.apply_skirmish_prefs(skirmish_prefs);
     app.load_min_secs = load_min_secs;
     app.shell_slide_gap_secs = shell_slide_gap_secs;
 
@@ -63,6 +64,7 @@ fn resolve_launch() -> RaResult<(
     f32,
     f32,
     PresentFeel,
+    ra_config::SkirmishLobbyPrefs,
     f64,
     f64,
     Option<PathBuf>,
@@ -89,6 +91,7 @@ fn resolve_launch() -> RaResult<(
                 0.4,
                 0.7,
                 PresentFeel::DEFAULT,
+                ra_config::SkirmishLobbyPrefs::default(),
                 0.0,
                 0.0,
                 status_path,
@@ -116,6 +119,7 @@ fn resolve_launch() -> RaResult<(
         load_min_secs = settings.load_min_secs,
         shell_slide_gap_secs = settings.shell_slide_gap_secs,
         present_mode = settings.present.mode.as_str(),
+        preferred_map = ?settings.skirmish.preferred_map,
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
@@ -125,6 +129,7 @@ fn resolve_launch() -> RaResult<(
         settings.music_volume,
         settings.sound_volume,
         settings.present,
+        settings.skirmish,
         settings.load_min_secs,
         settings.shell_slide_gap_secs,
         None,
