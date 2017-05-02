@@ -352,6 +352,9 @@ impl Shell {
                     self.set_screen(OriginalScreen::MainMenu);
                 }
                 OriginalScreen::SkirmishLobby | OriginalScreen::Campaign => {
+                    if self.screen == OriginalScreen::SkirmishLobby {
+                        self.persist_skirmish_prefs();
+                    }
                     self.set_screen(OriginalScreen::SinglePlayerMenu);
                 }
                 OriginalScreen::ChooseMap => self.cancel_choose_map(),
@@ -373,12 +376,14 @@ impl Shell {
             MenuAction::CycleSide => {
                 self.skirmish.cycle_side();
                 self.banner = format!("阵营 · {}", self.skirmish.side);
+                self.persist_skirmish_prefs();
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }
             MenuAction::CycleDifficulty => {
                 self.skirmish.cycle_difficulty();
                 self.banner = format!("难度 · {}", self.skirmish.difficulty);
+                self.persist_skirmish_prefs();
                 self.refresh_menu_backdrop();
                 self.refresh_shell_title();
             }

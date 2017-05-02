@@ -113,6 +113,7 @@ impl Shell {
             }
             PhysicalKey::Code(KeyCode::Escape) | PhysicalKey::Code(KeyCode::Enter) | PhysicalKey::Code(KeyCode::NumpadEnter) => {
                 self.skirmish.end_name_edit();
+                self.persist_skirmish_prefs();
                 self.refresh_menu_backdrop();
             }
             _ => {
@@ -352,6 +353,7 @@ impl Shell {
         self.selected_mode_id = Some(mode.id);
         self.clamp_selected_map_to_mode_filter();
         self.sync_map_list_scroll_to_selection();
+        self.persist_skirmish_prefs();
         self.refresh_menu_backdrop();
         self.refresh_shell_title();
     }
@@ -378,6 +380,7 @@ impl Shell {
         if let Some(name) = self.selected_map.clone() {
             self.skirmish.preferred_map = Some(name);
         }
+        self.persist_skirmish_prefs();
         self.set_screen(OriginalScreen::SkirmishLobby);
         self.banner = "已选用地图".into();
         self.refresh_shell_title();

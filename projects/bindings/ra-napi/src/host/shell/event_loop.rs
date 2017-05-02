@@ -302,6 +302,9 @@ impl ApplicationHandler for Shell {
                             let consumed = self.skirmish_pointer_consumed;
                             self.skirmish_pointer_consumed = false;
                             self.skirmish.on_release();
+                            if consumed {
+                                self.persist_skirmish_prefs();
+                            }
                             if self.menu_pressed_entry.take().is_some() {
                                 self.refresh_menu_backdrop();
                             }

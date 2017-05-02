@@ -51,6 +51,7 @@ impl Shell {
         }
         self.load_kind = LoadKind::Skirmish;
         self.ensure_lobby_sides();
+        self.persist_skirmish_prefs();
         self.load_brief_origin = None;
         self.load_background_shp = None;
         self.load_background_pal = None;
