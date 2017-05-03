@@ -111,9 +111,11 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
     let defs = defs_from_rules_ini(
         b"[VehicleTypes]\n0=MTNK\n\
 [InfantryTypes]\n0=E1\n\
+[AircraftTypes]\n0=ORCA\n\
 [BuildingTypes]\n0=GAPOWR\n\
 [MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\nPrimary=90mm\n\
 [E1]\nStrength=125\nSpeed=32\nSight=5\nCost=200\nArmor=none\n\
+[ORCA]\nStrength=200\nSpeed=100\nSight=8\nCost=1000\nArmor=light\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n\
 [90mm]\nDamage=100\nROF=8\nRange=6\nWarhead=SA\n\
 [SA]\nVerses=100%,100%,100%,100%,100%,100%,100%,100%,100%,100%,100%\n",
@@ -121,6 +123,7 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
     let gapowr = defs.techno.get("GAPOWR").expect("GAPOWR").id;
     let mtnk = defs.techno.get("MTNK").expect("MTNK").id;
     let e1 = defs.techno.get("E1").expect("E1").id;
+    let orca = defs.techno.get("ORCA").expect("ORCA").id;
     let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
     let russians = defs.houses.get("RUSSIANS").expect("RUSSIANS").id;
 
@@ -164,6 +167,18 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
             mission: Default::default(),
             tag: Default::default(),
         },
+        MapEntity {
+            kind: MapEntityKind::Aircraft,
+            owner: "AMERICANS".into(),
+            type_id: "ORCA".into(),
+            health: 256,
+            x: 12,
+            y: 8,
+            facing: 16,
+            sub_cell: 0,
+            mission: Default::default(),
+            tag: Default::default(),
+        },
     ];
     map.waypoints.push(Waypoint { index: 0, x: 2, y: 3 });
     map.overlays.push(OverlayCell { x: 1, y: 1, overlay_id: 7, data: 0 });
@@ -180,8 +195,8 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
     });
 
     let world = battle_from_defs(GameEdition::Ra2, defs.clone(), map);
-    assert_eq!(world.entity_count(), 3);
-    assert_eq!(world.prepared.placements.len(), 3);
+    assert_eq!(world.entity_count(), 4);
+    assert_eq!(world.prepared.placements.len(), 4);
 
     let structure = world.prepared.placements.iter().find(|p| p.kind == MapPlacedEntityKind::Structure).expect("structure placement");
     assert_eq!(structure.definition_id, gapowr);
@@ -196,6 +211,11 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
     assert_eq!(infantry.definition_id, e1);
     assert_eq!(infantry.owner, russians);
     assert_eq!(infantry.sub_cell, 2);
+
+    let aircraft = world.prepared.placements.iter().find(|p| p.kind == MapPlacedEntityKind::Aircraft).expect("aircraft placement");
+    assert_eq!(aircraft.definition_id, orca);
+    assert_eq!(aircraft.owner, americans);
+    assert_eq!((aircraft.x, aircraft.y), (12, 8));
 
     let idx = |x: u16, y: u16| (y as usize) * (world.prepared.pass_width as usize) + (x as usize);
     assert_eq!(world.prepared.occupancy[idx(4, 4)], occupancy_kind::STRUCTURE);
