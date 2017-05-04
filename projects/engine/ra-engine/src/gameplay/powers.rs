@@ -218,10 +218,7 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
         else {
             continue;
         };
-        let Some(sw_def) = structure
-            .super_weapon_id
-            .and_then(|id| defs.super_weapons.get_by_id(id))
-            .or_else(|| structure.super_weapon.as_ref().and_then(|k| defs.super_weapons.get_name(k)))
+        let Some(sw_def) = structure.super_weapon_id.and_then(|id| defs.super_weapons.get_by_id(id))
         else {
             continue;
         };
@@ -271,7 +268,7 @@ pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &st
             .definitions
             .structures
             .get_by_id(identity.type_id)
-            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id) || s.super_weapon.as_ref() == Some(&type_key))
+            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id))
     });
     if !has_provider {
         return Err(FireSuperWeaponError::NoProvider);

@@ -406,10 +406,7 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         else {
             continue;
         };
-        let Some(def) = structure
-            .super_weapon_id
-            .and_then(|id| world.definitions.super_weapons.get_by_id(id))
-            .or_else(|| structure.super_weapon.as_ref().and_then(|k| world.definitions.super_weapons.get_name(k)))
+        let Some(def) = structure.super_weapon_id.and_then(|id| world.definitions.super_weapons.get_by_id(id))
         else {
             continue;
         };
