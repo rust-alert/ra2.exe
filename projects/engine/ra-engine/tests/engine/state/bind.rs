@@ -243,3 +243,45 @@ fn prepared_map_seed_binds_ids_foundation_house_waypoint_and_overlay() {
     assert_eq!(identity.1, MapEntityKind::Structure);
     assert_eq!(world.ecs_owner(power_id).expect("owner").as_ref(), "AMERICANS");
 }
+
+#[test]
+fn prepared_map_seed_binds_mission_kind() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 0,
+        sub_cell: 0,
+        mission: "Guard".into(),
+        tag: Default::default(),
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.placements[0].mission, Some(ra_types::MissionKind::Guard));
+    assert_eq!(world.entity_count(), 1);
+}
+
+#[test]
+fn unbound_mission_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 0,
+        sub_cell: 0,
+        mission: "NotAMission".into(),
+        tag: Default::default(),
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown mission must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("mission") || msg.contains("NotAMission") || msg.contains("NOTAMISSION"), "{msg}");
+}
