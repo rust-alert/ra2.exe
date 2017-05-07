@@ -138,7 +138,7 @@ pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, l
         return false;
     }
     if techno.class == TechnoClass::Building {
-        if defs.structures.get_name(&techno.type_key).is_some_and(|s| s.construction_yard) {
+        if defs.structures.get_by_id(techno.id).is_some_and(|s| s.construction_yard) {
             return false;
         }
     }
