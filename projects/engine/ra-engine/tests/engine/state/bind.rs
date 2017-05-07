@@ -2,7 +2,7 @@
 
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
-use ra_map::{MapEntity, MapEntityKind, MapHouse, MapInfo, OverlayCell, Waypoint};
+use ra_map::{MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTrigger, OverlayCell, Waypoint};
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
 #[test]
@@ -284,4 +284,79 @@ fn unbound_mission_rejects_battle_seed() {
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown mission must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("mission") || msg.contains("NotAMission") || msg.contains("NOTAMISSION"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_tag_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Trig".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.tags.push(MapTag { id: "T1".into(), persistence: 0, name: "Start".into(), trigger_id: "TR1".into() });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: "T1".into(),
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.tags.len(), 1);
+    assert_eq!(world.prepared.triggers.len(), 1);
+    assert_eq!(world.prepared.placements[0].tag, Some(world.prepared.tags[0].id));
+    assert_eq!(world.prepared.tags[0].trigger_id, world.prepared.triggers[0].id);
+}
+
+#[test]
+fn prepared_map_seed_accepts_none_tag_sentinel() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: "None".into(),
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.placements[0].tag, None);
+}
+
+#[test]
+fn unbound_tag_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "MTNK".into(),
+        health: 256,
+        x: 10,
+        y: 20,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: "MissingTag".into(),
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown tag must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
 }
