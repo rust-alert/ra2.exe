@@ -2,7 +2,7 @@
 
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
-use ra_map::{MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTrigger, OverlayCell, Waypoint};
+use ra_map::{MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTrigger, OverlayCell, Waypoint};
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
 #[test]
@@ -357,6 +357,39 @@ fn unbound_tag_rejects_battle_seed() {
         tag: "MissingTag".into(),
     });
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown tag must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_cell_tag_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Trig".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.tags.push(MapTag { id: "T1".into(), persistence: 0, name: "Cell".into(), trigger_id: "TR1".into() });
+    map.scripting.cell_tags.push(MapCellTag { x: 3, y: 5, tag_id: "T1".into() });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.cell_tags.len(), 1);
+    assert_eq!(world.prepared.cell_tags[0].x, 3);
+    assert_eq!(world.prepared.cell_tags[0].y, 5);
+    assert_eq!(world.prepared.cell_tags[0].tag, world.prepared.tags[0].id);
+}
+
+#[test]
+fn unbound_cell_tag_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.cell_tags.push(MapCellTag { x: 1, y: 1, tag_id: "MissingTag".into() });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown cell tag must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
 }
