@@ -294,12 +294,12 @@ pub fn project_build_items(
         .iter()
         .filter(|s| is_type_eligible(&world.definitions, player, living, s.type_key.as_str()))
         .map(|s| {
-            let techno = world.definitions.techno.get_name(&s.type_key);
+            let techno = world.definitions.techno.get_by_id(s.id);
             let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
             let requires_power = requires_power_plant(&world.definitions, s.id);
             let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
             let key = s.type_key.as_str();
-            let want_id = world.definitions.techno.get(key).map(|t| t.id);
+            let want_id = Some(s.id);
             let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
                 // 已完工：可点选落位，不再检查资金。
                 (true, None)
