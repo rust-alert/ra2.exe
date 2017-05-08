@@ -2,7 +2,9 @@
 
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
-use ra_map::{MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTrigger, OverlayCell, Waypoint};
+use ra_map::{
+    MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTaskForce, MapTaskForceEntry, MapTrigger, OverlayCell, Waypoint,
+};
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
 #[test]
@@ -392,4 +394,37 @@ fn unbound_cell_tag_rejects_battle_seed() {
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown cell tag must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_task_force_techno_ids() {
+    let defs = defs_with_mtnk();
+    let mtnk = defs.techno.get("MTNK").expect("MTNK").id;
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 2, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.task_forces.len(), 1);
+    assert_eq!(world.prepared.task_forces[0].entries.len(), 1);
+    assert_eq!(world.prepared.task_forces[0].entries[0].count, 2);
+    assert_eq!(world.prepared.task_forces[0].entries[0].definition_id, mtnk);
+}
+
+#[test]
+fn unbound_task_force_techno_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Bad".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "NOSUCH".into() }],
+        group: -1,
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown task force techno must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
 }
