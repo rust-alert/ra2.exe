@@ -3,7 +3,8 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{
-    MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapTag, MapTaskForce, MapTaskForceEntry, MapTrigger, OverlayCell, Waypoint,
+    MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapScriptStep, MapScriptType, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType,
+    MapTrigger, OverlayCell, Waypoint,
 };
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
@@ -427,4 +428,69 @@ fn unbound_task_force_techno_rejects_battle_seed() {
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown task force techno must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_team_type_refs() {
+    let defs = defs_with_mtnk();
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.script_types.push(MapScriptType {
+        id: "SC1".into(),
+        name: "Move".into(),
+        steps: vec![MapScriptStep { action: 3, argument: 0 }],
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "TankTeam".into(),
+        house: "Americans".into(),
+        script: "SC1".into(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: 0,
+        max: 1,
+        priority: 10,
+        veteran_level: 0,
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.team_types.len(), 1);
+    assert_eq!(world.prepared.script_types.len(), 1);
+    assert_eq!(world.prepared.task_forces.len(), 1);
+    let team = &world.prepared.team_types[0];
+    assert_eq!(team.house, americans);
+    assert_eq!(team.script, Some(world.prepared.script_types[0].id));
+    assert_eq!(team.task_force, world.prepared.task_forces[0].id);
+    assert_eq!(team.tag, None);
+}
+
+#[test]
+fn unbound_team_type_task_force_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.script_types.push(MapScriptType {
+        id: "SC1".into(),
+        name: "Move".into(),
+        steps: vec![MapScriptStep { action: 3, argument: 0 }],
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "Bad".into(),
+        house: "Americans".into(),
+        script: "SC1".into(),
+        task_force: "MissingTF".into(),
+        tag: Default::default(),
+        waypoint: 0,
+        max: 1,
+        priority: 10,
+        veteran_level: 0,
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown team task force must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("task_force") || msg.contains("MissingTF") || msg.contains("MISSINGTF"), "{msg}");
 }
