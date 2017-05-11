@@ -3,8 +3,8 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{
-    MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapScriptStep, MapScriptType, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType,
-    MapTrigger, OverlayCell, Waypoint,
+    MapAiTrigger, MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapScriptStep, MapScriptType, MapTag, MapTaskForce,
+    MapTaskForceEntry, MapTeamType, MapTrigger, OverlayCell, Waypoint,
 };
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
@@ -493,4 +493,60 @@ fn unbound_team_type_task_force_rejects_battle_seed() {
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown team task force must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("task_force") || msg.contains("MissingTF") || msg.contains("MISSINGTF"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_ai_trigger_team_and_house() {
+    let defs = defs_with_mtnk();
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "TankTeam".into(),
+        house: "Americans".into(),
+        script: Default::default(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: -1,
+        max: 1,
+        priority: 0,
+        veteran_level: 0,
+    });
+    map.scripting.ai_triggers.push(MapAiTrigger {
+        id: "AI1".into(),
+        name: "Spawn".into(),
+        team: "TM1".into(),
+        owner_house: "Americans".into(),
+        tech_level: 1,
+        weight: 50,
+        ..Default::default()
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.ai_triggers.len(), 1);
+    assert_eq!(world.prepared.ai_triggers[0].team, world.prepared.team_types[0].id);
+    assert_eq!(world.prepared.ai_triggers[0].owner_house, Some(americans));
+    assert_eq!(world.prepared.ai_triggers[0].tech_level, 1);
+    assert_eq!(world.prepared.ai_triggers[0].weight, 50);
+}
+
+#[test]
+fn unbound_ai_trigger_team_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.ai_triggers.push(MapAiTrigger {
+        id: "AI1".into(),
+        name: "Broken".into(),
+        team: "MissingTeam".into(),
+        owner_house: "Americans".into(),
+        ..Default::default()
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ai trigger team must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
