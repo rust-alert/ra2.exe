@@ -594,3 +594,73 @@ fn unbound_event_trigger_rejects_battle_seed() {
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
+
+#[test]
+fn prepared_map_seed_binds_create_team_action_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Spawn".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "TankTeam".into(),
+        house: "Americans".into(),
+        script: Default::default(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: -1,
+        max: 1,
+        priority: 0,
+        veteran_level: 0,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::CreateTeam,
+            params: ["0".into(), "TM1".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions.len(), 1);
+    assert_eq!(world.prepared.actions[0].commands[0].team_id, Some(world.prepared.team_types[0].id));
+}
+
+#[test]
+fn unbound_create_team_action_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Spawn".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::CreateTeam,
+            params: ["0".into(), "MissingTeam".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown CreateTeam must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
+}
