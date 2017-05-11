@@ -3,8 +3,8 @@
 use crate::common::{battle_from_defs, defs_from_rules_ini, defs_with_mtnk, map_with_size};
 use ra_engine::ATTACK_COOLDOWN_TICKS;
 use ra_map::{
-    MapAiTrigger, MapCellTag, MapEntity, MapEntityKind, MapHouse, MapInfo, MapScriptStep, MapScriptType, MapTag, MapTaskForce,
-    MapTaskForceEntry, MapTeamType, MapTrigger, OverlayCell, Waypoint,
+    MapAction, MapActionCommand, MapActionKind, MapAiTrigger, MapCellTag, MapEntity, MapEntityKind, MapEvent, MapEventCondition, MapEventKind,
+    MapHouse, MapInfo, MapScriptStep, MapScriptType, MapTag, MapTaskForce, MapTaskForceEntry, MapTeamType, MapTrigger, OverlayCell, Waypoint,
 };
 use ra_types::{GameEdition, MapEdge, MapPlacedEntityKind, TechnoClass, occupancy_kind};
 
@@ -549,4 +549,48 @@ fn unbound_ai_trigger_team_rejects_battle_seed() {
     let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ai trigger team must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_events_and_actions_to_trigger() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Timer".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.events.push(MapEvent {
+        id: "TR1".into(),
+        conditions: vec![MapEventCondition { kind: MapEventKind::TimeElapse, params: vec!["10".into(), "0".into()] }],
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::from_code(1),
+            params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.triggers.len(), 1);
+    assert_eq!(world.prepared.events.len(), 1);
+    assert_eq!(world.prepared.actions.len(), 1);
+    assert_eq!(world.prepared.events[0].trigger_id, world.prepared.triggers[0].id);
+    assert_eq!(world.prepared.actions[0].trigger_id, world.prepared.triggers[0].id);
+    assert_eq!(world.prepared.events[0].conditions[0].kind_code, MapEventKind::TimeElapse.code());
+}
+
+#[test]
+fn unbound_event_trigger_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.events.push(MapEvent { id: "MissingTR".into(), conditions: Vec::new() });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown event trigger must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
