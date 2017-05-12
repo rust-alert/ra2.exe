@@ -664,3 +664,60 @@ fn unbound_create_team_action_rejects_battle_seed() {
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
+
+fn seed_map_with_team(defs_house: &str) -> (MapInfo, String) {
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: defs_house.into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "TankTeam".into(),
+        house: defs_house.into(),
+        script: Default::default(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: -1,
+        max: 1,
+        priority: 0,
+        veteran_level: 0,
+    });
+    (map, "TM1".into())
+}
+
+#[test]
+fn prepared_map_seed_binds_destroy_and_reinforcement_team_actions() {
+    let defs = defs_with_mtnk();
+    let (mut map, team) = seed_map_with_team("Americans");
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::DestroyTeam,
+                params: ["0".into(), team.clone(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::Reinforcement,
+                params: ["0".into(), team, String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands.len(), 2);
+    let team_id = world.prepared.team_types[0].id;
+    assert_eq!(world.prepared.actions[0].commands[0].team_id, Some(team_id));
+    assert_eq!(world.prepared.actions[0].commands[1].team_id, Some(team_id));
+}
