@@ -836,7 +836,7 @@ pub fn boot_world_with_progress(
     })
 }
 
-/// 读取 `RustAlert.toml`（可选）并尝试装载（失败时仍返回带 note 的 `BootResult`）。
+/// 读取桌面 settings（可选）并尝试装载（失败时仍返回带 note 的 `BootResult`）。
 pub fn boot_from_install() -> BootResult {
     boot_from_install_with_request(ra_widgets::skirmish_setup::SkirmishBootRequest::default_lobby())
 }

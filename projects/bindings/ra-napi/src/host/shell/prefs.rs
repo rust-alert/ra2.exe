@@ -1,4 +1,4 @@
-//! 遭遇战大厅偏好：从 `RustAlert.toml` `[skirmish]` 恢复 / 写回。
+//! 遭遇战大厅偏好：从 `state.json` 的 `skirmish` 恢复 / 写回。
 
 use ra_config::SkirmishLobbyPrefs;
 use ra_layout::SKIRMISH_ROW_COUNT;
@@ -73,14 +73,14 @@ impl Shell {
         .sanitized()
     }
 
-    /// 写回 `RustAlert.toml` `[skirmish]`（无变化则跳过；失败只记日志）。
+    /// 写回 `state.json` 遭遇战记忆（无变化则跳过；失败只记日志）。
     pub(super) fn persist_skirmish_prefs(&mut self) {
         let prefs = self.capture_skirmish_prefs();
         if prefs == self.skirmish_prefs {
             return;
         }
         self.skirmish_prefs = prefs.clone();
-        if let Err(e) = ra_config::DesktopSettings::persist_skirmish_prefs(&prefs) {
+        if let Err(e) = ra_config::DesktopState::persist_skirmish(&prefs) {
             tracing::warn!(error = %e, "遭遇战偏好写回失败");
         }
         else {

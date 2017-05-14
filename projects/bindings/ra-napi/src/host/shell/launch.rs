@@ -101,9 +101,13 @@ fn resolve_launch() -> RaResult<(
         }
     }
 
-    // 产品路径：默认可从闪屏起；CLI `--screen` 可直达遭遇战等前置页（不进 TOML）。
+    // 产品路径：默认可从闪屏起；CLI `--screen` 可直达遭遇战等前置页（不进 settings/state）。
     let (settings, diagnostics) = config::load_desktop_config_with_diagnostics();
     for d in &diagnostics {
+        tracing::info!(source = %d.source, "{}", d.message);
+    }
+    let (state, state_diags) = ra_config::DesktopState::load_or_default();
+    for d in &state_diags {
         tracing::info!(source = %d.source, "{}", d.message);
     }
     let display_mode = settings.display_mode;
@@ -119,7 +123,8 @@ fn resolve_launch() -> RaResult<(
         load_min_secs = settings.load_min_secs,
         shell_slide_gap_secs = settings.shell_slide_gap_secs,
         present_mode = settings.present.mode.as_str(),
-        preferred_map = ?settings.skirmish.preferred_map,
+        preferred_map = ?state.skirmish.preferred_map,
+        persist = %ra_config::persist_location_label(),
         ra2_dir = %settings.ra2_dir.display(),
         "desktop launch settings"
     );
@@ -129,7 +134,7 @@ fn resolve_launch() -> RaResult<(
         settings.music_volume,
         settings.sound_volume,
         settings.present,
-        settings.skirmish,
+        state.skirmish,
         settings.load_min_secs,
         settings.shell_slide_gap_secs,
         None,

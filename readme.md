@@ -28,29 +28,46 @@ ra2 launch --path "C:/Games/RA2" --edition ra2 --screen skirmish
 
 `--path` 指向含零售 MIX/INI 的安装根目录。壳层 UI 当前以 **RA2** 资源链对照为主；混装安装请始终加 `--edition ra2`。
 
-`--screen` 为 **CLI / N-API 独有**启动页（大小写不敏感，不进 `RustAlert.toml`）：`splash`（默认）、`main`、`single`、`campaign`、
+`--screen` 为 **CLI / N-API 独有**启动页（大小写不敏感，不进 `settings.json` / `state.json`）：`splash`（默认）、`main`、`single`、`campaign`、
 `skirmish`（亦接受 `lobby`）、`choose_map`、`options`。不能用于需要已装载对局的 `battle` / `load_screen` / `results`。
 
 ---
 
 ## 准备游戏数据与配置
 
-也可在工作目录放置 `RustAlert.toml`，用于分辨率、显示与其它启动选项。模板见 `RustAlert.toml.example`。
-若启动时尚无该文件，程序会自动生成一份默认配置以便持久化。 **CLI `--path` 优先于**其中的 `ra2_dir`。
+用户数据目录名统一为 **`rust-alert2`**：
 
-```toml
-# 仅当未用 CLI --path、且工作目录不在游戏安装根内时需要显式写出
-ra2_dir = "C:/path/to/your/ra2"
-edition = "ra2"
+| 平台 | 位置 |
+|------|------|
+| Windows | `%LOCALAPPDATA%/rust-alert2/` |
+| macOS | `~/Library/Application Support/rust-alert2/` |
+| Linux 等 | `$XDG_DATA_HOME/rust-alert2/` 或 `~/.local/share/rust-alert2/` |
+| Web | `localStorage` 键 `rust-alert2.settings` / `rust-alert2.state` |
+
+其中：
+
+- **`settings.json`**：启动 / 选项配置（分辨率、音量、质感呈现、`ra2_dir` 等）
+- **`state.json`**：可变用户状态（遭遇战大厅上次选择等）
+
+可用环境变量 `RUST_ALERT2_DATA_DIR` 覆盖桌面用户数据根目录。**CLI `--path` 优先于** `settings.json` 里的 `ra2_dir`。
+
+缺省 `ra2_dir` 为可执行文件所在目录（把客户端放进安装根即可试跑）。仅当未用 CLI `--path`、且 exe 不在游戏安装根内时，才需在 `settings.json` 写出安装路径：
+
+```json
+{
+  "ra2_dir": "C:/path/to/your/ra2",
+  "edition": "ra2"
+}
 ```
 
-| 键                     | 说明                                                                     |
-|------------------------|--------------------------------------------------------------------------|
-| `ra2_dir` / `game_dir` | 含零售 MIX、INI 的游戏目录；CLI `--path` 覆盖此项                        |
-| `edition`              | `ra2` 或 `yr`（另支持若干别名，见 `ra-types`）；省略则按目录特征自动探测 |
+| 键 | 说明 |
+|----|------|
+| `ra2_dir` | 含零售 MIX、INI 的游戏目录；CLI `--path` 覆盖此项 |
+| `edition` | `ra2` 或 `yr`（另支持若干别名，见 `ra-types`）；省略则按目录特征自动探测 |
 
-若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时须显式写明 `edition`（或 CLI `--edition`）。配置由 `toml_edit`
-读写（可保留注释）。
+若目录同时具备原版与尤里的复仇特征，自动探测会报歧义，此时须显式写明 `edition`（或 CLI `--edition`）。
+
+若本机仍有遗留的 exe 旁 `RustAlert.toml`，且用户数据目录尚无 JSON，启动时会**只读迁移一次**到 `settings.json` / `state.json`，不再写回 TOML。
 
 ---
 

@@ -1,4 +1,4 @@
-# OS
+﻿# OS
 .DS_Store/
 thumbs.db
 time-travel.*
@@ -18,10 +18,10 @@ node_modules/
 dist/
 *.node
 
-# wasm-pack 产物（CI / 本地 `build:wasm` 生成，不入库）
+# wasm-pack 浜х墿锛圕I / 鏈湴 `build:wasm` 鐢熸垚锛屼笉鍏ュ簱锛?
 projects/platforms/wasm/**/pkg/
 
-# 运行时日志目录（`ra-logger` 写入 logs/rust-ra2.log）
+# 杩愯鏃舵棩蹇楃洰褰曪紙`ra-logger` 鍐欏叆 logs/rust-ra2.log锛?
 logs/
 tmp/
 *.txt
@@ -31,10 +31,10 @@ tmp/
 # Python
 __pycache__/
 
-# 本地启动配置（保留 RustAlert.toml.example）
+# 遗留本地 TOML（已改用用户数据目录 JSON；勿提交）
 RustAlert.toml
 
-# 本机探查 / 截图 / 临时导出（禁止入库，也不跑 CI）
+# 鏈満鎺㈡煡 / 鎴浘 / 涓存椂瀵煎嚭锛堢姝㈠叆搴擄紝涔熶笉璺?CI锛?
 _tmp_*/
 _tmp_*
 **/tests/diag_*.rs
@@ -48,6 +48,6 @@ _tmp_*
 **/examples/_tmp_*.rs
 **/examples/tmp_*.rs
 
-# 壳页验收截图（F12 / 自动测试 dump，勿提交）
+# 澹抽〉楠屾敹鎴浘锛團12 / 鑷姩娴嬭瘯 dump锛屽嬁鎻愪氦锛?
 screenshots/
 **/screenshots/

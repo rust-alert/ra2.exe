@@ -35,7 +35,7 @@ pub struct Shell {
     pub(super) window_height: f64,
     /// 客户区分辨率档（布局与缓冲基准，非自由拉伸）。
     pub(super) display_mode: DisplayMode,
-    /// 壳层质感呈现（来自 `RustAlert.toml` `[present]`）。
+    /// 壳层质感呈现（来自 `settings.json` 的 `present`）。
     pub(super) present: PresentFeel,
     pub(super) status_path: Option<PathBuf>,
     pub(super) test_scene: Option<String>,
@@ -43,7 +43,7 @@ pub struct Shell {
     pub(super) startup_splash: Option<StartupSplashPresentation>,
     /// 闪屏最短展示秒数（首次成功 present 后起算；可调，默认 3）。
     pub(super) splash_min_secs: f64,
-    /// 遭遇战装载页最短展示秒数（`RustAlert.toml` 的 `load_min_secs`，默认 3；`0` 关闭）。
+    /// 遭遇战装载页最短展示秒数（`settings.json` 的 `load_min_secs`，默认 3；`0` 关闭）。
     pub(super) load_min_secs: f64,
     /// 壳层切页出去→进来之间的停顿秒数（模拟原版重型机械卡顿；`0` 关闭）。
     pub(super) shell_slide_gap_secs: f64,
@@ -146,7 +146,7 @@ pub struct Shell {
     pub(super) auto_screenshots: super::screenshot::AutoScreenshotTracker,
     /// 遭遇战大厅阵营 / 难度（进入装载请求）。
     pub(super) skirmish: SkirmishBootRequest,
-    /// 遭遇战大厅持久化偏好（启动加载；变更后写回 `RustAlert.toml`）。
+    /// 遭遇战大厅持久化偏好（启动自 `state.json`；变更后写回）。
     pub(super) skirmish_prefs: SkirmishLobbyPrefs,
     /// 进入选图页前的 `preferred_map` 快照（取消时还原）。
     pub(super) choose_map_revert: Option<Option<String>>,

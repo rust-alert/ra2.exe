@@ -1,7 +1,7 @@
 //! 本机安装扫图（**不进默认 CI**）。
 //!
 //! 运行：`RA2_DIR=… cargo test -p ra-napi --test install_map_scan -- --ignored --nocapture`
-//! 也可在工作区放置 gitignore 的 `RustAlert.toml`（`ra2_dir=`）。
+//! 也可依赖用户数据目录 `settings.json` 的 `ra2_dir`，或遗留 exe 旁 `RustAlert.toml`。
 //! 缺安装目录时直接 return。**禁止**硬编码盘符路径。
 
 use std::path::PathBuf;
@@ -13,12 +13,12 @@ use ra_types::{AssetSource, GameEdition};
 use ra_widgets::fs_source::GameAssetSource;
 
 #[test]
-#[ignore = "需要本机安装：设 RA2_DIR 或本地 RustAlert.toml"]
+#[ignore = "需要本机安装：设 RA2_DIR 或 settings.json / 遗留 RustAlert.toml"]
 fn install_discover_and_parse_skirmish_maps() {
     let search = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let Some((root, edition)) = resolve_optional_install_root(&search)
     else {
-        eprintln!("skip · 未找到安装目录（RA2_DIR / RustAlert.toml）");
+        eprintln!("skip · 未找到安装目录（RA2_DIR / settings.json / 遗留 RustAlert.toml）");
         return;
     };
     let explicit = edition.as_deref().and_then(|s| GameEdition::parse(s).ok());
