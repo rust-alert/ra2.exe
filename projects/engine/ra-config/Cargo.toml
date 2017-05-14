@@ -7,12 +7,17 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
-description = "启动配置加载、合并与诊断（RustAlert.toml）"
-keywords = ["red-alert-2", "config", "toml"]
+description = "桌面 settings/state JSON 与启动覆盖（平台用户数据目录 / Web localStorage）"
+keywords = ["red-alert-2", "config", "json"]
 categories = ["game-development"]
 publish = false
 
 [dependencies]
 ra-types = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+# 仅用于一次性读取遗留 exe 旁 `RustAlert.toml`。
 toml_edit = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true }

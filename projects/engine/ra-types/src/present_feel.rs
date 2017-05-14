@@ -3,7 +3,7 @@
 //! 原版零售客户区多为 RGB565。呈现侧只做 **16 位截断量化 + 满量程线性展开**
 //! （可选有序抖动）。亮度观感由资源解码（如 BIK 色域）决定，不用显示伽马拧 UI。
 //!
-//! 落盘形态为 `RustAlert.toml` 的 `[present]` 表，由 `toml_edit` + serde 读写。
+//! 落盘形态为用户数据目录 `settings.json` 的 `present` 对象（Web 为 localStorage）。
 
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ impl PresentQuantize {
     }
 }
 
-/// 壳层质感呈现参数集（对应 `RustAlert.toml` 的 `[present]`）。
+/// 壳层质感呈现参数集（对应 `settings.json` 的 `present`）。
 ///
 /// 默认：`16bit` + `rgb565` 截断往返 + 有序抖动。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

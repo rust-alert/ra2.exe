@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use ra_config::{
-    ConfigLayer, ConfigTable, DesktopSettings, MergedConfig, RustAlertDocument, SkirmishLobbyPrefs, parse_toml_document, present_feel_from_toml_text,
-    skirmish_prefs_from_toml_text,
+    ConfigLayer, ConfigTable, DesktopSettings, DesktopState, MergedConfig, NativeDirStore, SkirmishLobbyPrefs,
+    parse_toml_document, set_test_user_data_dir,
 };
 use ra_types::DisplayMode;
 
@@ -12,9 +12,12 @@ use ra_types::DisplayMode;
 fn launch_override_screen_is_cli_only() {
     ra_config::clear_launch_override();
     assert_eq!(ra_config::launch_override_screen(), None);
-    ra_config::set_launch_override(ra_config::LaunchOverride { ra2_dir: PathBuf::from("."), edition: None, screen: Some("skirmish".into()) });
+    ra_config::set_launch_override(ra_config::LaunchOverride {
+        ra2_dir: PathBuf::from("."),
+        edition: None,
+        screen: Some("skirmish".into()),
+    });
     assert_eq!(ra_config::launch_override_screen().as_deref(), Some("skirmish"));
-    // TOML 键 `screen` 不得进入 DesktopSettings。
     let mut table = ConfigTable::new();
     table.insert("ra2_dir", ".");
     table.insert("screen", "skirmish");
@@ -42,43 +45,6 @@ fn parse_toml_keeps_string_keys_and_skips_comments() {
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(t.get("ra2_dir"), Some("D:/RA2"));
     assert_eq!(t.get("edition"), Some("yr"));
-}
-
-#[test]
-fn rust_alert_document_round_trip_preserves_comment() {
-    let dir = std::env::temp_dir()
-        .join(format!("ra_config_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("RustAlert.toml");
-    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n").unwrap();
-
-    let mut doc = RustAlertDocument::open(&path).unwrap();
-    assert_eq!(doc.get_str("ra2_dir").as_deref(), Some("C:/Games/RA2"));
-    doc.set_str("edition", "yr");
-    doc.save().unwrap();
-
-    let text = std::fs::read_to_string(&path).unwrap();
-    assert!(text.contains("# keep me"), "{text}");
-    assert!(text.contains("edition"), "{text}");
-
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn ensure_creates_missing_toml_once() {
-    let dir = std::env::temp_dir()
-        .join(format!("ra_config_ensure_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("RustAlert.toml");
-    assert!(!path.is_file());
-
-    assert!(ra_config::ensure_rust_alert_toml(&path).unwrap());
-    assert!(path.is_file());
-    let text = std::fs::read_to_string(&path).unwrap();
-    assert!(text.contains("ra2_dir"), "{text}");
-    assert!(!ra_config::ensure_rust_alert_toml(&path).unwrap());
-
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -155,55 +121,62 @@ fn shell_slide_gap_secs_from_merged_and_disable() {
 }
 
 #[test]
-fn present_table_serde_roundtrip_preserves_other_keys() {
-    let dir = std::env::temp_dir()
-        .join(format!("ra_config_present_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("RustAlert.toml");
-    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n\n[present]\nmode = \"off\"\ndither = false\n").unwrap();
-
-    let mut doc = RustAlertDocument::open(&path).unwrap();
-    let (feel, diags) = doc.present_feel();
-    assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(feel.mode, ra_types::PresentMode::Off);
-
-    let mut next = feel;
-    next.mode = ra_types::PresentMode::Bit16;
-    next.dither = true;
-    doc.set_present_feel(&next).unwrap();
-    doc.save().unwrap();
-
-    let text = std::fs::read_to_string(&path).unwrap();
-    assert!(text.contains("# keep me"), "{text}");
-    assert!(text.contains("ra2_dir"), "{text}");
-    assert!(text.contains("[present]"), "{text}");
-    assert!(text.contains("16bit"), "{text}");
-
-    let (again, diags) = present_feel_from_toml_text(&text, "t");
-    assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(again.mode, ra_types::PresentMode::Bit16);
-    assert!(again.dither);
-
-    let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn parse_toml_skips_present_table_without_diag() {
-    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[present]\nmode = \"16bit\"\n", "t");
+fn parse_toml_skips_present_and_skirmish_tables_without_diag() {
+    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[present]\nmode = \"16bit\"\n\n[skirmish]\nplayer_name = \"X\"\n", "t");
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(t.get("ra2_dir"), Some("."));
     assert!(t.get("mode").is_none());
+    assert!(t.get("player_name").is_none());
+}
+
+struct TempDataDir {
+    path: PathBuf,
+    _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+impl TempDataDir {
+    fn new(tag: &str) -> Self {
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        ra_config::clear_launch_override();
+        let path = std::env::temp_dir().join(format!(
+            "ra_config_{tag}_{}",
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        set_test_user_data_dir(Some(path.clone()));
+        Self { path, _guard: guard }
+    }
+}
+
+impl Drop for TempDataDir {
+    fn drop(&mut self) {
+        set_test_user_data_dir(None);
+        ra_config::clear_launch_override();
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
 }
 
 #[test]
-fn skirmish_prefs_round_trip_preserves_comment_and_values() {
-    let dir = std::env::temp_dir()
-        .join(format!("ra_config_skirmish_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("RustAlert.toml");
-    std::fs::write(&path, "# keep me\nra2_dir = \"C:/Games/RA2\"\n").unwrap();
+fn settings_json_round_trip() {
+    let _tmp = TempDataDir::new("settings");
+    let mut s = DesktopSettings::default();
+    s.display_mode = DisplayMode::W800H600;
+    s.music_volume = 0.33;
+    s.present.dither = false;
+    s.persist().unwrap();
 
-    let mut doc = RustAlertDocument::open(&path).unwrap();
+    let (again, diags) = DesktopSettings::load_or_default();
+    assert!(diags.iter().all(|d| !d.message.contains("解析失败")), "{diags:?}");
+    assert_eq!(again.display_mode, DisplayMode::W800H600);
+    assert!((again.music_volume - 0.33).abs() < 1e-6);
+    assert!(!again.present.dither);
+}
+
+#[test]
+fn state_json_skirmish_round_trip() {
+    let _tmp = TempDataDir::new("state");
     let prefs = SkirmishLobbyPrefs {
         preferred_map: Some("mp01t4.map".into()),
         mode_id: Some(1),
@@ -222,48 +195,78 @@ fn skirmish_prefs_round_trip_preserves_comment_and_values() {
         unit_count: 5,
     }
     .sanitized();
-    doc.set_skirmish_prefs(&prefs).unwrap();
-    doc.save().unwrap();
+    DesktopState::persist_skirmish(&prefs).unwrap();
 
-    let text = std::fs::read_to_string(&path).unwrap();
-    assert!(text.contains("# keep me"), "{text}");
-    assert!(text.contains("[skirmish]"), "{text}");
-    assert!(text.contains("mp01t4.map"), "{text}");
-
-    let (again, diags) = skirmish_prefs_from_toml_text(&text, "t");
-    assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(again.preferred_map.as_deref(), Some("mp01t4.map"));
-    assert_eq!(again.mode_id, Some(1));
-    assert_eq!(again.player_name, "Commander");
-    assert_eq!(again.row_countries, vec!["Americans", "Russians"]);
-    assert_eq!(again.row_colors, vec![0, 2]);
-    assert_eq!(again.difficulty, "Hard");
-    assert!(!again.short_game);
-    assert!(!again.crates);
-    assert!(again.build_off_ally);
-    assert_eq!(again.game_speed, 4);
-    assert_eq!(again.credits, 5000);
-    assert_eq!(again.tech_level, 8);
-    assert_eq!(again.unit_count, 5);
-
-    let _ = std::fs::remove_dir_all(&dir);
+    let (state, diags) = DesktopState::load_or_default();
+    assert!(diags.iter().all(|d| !d.message.contains("解析失败")), "{diags:?}");
+    assert_eq!(state.skirmish.preferred_map.as_deref(), Some("mp01t4.map"));
+    assert_eq!(state.skirmish.mode_id, Some(1));
+    assert_eq!(state.skirmish.player_name, "Commander");
+    assert_eq!(state.skirmish.row_countries, vec!["Americans", "Russians"]);
+    assert_eq!(state.skirmish.difficulty, "Hard");
+    assert!(!state.skirmish.short_game);
+    assert_eq!(state.skirmish.game_speed, 4);
 }
 
 #[test]
-fn parse_toml_skips_skirmish_table_without_diag() {
-    let (t, d) = parse_toml_document("ra2_dir = \".\"\n\n[skirmish]\nplayer_name = \"X\"\n", "t");
-    assert!(d.is_empty(), "{d:?}");
-    assert_eq!(t.get("ra2_dir"), Some("."));
-    assert!(t.get("player_name").is_none());
+fn legacy_toml_migrates_once_into_json() {
+    let _tmp = TempDataDir::new("legacy");
+    let store = NativeDirStore;
+    let toml = r#"
+# keep me
+ra2_dir = "C:/Games/RA2"
+edition = "ra2"
+music_volume = 0.2
+
+[present]
+mode = "off"
+dither = false
+
+[skirmish]
+preferred_map = "mp01t4.map"
+player_name = "Commander"
+difficulty = "Hard"
+"#;
+    let (migrated, diags) = ra_config::migrate_toml_text_to_store(toml, "legacy.toml", &store, true, true);
+    assert!(migrated.settings.is_some());
+    assert!(migrated.state.is_some());
+    assert!(diags.iter().any(|d| d.message.contains("settings.json")), "{diags:?}");
+    assert!(diags.iter().any(|d| d.message.contains("state.json")), "{diags:?}");
+
+    let (s2, _) = DesktopSettings::load_or_default_from(&store);
+    assert_eq!(s2.ra2_dir, PathBuf::from("C:/Games/RA2"));
+    assert!((s2.music_volume - 0.2).abs() < 1e-6);
+    assert_eq!(s2.present.mode, ra_types::PresentMode::Off);
+    let (st2, _) = DesktopState::load_or_default_from(&store);
+    assert_eq!(st2.skirmish.preferred_map.as_deref(), Some("mp01t4.map"));
+    assert_eq!(st2.skirmish.player_name, "Commander");
+    assert_eq!(st2.skirmish.difficulty, "Hard");
 }
 
 #[test]
-fn optional_install_root_reads_toml_under_search_path() {
+fn optional_install_root_reads_settings_json() {
+    let _tmp = TempDataDir::new("install");
+    let fake_game = _tmp.path.join("game");
+    std::fs::create_dir_all(&fake_game).unwrap();
+    let mut s = DesktopSettings::default();
+    s.ra2_dir = fake_game.clone();
+    s.edition = Some("ra2".into());
+    s.persist().unwrap();
+
+    let (root, edition) = ra_config::resolve_optional_install_root(&_tmp.path).expect("settings root");
+    assert_eq!(root, fake_game);
+    assert_eq!(edition.as_deref(), Some("ra2"));
+}
+
+#[test]
+fn optional_install_root_reads_legacy_toml_under_search_path() {
     let dir = std::env::temp_dir().join(format!("ra-config-install-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let fake_game = dir.join("game");
     std::fs::create_dir_all(&fake_game).unwrap();
+    // 确保 settings 不抢优先：用独立 test data dir
+    let _tmp = TempDataDir::new("install_legacy");
     std::fs::write(
         dir.join("RustAlert.toml"),
         format!("ra2_dir = \"{}\"\nedition = \"ra2\"\n", fake_game.display().to_string().replace('\\', "/")),
@@ -273,7 +276,6 @@ fn optional_install_root_reads_toml_under_search_path() {
     let (root, edition) = ra_config::resolve_optional_install_root(&dir).expect("toml root");
     assert_eq!(root, fake_game);
     assert_eq!(edition.as_deref(), Some("ra2"));
-    assert!(ra_config::resolve_optional_install_root(&dir.join("missing-child")).is_some());
 
     let _ = std::fs::remove_dir_all(&dir);
 }
