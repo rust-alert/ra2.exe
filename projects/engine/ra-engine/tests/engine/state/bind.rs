@@ -783,3 +783,149 @@ fn unbound_force_trigger_action_rejects_battle_seed() {
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
+
+#[test]
+fn prepared_map_seed_binds_destroy_tag_action_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.tags.push(MapTag { id: "T1".into(), persistence: 0, name: "Tagged".into(), trigger_id: "TR1".into() });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::DestroyTag,
+            params: ["0".into(), "T1".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands[0].tag_id, Some(world.prepared.tags[0].id));
+}
+
+#[test]
+fn unbound_destroy_tag_action_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::DestroyTag,
+            params: ["0".into(), "MissingTag".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown DestroyTag must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_enable_and_disable_trigger_actions() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Src".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR2".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Dst".into(),
+        disabled: true,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::EnableTrigger,
+                params: ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::DisableTrigger,
+                params: ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let tr2 = world.prepared.triggers.iter().find(|t| t.name.as_str() == "TR2").expect("TR2");
+    assert_eq!(world.prepared.actions[0].commands[0].target_trigger_id, Some(tr2.id));
+    assert_eq!(world.prepared.actions[0].commands[1].target_trigger_id, Some(tr2.id));
+}
+
+#[test]
+fn prepared_map_seed_binds_linked_trigger_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "First".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR2".into(),
+        house: "Americans".into(),
+        linked: "TR1".into(),
+        name: "Second".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.triggers.len(), 2);
+    let tr1 = world.prepared.triggers.iter().find(|t| t.name.as_str() == "TR1").expect("TR1");
+    let tr2 = world.prepared.triggers.iter().find(|t| t.name.as_str() == "TR2").expect("TR2");
+    assert_eq!(tr1.linked, None);
+    assert_eq!(tr2.linked, Some(tr1.id));
+}
+
+#[test]
+fn unbound_linked_trigger_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: "MissingTR".into(),
+        name: "Broken".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown linked trigger must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
+}
