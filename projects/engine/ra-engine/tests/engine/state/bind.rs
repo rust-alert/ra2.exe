@@ -721,3 +721,65 @@ fn prepared_map_seed_binds_destroy_and_reinforcement_team_actions() {
     assert_eq!(world.prepared.actions[0].commands[0].team_id, Some(team_id));
     assert_eq!(world.prepared.actions[0].commands[1].team_id, Some(team_id));
 }
+
+#[test]
+fn prepared_map_seed_binds_force_trigger_action_id() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Src".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR2".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Dst".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::ForceTrigger,
+            params: ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let tr2 = world.prepared.triggers.iter().find(|t| t.name.as_str() == "TR2").expect("TR2");
+    assert_eq!(world.prepared.actions[0].commands[0].target_trigger_id, Some(tr2.id));
+}
+
+#[test]
+fn unbound_force_trigger_action_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Src".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::ForceTrigger,
+            params: ["0".into(), "MissingTR".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ForceTrigger must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
+}
