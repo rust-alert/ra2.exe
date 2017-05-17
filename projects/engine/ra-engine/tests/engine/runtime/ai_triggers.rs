@@ -287,6 +287,8 @@ fn ai_trigger_own_super_weapon_charge_condition_gates_spawn() {
     let defs = defs_from_rules_ini(
         b"[InfantryTypes]\n0=E1\n\
 [BuildingTypes]\n0=NACNST\n\
+[SuperWeaponTypes]\n0=MultiSpecial\n\
+[MultiSpecial]\nType=MultiMissile\nAction=MultiMissile\nRechargeTime=10\n\
 [E1]\nStrength=125\nSpeed=4\nSight=5\nCost=200\nArmor=none\nOwner=Russians\n\
 [NACNST]\nConstructionYard=yes\nOwner=Russians\nStrength=1000\nSight=8\nCost=2500\nArmor=concrete\n",
     );

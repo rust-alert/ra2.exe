@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse, MapPlacedEntity,
-    MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction,
+    AiTriggerConditionKind, AiTriggerId, HouseId, HouseName, MapAction, MapActionCommand, MapAiTrigger, MapCellTag, MapEvent, MapHouse,
+    MapPlacedEntity, MapPlacedEntityKind, MapScriptType, MapTag, MapTaskForce, MapTeamType, MapTrigger, MissionKind, MissionName, PreparedAction,
     PreparedActionCommand, PreparedAiTrigger, PreparedCellTag, PreparedEvent, PreparedHouse, PreparedMap, PreparedPlacement,
     PreparedScriptType, PreparedTag, PreparedTaskForce, PreparedTaskForceEntry, PreparedTeamType, PreparedTrigger, RaError, RaResult,
-    RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, TagId, TagName, TaskForceId, TaskForceName, TeamTypeId, TechnoName,
-    TriggerId, TriggerName, TypeId, occupancy_kind,
+    RuntimeDefinitions, ScriptTypeId, ScriptTypeName, StructureDefinitions, SuperWeaponName, TagId, TagName, TaskForceId, TaskForceName,
+    TeamTypeId, TechnoName, TriggerId, TriggerName, TypeId, occupancy_kind,
 };
 
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
@@ -397,6 +397,7 @@ pub fn bind_map_ai_triggers(
         else {
             Some(bind_house_id(defs, &trigger.owner_house, &format!("MapAiTrigger:{}", trigger.id.as_str()))?)
         };
+        let condition_object_id = bind_ai_trigger_condition_object(defs, trigger)?;
         let id = AiTriggerId(next);
         next = next.saturating_add(1);
         out.push(PreparedAiTrigger {
@@ -407,7 +408,7 @@ pub fn bind_map_ai_triggers(
             owner_house,
             tech_level: trigger.tech_level,
             condition: trigger.condition,
-            condition_object: trigger.condition_object.clone(),
+            condition_object_id,
             compare_amount: trigger.compare_amount,
             compare_op: trigger.compare_op,
             for_skirmish: trigger.for_skirmish,
@@ -563,6 +564,51 @@ fn bind_techno_id(defs: &RuntimeDefinitions, name: &TechnoName, owner: &str) -> 
         name: name.as_str().to_string(),
         owner: owner.to_string(),
     })
+}
+
+fn bind_super_weapon_id(defs: &RuntimeDefinitions, name: &TechnoName, owner: &str) -> RaResult<TypeId> {
+    if name.is_empty() {
+        return Err(RaError::UnknownReference {
+            kind: "super_weapon",
+            name: String::new(),
+            owner: owner.to_string(),
+        });
+    }
+    let sw = SuperWeaponName::parse(name.as_str());
+    defs.super_weapons.get_name(&sw).map(|d| d.id).ok_or_else(|| RaError::UnknownReference {
+        kind: "super_weapon",
+        name: name.as_str().to_string(),
+        owner: owner.to_string(),
+    })
+}
+
+/// 按条件种类绑定 `condition_object`；空名保持 `None`；无关条件忽略对象列。
+fn bind_ai_trigger_condition_object(defs: &RuntimeDefinitions, trigger: &MapAiTrigger) -> RaResult<Option<TypeId>> {
+    let owner = format!("MapAiTrigger:{}:condition_object", trigger.id.as_str());
+    match trigger.condition {
+        AiTriggerConditionKind::EnemyOwns | AiTriggerConditionKind::OwnOwns | AiTriggerConditionKind::NeutralOwns => {
+            if trigger.condition_object.is_empty() {
+                Ok(None)
+            }
+            else {
+                bind_techno_id(defs, &trigger.condition_object, &owner).map(Some)
+            }
+        }
+        AiTriggerConditionKind::OwnSuperWeaponCharge => {
+            if trigger.condition_object.is_empty() {
+                Ok(None)
+            }
+            else {
+                bind_super_weapon_id(defs, &trigger.condition_object, &owner).map(Some)
+            }
+        }
+        AiTriggerConditionKind::Always
+        | AiTriggerConditionKind::EnemyYellowPower
+        | AiTriggerConditionKind::EnemyRedPower
+        | AiTriggerConditionKind::EnemyCredits
+        | AiTriggerConditionKind::OwnCredits
+        | AiTriggerConditionKind::Unsupported(_) => Ok(None),
+    }
 }
 
 fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> RaResult<HouseId> {

@@ -279,17 +279,17 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
         AiTriggerConditionKind::Always => true,
         AiTriggerConditionKind::Unsupported(_) => false,
         AiTriggerConditionKind::EnemyOwns => {
-            let n = count_type_owned_by(world, &at.condition_object, |h| {
+            let n = count_type_owned_by(world, at.condition_object_id, |h| {
                 !h.eq_ignore_ascii_case(owner_house) && !houses_are_allied(world, owner_house, h) && !is_ambient_house(h)
             });
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::OwnOwns => {
-            let n = count_type_owned_by(world, &at.condition_object, |h| h.eq_ignore_ascii_case(owner_house));
+            let n = count_type_owned_by(world, at.condition_object_id, |h| h.eq_ignore_ascii_case(owner_house));
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::NeutralOwns => {
-            let n = count_type_owned_by(world, &at.condition_object, is_ambient_house);
+            let n = count_type_owned_by(world, at.condition_object_id, is_ambient_house);
             at.compare_op.compare(n, at.compare_amount)
         }
         AiTriggerConditionKind::EnemyYellowPower => any_enemy_player(world, owner_house, |p| p.low_power()),
@@ -303,22 +303,27 @@ fn ai_trigger_condition_holds(world: &BattleState, owner_house: &str, at: &Prepa
             at.compare_op.compare(credits, at.compare_amount)
         }
         AiTriggerConditionKind::OwnSuperWeaponCharge => {
-            let pct = own_super_weapon_charge_percent(world, owner_house, &at.condition_object);
+            let pct = own_super_weapon_charge_percent(world, owner_house, at.condition_object_id);
             at.compare_op.compare(pct, at.compare_amount)
         }
     }
 }
 
-fn own_super_weapon_charge_percent(world: &BattleState, owner_house: &str, object: &ra_types::TechnoName) -> i32 {
-    // `condition_object` 在超武条件下承载超武类型名（与 Techno 共用 Name 存储）。
-    let needle = object.as_str();
+fn own_super_weapon_charge_percent(world: &BattleState, owner_house: &str, object_id: Option<ra_types::TypeId>) -> i32 {
+    let filter_key = object_id.and_then(|id| world.definitions.super_weapons.get_by_id(id).map(|d| d.type_key.clone()));
     let mut best = 0i32;
     let Some(list) = world.super_weapon_runtime.charges_for_house(owner_house)
     else {
         return 0;
     };
     for slot in list {
-        if !needle.is_empty() && !slot.type_key.as_str().eq_ignore_ascii_case(needle) {
+        if let Some(ref needle) = filter_key {
+            if &slot.type_key != needle {
+                continue;
+            }
+        }
+        else if object_id.is_some() {
+            // 已绑定但定义表丢失：不匹配任何槽。
             continue;
         }
         let req = slot.required_ticks.max(1);
@@ -330,14 +335,14 @@ fn own_super_weapon_charge_percent(world: &BattleState, owner_house: &str, objec
     best
 }
 
-fn count_type_owned_by<F>(world: &BattleState, type_key: &ra_types::TechnoName, house_ok: F) -> i32
+fn count_type_owned_by<F>(world: &BattleState, type_id: Option<ra_types::TypeId>, house_ok: F) -> i32
 where
     F: Fn(&str) -> bool,
 {
-    if type_key.is_empty() {
+    let Some(needle) = type_id
+    else {
         return 0;
-    }
-    let needle = type_key.as_str();
+    };
     let mut n = 0i32;
     for e in &world.entities {
         let id = e.id;
@@ -355,7 +360,7 @@ where
         else {
             continue;
         };
-        if crate::gameplay::type_key_of(&world.definitions, identity.type_id).eq_ignore_ascii_case(needle) {
+        if identity.type_id == needle {
             n = n.saturating_add(1);
             // 建筑按座计数即可；Foundation 展开不在 ECS Identity 重复。
             let _ = identity.kind == MapEntityKind::Structure;

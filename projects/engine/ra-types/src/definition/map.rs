@@ -1984,8 +1984,8 @@ pub struct PreparedAiTrigger {
     pub tech_level: i32,
     /// 条件种类。
     pub condition: AiTriggerConditionKind,
-    /// 条件对象类型键（可空）。
-    pub condition_object: TechnoName,
+    /// 条件对象稳定 id（拥有类 = Techno；超武充能 = SuperWeapon）；空名为 `None`。
+    pub condition_object_id: Option<crate::TypeId>,
     /// 比较阈值。
     pub compare_amount: i32,
     /// 比较运算符。

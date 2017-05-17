@@ -636,6 +636,79 @@ fn unbound_ai_trigger_team2_rejects_battle_seed() {
 }
 
 #[test]
+fn prepared_map_seed_binds_ai_trigger_condition_object_id() {
+    let defs = defs_with_mtnk();
+    let mtnk = defs.techno.get("MTNK").expect("MTNK").id;
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "Primary".into(),
+        house: "Americans".into(),
+        script: Default::default(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: -1,
+        max: 1,
+        priority: 0,
+        veteran_level: 0,
+    });
+    map.scripting.ai_triggers.push(MapAiTrigger {
+        id: "AI1".into(),
+        name: "OwnTank".into(),
+        team: "TM1".into(),
+        owner_house: "Americans".into(),
+        condition: ra_types::AiTriggerConditionKind::OwnOwns,
+        condition_object: "MTNK".into(),
+        ..Default::default()
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.ai_triggers.len(), 1);
+    assert_eq!(world.prepared.ai_triggers[0].condition_object_id, Some(mtnk));
+}
+
+#[test]
+fn unbound_ai_trigger_condition_object_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.task_forces.push(MapTaskForce {
+        id: "TF1".into(),
+        name: "Armor".into(),
+        entries: vec![MapTaskForceEntry { count: 1, type_id: "MTNK".into() }],
+        group: -1,
+    });
+    map.scripting.team_types.push(MapTeamType {
+        id: "TM1".into(),
+        name: "Primary".into(),
+        house: "Americans".into(),
+        script: Default::default(),
+        task_force: "TF1".into(),
+        tag: Default::default(),
+        waypoint: -1,
+        max: 1,
+        priority: 0,
+        veteran_level: 0,
+    });
+    map.scripting.ai_triggers.push(MapAiTrigger {
+        id: "AI1".into(),
+        name: "BadObject".into(),
+        team: "TM1".into(),
+        owner_house: "Americans".into(),
+        condition: ra_types::AiTriggerConditionKind::OwnOwns,
+        condition_object: "NOSUCH".into(),
+        ..Default::default()
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown condition object must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
+}
+
+#[test]
 fn prepared_map_seed_binds_events_and_actions_to_trigger() {
     let defs = defs_with_mtnk();
     let mut map = map_with_size();
