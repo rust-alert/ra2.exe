@@ -1086,3 +1086,73 @@ fn unbound_linked_trigger_rejects_battle_seed() {
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
+
+#[test]
+fn prepared_map_seed_binds_timer_trigger_actions() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Src".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR2".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Timer".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    let timer_params =
+        ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()];
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand { kind: MapActionKind::TimerStart, params: timer_params.clone() },
+            MapActionCommand { kind: MapActionKind::TimerStop, params: timer_params.clone() },
+            MapActionCommand { kind: MapActionKind::TimerExtend, params: timer_params.clone() },
+            MapActionCommand { kind: MapActionKind::TimerShorten, params: timer_params.clone() },
+            MapActionCommand { kind: MapActionKind::TimerSet, params: timer_params },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    let tr2 = world.prepared.triggers.iter().find(|t| t.name.as_str() == "TR2").expect("TR2");
+    assert_eq!(world.prepared.actions[0].commands.len(), 5);
+    for cmd in &world.prepared.actions[0].commands {
+        assert_eq!(cmd.target_trigger_id, Some(tr2.id));
+    }
+}
+
+#[test]
+fn unbound_timer_trigger_action_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Src".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::TimerStart,
+            params: ["0".into(), "MissingTR".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown TimerStart must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
+}
