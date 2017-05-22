@@ -1300,3 +1300,96 @@ fn unbound_flash_team_action_rejects_battle_seed() {
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
+
+#[test]
+fn prepared_map_seed_binds_win_and_make_ally_house_ids() {
+    let defs = defs_with_mtnk();
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+    let russians = defs.houses.get("RUSSIANS").expect("RUSSIANS").id;
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::Win,
+                params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::MakeAlly,
+                params: ["0".into(), "Russians".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands[0].house_id, Some(americans));
+    assert_eq!(world.prepared.actions[0].commands[1].house_id, Some(russians));
+}
+
+#[test]
+fn unbound_win_house_rejects_battle_seed() {
+    let defs = defs_with_mtnk();
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![MapActionCommand {
+            kind: MapActionKind::Win,
+            params: ["MissingHouse".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+        }],
+    });
+    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown Win house must fail seed");
+    let msg = err.to_string();
+    assert!(msg.contains("house") || msg.contains("MissingHouse") || msg.contains("MISSINGHOUSE"), "{msg}");
+}
+
+#[test]
+fn prepared_map_seed_binds_all_to_hunt_and_production_begins_house_ids() {
+    let defs = defs_with_mtnk();
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::AllToHunt,
+                params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::ProductionBegins,
+                params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands[0].house_id, Some(americans));
+    assert_eq!(world.prepared.actions[0].commands[1].house_id, Some(americans));
+}
