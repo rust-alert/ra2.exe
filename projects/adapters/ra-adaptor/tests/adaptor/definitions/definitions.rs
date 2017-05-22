@@ -776,6 +776,7 @@ fn bind_map_events_and_actions_resolve_trigger_id() {
         &triggers,
         &[],
         &[],
+        &defs,
     )
     .expect("bind actions");
     assert_eq!(events[0].trigger_id, triggers[0].id);
@@ -783,6 +784,7 @@ fn bind_map_events_and_actions_resolve_trigger_id() {
     assert!(actions[0].commands[0].team_id.is_none());
     assert!(actions[0].commands[0].target_trigger_id.is_none());
     assert!(actions[0].commands[0].tag_id.is_none());
+    assert_eq!(actions[0].commands[0].house_id, Some(defs.houses.get("Americans").expect("Americans").id));
 }
 
 #[test]
@@ -848,11 +850,13 @@ fn bind_map_actions_resolves_create_team_id() {
         &triggers,
         &teams,
         &[],
+        &defs,
     )
     .expect("bind actions");
     assert_eq!(actions[0].commands[0].team_id, Some(teams[0].id));
     assert!(actions[0].commands[0].target_trigger_id.is_none());
     assert!(actions[0].commands[0].tag_id.is_none());
+    assert!(actions[0].commands[0].house_id.is_none());
 }
 
 #[test]
@@ -884,6 +888,7 @@ fn bind_map_actions_rejects_unknown_team_type() {
         &triggers,
         &[],
         &[],
+        &defs,
     )
     .expect_err("unknown team");
     let msg = err.to_string();

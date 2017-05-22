@@ -154,17 +154,19 @@ pub fn bind_map_events(events: &[MapEvent], triggers: &[PreparedTrigger]) -> RaR
     Ok(out)
 }
 
-/// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger / team / tag 引用拒绝。
+/// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger / team / tag / house 引用拒绝。
 ///
 /// - 动作所属 trigger id 必须可解析
 /// - CreateTeam / DestroyTeam / Reinforcement* / FlashTeam：非空 team 名必须在 `teams` 中
 /// - Destroy / Force / Enable / Disable / Timer*：非空目标 trigger 名必须可解析
 /// - DestroyTag：非空 tag 名必须在 `tags` 中
+/// - Win / ProductionBegins / AllToHunt / ChangeHouse / MakeAlly* / DestroyAll*：非空 house 名必须可解析
 pub fn bind_map_actions(
     actions: &[MapAction],
     triggers: &[PreparedTrigger],
     teams: &[PreparedTeamType],
     tags: &[PreparedTag],
+    defs: &RuntimeDefinitions,
 ) -> RaResult<Vec<PreparedAction>> {
     let trigger_by_name: HashMap<&str, TriggerId> = triggers.iter().map(|t| (t.name.as_str(), t.id)).collect();
     let team_by_name: HashMap<&str, TeamTypeId> = teams.iter().map(|t| (t.name.as_str(), t.id)).collect();
@@ -177,7 +179,7 @@ pub fn bind_map_actions(
         let trigger_id = bind_trigger_id(&trigger_by_name, &action.id, "MapAction")?;
         let mut commands = Vec::with_capacity(action.commands.len());
         for cmd in &action.commands {
-            commands.push(bind_action_command(cmd, &trigger_by_name, &team_by_name, &tag_by_name, action.id.as_str())?);
+            commands.push(bind_action_command(cmd, &trigger_by_name, &team_by_name, &tag_by_name, defs, action.id.as_str())?);
         }
         out.push(PreparedAction { trigger_id, commands });
     }
@@ -214,16 +216,37 @@ const ACTION_DESTROY_TAG: i32 = 70;
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80;
 /// Flash Team。
 const ACTION_FLASH_TEAM: i32 = 104;
+/// Win。
+const ACTION_WIN: i32 = 1;
+/// Production Begins。
+const ACTION_PRODUCTION_BEGINS: i32 = 3;
+/// All To Hunt。
+const ACTION_ALL_TO_HUNT: i32 = 6;
+/// Change House。
+const ACTION_CHANGE_HOUSE: i32 = 14;
+/// All Change House。
+const ACTION_ALL_CHANGE_HOUSE: i32 = 36;
+/// Make Ally。
+const ACTION_MAKE_ALLY: i32 = 37;
+/// Make Enemy。
+const ACTION_MAKE_ENEMY: i32 = 38;
+/// Destroy All Of。
+const ACTION_DESTROY_ALL_OF: i32 = 119;
+/// Destroy All Buildings Of。
+const ACTION_DESTROY_ALL_BUILDINGS_OF: i32 = 120;
+/// Destroy All Land Units Of。
+const ACTION_DESTROY_ALL_LAND_UNITS_OF: i32 = 121;
 
 fn bind_action_command(
     cmd: &MapActionCommand,
     trigger_by_name: &HashMap<&str, TriggerId>,
     team_by_name: &HashMap<&str, TeamTypeId>,
     tag_by_name: &HashMap<&str, TagId>,
+    defs: &RuntimeDefinitions,
     owner: &str,
 ) -> RaResult<PreparedActionCommand> {
     let name = action_ref_name_param(cmd);
-    let (team_id, target_trigger_id, tag_id) = match cmd.kind_code {
+    let (team_id, target_trigger_id, tag_id, house_id) = match cmd.kind_code {
         ACTION_CREATE_TEAM
         | ACTION_DESTROY_TEAM
         | ACTION_REINFORCEMENT
@@ -237,7 +260,7 @@ fn bind_action_command(
                 })?),
                 None => None,
             };
-            (team_id, None, None)
+            (team_id, None, None, None)
         }
         ACTION_DESTROY_TRIGGER
         | ACTION_FORCE_TRIGGER
@@ -256,7 +279,7 @@ fn bind_action_command(
                 })?),
                 None => None,
             };
-            (None, target_trigger_id, None)
+            (None, target_trigger_id, None, None)
         }
         ACTION_DESTROY_TAG => {
             let tag_id = match name {
@@ -267,11 +290,34 @@ fn bind_action_command(
                 })?),
                 None => None,
             };
-            (None, None, tag_id)
+            (None, None, tag_id, None)
         }
-        _ => (None, None, None),
+        ACTION_WIN
+        | ACTION_PRODUCTION_BEGINS
+        | ACTION_ALL_TO_HUNT
+        | ACTION_CHANGE_HOUSE
+        | ACTION_ALL_CHANGE_HOUSE
+        | ACTION_MAKE_ALLY
+        | ACTION_MAKE_ENEMY
+        | ACTION_DESTROY_ALL_OF
+        | ACTION_DESTROY_ALL_BUILDINGS_OF
+        | ACTION_DESTROY_ALL_LAND_UNITS_OF => {
+            let house_id = match action_house_name_param(cmd) {
+                Some(n) => Some(bind_house_id(defs, &n, &format!("MapAction:{owner}"))?),
+                None => None,
+            };
+            (None, None, None, house_id)
+        }
+        _ => (None, None, None, None),
     };
-    Ok(PreparedActionCommand { kind_code: cmd.kind_code, params: cmd.params.clone(), team_id, target_trigger_id, tag_id })
+    Ok(PreparedActionCommand {
+        kind_code: cmd.kind_code,
+        params: cmd.params.clone(),
+        team_id,
+        target_trigger_id,
+        tag_id,
+        house_id,
+    })
 }
 
 /// 与运行时一致：优先 `params[1]`，否则第一个非空且非纯数字槽。
@@ -288,6 +334,24 @@ fn action_ref_name_param(cmd: &MapActionCommand) -> Option<String> {
         return None;
     }
     Some(raw.to_ascii_uppercase())
+}
+
+/// 与运行时 `action_house_param` 一致：自末槽向前找非空非纯数字 house 名。
+fn action_house_name_param(cmd: &MapActionCommand) -> Option<HouseName> {
+    for p in cmd.params.iter().rev() {
+        let t = p.trim();
+        if t.is_empty() || t == "0" {
+            continue;
+        }
+        if t.parse::<i32>().is_ok() {
+            continue;
+        }
+        if t.eq_ignore_ascii_case("NONE") || t.eq_ignore_ascii_case("<NONE>") {
+            return None;
+        }
+        return Some(HouseName::parse(t));
+    }
+    None
 }
 
 /// 将 `[TaskForces]` 投影为稳定 [`PreparedTaskForce`]；未知 techno 成员拒绝。
@@ -450,7 +514,7 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     let task_forces = bind_map_task_forces(&prepared.definition.task_forces, defs)?;
     let script_types = bind_map_script_types(&prepared.definition.script_types)?;
     let team_types = bind_map_team_types(&prepared.definition.team_types, defs, &script_types, &task_forces, &tags)?;
-    let actions = bind_map_actions(&prepared.definition.actions, &triggers, &team_types, &tags)?;
+    let actions = bind_map_actions(&prepared.definition.actions, &triggers, &team_types, &tags, defs)?;
     let ai_triggers = bind_map_ai_triggers(&prepared.definition.ai_triggers, defs, &team_types)?;
     prepared.houses = houses;
     prepared.triggers = triggers;

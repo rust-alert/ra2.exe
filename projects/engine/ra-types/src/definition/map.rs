@@ -1901,6 +1901,8 @@ pub struct PreparedActionCommand {
     pub target_trigger_id: Option<crate::TriggerId>,
     /// Destroy Tag 解析出的 Tag；缺参或空为 `None`。
     pub tag_id: Option<crate::TagId>,
+    /// Win / ChangeHouse / MakeAlly* / DestroyAll* 等解析出的 House；缺参或空为 `None`。
+    pub house_id: Option<crate::HouseId>,
 }
 
 /// TaskForce 成员槽（稳定 techno id）。
