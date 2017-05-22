@@ -157,7 +157,7 @@ pub fn bind_map_events(events: &[MapEvent], triggers: &[PreparedTrigger]) -> RaR
 /// 将 `[Actions]` 投影为稳定 [`PreparedAction`] 表；未知 trigger / team / tag 引用拒绝。
 ///
 /// - 动作所属 trigger id 必须可解析
-/// - CreateTeam / DestroyTeam / Reinforcement*：非空 team 名必须在 `teams` 中
+/// - CreateTeam / DestroyTeam / Reinforcement* / FlashTeam：非空 team 名必须在 `teams` 中
 /// - Destroy / Force / Enable / Disable / Timer*：非空目标 trigger 名必须可解析
 /// - DestroyTag：非空 tag 名必须在 `tags` 中
 pub fn bind_map_actions(
@@ -212,6 +212,8 @@ const ACTION_DISABLE_TRIGGER: i32 = 54;
 const ACTION_DESTROY_TAG: i32 = 70;
 /// Reinforcement At Waypoint。
 const ACTION_REINFORCEMENT_AT_WAYPOINT: i32 = 80;
+/// Flash Team。
+const ACTION_FLASH_TEAM: i32 = 104;
 
 fn bind_action_command(
     cmd: &MapActionCommand,
@@ -222,7 +224,11 @@ fn bind_action_command(
 ) -> RaResult<PreparedActionCommand> {
     let name = action_ref_name_param(cmd);
     let (team_id, target_trigger_id, tag_id) = match cmd.kind_code {
-        ACTION_CREATE_TEAM | ACTION_DESTROY_TEAM | ACTION_REINFORCEMENT | ACTION_REINFORCEMENT_AT_WAYPOINT => {
+        ACTION_CREATE_TEAM
+        | ACTION_DESTROY_TEAM
+        | ACTION_REINFORCEMENT
+        | ACTION_REINFORCEMENT_AT_WAYPOINT
+        | ACTION_FLASH_TEAM => {
             let team_id = match name {
                 Some(n) => Some(team_by_name.get(n.as_str()).copied().ok_or_else(|| RaError::UnknownReference {
                     kind: "team_type",

@@ -1895,7 +1895,7 @@ pub struct PreparedActionCommand {
     pub kind_code: i32,
     /// 七个参数槽（航点字母、房屋名等仍保留原文）。
     pub params: [String; 7],
-    /// Create Team / Destroy Team / Reinforcement 解析出的 TeamType；缺参或空为 `None`。
+    /// Create Team / Destroy Team / Reinforcement* / FlashTeam 解析出的 TeamType；缺参或空为 `None`。
     pub team_id: Option<crate::TeamTypeId>,
     /// Destroy / Force / Enable / Disable / Timer* 目标 Trigger；缺参为 `None`（运行时回退本触发）。
     pub target_trigger_id: Option<crate::TriggerId>,
