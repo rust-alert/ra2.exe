@@ -1393,3 +1393,82 @@ fn prepared_map_seed_binds_all_to_hunt_and_production_begins_house_ids() {
     assert_eq!(world.prepared.actions[0].commands[0].house_id, Some(americans));
     assert_eq!(world.prepared.actions[0].commands[1].house_id, Some(americans));
 }
+
+#[test]
+fn prepared_map_seed_binds_change_house_and_make_enemy_house_ids() {
+    let defs = defs_with_mtnk();
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+    let russians = defs.houses.get("RUSSIANS").expect("RUSSIANS").id;
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::ChangeHouse,
+                params: ["Americans".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::MakeEnemy,
+                params: ["0".into(), "Russians".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+            MapActionCommand {
+                kind: MapActionKind::AllChangeHouse,
+                params: ["Russians".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands[0].house_id, Some(americans));
+    assert_eq!(world.prepared.actions[0].commands[1].house_id, Some(russians));
+    assert_eq!(world.prepared.actions[0].commands[2].house_id, Some(russians));
+}
+
+#[test]
+fn prepared_map_seed_binds_destroy_all_of_house_ids() {
+    let defs = defs_with_mtnk();
+    let russians = defs.houses.get("RUSSIANS").expect("RUSSIANS").id;
+    let mut map = map_with_size();
+    map.scripting.triggers.push(MapTrigger {
+        id: "TR1".into(),
+        house: "Americans".into(),
+        linked: Default::default(),
+        name: "Act".into(),
+        disabled: false,
+        easy: true,
+        normal: true,
+        hard: true,
+    });
+    let house_params = ["0".into(), "Russians".into(), String::new(), String::new(), String::new(), String::new(), String::new()];
+    map.scripting.actions.push(MapAction {
+        id: "TR1".into(),
+        commands: vec![
+            MapActionCommand {
+                kind: MapActionKind::DestroyAllOf,
+                params: house_params.clone(),
+            },
+            MapActionCommand {
+                kind: MapActionKind::DestroyAllBuildingsOf,
+                params: house_params.clone(),
+            },
+            MapActionCommand {
+                kind: MapActionKind::DestroyAllLandUnitsOf,
+                params: house_params,
+            },
+        ],
+    });
+    let world = battle_from_defs(GameEdition::Ra2, defs, map);
+    assert_eq!(world.prepared.actions[0].commands.len(), 3);
+    for cmd in &world.prepared.actions[0].commands {
+        assert_eq!(cmd.house_id, Some(russians));
+    }
+}
