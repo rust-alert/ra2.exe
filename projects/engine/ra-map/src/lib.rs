@@ -2,6 +2,7 @@
 
 #![deny(missing_docs)]
 
+mod battle_pass;
 mod boot_map;
 pub mod compose;
 mod fallback_preview;
@@ -49,6 +50,7 @@ use ra_types::{
 };
 use serde::{Deserialize, de::Deserializer};
 
+pub use battle_pass::{BattlePassFinalizeStats, finalize_battle_pass_grid};
 pub use base64::{base64_decode, base64_decode_parts, base64_encode};
 pub use boot_map::{
     BOOT_MAP_CANDIDATES, BootMapCandidate, BootMapResult, boot_map_name_csf_key, count_skirmish_start_slots, find_boot_map,
@@ -392,7 +394,8 @@ impl MapInfo {
 
     /// 对局播种用的完整 [`PreparedMap`]：Foundation 骨架 + 规则/脚本稳定 id 绑定 + occupancy 重封。
     ///
-    /// 未知 techno / house / tag / mission 等引用在绑定时拒绝。TMP 封格与 overlay land 仍由 session boot 后序处理。
+    /// 未知 techno / house / tag / mission 等引用在绑定时拒绝。TMP 封格与 overlay land 须经
+    /// [`finalize_battle_pass_grid`]（session / `BattleState::finalize_pass_from_assets`）后序处理。
     pub fn to_prepared_map(&self, defs: &RuntimeDefinitions) -> RaResult<ra_types::PreparedMap> {
         let mut prepared = self.to_prepared_map_skeleton_with_structures(&defs.structures);
         bind_prepared_map_placements(&mut prepared, defs)?;

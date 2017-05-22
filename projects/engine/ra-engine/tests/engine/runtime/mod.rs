@@ -5,6 +5,7 @@ mod apply_100_damage;
 mod battle_stats;
 mod campaign_starts;
 mod capabilities;
+mod map_prepare_chain;
 mod command_codec;
 mod create_crate;
 mod difficulty_ai;

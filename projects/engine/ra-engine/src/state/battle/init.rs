@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
-use ra_map::{MapEntityKind, MapInfo, PassGrid};
-use ra_types::{EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass};
+use ra_map::{MapEntityKind, MapInfo, PassGrid, finalize_battle_pass_grid};
+use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass};
 
 use super::super::{
     components::{
@@ -19,7 +19,7 @@ impl BattleState {
     /// 由冻结运行时定义与地图播种新世界，并为移动单位预计算路径。
     ///
     /// 通行层与预放绑定取自 [`MapInfo::to_prepared_map`]（Foundation 骨架 + 稳定 id + occupancy 重封）。
-    /// Overlay land 必须在对局装载 `seal_pass_grid_from_tmp` 之后再应用，才能重开桥面。
+    /// Overlay land 须经 [`Self::finalize_pass_from_assets`]（TMP 之后）再应用，才能重开桥面。
     ///
     /// 未知 techno / house 等引用在准备期拒绝播种。
     pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> RaResult<Self> {
@@ -152,6 +152,19 @@ impl BattleState {
         self.prepared.pass_height = pass_height;
         self.prepared.passable = passable;
         self.prepared.cell_heights = cell_heights;
+    }
+
+    /// 对局通行后半段：[`finalize_battle_pass_grid`]（TMP → overlay land）→ 回写 `prepared` → 必要时重寻路。
+    ///
+    /// 遭遇战 / 战役装载必须走此入口，禁止在 session 外各自拼装 TMP 与 overlay 顺序。
+    /// 返回 `(tmp_sealed, overlay_land)`。
+    pub fn finalize_pass_from_assets(&mut self, source: &dyn AssetSource) -> (usize, usize) {
+        let stats = finalize_battle_pass_grid(source, &self.map, &self.overlay_types, &mut self.pass_grid);
+        if stats.tmp_sealed > 0 || stats.overlay_land > 0 {
+            self.repath_mobiles();
+        }
+        self.sync_prepared_pass_layers();
+        (stats.tmp_sealed, stats.overlay_land)
     }
 
     /// 若存在同名 house（大小写不敏感），将 `local_player` 切到该玩家；否则保持原值并返回 `false`。
