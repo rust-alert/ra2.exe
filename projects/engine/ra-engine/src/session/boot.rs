@@ -24,6 +24,15 @@ pub struct SkirmishOpenResult {
     pub note: String,
 }
 
+/// 用与 [`BattleState::new`] 相同的 [`MapInfo::to_prepared_map`] 路径校验地图引用。
+///
+/// 产品 boot 应在预览 / 打开会话之前调用，使非法 techno / house / 脚本引用在装载前半段失败，
+/// 而不是先画出预览再在开会话时才拒绝。
+pub fn validate_map_for_battle(map: &MapInfo, definitions: &RuntimeDefinitions) -> RaResult<()> {
+    let _ = map.to_prepared_map(definitions)?;
+    Ok(())
+}
+
 /// 从冻结定义与地图打开一局遭遇战会话。
 ///
 /// - `preferred_house` 若给出，则登记到玩家表并设为本地玩家；登记后仍匹配失败则报错（禁止静默改用其它阵营）。

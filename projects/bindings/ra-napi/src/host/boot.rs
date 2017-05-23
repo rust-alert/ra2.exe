@@ -7,7 +7,7 @@ use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, next_battle_campaign_after_scenario,
     parse_battle_campaigns, parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
-use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session};
+use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session, validate_map_for_battle};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, PaintDefinitionsLoader, StructureAnimBank, StructureLightTable,
     TerrainAnimBank, campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
@@ -610,7 +610,7 @@ pub fn boot_world_with_progress(
         }
     };
 
-    report(0.70, "地形预览");
+    report(0.58, "装载绘制");
     let lobby_primaries = lobby_house_primaries(request);
     let mut art_files: Vec<&str> = chain.art_underlay.to_vec();
     art_files.push(chain.art_ini);
@@ -628,6 +628,67 @@ pub fn boot_world_with_progress(
         },
         None => None,
     };
+
+    report(0.62, "检查剧本");
+    for gap in map_scripting_capability_gaps(&map) {
+        if is_campaign_blocking_action_gap(&gap.code) {
+            tracing::error!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        }
+        else {
+            tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
+        }
+        note = format!("{note} · gap:{}", gap.code);
+    }
+    if request.boot_kind == LoadKind::Campaign {
+        if let Some(msg) = campaign_blocking_capability_message(&map) {
+            note = format!("{note} · {msg}");
+            tracing::error!(%msg, "战役装载因剧本缺口拒绝");
+            report(1.0, "剧本缺口");
+            return Ok(BootResult::failed(note));
+        }
+    }
+    else {
+        // 遭遇战：合并全局 AI 定义，使 `[AITriggerTypes]` 驱动产队，而非仅靠启发式乱刷。
+        // 必须在 `validate_map_for_battle` / 预览之前合并，以便与会话播种使用同一份脚本表。
+        let ai_ini = match chain.edition {
+            GameEdition::Ra2 => "ai.ini",
+            GameEdition::Yr | GameEdition::Mo3 => "aimd.ini",
+        };
+        match source.read(ai_ini) {
+            Ok(bytes) => match map.merge_global_ai_ini(&bytes) {
+                Ok(()) => {
+                    note = format!(
+                        "{note} · ai={} tf#{} team#{} ait#{}",
+                        ai_ini,
+                        map.scripting.task_forces.len(),
+                        map.scripting.team_types.len(),
+                        map.scripting.ai_triggers.len()
+                    );
+                }
+                Err(e) => {
+                    note = format!("{note} · ai合并失败（{e}）");
+                    tracing::warn!(error = %e, ai = %ai_ini, "全局 AI INI 合并失败");
+                }
+            },
+            Err(_) => {
+                note = format!("{note} · ai=(missing) {ai_ini}");
+                tracing::warn!(ai = %ai_ini, "全局 AI INI 未挂载，遭遇战 AI 仅启发式基建/节流量产");
+            }
+        }
+    }
+
+    // Map-3：与 `BattleState::new` 同一 `to_prepared_map` 路径，预览前拒绝非法引用。
+    if let Some(defs) = definitions.as_ref() {
+        report(0.66, "准备地图");
+        if let Err(e) = validate_map_for_battle(&map, defs) {
+            note = format!("{note} · 地图准备失败（{e}）");
+            tracing::error!(error = %e, "地图 PreparedMap 绑定失败");
+            report(1.0, "地图准备失败");
+            return Ok(BootResult::failed(note));
+        }
+    }
+
+    report(0.70, "地形预览");
     let mut paint = if let Some(defs) = definitions.as_ref() {
         loader.seal_with_runtime(defs, &map)
     }
@@ -670,51 +731,6 @@ pub fn boot_world_with_progress(
     };
 
     report(0.88, "打开会话");
-    for gap in map_scripting_capability_gaps(&map) {
-        if is_campaign_blocking_action_gap(&gap.code) {
-            tracing::error!("地图能力缺口 [{}] {}", gap.code, gap.message);
-        }
-        else {
-            tracing::warn!("地图能力缺口 [{}] {}", gap.code, gap.message);
-        }
-        note = format!("{note} · gap:{}", gap.code);
-    }
-    if request.boot_kind == LoadKind::Campaign {
-        if let Some(msg) = campaign_blocking_capability_message(&map) {
-            note = format!("{note} · {msg}");
-            tracing::error!(%msg, "战役装载因剧本缺口拒绝");
-            report(1.0, "剧本缺口");
-            return Ok(BootResult::failed(note));
-        }
-    }
-    else {
-        // 遭遇战：合并全局 AI 定义，使 `[AITriggerTypes]` 驱动产队，而非仅靠启发式乱刷。
-        let ai_ini = match chain.edition {
-            GameEdition::Ra2 => "ai.ini",
-            GameEdition::Yr | GameEdition::Mo3 => "aimd.ini",
-        };
-        match source.read(ai_ini) {
-            Ok(bytes) => match map.merge_global_ai_ini(&bytes) {
-                Ok(()) => {
-                    note = format!(
-                        "{note} · ai={} tf#{} team#{} ait#{}",
-                        ai_ini,
-                        map.scripting.task_forces.len(),
-                        map.scripting.team_types.len(),
-                        map.scripting.ai_triggers.len()
-                    );
-                }
-                Err(e) => {
-                    note = format!("{note} · ai合并失败（{e}）");
-                    tracing::warn!(error = %e, ai = %ai_ini, "全局 AI INI 合并失败");
-                }
-            },
-            Err(_) => {
-                note = format!("{note} · ai=(missing) {ai_ini}");
-                tracing::warn!(ai = %ai_ini, "全局 AI INI 未挂载，遭遇战 AI 仅启发式基建/节流量产");
-            }
-        }
-    }
     let preferred_house = Some(request.side.as_str());
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);

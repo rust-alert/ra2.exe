@@ -161,3 +161,19 @@ fn open_campaign_rejects_unknown_map_placement_house() {
     let msg = err.to_string();
     assert!(msg.contains("house") || msg.contains("NO_SUCH_HOUSE") || msg.contains("Owner") || msg.contains("owner"), "{msg}");
 }
+
+#[test]
+fn validate_map_for_battle_rejects_unknown_techno_before_session() {
+    use ra_engine::validate_map_for_battle;
+    let mut map = prepare_map();
+    map.entities[1].type_id = "MISSINGUNIT".into();
+    let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("unknown techno");
+    let msg = err.to_string();
+    assert!(msg.contains("techno") || msg.contains("MISSINGUNIT"), "{msg}");
+}
+
+#[test]
+fn validate_map_for_battle_accepts_prepare_chain_fixture() {
+    use ra_engine::validate_map_for_battle;
+    validate_map_for_battle(&prepare_map(), &prepare_defs()).expect("fixture must prepare");
+}

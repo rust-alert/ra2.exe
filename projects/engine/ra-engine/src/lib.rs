@@ -31,7 +31,7 @@ pub use gameplay::{
     start_lightning_storm, terrain_spawn_sample, terrain_spawner_frame_signature, tick_lightning_storm, tick_triggers,
 };
 pub use presentation::DirtyEntitySet;
-pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session};
+pub use session::{Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_skirmish_session, validate_map_for_battle};
 pub use state::{
     ATTACK_COOLDOWN_TICKS, BattleSfxCue, BattleState, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, EcsCombatView, EvaCue,
     FIRE_FLASH_TICKS, HIT_FLASH_TICKS, ORE_INCOME_PER_TRIP, ORE_TRIP_TICKS, PRODUCE_TICKS, PlayerState, TURRET_TURN_STEP,
