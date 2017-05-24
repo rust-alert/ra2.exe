@@ -7,7 +7,7 @@ use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, next_battle_campaign_after_scenario,
     parse_battle_campaigns, parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
-use ra_engine::{Engine, Session, open_campaign_session, open_skirmish_session, validate_map_for_battle};
+use ra_engine::{Engine, Session, open_campaign_session_prepared, open_skirmish_session, validate_map_for_battle};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, PaintDefinitionsLoader, StructureAnimBank, StructureLightTable,
     TerrainAnimBank, campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
@@ -16,7 +16,7 @@ use ra_map::{
     paint_ore_tree_frames_onto_rgba, paint_structure_anims_onto_rgba, paint_terrain_anims_onto_rgba,
 };
 use ra_renderer::RgbaImage;
-use ra_types::{AssetSource, GameEdition, HouseName, RaResult, TechnoName};
+use ra_types::{AssetSource, GameEdition, HouseName, PreparedMap, RaResult, TechnoName};
 use ra_widgets::{
     campaign_setup::campaign_side_battle_id,
     fs_source::GameAssetSource,
@@ -678,13 +678,22 @@ pub fn boot_world_with_progress(
     }
 
     // Map-3：与 `BattleState::new` 同一 `to_prepared_map` 路径，预览前拒绝非法引用。
+    // 战役可复用返回的 `PreparedMap`；遭遇战剥机动后实体集变化，开会话时须重新准备。
+    let mut campaign_prepared: Option<PreparedMap> = None;
     if let Some(defs) = definitions.as_ref() {
         report(0.66, "准备地图");
-        if let Err(e) = validate_map_for_battle(&map, defs) {
-            note = format!("{note} · 地图准备失败（{e}）");
-            tracing::error!(error = %e, "地图 PreparedMap 绑定失败");
-            report(1.0, "地图准备失败");
-            return Ok(BootResult::failed(note));
+        match validate_map_for_battle(&map, defs) {
+            Ok(prepared) => {
+                if request.boot_kind == LoadKind::Campaign {
+                    campaign_prepared = Some(prepared);
+                }
+            }
+            Err(e) => {
+                note = format!("{note} · 地图准备失败（{e}）");
+                tracing::error!(error = %e, "地图 PreparedMap 绑定失败");
+                report(1.0, "地图准备失败");
+                return Ok(BootResult::failed(note));
+            }
         }
     }
 
@@ -736,18 +745,22 @@ pub fn boot_world_with_progress(
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
     let session_result = definitions.map(|definitions| match request.boot_kind {
-        LoadKind::Campaign => open_campaign_session(
-            &source,
-            chain.edition,
-            chain.rules_ini,
-            definitions,
-            map,
-            note.clone(),
-            preview_origin,
-            preferred_house,
-            &ensure_refs,
-            request.match_seed,
-        ),
+        LoadKind::Campaign => {
+            let prepared = campaign_prepared.expect("campaign validate must have produced PreparedMap");
+            open_campaign_session_prepared(
+                &source,
+                chain.edition,
+                chain.rules_ini,
+                definitions,
+                map,
+                prepared,
+                note.clone(),
+                preview_origin,
+                preferred_house,
+                &ensure_refs,
+                request.match_seed,
+            )
+        }
         LoadKind::Skirmish => open_skirmish_session(
             &source,
             chain.edition,

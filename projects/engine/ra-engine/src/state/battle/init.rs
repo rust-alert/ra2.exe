@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid, finalize_battle_pass_grid};
-use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, RaResult, RuntimeDefinitions, TechnoClass};
+use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, PreparedMap, RaResult, RuntimeDefinitions, TechnoClass};
 
 use super::super::{
     components::{
@@ -24,6 +24,19 @@ impl BattleState {
     /// 未知 techno / house 等引用在准备期拒绝播种。
     pub fn new(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo) -> RaResult<Self> {
         let prepared = map.to_prepared_map(&definitions)?;
+        Self::from_prepared(edition, definitions, map, prepared)
+    }
+
+    /// 用已绑定的 [`PreparedMap`] 播种世界（与 [`Self::new`] 同一 spawn / Foundation 路径）。
+    ///
+    /// 产品 boot 可先 [`crate::validate_map_for_battle`]，战役路径再把同一份 `PreparedMap` 传入，避免二次绑定。
+    /// 遭遇战剥机动后实体集变化，必须重新 [`MapInfo::to_prepared_map`]，勿复用预览前的 prepared。
+    pub fn from_prepared(
+        edition: GameEdition,
+        definitions: Arc<RuntimeDefinitions>,
+        map: MapInfo,
+        prepared: PreparedMap,
+    ) -> RaResult<Self> {
         let pass_grid =
             PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
         let mut next_entity_id = 1u64;

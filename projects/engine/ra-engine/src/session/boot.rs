@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ra_map::{MapEntityKind, MapInfo};
-use ra_types::{AssetSource, GameEdition, RaResult, RuntimeDefinitions};
+use ra_types::{AssetSource, GameEdition, PreparedMap, RaResult, RuntimeDefinitions};
 
 use crate::{
     engine::{Engine, EngineConfig},
@@ -24,13 +24,15 @@ pub struct SkirmishOpenResult {
     pub note: String,
 }
 
-/// 用与 [`BattleState::new`] 相同的 [`MapInfo::to_prepared_map`] 路径校验地图引用。
+/// 用与 [`BattleState::new`] 相同的 [`MapInfo::to_prepared_map`] 路径准备并校验地图引用。
 ///
 /// 产品 boot 应在预览 / 打开会话之前调用，使非法 techno / house / 脚本引用在装载前半段失败，
 /// 而不是先画出预览再在开会话时才拒绝。
-pub fn validate_map_for_battle(map: &MapInfo, definitions: &RuntimeDefinitions) -> RaResult<()> {
-    let _ = map.to_prepared_map(definitions)?;
-    Ok(())
+///
+/// 成功时返回可交给 [`BattleState::from_prepared`] / [`open_campaign_session_prepared`] 的
+/// [`PreparedMap`]，避免战役路径二次绑定。
+pub fn validate_map_for_battle(map: &MapInfo, definitions: &RuntimeDefinitions) -> RaResult<PreparedMap> {
+    map.to_prepared_map(definitions)
 }
 
 /// 从冻结定义与地图打开一局遭遇战会话。
@@ -66,6 +68,7 @@ pub fn open_skirmish_session(
         rules_ini,
         definitions,
         map,
+        None,
         note,
         preview_origin,
         preferred_house,
@@ -108,6 +111,47 @@ pub fn open_campaign_session(
         rules_ini,
         definitions,
         map,
+        None,
+        note,
+        preview_origin,
+        preferred_house,
+        ensure_houses,
+        match_seed,
+        SessionBootKind::Campaign,
+        false,
+    )
+}
+
+/// 战役开局：复用已通过 [`validate_map_for_battle`] 的 [`PreparedMap`]，避免二次绑定。
+pub fn open_campaign_session_prepared(
+    source: &dyn AssetSource,
+    edition: GameEdition,
+    rules_ini: &str,
+    definitions: Arc<RuntimeDefinitions>,
+    map: MapInfo,
+    prepared: PreparedMap,
+    mut note: String,
+    preview_origin: (i32, i32),
+    preferred_house: Option<&str>,
+    ensure_houses: &[&str],
+    match_seed: u64,
+) -> RaResult<SkirmishOpenResult> {
+    note = format!(
+        "{note} · campaign · overlays#{} · techno#{} · seed={:#x} · preplaced#{} · prepared#{}",
+        definitions.overlays.len(),
+        definitions.techno.len(),
+        match_seed,
+        map.entities.len(),
+        prepared.placements.len()
+    );
+
+    open_session_common(
+        source,
+        edition,
+        rules_ini,
+        definitions,
+        map,
+        Some(prepared),
         note,
         preview_origin,
         preferred_house,
@@ -124,6 +168,7 @@ fn open_session_common(
     rules_ini: &str,
     definitions: Arc<RuntimeDefinitions>,
     map: MapInfo,
+    prepared: Option<PreparedMap>,
     mut note: String,
     preview_origin: (i32, i32),
     preferred_house: Option<&str>,
@@ -132,7 +177,10 @@ fn open_session_common(
     boot_kind: SessionBootKind,
     seed_skirmish_mcv: bool,
 ) -> RaResult<SkirmishOpenResult> {
-    let mut state = BattleState::new(edition, definitions, map)?;
+    let mut state = match prepared {
+        Some(prepared) => BattleState::from_prepared(edition, definitions, map, prepared)?,
+        None => BattleState::new(edition, definitions, map)?,
+    };
     note = format!("{note} · placements#{}", state.prepared.placements.len());
     for house in ensure_houses {
         if !house.is_empty() {

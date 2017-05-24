@@ -175,5 +175,33 @@ fn validate_map_for_battle_rejects_unknown_techno_before_session() {
 #[test]
 fn validate_map_for_battle_accepts_prepare_chain_fixture() {
     use ra_engine::validate_map_for_battle;
-    validate_map_for_battle(&prepare_map(), &prepare_defs()).expect("fixture must prepare");
+    let prepared = validate_map_for_battle(&prepare_map(), &prepare_defs()).expect("fixture must prepare");
+    assert_eq!(prepared.placements.len(), 3);
+}
+
+#[test]
+fn open_campaign_session_prepared_reuses_validated_prepared_map() {
+    use ra_engine::{open_campaign_session_prepared, validate_map_for_battle};
+    let defs = prepare_defs();
+    let map = prepare_map();
+    let prepared = validate_map_for_battle(&map, &defs).expect("prepare");
+    let placement_count = prepared.placements.len();
+    let opened = open_campaign_session_prepared(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        defs,
+        map,
+        prepared,
+        "reuse".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
+    )
+    .expect("campaign prepared open");
+    assert!(opened.note.contains("prepared#"), "{}", opened.note);
+    let world = &opened.session.expect_battle().world;
+    assert_eq!(world.prepared.placements.len(), placement_count);
+    assert_eq!(world.entity_count(), placement_count);
 }
