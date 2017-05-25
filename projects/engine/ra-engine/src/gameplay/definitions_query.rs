@@ -107,8 +107,7 @@ pub(crate) struct PowerProfileOrZero {
 
 /// 部署目标稳定 [`TypeId`]。
 pub(crate) fn deploy_into_type(defs: &RuntimeDefinitions, source: TypeId) -> Option<TypeId> {
-    let key = type_key_of(defs, source);
-    defs.deployables.get(key).map(|d| d.target)
+    defs.deployables.get_by_source(source).map(|d| d.target)
 }
 
 /// `Owner=` 名单是否允许该阵营使用（优先稳定 id；空 id 且名名单非空时回退名名单，供测试夹具）。
@@ -174,7 +173,7 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
         .deployables
         .iter()
         .filter_map(|d| {
-            let techno = defs.techno.get(&d.source_key)?;
+            let techno = defs.techno.get_by_id(d.source)?;
             if techno.class != TechnoClass::Vehicle {
                 return None;
             }

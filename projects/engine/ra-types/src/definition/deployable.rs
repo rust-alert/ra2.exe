@@ -29,40 +29,48 @@ pub struct DeployableDefinition {
     pub placement: DeploymentPlacement,
 }
 
-/// 部署关系表（按源 type_key）。
+/// 部署关系表（按源 `TypeId` 为主索引，键名为辅）。
 #[derive(Debug, Clone, Default)]
 pub struct DeployableDefinitions {
-    by_source: BTreeMap<TechnoName, DeployableDefinition>,
+    by_source_id: BTreeMap<TypeId, DeployableDefinition>,
+    by_source_key: BTreeMap<TechnoName, TypeId>,
 }
 
 impl DeployableDefinitions {
-    /// 插入。
+    /// 插入（同名 / 同 id 后写覆盖）。
     pub fn insert(&mut self, def: DeployableDefinition) {
-        self.by_source.insert(def.source_key.clone(), def);
+        self.by_source_key.insert(def.source_key.clone(), def.source);
+        self.by_source_id.insert(def.source, def);
+    }
+
+    /// 按源稳定 id 查找。
+    pub fn get_by_source(&self, source: TypeId) -> Option<&DeployableDefinition> {
+        self.by_source_id.get(&source)
     }
 
     /// 按源类型键查找（大小写不敏感）。
     pub fn get(&self, source_key: &str) -> Option<&DeployableDefinition> {
-        self.by_source.get(&TechnoName::parse(source_key))
+        self.get_name(&TechnoName::parse(source_key))
     }
 
     /// 按已规范化的源类型键查找。
     pub fn get_name(&self, source_key: &TechnoName) -> Option<&DeployableDefinition> {
-        self.by_source.get(source_key)
+        let id = self.by_source_key.get(source_key)?;
+        self.by_source_id.get(id)
     }
 
     /// 条目数。
     pub fn len(&self) -> usize {
-        self.by_source.len()
+        self.by_source_id.len()
     }
 
     /// 是否空。
     pub fn is_empty(&self) -> bool {
-        self.by_source.is_empty()
+        self.by_source_id.is_empty()
     }
 
     /// 遍历。
     pub fn iter(&self) -> impl Iterator<Item = &DeployableDefinition> {
-        self.by_source.values()
+        self.by_source_id.values()
     }
 }
