@@ -385,8 +385,9 @@ pub fn living_structure_type_keys(world: &BattleState, house: &str) -> Vec<Arc<s
 #[doc(hidden)]
 pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<SuperWeaponCapabilityItem> {
     use ra_map::MapEntityKind;
+    use ra_types::TypeId;
 
-    let mut keys: Vec<ra_types::SuperWeaponName> = Vec::new();
+    let mut ids: Vec<TypeId> = Vec::new();
     for e in &world.entities {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -406,23 +407,23 @@ pub fn project_super_weapon_items(world: &BattleState, house: &str) -> Vec<Super
         else {
             continue;
         };
-        let Some(def) = structure.super_weapon_id.and_then(|id| world.definitions.super_weapons.get_by_id(id))
+        let Some(sw_id) = structure.super_weapon_id
         else {
             continue;
         };
-        let key = def.type_key.clone();
-        if !keys.iter().any(|k| k == &key) {
-            keys.push(key);
+        if !ids.iter().any(|id| *id == sw_id) {
+            ids.push(sw_id);
         }
     }
-    keys.sort();
-    let mut out = Vec::with_capacity(keys.len());
-    for key in keys {
-        let Some(def) = world.definitions.super_weapons.get_name(&key)
+    ids.sort_by_key(|id| id.0);
+    let mut out = Vec::with_capacity(ids.len());
+    for sw_id in ids {
+        let Some(def) = world.definitions.super_weapons.get_by_id(sw_id)
         else {
             continue;
         };
-        let charge = world.super_weapon_runtime.charge(house, &key);
+        let key = &def.type_key;
+        let charge = world.super_weapon_runtime.charge(house, key);
         let required_ticks = charge.map(|c| c.required_ticks).unwrap_or_else(|| {
             let units = def.recharge_time.max(1) as u32;
             units.saturating_mul(crate::gameplay::SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT)
