@@ -399,6 +399,12 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
         if let Some(weapon) = defs.weapons.iter_mut().find(|w| w.id == id) {
             weapon.warhead_id = warhead_id;
             weapon.projectile_id = projectile_id;
+            if warhead_id.is_some() {
+                weapon.warhead = WarheadName::default();
+            }
+            if projectile_id.is_some() {
+                weapon.projectile = ProjectileName::default();
+            }
         }
     }
 
@@ -462,6 +468,16 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             techno.primary_id = primary_id;
             techno.secondary_id = secondary_id;
             techno.warhead_id = warhead_id;
+            // 绑定成功后清空 Name：运行时只走稳定 id，禁止再靠字符串回查。
+            if primary_id.is_some() {
+                techno.primary = WeaponName::default();
+            }
+            if secondary_id.is_some() {
+                techno.secondary = WeaponName::default();
+            }
+            if warhead_id.is_some() {
+                techno.warhead = WarheadName::default();
+            }
         }
     }
 
@@ -470,6 +486,15 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     for (id, weapon_id) in sw_binds {
         if let Some(sw) = defs.super_weapons.iter_mut().find(|s| s.id == id) {
             sw.weapon_id = weapon_id;
+            if weapon_id.is_some() {
+                sw.weapon = WeaponName::default();
+            }
+        }
+    }
+
+    for structure in defs.structures.iter_mut() {
+        if structure.super_weapon_id.is_some() {
+            structure.super_weapon = None;
         }
     }
 

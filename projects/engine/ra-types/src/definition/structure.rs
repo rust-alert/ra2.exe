@@ -178,9 +178,9 @@ pub struct StructureDefinition {
     pub foundation: Foundation,
     /// art / rules `Height`（缺省 2）：建筑选中框与 NW 血条竖向抬升。
     pub height: u16,
-    /// INI `SuperWeapon=`：挂到该建筑的超级武器名（无则 `None`）。
+    /// INI `SuperWeapon=`：装载期暂存名；绑定到 `super_weapon_id` 后清空。
     pub super_weapon: Option<SuperWeaponName>,
-    /// 挂接超武的稳定 id；装载期绑定，执行侧优先于此。
+    /// 挂接超武的稳定 id；执行侧只走此字段。
     pub super_weapon_id: Option<TypeId>,
     /// 建筑点光源；`None` 表示不发光。
     pub light: Option<StructureLightProfile>,

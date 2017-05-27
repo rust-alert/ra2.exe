@@ -255,15 +255,15 @@ pub struct TechnoDefinition {
     pub category: TechnoCategory,
     /// 视野（格）；主武器 `Range=0` 时攻击射程回退用。
     pub sight: u32,
-    /// 主武器名（`Primary`）；空表示未配置。
+    /// 主武器名（`Primary`）；装载期暂存，绑定到 `primary_id` 后清空。
     pub primary: WeaponName,
     /// 主武器稳定 id；`None` 表示未配置（空名）。
     pub primary_id: Option<WeaponId>,
-    /// 副武器名（`Secondary`）；空表示未配置。
+    /// 副武器名（`Secondary`）；装载期暂存，绑定到 `secondary_id` 后清空。
     pub secondary: WeaponName,
     /// 副武器稳定 id；`None` 表示未配置（空名）。
     pub secondary_id: Option<WeaponId>,
-    /// 主武器弹头名；空表示未配置（装载诊断 / 兼容；执行侧优先 `warhead_id`）。
+    /// 主武器弹头名；装载期暂存，绑定到 `warhead_id` 后清空。
     pub warhead: WarheadName,
     /// 主武器弹头稳定 id；`None` 表示未配置（空名）。
     pub warhead_id: Option<WarheadId>,

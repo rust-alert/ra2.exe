@@ -301,7 +301,7 @@ pub struct SuperWeaponDefinition {
     pub recharge_time: i32,
     /// `SidebarImage=`（装载期一次解码）；空表示未写。
     pub sidebar_image: ImageName,
-    /// `Weapon=` 关联武器名（可空，诊断用）。
+    /// `Weapon=` 装载期暂存名；绑定到 `weapon_id` 后清空。
     pub weapon: WeaponName,
     /// `Weapon=` 绑定到武器表的稳定 id；`None` 表示未配置（空名）。
     pub weapon_id: Option<WeaponId>,

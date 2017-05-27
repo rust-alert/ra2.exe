@@ -84,7 +84,7 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(sw.action, "LIGHTNINGSTORM");
     assert_eq!(sw.recharge_time, 10);
     assert_eq!(sw.sidebar_image, "SSWLSICON");
-    assert_eq!(sw.weapon, "LIGHTNINGBOLT");
+    assert!(sw.weapon.is_empty());
     assert!(sw.weapon_id.is_some());
     let weapon = defs.weapons.get_by_id(sw.weapon_id.expect("SW weapon id")).expect("SW weapon");
     assert_eq!(weapon.type_key, "LIGHTNINGBOLT");
@@ -92,7 +92,7 @@ fn build_runtime_definitions_parses_super_weapon_types_and_building_link() {
     assert_eq!(weapon.range, 8);
     assert_eq!(weapon.rof, 1);
     assert!(weapon.warhead_id.is_some());
-    assert_eq!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_deref()), Some("LIGHTNINGSTORM"));
+    assert!(defs.structures.get("GATECH").and_then(|s| s.super_weapon.as_ref()).is_none());
     let gatech = defs.structures.get("GATECH").expect("tech");
     let sw_id = gatech.super_weapon_id.expect("bound SW id");
     assert_eq!(defs.super_weapons.get_by_id(sw_id).map(|d| d.type_key.as_str()), Some("LIGHTNINGSTORM"));
@@ -149,9 +149,9 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let mtnk = defs.techno.get("MTNK").expect("MTNK");
-    assert_eq!(mtnk.primary, "90MM");
+    assert!(mtnk.primary.is_empty(), "bound Primary Name must be cleared");
     assert!(mtnk.primary_id.is_some());
-    assert_eq!(mtnk.warhead, "SA");
+    assert!(mtnk.warhead.is_empty(), "bound Warhead Name must be cleared");
     assert!(mtnk.warhead_id.is_some());
     let weapon = defs.weapons.get_by_id(mtnk.primary_id.expect("primary id")).expect("bound weapon");
     assert_eq!(weapon.type_key, "90MM");
@@ -160,6 +160,7 @@ fn build_runtime_definitions_binds_primary_weapon_and_warhead_ids() {
     assert_eq!(weapon.rof, 8);
     assert_eq!(weapon.report, "TankCannon");
     assert_eq!(weapon.warhead_id, mtnk.warhead_id);
+    assert!(weapon.warhead.is_empty());
     assert!(weapon.projectile.is_empty());
     assert!(weapon.projectile_id.is_none());
     let wh = defs.warheads.get_by_id(mtnk.warhead_id.expect("warhead id")).expect("bound warhead");
@@ -193,7 +194,7 @@ fn build_runtime_definitions_binds_projectile_id() {
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let weapon = defs.weapons.get("90MM").expect("weapon");
-    assert_eq!(weapon.projectile, "INVISIBLE");
+    assert!(weapon.projectile.is_empty(), "bound Projectile Name must be cleared");
     assert!(weapon.projectile_id.is_some());
     let projectile = defs.projectiles.get_by_id(weapon.projectile_id.expect("projectile id")).expect("projectile");
     assert_eq!(projectile.type_key, "INVISIBLE");
@@ -210,7 +211,7 @@ fn build_runtime_definitions_binds_secondary_weapon_id() {
     );
     let defs = build_runtime_definitions(&rules).expect("freeze");
     let fv = defs.techno.get("FV").expect("FV");
-    assert_eq!(fv.secondary, "REPAIR");
+    assert!(fv.secondary.is_empty(), "bound Secondary Name must be cleared");
     assert!(fv.secondary_id.is_some());
     assert_ne!(fv.secondary_id, fv.primary_id);
     let secondary = defs.weapons.get_by_id(fv.secondary_id.expect("secondary id")).expect("secondary");

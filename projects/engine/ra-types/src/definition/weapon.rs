@@ -119,11 +119,11 @@ pub struct WeaponDefinition {
     pub range: u32,
     /// `ROF`（tick）。
     pub rof: u32,
-    /// 弹头名；空表示未配置。
+    /// 弹头名；装载期暂存，绑定到 `warhead_id` 后清空。
     pub warhead: WarheadName,
     /// 弹头稳定 id；`None` 表示未配置（空名）。
     pub warhead_id: Option<WarheadId>,
-    /// 抛射体名（`Projectile=`）；空表示未配置。
+    /// 抛射体名（`Projectile=`）；装载期暂存，绑定到 `projectile_id` 后清空。
     pub projectile: ProjectileName,
     /// 抛射体稳定 id；`None` 表示未配置（空名）。
     pub projectile_id: Option<ProjectileId>,
