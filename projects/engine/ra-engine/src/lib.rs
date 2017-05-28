@@ -33,7 +33,7 @@ pub use gameplay::{
 pub use presentation::DirtyEntitySet;
 pub use session::{
     Session, SessionPhase, SessionSpec, SkirmishOpenResult, open_campaign_session, open_campaign_session_prepared, open_skirmish_session,
-    validate_map_for_battle,
+    open_skirmish_session_prepared, strip_skirmish_map_mobiles, validate_map_for_battle,
 };
 pub use state::{
     ATTACK_COOLDOWN_TICKS, BattleSfxCue, BattleState, CELL_MOVE_COST, DEFAULT_ATTACK_DAMAGE, DEFAULT_ATTACK_RANGE, EcsCombatView, EvaCue,

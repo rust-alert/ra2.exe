@@ -1,7 +1,7 @@
 //! 遭遇战开局：席位航点放置 MCV。
 
 use crate::common::defs_from_rules_ini;
-use ra_engine::open_skirmish_session;
+use ra_engine::{open_skirmish_session, open_skirmish_session_prepared, strip_skirmish_map_mobiles, validate_map_for_battle};
 use ra_map::{MapEntity, MapEntityKind, MapInfo, Waypoint};
 use ra_types::{AssetSource, GameEdition, RaError, RaResult};
 
@@ -139,4 +139,61 @@ fn open_skirmish_fails_when_start_waypoint_missing() {
     .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("航点") || msg.contains("席位"), "{msg}");
+}
+
+#[test]
+fn open_skirmish_prepared_reuses_stripped_placements() {
+    let mut map = map_with_starts();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GACNST".into(),
+        health: 256,
+        x: 8,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Unit,
+        owner: "AMERICANS".into(),
+        type_id: "AMCV".into(),
+        health: 256,
+        x: 10,
+        y: 10,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let defs = mcv_defs();
+    let stripped = strip_skirmish_map_mobiles(&mut map);
+    assert_eq!(stripped, 1);
+    let prepared = validate_map_for_battle(&map, defs.as_ref()).expect("stripped map prepare");
+    assert_eq!(prepared.placements.len(), 1, "only structure remains after strip");
+
+    let opened = open_skirmish_session_prepared(
+        &RulesBytesSource,
+        GameEdition::Ra2,
+        RULES_INI,
+        defs,
+        map,
+        prepared,
+        "t".into(),
+        (0, 0),
+        Some("AMERICANS"),
+        &["AMERICANS", "RUSSIANS"],
+        0,
+    )
+    .expect("prepared skirmish open");
+    assert!(opened.note.contains("prepared#1"), "{}", opened.note);
+    let world = &opened.session.expect_battle().world;
+    assert_eq!(world.prepared.placements.len(), 1);
+    let snap = opened.session.expect_battle().snapshot(&[]);
+    let type_ids: Vec<_> = snap.units.iter().map(|u| u.type_id.as_ref().to_string()).collect();
+    assert!(type_ids.iter().any(|t| t == "GACNST"), "{type_ids:?}");
+    assert!(type_ids.iter().any(|t| t == "AMCV"), "{type_ids:?}");
+    assert!(type_ids.iter().any(|t| t == "SMCV"), "{type_ids:?}");
 }

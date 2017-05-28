@@ -55,12 +55,50 @@ pub fn open_skirmish_session(
     ensure_houses: &[&str],
     match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
-    note = format!("{note} · overlays#{} · techno#{} · seed={:#x}", definitions.overlays.len(), definitions.techno.len(), match_seed);
-
     let stripped = strip_skirmish_map_mobiles(&mut map);
     if stripped > 0 {
         note = format!("{note} · strip_mobiles#{stripped}");
     }
+    // 剥机动后实体集已变，必须按剥后地图重新准备（不可复用预览前的全图 `PreparedMap`）。
+    let prepared = validate_map_for_battle(&map, definitions.as_ref())?;
+    open_skirmish_session_prepared(
+        source,
+        edition,
+        rules_ini,
+        definitions,
+        map,
+        prepared,
+        note,
+        preview_origin,
+        preferred_house,
+        ensure_houses,
+        match_seed,
+    )
+}
+
+/// 遭遇战开局：复用已按**剥机动后**地图通过 [`validate_map_for_battle`] 的 [`PreparedMap`]。
+///
+/// 调用方须先 [`strip_skirmish_map_mobiles`]（或保证 `map.entities` 仅含建筑），且 `prepared` 与该地图一致。
+pub fn open_skirmish_session_prepared(
+    source: &dyn AssetSource,
+    edition: GameEdition,
+    rules_ini: &str,
+    definitions: Arc<RuntimeDefinitions>,
+    map: MapInfo,
+    prepared: PreparedMap,
+    mut note: String,
+    preview_origin: (i32, i32),
+    preferred_house: Option<&str>,
+    ensure_houses: &[&str],
+    match_seed: u64,
+) -> RaResult<SkirmishOpenResult> {
+    note = format!(
+        "{note} · overlays#{} · techno#{} · seed={:#x} · prepared#{}",
+        definitions.overlays.len(),
+        definitions.techno.len(),
+        match_seed,
+        prepared.placements.len()
+    );
 
     open_session_common(
         source,
@@ -68,7 +106,7 @@ pub fn open_skirmish_session(
         rules_ini,
         definitions,
         map,
-        None,
+        Some(prepared),
         note,
         preview_origin,
         preferred_house,
@@ -254,7 +292,10 @@ fn open_session_common(
 }
 
 /// 遭遇战不把地图预放机动单位纳入权威世界（预览底图仍可保留叠画）。
-fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
+///
+/// 返回被剥离的实体数。产品 boot 在剥后应再 [`validate_map_for_battle`]，再开
+/// [`open_skirmish_session_prepared`]。
+pub fn strip_skirmish_map_mobiles(map: &mut MapInfo) -> usize {
     let before = map.entities.len();
     map.entities.retain(|e| e.kind == MapEntityKind::Structure);
     before.saturating_sub(map.entities.len())

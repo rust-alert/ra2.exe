@@ -7,7 +7,9 @@ use ra_assets::{
     CountryRegistry, IniDocument, Palette, Rgba, find_battle_campaign, find_mission_presentation, next_battle_campaign_after_scenario,
     parse_battle_campaigns, parse_mission_presentations, parse_mpmodes, tiberium_overlay_display_hsv_bound,
 };
-use ra_engine::{Engine, Session, open_campaign_session_prepared, open_skirmish_session, validate_map_for_battle};
+use ra_engine::{
+    Engine, Session, open_campaign_session_prepared, open_skirmish_session_prepared, strip_skirmish_map_mobiles, validate_map_for_battle,
+};
 use ra_map::{
     MapEntity, MapEntityKind, MapInfo, MobilePaintPose, PaintDefinitions, PaintDefinitionsLoader, StructureAnimBank, StructureLightTable,
     TerrainAnimBank, campaign_blocking_capability_message, compose_boot_preview, count_skirmish_start_slots, decode_preview_from_map_bytes,
@@ -761,18 +763,32 @@ pub fn boot_world_with_progress(
                 request.match_seed,
             )
         }
-        LoadKind::Skirmish => open_skirmish_session(
-            &source,
-            chain.edition,
-            chain.rules_ini,
-            definitions,
-            map,
-            note.clone(),
-            preview_origin,
-            preferred_house,
-            &ensure_refs,
-            request.match_seed,
-        ),
+        LoadKind::Skirmish => {
+            // 预览已用全图（含机动）校验；权威世界剥机动后再准备一次并走 `from_prepared`。
+            let mut map = map;
+            let mut skirmish_note = note.clone();
+            let stripped = strip_skirmish_map_mobiles(&mut map);
+            if stripped > 0 {
+                skirmish_note = format!("{skirmish_note} · strip_mobiles#{stripped}");
+            }
+            let prepared = match validate_map_for_battle(&map, definitions.as_ref()) {
+                Ok(prepared) => prepared,
+                Err(e) => return Err(e),
+            };
+            open_skirmish_session_prepared(
+                &source,
+                chain.edition,
+                chain.rules_ini,
+                definitions,
+                map,
+                prepared,
+                skirmish_note,
+                preview_origin,
+                preferred_house,
+                &ensure_refs,
+                request.match_seed,
+            )
+        }
     });
     let (engine, session) = match session_result {
         Some(Ok(mut opened)) => {
