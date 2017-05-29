@@ -129,34 +129,25 @@ pub fn open_campaign_session(
     rules_ini: &str,
     definitions: Arc<RuntimeDefinitions>,
     map: MapInfo,
-    mut note: String,
+    note: String,
     preview_origin: (i32, i32),
     preferred_house: Option<&str>,
     ensure_houses: &[&str],
     match_seed: u64,
 ) -> RaResult<SkirmishOpenResult> {
-    note = format!(
-        "{note} · campaign · overlays#{} · techno#{} · seed={:#x} · preplaced#{}",
-        definitions.overlays.len(),
-        definitions.techno.len(),
-        match_seed,
-        map.entities.len()
-    );
-
-    open_session_common(
+    let prepared = validate_map_for_battle(&map, definitions.as_ref())?;
+    open_campaign_session_prepared(
         source,
         edition,
         rules_ini,
         definitions,
         map,
-        None,
+        prepared,
         note,
         preview_origin,
         preferred_house,
         ensure_houses,
         match_seed,
-        SessionBootKind::Campaign,
-        false,
     )
 }
 
