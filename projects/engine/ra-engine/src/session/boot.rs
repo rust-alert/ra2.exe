@@ -106,7 +106,7 @@ pub fn open_skirmish_session_prepared(
         rules_ini,
         definitions,
         map,
-        Some(prepared),
+        prepared,
         note,
         preview_origin,
         preferred_house,
@@ -180,7 +180,7 @@ pub fn open_campaign_session_prepared(
         rules_ini,
         definitions,
         map,
-        Some(prepared),
+        prepared,
         note,
         preview_origin,
         preferred_house,
@@ -197,7 +197,7 @@ fn open_session_common(
     rules_ini: &str,
     definitions: Arc<RuntimeDefinitions>,
     map: MapInfo,
-    prepared: Option<PreparedMap>,
+    prepared: PreparedMap,
     mut note: String,
     preview_origin: (i32, i32),
     preferred_house: Option<&str>,
@@ -206,10 +206,7 @@ fn open_session_common(
     boot_kind: SessionBootKind,
     seed_skirmish_mcv: bool,
 ) -> RaResult<SkirmishOpenResult> {
-    let mut state = match prepared {
-        Some(prepared) => BattleState::from_prepared(edition, definitions, map, prepared)?,
-        None => BattleState::new(edition, definitions, map)?,
-    };
+    let mut state = BattleState::from_prepared(edition, definitions, map, prepared)?;
     note = format!("{note} · placements#{}", state.prepared.placements.len());
     for house in ensure_houses {
         if !house.is_empty() {
@@ -233,7 +230,7 @@ fn open_session_common(
             note = format!("{note} · starting_credits={}", state.map.starting_credits);
         }
     }
-    // 装载序：Foundation 种子（`BattleState::new`）→ `finalize_pass_from_assets`（TMP → overlay land → 回写 prepared）。
+    // 装载序：Foundation 种子（`from_prepared`）→ `finalize_pass_from_assets`（TMP → overlay land → 回写 prepared）。
     let (land_sealed, overlay_land) = state.finalize_pass_from_assets(source);
 
     if seed_skirmish_mcv {
