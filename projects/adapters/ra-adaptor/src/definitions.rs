@@ -430,11 +430,18 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
             ))
         })
         .collect::<RaResult<_>>()?;
+    let clear_house_names = has_rule_countries(&defs);
     for (id, owner_ids, required_house_ids, forbidden_house_ids) in house_binds {
         if let Some(techno) = defs.techno.iter_mut().find(|t| t.id == id) {
             techno.owner_ids = owner_ids;
             techno.required_house_ids = required_house_ids;
             techno.forbidden_house_ids = forbidden_house_ids;
+            // 有 `[Countries]` 时清空姓名单，避免运行时再走字符串回查。
+            if clear_house_names {
+                techno.owner = HouseAllowList::default();
+                techno.required_houses = HouseAllowList::default();
+                techno.forbidden_houses = HouseAllowList::default();
+            }
         }
     }
     let structure_owner_binds: Vec<(TypeId, ra_types::HouseIdAllowList)> = defs
@@ -445,6 +452,9 @@ pub fn build_runtime_definitions(rules: &RulesSystem) -> RaResult<RuntimeDefinit
     for (id, owner_ids) in structure_owner_binds {
         if let Some(structure) = defs.structures.iter_mut().find(|s| s.id == id) {
             structure.owner_ids = owner_ids;
+            if clear_house_names {
+                structure.owner = HouseAllowList::default();
+            }
         }
     }
 
@@ -578,10 +588,13 @@ fn is_ambient_house(name: &HouseName) -> bool {
     matches!(name.as_str(), "NEUTRAL" | "SPECIAL" | "CIVILIAN")
 }
 
+fn has_rule_countries(defs: &RuntimeDefinitions) -> bool {
+    defs.houses.iter().any(|h| !is_ambient_house(&h.type_key))
+}
+
 fn validate_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field: &str, owner: &str) -> RaResult<()> {
     // 仅有氛围房屋、尚无 `[Countries]` 投影时，跳过 Owner 名单强制校验（测试夹具）。
-    let has_countries = defs.houses.iter().any(|h| !is_ambient_house(&h.type_key));
-    if !has_countries {
+    if !has_rule_countries(defs) {
         return Ok(());
     }
     for name in list.iter() {
@@ -598,8 +611,7 @@ fn bind_house_allow_list(defs: &RuntimeDefinitions, list: &HouseAllowList, field
     if list.is_empty() {
         return Ok(ra_types::HouseIdAllowList::empty());
     }
-    let has_countries = defs.houses.iter().any(|h| !is_ambient_house(&h.type_key));
-    if !has_countries {
+    if !has_rule_countries(defs) {
         return Ok(ra_types::HouseIdAllowList::empty());
     }
     let mut ids = Vec::with_capacity(list.len());

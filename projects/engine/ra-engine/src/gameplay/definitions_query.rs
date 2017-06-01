@@ -110,7 +110,7 @@ pub(crate) fn deploy_into_type(defs: &RuntimeDefinitions, source: TypeId) -> Opt
     defs.deployables.get_by_source(source).map(|d| d.target)
 }
 
-/// `Owner=` 名单是否允许该阵营使用（优先稳定 id；空 id 且名名单非空时回退名名单，供测试夹具）。
+/// `Owner=` 名单是否允许该阵营使用（优先稳定 id；无 id 时回退名名单，供无 `[Countries]` 的测试夹具）。
 pub(crate) fn owner_allows(defs: &RuntimeDefinitions, techno: &ra_types::TechnoDefinition, house: &str) -> bool {
     house_list_allows(defs, &techno.owner_ids, &techno.owner, house, HouseListKind::Owner)
 }
@@ -124,11 +124,13 @@ fn house_list_allows(
 ) -> bool {
     match kind {
         HouseListKind::Owner | HouseListKind::Required => {
-            if names.is_empty() {
-                return true;
-            }
-            if !ids.is_empty() {
-                return defs.houses.get(house).is_some_and(|h| ids.allows(h.id));
+            // 已绑定 id 时只看 id（含空 id = 不限）。姓名单仅作无 Countries 夹具回退。
+            if !ids.is_empty() || names.is_empty() {
+                return match defs.houses.get(house) {
+                    Some(h) => ids.allows(h.id),
+                    // 未知 house：空约束名单视为不限，否则拒绝。
+                    None => ids.is_empty(),
+                };
             }
             match kind {
                 HouseListKind::Owner => names.owner_allows(house),
@@ -137,10 +139,7 @@ fn house_list_allows(
             }
         }
         HouseListKind::Forbidden => {
-            if names.is_empty() {
-                return false;
-            }
-            if !ids.is_empty() {
+            if !ids.is_empty() || names.is_empty() {
                 return defs.houses.get(house).is_some_and(|h| ids.forbids(h.id));
             }
             names.forbids(house)

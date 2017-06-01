@@ -346,10 +346,11 @@ fn build_runtime_definitions_allows_ambient_owner_house_with_countries() {
 [GAPOWR]\nCost=600\nStrength=600\nOwner=Neutral\n",
     );
     let defs = build_runtime_definitions(&rules).expect("Neutral Owner should pass");
-    assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner.owner_allows("Neutral"));
+    let gapowr = defs.structures.get("GAPOWR").expect("GAPOWR");
+    assert!(gapowr.owner.is_empty(), "bound Owner Name list must clear after freeze");
     let neutral = defs.houses.get("NEUTRAL").expect("ambient NEUTRAL must receive HouseId");
     assert_ne!(neutral.id, ra_types::HouseId(0));
-    assert!(defs.structures.get("GAPOWR").expect("GAPOWR").owner_ids.allows(neutral.id));
+    assert!(gapowr.owner_ids.allows(neutral.id));
 }
 
 #[test]
@@ -374,6 +375,9 @@ fn build_runtime_definitions_binds_owner_required_forbidden_house_ids() {
     assert!(!mtnk.required_house_ids.allows(alliance));
     assert!(mtnk.forbidden_house_ids.forbids(russians));
     assert!(!mtnk.forbidden_house_ids.forbids(americans));
+    assert!(mtnk.owner.is_empty());
+    assert!(mtnk.required_houses.is_empty());
+    assert!(mtnk.forbidden_houses.is_empty());
 }
 
 #[test]
