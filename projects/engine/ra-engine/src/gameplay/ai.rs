@@ -8,7 +8,7 @@
 use crate::{
     BattleState, GameCommand,
     gameplay::{
-        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible,
+        TechTreePlayer, deploy_into_type, factory_matches_category, is_construction_yard, is_power_plant, is_refinery, is_type_eligible_id,
         living_structure_keys,
     },
     state::components::{AttackState, CombatStats, Health, Identity, Owner, ProductionQueue, Transform},
@@ -314,7 +314,7 @@ where
         .definitions
         .structures
         .iter()
-        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible(&world.definitions, tech, &living, &s.type_key))
+        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
         .map(|s| s.type_key.as_str())
         .next()
 }
@@ -332,7 +332,7 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
         .iter()
         .filter(|t| {
             t.class.production_category() == Some(category)
-                && is_type_eligible(&world.definitions, tech, &living, &t.type_key)
+                && is_type_eligible_id(&world.definitions, tech, &living, t.id)
                 && t.class != ra_types::TechnoClass::Building
                 // 陆地工厂不造海军单位（否则 DEST 等会从战车厂刷出）。
                 && !t.naval

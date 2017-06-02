@@ -9,7 +9,7 @@ use ra_types::{EntityId, TechnoClass};
 
 use crate::{
     game::{CommandRejectReason, SnapshotProduceQueue},
-    gameplay::{TechTreePlayer, build_limit_reached, deploy_into_type, is_type_eligible, living_structure_keys, requires_power_plant},
+    gameplay::{TechTreePlayer, build_limit_reached, deploy_into_type, is_type_eligible_id, living_structure_keys, requires_power_plant},
     state::{
         BattleState,
         components::{Health, Identity, Owner, ProductionQueue},
@@ -292,7 +292,7 @@ pub fn project_build_items(
         .definitions
         .structures
         .iter()
-        .filter(|s| is_type_eligible(&world.definitions, player, living, s.type_key.as_str()))
+        .filter(|s| is_type_eligible_id(&world.definitions, player, living, s.id))
         .map(|s| {
             let techno = world.definitions.techno.get_by_id(s.id);
             let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
@@ -344,7 +344,7 @@ pub fn project_produce_items(
         .techno
         .iter()
         .filter(|t| t.class == class)
-        .filter(|t| is_type_eligible(&world.definitions, player, living, t.type_key.as_str()))
+        .filter(|t| is_type_eligible_id(&world.definitions, player, living, t.id))
         // 可部署载具（MCV）不进常规生产栏。
         .filter(|t| deploy_into_type(&world.definitions, t.id).is_none())
         .map(|t| {
