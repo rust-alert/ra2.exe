@@ -270,6 +270,11 @@ impl PaintDefinitions {
         self.ensure_cameo_hint(type_id);
         self.cameo_hints.get(type_id).cloned().unwrap_or_else(|| resolve_cameo_asset_names(None, type_id))
     }
+
+    /// seal 后仍无 art 节的建筑类型键（将回退占位叠画）。
+    pub fn structure_types_missing_art(&self) -> Vec<&str> {
+        self.structure_hints.types_missing_art()
+    }
 }
 
 fn resolve_cameo_asset_names(art: Option<&IniDocument>, type_id: &str) -> CameoAssetNames {

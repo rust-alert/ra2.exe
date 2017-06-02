@@ -26,6 +26,8 @@ const STRUCTURE_LOOP_ANIM_KEYS: &[(&str, &str, &str)] = &[
 /// 建筑类型叠画主体提示（按 `type_id` 去重一次）。
 #[derive(Debug, Clone)]
 struct StructureTypePaintHints {
+    /// art 中是否解析到类型节或 `Image=` 目标节（seal 诊断用）。
+    art_resolved: bool,
     remapable: bool,
     body_key: String,
     body_new_theater: bool,
@@ -63,6 +65,17 @@ impl StructurePaintHintTable {
 
     fn values(&self) -> impl Iterator<Item = &StructureTypePaintHints> {
         self.by_type.values()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&TechnoName, &StructureTypePaintHints)> {
+        self.by_type.iter()
+    }
+
+    /// 无 art 节可解析的类型键（已排序）。
+    pub(crate) fn types_missing_art(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self.by_type.iter().filter(|(_, hint)| !hint.art_resolved).map(|(key, _)| key.as_str()).collect();
+        out.sort_unstable();
+        out
     }
 }
 
@@ -194,6 +207,7 @@ struct StructureBuildupHints {
 
 fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> StructureTypePaintHints {
     let art_section = resolve_art_section(art, type_id);
+    let art_resolved = art.is_some_and(|a| a.section(type_id).is_some() || a.section(art_section.as_str()).is_some());
     let body = structure_body_art_fields(art, type_id, &art_section);
     let remapable = body.remapable.unwrap_or(true);
     let body_new_theater = body.new_theater.unwrap_or(false);
@@ -213,6 +227,7 @@ fn structure_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocum
         .map(|n| n.as_str().to_string())
         .unwrap_or_else(|| art_section.trim().to_ascii_uppercase());
     StructureTypePaintHints {
+        art_resolved,
         remapable,
         body_key,
         body_new_theater,

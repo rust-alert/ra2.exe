@@ -708,6 +708,11 @@ pub fn boot_world_with_progress(
         loader.drop_documents()
     };
     debug_assert!(paint.documents_sealed(), "boot paint must not retain art/rules IniDocument");
+    let missing_structure_art = paint.structure_types_missing_art().len();
+    if missing_structure_art > 0 {
+        note = format!("{note} · paintMissingArt#{missing_structure_art}");
+        tracing::warn!(count = missing_structure_art, "sealed paint has structures without art sections");
+    }
     let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
