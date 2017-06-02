@@ -285,6 +285,11 @@ impl PaintDefinitions {
     pub fn terrain_types_missing_art(&self) -> Vec<&str> {
         self.terrain_hints.types_missing_art()
     }
+
+    /// seal 后仍无 art 节的 overlay 类型名。
+    pub fn overlay_types_missing_art(&self) -> Vec<&str> {
+        self.overlay_hints.types_missing_art()
+    }
 }
 
 fn resolve_cameo_asset_names(art: Option<&IniDocument>, type_id: &str) -> CameoAssetNames {

@@ -163,7 +163,7 @@ pub fn paint_map_overlays(
         else {
             continue;
         };
-        let OverlayArtHints { image_key, new_theater, theater_yes } = hint.clone();
+        let OverlayArtHints { image_key, new_theater, theater_yes, .. } = hint.clone();
         let pal_kind: u8 = if tib {
             2
         }
@@ -286,6 +286,8 @@ struct ResolvedOverlay {
 /// overlay 类型在 art / rules 中解析出的叠画键（按类型名 + 显示名去重）。
 #[derive(Debug, Clone)]
 struct OverlayArtHints {
+    /// art 中是否解析到类型 / Image / 显示名对应节（seal 诊断用）。
+    art_resolved: bool,
     image_key: String,
     new_theater: bool,
     theater_yes: bool,
@@ -308,6 +310,19 @@ impl OverlayPaintHintTable {
 
     fn insert(&mut self, type_name: String, display_name: String, hint: OverlayArtHints) {
         self.by_key.insert((type_name, display_name), hint);
+    }
+
+    /// 无 art 节可解析的 overlay 类型名（去重已排序）。
+    pub(crate) fn types_missing_art(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self
+            .by_key
+            .iter()
+            .filter(|(_, hint)| !hint.art_resolved)
+            .map(|((type_name, _), _)| type_name.as_str())
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
     }
 }
 
@@ -354,6 +369,9 @@ fn resolve_overlay_art_keys(
         .filter(|n| !n.is_empty())
         .map(|n| n.as_str().to_string());
     let rules_image_or_type = rules_image.clone().unwrap_or_else(|| type_name.to_ascii_uppercase());
+    let art_resolved = art.is_some_and(|a| {
+        [type_name, rules_image_or_type.as_str(), display_name].into_iter().any(|candidate| a.section(candidate).is_some())
+    });
     let art_section = art
         .and_then(|a| {
             for candidate in [type_name, rules_image_or_type.as_str(), display_name] {
@@ -374,7 +392,12 @@ fn resolve_overlay_art_keys(
         .map(|n| n.as_str().to_string())
         .or(rules_image)
         .unwrap_or_else(|| display_name.to_ascii_uppercase());
-    OverlayArtHints { image_key, new_theater: art_fields.new_theater.unwrap_or(false), theater_yes: art_fields.theater.unwrap_or(false) }
+    OverlayArtHints {
+        art_resolved,
+        image_key,
+        new_theater: art_fields.new_theater.unwrap_or(false),
+        theater_yes: art_fields.theater.unwrap_or(false),
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]

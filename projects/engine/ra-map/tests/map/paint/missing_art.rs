@@ -102,3 +102,41 @@ Image=TREE01
     assert!(missing_terrain.iter().any(|k| k.eq_ignore_ascii_case("TREE99")), "{missing_terrain:?}");
     assert!(!missing_terrain.iter().any(|k| k.eq_ignore_ascii_case("TREE01")), "{missing_terrain:?}");
 }
+
+#[test]
+fn seal_reports_overlays_missing_art_sections() {
+    let mut files = HashMap::new();
+    files.insert(
+        "art.ini".into(),
+        br#"[LOBRDG01]
+Image=LOBRDG01
+Theater=yes
+"#
+        .to_vec(),
+    );
+    files.insert("rules.ini".into(), br#"[General]
+"#.to_vec());
+    let source = MapSource { files };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "diag-ov");
+    map.overlays = vec![
+        ra_map::OverlayCell { x: 1, y: 1, overlay_id: 0, data: 0 },
+        ra_map::OverlayCell { x: 2, y: 2, overlay_id: 1, data: 0 },
+    ];
+
+    let paint = PaintDefinitionsLoader::load_sealed_for_overlays(
+        &source,
+        "art.ini",
+        "rules.ini",
+        &map,
+        &|id| match id {
+            0 => Some("LOBRDG01".into()),
+            1 => Some("MISSINGOV".into()),
+            _ => None,
+        },
+        &|_| false,
+    );
+    let missing = paint.overlay_types_missing_art();
+    assert!(missing.iter().any(|k| k.eq_ignore_ascii_case("MISSINGOV")), "{missing:?}");
+    assert!(!missing.iter().any(|k| k.eq_ignore_ascii_case("LOBRDG01")), "{missing:?}");
+}

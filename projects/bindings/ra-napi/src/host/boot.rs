@@ -711,6 +711,7 @@ pub fn boot_world_with_progress(
     let missing_structure_art = paint.structure_types_missing_art().len();
     let missing_mobile_art = paint.mobile_types_missing_art().len();
     let missing_terrain_art = paint.terrain_types_missing_art().len();
+    let missing_overlay_art = paint.overlay_types_missing_art().len();
     if missing_structure_art > 0 {
         note = format!("{note} · paintMissingArt#{missing_structure_art}");
         tracing::warn!(count = missing_structure_art, "sealed paint has structures without art sections");
@@ -722,6 +723,10 @@ pub fn boot_world_with_progress(
     if missing_terrain_art > 0 {
         note = format!("{note} · paintMissingTerrain#{missing_terrain_art}");
         tracing::warn!(count = missing_terrain_art, "sealed paint has terrain objects without art sections");
+    }
+    if missing_overlay_art > 0 {
+        note = format!("{note} · paintMissingOverlay#{missing_overlay_art}");
+        tracing::warn!(count = missing_overlay_art, "sealed paint has overlays without art sections");
     }
     let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
     let mut preview_base: Option<RgbaImage> = None;
