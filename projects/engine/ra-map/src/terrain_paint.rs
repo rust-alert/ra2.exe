@@ -17,6 +17,8 @@ use crate::{
 /// 地形物件叠画所需的 art / rules 提示（按类型名去重一次）。
 #[derive(Debug, Clone)]
 struct TerrainObjectPaintHints {
+    /// art 中是否解析到类型节或 `Image=` 目标节（seal 诊断用）。
+    art_resolved: bool,
     image_key: String,
     is_animated: bool,
     spawns_tiberium: bool,
@@ -40,6 +42,13 @@ impl TerrainPaintHintTable {
 
     fn insert(&mut self, name: String, hint: TerrainObjectPaintHints) {
         self.by_name.insert(name, hint);
+    }
+
+    /// 无 art 节可解析的类型名（已排序）。
+    pub(crate) fn types_missing_art(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self.by_name.iter().filter(|(_, hint)| !hint.art_resolved).map(|(key, _)| key.as_str()).collect();
+        out.sort_unstable();
+        out
     }
 }
 
@@ -78,14 +87,17 @@ impl crate::PaintDefinitions {
 
 fn terrain_object_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, name: &str) -> TerrainObjectPaintHints {
     let art_fields = art.and_then(|a| a.section(name)).and_then(|s| s.deserialize::<TerrainArtSectionFields>().ok()).unwrap_or_default();
+    let image_key = art_fields
+        .image
+        .as_ref()
+        .filter(|n| !n.is_empty())
+        .map(|n| n.as_str().to_string())
+        .unwrap_or_else(|| name.trim().to_ascii_uppercase());
+    let art_resolved = art.is_some_and(|a| a.section(name).is_some() || a.section(image_key.as_str()).is_some());
     let rules_fields = rules.and_then(|r| r.section(name)).and_then(|s| s.deserialize::<TerrainRulesSectionFields>().ok()).unwrap_or_default();
     TerrainObjectPaintHints {
-        image_key: art_fields
-            .image
-            .as_ref()
-            .filter(|n| !n.is_empty())
-            .map(|n| n.as_str().to_string())
-            .unwrap_or_else(|| name.trim().to_ascii_uppercase()),
+        art_resolved,
+        image_key,
         is_animated: rules_fields.is_animated.unwrap_or(false),
         spawns_tiberium: rules_fields.spawns_tiberium.unwrap_or(false),
         animation_rate: rules_fields.animation_rate.unwrap_or(1).max(1),

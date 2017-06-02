@@ -20,6 +20,8 @@ use crate::{
 /// 移动单位叠画所需的 rules / art 提示（按类型 id 去重一次）。
 #[derive(Debug, Clone)]
 struct MobileTypePaintHints {
+    /// art 中是否解析到类型节或 `Image=` 目标节（seal 诊断用）。
+    art_resolved: bool,
     image_key: String,
     prefer_voxel: bool,
     new_theater: bool,
@@ -52,6 +54,13 @@ impl MobilePaintHintTable {
 
     fn insert(&mut self, type_id: TechnoName, hint: MobileTypePaintHints) {
         self.by_type.insert(type_id, hint);
+    }
+
+    /// 无 art 节可解析的类型键（已排序）。
+    pub(crate) fn types_missing_art(&self) -> Vec<&str> {
+        let mut out: Vec<&str> = self.by_type.iter().filter(|(_, hint)| !hint.art_resolved).map(|(key, _)| key.as_str()).collect();
+        out.sort_unstable();
+        out
     }
 }
 
@@ -90,6 +99,7 @@ impl crate::PaintDefinitions {
 
 fn mobile_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument>, type_id: &str) -> MobileTypePaintHints {
     let image_key = resolve_mobile_image_key(rules, art, type_id);
+    let art_resolved = art.is_some_and(|a| a.section(type_id).is_some() || a.section(image_key.as_str()).is_some());
     let art_fields = art.and_then(|a| a.section(&image_key)).and_then(|s| s.deserialize::<MobileArtImageFields>().ok()).unwrap_or_default();
     let prefer_voxel = art_fields.voxel.unwrap_or(false);
     let new_theater = art_fields.new_theater.unwrap_or(false);
@@ -100,7 +110,17 @@ fn mobile_type_paint_hints(art: Option<&IniDocument>, rules: Option<&IniDocument
     };
     let walk_frames = art_fields.walk_frames.filter(|&n| n > 0).map(|n| n as u16);
     let firing_frames = art_fields.firing_frames.filter(|&n| n > 0).map(|n| n as u16);
-    MobileTypePaintHints { image_key, prefer_voxel, new_theater, walk_triple, ready_triple, fire_triple, walk_frames, firing_frames }
+    MobileTypePaintHints {
+        art_resolved,
+        image_key,
+        prefer_voxel,
+        new_theater,
+        walk_triple,
+        ready_triple,
+        fire_triple,
+        walk_frames,
+        firing_frames,
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -375,6 +395,7 @@ pub fn infantry_shp_frame_from_triples(
     fire: Option<(u16, u16, u16)>,
 ) -> u16 {
     let hint = MobileTypePaintHints {
+        art_resolved: true,
         image_key: String::new(),
         prefer_voxel: false,
         new_theater: false,

@@ -275,6 +275,16 @@ impl PaintDefinitions {
     pub fn structure_types_missing_art(&self) -> Vec<&str> {
         self.structure_hints.types_missing_art()
     }
+
+    /// seal 后仍无 art 节的移动单位类型键。
+    pub fn mobile_types_missing_art(&self) -> Vec<&str> {
+        self.mobile_hints.types_missing_art()
+    }
+
+    /// seal 后仍无 art 节的地形物件类型名。
+    pub fn terrain_types_missing_art(&self) -> Vec<&str> {
+        self.terrain_hints.types_missing_art()
+    }
 }
 
 fn resolve_cameo_asset_names(art: Option<&IniDocument>, type_id: &str) -> CameoAssetNames {
