@@ -4,7 +4,7 @@
 //! 脉冲间隔取 `ftol(RepairRate * 900)`（15Hz 下库存 `.016` → 14 tick）。
 
 use ra_map::MapEntityKind;
-use ra_types::EntityId;
+use ra_types::{EntityId, TypeId};
 
 use crate::state::{
     BattleState,
@@ -50,7 +50,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
         jobs.push(RepairJob {
             id,
             house,
-            type_id: crate::gameplay::type_key_of(&world.definitions, identity.type_id).to_string(),
+            type_id: identity.type_id,
             current: health.current,
             maximum: health.maximum,
         });
@@ -62,7 +62,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
             stop.push(job.id);
             continue;
         };
-        let cost = world.definitions.techno.get(job.type_id.as_str()).map(|tt| tt.cost.max(0) as u32).unwrap_or(0);
+        let cost = world.definitions.techno.get_by_id(job.type_id).map(|tt| tt.cost.max(0) as u32).unwrap_or(0);
         let heal = repair_step.min(job.maximum.saturating_sub(job.current));
         if heal == 0 {
             stop.push(job.id);
@@ -105,7 +105,7 @@ pub(crate) fn tick_repairs(world: &mut BattleState) {
 struct RepairJob {
     id: EntityId,
     house: String,
-    type_id: String,
+    type_id: TypeId,
     current: u32,
     maximum: u32,
 }
