@@ -1,7 +1,7 @@
 //! 工厂生产队列、出厂与集结。
 
 use ra_map::MapEntityKind;
-use ra_types::{TechnoClass, TechnoDefinition};
+use ra_types::{TechnoClass, TechnoDefinition, TypeId};
 
 use crate::{
     gameplay::{factory_matches_unit, verses_for},
@@ -80,14 +80,13 @@ impl crate::state::BattleState {
             }
         }
         for (factory_index, type_id) in unit_spawns {
-            let key = crate::gameplay::type_key_of(&self.definitions, type_id).to_string();
-            self.spawn_produced_unit(factory_index, key.as_str());
+            self.spawn_produced_unit(factory_index, type_id);
         }
     }
 
     #[doc(hidden)]
-    pub fn spawn_produced_unit(&mut self, factory_index: usize, type_id: &str) {
-        let Some(tt) = self.definitions.techno.get(type_id).cloned()
+    pub fn spawn_produced_unit(&mut self, factory_index: usize, type_id: TypeId) {
+        let Some(tt) = self.definitions.techno.get_by_id(type_id).cloned()
         else {
             return;
         };
