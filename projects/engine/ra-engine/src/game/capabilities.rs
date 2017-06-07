@@ -142,18 +142,8 @@ impl BattleSession {
         let living = living_structure_keys(&self.world, house.as_ref());
 
         let deploy = selected.iter().find_map(|&id| self.project_deploy_cap(id));
-        let build_all = project_build_items(&self.world, tech_player, &living, funds, has_construction_yard, has_power_plant);
-        let mut build_items = Vec::new();
-        let mut defense_items = Vec::new();
-        for item in build_all {
-            let defense = self.world.definitions.structures.get(item.type_id.as_ref()).is_some_and(|s| s.build_cat.is_defense_tab());
-            if defense {
-                defense_items.push(item);
-            }
-            else {
-                build_items.push(item);
-            }
-        }
+        let (build_items, defense_items) =
+            project_build_items(&self.world, tech_player, &living, funds, has_construction_yard, has_power_plant);
         let infantry_items =
             project_produce_items(&self.world, tech_player, &living, TechnoClass::Infantry, funds, has_infantry_factory, infantry_idle);
         let vehicle_items =
@@ -285,48 +275,51 @@ pub fn project_build_items(
     funds: i32,
     has_yard: bool,
     has_power: bool,
-) -> Vec<CapabilityItem> {
+) -> (Vec<CapabilityItem>, Vec<CapabilityItem>) {
     let ready = world.house_ready_building(player.house);
     let yard_idle = world.find_idle_factory(player.house, TechnoClass::Building).is_some();
-    let mut items: Vec<CapabilityItem> = world
-        .definitions
-        .structures
-        .iter()
-        .filter(|s| is_type_eligible_id(&world.definitions, player, living, s.id))
-        .map(|s| {
-            let techno = world.definitions.techno.get_by_id(s.id);
-            let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
-            let requires_power = requires_power_plant(&world.definitions, s.id);
-            let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
-            let key = s.type_key.as_str();
-            let want_id = Some(s.id);
-            let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
-                // 已完工：可点选落位，不再检查资金。
-                (true, None)
-            }
-            else if want_id.is_some_and(|w| {
-                world.entities.iter().any(|e| {
-                    let id = e.id;
-                    !world
-                        .ecs_get::<Owner>(id)
-                        .is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
-                        && world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == w)
-                })
-            }) {
-                // 建造中：侧栏可点以取消。
-                (true, None)
-            }
-            else if has_yard && !yard_idle {
-                (false, Some(CommandRejectReason::QueueFull))
-            }
-            else {
-                evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
-            };
-            CapabilityItem { type_id: Arc::<str>::from(s.type_key.as_str()), cost, enabled, disabled_reason }
-        })
-        .collect();
-    items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
-    items
+    let mut build_items = Vec::new();
+    let mut defense_items = Vec::new();
+    for s in world.definitions.structures.iter().filter(|s| is_type_eligible_id(&world.definitions, player, living, s.id)) {
+        let techno = world.definitions.techno.get_by_id(s.id);
+        let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
+        let requires_power = requires_power_plant(&world.definitions, s.id);
+        let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
+        let key = s.type_key.as_str();
+        let want_id = Some(s.id);
+        let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
+            // 已完工：可点选落位，不再检查资金。
+            (true, None)
+        }
+        else if want_id.is_some_and(|w| {
+            world.entities.iter().any(|e| {
+                let id = e.id;
+                !world
+                    .ecs_get::<Owner>(id)
+                    .is_none_or(|o| crate::gameplay::house_id_of(&world.definitions, player.house.as_ref()) != Some(o.house))
+                    && world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == w)
+            })
+        }) {
+            // 建造中：侧栏可点以取消。
+            (true, None)
+        }
+        else if has_yard && !yard_idle {
+            (false, Some(CommandRejectReason::QueueFull))
+        }
+        else {
+            evaluate_build_availability(has_yard, has_power, funds, cost, requires_power, limit_hit)
+        };
+        let item = CapabilityItem { type_id: Arc::<str>::from(s.type_key.as_str()), cost, enabled, disabled_reason };
+        if s.build_cat.is_defense_tab() {
+            defense_items.push(item);
+        }
+        else {
+            build_items.push(item);
+        }
+    }
+    build_items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
+    defense_items.sort_by(|a, b| a.type_id.as_ref().cmp(b.type_id.as_ref()));
+    (build_items, defense_items)
 }
 
 #[doc(hidden)]
