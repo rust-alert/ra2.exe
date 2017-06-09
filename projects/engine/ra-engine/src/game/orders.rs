@@ -252,6 +252,10 @@ impl BattleSession {
             return false;
         };
         let needle = type_id.to_ascii_uppercase();
+        let Some(wanted_id) = self.world.definitions.techno.get(needle.as_str()).map(|t| t.id)
+        else {
+            return false;
+        };
         self.world.entities.iter().any(|e| {
             let id = e.id;
             if self.world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -265,11 +269,7 @@ impl BattleSession {
             {
                 return false;
             }
-            self.world
-                .ecs_get::<ProductionQueue>(id)
-                .and_then(|q| q.item)
-                .map(|(queued, _)| self.world.definitions.techno.get(needle.as_str()).is_some_and(|t| t.id == queued))
-                .unwrap_or(false)
+            self.world.ecs_get::<ProductionQueue>(id).and_then(|q| q.item).is_some_and(|(queued, _)| queued == wanted_id)
         })
     }
 
