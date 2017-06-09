@@ -136,11 +136,11 @@ pub fn place_power_commands(world: &BattleState, house: &str, player: PlayerId) 
     if !house_has_yard(world, house) || house_has_power(world, house) {
         return Vec::new();
     }
-    let Some(power_id) = pick_structure(world, house, |s| s.power.output > 0)
+    let Some(power) = pick_structure(world, house, |s| s.power.output > 0)
     else {
         return Vec::new();
     };
-    build_or_place(world, house, player, power_id)
+    build_or_place(world, house, player, power)
 }
 
 /// 有供电且无兵营时：若兵营已完工则落位，否则排队建造。
@@ -148,11 +148,11 @@ pub fn place_barracks_commands(world: &BattleState, house: &str, player: PlayerI
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
-    let Some(barracks_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
+    let Some(barracks) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Infantry))
     else {
         return Vec::new();
     };
-    build_or_place(world, house, player, barracks_id)
+    build_or_place(world, house, player, barracks)
 }
 
 /// 有供电且无战车工厂时：若车厂已完工则落位，否则排队建造。
@@ -160,11 +160,11 @@ pub fn place_war_factory_commands(world: &BattleState, house: &str, player: Play
     if !house_has_power(world, house) || house_has_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
-    let Some(wf_id) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
+    let Some(wf) = pick_structure(world, house, |s| s.production.as_ref().is_some_and(|p| p.category == ProductionCategory::Vehicle))
     else {
         return Vec::new();
     };
-    build_or_place(world, house, player, wf_id)
+    build_or_place(world, house, player, wf)
 }
 
 /// 有供电且无矿场时：若矿场已完工则落位，否则排队建造。
@@ -172,11 +172,11 @@ pub fn place_refinery_commands(world: &BattleState, house: &str, player: PlayerI
     if !house_has_power(world, house) || house_has_refinery(world, house) {
         return Vec::new();
     }
-    let Some(refinery_id) = pick_structure(world, house, |s| s.refinery)
+    let Some(refinery) = pick_structure(world, house, |s| s.refinery)
     else {
         return Vec::new();
     };
-    build_or_place(world, house, player, refinery_id)
+    build_or_place(world, house, player, refinery)
 }
 
 /// 有空闲兵营时生产一名步兵。
@@ -184,11 +184,11 @@ pub fn produce_infantry_commands(world: &BattleState, house: &str, player: Playe
     if !house_has_idle_factory(world, house, ProductionCategory::Infantry) {
         return Vec::new();
     }
-    let Some(unit_id) = pick_techno(world, house, ProductionCategory::Infantry)
+    let Some(unit) = pick_techno(world, house, ProductionCategory::Infantry)
     else {
         return Vec::new();
     };
-    produce_unit(world, house, player, unit_id)
+    produce_unit(world, house, player, unit)
 }
 
 /// 有空闲战车工厂时生产一辆载具。
@@ -196,18 +196,15 @@ pub fn produce_vehicle_commands(world: &BattleState, house: &str, player: Player
     if !house_has_idle_factory(world, house, ProductionCategory::Vehicle) {
         return Vec::new();
     }
-    let Some(unit_id) = pick_techno(world, house, ProductionCategory::Vehicle)
+    let Some(unit) = pick_techno(world, house, ProductionCategory::Vehicle)
     else {
         return Vec::new();
     };
-    produce_unit(world, house, player, unit_id)
+    produce_unit(world, house, player, unit)
 }
 
-fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit_id: &str) -> Vec<GameCommand> {
-    let Some(cost) = world.techno_cost(unit_id)
-    else {
-        return Vec::new();
-    };
+fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit: &ra_types::TechnoDefinition) -> Vec<GameCommand> {
+    let cost = unit.cost.max(0) as u32;
     let Some(funds) = world.house_funds(house)
     else {
         return Vec::new();
@@ -215,25 +212,27 @@ fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit_id: &st
     if funds < cost as i32 {
         return Vec::new();
     }
-    vec![GameCommand::Produce { player, type_id: unit_id.to_string() }]
+    vec![GameCommand::Produce { player, type_id: unit.type_key.as_str().to_string() }]
 }
 
 /// 建造场已有该类型完工件则落位，否则在空闲建造场排队 `Produce`。
-fn build_or_place(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
-    let needle = type_id.to_ascii_uppercase();
+fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
+    let needle = structure.type_key.as_str();
     if let Some(ready) = world.house_ready_building(house) {
-        if ready.as_ref() != needle.as_str() {
+        if !ready.as_ref().eq_ignore_ascii_case(needle) {
             // 另有完工建筑待落位，先不插队。
             return Vec::new();
         }
-        return place_near_yard(world, house, player, type_id);
+        return place_near_yard(world, house, player, structure);
     }
     if !house_has_idle_yard(world, house) {
         return Vec::new();
     }
-    let Some(cost) = world.techno_cost(type_id)
+    let cost = if structure.cost > 0 {
+        structure.cost.max(0) as u32
+    }
     else {
-        return Vec::new();
+        world.definitions.techno.get_by_id(structure.id).map(|t| t.cost.max(0) as u32).unwrap_or(0)
     };
     let Some(funds) = world.house_funds(house)
     else {
@@ -242,20 +241,20 @@ fn build_or_place(world: &BattleState, house: &str, player: PlayerId, type_id: &
     if funds < cost as i32 {
         return Vec::new();
     }
-    vec![GameCommand::Produce { player, type_id: type_id.to_string() }]
+    vec![GameCommand::Produce { player, type_id: needle.to_string() }]
 }
 
-fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, type_id: &str) -> Vec<GameCommand> {
+fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
     let Some((yx, yy)) = yard_cell(world, house)
     else {
         return Vec::new();
     };
-    let foundation = world.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+    let foundation = &structure.foundation;
     let Some((x, y)) = find_open_near(world, yx, yy, foundation.width, foundation.height)
     else {
         return Vec::new();
     };
-    vec![GameCommand::PlaceBuilding { player, type_id: type_id.to_string(), x, y }]
+    vec![GameCommand::PlaceBuilding { player, type_id: structure.type_key.as_str().to_string(), x, y }]
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。
@@ -300,7 +299,7 @@ pub fn auto_attack_commands(world: &BattleState, house: &str) -> Vec<GameCommand
     out
 }
 
-fn pick_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> Option<&'a str>
+fn pick_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> Option<&'a ra_types::StructureDefinition>
 where
     F: Fn(&ra_types::StructureDefinition) -> bool,
 {
@@ -314,12 +313,10 @@ where
         .definitions
         .structures
         .iter()
-        .filter(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
-        .map(|s| s.type_key.as_str())
-        .next()
+        .find(|s| pred(s) && !s.construction_yard && is_type_eligible_id(&world.definitions, tech, &living, s.id))
 }
 
-fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a str> {
+fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCategory) -> Option<&'a ra_types::TechnoDefinition> {
     let living = living_structure_keys(world, house);
     let Some(player) = world.players.iter().find(|p| p.house.eq_ignore_ascii_case(house))
     else {
@@ -342,7 +339,6 @@ fn pick_techno<'a>(world: &'a BattleState, house: &str, category: ProductionCate
         })
         // 同科技等级下优先较便宜的基础单位；再按类型键稳定排序。
         .min_by_key(|t| (t.tech_level, t.cost, t.type_key.as_str()))
-        .map(|t| t.type_key.as_str())
 }
 
 fn living_house_structure<'a, F>(world: &'a BattleState, house: &str, pred: F) -> bool
