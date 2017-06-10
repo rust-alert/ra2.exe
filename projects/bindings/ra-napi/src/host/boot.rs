@@ -765,6 +765,11 @@ pub fn boot_world_with_progress(
         note = format!("{note} · paintMissingShp#{missing_structure_shp}");
         tracing::warn!(count = missing_structure_shp, "preview paint failed to load structure SHP bodies");
     }
+    let missing_mobile_shp = paint.mobile_types_missing_shp().len();
+    if missing_mobile_shp > 0 {
+        note = format!("{note} · paintMissingMobileShp#{missing_mobile_shp}");
+        tracing::warn!(count = missing_mobile_shp, "preview paint failed to load mobile SHP or VXL bodies");
+    }
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());

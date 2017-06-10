@@ -93,3 +93,54 @@ fn pose_slide_offset_is_added_to_blit_origin() {
     assert_eq!(blit.offset_x, 15);
     assert_eq!(blit.offset_y, -3);
 }
+
+#[test]
+fn missing_mobile_body_notes_type_key() {
+    use std::collections::HashMap;
+
+    use ra_map::{MapEntity, MapEntityKind, PaintDefinitionsLoader};
+
+    struct MapSource {
+        files: HashMap<String, Vec<u8>>,
+    }
+    impl AssetSource for MapSource {
+        fn read(&self, relative: &str) -> RaResult<Vec<u8>> {
+            self.files.get(&relative.to_ascii_lowercase()).cloned().ok_or_else(|| RaError::MissingFile(relative.to_string()))
+        }
+    }
+
+    fn solid_index_pal(index: usize, r6: u8, g6: u8, b6: u8) -> Vec<u8> {
+        let mut data = vec![0u8; 768];
+        let o = index * 3;
+        data[o] = r6;
+        data[o + 1] = g6;
+        data[o + 2] = b6;
+        data
+    }
+
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[E1]\nImage=E1\n".to_vec());
+    files.insert("rules.ini".into(), b"[General]\n".to_vec());
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    let source = MapSource { files };
+
+    let mut map = MapInfo::empty(GameEdition::Ra2, "t");
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Infantry,
+        owner: "Americans".into(),
+        type_id: "E1".into(),
+        health: 256,
+        x: 1,
+        y: 1,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+
+    let mut paint = PaintDefinitionsLoader::load_sealed(&source, "art.ini", "rules.ini", &Default::default(), &map);
+    let mut image = TerrainImage::blank(64, 64);
+    let painted = paint_map_mobiles(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_| MobilePaintPose::default());
+    assert_eq!(painted, 0);
+    assert_eq!(paint.mobile_types_missing_shp(), &["E1".to_string()]);
+}

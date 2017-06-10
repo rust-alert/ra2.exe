@@ -66,6 +66,8 @@ pub struct PaintDefinitions {
     cameo_hints: CameoPaintHintTable,
     /// 绘制时主体 SHP 加载失败的建筑类型键（去重）。
     missing_structure_shp: Vec<String>,
+    /// 绘制时主体 SHP/VXL 加载失败的机动单位类型键（去重）。
+    missing_mobile_shp: Vec<String>,
 }
 
 /// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
@@ -104,6 +106,7 @@ impl PaintDefinitionsLoader {
                 overlay_hints: OverlayPaintHintTable::default(),
                 cameo_hints: CameoPaintHintTable::default(),
                 missing_structure_shp: Vec::new(),
+                missing_mobile_shp: Vec::new(),
             },
         }
     }
@@ -307,6 +310,21 @@ impl PaintDefinitions {
         }
         self.missing_structure_shp.push(key);
         self.missing_structure_shp.sort_unstable();
+    }
+
+    /// 绘制期主体 SHP/VXL 加载失败的机动单位类型键（已排序去重）。
+    pub fn mobile_types_missing_shp(&self) -> &[String] {
+        &self.missing_mobile_shp
+    }
+
+    /// 记录一次机动单位主体资源缺失（同类型只记一次）。
+    pub(crate) fn note_missing_mobile_shp(&mut self, type_id: &str) {
+        let key = type_id.trim().to_ascii_uppercase();
+        if key.is_empty() || self.missing_mobile_shp.iter().any(|k| k == &key) {
+            return;
+        }
+        self.missing_mobile_shp.push(key);
+        self.missing_mobile_shp.sort_unstable();
     }
 }
 

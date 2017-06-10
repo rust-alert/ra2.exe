@@ -254,6 +254,9 @@ pub fn paint_map_mobiles(
             blit.offset_y = blit.offset_y.saturating_add(pose.offset_y);
             items.push((ent.x, ent.y, blit));
         }
+        else {
+            paint.note_missing_mobile_shp(ent.type_id.as_str());
+        }
     }
 
     paint_cell_sprites(image, &items, z_at)
