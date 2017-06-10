@@ -961,6 +961,7 @@ fn paint_map_structures_inner(
                 items.push((ent.x, ent.y, blit));
             }
             else {
+                paint.note_missing_structure_shp(ent.type_id.as_str());
                 missing.push((ent.x, ent.y));
             }
             if let Some(mut blit) = load_structure_turret_vxl(source, hint.turret_voxel.as_ref(), ent.facing, &pal) {

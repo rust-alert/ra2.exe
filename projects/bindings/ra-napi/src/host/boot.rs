@@ -760,6 +760,11 @@ pub fn boot_world_with_progress(
             None
         }
     };
+    let missing_structure_shp = paint.structure_types_missing_shp().len();
+    if missing_structure_shp > 0 {
+        note = format!("{note} · paintMissingShp#{missing_structure_shp}");
+        tracing::warn!(count = missing_structure_shp, "preview paint failed to load structure SHP bodies");
+    }
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());

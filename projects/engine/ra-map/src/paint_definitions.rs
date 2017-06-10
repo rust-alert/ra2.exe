@@ -64,6 +64,8 @@ pub struct PaintDefinitions {
     pub(crate) overlay_hints: OverlayPaintHintTable,
     /// 建造栏图标候选名表（跨侧栏刷新复用）。
     cameo_hints: CameoPaintHintTable,
+    /// 绘制时主体 SHP 加载失败的建筑类型键（去重）。
+    missing_structure_shp: Vec<String>,
 }
 
 /// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
@@ -101,6 +103,7 @@ impl PaintDefinitionsLoader {
                 terrain_hints: TerrainPaintHintTable::default(),
                 overlay_hints: OverlayPaintHintTable::default(),
                 cameo_hints: CameoPaintHintTable::default(),
+                missing_structure_shp: Vec::new(),
             },
         }
     }
@@ -289,6 +292,21 @@ impl PaintDefinitions {
     /// seal 后仍无 art 节的 overlay 类型名。
     pub fn overlay_types_missing_art(&self) -> Vec<&str> {
         self.overlay_hints.types_missing_art()
+    }
+
+    /// 绘制期主体 SHP 加载失败的建筑类型键（已排序去重）。
+    pub fn structure_types_missing_shp(&self) -> &[String] {
+        &self.missing_structure_shp
+    }
+
+    /// 记录一次建筑主体 SHP 缺失（同类型只记一次）。
+    pub(crate) fn note_missing_structure_shp(&mut self, type_id: &str) {
+        let key = type_id.trim().to_ascii_uppercase();
+        if key.is_empty() || self.missing_structure_shp.iter().any(|k| k == &key) {
+            return;
+        }
+        self.missing_structure_shp.push(key);
+        self.missing_structure_shp.sort_unstable();
     }
 }
 

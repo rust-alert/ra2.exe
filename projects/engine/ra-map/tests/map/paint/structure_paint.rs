@@ -716,15 +716,17 @@ fn missing_structure_body_paints_magenta_marker() {
         tag: Default::default(),
     });
     let mut image = TerrainImage::blank(256, 256);
+    let mut paint = sealed_paint(&source, &map);
     let (shp, mark) = paint_map_structures(
         &source,
         &map,
         &mut image,
-        &mut sealed_paint(&source, &map),
+        &mut paint,
         &|p, _| p.clone(),
         StructureAnimMode::BodyOnly,
     );
     assert_eq!((shp, mark), (0, 1));
+    assert_eq!(paint.structure_types_missing_shp(), &["MISS".to_string()]);
     let px = image.image.as_raw();
     let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");
     assert!(hit[0] > 200 && hit[2] > 150, "expected magenta marker, got {hit:?}");
