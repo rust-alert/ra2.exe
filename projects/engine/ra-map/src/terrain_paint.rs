@@ -308,10 +308,12 @@ pub fn paint_map_terrain_objects(
         if !shp_cache.contains_key(&file) {
             let Ok(bytes) = source.read(&file)
             else {
+                paint.note_missing_terrain_shp(obj.name.as_str());
                 continue;
             };
             let Ok(shp) = ShpFile::parse(&bytes)
             else {
+                paint.note_missing_terrain_shp(obj.name.as_str());
                 continue;
             };
             shp_cache.insert(file.clone(), shp);
@@ -322,6 +324,7 @@ pub fn paint_map_terrain_objects(
         };
         let body_n = shp_body_frame_count(&shp.frames);
         if body_n == 0 {
+            paint.note_missing_terrain_shp(obj.name.as_str());
             continue;
         }
         let frame_idx = if loops_with_clock { terrain_anim_frame(anim_clock_ms, anim_rate, body_n) as u16 } else { 0 };

@@ -68,6 +68,8 @@ pub struct PaintDefinitions {
     missing_structure_shp: Vec<String>,
     /// 绘制时主体 SHP/VXL 加载失败的机动单位类型键（去重）。
     missing_mobile_shp: Vec<String>,
+    /// 绘制时主体 SHP 加载失败的地形物件类型名（去重）。
+    missing_terrain_shp: Vec<String>,
 }
 
 /// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
@@ -107,6 +109,7 @@ impl PaintDefinitionsLoader {
                 cameo_hints: CameoPaintHintTable::default(),
                 missing_structure_shp: Vec::new(),
                 missing_mobile_shp: Vec::new(),
+                missing_terrain_shp: Vec::new(),
             },
         }
     }
@@ -325,6 +328,21 @@ impl PaintDefinitions {
         }
         self.missing_mobile_shp.push(key);
         self.missing_mobile_shp.sort_unstable();
+    }
+
+    /// 绘制期主体 SHP 加载失败的地形物件类型名（已排序去重）。
+    pub fn terrain_types_missing_shp(&self) -> &[String] {
+        &self.missing_terrain_shp
+    }
+
+    /// 记录一次地形物件主体 SHP 缺失（同名只记一次）。
+    pub(crate) fn note_missing_terrain_shp(&mut self, name: &str) {
+        let key = name.trim().to_ascii_uppercase();
+        if key.is_empty() || self.missing_terrain_shp.iter().any(|k| k == &key) {
+            return;
+        }
+        self.missing_terrain_shp.push(key);
+        self.missing_terrain_shp.sort_unstable();
     }
 }
 

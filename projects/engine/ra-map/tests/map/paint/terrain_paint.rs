@@ -101,6 +101,20 @@ fn empty_terrain_noop() {
 }
 
 #[test]
+fn missing_terrain_body_notes_type_name() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[TREE01]\nTheater=yes\n".to_vec());
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    // 有调色板与 art，故意不放 tree01.tem
+    let source = MapSource { files };
+    let map = tree_map();
+    let mut image = TerrainImage::blank(256, 256);
+    let mut paint = sealed_paint(&source, &map);
+    assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, &mut paint, clock(0)), 0);
+    assert_eq!(paint.terrain_types_missing_shp(), &["TREE01".to_string()]);
+}
+
+#[test]
 fn prefers_theater_palette_over_unittem() {
     // 剧院 pal 索引 5 = 满绿；单位 pal 索引 5 = 满红。应用剧院色则像素为绿。
     let mut files = HashMap::new();

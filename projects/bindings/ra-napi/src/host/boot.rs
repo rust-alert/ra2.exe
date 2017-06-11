@@ -770,6 +770,11 @@ pub fn boot_world_with_progress(
         note = format!("{note} · paintMissingMobileShp#{missing_mobile_shp}");
         tracing::warn!(count = missing_mobile_shp, "preview paint failed to load mobile SHP or VXL bodies");
     }
+    let missing_terrain_shp = paint.terrain_types_missing_shp().len();
+    if missing_terrain_shp > 0 {
+        note = format!("{note} · paintMissingTerrainShp#{missing_terrain_shp}");
+        tracing::warn!(count = missing_terrain_shp, "preview paint failed to load terrain object SHP bodies");
+    }
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());
