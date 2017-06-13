@@ -70,6 +70,8 @@ pub struct PaintDefinitions {
     missing_mobile_shp: Vec<String>,
     /// 绘制时主体 SHP 加载失败的地形物件类型名（去重）。
     missing_terrain_shp: Vec<String>,
+    /// 绘制时主体 SHP 加载失败的 overlay 类型名（去重）。
+    missing_overlay_shp: Vec<String>,
 }
 
 /// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
@@ -110,6 +112,7 @@ impl PaintDefinitionsLoader {
                 missing_structure_shp: Vec::new(),
                 missing_mobile_shp: Vec::new(),
                 missing_terrain_shp: Vec::new(),
+                missing_overlay_shp: Vec::new(),
             },
         }
     }
@@ -343,6 +346,21 @@ impl PaintDefinitions {
         }
         self.missing_terrain_shp.push(key);
         self.missing_terrain_shp.sort_unstable();
+    }
+
+    /// 绘制期主体 SHP 加载失败的 overlay 类型名（已排序去重）。
+    pub fn overlay_types_missing_shp(&self) -> &[String] {
+        &self.missing_overlay_shp
+    }
+
+    /// 记录一次 overlay 主体 SHP 缺失（同类型只记一次）。
+    pub(crate) fn note_missing_overlay_shp(&mut self, type_name: &str) {
+        let key = type_name.trim().to_ascii_uppercase();
+        if key.is_empty() || self.missing_overlay_shp.iter().any(|k| k == &key) {
+            return;
+        }
+        self.missing_overlay_shp.push(key);
+        self.missing_overlay_shp.sort_unstable();
     }
 }
 

@@ -92,6 +92,32 @@ fn empty_overlays_noop() {
 }
 
 #[test]
+fn missing_overlay_body_notes_type_name() {
+    let mut files = HashMap::new();
+    files.insert("art.ini".into(), b"[LOBRDG26]\nTheater=yes\n".to_vec());
+    files.insert("isotem.pal".into(), solid_index_pal(5, 0, 63, 0));
+    files.insert("unittem.pal".into(), solid_index_pal(5, 63, 0, 0));
+    // 有 art 与调色板，故意不放 lobrdg26.tem / .shp
+    let source = MapSource { files };
+    let map = overlay_map(102, 0);
+    let mut image = TerrainImage::blank(256, 256);
+    let type_name = |id: u8| (id == 102).then(|| "LOBRDG26".into());
+    let mut paint = sealed_overlay_paint(&source, &map, &type_name, &|_| false);
+    let (shp, mark) = paint_map_overlays(
+        &source,
+        &map,
+        &mut image,
+        &mut paint,
+        &type_name,
+        &|_| false,
+        &|_| None,
+        OverlayLayerFilter::All,
+    );
+    assert_eq!((shp, mark), (0, 1));
+    assert_eq!(paint.overlay_types_missing_shp(), &["LOBRDG26".to_string()]);
+}
+
+#[test]
 fn theater_overlay_uses_theater_palette() {
     let mut files = HashMap::new();
     files.insert("art.ini".into(), b"[LOBRDG26]\nTheater=yes\n".to_vec());

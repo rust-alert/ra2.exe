@@ -775,6 +775,11 @@ pub fn boot_world_with_progress(
         note = format!("{note} · paintMissingTerrainShp#{missing_terrain_shp}");
         tracing::warn!(count = missing_terrain_shp, "preview paint failed to load terrain object SHP bodies");
     }
+    let missing_overlay_shp = paint.overlay_types_missing_shp().len();
+    if missing_overlay_shp > 0 {
+        note = format!("{note} · paintMissingOverlayShp#{missing_overlay_shp}");
+        tracing::warn!(count = missing_overlay_shp, "preview paint failed to load overlay SHP bodies");
+    }
 
     report(0.88, "打开会话");
     let preferred_house = Some(request.side.as_str());

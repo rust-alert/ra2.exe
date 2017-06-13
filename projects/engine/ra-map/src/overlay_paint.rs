@@ -205,6 +205,7 @@ pub fn paint_map_overlays(
         }
         let Some(file) = loaded
         else {
+            paint.note_missing_overlay_shp(&type_name);
             unresolved.push(*cell);
             continue;
         };
