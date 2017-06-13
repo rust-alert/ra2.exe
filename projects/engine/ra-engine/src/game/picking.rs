@@ -122,7 +122,7 @@ impl BattleSession {
             if dist > max_dist_px {
                 continue;
             }
-            let is_mcv = crate::gameplay::type_key_of(&self.world.definitions, identity.type_id).to_ascii_uppercase().contains("MCV");
+            let is_mcv = crate::gameplay::is_base_unit(&self.world.definitions, identity.type_id);
             let better = match best {
                 None => true,
                 Some((best_dist, best_mcv, _)) => dist < best_dist - 0.5 || ((dist - best_dist).abs() <= 0.5 && is_mcv && !best_mcv),
@@ -317,7 +317,7 @@ impl BattleSession {
             if !matches!(identity.kind, MapEntityKind::Unit | MapEntityKind::Infantry | MapEntityKind::Aircraft) {
                 continue;
             }
-            if crate::gameplay::type_key_of(&self.world.definitions, identity.type_id).to_ascii_uppercase().contains("MCV") {
+            if crate::gameplay::is_base_unit(&self.world.definitions, identity.type_id) {
                 return Some(id);
             }
             if fallback.is_none() {
