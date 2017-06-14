@@ -11,7 +11,7 @@ impl crate::state::BattleState {
             game::CommandRejectReason,
             gameplay::{
                 TechTreePlayer, build_limit_reached, building_power, deploy_into_type, full_verses, is_agent, is_capturable,
-                is_construction_yard, is_engineer, is_production_factory, is_type_eligible, living_structure_keys, produce_ticks_for,
+                is_construction_yard, is_engineer, is_production_factory, is_type_eligible_id, living_structure_keys, produce_ticks_for,
                 requires_power_plant,
             },
             spatial::{is_mobile, nearest_adjacent_to_footprint},
@@ -249,7 +249,7 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
-                    if crate::gameplay::type_id_of(&self.definitions, type_id).is_some_and(|id| is_construction_yard(&self.definitions, id)) {
+                    if is_construction_yard(&self.definitions, tt.id) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
                     }
@@ -258,7 +258,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let living = living_structure_keys(self, house.as_ref());
-                    if !is_type_eligible(&self.definitions, tech_player, &living, type_id) {
+                    if !is_type_eligible_id(&self.definitions, tech_player, &living, tt.id) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
@@ -266,11 +266,10 @@ impl crate::state::BattleState {
                         self.reject(command_index, CommandRejectReason::QueueFull);
                         continue;
                     }
-                    if crate::gameplay::type_id_of(&self.definitions, type_id).is_some_and(|id| requires_power_plant(&self.definitions, id)) && !self.house_has_living_power(&house) {
+                    if requires_power_plant(&self.definitions, tt.id) && !self.house_has_living_power(&house) {
                         self.reject(command_index, CommandRejectReason::InsufficientPower);
                         continue;
                     }
-                    let needle = type_id.to_ascii_uppercase();
                     // 必须先在建造场完工（Produce），再点选落位；费用已在排队时扣除。
                     let Some(yard_id) = self.entities.iter().find_map(|e| {
                         let id = e.id;
@@ -294,16 +293,13 @@ impl crate::state::BattleState {
                         {
                             return None;
                         }
-                        self.ecs_get::<ProductionQueue>(id)
-                            .and_then(|q| q.ready)
-                            .is_some_and(|r| self.definitions.techno.get(needle.as_str()).is_some_and(|tt| tt.id == r))
-                            .then_some(id)
+                        self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready).is_some_and(|r| r == tt.id).then_some(id)
                     })
                     else {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     };
-                    let foundation = self.definitions.structures.get(type_id).map(|s| s.foundation.clone()).unwrap_or_default();
+                    let foundation = self.definitions.structures.get_by_id(tt.id).map(|s| s.foundation.clone()).unwrap_or_default();
                     if !self.can_place_structure_footprint(x, y, foundation.width, foundation.height) {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
@@ -311,7 +307,7 @@ impl crate::state::BattleState {
                     let def_id = tt.id;
                     let max_health = tt.strength.max(1);
                     let armor = tt.armor;
-                    let power = building_power(&self.definitions, crate::gameplay::type_id_of(&self.definitions, type_id).unwrap_or(ra_types::TypeId(u32::MAX)));
+                    let power = building_power(&self.definitions, tt.id);
                     let _ = self.with_production_mut(yard_id, |queue| {
                         queue.ready = None;
                     });
@@ -377,7 +373,7 @@ impl crate::state::BattleState {
                         continue;
                     }
                     let living = living_structure_keys(self, house.as_ref());
-                    if !is_type_eligible(&self.definitions, tech_player, &living, type_id) {
+                    if !is_type_eligible_id(&self.definitions, tech_player, &living, tt.id) {
                         self.reject(command_index, CommandRejectReason::MissingPrerequisite);
                         continue;
                     }
@@ -430,7 +426,12 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let needle = type_id.to_ascii_uppercase();
+                    let Some(tt) = self.definitions.techno.get(type_id)
+                    else {
+                        self.reject(command_index, CommandRejectReason::InvalidTarget);
+                        continue;
+                    };
+                    let want = tt.id;
                     let Some(factory_id) = self.entities.iter().find_map(|e| {
                         let id = e.id;
                         if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -447,16 +448,15 @@ impl crate::state::BattleState {
                         else {
                             return None;
                         };
-                        let want = self.definitions.techno.get(needle.as_str()).map(|t| t.id);
-                        let in_progress = want.is_some_and(|w| queue.item.as_ref().is_some_and(|(queued, _)| *queued == w));
-                        let ready = want.is_some_and(|w| queue.ready == Some(w));
+                        let in_progress = queue.item.as_ref().is_some_and(|(queued, _)| *queued == want);
+                        let ready = queue.ready == Some(want);
                         (in_progress || ready).then_some(id)
                     })
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;
                     };
-                    let refund = self.definitions.techno.get(needle.as_str()).map(|tt| tt.cost).unwrap_or(0);
+                    let refund = tt.cost;
                     let _ = self.with_production_mut(factory_id, |queue| {
                         queue.item = None;
                         queue.ready = None;
