@@ -78,6 +78,7 @@ impl HeadlessCase {
         self.command(GameCommand::Produce { player, type_id: type_id.into() });
         self.advance(1);
         for _ in 0..=PRODUCE_TICKS {
+            let wanted = self.session.expect_battle().world.definitions.techno.get(type_id).map(|t| t.id);
             let ready = self
                 .session
                 .expect_battle()
@@ -86,7 +87,7 @@ impl HeadlessCase {
                 .iter()
                 .find(|p| p.id == player)
                 .and_then(|p| self.session.expect_battle().world.house_ready_building(p.house.as_ref()));
-            if ready.is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
+            if ready == wanted {
                 break;
             }
             self.advance(1);

@@ -215,8 +215,8 @@ impl crate::state::BattleState {
         })
     }
 
-    /// 本阵营建造场是否持有待放置的完工建筑。
-    pub fn house_ready_building(&self, house: &str) -> Option<std::sync::Arc<str>> {
+    /// 本阵营建造场是否持有待放置的完工建筑（返回其 [`TypeId`]）。
+    pub fn house_ready_building(&self, house: &str) -> Option<TypeId> {
         self.entities.iter().find_map(|e| {
             let id = e.id;
             if self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {
@@ -235,8 +235,7 @@ impl crate::state::BattleState {
             {
                 return None;
             }
-            self.ecs_get::<ProductionQueue>(id)
-                .and_then(|q| q.ready.map(|tid| std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.definitions, tid))))
+            self.ecs_get::<ProductionQueue>(id).and_then(|q| q.ready)
         })
     }
 }

@@ -285,9 +285,8 @@ pub fn project_build_items(
         let cost = if s.cost > 0 { s.cost } else { techno.map(|t| t.cost).unwrap_or(0) };
         let requires_power = requires_power_plant(&world.definitions, s.id);
         let limit_hit = techno.is_some_and(|t| build_limit_reached(world, player.house, t));
-        let key = s.type_key.as_str();
         let want_id = Some(s.id);
-        let (enabled, disabled_reason) = if ready.as_ref().is_some_and(|r| r.as_ref().eq_ignore_ascii_case(key)) {
+        let (enabled, disabled_reason) = if ready == want_id {
             // 已完工：可点选落位，不再检查资金。
             (true, None)
         }

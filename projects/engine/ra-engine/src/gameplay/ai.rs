@@ -219,7 +219,7 @@ fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit: &ra_ty
 fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
     let needle = structure.type_key.as_str();
     if let Some(ready) = world.house_ready_building(house) {
-        if !ready.as_ref().eq_ignore_ascii_case(needle) {
+        if ready != structure.id {
             // 另有完工建筑待落位，先不插队。
             return Vec::new();
         }

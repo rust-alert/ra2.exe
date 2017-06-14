@@ -39,7 +39,7 @@ fn queue_until_ready(world: &mut BattleState, type_id: &str) {
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "Produce {type_id} should start: {:?}", world.last_rejects());
     for _ in 0..=PRODUCE_TICKS {
-        if world.house_ready_building("AMERICANS").is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id)) {
+        if world.house_ready_building("AMERICANS") == world.definitions.techno.get(type_id).map(|t| t.id) {
             return;
         }
         world.advance_tick();

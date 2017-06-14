@@ -279,13 +279,19 @@ impl BattleSession {
         else {
             return false;
         };
-        self.world.house_ready_building(local_house.as_ref()).is_some_and(|r| r.as_ref().eq_ignore_ascii_case(type_id))
+        let needle = type_id.to_ascii_uppercase();
+        let Some(wanted_id) = self.world.definitions.techno.get(needle.as_str()).map(|t| t.id)
+        else {
+            return false;
+        };
+        self.world.house_ready_building(local_house.as_ref()).is_some_and(|r| r == wanted_id)
     }
 
     /// 本机建造场当前待放置的完工件类型（若有）。
     pub fn local_ready_building(&self) -> Option<std::sync::Arc<str>> {
         let local_house = self.world.players.iter().find(|p| p.id == self.world.local_player).map(|p| p.house.clone())?;
-        self.world.house_ready_building(local_house.as_ref())
+        let ready = self.world.house_ready_building(local_house.as_ref())?;
+        Some(std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.world.definitions, ready)))
     }
 
     /// 为指定工厂设置集结点（非工厂由世界拒绝）。
