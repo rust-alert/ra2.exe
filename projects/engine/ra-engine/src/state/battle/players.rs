@@ -92,7 +92,7 @@ impl BattleState {
     }
 
     /// 查询规则造价；未知类型为 `None`。
-    pub fn techno_cost(&self, type_id: &str) -> Option<u32> {
-        self.definitions.techno.get(type_id).map(|t| t.cost.max(0) as u32)
+    pub fn techno_cost(&self, type_id: ra_types::TypeId) -> Option<u32> {
+        self.definitions.techno.get_by_id(type_id).map(|t| t.cost.max(0) as u32)
     }
 }
