@@ -726,7 +726,8 @@ fn missing_structure_body_paints_magenta_marker() {
         StructureAnimMode::BodyOnly,
     );
     assert_eq!((shp, mark), (0, 1));
-    assert_eq!(paint.structure_types_missing_shp(), &["MISS".to_string()]);
+    assert!(paint.structure_types_missing_shp().contains("MISS"));
+    assert_eq!(paint.structure_types_missing_shp().len(), 1);
     let px = image.image.as_raw();
     let hit = px.chunks_exact(4).find(|c| c[3] > 0).expect("marker");
     assert!(hit[0] > 200 && hit[2] > 150, "expected magenta marker, got {hit:?}");

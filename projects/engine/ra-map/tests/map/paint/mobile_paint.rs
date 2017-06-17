@@ -142,5 +142,6 @@ fn missing_mobile_body_notes_type_key() {
     let mut image = TerrainImage::blank(64, 64);
     let painted = paint_map_mobiles(&source, &map, &mut image, &mut paint, &|p, _| p.clone(), &|_| MobilePaintPose::default());
     assert_eq!(painted, 0);
-    assert_eq!(paint.mobile_types_missing_shp(), &["E1".to_string()]);
+    assert!(paint.mobile_types_missing_shp().contains("E1"));
+    assert_eq!(paint.mobile_types_missing_shp().len(), 1);
 }

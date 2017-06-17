@@ -114,7 +114,8 @@ fn missing_overlay_body_notes_type_name() {
         OverlayLayerFilter::All,
     );
     assert_eq!((shp, mark), (0, 1));
-    assert_eq!(paint.overlay_types_missing_shp(), &["LOBRDG26".to_string()]);
+    assert!(paint.overlay_types_missing_shp().contains("LOBRDG26"));
+    assert_eq!(paint.overlay_types_missing_shp().len(), 1);
 }
 
 #[test]

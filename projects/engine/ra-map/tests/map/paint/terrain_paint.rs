@@ -111,7 +111,8 @@ fn missing_terrain_body_notes_type_name() {
     let mut image = TerrainImage::blank(256, 256);
     let mut paint = sealed_paint(&source, &map);
     assert_eq!(paint_map_terrain_objects(&source, &map, &mut image, &mut paint, clock(0)), 0);
-    assert_eq!(paint.terrain_types_missing_shp(), &["TREE01".to_string()]);
+    assert!(paint.terrain_types_missing_shp().contains("TREE01"));
+    assert_eq!(paint.terrain_types_missing_shp().len(), 1);
 }
 
 #[test]

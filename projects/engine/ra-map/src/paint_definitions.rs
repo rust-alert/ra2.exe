@@ -4,7 +4,7 @@
 //! [`PaintDefinitionsLoader::seal_with_runtime`] / [`PaintDefinitionsLoader::drop_documents`]
 //! 产出宿主侧 [`PaintDefinitions`]（**不**保存 `IniDocument`）。产品 / 预览路径只消费后者。
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use ra_assets::{IniDocument, IniMergePolicy, materialize_ini_layers};
 use ra_types::{AssetSource, RuntimeDefinitions, TechnoClass};
@@ -64,14 +64,14 @@ pub struct PaintDefinitions {
     pub(crate) overlay_hints: OverlayPaintHintTable,
     /// 建造栏图标候选名表（跨侧栏刷新复用）。
     cameo_hints: CameoPaintHintTable,
-    /// 绘制时主体 SHP 加载失败的建筑类型键（去重）。
-    missing_structure_shp: Vec<String>,
-    /// 绘制时主体 SHP/VXL 加载失败的机动单位类型键（去重）。
-    missing_mobile_shp: Vec<String>,
-    /// 绘制时主体 SHP 加载失败的地形物件类型名（去重）。
-    missing_terrain_shp: Vec<String>,
-    /// 绘制时主体 SHP 加载失败的 overlay 类型名（去重）。
-    missing_overlay_shp: Vec<String>,
+    /// 绘制时主体 SHP 加载失败的建筑类型键。
+    missing_structure_shp: BTreeSet<String>,
+    /// 绘制时主体 SHP/VXL 加载失败的机动单位类型键。
+    missing_mobile_shp: BTreeSet<String>,
+    /// 绘制时主体 SHP 加载失败的地形物件类型名。
+    missing_terrain_shp: BTreeSet<String>,
+    /// 绘制时主体 SHP 加载失败的 overlay 类型名。
+    missing_overlay_shp: BTreeSet<String>,
 }
 
 /// 装载期 staging：持有开放 art/rules，seal / drop 后交出无文档的 [`PaintDefinitions`]。
@@ -109,10 +109,10 @@ impl PaintDefinitionsLoader {
                 terrain_hints: TerrainPaintHintTable::default(),
                 overlay_hints: OverlayPaintHintTable::default(),
                 cameo_hints: CameoPaintHintTable::default(),
-                missing_structure_shp: Vec::new(),
-                missing_mobile_shp: Vec::new(),
-                missing_terrain_shp: Vec::new(),
-                missing_overlay_shp: Vec::new(),
+                missing_structure_shp: BTreeSet::new(),
+                missing_mobile_shp: BTreeSet::new(),
+                missing_terrain_shp: BTreeSet::new(),
+                missing_overlay_shp: BTreeSet::new(),
             },
         }
     }
@@ -303,64 +303,51 @@ impl PaintDefinitions {
         self.overlay_hints.types_missing_art()
     }
 
-    /// 绘制期主体 SHP 加载失败的建筑类型键（已排序去重）。
-    pub fn structure_types_missing_shp(&self) -> &[String] {
+    /// 绘制期主体 SHP 加载失败的建筑类型键。
+    pub fn structure_types_missing_shp(&self) -> &BTreeSet<String> {
         &self.missing_structure_shp
     }
 
-    /// 记录一次建筑主体 SHP 缺失（同类型只记一次）。
+    /// 记录一次建筑主体 SHP 缺失。
     pub(crate) fn note_missing_structure_shp(&mut self, type_id: &str) {
-        let key = type_id.trim().to_ascii_uppercase();
-        if key.is_empty() || self.missing_structure_shp.iter().any(|k| k == &key) {
-            return;
-        }
-        self.missing_structure_shp.push(key);
-        self.missing_structure_shp.sort_unstable();
+        note_missing_key(&mut self.missing_structure_shp, type_id);
     }
 
-    /// 绘制期主体 SHP/VXL 加载失败的机动单位类型键（已排序去重）。
-    pub fn mobile_types_missing_shp(&self) -> &[String] {
+    /// 绘制期主体 SHP/VXL 加载失败的机动单位类型键。
+    pub fn mobile_types_missing_shp(&self) -> &BTreeSet<String> {
         &self.missing_mobile_shp
     }
 
-    /// 记录一次机动单位主体资源缺失（同类型只记一次）。
+    /// 记录一次机动单位主体资源缺失。
     pub(crate) fn note_missing_mobile_shp(&mut self, type_id: &str) {
-        let key = type_id.trim().to_ascii_uppercase();
-        if key.is_empty() || self.missing_mobile_shp.iter().any(|k| k == &key) {
-            return;
-        }
-        self.missing_mobile_shp.push(key);
-        self.missing_mobile_shp.sort_unstable();
+        note_missing_key(&mut self.missing_mobile_shp, type_id);
     }
 
-    /// 绘制期主体 SHP 加载失败的地形物件类型名（已排序去重）。
-    pub fn terrain_types_missing_shp(&self) -> &[String] {
+    /// 绘制期主体 SHP 加载失败的地形物件类型名。
+    pub fn terrain_types_missing_shp(&self) -> &BTreeSet<String> {
         &self.missing_terrain_shp
     }
 
-    /// 记录一次地形物件主体 SHP 缺失（同名只记一次）。
+    /// 记录一次地形物件主体 SHP 缺失。
     pub(crate) fn note_missing_terrain_shp(&mut self, name: &str) {
-        let key = name.trim().to_ascii_uppercase();
-        if key.is_empty() || self.missing_terrain_shp.iter().any(|k| k == &key) {
-            return;
-        }
-        self.missing_terrain_shp.push(key);
-        self.missing_terrain_shp.sort_unstable();
+        note_missing_key(&mut self.missing_terrain_shp, name);
     }
 
-    /// 绘制期主体 SHP 加载失败的 overlay 类型名（已排序去重）。
-    pub fn overlay_types_missing_shp(&self) -> &[String] {
+    /// 绘制期主体 SHP 加载失败的 overlay 类型名。
+    pub fn overlay_types_missing_shp(&self) -> &BTreeSet<String> {
         &self.missing_overlay_shp
     }
 
-    /// 记录一次 overlay 主体 SHP 缺失（同类型只记一次）。
+    /// 记录一次 overlay 主体 SHP 缺失。
     pub(crate) fn note_missing_overlay_shp(&mut self, type_name: &str) {
-        let key = type_name.trim().to_ascii_uppercase();
-        if key.is_empty() || self.missing_overlay_shp.iter().any(|k| k == &key) {
-            return;
-        }
-        self.missing_overlay_shp.push(key);
-        self.missing_overlay_shp.sort_unstable();
+        note_missing_key(&mut self.missing_overlay_shp, type_name);
+    }
+}
+
+fn note_missing_key(set: &mut BTreeSet<String>, raw: &str) {
+    let key = raw.trim().to_ascii_uppercase();
+    if !key.is_empty() {
+        set.insert(key);
     }
 }
 
