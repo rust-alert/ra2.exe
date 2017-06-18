@@ -34,7 +34,8 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     world.players[0].power_output = 200;
     world.players[0].power_drain = 20;
     let mut session = Session::from_state(world, "hud");
-    session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    let e1 = session.expect_battle().world.definitions.techno.get("E1").expect("E1").id;
+    session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.players.len(), 1);
@@ -47,7 +48,7 @@ fn snapshot_exposes_funds_power_queue_and_rejects() {
     assert!(snap.produce_queues[0].remaining_ticks > 0);
     assert!(snap.last_rejects.is_empty());
 
-    session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    session.expect_battle_mut().push_command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     session.tick(&engine.runtime());
     let snap = session.expect_battle().snapshot(&[]);
     assert_eq!(snap.last_rejects[0].reason, CommandRejectReason::QueueFull);

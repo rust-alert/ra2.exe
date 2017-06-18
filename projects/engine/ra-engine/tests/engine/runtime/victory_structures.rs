@@ -51,7 +51,7 @@ fn defs_with_base_units() -> Arc<ra_types::RuntimeDefinitions> {
 
 #[test]
 fn long_game_living_structure_prevents_sole_victor() {
-    let defs = defs_with_mtnk();
+    let defs = defs_with_base_units();
     let mut map = MapInfo::empty(GameEdition::Ra2, "victory");
     map.width = 16;
     map.height = 16;

@@ -29,7 +29,7 @@ fn yard_with_power() -> BattleState {
     }];
     let mut world = battle_from_defs(GameEdition::Ra2, defs, map);
     assert!(world.set_house_funds("AMERICANS", 10_000));
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "GAPOWR".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id });
     world.advance_tick();
     for _ in 0..=PRODUCE_TICKS {
         if world.house_ready_building("AMERICANS").is_some() {
@@ -37,7 +37,7 @@ fn yard_with_power() -> BattleState {
         }
         world.advance_tick();
     }
-    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: "GAPOWR".into(), x: 6, y: 4 });
+    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id, x: 6, y: 4 });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     world

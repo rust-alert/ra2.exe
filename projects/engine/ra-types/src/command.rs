@@ -1,7 +1,7 @@
 //! 命令与事件基础载荷（跨层共享的形状，不含引擎调度细节）。
 
 use crate::{
-    id::{EntityId, PlayerId},
+    id::{EntityId, PlayerId, TypeId},
     time::Tick,
 };
 
@@ -68,8 +68,8 @@ pub enum CommandTarget {
     },
     /// 实体。
     Entity(EntityId),
-    /// 外部类型键（生产 / 放置）。
-    TypeKey(String),
+    /// 冻结规则中的类型 ID（生产 / 放置）。
+    TypeId(TypeId),
 }
 
 /// 可执行命令体（跨桌面 / 测试 / 网络的共同载荷，不含调度信封）。
@@ -107,8 +107,8 @@ pub enum CommandBody {
     PlaceBuilding {
         /// 出资并拥有该建筑的玩家。
         player: PlayerId,
-        /// 外部类型键。
-        type_id: String,
+        /// 冻结规则中的类型 ID。
+        type_id: TypeId,
         /// 目标格 X。
         x: u16,
         /// 目标格 Y。
@@ -118,15 +118,15 @@ pub enum CommandBody {
     Produce {
         /// 出资玩家。
         player: PlayerId,
-        /// 外部类型键。
-        type_id: String,
+        /// 冻结规则中的类型 ID。
+        type_id: TypeId,
     },
     /// 取消本方工厂中指定类型的在产项并退款。
     CancelProduce {
         /// 出资玩家。
         player: PlayerId,
-        /// 外部类型键。
-        type_id: String,
+        /// 冻结规则中的类型 ID。
+        type_id: TypeId,
     },
     /// 为工厂设置生产集结点。
     SetRallyPoint {
@@ -260,7 +260,7 @@ impl CommandBody {
             Self::Deploy { entity } | Self::Guard { entity } | Self::Stop { entity } | Self::Scatter { entity } | Self::Delete { entity } => {
                 CommandTarget::Entity(*entity)
             }
-            Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeKey(type_id.clone()),
+            Self::Produce { type_id, .. } | Self::CancelProduce { type_id, .. } => CommandTarget::TypeId(*type_id),
         }
     }
 }

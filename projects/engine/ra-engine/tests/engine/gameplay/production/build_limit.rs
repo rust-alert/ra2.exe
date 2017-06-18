@@ -48,7 +48,7 @@ fn limit_world() -> BattleState {
 #[test]
 fn produce_rejects_when_build_limit_reached() {
     let mut world = limit_world();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::QueueFull);
 }

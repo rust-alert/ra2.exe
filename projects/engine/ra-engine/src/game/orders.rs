@@ -198,19 +198,27 @@ impl BattleSession {
     }
 
     /// 本地玩家在目标格放置建筑。
-    pub fn order_place_building(&mut self, type_id: impl Into<String>, x: u16, y: u16) {
+    pub fn order_place_building(&mut self, type_id: impl AsRef<str>, x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::PlaceBuilding { player: self.world.local_player, type_id: type_id.into(), x, y });
+        let Some(type_id) = crate::gameplay::type_id_of(&self.world.definitions, type_id.as_ref())
+        else {
+            return;
+        };
+        self.push_command(GameCommand::PlaceBuilding { player: self.world.local_player, type_id, x, y });
     }
 
     /// 本地玩家排队生产单位。
-    pub fn order_produce(&mut self, type_id: impl Into<String>) {
+    pub fn order_produce(&mut self, type_id: impl AsRef<str>) {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::Produce { player: self.world.local_player, type_id: type_id.into() });
+        let Some(type_id) = crate::gameplay::type_id_of(&self.world.definitions, type_id.as_ref())
+        else {
+            return;
+        };
+        self.push_command(GameCommand::Produce { player: self.world.local_player, type_id });
     }
 
     /// 本地玩家出售己方建筑（侧栏出售工具）。
@@ -230,11 +238,15 @@ impl BattleSession {
     }
 
     /// 本地玩家取消指定类型的在产项（退款并由引擎排队 `EVA_Canceled`）。
-    pub fn order_cancel_produce(&mut self, type_id: impl Into<String>) {
+    pub fn order_cancel_produce(&mut self, type_id: impl AsRef<str>) {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::CancelProduce { player: self.world.local_player, type_id: type_id.into() });
+        let Some(type_id) = crate::gameplay::type_id_of(&self.world.definitions, type_id.as_ref())
+        else {
+            return;
+        };
+        self.push_command(GameCommand::CancelProduce { player: self.world.local_player, type_id });
     }
 
     /// 本地玩家释放超级武器到目标格（须充能就绪且有挂接建筑）。

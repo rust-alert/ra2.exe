@@ -7,9 +7,10 @@ use ra_types::{EntityId, GameEdition, PlayerId};
 
 fn barracks_world() -> BattleState {
     let rules_text = b"[InfantryTypes]\n0=E1\n\
-[BuildingTypes]\n0=GAPILE\n\
+[BuildingTypes]\n0=GAPILE\n1=GACNST\n\
 [E1]\nStrength=125\nSpeed=64\nSight=5\nCost=200\nTechLevel=1\n\
-[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n";
+[GAPILE]\nPower=-20\nPowered=yes\nFactory=InfantryType\nOwner=Americans\nStrength=500\nSight=5\nCost=500\nTechLevel=1\n\
+[GACNST]\nConstructionYard=yes\nOwner=Americans\nStrength=1000\nSight=8\nCost=2500\nTechLevel=1\n";
     let defs = defs_from_rules_ini(rules_text);
     let mut map = MapInfo::empty(GameEdition::Ra2, "rally");
     map.width = 16;
@@ -46,7 +47,7 @@ fn produced_unit_paths_toward_rally_point() {
     let mut world = barracks_world();
     world.push_command(GameCommand::SetRallyPoint { factory: EntityId(1), x: 10, y: 2 });
     world.advance_tick();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     for _ in 0..(PRODUCE_TICKS - 1) {
         world.advance_tick();

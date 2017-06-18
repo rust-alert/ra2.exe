@@ -51,7 +51,7 @@ fn factory_world() -> BattleState {
 #[test]
 fn produce_infantry_spawns_after_queue_ticks() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
@@ -73,7 +73,7 @@ fn produce_infantry_spawns_after_queue_ticks() {
 fn produce_rejects_insufficient_funds() {
     let mut world = factory_world();
     assert!(world.set_house_funds("AMERICANS", 50));
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InsufficientFunds);
     assert_eq!(world.entity_count(), 2);
@@ -82,9 +82,9 @@ fn produce_rejects_insufficient_funds() {
 #[test]
 fn produce_rejects_when_queue_busy() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::QueueFull);
 }
@@ -95,7 +95,7 @@ fn produce_rejects_without_matching_factory() {
     let id = world.entity_id_at(0).expect("entity");
     let max = world.ecs_health(world.entity_id_at(0).expect("entity")).expect("health").1;
     assert!(world.set_ecs_health(id, 0, max, true));
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 }
@@ -103,13 +103,13 @@ fn produce_rejects_without_matching_factory() {
 #[test]
 fn cancel_produce_refunds_and_clears_queue() {
     let mut world = factory_world();
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("AMERICANS"), Some(10_000 - 200));
     assert!(world.take_eva_cues().is_empty());
 
-    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     assert_eq!(world.house_funds("AMERICANS"), Some(10_000));
@@ -119,7 +119,7 @@ fn cancel_produce_refunds_and_clears_queue() {
     assert_eq!(cues[0].event, "EVA_Canceled");
 
     // 取消后可再次排队，并在满 tick 后出兵。
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     for _ in 0..(PRODUCE_TICKS - 1) {
@@ -131,7 +131,7 @@ fn cancel_produce_refunds_and_clears_queue() {
 #[test]
 fn cancel_produce_rejects_when_not_queued() {
     let mut world = factory_world();
-    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::CancelProduce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::InvalidTarget);
 }
@@ -185,7 +185,7 @@ fn low_power_halves_production_tick_rate() {
     world.players[0].power_drain = 50;
     assert!(world.players[0].low_power());
 
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     world.advance_tick();
     let factory = world.entity_id_at(0).expect("barracks");
     let start = world.ecs_produce_remaining(factory).expect("queue").expect("item");

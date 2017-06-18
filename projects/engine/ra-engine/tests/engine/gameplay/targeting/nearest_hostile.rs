@@ -1,13 +1,18 @@
 //! nearest_hostile 可指向敌方建筑。
 
-use crate::common::{battle_from_defs, defs_with_mtnk};
+use crate::common::{battle_from_defs, defs_from_rules_ini};
 use ra_engine::Session;
 use ra_map::{MapEntity, MapEntityKind, MapInfo};
 use ra_types::{EntityId, GameEdition};
 
 #[test]
 fn nearest_hostile_includes_structures() {
-    let defs = defs_with_mtnk();
+    let defs = defs_from_rules_ini(
+        b"[VehicleTypes]\n0=MTNK\n\
+[BuildingTypes]\n0=NACNST\n\
+[MTNK]\nStrength=400\nSpeed=64\nSight=6\nCost=800\nArmor=heavy\n\
+[NACNST]\nStrength=1000\nArmor=wood\nFoundation=2x2\n",
+    );
     let mut map = MapInfo::empty(GameEdition::Ra2, "hostile-bldg");
     map.width = 16;
     map.height = 16;

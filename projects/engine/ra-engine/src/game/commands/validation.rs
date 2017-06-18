@@ -228,7 +228,7 @@ impl crate::state::BattleState {
                     // 展开后离开移动单位层，经 Buildup 定格进建筑底图（含 AI 部署）。
                     self.structure_buildup_dirty.push(dirty_id);
                 }
-                GameCommand::PlaceBuilding { player, ref type_id, x, y } => {
+                GameCommand::PlaceBuilding { player, type_id, x, y } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
@@ -240,7 +240,7 @@ impl crate::state::BattleState {
                     };
                     let house = self.players[player_index].house.clone();
                     let tech_player = TechTreePlayer::from_player(&self.players[player_index]);
-                    let Some(tt) = self.definitions.techno.get(type_id)
+                    let Some(tt) = self.definitions.techno.get_by_id(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
@@ -347,7 +347,7 @@ impl crate::state::BattleState {
                     // 新建筑走 Buildup 再定格，避免瞬现主体 SHP。
                     self.structure_buildup_dirty.push(id);
                 }
-                GameCommand::Produce { player, ref type_id } => {
+                GameCommand::Produce { player, type_id } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
@@ -359,7 +359,7 @@ impl crate::state::BattleState {
                     };
                     let house = self.players[player_index].house.clone();
                     let tech_player = TechTreePlayer::from_player(&self.players[player_index]);
-                    let Some(tt) = self.definitions.techno.get(type_id)
+                    let Some(tt) = self.definitions.techno.get_by_id(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidPlacement);
                         continue;
@@ -415,7 +415,7 @@ impl crate::state::BattleState {
                     });
                     self.mark_entity_dirty(factory_id);
                 }
-                GameCommand::CancelProduce { player, ref type_id } => {
+                GameCommand::CancelProduce { player, type_id } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;
@@ -426,7 +426,7 @@ impl crate::state::BattleState {
                         continue;
                     };
                     let house = self.players[player_index].house.clone();
-                    let Some(tt) = self.definitions.techno.get(type_id)
+                    let Some(tt) = self.definitions.techno.get_by_id(type_id)
                     else {
                         self.reject(command_index, CommandRejectReason::InvalidTarget);
                         continue;

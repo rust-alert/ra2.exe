@@ -12,7 +12,8 @@ fn produce_infantry_through_session_after_barracks() {
     case.produce_and_place(PlayerId(0), "GAPOWR", 6, 4);
     case.produce_and_place(PlayerId(0), "GAPILE", 8, 4);
     let before = case.session.expect_battle().world.house_funds(slice.human_house).expect("应有资金");
-    case.command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    let e1 = case.session.expect_battle().world.definitions.techno.get("E1").expect("E1").id;
+    case.command(GameCommand::Produce { player: PlayerId(0), type_id: e1 });
     case.advance(1);
     assert_eq!(case.session.expect_battle().world.house_funds(slice.human_house), Some(before - 200));
     case.advance(u64::from(PRODUCE_TICKS - 1));

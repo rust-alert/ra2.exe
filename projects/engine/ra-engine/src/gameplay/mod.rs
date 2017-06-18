@@ -42,7 +42,7 @@ pub(crate) use repair::tick_repairs;
 pub(crate) use rules::{full_verses, verses_for};
 pub use script_teams::ScriptTeamRuntime;
 pub(crate) use script_teams::{flush_pending_team_spawns, tick_script_teams};
-pub(crate) use tech_tree::{TechTreePlayer, build_limit_reached, is_type_eligible, is_type_eligible_id, living_structure_keys};
+pub(crate) use tech_tree::{TechTreePlayer, build_limit_reached, is_type_eligible_id, living_structure_keys};
 pub use terrain_spawn::{
     TerrainSpawnerPhase, TerrainSpawnerState, TerrainSpawnerTick, seed_terrain_spawners, terrain_spawn_sample, terrain_spawner_frame_signature,
 };

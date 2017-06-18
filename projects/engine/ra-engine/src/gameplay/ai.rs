@@ -212,12 +212,11 @@ fn produce_unit(world: &BattleState, house: &str, player: PlayerId, unit: &ra_ty
     if funds < cost as i32 {
         return Vec::new();
     }
-    vec![GameCommand::Produce { player, type_id: unit.type_key.as_str().to_string() }]
+    vec![GameCommand::Produce { player, type_id: unit.id }]
 }
 
 /// 建造场已有该类型完工件则落位，否则在空闲建造场排队 `Produce`。
 fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
-    let needle = structure.type_key.as_str();
     if let Some(ready) = world.house_ready_building(house) {
         if ready != structure.id {
             // 另有完工建筑待落位，先不插队。
@@ -241,7 +240,7 @@ fn build_or_place(world: &BattleState, house: &str, player: PlayerId, structure:
     if funds < cost as i32 {
         return Vec::new();
     }
-    vec![GameCommand::Produce { player, type_id: needle.to_string() }]
+    vec![GameCommand::Produce { player, type_id: structure.id }]
 }
 
 fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, structure: &ra_types::StructureDefinition) -> Vec<GameCommand> {
@@ -254,7 +253,7 @@ fn place_near_yard(world: &BattleState, house: &str, player: PlayerId, structure
     else {
         return Vec::new();
     };
-    vec![GameCommand::PlaceBuilding { player, type_id: structure.type_key.as_str().to_string(), x, y }]
+    vec![GameCommand::PlaceBuilding { player, type_id: structure.id, x, y }]
 }
 
 /// 为指定阵营的空闲可攻击单位生成对最近敌军的 `Attack` 命令。

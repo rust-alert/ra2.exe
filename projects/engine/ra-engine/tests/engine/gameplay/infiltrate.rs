@@ -146,7 +146,7 @@ fn spy_infiltrates_barracks_promotes_infantry() {
     let americans = world.players.iter().find(|p| p.house.as_ref() == "AMERICANS").expect("ally");
     assert!(americans.promoted_infantry);
 
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "E1".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("E1").expect("E1").id });
     // 推进生产完成。
     let mut produced = None;
     for _ in 0..600 {
@@ -171,7 +171,7 @@ fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
     let lab = world.entity_id_at(1).expect("lab");
 
     // 未偷科技前 SEAL 不可生产。
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "SEAL".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("SEAL").expect("SEAL").id });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 
@@ -181,7 +181,7 @@ fn spy_infiltrates_soviet_lab_grants_stolen_tech_for_seal() {
     let americans = world.players.iter().find(|p| p.house.as_ref() == "AMERICANS").expect("ally");
     assert!(americans.stolen_soviet_tech);
 
-    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: "SEAL".into() });
+    world.push_command(GameCommand::Produce { player: PlayerId(0), type_id: world.definitions.techno.get("SEAL").expect("SEAL").id });
     world.advance_tick();
     assert!(world.last_rejects().is_empty(), "SEAL should queue after stolen soviet tech: {:?}", world.last_rejects());
 }
