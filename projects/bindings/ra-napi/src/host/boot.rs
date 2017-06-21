@@ -596,10 +596,10 @@ pub fn boot_world_with_progress(
     let mut preview_origin = (0i32, 0i32);
     let overlay_name = request.rules_override.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let overlays: Vec<&str> = overlay_name.into_iter().collect();
+    // 规则与冻结定义是开战硬前置：失败不得带着无 PreparedMap 的预览继续。
     let rules = match load_rules_chain_with_overlays(&source, chain, &overlays, &[]) {
-        Ok(db) => Some(db),
+        Ok(db) => db,
         Err(e) => {
-            // 规则是开战硬前置：解析失败不得静默成 session=none。
             note = format!("{note} · 规则解析失败（{e}）");
             tracing::error!(
                 error = %e,
@@ -608,7 +608,8 @@ pub fn boot_world_with_progress(
                 overlay = ?overlay_name,
                 "规则装载失败"
             );
-            None
+            report(1.0, "规则失败");
+            return Ok(BootResult::failed(note));
         }
     };
 
@@ -619,16 +620,14 @@ pub fn boot_world_with_progress(
     let mut rules_files: Vec<&str> = chain.rules_underlay.to_vec();
     rules_files.push(chain.rules_ini);
     let loader = PaintDefinitionsLoader::load_files(&source, &art_files, &rules_files);
-    let definitions = match rules.as_ref() {
-        Some(rules) => match build_runtime_definitions(rules) {
-            Ok(defs) => Some(Arc::new(defs)),
-            Err(e) => {
-                note = format!("{note} · 定义绑定失败（{e}）");
-                tracing::error!(error = %e, "冻结定义引用绑定失败");
-                None
-            }
-        },
-        None => None,
+    let definitions = match build_runtime_definitions(&rules) {
+        Ok(defs) => Arc::new(defs),
+        Err(e) => {
+            note = format!("{note} · 定义绑定失败（{e}）");
+            tracing::error!(error = %e, "冻结定义引用绑定失败");
+            report(1.0, "定义失败");
+            return Ok(BootResult::failed(note));
+        }
     };
 
     report(0.62, "检查剧本");
@@ -681,31 +680,23 @@ pub fn boot_world_with_progress(
     // Map-3：与 `BattleState::new` 同一 `to_prepared_map` 路径，预览前拒绝非法引用。
     // 战役可复用返回的 `PreparedMap`；遭遇战剥机动后实体集变化，开会话时须重新准备。
     let mut campaign_prepared: Option<PreparedMap> = None;
-    if let Some(defs) = definitions.as_ref() {
-        report(0.66, "准备地图");
-        match validate_map_for_battle(&map, defs) {
-            Ok(prepared) => {
-                if request.boot_kind == LoadKind::Campaign {
-                    campaign_prepared = Some(prepared);
-                }
+    report(0.66, "准备地图");
+    match validate_map_for_battle(&map, definitions.as_ref()) {
+        Ok(prepared) => {
+            if request.boot_kind == LoadKind::Campaign {
+                campaign_prepared = Some(prepared);
             }
-            Err(e) => {
-                note = format!("{note} · 地图准备失败（{e}）");
-                tracing::error!(error = %e, "地图 PreparedMap 绑定失败");
-                report(1.0, "地图准备失败");
-                return Ok(BootResult::failed(note));
-            }
+        }
+        Err(e) => {
+            note = format!("{note} · 地图准备失败（{e}）");
+            tracing::error!(error = %e, "地图 PreparedMap 绑定失败");
+            report(1.0, "地图准备失败");
+            return Ok(BootResult::failed(note));
         }
     }
 
     report(0.70, "地形预览");
-    let mut paint = if let Some(defs) = definitions.as_ref() {
-        loader.seal_with_runtime(defs, &map)
-    }
-    else {
-        // 无冻结定义时仍禁止把装载期 IniDocument 带出 boot（宿主只收 sealed paint）。
-        loader.drop_documents()
-    };
+    let mut paint = loader.seal_with_runtime(&definitions, &map);
     debug_assert!(paint.documents_sealed(), "boot paint must not retain art/rules IniDocument");
     let missing_structure_art = paint.structure_types_missing_art().len();
     let missing_mobile_art = paint.mobile_types_missing_art().len();
@@ -727,17 +718,21 @@ pub fn boot_world_with_progress(
         note = format!("{note} · paintMissingOverlay#{missing_overlay_art}");
         tracing::warn!(count = missing_overlay_art, "sealed paint has overlays without art sections");
     }
-    let structure_lights = definitions.as_ref().map(|defs| StructureLightTable::from_structures(&defs.structures)).unwrap_or_default();
+    let structure_lights = StructureLightTable::from_structures(&definitions.structures);
     let mut preview_base: Option<RgbaImage> = None;
     let mut preview_clean: Option<RgbaImage> = None;
     let mut preview_ore_underlay: Option<RgbaImage> = None;
     let mut structure_anims = StructureAnimBank::default();
     let mut terrain_anims = TerrainAnimBank::default();
     let mut ore_tree_anims = TerrainAnimBank::default();
-    let mut preview = match rules
-        .as_ref()
-        .and_then(|rules| load_map_terrain_preview(&source, &map, &mut paint, rules, &structure_lights, Some(&lobby_primaries)))
-    {
+    let mut preview = match load_map_terrain_preview(
+        &source,
+        &map,
+        &mut paint,
+        &rules,
+        &structure_lights,
+        Some(&lobby_primaries),
+    ) {
         Some((name, image, base, underlay, bank, terrain_bank, ore_bank, ox, oy)) => {
             note = format!("{note} · preview:{name}");
             preview_origin = (ox, oy);
@@ -785,7 +780,7 @@ pub fn boot_world_with_progress(
     let ai_rows = skirmish_ai_row_count(count_skirmish_start_slots(&map.waypoints, &map.name));
     let ensure_houses = request.houses_to_ensure(ai_rows);
     let ensure_refs: Vec<&str> = ensure_houses.iter().map(String::as_str).collect();
-    let session_result = definitions.map(|definitions| match request.boot_kind {
+    let session_result = match request.boot_kind {
         LoadKind::Campaign => {
             let prepared = campaign_prepared.expect("campaign validate must have produced PreparedMap");
             open_campaign_session_prepared(
@@ -812,7 +807,12 @@ pub fn boot_world_with_progress(
             }
             let prepared = match validate_map_for_battle(&map, definitions.as_ref()) {
                 Ok(prepared) => prepared,
-                Err(e) => return Err(e),
+                Err(e) => {
+                    note = format!("{skirmish_note} · 地图准备失败（{e}）");
+                    tracing::error!(error = %e, "遭遇战剥机动后 PreparedMap 绑定失败");
+                    report(1.0, "地图准备失败");
+                    return Ok(BootResult::failed(note));
+                }
             };
             open_skirmish_session_prepared(
                 &source,
@@ -828,9 +828,9 @@ pub fn boot_world_with_progress(
                 request.match_seed,
             )
         }
-    });
+    };
     let (engine, session) = match session_result {
-        Some(Ok(mut opened)) => {
+        Ok(mut opened) => {
             note = opened.note;
             note = format!(
                 "{note} · player={} · difficulty={} · credits={} · tech={} · seed={:#x} · houses={}",
@@ -862,10 +862,17 @@ pub fn boot_world_with_progress(
                 opened.session.expect_battle_mut().world.apply_ore_tree_frame_counts(&hints);
             }
             // 航点播种的 MCV 不在地图放置段：保留无 mobile 底图，再叠到对局底图。
-            if let (Some(base), Some(rules)) = (preview_base.as_mut(), rules.as_ref()) {
+            if let Some(base) = preview_base.as_mut() {
                 preview_clean = Some(base.clone());
-                let painted =
-                    paint_session_mobiles_onto_preview(&source, &mut paint, rules, &opened.session, base, preview_origin, &lobby_primaries);
+                let painted = paint_session_mobiles_onto_preview(
+                    &source,
+                    &mut paint,
+                    &rules,
+                    &opened.session,
+                    base,
+                    preview_origin,
+                    &lobby_primaries,
+                );
                 if painted > 0 {
                     note = format!("{note} · start_mobile_shp#{painted}");
                 }
@@ -881,11 +888,10 @@ pub fn boot_world_with_progress(
             }
             (Some(opened.engine), Some(opened.session))
         }
-        Some(Err(e)) => {
+        Err(e) => {
             note = format!("{note} · 会话未打开（{e}）");
             (None, None)
         }
-        None => (None, None),
     };
 
     if session.as_ref().and_then(|s| s.battle()).is_some() {
@@ -909,7 +915,7 @@ pub fn boot_world_with_progress(
         art_ini: chain.art_ini,
         rules_ini: chain.rules_ini,
         paint,
-        rules,
+        rules: Some(rules),
         lobby_primaries,
         hotkeys: {
             let map = super::battle_hotkeys::load_hotkey_map(&source);
