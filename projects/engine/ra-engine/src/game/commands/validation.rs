@@ -1024,7 +1024,7 @@ impl crate::state::BattleState {
                     }
                     self.mark_entity_dirty(building_id);
                 }
-                GameCommand::FireSuperWeapon { player, ref type_id, x, y } => {
+                GameCommand::FireSuperWeapon { player, type_id, x, y } => {
                     if player != scheduled.player {
                         self.reject(command_index, CommandRejectReason::WrongOwner);
                         continue;

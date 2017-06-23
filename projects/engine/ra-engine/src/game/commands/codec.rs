@@ -101,12 +101,10 @@ pub fn encode_command(cmd: &GameCommand) -> Vec<u8> {
             b.push(player.0);
             b.extend_from_slice(&building.0.to_be_bytes());
         }
-        GameCommand::FireSuperWeapon { player, ref type_id, x, y } => {
+        GameCommand::FireSuperWeapon { player, type_id, x, y } => {
             b.push(14);
             b.push(player.0);
-            let id_bytes = type_id.as_bytes();
-            b.extend_from_slice(&(id_bytes.len() as u16).to_be_bytes());
-            b.extend_from_slice(id_bytes);
+            b.extend_from_slice(&type_id.0.to_be_bytes());
             b.extend_from_slice(&x.to_be_bytes());
             b.extend_from_slice(&y.to_be_bytes());
         }
@@ -277,18 +275,13 @@ pub fn decode_command(bytes: &[u8]) -> Option<GameCommand> {
             Some(GameCommand::MovePath { entity, points })
         }
         14 => {
-            if bytes.len() < 1 + 1 + 2 {
+            if bytes.len() < 1 + 1 + 4 + 2 + 2 {
                 return None;
             }
             let player = PlayerId(bytes[1]);
-            let id_len = u16::from_be_bytes(bytes[2..4].try_into().ok()?) as usize;
-            if bytes.len() < 1 + 1 + 2 + id_len + 2 + 2 {
-                return None;
-            }
-            let type_id = std::str::from_utf8(&bytes[4..4 + id_len]).ok()?.to_string();
-            let xy = 4 + id_len;
-            let x = u16::from_be_bytes(bytes[xy..xy + 2].try_into().ok()?);
-            let y = u16::from_be_bytes(bytes[xy + 2..xy + 4].try_into().ok()?);
+            let type_id = TypeId(u32::from_be_bytes(bytes[2..6].try_into().ok()?));
+            let x = u16::from_be_bytes(bytes[6..8].try_into().ok()?);
+            let y = u16::from_be_bytes(bytes[8..10].try_into().ok()?);
             Some(GameCommand::FireSuperWeapon { player, type_id, x, y })
         }
         _ => None,

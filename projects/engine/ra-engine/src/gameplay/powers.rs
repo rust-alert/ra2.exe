@@ -240,15 +240,21 @@ pub fn tick_super_weapon_charges(world: &mut BattleState) {
 }
 
 /// 尝试释放超武：成功则清零充能并按 `Type=` 触发效果（当前仅 `LightningStorm` 切光照）。
-pub fn try_fire_super_weapon(world: &mut BattleState, house: &str, type_key: &str, x: u16, y: u16) -> Result<(), FireSuperWeaponError> {
+pub fn try_fire_super_weapon(
+    world: &mut BattleState,
+    house: &str,
+    type_id: ra_types::TypeId,
+    x: u16,
+    y: u16,
+) -> Result<(), FireSuperWeaponError> {
     use crate::state::components::{Health, Identity, Owner};
     use ra_map::MapEntityKind;
 
-    let type_key = ra_types::SuperWeaponName::parse(type_key);
-    let Some(sw_def) = world.definitions.super_weapons.get_name(&type_key)
+    let Some(sw_def) = world.definitions.super_weapons.get_by_id(type_id)
     else {
         return Err(FireSuperWeaponError::UnknownType);
     };
+    let type_key = sw_def.type_key.clone();
     let has_provider = world.entities.iter().any(|e| {
         let id = e.id;
         if world.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true) {

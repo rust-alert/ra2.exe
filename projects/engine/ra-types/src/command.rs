@@ -205,8 +205,8 @@ pub enum CommandBody {
     FireSuperWeapon {
         /// 释放玩家。
         player: PlayerId,
-        /// 超级武器类型键（`[SuperWeaponTypes]` 节名）。
-        type_id: String,
+        /// 超级武器稳定类型编号（`[SuperWeaponTypes]` 冻结 id）。
+        type_id: TypeId,
         /// 目标格 X。
         x: u16,
         /// 目标格 Y。

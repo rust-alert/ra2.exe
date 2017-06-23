@@ -23,6 +23,7 @@ fn command_codec_roundtrip() {
         GameCommand::Delete { entity: EntityId(18) },
         GameCommand::SellBuilding { player: PlayerId(0), building: EntityId(13) },
         GameCommand::RepairBuilding { player: PlayerId(0), building: EntityId(14) },
+        GameCommand::FireSuperWeapon { player: PlayerId(0), type_id: TypeId(3), x: 8, y: 9 },
     ];
     let bytes = encode_commands(&cmds);
     assert_eq!(decode_commands(&bytes), Some(cmds));

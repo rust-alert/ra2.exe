@@ -250,11 +250,15 @@ impl BattleSession {
     }
 
     /// 本地玩家释放超级武器到目标格（须充能就绪且有挂接建筑）。
-    pub fn order_fire_super_weapon(&mut self, type_id: impl Into<String>, x: u16, y: u16) {
+    pub fn order_fire_super_weapon(&mut self, type_id: impl AsRef<str>, x: u16, y: u16) {
         if self.outcome.is_some() {
             return;
         }
-        self.push_command(GameCommand::FireSuperWeapon { player: self.world.local_player, type_id: type_id.into(), x, y });
+        let Some(type_id) = self.world.definitions.super_weapons.get(type_id.as_ref()).map(|sw| sw.id)
+        else {
+            return;
+        };
+        self.push_command(GameCommand::FireSuperWeapon { player: self.world.local_player, type_id, x, y });
     }
 
     /// 本机阵营是否正在生产指定类型。
