@@ -39,7 +39,7 @@ pub use definition::{
     WeaponDefinitions, WeaponName, armor_index, bind_map_actions, bind_map_ai_triggers, bind_map_cell_tags, bind_map_events, bind_map_houses,
     bind_map_placements, bind_map_script_types, bind_map_tags, bind_map_task_forces, bind_map_team_types, bind_map_triggers,
     bind_prepared_map_placements, deserialize_optional_factory, ground_passable, land_passable, occupancy_kind,
-    reseal_prepared_layers_from_placements, tmp_terrain_to_land_type,
+    reseal_prepared_layers_from_placements, tmp_terrain_to_land_type, validate_placement_geometry,
 };
 pub use display_mode::DisplayMode;
 pub use edition::GameEdition;

@@ -503,7 +503,8 @@ pub fn bind_map_ai_triggers(
 
 /// 就地填充 [`PreparedMap`] 绑定表；失败时不改动已有字段。
 ///
-/// 绑定成功后按 [`PreparedPlacement`] + 建筑表 `Foundation=` 重写 occupancy / 结构通行封格。
+/// 绑定成功后先 [`validate_placement_geometry`]（越界 / 结构足迹重叠），再按
+/// [`PreparedPlacement`] + 建筑表 `Foundation=` 重写 occupancy / 结构通行封格。
 pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDefinitions) -> RaResult<()> {
     let houses = bind_map_houses(&prepared.definition.houses, defs)?;
     let triggers = bind_map_triggers(&prepared.definition.triggers, defs)?;
@@ -527,7 +528,56 @@ pub fn bind_prepared_map_placements(prepared: &mut PreparedMap, defs: &RuntimeDe
     prepared.script_types = script_types;
     prepared.team_types = team_types;
     prepared.ai_triggers = ai_triggers;
+    validate_placement_geometry(prepared, &defs.structures)?;
     reseal_prepared_layers_from_placements(prepared, &defs.structures);
+    Ok(())
+}
+
+/// 校验已绑定放置的几何合法性。
+///
+/// - 任意放置锚点越出地图 → [`RaError::Msg`]
+/// - 结构 `Foundation=` 足迹越出地图 → [`RaError::Msg`]
+/// - 两座结构足迹重叠 → [`RaError::Msg`]
+///
+/// 机动单位（步兵 / 载具 / 飞行器）只校验锚点；结构按 Foundation 展开校验。
+pub fn validate_placement_geometry(prepared: &PreparedMap, structures: &StructureDefinitions) -> RaResult<()> {
+    let width = prepared.pass_width.max(1);
+    let height = prepared.pass_height.max(1);
+    let mut structure_cells: HashMap<(u16, u16), TypeId> = HashMap::new();
+
+    for placement in &prepared.placements {
+        if u32::from(placement.x) >= width || u32::from(placement.y) >= height {
+            return Err(RaError::Msg(format!(
+                "地图放置越界: kind={:?} type={:?} at ({},{}) map={}x{}",
+                placement.kind, placement.definition_id, placement.x, placement.y, width, height
+            )));
+        }
+        if placement.kind != MapPlacedEntityKind::Structure {
+            continue;
+        }
+        let (fw, fh) = structures
+            .get_by_id(placement.definition_id)
+            .map(|def| (def.foundation.width.max(1), def.foundation.height.max(1)))
+            .unwrap_or((1, 1));
+        for dy in 0..fh {
+            for dx in 0..fw {
+                let x = placement.x.saturating_add(dx);
+                let y = placement.y.saturating_add(dy);
+                if u32::from(x) >= width || u32::from(y) >= height {
+                    return Err(RaError::Msg(format!(
+                        "地图结构 Foundation 越界: type={:?} anchor=({},{}) foundation={}x{} cell=({},{}) map={}x{}",
+                        placement.definition_id, placement.x, placement.y, fw, fh, x, y, width, height
+                    )));
+                }
+                if let Some(other) = structure_cells.insert((x, y), placement.definition_id) {
+                    return Err(RaError::Msg(format!(
+                        "地图结构足迹重叠: cell=({},{}) type={:?} overlaps {:?}",
+                        x, y, placement.definition_id, other
+                    )));
+                }
+            }
+        }
+    }
     Ok(())
 }
 
