@@ -1,9 +1,9 @@
 //! Map-3：会话装载走 `to_prepared_map` → spawn → `finalize_pass_from_assets` 闭环。
 
 use crate::common::defs_from_rules_ini;
-use ra_engine::open_campaign_session;
-use ra_map::{MapEntity, MapEntityKind, MapInfo, OverlayCell, Waypoint};
-use ra_types::{AssetSource, GameEdition, RaError, RaResult, occupancy_kind};
+use ra_engine::{open_campaign_session_prepared, validate_map_for_battle};
+use ra_map::{MapEntity, MapEntityKind, MapHouse, MapInfo, OverlayCell, Waypoint};
+use ra_types::{AssetSource, ColorName, GameEdition, HouseName, MapEdge, RaError, RaResult, occupancy_kind};
 
 const RULES_INI: &str = "rules.ini";
 
@@ -16,9 +16,11 @@ fn prepare_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
 [LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n\
 [InfantryTypes]\n0=E1\n\
 [VehicleTypes]\n0=MTNK\n\
+[AircraftTypes]\n0=ORCA\n\
 [BuildingTypes]\n0=GAPOWR\n\
 [E1]\nOwner=Americans\nStrength=125\nSpeed=24\nSight=4\nCost=200\n\
 [MTNK]\nOwner=Americans\nStrength=400\nSpeed=64\nSight=6\nCost=800\n\
+[ORCA]\nOwner=Americans\nStrength=200\nSpeed=120\nSight=8\nCost=1000\n\
 [GAPOWR]\nPower=200\nOwner=Americans\nStrength=600\nSight=4\nCost=600\nTechLevel=1\nFoundation=2x2\n",
     )
 }
@@ -28,6 +30,17 @@ fn prepare_map() -> MapInfo {
     map.width = 16;
     map.height = 16;
     map.waypoints = vec![Waypoint { index: 0, x: 2, y: 2 }];
+    map.scripting.houses.push(MapHouse {
+        name: "Player House".into(),
+        country: HouseName::parse("Americans"),
+        tech_level: 10,
+        credits: 50,
+        iq: 0,
+        edge: MapEdge::North,
+        player_control: true,
+        color: ColorName::parse("Gold"),
+        allies: vec![],
+    });
     map.entities.push(MapEntity {
         kind: MapEntityKind::Structure,
         owner: "AMERICANS".into(),
@@ -64,6 +77,18 @@ fn prepare_map() -> MapInfo {
         mission: Default::default(),
         tag: Default::default(),
     });
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Aircraft,
+        owner: "AMERICANS".into(),
+        type_id: "ORCA".into(),
+        health: 256,
+        x: 12,
+        y: 8,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
     // 桥面 overlay：无 TMP 时 finalize 仍会按 Land= 打开该格。
     map.overlays.push(OverlayCell { x: 1, y: 1, overlay_id: 0, data: 0 });
     map
@@ -81,34 +106,46 @@ impl AssetSource for RulesBytesSource {
     }
 }
 
-/// 会话入口：placement → TechnoId/HouseId → Foundation occupancy → PassGrid → ECS spawn → finalize 回写。
-#[test]
-fn open_campaign_prepare_chain_foundation_overlay_spawn_and_sync() {
-    let defs = prepare_defs();
-    let gapowr = defs.techno.get("GAPOWR").expect("GAPOWR").id;
-    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
-
-    let opened = open_campaign_session(
+fn open_prepared(map: MapInfo, defs: std::sync::Arc<ra_types::RuntimeDefinitions>) -> ra_engine::SkirmishOpenResult {
+    let prepared = validate_map_for_battle(&map, &defs).expect("prepare");
+    open_campaign_session_prepared(
         &RulesBytesSource,
         GameEdition::Ra2,
         RULES_INI,
         defs,
-        prepare_map(),
+        map,
+        prepared,
         "map3".into(),
         (0, 0),
         Some("AMERICANS"),
         &["AMERICANS", "RUSSIANS"],
         0,
     )
-    .expect("campaign open");
+    .expect("campaign prepared open")
+}
 
+/// 会话入口：placement → TechnoId/HouseId → Foundation occupancy → PassGrid → ECS spawn → finalize 回写。
+#[test]
+fn open_campaign_prepare_chain_foundation_overlay_spawn_and_sync() {
+    let defs = prepare_defs();
+    let gapowr = defs.techno.get("GAPOWR").expect("GAPOWR").id;
+    let orca = defs.techno.get("ORCA").expect("ORCA").id;
+    let americans = defs.houses.get("AMERICANS").expect("AMERICANS").id;
+
+    let opened = open_prepared(prepare_map(), defs);
     let state = &opened.session.expect_battle().world;
-    assert_eq!(state.prepared.placements.len(), 3);
-    assert_eq!(state.entity_count(), 3);
+    assert_eq!(state.prepared.placements.len(), 4);
+    assert_eq!(state.entity_count(), 4);
+    assert_eq!(state.prepared.houses.len(), 1);
+    assert_eq!(state.prepared.houses[0].country, americans);
+    assert_eq!(state.prepared.houses[0].credits, 50);
 
     let structure = state.prepared.placements.iter().find(|p| p.definition_id == gapowr).expect("structure placement");
     assert_eq!(structure.owner, americans);
     assert_eq!((structure.x, structure.y), (4, 4));
+
+    let aircraft = state.prepared.placements.iter().find(|p| p.definition_id == orca).expect("aircraft placement");
+    assert_eq!((aircraft.x, aircraft.y), (12, 8));
 
     let idx = |x: u16, y: u16| (y as usize) * (state.prepared.pass_width as usize) + (x as usize);
     assert_eq!(state.prepared.occupancy[idx(4, 4)], occupancy_kind::STRUCTURE);
@@ -139,32 +176,24 @@ fn open_campaign_prepare_chain_foundation_overlay_spawn_and_sync() {
     let identity = state.ecs_identity(power_id).expect("identity");
     assert_eq!(identity.0.as_ref(), "GAPOWR");
     assert_eq!(identity.1, MapEntityKind::Structure);
+
+    let aircraft_id = state.entity_id_at(3).expect("aircraft entity");
+    let aircraft_identity = state.ecs_identity(aircraft_id).expect("aircraft identity");
+    assert_eq!(aircraft_identity.0.as_ref(), "ORCA");
+    assert_eq!(aircraft_identity.1, MapEntityKind::Aircraft);
 }
 
 #[test]
-fn open_campaign_rejects_unknown_map_placement_house() {
+fn validate_map_for_battle_rejects_unknown_map_placement_house() {
     let mut map = prepare_map();
     map.entities[0].owner = "NO_SUCH_HOUSE".into();
-    let err = open_campaign_session(
-        &RulesBytesSource,
-        GameEdition::Ra2,
-        RULES_INI,
-        prepare_defs(),
-        map,
-        "t".into(),
-        (0, 0),
-        Some("AMERICANS"),
-        &["AMERICANS"],
-        0,
-    )
-    .expect_err("unknown map house must fail open");
+    let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("unknown map house must fail prepare");
     let msg = err.to_string();
     assert!(msg.contains("house") || msg.contains("NO_SUCH_HOUSE") || msg.contains("Owner") || msg.contains("owner"), "{msg}");
 }
 
 #[test]
 fn validate_map_for_battle_rejects_unknown_techno_before_session() {
-    use ra_engine::validate_map_for_battle;
     let mut map = prepare_map();
     map.entities[1].type_id = "MISSINGUNIT".into();
     let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("unknown techno");
@@ -173,15 +202,56 @@ fn validate_map_for_battle_rejects_unknown_techno_before_session() {
 }
 
 #[test]
+fn validate_map_for_battle_rejects_out_of_bounds_placement() {
+    let mut map = prepare_map();
+    map.entities[1].x = 16;
+    map.entities[1].y = 0;
+    let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("oob placement");
+    let msg = err.to_string();
+    assert!(msg.contains("越界") || msg.contains("out"), "{msg}");
+}
+
+#[test]
+fn validate_map_for_battle_rejects_foundation_out_of_bounds() {
+    let mut map = prepare_map();
+    // 2x2 Foundation 锚在右下角会踩出地图。
+    map.entities[0].x = 15;
+    map.entities[0].y = 15;
+    let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("foundation oob");
+    let msg = err.to_string();
+    assert!(msg.contains("越界") || msg.contains("Foundation"), "{msg}");
+}
+
+#[test]
+fn validate_map_for_battle_rejects_overlapping_structures() {
+    let mut map = prepare_map();
+    map.entities.push(MapEntity {
+        kind: MapEntityKind::Structure,
+        owner: "AMERICANS".into(),
+        type_id: "GAPOWR".into(),
+        health: 256,
+        x: 5,
+        y: 5,
+        facing: 0,
+        sub_cell: 0,
+        mission: Default::default(),
+        tag: Default::default(),
+    });
+    let err = validate_map_for_battle(&map, &prepare_defs()).expect_err("overlap");
+    let msg = err.to_string();
+    assert!(msg.contains("重叠") || msg.contains("overlap"), "{msg}");
+}
+
+#[test]
 fn validate_map_for_battle_accepts_prepare_chain_fixture() {
-    use ra_engine::validate_map_for_battle;
     let prepared = validate_map_for_battle(&prepare_map(), &prepare_defs()).expect("fixture must prepare");
-    assert_eq!(prepared.placements.len(), 3);
+    assert_eq!(prepared.placements.len(), 4);
+    assert_eq!(prepared.houses.len(), 1);
+    assert!(prepared.placements.iter().any(|p| p.kind == ra_types::MapPlacedEntityKind::Aircraft));
 }
 
 #[test]
 fn open_campaign_session_prepared_reuses_validated_prepared_map() {
-    use ra_engine::{open_campaign_session_prepared, validate_map_for_battle};
     let defs = prepare_defs();
     let map = prepare_map();
     let prepared = validate_map_for_battle(&map, &defs).expect("prepare");
