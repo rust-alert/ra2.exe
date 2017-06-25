@@ -12,8 +12,9 @@ fn prepare_defs() -> std::sync::Arc<ra_types::RuntimeDefinitions> {
         b"[Countries]\n0=Americans\n1=Russians\n\
 [Americans]\nSide=GDI\n\
 [Russians]\nSide=Nod\n\
-[OverlayTypes]\n0=LOBRDG01\n\
+[OverlayTypes]\n0=LOBRDG01\n1=ROCK01\n\
 [LOBRDG01]\nLand=Road\nNoUseTileLandType=yes\n\
+[ROCK01]\nLand=Rock\nNoUseTileLandType=yes\n\
 [InfantryTypes]\n0=E1\n\
 [VehicleTypes]\n0=MTNK\n\
 [AircraftTypes]\n0=ORCA\n\
@@ -91,6 +92,8 @@ fn prepare_map() -> MapInfo {
     });
     // 桥面 overlay：无 TMP 时 finalize 仍会按 Land= 打开该格。
     map.overlays.push(OverlayCell { x: 1, y: 1, overlay_id: 0, data: 0 });
+    // Rock overlay：同样走 overlay land，封死该格。
+    map.overlays.push(OverlayCell { x: 3, y: 3, overlay_id: 1, data: 0 });
     map
 }
 
@@ -168,9 +171,12 @@ fn open_campaign_prepare_chain_foundation_overlay_spawn_and_sync() {
     // 桥 overlay：空 TMP 源下仍应由 overlay land 保证可走。
     assert!(state.pass_grid.is_passable(1, 1));
     assert_eq!(state.prepared.passable[idx(1, 1)], 1);
+    // Rock overlay：应封死通行。
+    assert!(!state.pass_grid.is_passable(3, 3));
+    assert_eq!(state.prepared.passable[idx(3, 3)], 0);
 
     assert_eq!(state.prepared.definition.waypoints.len(), 1);
-    assert_eq!(state.prepared.definition.overlays.len(), 1);
+    assert_eq!(state.prepared.definition.overlays.len(), 2);
 
     let power_id = state.entity_id_at(0).expect("structure entity");
     let identity = state.ecs_identity(power_id).expect("identity");
