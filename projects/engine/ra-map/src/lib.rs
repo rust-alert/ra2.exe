@@ -394,8 +394,10 @@ impl MapInfo {
 
     /// 对局播种用的完整 [`PreparedMap`]：Foundation 骨架 + 规则/脚本稳定 id 绑定 + occupancy 重封。
     ///
-    /// 未知 techno / house / tag / mission 等引用在绑定时拒绝。TMP 封格与 overlay land 须经
-    /// [`finalize_battle_pass_grid`]（session / `BattleState::finalize_pass_from_assets`）后序处理。
+    /// 未知 techno / house / tag / mission 等引用在绑定时拒绝。放置锚点越界、结构
+    /// `Foundation=` 越界或结构足迹重叠亦拒绝（见 [`ra_types::validate_placement_geometry`]）。
+    /// TMP 封格与 overlay land 须经 [`finalize_battle_pass_grid`]（session /
+    /// `BattleState::finalize_pass_from_assets`）后序处理。
     pub fn to_prepared_map(&self, defs: &RuntimeDefinitions) -> RaResult<ra_types::PreparedMap> {
         let mut prepared = self.to_prepared_map_skeleton_with_structures(&defs.structures);
         bind_prepared_map_placements(&mut prepared, defs)?;
