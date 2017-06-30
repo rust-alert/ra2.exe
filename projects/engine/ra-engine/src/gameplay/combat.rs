@@ -47,7 +47,7 @@ impl crate::state::BattleState {
                 continue;
             }
             let attack_move = identity.mission == Some(ra_types::MissionKind::AttackMove);
-            let attacker_type_key = std::sync::Arc::<str>::from(crate::gameplay::type_key_of(&self.definitions, identity.type_id));
+            let attacker_type_id = identity.type_id;
             let Some(target_id) = attack.target.or_else(|| {
                 if !attack_move {
                     return None;
@@ -123,7 +123,7 @@ impl crate::state::BattleState {
                 let fire_report = self
                     .definitions
                     .techno
-                    .get(attacker_type_key.as_ref())
+                    .get_by_id(attacker_type_id)
                     .and_then(|t| t.primary_id)
                     .and_then(|wid| self.definitions.weapons.get_by_id(wid))
                     .map(|w| w.report.as_str())
