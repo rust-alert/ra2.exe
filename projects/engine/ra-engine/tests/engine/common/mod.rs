@@ -40,9 +40,12 @@ pub fn test_engine() -> Engine {
     Engine::new(Arc::new(RuntimeDefinitions::default()), EngineConfig::default()).expect("默认引擎应可构造")
 }
 
-/// 冻结定义播种世界（引擎侧只消费 `RuntimeDefinitions`）。
+/// 冻结定义播种世界：先 [`ra_engine::validate_map_for_battle`]，再 [`BattleState::from_prepared`]。
+///
+/// 与产品 boot / 会话入口同一 `PreparedMap` 契约（含几何拒绝）。
 pub fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
-    BattleState::new(edition, defs, map).expect("battle seed")
+    let prepared = ra_engine::validate_map_for_battle(&map, &defs).expect("map prepare");
+    BattleState::from_prepared(edition, defs, map, prepared).expect("battle seed")
 }
 
 /// 含 MTNK 坦克类型的最小冻结定义（Strength=400，带主武器）。

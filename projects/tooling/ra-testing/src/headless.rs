@@ -32,7 +32,8 @@ fn defs_from_rules_ini(rules_ini: &[u8]) -> Arc<RuntimeDefinitions> {
 }
 
 fn battle_from_defs(edition: GameEdition, defs: Arc<RuntimeDefinitions>, map: MapInfo) -> BattleState {
-    BattleState::new(edition, defs, map).expect("battle seed")
+    let prepared = ra_engine::validate_map_for_battle(&map, &defs).expect("map prepare");
+    BattleState::from_prepared(edition, defs, map, prepared).expect("battle seed")
 }
 
 /// 无窗口测试用例。所有推进都经过 `Session::tick` + `EngineRuntime`，与产品路径一致。
