@@ -55,7 +55,7 @@ fn unbound_techno_rejects_battle_seed() {
         mission: Default::default(),
         tag: Default::default(),
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown techno must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown techno must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
 }
@@ -76,7 +76,7 @@ fn unbound_house_rejects_battle_seed() {
         mission: Default::default(),
         tag: Default::default(),
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown house must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown house must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("house") || msg.contains("NOSUCHHOUSE"), "{msg}");
 }
@@ -284,7 +284,7 @@ fn unbound_mission_rejects_battle_seed() {
         mission: "NotAMission".into(),
         tag: Default::default(),
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown mission must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown mission must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("mission") || msg.contains("NotAMission") || msg.contains("NOTAMISSION"), "{msg}");
 }
@@ -359,7 +359,7 @@ fn unbound_tag_rejects_battle_seed() {
         mission: Default::default(),
         tag: "MissingTag".into(),
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown tag must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown tag must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
 }
@@ -392,7 +392,7 @@ fn unbound_cell_tag_rejects_battle_seed() {
     let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.scripting.cell_tags.push(MapCellTag { x: 1, y: 1, tag_id: "MissingTag".into() });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown cell tag must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown cell tag must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
 }
@@ -425,7 +425,7 @@ fn unbound_task_force_techno_rejects_battle_seed() {
         entries: vec![MapTaskForceEntry { count: 1, type_id: "NOSUCH".into() }],
         group: -1,
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown task force techno must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown task force techno must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
 }
@@ -490,7 +490,7 @@ fn unbound_team_type_task_force_rejects_battle_seed() {
         priority: 10,
         veteran_level: 0,
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown team task force must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown team task force must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("task_force") || msg.contains("MissingTF") || msg.contains("MISSINGTF"), "{msg}");
 }
@@ -595,7 +595,7 @@ fn unbound_ai_trigger_team_rejects_battle_seed() {
         owner_house: "Americans".into(),
         ..Default::default()
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ai trigger team must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown ai trigger team must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
@@ -630,7 +630,7 @@ fn unbound_ai_trigger_team2_rejects_battle_seed() {
         owner_house: "Americans".into(),
         ..Default::default()
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ai trigger team2 must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown ai trigger team2 must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam2") || msg.contains("MISSINGTEAM2"), "{msg}");
 }
@@ -703,7 +703,7 @@ fn unbound_ai_trigger_condition_object_rejects_battle_seed() {
         condition_object: "NOSUCH".into(),
         ..Default::default()
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown condition object must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown condition object must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("techno") || msg.contains("NOSUCH"), "{msg}");
 }
@@ -747,7 +747,7 @@ fn unbound_event_trigger_rejects_battle_seed() {
     let defs = defs_with_mtnk();
     let mut map = map_with_size();
     map.scripting.events.push(MapEvent { id: "MissingTR".into(), conditions: Vec::new() });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown event trigger must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown event trigger must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
@@ -817,7 +817,7 @@ fn unbound_create_team_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTeam".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown CreateTeam must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown CreateTeam must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
@@ -936,7 +936,7 @@ fn unbound_force_trigger_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTR".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ForceTrigger must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown ForceTrigger must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
@@ -988,7 +988,7 @@ fn unbound_destroy_tag_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTag".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown DestroyTag must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown DestroyTag must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("tag") || msg.contains("MissingTag") || msg.contains("MISSINGTAG"), "{msg}");
 }
@@ -1082,7 +1082,7 @@ fn unbound_linked_trigger_rejects_battle_seed() {
         normal: true,
         hard: true,
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown linked trigger must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown linked trigger must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
@@ -1152,7 +1152,7 @@ fn unbound_timer_trigger_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTR".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown TimerStart must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown TimerStart must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
@@ -1193,7 +1193,7 @@ fn unbound_reinforcement_at_waypoint_rejects_battle_seed() {
             params: ["0".into(), "MissingTeam".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown ReinforcementAtWaypoint must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown ReinforcementAtWaypoint must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
@@ -1255,7 +1255,7 @@ fn unbound_destroy_trigger_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTR".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown DestroyTrigger must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown DestroyTrigger must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("trigger") || msg.contains("MissingTR") || msg.contains("MISSINGTR"), "{msg}");
 }
@@ -1296,7 +1296,7 @@ fn unbound_flash_team_action_rejects_battle_seed() {
             params: ["0".into(), "MissingTeam".into(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown FlashTeam must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown FlashTeam must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("team_type") || msg.contains("MissingTeam") || msg.contains("MISSINGTEAM"), "{msg}");
 }
@@ -1356,7 +1356,7 @@ fn unbound_win_house_rejects_battle_seed() {
             params: ["MissingHouse".into(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()],
         }],
     });
-    let err = ra_engine::BattleState::new(GameEdition::Ra2, defs, map).expect_err("unknown Win house must fail seed");
+    let err = ra_engine::validate_map_for_battle(&map, &defs).expect_err("unknown Win house must fail seed");
     let msg = err.to_string();
     assert!(msg.contains("house") || msg.contains("MissingHouse") || msg.contains("MISSINGHOUSE"), "{msg}");
 }
