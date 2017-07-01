@@ -26,8 +26,8 @@ pub struct SkirmishOpenResult {
 
 /// 用与 [`BattleState::new`] 相同的 [`MapInfo::to_prepared_map`] 路径准备并校验地图引用。
 ///
-/// 产品 boot 应在预览 / 打开会话之前调用，使非法 techno / house / 脚本引用在装载前半段失败，
-/// 而不是先画出预览再在开会话时才拒绝。
+/// 产品 boot 应在预览 / 打开会话之前调用，使非法 techno / house / 脚本引用，以及放置
+/// 越界 / 结构足迹重叠，在装载前半段失败，而不是先画出预览再在开会话时才拒绝。
 ///
 /// 成功时返回可交给 [`BattleState::from_prepared`] / [`open_campaign_session_prepared`] 的
 /// [`PreparedMap`]，避免战役路径二次绑定。
