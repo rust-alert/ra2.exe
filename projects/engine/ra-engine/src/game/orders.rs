@@ -254,7 +254,7 @@ impl BattleSession {
         if self.outcome.is_some() {
             return;
         }
-        let Some(type_id) = self.world.definitions.super_weapons.get(type_id.as_ref()).map(|sw| sw.id)
+        let Some(type_id) = crate::gameplay::super_weapon_id_of(&self.world.definitions, type_id.as_ref())
         else {
             return;
         };
@@ -267,8 +267,7 @@ impl BattleSession {
         else {
             return false;
         };
-        let needle = type_id.to_ascii_uppercase();
-        let Some(wanted_id) = self.world.definitions.techno.get(needle.as_str()).map(|t| t.id)
+        let Some(wanted_id) = crate::gameplay::type_id_of(&self.world.definitions, type_id)
         else {
             return false;
         };
@@ -295,8 +294,7 @@ impl BattleSession {
         else {
             return false;
         };
-        let needle = type_id.to_ascii_uppercase();
-        let Some(wanted_id) = self.world.definitions.techno.get(needle.as_str()).map(|t| t.id)
+        let Some(wanted_id) = crate::gameplay::type_id_of(&self.world.definitions, type_id)
         else {
             return false;
         };

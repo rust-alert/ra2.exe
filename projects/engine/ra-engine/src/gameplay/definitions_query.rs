@@ -22,6 +22,11 @@ pub(crate) fn type_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<TypeId>
     defs.techno.get(key).map(|t| t.id)
 }
 
+/// 由超武类型键解析稳定 [`TypeId`]。
+pub(crate) fn super_weapon_id_of(defs: &RuntimeDefinitions, key: &str) -> Option<TypeId> {
+    defs.super_weapons.get(key).map(|sw| sw.id)
+}
+
 /// 单位是否间谍类（`Agent=yes`），可渗透敌方建筑。
 pub(crate) fn is_agent(defs: &RuntimeDefinitions, type_id: TypeId) -> bool {
     defs.techno.get_by_id(type_id).is_some_and(|t| t.agent)

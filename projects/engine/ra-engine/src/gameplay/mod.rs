@@ -31,7 +31,8 @@ pub(crate) use ai_triggers::tick_ai_triggers;
 pub(crate) use definitions_query::{
     building_power, deploy_into_type, factory_matches_category, factory_matches_unit, forbidden_houses_forbids, house_id_of, house_key_of,
     is_agent, is_base_unit, is_capturable, is_construction_yard, is_engineer, is_harvester, is_power_plant, is_production_factory, is_radar,
-    is_refinery, owner_allows, required_houses_allows, requires_power_plant, starting_mcv_type_for_house, type_id_of, type_key_of,
+    is_refinery, owner_allows, required_houses_allows, requires_power_plant, starting_mcv_type_for_house, super_weapon_id_of, type_id_of,
+    type_key_of,
 };
 pub use powers::{
     FireSuperWeaponError, LightningStormState, SUPER_WEAPON_TICKS_PER_RECHARGE_UNIT, SuperWeaponRuntime, start_lightning_storm,
