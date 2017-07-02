@@ -27,8 +27,8 @@ impl BattleState {
 
     /// 按房主与类型键查找首个实体 ID。
     pub fn find_entity_id_by_owner_type(&self, owner: &str, type_id: &str) -> Option<EntityId> {
-        let want_type = self.definitions.techno.get(type_id).map(|t| t.id)?;
-        let want_house = self.definitions.houses.get(owner).map(|h| h.id)?;
+        let want_type = crate::gameplay::type_id_of(&self.definitions, type_id)?;
+        let want_house = crate::gameplay::house_id_of(&self.definitions, owner)?;
         self.entities.iter().find_map(|e| {
             let id = e.id;
             let house_ok = self.ecs_get::<Owner>(id).map(|o| o.house == want_house).unwrap_or(false);
@@ -39,7 +39,7 @@ impl BattleState {
 
     /// 按类型键查找首个实体 ID。
     pub fn find_entity_id_by_type(&self, type_id: &str) -> Option<EntityId> {
-        let want = self.definitions.techno.get(type_id).map(|t| t.id)?;
+        let want = crate::gameplay::type_id_of(&self.definitions, type_id)?;
         self.entities.iter().find_map(|e| {
             let id = e.id;
             self.ecs_get::<Identity>(id).filter(|i| i.type_id == want).map(|_| id)

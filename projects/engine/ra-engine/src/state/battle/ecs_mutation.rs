@@ -256,7 +256,7 @@ impl BattleState {
 
     /// 测试 / 调试：写入 ECS 身份类型并投影。
     pub fn set_ecs_type_id(&mut self, id: EntityId, type_id: &str, kind: ra_map::MapEntityKind) -> bool {
-        let Some(def_id) = self.definitions.techno.get(type_id).map(|t| t.id)
+        let Some(def_id) = crate::gameplay::type_id_of(&self.definitions, type_id)
         else {
             return false;
         };

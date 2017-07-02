@@ -224,15 +224,17 @@ impl BattleState {
         if self.living_at_cell(x, y) {
             return Err(format!("生成格已被占用: ({x},{y}) type={type_id} house={house}"));
         }
-        let type_key = type_id.to_ascii_uppercase();
-        let Some(tt) = self.definitions.techno.get(&type_key)
+        let Some(def_id) = crate::gameplay::type_id_of(&self.definitions, type_id)
         else {
-            return Err(format!("未知单位类型: {type_key}"));
+            return Err(format!("未知单位类型: {}", type_id.to_ascii_uppercase()));
+        };
+        let Some(tt) = self.definitions.techno.get_by_id(def_id)
+        else {
+            return Err(format!("未知单位类型: {}", type_id.to_ascii_uppercase()));
         };
         if tt.class == TechnoClass::Building {
-            return Err(format!("spawn_unit_at 不接受建筑类型: {type_key}"));
+            return Err(format!("spawn_unit_at 不接受建筑类型: {}", tt.type_key.as_str()));
         }
-        let def_id = tt.id;
         let max_health = tt.strength.max(1);
         let speed = tt.speed;
         let armor = tt.armor;
@@ -253,9 +255,10 @@ impl BattleState {
             TechnoClass::Aircraft => MapEntityKind::Aircraft,
             TechnoClass::Building => MapEntityKind::Structure,
         };
+        let house_id = crate::gameplay::house_id_of(&self.definitions, house).ok_or_else(|| format!("未知房主: {house}"))?;
         self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
-            owner: Owner { house: self.definitions.houses.get(house).map(|h| h.id).ok_or_else(|| format!("未知房主: {house}"))? },
+            owner: Owner { house: house_id },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed },
