@@ -79,7 +79,7 @@ pub fn tick_ai_triggers(world: &mut BattleState) {
     for at in triggers {
         let owner_house_key = resolve_owner_house_key(world, &at);
         if let Some(ref house_key) = owner_house_key {
-            if let Some(house_id) = world.definitions.houses.get(house_key).map(|h| h.id) {
+            if let Some(house_id) = at.owner_house {
                 if world.ai_trigger_runtime.disabled_houses.contains(&house_id) {
                     continue;
                 }
@@ -244,7 +244,7 @@ pub fn set_ai_triggers_for_house(world: &mut BattleState, house: Option<&str>, e
             world.ai_trigger_runtime.enabled = enabled;
         }
         Some(h) => {
-            let Some(house_id) = world.definitions.houses.get(h).map(|d| d.id)
+            let Some(house_id) = crate::gameplay::house_id_of(&world.definitions, h)
             else {
                 return;
             };
