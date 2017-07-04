@@ -31,7 +31,7 @@ fn battle_hud_render_plan_rects_match_snapshot_hits() {
     assert_eq!(lendcap.w, COMMAND_LENDCAP_W);
     assert_eq!(cmd0.x, COMMAND_LENDCAP_W);
     assert_eq!(cmd0.w, COMMAND_BUTTON_W);
-    assert_eq!(COMMAND_BAR_BUTTON_IDS.len(), 6);
+    assert_eq!(COMMAND_BAR_BUTTON_IDS.len(), 8);
 
     let hit = snap.hit_test(Point2 { x: opt_btn.x as f32 + 4.0, y: opt_btn.y as f32 + 4.0 }).expect("hit opt_btn");
     assert_eq!(hit.id.0, "opt_btn");
