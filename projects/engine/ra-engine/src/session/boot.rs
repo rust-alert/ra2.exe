@@ -8,7 +8,7 @@ use ra_types::{AssetSource, GameEdition, PreparedMap, RaResult, RuntimeDefinitio
 use crate::{
     engine::{Engine, EngineConfig},
     game::{BattleSession, SessionBootKind},
-    gameplay::starting_mcv_type_for_house,
+    gameplay::starting_mcv_id_for_house,
     session::Session,
     state::BattleState,
 };
@@ -366,12 +366,13 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
         else {
             return Err(ra_types::RaError::Msg(format!("开局席位 {slot} 缺少地图航点（house={house}）")));
         };
-        let Some(mcv) = starting_mcv_type_for_house(&state.definitions, house).map(str::to_owned)
+        let Some(mcv_id) = starting_mcv_id_for_house(&state.definitions, house)
         else {
             return Err(ra_types::RaError::Msg(format!("阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）")));
         };
-        let id = state.spawn_unit_at(house, &mcv, x, y).map_err(ra_types::RaError::Msg)?;
-        parts.push(format!("{house}@{slot}:({x},{y})={mcv}#{id:?}"));
+        let mcv_key = crate::gameplay::type_key_of(&state.definitions, mcv_id).to_string();
+        let id = state.spawn_unit_at_type(house, mcv_id, x, y).map_err(ra_types::RaError::Msg)?;
+        parts.push(format!("{house}@{slot}:({x},{y})={mcv_key}#{id:?}"));
     }
     Ok(parts.join(" "))
 }

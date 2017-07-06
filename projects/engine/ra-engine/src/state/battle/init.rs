@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid, finalize_battle_pass_grid};
-use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, PreparedMap, RaResult, RuntimeDefinitions, TechnoClass};
+use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, PreparedMap, RaResult, RuntimeDefinitions, TechnoClass, TypeId};
 
 use super::super::{
     components::{
@@ -215,22 +215,28 @@ impl BattleState {
 
     /// 在指定格生成单位（遭遇战开局等）。格子越界、不可走或已被存活实体占用时失败。
     pub fn spawn_unit_at(&mut self, house: &str, type_id: &str, x: u16, y: u16) -> Result<EntityId, String> {
-        if !self.pass_grid.in_bounds(x, y) {
-            return Err(format!("生成格越界: ({x},{y}) type={type_id} house={house}"));
-        }
-        if !self.pass_grid.is_passable(x, y) {
-            return Err(format!("生成格不可走: ({x},{y}) type={type_id} house={house}"));
-        }
-        if self.living_at_cell(x, y) {
-            return Err(format!("生成格已被占用: ({x},{y}) type={type_id} house={house}"));
-        }
         let Some(def_id) = crate::gameplay::type_id_of(&self.definitions, type_id)
         else {
             return Err(format!("未知单位类型: {}", type_id.to_ascii_uppercase()));
         };
+        self.spawn_unit_at_type(house, def_id, x, y)
+    }
+
+    /// 在指定格按稳定 [`TypeId`] 生成单位。
+    pub fn spawn_unit_at_type(&mut self, house: &str, def_id: TypeId, x: u16, y: u16) -> Result<EntityId, String> {
+        let type_label = crate::gameplay::type_key_of(&self.definitions, def_id);
+        if !self.pass_grid.in_bounds(x, y) {
+            return Err(format!("生成格越界: ({x},{y}) type={type_label} house={house}"));
+        }
+        if !self.pass_grid.is_passable(x, y) {
+            return Err(format!("生成格不可走: ({x},{y}) type={type_label} house={house}"));
+        }
+        if self.living_at_cell(x, y) {
+            return Err(format!("生成格已被占用: ({x},{y}) type={type_label} house={house}"));
+        }
         let Some(tt) = self.definitions.techno.get_by_id(def_id)
         else {
-            return Err(format!("未知单位类型: {}", type_id.to_ascii_uppercase()));
+            return Err(format!("未知单位类型: {type_label}"));
         };
         if tt.class == TechnoClass::Building {
             return Err(format!("spawn_unit_at 不接受建筑类型: {}", tt.type_key.as_str()));

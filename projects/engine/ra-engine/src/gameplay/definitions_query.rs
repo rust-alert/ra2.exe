@@ -169,11 +169,11 @@ pub(crate) fn forbidden_houses_forbids(defs: &RuntimeDefinitions, techno: &ra_ty
     house_list_allows(defs, &techno.forbidden_house_ids, &techno.forbidden_houses, house, HouseListKind::Forbidden)
 }
 
-/// 为遭遇战开局席位挑选该 house 可用的 MCV 类型键。
+/// 为遭遇战开局席位挑选该 house 可用的 MCV 稳定 [`TypeId`]。
 ///
 /// 条件：`Vehicle` + `DeploysInto` 建造场 + `Owner` 允许该 house。多候选时按类型键排序取稳定第一项。
-pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, house: &str) -> Option<&'a str> {
-    let mut keys: Vec<&str> = defs
+pub(crate) fn starting_mcv_id_for_house(defs: &RuntimeDefinitions, house: &str) -> Option<TypeId> {
+    let mut candidates: Vec<(TypeId, &str)> = defs
         .deployables
         .iter()
         .filter_map(|d| {
@@ -187,11 +187,11 @@ pub(crate) fn starting_mcv_type_for_house<'a>(defs: &'a RuntimeDefinitions, hous
             if !owner_allows(defs, techno, house) {
                 return None;
             }
-            Some(d.source_key.as_str())
+            Some((d.source, techno.type_key.as_str()))
         })
         .collect();
-    keys.sort_unstable();
-    keys.first().copied()
+    candidates.sort_by(|a, b| a.1.cmp(b.1));
+    candidates.first().map(|(id, _)| *id)
 }
 
 /// 是否短局 `BaseUnit`（`[General] BaseUnit=`，缺表时回落为可部署成建造场的载具）。
