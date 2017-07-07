@@ -304,15 +304,17 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
         else {
             continue;
         };
-        let type_key = tt.type_key.as_str().to_string();
+        if tt.class == ra_types::TechnoClass::Building {
+            continue;
+        }
         for _ in 0..entry.count.max(1) {
             let x = (i32::from(wx) + ox).clamp(0, i32::from(u16::MAX)) as u16;
             let y = (i32::from(wy) + oy).clamp(0, i32::from(u16::MAX)) as u16;
-            let spawned = match world.spawn_unit_at(house, &type_key, x, y) {
+            let spawned = match world.spawn_unit_at_type(house, entry.definition_id, x, y) {
                 Ok(id) => Some(id),
                 Err(_) => {
                     // 格占用时尝试邻格。
-                    world.spawn_unit_at(house, &type_key, x.saturating_add(1), y).ok()
+                    world.spawn_unit_at_type(house, entry.definition_id, x.saturating_add(1), y).ok()
                 }
             };
             if let Some(id) = spawned {
