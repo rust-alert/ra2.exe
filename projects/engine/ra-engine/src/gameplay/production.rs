@@ -91,8 +91,7 @@ impl crate::state::BattleState {
             return;
         };
         let factory_id = self.entities[factory_index].id;
-        let Some(owner) =
-            self.ecs_get::<Owner>(factory_id).map(|o| std::sync::Arc::<str>::from(crate::gameplay::house_key_of(&self.definitions, o.house)))
+        let Some(owner_id) = self.ecs_get::<Owner>(factory_id).map(|o| o.house)
         else {
             return;
         };
@@ -115,11 +114,14 @@ impl crate::state::BattleState {
             TechnoClass::Building => return,
         };
         let techno_class = tt.class;
-        let promoted = self.players.iter().find(|p| p.house.eq_ignore_ascii_case(owner.as_ref())).is_some_and(|p| match tt.class {
-            TechnoClass::Infantry => p.promoted_infantry,
-            TechnoClass::Vehicle => p.promoted_vehicle,
-            _ => false,
-        });
+        let promoted =
+            self.players.iter().find(|p| crate::gameplay::house_id_of(&self.definitions, p.house.as_ref()) == Some(owner_id)).is_some_and(
+                |p| match tt.class {
+                    TechnoClass::Infantry => p.promoted_infantry,
+                    TechnoClass::Vehicle => p.promoted_vehicle,
+                    _ => false,
+                },
+            );
         let base_health = tt.strength.max(1);
         let max_health =
             if promoted { base_health.saturating_mul(5).saturating_div(4).max(base_health.saturating_add(1)) } else { base_health };
@@ -136,7 +138,7 @@ impl crate::state::BattleState {
         let id = self.alloc_entity_id();
         let unit_index = self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
-            owner: Owner { house: crate::gameplay::house_id_of(&self.definitions, owner.as_ref()).expect("spawn unit house") },
+            owner: Owner { house: owner_id },
             transform: Transform { x, y, facing: 0, turret_facing: 0, sub_cell: 0 },
             health: Health { current: max_health, maximum: max_health, dead: false },
             locomotor: Locomotor { speed: tt.speed },
@@ -155,7 +157,9 @@ impl crate::state::BattleState {
             animation: AnimationState { hva_frame: 0, hit_flash: 0, fire_flash: 0 },
         });
         self.mark_entity_dirty(id);
-        if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(owner.as_ref())) {
+        if let Some(player) =
+            self.players.iter_mut().find(|p| crate::gameplay::house_id_of(&self.definitions, p.house.as_ref()) == Some(owner_id))
+        {
             player.built = player.built.saturating_add(1);
         }
         if let Some((rx, ry)) = rally {
@@ -193,10 +197,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, i.type_id, kind))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, i.type_id, kind)).unwrap_or(false)
         })
     }
 
@@ -208,10 +209,7 @@ impl crate::state::BattleState {
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
                 && self.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| factory_matches_unit(&self.definitions, i.type_id, kind))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| factory_matches_unit(&self.definitions, i.type_id, kind)).unwrap_or(false)
         })
     }
 
@@ -227,10 +225,7 @@ impl crate::state::BattleState {
             }
             if !self
                 .ecs_get::<Identity>(id)
-                .map(|i| {
-                    i.kind == MapEntityKind::Structure
-                        && crate::gameplay::is_construction_yard(&self.definitions, i.type_id)
-                })
+                .map(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_construction_yard(&self.definitions, i.type_id))
                 .unwrap_or(false)
             {
                 return None;
