@@ -123,13 +123,7 @@ impl crate::state::BattleState {
         }
     }
 
-    fn transfer_structure_owner(
-        &mut self,
-        building_id: EntityId,
-        type_id: ra_types::TypeId,
-        from_house: &str,
-        to_house: &str,
-    ) {
+    fn transfer_structure_owner(&mut self, building_id: EntityId, type_id: ra_types::TypeId, from_house: &str, to_house: &str) {
         // 中立等氛围房主可能不在 players 表；revoke/grant 内部会安全跳过缺失席位。
         self.revoke_structure_power(from_house, type_id);
         let Some(new_house_id) = crate::gameplay::house_id_of(&self.definitions, to_house)

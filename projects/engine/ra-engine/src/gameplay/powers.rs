@@ -270,11 +270,7 @@ pub fn try_fire_super_weapon(
         if identity.kind != MapEntityKind::Structure {
             return false;
         }
-        world
-            .definitions
-            .structures
-            .get_by_id(identity.type_id)
-            .is_some_and(|s| s.super_weapon_id == Some(sw_def.id))
+        world.definitions.structures.get_by_id(identity.type_id).is_some_and(|s| s.super_weapon_id == Some(sw_def.id))
     });
     if !has_provider {
         return Err(FireSuperWeaponError::NoProvider);

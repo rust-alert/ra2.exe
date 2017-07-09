@@ -38,7 +38,12 @@ fn yard_with_power() -> BattleState {
         }
         world.advance_tick();
     }
-    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id, x: 6, y: 4 });
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 6,
+        y: 4,
+    });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
     world

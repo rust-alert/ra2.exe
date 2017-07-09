@@ -98,9 +98,9 @@ impl BattleSession {
 
     /// 建筑类型是否可被工程师占领（`Capturable=yes`）。
     pub fn is_capturable_structure(&self, id: EntityId) -> bool {
-        self.world.ecs_get::<crate::state::components::Identity>(id).is_some_and(|i| {
-            i.kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, i.type_id)
-        })
+        self.world
+            .ecs_get::<crate::state::components::Identity>(id)
+            .is_some_and(|i| i.kind == MapEntityKind::Structure && crate::gameplay::is_capturable(&self.world.definitions, i.type_id))
     }
 
     /// 部署指定可展开单位（如 MCV）。

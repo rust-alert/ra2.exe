@@ -363,10 +363,7 @@ fn house_has_idle_yard(world: &BattleState, house: &str) -> bool {
             && world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false)
             && world
                 .ecs_get::<Identity>(id)
-                .map(|i| {
-                    i.kind == MapEntityKind::Structure
-                        && is_construction_yard(&world.definitions, i.type_id)
-                })
+                .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&world.definitions, i.type_id))
                 .unwrap_or(false)
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none() && q.ready.is_none()).unwrap_or(false)
     })
@@ -377,9 +374,7 @@ fn house_has_power(world: &BattleState, house: &str) -> bool {
 }
 
 fn house_has_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
-    living_house_structure(world, house, |w, i| {
-        factory_matches_category(&w.definitions, i.type_id, category)
-    })
+    living_house_structure(world, house, |w, i| factory_matches_category(&w.definitions, i.type_id, category))
 }
 
 fn house_has_idle_factory(world: &BattleState, house: &str, category: ProductionCategory) -> bool {
@@ -389,10 +384,7 @@ fn house_has_idle_factory(world: &BattleState, house: &str, category: Production
             && world.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&world.definitions, house) == Some(o.house)).unwrap_or(false)
             && world.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
             && world.ecs_get::<ProductionQueue>(id).map(|q| q.item.is_none()).unwrap_or(true)
-            && world
-                .ecs_get::<Identity>(id)
-                .map(|i| factory_matches_category(&world.definitions, i.type_id, category))
-                .unwrap_or(false)
+            && world.ecs_get::<Identity>(id).map(|i| factory_matches_category(&world.definitions, i.type_id, category)).unwrap_or(false)
     })
 }
 
@@ -410,9 +402,7 @@ fn yard_cell(world: &BattleState, house: &str) -> Option<(u16, u16)> {
             return None;
         }
         let identity = world.ecs_get::<Identity>(id)?;
-        if identity.kind != MapEntityKind::Structure
-            || !is_construction_yard(&world.definitions, identity.type_id)
-        {
+        if identity.kind != MapEntityKind::Structure || !is_construction_yard(&world.definitions, identity.type_id) {
             return None;
         }
         world.ecs_get::<Transform>(id).map(|t| (t.x, t.y))

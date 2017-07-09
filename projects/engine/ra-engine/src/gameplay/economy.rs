@@ -254,10 +254,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_construction_yard(&self.definitions, i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_construction_yard(&self.definitions, i.type_id)).unwrap_or(false)
         })
     }
 
@@ -267,10 +264,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_power_plant(&self.definitions, i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_power_plant(&self.definitions, i.type_id)).unwrap_or(false)
         })
     }
 
@@ -281,10 +275,7 @@ impl crate::state::BattleState {
             !self.ecs_get::<Health>(id).map(|h| h.dead).unwrap_or(true)
                 && self.ecs_get::<Owner>(id).map(|o| crate::gameplay::house_id_of(&self.definitions, house) == Some(o.house)).unwrap_or(false)
                 && self.ecs_get::<Identity>(id).map(|i| i.kind == MapEntityKind::Structure).unwrap_or(false)
-                && self
-                    .ecs_get::<Identity>(id)
-                    .map(|i| is_radar(&self.definitions, i.type_id))
-                    .unwrap_or(false)
+                && self.ecs_get::<Identity>(id).map(|i| is_radar(&self.definitions, i.type_id)).unwrap_or(false)
         })
     }
 }

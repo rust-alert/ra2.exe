@@ -79,7 +79,12 @@ fn power_unlocks_prerequisite_power_buildings() {
         }
         world.advance_tick();
     }
-    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id, x: 6, y: 4 });
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 6,
+        y: 4,
+    });
     world.advance_tick();
     assert!(world.last_rejects().is_empty());
 
@@ -94,7 +99,12 @@ fn power_unlocks_prerequisite_power_buildings() {
 #[test]
 fn place_rejects_locked_prerequisite() {
     let mut world = allied_yard_world();
-    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: world.definitions.techno.get("GAREFN").expect("GAREFN").id, x: 6, y: 4 });
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAREFN").expect("GAREFN").id,
+        x: 6,
+        y: 4,
+    });
     world.advance_tick();
     assert_eq!(world.last_rejects()[0].reason, CommandRejectReason::MissingPrerequisite);
 }
@@ -110,7 +120,12 @@ fn losing_power_hides_power_gated_buildings_again() {
         }
         world.advance_tick();
     }
-    world.push_command(GameCommand::PlaceBuilding { player: PlayerId(0), type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id, x: 6, y: 4 });
+    world.push_command(GameCommand::PlaceBuilding {
+        player: PlayerId(0),
+        type_id: world.definitions.techno.get("GAPOWR").expect("GAPOWR").id,
+        x: 6,
+        y: 4,
+    });
     world.advance_tick();
     let power_id = world.find_entity_id_by_owner_type("AMERICANS", "GAPOWR").expect("power");
     let max = world.ecs_health(power_id).expect("hp").1;

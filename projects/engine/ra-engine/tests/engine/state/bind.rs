@@ -1111,8 +1111,7 @@ fn prepared_map_seed_binds_timer_trigger_actions() {
         normal: true,
         hard: true,
     });
-    let timer_params =
-        ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()];
+    let timer_params = ["0".into(), "TR2".into(), String::new(), String::new(), String::new(), String::new(), String::new()];
     map.scripting.actions.push(MapAction {
         id: "TR1".into(),
         commands: vec![
@@ -1452,18 +1451,9 @@ fn prepared_map_seed_binds_destroy_all_of_house_ids() {
     map.scripting.actions.push(MapAction {
         id: "TR1".into(),
         commands: vec![
-            MapActionCommand {
-                kind: MapActionKind::DestroyAllOf,
-                params: house_params.clone(),
-            },
-            MapActionCommand {
-                kind: MapActionKind::DestroyAllBuildingsOf,
-                params: house_params.clone(),
-            },
-            MapActionCommand {
-                kind: MapActionKind::DestroyAllLandUnitsOf,
-                params: house_params,
-            },
+            MapActionCommand { kind: MapActionKind::DestroyAllOf, params: house_params.clone() },
+            MapActionCommand { kind: MapActionKind::DestroyAllBuildingsOf, params: house_params.clone() },
+            MapActionCommand { kind: MapActionKind::DestroyAllLandUnitsOf, params: house_params },
         ],
     });
     let world = battle_from_defs(GameEdition::Ra2, defs, map);

@@ -31,12 +31,7 @@ impl BattleState {
     ///
     /// 产品 boot 可先 [`crate::validate_map_for_battle`]，战役路径再把同一份 `PreparedMap` 传入，避免二次绑定。
     /// 遭遇战剥机动后实体集变化，必须重新 [`MapInfo::to_prepared_map`]，勿复用预览前的 prepared。
-    pub fn from_prepared(
-        edition: GameEdition,
-        definitions: Arc<RuntimeDefinitions>,
-        map: MapInfo,
-        prepared: PreparedMap,
-    ) -> RaResult<Self> {
+    pub fn from_prepared(edition: GameEdition, definitions: Arc<RuntimeDefinitions>, map: MapInfo, prepared: PreparedMap) -> RaResult<Self> {
         let pass_grid =
             PassGrid::from_prepared_pass_layers(prepared.pass_width, prepared.pass_height, &prepared.passable, &prepared.cell_heights);
         let mut next_entity_id = 1u64;

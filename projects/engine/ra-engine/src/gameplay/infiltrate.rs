@@ -155,14 +155,9 @@ impl crate::state::BattleState {
             }
             return ("EVA_BuildingInfiltrated", None);
         }
-        if self
-            .definitions
-            .techno
-            .get_by_id(building_type)
-            .is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id))
-        {
-            if let Some(kind) = crate::gameplay::house_id_of(&self.definitions, victim_house)
-                .and_then(|id| self.definitions.stolen_tech_by_house.get(id))
+        if self.definitions.techno.get_by_id(building_type).is_some_and(|t| self.definitions.prerequisite_groups.is_tech_building(t.id)) {
+            if let Some(kind) =
+                crate::gameplay::house_id_of(&self.definitions, victim_house).and_then(|id| self.definitions.stolen_tech_by_house.get(id))
             {
                 if let Some(player) = self.players.iter_mut().find(|p| p.house.eq_ignore_ascii_case(agent_house)) {
                     match kind {

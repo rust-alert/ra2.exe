@@ -285,10 +285,7 @@ impl crate::state::BattleState {
                         }
                         if !self
                             .ecs_get::<Identity>(id)
-                            .map(|i| {
-                                i.kind == MapEntityKind::Structure
-                                    && is_construction_yard(&self.definitions, i.type_id)
-                            })
+                            .map(|i| i.kind == MapEntityKind::Structure && is_construction_yard(&self.definitions, i.type_id))
                             .unwrap_or(false)
                         {
                             return None;
