@@ -121,15 +121,6 @@ pub fn is_type_eligible_id(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>
     is_techno_eligible(defs, player, living, techno)
 }
 
-/// 类型名入口：仅解析到定义后转 [`is_type_eligible_id`]。
-pub fn is_type_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<TypeId>, type_key: &str) -> bool {
-    let Some(techno) = defs.techno.get(type_key)
-    else {
-        return false;
-    };
-    is_techno_eligible(defs, player, living, techno)
-}
-
 fn is_techno_eligible(defs: &RuntimeDefinitions, player: TechTreePlayer<'_>, living: &HashSet<TypeId>, techno: &TechnoDefinition) -> bool {
     if techno.tech_level < 0 || techno.tech_level > player.tech_level {
         return false;

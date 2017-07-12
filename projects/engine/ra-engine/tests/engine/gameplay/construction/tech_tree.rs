@@ -189,6 +189,10 @@ fn player(house: &str, tech_level: i32) -> TechTreePlayer<'_> {
     TechTreePlayer { house, tech_level, stolen_allied_tech: false, stolen_soviet_tech: false, stolen_third_tech: false }
 }
 
+fn eligible(defs: &RuntimeDefinitions, p: TechTreePlayer<'_>, living: &HashSet<TypeId>, key: &str) -> bool {
+    is_type_eligible_id(defs, p, living, defs.techno.get(key).expect(key).id)
+}
+
 fn living_ids(defs: &RuntimeDefinitions, keys: &[&str]) -> HashSet<TypeId> {
     keys.iter().filter_map(|k| defs.techno.get(k).map(|t| t.id)).collect()
 }
@@ -249,45 +253,45 @@ fn defs_with(group_power: &[&str], items: Vec<TechnoDefinition>) -> RuntimeDefin
 fn empty_prerequisite_is_eligible_with_owner_and_tech() {
     let defs = defs_with(&[], vec![techno("GAPOWR", TechnoClass::Building, "AMERICANS", 1, &[], &[])]);
     let living = HashSet::new();
-    assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPOWR"));
-    assert!(!is_type_eligible(&defs, player("RUSSIANS", 10), &living, "GAPOWR"));
+    assert!(eligible(&defs, player("AMERICANS", 10), &living, "GAPOWR"));
+    assert!(!eligible(&defs, player("RUSSIANS", 10), &living, "GAPOWR"));
 }
 
 #[test]
 fn and_prerequisites_require_all_tokens() {
     let defs = defs_with(&["GAPOWR"], vec![techno("GAPILE", TechnoClass::Building, "AMERICANS", 1, &["POWER", "GAREFN"], &[])]);
     let mut living = living_ids(&defs, &["GAPOWR"]);
-    assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
+    assert!(!eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
     living.extend(living_ids(&defs, &["GAREFN"]));
-    assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
+    assert!(eligible(&defs, player("AMERICANS", 10), &living, "GAPILE"));
 }
 
 #[test]
 fn generic_power_group_or_within_list() {
     let defs = defs_with(&["GAPOWR", "NAPOWR"], vec![techno("GAREFN", TechnoClass::Building, "AMERICANS", 1, &["POWER"], &[])]);
     let living = living_ids(&defs, &["NAPOWR"]);
-    assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "GAREFN"));
+    assert!(eligible(&defs, player("AMERICANS", 10), &living, "GAREFN"));
 }
 
 #[test]
 fn prerequisite_override_bypasses_normal_list() {
     let defs = defs_with(&[], vec![techno("SEAL", TechnoClass::Infantry, "AMERICANS", 1, &["GATECH"], &["GACNST"])]);
     let living = living_ids(&defs, &["GACNST"]);
-    assert!(is_type_eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
+    assert!(eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
 }
 
 #[test]
 fn tech_level_above_player_cap_hidden() {
     let defs = defs_with(&[], vec![techno("MTNK", TechnoClass::Vehicle, "AMERICANS", 5, &[], &[])]);
     let living = HashSet::new();
-    assert!(!is_type_eligible(&defs, player("AMERICANS", 3), &living, "MTNK"));
-    assert!(is_type_eligible(&defs, player("AMERICANS", 5), &living, "MTNK"));
+    assert!(!eligible(&defs, player("AMERICANS", 3), &living, "MTNK"));
+    assert!(eligible(&defs, player("AMERICANS", 5), &living, "MTNK"));
 }
 
 #[test]
 fn negative_tech_level_never_eligible() {
     let defs = defs_with(&[], vec![techno("CIVIL", TechnoClass::Building, "", -1, &[], &[])]);
-    assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &HashSet::new(), "CIVIL"));
+    assert!(!eligible(&defs, player("AMERICANS", 10), &HashSet::new(), "CIVIL"));
 }
 
 #[test]
@@ -296,8 +300,8 @@ fn stolen_allied_tech_gates_eligibility() {
     item.requires_stolen_soviet_tech = true;
     let defs = defs_with(&[], vec![item]);
     let living = HashSet::new();
-    assert!(!is_type_eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
+    assert!(!eligible(&defs, player("AMERICANS", 10), &living, "SEAL"));
     let unlocked =
         TechTreePlayer { house: "AMERICANS", tech_level: 10, stolen_allied_tech: false, stolen_soviet_tech: true, stolen_third_tech: false };
-    assert!(is_type_eligible(&defs, unlocked, &living, "SEAL"));
+    assert!(eligible(&defs, unlocked, &living, "SEAL"));
 }
