@@ -370,8 +370,12 @@ fn seed_skirmish_starts_at_waypoints(state: &mut BattleState, houses: &[&str]) -
         else {
             return Err(ra_types::RaError::Msg(format!("阵营 {house} 无可用开局 MCV（需 Vehicle 且 DeploysInto 建造场）")));
         };
+        let Some(house_id) = crate::gameplay::house_id_of(&state.definitions, house)
+        else {
+            return Err(ra_types::RaError::Msg(format!("未知开局阵营: {house}")));
+        };
         let mcv_key = crate::gameplay::type_key_of(&state.definitions, mcv_id).to_string();
-        let id = state.spawn_unit_at_type(house, mcv_id, x, y).map_err(ra_types::RaError::Msg)?;
+        let id = state.spawn_unit_at_ids(house_id, mcv_id, x, y).map_err(ra_types::RaError::Msg)?;
         parts.push(format!("{house}@{slot}:({x},{y})={mcv_key}#{id:?}"));
     }
     Ok(parts.join(" "))

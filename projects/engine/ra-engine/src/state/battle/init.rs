@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use ra_map::{MapEntityKind, MapInfo, PassGrid, finalize_battle_pass_grid};
-use ra_types::{AssetSource, EntityId, GameEdition, PlayerId, PreparedMap, RaResult, RuntimeDefinitions, TechnoClass, TypeId};
+use ra_types::{AssetSource, EntityId, GameEdition, HouseId, PlayerId, PreparedMap, RaResult, RuntimeDefinitions, TechnoClass, TypeId};
 
 use super::super::{
     components::{
@@ -219,15 +219,22 @@ impl BattleState {
 
     /// 在指定格按稳定 [`TypeId`] 生成单位。
     pub fn spawn_unit_at_type(&mut self, house: &str, def_id: TypeId, x: u16, y: u16) -> Result<EntityId, String> {
+        let house_id = crate::gameplay::house_id_of(&self.definitions, house).ok_or_else(|| format!("未知房主: {house}"))?;
+        self.spawn_unit_at_ids(house_id, def_id, x, y)
+    }
+
+    /// 在指定格按稳定 [`HouseId`] + [`TypeId`] 生成单位。
+    pub fn spawn_unit_at_ids(&mut self, house_id: HouseId, def_id: TypeId, x: u16, y: u16) -> Result<EntityId, String> {
         let type_label = crate::gameplay::type_key_of(&self.definitions, def_id);
+        let house_label = crate::gameplay::house_key_of(&self.definitions, house_id);
         if !self.pass_grid.in_bounds(x, y) {
-            return Err(format!("生成格越界: ({x},{y}) type={type_label} house={house}"));
+            return Err(format!("生成格越界: ({x},{y}) type={type_label} house={house_label}"));
         }
         if !self.pass_grid.is_passable(x, y) {
-            return Err(format!("生成格不可走: ({x},{y}) type={type_label} house={house}"));
+            return Err(format!("生成格不可走: ({x},{y}) type={type_label} house={house_label}"));
         }
         if self.living_at_cell(x, y) {
-            return Err(format!("生成格已被占用: ({x},{y}) type={type_label} house={house}"));
+            return Err(format!("生成格已被占用: ({x},{y}) type={type_label} house={house_label}"));
         }
         let Some(tt) = self.definitions.techno.get_by_id(def_id)
         else {
@@ -256,7 +263,6 @@ impl BattleState {
             TechnoClass::Aircraft => MapEntityKind::Aircraft,
             TechnoClass::Building => MapEntityKind::Structure,
         };
-        let house_id = crate::gameplay::house_id_of(&self.definitions, house).ok_or_else(|| format!("未知房主: {house}"))?;
         self.spawn_from_bundle(EntitySpawnBundle {
             identity: Identity { entity_id: id, type_id: def_id, kind, mission: None, tag: None },
             owner: Owner { house: house_id },

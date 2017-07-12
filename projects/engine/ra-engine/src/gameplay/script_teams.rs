@@ -278,14 +278,6 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
         return;
     };
     world.ensure_house(&house_key);
-    // 与已有 `PlayerState.house` 原文对齐，避免 `HouseName` 大写键对不上大小写敏感查找。
-    let house = world
-        .players
-        .iter()
-        .find(|p| p.house.eq_ignore_ascii_case(&house_key))
-        .map(|p| p.house.as_ref().to_string())
-        .unwrap_or_else(|| house_key.clone());
-    let house = house.as_str();
     // 产队格：优先 `TeamType.Waypoint=` 航点编号；未指定（<0）或缺失时回退 index 0。
     let spawn_wp = if team.waypoint >= 0 { waypoints.iter().find(|w| w.index as i32 == team.waypoint) } else { None };
     let (wx, wy) = spawn_wp
@@ -310,11 +302,11 @@ fn spawn_team_type(world: &mut BattleState, team: &PreparedTeamType, forces: &[P
         for _ in 0..entry.count.max(1) {
             let x = (i32::from(wx) + ox).clamp(0, i32::from(u16::MAX)) as u16;
             let y = (i32::from(wy) + oy).clamp(0, i32::from(u16::MAX)) as u16;
-            let spawned = match world.spawn_unit_at_type(house, entry.definition_id, x, y) {
+            let spawned = match world.spawn_unit_at_ids(team.house, entry.definition_id, x, y) {
                 Ok(id) => Some(id),
                 Err(_) => {
                     // 格占用时尝试邻格。
-                    world.spawn_unit_at_type(house, entry.definition_id, x.saturating_add(1), y).ok()
+                    world.spawn_unit_at_ids(team.house, entry.definition_id, x.saturating_add(1), y).ok()
                 }
             };
             if let Some(id) = spawned {
