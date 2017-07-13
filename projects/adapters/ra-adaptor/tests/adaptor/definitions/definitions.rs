@@ -947,6 +947,120 @@ fn bind_map_task_forces_rejects_unknown_techno() {
 }
 
 #[test]
+fn bind_map_team_types_maps_none_house_sentinel_to_neutral() {
+    let rules = rules_from(
+        b"[Countries]\n0=Russians\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=100\nOwner=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("task forces");
+    let teams = ra_types::bind_map_team_types(
+        &[
+            ra_types::MapTeamType {
+                id: "0CAC7C2C-G".into(),
+                name: "NoneHouse".into(),
+                house: "<none>".into(),
+                script: ra_types::ScriptTypeName::default(),
+                task_force: "TF1".into(),
+                tag: ra_types::TagName::default(),
+                waypoint: -1,
+                max: 1,
+                priority: 0,
+                veteran_level: 0,
+            },
+            ra_types::MapTeamType {
+                id: "TM-NONE".into(),
+                name: "PlainNone".into(),
+                house: "None".into(),
+                script: ra_types::ScriptTypeName::default(),
+                task_force: "TF1".into(),
+                tag: "<none>".into(),
+                waypoint: -1,
+                max: 1,
+                priority: 0,
+                veteran_level: 0,
+            },
+        ],
+        &defs,
+        &[],
+        &forces,
+        &[],
+    )
+    .expect("none house sentinel must bind");
+    let neutral = defs.houses.get("NEUTRAL").expect("NEUTRAL").id;
+    assert_eq!(teams.len(), 2);
+    assert_eq!(teams[0].house, neutral);
+    assert_eq!(teams[1].house, neutral);
+    assert!(teams[1].tag.is_none());
+}
+
+#[test]
+fn bind_map_ai_triggers_accepts_none_owner_house_sentinel() {
+    let rules = rules_from(
+        b"[Countries]\n0=Russians\n\
+[Russians]\nSide=Nod\n\
+[InfantryTypes]\n0=E1\n\
+[E1]\nStrength=100\nOwner=Russians\n",
+    );
+    let defs = build_runtime_definitions(&rules).expect("freeze");
+    let forces = ra_types::bind_map_task_forces(
+        &[ra_types::MapTaskForce {
+            id: "TF1".into(),
+            name: "Squad".into(),
+            entries: vec![ra_types::MapTaskForceEntry { count: 1, type_id: "E1".into() }],
+            group: -1,
+        }],
+        &defs,
+    )
+    .expect("task forces");
+    let teams = ra_types::bind_map_team_types(
+        &[ra_types::MapTeamType {
+            id: "TM1".into(),
+            name: "Team".into(),
+            house: "<none>".into(),
+            script: ra_types::ScriptTypeName::default(),
+            task_force: "TF1".into(),
+            tag: ra_types::TagName::default(),
+            waypoint: -1,
+            max: 1,
+            priority: 0,
+            veteran_level: 0,
+        }],
+        &defs,
+        &[],
+        &forces,
+        &[],
+    )
+    .expect("team types");
+    let triggers = ra_types::bind_map_ai_triggers(
+        &[ra_types::MapAiTrigger {
+            id: "AI1".into(),
+            name: "Any".into(),
+            team: "TM1".into(),
+            owner_house: "<none>".into(),
+            tech_level: 0,
+            ..Default::default()
+        }],
+        &defs,
+        &teams,
+    )
+    .expect("none owner house sentinel");
+    assert_eq!(triggers.len(), 1);
+    assert_eq!(triggers[0].owner_house, None);
+}
+
+#[test]
 fn bind_map_ai_triggers_assigns_stable_ids() {
     let rules = rules_from(
         b"[Countries]\n0=Russians\n\
@@ -1103,7 +1217,7 @@ fn bind_map_houses_resolves_country_and_allies() {
             edge: ra_types::MapEdge::North,
             player_control: true,
             color: "Gold".into(),
-            allies: vec!["Alliance".into(), "None".into()],
+            allies: vec!["Alliance".into(), "None".into(), "<none>".into()],
         }],
         &defs,
     )

@@ -14,14 +14,14 @@ use crate::{
 /// 将 `[Houses]` 投影为稳定 [`PreparedHouse`] 表。
 ///
 /// - 空 / 未知 `Country=` → [`RaError::UnknownReference`]
-/// - `Allies=` 中空 / `NONE` 项跳过；非空未知 → [`RaError::UnknownReference`]
+/// - `Allies=` 中空 / `NONE` / `<none>` 项跳过；非空未知 → [`RaError::UnknownReference`]
 pub fn bind_map_houses(houses: &[MapHouse], defs: &RuntimeDefinitions) -> RaResult<Vec<PreparedHouse>> {
     let mut out = Vec::with_capacity(houses.len());
     for house in houses {
         let country = bind_house_id(defs, &house.country, &format!("MapHouse:{}", house.name))?;
         let mut allies = Vec::with_capacity(house.allies.len());
         for ally in &house.allies {
-            if ally.is_empty() || ally.as_str().eq_ignore_ascii_case("NONE") {
+            if is_house_none_sentinel(ally) {
                 continue;
             }
             allies.push(bind_house_id(defs, ally, &format!("MapHouse.allies:{}", house.name))?);
@@ -390,6 +390,8 @@ pub fn bind_map_script_types(scripts: &[MapScriptType]) -> RaResult<Vec<Prepared
 }
 
 /// 将 `[TeamTypes]` 投影为稳定 [`PreparedTeamType`]；未知 house / script / task_force / tag 拒绝。
+///
+/// - 空 / `NONE` / `<none>` 的 `House=` → 回落 ambient `NEUTRAL`
 pub fn bind_map_team_types(
     teams: &[MapTeamType],
     defs: &RuntimeDefinitions,
@@ -406,7 +408,12 @@ pub fn bind_map_team_types(
         if team.id.is_empty() {
             continue;
         }
-        let house_name = if team.house.is_empty() { HouseName::parse("NEUTRAL") } else { team.house.clone() };
+        let house_name = if is_house_none_sentinel(&team.house) {
+            HouseName::parse("NEUTRAL")
+        }
+        else {
+            team.house.clone()
+        };
         let house = bind_house_id(defs, &house_name, &format!("MapTeamType:{}", team.id.as_str()))?;
         let script = bind_optional_script_id(&script_by_name, &team.script, team.id.as_str())?;
         let task_force = bind_task_force_id(&force_by_name, &team.task_force, team.id.as_str())?;
@@ -431,6 +438,8 @@ pub fn bind_map_team_types(
 }
 
 /// 将 `[AITriggerTypes]` 投影为稳定 [`PreparedAiTrigger`]；未知 team / house 拒绝。
+///
+/// - 空 / `NONE` / `<none>` 的 `OwnerHouse=` → [`None`]（未限定房主）
 pub fn bind_map_ai_triggers(
     triggers: &[MapAiTrigger],
     defs: &RuntimeDefinitions,
@@ -461,7 +470,7 @@ pub fn bind_map_ai_triggers(
                 owner: format!("MapAiTrigger:{}:team2", trigger.id.as_str()),
             })?)
         };
-        let owner_house = if trigger.owner_house.is_empty() {
+        let owner_house = if is_house_none_sentinel(&trigger.owner_house) {
             None
         }
         else {
@@ -664,6 +673,11 @@ fn bind_task_force_id(force_by_name: &HashMap<&str, TaskForceId>, name: &TaskFor
     })
 }
 
+/// 空 / `NONE` / `<none>`：零售地图常见「无引用」哨兵。
+fn is_house_none_sentinel(name: &HouseName) -> bool {
+    name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>")
+}
+
 fn bind_optional_script_id(script_by_name: &HashMap<&str, ScriptTypeId>, name: &ScriptTypeName, owner: &str) -> RaResult<Option<ScriptTypeId>> {
     if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
         return Ok(None);
@@ -743,8 +757,8 @@ fn bind_house_id(defs: &RuntimeDefinitions, name: &HouseName, owner: &str) -> Ra
 }
 
 fn bind_tag_id(tag_by_name: &HashMap<&str, TagId>, name: &TagName, owner: &str) -> RaResult<Option<TagId>> {
-    // 空列与零售哨兵 `None`（装载期大写为 `NONE`）均表示无 Tag。
-    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") {
+    // 空列与零售哨兵 `None` / `<none>`（装载期大写）均表示无 Tag。
+    if name.is_empty() || name.as_str().eq_ignore_ascii_case("NONE") || name.as_str().eq_ignore_ascii_case("<NONE>") {
         return Ok(None);
     }
     tag_by_name.get(name.as_str()).copied().map(Some).ok_or_else(|| RaError::UnknownReference {
