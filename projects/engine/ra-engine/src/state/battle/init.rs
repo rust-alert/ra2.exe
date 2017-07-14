@@ -93,7 +93,11 @@ impl BattleState {
         let players: Vec<PlayerState> = house_order
             .into_iter()
             .enumerate()
-            .map(|(i, house)| PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech))
+            .map(|(i, house)| {
+                let mut player = PlayerState::with_tech_level(PlayerId(i as u8), house, default_tech);
+                player.house_id = definitions.houses.get(player.house.as_ref()).map(|h| h.id);
+                player
+            })
             .collect();
         let trigger_runtime = crate::gameplay::TriggerRuntime::from_prepared(&prepared.triggers, &prepared.events, &prepared.actions);
         let ai_trigger_runtime = crate::gameplay::AiTriggerRuntime::from_map(!prepared.ai_triggers.is_empty());
@@ -198,7 +202,9 @@ impl BattleState {
             return;
         }
         let id = PlayerId(self.players.len() as u8);
-        self.players.push(PlayerState::new(id, house));
+        let mut player = PlayerState::new(id, house);
+        player.house_id = crate::gameplay::house_id_of(&self.definitions, player.house.as_ref());
+        self.players.push(player);
     }
 
     /// 查询格上可采 overlay 的密度字节；无可采矿则 `None`。

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ra_types::PlayerId;
+use ra_types::{HouseId, PlayerId};
 
 /// 一名玩家在世界中的可哈希状态。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,6 +11,8 @@ pub struct PlayerState {
     pub id: PlayerId,
     /// 阵营 / 房主名称（与地图放置段 `owner` 对齐，`Arc` 共享）。
     pub house: Arc<str>,
+    /// 绑定后的稳定房主编号；定义表无对应项时为 `None`。
+    pub house_id: Option<HouseId>,
     /// 当前资金。
     pub funds: i32,
     /// 供电量。
@@ -56,6 +58,7 @@ impl PlayerState {
         Self {
             id,
             house: Arc::<str>::from(house.as_ref().trim().to_ascii_uppercase()),
+            house_id: None,
             funds: 0,
             power_output: 0,
             power_drain: 0,
