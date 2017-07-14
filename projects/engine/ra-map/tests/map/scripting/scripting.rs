@@ -124,6 +124,37 @@ fn presentation_stub_actions_warn_but_do_not_block_campaign() {
 }
 
 #[test]
+fn parse_ai_trigger_types_enable_ranking_and_special_flags() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[AITriggerTypes]\n\
+ON1=Keep,TM1,Russians,1,-1,<none>,0\n\
+OFF1=Drop,TM1,Russians,1,-1,<none>,0\n\
+KEEP1=Unlisted,TM1,Russians,1,-1,<none>,0\n\
+[AITriggerTypesEnable]\n\
+ON1=1\n\
+OFF1=0\n\
+[Ranking]\n\
+UnderParTime=5\n\
+OverParTime=15\n\
+[SpecialFlags]\n\
+Inert=no\n\
+InitialVeteran=yes\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "enable.map", text).unwrap();
+    assert_eq!(map.scripting.ai_triggers.len(), 2);
+    assert!(map.scripting.ai_triggers.iter().any(|t| t.id.as_str() == "ON1"));
+    assert!(map.scripting.ai_triggers.iter().any(|t| t.id.as_str() == "KEEP1"));
+    assert!(map.scripting.ai_triggers.iter().all(|t| t.id.as_str() != "OFF1"));
+    assert_eq!(map.scripting.ranking.len(), 2);
+    assert!(map.scripting.special_flags.iter().any(|(k, v)| k == "INERT" && v.eq_ignore_ascii_case("no")));
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(gaps.iter().all(|g| !g.code.contains("AITriggerTypesEnable")), "{gaps:?}");
+    assert!(gaps.iter().all(|g| !g.code.contains("Ranking")), "{gaps:?}");
+    assert!(gaps.iter().all(|g| !g.code.contains("SpecialFlags")), "{gaps:?}");
+}
+
+#[test]
 fn parse_ai_trigger_inline_csv() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\

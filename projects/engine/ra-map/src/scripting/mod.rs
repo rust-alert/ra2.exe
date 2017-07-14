@@ -1,6 +1,6 @@
 //! 地图剧本相关节：Houses / Tags / Triggers / Events / Actions / CellTags / Teams。
 
-pub use ai_triggers::{MapAiTrigger, parse_ai_triggers};
+pub use ai_triggers::{MapAiTrigger, parse_ai_trigger_types_enable, parse_ai_triggers};
 pub use capability::{MapCapabilityGap, campaign_blocking_capability_message, is_campaign_blocking_action_gap, map_scripting_capability_gaps};
 pub use houses::{MapHouse, parse_map_houses};
 pub use kinds::{MapActionKind, MapEventKind};
@@ -44,6 +44,12 @@ pub struct MapScripting {
     pub team_types: Vec<MapTeamType>,
     /// `[AITriggerTypes]`（已解析，执行后置）。
     pub ai_triggers: Vec<MapAiTrigger>,
+    /// `[AITriggerTypesEnable]`：触发 id → 是否启用；`None` 表示缺节。
+    pub ai_trigger_types_enable: Option<Vec<(ra_types::AiTriggerName, bool)>>,
+    /// `[Ranking]` 键值（装载保留；结算后置）。
+    pub ranking: Vec<(String, String)>,
+    /// `[SpecialFlags]` 键值（装载保留；玩法开关后置）。
+    pub special_flags: Vec<(String, String)>,
     /// 识别到但本解析器未建模的节名（供能力缺口报告）。
     pub unknown_sections: Vec<String>,
 }
@@ -75,11 +81,15 @@ const KNOWN_SECTIONS: &[&str] = &[
     "ScriptTypes",
     "TeamTypes",
     "AITriggerTypes",
+    "AITriggerTypesEnable",
+    "Ranking",
+    "SpecialFlags",
     "Digest",
 ];
 
 /// 从场景 INI 解析剧本相关节。
 pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
+    let ai_trigger_types_enable = parse_ai_trigger_types_enable(doc);
     let mut scripting = MapScripting {
         houses: parse_map_houses(doc),
         tags: parse_tags(doc),
@@ -91,8 +101,12 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
         script_types: parse_script_types(doc),
         team_types: parse_team_types(doc),
         ai_triggers: parse_ai_triggers(doc),
+        ai_trigger_types_enable,
+        ranking: parse_named_string_section(doc, "Ranking"),
+        special_flags: parse_named_string_section(doc, "SpecialFlags"),
         unknown_sections: Vec::new(),
     };
+    apply_ai_trigger_types_enable(&mut scripting);
     scripting.unknown_sections = collect_unknown_sections(doc);
     scripting
 }
@@ -101,6 +115,7 @@ pub fn parse_map_scripting(doc: &IniDocument) -> MapScripting {
 ///
 /// 只合并 TaskForces / ScriptTypes / TeamTypes / AITriggerTypes。
 /// 地图已有同名 id 时保留地图条目（地图覆盖全局）。
+/// 合并后按地图 `[AITriggerTypesEnable]` 再过滤一次。
 pub fn merge_global_ai_scripting(into: &mut MapScripting, doc: &IniDocument) {
     let extra_tf = parse_task_forces(doc);
     let extra_scripts = parse_script_types(doc);
@@ -131,6 +146,41 @@ pub fn merge_global_ai_scripting(into: &mut MapScripting, doc: &IniDocument) {
         }
         into.ai_triggers.push(trigger);
     }
+    apply_ai_trigger_types_enable(into);
+}
+
+/// 按 `[AITriggerTypesEnable]` 覆盖过滤：列出且为关则剔除；未列出保留。
+fn apply_ai_trigger_types_enable(scripting: &mut MapScripting) {
+    let Some(enable) = scripting.ai_trigger_types_enable.as_ref()
+    else {
+        return;
+    };
+    if enable.is_empty() {
+        return;
+    }
+    scripting.ai_triggers.retain(|trigger| {
+        enable
+            .iter()
+            .find(|(id, _)| id.as_str().eq_ignore_ascii_case(trigger.id.as_str()))
+            .map(|(_, on)| *on)
+            .unwrap_or(true)
+    });
+}
+
+fn parse_named_string_section(doc: &IniDocument, section: &str) -> Vec<(String, String)> {
+    let Some(sec) = doc.section(section)
+    else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for (key, value) in sec.pairs() {
+        let key = key.trim();
+        if key.is_empty() {
+            continue;
+        }
+        out.push((key.to_ascii_uppercase(), value.trim().to_string()));
+    }
+    out
 }
 
 fn collect_unknown_sections(doc: &IniDocument) -> Vec<String> {

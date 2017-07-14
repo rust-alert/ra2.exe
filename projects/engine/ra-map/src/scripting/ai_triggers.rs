@@ -113,6 +113,23 @@ struct AiTriggerSectionFields {
     hard: String,
 }
 
+/// 解析 `[AITriggerTypesEnable]`。
+///
+/// - 缺节 → `None`
+/// - 有节 → `Some`（可为空表）；值为原版 0/1 / yes/no 开关
+pub fn parse_ai_trigger_types_enable(doc: &IniDocument) -> Option<Vec<(AiTriggerName, bool)>> {
+    let sec = doc.section("AITriggerTypesEnable")?;
+    let mut out = Vec::new();
+    for (key, value) in sec.pairs() {
+        let key = key.trim();
+        if key.is_empty() {
+            continue;
+        }
+        out.push((AiTriggerName::parse(key), parse_flag_default_true(value)));
+    }
+    Some(out)
+}
+
 /// 解析 `[AITriggerTypes]`。
 ///
 /// 支持两种常见写法：`id=Name,Team,House,Tech,...` 行内 CSV，以及 `0=AI1` + `[AI1]` 分节。
