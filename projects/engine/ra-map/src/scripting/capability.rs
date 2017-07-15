@@ -26,6 +26,35 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
             code: format!("map.section.{name} unsupported"), message: format!("地图节 [{name}] 当前引擎未建模")
         });
     }
+    // 已解析但玩法未消费：诊断可见，不阻塞开局。
+    if !scripting.ranking.is_empty() {
+        out.push(MapCapabilityGap {
+            code: "map.section.Ranking deferred".into(),
+            message: "地图节 [Ranking] 已装载，结算评价尚未接线".into(),
+        });
+    }
+    if !scripting.special_flags.is_empty() {
+        out.push(MapCapabilityGap {
+            code: "map.section.SpecialFlags deferred".into(),
+            message: "地图节 [SpecialFlags] 已装载，玩法开关尚未接线".into(),
+        });
+    }
+    let mut seen_events = Vec::new();
+    for event in &scripting.events {
+        for cond in &event.conditions {
+            if seen_events.contains(&cond.kind) {
+                continue;
+            }
+            seen_events.push(cond.kind);
+            if !cond.kind.is_supported() {
+                let code = cond.kind.code();
+                out.push(MapCapabilityGap {
+                    code: format!("map.event.{code} unsupported"),
+                    message: format!("触发事件码 {code} 当前引擎未执行"),
+                });
+            }
+        }
+    }
     let mut seen_actions = Vec::new();
     for action in &scripting.actions {
         for cmd in &action.commands {
@@ -52,12 +81,14 @@ pub fn gaps_from_scripting(scripting: &MapScripting) -> Vec<MapCapabilityGap> {
     out
 }
 
-/// 是否为战役硬拒的动作缺口（仅 `map.action.* unsupported`）。
+/// 是否为战役硬拒的剧本缺口（`map.action.*` / `map.event.*` 的 `unsupported`）。
+///
+/// 呈现 stub、节 deferred、未知节 WARN 均不在此列。
 pub fn is_campaign_blocking_action_gap(code: &str) -> bool {
-    code.starts_with("map.action.") && code.ends_with(" unsupported")
+    code.ends_with(" unsupported") && (code.starts_with("map.action.") || code.starts_with("map.event."))
 }
 
-/// 战役开局：存在未接线动作时返回拒绝说明（呈现 stub 只 WARN，不拒开局）。
+/// 战役开局：存在未接线事件／动作时返回拒绝说明（呈现 stub 与 deferred 只 WARN，不拒开局）。
 pub fn campaign_blocking_capability_message(map: &MapInfo) -> Option<String> {
     let reports = map_scripting_capability_gaps(map);
     let blocking: Vec<&MapCapabilityGap> = reports.iter().filter(|r| is_campaign_blocking_action_gap(&r.code)).collect();

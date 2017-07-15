@@ -89,6 +89,21 @@ fn capability_gaps_report_unsupported_actions() {
 }
 
 #[test]
+fn capability_gaps_report_unsupported_events_and_block_campaign() {
+    let text = b"\
+[Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
+[Triggers]\nTR1=Americans,<none>,X,0,1,1,1,0\n\
+[Events]\nTR1=1,2,0,0\n\
+[Actions]\nTR1=1,0,0,0,0,0,0,0,A\n\
+";
+    let map = MapInfo::parse_ini(GameEdition::Ra2, "event-gap.map", text).unwrap();
+    let gaps = ra_map::map_scripting_capability_gaps(&map);
+    assert!(gaps.iter().any(|g| g.code == "map.event.2 unsupported"), "{gaps:?}");
+    assert!(ra_map::is_campaign_blocking_action_gap("map.event.2 unsupported"));
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_some());
+}
+
+#[test]
 fn cosmetic_trigger_actions_are_supported_noops() {
     let text = b"\
 [Map]\nSize=0,0,8,8\nTheater=TEMPERATE\n\
@@ -150,8 +165,11 @@ InitialVeteran=yes\n\
     assert!(map.scripting.special_flags.iter().any(|(k, v)| k == "INERT" && v.eq_ignore_ascii_case("no")));
     let gaps = ra_map::map_scripting_capability_gaps(&map);
     assert!(gaps.iter().all(|g| !g.code.contains("AITriggerTypesEnable")), "{gaps:?}");
-    assert!(gaps.iter().all(|g| !g.code.contains("Ranking")), "{gaps:?}");
-    assert!(gaps.iter().all(|g| !g.code.contains("SpecialFlags")), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.section.Ranking deferred"), "{gaps:?}");
+    assert!(gaps.iter().any(|g| g.code == "map.section.SpecialFlags deferred"), "{gaps:?}");
+    assert!(gaps.iter().all(|g| !g.code.ends_with(" unsupported") || !g.code.contains("Ranking")), "{gaps:?}");
+    assert!(gaps.iter().all(|g| !g.code.ends_with(" unsupported") || !g.code.contains("SpecialFlags")), "{gaps:?}");
+    assert!(ra_map::campaign_blocking_capability_message(&map).is_none());
 }
 
 #[test]
