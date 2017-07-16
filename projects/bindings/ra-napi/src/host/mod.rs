@@ -8,6 +8,7 @@ pub mod battle_hotkeys;
 pub mod battle_input;
 pub mod boot;
 pub mod config;
+pub mod diagnose_maps;
 pub mod extract;
 pub mod load_job;
 pub mod local_player;
